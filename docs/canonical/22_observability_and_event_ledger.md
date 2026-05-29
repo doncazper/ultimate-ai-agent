@@ -1,8 +1,8 @@
 # 22 — Observability and Event Ledger
 
-Status: Foundation specification, v0.4.7  
-Owner: Platform / Runtime  
-Layer: Layer 0 Kernel; Layer 1 Truth/Data Ownership; Layer 3 Orchestration  
+Status: Foundation specification, v0.4.7
+Owner: Platform / Runtime
+Layer: Layer 0 Kernel; Layer 1 Truth/Data Ownership; Layer 3 Orchestration
 Blocking: Required before self-improving code, scanner alerts, external execution, or autopilot workflows.
 
 ## Purpose
@@ -267,3 +267,8 @@ Event Ledger SDK used by Orchestrator, Model Router, Tool Broker, Memory Service
 ```
 
 Do not build a complex analytics dashboard before the ledger itself is correct and complete.
+
+
+## v0.5.3 remediation note
+
+Event Ledger events must support event-level cost attribution and deterministic state-machine replay. The initial durable-execution substrate is a custom append-only ledger plus deterministic state transitions; Temporal/LangGraph-style runtimes remain future adapters until an ADR changes this.

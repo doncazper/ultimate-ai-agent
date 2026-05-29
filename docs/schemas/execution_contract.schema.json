@@ -220,6 +220,39 @@
     },
     "schema_version": {
       "type": "string"
+    },
+    "verification_contract_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "contract_maturity": {
+      "enum": [
+        "draft",
+        "provisional",
+        "compatibility_protected",
+        "deprecated",
+        "removed"
+      ]
+    },
+    "provisional_until": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "autonomy_policy_ref": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "tcb_touchpoints": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
     }
   },
   "additionalProperties": false

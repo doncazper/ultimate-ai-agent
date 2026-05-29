@@ -88,3 +88,16 @@ skill_factory.v1
 self_improving_code.v1
 autopilot_workflows.v1
 ```
+## v0.5.3 dependency additions
+
+Foundation dependencies now include:
+
+```text
+Verification Contract before verified status.
+Secret Broker before credentialed providers.
+Provider Registry before provider-specific integrations.
+Cost Attribution before scanners or high-volume model routing.
+Trusted Computing Base before self-improvement.
+Contract provisional policy before M1 schema freezing.
+```
+

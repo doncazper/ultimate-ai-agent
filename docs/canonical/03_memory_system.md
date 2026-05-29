@@ -1,8 +1,8 @@
 # 03 — Memory System
 
-Status: Foundation specification, v0.4.9  
-Owner: Memory Service / Memory Curator  
-Layer: Layer 1 Truth, Memory, and Data Ownership  
+Status: Foundation specification, v0.4.9
+Owner: Memory Service / Memory Curator
+Layer: Layer 1 Truth, Memory, and Data Ownership
 Blocking: Required before companion learning, proactive intelligence, scanners, Skill Factory, and self-improving code can store durable learning.
 
 ## Purpose
@@ -253,3 +253,9 @@ contract tests
 ```
 
 Defer advanced graph memory, local cache, trust decay, and complex reflection until the Foundation Gate passes.
+## v0.5.3 retrieval stack decision
+
+Memory V1 uses Postgres as the canonical memory store with pgvector-ready semantic indexing, Postgres full-text search, structured filters, source-linked records, and reranking. The detailed retrieval policy is now defined in `docs/canonical/41_memory_retrieval_v1.md`.
+
+Memory retrieval must apply scope, consent, sensitivity, supersession, freshness, source authority, and poisoning checks before memories enter a Context Pack.
+

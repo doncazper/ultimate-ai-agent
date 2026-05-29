@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ultimate-ai-agent.local/schemas/autonomy_policy.schema.json",
+  "title": "AutonomyPolicy",
+  "type": "object",
+  "required": [
+    "policy_id",
+    "autonomy_level",
+    "risk_classes_allowed",
+    "approval_required_for",
+    "schema_version"
+  ],
+  "properties": {
+    "policy_id": {
+      "type": "string"
+    },
+    "autonomy_level": {
+      "enum": [
+        "L0",
+        "L1",
+        "L2",
+        "L3",
+        "L4",
+        "L5"
+      ]
+    },
+    "risk_classes_allowed": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "safe",
+          "low",
+          "medium",
+          "high",
+          "critical",
+          "forbidden"
+        ]
+      }
+    },
+    "approval_required_for": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "standing_approval_ref": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "expires_at": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "schema_version": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false
+}

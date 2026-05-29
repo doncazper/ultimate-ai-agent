@@ -34,22 +34,25 @@
     },
     "event_category": {
       "enum": [
-        "contract",
+        "approval",
+        "code_execution",
         "context",
-        "model_route",
-        "subagent",
-        "tool",
+        "contract",
+        "cost",
+        "delivery",
+        "error",
+        "eval",
         "file",
         "memory",
-        "approval",
-        "web_or_scanner",
-        "code_execution",
-        "eval",
+        "model_route",
         "notification",
-        "cost",
+        "provider",
         "rollback",
-        "error",
-        "delivery"
+        "secret",
+        "state_transition",
+        "subagent",
+        "tool",
+        "web_or_scanner"
       ]
     },
     "actor_type": {
@@ -165,6 +168,137 @@
     },
     "schema_version": {
       "type": "string"
+    },
+    "cost_attribution": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "cost_center": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "project_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "task_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "tool_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "provider_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "scanner_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "skill_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "model_class": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "model_provider": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "estimated_cost_usd": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "actual_cost_usd": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "input_tokens": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "output_tokens": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "embedding_tokens": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "api_calls": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "execution_ms": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "storage_bytes": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      }
+    },
+    "verification_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "rollback_ref": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "contract_status": {
+      "enum": [
+        "provisional",
+        "active",
+        "deprecated",
+        "retired"
+      ]
     }
   },
   "additionalProperties": false

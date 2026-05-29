@@ -1,0 +1,158 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ultimate-ai-agent.local/schemas/cost_attribution.schema.json",
+  "title": "CostAttribution",
+  "type": "object",
+  "required": [
+    "component_type",
+    "component_id",
+    "estimated_cost_usd",
+    "budget_policy_ref"
+  ],
+  "properties": {
+    "workspace_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "user_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "project_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "run_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "contract_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "event_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "component_type": {
+      "enum": [
+        "model",
+        "tool",
+        "provider",
+        "scanner",
+        "skill",
+        "code_execution",
+        "embedding",
+        "reranker",
+        "storage",
+        "unknown"
+      ]
+    },
+    "component_id": {
+      "type": "string"
+    },
+    "capability_scope": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "model_class": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "model_provider": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "tool_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "provider_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "scanner_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "skill_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "estimated_cost_usd": {
+      "type": "number",
+      "minimum": 0
+    },
+    "actual_cost_usd": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "tokens_in": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "tokens_out": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "latency_ms": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "billable_units": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "cost_center": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "budget_policy_ref": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false
+}

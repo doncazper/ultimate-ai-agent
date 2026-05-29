@@ -1,50 +1,79 @@
-# Cost and Resource Governor
+# 25 — Cost and Resource Governor
 
-Status: Draft canonical module for Ultimate AI Agent v0.4.
+Status: Foundation cost-control spec, v0.5.3
+Owner: Platform / Runtime
 
 ## Purpose
 
-Budgets, rate limits, cost logs, high-cost approvals, model spend controls, scanner quotas, and resource health.
+The Cost Governor prevents runaway LLM, provider, scanner, execution, storage, and notification costs.
 
-## Core Principle
+## Cost attribution
 
-This module exists to make the Ultimate AI Agent more trustworthy, inspectable, evolvable, and safe to use every day.
-
-## Responsibilities
-
-- Define the module's role in the layered brain architecture.
-- Declare public interfaces and dependencies.
-- Define data owned or touched by the module.
-- Define permissions and risk levels.
-- Define required logs, evals, and rollback behavior.
-- Define user-facing controls where applicable.
-
-## Required Interfaces
-
-To be completed during M0/M26 foundation work:
+Costs must be attributed below the run level. Event Ledger events must support:
 
 ```text
-public_api:
-  - TBD
-schemas:
-  - TBD
-events:
-  - TBD
-evals:
-  - TBD
-rollback:
-  - TBD
+run_id
+project_id
+workspace_id
+user_id
+task_id
+event_id
+model_class
+model_provider
+tool_id
+provider_id
+scanner_id
+skill_id
+capability_id
+cost_center
+estimated_cost_usd
+actual_cost_usd
+input_tokens
+output_tokens
+embedding_tokens
+api_calls
+execution_ms
+storage_bytes
 ```
 
-## Build Notes
+## Budget scopes
 
-This canonical module was added in v0.4 because the project is becoming broad enough that user control, consent, observability, rollback, security, costs, interoperability, and stable layering must be designed before high-autonomy modules are built.
+```text
+Global user budget
+Workspace budget
+Project budget
+Provider budget
+Model budget
+Tool budget
+Scanner budget
+Skill budget
+Workflow budget
+```
 
-## Acceptance Criteria
+## Modes
 
-- The module has a clear owner and contract.
-- The module's data model is defined.
-- The module's risk boundaries are defined.
-- The module has at least one eval or contract test.
-- The module is represented in the Capability Registry.
-- The module's behavior is visible through the Event Ledger where relevant.
+```text
+cheap: minimal research, no ensembles, cheap classifiers preferred
+balanced: strong models for architecture/security/coding review only
+premium: deeper research and stronger verification allowed
+critical: high-reliability model + independent verification + approval
+local_private: prefer local/private models and avoid cloud routing
+```
+
+## Blocking rules
+
+```text
+High-cost actions require estimate before execution.
+Budget overruns block or downgrade actions unless approved.
+High-volume scanners require per-scanner budgets and cooldowns.
+Provider APIs with paid keys require budget policy and event-level attribution.
+```
+
+## Required evals
+
+```text
+model_cost_efficiency_eval
+provider_fallback_eval
+scanner_budget_eval
+cost_attribution_eval
+```

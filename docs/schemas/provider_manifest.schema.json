@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ultimate-ai-agent.local/schemas/provider_manifest.schema.json",
+  "title": "ProviderManifest",
+  "type": "object",
+  "required": [
+    "provider_id",
+    "domain",
+    "display_name",
+    "auth_type",
+    "cost_class",
+    "capabilities",
+    "normalizer",
+    "schema_version"
+  ],
+  "properties": {
+    "provider_id": {
+      "type": "string"
+    },
+    "domain": {
+      "enum": [
+        "weather",
+        "news",
+        "reddit",
+        "email",
+        "messages",
+        "calendar",
+        "search",
+        "github",
+        "other"
+      ]
+    },
+    "display_name": {
+      "type": "string"
+    },
+    "auth_type": {
+      "enum": [
+        "none",
+        "api_key",
+        "oauth",
+        "service_account",
+        "user_agent",
+        "custom"
+      ]
+    },
+    "cost_class": {
+      "enum": [
+        "free_no_key",
+        "free_key_required",
+        "paid",
+        "enterprise",
+        "self_hosted"
+      ]
+    },
+    "capabilities": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "rate_limits": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "terms": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "normalizer": {
+      "type": "string"
+    },
+    "default_priority": {
+      "type": "integer"
+    },
+    "schema_version": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false
+}

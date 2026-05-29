@@ -54,6 +54,24 @@
     },
     "schema_version": {
       "type": "string"
+    },
+    "credential_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "provider_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "verification_contract_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
     }
   },
   "additionalProperties": false

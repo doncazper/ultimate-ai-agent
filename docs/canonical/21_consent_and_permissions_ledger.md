@@ -1,8 +1,8 @@
 # 21 — Consent and Permissions Ledger
 
-Status: Foundation specification, v0.4.8  
-Owner: Trust / Permissions  
-Layer: Layer 1 Truth, Memory, and Data Ownership; Layer 2 Tools  
+Status: Foundation specification, v0.4.8
+Owner: Trust / Permissions
+Layer: Layer 1 Truth, Memory, and Data Ownership; Layer 2 Tools
 Blocking: Required before scanners, email/message access, external actions, companion memory, proactive notifications, Skill Factory, and self-improving code.
 
 ## Purpose
@@ -191,3 +191,8 @@ Event Ledger logging
 ```
 
 Do not connect email/message scanners until this ledger can enforce content boundaries and revocation.
+
+
+## v0.5.3 remediation note
+
+Consent is separate from credentials. A credential only proves the system can access a provider; consent proves the user has authorized a specific use. Standing approvals must map to autonomy levels and cannot authorize high/critical actions.

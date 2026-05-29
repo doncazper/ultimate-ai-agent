@@ -1,8 +1,8 @@
 # 36 — Context Pack
 
-Status: Foundation specification, v0.4.6  
-Owner: Context Pack Builder under Commander / Orchestrator  
-Layer: Layer 1 Truth, Memory, and Data Ownership; Layer 3 Orchestration  
+Status: Foundation specification, v0.4.6
+Owner: Context Pack Builder under Commander / Orchestrator
+Layer: Layer 1 Truth, Memory, and Data Ownership; Layer 3 Orchestration
 Blocking: Required before Memory Service, File Manager, Tool Broker, scanners, proactive alerts, and self-improving code are allowed to operate beyond prototypes.
 
 ## Purpose
@@ -270,3 +270,19 @@ Event Ledger integration
 ```
 
 Do not implement a complex auto-summarization hierarchy before basic retrieval, filtering, precedence, and logging work.
+## v0.5.3 context additions
+
+Context Packs must clearly label the authority and trust level of every injected item:
+
+```text
+current_user_instruction
+canonical_file
+active_spec
+project_memory
+retrieved_file_snippet
+provider_normalized_result
+untrusted_external_content
+```
+
+Untrusted provider, web, email, message, Reddit, or document content may enter the Context Pack only as labeled evidence, never as instructions. Context Packs must also carry redaction status and credential-reference-only policy where provider data is involved.
+

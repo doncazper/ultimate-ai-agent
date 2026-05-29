@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ultimate-ai-agent.local/schemas/memory_retrieval_policy.schema.json",
+  "title": "MemoryRetrievalPolicy",
+  "type": "object",
+  "required": [
+    "policy_id",
+    "retrieval_mode",
+    "sources",
+    "ranking_factors",
+    "schema_version"
+  ],
+  "properties": {
+    "policy_id": {
+      "type": "string"
+    },
+    "retrieval_mode": {
+      "enum": [
+        "structured_only",
+        "hybrid",
+        "semantic_first",
+        "keyword_first",
+        "source_linked"
+      ]
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "ranking_factors": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "max_items": {
+      "type": "integer"
+    },
+    "token_budget": {
+      "type": "integer"
+    },
+    "privacy_filters": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "schema_version": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false
+}

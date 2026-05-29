@@ -1,50 +1,69 @@
-# Source Credibility and Rumor Protocol
+# 27 — Source Credibility and Rumor Protocol
 
-Status: Draft canonical module for Ultimate AI Agent v0.4.
+Status: Foundation intelligence spec, v0.5.3
+Owner: Research / Intelligence
 
 ## Purpose
 
-Verification levels and alert rules for breaking news, Reddit/social signals, rumors, retractions, and official confirmations.
+Define how the agent treats breaking news, social signals, Reddit posts, RSS/news items, newsletters, official statements, retractions, and conflicting claims.
 
-## Core Principle
-
-This module exists to make the Ultimate AI Agent more trustworthy, inspectable, evolvable, and safe to use every day.
-
-## Responsibilities
-
-- Define the module's role in the layered brain architecture.
-- Declare public interfaces and dependencies.
-- Define data owned or touched by the module.
-- Define permissions and risk levels.
-- Define required logs, evals, and rollback behavior.
-- Define user-facing controls where applicable.
-
-## Required Interfaces
-
-To be completed during M0/M26 foundation work:
+## Verification levels
 
 ```text
-public_api:
-  - TBD
-schemas:
-  - TBD
-events:
-  - TBD
-evals:
-  - TBD
-rollback:
-  - TBD
+unverified_signal: single social/reddit/blog/newsletter item
+single_source_report: one publisher or provider result
+multi_source_report: two or more independent sources
+primary_source: official filing, company/government/agency/source document
+confirmed_event: primary or authoritative confirmation plus corroboration
+contradicted: credible contradiction exists
+retracted: source or primary authority retracted/updated claim
 ```
 
-## Build Notes
+## Breaking-news rule
 
-This canonical module was added in v0.4 because the project is becoming broad enough that user control, consent, observability, rollback, security, costs, interoperability, and stable layering must be designed before high-autonomy modules are built.
+The agent may interrupt the user only when the item is:
 
-## Acceptance Criteria
+```text
+new
+material
+time-sensitive
+relevant to user/project/watchlist
+source-backed
+not merely commentary or recycled coverage
+worth the interruption cost
+```
 
-- The module has a clear owner and contract.
-- The module's data model is defined.
-- The module's risk boundaries are defined.
-- The module has at least one eval or contract test.
-- The module is represented in the Capability Registry.
-- The module's behavior is visible through the Event Ledger where relevant.
+## Article vs event vs claim
+
+```text
+Article: one source item.
+News Event: cluster of articles about the same happening.
+Claim: specific assertion extracted from articles.
+Evidence Bundle: supporting/contradicting sources and confidence.
+```
+
+## Reddit/social policy
+
+Reddit and social content are early signals, not facts. They may seed research but cannot become confirmed alerts without source upgrade.
+
+## Required fields for alerts
+
+```text
+what happened
+why it matters to the user
+verification level
+confidence
+sources
+what is unknown
+recommended action or no-action note
+mute/tune controls
+```
+
+## Required evals
+
+```text
+breaking_news_verification_eval
+source_credibility_eval
+rumor_retraction_eval
+alert_interruption_worthiness_eval
+```

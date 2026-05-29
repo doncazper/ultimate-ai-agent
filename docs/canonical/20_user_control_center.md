@@ -1,50 +1,84 @@
-# User Control Center
+# 20 — User Control Center
 
-Status: Draft canonical module for Ultimate AI Agent v0.4.
+Status: Canonical product/control-plane spec, v0.5.3
+Owner: User Trust / Product
+Layer: Cross-layer user-facing control surface
 
 ## Purpose
 
-One dashboard for memory, permissions, watchlists, skills, automations, scanners, costs, data controls, approvals, and activity logs.
+The User Control Center is the user's command center for inspecting, tuning, pausing, revoking, and auditing the assistant.
 
-## Core Principle
-
-This module exists to make the Ultimate AI Agent more trustworthy, inspectable, evolvable, and safe to use every day.
-
-## Responsibilities
-
-- Define the module's role in the layered brain architecture.
-- Declare public interfaces and dependencies.
-- Define data owned or touched by the module.
-- Define permissions and risk levels.
-- Define required logs, evals, and rollback behavior.
-- Define user-facing controls where applicable.
-
-## Required Interfaces
-
-To be completed during M0/M26 foundation work:
+It answers:
 
 ```text
-public_api:
-  - TBD
-schemas:
-  - TBD
-events:
-  - TBD
-evals:
-  - TBD
-rollback:
-  - TBD
+What does the agent know about me?
+What is it allowed to access?
+What is it monitoring?
+What can it do without asking?
+What did it do recently?
+What did it learn?
+What can I revoke, export, delete, or pause?
 ```
 
-## Build Notes
+## Required views
 
-This canonical module was added in v0.4 because the project is becoming broad enough that user control, consent, observability, rollback, security, costs, interoperability, and stable layering must be designed before high-autonomy modules are built.
+```text
+Memory review and edit
+Consent and permissions
+Connected providers and credentials
+Approvals queue
+Watchlists and notification settings
+Scanner controls
+Skill registry
+Automations
+Cost and usage
+Activity/event receipts
+Data export/delete
+Model routing preferences
+Foundation gate status
+```
 
-## Acceptance Criteria
+## Non-negotiable controls
 
-- The module has a clear owner and contract.
-- The module's data model is defined.
-- The module's risk boundaries are defined.
-- The module has at least one eval or contract test.
-- The module is represented in the Capability Registry.
-- The module's behavior is visible through the Event Ledger where relevant.
+The user must be able to:
+
+```text
+Pause learning
+Pause scanners
+Pause proactive notifications
+Revoke provider access
+Delete a memory
+Export memory and event receipts
+View active standing approvals
+Cancel standing approvals
+See why an alert was sent
+See what files/tools/providers were touched by a run
+```
+
+## Dependencies
+
+```text
+Consent Ledger
+Secret Broker
+Provider Registry
+Memory Service
+Event Ledger
+Cost Governor
+Tool Broker
+Notification policy
+Data lifecycle controls
+```
+
+## Risks
+
+```text
+UI bypassing Agent Core
+Confusing consent with credentials
+Hiding too much automation from the user
+Exposing secrets in activity views
+Creating notification fatigue
+```
+
+## Foundation rule
+
+The Control Center may show and configure the agent, but it must not directly mutate memory, files, tools, providers, or credentials. All mutating calls go through the Agent API Boundary, Consent Ledger, Tool Broker, and Event Ledger.

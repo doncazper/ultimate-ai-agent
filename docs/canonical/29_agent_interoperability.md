@@ -1,50 +1,33 @@
-# Agent Interoperability
+# 29 — Agent Interoperability
 
-Status: Draft canonical module for Ultimate AI Agent v0.4.
+Status: Future-facing interoperability spec, v0.5.3
+Owner: Ecosystem / Integrations
 
 ## Purpose
 
-MCP-style tool/data integration, A2A-style agent communication, external agent trust boundaries, and connector governance.
+Define how the Ultimate AI Agent will later interoperate with tools, data sources, and other agents without collapsing its trust model.
 
-## Core Principle
-
-This module exists to make the Ultimate AI Agent more trustworthy, inspectable, evolvable, and safe to use every day.
-
-## Responsibilities
-
-- Define the module's role in the layered brain architecture.
-- Declare public interfaces and dependencies.
-- Define data owned or touched by the module.
-- Define permissions and risk levels.
-- Define required logs, evals, and rollback behavior.
-- Define user-facing controls where applicable.
-
-## Required Interfaces
-
-To be completed during M0/M26 foundation work:
+## Split of concerns
 
 ```text
-public_api:
-  - TBD
-schemas:
-  - TBD
-events:
-  - TBD
-evals:
-  - TBD
-rollback:
-  - TBD
+MCP-style servers: tools, resources, prompts, data sources.
+A2A-style protocols: independent agents communicating or delegating.
+Provider Registry: external APIs normalized behind adapters.
+Tool Broker: only allowed action path.
+Consent Ledger: user permission boundary.
+Event Ledger: audit boundary.
 ```
 
-## Build Notes
+## Rules
 
-This canonical module was added in v0.4 because the project is becoming broad enough that user control, consent, observability, rollback, security, costs, interoperability, and stable layering must be designed before high-autonomy modules are built.
+```text
+External agents are untrusted by default.
+No external agent can call tools directly.
+No external tool/server can write memory directly.
+Capability manifests must declare permissions and data access.
+Interoperability stays blocked until Foundation Gate passes.
+```
 
-## Acceptance Criteria
+## First implementation stance
 
-- The module has a clear owner and contract.
-- The module's data model is defined.
-- The module's risk boundaries are defined.
-- The module has at least one eval or contract test.
-- The module is represented in the Capability Registry.
-- The module's behavior is visible through the Event Ledger where relevant.
+Do not implement agent-to-agent collaboration in the foundation. Implement stable API boundaries and tool/provider manifests first.

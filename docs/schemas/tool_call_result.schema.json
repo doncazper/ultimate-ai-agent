@@ -88,6 +88,25 @@
     },
     "schema_version": {
       "type": "string"
+    },
+    "cost_attribution": {
+      "$ref": "cost_attribution.schema.json"
+    },
+    "provider_result_envelope_ref": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "verification_status": {
+      "enum": [
+        "unverified",
+        "partially_verified",
+        "verified",
+        "verified_with_limitations",
+        "failed_verification",
+        "not_verifiable"
+      ]
     }
   },
   "additionalProperties": false

@@ -1,50 +1,60 @@
-# Rollback and Recovery
+# 28 — Rollback and Recovery
 
-Status: Draft canonical module for Ultimate AI Agent v0.4.
+Status: Foundation recovery spec, v0.5.3
+Owner: Platform / Safety
 
 ## Purpose
 
-Rollback-first design for files, memory, skills, scanner configs, automations, permissions, code patches, and foundational changes.
+Every mutating action should have an undo story before it is allowed in production.
 
-## Core Principle
-
-This module exists to make the Ultimate AI Agent more trustworthy, inspectable, evolvable, and safe to use every day.
-
-## Responsibilities
-
-- Define the module's role in the layered brain architecture.
-- Declare public interfaces and dependencies.
-- Define data owned or touched by the module.
-- Define permissions and risk levels.
-- Define required logs, evals, and rollback behavior.
-- Define user-facing controls where applicable.
-
-## Required Interfaces
-
-To be completed during M0/M26 foundation work:
+## Rollback scope
 
 ```text
-public_api:
-  - TBD
-schemas:
-  - TBD
-events:
-  - TBD
-evals:
-  - TBD
-rollback:
-  - TBD
+file writes
+memory writes
+provider configuration changes
+consent changes
+watchlist changes
+skill installs
+code patches
+scanner config changes
+automation schedules
+notification policies
+canonical file updates
 ```
 
-## Build Notes
+## Required rollback metadata
 
-This canonical module was added in v0.4 because the project is becoming broad enough that user control, consent, observability, rollback, security, costs, interoperability, and stable layering must be designed before high-autonomy modules are built.
+```text
+action_id
+run_id
+event_id
+resource_type
+resource_id
+before_ref
+after_ref
+diff_ref
+rollback_strategy
+rollback_command_or_plan
+rollback_risk
+approval_ref
+created_at
+expires_at
+```
 
-## Acceptance Criteria
+## Rollback classes
 
-- The module has a clear owner and contract.
-- The module's data model is defined.
-- The module's risk boundaries are defined.
-- The module has at least one eval or contract test.
-- The module is represented in the Capability Registry.
-- The module's behavior is visible through the Event Ledger where relevant.
+```text
+automatic: safe local undo, e.g. replace file with backup
+assisted: requires user approval or additional context
+manual: documented instructions only
+not_supported: allowed only for low-risk read-only or irreversible external facts, not destructive actions
+```
+
+## Blocking rule
+
+A mutating high-risk tool call without rollback metadata must be blocked unless a human explicitly accepts the irreversible action.
+
+## Recovery drills
+
+Foundation Gate must include replaying and rolling back the Minimum Lovable Kernel file mutation.

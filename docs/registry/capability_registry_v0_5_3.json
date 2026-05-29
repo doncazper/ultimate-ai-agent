@@ -1,0 +1,34 @@
+{
+  "version": "v0.5.3",
+  "foundation_required": [
+    "execution_contract",
+    "context_pack",
+    "verified_task_completion",
+    "event_ledger",
+    "deterministic_state_machine",
+    "consent_ledger",
+    "tool_broker",
+    "secret_broker",
+    "provider_registry",
+    "model_router",
+    "cost_governor",
+    "memory_service",
+    "file_manager",
+    "rollback",
+    "api_boundary",
+    "contract_tests",
+    "trusted_computing_base"
+  ],
+  "blocked_until_foundation_gate": [
+    "reddit_scanner",
+    "news_scanner",
+    "email_scanner",
+    "message_scanner",
+    "companion_proactivity",
+    "skill_factory",
+    "self_improving_code",
+    "autopilot_workflows",
+    "credentialed_provider_integrations",
+    "external_high_autonomy_execution"
+  ]
+}

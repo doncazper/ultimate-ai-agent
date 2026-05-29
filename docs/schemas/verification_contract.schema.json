@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ultimate-ai-agent.local/schemas/verification_contract.schema.json",
+  "title": "VerificationContract",
+  "type": "object",
+  "required": [
+    "verification_contract_id",
+    "task_class",
+    "required_acceptance_criteria",
+    "required_evidence",
+    "verified_status_allowed",
+    "schema_version"
+  ],
+  "properties": {
+    "verification_contract_id": {
+      "type": "string"
+    },
+    "task_class": {
+      "enum": [
+        "answer",
+        "research",
+        "file_mutation",
+        "memory_write",
+        "code_change",
+        "provider_query",
+        "external_action",
+        "notification",
+        "spec_creation",
+        "review"
+      ]
+    },
+    "required_acceptance_criteria": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "required_evidence": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "allowed_evidence_sources": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "required_evals": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "receipt_fields": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "human_review_conditions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "verified_status_allowed": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "verified",
+          "verified_with_limitations",
+          "partially_verified",
+          "not_verifiable"
+        ]
+      }
+    },
+    "schema_version": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false
+}

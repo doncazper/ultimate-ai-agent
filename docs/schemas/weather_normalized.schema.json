@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ultimate-ai-agent.local/schemas/weather_normalized.schema.json",
+  "title": "WeatherNormalized",
+  "type": "object",
+  "required": [
+    "location",
+    "source",
+    "schema_version"
+  ],
+  "properties": {
+    "location": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "current": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": true
+    },
+    "hourly": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "daily": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "alerts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "schema_version": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false
+}

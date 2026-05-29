@@ -1,8 +1,8 @@
 # 37 — Tool Broker
 
-Status: Foundation specification, v0.4.8  
-Owner: Tooling / Runtime  
-Layer: Layer 2 Tools, Files, Code, and Web  
+Status: Foundation specification, v0.4.8
+Owner: Tooling / Runtime
+Layer: Layer 2 Tools, Files, Code, and Web
 Blocking: Required before file writes, code execution, web actions, scanners, external actions, Skill Factory, and self-improving code.
 
 ## Purpose
@@ -191,3 +191,19 @@ Mock tools for contract tests
 ```
 
 Real external integrations come later.
+## v0.5.3 Secret Broker and provider routing rule
+
+The Tool Broker may call provider adapters, but it must not expose raw credentials to the LLM or to tool-call payloads. Provider tools use credential references and resolve them through the Secret Broker at execution time.
+
+Provider tool calls must check, in order:
+
+```text
+Execution Contract allows the action.
+Consent Ledger allows the purpose and data scope.
+Tool Broker risk policy allows or gates the call.
+Secret Broker can resolve a credential reference if required.
+Cost Governor allows the call.
+Provider Registry chooses a provider and normalizer.
+Event Ledger records request/result with redaction and cost attribution.
+```
+

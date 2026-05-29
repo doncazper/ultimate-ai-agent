@@ -1,1 +1,38 @@
+# macOS
 .DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.venv/
+venv/
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+secrets.*
+*.secret
+*.pem
+*.key
+
+# Runtime output
+logs/
+debug/
+.local/
+*.sqlite
+*.sqlite3
+*.db
+
+# Node / TypeScript future UI
+node_modules/
+dist/
+build/
+.next/
+
+# Generated artifacts
+coverage/
+htmlcov/

@@ -59,6 +59,20 @@
     },
     "schema_version": {
       "type": "string"
+    },
+    "verification_status": {
+      "enum": [
+        "unverified",
+        "partially_verified",
+        "verified",
+        "verified_with_limitations",
+        "failed_verification",
+        "not_verifiable"
+      ]
+    },
+    "cost_attribution_summary": {
+      "type": "object",
+      "additionalProperties": true
     }
   },
   "additionalProperties": false

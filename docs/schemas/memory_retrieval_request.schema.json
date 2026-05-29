@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ultimate-ai-agent.local/schemas/memory_retrieval_request.schema.json",
+  "title": "MemoryRetrievalRequest",
+  "type": "object",
+  "required": [
+    "request_id",
+    "workspace_id",
+    "query",
+    "scopes",
+    "token_budget",
+    "schema_version"
+  ],
+  "properties": {
+    "request_id": {
+      "type": "string"
+    },
+    "workspace_id": {
+      "type": "string"
+    },
+    "user_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "project_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "query": {
+      "type": "string"
+    },
+    "scopes": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "user",
+          "project",
+          "workspace",
+          "organization",
+          "task",
+          "relationship"
+        ]
+      }
+    },
+    "memory_types": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "allowed_sensitivity": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "exclude_statuses": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "token_budget": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "retrieval_methods": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "structured",
+          "full_text",
+          "vector",
+          "entity_graph",
+          "recent_events"
+        ]
+      }
+    },
+    "rerank_policy_ref": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "consent_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "schema_version": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false
+}

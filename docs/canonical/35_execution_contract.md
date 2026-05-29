@@ -1,8 +1,8 @@
 # 35 — Execution Contract
 
-Status: Foundation specification, v0.4.6  
-Owner: Commander / Orchestrator  
-Layer: Layer 0 Kernel and Layer 3 Orchestration  
+Status: Foundation specification, v0.4.6
+Owner: Commander / Orchestrator
+Layer: Layer 0 Kernel and Layer 3 Orchestration
 Blocking: Required before implementation of scanners, companion proactivity, Skill Factory, self-improving code, or autopilot workflows.
 
 ## Purpose
@@ -354,3 +354,17 @@ Contract test suite in CI
 ```
 
 Do not start with a complex workflow engine. Start with typed contracts, validation, persistence, and tests.
+## v0.5.3 contract additions
+
+Execution Contracts are now `v0/provisional` until the Minimum Lovable Kernel has at least two real consumers. The schema supports:
+
+```text
+verification_contract_refs
+contract_maturity
+provisional_until
+autonomy_policy_ref
+tcb_touchpoints
+```
+
+A meaningful run must reference the relevant task-class Verification Contract before it can be marked verified. High-risk or TCB-touching runs must name the TCB touchpoints they could affect.
+

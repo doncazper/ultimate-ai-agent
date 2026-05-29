@@ -130,3 +130,7 @@ High-autonomy External Execution
 - `docs/operating/foundation_first_build_policy.md`
 - `docs/kanban/current_board.md`
 - `docs/canonical/38_scalable_stack_and_ui_strategy.md`
+## v0.5.3 Minimum Lovable Kernel update
+
+The first implementation proof is no longer a text-only spec-generation slice. The project must first prove the Minimum Lovable Kernel defined in `docs/canonical/43_minimum_lovable_kernel.md`: a real, safe, reversible file mutation through Execution Contract, Context Pack, Consent Ledger, Tool Broker, File Manager, Event Ledger, Memory Service, rollback, and Verification Contract.
+

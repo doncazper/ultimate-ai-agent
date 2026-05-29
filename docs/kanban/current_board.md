@@ -1,4 +1,4 @@
-# Current Kanban Board — v0.5.0 Foundation Sequence
+# Current Kanban Board — v0.5.3 Foundation Sequence
 
 Status: Active operating board. Advanced modules remain blocked until Foundation Gate passes.
 
@@ -9,32 +9,35 @@ Future scanner source list
 Future companion UX ideas
 Future Skill Factory marketplace ideas
 Future autopilot workflows
+Future provider adapter candidates
 ```
 
 ## Shaping
 
 ```text
-Foundation Gate implementation plan
-Memory V1 spec vertical slice
+Minimum Lovable Kernel
+Secret Broker + Provider Registry
+Memory Retrieval V1
 ```
 
 ## Spec Draft
 
 ```text
-M1 Kernel Contracts
-M2 Event Ledger
+M0 repo/validation skeleton
+M1 provisional kernel contracts
+M2 Event Ledger + deterministic state machine
 M3 Consent Ledger + Tool Broker
+M3.5 Secret Broker + Provider Registry
 M4 Memory Service + File Manager
 ```
 
 ## Spec Review
 
 ```text
-Model Routing Strategy v0.4.5
-Execution Contract + Context Pack v0.4.6
-Event Ledger / Observability v0.4.7
-Consent Ledger + Tool Broker v0.4.8
-Memory Service + File Manager v0.4.9
+Verified Task Completion Framework
+Autonomy Levels and Standing Approvals
+Contract Versioning and Provisional Policy
+Trusted Computing Base
 ```
 
 ## Ready for Build
@@ -44,19 +47,22 @@ Repository/canonical docs initialization
 Schema validation CI
 Execution Contract schema/model
 Context Pack schema/model
-Event Ledger append-only table
+Event Ledger append-only table/event object
+Cost attribution fields
 ```
 
 ## Building
 
 ```text
-None until implementation repo is initialized
+None until implementation repo skeleton begins
 ```
 
 ## QA / Evals
 
 ```text
-Foundation contract test matrix design
+Foundation contract test matrix
+Secret redaction eval
+Provider normalization eval
 Shadow replay fixture design
 ```
 
@@ -65,7 +71,7 @@ Shadow replay fixture design
 ```text
 Reddit Scanner
 News Scanner
-Weather Module
+Weather Module beyond safe normalization prototype
 Email Scanner
 Message Scanner
 Calendar Scanner
@@ -75,6 +81,7 @@ Skill Factory
 Self-Improving Coding Framework
 Autopilot Workflows
 External high-autonomy execution
+Credentialed provider integrations
 ```
 
 ## Parking Lot
@@ -95,35 +102,4 @@ Third-party plugin ecosystem
 Active foundation build items: max 2
 Active feature specs: max 3
 Advanced module implementation: 0 until Foundation Gate passes
-```
-
-## v0.5.2 Stack Integration Items
-
-### Ready for Build / M0
-
-```text
-Create Python Agent Core skeleton
-Create schema validation script
-Create prompt registry validation script
-Create Agent API Boundary placeholder
-Create Docker Compose scaffold
-Create OpenWebUI config folder as optional shell
-Draft API boundary bypass tests
-```
-
-### Parking Lot / Later
-
-```text
-Full TypeScript Control Center implementation
-Browser extension
-Mobile app
-OpenWebUI production customization beyond chat shell
-```
-
-### Blocked
-
-```text
-Any OpenWebUI function that directly writes memory/files/tools
-Any UI client direct database access
-Any scanner/proactive/skill/self-improvement work before Foundation Gate
 ```

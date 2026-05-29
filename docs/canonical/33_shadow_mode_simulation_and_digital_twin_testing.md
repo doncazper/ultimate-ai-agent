@@ -1,50 +1,34 @@
-# Shadow Mode, Simulation, and Digital Twin Testing
+# 33 — Shadow Mode, Simulation, and Digital Twin Testing
 
-Status: Draft canonical module for Ultimate AI Agent v0.4.
+Status: Foundation testing spec, v0.5.3
+Owner: QA / Runtime
 
 ## Purpose
 
-Dry-run, shadow, replay, simulation, digital twin, and canary modes for safe testing before live autonomy.
+Shadow Mode lets the agent exercise workflows without live side effects. It is required before scanners, proactive alerts, self-improvement, external execution, or autopilot.
 
-## Core Principle
-
-This module exists to make the Ultimate AI Agent more trustworthy, inspectable, evolvable, and safe to use every day.
-
-## Responsibilities
-
-- Define the module's role in the layered brain architecture.
-- Declare public interfaces and dependencies.
-- Define data owned or touched by the module.
-- Define permissions and risk levels.
-- Define required logs, evals, and rollback behavior.
-- Define user-facing controls where applicable.
-
-## Required Interfaces
-
-To be completed during M0/M26 foundation work:
+## Modes
 
 ```text
-public_api:
-  - TBD
-schemas:
-  - TBD
-events:
-  - TBD
-evals:
-  - TBD
-rollback:
-  - TBD
+dry_run: produce planned tool calls without executing
+shadow_run: execute safe reads, simulate writes
+replay: re-run an Event Ledger trace against current code/contracts
+canary: limited real execution behind explicit flags
+simulation: test against synthetic data/workspaces
+digital_twin: mirror user/project state with no live external effects
 ```
 
-## Build Notes
+## Required for Foundation Gate
 
-This canonical module was added in v0.4 because the project is becoming broad enough that user control, consent, observability, rollback, security, costs, interoperability, and stable layering must be designed before high-autonomy modules are built.
+```text
+Replay Minimum Lovable Kernel trace.
+Detect contract schema changes.
+Detect tool-policy changes.
+Verify rollback plan can be generated.
+Verify receipts redact secrets.
+Verify advanced modules remain blocked.
+```
 
-## Acceptance Criteria
+## Blocking rule
 
-- The module has a clear owner and contract.
-- The module's data model is defined.
-- The module's risk boundaries are defined.
-- The module has at least one eval or contract test.
-- The module is represented in the Capability Registry.
-- The module's behavior is visible through the Event Ledger where relevant.
+Any module that performs high-volume scanning, notifications, code self-improvement, or external mutations must pass shadow mode before live mode.

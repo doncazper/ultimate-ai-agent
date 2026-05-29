@@ -80,3 +80,8 @@ Rollback plan is missing
 Permission behavior changes without review
 Trace completeness regresses
 ```
+
+
+## v0.5.3 remediation note
+
+M1 contracts are v0/provisional until the Minimum Lovable Kernel and Foundation Gate exercise them. Strict backward compatibility begins after the gate, not before the first real consumers exist.

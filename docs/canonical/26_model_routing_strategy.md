@@ -474,3 +474,8 @@ What is the default monthly budget for scanner-heavy projects?
 What is the threshold for multi-model ensemble verification?
 Which evaluation scores should update routing policy automatically?
 ```
+
+
+## v0.5.3 remediation note
+
+Model routing must respect Secret Broker boundaries, privacy routing, event-level cost attribution, and provider/credential policies. Sensitive data should not be routed to cloud models unless the active policy allows it.

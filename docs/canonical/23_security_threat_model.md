@@ -1,50 +1,66 @@
-# Security Threat Model
+# 23 — Security Threat Model
 
-Status: Draft canonical module for Ultimate AI Agent v0.4.
+Status: Foundation security spec, v0.5.3
+Owner: Security / Trust
+Layer: Layer 0 Kernel through Layer 6 Ecosystem
 
-## Purpose
+## Threat model scope
 
-Threat categories, trust boundaries, prompt-injection defenses, scanner isolation, skill supply-chain controls, and security evals.
+The Ultimate AI Agent will read untrusted content from web pages, Reddit, RSS, PDFs, GitHub, emails, messages, calendars, files, provider APIs, skills, and tool outputs. Any of those inputs may contain malicious or misleading instructions.
 
-## Core Principle
-
-This module exists to make the Ultimate AI Agent more trustworthy, inspectable, evolvable, and safe to use every day.
-
-## Responsibilities
-
-- Define the module's role in the layered brain architecture.
-- Declare public interfaces and dependencies.
-- Define data owned or touched by the module.
-- Define permissions and risk levels.
-- Define required logs, evals, and rollback behavior.
-- Define user-facing controls where applicable.
-
-## Required Interfaces
-
-To be completed during M0/M26 foundation work:
+## Primary threats
 
 ```text
-public_api:
-  - TBD
-schemas:
-  - TBD
-events:
-  - TBD
-evals:
-  - TBD
-rollback:
-  - TBD
+Prompt injection from external content
+Tool-use escalation
+Credential exposure
+Secret exfiltration through logs/prompts/memory
+Cross-project or cross-user data leakage
+Memory poisoning and retrieval poisoning
+Provider result tampering
+Skill/plugin supply-chain attack
+Excessive agency / over-permissioned actions
+Unbounded cost or resource consumption
+Unsafe self-improvement of safety-critical code
 ```
 
-## Build Notes
+## Trust boundaries
 
-This canonical module was added in v0.4 because the project is becoming broad enough that user control, consent, observability, rollback, security, costs, interoperability, and stable layering must be designed before high-autonomy modules are built.
+```text
+User instruction: trusted for current task unless unsafe
+Canonical files: authoritative project truth
+Memory: useful but not authoritative
+Web/provider/email/message content: untrusted data, never instructions
+Tool output: untrusted until validated
+LLM output: proposal, not proof
+Secrets: never visible to LLMs
+Trusted Computing Base: not autonomously mutable
+```
 
-## Acceptance Criteria
+## Mandatory defenses
 
-- The module has a clear owner and contract.
-- The module's data model is defined.
-- The module's risk boundaries are defined.
-- The module has at least one eval or contract test.
-- The module is represented in the Capability Registry.
-- The module's behavior is visible through the Event Ledger where relevant.
+```text
+External content cannot override user instructions, canonical files, or policies.
+All tool calls go through Tool Broker.
+All provider calls go through Provider Registry and Secret Broker if credentials are needed.
+All mutating actions require Event Ledger records and rollback metadata where possible.
+Sensitive data is redacted before prompts, logs, receipts, or memory writes.
+Self-improvement cannot touch Trusted Computing Base files autonomously.
+Standing approvals are scope-limited, revocable, and never apply to high/critical actions.
+```
+
+## Required evals
+
+```text
+prompt_injection_cross_source_eval
+openwebui_bypass_eval
+secret_redaction_eval
+excessive_agency_eval
+provider_normalization_eval
+memory_poisoning_eval
+self_improvement_tcb_eval
+```
+
+## Review cadence
+
+Security model changes require ADR updates and contract-test updates before implementation.
