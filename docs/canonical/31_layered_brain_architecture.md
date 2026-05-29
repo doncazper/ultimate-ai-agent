@@ -1,50 +1,78 @@
-# Layered Brain / Onion Architecture
+# 31 Layered Brain / Onion Architecture
 
-Status: Draft canonical module for Ultimate AI Agent v0.4.
+Status: Canonical draft, v0.4.1
 
 ## Purpose
 
-Layered build model: kernel, truth/memory, tools, orchestration, skills, relationship/proactivity, ecosystem/autopilot.
+Build the Ultimate AI Agent like an onion or a brain: stable lower layers first, then higher-order intelligence on top.
 
-## Core Principle
+## Core principle
 
-This module exists to make the Ultimate AI Agent more trustworthy, inspectable, evolvable, and safe to use every day.
+Lower layers expose versioned contracts. Higher layers depend on those contracts, not on implementation internals.
 
-## Responsibilities
-
-- Define the module's role in the layered brain architecture.
-- Declare public interfaces and dependencies.
-- Define data owned or touched by the module.
-- Define permissions and risk levels.
-- Define required logs, evals, and rollback behavior.
-- Define user-facing controls where applicable.
-
-## Required Interfaces
-
-To be completed during M0/M26 foundation work:
+## Layers
 
 ```text
-public_api:
-  - TBD
-schemas:
-  - TBD
-events:
-  - TBD
-evals:
-  - TBD
-rollback:
-  - TBD
+Layer 0 — Kernel and Constitution
+Layer 1 — Truth, Memory, Files, and Data Ownership
+Layer 2 — Tools, Code, Web, and Execution Boundaries
+Layer 3 — Orchestration and Spec-Driven Work
+Layer 4 — Learning, Skills, and Intelligence Loops
+Layer 5 — Relationship, Scanners, Proactivity, and Curation
+Layer 6 — Ecosystem, Autopilot, and Agent Interoperability
 ```
 
-## Build Notes
+## Foundation-first rule
 
-This canonical module was added in v0.4 because the project is becoming broad enough that user control, consent, observability, rollback, security, costs, interoperability, and stable layering must be designed before high-autonomy modules are built.
+> Do not build scanners, companion proactivity, skill factory, or self-improving code before the kernel, memory/file system, event ledger, permission model, tool broker, and contract tests work.
 
-## Acceptance Criteria
+## Layer responsibilities
 
-- The module has a clear owner and contract.
-- The module's data model is defined.
-- The module's risk boundaries are defined.
-- The module has at least one eval or contract test.
-- The module is represented in the Capability Registry.
-- The module's behavior is visible through the Event Ledger where relevant.
+### Layer 0: Kernel and Constitution
+
+Owns the agent constitution, execution contract, context pack contract, run state, event ledger, and core policy.
+
+### Layer 1: Truth, Memory, Files, and Data Ownership
+
+Owns canonical files, Memory Service, File Manager, user-owned data lifecycle, source-linked memories, and data deletion/export.
+
+### Layer 2: Tools, Code, Web, and Execution Boundaries
+
+Owns Tool Broker, code sandbox, governed web access, permission enforcement, rollback metadata, and connector boundaries.
+
+### Layer 3: Orchestration and Spec-Driven Work
+
+Owns Commander/Orchestrator, Spec SDLC Engine, Kanban state, QA/eval routing, and deliverable integration.
+
+### Layer 4: Learning, Skills, and Intelligence Loops
+
+Owns adaptive learning, playbook refinement, Skill Factory, self-improvement proposals, and eval-driven improvement.
+
+### Layer 5: Relationship, Scanners, Proactivity, and Curation
+
+Owns companion behavior, scanner modules, proactive notifications, news curation, attention budgets, and watchlists.
+
+### Layer 6: Ecosystem, Autopilot, and Agent Interoperability
+
+Owns long-running autopilot workflows, A2A interoperability, MCP ecosystem, marketplaces, and multi-agent collaboration.
+
+## Dependency direction
+
+Higher layers may depend on lower layers. Lower layers must not depend on higher layers.
+
+Invalid examples:
+
+```text
+Memory Service depending on Reddit Scanner
+Tool Broker depending on Companion Layer
+Event Ledger depending on Skill Factory
+Permission Ledger depending on Proactive Intelligence
+```
+
+Valid examples:
+
+```text
+Reddit Scanner depends on Tool Broker, Consent Ledger, Event Ledger, and Source Credibility Protocol
+Skill Factory depends on Capability Registry, Tool Broker, Code Sandbox, and Event Ledger
+Self-Improving Coding depends on Code Workspace, Contract Tests, Event Ledger, and Approval Gates
+```

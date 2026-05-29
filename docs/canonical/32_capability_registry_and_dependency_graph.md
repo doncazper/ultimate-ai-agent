@@ -1,50 +1,90 @@
-# Capability Registry and Dependency Graph
+# 32 Capability Registry and Dependency Graph
 
-Status: Draft canonical module for Ultimate AI Agent v0.4.
+Status: Canonical draft, v0.4.1
 
 ## Purpose
 
-Versioned manifest and dependency graph for every service, tool, scanner, skill, agent, workflow, and connector.
+Track what capabilities exist, what they depend on, what permissions they need, what risks they carry, and whether they are allowed to move forward.
 
-## Core Principle
+## Why this matters
 
-This module exists to make the Ultimate AI Agent more trustworthy, inspectable, evolvable, and safe to use every day.
+The Ultimate AI Agent will have many modules. Without a dependency graph, foundation changes can silently break higher layers.
 
-## Responsibilities
+## Capability manifest fields
 
-- Define the module's role in the layered brain architecture.
-- Declare public interfaces and dependencies.
-- Define data owned or touched by the module.
-- Define permissions and risk levels.
-- Define required logs, evals, and rollback behavior.
-- Define user-facing controls where applicable.
-
-## Required Interfaces
-
-To be completed during M0/M26 foundation work:
-
-```text
-public_api:
-  - TBD
-schemas:
-  - TBD
-events:
-  - TBD
-evals:
-  - TBD
-rollback:
-  - TBD
+```json
+{
+  "id": "scanner.reddit.v1",
+  "name": "Reddit Scanner V1",
+  "layer": 5,
+  "status": "blocked_by_foundation_gate",
+  "dependencies": [
+    "kernel.execution_contract.v1",
+    "ledger.event.v1",
+    "consent.ledger.v1",
+    "tool_broker.v1",
+    "source_credibility.v1",
+    "notification_policy.v1"
+  ],
+  "permissions_required": ["web.read", "scanner.run", "notification.create"],
+  "risk_level": "medium",
+  "rollback_required": true,
+  "contract_tests_required": true
+}
 ```
 
-## Build Notes
+## Status values
 
-This canonical module was added in v0.4 because the project is becoming broad enough that user control, consent, observability, rollback, security, costs, interoperability, and stable layering must be designed before high-autonomy modules are built.
+```text
+idea
+shaping
+spec_draft
+spec_review
+ready_for_build
+building
+qa_evals
+release_candidate
+done
+parking_lot
+blocked
+blocked_by_foundation_gate
+deprecated
+```
 
-## Acceptance Criteria
+## Foundation Gate enforcement
 
-- The module has a clear owner and contract.
-- The module's data model is defined.
-- The module's risk boundaries are defined.
-- The module has at least one eval or contract test.
-- The module is represented in the Capability Registry.
-- The module's behavior is visible through the Event Ledger where relevant.
+Capabilities with these tags must remain blocked until the Foundation Gate passes:
+
+```text
+scanner
+companion_proactivity
+skill_factory
+self_improving_code
+autopilot
+high_autonomy_external_execution
+```
+
+## Required registry outputs
+
+- Capability inventory.
+- Dependency graph.
+- Permission map.
+- Risk map.
+- Contract test list.
+- Foundation Gate blocked list.
+- Blast-radius report before foundation changes.
+
+## Current blocked capabilities
+
+```text
+scanner.reddit.v1
+scanner.news.v1
+scanner.weather.v1
+scanner.email.v1
+scanner.messages.v1
+proactive_intelligence.v1
+companion_layer.v1
+skill_factory.v1
+self_improving_code.v1
+autopilot_workflows.v1
+```

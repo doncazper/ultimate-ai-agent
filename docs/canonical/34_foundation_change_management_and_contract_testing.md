@@ -1,50 +1,82 @@
-# Foundation Change Management and Contract Testing
+# 34 Foundation Change Management and Contract Testing
 
-Status: Draft canonical module for Ultimate AI Agent v0.4.
+Status: Canonical draft, v0.4.1
 
 ## Purpose
 
-Process for changing core services safely using impact analysis, contract tests, schema versioning, feature flags, canaries, and rollback.
+Make it safe to change foundational code without toppling higher-level capabilities.
 
-## Core Principle
-
-This module exists to make the Ultimate AI Agent more trustworthy, inspectable, evolvable, and safe to use every day.
-
-## Responsibilities
-
-- Define the module's role in the layered brain architecture.
-- Declare public interfaces and dependencies.
-- Define data owned or touched by the module.
-- Define permissions and risk levels.
-- Define required logs, evals, and rollback behavior.
-- Define user-facing controls where applicable.
-
-## Required Interfaces
-
-To be completed during M0/M26 foundation work:
+## Foundation capabilities
 
 ```text
-public_api:
-  - TBD
-schemas:
-  - TBD
-events:
-  - TBD
-evals:
-  - TBD
-rollback:
-  - TBD
+Execution Contract
+Context Pack
+Run/Event Ledger
+Memory Service
+File Manager
+Consent/Permission Ledger
+Tool Broker
+Capability Registry
+Rollback primitives
+Contract Test Runner
+Shadow Replay Harness
 ```
 
-## Build Notes
+## Foundation-first rule
 
-This canonical module was added in v0.4 because the project is becoming broad enough that user control, consent, observability, rollback, security, costs, interoperability, and stable layering must be designed before high-autonomy modules are built.
+> Do not build scanners, companion proactivity, skill factory, or self-improving code before the kernel, memory/file system, event ledger, permission model, tool broker, and contract tests work.
 
-## Acceptance Criteria
+## Foundation change process
 
-- The module has a clear owner and contract.
-- The module's data model is defined.
-- The module's risk boundaries are defined.
-- The module has at least one eval or contract test.
-- The module is represented in the Capability Registry.
-- The module's behavior is visible through the Event Ledger where relevant.
+1. Create foundation change proposal.
+2. Identify affected contracts.
+3. Query capability dependency graph.
+4. Produce blast-radius report.
+5. Update schema/API versions.
+6. Add or update contract tests.
+7. Run regression evals.
+8. Replay golden traces in shadow mode.
+9. Ship behind feature flag if user-facing.
+10. Canary if applicable.
+11. Monitor traces, costs, failures, and user impact.
+12. Keep rollback ready.
+13. Update canonical files, ADRs, and memory.
+
+## Contract tests required
+
+```text
+Execution Contract compatibility
+Context Pack compatibility
+Tool Broker permission enforcement
+Consent Ledger deny-by-default behavior
+Memory Service source citation and supersession
+File Manager diff/patch behavior
+Event Ledger trace completeness
+Rollback metadata availability
+Capability Registry dependency resolution
+```
+
+## Golden traces
+
+At minimum, maintain traces for:
+
+```text
+Create Memory V1 spec
+Update canonical file safely
+Retrieve project memory and produce context pack
+Use Tool Broker with approval required
+Attempt blocked scanner before Foundation Gate
+```
+
+## No-go policy
+
+A foundation change cannot release if:
+
+```text
+Contract tests fail
+Shadow replay fails without accepted explanation
+Capability dependency graph is not updated
+Rollback plan is missing
+Permission behavior changes without review
+Trace completeness regresses
+```

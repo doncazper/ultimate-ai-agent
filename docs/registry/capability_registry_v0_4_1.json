@@ -1,0 +1,233 @@
+{
+  "version": "0.4.1",
+  "foundation_gate_status": "not_passed",
+  "foundation_first_rule": "Do not build scanners, companion proactivity, skill factory, or self-improving code before the kernel, memory/file system, event ledger, permission model, tool broker, and contract tests work.",
+  "capabilities": [
+    {
+      "id": "kernel.execution_contract.v1",
+      "layer": 0,
+      "status": "ready_for_build",
+      "depends_on": [],
+      "foundation_required": true
+    },
+    {
+      "id": "kernel.context_pack.v1",
+      "layer": 0,
+      "status": "ready_for_build",
+      "depends_on": [],
+      "foundation_required": true
+    },
+    {
+      "id": "ledger.event.v1",
+      "layer": 0,
+      "status": "ready_for_build",
+      "depends_on": [
+        "kernel.execution_contract.v1"
+      ],
+      "foundation_required": true
+    },
+    {
+      "id": "memory.service.v1",
+      "layer": 1,
+      "status": "shaping",
+      "depends_on": [
+        "ledger.event.v1",
+        "kernel.context_pack.v1"
+      ],
+      "foundation_required": true
+    },
+    {
+      "id": "file.manager.v1",
+      "layer": 1,
+      "status": "shaping",
+      "depends_on": [
+        "ledger.event.v1"
+      ],
+      "foundation_required": true
+    },
+    {
+      "id": "consent.ledger.v1",
+      "layer": 1,
+      "status": "shaping",
+      "depends_on": [
+        "ledger.event.v1"
+      ],
+      "foundation_required": true
+    },
+    {
+      "id": "tool_broker.v1",
+      "layer": 2,
+      "status": "shaping",
+      "depends_on": [
+        "consent.ledger.v1",
+        "ledger.event.v1"
+      ],
+      "foundation_required": true
+    },
+    {
+      "id": "capability.registry.v1",
+      "layer": 2,
+      "status": "ready_for_build",
+      "depends_on": [
+        "ledger.event.v1"
+      ],
+      "foundation_required": true
+    },
+    {
+      "id": "contract_tests.v1",
+      "layer": 0,
+      "status": "spec_draft",
+      "depends_on": [
+        "kernel.execution_contract.v1",
+        "kernel.context_pack.v1",
+        "ledger.event.v1"
+      ],
+      "foundation_required": true
+    },
+    {
+      "id": "orchestrator.mvp.v1",
+      "layer": 3,
+      "status": "shaping",
+      "depends_on": [
+        "kernel.execution_contract.v1",
+        "kernel.context_pack.v1",
+        "memory.service.v1",
+        "file.manager.v1"
+      ],
+      "foundation_required": true
+    },
+    {
+      "id": "web.research.v1",
+      "layer": 2,
+      "status": "parking_lot",
+      "depends_on": [
+        "tool_broker.v1",
+        "ledger.event.v1",
+        "source_credibility.v1"
+      ],
+      "blocked_until": "tool_broker_and_permissions"
+    },
+    {
+      "id": "code.workspace.v1",
+      "layer": 2,
+      "status": "parking_lot",
+      "depends_on": [
+        "tool_broker.v1",
+        "ledger.event.v1",
+        "rollback.v1"
+      ],
+      "blocked_until": "tool_broker_and_sandbox"
+    },
+    {
+      "id": "scanner.reddit.v1",
+      "layer": 5,
+      "status": "blocked_by_foundation_gate",
+      "depends_on": [
+        "tool_broker.v1",
+        "consent.ledger.v1",
+        "ledger.event.v1",
+        "source_credibility.v1",
+        "notification_policy.v1"
+      ]
+    },
+    {
+      "id": "scanner.news.v1",
+      "layer": 5,
+      "status": "blocked_by_foundation_gate",
+      "depends_on": [
+        "tool_broker.v1",
+        "source_credibility.v1",
+        "notification_policy.v1"
+      ]
+    },
+    {
+      "id": "scanner.weather.v1",
+      "layer": 5,
+      "status": "blocked_by_foundation_gate",
+      "depends_on": [
+        "tool_broker.v1",
+        "consent.ledger.v1",
+        "notification_policy.v1"
+      ]
+    },
+    {
+      "id": "scanner.email.v1",
+      "layer": 5,
+      "status": "blocked_by_foundation_gate",
+      "depends_on": [
+        "tool_broker.v1",
+        "consent.ledger.v1",
+        "ledger.event.v1",
+        "data_lifecycle.v1"
+      ]
+    },
+    {
+      "id": "scanner.messages.v1",
+      "layer": 5,
+      "status": "blocked_by_foundation_gate",
+      "depends_on": [
+        "tool_broker.v1",
+        "consent.ledger.v1",
+        "ledger.event.v1",
+        "data_lifecycle.v1"
+      ]
+    },
+    {
+      "id": "proactive_intelligence.v1",
+      "layer": 5,
+      "status": "blocked_by_foundation_gate",
+      "depends_on": [
+        "memory.service.v1",
+        "notification_policy.v1",
+        "source_credibility.v1",
+        "attention_budget.v1"
+      ]
+    },
+    {
+      "id": "companion_layer.v1",
+      "layer": 5,
+      "status": "blocked_by_foundation_gate",
+      "depends_on": [
+        "memory.service.v1",
+        "data_lifecycle.v1",
+        "user_control_center.v1",
+        "companion_safety_evals.v1"
+      ]
+    },
+    {
+      "id": "skill_factory.v1",
+      "layer": 4,
+      "status": "blocked_by_foundation_gate",
+      "depends_on": [
+        "capability.registry.v1",
+        "tool_broker.v1",
+        "code.workspace.v1",
+        "skill_trust_pipeline.v1"
+      ]
+    },
+    {
+      "id": "self_improving_code.v1",
+      "layer": 4,
+      "status": "blocked_by_foundation_gate",
+      "depends_on": [
+        "code.workspace.v1",
+        "contract_tests.v1",
+        "ledger.event.v1",
+        "approval_policy.v1",
+        "rollback.v1"
+      ]
+    },
+    {
+      "id": "autopilot_workflows.v1",
+      "layer": 6,
+      "status": "blocked_by_foundation_gate",
+      "depends_on": [
+        "orchestrator.mvp.v1",
+        "tool_broker.v1",
+        "consent.ledger.v1",
+        "ledger.event.v1",
+        "rollback.v1"
+      ]
+    }
+  ]
+}
