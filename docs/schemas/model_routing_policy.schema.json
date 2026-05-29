@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ultimate-ai-agent.local/schemas/model_routing_policy.schema.json",
+  "title": "ModelRoutingPolicy",
+  "type": "object",
+  "required": [
+    "policy_version",
+    "default_cost_mode",
+    "task_defaults",
+    "privacy_rules",
+    "critical_verification_rules"
+  ],
+  "properties": {
+    "policy_version": {
+      "type": "string"
+    },
+    "default_cost_mode": {
+      "type": "string",
+      "enum": [
+        "cheap",
+        "balanced",
+        "premium",
+        "critical",
+        "local_private"
+      ]
+    },
+    "task_defaults": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "primary_model_class": {
+            "type": "string"
+          },
+          "verifier_model_class": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "requires_verification": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "primary_model_class"
+        ]
+      }
+    },
+    "privacy_rules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "privacy_level",
+          "allowed_privacy_classifications"
+        ],
+        "properties": {
+          "privacy_level": {
+            "type": "string"
+          },
+          "allowed_privacy_classifications": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "requires_user_approval_for_cloud": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "cost_limits": {
+      "type": "object"
+    },
+    "escalation_thresholds": {
+      "type": "object"
+    },
+    "blocked_routes": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "critical_verification_rules": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "metadata": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": false
+}

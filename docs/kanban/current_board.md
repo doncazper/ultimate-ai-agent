@@ -1,6 +1,6 @@
 # Current Kanban Board
 
-Status: Active board snapshot, v0.4.1
+Status: Active board snapshot, v0.4.5
 
 ## Active product goal
 
@@ -8,22 +8,22 @@ Build the stable foundation of the Ultimate AI Agent before implementing higher-
 
 ## Foundation-first rule
 
-> Do not build scanners, companion proactivity, skill factory, or self-improving code before the kernel, memory/file system, event ledger, permission model, tool broker, and contract tests work.
+> Do not build scanners, companion proactivity, skill factory, or self-improving code before the kernel, memory/file system, event ledger, permission model, model router, tool broker, cost controls, and contract tests work.
 
 ## Board
 
 | Column | Items |
 |---|---|
 | Inbox | Feature parity matrix expansion; scanner source list; companion UX ideas; skill marketplace ideas |
-| Shaping | M0 Project Foundation; M1 Kernel Contracts and Event Ledger V1; M2 Consent/Permissions V1 |
-| Spec Draft | Definition of Ready; Definition of Done; Foundation Gate checklist; Capability manifest schema |
-| Spec Review | v0.4.1 Development Workflow; v0.4.1 Roadmap; Foundation-First Build Policy |
-| Ready for Build | Canonical file tree; ADR index; Run/Event Ledger schema draft; Execution Contract schema draft |
-| Building | v0.4.1 operational files and bundle |
+| Shaping | M0 Project Foundation; M1 Kernel Contracts and Event Ledger V1; M2 Consent/Permissions V1; M4.5 Model Router V1 |
+| Spec Draft | Definition of Ready; Definition of Done; Foundation Gate checklist; Capability manifest schema; Model capability schema; Model route schema; Model routing policy schema |
+| Spec Review | v0.4.5 Development Workflow; v0.4.5 Roadmap; Foundation-First Build Policy |
+| Ready for Build | Canonical file tree; ADR index; Run/Event Ledger schema draft; Execution Contract schema draft; Model routing strategy v0.4.5 |
+| Building | v0.4.5 operational files and bundle |
 | Code Review | None |
-| QA / Evals | Review v0.4.1 bundle consistency; verify advanced modules are blocked by Foundation Gate |
-| Release Candidate | v0.4.1 master plan and canonical bundle |
-| Done | v0.4 master plan; v0.4 trust/control modules; v0.4.1 foundation-first operational update |
+| QA / Evals | Review v0.4.5 bundle consistency; verify advanced modules are blocked by Foundation Gate; verify model routing is included in Foundation Gate |
+| Release Candidate | v0.4.5 master plan and canonical bundle |
+| Done | v0.4 master plan; v0.4 trust/control modules; v0.4.5 foundation-first operational update |
 | Parking Lot | Reddit Scanner; News Scanner; Weather Module; Email Scanner; Message Scanner; Companion Proactivity; Skill Factory; Self-Improving Coding Framework; Autopilot Workflows |
 | Blocked | Any scanner implementation; autonomous proactive notifications; external skill installation; self-improvement merge loop; high-autonomy external execution |
 

@@ -1,6 +1,6 @@
 # 09 Roadmap
 
-Status: Canonical draft, v0.4.1
+Status: Canonical draft, v0.4.5
 
 ## Roadmap principle
 
@@ -8,7 +8,7 @@ The roadmap is layered. Lower layers expose stable versioned contracts. Higher l
 
 ## Foundation-first rule
 
-> Do not build scanners, companion proactivity, skill factory, or self-improving code before the kernel, memory/file system, event ledger, permission model, tool broker, and contract tests work.
+> Do not build scanners, companion proactivity, skill factory, or self-improving code before the kernel, memory/file system, event ledger, permission model, model router, tool broker, cost controls, and contract tests work.
 
 ## Phase A: Foundation / Kernel
 
@@ -111,6 +111,33 @@ Exit gate:
 Tools can be registered, permissioned, audited, and dependency-mapped.
 ```
 
+
+
+### M4.5 — Model Router and Cost/Privacy Routing V1
+
+Deliver:
+
+```text
+Model Router V1
+Model capability registry
+Task-to-model routing matrix
+Model routing policy schema
+Model route schema
+Model eval result schema
+Cost Governor integration
+Consent/Permission Ledger integration
+Event Ledger route logging
+Fallback and escalation policy
+Privacy routing policy
+Critical verification routing
+```
+
+Exit gate:
+
+```text
+The system can route low-risk, high-risk, sensitive, coding, research, scanner-triage, and critical-verification tasks to appropriate model classes with logged route decisions, deterministic fallback behavior, cost controls, and privacy enforcement.
+```
+
 ### M5 — Orchestrator and Spec SDLC Engine V1
 
 Deliver:
@@ -148,7 +175,7 @@ Rollback drill
 Exit gate:
 
 ```text
-Foundation Gate passes. Advanced modules may now move from Parking Lot into Spec Draft or Ready for Build if individually ready.
+Foundation Gate passes, including Model Router V1 and routing evals. Advanced modules may now move from Parking Lot into Spec Draft or Ready for Build if individually ready.
 ```
 
 ## Phase B: Controlled Capabilities

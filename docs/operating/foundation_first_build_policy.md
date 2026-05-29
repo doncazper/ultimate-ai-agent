@@ -1,6 +1,6 @@
 # Foundation-First Build Policy
 
-Status: Accepted operational policy, v0.4.1
+Status: Accepted operational policy, v0.4.5
 
 ## Policy statement
 
@@ -8,7 +8,7 @@ The Ultimate AI Agent must be built in layers. Foundational capabilities must wo
 
 Mandatory rule:
 
-> Do not build scanners, companion proactivity, skill factory, or self-improving code before the kernel, memory/file system, event ledger, permission model, tool broker, and contract tests work.
+> Do not build scanners, companion proactivity, skill factory, or self-improving code before the kernel, memory/file system, event ledger, permission model, model router, tool broker, cost controls, and contract tests work.
 
 ## Why
 
@@ -23,6 +23,8 @@ Memory Service
 File Manager
 Consent and Permissions Ledger
 Tool Broker
+Model Router
+Cost Governor
 Capability Registry and Dependency Graph
 Rollback primitives
 Contract tests
@@ -80,6 +82,10 @@ Connector-based email/message scanning
 - [ ] File Manager V1 can create, diff, patch, and version project files.
 - [ ] Consent/Permission Ledger V1 exists and is deny-by-default.
 - [ ] Tool Broker V1 routes all tool use and logs risk/approval state.
+- [ ] Model Router V1 routes tasks by model class with cost/privacy policy.
+- [ ] Model capability registry exists and is represented in the Capability Registry.
+- [ ] Routing decisions are logged in the Event Ledger.
+- [ ] Model routing evals pass for cost, privacy, and critical verification.
 - [ ] Capability Registry maps dependencies and blocked modules.
 - [ ] Rollback metadata exists for mutating operations.
 - [ ] Contract test suite passes.

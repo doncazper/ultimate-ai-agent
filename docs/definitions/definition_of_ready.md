@@ -1,6 +1,6 @@
 # Definition of Ready
 
-Status: Canonical draft, v0.4.1
+Status: Canonical draft, v0.4.5
 
 A work item cannot move to `Ready for Build` unless all applicable checks pass.
 
@@ -54,3 +54,8 @@ If yes, it cannot move to Ready for Build until the Foundation Gate passes.
 - [ ] Contract test suite
 - [ ] Shadow replay harness
 - [ ] Basic QA/eval baseline
+
+
+## Model routing addition, v0.4.5
+
+For any feature that invokes LLMs or model-like runtimes, the spec must identify model classes, routing policy, cost mode, privacy level, fallback behavior, verification route, and Event Ledger fields.

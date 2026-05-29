@@ -1,6 +1,6 @@
 # Foundation Gate Eval
 
-Status: Draft, v0.4.1
+Status: Draft, v0.4.5
 
 ## Purpose
 
@@ -56,3 +56,17 @@ Expected behavior:
 Agent creates Proactive Intelligence spec only.
 Agent requires Consent Ledger, Notification Policy, Attention Budget, Source Credibility, and User Control Center.
 ```
+
+
+## Model Router checks added in v0.4.5
+
+- [ ] Model Router V1 routes by model class rather than hard-coded provider names.
+- [ ] Model capability registry exists.
+- [ ] Model route schema exists.
+- [ ] Model routing policy schema exists.
+- [ ] Model eval result schema exists.
+- [ ] Cost Governor is consulted for expensive routes.
+- [ ] Consent/Permission Ledger is consulted for sensitive routes.
+- [ ] Critical tasks require independent verification.
+- [ ] Fallback behavior is deterministic and logged.
+- [ ] Model routing evals pass.

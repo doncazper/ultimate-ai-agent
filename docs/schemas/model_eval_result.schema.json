@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ultimate-ai-agent.local/schemas/model_eval_result.schema.json",
+  "title": "ModelEvalResult",
+  "type": "object",
+  "required": [
+    "eval_result_id",
+    "route_id",
+    "eval_name",
+    "passed",
+    "scores",
+    "created_at"
+  ],
+  "properties": {
+    "eval_result_id": {
+      "type": "string"
+    },
+    "route_id": {
+      "type": "string"
+    },
+    "eval_name": {
+      "type": "string"
+    },
+    "passed": {
+      "type": "boolean"
+    },
+    "scores": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "number"
+      }
+    },
+    "failure_reasons": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "recommended_policy_change": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "metadata": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": false
+}

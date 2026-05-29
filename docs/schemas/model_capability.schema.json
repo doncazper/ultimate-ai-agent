@@ -1,0 +1,147 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ultimate-ai-agent.local/schemas/model_capability.schema.json",
+  "title": "ModelCapability",
+  "type": "object",
+  "required": [
+    "id",
+    "model_class",
+    "provider",
+    "provider_model_id",
+    "status",
+    "supported_modalities",
+    "privacy_classification",
+    "cost_band"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "model_class": {
+      "type": "string",
+      "enum": [
+        "fast_classifier",
+        "standard_assistant",
+        "strong_reasoner",
+        "coding_model",
+        "research_synthesizer",
+        "vision_model",
+        "audio_model",
+        "embedding_model",
+        "reranker",
+        "local_private_model",
+        "structured_output_model",
+        "small_batch_worker",
+        "long_context_model",
+        "high_reliability_critical_model"
+      ]
+    },
+    "provider": {
+      "type": "string"
+    },
+    "provider_model_id": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "experimental",
+        "deprecated",
+        "disabled"
+      ]
+    },
+    "supported_modalities": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "text",
+          "image",
+          "audio",
+          "video",
+          "code",
+          "embedding"
+        ]
+      }
+    },
+    "supports_tools": {
+      "type": "boolean"
+    },
+    "supports_structured_output": {
+      "type": "boolean"
+    },
+    "context_window_tokens": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "cost_band": {
+      "type": "string",
+      "enum": [
+        "free_local",
+        "low",
+        "medium",
+        "high",
+        "premium"
+      ]
+    },
+    "latency_band": {
+      "type": "string",
+      "enum": [
+        "realtime",
+        "fast",
+        "normal",
+        "slow"
+      ]
+    },
+    "privacy_classification": {
+      "type": "string",
+      "enum": [
+        "local_only",
+        "approved_cloud",
+        "secure_cloud",
+        "restricted"
+      ]
+    },
+    "allowed_data_classes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "blocked_data_classes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "known_strengths": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "known_weaknesses": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "eval_scores": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "number"
+      }
+    },
+    "fallbacks": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "metadata": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": false
+}

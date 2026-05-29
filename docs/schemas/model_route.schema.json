@@ -1,0 +1,145 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ultimate-ai-agent.local/schemas/model_route.schema.json",
+  "title": "ModelRoute",
+  "type": "object",
+  "required": [
+    "route_id",
+    "run_id",
+    "task_id",
+    "policy_version",
+    "task_type",
+    "risk_level",
+    "privacy_level",
+    "cost_mode",
+    "selected_model_class",
+    "route_reason",
+    "event_ids"
+  ],
+  "properties": {
+    "route_id": {
+      "type": "string"
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "task_id": {
+      "type": "string"
+    },
+    "policy_version": {
+      "type": "string"
+    },
+    "task_type": {
+      "type": "string"
+    },
+    "subtask_type": {
+      "type": "string"
+    },
+    "risk_level": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ]
+    },
+    "privacy_level": {
+      "type": "string",
+      "enum": [
+        "public",
+        "project_private",
+        "personal_sensitive",
+        "regulated_or_secret",
+        "unknown"
+      ]
+    },
+    "cost_mode": {
+      "type": "string",
+      "enum": [
+        "cheap",
+        "balanced",
+        "premium",
+        "critical",
+        "local_private"
+      ]
+    },
+    "requested_model_class": {
+      "type": "string"
+    },
+    "selected_model_class": {
+      "type": "string"
+    },
+    "selected_capability_id": {
+      "type": "string"
+    },
+    "selected_provider_model": {
+      "type": "string"
+    },
+    "route_reason": {
+      "type": "string"
+    },
+    "estimated_cost_usd": {
+      "type": "number",
+      "minimum": 0
+    },
+    "actual_cost_usd": {
+      "type": "number",
+      "minimum": 0
+    },
+    "latency_ms": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "input_tokens": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "output_tokens": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "fallback_plan": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "fallback_used": {
+      "type": "boolean"
+    },
+    "verification_required": {
+      "type": "boolean"
+    },
+    "verification_route_id": {
+      "type": "string"
+    },
+    "event_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "error_state": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "eval_result_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "metadata": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": false
+}

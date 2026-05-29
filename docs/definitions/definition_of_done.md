@@ -1,6 +1,6 @@
 # Definition of Done
 
-Status: Canonical draft, v0.4.1
+Status: Canonical draft, v0.4.5
 
 A feature is not done when code or text exists. It is done when the system can safely rely on it.
 
@@ -39,3 +39,8 @@ A feature is not done when code or text exists. It is done when the system can s
 - [ ] Source credibility protocol exists for scanner/news modules.
 - [ ] Skill trust scan exists for skill modules.
 - [ ] Human approval gates exist for high-risk actions.
+
+
+## Model routing addition, v0.4.5
+
+For any feature that invokes LLMs or model-like runtimes, the spec must identify model classes, routing policy, cost mode, privacy level, fallback behavior, verification route, and Event Ledger fields.
