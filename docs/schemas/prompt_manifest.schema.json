@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ultimate-ai-agent.local/schemas/prompt_manifest.schema.json",
+  "title": "Prompt Manifest",
+  "type": "object",
+  "required": [
+    "version",
+    "prompts"
+  ],
+  "properties": {
+    "version": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string"
+    },
+    "prompts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "prompt_id",
+          "path",
+          "owner",
+          "required_for",
+          "risk",
+          "evals"
+        ],
+        "properties": {
+          "prompt_id": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "owner": {
+            "type": "string"
+          },
+          "required_for": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "risk": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high",
+              "critical"
+            ]
+          },
+          "evals": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+}

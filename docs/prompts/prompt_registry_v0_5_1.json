@@ -1,0 +1,177 @@
+{
+  "version": "0.5.1",
+  "status": "initial_implementation_prompt_pack",
+  "prompts": [
+    {
+      "prompt_id": "commander_orchestrator",
+      "path": "docs/prompts/commander_orchestrator.system.md",
+      "owner": "Commander",
+      "required_for": [
+        "M1",
+        "M5"
+      ],
+      "risk": "high",
+      "evals": [
+        "execution_contract_eval",
+        "context_pack_eval",
+        "approval_gate_eval"
+      ]
+    },
+    {
+      "prompt_id": "execution_contract_builder",
+      "path": "docs/prompts/execution_contract_builder.system.md",
+      "owner": "Kernel",
+      "required_for": [
+        "M1"
+      ],
+      "risk": "high",
+      "evals": [
+        "execution_contract_eval"
+      ]
+    },
+    {
+      "prompt_id": "context_pack_builder",
+      "path": "docs/prompts/context_pack_builder.system.md",
+      "owner": "Kernel",
+      "required_for": [
+        "M1"
+      ],
+      "risk": "high",
+      "evals": [
+        "context_pack_eval",
+        "canonical_precedence_eval"
+      ]
+    },
+    {
+      "prompt_id": "model_router",
+      "path": "docs/prompts/model_router.system.md",
+      "owner": "Runtime",
+      "required_for": [
+        "M1",
+        "M5"
+      ],
+      "risk": "medium",
+      "evals": [
+        "model_routing_eval",
+        "model_cost_efficiency_eval",
+        "model_privacy_routing_eval"
+      ]
+    },
+    {
+      "prompt_id": "event_ledger_recorder",
+      "path": "docs/prompts/event_ledger_recorder.system.md",
+      "owner": "Platform",
+      "required_for": [
+        "M2"
+      ],
+      "risk": "medium",
+      "evals": [
+        "event_ledger_eval",
+        "observability_replay_eval"
+      ]
+    },
+    {
+      "prompt_id": "consent_policy_checker",
+      "path": "docs/prompts/consent_policy_checker.system.md",
+      "owner": "Security",
+      "required_for": [
+        "M3"
+      ],
+      "risk": "high",
+      "evals": [
+        "consent_permission_eval",
+        "approval_gate_eval"
+      ]
+    },
+    {
+      "prompt_id": "tool_broker_policy_agent",
+      "path": "docs/prompts/tool_broker_policy_agent.system.md",
+      "owner": "Tooling",
+      "required_for": [
+        "M3"
+      ],
+      "risk": "high",
+      "evals": [
+        "tool_broker_eval",
+        "approval_gate_eval"
+      ]
+    },
+    {
+      "prompt_id": "memory_curator",
+      "path": "docs/prompts/memory_curator.system.md",
+      "owner": "Memory",
+      "required_for": [
+        "M4"
+      ],
+      "risk": "high",
+      "evals": [
+        "memory_service_eval",
+        "canonical_precedence_eval"
+      ]
+    },
+    {
+      "prompt_id": "file_manager",
+      "path": "docs/prompts/file_manager.system.md",
+      "owner": "Files",
+      "required_for": [
+        "M4"
+      ],
+      "risk": "high",
+      "evals": [
+        "file_manager_eval",
+        "canonical_precedence_eval"
+      ]
+    },
+    {
+      "prompt_id": "spec_generator",
+      "path": "docs/prompts/spec_generator.system.md",
+      "owner": "Spec SDLC",
+      "required_for": [
+        "M5"
+      ],
+      "risk": "medium",
+      "evals": [
+        "foundation_gate_eval"
+      ]
+    },
+    {
+      "prompt_id": "qa_eval_agent",
+      "path": "docs/prompts/qa_eval_agent.system.md",
+      "owner": "QA",
+      "required_for": [
+        "M5",
+        "M6"
+      ],
+      "risk": "high",
+      "evals": [
+        "foundation_gate_eval"
+      ]
+    },
+    {
+      "prompt_id": "security_reviewer",
+      "path": "docs/prompts/security_reviewer.system.md",
+      "owner": "Security",
+      "required_for": [
+        "M3",
+        "M6"
+      ],
+      "risk": "high",
+      "evals": [
+        "approval_gate_eval"
+      ]
+    },
+    {
+      "prompt_id": "release_receipt_generator",
+      "path": "docs/prompts/release_receipt_generator.system.md",
+      "owner": "Observability",
+      "required_for": [
+        "M2",
+        "M5"
+      ],
+      "risk": "medium",
+      "evals": [
+        "event_ledger_eval"
+      ]
+    }
+  ]
+}

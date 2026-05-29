@@ -1,0 +1,13 @@
+issue_id,title,type,milestone,priority,blocked_until,acceptance
+M0-001,Initialize repo and import v0.5.1 docs/schemas/prompts,chore,M0,P0,,Repo contains docs schemas prompts and active README
+M0-002,Add schema validation script,chore,M0,P0,,All JSON files parse and schema directory validates
+M0-003,Add prompt registry validation script,chore,M0,P0,,Every prompt registry path exists
+M1-001,Implement ExecutionContract model,feature,M1,P0,M0,Model validates against schema and tests pass
+M1-002,Implement ContextPack model,feature,M1,P0,M0,Model validates against schema and tests pass
+M1-005,Implement advanced-module blocking checks,feature,M1,P0,M0,Scanners companion skills and self-improvement blocked before Foundation Gate
+M2-003,Implement append-only event writer,feature,M2,P0,M1,Run events can be appended and read back
+M2-004,Implement receipt generator,feature,M2,P1,M1,Receipt summarizes run without secrets
+M3-005,Implement mock tool broker,feature,M3,P0,M2,Tool request path checks contract and consent stubs
+M4-005,Implement local file patch proposal flow,feature,M4,P0,M3,File patch preview and rollback metadata generated
+M5-003,Generate Memory V1 spec from contract/context,feature,M5,P0,M4,Vertical slice creates spec files and receipt
+M6-003,Verify advanced modules remain blocked,eval,M6,P0,M5,Foundation Gate eval fails if blocked modules can execute
