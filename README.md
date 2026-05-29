@@ -1,5 +1,5 @@
-# Ultimate AI Agent
+# Ultimate AI Agent v0.4 Canonical Bundle
 
-A Commander-led, spec-driven, memory-backed AI operating system for turning vague goals into verified completed outcomes.
+This bundle contains the v0.4 master plan plus draft canonical module files and ADR placeholders for the new trust/control and layered-brain architecture additions.
 
-This repository was initialized from the planning history generated before implementation begins. The build is foundation-first: kernel contracts, context packs, event ledger, consent/tool broker, memory/file systems, and contract tests come before scanners, companion proactivity, skill factory, self-improving code, or autopilot workflows.
+The master plan remains the most complete document. The canonical files are starting points to be expanded during M0/M26 foundation work.
