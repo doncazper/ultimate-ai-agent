@@ -18,3 +18,16 @@ No blocked advanced module depends on unstable internals.
 ```
 
 A feature is not Done just because it works once. It is Done when it is testable, logged, permissioned, and safe to build on.
+
+## v0.5.2 Stack Completion Addendum
+
+A foundation implementation task is not done unless:
+
+```text
+It respects the Agent API Boundary.
+It does not allow UI clients to bypass policy.
+Mutating paths produce Event Ledger records.
+Contracts/schemas are updated.
+Relevant stack/boundary tests pass.
+Docs and ADRs are updated if the boundary changes.
+```

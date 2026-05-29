@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ServiceManifest",
+  "type": "object",
+  "required": [
+    "service_id",
+    "name",
+    "language",
+    "responsibilities",
+    "interfaces",
+    "dependencies",
+    "status"
+  ],
+  "properties": {
+    "service_id": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "language": {
+      "type": "string",
+      "enum": [
+        "python",
+        "typescript",
+        "mixed",
+        "none"
+      ]
+    },
+    "responsibilities": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "interfaces": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "dependencies": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "owns_durable_state": {
+      "type": "boolean"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "planned",
+        "ready_for_build",
+        "building",
+        "active",
+        "deprecated"
+      ]
+    }
+  },
+  "additionalProperties": false
+}

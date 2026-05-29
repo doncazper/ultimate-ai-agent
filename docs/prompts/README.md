@@ -43,3 +43,9 @@ prompt_eval_matrix.md
 ## Use in implementation
 
 The first implementation should load prompts by `prompt_id`, not by hard-coded path. Prompt metadata lives in the prompt registry.
+
+## v0.5.2 Addition
+
+Added `agent_gateway_guard.system.md` to protect the API boundary and prevent OpenWebUI or UI clients from bypassing Agent Core policy.
+
+Active registry: `prompt_registry_v0_5_2.json`.

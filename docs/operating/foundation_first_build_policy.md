@@ -128,3 +128,19 @@ Feature flag or migration plan
 Rollback plan
 Release notes
 ```
+
+## v0.5.2 Stack Enforcement Addendum
+
+The scalable stack is part of the foundation gate.
+
+Rules:
+
+```text
+Python Agent Core owns durable policy and execution.
+OpenWebUI is an optional chat shell only.
+TypeScript Control Center is a UI/control surface only.
+All clients enter through Agent API Boundary.
+No client bypasses Consent Ledger, Tool Broker, Event Ledger, or Memory/File policy.
+```
+
+Advanced modules remain blocked until API boundary and OpenWebUI bypass evals pass.

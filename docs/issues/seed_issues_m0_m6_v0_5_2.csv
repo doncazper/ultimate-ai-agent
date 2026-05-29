@@ -1,0 +1,11 @@
+id,milestone,title,status
+M0-001,M0,Import v0.5.2 canonical bundle,Inbox
+M0-002,M0,Create Python Agent Core package skeleton,Inbox
+M0-003,M0,Add schema validation script,Inbox
+M0-004,M0,Add prompt registry validation script,Inbox
+M0-005,M0,Add basic FastAPI health/API boundary placeholder,Inbox
+M0-006,M0,Add Docker Compose scaffold for Postgres,Inbox
+M0-007,M0,Add .env.example,Inbox
+M0-008,M0,Add OpenWebUI config folder as optional shell,Inbox
+M0-009,M0,Add API boundary bypass test skeleton,Inbox
+M0-010,M0,Add CI validation workflow,Inbox

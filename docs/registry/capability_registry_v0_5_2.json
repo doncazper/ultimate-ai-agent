@@ -1,0 +1,156 @@
+{
+  "version": "0.5.2",
+  "foundation_gate_required": true,
+  "stack_baseline": {
+    "agent_core": "python_fastapi_pydantic",
+    "control_center": "typescript_later",
+    "chat_shell": "openwebui_optional",
+    "database": "postgres",
+    "local_dev": "docker_compose",
+    "api_boundary": "stable_agent_gateway"
+  },
+  "foundation_capabilities": [
+    {
+      "id": "agent_api_boundary",
+      "status": "ready_for_build",
+      "blocks": [
+        "openwebui_shell",
+        "control_center",
+        "external_clients",
+        "tool_access"
+      ]
+    },
+    {
+      "id": "execution_contract",
+      "status": "ready_for_build",
+      "blocks": [
+        "orchestrator",
+        "tool_broker",
+        "memory_service",
+        "file_manager",
+        "model_router"
+      ]
+    },
+    {
+      "id": "context_pack",
+      "status": "ready_for_build",
+      "blocks": [
+        "orchestrator",
+        "memory_recall",
+        "scanner_context",
+        "verifier"
+      ]
+    },
+    {
+      "id": "event_ledger",
+      "status": "ready_for_build",
+      "blocks": [
+        "rollback",
+        "self_improvement",
+        "observability",
+        "cost_governor"
+      ]
+    },
+    {
+      "id": "consent_ledger",
+      "status": "spec_review",
+      "blocks": [
+        "email_scanner",
+        "message_scanner",
+        "companion_memory",
+        "cloud_model_routing"
+      ]
+    },
+    {
+      "id": "tool_broker",
+      "status": "spec_review",
+      "blocks": [
+        "file_write",
+        "code_execute",
+        "web_access",
+        "external_actions"
+      ]
+    },
+    {
+      "id": "memory_service",
+      "status": "spec_review",
+      "blocks": [
+        "long_term_learning",
+        "companion_layer",
+        "proactive_intelligence"
+      ]
+    },
+    {
+      "id": "file_manager",
+      "status": "spec_review",
+      "blocks": [
+        "canonical_files",
+        "spec_sdlc",
+        "self_improving_code"
+      ]
+    },
+    {
+      "id": "model_router",
+      "status": "spec_review",
+      "blocks": [
+        "scanners",
+        "self_improving_code",
+        "high_volume_tasks"
+      ]
+    },
+    {
+      "id": "cost_governor",
+      "status": "draft_detail_needed",
+      "blocks": [
+        "scanners",
+        "model_router_scale",
+        "autopilot"
+      ]
+    },
+    {
+      "id": "rollback_primitives",
+      "status": "draft_detail_needed",
+      "blocks": [
+        "external_actions",
+        "self_improving_code"
+      ]
+    },
+    {
+      "id": "openwebui_chat_shell",
+      "status": "planned_optional",
+      "blocks": [],
+      "must_not_own": [
+        "memory",
+        "consent",
+        "event_ledger",
+        "tool_broker",
+        "canonical_files"
+      ]
+    },
+    {
+      "id": "typescript_control_center",
+      "status": "planned_later",
+      "blocks": [],
+      "depends_on": [
+        "agent_api_boundary",
+        "event_ledger",
+        "consent_ledger",
+        "memory_service"
+      ]
+    }
+  ],
+  "blocked_capabilities": [
+    "reddit_scanner",
+    "news_scanner",
+    "weather_module",
+    "email_scanner",
+    "message_scanner",
+    "calendar_scanner",
+    "proactive_intelligence",
+    "companion_proactivity",
+    "skill_factory",
+    "self_improving_coding_framework",
+    "autopilot_workflows"
+  ],
+  "rule": "Blocked capabilities cannot move to Ready for Build until Foundation Gate passes, including API boundary and OpenWebUI bypass tests."
+}

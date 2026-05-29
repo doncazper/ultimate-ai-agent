@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ApiBoundaryContract",
+  "type": "object",
+  "required": [
+    "route_id",
+    "client_type",
+    "operation",
+    "requires_execution_contract",
+    "requires_event_log",
+    "allowed_callers"
+  ],
+  "properties": {
+    "route_id": {
+      "type": "string"
+    },
+    "client_type": {
+      "type": "string",
+      "enum": [
+        "openwebui",
+        "control_center",
+        "cli",
+        "worker",
+        "tool_server",
+        "external_agent"
+      ]
+    },
+    "operation": {
+      "type": "string"
+    },
+    "requires_execution_contract": {
+      "type": "boolean"
+    },
+    "requires_context_pack": {
+      "type": "boolean"
+    },
+    "requires_consent_check": {
+      "type": "boolean"
+    },
+    "requires_tool_broker": {
+      "type": "boolean"
+    },
+    "requires_event_log": {
+      "type": "boolean"
+    },
+    "allowed_callers": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "forbidden_bypasses": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "risk_level": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ]
+    }
+  },
+  "additionalProperties": false
+}

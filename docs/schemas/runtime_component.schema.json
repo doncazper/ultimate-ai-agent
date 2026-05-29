@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RuntimeComponent",
+  "type": "object",
+  "required": [
+    "id",
+    "name",
+    "layer",
+    "runtime",
+    "owns",
+    "may_access",
+    "must_not_access"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "layer": {
+      "type": "string",
+      "enum": [
+        "ui",
+        "api_boundary",
+        "agent_core",
+        "worker",
+        "tool_server",
+        "database",
+        "infra"
+      ]
+    },
+    "runtime": {
+      "type": "string",
+      "enum": [
+        "python",
+        "typescript",
+        "openwebui",
+        "postgres",
+        "docker",
+        "external",
+        "other"
+      ]
+    },
+    "owns": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "may_access": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "must_not_access": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "contracts": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "planned",
+        "ready_for_build",
+        "building",
+        "active",
+        "deprecated"
+      ]
+    }
+  },
+  "additionalProperties": false
+}

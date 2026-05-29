@@ -96,3 +96,34 @@ Active foundation build items: max 2
 Active feature specs: max 3
 Advanced module implementation: 0 until Foundation Gate passes
 ```
+
+## v0.5.2 Stack Integration Items
+
+### Ready for Build / M0
+
+```text
+Create Python Agent Core skeleton
+Create schema validation script
+Create prompt registry validation script
+Create Agent API Boundary placeholder
+Create Docker Compose scaffold
+Create OpenWebUI config folder as optional shell
+Draft API boundary bypass tests
+```
+
+### Parking Lot / Later
+
+```text
+Full TypeScript Control Center implementation
+Browser extension
+Mobile app
+OpenWebUI production customization beyond chat shell
+```
+
+### Blocked
+
+```text
+Any OpenWebUI function that directly writes memory/files/tools
+Any UI client direct database access
+Any scanner/proactive/skill/self-improvement work before Foundation Gate
+```

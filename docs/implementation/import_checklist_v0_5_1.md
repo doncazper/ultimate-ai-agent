@@ -43,3 +43,14 @@
 ## Import warning
 
 Do not import this bundle as generated application code. Import it as canonical project material.
+
+## v0.5.2 Stack Import Addendum
+
+```text
+Create /services/agent-core.
+Create /apps/openwebui as optional config shell.
+Create /apps/control-center placeholder only if desired.
+Create /packages/schemas for shared contracts.
+Create /infra/compose for Docker Compose.
+Do not wire OpenWebUI directly to database, files, memory, or tools.
+```

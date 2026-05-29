@@ -1,6 +1,6 @@
-# 05 Development Workflow
+# 05 Development Workflow v0.5.2
 
-Status: Canonical draft, v0.4.1
+Status: Canonical foundation workflow with scalable stack strategy incorporated.
 
 ## Purpose
 
@@ -21,13 +21,24 @@ North Star
   -> Retro / Memory + Canonical Updates
 ```
 
+## Stack baseline
+
+```text
+Python Agent Core for foundation runtime.
+TypeScript Control Center for user-facing control surfaces later.
+OpenWebUI as optional early chat shell, not the brain.
+Stable API Boundary between all clients and Agent Core.
+Postgres for durable state.
+Docker Compose for local development.
+```
+
 ## Foundation-first rule
 
 The project must be built like an onion or a brain. Lower layers must work before higher-order capabilities are implemented.
 
 **Mandatory rule:**
 
-> Do not build scanners, companion proactivity, skill factory, or self-improving code before the kernel, memory/file system, event ledger, permission model, tool broker, and contract tests work.
+> Do not build scanners, companion proactivity, Skill Factory, self-improving code, or autopilot workflows before the kernel, memory/file system, event ledger, permission model, tool broker, model router, cost governor, API boundary, rollback primitives, and contract tests work.
 
 Advanced modules may be researched, shaped, specced, and parked, but they cannot move into `Ready for Build` until the Foundation Gate passes.
 
@@ -48,44 +59,6 @@ Parking Lot
 Blocked
 ```
 
-## Column policies
-
-### Inbox
-Raw ideas, notes, bugs, wishes, questions, and external parity targets.
-
-### Shaping
-Problem, appetite, non-goals, dependencies, risk, and gate requirements are defined.
-
-### Spec Draft
-Requirements, design, tasks, test plan, and acceptance criteria are written.
-
-### Spec Review
-The spec is checked against canonical files, roadmap, risk, security, data lifecycle, and dependency graph.
-
-### Ready for Build
-A work item may enter this column only if Definition of Ready passes. If it depends on the Foundation Gate, the gate must be passed first.
-
-### Building
-Implementation is in progress. WIP limit: 2.
-
-### Code Review
-Human or agent review, depending on risk level.
-
-### QA / Evals
-Tests, evals, contract tests, security checks, memory checks, permission checks, and acceptance criteria.
-
-### Release Candidate
-Ready for release behind the appropriate feature flag, canary, or manual approval gate.
-
-### Done
-Released, verified, documented, traceable, and memory/canonical files updated.
-
-### Parking Lot
-Valuable ideas that are explicitly not now.
-
-### Blocked
-Cannot move forward until dependency, decision, permission, gate, or external resource is resolved.
-
 ## WIP limits
 
 ```text
@@ -103,13 +76,17 @@ Release Candidate: 2
 The Foundation Gate passes only when these are working and tested:
 
 ```text
-Execution Contract schema
-Context Pack schema
-Run/Event Ledger schema
+Execution Contract schema/model
+Context Pack schema/model
+Run/Event Ledger schema/model
+Model Router V1 policy stub
+Cost Governor minimal integration
+Consent Ledger V1
+Tool Broker V1
 Memory Service V1
 File Manager V1
-Permission/Consent Ledger V1
-Tool Broker V1
+Agent API Boundary
+OpenWebUI cannot bypass Agent Core policy
 Capability Registry and Dependency Graph
 Rollback primitives
 Contract test suite
@@ -144,6 +121,7 @@ High-autonomy External Execution
 12. No self-improvement merge without tests, evals, review, and approval gates appropriate to risk.
 13. No external skill install without trust evaluation and quarantine.
 14. No advanced module can bypass the Foundation Gate.
+15. No UI surface can bypass the Agent API Boundary, Consent Ledger, Tool Broker, or Event Ledger.
 
 ## Definition references
 
@@ -151,3 +129,4 @@ High-autonomy External Execution
 - `docs/definitions/definition_of_done.md`
 - `docs/operating/foundation_first_build_policy.md`
 - `docs/kanban/current_board.md`
+- `docs/canonical/38_scalable_stack_and_ui_strategy.md`
