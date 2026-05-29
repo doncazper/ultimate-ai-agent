@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ultimate-ai-agent.local/schemas/tool_call_request.schema.json",
+  "title": "ToolCallRequest",
+  "type": "object",
+  "required": [
+    "tool_call_id",
+    "run_id",
+    "contract_id",
+    "tool_id",
+    "caller_id",
+    "requested_action",
+    "input",
+    "dry_run",
+    "schema_version"
+  ],
+  "properties": {
+    "tool_call_id": {
+      "type": "string"
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "contract_id": {
+      "type": "string"
+    },
+    "tool_id": {
+      "type": "string"
+    },
+    "caller_id": {
+      "type": "string"
+    },
+    "requested_action": {
+      "type": "string"
+    },
+    "input": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "dry_run": {
+      "type": "boolean"
+    },
+    "risk_override_reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "approval_request_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "schema_version": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,115 @@
+{
+  "version": "0.5.0",
+  "foundation_gate_required": true,
+  "foundation_capabilities": [
+    {
+      "id": "execution_contract",
+      "status": "ready_for_build",
+      "blocks": [
+        "orchestrator",
+        "tool_broker",
+        "memory_service",
+        "file_manager",
+        "model_router"
+      ]
+    },
+    {
+      "id": "context_pack",
+      "status": "ready_for_build",
+      "blocks": [
+        "orchestrator",
+        "memory_recall",
+        "scanner_context",
+        "verifier"
+      ]
+    },
+    {
+      "id": "event_ledger",
+      "status": "ready_for_build",
+      "blocks": [
+        "rollback",
+        "self_improvement",
+        "observability",
+        "cost_governor"
+      ]
+    },
+    {
+      "id": "consent_ledger",
+      "status": "spec_review",
+      "blocks": [
+        "email_scanner",
+        "message_scanner",
+        "companion_memory",
+        "cloud_model_routing"
+      ]
+    },
+    {
+      "id": "tool_broker",
+      "status": "spec_review",
+      "blocks": [
+        "file_write",
+        "code_execute",
+        "web_access",
+        "external_actions"
+      ]
+    },
+    {
+      "id": "memory_service",
+      "status": "spec_review",
+      "blocks": [
+        "long_term_learning",
+        "companion_layer",
+        "proactive_intelligence"
+      ]
+    },
+    {
+      "id": "file_manager",
+      "status": "spec_review",
+      "blocks": [
+        "canonical_files",
+        "spec_sdlc",
+        "self_improving_code"
+      ]
+    },
+    {
+      "id": "model_router",
+      "status": "spec_review",
+      "blocks": [
+        "scanners",
+        "self_improving_code",
+        "high_volume_tasks"
+      ]
+    },
+    {
+      "id": "cost_governor",
+      "status": "draft_detail_needed",
+      "blocks": [
+        "scanners",
+        "model_router_scale",
+        "autopilot"
+      ]
+    },
+    {
+      "id": "rollback_primitives",
+      "status": "draft_detail_needed",
+      "blocks": [
+        "external_actions",
+        "self_improving_code"
+      ]
+    }
+  ],
+  "blocked_capabilities": [
+    "reddit_scanner",
+    "news_scanner",
+    "weather_module",
+    "email_scanner",
+    "message_scanner",
+    "calendar_scanner",
+    "proactive_intelligence",
+    "companion_proactivity",
+    "skill_factory",
+    "self_improving_coding_framework",
+    "autopilot_workflows"
+  ],
+  "rule": "Blocked capabilities cannot move to Ready for Build until Foundation Gate passes."
+}

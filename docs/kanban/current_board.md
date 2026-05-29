@@ -1,35 +1,66 @@
-# Current Kanban Board
+# Current Kanban Board — v0.5.0 Foundation Sequence
 
-Status: Active board snapshot, v0.4.5
+Status: Active operating board. Advanced modules remain blocked until Foundation Gate passes.
 
-## Active product goal
+## Inbox
 
-Build the stable foundation of the Ultimate AI Agent before implementing higher-order intelligence.
+```text
+Future scanner source list
+Future companion UX ideas
+Future Skill Factory marketplace ideas
+Future autopilot workflows
+```
 
-## Foundation-first rule
+## Shaping
 
-> Do not build scanners, companion proactivity, skill factory, or self-improving code before the kernel, memory/file system, event ledger, permission model, model router, tool broker, cost controls, and contract tests work.
+```text
+Foundation Gate implementation plan
+Memory V1 spec vertical slice
+```
 
-## Board
+## Spec Draft
 
-| Column | Items |
-|---|---|
-| Inbox | Feature parity matrix expansion; scanner source list; companion UX ideas; skill marketplace ideas |
-| Shaping | M0 Project Foundation; M1 Kernel Contracts and Event Ledger V1; M2 Consent/Permissions V1; M4.5 Model Router V1 |
-| Spec Draft | Definition of Ready; Definition of Done; Foundation Gate checklist; Capability manifest schema; Model capability schema; Model route schema; Model routing policy schema |
-| Spec Review | v0.4.5 Development Workflow; v0.4.5 Roadmap; Foundation-First Build Policy |
-| Ready for Build | Canonical file tree; ADR index; Run/Event Ledger schema draft; Execution Contract schema draft; Model routing strategy v0.4.5 |
-| Building | v0.4.5 operational files and bundle |
-| Code Review | None |
-| QA / Evals | Review v0.4.5 bundle consistency; verify advanced modules are blocked by Foundation Gate; verify model routing is included in Foundation Gate |
-| Release Candidate | v0.4.5 master plan and canonical bundle |
-| Done | v0.4 master plan; v0.4 trust/control modules; v0.4.5 foundation-first operational update |
-| Parking Lot | Reddit Scanner; News Scanner; Weather Module; Email Scanner; Message Scanner; Companion Proactivity; Skill Factory; Self-Improving Coding Framework; Autopilot Workflows |
-| Blocked | Any scanner implementation; autonomous proactive notifications; external skill installation; self-improvement merge loop; high-autonomy external execution |
+```text
+M1 Kernel Contracts
+M2 Event Ledger
+M3 Consent Ledger + Tool Broker
+M4 Memory Service + File Manager
+```
 
-## Explicit blocked items
+## Spec Review
 
-These items are blocked until the Foundation Gate passes:
+```text
+Model Routing Strategy v0.4.5
+Execution Contract + Context Pack v0.4.6
+Event Ledger / Observability v0.4.7
+Consent Ledger + Tool Broker v0.4.8
+Memory Service + File Manager v0.4.9
+```
+
+## Ready for Build
+
+```text
+Repository/canonical docs initialization
+Schema validation CI
+Execution Contract schema/model
+Context Pack schema/model
+Event Ledger append-only table
+```
+
+## Building
+
+```text
+None until implementation repo is initialized
+```
+
+## QA / Evals
+
+```text
+Foundation contract test matrix design
+Shadow replay fixture design
+```
+
+## Blocked by Foundation Gate
 
 ```text
 Reddit Scanner
@@ -38,20 +69,30 @@ Weather Module
 Email Scanner
 Message Scanner
 Calendar Scanner
-Proactive Intelligence notifications
-Companion Layer implementation
-Skill Acquisition / Skill Factory implementation
-Self-Improving Coding Framework implementation
+Proactive Intelligence
+Companion Proactivity
+Skill Factory
+Self-Improving Coding Framework
 Autopilot Workflows
+External high-autonomy execution
 ```
 
-## Current WIP limit
+## Parking Lot
 
 ```text
-Building: max 2
-Current active build items: 1
+Voice interface
+Agent marketplace
+Full browser automation
+Multi-user enterprise mode
+Advanced graph memory
+Mobile app
+Third-party plugin ecosystem
 ```
 
-## Next move
+## WIP limits
 
-Finish M0 and then start M1/M2 in parallel only if WIP limits permit.
+```text
+Active foundation build items: max 2
+Active feature specs: max 3
+Advanced module implementation: 0 until Foundation Gate passes
+```

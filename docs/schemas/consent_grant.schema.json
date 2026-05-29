@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ultimate-ai-agent.local/schemas/consent_grant.schema.json",
+  "title": "ConsentGrant",
+  "type": "object",
+  "required": [
+    "consent_id",
+    "workspace_id",
+    "user_id",
+    "scope",
+    "status",
+    "allowed_actions",
+    "created_at",
+    "schema_version"
+  ],
+  "properties": {
+    "consent_id": {
+      "type": "string"
+    },
+    "workspace_id": {
+      "type": "string"
+    },
+    "user_id": {
+      "type": "string"
+    },
+    "project_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "account_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "scope": {
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "requested",
+        "active",
+        "denied",
+        "expired",
+        "revoked",
+        "suspended",
+        "superseded"
+      ]
+    },
+    "allowed_actions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "denied_actions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "allowed_content": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "excluded_content": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "model_routing_policy": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "approval_required_for": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "expires_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "schema_version": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false
+}

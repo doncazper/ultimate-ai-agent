@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ultimate-ai-agent.local/schemas/file_manifest.schema.json",
+  "title": "FileManifest",
+  "type": "object",
+  "required": [
+    "file_id",
+    "workspace_id",
+    "path",
+    "file_class",
+    "authority_level",
+    "hash",
+    "schema_version"
+  ],
+  "properties": {
+    "file_id": {
+      "type": "string"
+    },
+    "workspace_id": {
+      "type": "string"
+    },
+    "project_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "path": {
+      "type": "string"
+    },
+    "file_class": {
+      "type": "string"
+    },
+    "authority_level": {
+      "enum": [
+        "canonical",
+        "high",
+        "medium",
+        "low",
+        "external_source"
+      ]
+    },
+    "mime_type": {
+      "type": "string"
+    },
+    "hash": {
+      "type": "string"
+    },
+    "version": {
+      "type": "integer"
+    },
+    "summary": {
+      "type": "string"
+    },
+    "linked_memory_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "linked_event_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "schema_version": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false
+}

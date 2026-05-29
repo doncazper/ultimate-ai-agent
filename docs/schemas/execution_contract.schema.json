@@ -1,0 +1,226 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ultimate-ai-agent.local/schemas/execution_contract.schema.json",
+  "title": "ExecutionContract",
+  "type": "object",
+  "required": [
+    "contract_id",
+    "run_id",
+    "workspace_id",
+    "user_id",
+    "origin",
+    "goal",
+    "deliverable",
+    "mode",
+    "risk_level",
+    "autonomy_level",
+    "status",
+    "acceptance_criteria",
+    "approval_policy",
+    "event_logging_policy",
+    "schema_version"
+  ],
+  "properties": {
+    "contract_id": {
+      "type": "string",
+      "pattern": "^ec_[A-Za-z0-9_:-]+$"
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "workspace_id": {
+      "type": "string"
+    },
+    "user_id": {
+      "type": "string"
+    },
+    "project_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "origin": {
+      "enum": [
+        "user_request",
+        "scheduled_task",
+        "scanner_event",
+        "system_event",
+        "retry",
+        "replay"
+      ]
+    },
+    "request_summary": {
+      "type": "string"
+    },
+    "goal": {
+      "type": "string",
+      "minLength": 1
+    },
+    "deliverable": {
+      "type": "string",
+      "minLength": 1
+    },
+    "mode": {
+      "enum": [
+        "answer",
+        "research",
+        "create",
+        "execute",
+        "manage",
+        "spec",
+        "code",
+        "review",
+        "monitor",
+        "notify",
+        "self_improve"
+      ]
+    },
+    "risk_level": {
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ]
+    },
+    "autonomy_level": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 5
+    },
+    "status": {
+      "enum": [
+        "draft",
+        "validated",
+        "context_bound",
+        "planned",
+        "executing",
+        "waiting_for_approval",
+        "verifying",
+        "completed",
+        "failed",
+        "cancelled",
+        "superseded",
+        "archived"
+      ]
+    },
+    "assumptions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "unknowns": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "constraints": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "acceptance_criteria": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string"
+      }
+    },
+    "required_context": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "forbidden_context": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "allowed_tools": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "forbidden_tools": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "required_model_classes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "required_subagents": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "approval_policy": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "privacy_policy": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "cost_policy": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "rollback_policy": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "event_logging_policy": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "canonical_files_to_read": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "canonical_files_to_update": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "memory_scopes_to_read": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "memory_scopes_to_write": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "schema_version": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false
+}

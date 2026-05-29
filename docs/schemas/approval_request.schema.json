@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ultimate-ai-agent.local/schemas/approval_request.schema.json",
+  "title": "ApprovalRequest",
+  "type": "object",
+  "required": [
+    "approval_request_id",
+    "run_id",
+    "contract_id",
+    "reason",
+    "risk_level",
+    "requested_action",
+    "status",
+    "created_at",
+    "schema_version"
+  ],
+  "properties": {
+    "approval_request_id": {
+      "type": "string"
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "contract_id": {
+      "type": "string"
+    },
+    "reason": {
+      "type": "string"
+    },
+    "risk_level": {
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ]
+    },
+    "requested_action": {
+      "type": "string"
+    },
+    "preview": {
+      "type": "string"
+    },
+    "affected_resources": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "rollback_summary": {
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "pending",
+        "approved",
+        "denied",
+        "expired",
+        "cancelled"
+      ]
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "decided_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "decided_by": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "schema_version": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false
+}

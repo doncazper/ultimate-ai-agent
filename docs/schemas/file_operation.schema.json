@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ultimate-ai-agent.local/schemas/file_operation.schema.json",
+  "title": "FileOperation",
+  "type": "object",
+  "required": [
+    "operation_id",
+    "run_id",
+    "contract_id",
+    "operation_type",
+    "path",
+    "status",
+    "schema_version"
+  ],
+  "properties": {
+    "operation_id": {
+      "type": "string"
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "contract_id": {
+      "type": "string"
+    },
+    "operation_type": {
+      "enum": [
+        "read",
+        "create",
+        "propose_patch",
+        "apply_patch",
+        "write_atomic",
+        "move",
+        "delete",
+        "index",
+        "rollback"
+      ]
+    },
+    "path": {
+      "type": "string"
+    },
+    "before_hash": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "after_hash": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "patch_ref": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "approval_request_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "rollback_ref": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "status": {
+      "enum": [
+        "requested",
+        "authorized",
+        "applied",
+        "blocked",
+        "failed",
+        "rolled_back"
+      ]
+    },
+    "schema_version": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false
+}

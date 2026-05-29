@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ultimate-ai-agent.local/schemas/agent_run.schema.json",
+  "title": "AgentRun",
+  "type": "object",
+  "required": [
+    "run_id",
+    "workspace_id",
+    "user_id",
+    "origin",
+    "status",
+    "created_at",
+    "schema_version"
+  ],
+  "properties": {
+    "run_id": {
+      "type": "string"
+    },
+    "workspace_id": {
+      "type": "string"
+    },
+    "user_id": {
+      "type": "string"
+    },
+    "project_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "origin": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string"
+    },
+    "current_contract_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "root_event_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "summary": {
+      "type": "string"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "schema_version": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false
+}

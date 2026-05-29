@@ -1,0 +1,171 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ultimate-ai-agent.local/schemas/event_ledger_event.schema.json",
+  "title": "EventLedgerEvent",
+  "type": "object",
+  "required": [
+    "event_id",
+    "run_id",
+    "event_type",
+    "actor_type",
+    "actor_id",
+    "timestamp",
+    "workspace_id",
+    "summary",
+    "status",
+    "schema_version"
+  ],
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "pattern": "^evt_[A-Za-z0-9_:-]+$"
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "contract_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "event_type": {
+      "type": "string"
+    },
+    "event_category": {
+      "enum": [
+        "contract",
+        "context",
+        "model_route",
+        "subagent",
+        "tool",
+        "file",
+        "memory",
+        "approval",
+        "web_or_scanner",
+        "code_execution",
+        "eval",
+        "notification",
+        "cost",
+        "rollback",
+        "error",
+        "delivery"
+      ]
+    },
+    "actor_type": {
+      "enum": [
+        "user",
+        "orchestrator",
+        "subagent",
+        "tool",
+        "model_router",
+        "system",
+        "evaluator"
+      ]
+    },
+    "actor_id": {
+      "type": "string"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "workspace_id": {
+      "type": "string"
+    },
+    "project_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "correlation_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "parent_event_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "input_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "output_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "policy_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "risk_level": {
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ]
+    },
+    "sensitivity": {
+      "type": "string"
+    },
+    "summary": {
+      "type": "string"
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "redaction_status": {
+      "enum": [
+        "none",
+        "partial",
+        "full",
+        "reference_only"
+      ]
+    },
+    "cost_estimate": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "actual_cost": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "latency_ms": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "status": {
+      "enum": [
+        "started",
+        "succeeded",
+        "failed",
+        "blocked",
+        "cancelled",
+        "skipped"
+      ]
+    },
+    "schema_version": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false
+}

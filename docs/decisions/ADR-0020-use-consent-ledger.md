@@ -1,26 +1,23 @@
-# ADR-0020-use-consent-ledger: Use Consent Ledger
+# ADR-0020: Use a Consent and Permissions Ledger
 
-## Status
-
-Accepted as v0.4 planning baseline.
+Status: Accepted; expanded in v0.4.8
 
 ## Context
 
-The Ultimate AI Agent is expanding into a companion-style, proactive, self-improving, skill-acquiring system with scanners, code execution, file management, memory, external tools, and user-specific learning. This requires strong trust, control, stability, and recovery infrastructure.
+The agent will access personal/project data, scan communications, monitor sources, write memory, use cloud/local models, and execute actions. Action-level approval is not enough; the system needs durable, inspectable consent boundaries.
 
 ## Decision
 
-Adopt: Use Consent Ledger.
+Use a Consent and Permissions Ledger to record active grants, denied scopes, content boundaries, model routing restrictions, expirations, revocations, and approval requirements. The Orchestrator, Context Pack Builder, Model Router, Tool Broker, Memory Service, File Manager, and scanner modules must consult it.
 
 ## Consequences
 
-- Improves trust, auditability, and long-term maintainability.
-- Adds upfront architecture work before high-autonomy modules can safely ship.
-- Requires schemas, evals, user controls, and observability events.
-- Must be represented in canonical files and the Capability Registry.
+Positive:
+- User remains in control.
+- Sensitive data can be scoped by source, account, content category, and purpose.
+- Revocation can stop future access and trigger cleanup.
+- Enables companion behavior without uncontrolled surveillance.
 
-## Related
-
-- /docs/canonical/TBD
-- /docs/canonical/31_layered_brain_architecture.md
-- /docs/canonical/34_foundation_change_management_and_contract_testing.md
+Tradeoffs:
+- Requires policy evaluation and UI surface.
+- Some convenience is gated until consent is explicit.

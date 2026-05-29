@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ultimate-ai-agent.local/schemas/tool_manifest.schema.json",
+  "title": "ToolManifest",
+  "type": "object",
+  "required": [
+    "tool_id",
+    "name",
+    "version",
+    "capability_scopes",
+    "risk_class",
+    "input_schema_ref",
+    "output_schema_ref",
+    "side_effects",
+    "schema_version"
+  ],
+  "properties": {
+    "tool_id": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string"
+    },
+    "owner": {
+      "type": "string"
+    },
+    "capability_scopes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "risk_class": {
+      "enum": [
+        "R0",
+        "R1",
+        "R2",
+        "R3",
+        "R4",
+        "R5",
+        "R6",
+        "R7",
+        "R8",
+        "R9"
+      ]
+    },
+    "input_schema_ref": {
+      "type": "string"
+    },
+    "output_schema_ref": {
+      "type": "string"
+    },
+    "side_effects": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "requires_consent_scopes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "requires_approval_conditions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "supports_dry_run": {
+      "type": "boolean"
+    },
+    "supports_rollback": {
+      "type": "boolean"
+    },
+    "network_access": {
+      "type": "string"
+    },
+    "filesystem_access": {
+      "type": "string"
+    },
+    "credential_requirements": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "rate_limits": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "cost_model": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "timeout_ms": {
+      "type": "integer"
+    },
+    "audit_fields": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "schema_version": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false
+}

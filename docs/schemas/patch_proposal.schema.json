@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ultimate-ai-agent.local/schemas/patch_proposal.schema.json",
+  "title": "PatchProposal",
+  "type": "object",
+  "required": [
+    "patch_id",
+    "file_path",
+    "operation_type",
+    "reason",
+    "diff",
+    "risk_level",
+    "schema_version"
+  ],
+  "properties": {
+    "patch_id": {
+      "type": "string"
+    },
+    "file_path": {
+      "type": "string"
+    },
+    "operation_type": {
+      "type": "string"
+    },
+    "reason": {
+      "type": "string"
+    },
+    "before_hash": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "after_hash": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "diff": {
+      "type": "string"
+    },
+    "related_contract_id": {
+      "type": "string"
+    },
+    "related_event_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "risk_level": {
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ]
+    },
+    "approval_required": {
+      "type": "boolean"
+    },
+    "rollback_plan": {
+      "type": "string"
+    },
+    "schema_version": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false
+}

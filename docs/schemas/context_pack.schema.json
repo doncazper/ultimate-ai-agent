@@ -1,0 +1,213 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ultimate-ai-agent.local/schemas/context_pack.schema.json",
+  "title": "ContextPack",
+  "type": "object",
+  "required": [
+    "context_pack_id",
+    "contract_id",
+    "run_id",
+    "workspace_id",
+    "user_id",
+    "pack_scope",
+    "source_precedence_policy",
+    "active_goal",
+    "canonical_sources",
+    "memory_sources",
+    "retrieved_items",
+    "conflicts",
+    "token_budget",
+    "schema_version"
+  ],
+  "properties": {
+    "context_pack_id": {
+      "type": "string",
+      "pattern": "^cp_[A-Za-z0-9_:-]+$"
+    },
+    "contract_id": {
+      "type": "string"
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "workspace_id": {
+      "type": "string"
+    },
+    "user_id": {
+      "type": "string"
+    },
+    "project_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "pack_scope": {
+      "enum": [
+        "run",
+        "subtask",
+        "verifier",
+        "memory_curator",
+        "tool_execution",
+        "notification_decision",
+        "self_improvement_review"
+      ]
+    },
+    "source_precedence_policy": {
+      "type": "string"
+    },
+    "user_instruction_summary": {
+      "type": "string"
+    },
+    "project_summary": {
+      "type": "string"
+    },
+    "active_goal": {
+      "type": "string"
+    },
+    "active_spec_summary": {
+      "type": "string"
+    },
+    "canonical_sources": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/context_source"
+      }
+    },
+    "memory_sources": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/context_source"
+      }
+    },
+    "file_sources": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/context_source"
+      }
+    },
+    "tool_policy_summary": {
+      "type": "string"
+    },
+    "permission_policy_summary": {
+      "type": "string"
+    },
+    "model_policy_summary": {
+      "type": "string"
+    },
+    "cost_policy_summary": {
+      "type": "string"
+    },
+    "retrieved_items": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/context_source"
+      }
+    },
+    "redacted_items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "excluded_items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "conflicts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "open_questions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "assumptions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "untrusted_content_boundaries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "token_budget": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "schema_version": {
+      "type": "string"
+    }
+  },
+  "$defs": {
+    "context_source": {
+      "type": "object",
+      "required": [
+        "source_id",
+        "source_type",
+        "authority",
+        "summary"
+      ],
+      "properties": {
+        "source_id": {
+          "type": "string"
+        },
+        "source_type": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "authority": {
+          "enum": [
+            "user_instruction",
+            "canonical",
+            "active_spec",
+            "approved_decision",
+            "memory",
+            "conversation",
+            "model_knowledge",
+            "external_evidence"
+          ]
+        },
+        "summary": {
+          "type": "string"
+        },
+        "sensitivity": {
+          "type": "string"
+        },
+        "trust_level": {
+          "type": "string"
+        },
+        "content_role": {
+          "enum": [
+            "instruction",
+            "policy",
+            "evidence_only",
+            "reference",
+            "candidate_output"
+          ]
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}

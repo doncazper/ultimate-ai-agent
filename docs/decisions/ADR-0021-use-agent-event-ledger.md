@@ -1,26 +1,27 @@
-# ADR-0021-use-agent-event-ledger: Use Agent Event Ledger
+# ADR-0021: Use an Agent Event Ledger
 
-## Status
-
-Accepted as v0.4 planning baseline.
+Status: Accepted; expanded in v0.4.7
 
 ## Context
 
-The Ultimate AI Agent is expanding into a companion-style, proactive, self-improving, skill-acquiring system with scanners, code execution, file management, memory, external tools, and user-specific learning. This requires strong trust, control, stability, and recovery infrastructure.
+The Ultimate AI Agent must be inspectable, recoverable, and safe. It will use tools, files, memory, models, scanners, notifications, and self-improving code. Without a durable event ledger, it will be impossible to debug failures, prove what happened, replay old runs, calculate costs, or maintain user trust.
 
 ## Decision
 
-Adopt: Use Agent Event Ledger.
+Use an append-only Event Ledger for all meaningful agent runs. The ledger records contracts, context packs, model routes, tool calls, approvals, memory writes, file changes, code execution, evals, notifications, costs, errors, rollbacks, and final delivery.
 
 ## Consequences
 
-- Improves trust, auditability, and long-term maintainability.
-- Adds upfront architecture work before high-autonomy modules can safely ship.
-- Requires schemas, evals, user controls, and observability events.
-- Must be represented in canonical files and the Capability Registry.
+Positive:
+- Creates receipts for users and developers.
+- Enables replay/shadow testing before foundation changes.
+- Supports cost governance, audit, rollback, and incident review.
+- Makes tool and memory actions traceable.
 
-## Related
+Tradeoffs:
+- Requires event schemas and redaction discipline.
+- Adds storage and instrumentation work.
 
-- /docs/canonical/TBD
-- /docs/canonical/31_layered_brain_architecture.md
-- /docs/canonical/34_foundation_change_management_and_contract_testing.md
+## Rule
+
+If an action cannot be logged with a useful receipt, it should not be allowed in production.

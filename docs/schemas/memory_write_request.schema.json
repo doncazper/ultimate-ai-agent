@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ultimate-ai-agent.local/schemas/memory_write_request.schema.json",
+  "title": "MemoryWriteRequest",
+  "type": "object",
+  "required": [
+    "request_id",
+    "run_id",
+    "contract_id",
+    "candidate",
+    "write_reason",
+    "schema_version"
+  ],
+  "properties": {
+    "request_id": {
+      "type": "string"
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "contract_id": {
+      "type": "string"
+    },
+    "candidate": {
+      "$ref": "memory_record.schema.json"
+    },
+    "write_reason": {
+      "type": "string"
+    },
+    "consent_basis": {
+      "type": "string"
+    },
+    "dedupe_keys": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "supersedes_candidate_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "schema_version": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false
+}

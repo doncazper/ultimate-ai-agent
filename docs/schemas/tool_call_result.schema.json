@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ultimate-ai-agent.local/schemas/tool_call_result.schema.json",
+  "title": "ToolCallResult",
+  "type": "object",
+  "required": [
+    "tool_call_id",
+    "run_id",
+    "contract_id",
+    "tool_id",
+    "status",
+    "summary",
+    "schema_version"
+  ],
+  "properties": {
+    "tool_call_id": {
+      "type": "string"
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "contract_id": {
+      "type": "string"
+    },
+    "tool_id": {
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "authorized",
+        "blocked",
+        "approval_required",
+        "succeeded",
+        "failed",
+        "cancelled"
+      ]
+    },
+    "summary": {
+      "type": "string"
+    },
+    "output_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "raw_output_ref": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "side_effects": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "rollback_ref": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "cost": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "latency_ms": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "errors": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "redactions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "schema_version": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false
+}
