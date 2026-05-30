@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "grounding_policy",
+  "type": "object",
+  "properties": {
+    "grounding_mode": {
+      "type": "string",
+      "enum": [
+        "none_allowed_for_creative",
+        "sources_preferred",
+        "sources_required",
+        "canonical_api_required",
+        "human_review_required"
+      ]
+    },
+    "factuality_requirement": {
+      "type": "string"
+    },
+    "allowed_source_types": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "hard_fact_policy": {
+      "type": "object"
+    },
+    "high_stakes_policy": {
+      "type": "object"
+    },
+    "citation_required": {
+      "type": "boolean"
+    },
+    "freshness_required": {
+      "type": "boolean"
+    }
+  },
+  "additionalProperties": true,
+  "required": [
+    "grounding_mode"
+  ]
+}

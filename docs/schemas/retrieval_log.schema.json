@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "retrieval_log",
+  "type": "object",
+  "properties": {
+    "retrieval_id": {
+      "type": "string"
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "query": {
+      "type": "string"
+    },
+    "retrieval_methods": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "retrieved_sources": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "created_at": {
+      "type": "string"
+    },
+    "access_denied_sources": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": true,
+  "required": [
+    "retrieval_id",
+    "run_id",
+    "query",
+    "retrieval_methods",
+    "retrieved_sources",
+    "created_at"
+  ]
+}

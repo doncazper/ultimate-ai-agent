@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "truth_source_manifest",
+  "type": "object",
+  "properties": {
+    "source_id": {
+      "type": "string"
+    },
+    "source_type": {
+      "type": "string"
+    },
+    "authority_level": {
+      "type": "string"
+    },
+    "access_scope": {
+      "type": "string"
+    },
+    "freshness_policy": {
+      "type": "object"
+    },
+    "owner": {
+      "type": "string"
+    },
+    "metadata": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": true,
+  "required": [
+    "source_id",
+    "source_type",
+    "authority_level"
+  ]
+}

@@ -52,3 +52,17 @@ The system must not contain a hidden production mode. Dangerous capabilities req
 - Conversation transcript is context, not truth. Long-running workflows preserve exact state in World State and Event Ledger.
 - External SDKs, MCP servers, A2A agents, and local runtimes are adapters. They may not bypass local consent, Tool Broker, redaction, event logging, rollback, or verification.
 - If the effective context limit is unknown, long-running mode must fail closed or use a clearly approved conservative limit.
+
+
+## v0.5.6 truth and evidence amendments
+
+1. The model is never the source of truth.
+2. Memory is recall, not authority.
+3. Canonical files and authoritative systems outrank memory.
+4. Structured APIs/databases/provider adapters outrank document search for hard/live facts.
+5. Every factual answer must cite evidence, name the authoritative source system, or say evidence is unavailable.
+6. If sources conflict, surface the conflict and follow the conflict-resolution policy.
+7. If evidence is stale, say so and refresh when the grounding policy requires freshness.
+8. Never invent numbers, dates, policies, prices, statuses, quotes, legal obligations, or citations.
+9. High-stakes truth requires human review or clear limitation language.
+10. Fine-tuning and learned preferences may improve behavior, but do not replace live approved sources for truth.

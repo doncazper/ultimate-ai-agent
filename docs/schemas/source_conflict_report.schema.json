@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "source_conflict_report",
+  "type": "object",
+  "properties": {
+    "conflict_id": {
+      "type": "string"
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "conflicting_claims": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "resolution_status": {
+      "type": "string"
+    },
+    "chosen_source_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "requires_human_review": {
+      "type": "boolean"
+    }
+  },
+  "additionalProperties": true,
+  "required": [
+    "conflict_id",
+    "run_id",
+    "conflicting_claims",
+    "sources",
+    "resolution_status"
+  ]
+}

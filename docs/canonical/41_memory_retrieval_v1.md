@@ -55,3 +55,8 @@ Private memories cannot leak across scopes.
 ## M4 acceptance
 
 Memory retrieval passes precision/recall evals for project decisions, supersession, source-linked recall, and privacy boundaries.
+
+
+## v0.5.6 truth-governance dependency
+
+This module must integrate with `docs/canonical/59_truth_grounding_and_evidence_governance.md`. Factual verification requires the correct grounding route, Evidence Manifest references, conflict handling, and unsupported-claim behavior.

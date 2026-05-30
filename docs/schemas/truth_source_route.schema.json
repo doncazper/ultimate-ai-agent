@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TruthSourceRoute",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "route_id",
+    "question_type",
+    "grounding_mode",
+    "selected_source_type",
+    "reason_for_selection"
+  ],
+  "properties": {
+    "route_id": {
+      "type": "string"
+    },
+    "question_type": {
+      "type": "string"
+    },
+    "grounding_mode": {
+      "type": "string"
+    },
+    "candidate_source_types": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "selected_source_type": {
+      "type": "string"
+    },
+    "source_authority_level": {
+      "type": "string"
+    },
+    "permission_check_required": {
+      "type": "boolean"
+    },
+    "freshness_required": {
+      "type": "boolean"
+    },
+    "human_review_required": {
+      "type": "boolean"
+    },
+    "fallback_routes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "reason_for_selection": {
+      "type": "string"
+    }
+  }
+}

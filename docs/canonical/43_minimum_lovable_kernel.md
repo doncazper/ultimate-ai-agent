@@ -65,3 +65,8 @@ The mutation can be rolled back.
 The receipt contains enough evidence to verify the task.
 No advanced module is implemented.
 ```
+
+
+## v0.5.6 truth-governance dependency
+
+This module must integrate with `docs/canonical/59_truth_grounding_and_evidence_governance.md`. Factual verification requires the correct grounding route, Evidence Manifest references, conflict handling, and unsupported-claim behavior.

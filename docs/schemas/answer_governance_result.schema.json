@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AnswerGovernanceResult",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "answer_id",
+    "run_id",
+    "grounding_mode",
+    "status",
+    "created_at"
+  ],
+  "properties": {
+    "answer_id": {
+      "type": "string"
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "grounding_mode": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "approved",
+        "approved_with_warnings",
+        "needs_more_evidence",
+        "requires_human_review",
+        "refused"
+      ]
+    },
+    "evidence_manifest_id": {
+      "type": "string"
+    },
+    "truth_source_route_id": {
+      "type": "string"
+    },
+    "retrieval_log_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "conflict_report_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "unsupported_claims": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "redactions_applied": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "human_review_required": {
+      "type": "boolean"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

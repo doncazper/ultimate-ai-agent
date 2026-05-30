@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "evidence_manifest",
+  "type": "object",
+  "properties": {
+    "manifest_id": {
+      "type": "string"
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "answer_id": {
+      "type": "string"
+    },
+    "grounding_mode": {
+      "type": "string"
+    },
+    "claims": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "created_at": {
+      "type": "string"
+    },
+    "unsupported_claims": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "source_conflicts": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "human_review_required": {
+      "type": "boolean"
+    }
+  },
+  "additionalProperties": true,
+  "required": [
+    "manifest_id",
+    "run_id",
+    "answer_id",
+    "grounding_mode",
+    "claims",
+    "created_at"
+  ]
+}

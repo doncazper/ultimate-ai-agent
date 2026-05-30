@@ -1,4 +1,4 @@
-# 09 — Roadmap v0.5.5
+# 09 — Roadmap v0.5.6
 
 Status: Active foundation-first roadmap. This is the single roadmap source of truth.
 
@@ -21,7 +21,7 @@ OpenWebUI is a window into the agent, not the agent brain.
 
 ## Current phase
 
-Pre-coding foundation remediation, Runtime Hygiene Micro-Foundation, Local Runtime/Context Survival, and Minimum Lovable Kernel preparation.
+Pre-coding foundation remediation, Runtime Hygiene Micro-Foundation, Local Runtime/Context Survival, Truth/Grounding/Evidence Governance, and Minimum Lovable Kernel preparation.
 
 ## Minimum Lovable Kernel
 
@@ -54,6 +54,7 @@ M2.5 — World State, Context Budget, Local Runtime, and SDK Adapter Boundaries
 M3 — Consent Ledger + Tool Broker
 M3.5 — Secret Broker + Provider Registry + Normalized Provider Envelopes
 M4 — Memory Service + File Manager
+M4.5 — Truth Source Router and Evidence Governance
 M5 — Minimum Lovable Kernel Vertical Slice
 M6 — Contract Tests, Shadow Replay, Foundation Gate Decision
 ```
@@ -149,13 +150,25 @@ File writes use diffs/atomic operations and produce rollback metadata.
 Canonical files outrank memory.
 ```
 
+## M4.5 acceptance
+
+```text
+Truth Source Router schemas validate.
+GroundingPolicy schema validates.
+EvidenceManifest and ClaimEvidence schemas validate.
+SourceConflictReport schema validates.
+RetrievalLog schema validates.
+Hybrid retrieval and reranking policy is documented.
+Truth-governance eval specs exist.
+```
+
 ## M5 acceptance
 
 ```text
 Minimum Lovable Kernel completes successfully.
 One real file mutation is performed through Tool Broker and File Manager.
 Event Ledger, rollback, QA receipt, and source-linked memory all work.
-Runtime hygiene metadata and World State/Context Budget metadata are present in the trace.
+Runtime hygiene metadata, World State/Context Budget metadata, and Evidence Manifest references are present in the trace.
 ```
 
 ## M6 acceptance
@@ -172,7 +185,7 @@ Foundation Gate review decides whether controlled expansion can begin.
 Only after M6 passes:
 
 ```text
-M7 — Web Research V1 and Source Credibility
+M7 — Web Research V1 and Source Credibility with Evidence Manifests
 M8 — Code Workspace V1 with sandboxed execution
 M9 — Weather Provider V1 using free/no-key provider first
 M10 — News Provider V1 with normalized events/articles
@@ -194,4 +207,4 @@ Voice/mobile UX
 
 ## Non-negotiable sequencing rule
 
-Do not build scanners, companion proactivity, Skill Factory, self-improving code, autopilot workflows, provider-specific integrations, or high-autonomy external execution before the kernel, memory/files, event ledger, permission model, Tool Broker, Model Router, Cost Governor, Secret Broker, Provider Registry, rollback primitives, runtime hygiene contracts, context survival contracts, local runtime profiles, SDK/A2A adapter boundaries, API boundary, and contract tests work.
+Do not build scanners, companion proactivity, Skill Factory, self-improving code, autopilot workflows, provider-specific integrations, or high-autonomy external execution before the kernel, memory/files, event ledger, permission model, Tool Broker, Model Router, Cost Governor, Secret Broker, Provider Registry, rollback primitives, runtime hygiene contracts, context survival contracts, local runtime profiles, SDK/A2A adapter boundaries, Truth Source Router, Evidence Manifest, API boundary, and contract tests work.

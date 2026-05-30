@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ultimate-ai-agent.local/schemas/retrieval_log_entry.schema.json",
+  "title": "RetrievalLogEntry",
+  "type": "object",
+  "required": [
+    "retrieval_id",
+    "run_id",
+    "query",
+    "route",
+    "retrieved_at",
+    "sources"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "retrieval_id": {
+      "type": "string"
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "query": {
+      "type": "string"
+    },
+    "route": {
+      "type": "string",
+      "enum": [
+        "canonical_file",
+        "api_database",
+        "hybrid_rag",
+        "event_ledger",
+        "world_state",
+        "memory",
+        "live_web",
+        "human_review"
+      ]
+    },
+    "filters": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "retrieved_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "source_id",
+          "score",
+          "used"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "source_id": {
+            "type": "string"
+          },
+          "score": {
+            "type": "number"
+          },
+          "used": {
+            "type": "boolean"
+          },
+          "rank": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "reason": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "reranker": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  }
+}
