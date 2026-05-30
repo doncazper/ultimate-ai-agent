@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 from pathlib import Path
-import json, re, sys
+import json
+import re
+import sys
 
 ROOT = Path.cwd()
 REQ = [
@@ -51,7 +53,7 @@ for p in json_files:
 ok(f'all JSON files parse ({len(json_files)})')
 try:
     from jsonschema import Draft202012Validator
-except Exception as e:
+except Exception:
     fail('jsonschema is required for schema validation; run: python3 -m pip install jsonschema')
 schema_files=list((ROOT/'docs/schemas').glob('*.schema.json'))
 for p in schema_files:

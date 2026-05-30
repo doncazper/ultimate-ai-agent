@@ -143,7 +143,7 @@ Redaction rules apply before any telemetry export.
 
 ## v0.5.8 Foundation Gate addition: Skill Package Security Rule
 
-Before Skill Factory, reusable skill loading, imported skill packages, or executable skill adapters can move beyond design/spec work, the system must prove that every skill is treated as untrusted by default. A skill may not be installed, loaded, executed, granted credentials, exposed to tools, or used in autonomous workflows until it has:
+Before Skill Factory, reusable skill loading, imported skill packages, or executable skill adapters can move beyond design/spec work, the system must prove the Skill Package Security Rule. All skills are untrusted packages by default. A skill may not be installed, loaded, executed, granted credentials, exposed to tools, or used in autonomous workflows until it has:
 
 ```text
 1. a manifest,

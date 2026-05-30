@@ -68,7 +68,7 @@ The system must not contain a hidden production mode. Dangerous capabilities req
 10. Fine-tuning and learned preferences may improve behavior, but do not replace live approved sources for truth.
 
 
-## v0.5.7 skill package security amendment
+## v0.5.7 Skill Package Security Rule amendment
 
 All skills are untrusted packages by default. A skill may not be installed, loaded, executed, granted credentials, exposed to tools, or used in autonomous workflows until it has a manifest, declared permissions, source/provenance metadata, applicable static review, sandbox test execution, Tool Broker permission mapping, Event Ledger logging, version pinning, revocation/disable support, and human approval for high-risk capabilities.
 

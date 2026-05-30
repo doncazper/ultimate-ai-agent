@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 from pathlib import Path
-import json, re, sys
+import json
+import re
+import sys
 try:
     from jsonschema import Draft202012Validator
 except Exception:

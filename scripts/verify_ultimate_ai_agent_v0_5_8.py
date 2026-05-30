@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 from pathlib import Path
-import json, re, sys
+import json
+import re
+import sys
 try:
     from jsonschema import Draft202012Validator
 except Exception:
@@ -61,7 +63,7 @@ ok('no TBD/TODO/template placeholders in v0.5.8 critical docs')
 print('\n== Secret hygiene scan ==')
 secret_pattern = re.compile(r"(?i)(api[_-]?key|secret|token|password)\s*=\s*['\"][A-Za-z0-9_\-]{16,}['\"]")
 for p in ROOT.rglob('*'):
-    if not p.is_file() or '.git' in p.parts or p.suffix.lower() in {'.zip','.gz','.bundle','.pdf','.png','.jpg','.jpeg','.webp','.docx'}:
+    if not p.is_file() or '.git' in p.parts or '__pycache__' in p.parts or p.suffix.lower() in {'.zip','.gz','.bundle','.pdf','.png','.jpg','.jpeg','.webp','.docx', '.pyc'}:
         continue
     # Skip python lockfiles or tests if they contain test keys
     if p.name in {'uv.lock', 'poetry.lock'}:

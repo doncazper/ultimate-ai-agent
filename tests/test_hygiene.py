@@ -5,7 +5,7 @@ from pydantic import ValidationError
 from ultimate_ai_agent.core.hygiene.actor_context import ActorContext, ActorType, AuthoritySource
 from ultimate_ai_agent.core.hygiene.temporal_context import TemporalContext, FreshnessClass, StalenessPolicy
 from ultimate_ai_agent.core.hygiene.envelopes import ErrorEnvelope, ErrorCategory, Severity, ResultEnvelope, Classification
-from ultimate_ai_agent.core.hygiene.policies import IdempotencyPolicy, OperationType, RetryClass, OutcomeStatus, DataClassification, ClassificationValue, RedactionPolicy, RedactionSurface, RedactionAction, CapabilityFlag, Stage, Status
+from ultimate_ai_agent.core.hygiene.policies import IdempotencyPolicy, OperationType, RetryClass, DataClassification, ClassificationValue, RedactionPolicy, RedactionSurface, RedactionAction, CapabilityFlag, Stage, Status
 
 def test_actor_context_valid():
     ctx = ActorContext(
