@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ultimate-ai-agent.local/schemas/observability_mapping.schema.json",
+  "title": "ObservabilityMapping",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "event_type",
+    "otel_mapping",
+    "trace_fields",
+    "redaction_required"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string"
+    },
+    "event_type": {
+      "type": "string"
+    },
+    "otel_mapping": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "span_name",
+        "span_kind",
+        "semantic_group"
+      ],
+      "properties": {
+        "span_name": {
+          "type": "string"
+        },
+        "span_kind": {
+          "type": "string",
+          "enum": [
+            "internal",
+            "client",
+            "server",
+            "producer",
+            "consumer"
+          ]
+        },
+        "semantic_group": {
+          "type": "string"
+        },
+        "attributes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "trace_fields": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "cloud_event_type": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "asyncapi_channel": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "redaction_required": {
+      "type": "boolean"
+    },
+    "notes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

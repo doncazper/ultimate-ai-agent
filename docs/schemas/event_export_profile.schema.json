@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ultimate-ai-agent.local/schemas/event_export_profile.schema.json",
+  "title": "EventExportProfile",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "profile_id",
+    "target_standard",
+    "enabled_by_default",
+    "redaction_policy_ref",
+    "allowed_event_types"
+  ],
+  "properties": {
+    "profile_id": {
+      "type": "string"
+    },
+    "target_standard": {
+      "type": "string",
+      "enum": [
+        "opentelemetry",
+        "cloudevents",
+        "asyncapi",
+        "openapi",
+        "json_schema"
+      ]
+    },
+    "enabled_by_default": {
+      "type": "boolean"
+    },
+    "redaction_policy_ref": {
+      "type": "string"
+    },
+    "allowed_event_types": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "excluded_fields": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "requires_user_approval": {
+      "type": "boolean"
+    },
+    "destination": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  }
+}

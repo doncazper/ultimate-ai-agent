@@ -93,6 +93,38 @@ error
 delivery
 ```
 
+
+## Standards mapping
+
+The Event Ledger is authoritative, but M2 records must be designed for future observability export. The system should be able to map Event Ledger records to common standards without changing the internal ledger semantics.
+
+Required compatibility targets:
+
+```text
+OpenTelemetry GenAI semantic conventions for agent/model/tool spans, GenAI events, exceptions, and metrics.
+W3C Trace Context for trace propagation across API, worker, tool, provider, MCP, SDK, and A2A boundaries.
+CloudEvents as a future portable envelope for external event streams.
+AsyncAPI as a future contract/documentation format for message-driven APIs.
+OpenAPI for HTTP API boundary documentation.
+JSON Schema for internal contracts and validation.
+```
+
+Important rule:
+
+> Observability export must never bypass redaction, consent, classification, or data lifecycle rules. Raw prompts, secrets, private messages, emails, credentials, and sensitive payloads must not be exported unless explicitly permitted under a forensic trace mode.
+
+Example mapping:
+
+```text
+agent.run_started -> agent span start
+model.call_started/completed -> GenAI model span
+tool.call_authorized/executed -> tool/client span
+provider.call -> HTTP/client span plus provider attributes
+approval.requested/approved/denied -> governance event
+error.raised -> exception event
+cost.attributed -> metric or cost event
+```
+
 ## Run state
 
 The run state is derived from ledger events, not manually mutated state.

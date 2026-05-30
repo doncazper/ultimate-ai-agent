@@ -1,4 +1,4 @@
-# 09 — Roadmap v0.5.6
+# 09 — Roadmap v0.5.7
 
 Status: Active foundation-first roadmap. This is the single roadmap source of truth.
 
@@ -21,7 +21,7 @@ OpenWebUI is a window into the agent, not the agent brain.
 
 ## Current phase
 
-Pre-coding foundation remediation, Runtime Hygiene Micro-Foundation, Local Runtime/Context Survival, Truth/Grounding/Evidence Governance, and Minimum Lovable Kernel preparation.
+Pre-coding foundation remediation, Runtime Hygiene Micro-Foundation, Local Runtime/Context Survival, Truth/Grounding/Evidence Governance, Observability Standards Mapping, and Minimum Lovable Kernel preparation.
 
 ## Minimum Lovable Kernel
 
@@ -49,7 +49,7 @@ Write source-linked memory.
 M0 — Repository, Canonical Foundation, and Stack Skeleton
 M0.5 — Runtime Hygiene Primitives: Result/Error, Idempotency, Actor, Time, Classification, Redaction, Boundaries
 M1 — Kernel Contracts: Execution Contract + Context Pack, v0/provisional
-M2 — Event Ledger, Deterministic Run State, and Receipts
+M2 — Event Ledger, Deterministic Run State, Receipts, and Observability Standards Mapping
 M2.5 — World State, Context Budget, Local Runtime, and SDK Adapter Boundaries
 M3 — Consent Ledger + Tool Broker
 M3.5 — Secret Broker + Provider Registry + Normalized Provider Envelopes
@@ -105,6 +105,10 @@ Event-level cost attribution exists.
 Events include trace/correlation/actor/temporal/classification metadata.
 Receipts can be generated without secrets.
 Custom deterministic state machine is documented as initial durable-execution substrate.
+Event Ledger records are mappable to OpenTelemetry GenAI spans/events/metrics without changing internal ledger semantics.
+W3C Trace Context is documented as the trace propagation standard, and trace-compatible IDs can propagate across API, worker, model-router, Tool Broker, provider, MCP, SDK, and A2A boundaries.
+CloudEvents export and AsyncAPI documentation are planned as future compatibility layers for event streams, not M2 implementation blockers.
+Redaction policy applies before any telemetry export.
 ```
 
 ## M2.5 acceptance
@@ -207,4 +211,4 @@ Voice/mobile UX
 
 ## Non-negotiable sequencing rule
 
-Do not build scanners, companion proactivity, Skill Factory, self-improving code, autopilot workflows, provider-specific integrations, or high-autonomy external execution before the kernel, memory/files, event ledger, permission model, Tool Broker, Model Router, Cost Governor, Secret Broker, Provider Registry, rollback primitives, runtime hygiene contracts, context survival contracts, local runtime profiles, SDK/A2A adapter boundaries, Truth Source Router, Evidence Manifest, API boundary, and contract tests work.
+Do not build scanners, companion proactivity, Skill Factory, self-improving code, autopilot workflows, provider-specific integrations, or high-autonomy external execution before the kernel, memory/files, event ledger, permission model, Tool Broker, Model Router, Cost Governor, Secret Broker, Provider Registry, rollback primitives, runtime hygiene contracts, context survival contracts, local runtime profiles, SDK/A2A adapter boundaries, observability standards mapping, Truth Source Router, Evidence Manifest, API boundary, and contract tests work.

@@ -1,0 +1,203 @@
+{
+  "version": "v0.5.7",
+  "foundation_gate_required": true,
+  "runtime_hygiene_required": true,
+  "foundation_capabilities": [
+    {
+      "id": "result_error_envelope",
+      "status": "ready_for_build",
+      "stage": "M0.5",
+      "enabled": false,
+      "requires_foundation_gate": false
+    },
+    {
+      "id": "idempotency_retry_policy",
+      "status": "ready_for_build",
+      "stage": "M0.5",
+      "enabled": false,
+      "requires_foundation_gate": false
+    },
+    {
+      "id": "actor_authority_context",
+      "status": "ready_for_build",
+      "stage": "M0.5",
+      "enabled": false,
+      "requires_foundation_gate": false
+    },
+    {
+      "id": "temporal_context_freshness",
+      "status": "ready_for_build",
+      "stage": "M0.5",
+      "enabled": false,
+      "requires_foundation_gate": false
+    },
+    {
+      "id": "data_classification",
+      "status": "ready_for_build",
+      "stage": "M0.5",
+      "enabled": false,
+      "requires_foundation_gate": false
+    },
+    {
+      "id": "redaction_policy",
+      "status": "ready_for_build",
+      "stage": "M0.5",
+      "enabled": false,
+      "requires_foundation_gate": false
+    },
+    {
+      "id": "service_boundaries_dependency_injection",
+      "status": "ready_for_build",
+      "stage": "M0.5",
+      "enabled": false,
+      "requires_foundation_gate": false
+    },
+    {
+      "id": "execution_contract",
+      "status": "ready_for_build",
+      "stage": "M1",
+      "enabled": false,
+      "requires_foundation_gate": false
+    },
+    {
+      "id": "context_pack",
+      "status": "ready_for_build",
+      "stage": "M1",
+      "enabled": false,
+      "requires_foundation_gate": false
+    },
+    {
+      "id": "event_ledger",
+      "status": "ready_for_build",
+      "stage": "M2",
+      "enabled": false,
+      "requires_foundation_gate": false
+    },
+    {
+      "id": "consent_ledger",
+      "status": "spec_review",
+      "stage": "M3",
+      "enabled": false,
+      "requires_foundation_gate": false
+    },
+    {
+      "id": "tool_broker",
+      "status": "spec_review",
+      "stage": "M3",
+      "enabled": false,
+      "requires_foundation_gate": false
+    },
+    {
+      "id": "secret_broker",
+      "status": "spec_review",
+      "stage": "M3.5",
+      "enabled": false,
+      "requires_foundation_gate": false
+    },
+    {
+      "id": "provider_registry",
+      "status": "spec_review",
+      "stage": "M3.5",
+      "enabled": false,
+      "requires_foundation_gate": false
+    },
+    {
+      "id": "memory_service",
+      "status": "spec_review",
+      "stage": "M4",
+      "enabled": false,
+      "requires_foundation_gate": false
+    },
+    {
+      "id": "file_manager",
+      "status": "spec_review",
+      "stage": "M4",
+      "enabled": false,
+      "requires_foundation_gate": false
+    },
+    {
+      "id": "truth_source_router",
+      "status": "spec_review",
+      "stage": "M4.5",
+      "enabled": false,
+      "requires_foundation_gate": false
+    },
+    {
+      "id": "evidence_manifest",
+      "status": "spec_review",
+      "stage": "M4.5",
+      "enabled": false,
+      "requires_foundation_gate": false
+    },
+    {
+      "id": "grounding_policy",
+      "status": "spec_review",
+      "stage": "M4.5",
+      "enabled": false,
+      "requires_foundation_gate": false
+    },
+    {
+      "id": "source_conflict_report",
+      "status": "spec_review",
+      "stage": "M4.5",
+      "enabled": false,
+      "requires_foundation_gate": false
+    },
+    {
+      "id": "observability_standards_mapping",
+      "status": "ready_for_build",
+      "stage": "M2",
+      "enabled": false,
+      "requires_foundation_gate": false
+    }
+  ],
+  "blocked_until_foundation_gate": [
+    "reddit_scanner",
+    "news_scanner",
+    "weather_provider_v1",
+    "email_scanner",
+    "message_scanner",
+    "calendar_scanner",
+    "companion_proactivity",
+    "skill_factory",
+    "self_improving_code",
+    "autopilot_workflows",
+    "external_high_autonomy_execution",
+    "credentialed_provider_integrations",
+    "truth_sensitive_scanners",
+    "high_stakes_answering_without_evidence_manifest"
+  ],
+  "capabilities": [
+    {
+      "capability_id": "structured_world_state",
+      "stage": "foundation_contract",
+      "enabled": false,
+      "requires_foundation_gate": false
+    },
+    {
+      "capability_id": "context_budget_manager",
+      "stage": "foundation_contract",
+      "enabled": false,
+      "requires_foundation_gate": false
+    },
+    {
+      "capability_id": "local_runtime_registry",
+      "stage": "foundation_contract",
+      "enabled": false,
+      "requires_foundation_gate": false
+    },
+    {
+      "capability_id": "agent_sdk_adapter_layer",
+      "stage": "foundation_contract",
+      "enabled": false,
+      "requires_foundation_gate": false
+    },
+    {
+      "capability_id": "a2a_gateway",
+      "stage": "foundation_contract",
+      "enabled": false,
+      "requires_foundation_gate": false
+    }
+  ],
+  "truth_grounding_required": true
+}
