@@ -36,3 +36,4 @@ build/
 # Generated artifacts
 coverage/
 htmlcov/
+*.egg-info/

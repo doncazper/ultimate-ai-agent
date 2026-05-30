@@ -142,3 +142,21 @@ high_risk_human_approval_required
 ```
 
 The Capability Registry must be able to disable a single skill, a skill source, a skill version, or the entire Skill Factory without disabling unrelated foundation capabilities. No skill may move from `blocked_by_foundation_gate` to `ready_for_build` unless its dependencies include Tool Broker, Consent Ledger, Event Ledger, Secret Broker where credentials are involved, redaction, rollback, and contract tests.
+
+## Skill Package Security Rule
+
+All skills are untrusted packages by default. A skill may not be installed, loaded, executed, granted credentials, exposed to tools, or used in autonomous workflows until it has:
+
+1. a manifest,
+2. declared permissions,
+3. source/provenance metadata,
+4. static review where applicable,
+5. sandbox test execution,
+6. Tool Broker permission mapping,
+7. Event Ledger logging,
+8. version pinning,
+9. revocation/disable support,
+10. human approval for high-risk capabilities.
+
+
+A Skill Factory capability must remain `blocked_by_foundation_gate` until the registry can express skill manifests, permission mappings, provenance, sandbox status, version pins, revocation state, and approval requirements.

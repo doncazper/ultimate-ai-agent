@@ -10,6 +10,8 @@ Requires-Dist: pydantic>=2.0.0
 Provides-Extra: dev
 Requires-Dist: pytest>=7.0.0; extra == "dev"
 Requires-Dist: httpx>=0.24.0; extra == "dev"
+Requires-Dist: jsonschema>=4.0.0; extra == "dev"
+Requires-Dist: ruff>=0.5.0; extra == "dev"
 
 # Ultimate AI Agent Canonical Bundle v0.5.8
 
