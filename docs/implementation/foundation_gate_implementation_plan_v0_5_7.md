@@ -108,6 +108,7 @@ self-improving code
 autopilot workflows
 provider-specific credentialed integrations
 real Agent SDK/A2A runtime delegation
+skill installation/loading/execution
 external high-autonomy execution
 ```
 
@@ -144,3 +145,23 @@ CloudEvents export profile is documented for future event-stream export.
 AsyncAPI is documented as the future contract format for message-driven APIs.
 Redaction rules apply before any telemetry export.
 ```
+
+
+## v0.5.7 Foundation Gate addition: Skill Package Security Rule
+
+Before Skill Factory, reusable skill loading, imported skill packages, or executable skill adapters can move beyond design/spec work, the system must prove that every skill is treated as untrusted by default. A skill may not be installed, loaded, executed, granted credentials, exposed to tools, or used in autonomous workflows until it has:
+
+```text
+1. a manifest,
+2. declared permissions,
+3. source/provenance metadata,
+4. static review where applicable,
+5. sandbox test execution,
+6. Tool Broker permission mapping,
+7. Event Ledger logging,
+8. version pinning,
+9. revocation/disable support,
+10. human approval for high-risk capabilities.
+```
+
+This requirement is documentation-only at v0.5.7 and should be implemented later as `docs/canonical/64_skill_package_security_policy.md`, `docs/schemas/skill_manifest.schema.json`, `docs/schemas/skill_permission_manifest.schema.json`, and `docs/evals/skill_supply_chain_security_eval.md` when the Skill Factory milestone begins. Until then, all executable skill loading remains blocked by the Foundation Gate.

@@ -49,6 +49,27 @@ Self-improvement cannot touch Trusted Computing Base files autonomously.
 Standing approvals are scope-limited, revocable, and never apply to high/critical actions.
 ```
 
+## Skill Package Security Rule
+
+All skills are untrusted packages by default. A skill may not be installed, loaded, executed, granted credentials, exposed to tools, or used in autonomous workflows until it has:
+
+```text
+1. a manifest,
+2. declared permissions,
+3. source/provenance metadata,
+4. static review where applicable,
+5. sandbox test execution,
+6. Tool Broker permission mapping,
+7. Event Ledger logging,
+8. version pinning,
+9. revocation/disable support,
+10. human approval for high-risk capabilities.
+```
+
+This rule applies to local skills, generated skills, imported skills, shared/marketplace skills, SDK/MCP/A2A wrapper skills, and any `SKILL.md`-style package with instructions, scripts, templates, resources, or executable helpers. Skills may not bypass the Execution Contract, Consent Ledger, Tool Broker, Event Ledger, Secret Broker, Capability Registry, redaction policy, rollback rules, Trusted Computing Base protections, or Foundation Gate.
+
+When Skill Factory work begins, this rule should be promoted into a dedicated canonical module with a skill manifest schema, skill permission manifest schema, and skill supply-chain security eval. Until then, `skill_factory` and all executable skill-loading paths remain blocked by the Foundation Gate.
+
 ## Required evals
 
 ```text

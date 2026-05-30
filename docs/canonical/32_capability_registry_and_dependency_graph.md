@@ -120,3 +120,25 @@ owner
 ```
 
 Capabilities blocked by the Foundation Gate must be disabled by default in code, not only in documentation. The Capability Registry is the source of truth for which advanced modules are allowed to load.
+
+
+## Skill package capability requirements
+
+Any capability that installs, loads, executes, grants credentials to, exposes tools through, or autonomously invokes a skill must remain blocked until the Skill Package Security Rule is satisfied. Skills are untrusted packages by default.
+
+Skill-related capability records must include or reference:
+
+```text
+skill_manifest_ref
+declared_permissions
+source_provenance
+static_review_status
+sandbox_test_status
+tool_broker_permission_mapping
+event_ledger_logging_required
+version_pin
+revocation_supported
+high_risk_human_approval_required
+```
+
+The Capability Registry must be able to disable a single skill, a skill source, a skill version, or the entire Skill Factory without disabling unrelated foundation capabilities. No skill may move from `blocked_by_foundation_gate` to `ready_for_build` unless its dependencies include Tool Broker, Consent Ledger, Event Ledger, Secret Broker where credentials are involved, redaction, rollback, and contract tests.

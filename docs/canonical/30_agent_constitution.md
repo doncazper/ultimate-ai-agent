@@ -66,3 +66,10 @@ The system must not contain a hidden production mode. Dangerous capabilities req
 8. Never invent numbers, dates, policies, prices, statuses, quotes, legal obligations, or citations.
 9. High-stakes truth requires human review or clear limitation language.
 10. Fine-tuning and learned preferences may improve behavior, but do not replace live approved sources for truth.
+
+
+## v0.5.7 skill package security amendment
+
+All skills are untrusted packages by default. A skill may not be installed, loaded, executed, granted credentials, exposed to tools, or used in autonomous workflows until it has a manifest, declared permissions, source/provenance metadata, applicable static review, sandbox test execution, Tool Broker permission mapping, Event Ledger logging, version pinning, revocation/disable support, and human approval for high-risk capabilities.
+
+Skills, SDK adapters, MCP servers, A2A gateways, generated scripts, and reusable playbooks must not become a hidden production path around the Agent Core. A skill is a capability package, not an authority. It must obey the Execution Contract, Consent Ledger, Tool Broker, Event Ledger, Secret Broker, Model Router, redaction, rollback, Trusted Computing Base, and Capability Registry rules.
