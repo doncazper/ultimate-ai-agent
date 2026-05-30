@@ -14,25 +14,25 @@ def exists(path):
     if not p.exists(): fail(f'missing {path}')
     ok(f'required file exists: {path}')
 required = [
-    'README.md','README_IMPORT_v0_5_7.md','VERSION.md','ultimate_ai_agent_master_plan_v0_5_7.md',
+    'README.md','README_IMPORT_v0_5_8.md','VERSION.md','ultimate_ai_agent_master_plan_v0_5_8.md',
     'docs/canonical/09_roadmap.md','docs/canonical/22_observability_and_event_ledger.md',
     'docs/canonical/63_observability_standards_mapping.md',
     'docs/decisions/ADR-0053-use-observability-standards-mapping.md',
     'docs/schemas/observability_mapping.schema.json','docs/schemas/event_export_profile.schema.json',
     'docs/evals/observability_standards_mapping_eval.md','docs/evals/trace_context_propagation_eval.md',
-    'docs/implementation/foundation_gate_implementation_plan_v0_5_7.md',
-    'docs/implementation/pre_coding_readiness_v0_5_7.md',
-    'docs/registry/capability_registry_v0_5_7.json','docs/release_notes/v0_5_7.md'
+    'docs/implementation/foundation_gate_implementation_plan_v0_5_8.md',
+    'docs/implementation/pre_coding_readiness_v0_5_8.md',
+    'docs/registry/capability_registry_v0_5_8.json','docs/release_notes/v0_5_8.md'
 ]
 print('== Required files ==')
 for path in required: exists(path)
 print('\n== Active baseline markers ==')
-if 'v0.5.7' not in (ROOT/'VERSION.md').read_text(): fail('VERSION.md missing v0.5.7')
-ok('VERSION.md declares v0.5.7')
+if 'v0.5.8' not in (ROOT/'VERSION.md').read_text(): fail('VERSION.md missing v0.5.8')
+print('VERSION.md declares v0.5.8')
 readme = (ROOT/'README.md').read_text()
-for needle in ['README_IMPORT_v0_5_7.md','Observability standards rule','OpenTelemetry']:
+for needle in ['README_IMPORT_v0_5_8.md','Observability standards rule','OpenTelemetry']:
     if needle not in readme: fail(f'README missing {needle}')
-ok('README points to v0.5.7 observability standards baseline')
+ok('README points to v0.5.8 observability standards baseline')
 roadmap = (ROOT/'docs/canonical/09_roadmap.md').read_text()
 for needle in ['M2 — Event Ledger, Deterministic Run State, Receipts, and Observability Standards Mapping','OpenTelemetry','W3C Trace Context']:
     if needle not in roadmap: fail(f'roadmap missing {needle}')
@@ -57,11 +57,14 @@ for rel in required:
     p = ROOT / rel
     if p.suffix in {'.md','.json'} and placeholder.search(p.read_text(errors='ignore')):
         fail(f'placeholder found in {rel}')
-ok('no TBD/TODO/template placeholders in v0.5.7 critical docs')
+ok('no TBD/TODO/template placeholders in v0.5.8 critical docs')
 print('\n== Secret hygiene scan ==')
 secret_pattern = re.compile(r"(?i)(api[_-]?key|secret|token|password)\s*=\s*['\"][A-Za-z0-9_\-]{16,}['\"]")
 for p in ROOT.rglob('*'):
     if not p.is_file() or '.git' in p.parts or p.suffix.lower() in {'.zip','.gz','.bundle','.pdf','.png','.jpg','.jpeg','.webp','.docx'}:
+        continue
+    # Skip python lockfiles or tests if they contain test keys
+    if p.name in {'uv.lock', 'poetry.lock'}:
         continue
     text = p.read_text(errors='ignore')
     if secret_pattern.search(text):

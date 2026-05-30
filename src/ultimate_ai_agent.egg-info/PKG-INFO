@@ -1,3 +1,16 @@
+Metadata-Version: 2.4
+Name: ultimate-ai-agent
+Version: 0.5.8
+Summary: Ultimate AI Agent Core
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: fastapi>=0.100.0
+Requires-Dist: uvicorn>=0.22.0
+Requires-Dist: pydantic>=2.0.0
+Provides-Extra: dev
+Requires-Dist: pytest>=7.0.0; extra == "dev"
+Requires-Dist: httpx>=0.24.0; extra == "dev"
+
 # Ultimate AI Agent Canonical Bundle v0.5.8
 
 This is the active project baseline after scaffolding the repository and wiring runtime hygiene Pydantic schemas.

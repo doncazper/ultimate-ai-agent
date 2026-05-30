@@ -1,17 +1,17 @@
-# Pre-Coding Readiness v0.5.7
+# Pre-Coding Readiness v0.5.8
 
-Status: Ready for M0 after v0.5.7 consistency audit passes.
+Status: M0 and M0.5 completed. Ready for M1 after v0.5.8 consistency audit passes.
 
-## Required before M0 coding
+## Required before M1 coding
 
 ```text
-v0.5.7 committed and tagged
+v0.5.8 committed and tagged
 working tree clean
 consistency audit passes
 remote sync verified, if possible
 ```
 
-## M0 coding boundaries
+## M0 coding boundaries (Completed)
 
 Allowed:
 
@@ -44,9 +44,9 @@ real Agent SDK/A2A integrations
 real local model runtime calls
 ```
 
-## v0.5.4 primitives to wire in early
+## v0.5.4 primitives wired in early (Completed in M0.5)
 
-M0 may add schema validation for these docs/schemas. M0.5/M1 may implement Pydantic equivalents:
+Pydantic equivalents implemented:
 
 ```text
 result/error envelope
@@ -56,26 +56,25 @@ temporal context
 data classification
 redaction policy
 capability flags
-service boundary interfaces
 ```
 
 ## Recommended first code order
 
 ```text
-1. pyproject.toml and package skeleton
-2. validation scripts
-3. tests for validation scripts
-4. FastAPI health/version route
-5. CI workflow
-6. Pydantic runtime hygiene models
-7. contract tests for runtime hygiene models
-8. Execution Contract and Context Pack models
+1. pyproject.toml and package skeleton (Done)
+2. validation scripts (Done)
+3. tests for validation scripts (Done)
+4. FastAPI health/version route (Done)
+5. CI workflow (Pending)
+6. Pydantic runtime hygiene models (Done)
+7. contract tests for runtime hygiene models (Done)
+8. Execution Contract and Context Pack models (Next: M1)
 ```
 
 
-## v0.5.7 context-survival primitives to wire in early
+## v0.5.8 context-survival primitives to wire in early
 
-M0 may add schema validation for these docs/schemas. M2.5 may implement Pydantic equivalents:
+M0/M0.5 adds schema validation for these docs/schemas. M2.5 may implement Pydantic equivalents:
 
 ```text
 Structured World State
@@ -92,7 +91,7 @@ A2A minimal Agent Card
 ```
 
 
-## v0.5.7 pre-coding addition
+## v0.5.8 pre-coding addition
 
 The following must be treated as foundation contracts before truth-sensitive features are implemented:
 
@@ -108,7 +107,7 @@ Retrieval Log Entry
 No factual answer should be considered verified unless it can produce source-backed evidence or explicitly state that evidence is unavailable.
 
 
-## v0.5.7 pre-coding addition
+## v0.5.8 pre-coding addition
 
 M2 must preserve observability compatibility from the start:
 

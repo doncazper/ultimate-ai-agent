@@ -1,48 +1,48 @@
 {
-  "version": "v0.5.7",
+  "version": "v0.5.8",
   "foundation_gate_required": true,
   "runtime_hygiene_required": true,
   "foundation_capabilities": [
     {
       "id": "result_error_envelope",
-      "status": "ready_for_build",
+      "status": "enabled",
       "stage": "M0.5",
-      "enabled": false,
+      "enabled": true,
       "requires_foundation_gate": false
     },
     {
       "id": "idempotency_retry_policy",
-      "status": "ready_for_build",
+      "status": "enabled",
       "stage": "M0.5",
-      "enabled": false,
+      "enabled": true,
       "requires_foundation_gate": false
     },
     {
       "id": "actor_authority_context",
-      "status": "ready_for_build",
+      "status": "enabled",
       "stage": "M0.5",
-      "enabled": false,
+      "enabled": true,
       "requires_foundation_gate": false
     },
     {
       "id": "temporal_context_freshness",
-      "status": "ready_for_build",
+      "status": "enabled",
       "stage": "M0.5",
-      "enabled": false,
+      "enabled": true,
       "requires_foundation_gate": false
     },
     {
       "id": "data_classification",
-      "status": "ready_for_build",
+      "status": "enabled",
       "stage": "M0.5",
-      "enabled": false,
+      "enabled": true,
       "requires_foundation_gate": false
     },
     {
       "id": "redaction_policy",
-      "status": "ready_for_build",
+      "status": "enabled",
       "stage": "M0.5",
-      "enabled": false,
+      "enabled": true,
       "requires_foundation_gate": false
     },
     {

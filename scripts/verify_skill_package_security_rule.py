@@ -21,7 +21,7 @@ REQUIRED_MARKERS = {
         'revocation_supported',
         'high_risk_human_approval_required',
     ],
-    'docs/implementation/foundation_gate_implementation_plan_v0_5_7.md': [
+    'docs/implementation/foundation_gate_implementation_plan_v0_5_8.md': [
         'Skill Package Security Rule',
         'skill installation/loading/execution',
         'all executable skill loading remains blocked by the Foundation Gate',
