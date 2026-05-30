@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ultimate-ai-agent.local/schemas/capability_flag.schema.json",
+  "title": "CapabilityFlag",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "capability_id",
+    "enabled",
+    "stage",
+    "requires_foundation_gate"
+  ],
+  "properties": {
+    "capability_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "enabled": {
+      "type": "boolean"
+    },
+    "stage": {
+      "type": "string",
+      "enum": [
+        "M0",
+        "M0.5",
+        "M1",
+        "M2",
+        "M3",
+        "M3.5",
+        "M4",
+        "M5",
+        "M6",
+        "post_gate",
+        "later"
+      ]
+    },
+    "requires_foundation_gate": {
+      "type": "boolean"
+    },
+    "required_contracts": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "required_permissions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "required_evals": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "kill_switch": {
+      "type": "boolean",
+      "default": true
+    },
+    "owner": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "ready_for_build",
+        "spec_review",
+        "blocked",
+        "enabled",
+        "disabled"
+      ],
+      "default": "draft"
+    }
+  }
+}

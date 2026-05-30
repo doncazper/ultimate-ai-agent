@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ultimate-ai-agent.local/schemas/redaction_policy.schema.json",
+  "title": "RedactionPolicy",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "policy_id",
+    "surfaces",
+    "actions"
+  ],
+  "properties": {
+    "policy_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "surfaces": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "prompts",
+          "model_outputs",
+          "tool_inputs",
+          "tool_outputs",
+          "provider_requests",
+          "provider_responses",
+          "error_messages",
+          "event_ledger_payloads",
+          "receipts",
+          "debug_bundles",
+          "file_previews",
+          "memory_snippets"
+        ]
+      },
+      "minItems": 1
+    },
+    "never_log_patterns": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "actions": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "omit",
+          "mask",
+          "hash",
+          "summarize",
+          "store_by_reference",
+          "classify_only",
+          "quarantine"
+        ]
+      },
+      "minItems": 1
+    },
+    "default_action": {
+      "type": "string",
+      "enum": [
+        "omit",
+        "mask",
+        "hash",
+        "summarize",
+        "store_by_reference",
+        "classify_only",
+        "quarantine"
+      ],
+      "default": "mask"
+    },
+    "debug_bundle_allowed": {
+      "type": "boolean",
+      "default": false
+    },
+    "notes": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  }
+}

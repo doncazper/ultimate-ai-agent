@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ultimate-ai-agent.local/schemas/data_classification.schema.json",
+  "title": "DataClassification",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "classification",
+    "source"
+  ],
+  "properties": {
+    "classification": {
+      "type": "string",
+      "enum": [
+        "public",
+        "user_private",
+        "project_private",
+        "sensitive_personal",
+        "credential_secret",
+        "regulated",
+        "third_party_confidential",
+        "system_internal",
+        "tcb_protected"
+      ]
+    },
+    "source": {
+      "type": "string",
+      "minLength": 1
+    },
+    "reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "allowed_sinks": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "forbidden_sinks": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "requires_redaction": {
+      "type": "boolean",
+      "default": false
+    },
+    "requires_consent": {
+      "type": "boolean",
+      "default": false
+    },
+    "retention_policy": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  }
+}

@@ -40,3 +40,8 @@ Notification policy engine
 ## Violation handling
 
 Constitution violations block production execution and create an Event Ledger record.
+
+
+## No hidden production mode
+
+The system must not contain a hidden production mode. Dangerous capabilities require explicit configuration, visible capability flags, Event Ledger records, Consent Ledger checks, Tool Broker policy checks, redaction, and tests. If a capability is blocked by the Foundation Gate, code must enforce that block even if a UI or prompt asks for it.

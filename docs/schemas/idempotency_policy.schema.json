@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ultimate-ai-agent.local/schemas/idempotency_policy.schema.json",
+  "title": "IdempotencyPolicy",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "idempotency_key",
+    "operation_type",
+    "retry_class",
+    "attempt_number"
+  ],
+  "properties": {
+    "idempotency_key": {
+      "type": "string",
+      "minLength": 8
+    },
+    "dedupe_key": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "operation_type": {
+      "type": "string",
+      "enum": [
+        "validation",
+        "read_local",
+        "read_provider",
+        "file_write",
+        "memory_write",
+        "notification_send",
+        "external_send",
+        "payment_or_destructive",
+        "other"
+      ]
+    },
+    "retry_class": {
+      "type": "string",
+      "enum": [
+        "never_retry",
+        "safe_retry",
+        "retry_with_same_idempotency_key",
+        "retry_after_backoff",
+        "manual_review_required"
+      ]
+    },
+    "attempt_number": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "max_attempts": {
+      "type": "integer",
+      "minimum": 1,
+      "default": 1
+    },
+    "backoff_seconds": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "outcome_status": {
+      "type": "string",
+      "enum": [
+        "not_started",
+        "in_progress",
+        "succeeded",
+        "failed",
+        "outcome_unknown"
+      ],
+      "default": "not_started"
+    }
+  }
+}

@@ -1,4 +1,4 @@
-# 09 — Roadmap v0.5.3
+# 09 — Roadmap v0.5.4
 
 Status: Active foundation-first roadmap. This is the single roadmap source of truth.
 
@@ -21,7 +21,7 @@ OpenWebUI is a window into the agent, not the agent brain.
 
 ## Current phase
 
-Pre-coding foundation remediation and Minimum Lovable Kernel preparation.
+Pre-coding foundation remediation, Runtime Hygiene Micro-Foundation, and Minimum Lovable Kernel preparation.
 
 ## Minimum Lovable Kernel
 
@@ -30,6 +30,10 @@ Before committing to the full foundation build, prove one genuine end-to-end tas
 ```text
 Create a local project artifact through the agent kernel.
 Use Execution Contract + Context Pack.
+Use Result/Error Envelope.
+Use ActorContext and TemporalContext.
+Use Data Classification and Redaction policy.
+Use idempotency metadata for the file mutation.
 Check Consent Ledger.
 Route File Manager through Tool Broker.
 Write an actual file.
@@ -43,6 +47,7 @@ Write source-linked memory.
 
 ```text
 M0 — Repository, Canonical Foundation, and Stack Skeleton
+M0.5 — Runtime Hygiene Primitives: Result/Error, Idempotency, Actor, Time, Classification, Redaction, Boundaries
 M1 — Kernel Contracts: Execution Contract + Context Pack, v0/provisional
 M2 — Event Ledger, Deterministic Run State, and Receipts
 M3 — Consent Ledger + Tool Broker
@@ -63,6 +68,21 @@ FastAPI health/API boundary placeholder exists.
 Docker Compose Postgres scaffold exists.
 OpenWebUI config is present only as optional shell.
 Foundation-first rule is visible.
+No advanced modules are implemented.
+```
+
+## M0.5 acceptance
+
+```text
+ResultEnvelope and ErrorEnvelope schemas validate.
+Idempotency/retry policy schema validates.
+ActorContext schema validates.
+TemporalContext schema validates.
+Data classification schema validates.
+Redaction policy schema validates.
+Capability flag schema validates.
+Service boundary rules are documented.
+Test strategy v0 is documented.
 ```
 
 ## M1 acceptance
@@ -72,6 +92,7 @@ Execution Contract and Context Pack schemas/models validate.
 Contracts are marked v0/provisional.
 Advanced modules are rejected until Foundation Gate.
 Verification contract references are supported.
+Runtime hygiene primitives are referenced by contracts.
 ```
 
 ## M2 acceptance
@@ -79,6 +100,7 @@ Verification contract references are supported.
 ```text
 Run/event records support append-only logging.
 Event-level cost attribution exists.
+Events include trace/correlation/actor/temporal/classification metadata.
 Receipts can be generated without secrets.
 Custom deterministic state machine is documented as initial durable-execution substrate.
 ```
@@ -89,6 +111,7 @@ Custom deterministic state machine is documented as initial durable-execution su
 Consent grants can be created, checked, expired, revoked, and audited.
 Tool calls are schema-validated, consent-checked, risk-classified, logged, and rollback-aware.
 Autonomy levels L0-L5 map to risk and approval requirements.
+Mutable tool calls require idempotency metadata.
 ```
 
 ## M3.5 acceptance
@@ -116,6 +139,7 @@ Canonical files outrank memory.
 Minimum Lovable Kernel completes successfully.
 One real file mutation is performed through Tool Broker and File Manager.
 Event Ledger, rollback, QA receipt, and source-linked memory all work.
+Runtime hygiene metadata is present in the trace.
 ```
 
 ## M6 acceptance
@@ -154,4 +178,4 @@ Voice/mobile UX
 
 ## Non-negotiable sequencing rule
 
-Do not build scanners, companion proactivity, Skill Factory, self-improving code, autopilot workflows, provider-specific integrations, or high-autonomy external execution before the kernel, memory/files, event ledger, permission model, Tool Broker, Model Router, Cost Governor, Secret Broker, Provider Registry, rollback primitives, API boundary, and contract tests work.
+Do not build scanners, companion proactivity, Skill Factory, self-improving code, autopilot workflows, provider-specific integrations, or high-autonomy external execution before the kernel, memory/files, event ledger, permission model, Tool Broker, Model Router, Cost Governor, Secret Broker, Provider Registry, rollback primitives, runtime hygiene contracts, API boundary, and contract tests work.

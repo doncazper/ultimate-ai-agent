@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ultimate-ai-agent.local/schemas/temporal_context.schema.json",
+  "title": "TemporalContext",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "current_time_utc",
+    "freshness_class"
+  ],
+  "properties": {
+    "current_time_utc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "user_timezone": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "source_observed_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "source_published_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "source_updated_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "fetched_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "processed_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "valid_from": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "valid_to": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "expires_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "freshness_window_seconds": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "freshness_class": {
+      "type": "string",
+      "enum": [
+        "static",
+        "slow_changing",
+        "daily",
+        "hourly",
+        "near_real_time",
+        "breaking",
+        "expired",
+        "unknown"
+      ]
+    },
+    "staleness_policy": {
+      "type": "string",
+      "enum": [
+        "allow_with_label",
+        "refresh_required",
+        "reject_if_stale",
+        "manual_review",
+        "unknown"
+      ],
+      "default": "unknown"
+    }
+  }
+}

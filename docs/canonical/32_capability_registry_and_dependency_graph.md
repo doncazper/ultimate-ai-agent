@@ -101,3 +101,22 @@ Trusted Computing Base before self-improvement.
 Contract provisional policy before M1 schema freezing.
 ```
 
+
+
+## Capability flags
+
+Every runtime capability should have a flag record that declares:
+
+```text
+capability_id
+enabled
+stage
+requires_foundation_gate
+required_contracts
+required_permissions
+required_evals
+kill_switch
+owner
+```
+
+Capabilities blocked by the Foundation Gate must be disabled by default in code, not only in documentation. The Capability Registry is the source of truth for which advanced modules are allowed to load.

@@ -1,0 +1,54 @@
+# 50 — Data Classification Policy
+
+Status: Active foundation contract, v0/provisional until Foundation Gate.
+
+## Purpose
+
+Model routing, consent, logging, redaction, memory, file access, prompt construction, debugging, and provider calls all need a shared language for data sensitivity.
+
+## Core rule
+
+> Every durable memory, file reference, event, provider result, prompt input, tool result, and debug artifact should carry a data classification.
+
+## Classification labels
+
+```text
+public
+user_private
+project_private
+sensitive_personal
+credential_secret
+regulated
+third_party_confidential
+system_internal
+tcb_protected
+```
+
+## Label meanings
+
+- `public`: safe to cite or display broadly.
+- `user_private`: personal user data not intended for public sharing.
+- `project_private`: internal project information.
+- `sensitive_personal`: health, finances, private messages, family, identity, or other sensitive personal data.
+- `credential_secret`: API keys, tokens, cookies, passwords, private keys.
+- `regulated`: legal, medical, financial, or compliance-bound data.
+- `third_party_confidential`: client/customer/vendor confidential information.
+- `system_internal`: internal traces, policies, implementation details.
+- `tcb_protected`: Trusted Computing Base artifacts that autonomous self-improvement cannot modify.
+
+## Classification effects
+
+| Classification | Prompt use | Logging | Memory | Model routing |
+|---|---|---|---|---|
+| public | allowed | allowed | allowed | any allowed provider |
+| user_private | minimize | redacted summaries | consent required | privacy-aware routing |
+| sensitive_personal | only if necessary | highly redacted | explicit consent | local/private preferred |
+| credential_secret | never | never | never | never to model |
+| tcb_protected | policy context only | references only | immutable by self-improvement | high-reliability review |
+
+## Rules
+
+1. Secrets are not data to summarize; they are values to isolate.
+2. External content is untrusted even when public.
+3. Data classification must travel with the object through result envelopes and events.
+4. If classification is unknown, default to the safer higher classification until resolved.

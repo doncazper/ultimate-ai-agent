@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ultimate-ai-agent.local/schemas/actor_context.schema.json",
+  "title": "ActorContext",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "actor_type",
+    "actor_id",
+    "authority_source",
+    "created_at"
+  ],
+  "properties": {
+    "actor_type": {
+      "type": "string",
+      "enum": [
+        "human_user",
+        "orchestrator",
+        "subagent",
+        "scheduled_job",
+        "scanner",
+        "tool_broker",
+        "provider_adapter",
+        "system_worker",
+        "self_improvement_worker",
+        "admin",
+        "external_callback"
+      ]
+    },
+    "actor_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "actor_display_name": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "on_behalf_of_user_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "workspace_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "project_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "authority_source": {
+      "type": "string",
+      "enum": [
+        "explicit_user_request",
+        "approved_execution_contract",
+        "active_consent_grant",
+        "standing_approval",
+        "admin_policy",
+        "system_policy",
+        "foundation_test",
+        "manual_operator_action"
+      ]
+    },
+    "execution_contract_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "consent_ref": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "approval_ref": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "session_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

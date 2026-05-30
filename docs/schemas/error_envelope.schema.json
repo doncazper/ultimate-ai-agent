@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ultimate-ai-agent.local/schemas/error_envelope.schema.json",
+  "title": "ErrorEnvelope",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "code",
+    "category",
+    "safe_message",
+    "severity",
+    "retryable",
+    "details_redacted",
+    "source"
+  ],
+  "properties": {
+    "code": {
+      "type": "string",
+      "minLength": 1
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "validation_error",
+        "authentication_error",
+        "authorization_error",
+        "consent_denied",
+        "policy_denied",
+        "rate_limited",
+        "provider_error",
+        "tool_error",
+        "model_error",
+        "not_found",
+        "conflict",
+        "timeout",
+        "internal_error",
+        "security_blocked"
+      ]
+    },
+    "message": {
+      "type": "string"
+    },
+    "safe_message": {
+      "type": "string",
+      "minLength": 1
+    },
+    "severity": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ]
+    },
+    "retryable": {
+      "type": "boolean"
+    },
+    "user_action_required": {
+      "type": "boolean"
+    },
+    "details_redacted": {
+      "type": "boolean"
+    },
+    "source": {
+      "type": "string",
+      "minLength": 1
+    },
+    "caused_by": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  }
+}
