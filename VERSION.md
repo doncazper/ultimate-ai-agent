@@ -1,5 +1,5 @@
 # Ultimate AI Agent Version
 
-Current active baseline: **v0.5.8**
+Current active baseline: **v0.5.9**
 
-v0.5.8 scaffolds the Python Agent Core project structure (Milestone M0) and implements the core Pydantic schemas for runtime hygiene primitives (Milestone M0.5), including ResultEnvelope, ErrorEnvelope, ActorContext, TemporalContext, IdempotencyPolicy, DataClassification, RedactionPolicy, and CapabilityFlag.
+v0.5.9 implements provisional Milestone M1 kernel contracts (Execution Contract and Context Pack models), including enums, validators, factory helpers, validation API routes, and comprehensive unit tests.

@@ -4,13 +4,25 @@
 from pathlib import Path
 import sys
 
+import re
+
 ROOT = Path(__file__).resolve().parents[1]
+
+# Dynamically resolve active version for versioned implementation plan check
+version_file = ROOT / "VERSION.md"
+active_impl_plan = "docs/implementation/foundation_gate_implementation_plan_v0_5_8.md"
+if version_file.exists():
+    version_content = version_file.read_text(encoding="utf-8")
+    version_match = re.search(r"Current active baseline:\s*\*\*v?(\d+\.\d+\.\d+)\*\*", version_content)
+    if version_match:
+        ver = version_match.group(1).replace(".", "_")
+        active_impl_plan = f"docs/implementation/foundation_gate_implementation_plan_v{ver}.md"
 
 REQUIRED_FILES = [
     "docs/canonical/23_security_threat_model.md",
     "docs/canonical/30_agent_constitution.md",
     "docs/canonical/32_capability_registry_and_dependency_graph.md",
-    "docs/implementation/foundation_gate_implementation_plan_v0_5_8.md",
+    active_impl_plan,
     "docs/backlog/external_agent_tooling_watchlist.md",
 ]
 

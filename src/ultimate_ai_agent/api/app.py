@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
 
+from ultimate_ai_agent import __version__
 from ultimate_ai_agent.core.contracts import (
     ExecutionContract,
     ContextPack,
@@ -11,7 +12,7 @@ from ultimate_ai_agent.core.hygiene.envelopes import ResultEnvelope
 
 app = FastAPI(
     title="Ultimate AI Agent API Boundary",
-    version="0.5.8",
+    version=__version__,
     description="The secure control boundary for the Ultimate AI Agent"
 )
 
@@ -21,11 +22,11 @@ class HealthResponse(BaseModel):
 
 @app.get("/health", response_model=HealthResponse)
 def get_health():
-    return {"status": "healthy", "version": "0.5.8"}
+    return {"status": "healthy", "version": __version__}
 
 @app.get("/version")
 def get_version():
-    return {"version": "0.5.8"}
+    return {"version": __version__}
 
 @app.post("/contracts/validate", response_model=ResultEnvelope)
 def post_validate_contract(contract: ExecutionContract):
