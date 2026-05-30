@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "WorldState",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "world_state_id": {
+      "type": "string"
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "project_id": {
+      "type": "string"
+    },
+    "workflow_state": {
+      "type": "string",
+      "enum": [
+        "not_started",
+        "in_progress",
+        "blocked",
+        "waiting_for_approval",
+        "verifying",
+        "completed",
+        "failed",
+        "rolled_back"
+      ]
+    },
+    "current_step_id": {
+      "type": "string"
+    },
+    "active_goal": {
+      "type": "string"
+    },
+    "active_constraints": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "entries": {
+      "type": "array",
+      "items": {
+        "$ref": "world_state_entry.schema.json"
+      }
+    },
+    "open_decisions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "rollback_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "updated_at": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "world_state_id",
+    "run_id",
+    "workflow_state",
+    "updated_at"
+  ]
+}

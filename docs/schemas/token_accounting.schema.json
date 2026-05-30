@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TokenAccounting",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "accounting_id": {
+      "type": "string"
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "model_runtime_ref": {
+      "type": "string"
+    },
+    "estimated_input_tokens": {
+      "type": "integer"
+    },
+    "actual_input_tokens": {
+      "type": "integer"
+    },
+    "estimated_output_tokens": {
+      "type": "integer"
+    },
+    "actual_output_tokens": {
+      "type": "integer"
+    },
+    "calibration_factor": {
+      "type": "number"
+    },
+    "created_at": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "accounting_id",
+    "run_id",
+    "estimated_input_tokens",
+    "created_at"
+  ]
+}

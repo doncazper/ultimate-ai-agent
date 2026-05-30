@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "LocalResourceBudget",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "budget_id": {
+      "type": "string"
+    },
+    "max_cpu_percent": {
+      "type": "number"
+    },
+    "max_ram_gb": {
+      "type": "number"
+    },
+    "max_vram_gb": {
+      "type": "number"
+    },
+    "allow_on_battery": {
+      "type": "boolean"
+    },
+    "min_battery_percent": {
+      "type": "number"
+    },
+    "max_parallel_requests": {
+      "type": "integer"
+    },
+    "thermal_policy": {
+      "type": "string"
+    },
+    "created_at": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "budget_id"
+  ]
+}

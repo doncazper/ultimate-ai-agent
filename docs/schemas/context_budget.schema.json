@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ContextBudget",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "budget_id": {
+      "type": "string"
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "model_runtime_ref": {
+      "type": "string"
+    },
+    "effective_context_limit_tokens": {
+      "type": "integer"
+    },
+    "system_prompt_tokens": {
+      "type": "integer"
+    },
+    "tool_schema_tokens": {
+      "type": "integer"
+    },
+    "prompt_bundle_tokens": {
+      "type": "integer"
+    },
+    "world_state_tokens": {
+      "type": "integer"
+    },
+    "context_pack_tokens": {
+      "type": "integer"
+    },
+    "completion_reserve_tokens": {
+      "type": "integer"
+    },
+    "safety_margin_tokens": {
+      "type": "integer"
+    },
+    "available_history_tokens": {
+      "type": "integer"
+    },
+    "estimated_total_input_tokens": {
+      "type": "integer"
+    },
+    "created_at": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "budget_id",
+    "run_id",
+    "effective_context_limit_tokens",
+    "available_history_tokens",
+    "created_at"
+  ]
+}

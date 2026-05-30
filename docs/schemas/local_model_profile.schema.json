@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "LocalModelProfile",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "model_profile_id": {
+      "type": "string"
+    },
+    "runtime_id": {
+      "type": "string"
+    },
+    "model_id": {
+      "type": "string"
+    },
+    "model_family": {
+      "type": "string"
+    },
+    "quantization": {
+      "type": "string"
+    },
+    "context_window_tokens": {
+      "type": "integer"
+    },
+    "supports_tools": {
+      "type": "boolean"
+    },
+    "supports_json_mode": {
+      "type": "boolean"
+    },
+    "supports_vision": {
+      "type": "boolean"
+    },
+    "supports_embeddings": {
+      "type": "boolean"
+    },
+    "supports_streaming": {
+      "type": "boolean"
+    },
+    "supports_structured_output": {
+      "type": "boolean"
+    },
+    "ram_required_gb": {
+      "type": "number"
+    },
+    "vram_required_gb": {
+      "type": "number"
+    },
+    "tokens_per_second_estimate": {
+      "type": "number"
+    },
+    "privacy_level": {
+      "type": "string"
+    },
+    "license_notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "model_profile_id",
+    "runtime_id",
+    "model_id"
+  ]
+}

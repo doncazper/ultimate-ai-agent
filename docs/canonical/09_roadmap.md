@@ -1,4 +1,4 @@
-# 09 — Roadmap v0.5.4
+# 09 — Roadmap v0.5.5
 
 Status: Active foundation-first roadmap. This is the single roadmap source of truth.
 
@@ -21,7 +21,7 @@ OpenWebUI is a window into the agent, not the agent brain.
 
 ## Current phase
 
-Pre-coding foundation remediation, Runtime Hygiene Micro-Foundation, and Minimum Lovable Kernel preparation.
+Pre-coding foundation remediation, Runtime Hygiene Micro-Foundation, Local Runtime/Context Survival, and Minimum Lovable Kernel preparation.
 
 ## Minimum Lovable Kernel
 
@@ -50,6 +50,7 @@ M0 — Repository, Canonical Foundation, and Stack Skeleton
 M0.5 — Runtime Hygiene Primitives: Result/Error, Idempotency, Actor, Time, Classification, Redaction, Boundaries
 M1 — Kernel Contracts: Execution Contract + Context Pack, v0/provisional
 M2 — Event Ledger, Deterministic Run State, and Receipts
+M2.5 — World State, Context Budget, Local Runtime, and SDK Adapter Boundaries
 M3 — Consent Ledger + Tool Broker
 M3.5 — Secret Broker + Provider Registry + Normalized Provider Envelopes
 M4 — Memory Service + File Manager
@@ -105,6 +106,21 @@ Receipts can be generated without secrets.
 Custom deterministic state machine is documented as initial durable-execution substrate.
 ```
 
+## M2.5 acceptance
+
+```text
+Structured World State schemas validate.
+Context Budget Manager schemas validate.
+Context-limit discovery policy is documented.
+Token accounting and calibration schemas validate.
+Tool-result retention/trimming policy is documented.
+Prompt/tool bundle cache policy is documented.
+Local runtime manifests and health profiles validate.
+Privacy routing policy validates.
+Agent SDK and A2A adapters are documented as boundary adapters only.
+Long-running session survival eval is specified.
+```
+
 ## M3 acceptance
 
 ```text
@@ -139,7 +155,7 @@ Canonical files outrank memory.
 Minimum Lovable Kernel completes successfully.
 One real file mutation is performed through Tool Broker and File Manager.
 Event Ledger, rollback, QA receipt, and source-linked memory all work.
-Runtime hygiene metadata is present in the trace.
+Runtime hygiene metadata and World State/Context Budget metadata are present in the trace.
 ```
 
 ## M6 acceptance
@@ -178,4 +194,4 @@ Voice/mobile UX
 
 ## Non-negotiable sequencing rule
 
-Do not build scanners, companion proactivity, Skill Factory, self-improving code, autopilot workflows, provider-specific integrations, or high-autonomy external execution before the kernel, memory/files, event ledger, permission model, Tool Broker, Model Router, Cost Governor, Secret Broker, Provider Registry, rollback primitives, runtime hygiene contracts, API boundary, and contract tests work.
+Do not build scanners, companion proactivity, Skill Factory, self-improving code, autopilot workflows, provider-specific integrations, or high-autonomy external execution before the kernel, memory/files, event ledger, permission model, Tool Broker, Model Router, Cost Governor, Secret Broker, Provider Registry, rollback primitives, runtime hygiene contracts, context survival contracts, local runtime profiles, SDK/A2A adapter boundaries, API boundary, and contract tests work.

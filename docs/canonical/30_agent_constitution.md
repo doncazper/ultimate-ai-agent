@@ -45,3 +45,10 @@ Constitution violations block production execution and create an Event Ledger re
 ## No hidden production mode
 
 The system must not contain a hidden production mode. Dangerous capabilities require explicit configuration, visible capability flags, Event Ledger records, Consent Ledger checks, Tool Broker policy checks, redaction, and tests. If a capability is blocked by the Foundation Gate, code must enforce that block even if a UI or prompt asks for it.
+
+
+## v0.5.5 additions
+
+- Conversation transcript is context, not truth. Long-running workflows preserve exact state in World State and Event Ledger.
+- External SDKs, MCP servers, A2A agents, and local runtimes are adapters. They may not bypass local consent, Tool Broker, redaction, event logging, rollback, or verification.
+- If the effective context limit is unknown, long-running mode must fail closed or use a clearly approved conservative limit.

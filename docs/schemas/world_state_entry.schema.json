@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "WorldStateEntry",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "entry_id": {
+      "type": "string"
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "step_id": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "running",
+        "completed",
+        "failed",
+        "rolled_back",
+        "skipped"
+      ]
+    },
+    "actor_ref": {
+      "type": "string"
+    },
+    "action_type": {
+      "type": "string"
+    },
+    "normalized_parameters": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "outcome_summary": {
+      "type": "string"
+    },
+    "artifact_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "evidence_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "rollback_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "verified": {
+      "type": "boolean"
+    },
+    "created_at": {
+      "type": "string"
+    },
+    "updated_at": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "entry_id",
+    "run_id",
+    "step_id",
+    "status",
+    "action_type",
+    "created_at"
+  ]
+}

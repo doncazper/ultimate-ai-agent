@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PromptBundleManifest",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "bundle_id": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string"
+    },
+    "purpose": {
+      "type": "string"
+    },
+    "system_prompt_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "developer_prompt_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "tool_schema_bundle_ref": {
+      "type": "string"
+    },
+    "bundle_hash": {
+      "type": "string"
+    },
+    "stable_within_run": {
+      "type": "boolean"
+    },
+    "created_at": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "bundle_id",
+    "version",
+    "bundle_hash"
+  ]
+}

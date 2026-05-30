@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ToolSchemaBundle",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "bundle_id": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string"
+    },
+    "tool_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "ordered_tool_names": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "bundle_hash": {
+      "type": "string"
+    },
+    "mode": {
+      "type": "string"
+    },
+    "created_at": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "bundle_id",
+    "version",
+    "bundle_hash",
+    "ordered_tool_names"
+  ]
+}

@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RuntimeOptimizationProfile",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "profile_id": {
+      "type": "string"
+    },
+    "runtime_id": {
+      "type": "string"
+    },
+    "supports_prefix_caching": {
+      "type": "boolean"
+    },
+    "supports_cuda_graphs": {
+      "type": "boolean"
+    },
+    "supports_speculative_decoding": {
+      "type": "boolean"
+    },
+    "supports_mtp": {
+      "type": "boolean"
+    },
+    "supports_fp8_weights": {
+      "type": "boolean"
+    },
+    "supports_fp8_kv_cache": {
+      "type": "boolean"
+    },
+    "tensor_parallel_size": {
+      "type": "integer"
+    },
+    "kv_memory_per_token_estimate_bytes": {
+      "type": "integer"
+    },
+    "warmup_required": {
+      "type": "boolean"
+    },
+    "prefix_cache_sensitive_to": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "profile_id",
+    "runtime_id"
+  ]
+}

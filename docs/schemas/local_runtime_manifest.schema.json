@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "LocalRuntimeManifest",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "runtime_id": {
+      "type": "string"
+    },
+    "runtime_type": {
+      "type": "string",
+      "enum": [
+        "ollama",
+        "lm_studio",
+        "llama_cpp_server",
+        "vllm",
+        "sglang",
+        "local_embedding_server",
+        "openai_compatible_cloud",
+        "provider_native_cloud"
+      ]
+    },
+    "base_url": {
+      "type": "string"
+    },
+    "launch_command": {
+      "type": "string"
+    },
+    "health_check": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "privacy_modes_supported": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "created_at": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "runtime_id",
+    "runtime_type"
+  ]
+}

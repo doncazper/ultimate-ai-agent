@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ContextTrimEvent",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "event_id": {
+      "type": "string"
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "trimmed_item_ref": {
+      "type": "string"
+    },
+    "trimmed_item_type": {
+      "type": "string"
+    },
+    "tokens_removed_estimate": {
+      "type": "integer"
+    },
+    "raw_artifact_ref": {
+      "type": "string"
+    },
+    "summary_ref": {
+      "type": "string"
+    },
+    "reason": {
+      "type": "string"
+    },
+    "created_at": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "event_id",
+    "run_id",
+    "trimmed_item_ref",
+    "created_at"
+  ]
+}

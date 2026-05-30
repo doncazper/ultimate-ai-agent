@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "WorldStateSnapshot",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "snapshot_id": {
+      "type": "string"
+    },
+    "world_state_id": {
+      "type": "string"
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "sequence": {
+      "type": "integer"
+    },
+    "world_state_hash": {
+      "type": "string"
+    },
+    "serialized_token_estimate": {
+      "type": "integer"
+    },
+    "created_at": {
+      "type": "string"
+    },
+    "snapshot": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  },
+  "required": [
+    "snapshot_id",
+    "world_state_id",
+    "run_id",
+    "sequence",
+    "created_at",
+    "snapshot"
+  ]
+}

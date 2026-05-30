@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "A2AAgentCardMinimal",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "agent_id": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "endpoint_url": {
+      "type": "string"
+    },
+    "capabilities": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "auth_required": {
+      "type": "boolean"
+    },
+    "data_classification_allowed": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "max_autonomy_level": {
+      "type": "integer"
+    },
+    "created_at": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "agent_id",
+    "name",
+    "endpoint_url",
+    "capabilities"
+  ]
+}

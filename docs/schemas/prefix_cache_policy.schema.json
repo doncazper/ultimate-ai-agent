@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PrefixCachePolicy",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "policy_id": {
+      "type": "string"
+    },
+    "cache_sensitive_to": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "stable_within_run": {
+      "type": "boolean"
+    },
+    "invalidate_on_model_change": {
+      "type": "boolean"
+    },
+    "invalidate_on_tool_bundle_change": {
+      "type": "boolean"
+    },
+    "invalidate_on_prompt_bundle_change": {
+      "type": "boolean"
+    },
+    "created_at": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "policy_id",
+    "cache_sensitive_to"
+  ]
+}

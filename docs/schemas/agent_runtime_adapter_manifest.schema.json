@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AgentRuntimeAdapterManifest",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "adapter_id": {
+      "type": "string"
+    },
+    "adapter_type": {
+      "type": "string",
+      "enum": [
+        "openai_agents_sdk",
+        "claude_agent_sdk",
+        "responses_api",
+        "anthropic_client_sdk",
+        "mcp_tool_server",
+        "a2a_client",
+        "a2a_server",
+        "local_openai_compatible",
+        "custom_internal"
+      ]
+    },
+    "version": {
+      "type": "string"
+    },
+    "allowed_capabilities": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "forbidden_capabilities": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "requires_tool_broker": {
+      "type": "boolean"
+    },
+    "requires_event_ledger": {
+      "type": "boolean"
+    },
+    "requires_consent_check": {
+      "type": "boolean"
+    },
+    "requires_redaction": {
+      "type": "boolean"
+    },
+    "created_at": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "adapter_id",
+    "adapter_type",
+    "requires_tool_broker",
+    "requires_event_ledger"
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ContextTrimPolicy",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "policy_id": {
+      "type": "string"
+    },
+    "never_trim": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "trim_last": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "trim_first": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "max_history_tokens": {
+      "type": "integer"
+    },
+    "store_raw_before_trim": {
+      "type": "boolean"
+    },
+    "created_at": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "policy_id",
+    "never_trim",
+    "trim_first"
+  ]
+}

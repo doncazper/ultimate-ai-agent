@@ -1,7 +1,9 @@
 # Active Project Version
 
-Current planning baseline: **v0.5.4**
+Current planning baseline: **v0.5.5**
 
-This version adds the Runtime Hygiene Micro-Foundation before M0/M1 coding: universal result/error envelopes, idempotency and retry policy, actor/authority context, temporal freshness, data classification, redaction and safe debugging, service boundaries/dependency injection, capability flags, and test strategy conventions.
+This version adds Local Runtime, Context Survival, Structured World State, and Agent Runtime Adapter strategy before M0/M1 coding.
 
-v0.5.4 is intentionally small. It does not implement scanners, provider integrations, companion proactivity, Skill Factory, self-improvement, or external high-autonomy execution.
+v0.5.5 incorporates lessons from local LLM agent infrastructure: the agent must not rely on transcript history as the durable record; long-running sessions need structured world state, context budgeting, token calibration, tool-result retention, local runtime profiles, prefix-cache-aware prompt/tool bundles, and explicit SDK/A2A adapter boundaries.
+
+v0.5.5 remains pre-coding architecture. It does not implement scanners, provider integrations, companion proactivity, Skill Factory, self-improvement, external high-autonomy execution, or production model/runtime calls.
