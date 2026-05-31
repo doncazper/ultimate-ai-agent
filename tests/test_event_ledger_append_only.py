@@ -96,3 +96,47 @@ def test_persistent_jsonl_ledger(dummy_event_factory):
         ledger2 = EventLedger(filepath=str(filepath))
         assert len(ledger2.list_events()) == 1
         assert ledger2.get_event("evt_persisted") is not None
+
+def test_trace_integrity_parent_spans(dummy_event_factory):
+    ledger = EventLedger()
+    
+    # Event 1 (root span)
+    evt1 = dummy_event_factory(event_id="evt_1")
+    evt1.span_id = "span_root"
+    evt1.parent_span_id = None
+    
+    # Event 2 (child span with external parent)
+    evt2 = dummy_event_factory(event_id="evt_2")
+    evt2.span_id = "span_child"
+    evt2.parent_span_id = "span_external"
+    
+    ledger.append_event(evt1)
+    ledger.append_event(evt2)
+    
+    # By default, external parent spans are allowed
+    assert ledger.validate_trace_integrity("run_abc", allow_external_parent_spans=True) is True
+    
+    # In internal-only mode, external parent span should cause verification to fail
+    assert ledger.validate_trace_integrity("run_abc", allow_external_parent_spans=False) is False
+    
+    # If parent span exists within the run events, it should pass in internal-only mode too
+    evt3 = dummy_event_factory(event_id="evt_3")
+    evt3.span_id = "span_child_internal"
+    evt3.parent_span_id = "span_root"
+    ledger.append_event(evt3)
+    
+    # Since span_root is in the ledger, it should pass
+    # But wait, evt2 still has span_external, so we create a new run context or test run_id
+    run2_id = "run_internal_only"
+    evt4 = dummy_event_factory(event_id="evt_4", run_id=run2_id)
+    evt4.span_id = "span_root"
+    evt4.parent_span_id = None
+    
+    evt5 = dummy_event_factory(event_id="evt_5", run_id=run2_id)
+    evt5.span_id = "span_child"
+    evt5.parent_span_id = "span_root"
+    
+    ledger.append_event(evt4)
+    ledger.append_event(evt5)
+    
+    assert ledger.validate_trace_integrity(run2_id, allow_external_parent_spans=False) is True

@@ -21,7 +21,7 @@ def main():
     if not version_file.exists():
         fail("VERSION.md does not exist")
     
-    version_content = version_file.read_text()
+    version_content = version_file.read_text(encoding="utf-8")
     version_match = re.search(r"Current active baseline:\s*\*\*v?(\d+\.\d+\.\d+)\*\*", version_content)
     if not version_match:
         fail("Could not find 'Current active baseline: **vX.Y.Z**' pattern in VERSION.md")
@@ -35,7 +35,7 @@ def main():
     if not pyproject_file.exists():
         fail("pyproject.toml does not exist")
         
-    pyproject_content = pyproject_file.read_text()
+    pyproject_content = pyproject_file.read_text(encoding="utf-8")
     pyproject_match = re.search(r'(?m)^version\s*=\s*[\'"]([^\'"]+)[\'"]', pyproject_content)
     if not pyproject_match:
         fail("Could not find version setting in pyproject.toml")
@@ -50,7 +50,7 @@ def main():
     if not init_file.exists():
         fail("src/ultimate_ai_agent/__init__.py does not exist")
         
-    init_content = init_file.read_text()
+    init_content = init_file.read_text(encoding="utf-8")
     init_match = re.search(r'(?m)^__version__\s*=\s*[\'"]([^\'"]+)[\'"]', init_content)
     if not init_match:
         fail("Could not find __version__ in src/ultimate_ai_agent/__init__.py")
@@ -65,23 +65,27 @@ def main():
     if not readme_file.exists():
         fail("README.md does not exist")
         
-    readme_content = readme_file.read_text()
+    readme_content = readme_file.read_text(encoding="utf-8")
     if f"v{version}" not in readme_content:
         fail(f"README.md does not mention the active baseline v{version}")
         
-    # Check that it doesn't mention older version_IMPORT files where it should mention current
-    old_version = "0.5.8"
-    if f"README_IMPORT_v{old_version.replace('.', '_')}.md" in readme_content:
-        fail(f"README.md contains legacy start file README_IMPORT_v{old_version.replace('.', '_')}.md")
-    if f"ultimate_ai_agent_master_plan_v{old_version.replace('.', '_')}.md" in readme_content:
-        fail(f"README.md contains legacy start file ultimate_ai_agent_master_plan_v{old_version.replace('.', '_')}.md")
-        
+    # Generic check for README_IMPORT and master plan references
+    import_matches = re.findall(r"README_IMPORT_v(\d+_\d+_\d+)\.md", readme_content)
+    for m in import_matches:
+        if m != version_with_underscores:
+            fail(f"README.md contains legacy start file reference: README_IMPORT_v{m}.md")
+            
+    plan_matches = re.findall(r"ultimate_ai_agent_master_plan_v(\d+_\d+_\d+)\.md", readme_content)
+    for m in plan_matches:
+        if m != version_with_underscores:
+            fail(f"README.md contains legacy start file reference: ultimate_ai_agent_master_plan_v{m}.md")
+            
     # Check that current start files are listed
     if f"README_IMPORT_v{version_with_underscores}.md" not in readme_content:
         fail(f"README.md is missing active start file README_IMPORT_v{version_with_underscores}.md")
     if f"ultimate_ai_agent_master_plan_v{version_with_underscores}.md" not in readme_content:
         fail(f"README.md is missing active start file ultimate_ai_agent_master_plan_v{version_with_underscores}.md")
-    ok("README.md active baseline references are consistent")
+    ok("README.md active baseline references are consistent (generic check)")
     
     # 5. Check release notes existence
     rel_notes_file = ROOT / "docs" / "release_notes" / f"v{version_with_underscores}.md"
@@ -112,18 +116,127 @@ def main():
         if not p.exists():
             fail(f"Required M1 file is missing: {rel_path}")
     ok("All M1 contract/validation files exist")
+
+    # 8. Check M2 ledger files existence
+    m2_files = [
+        "src/ultimate_ai_agent/core/ledger/__init__.py",
+        "src/ultimate_ai_agent/core/ledger/enums.py",
+        "src/ultimate_ai_agent/core/ledger/events.py",
+        "src/ultimate_ai_agent/core/ledger/ledger.py",
+        "src/ultimate_ai_agent/core/ledger/receipts.py",
+        "src/ultimate_ai_agent/core/ledger/replay.py",
+        "src/ultimate_ai_agent/core/ledger/run_state.py",
+        "src/ultimate_ai_agent/core/ledger/standards.py",
+        "src/ultimate_ai_agent/core/ledger/validation.py",
+    ]
+    for rel_path in m2_files:
+        p = ROOT / rel_path
+        if not p.exists():
+            fail(f"Required M2 ledger file is missing: {rel_path}")
+    ok("All M2 ledger files exist")
+
+    # 8.5 Check M2.5 world state/context budget/runtime/adapter files existence
+    m25_files = [
+        "src/ultimate_ai_agent/core/world_state/__init__.py",
+        "src/ultimate_ai_agent/core/world_state/models.py",
+        "src/ultimate_ai_agent/core/world_state/snapshots.py",
+        "src/ultimate_ai_agent/core/world_state/validation.py",
+        "src/ultimate_ai_agent/core/context_budget/__init__.py",
+        "src/ultimate_ai_agent/core/context_budget/models.py",
+        "src/ultimate_ai_agent/core/context_budget/token_accounting.py",
+        "src/ultimate_ai_agent/core/context_budget/trimming.py",
+        "src/ultimate_ai_agent/core/context_budget/validation.py",
+        "src/ultimate_ai_agent/core/runtime/__init__.py",
+        "src/ultimate_ai_agent/core/runtime/local_runtime.py",
+        "src/ultimate_ai_agent/core/runtime/resource_budget.py",
+        "src/ultimate_ai_agent/core/runtime/capability_profile.py",
+        "src/ultimate_ai_agent/core/runtime/health.py",
+        "src/ultimate_ai_agent/core/runtime/validation.py",
+        "src/ultimate_ai_agent/core/adapters/__init__.py",
+        "src/ultimate_ai_agent/core/adapters/sdk_manifest.py",
+        "src/ultimate_ai_agent/core/adapters/a2a_manifest.py",
+        "src/ultimate_ai_agent/core/adapters/validation.py",
+    ]
+    for rel_path in m25_files:
+        p = ROOT / rel_path
+        if not p.exists():
+            fail(f"Required M2.5 file is missing: {rel_path}")
+    ok("All M2.5 world state, context budget, runtime, and adapter files exist")
     
-    # 8. Verify no tracked egg-info files or directories in git
+    # 9. Verify no tracked egg-info, venv, build, or dist files/directories in git
+    git_files = []
     try:
         git_files_raw = subprocess.check_output(["git", "ls-files"], text=True)
         git_files = git_files_raw.splitlines()
         for f in git_files:
-            if ".egg-info" in f:
-                fail(f"A generated egg-info file is currently tracked in git: {f}")
+            if any(x in f for x in [".egg-info", ".venv", "build/", "dist/"]):
+                fail(f"A generated artifact/virtualenv file is tracked in git: {f}")
     except subprocess.SubprocessError as e:
-        print(f"Warning: Failed to run git ls-files ({e}). Skipping tracked egg-info verification.")
+        print(f"Warning: Failed to run git ls-files ({e}). Skipping tracked artifact verification.")
         
-    ok("No generated egg-info files are tracked in git")
+    ok("No generated egg-info, .venv, build, or dist files are tracked in git")
+
+    # 10. Check for obvious committed secrets
+    secret_patterns = [
+        (re.compile(r'(?i)(api_key|password|client_secret|private_key|token|auth_token)\s*=\s*[\'"]([a-zA-Z0-9_\-\.\:\/]+)[\'"]'), "assignment"),
+        (re.compile(r'-----BEGIN .* PRIVATE KEY-----'), "private_key_header")
+    ]
+    for f in git_files:
+        path = ROOT / f
+        # Skip test files, markdown docs, scripts, verifiers, and test resources
+        if (f.startswith("tests/") or 
+            f.endswith(".md") or 
+            f.startswith("scripts/") or 
+            "test" in f or 
+            "example" in f or
+            "mock" in f):
+            continue
+        if path.is_file():
+            try:
+                content = path.read_text(encoding="utf-8")
+                if "-----BEGIN" in content and "PRIVATE KEY-----" in content:
+                    fail(f"Obvious committed secret (private key) in {f}")
+                for pattern, ptype in secret_patterns:
+                    if ptype == "assignment":
+                        for match in pattern.finditer(content):
+                            key, val = match.groups()
+                            val_lower = val.lower()
+                            # Ignore mock / dummy / test / placeholder values
+                            if any(x in val_lower for x in ["mock", "test", "dummy", "example", "placeholder", "token", "schema"]):
+                                continue
+                            # Ignore version strings and schema versions
+                            if re.match(r'^v?\d+\.\d+\.\d+$', val) or val.endswith(".v0"):
+                                continue
+                            if len(val) >= 12:
+                                fail(f"Potential obvious committed secret '{key}' in {f}")
+            except Exception:
+                pass
+    ok("No obvious committed secrets detected in non-test files")
+
+    # 11. Check for blocked modules implemented in src/
+    blocked_patterns = [
+        ("src/ultimate_ai_agent/core/skill_factory/", "Skill Factory"),
+        ("src/ultimate_ai_agent/core/self_improvement/", "Self Improving Code"),
+        ("src/ultimate_ai_agent/core/autopilot/", "Autopilot Workflows"),
+        ("src/ultimate_ai_agent/core/scanners/", "Secrets/Dependency Scanners"),
+    ]
+    for rel_path, desc in blocked_patterns:
+        p = ROOT / rel_path
+        if p.exists():
+            fail(f"Blocked module implemented: {desc} ({rel_path})")
+            
+    # Scan src/ for active execution imports of real models
+    for p in (ROOT / "src").rglob("*.py"):
+        try:
+            content = p.read_text(encoding="utf-8")
+            for line in content.splitlines():
+                if line.strip().startswith(("import openai", "import anthropic", "import google.generativeai")):
+                    fail(f"Forbidden model provider import in {p.relative_to(ROOT)}: {line}")
+                if "from openai import" in line or "from anthropic import" in line or "from google import generativeai" in line:
+                    fail(f"Forbidden model provider import in {p.relative_to(ROOT)}: {line}")
+        except Exception:
+            pass
+    ok("Advanced blocked modules are not implemented")
     print("\nConsistency verification PASSED")
 
 if __name__ == "__main__":

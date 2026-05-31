@@ -8,13 +8,13 @@ def test_health_endpoint():
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "healthy"
-    assert data["version"] == "0.6.0"
+    assert data["version"] == "0.6.1"
 
 def test_version_endpoint():
     response = client.get("/version")
     assert response.status_code == 200
     data = response.json()
-    assert data["version"] == "0.6.0"
+    assert data["version"] == "0.6.1"
 
 def test_validate_contract_endpoint():
     contract_data = {
@@ -147,4 +147,73 @@ def test_preview_receipt_endpoint():
     assert res_json["success"] is True
     assert res_json["data"]["run_id"] == "run_api_123"
     assert res_json["data"]["event_count"] == 1
+
+def test_validate_world_state_endpoint():
+    payload = {
+        "world_state_id": "ws_api_test",
+        "run_id": "run_api_123",
+        "current_phase": "execution",
+        "current_step": "step_1",
+        "completed_steps": [],
+        "last_event_id": "evt_abc",
+        "created_at": "2026-05-31T12:00:00Z",
+        "updated_at": "2026-05-31T12:00:00Z"
+    }
+    response = client.post("/world-state/validate", json=payload)
+    assert response.status_code == 200
+    res_json = response.json()
+    assert res_json["success"] is True
+    assert res_json["data"]["world_state_id"] == "ws_api_test"
+
+def test_validate_context_budget_endpoint():
+    payload = {
+        "model_context_limit": 8000,
+        "system_prompt_tokens": 1000,
+        "tool_schema_tokens": 500,
+        "world_state_tokens": 200,
+        "context_pack_tokens": 300,
+        "completion_reserve_tokens": 2000,
+        "safety_margin_tokens": 1000,
+        "token_calibration_factor": 1.0,
+        "unknown_limit_fails_closed": True
+    }
+    response = client.post("/context-budget/validate", json=payload)
+    assert response.status_code == 200
+    res_json = response.json()
+    assert res_json["success"] is True
+    assert res_json["data"]["available_history_tokens"] == 3000
+
+def test_validate_local_runtime_endpoint():
+    payload = {
+        "manifest": {
+            "runtime_id": "rt_ollama",
+            "runtime_type": "ollama",
+            "model_profile": {
+                "model_id": "llama3",
+                "context_window": 8192
+            },
+            "privacy_mode": "local_only"
+        }
+    }
+    response = client.post("/local-runtime/validate", json=payload)
+    assert response.status_code == 200
+    res_json = response.json()
+    assert res_json["success"] is True
+
+def test_validate_adapter_manifest_endpoint():
+    payload = {
+        "manifest": {
+            "adapter_id": "aider",
+            "adapter_type": "aider",
+            "version": "0.30.0"
+        },
+        "policy": {
+            "policy_id": "p1"
+        }
+    }
+    response = client.post("/adapter-manifest/validate", json=payload)
+    assert response.status_code == 200
+    res_json = response.json()
+    assert res_json["success"] is True
+
 

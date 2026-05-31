@@ -72,8 +72,16 @@ class EventLedger:
     def generate_receipt(self, run_id: str) -> RunReceipt:
         return generate_receipt_from_events(run_id, self._events)
 
-    def validate_trace_integrity(self, run_id: str) -> bool:
-        """Validate trace details and chronological ordering of trace spans."""
+    def validate_trace_integrity(self, run_id: str, allow_external_parent_spans: bool = True) -> bool:
+        """Validate trace details and chronological ordering of trace spans.
+
+        Policy:
+        - If allow_external_parent_spans is True (default), a parent_span_id that is not in the run's span IDs
+          is considered an external parent span (e.g. from an external systems call) and is allowed.
+          This is common at API and worker boundaries.
+        - If allow_external_parent_spans is False (internal-only mode), all parent_span_ids must correspond to
+          a span_id defined within the run's events, otherwise verification fails.
+        """
         run_events = [e for e in self._events if e.run_id == run_id]
         if not run_events:
             return True
@@ -98,8 +106,7 @@ class EventLedger:
         span_ids = {e.span_id for e in run_events}
         for event in run_events:
             if event.parent_span_id and event.parent_span_id not in span_ids:
-                # Parent span is not present in the current run's event sequence
-                # (could occur for external span starts, but for internal integrity check we flag it)
-                pass
+                if not allow_external_parent_spans:
+                    return False
 
         return True
