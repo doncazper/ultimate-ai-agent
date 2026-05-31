@@ -26,6 +26,7 @@ class ConsentSubjectType(str, Enum):
     model_route = "model_route"
 
 class PermissionAction(str, Enum):
+    any = "any"
     read = "read"
     write = "write"
     create = "create"

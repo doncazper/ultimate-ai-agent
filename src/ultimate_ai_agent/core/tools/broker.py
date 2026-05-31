@@ -41,10 +41,6 @@ class ToolBroker:
 
         # M1 Integration: Respect ExecutionContract allowed/forbidden list
         if execution_contract:
-            # Let's mock a simple dict lookup or list lookup.
-            # In M1 execution_contract, we can have forbidden_tools list or allowed_tools list if we set them,
-            # or check custom contract properties.
-            # Let's check metadata or custom fields in execution_contract.
             if hasattr(execution_contract, "forbidden_tools") and execution_contract.forbidden_tools:
                 if tool_id in execution_contract.forbidden_tools:
                     return ToolDecision(
@@ -70,7 +66,6 @@ class ToolBroker:
 
         # M1 Integration: Respect ContextPack tool_permissions
         if context_pack:
-            # In ContextPack we can check allowed scopes or custom tool permissions
             if hasattr(context_pack, "tool_permissions") and context_pack.tool_permissions:
                 if tool_id not in context_pack.tool_permissions:
                     return ToolDecision(

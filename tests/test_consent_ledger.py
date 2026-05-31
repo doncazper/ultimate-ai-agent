@@ -51,3 +51,38 @@ def test_consent_ledger_check_expiration(dummy_grant_factory):
     
     ledger.check_expiration(datetime.utcnow())
     assert ledger.list_grants()[0].status == ConsentStatus.expired
+
+def test_consent_ledger_wildcard_allowed_actions(dummy_grant_factory):
+    from ultimate_ai_agent.core.consent.decisions import ConsentQuery
+    from ultimate_ai_agent.core.consent.enums import PermissionRisk, DataBoundary
+    ledger = ConsentLedger()
+    grant = dummy_grant_factory(
+        consent_id="g_wildcard",
+        action=PermissionAction.any
+    )
+    ledger.add_grant(grant)
+    
+    # Query read
+    query_read = ConsentQuery(
+        actor_id="orchestrator",
+        action=PermissionAction.read,
+        resource="tool_abc",
+        data_classification=DataBoundary.public,
+        purpose="testing",
+        risk_level=PermissionRisk.low
+    )
+    decision_read = ledger.evaluate(query_read)
+    assert decision_read.allowed is True
+    assert "g_wildcard" in decision_read.matched_grants
+
+    # Query write
+    query_write = ConsentQuery(
+        actor_id="orchestrator",
+        action=PermissionAction.write,
+        resource="tool_abc",
+        data_classification=DataBoundary.public,
+        purpose="testing",
+        risk_level=PermissionRisk.low
+    )
+    decision_write = ledger.evaluate(query_write)
+    assert decision_write.allowed is True

@@ -2,7 +2,6 @@
 import sys
 import re
 from pathlib import Path
-import subprocess
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -188,80 +187,12 @@ def main():
             fail(f"Required M3 file is missing: {rel_path}")
     ok("All M3 consent and tool files exist")
     
-    # 9. Verify no tracked egg-info, venv, build, or dist files/directories in git
-    git_files = []
-    try:
-        git_files_raw = subprocess.check_output(["git", "ls-files"], text=True)
-        git_files = git_files_raw.splitlines()
-        for f in git_files:
-            if any(x in f for x in [".egg-info", ".venv", "build/", "dist/"]):
-                fail(f"A generated artifact/virtualenv file is tracked in git: {f}")
-    except subprocess.SubprocessError as e:
-        print(f"Warning: Failed to run git ls-files ({e}). Skipping tracked artifact verification.")
-        
-    ok("No generated egg-info, .venv, build, or dist files are tracked in git")
+    # 9. Enforce scans by delegating to verify_all
+    from verify_all import verify_no_generated_artifacts, verify_no_obvious_secrets, verify_no_blocked_modules
+    verify_no_generated_artifacts()
+    verify_no_obvious_secrets()
+    verify_no_blocked_modules()
 
-    # 10. Check for obvious committed secrets
-    secret_patterns = [
-        (re.compile(r'(?i)(api_key|password|client_secret|private_key|token|auth_token)\s*=\s*[\'"]([a-zA-Z0-9_\-\.\:\/]+)[\'"]'), "assignment"),
-        (re.compile(r'-----BEGIN .* PRIVATE KEY-----'), "private_key_header")
-    ]
-    for f in git_files:
-        path = ROOT / f
-        # Skip test files, markdown docs, scripts, verifiers, and test resources
-        if (f.startswith("tests/") or 
-            f.endswith(".md") or 
-            f.startswith("scripts/") or 
-            "test" in f or 
-            "example" in f or
-            "mock" in f):
-            continue
-        if path.is_file():
-            try:
-                content = path.read_text(encoding="utf-8")
-                if "-----BEGIN" in content and "PRIVATE KEY-----" in content:
-                    fail(f"Obvious committed secret (private key) in {f}")
-                for pattern, ptype in secret_patterns:
-                    if ptype == "assignment":
-                        for match in pattern.finditer(content):
-                            key, val = match.groups()
-                            val_lower = val.lower()
-                            # Ignore mock / dummy / test / placeholder values
-                            if any(x in val_lower for x in ["mock", "test", "dummy", "example", "placeholder", "token", "schema"]):
-                                continue
-                            # Ignore version strings and schema versions
-                            if re.match(r'^v?\d+\.\d+\.\d+$', val) or val.endswith(".v0"):
-                                continue
-                            if len(val) >= 12:
-                                fail(f"Potential obvious committed secret '{key}' in {f}")
-            except Exception:
-                pass
-    ok("No obvious committed secrets detected in non-test files")
-
-    # 11. Check for blocked modules implemented in src/
-    blocked_patterns = [
-        ("src/ultimate_ai_agent/core/skill_factory/", "Skill Factory"),
-        ("src/ultimate_ai_agent/core/self_improvement/", "Self Improving Code"),
-        ("src/ultimate_ai_agent/core/autopilot/", "Autopilot Workflows"),
-        ("src/ultimate_ai_agent/core/scanners/", "Secrets/Dependency Scanners"),
-    ]
-    for rel_path, desc in blocked_patterns:
-        p = ROOT / rel_path
-        if p.exists():
-            fail(f"Blocked module implemented: {desc} ({rel_path})")
-            
-    # Scan src/ for active execution imports of real models
-    for p in (ROOT / "src").rglob("*.py"):
-        try:
-            content = p.read_text(encoding="utf-8")
-            for line in content.splitlines():
-                if line.strip().startswith(("import openai", "import anthropic", "import google.generativeai")):
-                    fail(f"Forbidden model provider import in {p.relative_to(ROOT)}: {line}")
-                if "from openai import" in line or "from anthropic import" in line or "from google import generativeai" in line:
-                    fail(f"Forbidden model provider import in {p.relative_to(ROOT)}: {line}")
-        except Exception:
-            pass
-    ok("Advanced blocked modules are not implemented")
     print("\nConsistency verification PASSED")
 
 if __name__ == "__main__":

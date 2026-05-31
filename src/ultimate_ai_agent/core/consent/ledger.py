@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 from typing import List, Optional
-from ultimate_ai_agent.core.consent.enums import ConsentStatus, PermissionRisk, ApprovalRequirement, DataBoundary
+from ultimate_ai_agent.core.consent.enums import ConsentStatus, PermissionRisk, ApprovalRequirement, DataBoundary, PermissionAction
 from ultimate_ai_agent.core.consent.grants import ConsentGrant, RevocationRecord
 from ultimate_ai_agent.core.consent.decisions import ConsentQuery, ConsentDecision
 from ultimate_ai_agent.core.consent.validation import validate_consent_grant
@@ -115,7 +115,7 @@ class ConsentLedger:
                 continue
 
             # Must match allowed action
-            action_allowed = (query.action in grant.allowed_actions) or ("*" in grant.allowed_actions)
+            action_allowed = (query.action in grant.allowed_actions) or (PermissionAction.any in grant.allowed_actions)
             if not action_allowed:
                 continue
 
