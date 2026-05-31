@@ -27,6 +27,23 @@ from ultimate_ai_agent.core.adapters import AgentRuntimeAdapterManifest, SDKAdap
 # Import M3 contracts for API boundary
 from ultimate_ai_agent.core.consent import ConsentGrant, ConsentQuery, ConsentLedger, validate_consent_grant
 from ultimate_ai_agent.core.tools import ToolManifest, ToolRequest, ToolBroker, ToolRegistry, CapabilityFirewallPolicy, validate_tool_manifest
+from ultimate_ai_agent.core.secrets import (
+    CredentialReference,
+    SecretAccessRequest,
+    SecretBroker,
+    validate_credential_reference,
+)
+from ultimate_ai_agent.core.providers import (
+    ProviderCapability,
+    ProviderDomain,
+    ProviderManifest,
+    ProviderRegistry,
+    ProviderResolver,
+    ProviderResultEnvelope,
+    ProviderSelectionPolicy,
+    validate_provider_manifest,
+    validate_provider_result_envelope,
+)
 
 app = FastAPI(
     title="Ultimate AI Agent API Boundary",
@@ -286,11 +303,25 @@ class ToolEvaluateRequest(BaseModel):
     request: ToolRequest
     grants: List[ConsentGrant]
     tool: ToolManifest
+    execution_contract: Optional[ExecutionContract] = None
+    context_pack: Optional[ContextPack] = None
     firewall_policy: Optional[CapabilityFirewallPolicy] = None
 
 class ToolDryRunRequest(BaseModel):
     request: ToolRequest
     tool: ToolManifest
+
+class SecretAccessEvaluateRequest(BaseModel):
+    reference: CredentialReference
+    access_request: SecretAccessRequest
+    secret_value: Optional[str] = None
+
+class ProviderResolveRequest(BaseModel):
+    domain: ProviderDomain
+    capability: ProviderCapability
+    policy: ProviderSelectionPolicy
+    providers: List[ProviderManifest]
+    credential_availability: Optional[dict[str, bool]] = None
 
 @app.post("/consent/grants/validate", response_model=ResultEnvelope)
 def post_validate_consent_grant(grant: ConsentGrant):
@@ -395,7 +426,12 @@ def post_evaluate_tool_request(req: ToolEvaluateRequest):
         for g in req.grants:
             ledger.add_grant(g)
             
-        decision = broker.evaluate_request(request=req.request, consent_ledger=ledger)
+        decision = broker.evaluate_request(
+            request=req.request,
+            consent_ledger=ledger,
+            execution_contract=req.execution_contract,
+            context_pack=req.context_pack,
+        )
         return ResultEnvelope(
             success=True,
             operation="evaluate_tool_request",
@@ -454,3 +490,119 @@ def post_tool_dry_run(req: ToolDryRunRequest):
             error=err
         )
 
+@app.post("/secrets/credentials/validate", response_model=ResultEnvelope)
+def post_validate_credential_reference(reference: CredentialReference):
+    try:
+        validate_credential_reference(reference)
+        return ResultEnvelope(
+            success=True,
+            operation="validate_credential_reference",
+            service="SecretBrokerAPI",
+            trace_id="system",
+            data={"credential_ref": reference.credential_ref, "status": "validated"}
+        )
+    except Exception as e:
+        err = ErrorEnvelope(
+            code="CREDENTIAL_REFERENCE_INVALID",
+            category=ErrorCategory.validation_error,
+            safe_message=str(e),
+            severity=Severity.medium,
+            retryable=False,
+            details_redacted=True,
+            source="SecretBrokerAPI"
+        )
+        return ResultEnvelope(
+            success=False,
+            operation="validate_credential_reference",
+            service="SecretBrokerAPI",
+            trace_id="system",
+            error=err
+        )
+
+@app.post("/secrets/access/evaluate", response_model=ResultEnvelope)
+def post_evaluate_secret_access(req: SecretAccessEvaluateRequest):
+    broker = SecretBroker()
+    broker.register_credential(req.reference, secret_value=req.secret_value)
+    decision = broker.request_secret(req.access_request)
+    return ResultEnvelope(
+        success=True,
+        operation="evaluate_secret_access",
+        service="SecretBrokerAPI",
+        trace_id=req.access_request.event_ref or "system",
+        data=decision.model_dump()
+    )
+
+@app.post("/providers/manifests/validate", response_model=ResultEnvelope)
+def post_validate_provider_manifest(manifest: ProviderManifest):
+    try:
+        validate_provider_manifest(manifest)
+        return ResultEnvelope(
+            success=True,
+            operation="validate_provider_manifest",
+            service="ProviderRegistryAPI",
+            trace_id="system",
+            data={"provider_id": manifest.provider_id, "status": "validated"}
+        )
+    except Exception as e:
+        err = ErrorEnvelope(
+            code="PROVIDER_MANIFEST_INVALID",
+            category=ErrorCategory.validation_error,
+            safe_message=str(e),
+            severity=Severity.medium,
+            retryable=False,
+            details_redacted=True,
+            source="ProviderRegistryAPI"
+        )
+        return ResultEnvelope(
+            success=False,
+            operation="validate_provider_manifest",
+            service="ProviderRegistryAPI",
+            trace_id="system",
+            error=err
+        )
+
+@app.post("/providers/resolve", response_model=ResultEnvelope)
+def post_resolve_provider(req: ProviderResolveRequest):
+    registry = ProviderRegistry()
+    for provider in req.providers:
+        registry.register_provider(provider)
+    decision = ProviderResolver(registry).resolve(
+        domain=req.domain,
+        capability=req.capability,
+        policy=req.policy,
+        credential_availability=req.credential_availability,
+    )
+    return ResultEnvelope(
+        success=True,
+        operation="resolve_provider",
+        service="ProviderRegistryAPI",
+        trace_id="system",
+        data=decision.model_dump()
+    )
+
+@app.post("/providers/results/validate", response_model=ResultEnvelope)
+def post_validate_provider_result(envelope: ProviderResultEnvelope):
+    if not validate_provider_result_envelope(envelope):
+        err = ErrorEnvelope(
+            code="PROVIDER_RESULT_SECRET_EXPOSURE",
+            category=ErrorCategory.security_blocked,
+            safe_message="Provider result validation failed: secrets detected in payload",
+            severity=Severity.critical,
+            retryable=False,
+            details_redacted=True,
+            source="ProviderRegistryAPI"
+        )
+        return ResultEnvelope(
+            success=False,
+            operation="validate_provider_result",
+            service="ProviderRegistryAPI",
+            trace_id=envelope.event_ref or "system",
+            error=err
+        )
+    return ResultEnvelope(
+        success=True,
+        operation="validate_provider_result",
+        service="ProviderRegistryAPI",
+        trace_id=envelope.event_ref or "system",
+        data={"result_id": envelope.result_id, "status": "validated"}
+    )

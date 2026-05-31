@@ -1,5 +1,5 @@
 from typing import List, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from ultimate_ai_agent.core.tools.enums import (
     ToolCategory,
     ToolExecutionMode,
@@ -13,6 +13,8 @@ class ToolPermissionManifest(BaseModel):
     filesystem_roots: List[str] = Field(default_factory=list)
     network_domains: List[str] = Field(default_factory=list)
     credentials_keys: List[str] = Field(default_factory=list)
+
+    model_config = ConfigDict(extra="forbid")
 
 class ToolManifest(BaseModel):
     tool_id: str
@@ -38,9 +40,13 @@ class ToolManifest(BaseModel):
     version: str
     event_refs: Optional[List[str]] = None
 
+    model_config = ConfigDict(extra="forbid")
+
 class DryRunPlan(BaseModel):
     plan_id: str
     tool_id: str
     estimated_risk: ToolRiskLevel
     steps: List[str] = Field(default_factory=list)
     side_effects_prevented: List[str] = Field(default_factory=list)
+
+    model_config = ConfigDict(extra="forbid")

@@ -186,12 +186,43 @@ def main():
         if not p.exists():
             fail(f"Required M3 file is missing: {rel_path}")
     ok("All M3 consent and tool files exist")
+
+    # 8.7 Check M3.5 secret/provider files existence
+    m35_files = [
+        "src/ultimate_ai_agent/core/secrets/__init__.py",
+        "src/ultimate_ai_agent/core/secrets/enums.py",
+        "src/ultimate_ai_agent/core/secrets/credentials.py",
+        "src/ultimate_ai_agent/core/secrets/handles.py",
+        "src/ultimate_ai_agent/core/secrets/broker.py",
+        "src/ultimate_ai_agent/core/secrets/redaction.py",
+        "src/ultimate_ai_agent/core/secrets/validation.py",
+        "src/ultimate_ai_agent/core/providers/__init__.py",
+        "src/ultimate_ai_agent/core/providers/enums.py",
+        "src/ultimate_ai_agent/core/providers/manifests.py",
+        "src/ultimate_ai_agent/core/providers/registry.py",
+        "src/ultimate_ai_agent/core/providers/requests.py",
+        "src/ultimate_ai_agent/core/providers/results.py",
+        "src/ultimate_ai_agent/core/providers/resolver.py",
+        "src/ultimate_ai_agent/core/providers/normalization.py",
+        "src/ultimate_ai_agent/core/providers/validation.py",
+    ]
+    for rel_path in m35_files:
+        p = ROOT / rel_path
+        if not p.exists():
+            fail(f"Required M3.5 file is missing: {rel_path}")
+    ok("All M3.5 secret broker and provider registry files exist")
     
     # 9. Enforce scans by delegating to verify_all
-    from verify_all import verify_no_generated_artifacts, verify_no_obvious_secrets, verify_no_blocked_modules
+    from verify_all import (
+        verify_no_generated_artifacts,
+        verify_no_obvious_secrets,
+        verify_no_blocked_modules,
+        verify_no_forbidden_external_integrations,
+    )
     verify_no_generated_artifacts()
     verify_no_obvious_secrets()
     verify_no_blocked_modules()
+    verify_no_forbidden_external_integrations()
 
     print("\nConsistency verification PASSED")
 

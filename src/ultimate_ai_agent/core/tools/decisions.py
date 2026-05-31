@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import List, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from ultimate_ai_agent.core.tools.enums import ToolDecisionStatus, ToolRiskLevel
 from ultimate_ai_agent.core.tools.manifests import DryRunPlan
 
@@ -22,6 +22,8 @@ class ToolDecision(BaseModel):
     redactions_applied: List[str] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
+    model_config = ConfigDict(extra="forbid")
+
 class ToolResult(BaseModel):
     result_id: str
     request_id: str
@@ -30,9 +32,13 @@ class ToolResult(BaseModel):
     event_id: Optional[str] = None
     errors: List[str] = Field(default_factory=list)
 
+    model_config = ConfigDict(extra="forbid")
+
 class ToolAuditMetadata(BaseModel):
     audit_id: str
     decision_id: str
     actor_id: str
     timestamp: datetime = Field(default_factory=datetime.utcnow)
     actions_checked: List[str] = Field(default_factory=list)
+
+    model_config = ConfigDict(extra="forbid")

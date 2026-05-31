@@ -1,19 +1,19 @@
-# Ultimate AI Agent Canonical Bundle v0.7.0
+# Ultimate AI Agent Canonical Bundle v0.7.1
 
-This is the active project baseline after implementing Milestone M3 (Consent Ledger and Tool Broker Policy Engine).
+This is the active project baseline after post-M3 hardening and Milestone M3.5 (Secret Broker and Provider Registry foundation).
 
 Start here:
 
 ```text
-README_IMPORT_v0_7_0.md
-ultimate_ai_agent_master_plan_v0_7_0.md
+README_IMPORT_v0_7_1.md
+ultimate_ai_agent_master_plan_v0_7_1.md
 docs/canonical/09_roadmap.md
 docs/canonical/21_consent_and_permissions_ledger.md
 docs/canonical/37_tool_broker.md
 docs/canonical/42_autonomy_levels_and_standing_approvals.md
 docs/canonical/45_trusted_computing_base.md
 docs/canonical/63_observability_standards_mapping.md
-docs/implementation/foundation_gate_implementation_plan_v0_7_0.md
+docs/implementation/foundation_gate_implementation_plan_v0_7_1.md
 docs/testing/test_strategy_v0.md
 ```
 

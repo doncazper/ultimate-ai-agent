@@ -78,7 +78,14 @@ def test_tool_broker_high_risk_requires_human_approval(actor_context):
     assert decision.status == ToolDecisionStatus.approval_required
     assert decision.approval_required is True
 
-    # Supply approval reference -> should allowed
+    # Unvalidated approval references must not authorize high-risk tools.
     request.approval_ref = "human_approved_ref_123"
     decision2 = broker.evaluate_request(request, consent_ledger=ledger)
-    assert decision2.status == ToolDecisionStatus.allowed
+    assert decision2.status == ToolDecisionStatus.approval_required
+    assert "APPROVAL_REF_UNVALIDATED" in decision2.reason_codes
+
+    # Test-only approval references can pass only in mock/local-dev modes.
+    high_risk_tool.execution_mode = ToolExecutionMode.mock
+    request.approval_ref = "approval_test_123"
+    decision3 = broker.evaluate_request(request, consent_ledger=ledger)
+    assert decision3.status == ToolDecisionStatus.allowed

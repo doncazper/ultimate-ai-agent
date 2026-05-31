@@ -1,6 +1,15 @@
+import re
 from typing import List, Optional
 from ultimate_ai_agent.core.contracts.enums import AgentMode, RiskLevel, AutonomyLevel, GroundingMode, ContractStatus
 from ultimate_ai_agent.core.contracts.execution_contract import ExecutionContract
+
+SECRET_ASSIGNMENT_PATTERN = re.compile(
+    r"(?i)(api[_-]?key|secret|token|password)\s*=\s*['\"][A-Za-z0-9_\-]{16,}['\"]"
+)
+
+def _safe_request_summary(goal: str) -> str:
+    summary = SECRET_ASSIGNMENT_PATTERN.sub("[REDACTED_SECRET]", goal.strip())
+    return summary[:240] or "Contract created by factory helper"
 
 def create_answer_only_contract(
     contract_id: str,
@@ -17,6 +26,7 @@ def create_answer_only_contract(
         workspace_id=workspace_id,
         user_id=user_id,
         project_id=project_id,
+        request_summary=_safe_request_summary(goal),
         goal=goal,
         deliverable=deliverable,
         mode=AgentMode.answer,
@@ -43,6 +53,7 @@ def create_research_contract(
         workspace_id=workspace_id,
         user_id=user_id,
         project_id=project_id,
+        request_summary=_safe_request_summary(goal),
         goal=goal,
         deliverable=deliverable,
         mode=AgentMode.research,
@@ -72,6 +83,7 @@ def create_artifact_contract(
         workspace_id=workspace_id,
         user_id=user_id,
         project_id=project_id,
+        request_summary=_safe_request_summary(goal),
         goal=goal,
         deliverable=deliverable,
         mode=AgentMode.create,
@@ -97,6 +109,7 @@ def create_file_mutation_prep_contract(
         workspace_id=workspace_id,
         user_id=user_id,
         project_id=project_id,
+        request_summary=_safe_request_summary(goal),
         goal=goal,
         deliverable=deliverable,
         mode=AgentMode.code,

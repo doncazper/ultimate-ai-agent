@@ -72,8 +72,8 @@ class ConsentLedger:
             if grant.granted_to_actor != query.actor_id and grant.granted_to_actor != "*":
                 continue
                 
-            # If the grant explicitly denies this action or resource
-            if query.action in grant.denied_actions:
+            # If the grant explicitly denies this action or all actions.
+            if query.action in grant.denied_actions or PermissionAction.any in grant.denied_actions:
                 reason_codes.append("EXPLICIT_DENY_ACTION")
                 return ConsentDecision(
                     decision_id=decision_id,

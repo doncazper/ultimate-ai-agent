@@ -1,5 +1,6 @@
+from pathlib import PurePosixPath
 from typing import List
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from ultimate_ai_agent.core.tools.enums import ToolRiskLevel, ToolCategory
 from ultimate_ai_agent.core.tools.manifests import ToolManifest
 
@@ -17,6 +18,18 @@ class CapabilityFirewallPolicy(BaseModel):
     quarantine_mode: bool = False
     max_risk_level: ToolRiskLevel = ToolRiskLevel.medium
 
+    model_config = ConfigDict(extra="forbid")
+
+    @staticmethod
+    def _is_unbounded_root(root: str) -> bool:
+        return root in {"/", "*", "", "~"}
+
+    @staticmethod
+    def _is_root_allowed(requested_root: str, allowed_root: str) -> bool:
+        requested = PurePosixPath(requested_root)
+        allowed = PurePosixPath(allowed_root)
+        return requested == allowed or allowed in requested.parents
+
     def check_firewall(self, manifest: ToolManifest) -> tuple[bool, List[str]]:
         reasons = []
 
@@ -30,29 +43,31 @@ class CapabilityFirewallPolicy(BaseModel):
         if manifest.permission_manifest:
             # Filesystem check
             for root in manifest.permission_manifest.filesystem_roots:
-                # If unbounded filesystem access is requested (e.g. "/" or "*")
-                if root in ["/", "*", ""]:
+                if self._is_unbounded_root(root):
                     reasons.append("UNBOUNDED_FILESYSTEM_ACCESS_DENIED")
-                    
-                # Denied root check
+
                 for denied in self.denied_filesystem_roots:
-                    if root.startswith(denied):
+                    if root == denied or self._is_root_allowed(root, denied):
                         reasons.append("FILESYSTEM_ROOT_DENIED")
 
-            # Network check (arbitrary network denied by default)
+                if not self.allowed_filesystem_roots:
+                    reasons.append("FILESYSTEM_ACCESS_NOT_ALLOWLISTED")
+                elif not any(self._is_root_allowed(root, allowed) for allowed in self.allowed_filesystem_roots):
+                    reasons.append("FILESYSTEM_ACCESS_NOT_ALLOWLISTED")
+
             for domain in manifest.permission_manifest.network_domains:
                 if domain == "*":
                     reasons.append("ARBITRARY_NETWORK_ACCESS_DENIED")
-                elif self.allowed_network_domains and domain not in self.allowed_network_domains:
-                    reasons.append("NETWORK_DOMAIN_NOT_WHITELISTED")
                 for denied in self.denied_network_domains:
                     if domain == denied or domain.endswith("." + denied):
                         reasons.append("NETWORK_DOMAIN_DENIED")
+                if not self.allowed_network_domains:
+                    reasons.append("NETWORK_ACCESS_NOT_ALLOWLISTED")
+                elif domain not in self.allowed_network_domains:
+                    reasons.append("NETWORK_ACCESS_NOT_ALLOWLISTED")
 
-            # Credentials check (requesting credentials without explicit whitelisting)
             for cred in manifest.permission_manifest.credentials_keys:
-                if cred not in self.allowed_credentials:
-                    reasons.append("CREDENTIAL_ACCESS_NOT_PERMITTED")
+                reasons.append("CREDENTIAL_ACCESS_NOT_PERMITTED")
 
         # Risk level check
         risk_map = {
@@ -72,3 +87,5 @@ class ToolBrokerPolicy(BaseModel):
     policy_id: str
     firewall_policy: CapabilityFirewallPolicy
     enable_foundation_gate_blocks: bool = True
+
+    model_config = ConfigDict(extra="forbid")

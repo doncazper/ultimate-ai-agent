@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import List, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from ultimate_ai_agent.core.hygiene.actor_context import ActorContext
 from ultimate_ai_agent.core.consent.enums import DataBoundary
 
@@ -20,3 +20,5 @@ class ToolRequest(BaseModel):
     consent_refs: List[str] = Field(default_factory=list)
     dry_run_requested: bool = False
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    model_config = ConfigDict(extra="forbid")

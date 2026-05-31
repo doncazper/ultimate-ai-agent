@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import List, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from ultimate_ai_agent.core.consent.enums import PermissionAction, PermissionRisk, ApprovalRequirement, DataBoundary
 from ultimate_ai_agent.core.consent.grants import ConsentAuditRef
 
@@ -13,6 +13,8 @@ class ConsentQuery(BaseModel):
     risk_level: PermissionRisk = PermissionRisk.low
     audit_ref: Optional[ConsentAuditRef] = None
 
+    model_config = ConfigDict(extra="forbid")
+
 class ConsentDecision(BaseModel):
     decision_id: str
     allowed: bool
@@ -23,3 +25,5 @@ class ConsentDecision(BaseModel):
     safe_message: str
     event_ref: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    model_config = ConfigDict(extra="forbid")

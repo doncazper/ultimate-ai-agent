@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import List, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from ultimate_ai_agent.core.consent.enums import (
     ConsentStatus,
     ConsentScopeType,
@@ -14,10 +14,14 @@ class ConsentConstraint(BaseModel):
     constraint_type: str  # max_tokens, rate_limit, path_prefix, domain_whitelist
     value: str
 
+    model_config = ConfigDict(extra="forbid")
+
 class ConsentAuditRef(BaseModel):
     run_id: Optional[str] = None
     trace_id: Optional[str] = None
     step_id: Optional[str] = None
+
+    model_config = ConfigDict(extra="forbid")
 
 class ConsentGrant(BaseModel):
     consent_id: str
@@ -46,8 +50,12 @@ class ConsentGrant(BaseModel):
     event_ref: Optional[str] = None
     notes: Optional[str] = None
 
+    model_config = ConfigDict(extra="forbid")
+
 class RevocationRecord(BaseModel):
     consent_id: str
     revoked_at: datetime = Field(default_factory=datetime.utcnow)
     reason: str
     revoked_by: str
+
+    model_config = ConfigDict(extra="forbid")

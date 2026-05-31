@@ -99,6 +99,32 @@ def verify_no_blocked_modules():
             pass
     print("OK: Advanced blocked modules are not implemented")
 
+def verify_no_forbidden_external_integrations():
+    print("\n[Verifier] Running forbidden external integration scan...")
+    forbidden_imports = [
+        "import requests",
+        "from requests import",
+        "import httpx",
+        "from httpx import",
+        "import urllib.request",
+        "from urllib import request",
+        "import boto3",
+    ]
+    for p in (ROOT / "src").rglob("*.py"):
+        try:
+            content = p.read_text(encoding="utf-8")
+            for line in content.splitlines():
+                stripped = line.strip()
+                if any(stripped.startswith(pattern) for pattern in forbidden_imports):
+                    print(f"FAIL: Forbidden external integration import in {p.relative_to(ROOT)}: {line}")
+                    sys.exit(1)
+                if ".get(" in stripped and ("http://" in stripped or "https://" in stripped):
+                    print(f"FAIL: Possible provider/network call in {p.relative_to(ROOT)}: {line}")
+                    sys.exit(1)
+        except Exception:
+            pass
+    print("OK: No forbidden provider API clients or network calls detected in src")
+
 def main():
     print("=== Ultimate AI Agent Master Verification Suite ===")
 
@@ -115,6 +141,7 @@ def main():
     verify_no_generated_artifacts()
     verify_no_obvious_secrets()
     verify_no_blocked_modules()
+    verify_no_forbidden_external_integrations()
 
     # 4. Run Baseline Consistency Verification
     run_cmd([sys.executable, "scripts/verify_current_baseline.py"])

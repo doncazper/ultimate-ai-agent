@@ -35,11 +35,10 @@ class ToolBroker:
                 tool_id=tool_id,
                 status=ToolDecisionStatus.denied,
                 risk_level=ToolRiskLevel.forbidden,
-                reason_codes=["TOOL_NOT_FOUND"],
+                reason_codes=["TOOL_NOT_REGISTERED"],
                 safe_message=f"Tool '{tool_id}' not registered in the system."
             )
 
-        # M1 Integration: Respect ExecutionContract allowed/forbidden list
         if execution_contract:
             if hasattr(execution_contract, "forbidden_tools") and execution_contract.forbidden_tools:
                 if tool_id in execution_contract.forbidden_tools:
@@ -60,11 +59,10 @@ class ToolBroker:
                         tool_id=tool_id,
                         status=ToolDecisionStatus.denied,
                         risk_level=manifest.risk_level,
-                        reason_codes=["CONTRACT_NOT_ALLOWED_TOOL"],
+                        reason_codes=["CONTRACT_TOOL_NOT_ALLOWED"],
                         safe_message="Tool execution is not in the Execution Contract allowed list."
                     )
 
-        # M1 Integration: Respect ContextPack tool_permissions
         if context_pack:
             if hasattr(context_pack, "tool_permissions") and context_pack.tool_permissions:
                 if tool_id not in context_pack.tool_permissions:
@@ -74,7 +72,7 @@ class ToolBroker:
                         tool_id=tool_id,
                         status=ToolDecisionStatus.denied,
                         risk_level=manifest.risk_level,
-                        reason_codes=["CONTEXT_PACK_RESTRICTED_TOOL"],
+                        reason_codes=["CONTEXT_TOOL_NOT_ALLOWED"],
                         safe_message="Tool execution is restricted by Context Pack boundaries."
                     )
 
@@ -131,6 +129,8 @@ class ToolBroker:
         action_map = {
             "read": PermissionAction.read,
             "write": PermissionAction.write,
+            "create": PermissionAction.create,
+            "update": PermissionAction.update,
             "execute": PermissionAction.execute,
             "delete": PermissionAction.delete,
             "send": PermissionAction.send,
@@ -171,31 +171,55 @@ class ToolBroker:
                 safe_message="Consent required: " + consent_decision.safe_message
             )
 
+        mutable_actions = {"write", "create", "update", "delete", "execute", "send", "publish", "spend"}
+        if manifest.idempotency_required and request.requested_action in mutable_actions and not request.idempotency_key:
+            return ToolDecision(
+                decision_id=decision_id,
+                request_id=request.request_id,
+                tool_id=tool_id,
+                status=ToolDecisionStatus.denied,
+                risk_level=manifest.risk_level,
+                matched_consent_refs=consent_decision.matched_grants,
+                reason_codes=["IDEMPOTENCY_KEY_REQUIRED"],
+                safe_message="Mutable tool request requires an idempotency key."
+            )
+
         # Rule: High/Critical risks and external mutations require human approval
         requires_approval = False
         approval_reasons = []
 
         if manifest.risk_level in [ToolRiskLevel.high, ToolRiskLevel.critical]:
             requires_approval = True
-            approval_reasons.append("HIGH_RISK_LEVEL")
+            approval_reasons.append("HIGH_RISK_REQUIRES_HUMAN_APPROVAL")
         
         # External mutable actions
         if request.requested_action in ["send", "publish", "delete", "spend"]:
             requires_approval = True
-            approval_reasons.append("EXTERNAL_MUTATION_ACTION")
+            approval_reasons.append("EXTERNAL_ACTION_REQUIRES_APPROVAL")
 
-        if requires_approval and not request.approval_ref:
-            return ToolDecision(
-                decision_id=decision_id,
-                request_id=request.request_id,
-                tool_id=tool_id,
-                status=ToolDecisionStatus.approval_required,
-                risk_level=manifest.risk_level,
-                approval_required=True,
-                matched_consent_refs=consent_decision.matched_grants,
-                reason_codes=approval_reasons,
-                safe_message="This tool requires manual human approval to execute."
+        if requires_approval:
+            valid_test_approval = (
+                request.approval_ref is not None
+                and request.approval_ref.startswith("approval_test_")
+                and manifest.execution_mode in [ToolExecutionMode.mock, ToolExecutionMode.local_dev]
             )
+            if not valid_test_approval:
+                reason_codes = list(approval_reasons)
+                if request.approval_ref:
+                    reason_codes.append("APPROVAL_REF_UNVALIDATED")
+                else:
+                    reason_codes.append("APPROVAL_REQUIRED")
+                return ToolDecision(
+                    decision_id=decision_id,
+                    request_id=request.request_id,
+                    tool_id=tool_id,
+                    status=ToolDecisionStatus.approval_required,
+                    risk_level=manifest.risk_level,
+                    approval_required=True,
+                    matched_consent_refs=consent_decision.matched_grants,
+                    reason_codes=reason_codes,
+                    safe_message="This tool requires validated human approval before it can be authorized."
+                )
 
         # Rule: Dry-run handling
         dry_run_plan = None
