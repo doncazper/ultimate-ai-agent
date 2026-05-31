@@ -1,5 +1,5 @@
 # Ultimate AI Agent Version
 
-Current active baseline: **v0.5.9**
+Current active baseline: **v0.6.0**
 
-v0.5.9 implements provisional Milestone M1 kernel contracts (Execution Contract and Context Pack models), including enums, validators, factory helpers, validation API routes, and comprehensive unit tests.
+v0.6.0 implements Milestone M2 (Event Ledger, Deterministic Run State, Receipts, and Observability Standards Mapping), including immutable append-only ledger mechanisms, transition rule enforcement, redacted user receipts, OpenTelemetry GenAI/W3C Trace Context propagation mappings, and FastAPI validation boundary endpoints.

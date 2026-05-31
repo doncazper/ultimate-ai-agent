@@ -19,6 +19,12 @@ from ultimate_ai_agent.core.contracts.factory import (
     create_artifact_contract,
     create_file_mutation_prep_contract,
 )
+from ultimate_ai_agent.core.contracts.versioning import (
+    EXECUTION_CONTRACT_SCHEMA_VERSION,
+    CONTEXT_PACK_SCHEMA_VERSION,
+    EVENT_LEDGER_EVENT_SCHEMA_VERSION,
+    RUN_STATE_SCHEMA_VERSION,
+)
 
 __all__ = [
     "AgentMode",
@@ -41,4 +47,8 @@ __all__ = [
     "create_research_contract",
     "create_artifact_contract",
     "create_file_mutation_prep_contract",
+    "EXECUTION_CONTRACT_SCHEMA_VERSION",
+    "CONTEXT_PACK_SCHEMA_VERSION",
+    "EVENT_LEDGER_EVENT_SCHEMA_VERSION",
+    "RUN_STATE_SCHEMA_VERSION",
 ]

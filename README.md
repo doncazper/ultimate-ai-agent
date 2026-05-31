@@ -1,16 +1,16 @@
-# Ultimate AI Agent Canonical Bundle v0.5.9
+# Ultimate AI Agent Canonical Bundle v0.6.0
 
-This is the active project baseline after implementing provisional Milestone M1 kernel contracts (Execution Contract and Context Pack schemas/validators).
+This is the active project baseline after implementing Milestone M2 (Event Ledger, Deterministic Run State, Receipts, and Observability Mapping).
 
 Start here:
 
 ```text
-README_IMPORT_v0_5_9.md
-ultimate_ai_agent_master_plan_v0_5_9.md
+README_IMPORT_v0_6_0.md
+ultimate_ai_agent_master_plan_v0_6_0.md
 docs/canonical/09_roadmap.md
 docs/canonical/22_observability_and_event_ledger.md
 docs/canonical/63_observability_standards_mapping.md
-docs/implementation/foundation_gate_implementation_plan_v0_5_9.md
+docs/implementation/foundation_gate_implementation_plan_v0_6_0.md
 docs/implementation/pre_coding_readiness_v0_5_8.md
 docs/testing/test_strategy_v0.md
 ```

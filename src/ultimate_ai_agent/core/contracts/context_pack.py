@@ -2,6 +2,7 @@ from datetime import datetime
 from enum import Enum
 from typing import List, Dict, Optional, Any
 from pydantic import BaseModel, Field, ConfigDict
+from ultimate_ai_agent.core.contracts.versioning import CONTEXT_PACK_SCHEMA_VERSION
 
 
 class ContextPackScope(str, Enum):
@@ -47,7 +48,7 @@ class ContextSource(BaseModel):
 
 class ContextPack(BaseModel):
     context_pack_id: str = Field(..., pattern=r"^cp_[A-Za-z0-9_:-]+$")
-    schema_version: str = "0.5.8"
+    schema_version: str = CONTEXT_PACK_SCHEMA_VERSION
     run_id: str = Field(..., min_length=1)
     contract_id: str = Field(..., min_length=1)
     workspace_id: str = Field(..., min_length=1)

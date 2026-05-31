@@ -11,6 +11,7 @@ from ultimate_ai_agent.core.contracts.enums import (
     ContractStatus,
     ContractMaturity,
 )
+from ultimate_ai_agent.core.contracts.versioning import EXECUTION_CONTRACT_SCHEMA_VERSION
 from ultimate_ai_agent.core.hygiene.actor_context import ActorContext
 from ultimate_ai_agent.core.hygiene.temporal_context import TemporalContext
 from ultimate_ai_agent.core.hygiene.policies import (
@@ -21,7 +22,7 @@ from ultimate_ai_agent.core.hygiene.policies import (
 
 class ExecutionContract(BaseModel):
     contract_id: str = Field(..., pattern=r"^ec_[A-Za-z0-9_:-]+$")
-    schema_version: str = "0.5.8"
+    schema_version: str = EXECUTION_CONTRACT_SCHEMA_VERSION
     run_id: str = Field(..., min_length=1)
     workspace_id: str = Field(..., min_length=1)
     user_id: str = Field(..., min_length=1)

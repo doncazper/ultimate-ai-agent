@@ -1,7 +1,7 @@
 from pydantic import ValidationError
 import pytest
 
-from ultimate_ai_agent.core.contracts import ContextPack, ContextSource, ContextPackScope, AuthorityType, ContentRole
+from ultimate_ai_agent.core.contracts import ContextPack, ContextSource, ContextPackScope, AuthorityType, ContentRole, CONTEXT_PACK_SCHEMA_VERSION
 
 def test_minimal_valid_context_pack():
     src = ContextSource(
@@ -26,6 +26,7 @@ def test_minimal_valid_context_pack():
     assert pack.context_pack_id == "cp_test_123"
     assert len(pack.canonical_sources) == 1
     assert pack.canonical_sources[0].source_id == "src_1"
+    assert pack.schema_version == CONTEXT_PACK_SCHEMA_VERSION
 
 def test_context_pack_invalid_id():
     with pytest.raises(ValidationError):

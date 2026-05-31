@@ -1,7 +1,7 @@
 from pydantic import ValidationError
 import pytest
 
-from ultimate_ai_agent.core.contracts import ExecutionContract, AgentMode, ContractStatus
+from ultimate_ai_agent.core.contracts import ExecutionContract, AgentMode, ContractStatus, EXECUTION_CONTRACT_SCHEMA_VERSION
 
 def test_minimal_valid_contract():
     contract = ExecutionContract(
@@ -20,6 +20,7 @@ def test_minimal_valid_contract():
     assert contract.mode == "answer"
     assert contract.autonomy_level == 0
     assert contract.risk_level == "low"
+    assert contract.schema_version == EXECUTION_CONTRACT_SCHEMA_VERSION
 
 def test_contract_invalid_id():
     with pytest.raises(ValidationError):

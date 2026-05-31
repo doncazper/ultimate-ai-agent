@@ -1,0 +1,43 @@
+from enum import Enum
+
+class RunState(str, Enum):
+    created = "created"
+    contract_created = "contract_created"
+    context_loaded = "context_loaded"
+    planned = "planned"
+    in_progress = "in_progress"
+    waiting_for_approval = "waiting_for_approval"
+    blocked = "blocked"
+    verifying = "verifying"
+    completed = "completed"
+    failed = "failed"
+    cancelled = "cancelled"
+
+class ActorType(str, Enum):
+    user = "user"
+    orchestrator = "orchestrator"
+    subagent = "subagent"
+    tool = "tool"
+    model_router = "model_router"
+    system = "system"
+    evaluator = "evaluator"
+
+class EventName(str, Enum):
+    run_created = "run.created"
+    execution_contract_created = "execution_contract.created"
+    context_pack_created = "context_pack.created"
+    model_route_selected = "model.route.selected"
+    tool_call_requested = "tool.call.requested"
+    tool_call_completed = "tool.call.completed"
+    tool_call_failed = "tool.call.failed"
+    approval_requested = "approval.requested"
+    approval_granted = "approval.granted"
+    approval_denied = "approval.denied"
+    file_change_proposed = "file.change.proposed"
+    file_change_applied = "file.change.applied"
+    memory_read = "memory.read"
+    memory_write_proposed = "memory.write.proposed"
+    event_receipt_generated = "event.receipt.generated"
+    run_completed = "run.completed"
+    run_failed = "run.failed"
+    run_blocked = "run.blocked"
