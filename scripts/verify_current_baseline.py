@@ -163,6 +163,31 @@ def main():
             fail(f"Required M2.5 file is missing: {rel_path}")
     ok("All M2.5 world state, context budget, runtime, and adapter files exist")
     
+    # 8.6 Check M3 consent/tool files existence
+    m3_files = [
+        "src/ultimate_ai_agent/core/consent/__init__.py",
+        "src/ultimate_ai_agent/core/consent/enums.py",
+        "src/ultimate_ai_agent/core/consent/grants.py",
+        "src/ultimate_ai_agent/core/consent/policies.py",
+        "src/ultimate_ai_agent/core/consent/ledger.py",
+        "src/ultimate_ai_agent/core/consent/decisions.py",
+        "src/ultimate_ai_agent/core/consent/validation.py",
+        "src/ultimate_ai_agent/core/tools/__init__.py",
+        "src/ultimate_ai_agent/core/tools/enums.py",
+        "src/ultimate_ai_agent/core/tools/manifests.py",
+        "src/ultimate_ai_agent/core/tools/requests.py",
+        "src/ultimate_ai_agent/core/tools/decisions.py",
+        "src/ultimate_ai_agent/core/tools/broker.py",
+        "src/ultimate_ai_agent/core/tools/registry.py",
+        "src/ultimate_ai_agent/core/tools/capability_firewall.py",
+        "src/ultimate_ai_agent/core/tools/validation.py",
+    ]
+    for rel_path in m3_files:
+        p = ROOT / rel_path
+        if not p.exists():
+            fail(f"Required M3 file is missing: {rel_path}")
+    ok("All M3 consent and tool files exist")
+    
     # 9. Verify no tracked egg-info, venv, build, or dist files/directories in git
     git_files = []
     try:

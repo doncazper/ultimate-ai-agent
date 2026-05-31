@@ -24,6 +24,10 @@ from ultimate_ai_agent.core.context_budget import ContextBudget, validate_contex
 from ultimate_ai_agent.core.runtime import LocalRuntimeManifest, PrivacyRoutingPolicy, validate_runtime_safety
 from ultimate_ai_agent.core.adapters import AgentRuntimeAdapterManifest, SDKAdapterBoundaryPolicy, validate_adapter_boundary_policy
 
+# Import M3 contracts for API boundary
+from ultimate_ai_agent.core.consent import ConsentGrant, ConsentQuery, ConsentLedger, validate_consent_grant
+from ultimate_ai_agent.core.tools import ToolManifest, ToolRequest, ToolBroker, ToolRegistry, CapabilityFirewallPolicy, validate_tool_manifest
+
 app = FastAPI(
     title="Ultimate AI Agent API Boundary",
     version=__version__,
@@ -271,6 +275,182 @@ def post_validate_adapter_manifest(req: AdapterValidateRequest):
             operation="validate_adapter_manifest",
             service="CoreAPI",
             trace_id="system",
+            error=err
+        )
+
+class ConsentEvaluateRequest(BaseModel):
+    query: ConsentQuery
+    grants: List[ConsentGrant]
+
+class ToolEvaluateRequest(BaseModel):
+    request: ToolRequest
+    grants: List[ConsentGrant]
+    tool: ToolManifest
+    firewall_policy: Optional[CapabilityFirewallPolicy] = None
+
+class ToolDryRunRequest(BaseModel):
+    request: ToolRequest
+    tool: ToolManifest
+
+@app.post("/consent/grants/validate", response_model=ResultEnvelope)
+def post_validate_consent_grant(grant: ConsentGrant):
+    try:
+        validate_consent_grant(grant)
+        return ResultEnvelope(
+            success=True,
+            operation="validate_consent_grant",
+            service="ConsentAPI",
+            trace_id="system",
+            data={"consent_id": grant.consent_id, "status": "validated"}
+        )
+    except Exception as e:
+        err = ErrorEnvelope(
+            code="CONSENT_GRANT_INVALID",
+            category=ErrorCategory.validation_error,
+            safe_message=str(e),
+            severity=Severity.medium,
+            retryable=False,
+            details_redacted=False,
+            source="ConsentAPI"
+        )
+        return ResultEnvelope(
+            success=False,
+            operation="validate_consent_grant",
+            service="ConsentAPI",
+            trace_id="system",
+            error=err
+        )
+
+@app.post("/consent/evaluate", response_model=ResultEnvelope)
+def post_evaluate_consent(req: ConsentEvaluateRequest):
+    try:
+        ledger = ConsentLedger()
+        for g in req.grants:
+            ledger.add_grant(g)
+        decision = ledger.evaluate(req.query)
+        return ResultEnvelope(
+            success=True,
+            operation="evaluate_consent",
+            service="ConsentAPI",
+            trace_id=req.query.audit_ref.trace_id if req.query.audit_ref else "system",
+            data=decision.model_dump()
+        )
+    except Exception as e:
+        err = ErrorEnvelope(
+            code="CONSENT_EVALUATION_FAILED",
+            category=ErrorCategory.validation_error,
+            safe_message=str(e),
+            severity=Severity.medium,
+            retryable=False,
+            details_redacted=False,
+            source="ConsentAPI"
+        )
+        return ResultEnvelope(
+            success=False,
+            operation="evaluate_consent",
+            service="ConsentAPI",
+            trace_id=req.query.audit_ref.trace_id if req.query.audit_ref else "system",
+            error=err
+        )
+
+@app.post("/tools/manifests/validate", response_model=ResultEnvelope)
+def post_validate_tool_manifest(manifest: ToolManifest):
+    try:
+        validate_tool_manifest(manifest)
+        return ResultEnvelope(
+            success=True,
+            operation="validate_tool_manifest",
+            service="ToolBrokerAPI",
+            trace_id="system",
+            data={"tool_id": manifest.tool_id, "status": "validated"}
+        )
+    except Exception as e:
+        err = ErrorEnvelope(
+            code="TOOL_MANIFEST_INVALID",
+            category=ErrorCategory.validation_error,
+            safe_message=str(e),
+            severity=Severity.medium,
+            retryable=False,
+            details_redacted=False,
+            source="ToolBrokerAPI"
+        )
+        return ResultEnvelope(
+            success=False,
+            operation="validate_tool_manifest",
+            service="ToolBrokerAPI",
+            trace_id="system",
+            error=err
+        )
+
+@app.post("/tools/requests/evaluate", response_model=ResultEnvelope)
+def post_evaluate_tool_request(req: ToolEvaluateRequest):
+    try:
+        registry = ToolRegistry()
+        registry.register_tool(req.tool)
+        
+        firewall = req.firewall_policy or CapabilityFirewallPolicy()
+        broker = ToolBroker(registry=registry, firewall_policy=firewall)
+        
+        ledger = ConsentLedger()
+        for g in req.grants:
+            ledger.add_grant(g)
+            
+        decision = broker.evaluate_request(request=req.request, consent_ledger=ledger)
+        return ResultEnvelope(
+            success=True,
+            operation="evaluate_tool_request",
+            service="ToolBrokerAPI",
+            trace_id=req.request.run_id,
+            data=decision.model_dump()
+        )
+    except Exception as e:
+        err = ErrorEnvelope(
+            code="TOOL_EVALUATION_FAILED",
+            category=ErrorCategory.validation_error,
+            safe_message=str(e),
+            severity=Severity.medium,
+            retryable=False,
+            details_redacted=False,
+            source="ToolBrokerAPI"
+        )
+        return ResultEnvelope(
+            success=False,
+            operation="evaluate_tool_request",
+            service="ToolBrokerAPI",
+            trace_id=req.request.run_id,
+            error=err
+        )
+
+@app.post("/tools/requests/dry-run", response_model=ResultEnvelope)
+def post_tool_dry_run(req: ToolDryRunRequest):
+    try:
+        registry = ToolRegistry()
+        registry.register_tool(req.tool)
+        
+        broker = ToolBroker(registry=registry, firewall_policy=CapabilityFirewallPolicy())
+        plan = broker.dry_run(req.request)
+        return ResultEnvelope(
+            success=True,
+            operation="tool_dry_run",
+            service="ToolBrokerAPI",
+            trace_id=req.request.run_id,
+            data=plan.model_dump()
+        )
+    except Exception as e:
+        err = ErrorEnvelope(
+            code="TOOL_DRY_RUN_FAILED",
+            category=ErrorCategory.validation_error,
+            safe_message=str(e),
+            severity=Severity.medium,
+            retryable=False,
+            details_redacted=False,
+            source="ToolBrokerAPI"
+        )
+        return ResultEnvelope(
+            success=False,
+            operation="tool_dry_run",
+            service="ToolBrokerAPI",
+            trace_id=req.request.run_id,
             error=err
         )
 
