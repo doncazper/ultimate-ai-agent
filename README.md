@@ -1,12 +1,12 @@
-# Ultimate AI Agent Canonical Bundle v0.17.2
+# Ultimate AI Agent Canonical Bundle v0.17.3
 
-This is the active project baseline after the v0.17.2 Web Control Center CI, static safety, and local browser smoke readiness hardening patch.
+This is the active project baseline after the v0.17.3 documentation current-release label cleanup patch.
 
 Start here:
 
 ```text
-README_IMPORT_v0_17_2.md
-ultimate_ai_agent_master_plan_v0_17_2.md
+README_IMPORT_v0_17_3.md
+ultimate_ai_agent_master_plan_v0_17_3.md
 docs/DOCUMENTATION_INDEX.md
 docs/canonical/09_roadmap.md
 docs/canonical/CANONICAL_DOC_MAP.md
@@ -34,7 +34,7 @@ docs/runtime/RUNTIME_READINESS.md
 docs/runtime/MANUAL_SMOKE_REPORTS.md
 docs/runtime/RUNTIME_CAPABILITY_MATRIX.md
 docs/security/approval_authority.md
-docs/implementation/foundation_gate_implementation_plan_v0_17_2.md
+docs/implementation/foundation_gate_implementation_plan_v0_17_3.md
 docs/maintenance/documentation_integrity_checklist.md
 docs/tooling/CODEX_PLUGIN_CAPABILITY_INVENTORY.md
 docs/tooling/CODEX_PLUGIN_RISK_POLICY.md
@@ -96,3 +96,7 @@ Web Control Center safety polish rule:
 Web Control Center verification hardening rule:
 
 > v0.17.2 hardens the M13 shell verification path without starting M14. CI now runs frontend dependency install, typecheck, lint, tests, and build inside `apps/control-center`; browser smoke readiness is documented as manual local-only and non-authoritative; and static verifiers plus Foundation Gate checks reject unsafe frontend CI, browser, plugin, mobile, native, remote, execution, analytics/SaaS SDK, generated artifact, and secret fixture drift. It adds no backend API path, runtime/model/provider/network/remote/mobile/plugin execution, production Control Center authority, Chrome authenticated profile control, Computer Use automation, or iOS/macOS build workflow.
+
+Documentation current-release label rule:
+
+> v0.17.3 cleans up active documentation labels without starting M14. The documentation index points to the active v0.17.3 release notes, older v0.17.x release notes are historical, and the documentation integrity verifier rejects stale current-release note labels. It adds no backend API path, frontend capability, runtime/model/provider/network/remote/mobile/plugin execution, production Control Center authority, Chrome authenticated profile control, Computer Use automation, or iOS/macOS build workflow.

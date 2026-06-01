@@ -1,6 +1,6 @@
 # Documentation Index
 
-Current active baseline: **v0.17.2**
+Current active baseline: **v0.17.3**
 
 This index is the active entrypoint for documentation navigation. Historical release documents remain in the repository for audit history, but active truth starts with the current baseline files listed here.
 
@@ -9,8 +9,8 @@ This index is the active entrypoint for documentation navigation. Historical rel
 ```text
 README.md
 VERSION.md
-README_IMPORT_v0_17_2.md
-ultimate_ai_agent_master_plan_v0_17_2.md
+README_IMPORT_v0_17_3.md
+ultimate_ai_agent_master_plan_v0_17_3.md
 docs/canonical/CANONICAL_DOC_MAP.md
 docs/canonical/09_roadmap.md
 docs/maintenance/documentation_integrity_checklist.md
@@ -56,7 +56,7 @@ docs/control_center/CONTROL_CENTER_FRONTEND_ROUTES.md
 docs/control_center/LOCAL_BROWSER_SMOKE.md
 ```
 
-M12 Control Center docs describe backend contracts, read-only dashboard snapshots, and action preview policy only. M13 adds a local Web Control Center shell that consumes those routes, renders safe mock fallback data, and submits only preview-only action requests. v0.17.2 hardens frontend CI, static verifier coverage, and manual local browser smoke readiness. The shell is not production authority and does not add execution capability.
+M12 Control Center docs describe backend contracts, read-only dashboard snapshots, and action preview policy only. M13 adds a local Web Control Center shell that consumes those routes, renders safe mock fallback data, and submits only preview-only action requests. v0.17.2 hardens frontend CI, static verifier coverage, and manual local browser smoke readiness. v0.17.3 cleans up current-release documentation labels. The shell is not production authority and does not add execution capability.
 
 ## Active Runtime Docs
 
@@ -139,7 +139,7 @@ The Codex plugin capability inventory and risk policy record available developme
 
 ## Release Notes Index
 
-Current release notes: `docs/release_notes/v0_17_1.md`
+Current release notes: `docs/release_notes/v0_17_3.md`
 
 Historical release notes remain under `docs/release_notes/`. Historical docs may mention old active baselines in historical context; they are not the current source of truth.
 

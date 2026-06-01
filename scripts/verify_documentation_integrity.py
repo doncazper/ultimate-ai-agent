@@ -137,6 +137,20 @@ def verify(root: Path = ROOT) -> list[str]:
     if "docs/canonical/CANONICAL_DOC_MAP.md" not in readme:
         failures.append("README.md does not point to canonical doc map")
 
+    documentation_index = _read(root / "docs/DOCUMENTATION_INDEX.md")
+    expected_current_notes = f"Current release notes: `{active_release_notes}`"
+    if expected_current_notes not in documentation_index:
+        failures.append("docs/DOCUMENTATION_INDEX.md current release notes pointer does not match active version")
+
+    release_notes_dir = root / "docs/release_notes"
+    for release_note in release_notes_dir.glob("v*.md"):
+        rel_path = release_note.relative_to(root).as_posix()
+        if rel_path == active_release_notes:
+            continue
+        lowered = _read(release_note).lower()
+        if "status: current release notes" in lowered:
+            failures.append(f"historical release notes claim current status: {rel_path}")
+
     for rel_path in ACTIVE_DOCS_TO_SCAN:
         path = root / rel_path
         if not path.exists():
