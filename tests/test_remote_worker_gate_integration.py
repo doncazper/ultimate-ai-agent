@@ -16,8 +16,10 @@ def test_m105_gate_criteria_pass_on_current_repo():
         "m105_remote_output_untrusted",
         "m105_api_routes_are_dry_run_only",
         "m105_docs_foundation_only",
+        "m105_remote_tailnet_enable_flag_rejected",
+        "m105_remote_personal_data_enable_flag_rejected",
+        "m105_remote_worker_api_extra_fields_forbidden",
     ]
     for criterion_id in expected:
         assert criterion_id in results
         assert results[criterion_id].status == FoundationGateStatus.passed
-

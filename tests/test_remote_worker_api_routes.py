@@ -39,9 +39,68 @@ def test_remote_worker_status_and_dry_run_api_are_validation_only():
 def test_remote_worker_validate_routes_and_tailnet_status_are_safe():
     envelope = RemoteJobEnvelope(**_job_payload())
 
+    assert client.post("/remote-workers/policy/validate", json={"policy": {"policy_id": "policy_default"}}).json()["success"] is True
     assert client.post("/remote-workers/jobs/validate", json={"job": envelope.model_dump(mode="json")}).json()["success"] is True
     assert client.get("/remote-workers/tailnet/status").json()["data"]["status"] in {"planned", "disabled", "not_configured"}
     assert client.get("/remote-workers/mesh/status").json()["data"]["live_mesh_enabled"] is False
+
+
+def test_remote_worker_policy_validate_rejects_unsupported_enable_flags():
+    tailnet = client.post(
+        "/remote-workers/policy/validate",
+        json={"policy": {"policy_id": "policy_tailnet", "remote_tailnet_enabled": True}},
+    )
+    personal_data = client.post(
+        "/remote-workers/policy/validate",
+        json={"policy": {"policy_id": "policy_personal", "remote_personal_data_enabled": True}},
+    )
+    both = client.post(
+        "/remote-workers/policy/validate",
+        json={
+            "policy": {
+                "policy_id": "policy_both",
+                "remote_tailnet_enabled": True,
+                "remote_personal_data_enabled": True,
+            }
+        },
+    )
+
+    assert tailnet.json()["success"] is False
+    assert "REMOTE_TAILNET_NOT_SUPPORTED_IN_M10_5" in tailnet.text
+    assert personal_data.json()["success"] is False
+    assert "REMOTE_PERSONAL_DATA_NOT_SUPPORTED_IN_M10_5" in personal_data.text
+    assert both.json()["success"] is False
+    assert "REMOTE_TAILNET_NOT_SUPPORTED_IN_M10_5" in both.text
+    assert "REMOTE_PERSONAL_DATA_NOT_SUPPORTED_IN_M10_5" in both.text
+
+
+def test_remote_worker_api_wrappers_reject_top_level_extra_fields():
+    requests = [
+        ("/remote-workers/nodes/validate", {"node": {}, "unexpected": "extra"}),
+        ("/remote-workers/transports/validate", {"transport": {}, "unexpected": "extra"}),
+        ("/remote-workers/policy/validate", {"policy": {"policy_id": "policy_extra"}, "unexpected": "extra"}),
+        ("/remote-workers/jobs/validate", {"job": _job_payload(), "unexpected": "extra"}),
+        ("/remote-workers/dry-run", {"job": _job_payload(), "unexpected": "extra"}),
+    ]
+
+    for path, payload in requests:
+        response = client.post(path, json=payload)
+        body = response.json()
+        assert response.status_code == 422
+        assert body["success"] is False
+        assert body["error"]["code"] == "REQUEST_VALIDATION_FAILED"
+
+
+def test_remote_worker_api_top_level_secret_extra_does_not_echo():
+    response = client.post(
+        "/remote-workers/policy/validate",
+        json={"policy": {"policy_id": "policy_extra_secret"}, "api_key": "sk_secret_value_123456"},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["success"] is False
+    assert "api_key" not in response.text
+    assert "sk_secret_value_123456" not in response.text
 
 
 def test_remote_worker_invalid_payload_does_not_echo_secret():
@@ -63,4 +122,3 @@ def test_public_api_has_no_remote_execution_routes():
     assert "/remote-workers/dispatch" not in paths
     assert "/remote-workers/execute" not in paths
     assert "/remote-workers/subagents/launch" not in paths
-

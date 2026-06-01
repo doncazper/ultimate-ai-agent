@@ -126,6 +126,9 @@ class FoundationGateEvaluator:
             "m105_remote_output_untrusted": self.check_m105_remote_output_untrusted,
             "m105_api_routes_are_dry_run_only": self.check_m105_api_routes_are_dry_run_only,
             "m105_docs_foundation_only": self.check_m105_docs_foundation_only,
+            "m105_remote_tailnet_enable_flag_rejected": self.check_m105_remote_tailnet_enable_flag_rejected,
+            "m105_remote_personal_data_enable_flag_rejected": self.check_m105_remote_personal_data_enable_flag_rejected,
+            "m105_remote_worker_api_extra_fields_forbidden": self.check_m105_remote_worker_api_extra_fields_forbidden,
         }
         results = [
             evaluator_map.get(criterion.criterion_id, self._skipped)(criterion)
@@ -1612,7 +1615,7 @@ class FoundationGateEvaluator:
             "docs/remote/REMOTE_JOB_ENVELOPE.md",
             "docs/remote/TAILNET_TRANSPORT_POLICY.md",
             "docs/decisions/remote_worker_tailnet_foundation.md",
-            "docs/release_notes/v0_14_1.md",
+            "docs/release_notes/v0_14_2.md",
         ]
         failures = []
         required_phrases = ["foundation-only", "No live networking", "No job dispatch", "No remote approvals"]
@@ -1626,6 +1629,50 @@ class FoundationGateEvaluator:
                 if phrase not in source:
                     failures.append(f"{rel_path} missing phrase: {phrase}")
         return self._result(criterion, failures, docs)
+
+    def check_m105_remote_tailnet_enable_flag_rejected(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        from ultimate_ai_agent.core.remote_workers import RemoteExecutionPolicy
+
+        failures = []
+        try:
+            RemoteExecutionPolicy(policy_id="m105_tailnet_policy", remote_tailnet_enabled=True)
+            failures.append("remote_tailnet_enabled=true was accepted")
+        except ValueError as exc:
+            if "REMOTE_TAILNET_NOT_SUPPORTED_IN_M10_5" not in str(exc):
+                failures.append("remote_tailnet_enabled=true failed without the expected reason code")
+        return self._result(criterion, failures, ["src/ultimate_ai_agent/core/remote_workers/policy.py"])
+
+    def check_m105_remote_personal_data_enable_flag_rejected(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        from ultimate_ai_agent.core.remote_workers import RemoteExecutionPolicy
+
+        failures = []
+        try:
+            RemoteExecutionPolicy(policy_id="m105_personal_data_policy", remote_personal_data_enabled=True)
+            failures.append("remote_personal_data_enabled=true was accepted")
+        except ValueError as exc:
+            if "REMOTE_PERSONAL_DATA_NOT_SUPPORTED_IN_M10_5" not in str(exc):
+                failures.append("remote_personal_data_enabled=true failed without the expected reason code")
+        return self._result(criterion, failures, ["src/ultimate_ai_agent/core/remote_workers/policy.py"])
+
+    def check_m105_remote_worker_api_extra_fields_forbidden(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        from fastapi.testclient import TestClient
+
+        from ultimate_ai_agent.api.app import app
+
+        failures = []
+        client = TestClient(app)
+        response = client.post(
+            "/remote-workers/policy/validate",
+            json={"policy": {"policy_id": "m105_extra_policy"}, "api_key": "sk_secret_value_123456"},
+        )
+        body = response.json()
+        if response.status_code != 422:
+            failures.append(f"extra top-level field returned status {response.status_code}")
+        if body.get("success") is not False:
+            failures.append("extra top-level field did not produce failure envelope")
+        if "api_key" in response.text or "sk_secret_value_123456" in response.text:
+            failures.append("extra top-level secret-like field leaked in validation response")
+        return self._result(criterion, failures, ["src/ultimate_ai_agent/api/app.py"])
 
     def _skipped(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
         return FoundationGateResult(

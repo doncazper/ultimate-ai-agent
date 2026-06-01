@@ -33,6 +33,13 @@ class RemoteExecutionPolicy(BaseModel):
 
     @model_validator(mode="after")
     def policy_must_be_safe(self):
+        unsupported = []
+        if self.remote_tailnet_enabled:
+            unsupported.append("REMOTE_TAILNET_NOT_SUPPORTED_IN_M10_5")
+        if self.remote_personal_data_enabled:
+            unsupported.append("REMOTE_PERSONAL_DATA_NOT_SUPPORTED_IN_M10_5")
+        if unsupported:
+            raise ValueError("; ".join(unsupported))
         if self.remote_dispatch_enabled:
             raise ValueError("REMOTE_DISPATCH_CANNOT_BE_ENABLED")
         if self.remote_subagents_enabled:
@@ -114,4 +121,3 @@ def _capability_reasons(capabilities: list[str]) -> list[str]:
         if capability in normalized:
             reasons.append(reason)
     return reasons
-

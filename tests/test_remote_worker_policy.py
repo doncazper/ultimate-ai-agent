@@ -1,3 +1,5 @@
+import pytest
+
 from tests.m7_helpers import actor
 from ultimate_ai_agent.core.remote_workers import (
     NodeCapabilitySet,
@@ -56,6 +58,28 @@ def test_remote_policy_defaults_safe_and_denies_unknowns():
     assert "REMOTE_NODE_UNKNOWN" in decision.reason_codes
 
 
+def test_remote_policy_rejects_tailnet_and_personal_data_enable_flags():
+    for field, reason in [
+        ("remote_tailnet_enabled", "REMOTE_TAILNET_NOT_SUPPORTED_IN_M10_5"),
+        ("remote_personal_data_enabled", "REMOTE_PERSONAL_DATA_NOT_SUPPORTED_IN_M10_5"),
+    ]:
+        with pytest.raises(ValueError, match=reason):
+            RemoteExecutionPolicy(policy_id=f"policy_{field}", **{field: True})
+
+
+def test_remote_policy_rejects_both_unsupported_enable_flags_safely():
+    with pytest.raises(ValueError) as excinfo:
+        RemoteExecutionPolicy(
+            policy_id="policy_remote_unsupported",
+            remote_tailnet_enabled=True,
+            remote_personal_data_enabled=True,
+        )
+
+    message = str(excinfo.value)
+    assert "REMOTE_TAILNET_NOT_SUPPORTED_IN_M10_5" in message
+    assert "REMOTE_PERSONAL_DATA_NOT_SUPPORTED_IN_M10_5" in message
+
+
 def test_remote_policy_denies_risky_capabilities_even_when_flagged_on():
     policy = RemoteExecutionPolicy(
         policy_id="policy_remote",
@@ -88,4 +112,3 @@ def test_remote_policy_denies_risky_capabilities_even_when_flagged_on():
     )
     assert critical.allowed is False
     assert "REMOTE_CRITICAL_DENIED" in critical.reason_codes
-

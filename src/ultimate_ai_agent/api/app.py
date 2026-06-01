@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from pydantic import ValidationError
 from datetime import datetime
 from ultimate_ai_agent.core.time import utc_now
@@ -189,18 +189,28 @@ class LocalLoopbackSmokeValidatePayload(BaseModel):
 class RemoteNodeValidatePayload(BaseModel):
     node: dict
 
+    model_config = ConfigDict(extra="forbid")
+
 class RemoteTransportValidatePayload(BaseModel):
     transport: dict
+
+    model_config = ConfigDict(extra="forbid")
 
 class RemotePolicyValidatePayload(BaseModel):
     policy: dict
 
+    model_config = ConfigDict(extra="forbid")
+
 class RemoteJobValidatePayload(BaseModel):
     job: dict
+
+    model_config = ConfigDict(extra="forbid")
 
 class RemoteDryRunPayload(BaseModel):
     job: dict
     policy: Optional[dict] = None
+
+    model_config = ConfigDict(extra="forbid")
 
 class ApprovalValidatePayload(BaseModel):
     validation_request: dict
@@ -550,6 +560,7 @@ def _model_runtime_validation_error(operation: str, trace_id: str, exc: Exceptio
     )
 
 def _remote_worker_validation_error(operation: str, trace_id: str, exc: Exception) -> ResultEnvelope:
+    reason_codes = _remote_worker_error_reason_codes(exc)
     return ResultEnvelope(
         success=False,
         operation=operation,
@@ -564,9 +575,25 @@ def _remote_worker_validation_error(operation: str, trace_id: str, exc: Exceptio
             details_redacted=True,
             source="RemoteWorkersAPI",
             caused_by=[type(exc).__name__],
+            metadata={"reason_codes": reason_codes} if reason_codes else {},
         ),
         redactions_applied=["invalid_payload"],
     )
+
+def _remote_worker_error_reason_codes(exc: Exception) -> List[str]:
+    message = str(exc)
+    known_codes = [
+        "REMOTE_TAILNET_NOT_SUPPORTED_IN_M10_5",
+        "REMOTE_PERSONAL_DATA_NOT_SUPPORTED_IN_M10_5",
+        "REMOTE_DISPATCH_CANNOT_BE_ENABLED",
+        "REMOTE_SUBAGENTS_CANNOT_BE_ENABLED",
+        "REMOTE_APPROVALS_CANNOT_BE_ENABLED",
+        "REMOTE_NETWORK_CANNOT_BE_ENABLED",
+        "REMOTE_WRITE_CANNOT_BE_ENABLED",
+        "REMOTE_SEND_CANNOT_BE_ENABLED",
+        "REMOTE_CRITICAL_CANNOT_BE_ENABLED",
+    ]
+    return [code for code in known_codes if code in message]
 
 def _approval_validation_error(operation: str, trace_id: str, exc: Exception) -> ResultEnvelope:
     return ResultEnvelope(

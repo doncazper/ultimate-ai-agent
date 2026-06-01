@@ -14,7 +14,7 @@ Each route declares:
 - `requires_auth_future`
 - `blocked_from_production`
 
-Allowed side-effect classes in v0.14.1 are:
+Allowed side-effect classes in v0.14.2 are:
 
 - `none`
 - `validation_only`
@@ -65,6 +65,6 @@ M10.5 remote worker foundation route group:
 - `/remote-workers/tailnet/status`
 - `/remote-workers/mesh/status`
 
-These routes validate remote worker metadata, return static planned status, or produce dry-run-only results. They never dispatch jobs, call live networking, call private transport services, start listeners, launch remote subagents, execute tools, transfer files, perform write/send behavior, or approve actions.
+These routes validate remote worker metadata, return static planned status, or produce dry-run-only results. They never dispatch jobs, call live networking, call private transport services, start listeners, launch remote subagents, execute tools, transfer files, perform write/send behavior, or approve actions. Unsupported `remote_tailnet_enabled=true` and `remote_personal_data_enabled=true` policy inputs are rejected, and remote-worker API wrapper payloads reject unexpected top-level fields.
 
 Invalid payload responses are sanitized and must not include raw invalid input values.
