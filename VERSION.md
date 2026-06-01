@@ -1,5 +1,5 @@
 # Ultimate AI Agent Version
 
-Current active baseline: **v0.7.1**
+Current active baseline: **v0.8.0**
 
-v0.7.1 implements post-M3 policy hardening plus Milestone M3.5 (Secret Broker and Provider Registry foundation), including credential references, opaque secret handles, redacted local/dev secret access decisions, provider manifests, deterministic free-first provider resolution, provider result envelopes, normalization contracts, and non-persisting FastAPI validation routes. It does not implement real provider calls, production secret persistence, OAuth flows, scanners, real tool execution, or external integrations.
+v0.8.0 implements Milestone M4 (Memory Service + File Manager foundation), including source-linked memory contracts, local/dev in-memory memory storage, deterministic scoped recall, supersession/correction/deletion metadata, memory redaction and secret blocking, safe file references, local/dev workspace-only file previews, write proposals, deterministic diffs, atomic writes, snapshots, rollback metadata, and non-production FastAPI validation/preview routes. It does not implement M4.5 Truth Source Router, production memory databases, pgvector, embeddings, model calls, scanners, broad filesystem scanning, real provider calls, production secret persistence, OAuth flows, real tool execution, or external integrations.

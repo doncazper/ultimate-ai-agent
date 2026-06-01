@@ -211,6 +211,35 @@ def main():
         if not p.exists():
             fail(f"Required M3.5 file is missing: {rel_path}")
     ok("All M3.5 secret broker and provider registry files exist")
+
+    # 8.8 Check M4 memory/file manager files existence
+    m4_files = [
+        "src/ultimate_ai_agent/core/memory/__init__.py",
+        "src/ultimate_ai_agent/core/memory/enums.py",
+        "src/ultimate_ai_agent/core/memory/records.py",
+        "src/ultimate_ai_agent/core/memory/requests.py",
+        "src/ultimate_ai_agent/core/memory/decisions.py",
+        "src/ultimate_ai_agent/core/memory/store.py",
+        "src/ultimate_ai_agent/core/memory/retrieval.py",
+        "src/ultimate_ai_agent/core/memory/policies.py",
+        "src/ultimate_ai_agent/core/memory/validation.py",
+        "src/ultimate_ai_agent/core/memory/redaction.py",
+        "src/ultimate_ai_agent/core/files/__init__.py",
+        "src/ultimate_ai_agent/core/files/enums.py",
+        "src/ultimate_ai_agent/core/files/refs.py",
+        "src/ultimate_ai_agent/core/files/operations.py",
+        "src/ultimate_ai_agent/core/files/manager.py",
+        "src/ultimate_ai_agent/core/files/diffs.py",
+        "src/ultimate_ai_agent/core/files/snapshots.py",
+        "src/ultimate_ai_agent/core/files/policies.py",
+        "src/ultimate_ai_agent/core/files/validation.py",
+        "src/ultimate_ai_agent/core/files/rollback.py",
+    ]
+    for rel_path in m4_files:
+        p = ROOT / rel_path
+        if not p.exists():
+            fail(f"Required M4 file is missing: {rel_path}")
+    ok("All M4 memory service and file manager files exist")
     
     # 9. Enforce scans by delegating to verify_all
     from verify_all import (
@@ -218,11 +247,13 @@ def main():
         verify_no_obvious_secrets,
         verify_no_blocked_modules,
         verify_no_forbidden_external_integrations,
+        verify_no_shell_execution_in_runtime,
     )
     verify_no_generated_artifacts()
     verify_no_obvious_secrets()
     verify_no_blocked_modules()
     verify_no_forbidden_external_integrations()
+    verify_no_shell_execution_in_runtime()
 
     print("\nConsistency verification PASSED")
 

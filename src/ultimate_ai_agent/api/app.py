@@ -44,6 +44,21 @@ from ultimate_ai_agent.core.providers import (
     validate_provider_manifest,
     validate_provider_result_envelope,
 )
+from ultimate_ai_agent.core.memory import (
+    MemoryReadRequest,
+    MemoryRecord,
+    MemoryStore,
+    MemoryWriteRequest,
+    validate_memory_record,
+)
+from ultimate_ai_agent.core.files import (
+    FileKind,
+    FileReadRequest,
+    FileRef,
+    FileSensitivity,
+    FileWriteProposal,
+    LocalFileManager,
+)
 
 app = FastAPI(
     title="Ultimate AI Agent API Boundary",
@@ -322,6 +337,20 @@ class ProviderResolveRequest(BaseModel):
     policy: ProviderSelectionPolicy
     providers: List[ProviderManifest]
     credential_availability: Optional[dict[str, bool]] = None
+
+class FileRefValidateRequest(BaseModel):
+    file_ref: str
+    path: str
+    kind: FileKind
+    sensitivity: FileSensitivity
+
+class FileReadPreviewAPIRequest(BaseModel):
+    workspace_root: str
+    request: FileReadRequest
+
+class FileWriteAPIRequest(BaseModel):
+    workspace_root: str
+    proposal: FileWriteProposal
 
 @app.post("/consent/grants/validate", response_model=ResultEnvelope)
 def post_validate_consent_grant(grant: ConsentGrant):
@@ -606,3 +635,159 @@ def post_validate_provider_result(envelope: ProviderResultEnvelope):
         trace_id=envelope.event_ref or "system",
         data={"result_id": envelope.result_id, "status": "validated"}
     )
+
+@app.post("/memory/records/validate", response_model=ResultEnvelope)
+def post_validate_memory_record(record: MemoryRecord):
+    try:
+        validate_memory_record(record)
+        return ResultEnvelope(
+            success=True,
+            operation="validate_memory_record",
+            service="MemoryAPI",
+            trace_id=record.event_ref or "system",
+            data={"memory_id": record.memory_id, "status": "validated"},
+        )
+    except Exception as e:
+        err = ErrorEnvelope(
+            code="MEMORY_RECORD_INVALID",
+            category=ErrorCategory.validation_error,
+            safe_message=str(e),
+            severity=Severity.medium,
+            retryable=False,
+            details_redacted=True,
+            source="MemoryAPI",
+        )
+        return ResultEnvelope(
+            success=False,
+            operation="validate_memory_record",
+            service="MemoryAPI",
+            trace_id=record.event_ref or "system",
+            error=err,
+        )
+
+@app.post("/memory/write/evaluate", response_model=ResultEnvelope)
+def post_evaluate_memory_write(request: MemoryWriteRequest):
+    store = MemoryStore()
+    decision = store.write_memory(request)
+    return ResultEnvelope(
+        success=True,
+        operation="evaluate_memory_write",
+        service="MemoryAPI",
+        trace_id=request.run_id,
+        data=decision.model_dump(),
+    )
+
+@app.post("/memory/query/preview", response_model=ResultEnvelope)
+def post_preview_memory_query(request: MemoryReadRequest):
+    store = MemoryStore()
+    decision = store.search(request)
+    return ResultEnvelope(
+        success=True,
+        operation="preview_memory_query",
+        service="MemoryAPI",
+        trace_id=request.run_id,
+        data=decision.model_dump(),
+    )
+
+@app.post("/files/refs/validate", response_model=ResultEnvelope)
+def post_validate_file_ref(req: FileRefValidateRequest):
+    try:
+        file_ref = FileRef(
+            file_ref=req.file_ref,
+            path=req.path,
+            kind=req.kind,
+            sensitivity=req.sensitivity,
+        )
+        return ResultEnvelope(
+            success=True,
+            operation="validate_file_ref",
+            service="FileManagerAPI",
+            trace_id="system",
+            data={"file_ref": file_ref.file_ref, "status": "validated"},
+        )
+    except Exception as e:
+        err = ErrorEnvelope(
+            code="FILE_REF_INVALID",
+            category=ErrorCategory.validation_error,
+            safe_message=str(e),
+            severity=Severity.medium,
+            retryable=False,
+            details_redacted=True,
+            source="FileManagerAPI",
+        )
+        return ResultEnvelope(
+            success=False,
+            operation="validate_file_ref",
+            service="FileManagerAPI",
+            trace_id="system",
+            error=err,
+        )
+
+@app.post("/files/read/preview", response_model=ResultEnvelope)
+def post_preview_file_read(req: FileReadPreviewAPIRequest):
+    try:
+        preview = LocalFileManager(req.workspace_root).read_preview(req.request)
+        return ResultEnvelope(
+            success=True,
+            operation="preview_file_read",
+            service="FileManagerAPI",
+            trace_id=req.request.run_id,
+            data=preview.model_dump(),
+        )
+    except Exception as e:
+        err = ErrorEnvelope(
+            code="FILE_READ_PREVIEW_FAILED",
+            category=ErrorCategory.validation_error,
+            safe_message=str(e),
+            severity=Severity.medium,
+            retryable=False,
+            details_redacted=True,
+            source="FileManagerAPI",
+        )
+        return ResultEnvelope(
+            success=False,
+            operation="preview_file_read",
+            service="FileManagerAPI",
+            trace_id=req.request.run_id,
+            error=err,
+        )
+
+@app.post("/files/write/propose", response_model=ResultEnvelope)
+def post_propose_file_write(req: FileWriteAPIRequest):
+    decision = LocalFileManager(req.workspace_root).propose_write(req.proposal)
+    return ResultEnvelope(
+        success=True,
+        operation="propose_file_write",
+        service="FileManagerAPI",
+        trace_id=req.proposal.run_id,
+        data=decision.model_dump(),
+    )
+
+@app.post("/files/diff/preview", response_model=ResultEnvelope)
+def post_preview_file_diff(req: FileWriteAPIRequest):
+    try:
+        diff = LocalFileManager(req.workspace_root).diff_preview(req.proposal)
+        return ResultEnvelope(
+            success=True,
+            operation="preview_file_diff",
+            service="FileManagerAPI",
+            trace_id=req.proposal.run_id,
+            data={"diff": diff},
+        )
+    except Exception as e:
+        err = ErrorEnvelope(
+            code="FILE_DIFF_PREVIEW_FAILED",
+            category=ErrorCategory.validation_error,
+            safe_message=str(e),
+            severity=Severity.medium,
+            retryable=False,
+            details_redacted=True,
+            source="FileManagerAPI",
+        )
+        return ResultEnvelope(
+            success=False,
+            operation="preview_file_diff",
+            service="FileManagerAPI",
+            trace_id=req.proposal.run_id,
+            error=err,
+        )

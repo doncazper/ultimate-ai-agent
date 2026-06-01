@@ -125,6 +125,27 @@ def verify_no_forbidden_external_integrations():
             pass
     print("OK: No forbidden provider API clients or network calls detected in src")
 
+def verify_no_shell_execution_in_runtime():
+    print("\n[Verifier] Running runtime shell/subprocess execution scan...")
+    forbidden_fragments = [
+        "import subprocess",
+        "from subprocess import",
+        "os.system(",
+        "popen(",
+        "subprocess.",
+    ]
+    for p in (ROOT / "src").rglob("*.py"):
+        try:
+            content = p.read_text(encoding="utf-8")
+            for line in content.splitlines():
+                stripped = line.strip()
+                if any(fragment in stripped for fragment in forbidden_fragments):
+                    print(f"FAIL: Forbidden shell/subprocess execution in {p.relative_to(ROOT)}: {line}")
+                    sys.exit(1)
+        except Exception:
+            pass
+    print("OK: No shell/subprocess execution detected in runtime source")
+
 def main():
     print("=== Ultimate AI Agent Master Verification Suite ===")
 
@@ -142,6 +163,7 @@ def main():
     verify_no_obvious_secrets()
     verify_no_blocked_modules()
     verify_no_forbidden_external_integrations()
+    verify_no_shell_execution_in_runtime()
 
     # 4. Run Baseline Consistency Verification
     run_cmd([sys.executable, "scripts/verify_current_baseline.py"])

@@ -1,0 +1,47 @@
+from pathlib import PurePosixPath
+
+from ultimate_ai_agent.core.secrets.redaction import contains_obvious_secret
+
+
+BLOCKED_FILE_NAMES = {
+    ".env",
+    ".env.local",
+    ".env.production",
+    "id_rsa",
+    "id_dsa",
+    "id_ecdsa",
+    "id_ed25519",
+}
+
+BLOCKED_SUFFIXES = (".pem", ".key", ".p12", ".pfx")
+
+
+def normalize_relative_path(path: str) -> str:
+    if not path or not path.strip():
+        raise ValueError("File path cannot be empty.")
+    if path.startswith("/") or PurePosixPath(path).is_absolute():
+        raise ValueError("absolute file paths are rejected by default.")
+    normalized = PurePosixPath(path)
+    if any(part == ".." for part in normalized.parts):
+        raise ValueError("Path traversal is rejected.")
+    if any(part in ("", ".") for part in normalized.parts):
+        normalized = PurePosixPath(*[part for part in normalized.parts if part not in ("", ".")])
+    return str(normalized)
+
+
+def is_blocked_file_path(path: str) -> bool:
+    normalized = normalize_relative_path(path)
+    parts = PurePosixPath(normalized).parts
+    name = parts[-1].lower() if parts else normalized.lower()
+    return name in BLOCKED_FILE_NAMES or name.endswith(BLOCKED_SUFFIXES) or ".ssh" in [part.lower() for part in parts]
+
+
+def validate_safe_file_path(path: str) -> str:
+    normalized = normalize_relative_path(path)
+    if is_blocked_file_path(normalized):
+        raise ValueError("Blocked credential-like file path.")
+    return normalized
+
+
+def file_content_contains_secret(content: str) -> bool:
+    return contains_obvious_secret({"content": content})
