@@ -67,3 +67,9 @@ created_at
 ## Why this matters
 
 When a future alert fires, the user should know whether it came from a watchlist, a scanner, a scheduled digest, a manually requested research task, or an agent inference. This distinction is a trust requirement.
+
+## Future Mobile Actor Authority
+
+A mobile app, paired device, push notification, OS permission, or arbitrary approval string is not authority by itself. Mobile actions must carry ActorContext, consent refs, approval refs, and event refs through the Agent API Boundary.
+
+Phone/mobile cannot approve its own hidden sensor capture, cannot elevate autonomy, and cannot convert sensor output into trusted control input.

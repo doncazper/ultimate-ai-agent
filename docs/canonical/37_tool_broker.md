@@ -191,6 +191,7 @@ Mock tools for contract tests
 ```
 
 Real external integrations come later.
+
 ## v0.5.3 Secret Broker and provider routing rule
 
 The Tool Broker may call provider adapters, but it must not expose raw credentials to the LLM or to tool-call payloads. Provider tools use credential references and resolve them through the Secret Broker at execution time.
@@ -207,3 +208,10 @@ Provider Registry chooses a provider and normalizer.
 Event Ledger records request/result with redaction and cost attribution.
 ```
 
+## Future Device Capability Broker Relationship
+
+The future Device Capability Broker governs mobile and device capabilities using Tool Broker-style controls plus device-specific privacy constraints.
+
+Future device capabilities such as camera, microphone, location, notifications, share sheet, contacts, calendar, photos, NFC, Bluetooth, motion, biometrics, and network status must declare manifests, risk class, purpose, permission scope, retention, redaction, Event Ledger logging, receipts, and revocation before use.
+
+v0.14.4 does not add a runtime Device Capability Broker or device capability execution.

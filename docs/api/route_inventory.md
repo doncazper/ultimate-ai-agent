@@ -14,7 +14,7 @@ Each route declares:
 - `requires_auth_future`
 - `blocked_from_production`
 
-Allowed side-effect classes in v0.14.2 are:
+Allowed side-effect classes in v0.14.4 are:
 
 - `none`
 - `validation_only`
@@ -68,3 +68,14 @@ M10.5 remote worker foundation route group:
 These routes validate remote worker metadata, return static planned status, or produce dry-run-only results. They never dispatch jobs, call live networking, call private transport services, start listeners, launch remote subagents, execute tools, transfer files, perform write/send behavior, or approve actions. v0.14.3 route metadata treats Headscale, generic WireGuard, Tailscale, private mesh, tailnet, and LAN as planned/disabled metadata only; no connect, login, config, dispatch, or execute endpoint exists.
 
 Invalid payload responses are sanitized and must not include raw invalid input values.
+
+Future mobile API planning:
+
+- future mobile control APIs.
+- future approval queue APIs.
+- future receipt viewer APIs.
+- future mobile capture inbox APIs.
+- future device registry APIs.
+- future device capability manifest APIs.
+
+These routes are not implemented in v0.14.4. Future mobile routes are subject to Device Capability Broker, Consent Ledger, Approval Authority, Event Ledger, Redaction, and Receipt rules. No current route performs mobile pairing, sensor access, OS permission integration, background service work, mobile network calls, or autonomous mobile actions.

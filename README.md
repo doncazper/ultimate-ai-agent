@@ -1,25 +1,27 @@
-# Ultimate AI Agent Canonical Bundle v0.14.3
+# Ultimate AI Agent Canonical Bundle v0.14.4
 
-This is the active project baseline after the v0.14.3 open-source-first private mesh taxonomy patch.
+This is the active project baseline after the v0.14.4 Mobile Companion and Device Capability Broker roadmap foundation patch.
 
 Start here:
 
 ```text
-README_IMPORT_v0_14_3.md
-ultimate_ai_agent_master_plan_v0_14_3.md
+README_IMPORT_v0_14_4.md
+ultimate_ai_agent_master_plan_v0_14_4.md
 docs/canonical/09_roadmap.md
 docs/canonical/21_consent_and_permissions_ledger.md
 docs/canonical/37_tool_broker.md
 docs/canonical/42_autonomy_levels_and_standing_approvals.md
 docs/canonical/45_trusted_computing_base.md
 docs/canonical/63_observability_standards_mapping.md
+docs/canonical/64_mobile_companion_and_device_capability_broker.md
+docs/canonical/65_mobile_device_registry_and_sensor_permission_manifest.md
 docs/api/README.md
 docs/api/openapi_contract.md
 docs/api/route_inventory.md
 docs/runtime/model_runtime_adapter_harness.md
 docs/runtime/local_loopback_model_runtime.md
 docs/security/approval_authority.md
-docs/implementation/foundation_gate_implementation_plan_v0_14_3.md
+docs/implementation/foundation_gate_implementation_plan_v0_14_4.md
 docs/testing/test_strategy_v0.md
 ```
 
@@ -42,3 +44,7 @@ Observability standards rule:
 Foundation Gate rule:
 
 > v0.14.3 keeps REMOTE-01 / M10.5 foundation-only and adds open-source-first private mesh taxonomy. Headscale, generic WireGuard, Tailscale, private mesh, tailnet, and LAN transports are planned/disabled metadata only. Headscale is the first planned self-hosted/open-source control-plane option to evaluate; Tailscale remains planned metadata, not the default assumption. It adds no live mesh networking, Headscale integration, Tailscale integration, WireGuard command execution, listener, network call, job dispatch, remote subagent launch, remote Tool Broker execution, sandbox execution, personal-data access, write/send action, remote approval, background service, production persistence, provider SDK, tokenizer, billing API, credentials, node keys, hostnames, private IPs, or safety bypass.
+
+Mobile planning rule:
+
+> v0.14.4 adds Mobile Companion and Device Capability Broker roadmap planning only. A future phone app may become a control, approval, capture, receipt, and status surface, but the phone is not the agent brain and mobile sensors are disabled by default. This patch adds no mobile app, iOS code, Android code, React Native, Expo, Flutter, Swift, Kotlin, native mobile package, sensor access, OS permission integration, pairing flow, background service, notification runtime, network call, autonomous mobile action, or runtime device capability execution.

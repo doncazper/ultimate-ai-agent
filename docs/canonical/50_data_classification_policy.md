@@ -52,3 +52,19 @@ tcb_protected
 2. External content is untrusted even when public.
 3. Data classification must travel with the object through result envelopes and events.
 4. If classification is unknown, default to the safer higher classification until resolved.
+
+## Future Mobile Data Classification
+
+Mobile sensor data is classified conservatively by default.
+
+```text
+manual typed note: user-provided, low unless content indicates otherwise
+selected photo/document import: private or sensitive until reviewed
+camera capture: sensitive by default
+microphone clip: sensitive by default
+precise location: sensitive by default
+contacts/calendar/photos: private or sensitive by default
+device identifiers: sensitive by default
+```
+
+Future mobile capture must classify before storage, memory write, provider routing, or external send.

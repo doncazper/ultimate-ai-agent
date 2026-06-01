@@ -197,6 +197,25 @@ M11 — Basic Scanner Framework, read-only/digest-only
 M12 — Proactive Intelligence V1, digest-first, no interrupt alerts until tuned
 ```
 
+## Future control surfaces and device capabilities
+
+These items come after runtime readiness, API/control-center contract stabilization, and web Control Center foundation. They are planning entries only in v0.14.4.
+
+```text
+Mobile Companion Contract
+Device Capability Broker
+Mobile Device Registry
+Mobile Sensor Permission Manifest
+Mobile Approval/Receipt Surface
+Mobile Capture Inbox
+Camera/OCR Evidence Flow
+Location Privacy Flow
+Push-to-Talk Voice Capture
+Emergency Stop / Kill Switch
+```
+
+Mobile is a future control, approval, capture, receipt, and status surface. It is not the agent brain. Device Capability Broker work must exist before any mobile sensor integration.
+
 ## Later
 
 ```text

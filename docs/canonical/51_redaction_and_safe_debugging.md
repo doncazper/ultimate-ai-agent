@@ -88,3 +88,9 @@ full prompt context containing sensitive data
 3. Error envelopes include `details_redacted` and should expose `safe_message`.
 4. Secret detection failures are security bugs.
 5. The redaction policy is part of the Trusted Computing Base.
+
+## Future Mobile Redaction
+
+Future mobile capture logs and validation errors must never expose raw location, microphone audio, camera media, contacts, calendar data, photos, health-adjacent data, device identifiers, credentials, tokens, or secrets.
+
+Debug output should use safe summaries, evidence refs, redaction markers, and receipt IDs. Sensor data is untrusted evidence until verified and must not be copied into prompts, memory, logs, receipts, provider envelopes, or user-visible output without redaction and user review.

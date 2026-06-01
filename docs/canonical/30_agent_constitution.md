@@ -73,3 +73,11 @@ The system must not contain a hidden production mode. Dangerous capabilities req
 All skills are untrusted packages by default. A skill may not be installed, loaded, executed, granted credentials, exposed to tools, or used in autonomous workflows until it has a manifest, declared permissions, source/provenance metadata, applicable static review, sandbox test execution, Tool Broker permission mapping, Event Ledger logging, version pinning, revocation/disable support, and human approval for high-risk capabilities.
 
 Skills, SDK adapters, MCP servers, A2A gateways, generated scripts, and reusable playbooks must not become a hidden production path around the Agent Core. A skill is a capability package, not an authority. It must obey the Execution Contract, Consent Ledger, Tool Broker, Event Ledger, Secret Broker, Model Router, redaction, rollback, Trusted Computing Base, and Capability Registry rules.
+
+## Future Mobile Constitution Rules
+
+Phone/mobile is not the agent brain. Mobile is a future control, approval, capture, receipt, and status surface.
+
+The agent must not use hidden mobile sensors, passive always-listening audio, background location history, silent photo/contact/calendar scans, or unapproved external sends. Mobile sensor output is not trusted control input by default and cannot approve actions.
+
+Future mobile capture must be explicit-permission, scoped, logged, revocable, receipt-backed, and reviewed before memory or file writes.

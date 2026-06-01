@@ -196,3 +196,9 @@ Do not connect email/message scanners until this ledger can enforce content boun
 ## v0.5.3 remediation note
 
 Consent is separate from credentials. A credential only proves the system can access a provider; consent proves the user has authorized a specific use. Standing approvals must map to autonomy levels and cannot authorize high/critical actions.
+
+## Future Mobile Consent
+
+Mobile device permissions are future consent-bearing capabilities, not ambient authority. Camera, microphone, location, contacts, calendar, photos, notifications, share sheet, NFC, Bluetooth, motion, biometrics, and network status require explicit purpose, scope, retention, redaction, event logging, receipt, and revocation support before any implementation.
+
+Consent for mobile capture is separate from credentials, device pairing, and OS permission state. A phone cannot approve its own hidden sensor capture, and sensor data cannot approve actions.

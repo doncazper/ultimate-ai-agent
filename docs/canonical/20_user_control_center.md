@@ -82,3 +82,11 @@ Creating notification fatigue
 ## Foundation rule
 
 The Control Center may show and configure the agent, but it must not directly mutate memory, files, tools, providers, or credentials. All mutating calls go through the Agent API Boundary, Consent Ledger, Tool Broker, and Event Ledger.
+
+## Future Mobile Companion Extension
+
+The Mobile Companion is a future extension of the Control Center. The phone is not the agent brain. It may become an approval, status, receipt, capture, and emergency-stop surface only after the web Control Center and API contracts are stable.
+
+Mobile approval queues must use Approval Authority. Mobile notifications must be receipt-backed. Mobile actions must be revocable and auditable. Mobile sensors must route through the future Device Capability Broker.
+
+Mobile capture cannot silently become memory, cannot approve actions, and cannot trigger external sends without governed approval. Web Control Center foundation comes before mobile sensor work.

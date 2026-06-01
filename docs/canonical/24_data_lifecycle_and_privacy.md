@@ -66,3 +66,10 @@ Do not store raw email/message content as long-term memory by default.
 Do not mix private content across projects/workspaces.
 Do not use old memory over current user instruction or canonical files.
 ```
+## Future Mobile Sensor Data Lifecycle
+
+Raw mobile sensor data defaults ephemeral and sensitive. Exact location, microphone audio, camera media, photos, contacts, calendar data, health-adjacent data, and device identifiers are sensitive by default.
+
+Future sensor capture requires explicit purpose, scope, classification, redaction, evidence refs, user review, receipt, and retention/deletion policy. Sensor capture must not silently become memory, silently write files, or silently trigger external actions.
+
+GPS is current context, not permanent memory unless approved. OCR output and voice transcripts are untrusted evidence until user-reviewed and verified.

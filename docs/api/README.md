@@ -21,4 +21,6 @@ M10 adds `/model-runtime/local/smoke/validate` for validation-only manual smoke 
 
 M10.5 adds `/remote-workers/*` validation, status, and dry-run routes for remote worker foundation metadata only. These routes do not dispatch jobs, open network connections, call private transport services, start listeners, launch remote subagents, execute remote tools, transfer files, approve actions, or perform write/send behavior. v0.14.3 keeps private mesh/tailnet taxonomy vendor-neutral and open-source-first: Headscale, generic WireGuard, Tailscale, private mesh, tailnet, and LAN transports are planned/disabled metadata only.
 
+v0.14.4 adds future mobile API planning only. Future mobile control APIs, approval queue APIs, receipt viewer APIs, mobile capture inbox APIs, device registry APIs, and device capability manifest APIs are not implemented. Any future routes are subject to Device Capability Broker, Consent Ledger, Approval Authority, Event Ledger, Redaction, and Receipt rules.
+
 API validation errors are sanitized before they are returned. FastAPI/Pydantic validation failures must not echo raw invalid input values or secret-like field values.

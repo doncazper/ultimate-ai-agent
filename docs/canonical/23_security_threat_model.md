@@ -85,3 +85,11 @@ self_improvement_tcb_eval
 ## Review cadence
 
 Security model changes require ADR updates and contract-test updates before implementation.
+
+## Future Mobile and Device Capability Threats
+
+Camera, microphone, precise location, contacts, calendar, photos, biometrics, NFC, Bluetooth, motion, notifications, and share-sheet capture are high-risk future device capabilities.
+
+Threats include silent background collection, passive always-listening audio, hidden photo/contact/calendar scans, unapproved external sends, sensor data being treated as truth, mobile approval bypass, and phone self-approval for hidden capture.
+
+Future mitigations must require explicit purpose, foreground/user-gesture capture by default, Consent Ledger checks, Approval Authority for high-risk actions, Event Ledger logging, redaction, receipts, revocation, and retention/deletion controls. v0.14.4 implements none of these capabilities.

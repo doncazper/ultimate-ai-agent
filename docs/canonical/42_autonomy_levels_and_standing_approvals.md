@@ -42,3 +42,11 @@ visible in User Control Center
 ## Anti-rubber-stamp rule
 
 The agent should batch low-risk approvals, explain risk clearly, and avoid repeatedly asking for trivial confirmations that train the user to approve blindly.
+
+## Future Mobile Autonomy Limits
+
+Mobile device capabilities do not raise autonomy by themselves. A mobile device, paired app, OS permission, notification response, or arbitrary approval string cannot authorize hidden sensor capture or external actions.
+
+High-risk mobile capture such as camera, microphone, or precise location requires explicit purpose and governed approval rules. Always-on microphone, background location history, contacts bulk export, hidden sensor access, and unapproved external send are critical or forbidden by default.
+
+Mobile emergency stop and kill switch are future safety controls, not broad mobile authority.

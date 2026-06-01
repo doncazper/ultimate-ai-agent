@@ -1,5 +1,5 @@
 # Ultimate AI Agent Version
 
-Current active baseline: **v0.14.3**
+Current active baseline: **v0.14.4**
 
-v0.14.3 adds open-source-first private mesh/tailnet provider taxonomy to the M10.5 remote worker foundation. It adds planned/disabled Headscale, generic WireGuard, and Tailscale metadata and Foundation Gate checks proving these remain documentation/schema/policy-only. It adds no Headscale integration, Tailscale integration, WireGuard command execution, live networking, mesh discovery, job dispatch, remote execution, remote approvals, personal-data access, write/send action, background service, credentials, tokens, node keys, hostnames, or private IPs.
+v0.14.4 adds Mobile Companion and Device Capability Broker planning documentation. It captures future phone control, approval, receipt viewing, capture inbox, camera, microphone, location, notification, mobile device registry, and sensor permission manifest work as roadmap/backlog/canonical planning only. It adds no mobile app, no sensor access, no OS permission integration, no background service, no network calls, no autonomous mobile actions, and no runtime device capability execution.

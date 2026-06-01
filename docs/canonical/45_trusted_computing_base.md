@@ -49,3 +49,9 @@ human approval requirement
 Event Ledger record for TCB change proposal
 contract tests for TCB policy
 ```
+
+## Future Mobile TCB Boundary
+
+Mobile device trust, app pairing, OS permission state, notification delivery, and emergency stop are TCB-adjacent future work. They are not implemented in v0.14.4.
+
+The Python Agent Core remains the brain. Mobile clients must not bypass the Agent API Boundary, Consent Ledger, Approval Authority, Tool Broker, Event Ledger, Redaction, or Receipt systems. A phone cannot become authority merely because it is paired or has OS permissions.
