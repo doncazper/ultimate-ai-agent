@@ -8,19 +8,19 @@ def test_health_endpoint():
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "healthy"
-    assert data["version"] == "0.10.1"
+    assert data["version"] == "0.11.0"
 
 def test_version_endpoint():
     response = client.get("/version")
     assert response.status_code == 200
     data = response.json()
-    assert data["version"] == "0.10.1"
+    assert data["version"] == "0.11.0"
 
 
 def test_openapi_schema_generation_reports_current_version():
     schema = app.openapi()
 
-    assert schema["info"]["version"] == "0.10.1"
+    assert schema["info"]["version"] == "0.11.0"
     assert "/health" in schema["paths"]
     assert "/version" in schema["paths"]
     assert "/gate/reports/validate" in schema["paths"]

@@ -12,6 +12,18 @@ from ultimate_ai_agent.core.gate.enums import FoundationGateStatus
 from ultimate_ai_agent.core.gate.reports import FoundationGateReport, FoundationGateResult, build_foundation_gate_report
 from ultimate_ai_agent.core.gate.shadow_replay import run_m5_shadow_replay
 from ultimate_ai_agent.core.hygiene.actor_context import ActorContext, ActorType, AuthoritySource
+from ultimate_ai_agent.core.hygiene.policies import ClassificationValue, DataClassification
+from ultimate_ai_agent.core.costs import BudgetScope, BudgetStatus, CostBudget, CostEstimate, CostGovernor
+from ultimate_ai_agent.core.model_router import (
+    ModelCapabilityProfile,
+    ModelPrivacyClass,
+    ModelProviderKind,
+    ModelRouteStatus,
+    ModelRouter,
+    ModelRouteRequest,
+    ModelRoutingPolicy,
+    ModelTaskCapability,
+)
 from ultimate_ai_agent.core.memory import MemoryRecord
 from ultimate_ai_agent.core.memory.enums import MemoryAuthority, MemoryScope, MemorySensitivity, MemoryType
 from ultimate_ai_agent.core.memory.records import MemorySourceRef
@@ -56,6 +68,9 @@ class FoundationGateEvaluator:
             "truth_evidence_contracts_valid": self.check_truth_evidence_contracts_valid,
             "memory_file_contracts_valid": self.check_memory_file_contracts_valid,
             "m5_shadow_replay_passes": self.check_m5_shadow_replay_passes,
+            "m7_modules_present": self.check_m7_modules_present,
+            "model_router_decision_only": self.check_model_router_decision_only,
+            "cost_governor_blocks_over_budget": self.check_cost_governor_blocks_over_budget,
         }
         results = [
             evaluator_map.get(criterion.criterion_id, self._skipped)(criterion)
@@ -125,6 +140,27 @@ class FoundationGateEvaluator:
         failures = [f"missing {path}" for path in required if not (self.root / path).exists()]
         return self._result(criterion, failures, required)
 
+    def check_m7_modules_present(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        required = [
+            "src/ultimate_ai_agent/core/model_router/__init__.py",
+            "src/ultimate_ai_agent/core/model_router/enums.py",
+            "src/ultimate_ai_agent/core/model_router/profiles.py",
+            "src/ultimate_ai_agent/core/model_router/policies.py",
+            "src/ultimate_ai_agent/core/model_router/requests.py",
+            "src/ultimate_ai_agent/core/model_router/decisions.py",
+            "src/ultimate_ai_agent/core/model_router/router.py",
+            "src/ultimate_ai_agent/core/model_router/validation.py",
+            "src/ultimate_ai_agent/core/costs/__init__.py",
+            "src/ultimate_ai_agent/core/costs/enums.py",
+            "src/ultimate_ai_agent/core/costs/budgets.py",
+            "src/ultimate_ai_agent/core/costs/estimates.py",
+            "src/ultimate_ai_agent/core/costs/decisions.py",
+            "src/ultimate_ai_agent/core/costs/governor.py",
+            "src/ultimate_ai_agent/core/costs/validation.py",
+        ]
+        failures = [f"missing {path}" for path in required if not (self.root / path).exists()]
+        return self._result(criterion, failures, required)
+
     def check_blocked_modules_absent(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
         blocked_paths = [
             "src/ultimate_ai_agent/core/scanners",
@@ -148,6 +184,10 @@ class FoundationGateEvaluator:
             "import " + "urllib.request",
             "from " + "urllib import request",
             "import " + "boto3",
+            "import " + "ollama",
+            "import " + "vllm",
+            "import " + "llama_cpp",
+            "import " + "sglang",
             "import " + "openai",
             "import " + "anthropic",
             "import " + "google.generativeai",
@@ -344,6 +384,69 @@ class FoundationGateEvaluator:
             failures=failures,
             warnings=warnings,
         )
+
+    def check_model_router_decision_only(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            profile = ModelCapabilityProfile(
+                model_profile_id="m7_gate_local",
+                provider_kind=ModelProviderKind.local_runtime,
+                runtime_id="rt_gate",
+                model_id="local_policy_model",
+                display_name="Local Policy Model",
+                capabilities=[ModelTaskCapability.chat, ModelTaskCapability.coding],
+                privacy_class=ModelPrivacyClass.local_only,
+                max_context_tokens=8192,
+                enabled=True,
+                owner="core.gate",
+                source="foundation_gate",
+                version="0.0.0",
+            )
+            request = ModelRouteRequest(
+                request_id="m7_gate_route",
+                run_id="run_foundation_gate",
+                actor_context=self._actor(),
+                task_class="coding",
+                prompt_summary="Foundation Gate model routing metadata check.",
+                data_classification=DataClassification(classification=ClassificationValue.project_private, source="foundation_gate"),
+                required_capabilities=[ModelTaskCapability.chat],
+                estimated_input_tokens=256,
+                estimated_output_tokens=128,
+                routing_policy=ModelRoutingPolicy(
+                    policy_id="m7_gate_policy",
+                    required_capabilities=[ModelTaskCapability.chat],
+                    prefer_local=True,
+                    allow_cloud=False,
+                    allow_paid=False,
+                ),
+                available_profiles=[profile],
+            )
+            decision = ModelRouter().route(request)
+            if decision.status != ModelRouteStatus.selected:
+                failures.append(f"route status was {decision.status}")
+            if decision.selected_profile_id != profile.model_profile_id:
+                failures.append("local policy profile was not selected")
+        except (ValidationError, ValueError) as exc:
+            failures.append(str(exc))
+        return self._result(criterion, failures, ["src/ultimate_ai_agent/core/model_router"])
+
+    def check_cost_governor_blocks_over_budget(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        failures: List[str] = []
+        decision = CostGovernor().evaluate(
+            CostEstimate(
+                estimate_id="m7_gate_estimate",
+                input_tokens=100,
+                output_tokens=100,
+                total_tokens=200,
+                estimated_cost_usd=2,
+            ),
+            [CostBudget(budget_id="m7_gate_budget", scope=BudgetScope.run, max_cost_usd=1)],
+        )
+        if decision.status != BudgetStatus.denied or decision.allowed:
+            failures.append("over-budget route was not denied")
+        if "COST_BUDGET_EXCEEDED" not in decision.reason_codes:
+            failures.append("cost denial reason missing")
+        return self._result(criterion, failures, ["src/ultimate_ai_agent/core/costs"])
 
     def _skipped(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
         return FoundationGateResult(

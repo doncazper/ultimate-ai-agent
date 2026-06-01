@@ -23,6 +23,17 @@ GATE_TESTS = [
     "tests/test_foundation_gate_rollback.py",
     "tests/test_foundation_gate_truth_evidence.py",
     "tests/test_foundation_gate_api_routes.py",
+    "tests/test_model_profiles.py",
+    "tests/test_model_routing_policy.py",
+    "tests/test_model_router_decisions.py",
+    "tests/test_model_router_privacy.py",
+    "tests/test_model_router_context_budget.py",
+    "tests/test_model_router_no_execution.py",
+    "tests/test_cost_budgets.py",
+    "tests/test_cost_governor.py",
+    "tests/test_resource_governor.py",
+    "tests/test_m7_api_routes.py",
+    "tests/test_m7_gate_integration.py",
 ]
 
 

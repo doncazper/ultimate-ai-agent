@@ -123,6 +123,14 @@ def verify_no_forbidden_external_integrations():
         "import urllib.request",
         "from urllib import request",
         "import boto3",
+        "import ollama",
+        "from ollama import",
+        "import vllm",
+        "from vllm import",
+        "import llama_cpp",
+        "from llama_cpp import",
+        "import sglang",
+        "from sglang import",
     ]
     for p in (ROOT / "src").rglob("*.py"):
         try:

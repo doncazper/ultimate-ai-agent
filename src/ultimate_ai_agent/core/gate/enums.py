@@ -17,6 +17,8 @@ class FoundationGateCategory(str, Enum):
     observability = "observability"
     blocked_modules = "blocked_modules"
     documentation = "documentation"
+    model_router = "model_router"
+    cost_governor = "cost_governor"
 
 
 class FoundationGateStatus(str, Enum):

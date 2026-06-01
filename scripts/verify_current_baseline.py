@@ -295,6 +295,30 @@ def main():
         if not p.exists():
             fail(f"Required M6 Foundation Gate file is missing: {rel_path}")
     ok("All M6 Foundation Gate and shadow replay files exist")
+
+    # 8.12 Check M7 model router and cost/resource governor files existence
+    m7_files = [
+        "src/ultimate_ai_agent/core/model_router/__init__.py",
+        "src/ultimate_ai_agent/core/model_router/enums.py",
+        "src/ultimate_ai_agent/core/model_router/profiles.py",
+        "src/ultimate_ai_agent/core/model_router/policies.py",
+        "src/ultimate_ai_agent/core/model_router/requests.py",
+        "src/ultimate_ai_agent/core/model_router/decisions.py",
+        "src/ultimate_ai_agent/core/model_router/router.py",
+        "src/ultimate_ai_agent/core/model_router/validation.py",
+        "src/ultimate_ai_agent/core/costs/__init__.py",
+        "src/ultimate_ai_agent/core/costs/enums.py",
+        "src/ultimate_ai_agent/core/costs/budgets.py",
+        "src/ultimate_ai_agent/core/costs/estimates.py",
+        "src/ultimate_ai_agent/core/costs/decisions.py",
+        "src/ultimate_ai_agent/core/costs/governor.py",
+        "src/ultimate_ai_agent/core/costs/validation.py",
+    ]
+    for rel_path in m7_files:
+        p = ROOT / rel_path
+        if not p.exists():
+            fail(f"Required M7 file is missing: {rel_path}")
+    ok("All M7 model router and cost/resource governor files exist")
     
     # 9. Enforce scans by delegating to verify_all
     try:

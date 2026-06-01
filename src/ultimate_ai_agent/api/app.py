@@ -82,6 +82,18 @@ from ultimate_ai_agent.core.gate import (
     validate_foundation_gate_report,
     validate_shadow_replay_scenario,
 )
+from ultimate_ai_agent.core.costs import (
+    CostBudget,
+    CostEstimate,
+    CostGovernor,
+    validate_cost_budget,
+)
+from ultimate_ai_agent.core.model_router import (
+    ModelCapabilityProfile,
+    ModelRouteRequest,
+    ModelRouter,
+    validate_model_capability_profile,
+)
 
 app = FastAPI(
     title="Ultimate AI Agent API Boundary",
@@ -101,6 +113,14 @@ class TransitionRequest(BaseModel):
 class ReceiptPreviewRequest(BaseModel):
     run_id: str
     events: List[EventLedgerEvent]
+
+class CostEstimatePreviewRequest(BaseModel):
+    request: ModelRouteRequest
+    profile: ModelCapabilityProfile
+
+class CostEvaluateRequest(BaseModel):
+    estimate: CostEstimate
+    budgets: List[CostBudget]
 
 @app.get("/health", response_model=HealthResponse)
 def get_health():
@@ -332,6 +352,95 @@ def post_validate_adapter_manifest(req: AdapterValidateRequest):
             trace_id="system",
             error=err
         )
+
+@app.post("/models/profiles/validate", response_model=ResultEnvelope)
+def post_validate_model_profile(profile: ModelCapabilityProfile):
+    try:
+        validate_model_capability_profile(profile)
+        return ResultEnvelope(
+            success=True,
+            operation="validate_model_profile",
+            service="ModelRouterAPI",
+            trace_id=profile.model_profile_id,
+            data={"model_profile_id": profile.model_profile_id, "status": "validated"},
+        )
+    except Exception as e:
+        return ResultEnvelope(
+            success=False,
+            operation="validate_model_profile",
+            service="ModelRouterAPI",
+            trace_id=profile.model_profile_id,
+            error=ErrorEnvelope(
+                code="MODEL_PROFILE_INVALID",
+                category=ErrorCategory.validation_error,
+                safe_message=str(e),
+                severity=Severity.medium,
+                retryable=False,
+                details_redacted=True,
+                source="ModelRouterAPI",
+            ),
+        )
+
+@app.post("/models/route/preview", response_model=ResultEnvelope)
+def post_preview_model_route(request: ModelRouteRequest):
+    decision = ModelRouter().route(request)
+    return ResultEnvelope(
+        success=True,
+        operation="preview_model_route",
+        service="ModelRouterAPI",
+        trace_id=request.run_id,
+        data=decision.model_dump(mode="json"),
+    )
+
+@app.post("/costs/budgets/validate", response_model=ResultEnvelope)
+def post_validate_cost_budget(budget: CostBudget):
+    try:
+        validate_cost_budget(budget)
+        return ResultEnvelope(
+            success=True,
+            operation="validate_cost_budget",
+            service="CostGovernorAPI",
+            trace_id=budget.budget_id,
+            data={"budget_id": budget.budget_id, "status": "validated"},
+        )
+    except Exception as e:
+        return ResultEnvelope(
+            success=False,
+            operation="validate_cost_budget",
+            service="CostGovernorAPI",
+            trace_id=budget.budget_id,
+            error=ErrorEnvelope(
+                code="COST_BUDGET_INVALID",
+                category=ErrorCategory.validation_error,
+                safe_message=str(e),
+                severity=Severity.medium,
+                retryable=False,
+                details_redacted=True,
+                source="CostGovernorAPI",
+            ),
+        )
+
+@app.post("/costs/estimate/preview", response_model=ResultEnvelope)
+def post_preview_cost_estimate(payload: CostEstimatePreviewRequest):
+    estimate = CostGovernor().estimate_route_cost(payload.request, payload.profile)
+    return ResultEnvelope(
+        success=True,
+        operation="preview_cost_estimate",
+        service="CostGovernorAPI",
+        trace_id=payload.request.run_id,
+        data=estimate.model_dump(mode="json"),
+    )
+
+@app.post("/costs/evaluate", response_model=ResultEnvelope)
+def post_evaluate_cost(payload: CostEvaluateRequest):
+    decision = CostGovernor().evaluate(payload.estimate, payload.budgets)
+    return ResultEnvelope(
+        success=True,
+        operation="evaluate_cost",
+        service="CostGovernorAPI",
+        trace_id=payload.estimate.estimate_id,
+        data=decision.model_dump(mode="json"),
+    )
 
 class ConsentEvaluateRequest(BaseModel):
     query: ConsentQuery
