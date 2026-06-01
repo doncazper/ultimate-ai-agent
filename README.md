@@ -1,12 +1,12 @@
-# Ultimate AI Agent Canonical Bundle v0.12.1
+# Ultimate AI Agent Canonical Bundle v0.12.2
 
-This is the active project baseline after the v0.12.1 M8 API validation redaction hardening patch.
+This is the active project baseline after M8.5 Approval Authority + Runtime Authorization Bridge.
 
 Start here:
 
 ```text
-README_IMPORT_v0_12_1.md
-ultimate_ai_agent_master_plan_v0_12_1.md
+README_IMPORT_v0_12_2.md
+ultimate_ai_agent_master_plan_v0_12_2.md
 docs/canonical/09_roadmap.md
 docs/canonical/21_consent_and_permissions_ledger.md
 docs/canonical/37_tool_broker.md
@@ -17,7 +17,8 @@ docs/api/README.md
 docs/api/openapi_contract.md
 docs/api/route_inventory.md
 docs/runtime/model_runtime_adapter_harness.md
-docs/implementation/foundation_gate_implementation_plan_v0_12_1.md
+docs/security/approval_authority.md
+docs/implementation/foundation_gate_implementation_plan_v0_12_2.md
 docs/testing/test_strategy_v0.md
 ```
 
@@ -39,4 +40,4 @@ Observability standards rule:
 
 Foundation Gate rule:
 
-> v0.12.1 hardens the M8 API validation boundary so FastAPI/Pydantic validation errors do not echo raw invalid input values or secret-like fields. M8 remains a simulated model runtime adapter harness only. It does not add scanners, companion proactivity, Skill Factory, self-improving code, autopilot, browser automation, real providers/models/web calls, tokenizers, billing APIs, network calls, runtime agent config loading, SDK/A2A runtime delegation, production databases, pgvector, embeddings, production secrets, production truth connectors, or high-autonomy execution.
+> v0.12.2 adds a local/dev approval authority bridge so arbitrary approval strings are not authority. Approval requests, grants, validations, and receipts are typed and can be checked by Model Router, Model Runtime, Tool Broker, and Kernel paths. M8 remains simulated-only. M8.5 does not add scanners, companion proactivity, Skill Factory, self-improving code, autopilot, browser automation, real providers/models/web calls, tokenizers, billing APIs, network calls, runtime agent config loading, SDK/A2A runtime delegation, production auth/OAuth, production databases, pgvector, embeddings, production secrets, production truth connectors, or high-autonomy execution.

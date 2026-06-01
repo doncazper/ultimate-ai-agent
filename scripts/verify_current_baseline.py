@@ -364,6 +364,36 @@ def main():
         if not p.exists():
             fail(f"Required M8 file is missing: {rel_path}")
     ok("All M8 simulated model runtime adapter harness files exist")
+
+    # 8.15 Check M8.5 approval authority files existence
+    m85_files = [
+        "src/ultimate_ai_agent/core/approvals/__init__.py",
+        "src/ultimate_ai_agent/core/approvals/enums.py",
+        "src/ultimate_ai_agent/core/approvals/requests.py",
+        "src/ultimate_ai_agent/core/approvals/grants.py",
+        "src/ultimate_ai_agent/core/approvals/decisions.py",
+        "src/ultimate_ai_agent/core/approvals/authority.py",
+        "src/ultimate_ai_agent/core/approvals/policies.py",
+        "src/ultimate_ai_agent/core/approvals/validation.py",
+        "src/ultimate_ai_agent/core/approvals/receipts.py",
+        "tests/test_approval_requests.py",
+        "tests/test_approval_authority.py",
+        "tests/test_approval_validation.py",
+        "tests/test_approval_expiration.py",
+        "tests/test_approval_scope.py",
+        "tests/test_approval_receipts.py",
+        "tests/test_approval_integration_model_router.py",
+        "tests/test_approval_integration_model_runtime.py",
+        "tests/test_approval_integration_tool_broker.py",
+        "tests/test_approval_integration_kernel.py",
+        "tests/test_m85_api_routes.py",
+        "tests/test_m85_gate_integration.py",
+    ]
+    for rel_path in m85_files:
+        p = ROOT / rel_path
+        if not p.exists():
+            fail(f"Required M8.5 file is missing: {rel_path}")
+    ok("All M8.5 approval authority bridge files exist")
     
     # 9. Enforce scans by delegating to verify_all
     try:

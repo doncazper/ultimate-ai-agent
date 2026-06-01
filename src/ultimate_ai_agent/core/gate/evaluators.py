@@ -90,6 +90,15 @@ class FoundationGateEvaluator:
             "m8_runtime_responses_simulated_only": self.check_m8_runtime_responses_simulated_only,
             "m8_runtime_secret_prompt_blocked": self.check_m8_runtime_secret_prompt_blocked,
             "m8_api_validation_secret_echo_absent": self.check_m8_api_validation_secret_echo_absent,
+            "m85_approval_authority_files_present": self.check_m85_approval_authority_files_present,
+            "m85_arbitrary_approval_refs_rejected": self.check_m85_arbitrary_approval_refs_rejected,
+            "m85_local_approval_grant_validates": self.check_m85_local_approval_grant_validates,
+            "m85_expired_revoked_approval_denies": self.check_m85_expired_revoked_approval_denies,
+            "m85_router_uses_valid_approval_grant": self.check_m85_router_uses_valid_approval_grant,
+            "m85_runtime_factory_rejects_arbitrary_approval": self.check_m85_runtime_factory_rejects_arbitrary_approval,
+            "m85_tool_broker_rejects_arbitrary_approval": self.check_m85_tool_broker_rejects_arbitrary_approval,
+            "m85_no_real_auth_oauth_network": self.check_m85_no_real_auth_oauth_network,
+            "m85_approval_api_secret_echo_absent": self.check_m85_approval_api_secret_echo_absent,
         }
         results = [
             evaluator_map.get(criterion.criterion_id, self._skipped)(criterion)
@@ -806,6 +815,219 @@ class FoundationGateEvaluator:
                 failures.append(f"{path} echoed secret-like input")
         return self._result(criterion, failures, ["src/ultimate_ai_agent/api/app.py"])
 
+    def check_m85_approval_authority_files_present(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        required = [
+            "src/ultimate_ai_agent/core/approvals/__init__.py",
+            "src/ultimate_ai_agent/core/approvals/enums.py",
+            "src/ultimate_ai_agent/core/approvals/requests.py",
+            "src/ultimate_ai_agent/core/approvals/grants.py",
+            "src/ultimate_ai_agent/core/approvals/decisions.py",
+            "src/ultimate_ai_agent/core/approvals/authority.py",
+            "src/ultimate_ai_agent/core/approvals/policies.py",
+            "src/ultimate_ai_agent/core/approvals/validation.py",
+            "src/ultimate_ai_agent/core/approvals/receipts.py",
+        ]
+        failures = [f"missing {path}" for path in required if not (self.root / path).exists()]
+        return self._result(criterion, failures, required)
+
+    def check_m85_arbitrary_approval_refs_rejected(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        from ultimate_ai_agent.core.approvals import ApprovalDecisionStatus, LocalApprovalAuthority
+
+        request = self._m85_gate_approval_request()
+        authority = LocalApprovalAuthority()
+        authority.create_request(request)
+        decision = authority.validate_for_request(request, "human_approved_ref_123")
+        failures = []
+        if decision.allowed:
+            failures.append("arbitrary approval_ref was allowed")
+        if decision.status != ApprovalDecisionStatus.invalid:
+            failures.append("arbitrary approval_ref did not return invalid")
+        return self._result(criterion, failures, ["src/ultimate_ai_agent/core/approvals/authority.py"])
+
+    def check_m85_local_approval_grant_validates(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        from ultimate_ai_agent.core.approvals import ApprovalDecisionStatus, LocalApprovalAuthority
+
+        request = self._m85_gate_approval_request()
+        authority = LocalApprovalAuthority()
+        authority.create_request(request)
+        grant = authority.grant(request.approval_request_id, approved_by_actor_id="foundation_gate")
+        decision = authority.validate_for_request(request, grant.approval_ref)
+        failures = []
+        if not decision.allowed:
+            failures.append("valid approval grant was denied")
+        if decision.status != ApprovalDecisionStatus.approved:
+            failures.append("valid approval grant did not return approved")
+        return self._result(criterion, failures, ["src/ultimate_ai_agent/core/approvals/authority.py"])
+
+    def check_m85_expired_revoked_approval_denies(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        from datetime import timedelta
+
+        from ultimate_ai_agent.core.approvals import ApprovalDecisionStatus, LocalApprovalAuthority
+        from ultimate_ai_agent.core.time import utc_now
+
+        failures = []
+        expired_request = self._m85_gate_approval_request("m85_gate_expired")
+        expired_authority = LocalApprovalAuthority()
+        expired_authority.create_request(expired_request)
+        expired = expired_authority.grant(
+            expired_request.approval_request_id,
+            approved_by_actor_id="foundation_gate",
+            expires_at=utc_now() - timedelta(seconds=1),
+        )
+        expired_decision = expired_authority.validate_for_request(expired_request, expired.approval_ref)
+        if expired_decision.allowed or expired_decision.status != ApprovalDecisionStatus.expired:
+            failures.append("expired approval was accepted")
+
+        revoked_request = self._m85_gate_approval_request("m85_gate_revoked")
+        revoked_authority = LocalApprovalAuthority()
+        revoked_authority.create_request(revoked_request)
+        revoked = revoked_authority.grant(revoked_request.approval_request_id, approved_by_actor_id="foundation_gate")
+        revoked_authority.revoke(revoked.approval_ref, "foundation gate check")
+        revoked_decision = revoked_authority.validate_for_request(revoked_request, revoked.approval_ref)
+        if revoked_decision.allowed or revoked_decision.status != ApprovalDecisionStatus.revoked:
+            failures.append("revoked approval was accepted")
+        return self._result(criterion, failures, ["src/ultimate_ai_agent/core/approvals/authority.py"])
+
+    def check_m85_router_uses_valid_approval_grant(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        from ultimate_ai_agent.core.approvals import LocalApprovalAuthority
+
+        profile = self._gate_cloud_profile()
+        request = self._gate_route_request(
+            profile,
+            data_classification=ClassificationValue.sensitive_personal,
+            policy=ModelRoutingPolicy(
+                policy_id="m85_gate_cloud_policy",
+                required_capabilities=[ModelTaskCapability.chat],
+                prefer_local=False,
+                allow_cloud=True,
+                allow_paid=True,
+                require_human_approval_for_cloud=True,
+            ),
+        )
+        authority = LocalApprovalAuthority()
+        approval_request = authority.create_request(LocalApprovalAuthority.request_for_model_route(request, resource_refs=[profile.model_profile_id]))
+        grant = authority.grant(approval_request.approval_request_id, approved_by_actor_id="foundation_gate")
+        decision = ModelRouter(approval_authority=authority).route(request.model_copy(update={"approval_ref": grant.approval_ref}))
+        failures = []
+        if decision.status != ModelRouteStatus.selected:
+            failures.append("valid approval grant did not permit selected route")
+        if "APPROVAL_VALIDATED" not in decision.reason_codes:
+            failures.append("route decision did not expose approval validation reason")
+        return self._result(criterion, failures, ["src/ultimate_ai_agent/core/model_router/router.py"])
+
+    def check_m85_runtime_factory_rejects_arbitrary_approval(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        from ultimate_ai_agent.core.model_runtime import ModelRuntimeRequestFactory
+
+        route = self._gate_route_request(self._gate_cloud_profile(), approval_ref="human_approved_ref_123")
+        decision = ModelRouter().route(route.model_copy(update={"approval_ref": None}))
+        failures = []
+        try:
+            ModelRuntimeRequestFactory.from_route_decision(decision, route, self._m85_runtime_manifest())
+            failures.append("runtime factory accepted arbitrary approval_ref")
+        except ValueError:
+            pass
+        return self._result(criterion, failures, ["src/ultimate_ai_agent/core/model_runtime/adapters.py"])
+
+    def check_m85_tool_broker_rejects_arbitrary_approval(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        from ultimate_ai_agent.core.consent import ConsentGrant, ConsentScopeType, ConsentSubjectType
+        from ultimate_ai_agent.core.consent.enums import PermissionAction
+        from ultimate_ai_agent.core.approvals import LocalApprovalAuthority
+
+        registry = ToolRegistry()
+        registry.register_tool(
+            ToolManifest(
+                tool_id="m85_gate_tool",
+                display_name="M8.5 Gate Tool",
+                category=ToolCategory.mock,
+                description="Approval authority gate check.",
+                execution_mode=ToolExecutionMode.dry_run,
+                risk_level=ToolRiskLevel.high,
+                capability_flag="m85_gate_tool",
+                owner="core.gate",
+                source="foundation_gate",
+                version="0.0.0",
+            )
+        )
+        ledger = ConsentLedger()
+        ledger.add_grant(
+            ConsentGrant(
+                consent_id="m85_gate_consent",
+                subject_type=ConsentSubjectType.tool,
+                subject_id="m85_gate_tool",
+                granted_to_actor="foundation_gate",
+                on_behalf_of_user_id="foundation_gate",
+                scope_type=ConsentScopeType.project,
+                allowed_actions=[PermissionAction.execute],
+                source="foundation_gate",
+            )
+        )
+        decision = ToolBroker(
+            registry,
+            CapabilityFirewallPolicy(max_risk_level=ToolRiskLevel.high),
+            approval_authority=LocalApprovalAuthority(),
+        ).evaluate_request(
+            ToolRequest(
+                request_id="m85_gate_tool_request",
+                run_id="run_foundation_gate",
+                tool_id="m85_gate_tool",
+                actor_context=self._actor(),
+                requested_action="execute",
+                purpose="foundation_gate_check",
+                data_classification=DataBoundary.project_private,
+                approval_ref="human_approved_ref_123",
+            ),
+            ledger,
+        )
+        failures = []
+        if decision.status != ToolDecisionStatus.approval_required:
+            failures.append("tool broker did not keep arbitrary approval_ref approval-required")
+        if "APPROVAL_REF_UNKNOWN" not in decision.reason_codes:
+            failures.append("tool broker did not report unknown approval ref")
+        return self._result(criterion, failures, ["src/ultimate_ai_agent/core/tools/broker.py"])
+
+    def check_m85_no_real_auth_oauth_network(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        approval_root = self.src_root / "core" / "approvals"
+        forbidden = [
+            "import " + "requests",
+            "import " + "httpx",
+            "urllib",
+            "socket",
+            "oauth",
+            "OAuth",
+            "OpenID",
+            "session_cookie",
+            "jwt",
+            "sqlite",
+            "psycopg",
+            "sub" + "process",
+        ]
+        failures = []
+        for path in sorted(approval_root.rglob("*.py")):
+            rel_path = str(path.relative_to(self.root))
+            for line_no, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+                stripped = line.strip()
+                if any(fragment in stripped for fragment in forbidden):
+                    failures.append(f"{rel_path}:{line_no} forbidden auth/network/persistence fragment")
+        return self._result(criterion, failures, ["src/ultimate_ai_agent/core/approvals"])
+
+    def check_m85_approval_api_secret_echo_absent(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        from fastapi.testclient import TestClient
+
+        from ultimate_ai_agent.api.app import app
+
+        client = TestClient(app)
+        secret = "sk_" + "test_" + "secret_" + "value"
+        assignment = "api_" + "key=" + secret
+        payload = self._m85_gate_approval_request().model_dump(mode="json")
+        payload["metadata"] = {"note": assignment}
+        response = client.post("/approvals/requests/validate", json=payload)
+        failures = []
+        if response.status_code not in {200, 422}:
+            failures.append(f"unexpected approval API status {response.status_code}")
+        if secret in response.text or assignment in response.text or "api_key" in response.text:
+            failures.append("approval API echoed secret-like input")
+        return self._result(criterion, failures, ["src/ultimate_ai_agent/api/app.py"])
+
     def _skipped(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
         return FoundationGateResult(
             criterion_id=criterion.criterion_id,
@@ -910,6 +1132,51 @@ class FoundationGateEvaluator:
                 "source": "foundation_gate",
             },
         }
+
+    def _m85_gate_approval_request(self, subject_id: str = "m85_gate_subject"):
+        from datetime import timedelta
+
+        from ultimate_ai_agent.core.approvals import ApprovalRequest, ApprovalRiskLevel, ApprovalSubjectType
+        from ultimate_ai_agent.core.time import utc_now
+
+        return ApprovalRequest(
+            approval_request_id=f"areq_{subject_id}",
+            run_id="run_foundation_gate",
+            subject_type=ApprovalSubjectType.model_route,
+            subject_id=subject_id,
+            actor_context=self._actor(),
+            requested_action="route_cloud_model",
+            purpose="Foundation Gate approval authority check.",
+            risk_level=ApprovalRiskLevel.high,
+            data_classification=DataClassification(classification=ClassificationValue.sensitive_personal, source="foundation_gate"),
+            resource_refs=["m7_gate_cloud"],
+            consent_refs=["consent_foundation_gate"],
+            expires_at=utc_now() + timedelta(minutes=30),
+        )
+
+    def _m85_runtime_manifest(self):
+        from ultimate_ai_agent.core.model_runtime import ModelRuntimeAdapterManifest, ModelRuntimeKind, ModelRuntimeSafetyMode
+
+        return ModelRuntimeAdapterManifest(
+            adapter_id="m85_gate_adapter",
+            runtime_kind=ModelRuntimeKind.simulated,
+            display_name="M8.5 Gate Simulated Adapter",
+            description="Simulated adapter for M8.5 approval checks.",
+            supported_provider_kinds=["cloud_provider", "local_runtime"],
+            supported_capabilities=["chat"],
+            safety_mode=ModelRuntimeSafetyMode.simulated,
+            accepts_model_profile_ids=["m7_gate_cloud"],
+            requires_credential_ref=False,
+            allowed_credential_refs=[],
+            supports_streaming=False,
+            supports_tools=False,
+            supports_json_mode=True,
+            supports_structured_output=True,
+            owner="foundation_gate",
+            source="foundation_gate",
+            version="0.0.0",
+            enabled=True,
+        )
 
     def _actor(self) -> ActorContext:
         return ActorContext(

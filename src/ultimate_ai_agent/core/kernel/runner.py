@@ -5,6 +5,7 @@ from typing import Callable, Dict, Optional
 
 from pydantic import ValidationError
 
+from ultimate_ai_agent.core.approvals import LocalApprovalAuthority
 from ultimate_ai_agent.core.consent.decisions import ConsentQuery
 from ultimate_ai_agent.core.consent.enums import DataBoundary, PermissionAction, PermissionRisk
 from ultimate_ai_agent.core.consent.ledger import ConsentLedger
@@ -66,6 +67,7 @@ class MinimumKernelRunner:
         consent_ledger: Optional[ConsentLedger] = None,
         truth_router: Optional[TruthSourceRouter] = None,
         file_manager_factory: Optional[Callable[[str], LocalFileManager]] = None,
+        approval_authority: Optional[LocalApprovalAuthority] = None,
     ):
         self.event_ledger = event_ledger or EventLedger()
         self.memory_store = memory_store or MemoryStore()
@@ -73,6 +75,7 @@ class MinimumKernelRunner:
         self.consent_ledger = consent_ledger
         self.truth_router = truth_router or TruthSourceRouter()
         self.file_manager_factory = file_manager_factory or (lambda root: LocalFileManager(root))
+        self.approval_authority = approval_authority
         self._file_managers: Dict[str, LocalFileManager] = {}
 
     def run_payload(self, payload: dict) -> KernelTaskResult:
@@ -112,6 +115,7 @@ class MinimumKernelRunner:
                 allowed_filesystem_roots=[str(Path(request.workspace_root).resolve())],
                 max_risk_level=ToolRiskLevel.high,
             ),
+            approval_authority=self.approval_authority,
         )
 
         self._append_event(

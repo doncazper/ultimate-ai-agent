@@ -25,6 +25,13 @@ from ultimate_ai_agent.core.ledger import (
     generate_receipt_from_events,
 )
 from ultimate_ai_agent.core.hygiene.envelopes import ResultEnvelope, ErrorEnvelope, ErrorCategory, Severity
+from ultimate_ai_agent.core.approvals import (
+    ApprovalGrant,
+    ApprovalReceipt,
+    ApprovalRequest,
+    ApprovalValidationRequest,
+    LocalApprovalAuthority,
+)
 
 # Import M2.5 contracts for API boundary
 from ultimate_ai_agent.core.world_state import StructuredWorldState, validate_world_state_secrets
@@ -148,6 +155,10 @@ class ModelRuntimeResponseValidatePayload(BaseModel):
 class ModelRuntimeSimulatePayload(BaseModel):
     request: dict
     manifest: dict
+
+class ApprovalValidatePayload(BaseModel):
+    validation_request: dict
+    grants: List[dict] = []
 
 def sanitize_validation_errors(errors: list[dict]) -> list[dict]:
     sanitized = []
@@ -490,6 +501,86 @@ def _model_runtime_validation_error(operation: str, trace_id: str, exc: Exceptio
             caused_by=[type(exc).__name__],
         ),
         redactions_applied=["invalid_payload"],
+    )
+
+def _approval_validation_error(operation: str, trace_id: str, exc: Exception) -> ResultEnvelope:
+    return ResultEnvelope(
+        success=False,
+        operation=operation,
+        service="ApprovalAPI",
+        trace_id=trace_id,
+        error=ErrorEnvelope(
+            code="APPROVAL_VALIDATION_FAILED",
+            category=ErrorCategory.validation_error,
+            safe_message="Approval payload validation failed.",
+            severity=Severity.medium,
+            retryable=False,
+            details_redacted=True,
+            source="ApprovalAPI",
+            caused_by=[type(exc).__name__],
+        ),
+        redactions_applied=["invalid_payload"],
+    )
+
+@app.post("/approvals/requests/validate", response_model=ResultEnvelope)
+def post_validate_approval_request(payload: dict):
+    try:
+        request = ApprovalRequest(**payload)
+    except (ValidationError, ValueError) as exc:
+        return _approval_validation_error("validate_approval_request", "system", exc)
+    return ResultEnvelope(
+        success=True,
+        operation="validate_approval_request",
+        service="ApprovalAPI",
+        trace_id=request.trace_id or request.run_id,
+        data={"approval_request_id": request.approval_request_id, "status": "validated"},
+    )
+
+@app.post("/approvals/grants/validate", response_model=ResultEnvelope)
+def post_validate_approval_grant(payload: dict):
+    try:
+        grant = ApprovalGrant(**payload)
+    except (ValidationError, ValueError) as exc:
+        return _approval_validation_error("validate_approval_grant", "system", exc)
+    return ResultEnvelope(
+        success=True,
+        operation="validate_approval_grant",
+        service="ApprovalAPI",
+        trace_id=grant.trace_id or grant.run_id,
+        data={"approval_ref": grant.approval_ref, "status": "validated"},
+    )
+
+@app.post("/approvals/validate", response_model=ResultEnvelope)
+def post_validate_approval(payload: ApprovalValidatePayload):
+    try:
+        validation_request = ApprovalValidationRequest(**payload.validation_request)
+        authority = LocalApprovalAuthority()
+        for grant_payload in payload.grants:
+            grant = ApprovalGrant(**grant_payload)
+            authority._grants[grant.approval_ref] = grant
+        decision = authority.validate(validation_request)
+    except (ValidationError, ValueError) as exc:
+        return _approval_validation_error("validate_approval", "system", exc)
+    return ResultEnvelope(
+        success=True,
+        operation="validate_approval",
+        service="ApprovalAPI",
+        trace_id=validation_request.event_ref or validation_request.run_id,
+        data=decision.model_dump(mode="json"),
+    )
+
+@app.post("/approvals/receipts/validate", response_model=ResultEnvelope)
+def post_validate_approval_receipt(payload: dict):
+    try:
+        receipt = ApprovalReceipt(**payload)
+    except (ValidationError, ValueError) as exc:
+        return _approval_validation_error("validate_approval_receipt", "system", exc)
+    return ResultEnvelope(
+        success=True,
+        operation="validate_approval_receipt",
+        service="ApprovalAPI",
+        trace_id=receipt.event_ref or receipt.run_id,
+        data={"receipt_id": receipt.receipt_id, "status": "validated"},
     )
 
 @app.post("/model-runtime/manifests/validate", response_model=ResultEnvelope)

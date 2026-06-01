@@ -1,5 +1,6 @@
 import uuid
 from typing import Optional
+from ultimate_ai_agent.core.approvals import ApprovalRiskLevel, LocalApprovalAuthority
 from ultimate_ai_agent.core.tools.enums import ToolDecisionStatus, ToolRiskLevel, ToolCategory, ToolExecutionMode
 from ultimate_ai_agent.core.tools.manifests import DryRunPlan
 from ultimate_ai_agent.core.tools.requests import ToolRequest
@@ -13,9 +14,15 @@ from ultimate_ai_agent.core.contracts.execution_contract import ExecutionContrac
 from ultimate_ai_agent.core.contracts.context_pack import ContextPack
 
 class ToolBroker:
-    def __init__(self, registry: ToolRegistry, firewall_policy: CapabilityFirewallPolicy):
+    def __init__(
+        self,
+        registry: ToolRegistry,
+        firewall_policy: CapabilityFirewallPolicy,
+        approval_authority: Optional[LocalApprovalAuthority] = None,
+    ):
         self.registry = registry
         self.firewall_policy = firewall_policy
+        self.approval_authority = approval_authority
 
     def evaluate_request(
         self,
@@ -198,14 +205,28 @@ class ToolBroker:
             approval_reasons.append("EXTERNAL_ACTION_REQUIRES_APPROVAL")
 
         if requires_approval:
-            valid_test_approval = (
-                request.approval_ref is not None
-                and request.approval_ref.startswith("approval_test_")
-                and manifest.execution_mode in [ToolExecutionMode.mock, ToolExecutionMode.local_dev]
-            )
-            if not valid_test_approval:
+            approval_valid = False
+            approval_denial_codes = []
+            if self.approval_authority is not None and request.approval_ref:
+                approval_request = LocalApprovalAuthority.request_for_tool_request(
+                    request,
+                    resource_refs=[request.tool_id],
+                    risk_level=ApprovalRiskLevel(getattr(manifest.risk_level, "value", str(manifest.risk_level))),
+                )
+                approval_decision = self.approval_authority.validate_for_request(approval_request, request.approval_ref)
+                approval_valid = approval_decision.allowed
+                approval_denial_codes = approval_decision.reason_codes
+            else:
+                approval_valid = (
+                    request.approval_ref is not None
+                    and request.approval_ref.startswith("approval_test_")
+                    and manifest.execution_mode in [ToolExecutionMode.mock, ToolExecutionMode.local_dev]
+                )
+            if not approval_valid:
                 reason_codes = list(approval_reasons)
-                if request.approval_ref:
+                if approval_denial_codes:
+                    reason_codes.extend(approval_denial_codes)
+                elif request.approval_ref:
                     reason_codes.append("APPROVAL_REF_UNVALIDATED")
                 else:
                     reason_codes.append("APPROVAL_REQUIRED")

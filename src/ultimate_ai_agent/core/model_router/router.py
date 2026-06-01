@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from typing import List
 
+from ultimate_ai_agent.core.approvals import ApprovalRiskLevel, ApprovalSubjectType, LocalApprovalAuthority
 from ultimate_ai_agent.core.costs import BudgetScope, BudgetStatus, CostBudget, CostGovernor
 from ultimate_ai_agent.core.model_router.decisions import ModelRouteDecision
 from ultimate_ai_agent.core.model_router.enums import ModelPrivacyClass, ModelRouteStatus
@@ -17,8 +18,9 @@ class _Candidate:
 
 
 class ModelRouter:
-    def __init__(self, cost_governor: CostGovernor | None = None):
+    def __init__(self, cost_governor: CostGovernor | None = None, approval_authority: LocalApprovalAuthority | None = None):
         self.cost_governor = cost_governor or CostGovernor()
+        self.approval_authority = approval_authority
 
     def route(self, request: ModelRouteRequest) -> ModelRouteDecision:
         if self._classification(request) == "credential_secret":
@@ -39,7 +41,7 @@ class ModelRouter:
             if profile_reasons:
                 rejected.append(profile.model_profile_id)
                 reasons.extend(profile_reasons)
-                if "CLOUD_APPROVAL_REQUIRED" in profile_reasons or "APPROVAL_REF_UNVALIDATED" in profile_reasons:
+                if any(reason.startswith("APPROVAL_") or reason == "CLOUD_APPROVAL_REQUIRED" for reason in profile_reasons):
                     approval_required = True
                 continue
 
@@ -86,6 +88,8 @@ class ModelRouter:
 
         selected = sorted(eligible, key=lambda candidate: self._sort_key(request, candidate))[0]
         reason_codes = ["SELECTED_PROFILE", *selected.warning_reason_codes]
+        if selected.profile.is_cloud and request.approval_ref and self.approval_authority is not None:
+            reason_codes.append("APPROVAL_VALIDATED")
         safe_message = (
             "Model route selected with policy warnings. No model execution was performed."
             if selected.warning_reason_codes
@@ -156,8 +160,9 @@ class ModelRouter:
             if policy.require_human_approval_for_cloud:
                 if not request.approval_ref:
                     return ["CLOUD_APPROVAL_REQUIRED"]
-                if not self._approval_ref_is_valid_for_m7(request.approval_ref):
-                    return ["APPROVAL_REF_UNVALIDATED"]
+                approval_reasons = self._approval_rejection_reasons(request, profile)
+                if approval_reasons:
+                    return approval_reasons
         return []
 
     def _required_context_tokens(self, request: ModelRouteRequest) -> int:
@@ -179,6 +184,26 @@ class ModelRouter:
     def _approval_ref_is_valid_for_m7(self, approval_ref: str) -> bool:
         return approval_ref.startswith("approval_test_")
 
+    def _approval_rejection_reasons(self, request: ModelRouteRequest, profile: ModelCapabilityProfile) -> list[str]:
+        if not request.approval_ref:
+            return ["CLOUD_APPROVAL_REQUIRED"]
+        if self.approval_authority is None:
+            if self._approval_ref_is_valid_for_m7(request.approval_ref):
+                return []
+            return ["APPROVAL_REF_UNVALIDATED"]
+        approval_request = LocalApprovalAuthority.request_for_model_route(
+            request,
+            subject_type=ApprovalSubjectType.model_route,
+            subject_id=request.request_id,
+            requested_action="route_cloud_model",
+            resource_refs=[profile.model_profile_id],
+            risk_level=ApprovalRiskLevel.high,
+        )
+        decision = self.approval_authority.validate_for_request(approval_request, request.approval_ref)
+        if decision.allowed:
+            return []
+        return decision.reason_codes or ["APPROVAL_REF_UNVALIDATED"]
+
     def _sort_key(self, request: ModelRouteRequest, candidate: _Candidate) -> tuple[int, float, float, str]:
         local_rank = 0
         if request.routing_policy.prefer_local:
@@ -191,7 +216,7 @@ class ModelRouter:
         )
 
     def _failure_status(self, reasons: list[str], approval_required: bool) -> ModelRouteStatus:
-        if approval_required or any(reason in {"CLOUD_APPROVAL_REQUIRED", "APPROVAL_REF_UNVALIDATED"} for reason in reasons):
+        if approval_required or any(reason.startswith("APPROVAL_") or reason == "CLOUD_APPROVAL_REQUIRED" for reason in reasons):
             return ModelRouteStatus.approval_required
         if any("PRIVACY" in reason or reason.startswith("CLOUD_BLOCKED") or reason.startswith("CREDENTIAL_SECRET") for reason in reasons):
             return ModelRouteStatus.privacy_blocked

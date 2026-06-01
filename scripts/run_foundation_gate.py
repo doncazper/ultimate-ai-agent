@@ -46,6 +46,18 @@ GATE_TESTS = [
     "tests/test_model_runtime_event_metadata.py",
     "tests/test_model_runtime_api_routes.py",
     "tests/test_m8_gate_integration.py",
+    "tests/test_approval_requests.py",
+    "tests/test_approval_authority.py",
+    "tests/test_approval_validation.py",
+    "tests/test_approval_expiration.py",
+    "tests/test_approval_scope.py",
+    "tests/test_approval_receipts.py",
+    "tests/test_approval_integration_model_router.py",
+    "tests/test_approval_integration_model_runtime.py",
+    "tests/test_approval_integration_tool_broker.py",
+    "tests/test_approval_integration_kernel.py",
+    "tests/test_m85_api_routes.py",
+    "tests/test_m85_gate_integration.py",
 ]
 
 

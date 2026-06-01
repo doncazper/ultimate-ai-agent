@@ -1,3 +1,4 @@
+from ultimate_ai_agent.core.approvals import ApprovalValidationDecision
 from ultimate_ai_agent.core.model_router import ModelRouteDecision, ModelRouteRequest, ModelRouteStatus
 from ultimate_ai_agent.core.model_runtime.enums import ModelRuntimeOutputFormat, ModelRuntimeSafetyMode
 from ultimate_ai_agent.core.model_runtime.manifests import ModelRuntimeAdapterManifest
@@ -11,6 +12,7 @@ class ModelRuntimeRequestFactory:
         route_request: ModelRouteRequest,
         adapter_manifest: ModelRuntimeAdapterManifest,
         output_format: ModelRuntimeOutputFormat = ModelRuntimeOutputFormat.text,
+        approval_decision: ApprovalValidationDecision | None = None,
     ) -> ModelRuntimeRequest:
         if route_decision.status == ModelRouteStatus.approval_required or route_decision.required_approval:
             raise ValueError("Cannot create runtime request from approval-required route decision.")
@@ -20,6 +22,9 @@ class ModelRuntimeRequestFactory:
             raise ValueError("Selected route decision is missing selected model metadata.")
         if not adapter_manifest.enabled:
             raise ValueError("Cannot create runtime request for disabled adapter manifest.")
+        if route_request.approval_ref and not route_request.approval_ref.startswith("approval_test_"):
+            if approval_decision is None or not approval_decision.allowed or approval_decision.approval_ref != route_request.approval_ref:
+                raise ValueError("Runtime request creation requires a validated approval decision for non-test approval refs.")
 
         profile_by_id = {profile.model_profile_id: profile for profile in route_request.available_profiles}
         selected_profile = profile_by_id[route_decision.selected_profile_id]

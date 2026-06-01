@@ -13,6 +13,7 @@ SCAN_SEQUENCE = [
     ("blocked module scan", "verify_no_blocked_modules"),
     ("forbidden external integrations scan", "verify_no_forbidden_external_integrations"),
     ("model runtime simulated-only scan", "verify_no_real_model_runtime_execution"),
+    ("approval authority local-dev-only scan", "verify_no_real_approval_authority_integrations"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
     ("production truth integration scan", "verify_no_production_truth_integrations"),
     ("broad filesystem scan", "verify_no_broad_filesystem_scanning"),
@@ -182,6 +183,41 @@ def verify_no_real_model_runtime_execution():
         except Exception:
             pass
     print("OK: Model runtime package is simulated-only")
+
+def verify_no_real_approval_authority_integrations():
+    print("\n[Verifier] Running M8.5 approval authority local-dev-only guard...")
+    approval_root = ROOT / "src" / "ultimate_ai_agent" / "core" / "approvals"
+    if not approval_root.exists():
+        print("OK: Approval authority package is absent")
+        return
+    forbidden_fragments = [
+        "import requests",
+        "from requests import",
+        "import httpx",
+        "from httpx import",
+        "urllib",
+        "socket",
+        "oauth",
+        "OAuth",
+        "OpenID",
+        "jwt",
+        "session_cookie",
+        "sqlite",
+        "psycopg",
+        "subprocess",
+        "keychain",
+    ]
+    for p in approval_root.rglob("*.py"):
+        try:
+            content = p.read_text(encoding="utf-8")
+            for line in content.splitlines():
+                stripped = line.strip()
+                if any(fragment in stripped for fragment in forbidden_fragments):
+                    print(f"FAIL: Real auth/network/persistence fragment in {p.relative_to(ROOT)}: {line}")
+                    sys.exit(1)
+        except Exception:
+            pass
+    print("OK: Approval authority package is local/dev only")
 
 def verify_no_shell_execution_in_runtime():
     print("\n[Verifier] Running runtime shell/subprocess execution scan...")

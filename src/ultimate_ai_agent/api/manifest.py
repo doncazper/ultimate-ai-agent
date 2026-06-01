@@ -10,6 +10,7 @@ CAPABILITIES_DECLARED = [
     "openapi_schema_export",
     "typed_validation_routes",
     "foundation_gate_reporting",
+    "local_dev_approval_validation",
 ]
 
 CAPABILITIES_BLOCKED = [
@@ -38,6 +39,7 @@ ROUTE_GROUPS_BY_PREFIX = {
     "/model-runtime": "model-runtime",
     "/costs": "cost-governor",
     "/gate": "foundation-gate",
+    "/approvals": "approval-authority",
     "/consent": "consent",
     "/tools": "tool-broker",
     "/secrets": "secret-broker",
