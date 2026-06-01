@@ -211,9 +211,11 @@ class FoundationGateEvaluator:
             r"(?i)(api_key|password|client_secret|private_key|token|auth_token)\s*=\s*['\"][A-Za-z0-9_\-.:/]{16,}['\"]"
         )
         failures = []
+        private_key_begin = "-----" + "BEGIN"
+        private_key_end = "PRIVATE" + " KEY-----"
         for rel_path in self._tracked_runtime_files():
             content = self._read(self.root / rel_path)
-            if rel_path != "src/ultimate_ai_agent/core/gate/evaluators.py" and "-----BEGIN" in content and "PRIVATE KEY-----" in content:
+            if private_key_begin in content and private_key_end in content:
                 failures.append(f"{rel_path}: private key header")
             for match in secret_assignment.finditer(content):
                 value = match.group(0).lower()

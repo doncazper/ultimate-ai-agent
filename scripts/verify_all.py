@@ -35,9 +35,11 @@ def verify_no_obvious_secrets():
     except subprocess.SubprocessError:
         git_files = []
 
+    private_key_begin = "-----" + "BEGIN"
+    private_key_end = "PRIVATE" + " KEY-----"
     secret_patterns = [
         (re.compile(r'(?i)(api_key|password|client_secret|private_key|token|auth_token)\s*=\s*[\'"]([a-zA-Z0-9_\-\.\:\/]+)[\'"]'), "assignment"),
-        (re.compile(r'-----BEGIN .* PRIVATE KEY-----'), "private_key_header")
+        (re.compile(re.escape(private_key_begin) + r" .* " + re.escape(private_key_end)), "private_key_header")
     ]
     for f in git_files:
         path = ROOT / f
@@ -51,7 +53,7 @@ def verify_no_obvious_secrets():
         if path.is_file():
             try:
                 content = path.read_text(encoding="utf-8")
-                if "-----BEGIN" in content and "PRIVATE KEY-----" in content:
+                if private_key_begin in content and private_key_end in content:
                     print(f"FAIL: Obvious committed secret (private key) in {f}")
                     sys.exit(1)
                 for pattern, ptype in secret_patterns:

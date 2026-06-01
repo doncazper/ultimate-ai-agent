@@ -1,4 +1,7 @@
 import json
+import subprocess
+
+import pytest
 
 from ultimate_ai_agent.core.gate import (
     FoundationGateEvaluator,
@@ -20,3 +23,30 @@ def test_sample_gate_report_is_secret_clean():
         payload = json.load(handle)
 
     assert scan_public_gate_payload_for_secrets(payload) == []
+
+
+def test_verify_all_detects_actual_private_key_header_in_tracked_file(monkeypatch, tmp_path):
+    import scripts.verify_all as verify_all
+
+    unsafe = tmp_path / "src/unsafe.py"
+    unsafe.parent.mkdir(parents=True)
+    unsafe.write_text('PRIVATE_KEY = "-----BEGIN PRIVATE KEY-----"\n', encoding="utf-8")
+    monkeypatch.setattr(verify_all, "ROOT", tmp_path)
+    monkeypatch.setattr(subprocess, "check_output", lambda *args, **kwargs: "src/unsafe.py\n")
+
+    with pytest.raises(SystemExit) as exc:
+        verify_all.verify_no_obvious_secrets()
+
+    assert exc.value.code == 1
+
+
+def test_verify_all_does_not_flag_foundation_gate_evaluator_false_positive(monkeypatch):
+    import scripts.verify_all as verify_all
+
+    monkeypatch.setattr(
+        subprocess,
+        "check_output",
+        lambda *args, **kwargs: "src/ultimate_ai_agent/core/gate/evaluators.py\n",
+    )
+
+    verify_all.verify_no_obvious_secrets()
