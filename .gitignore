@@ -37,3 +37,5 @@ build/
 coverage/
 htmlcov/
 *.egg-info/
+reports/foundation_gate/latest_*.json
+reports/foundation_gate/latest_*.md

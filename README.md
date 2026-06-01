@@ -1,19 +1,19 @@
-# Ultimate AI Agent Canonical Bundle v0.9.0
+# Ultimate AI Agent Canonical Bundle v0.10.0
 
-This is the active project baseline after Milestone M5 (Minimum Lovable Kernel foundation).
+This is the active project baseline after Milestone M6 (Contract Tests, Shadow Replay, and Foundation Gate evaluation).
 
 Start here:
 
 ```text
-README_IMPORT_v0_9_0.md
-ultimate_ai_agent_master_plan_v0_9_0.md
+README_IMPORT_v0_10_0.md
+ultimate_ai_agent_master_plan_v0_10_0.md
 docs/canonical/09_roadmap.md
 docs/canonical/21_consent_and_permissions_ledger.md
 docs/canonical/37_tool_broker.md
 docs/canonical/42_autonomy_levels_and_standing_approvals.md
 docs/canonical/45_trusted_computing_base.md
 docs/canonical/63_observability_standards_mapping.md
-docs/implementation/foundation_gate_implementation_plan_v0_9_0.md
+docs/implementation/foundation_gate_implementation_plan_v0_10_0.md
 docs/testing/test_strategy_v0.md
 ```
 
@@ -32,3 +32,7 @@ Truth-source rule:
 Observability standards rule:
 
 > The Event Ledger remains the source of truth for agent actions, but M2 events must be mappable to OpenTelemetry GenAI semantic conventions and W3C Trace Context. Future event exports should be compatible with CloudEvents and, where message-driven APIs are introduced, documented with AsyncAPI.
+
+Foundation Gate rule:
+
+> v0.10.0 is a verification and audit baseline. It adds contract tests, M5 shadow replay, typed Foundation Gate reports, validation-only API routes, and a local gate runner. It does not add scanners, companion proactivity, Skill Factory, self-improving code, autopilot, browser automation, real providers/models/web calls, SDK/A2A runtime delegation, production databases, pgvector, embeddings, production secrets, production truth connectors, or high-autonomy execution.

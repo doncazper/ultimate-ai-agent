@@ -1,0 +1,41 @@
+{
+  "report_id": "fgrep_sample_m6",
+  "version": "0.10.0",
+  "generated_at": "2026-06-01T00:00:00",
+  "overall_status": "passed",
+  "results": [
+    {
+      "criterion_id": "versioning_consistent",
+      "status": "passed",
+      "safe_message": "Versioning Consistency passed.",
+      "evidence_refs": [
+        "VERSION.md",
+        "pyproject.toml",
+        "README.md"
+      ],
+      "failures": [],
+      "warnings": [],
+      "checked_at": "2026-06-01T00:00:00"
+    },
+    {
+      "criterion_id": "m5_shadow_replay_passes",
+      "status": "passed",
+      "safe_message": "M5 shadow replay passed.",
+      "evidence_refs": [
+        "evt_sample",
+        "receipt_sample"
+      ],
+      "failures": [],
+      "warnings": [],
+      "checked_at": "2026-06-01T00:00:00"
+    }
+  ],
+  "passed_count": 2,
+  "failed_count": 0,
+  "warning_count": 0,
+  "blocked_count": 0,
+  "summary": "2 passed, 0 failed, 0 warnings, 0 blocked.",
+  "next_recommended_action": "Foundation can proceed to controlled expansion review.",
+  "event_ref": null,
+  "trace_id": "trace_foundation_gate_sample"
+}

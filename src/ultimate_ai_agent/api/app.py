@@ -75,6 +75,12 @@ from ultimate_ai_agent.core.truth import (
     validate_truth_source_manifest,
 )
 from ultimate_ai_agent.core.kernel import MinimumKernelRunner
+from ultimate_ai_agent.core.gate import (
+    FoundationGateReport,
+    ShadowReplayScenario,
+    validate_foundation_gate_report,
+    validate_shadow_replay_scenario,
+)
 
 app = FastAPI(
     title="Ultimate AI Agent API Boundary",
@@ -372,6 +378,16 @@ class TruthFreshnessCheckRequest(BaseModel):
     evidence_item: EvidenceItem
     policy: FreshnessPolicy
     current_time: Optional[datetime] = None
+
+
+@app.post("/gate/reports/validate", response_model=ResultEnvelope)
+def post_validate_foundation_gate_report(report: FoundationGateReport):
+    return validate_foundation_gate_report(report)
+
+
+@app.post("/gate/shadow-replay/validate", response_model=ResultEnvelope)
+def post_validate_shadow_replay_scenario(scenario: ShadowReplayScenario):
+    return validate_shadow_replay_scenario(scenario)
 
 @app.post("/consent/grants/validate", response_model=ResultEnvelope)
 def post_validate_consent_grant(grant: ConsentGrant):

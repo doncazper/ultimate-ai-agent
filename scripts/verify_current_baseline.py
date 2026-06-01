@@ -276,6 +276,25 @@ def main():
         if not p.exists():
             fail(f"Required M5 file is missing: {rel_path}")
     ok("All M5 minimum lovable kernel files exist")
+
+    # 8.11 Check M6 Foundation Gate files existence
+    m6_files = [
+        "src/ultimate_ai_agent/core/gate/__init__.py",
+        "src/ultimate_ai_agent/core/gate/enums.py",
+        "src/ultimate_ai_agent/core/gate/criteria.py",
+        "src/ultimate_ai_agent/core/gate/reports.py",
+        "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/gate/shadow_replay.py",
+        "src/ultimate_ai_agent/core/gate/validation.py",
+        "scripts/run_foundation_gate.py",
+        "reports/foundation_gate/sample_foundation_gate_report.json",
+        "reports/foundation_gate/sample_foundation_gate_report.md",
+    ]
+    for rel_path in m6_files:
+        p = ROOT / rel_path
+        if not p.exists():
+            fail(f"Required M6 Foundation Gate file is missing: {rel_path}")
+    ok("All M6 Foundation Gate and shadow replay files exist")
     
     # 9. Enforce scans by delegating to verify_all
     from verify_all import (
