@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { App } from "./App";
-import { API_ENDPOINTS, READ_ENDPOINTS } from "./api/endpoints";
+import { API_ENDPOINTS, isAllowedReadEndpoint, isPreviewEndpoint, READ_ENDPOINTS } from "./api/endpoints";
 
 function mockFetchWithFallback() {
   vi.stubGlobal(
@@ -78,12 +78,67 @@ describe("Web Control Center shell", () => {
     window.history.pushState({}, "", "/action-preview");
     render(<App />);
 
+    expect(await screen.findByText(/Preview only action request/i)).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: /Blocked execution action/i })).toBeDisabled();
     fireEvent.click(await screen.findByRole("button", { name: /preview action/i }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(API_ENDPOINTS.actionPreview, expect.any(Object)));
     const [, options] = fetchMock.mock.calls.find((call) => call[1]?.method === "POST") ?? [];
     expect(options?.method).toBe("POST");
     expect(screen.queryByRole("button", { name: /execute/i })).not.toBeInTheDocument();
+  });
+
+  it("does not expose dangerous action control labels", async () => {
+    mockFetchWithFallback();
+    window.history.pushState({}, "", "/action-preview");
+    render(<App />);
+
+    await screen.findByText(/Preview only action request/i);
+
+    for (const label of [/execute/i, /^run$/i, /send/i, /deploy/i, /enable/i, /approve/i]) {
+      expect(screen.queryByRole("button", { name: label })).not.toBeInTheDocument();
+    }
+  });
+
+  it("renders unsafe preview decisions as blocked without claiming execution", async () => {
+    const fetchMock = vi.fn(async (_url: string, options?: RequestInit) => {
+      const body = JSON.parse(String(options?.body ?? "{}")) as { target_ref?: string };
+      const reason = body.target_ref?.includes("remote-workers")
+        ? "REMOTE_EXECUTION_BLOCKED"
+        : body.target_ref?.includes("plugins")
+          ? "PLUGIN_ENABLEMENT_BLOCKED"
+          : body.target_ref?.includes("mobile")
+            ? "MOBILE_SENSOR_BLOCKED"
+            : "CONTROL_CENTER_PREVIEW_ALLOWED";
+      return new Response(
+        JSON.stringify({
+          ok: reason === "CONTROL_CENTER_PREVIEW_ALLOWED",
+          result: {
+            decision_id: "decision_mock",
+            request_id: "frontend_preview_request",
+            allowed: false,
+            status: "blocked",
+            reason_codes: [reason],
+            safe_message: "Control Center preview was blocked by read-only policy.",
+            preview_summary: "Preview only; no action was executed.",
+            metadata: { executed: false }
+          }
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/action-preview");
+    render(<App />);
+
+    fireEvent.change(await screen.findByLabelText(/Target reference/i), {
+      target: { value: "remote-workers/dispatch/job" }
+    });
+    fireEvent.click(screen.getByRole("button", { name: /preview action/i }));
+
+    expect(await screen.findByText("blocked")).toBeInTheDocument();
+    expect(screen.getByText(/REMOTE_EXECUTION_BLOCKED/i)).toBeInTheDocument();
+    expect(screen.getByText(/no action was executed/i)).toBeInTheDocument();
   });
 
   it("redacts secret-like input before user-visible output", async () => {
@@ -103,5 +158,9 @@ describe("Web Control Center shell", () => {
   it("keeps read endpoints separate from the single preview POST endpoint", () => {
     expect(READ_ENDPOINTS).not.toContain(API_ENDPOINTS.actionPreview);
     expect(API_ENDPOINTS.actionPreview).toBe("/control-center/actions/preview");
+    expect(isPreviewEndpoint(API_ENDPOINTS.actionPreview)).toBe(true);
+    expect(isAllowedReadEndpoint(API_ENDPOINTS.controlCenterDashboard)).toBe(true);
+    expect(isAllowedReadEndpoint("/control-center/actions/execute")).toBe(false);
+    expect(isPreviewEndpoint("/control-center/plugins/enable")).toBe(false);
   });
 });

@@ -24,12 +24,14 @@ async function readEnvelope<T>(endpoint: string): Promise<T> {
   if (!response.ok) {
     throw new Error(sanitizeForDisplay(data));
   }
-  if (typeof data === "object" && data !== null && "ok" in data) {
+  if (typeof data === "object" && data !== null && ("ok" in data || "success" in data)) {
     const envelope = data as ResultEnvelope<T>;
-    if (!envelope.ok || envelope.result === undefined) {
+    const result = envelope.result ?? envelope.data;
+    const ok = envelope.ok ?? envelope.success;
+    if (!ok || result === undefined) {
       throw new Error(sanitizeForDisplay(envelope.error?.message ?? "Request failed"));
     }
-    return envelope.result;
+    return result;
   }
   return data as T;
 }
@@ -60,8 +62,9 @@ export async function submitActionPreview(request: ActionPreviewRequest): Promis
     body: JSON.stringify(request)
   });
   const data = (await response.json()) as ResultEnvelope<ActionPreviewDecision>;
-  if (!response.ok || !data.ok || !data.result) {
+  const decision = data.result ?? data.data;
+  if (!response.ok || !decision) {
     throw new Error(sanitizeForDisplay(data.error?.message ?? "Preview request was rejected safely."));
   }
-  return data.result;
+  return decision;
 }

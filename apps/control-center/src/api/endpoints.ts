@@ -28,3 +28,11 @@ export const READ_ENDPOINTS = [
   API_ENDPOINTS.runtimeReadiness,
   API_ENDPOINTS.runtimeCapabilityMatrix
 ] as const;
+
+export function isAllowedReadEndpoint(endpoint: string): endpoint is (typeof READ_ENDPOINTS)[number] {
+  return READ_ENDPOINTS.includes(endpoint as (typeof READ_ENDPOINTS)[number]);
+}
+
+export function isPreviewEndpoint(endpoint: string): endpoint is typeof API_ENDPOINTS.actionPreview {
+  return endpoint === API_ENDPOINTS.actionPreview;
+}

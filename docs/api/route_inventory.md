@@ -14,7 +14,7 @@ Each route declares:
 - `requires_auth_future`
 - `blocked_from_production`
 
-Allowed side-effect classes in v0.17.0 are:
+Allowed side-effect classes in v0.17.1 are:
 
 - `none`
 - `validation_only`
@@ -109,3 +109,10 @@ M13 Web Control Center frontend shell:
 - OpenAPI path count remains `74`.
 - the shell consumes existing read-only/preview-only API routes.
 - the only frontend POST target is `/control-center/actions/preview`.
+
+v0.17.1 Web Control Center safety polish:
+
+- no backend route is added.
+- OpenAPI path count remains `74`.
+- frontend endpoint allowlists remain limited to existing read-only routes plus `/control-center/actions/preview`.
+- frontend safety verification blocks execute/plugin/mobile/remote/runtime endpoint strings in implementation files.

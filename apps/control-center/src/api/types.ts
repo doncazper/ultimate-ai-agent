@@ -11,7 +11,9 @@ export type CapabilityStatus =
 export type ControlCenterActionStatus = "allowed_preview" | "approval_required" | "blocked";
 
 export interface ResultEnvelope<T> {
+  success?: boolean;
   ok: boolean;
+  data?: T;
   result?: T;
   error?: {
     code: string;
@@ -182,7 +184,15 @@ export interface RuntimeCapabilityMatrix {
 export interface ActionPreviewRequest {
   request_id: string;
   actor_context: Record<string, string>;
-  action_kind: "view_status" | "view_receipt" | "view_event_summary" | "preview_change" | "preview_policy";
+  action_kind:
+    | "view_status"
+    | "view_receipt"
+    | "view_event_summary"
+    | "preview_action"
+    | "preview_approval"
+    | "preview_runtime"
+    | "preview_remote_worker"
+    | "preview_mobile_capability";
   target_ref: string;
   purpose: string;
   risk_level: "safe" | "low" | "medium" | "high" | "critical";

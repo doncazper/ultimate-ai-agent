@@ -154,6 +154,8 @@ class FoundationGateEvaluator:
             "m13_mock_data_safe_non_authoritative": self.check_m13_mock_data_safe_non_authoritative,
             "m13_no_tracked_generated_or_native_artifacts": self.check_m13_no_tracked_generated_or_native_artifacts,
             "m13_backend_api_contract_unchanged": self.check_m13_backend_api_contract_unchanged,
+            "m13_frontend_no_sensitive_browser_apis": self.check_m13_frontend_no_sensitive_browser_apis,
+            "m13_control_center_frontend_safety_verifier_passes": self.check_m13_control_center_frontend_safety_verifier_passes,
             "documentation_integrity_current": self.check_documentation_integrity_current,
             "codex_plugin_governance_docs_present": self.check_codex_plugin_governance_docs_present,
         }
@@ -2528,6 +2530,48 @@ class FoundationGateEvaluator:
         ]
         failures.extend(f"forbidden Control Center route present: {path}" for path in forbidden if path in paths)
         return self._result(criterion, failures, ["src/ultimate_ai_agent/api/app.py", "apps/control-center"])
+
+    def check_m13_frontend_no_sensitive_browser_apis(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        app_root = self.root / "apps/control-center/src"
+        forbidden = [
+            "localstorage",
+            "sessionstorage",
+            "document.cookie",
+            "indexeddb",
+            "cachestorage",
+            "serviceworker",
+            "navigator.credentials",
+            "clipboard.write",
+            "navigator.geolocation",
+            "navigator.mediadevices",
+            "notification.requestpermission",
+            "pushmanager",
+        ]
+        failures = []
+        for path in [*app_root.rglob("*.ts"), *app_root.rglob("*.tsx")]:
+            if ".test." in path.name or "test" in path.parts:
+                continue
+            lowered = self._read(path).lower()
+            rel = path.relative_to(self.root)
+            failures.extend(f"{rel} forbidden browser API: {fragment}" for fragment in forbidden if fragment in lowered)
+        return self._result(criterion, failures, ["apps/control-center/src"])
+
+    def check_m13_control_center_frontend_safety_verifier_passes(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        import importlib.util
+
+        script = self.root / "scripts/verify_control_center_frontend.py"
+        failures = []
+        if not script.exists():
+            failures.append("scripts/verify_control_center_frontend.py missing")
+            return self._result(criterion, failures, [str(script.relative_to(self.root))])
+        spec = importlib.util.spec_from_file_location("verify_control_center_frontend", script)
+        if spec is None or spec.loader is None:
+            failures.append("could not load frontend safety verifier")
+            return self._result(criterion, failures, [str(script.relative_to(self.root))])
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        failures.extend(module.verify(self.root))
+        return self._result(criterion, failures, ["scripts/verify_control_center_frontend.py", "apps/control-center"])
 
     def _skipped(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
         return FoundationGateResult(

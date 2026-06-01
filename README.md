@@ -1,12 +1,12 @@
-# Ultimate AI Agent Canonical Bundle v0.17.0
+# Ultimate AI Agent Canonical Bundle v0.17.1
 
-This is the active project baseline after the v0.17.0 M13 Web Control Center read-only frontend shell milestone.
+This is the active project baseline after the v0.17.1 Web Control Center safety polish and frontend contract hardening patch.
 
 Start here:
 
 ```text
-README_IMPORT_v0_17_0.md
-ultimate_ai_agent_master_plan_v0_17_0.md
+README_IMPORT_v0_17_1.md
+ultimate_ai_agent_master_plan_v0_17_1.md
 docs/DOCUMENTATION_INDEX.md
 docs/canonical/09_roadmap.md
 docs/canonical/CANONICAL_DOC_MAP.md
@@ -33,7 +33,7 @@ docs/runtime/RUNTIME_READINESS.md
 docs/runtime/MANUAL_SMOKE_REPORTS.md
 docs/runtime/RUNTIME_CAPABILITY_MATRIX.md
 docs/security/approval_authority.md
-docs/implementation/foundation_gate_implementation_plan_v0_17_0.md
+docs/implementation/foundation_gate_implementation_plan_v0_17_1.md
 docs/maintenance/documentation_integrity_checklist.md
 docs/tooling/CODEX_PLUGIN_CAPABILITY_INVENTORY.md
 docs/tooling/CODEX_PLUGIN_RISK_POLICY.md
@@ -87,3 +87,7 @@ Control Center contract rule:
 Web Control Center shell rule:
 
 > v0.17.0 adds M13 local React/Vite/TypeScript Web Control Center shell files under `apps/control-center/`. The shell reads existing backend status/manifest/dashboard/readiness routes, renders safe mock fallback data when the backend is unavailable, and submits only preview-only requests to `/control-center/actions/preview`. It adds no backend API path, production Control Center authority, public execution API, runtime/model/provider call, remote dispatch, mobile/native app, sensor access, plugin enablement, Chrome authenticated profile control, Computer Use automation, iOS/macOS build workflow, analytics/auth/payment/SaaS SDK, production persistence, or external action.
+
+Web Control Center safety polish rule:
+
+> v0.17.1 hardens the M13 shell without starting M14. The action preview UI is explicitly preview-only, endpoint allowlists are typed, blocked preview decisions remain visible as safe non-execution results, mock fixtures remain non-authoritative, and `scripts/verify_control_center_frontend.py` plus Foundation Gate checks reject forbidden execution/plugin/mobile/remote endpoints, dangerous action labels, sensitive browser storage, browser credential APIs, camera/microphone/location/notification/push APIs, native build references, and secret-like fixture values. It adds no runtime/model/provider/network/remote/mobile/plugin execution, no production Control Center authority, no Chrome authenticated profile control, no Computer Use automation, and no iOS/macOS build workflow.

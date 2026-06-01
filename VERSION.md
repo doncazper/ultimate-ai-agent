@@ -1,5 +1,5 @@
 # Ultimate AI Agent Version
 
-Current active baseline: **v0.17.0**
+Current active baseline: **v0.17.1**
 
-v0.17.0 implements M13 Web Control Center Read-Only Frontend Shell. It adds a local React/Vite/TypeScript shell, typed frontend API client, mock fallback fixtures, frontend tests, docs, and Foundation Gate checks. It adds no backend API path, no production Control Center authority, no runtime execution, no model/provider calls, no remote dispatch, no mobile sensor access, no plugin enablement, no native build workflow, and no production persistence.
+v0.17.1 hardens the M13 Web Control Center read-only frontend shell. It clarifies preview-only UI language, adds frontend safety verification for forbidden execute/plugin/mobile/remote endpoints, blocks sensitive browser storage and mobile sensor APIs, documents mock fixture safety, and extends Foundation Gate coverage. It adds no runtime execution, model/provider calls, remote execution, mobile sensor access, plugin enablement, Chrome authenticated-profile use, Computer Use automation, iOS/macOS build workflows, or production Control Center authority.

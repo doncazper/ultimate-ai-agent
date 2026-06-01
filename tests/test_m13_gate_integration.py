@@ -15,6 +15,8 @@ def test_m13_foundation_gate_criteria_exist_and_pass():
         "m13_mock_data_safe_non_authoritative",
         "m13_no_tracked_generated_or_native_artifacts",
         "m13_backend_api_contract_unchanged",
+        "m13_frontend_no_sensitive_browser_apis",
+        "m13_control_center_frontend_safety_verifier_passes",
     }
 
     criteria_by_id = {criterion.criterion_id: criterion for criterion in criteria}

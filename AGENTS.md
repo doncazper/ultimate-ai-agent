@@ -1,6 +1,6 @@
 # Ultimate AI Agent Workspace Standards
 
-Active baseline: v0.17.0.
+Active baseline: v0.17.1.
 
 This repository is the Ultimate AI Agent foundation workspace. Treat it as a contract-first Python core, not a production runtime integration layer.
 
@@ -25,6 +25,7 @@ This repository is the Ultimate AI Agent foundation workspace. Treat it as a con
 - v0.15.1 is a taxonomy clarification patch only. `local_loopback_policy` means supported validation-only policy, not runtime execution readiness. `fake_manual_loopback_smoke` means fake/test report origin only, not production smoke evidence.
 - v0.16.0 Control Center work is backend contract/API only. Action preview is not execution.
 - v0.17.0 Web Control Center work allows the local React/Vite shell under `apps/control-center` only. Do not add backend execution routes, production Control Center authority, model/provider calls, remote dispatch, mobile/native code, sensor access, plugin enablement, Chrome authenticated profile control, Computer Use automation, iOS/macOS build workflow, analytics/auth/payment/SaaS SDKs, or production persistence.
+- v0.17.1 Web Control Center safety polish keeps the shell read-only/preview-only. Do not add execute/run/send/deploy/enable/approve action controls, arbitrary frontend endpoint construction, sensitive browser storage, cookies, credential APIs, camera/microphone/location/notification/push APIs, secret-like mock fixtures, or production Control Center authority.
 - API validation errors must be sanitized and must never echo raw invalid input values or secret-like field values.
 
 ## Workspace

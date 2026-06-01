@@ -17,6 +17,7 @@ SCAN_SEQUENCE = [
     ("remote worker foundation-only scan", "verify_no_real_remote_worker_integrations"),
     ("control center no-execution scan", "verify_no_control_center_runtime_or_frontend_expansion"),
     ("web control center frontend safety scan", "verify_m13_web_control_center_frontend_safety"),
+    ("control center frontend safety verifier", "verify_control_center_frontend_script"),
     ("documentation integrity scan", "verify_documentation_integrity"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
     ("production truth integration scan", "verify_no_production_truth_integrations"),
@@ -528,6 +529,10 @@ def verify_m13_web_control_center_frontend_safety():
         print("FAIL: M13 action preview endpoint should appear exactly once in endpoint declarations")
         sys.exit(1)
     print("OK: M13 Web Control Center frontend is read-only/preview-only with safe dependencies and no tracked build artifacts")
+
+def verify_control_center_frontend_script():
+    print("\n[Verifier] Running Control Center frontend safety verifier...")
+    run_cmd([sys.executable, "scripts/verify_control_center_frontend.py"])
 
 def verify_documentation_integrity():
     print("\n[Verifier] Running documentation integrity scan...")

@@ -4,6 +4,17 @@ import { submitActionPreview } from "../api/client";
 import type { ActionPreviewDecision, ActionPreviewRequest } from "../api/types";
 import { SafeAlert } from "./SafeAlert";
 
+const actionKindOptions: Array<{ label: string; value: ActionPreviewRequest["action_kind"] }> = [
+  { label: "View status", value: "view_status" },
+  { label: "View receipt", value: "view_receipt" },
+  { label: "View event summary", value: "view_event_summary" },
+  { label: "Preview action", value: "preview_action" },
+  { label: "Preview approval", value: "preview_approval" },
+  { label: "Preview runtime", value: "preview_runtime" },
+  { label: "Preview remote worker", value: "preview_remote_worker" },
+  { label: "Preview mobile capability", value: "preview_mobile_capability" }
+];
+
 const defaultRequest: ActionPreviewRequest = {
   request_id: "frontend_preview_request",
   actor_context: { actor_type: "user", actor_id: "local_operator" },
@@ -17,6 +28,7 @@ const defaultRequest: ActionPreviewRequest = {
 };
 
 export function ActionPreviewForm() {
+  const [actionKind, setActionKind] = useState<ActionPreviewRequest["action_kind"]>(defaultRequest.action_kind);
   const [purpose, setPurpose] = useState(defaultRequest.purpose);
   const [targetRef, setTargetRef] = useState(defaultRequest.target_ref);
   const [decision, setDecision] = useState<ActionPreviewDecision | null>(null);
@@ -27,7 +39,7 @@ export function ActionPreviewForm() {
     event.preventDefault();
     setError(null);
     setDecision(null);
-    const request = { ...defaultRequest, purpose, target_ref: targetRef };
+    const request = { ...defaultRequest, action_kind: actionKind, purpose, target_ref: targetRef };
     if (containsSecretLike(request)) {
       setPurpose("");
       setTargetRef(defaultRequest.target_ref);
@@ -50,7 +62,24 @@ export function ActionPreviewForm() {
         <h2>Action Preview</h2>
         <span>POST /control-center/actions/preview</span>
       </div>
+      <SafeAlert
+        title="Preview only action request"
+        message="This form asks the backend for a policy preview only. It never runs, enables, grants, deploys, or dispatches anything."
+      />
       <form className="preview-form" onSubmit={handleSubmit}>
+        <label>
+          Action kind
+          <select value={actionKind} onChange={(event) => setActionKind(event.target.value as ActionPreviewRequest["action_kind"])}>
+            {actionKindOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+            <option disabled value="disabled_execute">
+              Blocked execution action
+            </option>
+          </select>
+        </label>
         <label>
           Target reference
           <input value={targetRef} onChange={(event) => setTargetRef(event.target.value)} />
