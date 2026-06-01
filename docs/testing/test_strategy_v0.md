@@ -104,3 +104,16 @@ Frontend safety verifier rejects forbidden endpoints, dangerous controls, sensit
 Foundation Gate includes frontend CI and browser smoke readiness criteria.
 Backend OpenAPI path count remains unchanged at 74.
 ```
+
+## v0.17.4 Web Control Center Local Smoke Polish Tests
+
+v0.17.4 adds focused frontend and static documentation tests only:
+
+```text
+Every local Web Control Center page has a clear route heading for browser smoke review.
+Loading and empty states expose accessible status text and read-only wording.
+Action preview displays risk level as preview metadata and still posts only to /control-center/actions/preview.
+Secret-like backend preview errors are redacted before user-visible display.
+Local browser smoke reporting docs remain local-only, non-authoritative, and free of generated artifact requirements.
+Backend OpenAPI path count remains unchanged at 74.
+```

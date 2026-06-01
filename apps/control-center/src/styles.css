@@ -21,6 +21,7 @@ a {
 
 button,
 input,
+select,
 textarea {
   font: inherit;
 }
@@ -78,6 +79,10 @@ textarea {
   color: #ffffff;
 }
 
+.sidebar a[aria-current="page"] {
+  box-shadow: inset 3px 0 0 #9f7aea;
+}
+
 .workspace {
   min-width: 0;
 }
@@ -101,6 +106,7 @@ textarea {
 
 .topbar h1 {
   font-size: 1.65rem;
+  line-height: 1.2;
 }
 
 .eyebrow {
@@ -120,8 +126,44 @@ textarea {
   font-size: 0.9rem;
 }
 
+.status-pill.compact {
+  align-self: flex-start;
+  font-size: 0.82rem;
+}
+
+.topbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 main {
   padding: 28px 32px;
+}
+
+.page-section {
+  display: grid;
+  gap: 16px;
+}
+
+.section-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.section-heading h2 {
+  margin: 0;
+  font-size: 1.35rem;
+}
+
+.section-copy {
+  max-width: 820px;
+  margin: 0 0 16px;
+  color: #52606d;
+  line-height: 1.55;
 }
 
 .safe-alert,
@@ -164,6 +206,18 @@ main {
   padding: 18px;
 }
 
+.data-state {
+  display: grid;
+  gap: 6px;
+  color: #334e68;
+  line-height: 1.5;
+}
+
+.data-state.empty {
+  border-style: dashed;
+  background: #f7fbf9;
+}
+
 .panel-heading,
 .status-card-header {
   display: flex;
@@ -190,6 +244,21 @@ main {
   margin: 8px 0 0;
   color: #52606d;
   line-height: 1.5;
+}
+
+.note-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.note-list span {
+  padding: 7px 9px;
+  border: 1px solid #b7d7c2;
+  border-radius: 6px;
+  background: #f2fbf5;
+  color: #276749;
+  font-size: 0.9rem;
 }
 
 .flag-list {
@@ -254,6 +323,7 @@ th {
 }
 
 .preview-form input,
+.preview-form select,
 .preview-form textarea {
   width: 100%;
   border: 1px solid #bcccdc;
@@ -296,6 +366,7 @@ th {
   }
 
   .topbar,
+  .section-heading,
   .panel-heading,
   .status-card-header {
     align-items: flex-start;
@@ -307,6 +378,10 @@ th {
   .status-card-header span {
     max-width: 100%;
     white-space: normal;
+  }
+
+  .topbar-actions {
+    justify-content: flex-start;
   }
 
   .panel-grid {

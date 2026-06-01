@@ -2,9 +2,12 @@ import type { GateSummary } from "../api/types";
 
 export function FoundationGatePanel({ summary }: { summary: GateSummary }) {
   return (
-    <section className="panel">
+    <section className="panel" aria-labelledby="foundation-gate-heading">
       <div className="panel-heading">
-        <h2>Foundation Gate</h2>
+        <div>
+          <p className="eyebrow">Release safety</p>
+          <h2 id="foundation-gate-heading">Foundation Gate</h2>
+        </div>
         <span>{summary.status}</span>
       </div>
       <div className="metric-row">

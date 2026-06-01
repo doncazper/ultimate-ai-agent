@@ -8,6 +8,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 
 SMOKE_DOC = "docs/control_center/LOCAL_BROWSER_SMOKE.md"
+SMOKE_REPORTING_DOC = "docs/control_center/LOCAL_BROWSER_SMOKE_REPORTING.md"
 FRONTEND_PACKAGE = "apps/control-center/package.json"
 CI_WORKFLOW = ".github/workflows/ci.yml"
 
@@ -72,6 +73,23 @@ FORBIDDEN_DOC_FRAGMENTS = [
     "access mobile sensors",
 ]
 
+REQUIRED_REPORTING_WORDING = [
+    "local browser smoke report",
+    "local-only",
+    "localhost",
+    "127.0.0.1",
+    "::1",
+    "no authenticated browser profile",
+    "no computer use",
+    "no screenshots with secrets",
+    "non-authoritative",
+    "mock fallback",
+    "preview-only",
+    "no action was executed",
+    "do not include secrets",
+    "do not commit generated screenshots",
+]
+
 FORBIDDEN_TRACKED_FRAGMENTS = [
     "apps/control-center/node_modules/",
     "apps/control-center/dist/",
@@ -96,22 +114,27 @@ def verify(root: Path = ROOT) -> list[str]:
 
 
 def _doc_failures(root: Path) -> list[str]:
-    path = root / SMOKE_DOC
-    if not path.exists():
-        return [f"missing browser smoke readiness doc: {SMOKE_DOC}"]
-    text = path.read_text(encoding="utf-8").lower()
-    failures = [
-        f"smoke doc missing required safety wording: {fragment}"
-        for fragment in REQUIRED_DOC_WORDING
-        if fragment not in text
+    failures: list[str] = []
+    doc_specs = [
+        (SMOKE_DOC, REQUIRED_DOC_WORDING, "smoke doc"),
+        (SMOKE_REPORTING_DOC, REQUIRED_REPORTING_WORDING, "smoke reporting doc"),
     ]
-    for line in text.splitlines():
-        stripped = line.strip()
-        if not stripped:
+    for rel_path, required_wording, label in doc_specs:
+        path = root / rel_path
+        if not path.exists():
+            failures.append(f"missing browser smoke readiness doc: {rel_path}")
             continue
-        for fragment in FORBIDDEN_DOC_FRAGMENTS:
-            if fragment in stripped and not _line_is_negative_policy(stripped):
-                failures.append(f"forbidden smoke doc fragment: {fragment}")
+        text = path.read_text(encoding="utf-8").lower()
+        failures.extend(
+            f"{label} missing required safety wording: {fragment}" for fragment in required_wording if fragment not in text
+        )
+        for line in text.splitlines():
+            stripped = line.strip()
+            if not stripped:
+                continue
+            for fragment in FORBIDDEN_DOC_FRAGMENTS:
+                if fragment in stripped and not _line_is_negative_policy(stripped):
+                    failures.append(f"forbidden {label} fragment: {fragment}")
     return failures
 
 

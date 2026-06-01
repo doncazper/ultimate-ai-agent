@@ -23,9 +23,9 @@ OpenWebUI is a window into the agent, not the agent brain.
 
 The original foundation sequence established runtime hygiene, local runtime/context survival, truth/grounding/evidence governance, observability standards mapping, and Minimum Lovable Kernel preparation. Current accepted work is tracked in the release baseline below.
 
-## Accepted baseline through v0.17.3
+## Accepted baseline through v0.17.4
 
-The active accepted baseline is v0.17.3. It includes foundation modules through M10.5 plus documentation integrity synchronization, Codex plugin/external tooling governance, M11 runtime readiness/report validation, M12 Control Center backend contract/API foundation, and M13 Web Control Center read-only frontend shell with CI/static/browser-readiness hardening. v0.17.3 adds documentation current-release label cleanup only; it does not add production Control Center authority, frontend capability, or execution capability.
+The active accepted baseline is v0.17.4. It includes foundation modules through M10.5 plus documentation integrity synchronization, Codex plugin/external tooling governance, M11 runtime readiness/report validation, M12 Control Center backend contract/API foundation, and M13 Web Control Center read-only frontend shell with CI/static/browser-readiness hardening. v0.17.4 polishes local shell reviewability and browser smoke reporting only; it does not start M14, add backend API paths, add dependencies, add production Control Center authority, or add execution capability.
 
 Recent accepted milestones:
 
@@ -44,6 +44,7 @@ v0.17.0 — M13 Web Control Center read-only frontend shell
 v0.17.1 — M13 Web Control Center frontend safety polish
 v0.17.2 — M13 Web Control Center CI, static safety, and local browser smoke readiness hardening
 v0.17.3 — documentation current-release label cleanup
+v0.17.4 — Web Control Center local browser smoke polish and safe reporting docs
 
 - adds local React/Vite/TypeScript app under `apps/control-center`.
 - consumes existing read-only/preview-only backend routes.
@@ -51,6 +52,7 @@ v0.17.3 — documentation current-release label cleanup
 - action preview UI posts only to `/control-center/actions/preview`.
 - v0.17.1 and v0.17.2 harden frontend safety verification, CI coverage, and manual local browser smoke readiness.
 - v0.17.3 keeps current-release documentation labels aligned with the active baseline.
+- v0.17.4 improves route headings, accessible UI states, action preview risk metadata display, mock fallback reviewability, and local browser smoke reporting docs.
 - keeps backend OpenAPI path count unchanged at `74`.
 - adds no runtime execution, model/provider calls, remote dispatch, mobile sensors, plugin enablement, native builds, Chrome/Computer Use automation, or production authority.
 ```

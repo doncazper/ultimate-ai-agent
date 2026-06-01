@@ -27,8 +27,17 @@ const defaultRequest: ActionPreviewRequest = {
   metadata: { frontend_shell: true, preview_only: true }
 };
 
+const riskLevelOptions: Array<{ label: string; value: ActionPreviewRequest["risk_level"] }> = [
+  { label: "Safe", value: "safe" },
+  { label: "Low", value: "low" },
+  { label: "Medium", value: "medium" },
+  { label: "High", value: "high" },
+  { label: "Critical", value: "critical" }
+];
+
 export function ActionPreviewForm() {
   const [actionKind, setActionKind] = useState<ActionPreviewRequest["action_kind"]>(defaultRequest.action_kind);
+  const [riskLevel, setRiskLevel] = useState<ActionPreviewRequest["risk_level"]>(defaultRequest.risk_level);
   const [purpose, setPurpose] = useState(defaultRequest.purpose);
   const [targetRef, setTargetRef] = useState(defaultRequest.target_ref);
   const [decision, setDecision] = useState<ActionPreviewDecision | null>(null);
@@ -39,7 +48,7 @@ export function ActionPreviewForm() {
     event.preventDefault();
     setError(null);
     setDecision(null);
-    const request = { ...defaultRequest, action_kind: actionKind, purpose, target_ref: targetRef };
+    const request = { ...defaultRequest, action_kind: actionKind, purpose, risk_level: riskLevel, target_ref: targetRef };
     if (containsSecretLike(request)) {
       setPurpose("");
       setTargetRef(defaultRequest.target_ref);
@@ -57,15 +66,21 @@ export function ActionPreviewForm() {
   }
 
   return (
-    <section className="panel">
+    <section className="panel" aria-labelledby="action-preview-heading">
       <div className="panel-heading">
-        <h2>Action Preview</h2>
+        <div>
+          <p className="eyebrow">Preview policy</p>
+          <h2 id="action-preview-heading">Action Preview</h2>
+        </div>
         <span>POST /control-center/actions/preview</span>
       </div>
       <SafeAlert
         title="Preview only action request"
         message="This form asks the backend for a policy preview only. It never runs, enables, grants, deploys, or dispatches anything."
       />
+      <p className="section-copy">
+        High and critical previews remain non-execution decisions; an approval reference is never treated as authority by this shell.
+      </p>
       <form className="preview-form" onSubmit={handleSubmit}>
         <label>
           Action kind
@@ -78,6 +93,16 @@ export function ActionPreviewForm() {
             <option disabled value="disabled_execute">
               Blocked execution action
             </option>
+          </select>
+        </label>
+        <label>
+          Risk level
+          <select value={riskLevel} onChange={(event) => setRiskLevel(event.target.value as ActionPreviewRequest["risk_level"])}>
+            {riskLevelOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
           </select>
         </label>
         <label>

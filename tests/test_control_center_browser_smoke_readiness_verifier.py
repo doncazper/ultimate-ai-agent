@@ -37,10 +37,15 @@ def test_control_center_browser_smoke_readiness_verifier_blocks_unsafe_ci_and_do
         "Use Chrome authenticated profile control against production.\n",
         encoding="utf-8",
     )
+    (tmp_path / "docs/control_center/LOCAL_BROWSER_SMOKE_REPORTING.md").write_text(
+        "Local browser smoke report may include screenshots with secrets.\n",
+        encoding="utf-8",
+    )
 
     verifier = load_verifier()
     failures = verifier.verify(tmp_path)
 
     assert any("forbidden CI browser automation fragment" in failure for failure in failures)
     assert any("smoke doc missing required safety wording" in failure for failure in failures)
+    assert any("smoke reporting doc missing required safety wording" in failure for failure in failures)
     assert any("forbidden smoke doc fragment" in failure for failure in failures)

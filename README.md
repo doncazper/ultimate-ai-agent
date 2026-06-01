@@ -1,12 +1,12 @@
-# Ultimate AI Agent Canonical Bundle v0.17.3
+# Ultimate AI Agent Canonical Bundle v0.17.4
 
-This is the active project baseline after the v0.17.3 documentation current-release label cleanup patch.
+This is the active project baseline after the v0.17.4 Web Control Center local browser smoke polish patch.
 
 Start here:
 
 ```text
-README_IMPORT_v0_17_3.md
-ultimate_ai_agent_master_plan_v0_17_3.md
+README_IMPORT_v0_17_4.md
+ultimate_ai_agent_master_plan_v0_17_4.md
 docs/DOCUMENTATION_INDEX.md
 docs/canonical/09_roadmap.md
 docs/canonical/CANONICAL_DOC_MAP.md
@@ -28,13 +28,14 @@ docs/control_center/WEB_CONTROL_CENTER_SHELL.md
 docs/control_center/FRONTEND_SAFETY_POLICY.md
 docs/control_center/CONTROL_CENTER_FRONTEND_ROUTES.md
 docs/control_center/LOCAL_BROWSER_SMOKE.md
+docs/control_center/LOCAL_BROWSER_SMOKE_REPORTING.md
 docs/runtime/model_runtime_adapter_harness.md
 docs/runtime/local_loopback_model_runtime.md
 docs/runtime/RUNTIME_READINESS.md
 docs/runtime/MANUAL_SMOKE_REPORTS.md
 docs/runtime/RUNTIME_CAPABILITY_MATRIX.md
 docs/security/approval_authority.md
-docs/implementation/foundation_gate_implementation_plan_v0_17_3.md
+docs/implementation/foundation_gate_implementation_plan_v0_17_4.md
 docs/maintenance/documentation_integrity_checklist.md
 docs/tooling/CODEX_PLUGIN_CAPABILITY_INVENTORY.md
 docs/tooling/CODEX_PLUGIN_RISK_POLICY.md
@@ -100,3 +101,7 @@ Web Control Center verification hardening rule:
 Documentation current-release label rule:
 
 > v0.17.3 cleans up active documentation labels without starting M14. The documentation index points to the active v0.17.3 release notes, older v0.17.x release notes are historical, and the documentation integrity verifier rejects stale current-release note labels. It adds no backend API path, frontend capability, runtime/model/provider/network/remote/mobile/plugin execution, production Control Center authority, Chrome authenticated profile control, Computer Use automation, or iOS/macOS build workflow.
+
+Web Control Center local smoke polish rule:
+
+> v0.17.4 polishes the existing read-only Web Control Center shell and adds safe local browser smoke reporting documentation without starting M14. The shell keeps the same frontend route set and posts only to `/control-center/actions/preview`; OpenAPI path count remains `74`. Local Browser smoke may be run only against localhost, `127.0.0.1`, or `::1`, and reports are non-authoritative and must not include secrets or generated artifacts. This patch adds no backend API path, dependency, production Control Center authority, runtime/model/provider/network/remote/mobile/plugin execution, Chrome authenticated profile control, Computer Use automation, or iOS/macOS build workflow.

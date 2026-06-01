@@ -19,7 +19,12 @@ export function AppShell({ children, activePath }: AppShellProps) {
         </div>
         <nav>
           {navItems.map((item) => (
-            <a className={activePath === item.path ? "active" : ""} href={item.path} key={item.path}>
+            <a
+              aria-current={activePath === item.path ? "page" : undefined}
+              className={activePath === item.path ? "active" : ""}
+              href={item.path}
+              key={item.path}
+            >
               {item.label}
             </a>
           ))}
@@ -28,10 +33,13 @@ export function AppShell({ children, activePath }: AppShellProps) {
       <div className="workspace">
         <header className="topbar">
           <div>
-            <p className="eyebrow">M13 Web Control Center Shell</p>
+            <p className="eyebrow">v0.17.4 local browser smoke polish</p>
             <h1>Read-only dashboard and preview API</h1>
           </div>
-          <span className="status-pill">No authority to run actions</span>
+          <div className="topbar-actions" aria-label="Control Center safety status">
+            <span className="status-pill">Read-only</span>
+            <span className="status-pill">No authority to run actions</span>
+          </div>
         </header>
         <main>{children}</main>
       </div>

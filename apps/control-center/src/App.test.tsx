@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 import { API_ENDPOINTS, isAllowedReadEndpoint, isPreviewEndpoint, READ_ENDPOINTS } from "./api/endpoints";
+import { EmptyState, LoadingState } from "./components/DataState";
 
 function mockFetchWithFallback() {
   vi.stubGlobal(
@@ -57,6 +58,40 @@ describe("Web Control Center shell", () => {
     expect(screen.getByText(/Plugin enablement allowed: no/i)).toBeInTheDocument();
   });
 
+  it("renders clear headings for every local shell page", async () => {
+    const expectedHeadings = [
+      ["/", /Dashboard overview/i],
+      ["/dashboard", /Dashboard overview/i],
+      ["/runtime", /Runtime readiness/i],
+      ["/foundation-gate", /Foundation Gate/i],
+      ["/api-routes", /API Routes/i],
+      ["/approvals", /Approvals/i],
+      ["/remote-workers", /Remote worker boundary/i],
+      ["/mobile-planning", /Mobile planning/i],
+      ["/plugin-governance", /Plugin governance/i],
+      ["/action-preview", /Action Preview/i]
+    ] as const;
+
+    for (const [path, heading] of expectedHeadings) {
+      mockFetchWithFallback();
+      window.history.pushState({}, "", path);
+      const { unmount } = render(<App />);
+      expect(await screen.findByRole("heading", { name: heading })).toBeInTheDocument();
+      unmount();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("renders loading and empty states with safe operational copy", () => {
+    const { rerender } = render(<LoadingState />);
+    expect(screen.getByRole("status")).toHaveTextContent(/loading local control center/i);
+    expect(screen.getByText(/read-only/i)).toBeInTheDocument();
+
+    rerender(<EmptyState title="No routes listed" message="No API routes were returned by the local mock." />);
+    expect(screen.getByRole("status")).toHaveTextContent(/No routes listed/i);
+    expect(screen.getByText(/No API routes were returned/i)).toBeInTheDocument();
+  });
+
   it("submits action preview only to the preview endpoint", async () => {
     const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
       if (options?.method === "POST") {
@@ -84,6 +119,8 @@ describe("Web Control Center shell", () => {
     render(<App />);
 
     expect(await screen.findByText(/Preview only action request/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Risk level/i)).toBeInTheDocument();
+    expect(screen.getByText(/High and critical previews remain non-execution decisions/i)).toBeInTheDocument();
     expect(screen.getByRole("option", { name: /Blocked execution action/i })).toBeDisabled();
     fireEvent.click(await screen.findByRole("button", { name: /preview action/i }));
 
@@ -157,6 +194,31 @@ describe("Web Control Center shell", () => {
     fireEvent.click(screen.getByRole("button", { name: /preview action/i }));
 
     expect(await screen.findByText(/Secret-like input was redacted/i)).toBeInTheDocument();
+    expect(screen.queryByText(/supersecretvalue123/i)).not.toBeInTheDocument();
+  });
+
+  it("redacts secret-like backend preview errors before display", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(
+          JSON.stringify({
+            ok: false,
+            error: {
+              code: "SAFE_REJECTION",
+              message: "Preview rejected because token=supersecretvalue123 was invalid."
+            }
+          }),
+          { status: 400, headers: { "Content-Type": "application/json" } }
+        )
+      )
+    );
+    window.history.pushState({}, "", "/action-preview");
+    render(<App />);
+
+    fireEvent.click(await screen.findByRole("button", { name: /preview action/i }));
+
+    expect(await screen.findByText(/Preview rejected because \[redacted\] was invalid/i)).toBeInTheDocument();
     expect(screen.queryByText(/supersecretvalue123/i)).not.toBeInTheDocument();
   });
 

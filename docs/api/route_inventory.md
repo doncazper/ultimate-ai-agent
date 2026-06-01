@@ -14,7 +14,7 @@ Each route declares:
 - `requires_auth_future`
 - `blocked_from_production`
 
-Allowed side-effect classes in v0.17.2 are:
+Allowed side-effect classes in v0.17.4 are:
 
 - `none`
 - `validation_only`
@@ -123,3 +123,9 @@ v0.17.2 Web Control Center verification hardening:
 - OpenAPI path count remains `74`.
 - frontend CI runs local npm install/typecheck/lint/test/build checks only.
 - local browser smoke readiness is manual, local-only, unauthenticated-profile-free, and non-authoritative.
+
+v0.17.3 documentation cleanup and v0.17.4 local browser smoke polish:
+
+- no backend route is added.
+- OpenAPI path count remains `74`.
+- v0.17.4 improves frontend route headings, accessible loading/empty states, action preview risk metadata display, mock fallback reviewability, and safe local browser smoke reporting docs only.
