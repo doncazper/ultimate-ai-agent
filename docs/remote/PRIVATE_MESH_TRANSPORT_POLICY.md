@@ -20,3 +20,5 @@ No WireGuard support is implemented.
 No mesh discovery, node enrollment, control-plane API call, CLI call, listener, daemon, job dispatch, remote execution, remote approval, personal-data access, write/send action, or background service is implemented.
 
 No node keys, auth keys, tailnet names, hostnames, private IPs, credentials, OAuth values, tokens, or private keys belong in the repository.
+
+v0.14.5 documentation integrity does not implement private mesh execution. Headscale, generic WireGuard, Tailscale, private mesh, tailnet, and LAN remain planned/disabled metadata only.

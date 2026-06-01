@@ -22,6 +22,7 @@ def test_m105_gate_criteria_pass_on_current_repo():
         "m143_private_mesh_taxonomy_open_source_first",
         "m143_planned_mesh_transports_disabled",
         "m143_no_live_mesh_integrations",
+        "documentation_integrity_current",
     ]
     for criterion_id in expected:
         assert criterion_id in results

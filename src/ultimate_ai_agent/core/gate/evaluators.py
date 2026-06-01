@@ -132,6 +132,7 @@ class FoundationGateEvaluator:
             "m143_private_mesh_taxonomy_open_source_first": self.check_m143_private_mesh_taxonomy_open_source_first,
             "m143_planned_mesh_transports_disabled": self.check_m143_planned_mesh_transports_disabled,
             "m143_no_live_mesh_integrations": self.check_m143_no_live_mesh_integrations,
+            "documentation_integrity_current": self.check_documentation_integrity_current,
         }
         results = [
             evaluator_map.get(criterion.criterion_id, self._skipped)(criterion)
@@ -1784,6 +1785,75 @@ class FoundationGateEvaluator:
             if forbidden_secretish in tracked.lower():
                 failures.append(f"secret/private mesh config marker found: {forbidden_secretish}")
         return self._result(criterion, failures, ["src/ultimate_ai_agent/core/remote_workers", "docs/remote"])
+
+    def check_documentation_integrity_current(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        version = self._active_version()
+        version_key = (version or "0.0.0").replace(".", "_")
+        required = [
+            "docs/DOCUMENTATION_INDEX.md",
+            "docs/canonical/CANONICAL_DOC_MAP.md",
+            "docs/maintenance/documentation_integrity_checklist.md",
+            f"README_IMPORT_v{version_key}.md",
+            f"ultimate_ai_agent_master_plan_v{version_key}.md",
+            f"docs/release_notes/v{version_key}.md",
+            f"docs/implementation/foundation_gate_implementation_plan_v{version_key}.md",
+            "docs/canonical/64_mobile_companion_and_device_capability_broker.md",
+            "docs/canonical/65_mobile_device_registry_and_sensor_permission_manifest.md",
+            "docs/remote/PRIVATE_MESH_TRANSPORT_POLICY.md",
+            "docs/remote/TAILNET_TRANSPORT_POLICY.md",
+        ]
+        failures = [f"missing {path}" for path in required if not (self.root / path).exists()]
+        readme = self._read(self.root / "README.md")
+        if version and f"README_IMPORT_v{version_key}.md" not in readme:
+            failures.append("README.md missing active import README")
+        if version and f"ultimate_ai_agent_master_plan_v{version_key}.md" not in readme:
+            failures.append("README.md missing active master plan")
+        if "docs/DOCUMENTATION_INDEX.md" not in readme:
+            failures.append("README.md missing documentation index")
+        if "docs/canonical/CANONICAL_DOC_MAP.md" not in readme:
+            failures.append("README.md missing canonical doc map")
+
+        unsafe_claims = [
+            "tailscale integration is implemented",
+            "headscale integration is implemented",
+            "remote execution is supported",
+            "mobile camera access is implemented",
+            "microphone capture is implemented",
+            "gps access is implemented",
+            "skill factory is implemented",
+            "scanner runtime is implemented",
+        ]
+        active_docs = [
+            "README.md",
+            "VERSION.md",
+            "AGENTS.md",
+            "docs/DOCUMENTATION_INDEX.md",
+            "docs/canonical/CANONICAL_DOC_MAP.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/api/README.md",
+            "docs/api/openapi_contract.md",
+            "docs/api/route_inventory.md",
+            "docs/runtime/model_runtime_adapter_harness.md",
+            "docs/runtime/local_loopback_model_runtime.md",
+            "docs/remote/REMOTE_WORKER_FOUNDATION.md",
+            "docs/remote/REMOTE_NODE_SECURITY_MODEL.md",
+            "docs/remote/REMOTE_JOB_ENVELOPE.md",
+            "docs/remote/PRIVATE_MESH_TRANSPORT_POLICY.md",
+            "docs/remote/TAILNET_TRANSPORT_POLICY.md",
+            "docs/canonical/64_mobile_companion_and_device_capability_broker.md",
+            "docs/canonical/65_mobile_device_registry_and_sensor_permission_manifest.md",
+            "docs/backlog/mobile_companion_backlog.md",
+            "docs/backlog/device_capability_broker_backlog.md",
+        ]
+        for rel_path in active_docs:
+            path = self.root / rel_path
+            if not path.exists():
+                continue
+            source = self._read(path).lower()
+            for phrase in unsafe_claims:
+                if phrase in source:
+                    failures.append(f"{rel_path} contains unsafe implementation claim: {phrase}")
+        return self._result(criterion, failures, required)
 
     def _skipped(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
         return FoundationGateResult(

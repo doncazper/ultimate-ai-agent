@@ -15,6 +15,7 @@ SCAN_SEQUENCE = [
     ("model runtime simulated-only scan", "verify_no_real_model_runtime_execution"),
     ("approval authority local-dev-only scan", "verify_no_real_approval_authority_integrations"),
     ("remote worker foundation-only scan", "verify_no_real_remote_worker_integrations"),
+    ("documentation integrity scan", "verify_documentation_integrity"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
     ("production truth integration scan", "verify_no_production_truth_integrations"),
     ("broad filesystem scan", "verify_no_broad_filesystem_scanning"),
@@ -295,6 +296,10 @@ def verify_no_real_remote_worker_integrations():
             pass
     print("OK: Remote worker package has no live network, process, private mesh, tailnet, or remote execution code")
 
+def verify_documentation_integrity():
+    print("\n[Verifier] Running documentation integrity scan...")
+    run_cmd([sys.executable, "scripts/verify_documentation_integrity.py"])
+
 def verify_no_shell_execution_in_runtime():
     print("\n[Verifier] Running runtime shell/subprocess execution scan...")
     forbidden_fragments = [
@@ -395,10 +400,13 @@ def main():
     # 4. Run Baseline Consistency Verification
     run_cmd([sys.executable, "scripts/verify_current_baseline.py"])
 
-    # 5. Run Skill Package Security Rule Audit
+    # 5. Run Documentation Integrity Verification
+    run_cmd([sys.executable, "scripts/verify_documentation_integrity.py"])
+
+    # 6. Run Skill Package Security Rule Audit
     run_cmd([sys.executable, "scripts/verify_skill_package_security_rule.py"])
 
-    # 6. Run OpenAPI Contract Verification
+    # 7. Run OpenAPI Contract Verification
     run_cmd([sys.executable, "scripts/verify_openapi_contract.py"])
 
     print("\n=== All verification checks PASSED successfully ===")

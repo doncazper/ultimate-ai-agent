@@ -40,3 +40,20 @@ Autonomous runs
 User-facing notifications
 Self-modifying code merge loops
 ```
+
+## v0.14.5 future backlog reminders
+
+```text
+Headscale/private mesh future evaluation
+Control Center reintroduction through proper milestone
+Mobile Companion future phases
+Device Capability Broker future phases
+TestClient deprecation warning cleanup
+Future UI readiness gate
+Future real local model execution readiness
+Future sandbox/runtime abstraction
+Future Skill lifecycle/security policy
+Future MCP/AGENTS/SKILL runtime loading only after policy gates
+```
+
+These items are not implemented by v0.14.5.

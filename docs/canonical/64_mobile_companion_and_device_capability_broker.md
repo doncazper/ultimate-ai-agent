@@ -2,6 +2,8 @@
 
 Status: Future planning only, v0.14.4
 
+v0.14.5 documentation integrity preserves this as future planning only.
+
 ## Mobile Companion
 
 The Mobile Companion is a future phone surface for control, approvals, capture, receipts, and status. It is not the agent brain.

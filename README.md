@@ -1,13 +1,15 @@
-# Ultimate AI Agent Canonical Bundle v0.14.4
+# Ultimate AI Agent Canonical Bundle v0.14.5
 
-This is the active project baseline after the v0.14.4 Mobile Companion and Device Capability Broker roadmap foundation patch.
+This is the active project baseline after the v0.14.5 documentation integrity and canonical synchronization patch.
 
 Start here:
 
 ```text
-README_IMPORT_v0_14_4.md
-ultimate_ai_agent_master_plan_v0_14_4.md
+README_IMPORT_v0_14_5.md
+ultimate_ai_agent_master_plan_v0_14_5.md
+docs/DOCUMENTATION_INDEX.md
 docs/canonical/09_roadmap.md
+docs/canonical/CANONICAL_DOC_MAP.md
 docs/canonical/21_consent_and_permissions_ledger.md
 docs/canonical/37_tool_broker.md
 docs/canonical/42_autonomy_levels_and_standing_approvals.md
@@ -21,7 +23,8 @@ docs/api/route_inventory.md
 docs/runtime/model_runtime_adapter_harness.md
 docs/runtime/local_loopback_model_runtime.md
 docs/security/approval_authority.md
-docs/implementation/foundation_gate_implementation_plan_v0_14_4.md
+docs/implementation/foundation_gate_implementation_plan_v0_14_5.md
+docs/maintenance/documentation_integrity_checklist.md
 docs/testing/test_strategy_v0.md
 ```
 
@@ -48,3 +51,7 @@ Foundation Gate rule:
 Mobile planning rule:
 
 > v0.14.4 adds Mobile Companion and Device Capability Broker roadmap planning only. A future phone app may become a control, approval, capture, receipt, and status surface, but the phone is not the agent brain and mobile sensors are disabled by default. This patch adds no mobile app, iOS code, Android code, React Native, Expo, Flutter, Swift, Kotlin, native mobile package, sensor access, OS permission integration, pairing flow, background service, notification runtime, network call, autonomous mobile action, or runtime device capability execution.
+
+Documentation integrity rule:
+
+> v0.14.5 keeps active docs synchronized with the accepted baseline. Active docs must distinguish implemented, validation-only, dry-run-only, simulated-only, manual-only, planned/disabled, future/backlog, historical, and blocked capabilities. This patch adds no real model/provider/network/remote/mobile sensor execution and no new runtime power.

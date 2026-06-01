@@ -2,6 +2,8 @@
 
 Status: Future planning only, v0.14.4
 
+v0.14.5 documentation integrity preserves this as future planning only.
+
 This document names future model concepts only. It is not source code, not a runtime schema, not an OpenAPI contract, and not a permission implementation.
 
 No mobile app exists yet. No OS permission integration exists yet. No sensor API exists yet. No background service exists yet.

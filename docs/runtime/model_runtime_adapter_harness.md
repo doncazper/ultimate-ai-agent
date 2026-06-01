@@ -23,3 +23,5 @@ The harness is not allowed to:
 - persist production runtime data
 
 Future real runtime adapters require a separate milestone, explicit approval authority, secret policy, provider policy, and Foundation Gate criteria.
+
+v0.14.5 documentation integrity does not change runtime behavior. Simulated responses and local runtime outputs remain non-authoritative and must not be treated as truth evidence by themselves.

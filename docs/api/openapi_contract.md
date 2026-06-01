@@ -1,6 +1,6 @@
 # OpenAPI Contract
 
-v0.14.1 preserves the FastAPI OpenAPI boundary and adds remote worker foundation validation/status/dry-run routes without adding public real execution routes.
+v0.14.5 preserves the FastAPI OpenAPI boundary and documents the current route contract without adding public real execution routes.
 
 Contract rules:
 
@@ -12,6 +12,8 @@ Contract rules:
 - M9 local loopback routes may validate endpoints, validate execution policy, and produce simulated fallback responses only.
 - M10 manual smoke routes may validate fixed-prompt smoke readiness only. Public smoke execution routes are forbidden.
 - M10.5 remote worker routes may validate metadata, return static status, and produce dry-run results only. Public remote dispatch, execution, and subagent launch routes are forbidden.
+- v0.14.4 mobile/device APIs are future planning only and no mobile/device routes are implemented.
+- v0.14.5 documentation integrity adds no API route.
 
 Verification:
 
@@ -23,7 +25,7 @@ Export:
 
 ```bash
 python scripts/export_openapi.py
-python scripts/export_openapi.py --output docs/api/openapi_v0_14_1.json
+python scripts/export_openapi.py --output docs/api/openapi_v0_14_5.json
 ```
 
 The second command is only for intentional versioned snapshots.

@@ -36,3 +36,5 @@ The API exposes `/model-runtime/local/smoke/validate` for validation only. It do
 M9 does not add cloud models, provider SDKs, API keys, remote OpenAI-compatible APIs, tokenizers, billing APIs, web fetchers, browser automation, production persistence, production auth/OAuth, or external actions.
 
 Model output is not authoritative evidence. Local loopback responses and simulated fallback responses include metadata marking `truth_authority=false`.
+
+v0.14.5 documentation integrity adds no runtime readiness implementation, no general model execution, and no new local loopback execution path.

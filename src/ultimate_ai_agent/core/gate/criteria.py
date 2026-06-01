@@ -709,4 +709,13 @@ def default_foundation_gate_criteria() -> List[FoundationGateCriterion]:
             "A live private mesh integration or private transport secret marker was detected.",
             "critical",
         ),
+        _criterion(
+            "documentation_integrity_current",
+            "Documentation Integrity Current",
+            FoundationGateCategory.documentation,
+            "FoundationGateEvaluator.check_documentation_integrity_current",
+            "Documentation index, canonical map, active release docs, private mesh docs, mobile planning docs, and active version references are present without unsafe implementation claims.",
+            "Active documentation is missing or claims planned/disabled capabilities are implemented.",
+            "critical",
+        ),
     ]

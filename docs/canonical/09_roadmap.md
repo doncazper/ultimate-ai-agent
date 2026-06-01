@@ -23,6 +23,21 @@ OpenWebUI is a window into the agent, not the agent brain.
 
 Pre-coding foundation remediation, Runtime Hygiene Micro-Foundation, Local Runtime/Context Survival, Truth/Grounding/Evidence Governance, Observability Standards Mapping, and Minimum Lovable Kernel preparation.
 
+## Accepted baseline through v0.14.5
+
+The active accepted baseline is v0.14.5. It includes foundation modules through M10.5 plus documentation integrity synchronization. v0.14.5 adds no runtime feature and does not start M11.
+
+Recent accepted milestones:
+
+```text
+v0.14.0 — M10 manual local loopback smoke harness, manual-only and fixed-prompt-only
+v0.14.1 — M10.5 remote worker foundation and planned tailnet transport metadata
+v0.14.2 — M10.5 policy hardening for loopback/runtime and approval validation
+v0.14.3 — open-source-first private mesh taxonomy with planned Headscale/generic WireGuard/Tailscale metadata
+v0.14.4 — Mobile Companion and Device Capability Broker roadmap planning only
+v0.14.5 — documentation integrity, canonical map, docs index, and documentation verifier
+```
+
 ## Minimum Lovable Kernel
 
 Before committing to the full foundation build, prove one genuine end-to-end task:
@@ -215,6 +230,23 @@ Emergency Stop / Kill Switch
 ```
 
 Mobile is a future control, approval, capture, receipt, and status surface. It is not the agent brain. Device Capability Broker work must exist before any mobile sensor integration.
+
+## Future milestone sequence notes
+
+```text
+M11 — Runtime Foundation Readiness Gate + Manual Smoke Report Validation
+Future Web Control Center — after runtime/API readiness
+Future Mobile Companion — after Control Center/mobile contracts
+Future real local model execution — after readiness, approval, and gate criteria
+Future remote worker/tailnet execution — after planned/disabled foundation and private mesh taxonomy mature
+Future scanners/proactivity/Skill Factory/self-improvement — only after their security lifecycle exists
+```
+
+Do not treat runtime readiness, UI implementation, mobile implementation, private mesh execution, scanners, Skill Factory, or self-improvement as accepted until a reviewed milestone implements and gates them.
+
+## Out-of-sequence parked work
+
+Any parked local Control Center work must be reintroduced through a future reviewed milestone. Parked work is not accepted baseline merely because a local branch or local tag exists.
 
 ## Later
 

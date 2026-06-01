@@ -30,6 +30,7 @@ def test_default_foundation_gate_criteria_cover_m6_acceptance_surface():
         "m7_soft_budget_warning_allows_route",
         "m7_hard_budget_denies_route",
         "m7_cost_warnings_visible_in_route_decision",
+        "documentation_integrity_current",
     }.issubset(by_id)
     assert all(criterion.required for criterion in criteria)
     assert FoundationGateCategory.blocked_modules in {criterion.category for criterion in criteria}
