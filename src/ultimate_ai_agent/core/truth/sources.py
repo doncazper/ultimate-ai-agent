@@ -1,4 +1,5 @@
 from datetime import datetime
+from ultimate_ai_agent.core.time import utc_now
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -50,7 +51,7 @@ class TruthSourceManifest(BaseModel):
     memory_ref: Optional[str] = None
     event_ref: Optional[str] = None
     canonical_priority: Optional[int] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_now)
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
     model_config = ConfigDict(extra="forbid")

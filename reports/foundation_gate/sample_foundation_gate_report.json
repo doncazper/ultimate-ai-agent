@@ -1,9 +1,21 @@
 {
   "report_id": "fgrep_sample_m6",
-  "version": "0.10.0",
-  "generated_at": "2026-06-01T00:00:00",
+  "version": "0.10.1",
+  "generated_at": "2026-06-01T00:00:00Z",
   "overall_status": "passed",
   "results": [
+    {
+      "criterion_id": "m5_shadow_replay_passes",
+      "status": "passed",
+      "safe_message": "M5 shadow replay passed.",
+      "evidence_refs": [
+        "evt_sample",
+        "receipt_sample"
+      ],
+      "failures": [],
+      "warnings": [],
+      "checked_at": "2026-06-01T00:00:00Z"
+    },
     {
       "criterion_id": "versioning_consistent",
       "status": "passed",
@@ -15,19 +27,7 @@
       ],
       "failures": [],
       "warnings": [],
-      "checked_at": "2026-06-01T00:00:00"
-    },
-    {
-      "criterion_id": "m5_shadow_replay_passes",
-      "status": "passed",
-      "safe_message": "M5 shadow replay passed.",
-      "evidence_refs": [
-        "evt_sample",
-        "receipt_sample"
-      ],
-      "failures": [],
-      "warnings": [],
-      "checked_at": "2026-06-01T00:00:00"
+      "checked_at": "2026-06-01T00:00:00Z"
     }
   ],
   "passed_count": 2,

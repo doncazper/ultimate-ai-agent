@@ -6,6 +6,18 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 
+
+SCAN_SEQUENCE = [
+    ("generated artifact scan", "verify_no_generated_artifacts"),
+    ("obvious secret scan", "verify_no_obvious_secrets"),
+    ("blocked module scan", "verify_no_blocked_modules"),
+    ("forbidden external integrations scan", "verify_no_forbidden_external_integrations"),
+    ("shell execution scan", "verify_no_shell_execution_in_runtime"),
+    ("production truth integration scan", "verify_no_production_truth_integrations"),
+    ("broad filesystem scan", "verify_no_broad_filesystem_scanning"),
+]
+
+
 def run_cmd(args, cwd=ROOT, env=None):
     print(f"\nRunning: {' '.join(args)}")
     result = subprocess.run(args, cwd=cwd, env=env, text=True)
@@ -198,6 +210,17 @@ def verify_no_broad_filesystem_scanning():
             pass
     print("OK: No broad filesystem scanning or home-directory traversal detected in src")
 
+
+def run_static_scans():
+    print("\n=== Static Verification Scans ===")
+    print("Scans enabled:")
+    for scan_name, _ in SCAN_SEQUENCE:
+        print(f"- {scan_name}")
+
+    for _, function_name in SCAN_SEQUENCE:
+        globals()[function_name]()
+
+
 def main():
     print("=== Ultimate AI Agent Master Verification Suite ===")
 
@@ -211,13 +234,7 @@ def main():
     run_cmd([sys.executable, "-m", "pytest"], env=env)
 
     # 3. Explicitly Enforce Scans
-    verify_no_generated_artifacts()
-    verify_no_obvious_secrets()
-    verify_no_blocked_modules()
-    verify_no_forbidden_external_integrations()
-    verify_no_shell_execution_in_runtime()
-    verify_no_production_truth_integrations()
-    verify_no_broad_filesystem_scanning()
+    run_static_scans()
 
     # 4. Run Baseline Consistency Verification
     run_cmd([sys.executable, "scripts/verify_current_baseline.py"])

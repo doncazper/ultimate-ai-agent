@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from ultimate_ai_agent.core.secrets import (
     CredentialAuthType,
@@ -35,7 +35,7 @@ def test_secret_broker_registers_reference_and_denies_expired_credential():
         scope=CredentialScope.provider,
         status=CredentialStatus.active,
         allowed_purposes=["weather_lookup"],
-        expires_at=datetime.utcnow() - timedelta(seconds=1),
+        expires_at=datetime.now(UTC) - timedelta(seconds=1),
     )
 
     broker.register_credential(ref, secret_value="api_key='abcdefghijklmnop'")

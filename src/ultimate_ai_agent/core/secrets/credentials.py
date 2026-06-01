@@ -1,4 +1,5 @@
 from datetime import datetime
+from ultimate_ai_agent.core.time import utc_now
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -21,7 +22,7 @@ class CredentialReference(BaseModel):
     project_id: Optional[str] = None
     status: CredentialStatus = CredentialStatus.pending
     allowed_purposes: List[str] = Field(default_factory=list)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_now)
     expires_at: Optional[datetime] = None
     last_used_at: Optional[datetime] = None
     consent_ref: Optional[str] = None

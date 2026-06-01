@@ -1,4 +1,5 @@
 from datetime import datetime
+from ultimate_ai_agent.core.time import utc_now
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -15,7 +16,7 @@ class EvidenceItem(BaseModel):
     locator: Optional[str] = None
     quote: Optional[str] = Field(None, max_length=280)
     summary: str = Field(..., min_length=1)
-    retrieved_at: datetime = Field(default_factory=datetime.utcnow)
+    retrieved_at: datetime = Field(default_factory=utc_now)
     observed_at: Optional[datetime] = None
     published_at: Optional[datetime] = None
     effective_at: Optional[datetime] = None
@@ -47,7 +48,7 @@ class EvidenceManifest(BaseModel):
     conflicts: List[SourceConflictReport] = Field(default_factory=list)
     unsupported_claims: List[str] = Field(default_factory=list)
     redactions_applied: List[str] = Field(default_factory=list)
-    generated_at: datetime = Field(default_factory=datetime.utcnow)
+    generated_at: datetime = Field(default_factory=utc_now)
     trace_id: Optional[str] = None
     event_ref: Optional[str] = None
 

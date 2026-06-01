@@ -1,4 +1,5 @@
 from datetime import datetime
+from ultimate_ai_agent.core.time import utc_now
 from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -9,7 +10,7 @@ class SecretHandle(BaseModel):
     credential_ref: str = Field(..., min_length=1)
     provider_id: Optional[str] = None
     tool_id: Optional[str] = None
-    issued_at: datetime = Field(default_factory=datetime.utcnow)
+    issued_at: datetime = Field(default_factory=utc_now)
     expires_at: Optional[datetime] = None
 
     model_config = ConfigDict(extra="forbid")
@@ -34,7 +35,7 @@ class SecretAccessDecision(BaseModel):
     safe_message: str
     redactions_applied: List[str] = Field(default_factory=list)
     event_ref: Optional[str] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_now)
 
     model_config = ConfigDict(extra="forbid")
 

@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from ultimate_ai_agent.core.time import utc_now
 from typing import List, Optional
 from ultimate_ai_agent.core.consent.enums import ConsentStatus, PermissionRisk, ApprovalRequirement, DataBoundary, PermissionAction
 from ultimate_ai_agent.core.consent.grants import ConsentGrant, RevocationRecord
@@ -19,7 +20,7 @@ class ConsentLedger:
         for grant in self._grants:
             if grant.consent_id == consent_id:
                 grant.status = ConsentStatus.revoked
-                grant.revoked_at = datetime.utcnow()
+                grant.revoked_at = utc_now()
                 record = RevocationRecord(
                     consent_id=consent_id,
                     reason=reason,
@@ -47,7 +48,7 @@ class ConsentLedger:
 
     def _evaluate_query(self, query: ConsentQuery) -> ConsentDecision:
         decision_id = f"dec_{uuid.uuid4().hex[:8]}"
-        now = datetime.utcnow()
+        now = utc_now()
         self.check_expiration(now)
 
         matched_grants: List[str] = []

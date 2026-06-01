@@ -1,4 +1,5 @@
 from datetime import datetime
+from ultimate_ai_agent.core.time import utc_now
 from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -27,7 +28,7 @@ class MemoryWriteRequest(BaseModel):
     event_ref: Optional[str] = None
     idempotency_key: Optional[str] = None
     proposed_supersedes: List[str] = Field(default_factory=list)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_now)
 
     model_config = ConfigDict(use_enum_values=True, extra="forbid")
 
@@ -44,6 +45,6 @@ class MemoryReadRequest(BaseModel):
     max_results: int = Field(default=5, ge=0, le=50)
     include_superseded: bool = False
     consent_ref: Optional[str] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_now)
 
     model_config = ConfigDict(use_enum_values=True, extra="forbid")

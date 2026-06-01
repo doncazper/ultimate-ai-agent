@@ -1,4 +1,5 @@
 from datetime import datetime
+from ultimate_ai_agent.core.time import utc_now
 from pathlib import Path
 from typing import List, Optional
 
@@ -37,7 +38,7 @@ class KernelTaskRequest(BaseModel):
     tags: List[str] = Field(default_factory=list)
     dry_run: bool = False
     rollback_ref: Optional[str] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_now)
 
     model_config = ConfigDict(extra="forbid")
 

@@ -58,6 +58,7 @@ def write_markdown(report_path: Path, markdown_path: Path) -> None:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Run M6 Foundation Gate checks.")
     parser.add_argument("--skip-commands", action="store_true", help="Only generate the typed gate report.")
+    parser.add_argument("--output", help="Optional path for an additional JSON report copy.")
     args = parser.parse_args(argv)
 
     command_failures = []
@@ -80,10 +81,19 @@ def main(argv: list[str] | None = None) -> int:
     markdown_path = output_dir / "latest_foundation_gate_report.md"
     report_path.write_text(report.model_dump_json(indent=2), encoding="utf-8")
     write_markdown(report_path, markdown_path)
+    requested_output_path = None
+    if args.output:
+        requested_output_path = Path(args.output)
+        if not requested_output_path.is_absolute():
+            requested_output_path = ROOT / requested_output_path
+        requested_output_path.parent.mkdir(parents=True, exist_ok=True)
+        requested_output_path.write_text(report.model_dump_json(indent=2), encoding="utf-8")
 
     print("\n=== Foundation Gate Summary ===")
     print(f"Report: {report_path.relative_to(ROOT)}")
     print(f"Markdown: {markdown_path.relative_to(ROOT)}")
+    if requested_output_path:
+        print(f"Requested output: {requested_output_path}")
     print(f"Overall status: {report.overall_status}")
     print(report.summary)
 

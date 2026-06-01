@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from ultimate_ai_agent.core.time import utc_now
 from typing import Dict, List, Optional
 
 from ultimate_ai_agent.core.memory.decisions import MemoryReadDecision, MemorySearchResult, MemoryWriteDecision
@@ -176,7 +176,7 @@ class MemoryStore:
         self.add_memory(new_record)
         old.status = MemoryStatus.superseded
         old.superseded_by = new_record.memory_id
-        old.updated_at = datetime.utcnow()
+        old.updated_at = utc_now()
         return new_record
 
     def correct_memory(self, old_memory_id: str, corrected_record: MemoryRecord, reason: str) -> MemoryRecord:
@@ -187,7 +187,7 @@ class MemoryStore:
         self.add_memory(corrected_record)
         old.status = MemoryStatus.corrected
         old.superseded_by = corrected_record.memory_id
-        old.updated_at = datetime.utcnow()
+        old.updated_at = utc_now()
         return corrected_record
 
     def delete_memory(self, memory_id: str, deletion_ref: str, reason: str) -> MemoryRecord:
@@ -195,14 +195,14 @@ class MemoryStore:
         record.status = MemoryStatus.deleted
         record.deletion_ref = deletion_ref
         record.metadata["deletion_reason"] = reason
-        record.updated_at = datetime.utcnow()
+        record.updated_at = utc_now()
         return record
 
     def quarantine_memory(self, memory_id: str, reason: str) -> MemoryRecord:
         record = self._records[memory_id]
         record.status = MemoryStatus.quarantined
         record.metadata["quarantine_reason"] = reason
-        record.updated_at = datetime.utcnow()
+        record.updated_at = utc_now()
         return record
 
     def _write_denied(self, request: MemoryWriteRequest, reason_codes: List[str], safe_message: str) -> MemoryWriteDecision:

@@ -1,4 +1,5 @@
 from datetime import datetime
+from ultimate_ai_agent.core.time import utc_now
 from typing import List, Optional
 from pydantic import BaseModel, ConfigDict, Field
 from ultimate_ai_agent.core.consent.enums import (
@@ -43,7 +44,7 @@ class ConsentGrant(BaseModel):
     expires_at: Optional[datetime] = None
     status: ConsentStatus = ConsentStatus.active
     source: str
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_now)
     updated_at: Optional[datetime] = None
     revoked_at: Optional[datetime] = None
     approval_ref: Optional[str] = None
@@ -54,7 +55,7 @@ class ConsentGrant(BaseModel):
 
 class RevocationRecord(BaseModel):
     consent_id: str
-    revoked_at: datetime = Field(default_factory=datetime.utcnow)
+    revoked_at: datetime = Field(default_factory=utc_now)
     reason: str
     revoked_by: str
 

@@ -1,4 +1,5 @@
 from datetime import datetime
+from ultimate_ai_agent.core.time import utc_now
 from typing import List, Optional
 from pydantic import BaseModel, ConfigDict, Field
 from ultimate_ai_agent.core.hygiene.actor_context import ActorContext
@@ -19,6 +20,6 @@ class ToolRequest(BaseModel):
     approval_ref: Optional[str] = None
     consent_refs: List[str] = Field(default_factory=list)
     dry_run_requested: bool = False
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_now)
 
     model_config = ConfigDict(extra="forbid")

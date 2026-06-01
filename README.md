@@ -1,19 +1,19 @@
-# Ultimate AI Agent Canonical Bundle v0.10.0
+# Ultimate AI Agent Canonical Bundle v0.10.1
 
-This is the active project baseline after Milestone M6 (Contract Tests, Shadow Replay, and Foundation Gate evaluation).
+This is the active project baseline after M6.1 (Foundation Gate hardening, CI polish, warning cleanup, and release hygiene).
 
 Start here:
 
 ```text
-README_IMPORT_v0_10_0.md
-ultimate_ai_agent_master_plan_v0_10_0.md
+README_IMPORT_v0_10_1.md
+ultimate_ai_agent_master_plan_v0_10_1.md
 docs/canonical/09_roadmap.md
 docs/canonical/21_consent_and_permissions_ledger.md
 docs/canonical/37_tool_broker.md
 docs/canonical/42_autonomy_levels_and_standing_approvals.md
 docs/canonical/45_trusted_computing_base.md
 docs/canonical/63_observability_standards_mapping.md
-docs/implementation/foundation_gate_implementation_plan_v0_10_0.md
+docs/implementation/foundation_gate_implementation_plan_v0_10_1.md
 docs/testing/test_strategy_v0.md
 ```
 
@@ -35,4 +35,4 @@ Observability standards rule:
 
 Foundation Gate rule:
 
-> v0.10.0 is a verification and audit baseline. It adds contract tests, M5 shadow replay, typed Foundation Gate reports, validation-only API routes, and a local gate runner. It does not add scanners, companion proactivity, Skill Factory, self-improving code, autopilot, browser automation, real providers/models/web calls, SDK/A2A runtime delegation, production databases, pgvector, embeddings, production secrets, production truth connectors, or high-autonomy execution.
+> v0.10.1 is a hardening release for the v0.10.0 Foundation Gate. It reduces project-owned UTC deprecation warnings, strengthens verification script output, stabilizes gate report/run behavior, and adds CI verification. It does not add scanners, companion proactivity, Skill Factory, self-improving code, autopilot, browser automation, real providers/models/web calls, SDK/A2A runtime delegation, production databases, pgvector, embeddings, production secrets, production truth connectors, or high-autonomy execution.

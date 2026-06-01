@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from ultimate_ai_agent.core.time import utc_now
 from pathlib import Path
 from typing import Callable, Dict, Optional
 
@@ -602,7 +602,7 @@ class MinimumKernelRunner:
             rollback_ref=rollback_ref,
             event_ids=event_ids,
         )
-        now = datetime.utcnow()
+        now = utc_now()
         return StructuredWorldState(
             world_state_id=f"ws_{run_id}",
             run_id=run_id,

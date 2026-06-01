@@ -2,6 +2,7 @@ import hashlib
 import os
 import uuid
 from datetime import datetime
+from ultimate_ai_agent.core.time import utc_now
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -167,7 +168,7 @@ class LocalFileManager:
             before_hash=before_hash,
             after_hash=after_hash,
             diff_summary=self.diff_preview(proposal),
-            applied_at=datetime.utcnow(),
+            applied_at=utc_now(),
             rollback_ref=rollback_plan.rollback_ref,
         )
 
@@ -202,7 +203,7 @@ class LocalFileManager:
             before_hash=before_hash,
             after_hash=self._hash_text(content),
             diff_summary="Rollback restored a prior in-memory snapshot.",
-            applied_at=datetime.utcnow(),
+            applied_at=utc_now(),
             rollback_ref=rollback_plan.rollback_ref,
         )
 

@@ -297,22 +297,11 @@ def main():
     ok("All M6 Foundation Gate and shadow replay files exist")
     
     # 9. Enforce scans by delegating to verify_all
-    from verify_all import (
-        verify_no_generated_artifacts,
-        verify_no_obvious_secrets,
-        verify_no_blocked_modules,
-        verify_no_forbidden_external_integrations,
-        verify_no_shell_execution_in_runtime,
-        verify_no_production_truth_integrations,
-        verify_no_broad_filesystem_scanning,
-    )
-    verify_no_generated_artifacts()
-    verify_no_obvious_secrets()
-    verify_no_blocked_modules()
-    verify_no_forbidden_external_integrations()
-    verify_no_shell_execution_in_runtime()
-    verify_no_production_truth_integrations()
-    verify_no_broad_filesystem_scanning()
+    try:
+        from verify_all import run_static_scans
+    except Exception as exc:
+        fail(f"Could not import verify_all scan helpers: {exc}")
+    run_static_scans()
 
     print("\nConsistency verification PASSED")
 

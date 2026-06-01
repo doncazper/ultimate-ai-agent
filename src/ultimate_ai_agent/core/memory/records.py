@@ -1,4 +1,5 @@
 from datetime import datetime
+from ultimate_ai_agent.core.time import utc_now
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -41,7 +42,7 @@ class MemoryRecord(BaseModel):
     tags: List[str] = Field(default_factory=list)
     source_refs: List[MemorySourceRef] = Field(default_factory=list)
     confidence: float = Field(default=1.0, ge=0.0, le=1.0)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_now)
     updated_at: Optional[datetime] = None
     expires_at: Optional[datetime] = None
     supersedes: List[str] = Field(default_factory=list)

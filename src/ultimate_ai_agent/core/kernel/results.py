@@ -1,4 +1,5 @@
 from datetime import datetime
+from ultimate_ai_agent.core.time import utc_now
 from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -31,6 +32,6 @@ class KernelTaskResult(BaseModel):
     redactions_applied: List[str] = Field(default_factory=list)
     errors: List[str] = Field(default_factory=list)
     warnings: List[str] = Field(default_factory=list)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_now)
 
     model_config = ConfigDict(use_enum_values=True, extra="forbid")

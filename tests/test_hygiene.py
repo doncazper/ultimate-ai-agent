@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 import pytest
 from pydantic import ValidationError
 
@@ -14,7 +14,7 @@ def test_actor_context_valid():
         actor_display_name="Alice",
         authority_source=AuthoritySource.explicit_user_request,
         workspace_id="ws_1",
-        created_at=datetime.utcnow()
+        created_at=datetime.now(UTC)
     )
     assert ctx.actor_id == "usr_123"
     assert ctx.actor_type == "human_user"
@@ -38,7 +38,7 @@ def test_actor_context_extra_fields():
 
 def test_temporal_context_valid():
     ctx = TemporalContext(
-        current_time_utc=datetime.utcnow(),
+        current_time_utc=datetime.now(UTC),
         freshness_class=FreshnessClass.daily,
         staleness_policy=StalenessPolicy.allow_with_label
     )

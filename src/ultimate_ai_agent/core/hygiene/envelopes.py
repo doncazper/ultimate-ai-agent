@@ -1,4 +1,5 @@
 from datetime import datetime
+from ultimate_ai_agent.core.time import utc_now
 from enum import Enum
 from typing import Any, List, Dict, Optional
 from pydantic import BaseModel, Field, ConfigDict
@@ -68,6 +69,6 @@ class ResultEnvelope(BaseModel):
     redactions_applied: List[str] = Field(default_factory=list)
     rollback_ref: Optional[str] = None
     classification: Optional[Classification] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_now)
 
     model_config = ConfigDict(use_enum_values=True, extra="forbid")

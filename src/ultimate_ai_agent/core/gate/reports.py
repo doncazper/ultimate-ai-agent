@@ -1,13 +1,14 @@
+import re
+import uuid
 from datetime import datetime
 from typing import List, Optional
-import uuid
-import re
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from ultimate_ai_agent.core.gate.enums import FoundationGateStatus
 from ultimate_ai_agent.core.hygiene.envelopes import ErrorCategory, ErrorEnvelope, ResultEnvelope, Severity
 from ultimate_ai_agent.core.ledger.validation import scan_payload_for_secrets
+from ultimate_ai_agent.core.time import utc_now
 
 
 class FoundationGateResult(BaseModel):
@@ -17,7 +18,7 @@ class FoundationGateResult(BaseModel):
     evidence_refs: List[str] = Field(default_factory=list)
     failures: List[str] = Field(default_factory=list)
     warnings: List[str] = Field(default_factory=list)
-    checked_at: datetime = Field(default_factory=datetime.utcnow)
+    checked_at: datetime = Field(default_factory=utc_now)
 
     model_config = ConfigDict(use_enum_values=True, extra="forbid")
 
@@ -25,7 +26,7 @@ class FoundationGateResult(BaseModel):
 class FoundationGateReport(BaseModel):
     report_id: str = Field(..., min_length=1)
     version: str = Field(..., min_length=1)
-    generated_at: datetime = Field(default_factory=datetime.utcnow)
+    generated_at: datetime = Field(default_factory=utc_now)
     overall_status: FoundationGateStatus
     results: List[FoundationGateResult]
     passed_count: int = 0
@@ -47,10 +48,11 @@ def build_foundation_gate_report(
     event_ref: Optional[str] = None,
     trace_id: Optional[str] = None,
 ) -> FoundationGateReport:
-    passed_count = sum(1 for result in results if result.status == FoundationGateStatus.passed)
-    failed_count = sum(1 for result in results if result.status == FoundationGateStatus.failed)
-    warning_count = sum(1 for result in results if result.status == FoundationGateStatus.warning)
-    blocked_count = sum(1 for result in results if result.status == FoundationGateStatus.blocked)
+    ordered_results = sorted(results, key=lambda result: result.criterion_id)
+    passed_count = sum(1 for result in ordered_results if result.status == FoundationGateStatus.passed)
+    failed_count = sum(1 for result in ordered_results if result.status == FoundationGateStatus.failed)
+    warning_count = sum(1 for result in ordered_results if result.status == FoundationGateStatus.warning)
+    blocked_count = sum(1 for result in ordered_results if result.status == FoundationGateStatus.blocked)
 
     if failed_count:
         overall_status = FoundationGateStatus.failed
@@ -69,7 +71,7 @@ def build_foundation_gate_report(
         report_id=f"fgrep_{uuid.uuid4().hex[:12]}",
         version=version,
         overall_status=overall_status,
-        results=results,
+        results=ordered_results,
         passed_count=passed_count,
         failed_count=failed_count,
         warning_count=warning_count,

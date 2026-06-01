@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from ultimate_ai_agent.core.time import utc_now
 from typing import Dict, List, Optional
 
 from ultimate_ai_agent.core.secrets.credentials import CredentialReference, SecretAccessRequest
@@ -81,7 +81,7 @@ class SecretBroker:
         if request.tool_id and reference.tool_id and request.tool_id != reference.tool_id:
             return self._deny(reference.credential_ref, ["TOOL_SCOPE_MISMATCH"], "Tool scope does not match credential.")
 
-        reference.last_used_at = datetime.utcnow()
+        reference.last_used_at = utc_now()
         handle = SecretHandle(
             handle_id=f"sh_{uuid.uuid4().hex[:12]}",
             credential_ref=reference.credential_ref,
@@ -122,7 +122,7 @@ class SecretBroker:
     def _inactive_reasons(self, reference: CredentialReference) -> List[str]:
         if reference.status != CredentialStatus.active:
             return ["CREDENTIAL_INACTIVE"]
-        if reference.expires_at and reference.expires_at <= datetime.utcnow():
+        if reference.expires_at and reference.expires_at <= utc_now():
             reference.status = CredentialStatus.expired
             return ["CREDENTIAL_INACTIVE", "CREDENTIAL_EXPIRED"]
         return []

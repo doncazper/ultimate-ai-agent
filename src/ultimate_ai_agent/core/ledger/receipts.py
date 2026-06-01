@@ -1,4 +1,5 @@
 from datetime import datetime
+from ultimate_ai_agent.core.time import utc_now
 from typing import List, Dict, Optional, Any
 from pydantic import BaseModel, Field, ConfigDict
 
@@ -11,7 +12,7 @@ class RunReceipt(BaseModel):
     run_id: str = Field(..., min_length=1)
     receipt_id: str = Field(..., min_length=1)
     schema_version: str = RECEIPT_SCHEMA_VERSION
-    generated_at: datetime = Field(default_factory=datetime.utcnow)
+    generated_at: datetime = Field(default_factory=utc_now)
     status: str = Field(..., min_length=1)
     summary: str = Field(..., min_length=1)
     event_count: int = Field(..., ge=0)

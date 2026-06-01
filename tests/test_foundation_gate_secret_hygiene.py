@@ -1,5 +1,6 @@
 import json
 import subprocess
+from pathlib import Path
 
 import pytest
 
@@ -40,6 +41,17 @@ def test_verify_all_detects_actual_private_key_header_in_tracked_file(monkeypatc
     assert exc.value.code == 1
 
 
+def test_verify_all_detects_tracked_generated_artifact(monkeypatch):
+    import scripts.verify_all as verify_all
+
+    monkeypatch.setattr(subprocess, "check_output", lambda *args, **kwargs: "src/ultimate_ai_agent.egg-info/PKG-INFO\n")
+
+    with pytest.raises(SystemExit) as exc:
+        verify_all.verify_no_generated_artifacts()
+
+    assert exc.value.code == 1
+
+
 def test_verify_all_does_not_flag_foundation_gate_evaluator_false_positive(monkeypatch):
     import scripts.verify_all as verify_all
 
@@ -50,3 +62,14 @@ def test_verify_all_does_not_flag_foundation_gate_evaluator_false_positive(monke
     )
 
     verify_all.verify_no_obvious_secrets()
+
+
+def test_core_runtime_avoids_deprecated_datetime_utcnow():
+    source_files = (Path("src") / "ultimate_ai_agent").rglob("*.py")
+    offenders = [
+        str(path)
+        for path in source_files
+        if "datetime.utcnow" in path.read_text(encoding="utf-8")
+    ]
+
+    assert offenders == []

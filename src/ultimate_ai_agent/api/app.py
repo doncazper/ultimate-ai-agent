@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
 from datetime import datetime
+from ultimate_ai_agent.core.time import utc_now
 from typing import List, Optional
 
 from ultimate_ai_agent import __version__
@@ -912,7 +913,7 @@ def post_route_truth_source(request: TruthRouteRequest):
 
 @app.post("/truth/freshness/check", response_model=ResultEnvelope)
 def post_check_truth_freshness(request: TruthFreshnessCheckRequest):
-    now = request.current_time or datetime.utcnow()
+    now = request.current_time or utc_now()
     status = classify_freshness(request.evidence_item, request.policy, now)
     allowed, reason = enforce_freshness_policy(request.evidence_item, request.policy, now)
     return ResultEnvelope(

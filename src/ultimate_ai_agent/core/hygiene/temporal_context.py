@@ -1,4 +1,5 @@
 from datetime import datetime
+from ultimate_ai_agent.core.time import utc_now
 from enum import Enum
 from typing import Optional
 from pydantic import BaseModel, Field, ConfigDict
@@ -21,7 +22,7 @@ class StalenessPolicy(str, Enum):
     unknown = "unknown"
 
 class TemporalContext(BaseModel):
-    current_time_utc: datetime = Field(default_factory=datetime.utcnow)
+    current_time_utc: datetime = Field(default_factory=utc_now)
     user_timezone: Optional[str] = None
     source_observed_at: Optional[datetime] = None
     source_published_at: Optional[datetime] = None

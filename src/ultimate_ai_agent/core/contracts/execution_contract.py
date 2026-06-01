@@ -1,4 +1,5 @@
 from datetime import datetime
+from ultimate_ai_agent.core.time import utc_now
 from typing import List, Dict, Optional, Any
 from pydantic import BaseModel, Field, ConfigDict, field_validator
 
@@ -67,7 +68,7 @@ class ExecutionContract(BaseModel):
     provisional_until: Optional[str] = None
     autonomy_policy_ref: Optional[str] = None
     tcb_touchpoints: List[str] = Field(default_factory=list)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_now)
     updated_at: Optional[datetime] = None
 
     model_config = ConfigDict(

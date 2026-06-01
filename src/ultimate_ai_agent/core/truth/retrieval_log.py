@@ -1,4 +1,5 @@
 from datetime import datetime
+from ultimate_ai_agent.core.time import utc_now
 from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -16,7 +17,7 @@ class RetrievalLogEntry(BaseModel):
     reranker_ref: Optional[str] = None
     result_count: int = Field(default=0, ge=0)
     redactions_applied: List[str] = Field(default_factory=list)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_now)
     event_ref: Optional[str] = None
 
     model_config = ConfigDict(extra="forbid")

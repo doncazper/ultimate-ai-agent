@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 import pytest
 from ultimate_ai_agent.core.consent import (
     ConsentLedger,
@@ -44,12 +44,12 @@ def test_consent_ledger_check_expiration(dummy_grant_factory):
     # Expired 1 hour ago
     grant = dummy_grant_factory(
         consent_id="g_exp",
-        expires_at=datetime.utcnow() - timedelta(hours=1)
+        expires_at=datetime.now(UTC) - timedelta(hours=1)
     )
     # Bypass validator check for future dates by manually appending/mocking status check
     ledger._grants.append(grant)
     
-    ledger.check_expiration(datetime.utcnow())
+    ledger.check_expiration(datetime.now(UTC))
     assert ledger.list_grants()[0].status == ConsentStatus.expired
 
 def test_consent_ledger_wildcard_allowed_actions(dummy_grant_factory):

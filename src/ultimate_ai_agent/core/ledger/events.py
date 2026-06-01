@@ -1,4 +1,5 @@
 from datetime import datetime
+from ultimate_ai_agent.core.time import utc_now
 from typing import List, Dict, Optional, Any
 from pydantic import BaseModel, Field, ConfigDict
 
@@ -14,8 +15,8 @@ class EventLedgerEvent(BaseModel):
     event_type: str = Field(..., min_length=1)  # Category e.g., 'contract', 'tool', etc.
     event_version: str = EVENT_LEDGER_EVENT_SCHEMA_VERSION
     event_name: EventName
-    occurred_at: datetime = Field(default_factory=datetime.utcnow)
-    recorded_at: datetime = Field(default_factory=datetime.utcnow)
+    occurred_at: datetime = Field(default_factory=utc_now)
+    recorded_at: datetime = Field(default_factory=utc_now)
     run_id: str = Field(..., min_length=1)
     step_id: Optional[str] = None
     parent_event_id: Optional[str] = None

@@ -1,4 +1,4 @@
-from datetime import datetime
+from ultimate_ai_agent.core.time import utc_now
 from typing import List, Optional
 from ultimate_ai_agent.core.world_state.models import StructuredWorldState, WorldStateStep
 
@@ -21,7 +21,7 @@ def compile_world_state_snapshot(
     Ensures compact representation suitable for transcript trimming injection,
     while maintaining exact references (event_ids) to the Event Ledger.
     """
-    now = datetime.utcnow()
+    now = utc_now()
     return StructuredWorldState(
         world_state_id=world_state_id,
         run_id=run_id,

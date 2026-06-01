@@ -1,4 +1,5 @@
 from datetime import datetime
+from ultimate_ai_agent.core.time import utc_now
 from typing import Any, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -35,7 +36,7 @@ class ProviderCostMetadata(BaseModel):
 
 
 class ProviderFreshnessMetadata(BaseModel):
-    fetched_at: datetime = Field(default_factory=datetime.utcnow)
+    fetched_at: datetime = Field(default_factory=utc_now)
     freshness_seconds: Optional[int] = Field(None, ge=0)
 
     model_config = ConfigDict(extra="forbid")
@@ -66,7 +67,7 @@ class ProviderResultEnvelope(BaseModel):
     provider_id: str
     domain: ProviderDomain
     capability: ProviderCapability
-    fetched_at: datetime = Field(default_factory=datetime.utcnow)
+    fetched_at: datetime = Field(default_factory=utc_now)
     input_summary: str
     normalized: Any
     raw_ref: Optional[str] = None

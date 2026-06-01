@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from ultimate_ai_agent.core.time import utc_now
 from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -17,7 +18,7 @@ class SourceConflictReport(BaseModel):
     preferred_source_id: Optional[str] = None
     reason_codes: List[str] = Field(default_factory=list)
     requires_human_review: bool = False
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_now)
 
     model_config = ConfigDict(extra="forbid")
 

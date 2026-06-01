@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 
 from pydantic import ValidationError
 
@@ -32,7 +32,7 @@ from ultimate_ai_agent.core.world_state import StructuredWorldState, WorldStateS
 
 def temporal_context() -> TemporalContext:
     return TemporalContext(
-        current_time_utc=datetime.utcnow(),
+        current_time_utc=datetime.now(UTC),
         user_timezone="UTC",
         freshness_class=FreshnessClass.static,
         staleness_policy=StalenessPolicy.allow_with_label,
@@ -106,8 +106,8 @@ def test_core_public_contracts_remain_instantiable_and_serializable(tmp_path):
         current_step="contract_compatibility",
         completed_steps=[WorldStateStep(step_id="step_contract", step_type="test", event_ids=[event.event_id])],
         last_event_id=event.event_id,
-        created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow(),
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
     )
     budget = ContextBudget(model_context_limit=8000)
     runtime_manifest = __import__(

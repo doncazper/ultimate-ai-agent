@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 import pytest
 from ultimate_ai_agent.core.consent import (
     ConsentGrant,
@@ -17,7 +17,7 @@ def test_valid_consent_grant():
         on_behalf_of_user_id="user_123",
         scope_type=ConsentScopeType.project,
         allowed_actions=[PermissionAction.write],
-        expires_at=datetime.utcnow() + timedelta(days=1),
+        expires_at=datetime.now(UTC) + timedelta(days=1),
         source="user_interface"
     )
     assert validate_consent_grant(grant) is True
@@ -45,7 +45,7 @@ def test_invalid_consent_grant_expired():
         on_behalf_of_user_id="user_123",
         scope_type=ConsentScopeType.project,
         allowed_actions=[PermissionAction.write],
-        expires_at=datetime.utcnow() - timedelta(days=1),
+        expires_at=datetime.now(UTC) - timedelta(days=1),
         source="user_interface"
     )
     with pytest.raises(ValueError, match="expires_at must be in the future"):

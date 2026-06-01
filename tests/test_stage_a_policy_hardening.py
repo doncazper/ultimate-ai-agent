@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 
 import pytest
 from pydantic import ValidationError
@@ -34,7 +34,7 @@ def actor_context():
         actor_type=ActorType.orchestrator,
         actor_id="test_actor",
         authority_source=AuthoritySource.explicit_user_request,
-        created_at=datetime.utcnow(),
+        created_at=datetime.now(UTC),
     )
 
 

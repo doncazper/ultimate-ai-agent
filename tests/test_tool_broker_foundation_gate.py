@@ -1,5 +1,5 @@
 import pytest
-from datetime import datetime
+from datetime import UTC, datetime
 from ultimate_ai_agent.core.tools import (
     ToolRegistry,
     ToolBroker,
@@ -21,7 +21,7 @@ def actor_context():
         actor_type=ActorType.orchestrator,
         actor_id="test_actor",
         authority_source=AuthoritySource.explicit_user_request,
-        created_at=datetime.utcnow()
+        created_at=datetime.now(UTC)
     )
 
 def test_foundation_gate_blocks_skills_and_mcp(actor_context):

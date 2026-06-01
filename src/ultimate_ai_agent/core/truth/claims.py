@@ -1,4 +1,5 @@
 from datetime import datetime
+from ultimate_ai_agent.core.time import utc_now
 from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -14,7 +15,7 @@ class ClaimEvidence(BaseModel):
     source_ids: List[str] = Field(default_factory=list)
     confidence: float = Field(default=0.0, ge=0.0, le=1.0)
     freshness_status: SourceFreshnessStatus = SourceFreshnessStatus.unknown
-    checked_at: datetime = Field(default_factory=datetime.utcnow)
+    checked_at: datetime = Field(default_factory=utc_now)
     unsupported_reason: Optional[str] = None
     conflict_report_ref: Optional[str] = None
     human_review_required: bool = False

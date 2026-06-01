@@ -1,4 +1,5 @@
 from datetime import datetime
+from ultimate_ai_agent.core.time import utc_now
 from enum import Enum
 from typing import List, Dict, Optional, Any
 from pydantic import BaseModel, Field, ConfigDict
@@ -98,7 +99,7 @@ class ContextPack(BaseModel):
     assumptions: List[str] = Field(default_factory=list)
     untrusted_content_boundaries: List[Dict[str, Any]] = Field(default_factory=list)
     token_budget: int = Field(..., ge=1)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_now)
 
     model_config = ConfigDict(
         use_enum_values=True,

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 import pytest
 import tempfile
 from pathlib import Path
@@ -14,10 +14,10 @@ def dummy_event_factory():
         actor_type=ActorType.orchestrator,
         actor_id="test_orchestrator",
         authority_source=AuthoritySource.explicit_user_request,
-        created_at=datetime.utcnow()
+        created_at=datetime.now(UTC)
     )
     temporal = TemporalContext(
-        current_time_utc=datetime.utcnow(),
+        current_time_utc=datetime.now(UTC),
         freshness_class=FreshnessClass.daily,
         staleness_policy=StalenessPolicy.allow_with_label
     )
