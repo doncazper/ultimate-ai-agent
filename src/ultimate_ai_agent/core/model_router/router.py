@@ -13,6 +13,7 @@ class _Candidate:
     profile: ModelCapabilityProfile
     estimated_cost: float
     estimated_latency_ms: float
+    warning_reason_codes: list[str]
 
 
 class ModelRouter:
@@ -38,7 +39,7 @@ class ModelRouter:
             if profile_reasons:
                 rejected.append(profile.model_profile_id)
                 reasons.extend(profile_reasons)
-                if "CLOUD_APPROVAL_REQUIRED" in profile_reasons:
+                if "CLOUD_APPROVAL_REQUIRED" in profile_reasons or "APPROVAL_REF_UNVALIDATED" in profile_reasons:
                     approval_required = True
                 continue
 
@@ -50,6 +51,7 @@ class ModelRouter:
                         budget_id=f"route_policy_{request.routing_policy.policy_id}",
                         scope=BudgetScope.run,
                         max_cost_usd=request.routing_policy.max_estimated_cost_usd,
+                        hard_limit=request.routing_policy.max_estimated_cost_hard_limit,
                     )
                 )
             cost_decision = self.cost_governor.evaluate(estimate, budgets)
@@ -68,6 +70,7 @@ class ModelRouter:
                     profile=profile,
                     estimated_cost=estimate.estimated_cost_usd or 0.0,
                     estimated_latency_ms=profile.time_to_first_token_ms or 0.0,
+                    warning_reason_codes=cost_decision.reason_codes if cost_decision.status == BudgetStatus.warning else [],
                 )
             )
 
@@ -82,6 +85,12 @@ class ModelRouter:
             )
 
         selected = sorted(eligible, key=lambda candidate: self._sort_key(request, candidate))[0]
+        reason_codes = ["SELECTED_PROFILE", *selected.warning_reason_codes]
+        safe_message = (
+            "Model route selected with policy warnings. No model execution was performed."
+            if selected.warning_reason_codes
+            else "Model route selected by deterministic policy. No model execution was performed."
+        )
         return ModelRouteDecision(
             request_id=request.request_id,
             run_id=request.run_id,
@@ -90,8 +99,8 @@ class ModelRouter:
             selected_model_id=selected.profile.model_id,
             candidate_profile_ids=[candidate.profile.model_profile_id for candidate in eligible],
             rejected_profile_ids=sorted(set(rejected)),
-            reason_codes=["SELECTED_PROFILE"],
-            safe_message="Model route selected by deterministic policy. No model execution was performed.",
+            reason_codes=reason_codes,
+            safe_message=safe_message,
             estimated_cost=selected.estimated_cost,
             estimated_latency_ms=selected.estimated_latency_ms,
             privacy_notes=self._privacy_notes(request, selected.profile),
@@ -123,6 +132,9 @@ class ModelRouter:
             reasons.append("PAID_MODEL_DISALLOWED")
         if profile.credential_ref and not request.credential_availability.get(profile.credential_ref, False):
             reasons.append("CREDENTIAL_NOT_AVAILABLE")
+        context_budget_reason = self._context_budget_rejection_reason(request)
+        if context_budget_reason:
+            reasons.append(context_budget_reason)
         if profile.max_context_tokens is not None and profile.max_context_tokens < self._required_context_tokens(request):
             reasons.append("CONTEXT_TOO_SMALL")
         if policy.max_latency_ms is not None and profile.time_to_first_token_ms is not None:
@@ -141,17 +153,31 @@ class ModelRouter:
         if not policy.allow_cloud:
             return ["CLOUD_BLOCKED_BY_POLICY"]
         if classification in {"sensitive_personal", "regulated", "tcb_protected"}:
-            if policy.require_human_approval_for_cloud and not request.approval_ref:
-                return ["CLOUD_APPROVAL_REQUIRED"]
+            if policy.require_human_approval_for_cloud:
+                if not request.approval_ref:
+                    return ["CLOUD_APPROVAL_REQUIRED"]
+                if not self._approval_ref_is_valid_for_m7(request.approval_ref):
+                    return ["APPROVAL_REF_UNVALIDATED"]
         return []
 
     def _required_context_tokens(self, request: ModelRouteRequest) -> int:
         required = request.total_estimated_tokens
         if request.routing_policy.min_context_tokens:
             required = max(required, request.routing_policy.min_context_tokens)
-        if request.context_budget is not None:
-            required = max(required, request.context_budget.model_context_limit)
         return required
+
+    def _context_budget_rejection_reason(self, request: ModelRouteRequest) -> str | None:
+        if request.context_budget is None:
+            return None
+        available_history_tokens = request.context_budget.available_history_tokens
+        if available_history_tokens <= 0 and request.estimated_input_tokens > 0:
+            return "CONTEXT_BUDGET_EXHAUSTED"
+        if request.estimated_input_tokens > available_history_tokens:
+            return "CONTEXT_BUDGET_INSUFFICIENT"
+        return None
+
+    def _approval_ref_is_valid_for_m7(self, approval_ref: str) -> bool:
+        return approval_ref.startswith("approval_test_")
 
     def _sort_key(self, request: ModelRouteRequest, candidate: _Candidate) -> tuple[int, float, float, str]:
         local_rank = 0
@@ -165,11 +191,11 @@ class ModelRouter:
         )
 
     def _failure_status(self, reasons: list[str], approval_required: bool) -> ModelRouteStatus:
-        if approval_required:
+        if approval_required or any(reason in {"CLOUD_APPROVAL_REQUIRED", "APPROVAL_REF_UNVALIDATED"} for reason in reasons):
             return ModelRouteStatus.approval_required
         if any("PRIVACY" in reason or reason.startswith("CLOUD_BLOCKED") or reason.startswith("CREDENTIAL_SECRET") for reason in reasons):
             return ModelRouteStatus.privacy_blocked
-        if any(reason == "CONTEXT_TOO_SMALL" for reason in reasons):
+        if any(reason in {"CONTEXT_TOO_SMALL", "CONTEXT_BUDGET_EXHAUSTED", "CONTEXT_BUDGET_INSUFFICIENT"} for reason in reasons):
             return ModelRouteStatus.context_too_small
         if any("BUDGET" in reason for reason in reasons):
             return ModelRouteStatus.budget_exceeded

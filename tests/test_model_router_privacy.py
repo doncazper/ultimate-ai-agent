@@ -30,6 +30,51 @@ def test_sensitive_personal_cloud_route_requires_approval_when_policy_demands_it
     assert "CLOUD_APPROVAL_REQUIRED" in decision.reason_codes
 
 
+def test_arbitrary_approval_ref_does_not_authorize_sensitive_cloud_route():
+    request = route_request(
+        profiles=[cloud_profile()],
+        data_classification=classification(ClassificationValue.sensitive_personal),
+        routing_policy=policy(require_human_approval_for_cloud=True, allow_cloud=True),
+        approval_ref="arbitrary-string",
+    )
+
+    decision = ModelRouter().route(request)
+
+    assert decision.status == ModelRouteStatus.approval_required
+    assert decision.selected_profile_id is None
+    assert decision.required_approval is True
+    assert "APPROVAL_REF_UNVALIDATED" in decision.reason_codes
+
+
+def test_test_approval_ref_can_authorize_sensitive_cloud_route():
+    request = route_request(
+        profiles=[cloud_profile()],
+        data_classification=classification(ClassificationValue.sensitive_personal),
+        routing_policy=policy(require_human_approval_for_cloud=True, allow_cloud=True),
+        approval_ref="approval_test_cloud_ok",
+    )
+
+    decision = ModelRouter().route(request)
+
+    assert decision.status == ModelRouteStatus.selected
+    assert decision.selected_profile_id == "cloud_reasoner"
+    assert "SELECTED_PROFILE" in decision.reason_codes
+
+
+def test_local_route_does_not_require_cloud_approval():
+    request = route_request(
+        profiles=[local_profile()],
+        data_classification=classification(ClassificationValue.sensitive_personal),
+        routing_policy=policy(require_human_approval_for_cloud=True, allow_cloud=False),
+    )
+
+    decision = ModelRouter().route(request)
+
+    assert decision.status == ModelRouteStatus.selected
+    assert decision.selected_profile_id == "local_coder"
+    assert "CLOUD_APPROVAL_REQUIRED" not in decision.reason_codes
+
+
 def test_credential_secret_never_routes_to_model():
     request = route_request(
         profiles=[local_profile(), cloud_profile()],

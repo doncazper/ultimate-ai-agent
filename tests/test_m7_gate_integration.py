@@ -11,6 +11,11 @@ def test_foundation_gate_criteria_include_m7_policy_only_surface():
         "m7_modules_present",
         "model_router_decision_only",
         "cost_governor_blocks_over_budget",
+        "m7_arbitrary_approval_ref_rejected",
+        "m7_context_budget_exhaustion_blocks_route",
+        "m7_soft_budget_warning_allows_route",
+        "m7_hard_budget_denies_route",
+        "m7_cost_warnings_visible_in_route_decision",
     }.issubset(by_id)
 
 
@@ -21,6 +26,11 @@ def test_foundation_gate_evaluator_passes_m7_policy_only_checks():
     assert results["m7_modules_present"].status == FoundationGateStatus.passed
     assert results["model_router_decision_only"].status == FoundationGateStatus.passed
     assert results["cost_governor_blocks_over_budget"].status == FoundationGateStatus.passed
+    assert results["m7_arbitrary_approval_ref_rejected"].status == FoundationGateStatus.passed
+    assert results["m7_context_budget_exhaustion_blocks_route"].status == FoundationGateStatus.passed
+    assert results["m7_soft_budget_warning_allows_route"].status == FoundationGateStatus.passed
+    assert results["m7_hard_budget_denies_route"].status == FoundationGateStatus.passed
+    assert results["m7_cost_warnings_visible_in_route_decision"].status == FoundationGateStatus.passed
 
 
 def test_m7_does_not_add_runtime_execution_integrations():

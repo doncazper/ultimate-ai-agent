@@ -16,6 +16,7 @@ class ModelRoutingPolicy(BaseModel):
     allow_cloud: bool = False
     allow_paid: bool = False
     max_estimated_cost_usd: Optional[float] = Field(None, ge=0)
+    max_estimated_cost_hard_limit: bool = True
     max_latency_ms: Optional[float] = Field(None, ge=0)
     min_context_tokens: Optional[int] = Field(None, ge=1)
     require_structured_output: Optional[bool] = None

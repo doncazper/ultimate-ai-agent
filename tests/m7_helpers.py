@@ -27,6 +27,8 @@ def local_profile(
     profile_id: str = "local_coder",
     *,
     capabilities: list[ModelTaskCapability] | None = None,
+    cost_per_1k_input_tokens: float | None = None,
+    cost_per_1k_output_tokens: float | None = None,
     max_context_tokens: int = 8192,
     enabled: bool = True,
 ) -> ModelCapabilityProfile:
@@ -39,6 +41,8 @@ def local_profile(
         capabilities=capabilities or [ModelTaskCapability.chat, ModelTaskCapability.coding],
         privacy_class=ModelPrivacyClass.local_only,
         max_context_tokens=max_context_tokens,
+        cost_per_1k_input_tokens=cost_per_1k_input_tokens,
+        cost_per_1k_output_tokens=cost_per_1k_output_tokens,
         estimated_tokens_per_second=30,
         time_to_first_token_ms=120,
         enabled=enabled,

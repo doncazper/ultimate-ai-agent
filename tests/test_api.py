@@ -1,4 +1,6 @@
 from fastapi.testclient import TestClient
+
+from ultimate_ai_agent import __version__
 from ultimate_ai_agent.api.app import app
 
 client = TestClient(app)
@@ -8,19 +10,19 @@ def test_health_endpoint():
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "healthy"
-    assert data["version"] == "0.11.0"
+    assert data["version"] == __version__
 
 def test_version_endpoint():
     response = client.get("/version")
     assert response.status_code == 200
     data = response.json()
-    assert data["version"] == "0.11.0"
+    assert data["version"] == __version__
 
 
 def test_openapi_schema_generation_reports_current_version():
     schema = app.openapi()
 
-    assert schema["info"]["version"] == "0.11.0"
+    assert schema["info"]["version"] == __version__
     assert "/health" in schema["paths"]
     assert "/version" in schema["paths"]
     assert "/gate/reports/validate" in schema["paths"]

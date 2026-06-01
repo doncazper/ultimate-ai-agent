@@ -56,6 +56,62 @@ def test_warning_threshold_allows_with_warning_for_soft_limit():
     assert "COST_WARNING_THRESHOLD_REACHED" in decision.reason_codes
 
 
+def test_soft_budget_overage_allows_with_warning():
+    decision = CostGovernor().evaluate(
+        CostEstimate(
+            estimate_id="estimate_soft_over",
+            input_tokens=100,
+            output_tokens=100,
+            total_tokens=200,
+            estimated_cost_usd=2.00,
+        ),
+        [
+            CostBudget(
+                budget_id="budget_soft_over",
+                scope=BudgetScope.run,
+                max_cost_usd=1.00,
+                hard_limit=False,
+            )
+        ],
+    )
+
+    assert decision.allowed is True
+    assert decision.status == BudgetStatus.warning
+    assert "SOFT_BUDGET_EXCEEDED" in decision.reason_codes
+    assert "COST_BUDGET_EXCEEDED" in decision.reason_codes
+    assert decision.safe_message == "Budget check allowed with warning."
+
+
+def test_soft_budget_overage_does_not_bypass_later_hard_budget_denial():
+    decision = CostGovernor().evaluate(
+        CostEstimate(
+            estimate_id="estimate_soft_then_hard",
+            input_tokens=100,
+            output_tokens=100,
+            total_tokens=200,
+            estimated_cost_usd=2.00,
+        ),
+        [
+            CostBudget(
+                budget_id="budget_soft_over",
+                scope=BudgetScope.run,
+                max_cost_usd=1.00,
+                hard_limit=False,
+            ),
+            CostBudget(
+                budget_id="budget_hard_over",
+                scope=BudgetScope.run,
+                max_cost_usd=1.50,
+                hard_limit=True,
+            ),
+        ],
+    )
+
+    assert decision.allowed is False
+    assert decision.status == BudgetStatus.denied
+    assert "HARD_BUDGET_EXCEEDED" in decision.reason_codes
+
+
 def test_unknown_paid_cost_requires_approval():
     estimate = CostGovernor().estimate_route_cost(
         route_request(profiles=[cloud_profile()]),

@@ -51,16 +51,19 @@ class CostGovernor:
         for budget in budgets:
             denial = self._denial_reason(estimate, budget)
             if denial:
-                return CostDecision(
-                    allowed=False,
-                    status=BudgetStatus.denied if budget.hard_limit else BudgetStatus.warning,
-                    budget_id=budget.budget_id,
-                    estimate_id=estimate.estimate_id,
-                    reason_codes=[denial],
-                    safe_message="Budget check denied the route." if budget.hard_limit else "Budget check allowed with warning.",
-                    remaining_cost_usd=remaining_cost,
-                    remaining_tokens=remaining_tokens,
-                )
+                if budget.hard_limit:
+                    return CostDecision(
+                        allowed=False,
+                        status=BudgetStatus.denied,
+                        budget_id=budget.budget_id,
+                        estimate_id=estimate.estimate_id,
+                        reason_codes=["HARD_BUDGET_EXCEEDED", denial],
+                        safe_message="Budget check denied the route.",
+                        remaining_cost_usd=remaining_cost,
+                        remaining_tokens=remaining_tokens,
+                    )
+                warnings.extend(["SOFT_BUDGET_EXCEEDED", denial])
+                continue
             warnings.extend(self._warning_reasons(estimate, budget))
             if budget.max_cost_usd is not None:
                 remaining_cost = max(0.0, budget.max_cost_usd - estimate.estimated_cost_usd)

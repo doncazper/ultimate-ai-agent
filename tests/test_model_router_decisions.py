@@ -80,3 +80,50 @@ def test_credentialed_profile_skipped_when_credential_metadata_unavailable():
 
     assert decision.status == ModelRouteStatus.denied
     assert "CREDENTIAL_NOT_AVAILABLE" in decision.reason_codes
+
+
+def test_router_selects_candidate_with_soft_budget_warning():
+    request = route_request(
+        profiles=[
+            local_profile(
+                cost_per_1k_input_tokens=0.02,
+                cost_per_1k_output_tokens=0.02,
+            )
+        ],
+        routing_policy=policy(
+            prefer_local=True,
+            allow_paid=True,
+            max_estimated_cost_usd=0.01,
+            max_estimated_cost_hard_limit=False,
+        ),
+    )
+
+    decision = ModelRouter().route(request)
+
+    assert decision.status == ModelRouteStatus.selected
+    assert decision.selected_profile_id == "local_coder"
+    assert "SOFT_BUDGET_EXCEEDED" in decision.reason_codes
+    assert decision.safe_message == "Model route selected with policy warnings. No model execution was performed."
+
+
+def test_router_rejects_candidate_with_hard_budget_denial():
+    request = route_request(
+        profiles=[
+            local_profile(
+                cost_per_1k_input_tokens=0.02,
+                cost_per_1k_output_tokens=0.02,
+            )
+        ],
+        routing_policy=policy(
+            prefer_local=True,
+            allow_paid=True,
+            max_estimated_cost_usd=0.01,
+            max_estimated_cost_hard_limit=True,
+        ),
+    )
+
+    decision = ModelRouter().route(request)
+
+    assert decision.status == ModelRouteStatus.budget_exceeded
+    assert decision.selected_profile_id is None
+    assert "HARD_BUDGET_EXCEEDED" in decision.reason_codes

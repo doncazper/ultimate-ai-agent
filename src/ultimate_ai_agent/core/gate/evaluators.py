@@ -11,6 +11,7 @@ from ultimate_ai_agent.core.gate.criteria import FoundationGateCriterion, defaul
 from ultimate_ai_agent.core.gate.enums import FoundationGateStatus
 from ultimate_ai_agent.core.gate.reports import FoundationGateReport, FoundationGateResult, build_foundation_gate_report
 from ultimate_ai_agent.core.gate.shadow_replay import run_m5_shadow_replay
+from ultimate_ai_agent.core.context_budget import ContextBudget
 from ultimate_ai_agent.core.hygiene.actor_context import ActorContext, ActorType, AuthoritySource
 from ultimate_ai_agent.core.hygiene.policies import ClassificationValue, DataClassification
 from ultimate_ai_agent.core.costs import BudgetScope, BudgetStatus, CostBudget, CostEstimate, CostGovernor
@@ -71,6 +72,11 @@ class FoundationGateEvaluator:
             "m7_modules_present": self.check_m7_modules_present,
             "model_router_decision_only": self.check_model_router_decision_only,
             "cost_governor_blocks_over_budget": self.check_cost_governor_blocks_over_budget,
+            "m7_arbitrary_approval_ref_rejected": self.check_m7_arbitrary_approval_ref_rejected,
+            "m7_context_budget_exhaustion_blocks_route": self.check_m7_context_budget_exhaustion_blocks_route,
+            "m7_soft_budget_warning_allows_route": self.check_m7_soft_budget_warning_allows_route,
+            "m7_hard_budget_denies_route": self.check_m7_hard_budget_denies_route,
+            "m7_cost_warnings_visible_in_route_decision": self.check_m7_cost_warnings_visible_in_route_decision,
         }
         results = [
             evaluator_map.get(criterion.criterion_id, self._skipped)(criterion)
@@ -448,6 +454,113 @@ class FoundationGateEvaluator:
             failures.append("cost denial reason missing")
         return self._result(criterion, failures, ["src/ultimate_ai_agent/core/costs"])
 
+    def check_m7_arbitrary_approval_ref_rejected(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        failures: List[str] = []
+        profile = self._gate_cloud_profile()
+        request = self._gate_route_request(
+            profile,
+            data_classification=ClassificationValue.sensitive_personal,
+            approval_ref="arbitrary-string",
+            policy=ModelRoutingPolicy(
+                policy_id="m7_gate_approval_policy",
+                required_capabilities=[ModelTaskCapability.chat],
+                allow_cloud=True,
+                allow_paid=True,
+                require_human_approval_for_cloud=True,
+            ),
+        )
+        decision = ModelRouter().route(request)
+        if decision.status != ModelRouteStatus.approval_required:
+            failures.append(f"route status was {decision.status}")
+        if decision.selected_profile_id is not None:
+            failures.append("arbitrary approval_ref selected a cloud profile")
+        if "APPROVAL_REF_UNVALIDATED" not in decision.reason_codes:
+            failures.append("unvalidated approval reason missing")
+        return self._result(criterion, failures, ["src/ultimate_ai_agent/core/model_router/router.py"])
+
+    def check_m7_context_budget_exhaustion_blocks_route(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        failures: List[str] = []
+        profile = self._gate_local_profile()
+        request = self._gate_route_request(
+            profile,
+            context_budget=ContextBudget(
+                model_context_limit=4096,
+                system_prompt_tokens=1000,
+                tool_schema_tokens=1000,
+                world_state_tokens=1000,
+                context_pack_tokens=1000,
+                completion_reserve_tokens=96,
+                safety_margin_tokens=0,
+            ),
+        )
+        decision = ModelRouter().route(request)
+        if decision.status != ModelRouteStatus.context_too_small:
+            failures.append(f"route status was {decision.status}")
+        if decision.selected_profile_id is not None:
+            failures.append("exhausted context budget selected a profile")
+        if "CONTEXT_BUDGET_EXHAUSTED" not in decision.reason_codes:
+            failures.append("context budget exhaustion reason missing")
+        return self._result(criterion, failures, ["src/ultimate_ai_agent/core/model_router/router.py"])
+
+    def check_m7_soft_budget_warning_allows_route(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        failures: List[str] = []
+        decision = CostGovernor().evaluate(
+            CostEstimate(
+                estimate_id="m7_gate_soft_estimate",
+                input_tokens=100,
+                output_tokens=100,
+                total_tokens=200,
+                estimated_cost_usd=2,
+            ),
+            [CostBudget(budget_id="m7_gate_soft_budget", scope=BudgetScope.run, max_cost_usd=1, hard_limit=False)],
+        )
+        if not decision.allowed or decision.status != BudgetStatus.warning:
+            failures.append("soft budget overage was not allowed with warning")
+        if "SOFT_BUDGET_EXCEEDED" not in decision.reason_codes:
+            failures.append("soft budget reason missing")
+        return self._result(criterion, failures, ["src/ultimate_ai_agent/core/costs/governor.py"])
+
+    def check_m7_hard_budget_denies_route(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        failures: List[str] = []
+        decision = CostGovernor().evaluate(
+            CostEstimate(
+                estimate_id="m7_gate_hard_estimate",
+                input_tokens=100,
+                output_tokens=100,
+                total_tokens=200,
+                estimated_cost_usd=2,
+            ),
+            [CostBudget(budget_id="m7_gate_hard_budget", scope=BudgetScope.run, max_cost_usd=1, hard_limit=True)],
+        )
+        if decision.allowed or decision.status != BudgetStatus.denied:
+            failures.append("hard budget overage was not denied")
+        if "HARD_BUDGET_EXCEEDED" not in decision.reason_codes:
+            failures.append("hard budget reason missing")
+        return self._result(criterion, failures, ["src/ultimate_ai_agent/core/costs/governor.py"])
+
+    def check_m7_cost_warnings_visible_in_route_decision(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        failures: List[str] = []
+        profile = self._gate_local_profile(cost_per_1k_input_tokens=0.02, cost_per_1k_output_tokens=0.02)
+        request = self._gate_route_request(
+            profile,
+            policy=ModelRoutingPolicy(
+                policy_id="m7_gate_soft_route_policy",
+                required_capabilities=[ModelTaskCapability.chat],
+                prefer_local=True,
+                allow_paid=True,
+                max_estimated_cost_usd=0.01,
+                max_estimated_cost_hard_limit=False,
+            ),
+        )
+        decision = ModelRouter().route(request)
+        if decision.status != ModelRouteStatus.selected:
+            failures.append(f"route status was {decision.status}")
+        if "SOFT_BUDGET_EXCEEDED" not in decision.reason_codes:
+            failures.append("soft budget warning was not visible in route decision")
+        if "with policy warnings" not in decision.safe_message:
+            failures.append("route decision safe_message did not mention warnings")
+        return self._result(criterion, failures, ["src/ultimate_ai_agent/core/model_router/router.py"])
+
     def _skipped(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
         return FoundationGateResult(
             criterion_id=criterion.criterion_id,
@@ -513,4 +626,75 @@ class FoundationGateEvaluator:
             actor_type=ActorType.system_worker,
             actor_id="foundation_gate",
             authority_source=AuthoritySource.system_policy,
+        )
+
+    def _gate_local_profile(
+        self,
+        cost_per_1k_input_tokens: Optional[float] = None,
+        cost_per_1k_output_tokens: Optional[float] = None,
+    ) -> ModelCapabilityProfile:
+        return ModelCapabilityProfile(
+            model_profile_id="m7_gate_local",
+            provider_kind=ModelProviderKind.local_runtime,
+            runtime_id="rt_gate",
+            model_id="local_policy_model",
+            display_name="Local Policy Model",
+            capabilities=[ModelTaskCapability.chat, ModelTaskCapability.coding],
+            privacy_class=ModelPrivacyClass.local_only,
+            max_context_tokens=8192,
+            cost_per_1k_input_tokens=cost_per_1k_input_tokens,
+            cost_per_1k_output_tokens=cost_per_1k_output_tokens,
+            enabled=True,
+            owner="core.gate",
+            source="foundation_gate",
+            version="0.0.0",
+        )
+
+    def _gate_cloud_profile(self) -> ModelCapabilityProfile:
+        return ModelCapabilityProfile(
+            model_profile_id="m7_gate_cloud",
+            provider_kind=ModelProviderKind.cloud_provider,
+            provider_id="provider_gate",
+            model_id="cloud_policy_model",
+            display_name="Cloud Policy Model",
+            capabilities=[ModelTaskCapability.chat],
+            privacy_class=ModelPrivacyClass.cloud_allowed,
+            max_context_tokens=8192,
+            cost_per_1k_input_tokens=0.01,
+            cost_per_1k_output_tokens=0.03,
+            enabled=True,
+            owner="core.gate",
+            source="foundation_gate",
+            version="0.0.0",
+        )
+
+    def _gate_route_request(
+        self,
+        profile: ModelCapabilityProfile,
+        data_classification: ClassificationValue = ClassificationValue.project_private,
+        approval_ref: Optional[str] = None,
+        context_budget: Optional[ContextBudget] = None,
+        policy: Optional[ModelRoutingPolicy] = None,
+    ) -> ModelRouteRequest:
+        return ModelRouteRequest(
+            request_id="m7_gate_route_policy",
+            run_id="run_foundation_gate",
+            actor_context=self._actor(),
+            task_class="coding",
+            prompt_summary="Foundation Gate model routing metadata check.",
+            data_classification=DataClassification(classification=data_classification, source="foundation_gate"),
+            required_capabilities=[ModelTaskCapability.chat],
+            estimated_input_tokens=1000,
+            estimated_output_tokens=500,
+            context_budget=context_budget,
+            routing_policy=policy
+            or ModelRoutingPolicy(
+                policy_id="m7_gate_route_policy",
+                required_capabilities=[ModelTaskCapability.chat],
+                prefer_local=True,
+                allow_cloud=False,
+                allow_paid=False,
+            ),
+            available_profiles=[profile],
+            approval_ref=approval_ref,
         )
