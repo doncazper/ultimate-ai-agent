@@ -34,6 +34,10 @@ GATE_TESTS = [
     "tests/test_resource_governor.py",
     "tests/test_m7_api_routes.py",
     "tests/test_m7_gate_integration.py",
+    "tests/test_api_manifest.py",
+    "tests/test_openapi_contract.py",
+    "tests/test_agents_md_guidance.py",
+    "tests/test_m75_gate_integration.py",
 ]
 
 

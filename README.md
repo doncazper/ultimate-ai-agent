@@ -1,19 +1,22 @@
-# Ultimate AI Agent Canonical Bundle v0.11.1
+# Ultimate AI Agent Canonical Bundle v0.11.2
 
-This is the active project baseline after the v0.11.1 M7 policy-correctness patch.
+This is the active project baseline after the v0.11.2 M7.5 API boundary stabilization patch.
 
 Start here:
 
 ```text
-README_IMPORT_v0_11_1.md
-ultimate_ai_agent_master_plan_v0_11_1.md
+README_IMPORT_v0_11_2.md
+ultimate_ai_agent_master_plan_v0_11_2.md
 docs/canonical/09_roadmap.md
 docs/canonical/21_consent_and_permissions_ledger.md
 docs/canonical/37_tool_broker.md
 docs/canonical/42_autonomy_levels_and_standing_approvals.md
 docs/canonical/45_trusted_computing_base.md
 docs/canonical/63_observability_standards_mapping.md
-docs/implementation/foundation_gate_implementation_plan_v0_11_1.md
+docs/api/README.md
+docs/api/openapi_contract.md
+docs/api/route_inventory.md
+docs/implementation/foundation_gate_implementation_plan_v0_11_2.md
 docs/testing/test_strategy_v0.md
 ```
 
@@ -35,4 +38,4 @@ Observability standards rule:
 
 Foundation Gate rule:
 
-> v0.11.1 hardens the M7 policy foundation for deterministic model routing and cost/resource governance. Arbitrary approval refs no longer satisfy sensitive cloud approval, available-history context budget checks are enforced, soft budget overages allow with warnings, and Foundation Gate now covers these M7 policy semantics. It does not add scanners, companion proactivity, Skill Factory, self-improving code, autopilot, browser automation, real providers/models/web calls, tokenizers, billing APIs, network calls, SDK/A2A runtime delegation, production databases, pgvector, embeddings, production secrets, production truth connectors, or high-autonomy execution.
+> v0.11.2 stabilizes the M7.5 API boundary. `/api/manifest`, deterministic OpenAPI operation IDs, export/verify scripts, AGENTS.md workspace standards, API docs, CI coverage, and Foundation Gate criteria now protect the API contract. It does not add scanners, companion proactivity, Skill Factory, self-improving code, autopilot, browser automation, real providers/models/web calls, tokenizers, billing APIs, network calls, runtime agent config loading, SDK/A2A runtime delegation, production databases, pgvector, embeddings, production secrets, production truth connectors, or high-autonomy execution.

@@ -319,6 +319,25 @@ def main():
         if not p.exists():
             fail(f"Required M7 file is missing: {rel_path}")
     ok("All M7 model router and cost/resource governor files exist")
+
+    # 8.13 Check M7.5 API boundary stabilization files existence
+    m75_files = [
+        "AGENTS.md",
+        "src/ultimate_ai_agent/api/contracts.py",
+        "src/ultimate_ai_agent/api/manifest.py",
+        "src/ultimate_ai_agent/api/openapi.py",
+        "scripts/export_openapi.py",
+        "scripts/verify_openapi_contract.py",
+        "docs/api/README.md",
+        "docs/api/openapi_contract.md",
+        "docs/api/route_inventory.md",
+        "docs/standards/agents_md_support.md",
+    ]
+    for rel_path in m75_files:
+        p = ROOT / rel_path
+        if not p.exists():
+            fail(f"Required M7.5 API boundary file is missing: {rel_path}")
+    ok("All M7.5 API boundary stabilization files exist")
     
     # 9. Enforce scans by delegating to verify_all
     try:

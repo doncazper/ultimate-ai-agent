@@ -32,5 +32,8 @@ jobs:
       - name: Run Foundation Gate
         run: python scripts/run_foundation_gate.py
 
+      - name: Verify OpenAPI contract
+        run: python scripts/verify_openapi_contract.py
+
       - name: Run Ruff
         run: python -m ruff check .

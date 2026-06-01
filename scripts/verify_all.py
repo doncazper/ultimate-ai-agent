@@ -250,6 +250,9 @@ def main():
     # 5. Run Skill Package Security Rule Audit
     run_cmd([sys.executable, "scripts/verify_skill_package_security_rule.py"])
 
+    # 6. Run OpenAPI Contract Verification
+    run_cmd([sys.executable, "scripts/verify_openapi_contract.py"])
+
     print("\n=== All verification checks PASSED successfully ===")
 
 if __name__ == "__main__":

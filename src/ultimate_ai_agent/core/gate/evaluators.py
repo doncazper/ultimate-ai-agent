@@ -77,6 +77,12 @@ class FoundationGateEvaluator:
             "m7_soft_budget_warning_allows_route": self.check_m7_soft_budget_warning_allows_route,
             "m7_hard_budget_denies_route": self.check_m7_hard_budget_denies_route,
             "m7_cost_warnings_visible_in_route_decision": self.check_m7_cost_warnings_visible_in_route_decision,
+            "api_manifest_endpoint_present": self.check_api_manifest_endpoint_present,
+            "openapi_contract_valid": self.check_openapi_contract_valid,
+            "api_operation_ids_unique": self.check_api_operation_ids_unique,
+            "forbidden_runtime_routes_absent": self.check_forbidden_runtime_routes_absent,
+            "agents_md_guidance_present": self.check_agents_md_guidance_present,
+            "runtime_agent_config_loading_absent": self.check_runtime_agent_config_loading_absent,
         }
         results = [
             evaluator_map.get(criterion.criterion_id, self._skipped)(criterion)
@@ -560,6 +566,91 @@ class FoundationGateEvaluator:
         if "with policy warnings" not in decision.safe_message:
             failures.append("route decision safe_message did not mention warnings")
         return self._result(criterion, failures, ["src/ultimate_ai_agent/core/model_router/router.py"])
+
+    def check_api_manifest_endpoint_present(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.api.manifest import build_api_manifest
+
+        failures: List[str] = []
+        manifest = build_api_manifest(app)
+        paths = {route.path for route in manifest.routes}
+        if "/api/manifest" not in paths:
+            failures.append("/api/manifest missing from route inventory")
+        if manifest.api_version != (self._active_version() or ""):
+            failures.append("manifest api_version does not match active baseline")
+        if not manifest.no_runtime_integrations:
+            failures.append("manifest does not declare no_runtime_integrations")
+        return self._result(criterion, failures, ["src/ultimate_ai_agent/api/manifest.py", "src/ultimate_ai_agent/api/app.py"])
+
+    def check_openapi_contract_valid(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.api.openapi import verify_openapi_contract
+
+        status = verify_openapi_contract(app)
+        failures = list(status.errors)
+        if not status.openapi_generated:
+            failures.append("OpenAPI schema was not generated")
+        if not status.version_consistent:
+            failures.append("OpenAPI version mismatch")
+        if not status.route_inventory_valid:
+            failures.append("route inventory invalid")
+        return self._result(criterion, failures, ["src/ultimate_ai_agent/api/openapi.py"], status.warnings)
+
+    def check_api_operation_ids_unique(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.api.manifest import iter_api_route_items
+
+        routes = iter_api_route_items(app)
+        operation_ids = [route.operation_id for route in routes]
+        duplicates = sorted({operation_id for operation_id in operation_ids if operation_ids.count(operation_id) > 1})
+        failures = [f"duplicate operation ID: {operation_id}" for operation_id in duplicates]
+        if any(not operation_id for operation_id in operation_ids):
+            failures.append("missing operation ID")
+        return self._result(criterion, failures, ["src/ultimate_ai_agent/api/openapi.py"])
+
+    def check_forbidden_runtime_routes_absent(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.api.manifest import iter_api_route_items
+        from ultimate_ai_agent.api.openapi import FORBIDDEN_ROUTE_FRAGMENTS
+
+        failures = []
+        for route in iter_api_route_items(app):
+            if any(fragment in route.path for fragment in FORBIDDEN_ROUTE_FRAGMENTS):
+                failures.append(f"forbidden route: {route.method} {route.path}")
+        return self._result(criterion, failures, ["src/ultimate_ai_agent/api/openapi.py"])
+
+    def check_agents_md_guidance_present(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        required = [
+            "AGENTS.md",
+            "docs/api/README.md",
+            "docs/api/openapi_contract.md",
+            "docs/api/route_inventory.md",
+            "docs/standards/agents_md_support.md",
+        ]
+        failures = [f"missing {path}" for path in required if not (self.root / path).exists()]
+        agents_md = self._read(self.root / "AGENTS.md")
+        for marker in ["Ultimate AI Agent", "/api/manifest", "OpenAPI", "Do not add runtime model calls"]:
+            if marker not in agents_md:
+                failures.append(f"AGENTS.md missing marker: {marker}")
+        return self._result(criterion, failures, required)
+
+    def check_runtime_agent_config_loading_absent(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        forbidden = [
+            "AGENTS" + ".md",
+            "agent_config",
+            "agent-config",
+            "runtime_config",
+            "workspace_config",
+            "load_agent_config",
+        ]
+        failures = [
+            f"{path}:{line_no} runtime agent config loading reference"
+            for path, line_no, stripped in self._runtime_lines()
+            if path not in {"src/ultimate_ai_agent/api/openapi.py", "src/ultimate_ai_agent/core/gate/evaluators.py"}
+            and not self._is_static_scanner_text(stripped)
+            and any(fragment in stripped for fragment in forbidden)
+        ]
+        return self._result(criterion, failures, ["src/ultimate_ai_agent"])
 
     def _skipped(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
         return FoundationGateResult(

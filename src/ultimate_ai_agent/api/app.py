@@ -5,6 +5,9 @@ from ultimate_ai_agent.core.time import utc_now
 from typing import List, Optional
 
 from ultimate_ai_agent import __version__
+from ultimate_ai_agent.api.contracts import ApiManifest
+from ultimate_ai_agent.api.manifest import build_api_manifest
+from ultimate_ai_agent.api.openapi import configure_openapi_contract
 from ultimate_ai_agent.core.contracts import (
     ExecutionContract,
     ContextPack,
@@ -129,6 +132,10 @@ def get_health():
 @app.get("/version")
 def get_version():
     return {"version": __version__}
+
+@app.get("/api/manifest", response_model=ApiManifest)
+def get_api_manifest():
+    return build_api_manifest(app)
 
 @app.post("/contracts/validate", response_model=ResultEnvelope)
 def post_validate_contract(contract: ExecutionContract):
@@ -1077,3 +1084,6 @@ def post_run_kernel_task(payload: dict):
         ),
         redactions_applied=result.redactions_applied,
     )
+
+
+configure_openapi_contract(app)
