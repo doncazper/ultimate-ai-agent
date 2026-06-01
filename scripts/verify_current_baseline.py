@@ -516,6 +516,32 @@ def main():
         if not p.exists():
             fail(f"Required M12 file is missing: {rel_path}")
     ok("All M12 Control Center contract and read-only dashboard API files exist")
+
+    # 8.21 Check M13 Web Control Center shell files existence
+    m13_files = [
+        "apps/control-center/package.json",
+        "apps/control-center/package-lock.json",
+        "apps/control-center/index.html",
+        "apps/control-center/vite.config.ts",
+        "apps/control-center/tsconfig.json",
+        "apps/control-center/src/App.tsx",
+        "apps/control-center/src/main.tsx",
+        "apps/control-center/src/api/client.ts",
+        "apps/control-center/src/api/endpoints.ts",
+        "apps/control-center/src/api/redaction.ts",
+        "apps/control-center/src/mocks/controlCenterData.ts",
+        "apps/control-center/src/components/ActionPreviewForm.tsx",
+        "apps/control-center/src/App.test.tsx",
+        "tests/test_m13_gate_integration.py",
+        "docs/control_center/WEB_CONTROL_CENTER_SHELL.md",
+        "docs/control_center/FRONTEND_SAFETY_POLICY.md",
+        "docs/control_center/CONTROL_CENTER_FRONTEND_ROUTES.md",
+    ]
+    for rel_path in m13_files:
+        p = ROOT / rel_path
+        if not p.exists():
+            fail(f"Required M13 file is missing: {rel_path}")
+    ok("All M13 Web Control Center read-only shell files exist")
     
     # 9. Enforce scans by delegating to verify_all
     try:

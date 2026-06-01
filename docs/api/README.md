@@ -1,6 +1,6 @@
 # API Boundary
 
-The v0.16.0 API boundary is metadata-first, validation-first, approval-aware for local/dev policy checks, simulated/fallback-first for model runtime behavior, readiness/status-only for M11 runtime readiness, and read-only/preview-only for M12 Control Center contracts. It publishes the current OpenAPI schema and `/api/manifest` route inventory without adding cloud model calls, provider SDK calls, web fetching, browser automation, tokenizers, billing APIs, production auth, OAuth, private mesh networking, mobile sensor access, plugin enablement, frontend tooling, runtime execution, or production persistence.
+The v0.17.0 API boundary is metadata-first, validation-first, approval-aware for local/dev policy checks, simulated/fallback-first for model runtime behavior, readiness/status-only for M11 runtime readiness, and read-only/preview-only for M12/M13 Control Center contracts. It publishes the current OpenAPI schema and `/api/manifest` route inventory without adding cloud model calls, provider SDK calls, web fetching, browser automation, tokenizers, billing APIs, production auth, OAuth, private mesh networking, mobile sensor access, plugin enablement, backend frontend-tool control routes, runtime execution, or production persistence.
 
 Use:
 
@@ -30,5 +30,7 @@ v0.15.0 adds `/runtime/readiness`, `/runtime/capability-matrix`, and `/runtime/s
 v0.15.1 adds no API routes. It clarifies that `local_loopback_policy` is supported validation-only and that `fake_manual_loopback_smoke` is an allowed fake/test report origin only.
 
 v0.16.0 adds `/control-center/*` backend contract routes for manifest, dashboard, status, route inventory summary, approval summary, runtime-readiness summary, Foundation Gate summary, and action preview. These routes are read-only or preview-only. They do not execute actions, grant approvals, enable plugins, start runtimes, call models/providers, dispatch remote workers, access mobile sensors, run frontend tooling, or create a production Control Center.
+
+v0.17.0 adds a local Web Control Center frontend shell only. It adds no backend API route. OpenAPI path count remains `74`; only `info.version` changes to `0.17.0`.
 
 API validation errors are sanitized before they are returned. FastAPI/Pydantic validation failures must not echo raw invalid input values or secret-like field values.

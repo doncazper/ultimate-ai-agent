@@ -1,12 +1,12 @@
-# Ultimate AI Agent Canonical Bundle v0.16.0
+# Ultimate AI Agent Canonical Bundle v0.17.0
 
-This is the active project baseline after the v0.16.0 M12 Control Center contract and read-only dashboard API foundation milestone.
+This is the active project baseline after the v0.17.0 M13 Web Control Center read-only frontend shell milestone.
 
 Start here:
 
 ```text
-README_IMPORT_v0_16_0.md
-ultimate_ai_agent_master_plan_v0_16_0.md
+README_IMPORT_v0_17_0.md
+ultimate_ai_agent_master_plan_v0_17_0.md
 docs/DOCUMENTATION_INDEX.md
 docs/canonical/09_roadmap.md
 docs/canonical/CANONICAL_DOC_MAP.md
@@ -24,13 +24,16 @@ docs/api/route_inventory.md
 docs/control_center/CONTROL_CENTER_CONTRACT.md
 docs/control_center/DASHBOARD_SNAPSHOT.md
 docs/control_center/ACTION_PREVIEW_POLICY.md
+docs/control_center/WEB_CONTROL_CENTER_SHELL.md
+docs/control_center/FRONTEND_SAFETY_POLICY.md
+docs/control_center/CONTROL_CENTER_FRONTEND_ROUTES.md
 docs/runtime/model_runtime_adapter_harness.md
 docs/runtime/local_loopback_model_runtime.md
 docs/runtime/RUNTIME_READINESS.md
 docs/runtime/MANUAL_SMOKE_REPORTS.md
 docs/runtime/RUNTIME_CAPABILITY_MATRIX.md
 docs/security/approval_authority.md
-docs/implementation/foundation_gate_implementation_plan_v0_16_0.md
+docs/implementation/foundation_gate_implementation_plan_v0_17_0.md
 docs/maintenance/documentation_integrity_checklist.md
 docs/tooling/CODEX_PLUGIN_CAPABILITY_INVENTORY.md
 docs/tooling/CODEX_PLUGIN_RISK_POLICY.md
@@ -80,3 +83,7 @@ Runtime taxonomy clarification rule:
 Control Center contract rule:
 
 > v0.16.0 adds M12 backend Control Center contracts, read-only dashboard snapshots, preview-only action decisions, and read-only/preview-only API endpoints. It does not add a frontend app, TypeScript UI, React, Next.js, Vite, shadcn, Tailwind, Build Web Apps, Browser, Chrome, Computer Use, iOS/macOS build workflow, runtime execution, model/provider calls, network calls, remote execution, mobile sensor access, plugin enablement, or production Control Center. The Control Center is not the agent brain and cannot bypass Approval Authority, Consent Ledger, Tool Broker, Event Ledger, Secret Broker, or Foundation Gate.
+
+Web Control Center shell rule:
+
+> v0.17.0 adds M13 local React/Vite/TypeScript Web Control Center shell files under `apps/control-center/`. The shell reads existing backend status/manifest/dashboard/readiness routes, renders safe mock fallback data when the backend is unavailable, and submits only preview-only requests to `/control-center/actions/preview`. It adds no backend API path, production Control Center authority, public execution API, runtime/model/provider call, remote dispatch, mobile/native app, sensor access, plugin enablement, Chrome authenticated profile control, Computer Use automation, iOS/macOS build workflow, analytics/auth/payment/SaaS SDK, production persistence, or external action.

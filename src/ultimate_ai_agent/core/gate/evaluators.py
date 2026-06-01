@@ -1,4 +1,5 @@
 from pathlib import Path
+import json
 import re
 from typing import Callable, Dict, Iterable, List, Optional
 
@@ -147,6 +148,12 @@ class FoundationGateEvaluator:
             "m12_control_center_api_read_only": self.check_m12_control_center_api_read_only,
             "m12_no_frontend_dependencies": self.check_m12_no_frontend_dependencies,
             "m12_no_runtime_network_mobile_plugin_expansion": self.check_m12_no_runtime_network_mobile_plugin_expansion,
+            "m13_web_control_center_files_present": self.check_m13_web_control_center_files_present,
+            "m13_web_shell_read_only_preview_only": self.check_m13_web_shell_read_only_preview_only,
+            "m13_action_preview_ui_posts_only_to_preview": self.check_m13_action_preview_ui_posts_only_to_preview,
+            "m13_mock_data_safe_non_authoritative": self.check_m13_mock_data_safe_non_authoritative,
+            "m13_no_tracked_generated_or_native_artifacts": self.check_m13_no_tracked_generated_or_native_artifacts,
+            "m13_backend_api_contract_unchanged": self.check_m13_backend_api_contract_unchanged,
             "documentation_integrity_current": self.check_documentation_integrity_current,
             "codex_plugin_governance_docs_present": self.check_codex_plugin_governance_docs_present,
         }
@@ -2331,6 +2338,196 @@ class FoundationGateEvaluator:
                 if any(fragment in stripped for fragment in forbidden_fragments):
                     failures.append(f"{rel_path}:{line_no} forbidden runtime expansion fragment")
         return self._result(criterion, failures, ["src/ultimate_ai_agent/core/control_center"])
+
+    def check_m13_web_control_center_files_present(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        required = [
+            "apps/control-center/package.json",
+            "apps/control-center/package-lock.json",
+            "apps/control-center/index.html",
+            "apps/control-center/vite.config.ts",
+            "apps/control-center/tsconfig.json",
+            "apps/control-center/src/App.tsx",
+            "apps/control-center/src/main.tsx",
+            "apps/control-center/src/api/client.ts",
+            "apps/control-center/src/api/endpoints.ts",
+            "apps/control-center/src/api/redaction.ts",
+            "apps/control-center/src/mocks/controlCenterData.ts",
+            "apps/control-center/src/components/ActionPreviewForm.tsx",
+            "apps/control-center/src/App.test.tsx",
+            "docs/control_center/WEB_CONTROL_CENTER_SHELL.md",
+            "docs/control_center/FRONTEND_SAFETY_POLICY.md",
+            "docs/control_center/CONTROL_CENTER_FRONTEND_ROUTES.md",
+        ]
+        failures = [f"missing {path}" for path in required if not (self.root / path).exists()]
+        return self._result(criterion, failures, required)
+
+    def check_m13_web_shell_read_only_preview_only(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        app_root = self.root / "apps/control-center"
+        package = json.loads(self._read(app_root / "package.json") or "{}")
+        deps = set(package.get("dependencies", {})) | set(package.get("devDependencies", {}))
+        allowed_deps = {
+            "react",
+            "react-dom",
+            "@vitejs/plugin-react",
+            "vite",
+            "typescript",
+            "@types/react",
+            "@types/react-dom",
+            "@types/node",
+            "vitest",
+            "@testing-library/react",
+            "@testing-library/jest-dom",
+            "jsdom",
+        }
+        forbidden_deps = {
+            "next",
+            "tailwindcss",
+            "stripe",
+            "@stripe/stripe-js",
+            "@supabase/supabase-js",
+            "firebase",
+            "auth0-js",
+            "openai",
+            "anthropic",
+            "expo",
+            "react-native",
+            "electron",
+            "playwright",
+            "puppeteer",
+        }
+        failures = [f"unexpected frontend dependency: {dep}" for dep in sorted(deps - allowed_deps)]
+        failures.extend(f"forbidden frontend dependency: {dep}" for dep in sorted(deps & forbidden_deps))
+        source_paths = [
+            *sorted((app_root / "src").rglob("*.ts")),
+            *sorted((app_root / "src").rglob("*.tsx")),
+            *sorted((app_root / "src").rglob("*.css")),
+        ]
+        source_text = "\n".join(
+            self._read(path).lower()
+            for path in source_paths
+            if path.is_file() and ".test." not in path.name
+        )
+        forbidden = [
+            "/control-center/actions/execute",
+            "/control-center/plugins/enable",
+            "/control-center/runtime/execute",
+            "/control-center/remote-workers/dispatch",
+            "/control-center/mobile/sensors",
+            "/model-runtime/execute",
+            "document.cookie",
+            "localstorage",
+            "sessionstorage",
+            "navigator.geolocation",
+            "mediadevices",
+            "getusermedia",
+            "chrome.",
+            "computer use",
+            "xcode",
+            "app store connect",
+            "keychain",
+        ]
+        failures.extend(f"forbidden frontend source fragment: {fragment}" for fragment in forbidden if fragment in source_text)
+        if "no authority to run actions" not in source_text:
+            failures.append("frontend does not visibly mark no action authority")
+        return self._result(criterion, failures, ["apps/control-center/package.json", "apps/control-center/src"])
+
+    def check_m13_action_preview_ui_posts_only_to_preview(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        app_root = self.root / "apps/control-center/src"
+        endpoints = self._read(app_root / "api/endpoints.ts")
+        client = self._read(app_root / "api/client.ts")
+        failures = []
+        if 'actionPreview: "/control-center/actions/preview"' not in endpoints:
+            failures.append("action preview endpoint declaration missing")
+        if endpoints.count("/control-center/actions/preview") != 1:
+            failures.append("action preview endpoint should appear exactly once in endpoint declarations")
+        if "method: \"POST\"" not in client:
+            failures.append("frontend client does not declare preview POST")
+        if "API_ENDPOINTS.actionPreview" not in client:
+            failures.append("frontend client does not post to actionPreview endpoint constant")
+        post_count = sum(1 for path in app_root.rglob("*.ts*") if "method: \"POST\"" in self._read(path))
+        if post_count != 1:
+            failures.append(f"unexpected frontend POST declaration count: {post_count}")
+        return self._result(criterion, failures, ["apps/control-center/src/api/endpoints.ts", "apps/control-center/src/api/client.ts"])
+
+    def check_m13_mock_data_safe_non_authoritative(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        mock_path = self.root / "apps/control-center/src/mocks/controlCenterData.ts"
+        text = self._read(mock_path).lower()
+        failures = []
+        required_safe_fragments = [
+            "mock: true",
+            "production_control_center: false",
+            "production_ready: false",
+            "real_model_runtime_ready: false",
+            "remote_execution_ready: false",
+            "mobile_sensor_ready: false",
+            "plugin_or_native_build_ready: false",
+            "execution_enabled: false",
+            "dispatch_enabled: false",
+            "sensor_access_enabled: false",
+            "plugin_enablement_allowed: false",
+            "native_build_tools_enabled: false",
+            "model_output_authoritative: false",
+        ]
+        for fragment in required_safe_fragments:
+            if fragment not in text:
+                failures.append(f"mock data missing safe fragment: {fragment}")
+        forbidden = [
+            "production_ready: true",
+            "real_model_runtime_ready: true",
+            "remote_execution_ready: true",
+            "mobile_sensor_ready: true",
+            "plugin_or_native_build_ready: true",
+            "execution_enabled: true",
+            "dispatch_enabled: true",
+            "sensor_access_enabled: true",
+            "plugin_enablement_allowed: true",
+            "native_build_tools_enabled: true",
+            "api_key",
+            "password",
+            "authorization",
+            "cookie",
+        ]
+        failures.extend(f"unsafe mock data fragment: {fragment}" for fragment in forbidden if fragment in text)
+        return self._result(criterion, failures, ["apps/control-center/src/mocks/controlCenterData.ts"])
+
+    def check_m13_no_tracked_generated_or_native_artifacts(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        forbidden_paths = [
+            "apps/control-center/.next",
+            "apps/control-center/ios",
+            "apps/control-center/android",
+            "apps/control-center/Podfile",
+            "apps/control-center/Package.swift",
+            "apps/control-center/electron",
+        ]
+        failures = [f"forbidden frontend/native artifact exists: {path}" for path in forbidden_paths if (self.root / path).exists()]
+        gitignore = self._read(self.root / ".gitignore")
+        for required_ignore in ["node_modules/", "dist/", "coverage/", ".env"]:
+            if required_ignore not in gitignore:
+                failures.append(f".gitignore missing frontend artifact guard: {required_ignore}")
+        return self._result(criterion, failures, forbidden_paths + [".gitignore"])
+
+    def check_m13_backend_api_contract_unchanged(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.api.manifest import iter_api_route_items
+
+        routes = iter_api_route_items(app)
+        paths = {route.path: route for route in routes}
+        failures = []
+        if len(paths) != 74:
+            failures.append(f"API path count changed from M12 contract: {len(paths)}")
+        control_center_routes = [path for path in paths if path.startswith("/control-center")]
+        if len(control_center_routes) != 8:
+            failures.append(f"unexpected Control Center route count: {len(control_center_routes)}")
+        forbidden = [
+            "/control-center/actions/execute",
+            "/control-center/plugins/enable",
+            "/control-center/runtime/execute",
+            "/control-center/remote-workers/dispatch",
+            "/control-center/mobile/sensors",
+            "/control-center/frontend",
+        ]
+        failures.extend(f"forbidden Control Center route present: {path}" for path in forbidden if path in paths)
+        return self._result(criterion, failures, ["src/ultimate_ai_agent/api/app.py", "apps/control-center"])
 
     def _skipped(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
         return FoundationGateResult(

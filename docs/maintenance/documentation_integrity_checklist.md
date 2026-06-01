@@ -1,6 +1,6 @@
 # Documentation Integrity Checklist
 
-Status: Active maintenance checklist, v0.16.0
+Status: Active maintenance checklist, v0.17.0
 
 Run this checklist before every release that changes docs, roadmap, API metadata, runtime boundaries, or release status.
 
@@ -42,7 +42,7 @@ Run this checklist before every release that changes docs, roadmap, API metadata
 - docs do not claim scanners, Skill Factory, self-improvement, production persistence, or external actions exist unless implemented and gated.
 - docs do not claim Codex plugins, plugin installers, native build tools, Xcode workflows, simulators, Chrome authenticated profile control, Computer Use automation, cloud jobs/uploads/training, or deployment workflows are enabled unless explicitly implemented and gated.
 - docs do not claim runtime readiness reports, capability matrix entries, or manual smoke reports prove production readiness or authorize execution.
-- docs do not claim the Control Center frontend, TypeScript app, frontend tooling, plugin enablement, runtime execution, remote dispatch, model/provider invocation, mobile sensor access, or production Control Center exists unless implemented and gated.
+- docs do not claim Control Center production authority, plugin enablement, runtime execution, remote dispatch, model/provider invocation, mobile sensor access, native build control, or production Control Center exists unless implemented and gated.
 
 ## Release Note Requirements
 

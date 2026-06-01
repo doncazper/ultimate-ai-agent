@@ -16,6 +16,7 @@ SCAN_SEQUENCE = [
     ("approval authority local-dev-only scan", "verify_no_real_approval_authority_integrations"),
     ("remote worker foundation-only scan", "verify_no_real_remote_worker_integrations"),
     ("control center no-execution scan", "verify_no_control_center_runtime_or_frontend_expansion"),
+    ("web control center frontend safety scan", "verify_m13_web_control_center_frontend_safety"),
     ("documentation integrity scan", "verify_documentation_integrity"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
     ("production truth integration scan", "verify_no_production_truth_integrations"),
@@ -298,7 +299,7 @@ def verify_no_real_remote_worker_integrations():
     print("OK: Remote worker package has no live network, process, private mesh, tailnet, or remote execution code")
 
 def verify_no_control_center_runtime_or_frontend_expansion():
-    print("\n[Verifier] Running M12 Control Center no-execution/frontend guard...")
+    print("\n[Verifier] Running M12/M13 Control Center backend no-execution guard...")
     forbidden_frontend_files = [
         "package.json",
         "package-lock.json",
@@ -314,10 +315,10 @@ def verify_no_control_center_runtime_or_frontend_expansion():
     ]
     for rel_path in forbidden_frontend_files:
         if (ROOT / rel_path).exists():
-            print(f"FAIL: Frontend/build tooling file is present during M12: {rel_path}")
+            print(f"FAIL: Root frontend/build tooling file is present: {rel_path}")
             sys.exit(1)
     if (ROOT / "node_modules").exists():
-        print("FAIL: node_modules is present during M12")
+        print("FAIL: root node_modules is present")
         sys.exit(1)
 
     control_center_root = ROOT / "src" / "ultimate_ai_agent" / "core" / "control_center"
@@ -376,7 +377,157 @@ def verify_no_control_center_runtime_or_frontend_expansion():
             if stripped.startswith("@app.") and any(route in stripped for route in forbidden_routes):
                 print(f"FAIL: Forbidden Control Center execution route in api/app.py: {line}")
                 sys.exit(1)
-    print("OK: Control Center has no frontend files, execution routes, or runtime/provider/network expansions")
+    print("OK: Control Center backend has no execution routes or runtime/provider/network expansions")
+
+def verify_m13_web_control_center_frontend_safety():
+    print("\n[Verifier] Running M13 Web Control Center frontend safety guard...")
+    app_root = ROOT / "apps" / "control-center"
+    required = [
+        "package.json",
+        "package-lock.json",
+        "index.html",
+        "vite.config.ts",
+        "tsconfig.json",
+        "src/App.tsx",
+        "src/api/client.ts",
+        "src/api/endpoints.ts",
+        "src/mocks/controlCenterData.ts",
+        "src/App.test.tsx",
+    ]
+    for rel_path in required:
+        if not (app_root / rel_path).exists():
+            print(f"FAIL: M13 Control Center frontend file is missing: apps/control-center/{rel_path}")
+            sys.exit(1)
+
+    try:
+        git_files_raw = subprocess.check_output(["git", "ls-files"], text=True)
+        git_files = git_files_raw.splitlines()
+    except subprocess.SubprocessError as exc:
+        print(f"FAIL: Could not inspect tracked files for M13 frontend artifacts: {exc}")
+        sys.exit(1)
+
+    forbidden_tracked_fragments = [
+        "node_modules/",
+        "apps/control-center/dist/",
+        "apps/control-center/coverage/",
+        "apps/control-center/.next/",
+        ".env",
+        ".xcworkspace",
+        ".xcodeproj",
+        "Package.swift",
+        "Podfile",
+        "android/",
+        "ios/",
+    ]
+    for rel_path in git_files:
+        if rel_path == ".env.example" or rel_path.endswith("/.env.example"):
+            continue
+        if any(fragment in rel_path for fragment in forbidden_tracked_fragments):
+            print(f"FAIL: Forbidden generated/native/frontend artifact is tracked: {rel_path}")
+            sys.exit(1)
+
+    package_text = (app_root / "package.json").read_text(encoding="utf-8").lower()
+    allowed_packages = [
+        "@ultimate-ai-agent/control-center",
+        "react",
+        "react-dom",
+        "vite",
+        "vitest",
+        "typescript",
+        "@vitejs/plugin-react",
+        "@testing-library/react",
+        "@testing-library/jest-dom",
+        "jsdom",
+        "@types/react",
+        "@types/react-dom",
+        "@types/node",
+    ]
+    forbidden_packages = [
+        "next",
+        "tailwind",
+        "shadcn",
+        "stripe",
+        "supabase",
+        "firebase",
+        "auth0",
+        "analytics",
+        "openai",
+        "anthropic",
+        "huggingface",
+        "expo",
+        "react-native",
+        "electron",
+        "playwright",
+        "puppeteer",
+        "webdriver",
+    ]
+    for package in forbidden_packages:
+        if f'"{package}"' in package_text or f'"@{package}/' in package_text:
+            print(f"FAIL: Forbidden frontend dependency marker in apps/control-center/package.json: {package}")
+            sys.exit(1)
+    for package in allowed_packages:
+        if package == "@ultimate-ai-agent/control-center":
+            continue
+        if package not in package_text:
+            print(f"FAIL: Expected minimal frontend dependency marker is missing: {package}")
+            sys.exit(1)
+
+    forbidden_endpoint_fragments = [
+        "/control-center/actions/execute",
+        "/control-center/plugins/enable",
+        "/control-center/runtime/execute",
+        "/control-center/remote-workers/dispatch",
+        "/control-center/mobile/sensors",
+        "/control-center/frontend",
+        "/model-runtime/execute",
+        "/remote-workers/dispatch",
+    ]
+    forbidden_source_fragments = [
+        "document.cookie",
+        "localstorage",
+        "sessionstorage",
+        "navigator.geolocation",
+        "mediadevices",
+        "getusermedia",
+        "chrome.",
+        "computer use",
+        "xcode",
+        "app store connect",
+        "keychain",
+        "authorization:",
+        "cookie:",
+        "api_key=",
+        "password=",
+        "token=",
+    ]
+    source_files = [
+        p
+        for p in app_root.rglob("*")
+        if p.is_file()
+        and p.suffix in {".ts", ".tsx", ".css", ".html"}
+        and "node_modules" not in p.parts
+        and "dist" not in p.parts
+        and not p.name.endswith(".test.tsx")
+    ]
+    for path in source_files:
+        rel_path = path.relative_to(ROOT)
+        lowered = path.read_text(encoding="utf-8").lower()
+        for fragment in forbidden_endpoint_fragments:
+            if fragment in lowered:
+                print(f"FAIL: Forbidden frontend endpoint in {rel_path}: {fragment}")
+                sys.exit(1)
+        for fragment in forbidden_source_fragments:
+            if fragment in lowered:
+                print(f"FAIL: Forbidden frontend source fragment in {rel_path}: {fragment}")
+                sys.exit(1)
+    endpoints = (app_root / "src" / "api" / "endpoints.ts").read_text(encoding="utf-8")
+    if 'actionPreview: "/control-center/actions/preview"' not in endpoints:
+        print("FAIL: M13 action preview endpoint is missing or changed")
+        sys.exit(1)
+    if endpoints.count("/control-center/actions/preview") != 1:
+        print("FAIL: M13 action preview endpoint should appear exactly once in endpoint declarations")
+        sys.exit(1)
+    print("OK: M13 Web Control Center frontend is read-only/preview-only with safe dependencies and no tracked build artifacts")
 
 def verify_documentation_integrity():
     print("\n[Verifier] Running documentation integrity scan...")

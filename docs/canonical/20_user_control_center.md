@@ -99,8 +99,10 @@ iOS and macOS build plugins are not part of the web Control Center boundary. Bui
 
 ## M12 Backend Contract Boundary
 
-v0.16.0 adds backend Control Center contracts and read-only/preview-only API routes for a future UI. This is not the TypeScript Control Center implementation.
+v0.16.0 adds backend Control Center contracts and read-only/preview-only API routes for a future UI.
 
 The M12 API may expose manifest, dashboard snapshot, status, route summary, approval summary, runtime-readiness summary, Foundation Gate summary, and action preview data. It must not execute actions, mutate files, grant approvals, resolve credentials, enable plugins, run frontend tooling, start runtimes, call models/providers, dispatch remote workers, access mobile sensors, or become a production Control Center.
+
+v0.17.0 adds the first local Web Control Center shell. It is a React/Vite/TypeScript app under `apps/control-center` that reads existing backend summaries, renders mock fallback data when the backend is unavailable, and submits only action previews. It is still not the agent brain, not production authority, and not a path around Approval Authority, Consent Ledger, Tool Broker, Event Ledger, Secret Broker, or Foundation Gate.
 
 Action preview decisions are policy previews only. They are not authority, approval, consent, execution, evidence, or proof of production readiness.

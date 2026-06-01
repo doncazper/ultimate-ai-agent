@@ -14,7 +14,7 @@ Each route declares:
 - `requires_auth_future`
 - `blocked_from_production`
 
-Allowed side-effect classes in v0.16.0 are:
+Allowed side-effect classes in v0.17.0 are:
 
 - `none`
 - `validation_only`
@@ -102,3 +102,10 @@ M12 Control Center route group:
 - `/control-center/actions/preview`
 
 These routes expose backend Control Center contracts, safe summaries, and action previews only. They never execute actions, grant approvals, enable plugins, run frontend tooling, start runtimes, call providers, dispatch remote workers, access mobile sensors, or mutate state.
+
+M13 Web Control Center frontend shell:
+
+- no backend route is added.
+- OpenAPI path count remains `74`.
+- the shell consumes existing read-only/preview-only API routes.
+- the only frontend POST target is `/control-center/actions/preview`.

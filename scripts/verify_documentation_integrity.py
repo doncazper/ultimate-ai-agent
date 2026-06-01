@@ -27,6 +27,9 @@ REQUIRED_ACTIVE_DOCS = [
     "docs/control_center/CONTROL_CENTER_CONTRACT.md",
     "docs/control_center/DASHBOARD_SNAPSHOT.md",
     "docs/control_center/ACTION_PREVIEW_POLICY.md",
+    "docs/control_center/WEB_CONTROL_CENTER_SHELL.md",
+    "docs/control_center/FRONTEND_SAFETY_POLICY.md",
+    "docs/control_center/CONTROL_CENTER_FRONTEND_ROUTES.md",
 ]
 
 UNSAFE_IMPLEMENTATION_CLAIMS = [
@@ -43,12 +46,14 @@ UNSAFE_IMPLEMENTATION_CLAIMS = [
     "remote_execution_ready=true",
     "mobile_sensor_ready=true",
     "plugin_or_native_build_ready=true",
-    "control center frontend is implemented",
-    "typescript control center is implemented",
+    "production control center is implemented",
     "control center executes actions",
     "control center enables plugins",
     "control center dispatches remote workers",
     "control center calls models",
+    "control center controls native builds",
+    "control center accesses mobile sensors",
+    "web control center has production authority",
 ]
 
 ACTIVE_DOCS_TO_SCAN = [
@@ -69,6 +74,9 @@ ACTIVE_DOCS_TO_SCAN = [
     "docs/control_center/CONTROL_CENTER_CONTRACT.md",
     "docs/control_center/DASHBOARD_SNAPSHOT.md",
     "docs/control_center/ACTION_PREVIEW_POLICY.md",
+    "docs/control_center/WEB_CONTROL_CENTER_SHELL.md",
+    "docs/control_center/FRONTEND_SAFETY_POLICY.md",
+    "docs/control_center/CONTROL_CENTER_FRONTEND_ROUTES.md",
     "docs/remote/REMOTE_WORKER_FOUNDATION.md",
     "docs/remote/REMOTE_NODE_SECURITY_MODEL.md",
     "docs/remote/REMOTE_JOB_ENVELOPE.md",

@@ -77,3 +77,17 @@ API routes return ResultEnvelope data and expose no execute route.
 Foundation Gate includes M12 no-execution criteria.
 No frontend package files, native build workflow, Browser/Chrome/Computer Use bridge, plugin enablement, model/provider calls, network calls, remote dispatch, or mobile sensor access is added.
 ```
+
+## M13 Web Control Center Shell Tests
+
+M13 adds frontend shell tests plus Python gate integration tests:
+
+```text
+React/Vite dashboard renders safe status, runtime, gate, API, approval, remote, mobile, and plugin summaries.
+Mock fallback data is visibly mock and non-authoritative.
+Action preview form posts only to /control-center/actions/preview.
+No action-run, plugin-enable, sensor, model-run, credential-use, or remote-dispatch button exists.
+Secret-like input is redacted from user-visible output.
+Frontend source and package dependencies remain local shell only.
+Foundation Gate includes M13 frontend safety criteria.
+```

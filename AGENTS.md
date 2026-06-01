@@ -1,6 +1,6 @@
 # Ultimate AI Agent Workspace Standards
 
-Active baseline: v0.16.0.
+Active baseline: v0.17.0.
 
 This repository is the Ultimate AI Agent foundation workspace. Treat it as a contract-first Python core, not a production runtime integration layer.
 
@@ -23,7 +23,8 @@ This repository is the Ultimate AI Agent foundation workspace. Treat it as a con
 - v0.14.6 Codex plugin governance work is docs/policy-only. Do not enable plugins, install plugins, configure plugins, add plugin marketplace/install behavior, run iOS/macOS builds, run Xcode, run simulators, access keychains/signing identities/provisioning profiles/App Store Connect, use Chrome authenticated profile control, use Computer Use automation, run Hugging Face jobs/uploads/training, or add dependencies/runtime capability. Browser + Build Web Apps are the future Web Control Center boundary with approval only. CodeRabbit/GitHub read-only review may be used for release readiness with explicit review prompts; GitHub write/release actions require direct approval or direct-push rules.
 - v0.15.0 runtime readiness work is report/validation/status-only. Do not turn readiness reports, capability matrix entries, manual smoke reports, or runtime API status routes into execution authority. Do not add execute/run/connect/dispatch/provider/plugin-enable/mobile-sensor/native-build routes. Manual smoke reports are not production readiness evidence, and model output is not truth authority.
 - v0.15.1 is a taxonomy clarification patch only. `local_loopback_policy` means supported validation-only policy, not runtime execution readiness. `fake_manual_loopback_smoke` means fake/test report origin only, not production smoke evidence.
-- v0.16.0 Control Center work is backend contract/API only. Do not add a frontend app, TypeScript UI, React/Next/Vite/shadcn/Tailwind, Build Web Apps, Browser, Chrome, Computer Use, iOS/macOS build workflow, runtime execution, model/provider calls, network calls, remote execution, mobile sensor access, plugin enablement, or production Control Center. Action preview is not execution.
+- v0.16.0 Control Center work is backend contract/API only. Action preview is not execution.
+- v0.17.0 Web Control Center work allows the local React/Vite shell under `apps/control-center` only. Do not add backend execution routes, production Control Center authority, model/provider calls, remote dispatch, mobile/native code, sensor access, plugin enablement, Chrome authenticated profile control, Computer Use automation, iOS/macOS build workflow, analytics/auth/payment/SaaS SDKs, or production persistence.
 - API validation errors must be sanitized and must never echo raw invalid input values or secret-like field values.
 
 ## Workspace
