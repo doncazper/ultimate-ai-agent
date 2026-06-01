@@ -58,6 +58,13 @@ GATE_TESTS = [
     "tests/test_approval_integration_kernel.py",
     "tests/test_m85_api_routes.py",
     "tests/test_m85_gate_integration.py",
+    "tests/test_local_loopback_endpoint_policy.py",
+    "tests/test_local_loopback_transport.py",
+    "tests/test_local_loopback_adapter.py",
+    "tests/test_local_loopback_approval.py",
+    "tests/test_local_loopback_no_remote.py",
+    "tests/test_local_loopback_api_routes.py",
+    "tests/test_m9_gate_integration.py",
 ]
 
 

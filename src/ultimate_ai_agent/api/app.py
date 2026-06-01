@@ -108,6 +108,9 @@ from ultimate_ai_agent.core.model_router import (
     validate_model_capability_profile,
 )
 from ultimate_ai_agent.core.model_runtime import (
+    LocalLoopbackModelRuntimeAdapter,
+    LoopbackRuntimeEndpoint,
+    LoopbackRuntimePolicy,
     ModelRuntimeAdapterManifest,
     ModelRuntimeRequest,
     ModelRuntimeResponse,
@@ -155,6 +158,17 @@ class ModelRuntimeResponseValidatePayload(BaseModel):
 class ModelRuntimeSimulatePayload(BaseModel):
     request: dict
     manifest: dict
+
+class LocalLoopbackEndpointValidatePayload(BaseModel):
+    endpoint: dict
+    policy: Optional[dict] = None
+
+class LocalLoopbackExecutionValidatePayload(BaseModel):
+    request: dict
+    manifest: dict
+    endpoint: dict
+    policy: Optional[dict] = None
+    approval_decision: Optional[dict] = None
 
 class ApprovalValidatePayload(BaseModel):
     validation_request: dict
@@ -619,6 +633,61 @@ def post_simulate_model_runtime(payload: ModelRuntimeSimulatePayload):
     return ResultEnvelope(
         success=response.status in {"simulated_success", "simulated_refusal"},
         operation="simulate_model_runtime",
+        service="ModelRuntimeAPI",
+        trace_id=request.trace_id or request.run_id,
+        data=response.model_dump(mode="json"),
+    )
+
+@app.post("/model-runtime/local/endpoints/validate", response_model=ResultEnvelope)
+def post_validate_local_loopback_endpoint(payload: LocalLoopbackEndpointValidatePayload):
+    try:
+        endpoint = LoopbackRuntimeEndpoint(**payload.endpoint)
+        policy = LoopbackRuntimePolicy(**(payload.policy or {"policy_id": "api_default"}))
+    except (ValidationError, ValueError) as exc:
+        return _model_runtime_validation_error("validate_local_loopback_endpoint", "system", exc)
+    decision = LocalLoopbackModelRuntimeAdapter().validate_endpoint(endpoint, policy)
+    return ResultEnvelope(
+        success=decision.allowed,
+        operation="validate_local_loopback_endpoint",
+        service="ModelRuntimeAPI",
+        trace_id=endpoint.endpoint_id,
+        data=decision.model_dump(mode="json"),
+    )
+
+@app.post("/model-runtime/local/execution/validate", response_model=ResultEnvelope)
+def post_validate_local_loopback_execution(payload: LocalLoopbackExecutionValidatePayload):
+    try:
+        request = ModelRuntimeRequest(**payload.request)
+        manifest = ModelRuntimeAdapterManifest(**payload.manifest)
+        endpoint = LoopbackRuntimeEndpoint(**payload.endpoint)
+        policy = LoopbackRuntimePolicy(**(payload.policy or {"policy_id": "api_default"}))
+        approval_decision = None
+        if payload.approval_decision is not None:
+            from ultimate_ai_agent.core.approvals import ApprovalValidationDecision
+
+            approval_decision = ApprovalValidationDecision(**payload.approval_decision)
+    except (ValidationError, ValueError) as exc:
+        return _model_runtime_validation_error("validate_local_loopback_execution", "system", exc)
+    decision = LocalLoopbackModelRuntimeAdapter().validate_execution(request, manifest, endpoint, policy, approval_decision)
+    return ResultEnvelope(
+        success=decision.allowed,
+        operation="validate_local_loopback_execution",
+        service="ModelRuntimeAPI",
+        trace_id=request.trace_id or request.run_id,
+        data=decision.model_dump(mode="json"),
+    )
+
+@app.post("/model-runtime/local/simulate-fallback", response_model=ResultEnvelope)
+def post_local_loopback_simulated_fallback(payload: LocalLoopbackExecutionValidatePayload):
+    try:
+        request = ModelRuntimeRequest(**payload.request)
+        manifest = ModelRuntimeAdapterManifest(**payload.manifest)
+    except (ValidationError, ValueError) as exc:
+        return _model_runtime_validation_error("simulate_local_loopback_fallback", "system", exc)
+    response = LocalLoopbackModelRuntimeAdapter().fallback_simulated(request, manifest)
+    return ResultEnvelope(
+        success=True,
+        operation="simulate_local_loopback_fallback",
         service="ModelRuntimeAPI",
         trace_id=request.trace_id or request.run_id,
         data=response.model_dump(mode="json"),

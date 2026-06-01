@@ -1,12 +1,12 @@
-# Ultimate AI Agent Canonical Bundle v0.12.2
+# Ultimate AI Agent Canonical Bundle v0.13.0
 
-This is the active project baseline after M8.5 Approval Authority + Runtime Authorization Bridge.
+This is the active project baseline after M9 Local Loopback Model Runtime Adapter.
 
 Start here:
 
 ```text
-README_IMPORT_v0_12_2.md
-ultimate_ai_agent_master_plan_v0_12_2.md
+README_IMPORT_v0_13_0.md
+ultimate_ai_agent_master_plan_v0_13_0.md
 docs/canonical/09_roadmap.md
 docs/canonical/21_consent_and_permissions_ledger.md
 docs/canonical/37_tool_broker.md
@@ -17,8 +17,9 @@ docs/api/README.md
 docs/api/openapi_contract.md
 docs/api/route_inventory.md
 docs/runtime/model_runtime_adapter_harness.md
+docs/runtime/local_loopback_model_runtime.md
 docs/security/approval_authority.md
-docs/implementation/foundation_gate_implementation_plan_v0_12_2.md
+docs/implementation/foundation_gate_implementation_plan_v0_13_0.md
 docs/testing/test_strategy_v0.md
 ```
 
@@ -40,4 +41,4 @@ Observability standards rule:
 
 Foundation Gate rule:
 
-> v0.12.2 adds a local/dev approval authority bridge so arbitrary approval strings are not authority. Approval requests, grants, validations, and receipts are typed and can be checked by Model Router, Model Runtime, Tool Broker, and Kernel paths. M8 remains simulated-only. M8.5 does not add scanners, companion proactivity, Skill Factory, self-improving code, autopilot, browser automation, real providers/models/web calls, tokenizers, billing APIs, network calls, runtime agent config loading, SDK/A2A runtime delegation, production auth/OAuth, production databases, pgvector, embeddings, production secrets, production truth connectors, or high-autonomy execution.
+> v0.13.0 adds a local/dev loopback model runtime adapter harness. The default remains validate-only or simulated fallback; real loopback execution is library-level, opt-in, approval-gated, loopback-only, and test/gate coverage uses fake transport. M9 does not add cloud models, provider SDKs, API keys, tokenizers, billing APIs, remote hosts, scanners, browser automation, SDK/A2A runtime delegation, production persistence, production auth/OAuth, or external actions.

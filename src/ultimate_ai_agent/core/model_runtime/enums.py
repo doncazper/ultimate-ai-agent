@@ -23,12 +23,15 @@ class ModelRuntimeResponseStatus(str, Enum):
     simulated_refusal = "simulated_refusal"
     simulated_error = "simulated_error"
     validation_failed = "validation_failed"
+    local_loopback_success = "local_loopback_success"
+    local_loopback_error = "local_loopback_error"
 
 
 class ModelRuntimeSafetyMode(str, Enum):
     validate_only = "validate_only"
     dry_run = "dry_run"
     simulated = "simulated"
+    local_loopback_dev = "local_loopback_dev"
     disabled = "disabled"
 
 

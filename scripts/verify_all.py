@@ -150,7 +150,7 @@ def verify_no_forbidden_external_integrations():
     print("OK: No forbidden provider API clients or network calls detected in src")
 
 def verify_no_real_model_runtime_execution():
-    print("\n[Verifier] Running M8 model runtime simulated-only guard...")
+    print("\n[Verifier] Running M8/M9 model runtime local-only guard...")
     runtime_root = ROOT / "src" / "ultimate_ai_agent" / "core" / "model_runtime"
     if not runtime_root.exists():
         print("OK: Model runtime package is absent")
@@ -160,17 +160,17 @@ def verify_no_real_model_runtime_execution():
         "from openai import",
         "import anthropic",
         "import requests",
+        "from requests import",
         "import httpx",
-        "urllib",
+        "from httpx import",
         "socket",
         "subprocess",
         "tokenizer",
         "tiktoken",
         "sentencepiece",
         "billing",
-        "base_url",
-        ".post(",
-        ".get(",
+        "api_key",
+        "API_KEY",
     ]
     for p in runtime_root.rglob("*.py"):
         try:
@@ -182,7 +182,7 @@ def verify_no_real_model_runtime_execution():
                     sys.exit(1)
         except Exception:
             pass
-    print("OK: Model runtime package is simulated-only")
+    print("OK: Model runtime package has no provider SDK, broad network, tokenizer, or billing code")
 
 def verify_no_real_approval_authority_integrations():
     print("\n[Verifier] Running M8.5 approval authority local-dev-only guard...")

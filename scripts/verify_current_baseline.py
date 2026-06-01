@@ -394,6 +394,27 @@ def main():
         if not p.exists():
             fail(f"Required M8.5 file is missing: {rel_path}")
     ok("All M8.5 approval authority bridge files exist")
+
+    # 8.16 Check M9 local loopback runtime adapter files existence
+    m9_files = [
+        "src/ultimate_ai_agent/core/model_runtime/loopback.py",
+        "src/ultimate_ai_agent/core/model_runtime/execution_policy.py",
+        "src/ultimate_ai_agent/core/model_runtime/transports.py",
+        "src/ultimate_ai_agent/core/model_runtime/local_adapter.py",
+        "tests/m9_helpers.py",
+        "tests/test_local_loopback_endpoint_policy.py",
+        "tests/test_local_loopback_transport.py",
+        "tests/test_local_loopback_adapter.py",
+        "tests/test_local_loopback_approval.py",
+        "tests/test_local_loopback_no_remote.py",
+        "tests/test_local_loopback_api_routes.py",
+        "tests/test_m9_gate_integration.py",
+    ]
+    for rel_path in m9_files:
+        p = ROOT / rel_path
+        if not p.exists():
+            fail(f"Required M9 file is missing: {rel_path}")
+    ok("All M9 local loopback model runtime adapter files exist")
     
     # 9. Enforce scans by delegating to verify_all
     try:

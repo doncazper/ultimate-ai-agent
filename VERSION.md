@@ -1,5 +1,5 @@
 # Ultimate AI Agent Version
 
-Current active baseline: **v0.12.2**
+Current active baseline: **v0.13.0**
 
-v0.12.2 implements M8.5 Approval Authority + Runtime Authorization Bridge. It adds local/dev approval request/grant/validation/receipt contracts, a local in-memory ApprovalAuthority, approval validation integration with Model Router, Model Runtime, Tool Broker, and Kernel paths, and Foundation Gate checks proving arbitrary approval strings are not authority. It does not add real model calls, provider calls, production auth, OAuth, network calls, scanners, browser automation, SDK/A2A runtime delegation, production persistence, or external actions.
+v0.13.0 implements M9 Local Loopback Model Runtime Adapter. It adds loopback-only local runtime endpoint policies, dev-only execution decisions, fake transport tests, simulated fallback, approval-gated local runtime authorization, and Foundation Gate checks proving no cloud/provider/tokenizer/billing/external execution exists.

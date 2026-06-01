@@ -27,6 +27,7 @@ class ModelRuntimeResponse(BaseModel):
     errors: List[str] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=utc_now)
     metadata: Dict[str, Any] = Field(default_factory=dict)
+    response_origin: str = "simulated"
 
     model_config = ConfigDict(use_enum_values=True, extra="forbid")
 
@@ -37,13 +38,16 @@ class ModelRuntimeResponse(BaseModel):
             ModelRuntimeResponseStatus.simulated_refusal.value,
             ModelRuntimeResponseStatus.simulated_error.value,
             ModelRuntimeResponseStatus.validation_failed.value,
+            ModelRuntimeResponseStatus.local_loopback_success.value,
+            ModelRuntimeResponseStatus.local_loopback_error.value,
         }:
-            raise ValueError("Model runtime response must be simulated.")
+            raise ValueError("Model runtime response must be simulated or local loopback dev.")
         assert_secret_clean(self.output_summary, "Model runtime response output_summary")
         assert_secret_clean(self.structured_output, "Model runtime response structured_output")
         assert_secret_clean(self.metadata, "Model runtime response metadata")
         assert_secret_clean(self.warnings, "Model runtime response warnings")
         assert_secret_clean(self.errors, "Model runtime response errors")
+        assert_secret_clean(self.response_origin, "Model runtime response response_origin")
         return self
 
 

@@ -99,6 +99,12 @@ class FoundationGateEvaluator:
             "m85_tool_broker_rejects_arbitrary_approval": self.check_m85_tool_broker_rejects_arbitrary_approval,
             "m85_no_real_auth_oauth_network": self.check_m85_no_real_auth_oauth_network,
             "m85_approval_api_secret_echo_absent": self.check_m85_approval_api_secret_echo_absent,
+            "m9_loopback_runtime_files_present": self.check_m9_loopback_runtime_files_present,
+            "m9_non_loopback_endpoints_denied": self.check_m9_non_loopback_endpoints_denied,
+            "m9_arbitrary_approval_refs_denied": self.check_m9_arbitrary_approval_refs_denied,
+            "m9_fake_transport_only_in_gate": self.check_m9_fake_transport_only_in_gate,
+            "m9_simulated_fallback_available": self.check_m9_simulated_fallback_available,
+            "m9_model_output_not_truth_authority": self.check_m9_model_output_not_truth_authority,
         }
         results = [
             evaluator_map.get(criterion.criterion_id, self._skipped)(criterion)
@@ -700,17 +706,17 @@ class FoundationGateEvaluator:
             "from " + "openai import",
             "import " + "anthropic",
             "import " + "requests",
+            "from " + "requests import",
             "import " + "httpx",
-            "urllib",
+            "from " + "httpx import",
             "socket",
             "sub" + "process",
             "token" + "izer",
             "tiktoken",
             "sentencepiece",
             "bill" + "ing",
-            "base" + "_url",
-            ".post(",
-            ".get(",
+            "api" + "_key",
+            "API" + "_KEY",
         ]
         failures = []
         for path in sorted(runtime_root.rglob("*.py")):
@@ -1028,6 +1034,138 @@ class FoundationGateEvaluator:
             failures.append("approval API echoed secret-like input")
         return self._result(criterion, failures, ["src/ultimate_ai_agent/api/app.py"])
 
+    def check_m9_loopback_runtime_files_present(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        required = [
+            "src/ultimate_ai_agent/core/model_runtime/loopback.py",
+            "src/ultimate_ai_agent/core/model_runtime/execution_policy.py",
+            "src/ultimate_ai_agent/core/model_runtime/transports.py",
+            "src/ultimate_ai_agent/core/model_runtime/local_adapter.py",
+        ]
+        failures = [f"missing {path}" for path in required if not (self.root / path).exists()]
+        return self._result(criterion, failures, required)
+
+    def check_m9_non_loopback_endpoints_denied(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        from ultimate_ai_agent.core.model_runtime import LocalLoopbackModelRuntimeAdapter, LoopbackRuntimeEndpoint, LoopbackRuntimePolicy, ModelRuntimeKind
+
+        adapter = LocalLoopbackModelRuntimeAdapter()
+        policy = LoopbackRuntimePolicy(policy_id="m9_gate_policy", allow_real_loopback_execution=True)
+        def endpoint(base_url: str):
+            return LoopbackRuntimeEndpoint(
+                endpoint_id="m9_gate_endpoint",
+                base_url=base_url,
+                allowed_hosts=["127.0.0.1", "localhost", "::1"],
+                runtime_kind=ModelRuntimeKind.local_stub,
+                model_id="m9_gate_model",
+                enabled=True,
+                owner="foundation_gate",
+                source="foundation_gate",
+                version="0.0.0",
+            )
+
+        failures = []
+        remote = adapter.validate_endpoint(endpoint("http" + "://example.com/api/generate"), policy)
+        credentials = adapter.validate_endpoint(endpoint("http" + "://user:pass@127.0.0.1:11434/api/generate"), policy)
+        query = adapter.validate_endpoint(endpoint("http" + "://127.0.0.1:11434/api/generate?token=abc"), policy)
+        if remote.allowed or "NON_LOOPBACK_HOST_DENIED" not in remote.reason_codes:
+            failures.append("remote host was not denied")
+        if credentials.allowed or "URL_CREDENTIALS_DENIED" not in credentials.reason_codes:
+            failures.append("URL credentials were not denied")
+        if query.allowed or "SECRET_QUERY_DENIED" not in query.reason_codes:
+            failures.append("secret-like query parameter was not denied")
+        return self._result(criterion, failures, ["src/ultimate_ai_agent/core/model_runtime/local_adapter.py"])
+
+    def check_m9_arbitrary_approval_refs_denied(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        from ultimate_ai_agent.core.model_runtime import LocalLoopbackModelRuntimeAdapter
+
+        request = self._m9_runtime_request(approval_ref="human_approved_ref_123")
+        decision = LocalLoopbackModelRuntimeAdapter().validate_execution(
+            request,
+            self._m9_runtime_manifest(),
+            self._m9_loopback_endpoint(),
+            self._m9_loopback_policy(),
+            approval_decision=None,
+        )
+        failures = []
+        if decision.allowed:
+            failures.append("arbitrary approval_ref allowed execution")
+        if "APPROVAL_DECISION_REQUIRED" not in decision.reason_codes:
+            failures.append("arbitrary approval_ref did not require validated approval decision")
+        return self._result(criterion, failures, ["src/ultimate_ai_agent/core/model_runtime/local_adapter.py"])
+
+    def check_m9_fake_transport_only_in_gate(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        runtime_root = self.src_root / "core" / "model_runtime"
+        forbidden = [
+            "import " + "requests",
+            "from " + "requests import",
+            "import " + "httpx",
+            "from " + "httpx import",
+            "import " + "openai",
+            "import " + "anthropic",
+            "tiktoken",
+            "tokenizers",
+            "billing",
+            "sub" + "process",
+        ]
+        failures = []
+        for path in sorted(runtime_root.rglob("*.py")):
+            rel_path = str(path.relative_to(self.root))
+            for line_no, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+                stripped = line.strip()
+                if any(fragment in stripped for fragment in forbidden):
+                    failures.append(f"{rel_path}:{line_no} forbidden M9 runtime fragment")
+                if "DisabledNetworkTransport().send(" in stripped:
+                    failures.append(f"{rel_path}:{line_no} disabled transport send call in gate path")
+        return self._result(criterion, failures, ["src/ultimate_ai_agent/core/model_runtime"])
+
+    def check_m9_simulated_fallback_available(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        from ultimate_ai_agent.core.model_runtime import LocalLoopbackModelRuntimeAdapter, ModelRuntimeResponseStatus
+
+        response = LocalLoopbackModelRuntimeAdapter().execute_dev(
+            self._m9_runtime_request(approval_ref="human_approved_ref_123"),
+            self._m9_runtime_manifest(),
+            self._m9_loopback_endpoint(),
+            self._m9_loopback_policy(),
+            approval_decision=None,
+        )
+        failures = []
+        if response.status != ModelRuntimeResponseStatus.simulated_success:
+            failures.append("blocked execution did not return simulated fallback")
+        if response.response_origin != "simulated":
+            failures.append("fallback response origin was not simulated")
+        return self._result(criterion, failures, ["src/ultimate_ai_agent/core/model_runtime/local_adapter.py"])
+
+    def check_m9_model_output_not_truth_authority(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        from ultimate_ai_agent.core.approvals import ApprovalRiskLevel, ApprovalSubjectType, LocalApprovalAuthority
+        from ultimate_ai_agent.core.model_runtime import FakeModelRuntimeTransport, LocalLoopbackModelRuntimeAdapter, response_is_truth_authority
+
+        request = self._m9_runtime_request()
+        approval_request = LocalApprovalAuthority.request_for_model_route(
+            self._gate_route_request(self._gate_local_profile()),
+            subject_type=ApprovalSubjectType.model_runtime_request,
+            subject_id=request.runtime_request_id,
+            requested_action="execute_local_loopback_model",
+            resource_refs=[request.adapter_id, request.model_profile_id],
+            risk_level=ApprovalRiskLevel.high,
+        )
+        authority = LocalApprovalAuthority()
+        authority.create_request(approval_request)
+        grant = authority.grant(approval_request.approval_request_id, approved_by_actor_id="foundation_gate")
+        approval = authority.validate_for_request(approval_request, grant.approval_ref)
+        response = LocalLoopbackModelRuntimeAdapter().execute_dev(
+            request.model_copy(update={"approval_ref": grant.approval_ref}),
+            self._m9_runtime_manifest(),
+            self._m9_loopback_endpoint(),
+            self._m9_loopback_policy(),
+            approval,
+            transport=FakeModelRuntimeTransport(),
+        )
+        failures = []
+        if response_is_truth_authority(response):
+            failures.append("local loopback response is truth authority")
+        if response.metadata.get("truth_authority") is not False:
+            failures.append("local loopback metadata did not mark non-authoritative")
+        return self._result(criterion, failures, ["src/ultimate_ai_agent/core/model_runtime/responses.py"])
+
     def _skipped(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
         return FoundationGateResult(
             criterion_id=criterion.criterion_id,
@@ -1176,6 +1314,84 @@ class FoundationGateEvaluator:
             source="foundation_gate",
             version="0.0.0",
             enabled=True,
+        )
+
+    def _m9_loopback_endpoint(self):
+        from ultimate_ai_agent.core.model_runtime import LoopbackRuntimeEndpoint, ModelRuntimeKind
+
+        return LoopbackRuntimeEndpoint(
+            endpoint_id="m9_gate_loopback",
+            base_url="http" + "://127.0.0.1:11434/api/generate",
+            allowed_hosts=["127.0.0.1", "localhost", "::1"],
+            runtime_kind=ModelRuntimeKind.local_stub,
+            model_id="local_policy_model",
+            enabled=True,
+            owner="foundation_gate",
+            source="foundation_gate",
+            version="0.0.0",
+        )
+
+    def _m9_loopback_policy(self):
+        from ultimate_ai_agent.core.model_runtime import LoopbackRuntimePolicy
+
+        return LoopbackRuntimePolicy(
+            policy_id="m9_gate_policy",
+            allow_real_loopback_execution=True,
+            max_input_tokens=4096,
+            max_output_tokens=1024,
+        )
+
+    def _m9_runtime_manifest(self):
+        from ultimate_ai_agent.core.model_runtime import ModelRuntimeAdapterManifest, ModelRuntimeKind, ModelRuntimeSafetyMode
+
+        return ModelRuntimeAdapterManifest(
+            adapter_id="m9_gate_adapter",
+            runtime_kind=ModelRuntimeKind.local_stub,
+            display_name="M9 Gate Local Loopback Adapter",
+            description="Local/dev loopback adapter for Foundation Gate checks.",
+            supported_provider_kinds=["local_runtime"],
+            supported_capabilities=["chat"],
+            safety_mode=ModelRuntimeSafetyMode.local_loopback_dev,
+            accepts_model_profile_ids=["m7_gate_local"],
+            requires_credential_ref=False,
+            allowed_credential_refs=[],
+            supports_streaming=False,
+            supports_tools=False,
+            supports_json_mode=True,
+            supports_structured_output=True,
+            max_context_tokens=8192,
+            max_input_tokens=4096,
+            max_output_tokens=1024,
+            owner="foundation_gate",
+            source="foundation_gate",
+            version="0.0.0",
+            enabled=True,
+        )
+
+    def _m9_runtime_request(self, approval_ref: Optional[str] = None):
+        from ultimate_ai_agent.core.model_runtime import ModelRuntimeOutputFormat, ModelRuntimeRequest, ModelRuntimeSafetyMode
+
+        return ModelRuntimeRequest(
+            runtime_request_id="m9_gate_runtime_request",
+            run_id="run_foundation_gate",
+            route_decision_ref="m9_gate_selected_route",
+            model_profile_id="m7_gate_local",
+            model_id="local_policy_model",
+            adapter_id="m9_gate_adapter",
+            actor_context=self._actor(),
+            prompt_summary="Foundation Gate local loopback metadata check.",
+            input_refs=["context_pack:m9_gate"],
+            output_format=ModelRuntimeOutputFormat.text,
+            estimated_input_tokens=100,
+            max_output_tokens=50,
+            safety_mode=ModelRuntimeSafetyMode.local_loopback_dev,
+            data_classification=DataClassification(classification=ClassificationValue.project_private, source="foundation_gate"),
+            consent_refs=["consent_foundation_gate"],
+            approval_ref=approval_ref,
+            secret_handle_refs=[],
+            event_ref="evt_m9_gate",
+            trace_id="trace_m9_gate",
+            metadata={"route_reason_codes": ["SELECTED_PROFILE"]},
         )
 
     def _actor(self) -> ActorContext:

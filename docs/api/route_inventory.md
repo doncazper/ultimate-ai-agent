@@ -14,7 +14,7 @@ Each route declares:
 - `requires_auth_future`
 - `blocked_from_production`
 
-Allowed side-effect classes in v0.12.2 are:
+Allowed side-effect classes in v0.13.0 are:
 
 - `none`
 - `validation_only`
@@ -39,5 +39,13 @@ M8.5 approval route group:
 - `/approvals/receipts/validate`
 
 These routes validate local/dev approval authority contracts only. They do not provide production auth, OAuth, persistence, or external execution.
+
+M9 local loopback route group:
+
+- `/model-runtime/local/endpoints/validate`
+- `/model-runtime/local/execution/validate`
+- `/model-runtime/local/simulate-fallback`
+
+These routes validate local loopback policy and provide simulated fallback only. They do not expose a public real loopback execution endpoint and must not accept arbitrary local or remote URLs.
 
 Invalid payload responses are sanitized and must not include raw invalid input values.
