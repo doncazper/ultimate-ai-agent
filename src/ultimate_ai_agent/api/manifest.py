@@ -35,6 +35,7 @@ ROUTE_GROUPS_BY_PREFIX = {
     "/local-runtime": "runtime-boundary",
     "/adapter-manifest": "adapter-boundary",
     "/models": "model-router",
+    "/model-runtime": "model-runtime",
     "/costs": "cost-governor",
     "/gate": "foundation-gate",
     "/consent": "consent",

@@ -12,6 +12,7 @@ SCAN_SEQUENCE = [
     ("obvious secret scan", "verify_no_obvious_secrets"),
     ("blocked module scan", "verify_no_blocked_modules"),
     ("forbidden external integrations scan", "verify_no_forbidden_external_integrations"),
+    ("model runtime simulated-only scan", "verify_no_real_model_runtime_execution"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
     ("production truth integration scan", "verify_no_production_truth_integrations"),
     ("broad filesystem scan", "verify_no_broad_filesystem_scanning"),
@@ -146,6 +147,41 @@ def verify_no_forbidden_external_integrations():
         except Exception:
             pass
     print("OK: No forbidden provider API clients or network calls detected in src")
+
+def verify_no_real_model_runtime_execution():
+    print("\n[Verifier] Running M8 model runtime simulated-only guard...")
+    runtime_root = ROOT / "src" / "ultimate_ai_agent" / "core" / "model_runtime"
+    if not runtime_root.exists():
+        print("OK: Model runtime package is absent")
+        return
+    forbidden_fragments = [
+        "import openai",
+        "from openai import",
+        "import anthropic",
+        "import requests",
+        "import httpx",
+        "urllib",
+        "socket",
+        "subprocess",
+        "tokenizer",
+        "tiktoken",
+        "sentencepiece",
+        "billing",
+        "base_url",
+        ".post(",
+        ".get(",
+    ]
+    for p in runtime_root.rglob("*.py"):
+        try:
+            content = p.read_text(encoding="utf-8")
+            for line in content.splitlines():
+                stripped = line.strip()
+                if any(fragment in stripped for fragment in forbidden_fragments):
+                    print(f"FAIL: Real model runtime execution fragment in {p.relative_to(ROOT)}: {line}")
+                    sys.exit(1)
+        except Exception:
+            pass
+    print("OK: Model runtime package is simulated-only")
 
 def verify_no_shell_execution_in_runtime():
     print("\n[Verifier] Running runtime shell/subprocess execution scan...")

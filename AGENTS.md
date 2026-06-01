@@ -1,6 +1,6 @@
 # Ultimate AI Agent Workspace Standards
 
-Active baseline: v0.11.2.
+Active baseline: v0.12.0.
 
 This repository is the Ultimate AI Agent foundation workspace. Treat it as a contract-first Python core, not a production runtime integration layer.
 
@@ -12,6 +12,7 @@ This repository is the Ultimate AI Agent foundation workspace. Treat it as a con
 - Do not add runtime model calls.
 - Do not add web fetching.
 - Do not add provider SDK calls, browser automation, production persistence, scanner runtimes, or runtime agent config loading.
+- M8 model runtime endpoints are simulated/dry-run only. Do not add live runtime URLs, tokenizers, billing APIs, network calls, or provider SDK calls.
 
 ## Workspace
 

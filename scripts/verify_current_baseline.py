@@ -338,6 +338,32 @@ def main():
         if not p.exists():
             fail(f"Required M7.5 API boundary file is missing: {rel_path}")
     ok("All M7.5 API boundary stabilization files exist")
+
+    # 8.14 Check M8 simulated model runtime adapter harness files existence
+    m8_files = [
+        "src/ultimate_ai_agent/core/model_runtime/__init__.py",
+        "src/ultimate_ai_agent/core/model_runtime/enums.py",
+        "src/ultimate_ai_agent/core/model_runtime/manifests.py",
+        "src/ultimate_ai_agent/core/model_runtime/requests.py",
+        "src/ultimate_ai_agent/core/model_runtime/responses.py",
+        "src/ultimate_ai_agent/core/model_runtime/simulator.py",
+        "src/ultimate_ai_agent/core/model_runtime/adapters.py",
+        "src/ultimate_ai_agent/core/model_runtime/validation.py",
+        "src/ultimate_ai_agent/core/model_runtime/redaction.py",
+        "tests/test_model_runtime_manifests.py",
+        "tests/test_model_runtime_requests.py",
+        "tests/test_model_runtime_simulator.py",
+        "tests/test_model_runtime_no_real_calls.py",
+        "tests/test_model_runtime_redaction.py",
+        "tests/test_model_runtime_event_metadata.py",
+        "tests/test_model_runtime_api_routes.py",
+        "tests/test_m8_gate_integration.py",
+    ]
+    for rel_path in m8_files:
+        p = ROOT / rel_path
+        if not p.exists():
+            fail(f"Required M8 file is missing: {rel_path}")
+    ok("All M8 simulated model runtime adapter harness files exist")
     
     # 9. Enforce scans by delegating to verify_all
     try:

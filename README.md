@@ -1,12 +1,12 @@
-# Ultimate AI Agent Canonical Bundle v0.11.2
+# Ultimate AI Agent Canonical Bundle v0.12.0
 
-This is the active project baseline after the v0.11.2 M7.5 API boundary stabilization patch.
+This is the active project baseline after the v0.12.0 M8 simulated model runtime adapter harness.
 
 Start here:
 
 ```text
-README_IMPORT_v0_11_2.md
-ultimate_ai_agent_master_plan_v0_11_2.md
+README_IMPORT_v0_12_0.md
+ultimate_ai_agent_master_plan_v0_12_0.md
 docs/canonical/09_roadmap.md
 docs/canonical/21_consent_and_permissions_ledger.md
 docs/canonical/37_tool_broker.md
@@ -16,7 +16,8 @@ docs/canonical/63_observability_standards_mapping.md
 docs/api/README.md
 docs/api/openapi_contract.md
 docs/api/route_inventory.md
-docs/implementation/foundation_gate_implementation_plan_v0_11_2.md
+docs/runtime/model_runtime_adapter_harness.md
+docs/implementation/foundation_gate_implementation_plan_v0_12_0.md
 docs/testing/test_strategy_v0.md
 ```
 
@@ -38,4 +39,4 @@ Observability standards rule:
 
 Foundation Gate rule:
 
-> v0.11.2 stabilizes the M7.5 API boundary. `/api/manifest`, deterministic OpenAPI operation IDs, export/verify scripts, AGENTS.md workspace standards, API docs, CI coverage, and Foundation Gate criteria now protect the API contract. It does not add scanners, companion proactivity, Skill Factory, self-improving code, autopilot, browser automation, real providers/models/web calls, tokenizers, billing APIs, network calls, runtime agent config loading, SDK/A2A runtime delegation, production databases, pgvector, embeddings, production secrets, production truth connectors, or high-autonomy execution.
+> v0.12.0 implements M8 as a simulated model runtime adapter harness. It converts selected model-router decisions into safe simulated runtime requests and deterministic simulated responses, then verifies no real model/provider/tokenizer/network execution exists. It does not add scanners, companion proactivity, Skill Factory, self-improving code, autopilot, browser automation, real providers/models/web calls, tokenizers, billing APIs, network calls, runtime agent config loading, SDK/A2A runtime delegation, production databases, pgvector, embeddings, production secrets, production truth connectors, or high-autonomy execution.

@@ -83,6 +83,12 @@ class FoundationGateEvaluator:
             "forbidden_runtime_routes_absent": self.check_forbidden_runtime_routes_absent,
             "agents_md_guidance_present": self.check_agents_md_guidance_present,
             "runtime_agent_config_loading_absent": self.check_runtime_agent_config_loading_absent,
+            "m8_model_runtime_files_present": self.check_m8_model_runtime_files_present,
+            "m8_runtime_kinds_stub_only": self.check_m8_runtime_kinds_stub_only,
+            "m8_model_runtime_no_real_calls": self.check_m8_model_runtime_no_real_calls,
+            "m8_simulation_endpoint_safe": self.check_m8_simulation_endpoint_safe,
+            "m8_runtime_responses_simulated_only": self.check_m8_runtime_responses_simulated_only,
+            "m8_runtime_secret_prompt_blocked": self.check_m8_runtime_secret_prompt_blocked,
         }
         results = [
             evaluator_map.get(criterion.criterion_id, self._skipped)(criterion)
@@ -651,6 +657,127 @@ class FoundationGateEvaluator:
             and any(fragment in stripped for fragment in forbidden)
         ]
         return self._result(criterion, failures, ["src/ultimate_ai_agent"])
+
+    def check_m8_model_runtime_files_present(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        required = [
+            "src/ultimate_ai_agent/core/model_runtime/__init__.py",
+            "src/ultimate_ai_agent/core/model_runtime/enums.py",
+            "src/ultimate_ai_agent/core/model_runtime/manifests.py",
+            "src/ultimate_ai_agent/core/model_runtime/requests.py",
+            "src/ultimate_ai_agent/core/model_runtime/responses.py",
+            "src/ultimate_ai_agent/core/model_runtime/simulator.py",
+            "src/ultimate_ai_agent/core/model_runtime/adapters.py",
+            "src/ultimate_ai_agent/core/model_runtime/validation.py",
+            "src/ultimate_ai_agent/core/model_runtime/redaction.py",
+        ]
+        failures = [f"missing {path}" for path in required if not (self.root / path).exists()]
+        return self._result(criterion, failures, required)
+
+    def check_m8_runtime_kinds_stub_only(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        from ultimate_ai_agent.core.model_runtime import ModelRuntimeKind
+
+        allowed = {"simulated", "local_stub", "cloud_stub", "openai_compatible_stub", "sdk_adapter_stub"}
+        actual = {kind.value for kind in ModelRuntimeKind}
+        failures = [f"unexpected runtime kind: {kind}" for kind in sorted(actual - allowed)]
+        missing = allowed - actual
+        failures.extend(f"missing runtime kind: {kind}" for kind in sorted(missing))
+        return self._result(criterion, failures, ["src/ultimate_ai_agent/core/model_runtime/enums.py"])
+
+    def check_m8_model_runtime_no_real_calls(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        runtime_root = self.src_root / "core" / "model_runtime"
+        forbidden = [
+            "import " + "openai",
+            "from " + "openai import",
+            "import " + "anthropic",
+            "import " + "requests",
+            "import " + "httpx",
+            "urllib",
+            "socket",
+            "sub" + "process",
+            "token" + "izer",
+            "tiktoken",
+            "sentencepiece",
+            "bill" + "ing",
+            "base" + "_url",
+            ".post(",
+            ".get(",
+        ]
+        failures = []
+        for path in sorted(runtime_root.rglob("*.py")):
+            rel_path = str(path.relative_to(self.root))
+            for line_no, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+                stripped = line.strip()
+                if any(fragment in stripped for fragment in forbidden):
+                    failures.append(f"{rel_path}:{line_no} real runtime fragment")
+        return self._result(criterion, failures, ["src/ultimate_ai_agent/core/model_runtime"])
+
+    def check_m8_simulation_endpoint_safe(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        from ultimate_ai_agent.api.app import app
+
+        schema = app.openapi()
+        failures = []
+        route = schema.get("paths", {}).get("/model-runtime/simulate", {}).get("post")
+        if not route:
+            failures.append("/model-runtime/simulate missing")
+        elif route.get("operationId") != "post_model_runtime_simulate":
+            failures.append("simulate endpoint operation ID is not stable")
+        return self._result(criterion, failures, ["src/ultimate_ai_agent/api/app.py"])
+
+    def check_m8_runtime_responses_simulated_only(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        from ultimate_ai_agent.core.model_runtime import (
+            ModelRuntimeOutputFormat,
+            ModelRuntimeResponse,
+            ModelRuntimeResponseStatus,
+            response_is_truth_authority,
+        )
+
+        failures = []
+        response = ModelRuntimeResponse(
+            runtime_response_id="m8_gate_response",
+            runtime_request_id="m8_gate_request",
+            run_id="run_foundation_gate",
+            status=ModelRuntimeResponseStatus.simulated_success,
+            output_format=ModelRuntimeOutputFormat.text,
+            output_summary="Simulated response for request m8_gate_request; no model was called.",
+            model_profile_id="m8_gate_profile",
+            adapter_id="m8_gate_adapter",
+            metadata={"simulated": True, "truth_authority": False},
+        )
+        if response.status != ModelRuntimeResponseStatus.simulated_success:
+            failures.append("response status was not simulated_success")
+        if response_is_truth_authority(response):
+            failures.append("response became truth authority")
+        if "no model was called" not in response.output_summary:
+            failures.append("simulated response marker missing")
+        return self._result(criterion, failures, ["src/ultimate_ai_agent/core/model_runtime/responses.py"])
+
+    def check_m8_runtime_secret_prompt_blocked(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        from ultimate_ai_agent.core.model_runtime import ModelRuntimeOutputFormat, ModelRuntimeRequest, ModelRuntimeSafetyMode
+
+        failures = []
+        try:
+            ModelRuntimeRequest(
+                runtime_request_id="m8_gate_secret_request",
+                run_id="run_foundation_gate",
+                model_profile_id="m8_gate_profile",
+                model_id="m8_gate_model",
+                adapter_id="m8_gate_adapter",
+                actor_context=self._actor(),
+                prompt_summary="api_" + "key='ABCDEFGHIJKLMNOP'",
+                input_refs=["context_pack:m8_gate"],
+                output_format=ModelRuntimeOutputFormat.text,
+                estimated_input_tokens=10,
+                max_output_tokens=10,
+                safety_mode=ModelRuntimeSafetyMode.simulated,
+                data_classification=DataClassification(
+                    classification=ClassificationValue.project_private,
+                    source="foundation_gate",
+                ),
+            )
+            failures.append("secret-like prompt summary was accepted")
+        except (ValidationError, ValueError):
+            pass
+        return self._result(criterion, failures, ["src/ultimate_ai_agent/core/model_runtime/requests.py"])
 
     def _skipped(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
         return FoundationGateResult(

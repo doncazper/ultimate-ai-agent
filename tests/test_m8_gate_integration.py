@@ -1,0 +1,27 @@
+from ultimate_ai_agent.core.gate import FoundationGateEvaluator, FoundationGateStatus, default_foundation_gate_criteria
+
+
+def test_foundation_gate_criteria_include_m8_runtime_surface():
+    criteria = default_foundation_gate_criteria()
+    by_id = {criterion.criterion_id: criterion for criterion in criteria}
+
+    assert {
+        "m8_model_runtime_files_present",
+        "m8_runtime_kinds_stub_only",
+        "m8_model_runtime_no_real_calls",
+        "m8_simulation_endpoint_safe",
+        "m8_runtime_responses_simulated_only",
+        "m8_runtime_secret_prompt_blocked",
+    }.issubset(by_id)
+
+
+def test_foundation_gate_evaluator_passes_m8_runtime_checks():
+    report = FoundationGateEvaluator().evaluate()
+    results = {result.criterion_id: result for result in report.results}
+
+    assert results["m8_model_runtime_files_present"].status == FoundationGateStatus.passed
+    assert results["m8_runtime_kinds_stub_only"].status == FoundationGateStatus.passed
+    assert results["m8_model_runtime_no_real_calls"].status == FoundationGateStatus.passed
+    assert results["m8_simulation_endpoint_safe"].status == FoundationGateStatus.passed
+    assert results["m8_runtime_responses_simulated_only"].status == FoundationGateStatus.passed
+    assert results["m8_runtime_secret_prompt_blocked"].status == FoundationGateStatus.passed

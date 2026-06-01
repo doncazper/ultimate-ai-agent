@@ -38,6 +38,14 @@ GATE_TESTS = [
     "tests/test_openapi_contract.py",
     "tests/test_agents_md_guidance.py",
     "tests/test_m75_gate_integration.py",
+    "tests/test_model_runtime_manifests.py",
+    "tests/test_model_runtime_requests.py",
+    "tests/test_model_runtime_simulator.py",
+    "tests/test_model_runtime_no_real_calls.py",
+    "tests/test_model_runtime_redaction.py",
+    "tests/test_model_runtime_event_metadata.py",
+    "tests/test_model_runtime_api_routes.py",
+    "tests/test_m8_gate_integration.py",
 ]
 
 

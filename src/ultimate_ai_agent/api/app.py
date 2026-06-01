@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
+from pydantic import ValidationError
 from datetime import datetime
 from ultimate_ai_agent.core.time import utc_now
 from typing import List, Optional
@@ -97,6 +98,15 @@ from ultimate_ai_agent.core.model_router import (
     ModelRouter,
     validate_model_capability_profile,
 )
+from ultimate_ai_agent.core.model_runtime import (
+    ModelRuntimeAdapterManifest,
+    ModelRuntimeRequest,
+    ModelRuntimeResponse,
+    SimulatedModelRuntimeAdapter,
+    validate_runtime_manifest,
+    validate_runtime_request,
+    validate_runtime_response,
+)
 
 app = FastAPI(
     title="Ultimate AI Agent API Boundary",
@@ -124,6 +134,17 @@ class CostEstimatePreviewRequest(BaseModel):
 class CostEvaluateRequest(BaseModel):
     estimate: CostEstimate
     budgets: List[CostBudget]
+
+class ModelRuntimeRequestValidatePayload(BaseModel):
+    request: dict
+    manifest: ModelRuntimeAdapterManifest
+
+class ModelRuntimeResponseValidatePayload(BaseModel):
+    response: dict
+
+class ModelRuntimeSimulatePayload(BaseModel):
+    request: dict
+    manifest: ModelRuntimeAdapterManifest
 
 @app.get("/health", response_model=HealthResponse)
 def get_health():
@@ -397,6 +418,60 @@ def post_preview_model_route(request: ModelRouteRequest):
         service="ModelRouterAPI",
         trace_id=request.run_id,
         data=decision.model_dump(mode="json"),
+    )
+
+def _model_runtime_validation_error(operation: str, trace_id: str, exc: Exception) -> ResultEnvelope:
+    return ResultEnvelope(
+        success=False,
+        operation=operation,
+        service="ModelRuntimeAPI",
+        trace_id=trace_id,
+        error=ErrorEnvelope(
+            code="MODEL_RUNTIME_VALIDATION_FAILED",
+            category=ErrorCategory.validation_error,
+            safe_message="Model runtime payload validation failed.",
+            severity=Severity.medium,
+            retryable=False,
+            details_redacted=True,
+            source="ModelRuntimeAPI",
+            caused_by=[type(exc).__name__],
+        ),
+        redactions_applied=["invalid_payload"],
+    )
+
+@app.post("/model-runtime/manifests/validate", response_model=ResultEnvelope)
+def post_validate_model_runtime_manifest(manifest: ModelRuntimeAdapterManifest):
+    return validate_runtime_manifest(manifest)
+
+@app.post("/model-runtime/requests/validate", response_model=ResultEnvelope)
+def post_validate_model_runtime_request(payload: ModelRuntimeRequestValidatePayload):
+    try:
+        request = ModelRuntimeRequest(**payload.request)
+    except (ValidationError, ValueError) as exc:
+        return _model_runtime_validation_error("validate_model_runtime_request", "system", exc)
+    return validate_runtime_request(request, payload.manifest)
+
+@app.post("/model-runtime/responses/validate", response_model=ResultEnvelope)
+def post_validate_model_runtime_response(payload: ModelRuntimeResponseValidatePayload):
+    try:
+        response = ModelRuntimeResponse(**payload.response)
+    except (ValidationError, ValueError) as exc:
+        return _model_runtime_validation_error("validate_model_runtime_response", "system", exc)
+    return validate_runtime_response(response)
+
+@app.post("/model-runtime/simulate", response_model=ResultEnvelope)
+def post_simulate_model_runtime(payload: ModelRuntimeSimulatePayload):
+    try:
+        request = ModelRuntimeRequest(**payload.request)
+    except (ValidationError, ValueError) as exc:
+        return _model_runtime_validation_error("simulate_model_runtime", "system", exc)
+    response = SimulatedModelRuntimeAdapter().simulate_response(request, payload.manifest)
+    return ResultEnvelope(
+        success=response.status in {"simulated_success", "simulated_refusal"},
+        operation="simulate_model_runtime",
+        service="ModelRuntimeAPI",
+        trace_id=request.trace_id or request.run_id,
+        data=response.model_dump(mode="json"),
     )
 
 @app.post("/costs/budgets/validate", response_model=ResultEnvelope)
