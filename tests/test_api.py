@@ -45,6 +45,25 @@ def test_validate_contract_endpoint():
     res_json = response.json()
     assert res_json["success"] is True
 
+
+def test_global_validation_error_handler_does_not_echo_secret_input():
+    payload = {
+        "contract_id": "not_a_valid_contract_id",
+        "request_summary": "safe summary",
+        "goal": "safe goal",
+        "deliverable": "safe deliverable",
+        "mode": "answer",
+        "acceptance_criteria": ["safe"],
+        "api_key": "sk_test_secret_value",
+    }
+
+    response = client.post("/contracts/validate", json=payload)
+
+    assert response.status_code == 422
+    assert response.json()["success"] is False
+    assert "sk_test_secret_value" not in response.text
+    assert "api_key" not in response.text
+
 def test_validate_context_pack_endpoint():
     context_pack_data = {
         "context_pack_id": "cp_test_api",

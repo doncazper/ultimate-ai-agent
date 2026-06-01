@@ -3,6 +3,7 @@ from ultimate_ai_agent.core.ledger import scan_payload_for_secrets
 def test_scan_payload_detects_secrets():
     # String contains secret pattern
     assert scan_payload_for_secrets("api_key='abcde12345678901234'") is True
+    assert scan_payload_for_secrets("api_key=sk_test_secret_value") is True
     assert scan_payload_for_secrets("secret = \"mysecrettokenvalue\"") is True
     assert scan_payload_for_secrets("password='SuperSecurePassword123'") is True
     

@@ -89,6 +89,7 @@ class FoundationGateEvaluator:
             "m8_simulation_endpoint_safe": self.check_m8_simulation_endpoint_safe,
             "m8_runtime_responses_simulated_only": self.check_m8_runtime_responses_simulated_only,
             "m8_runtime_secret_prompt_blocked": self.check_m8_runtime_secret_prompt_blocked,
+            "m8_api_validation_secret_echo_absent": self.check_m8_api_validation_secret_echo_absent,
         }
         results = [
             evaluator_map.get(criterion.criterion_id, self._skipped)(criterion)
@@ -779,6 +780,32 @@ class FoundationGateEvaluator:
             pass
         return self._result(criterion, failures, ["src/ultimate_ai_agent/core/model_runtime/requests.py"])
 
+    def check_m8_api_validation_secret_echo_absent(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        from fastapi.testclient import TestClient
+
+        from ultimate_ai_agent.api.app import app
+
+        failures = []
+        client = TestClient(app)
+        secret = "sk_" + "test_" + "secret_" + "value"
+        assignment = "api_" + "key=" + secret
+        manifest = self._m8_gate_manifest()
+        manifest_with_secret = {**manifest, "metadata": {"note": assignment}}
+        request = self._m8_gate_request()
+        cases = [
+            ("/model-runtime/manifests/validate", manifest_with_secret),
+            ("/model-runtime/manifests/validate", {**manifest, "api_" + "key": secret}),
+            ("/model-runtime/requests/validate", {"request": request, "manifest": manifest_with_secret}),
+            ("/model-runtime/simulate", {"request": request, "manifest": manifest_with_secret}),
+        ]
+        for path, payload in cases:
+            response = client.post(path, json=payload)
+            if response.status_code not in {200, 422}:
+                failures.append(f"{path} returned unexpected status {response.status_code}")
+            if secret in response.text or assignment in response.text:
+                failures.append(f"{path} echoed secret-like input")
+        return self._result(criterion, failures, ["src/ultimate_ai_agent/api/app.py"])
+
     def _skipped(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
         return FoundationGateResult(
             criterion_id=criterion.criterion_id,
@@ -838,6 +865,51 @@ class FoundationGateEvaluator:
             or stripped.startswith(("forbidden = ", "forbidden_starts = ", "forbidden_contains = "))
             or stripped.startswith('if ".get(" in stripped')
         )
+
+    def _m8_gate_manifest(self) -> dict:
+        return {
+            "adapter_id": "m8_gate_adapter",
+            "runtime_kind": "simulated",
+            "display_name": "M8 Gate Simulated Adapter",
+            "description": "Deterministic simulated adapter for Foundation Gate checks.",
+            "supported_provider_kinds": ["local_runtime"],
+            "supported_capabilities": ["chat"],
+            "safety_mode": "simulated",
+            "accepts_model_profile_ids": ["m8_gate_profile"],
+            "requires_credential_ref": False,
+            "allowed_credential_refs": [],
+            "supports_streaming": False,
+            "supports_tools": False,
+            "supports_json_mode": True,
+            "supports_structured_output": True,
+            "max_context_tokens": 8192,
+            "max_input_tokens": 1024,
+            "max_output_tokens": 512,
+            "owner": "foundation_gate",
+            "source": "foundation_gate",
+            "version": "0.0.0",
+            "enabled": True,
+        }
+
+    def _m8_gate_request(self) -> dict:
+        return {
+            "runtime_request_id": "m8_gate_request",
+            "run_id": "run_foundation_gate",
+            "model_profile_id": "m8_gate_profile",
+            "model_id": "m8_gate_model",
+            "adapter_id": "m8_gate_adapter",
+            "actor_context": self._actor().model_dump(mode="json"),
+            "prompt_summary": "Summarize referenced context safely.",
+            "input_refs": ["context_pack:m8_gate"],
+            "output_format": "text",
+            "estimated_input_tokens": 10,
+            "max_output_tokens": 10,
+            "safety_mode": "simulated",
+            "data_classification": {
+                "classification": "project_private",
+                "source": "foundation_gate",
+            },
+        }
 
     def _actor(self) -> ActorContext:
         return ActorContext(

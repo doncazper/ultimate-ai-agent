@@ -5,6 +5,8 @@ from ultimate_ai_agent.api.app import app
 
 
 client = TestClient(app)
+SECRET_VALUE = "sk_test_secret_value"
+SECRET_ASSIGNMENT = f"api_key={SECRET_VALUE}"
 
 
 def test_model_runtime_manifest_validate_endpoint_accepts_simulated_manifest():
@@ -27,6 +29,79 @@ def test_model_runtime_request_validate_endpoint_blocks_secret_prompt_summary():
 
     assert response.status_code in {200, 422}
     assert "ABCDEFGHIJKLMNOP" not in response.text
+
+
+def test_model_runtime_manifest_secret_metadata_validation_does_not_echo_input():
+    payload = simulated_manifest().model_dump(mode="json")
+    payload["metadata"] = {"note": SECRET_ASSIGNMENT}
+
+    response = client.post("/model-runtime/manifests/validate", json=payload)
+
+    assert response.status_code in {200, 422}
+    assert response.json()["success"] is False
+    assert SECRET_VALUE not in response.text
+    assert SECRET_ASSIGNMENT not in response.text
+
+
+def test_model_runtime_manifest_extra_api_key_validation_does_not_echo_input():
+    payload = simulated_manifest().model_dump(mode="json")
+    payload["api_key"] = SECRET_VALUE
+
+    response = client.post("/model-runtime/manifests/validate", json=payload)
+
+    assert response.status_code in {200, 422}
+    assert response.json()["success"] is False
+    assert SECRET_VALUE not in response.text
+
+
+def test_model_runtime_request_nested_manifest_secret_validation_does_not_echo_input():
+    manifest = simulated_manifest().model_dump(mode="json")
+    manifest["metadata"] = {"note": SECRET_ASSIGNMENT}
+
+    response = client.post(
+        "/model-runtime/requests/validate",
+        json={"request": runtime_request().model_dump(mode="json"), "manifest": manifest},
+    )
+
+    assert response.status_code in {200, 422}
+    assert response.json()["success"] is False
+    assert SECRET_VALUE not in response.text
+    assert SECRET_ASSIGNMENT not in response.text
+
+
+def test_model_runtime_simulate_nested_manifest_secret_validation_does_not_echo_input():
+    manifest = simulated_manifest().model_dump(mode="json")
+    manifest["metadata"] = {"note": SECRET_ASSIGNMENT}
+
+    response = client.post(
+        "/model-runtime/simulate",
+        json={"request": runtime_request().model_dump(mode="json"), "manifest": manifest},
+    )
+
+    assert response.status_code in {200, 422}
+    assert response.json()["success"] is False
+    assert SECRET_VALUE not in response.text
+    assert SECRET_ASSIGNMENT not in response.text
+
+
+def test_model_runtime_response_secret_validation_does_not_echo_input():
+    payload = {
+        "runtime_response_id": "mrt_resp_secret",
+        "runtime_request_id": "mrt_req_secret",
+        "run_id": "run_m8",
+        "status": "simulated_success",
+        "output_format": "text",
+        "output_summary": SECRET_ASSIGNMENT,
+        "model_profile_id": "local_coder",
+        "adapter_id": "sim_adapter",
+    }
+
+    response = client.post("/model-runtime/responses/validate", json={"response": payload})
+
+    assert response.status_code in {200, 422}
+    assert response.json()["success"] is False
+    assert SECRET_VALUE not in response.text
+    assert SECRET_ASSIGNMENT not in response.text
 
 
 def test_model_runtime_simulate_endpoint_returns_simulated_response():

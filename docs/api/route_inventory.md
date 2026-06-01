@@ -14,7 +14,7 @@ Each route declares:
 - `requires_auth_future`
 - `blocked_from_production`
 
-Allowed side-effect classes in v0.12.0 are:
+Allowed side-effect classes in v0.12.1 are:
 
 - `none`
 - `validation_only`
@@ -30,3 +30,5 @@ M8 route group:
 - `/model-runtime/simulate`
 
 These routes validate metadata and produce simulated responses only.
+
+Invalid payload responses are sanitized and must not include raw invalid input values.

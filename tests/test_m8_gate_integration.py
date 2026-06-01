@@ -12,6 +12,7 @@ def test_foundation_gate_criteria_include_m8_runtime_surface():
         "m8_simulation_endpoint_safe",
         "m8_runtime_responses_simulated_only",
         "m8_runtime_secret_prompt_blocked",
+        "m8_api_validation_secret_echo_absent",
     }.issubset(by_id)
 
 
@@ -25,3 +26,4 @@ def test_foundation_gate_evaluator_passes_m8_runtime_checks():
     assert results["m8_simulation_endpoint_safe"].status == FoundationGateStatus.passed
     assert results["m8_runtime_responses_simulated_only"].status == FoundationGateStatus.passed
     assert results["m8_runtime_secret_prompt_blocked"].status == FoundationGateStatus.passed
+    assert results["m8_api_validation_secret_echo_absent"].status == FoundationGateStatus.passed

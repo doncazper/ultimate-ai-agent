@@ -1,4 +1,6 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from pydantic import ValidationError
 from datetime import datetime
@@ -107,6 +109,7 @@ from ultimate_ai_agent.core.model_runtime import (
     validate_runtime_request,
     validate_runtime_response,
 )
+from ultimate_ai_agent.core.model_runtime.redaction import contains_secret_like
 
 app = FastAPI(
     title="Ultimate AI Agent API Boundary",
@@ -137,14 +140,64 @@ class CostEvaluateRequest(BaseModel):
 
 class ModelRuntimeRequestValidatePayload(BaseModel):
     request: dict
-    manifest: ModelRuntimeAdapterManifest
+    manifest: dict
 
 class ModelRuntimeResponseValidatePayload(BaseModel):
     response: dict
 
 class ModelRuntimeSimulatePayload(BaseModel):
     request: dict
-    manifest: ModelRuntimeAdapterManifest
+    manifest: dict
+
+def sanitize_validation_errors(errors: list[dict]) -> list[dict]:
+    sanitized = []
+    for error in errors:
+        sanitized_error = {
+            "type": error.get("type", "validation_error"),
+            "loc": [_sanitize_validation_location(part) for part in error.get("loc", [])],
+            "msg": error.get("msg", "Validation failed."),
+        }
+        if contains_secret_like(sanitized_error["msg"]):
+            sanitized_error["msg"] = "Validation failed."
+        sanitized.append(sanitized_error)
+    return sanitized
+
+def _sanitize_validation_location(part: object) -> str:
+    text = str(part)
+    sensitive_keys = {"api_key", "client_secret", "auth_token", "password", "private_key", "token", "secret"}
+    normalized = text.lower().replace("-", "_")
+    if normalized in sensitive_keys or contains_secret_like(text):
+        return "[redacted]"
+    return text
+
+def safe_request_validation_error_response(request: Request, exc: RequestValidationError) -> JSONResponse:
+    envelope = ResultEnvelope(
+        success=False,
+        operation="request_validation",
+        service="API",
+        trace_id="system",
+        error=ErrorEnvelope(
+            code="REQUEST_VALIDATION_FAILED",
+            category=ErrorCategory.validation_error,
+            safe_message="Request validation failed.",
+            severity=Severity.medium,
+            retryable=False,
+            details_redacted=True,
+            source="FastAPI",
+            caused_by=["RequestValidationError"],
+            metadata={
+                "path": request.url.path,
+                "error_count": len(exc.errors()),
+                "validation_errors": sanitize_validation_errors(exc.errors()),
+            },
+        ),
+        redactions_applied=["validation_input"],
+    )
+    return JSONResponse(status_code=422, content=envelope.model_dump(mode="json"))
+
+@app.exception_handler(RequestValidationError)
+async def request_validation_exception_handler(request: Request, exc: RequestValidationError):
+    return safe_request_validation_error_response(request, exc)
 
 @app.get("/health", response_model=HealthResponse)
 def get_health():
@@ -440,16 +493,21 @@ def _model_runtime_validation_error(operation: str, trace_id: str, exc: Exceptio
     )
 
 @app.post("/model-runtime/manifests/validate", response_model=ResultEnvelope)
-def post_validate_model_runtime_manifest(manifest: ModelRuntimeAdapterManifest):
+def post_validate_model_runtime_manifest(manifest: dict):
+    try:
+        manifest = ModelRuntimeAdapterManifest(**manifest)
+    except (ValidationError, ValueError) as exc:
+        return _model_runtime_validation_error("validate_model_runtime_manifest", "system", exc)
     return validate_runtime_manifest(manifest)
 
 @app.post("/model-runtime/requests/validate", response_model=ResultEnvelope)
 def post_validate_model_runtime_request(payload: ModelRuntimeRequestValidatePayload):
     try:
         request = ModelRuntimeRequest(**payload.request)
+        manifest = ModelRuntimeAdapterManifest(**payload.manifest)
     except (ValidationError, ValueError) as exc:
         return _model_runtime_validation_error("validate_model_runtime_request", "system", exc)
-    return validate_runtime_request(request, payload.manifest)
+    return validate_runtime_request(request, manifest)
 
 @app.post("/model-runtime/responses/validate", response_model=ResultEnvelope)
 def post_validate_model_runtime_response(payload: ModelRuntimeResponseValidatePayload):
@@ -463,9 +521,10 @@ def post_validate_model_runtime_response(payload: ModelRuntimeResponseValidatePa
 def post_simulate_model_runtime(payload: ModelRuntimeSimulatePayload):
     try:
         request = ModelRuntimeRequest(**payload.request)
+        manifest = ModelRuntimeAdapterManifest(**payload.manifest)
     except (ValidationError, ValueError) as exc:
         return _model_runtime_validation_error("simulate_model_runtime", "system", exc)
-    response = SimulatedModelRuntimeAdapter().simulate_response(request, payload.manifest)
+    response = SimulatedModelRuntimeAdapter().simulate_response(request, manifest)
     return ResultEnvelope(
         success=response.status in {"simulated_success", "simulated_refusal"},
         operation="simulate_model_runtime",

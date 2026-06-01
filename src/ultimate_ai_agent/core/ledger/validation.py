@@ -4,8 +4,11 @@ from typing import Any
 # W3C Trace Context traceparent regex
 TRACEPARENT_PATTERN = re.compile(r"^([0-9a-f]{2})-([0-9a-f]{32})-([0-9a-f]{16})-([0-9a-f]{2})$")
 
-# Broad secret key assignment regex scanner
-SECRET_PATTERN = re.compile(r"(?i)(api[_-]?key|secret|token|password)\s*=\s*['\"][A-Za-z0-9_\-]{16,}['\"]")
+# Broad secret key assignment regex scanner.
+SECRET_PATTERN = re.compile(
+    r"(?i)(api[_-]?key|client[_-]?secret|auth[_-]?token|secret|token|password)\s*=\s*"
+    r"(?:['\"][A-Za-z0-9_\-\.\:/]{12,}['\"]|[A-Za-z0-9_\-\.\:/]{16,})"
+)
 
 def validate_traceparent(traceparent: str) -> bool:
     """Verify traceparent string matches W3C standard format."""

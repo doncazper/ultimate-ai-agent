@@ -322,4 +322,13 @@ def default_foundation_gate_criteria() -> List[FoundationGateCriterion]:
             "Secret-like runtime prompt content was accepted.",
             "critical",
         ),
+        _criterion(
+            "m8_api_validation_secret_echo_absent",
+            "M8 API Validation Secret Echo Absent",
+            FoundationGateCategory.security,
+            "FoundationGateEvaluator.check_m8_api_validation_secret_echo_absent",
+            "M8 API validation errors do not echo secret-like manifest or request payload values.",
+            "M8 API validation errors echoed secret-like input.",
+            "critical",
+        ),
     ]

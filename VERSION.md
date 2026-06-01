@@ -1,5 +1,5 @@
 # Ultimate AI Agent Version
 
-Current active baseline: **v0.12.0**
+Current active baseline: **v0.12.1**
 
-v0.12.0 implements M8 Simulated Model Runtime Adapter Harness. It adds simulated model runtime request/response contracts, simulated adapter manifests, deterministic simulated responses, model-router-to-runtime request conversion, model runtime API validation/simulation routes, and Foundation Gate checks proving no real model/provider/tokenizer/network execution exists.
+v0.12.1 hardens the M8 API validation boundary so FastAPI/Pydantic validation errors do not echo raw invalid input values or secret-like fields. It keeps the M8 simulated model runtime adapter harness dry-run only and adds Foundation Gate coverage for API validation secret-echo regressions.
