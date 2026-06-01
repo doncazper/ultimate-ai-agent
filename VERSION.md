@@ -1,5 +1,5 @@
 # Ultimate AI Agent Version
 
-Current active baseline: **v0.13.2**
+Current active baseline: **v0.14.0**
 
-v0.13.2 is an M9.5 hardening patch release. It moves hostile loopback policy rejection into model validation, preserves adapter-level loopback denial, and replaces approval API private grant mutation with a public LocalApprovalAuthority helper.
+v0.14.0 implements M10 Manual Local Loopback Smoke Transport + Runtime Readiness Harness. It adds a manual-only, approval-gated, loopback-only smoke transport and script using fixed non-sensitive prompts, fake-transport test coverage, and Foundation Gate checks proving no cloud/provider/tokenizer/billing/external execution or public runtime execute API exists.

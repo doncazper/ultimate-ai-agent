@@ -109,6 +109,13 @@ class FoundationGateEvaluator:
             "m9_fake_transport_only_in_gate": self.check_m9_fake_transport_only_in_gate,
             "m9_simulated_fallback_available": self.check_m9_simulated_fallback_available,
             "m9_model_output_not_truth_authority": self.check_m9_model_output_not_truth_authority,
+            "m10_manual_smoke_files_present": self.check_m10_manual_smoke_files_present,
+            "m10_stdlib_network_isolated": self.check_m10_stdlib_network_isolated,
+            "m10_gate_and_verify_do_not_call_smoke_script": self.check_m10_gate_and_verify_do_not_call_smoke_script,
+            "m10_public_api_has_no_smoke_execute_endpoint": self.check_m10_public_api_has_no_smoke_execute_endpoint,
+            "m10_fixed_prompt_and_loopback_policy_enforced": self.check_m10_fixed_prompt_and_loopback_policy_enforced,
+            "m10_smoke_approval_required": self.check_m10_smoke_approval_required,
+            "m10_smoke_response_not_truth_authority": self.check_m10_smoke_response_not_truth_authority,
         }
         results = [
             evaluator_map.get(criterion.criterion_id, self._skipped)(criterion)
@@ -244,10 +251,17 @@ class FoundationGateEvaluator:
             "https" + "://",
         ]
         failures = []
+        allowed_manual_smoke_network_files = {
+            "src/ultimate_ai_agent/core/model_runtime/manual_loopback_transport.py",
+        }
         for path, line_no, stripped in self._runtime_lines():
             if self._is_static_scanner_text(stripped):
                 continue
             if any(stripped.startswith(pattern) for pattern in forbidden_starts):
+                if path in allowed_manual_smoke_network_files and stripped.startswith(
+                    ("import urllib.request", "from urllib import request", "from urllib import error")
+                ):
+                    continue
                 failures.append(f"{path}:{line_no} forbidden import")
             if any(pattern in stripped for pattern in forbidden_contains):
                 failures.append(f"{path}:{line_no} forbidden integration reference")
@@ -1262,6 +1276,134 @@ class FoundationGateEvaluator:
             failures.append("local loopback metadata did not mark non-authoritative")
         return self._result(criterion, failures, ["src/ultimate_ai_agent/core/model_runtime/responses.py"])
 
+    def check_m10_manual_smoke_files_present(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        required = [
+            "src/ultimate_ai_agent/core/model_runtime/smoke_policy.py",
+            "src/ultimate_ai_agent/core/model_runtime/smoke.py",
+            "src/ultimate_ai_agent/core/model_runtime/manual_loopback_transport.py",
+            "scripts/local_loopback_smoke.py",
+            "tests/test_manual_loopback_smoke_policy.py",
+            "tests/test_manual_loopback_smoke_transport.py",
+            "tests/test_manual_loopback_smoke_script.py",
+            "tests/test_manual_loopback_smoke_api_routes.py",
+            "tests/test_m10_gate_integration.py",
+        ]
+        failures = [f"missing {rel_path}" for rel_path in required if not (self.root / rel_path).exists()]
+        return self._result(criterion, failures, required)
+
+    def check_m10_stdlib_network_isolated(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        allowed = {
+            "src/ultimate_ai_agent/core/model_runtime/manual_loopback_transport.py",
+            "scripts/local_loopback_smoke.py",
+        }
+        forbidden = [
+            "import " + "requests",
+            "from " + "requests import",
+            "import " + "httpx",
+            "from " + "httpx import",
+            "import " + "openai",
+            "import " + "anthropic",
+            "tiktoken",
+            "tokenizers",
+            "billing",
+            "socket",
+            "subprocess",
+        ]
+        failures = []
+        paths = [*list((self.root / "src/ultimate_ai_agent/core/model_runtime").rglob("*.py")), self.root / "scripts/local_loopback_smoke.py"]
+        for path in paths:
+            if not path.exists():
+                continue
+            rel_path = str(path.relative_to(self.root))
+            source = self._read(path)
+            if ("urllib.request" in source or "from urllib import request" in source) and rel_path not in allowed:
+                failures.append(f"urllib request outside isolated smoke file: {rel_path}")
+            for line in source.splitlines():
+                stripped = line.strip()
+                if any(fragment in stripped for fragment in forbidden):
+                    failures.append(f"forbidden runtime fragment in {rel_path}: {stripped}")
+        return self._result(criterion, failures, sorted(allowed))
+
+    def check_m10_gate_and_verify_do_not_call_smoke_script(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        failures = []
+        for rel_path in ["scripts/run_foundation_gate.py", "scripts/verify_all.py"]:
+            source = self._read(self.root / rel_path)
+            if "scripts/local_loopback_smoke.py" in source:
+                failures.append(f"{rel_path} references manual smoke script")
+        return self._result(criterion, failures, ["scripts/run_foundation_gate.py", "scripts/verify_all.py"])
+
+    def check_m10_public_api_has_no_smoke_execute_endpoint(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        from ultimate_ai_agent.api.app import app
+
+        paths = {route.path for route in app.routes}
+        failures = []
+        if "/model-runtime/local/smoke/validate" not in paths:
+            failures.append("smoke validation endpoint missing")
+        for forbidden in ["/model-runtime/local/smoke/execute", "/model-runtime/local/execute"]:
+            if forbidden in paths:
+                failures.append(f"forbidden execute endpoint present: {forbidden}")
+        return self._result(criterion, failures, ["src/ultimate_ai_agent/api/app.py"])
+
+    def check_m10_fixed_prompt_and_loopback_policy_enforced(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        failures = []
+        try:
+            self._m10_smoke_request(fixed_prompt="Summarize this user file content.")
+            failures.append("arbitrary user-content prompt accepted")
+        except ValueError:
+            pass
+        try:
+            self._m10_smoke_request(endpoint=self._m10_smoke_endpoint(base_url="http" + "://example.com/api/generate", allowed_hosts=["example.com"]))
+            failures.append("remote smoke endpoint accepted")
+        except ValueError:
+            pass
+        try:
+            self._m10_smoke_request()
+        except ValueError as exc:
+            failures.append(f"safe fixed smoke request rejected: {exc}")
+        return self._result(criterion, failures, ["src/ultimate_ai_agent/core/model_runtime/smoke_policy.py"])
+
+    def check_m10_smoke_approval_required(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        from ultimate_ai_agent.core.approvals import LocalApprovalAuthority
+        from ultimate_ai_agent.core.model_runtime import smoke_approval_request, validate_manual_loopback_smoke_request
+
+        request = self._m10_smoke_request()
+        missing = validate_manual_loopback_smoke_request(request.model_copy(update={"approval_ref": None}), None)
+        arbitrary = validate_manual_loopback_smoke_request(request.model_copy(update={"approval_ref": "human_approved_ref_123"}), None)
+        approval = smoke_approval_request(request)
+        authority = LocalApprovalAuthority()
+        authority.create_request(approval)
+        grant = authority.grant(approval.approval_request_id, approved_by_actor_id="human_reviewer")
+        decision = authority.validate_for_request(approval, grant.approval_ref)
+        allowed = validate_manual_loopback_smoke_request(request.model_copy(update={"approval_ref": grant.approval_ref}), decision)
+        failures = []
+        if missing.allowed or "APPROVAL_REQUIRED" not in missing.reason_codes:
+            failures.append("missing approval was not denied")
+        if arbitrary.allowed or "APPROVAL_DECISION_REQUIRED" not in arbitrary.reason_codes:
+            failures.append("arbitrary approval ref was not denied")
+        if not allowed.allowed:
+            failures.append("valid scoped approval did not permit smoke validation")
+        return self._result(criterion, failures, ["src/ultimate_ai_agent/core/model_runtime/smoke.py"])
+
+    def check_m10_smoke_response_not_truth_authority(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        from ultimate_ai_agent.core.approvals import LocalApprovalAuthority
+        from ultimate_ai_agent.core.model_runtime import FakeManualLoopbackSmokeTransport, smoke_approval_request
+
+        request = self._m10_smoke_request()
+        approval = smoke_approval_request(request)
+        authority = LocalApprovalAuthority()
+        authority.create_request(approval)
+        grant = authority.grant(approval.approval_request_id, approved_by_actor_id="human_reviewer")
+        decision = authority.validate_for_request(approval, grant.approval_ref)
+        result = FakeManualLoopbackSmokeTransport().send_smoke(request.model_copy(update={"approval_ref": grant.approval_ref}), decision)
+        failures = []
+        if result.metadata.get("truth_authority") is not False:
+            failures.append("smoke result metadata does not mark truth_authority false")
+        if result.response_preview == request.fixed_prompt or request.fixed_prompt in result.model_dump_json():
+            failures.append("smoke result leaked fixed prompt content")
+        if result.response_origin != "fake_manual_loopback_smoke":
+            failures.append("gate did not use fake manual smoke transport")
+        return self._result(criterion, failures, ["src/ultimate_ai_agent/core/model_runtime/smoke.py"])
+
     def _skipped(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
         return FoundationGateResult(
             criterion_id=criterion.criterion_id,
@@ -1489,6 +1631,41 @@ class FoundationGateEvaluator:
             trace_id="trace_m9_gate",
             metadata={"route_reason_codes": ["SELECTED_PROFILE"]},
         )
+
+    def _m10_smoke_endpoint(self, **overrides):
+        from ultimate_ai_agent.core.model_runtime import LoopbackRuntimeEndpoint, ModelRuntimeKind
+
+        payload = {
+            "endpoint_id": "m10_gate_smoke_endpoint",
+            "base_url": "http" + "://127.0.0.1:11434/api/generate",
+            "allowed_hosts": ["127.0.0.1", "localhost", "::1"],
+            "runtime_kind": ModelRuntimeKind.local_stub,
+            "model_id": "m10_gate_smoke_model",
+            "enabled": True,
+            "owner": "foundation_gate",
+            "source": "foundation_gate",
+            "version": "0.0.0",
+        }
+        payload.update(overrides)
+        return LoopbackRuntimeEndpoint(**payload)
+
+    def _m10_smoke_request(self, **overrides):
+        from ultimate_ai_agent.core.model_runtime import DEFAULT_MANUAL_LOOPBACK_SMOKE_PROMPT, ManualLoopbackSmokePolicy, ManualLoopbackSmokeRequest
+
+        payload = {
+            "smoke_request_id": "m10_gate_smoke_request",
+            "run_id": "run_foundation_gate",
+            "endpoint": self._m10_smoke_endpoint(),
+            "model_id": "m10_gate_smoke_model",
+            "approval_ref": "approval_m10_gate",
+            "fixed_prompt": DEFAULT_MANUAL_LOOPBACK_SMOKE_PROMPT,
+            "expected_marker": "UAA_LOCAL_SMOKE_OK",
+            "policy": ManualLoopbackSmokePolicy(policy_id="m10_gate_smoke_policy", enable_manual_smoke=True),
+            "actor_context": self._actor(),
+            "data_classification": DataClassification(classification=ClassificationValue.public, source="foundation_gate"),
+        }
+        payload.update(overrides)
+        return ManualLoopbackSmokeRequest(**payload)
 
     def _actor(self) -> ActorContext:
         return ActorContext(

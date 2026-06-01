@@ -415,6 +415,25 @@ def main():
         if not p.exists():
             fail(f"Required M9 file is missing: {rel_path}")
     ok("All M9 local loopback model runtime adapter files exist")
+
+    # 8.17 Check M10 manual local loopback smoke harness files existence
+    m10_files = [
+        "src/ultimate_ai_agent/core/model_runtime/smoke_policy.py",
+        "src/ultimate_ai_agent/core/model_runtime/smoke.py",
+        "src/ultimate_ai_agent/core/model_runtime/manual_loopback_transport.py",
+        "scripts/local_loopback_smoke.py",
+        "tests/m10_helpers.py",
+        "tests/test_manual_loopback_smoke_policy.py",
+        "tests/test_manual_loopback_smoke_transport.py",
+        "tests/test_manual_loopback_smoke_script.py",
+        "tests/test_manual_loopback_smoke_api_routes.py",
+        "tests/test_m10_gate_integration.py",
+    ]
+    for rel_path in m10_files:
+        p = ROOT / rel_path
+        if not p.exists():
+            fail(f"Required M10 file is missing: {rel_path}")
+    ok("All M10 manual local loopback smoke harness files exist")
     
     # 9. Enforce scans by delegating to verify_all
     try:

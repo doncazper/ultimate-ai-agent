@@ -11,6 +11,7 @@ CAPABILITIES_DECLARED = [
     "typed_validation_routes",
     "foundation_gate_reporting",
     "local_dev_approval_validation",
+    "manual_local_loopback_smoke_validation",
 ]
 
 CAPABILITIES_BLOCKED = [

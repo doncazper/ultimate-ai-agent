@@ -18,6 +18,8 @@ FORBIDDEN_ROUTE_FRAGMENTS = [
     "/tools/execute",
     "/agent/config/load",
     "/runtime/config/load",
+    "/model-runtime/local/execute",
+    "/model-runtime/local/smoke/execute",
 ]
 
 

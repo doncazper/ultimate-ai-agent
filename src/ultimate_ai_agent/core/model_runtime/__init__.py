@@ -14,6 +14,21 @@ from ultimate_ai_agent.core.model_runtime.manifests import ModelRuntimeAdapterMa
 from ultimate_ai_agent.core.model_runtime.requests import ModelRuntimeRequest
 from ultimate_ai_agent.core.model_runtime.responses import ModelRuntimeResponse, response_is_truth_authority
 from ultimate_ai_agent.core.model_runtime.simulator import SimulatedModelRuntimeAdapter
+from ultimate_ai_agent.core.model_runtime.manual_loopback_transport import StdlibLoopbackSmokeTransport
+from ultimate_ai_agent.core.model_runtime.smoke import (
+    FakeManualLoopbackSmokeTransport,
+    ManualLoopbackSmokeTransport,
+    smoke_approval_request,
+    smoke_approval_validation_request,
+    validate_manual_loopback_smoke_request,
+)
+from ultimate_ai_agent.core.model_runtime.smoke_policy import (
+    DEFAULT_MANUAL_LOOPBACK_SMOKE_PROMPT,
+    SMOKE_ACTION,
+    ManualLoopbackSmokePolicy,
+    ManualLoopbackSmokeRequest,
+    ManualLoopbackSmokeResult,
+)
 from ultimate_ai_agent.core.model_runtime.transports import (
     DisabledNetworkTransport,
     FakeModelRuntimeTransport,
@@ -30,10 +45,15 @@ __all__ = [
     "ModelRuntimeAdapterManifest",
     "DisabledNetworkTransport",
     "FakeModelRuntimeTransport",
+    "FakeManualLoopbackSmokeTransport",
     "LocalLoopbackModelRuntimeAdapter",
     "LocalRuntimeExecutionDecision",
     "LoopbackRuntimeEndpoint",
     "LoopbackRuntimePolicy",
+    "ManualLoopbackSmokePolicy",
+    "ManualLoopbackSmokeRequest",
+    "ManualLoopbackSmokeResult",
+    "ManualLoopbackSmokeTransport",
     "ModelRuntimeTransport",
     "ModelRuntimeKind",
     "ModelRuntimeOutputFormat",
@@ -44,9 +64,15 @@ __all__ = [
     "ModelRuntimeResponseStatus",
     "ModelRuntimeSafetyMode",
     "SimulatedModelRuntimeAdapter",
+    "StdlibLoopbackSmokeTransport",
     "TransportResponse",
+    "DEFAULT_MANUAL_LOOPBACK_SMOKE_PROMPT",
+    "SMOKE_ACTION",
     "response_is_truth_authority",
     "runtime_event_metadata",
+    "smoke_approval_request",
+    "smoke_approval_validation_request",
+    "validate_manual_loopback_smoke_request",
     "validate_runtime_manifest",
     "validate_runtime_request",
     "validate_runtime_response",

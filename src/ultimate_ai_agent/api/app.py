@@ -111,10 +111,12 @@ from ultimate_ai_agent.core.model_runtime import (
     LocalLoopbackModelRuntimeAdapter,
     LoopbackRuntimeEndpoint,
     LoopbackRuntimePolicy,
+    ManualLoopbackSmokeRequest,
     ModelRuntimeAdapterManifest,
     ModelRuntimeRequest,
     ModelRuntimeResponse,
     SimulatedModelRuntimeAdapter,
+    validate_manual_loopback_smoke_request,
     validate_runtime_manifest,
     validate_runtime_request,
     validate_runtime_response,
@@ -168,6 +170,10 @@ class LocalLoopbackExecutionValidatePayload(BaseModel):
     manifest: dict
     endpoint: dict
     policy: Optional[dict] = None
+    approval_decision: Optional[dict] = None
+
+class LocalLoopbackSmokeValidatePayload(BaseModel):
+    request: dict
     approval_decision: Optional[dict] = None
 
 class ApprovalValidatePayload(BaseModel):
@@ -691,6 +697,26 @@ def post_local_loopback_simulated_fallback(payload: LocalLoopbackExecutionValida
         service="ModelRuntimeAPI",
         trace_id=request.trace_id or request.run_id,
         data=response.model_dump(mode="json"),
+    )
+
+@app.post("/model-runtime/local/smoke/validate", response_model=ResultEnvelope)
+def post_validate_local_loopback_smoke(payload: LocalLoopbackSmokeValidatePayload):
+    try:
+        request = ManualLoopbackSmokeRequest(**payload.request)
+        approval_decision = None
+        if payload.approval_decision is not None:
+            from ultimate_ai_agent.core.approvals import ApprovalValidationDecision
+
+            approval_decision = ApprovalValidationDecision(**payload.approval_decision)
+    except (ValidationError, ValueError) as exc:
+        return _model_runtime_validation_error("validate_local_loopback_smoke", "system", exc)
+    decision = validate_manual_loopback_smoke_request(request, approval_decision)
+    return ResultEnvelope(
+        success=decision.allowed,
+        operation="validate_local_loopback_smoke",
+        service="ModelRuntimeAPI",
+        trace_id=request.smoke_request_id,
+        data=decision.model_dump(mode="json"),
     )
 
 @app.post("/costs/budgets/validate", response_model=ResultEnvelope)

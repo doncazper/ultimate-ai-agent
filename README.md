@@ -1,12 +1,12 @@
-# Ultimate AI Agent Canonical Bundle v0.13.2
+# Ultimate AI Agent Canonical Bundle v0.14.0
 
-This is the active project baseline after the M9.5 loopback policy and approval API hardening patch.
+This is the active project baseline after the M10 manual local loopback smoke harness milestone.
 
 Start here:
 
 ```text
-README_IMPORT_v0_13_2.md
-ultimate_ai_agent_master_plan_v0_13_2.md
+README_IMPORT_v0_14_0.md
+ultimate_ai_agent_master_plan_v0_14_0.md
 docs/canonical/09_roadmap.md
 docs/canonical/21_consent_and_permissions_ledger.md
 docs/canonical/37_tool_broker.md
@@ -19,7 +19,7 @@ docs/api/route_inventory.md
 docs/runtime/model_runtime_adapter_harness.md
 docs/runtime/local_loopback_model_runtime.md
 docs/security/approval_authority.md
-docs/implementation/foundation_gate_implementation_plan_v0_13_2.md
+docs/implementation/foundation_gate_implementation_plan_v0_14_0.md
 docs/testing/test_strategy_v0.md
 ```
 
@@ -41,4 +41,4 @@ Observability standards rule:
 
 Foundation Gate rule:
 
-> v0.13.2 keeps the local/dev loopback model runtime adapter harness and moves hostile policy rejection closer to the model boundary: `deny_non_loopback=false` and non-loopback `allowed_hosts` are rejected, while adapter-level denial remains in depth. The approval validation API now uses a public LocalApprovalAuthority helper instead of private state mutation. M9.5 does not add cloud models, provider SDKs, API keys, tokenizers, billing APIs, remote hosts, scanners, browser automation, SDK/A2A runtime delegation, production persistence, production auth/OAuth, or external actions.
+> v0.14.0 adds a manual-only local loopback smoke harness for explicit local/dev readiness checks. It is disabled by default, approval-gated, loopback-only, uses the current `local_stub` runtime kind, and sends only a fixed non-sensitive smoke prompt. Tests, CI, `verify_all.py`, and Foundation Gate use fake transport only. M10 does not add general agent model execution, cloud models, provider SDKs, API keys, tokenizers, billing APIs, scanners, browser automation, SDK/A2A runtime delegation, production persistence, production auth/OAuth, or external actions.

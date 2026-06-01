@@ -14,7 +14,7 @@ Each route declares:
 - `requires_auth_future`
 - `blocked_from_production`
 
-Allowed side-effect classes in v0.13.2 are:
+Allowed side-effect classes in v0.14.0 are:
 
 - `none`
 - `validation_only`
@@ -47,5 +47,11 @@ M9 local loopback route group:
 - `/model-runtime/local/simulate-fallback`
 
 These routes validate local loopback policy and provide simulated fallback only. They do not expose a public real loopback execution endpoint and must not accept arbitrary local or remote URLs.
+
+M10 manual smoke validation route:
+
+- `/model-runtime/local/smoke/validate`
+
+This route validates manual smoke readiness only. It never sends HTTP requests and there is no public smoke execute route.
 
 Invalid payload responses are sanitized and must not include raw invalid input values.

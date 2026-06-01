@@ -117,6 +117,9 @@ def verify_no_blocked_modules():
 
 def verify_no_forbidden_external_integrations():
     print("\n[Verifier] Running forbidden external integration scan...")
+    allowed_stdlib_network_import_files = {
+        "src/ultimate_ai_agent/core/model_runtime/manual_loopback_transport.py",
+    }
     forbidden_imports = [
         "import requests",
         "from requests import",
@@ -137,9 +140,14 @@ def verify_no_forbidden_external_integrations():
     for p in (ROOT / "src").rglob("*.py"):
         try:
             content = p.read_text(encoding="utf-8")
+            rel_path = str(p.relative_to(ROOT))
             for line in content.splitlines():
                 stripped = line.strip()
                 if any(stripped.startswith(pattern) for pattern in forbidden_imports):
+                    if rel_path in allowed_stdlib_network_import_files and stripped.startswith(
+                        ("import urllib.request", "from urllib import request", "from urllib import error")
+                    ):
+                        continue
                     print(f"FAIL: Forbidden external integration import in {p.relative_to(ROOT)}: {line}")
                     sys.exit(1)
                 if ".get(" in stripped and ("http://" in stripped or "https://" in stripped):
@@ -155,6 +163,9 @@ def verify_no_real_model_runtime_execution():
     if not runtime_root.exists():
         print("OK: Model runtime package is absent")
         return
+    allowed_stdlib_network_import_files = {
+        "manual_loopback_transport.py",
+    }
     forbidden_fragments = [
         "import openai",
         "from openai import",
@@ -164,6 +175,9 @@ def verify_no_real_model_runtime_execution():
         "import httpx",
         "from httpx import",
         "socket",
+        "urllib.request",
+        "from urllib import request",
+        "urlopen",
         "subprocess",
         "tokenizer",
         "tiktoken",
@@ -178,6 +192,10 @@ def verify_no_real_model_runtime_execution():
             for line in content.splitlines():
                 stripped = line.strip()
                 if any(fragment in stripped for fragment in forbidden_fragments):
+                    if p.name in allowed_stdlib_network_import_files and (
+                        "urllib.request" in stripped or "from urllib import request" in stripped or "urlopen" in stripped
+                    ):
+                        continue
                     print(f"FAIL: Real model runtime execution fragment in {p.relative_to(ROOT)}: {line}")
                     sys.exit(1)
         except Exception:

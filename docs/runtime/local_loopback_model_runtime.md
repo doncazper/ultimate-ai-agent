@@ -1,6 +1,6 @@
 # Local Loopback Model Runtime
 
-M9 adds a dev-only local loopback runtime adapter harness. v0.13.2 hardens its endpoint policy so hostile caller-supplied policy fields are rejected before adapter validation.
+M9 adds a dev-only local loopback runtime adapter harness. v0.14.0 preserves endpoint hardening and adds an M10 manual smoke harness for explicit local/dev readiness checks.
 
 The default runtime posture remains validate-only or simulated fallback. Real local loopback execution is available only through library code when all of these are true:
 
@@ -19,6 +19,19 @@ The default runtime posture remains validate-only or simulated fallback. Real lo
 Caller-supplied `allowed_hosts` values can narrow loopback endpoints, but they cannot expand the boundary to remote, private LAN, or public IP hosts. `deny_non_loopback=false` is rejected as an attempted override and does not permit non-loopback destinations. Adapter validation still denies non-loopback hosts unconditionally as defense in depth.
 
 Tests and Foundation Gate use `FakeModelRuntimeTransport`. The default `DisabledNetworkTransport` never sends network traffic.
+
+M10 manual smoke:
+
+- disabled by default
+- CLI-only for real local HTTP smoke calls
+- uses `local_stub` runtime kind metadata
+- requires an explicit manual enable flag and scoped local approval grant
+- sends only the fixed prompt `Respond with exactly UAA_LOCAL_SMOKE_OK. This is a local smoke test. Do not include secrets.`
+- must not process user prompts, memory, files, context packs, secrets, or task content
+- is not production model execution and is not authoritative evidence
+- is not called by tests, CI, `verify_all.py`, or Foundation Gate
+
+The API exposes `/model-runtime/local/smoke/validate` for validation only. It does not expose a smoke execute route.
 
 M9 does not add cloud models, provider SDKs, API keys, remote OpenAI-compatible APIs, tokenizers, billing APIs, web fetchers, browser automation, production persistence, production auth/OAuth, or external actions.
 
