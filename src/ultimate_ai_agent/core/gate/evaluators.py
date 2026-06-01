@@ -140,6 +140,13 @@ class FoundationGateEvaluator:
             "m11_no_smoke_script_execution_in_gate": self.check_m11_no_smoke_script_execution_in_gate,
             "m11_no_runtime_expansion_imports": self.check_m11_no_runtime_expansion_imports,
             "m11_no_remote_mesh_mobile_or_plugin_enablement": self.check_m11_no_remote_mesh_mobile_or_plugin_enablement,
+            "m12_control_center_files_present": self.check_m12_control_center_files_present,
+            "m12_control_center_manifest_read_only": self.check_m12_control_center_manifest_read_only,
+            "m12_control_center_dashboard_secret_safe": self.check_m12_control_center_dashboard_secret_safe,
+            "m12_control_center_action_preview_no_execution": self.check_m12_control_center_action_preview_no_execution,
+            "m12_control_center_api_read_only": self.check_m12_control_center_api_read_only,
+            "m12_no_frontend_dependencies": self.check_m12_no_frontend_dependencies,
+            "m12_no_runtime_network_mobile_plugin_expansion": self.check_m12_no_runtime_network_mobile_plugin_expansion,
             "documentation_integrity_current": self.check_documentation_integrity_current,
             "codex_plugin_governance_docs_present": self.check_codex_plugin_governance_docs_present,
         }
@@ -2109,6 +2116,221 @@ class FoundationGateEvaluator:
         lowered = combined.lower()
         failures = [f"unsafe enablement claim: {phrase}" for phrase in forbidden_claims if phrase in lowered]
         return self._result(criterion, failures, sources)
+
+    def check_m12_control_center_files_present(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        required = [
+            "src/ultimate_ai_agent/core/control_center/__init__.py",
+            "src/ultimate_ai_agent/core/control_center/enums.py",
+            "src/ultimate_ai_agent/core/control_center/manifest.py",
+            "src/ultimate_ai_agent/core/control_center/dashboard.py",
+            "src/ultimate_ai_agent/core/control_center/actions.py",
+            "src/ultimate_ai_agent/core/control_center/summaries.py",
+            "src/ultimate_ai_agent/core/control_center/validation.py",
+            "src/ultimate_ai_agent/core/control_center/policy.py",
+            "tests/test_control_center_manifest.py",
+            "tests/test_control_center_dashboard.py",
+            "tests/test_control_center_action_preview.py",
+            "tests/test_control_center_api_routes.py",
+            "tests/test_control_center_no_execution.py",
+            "tests/test_m12_gate_integration.py",
+            "docs/control_center/CONTROL_CENTER_CONTRACT.md",
+            "docs/control_center/DASHBOARD_SNAPSHOT.md",
+            "docs/control_center/ACTION_PREVIEW_POLICY.md",
+        ]
+        failures = [f"missing {path}" for path in required if not (self.root / path).exists()]
+        return self._result(criterion, failures, required)
+
+    def check_m12_control_center_manifest_read_only(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        from ultimate_ai_agent.core.control_center import ControlCenterCapabilityStatus, build_control_center_manifest
+
+        manifest = build_control_center_manifest()
+        allowed_statuses = {
+            ControlCenterCapabilityStatus.available_read_only.value,
+            ControlCenterCapabilityStatus.preview_only.value,
+            ControlCenterCapabilityStatus.validation_only.value,
+            ControlCenterCapabilityStatus.planned_disabled.value,
+            ControlCenterCapabilityStatus.blocked.value,
+            ControlCenterCapabilityStatus.not_implemented.value,
+        }
+        failures = []
+        for surface in manifest.surfaces:
+            if surface.status not in allowed_statuses:
+                failures.append(f"{surface.surface} has unsafe status {surface.status}")
+            if surface.execution_allowed:
+                failures.append(f"{surface.surface} allows execution")
+        for capability in [
+            "runtime_execution",
+            "model_execution",
+            "provider_invocation",
+            "remote_dispatch",
+            "mobile_sensor_access",
+            "plugin_enablement",
+            "frontend_build_tooling",
+        ]:
+            if capability not in manifest.blocked_capabilities:
+                failures.append(f"missing blocked capability: {capability}")
+        if manifest.metadata.get("frontend_implemented") is not False:
+            failures.append("manifest does not mark frontend unimplemented")
+        if manifest.metadata.get("production_control_center") is not False:
+            failures.append("manifest implies production Control Center")
+        return self._result(criterion, failures, ["src/ultimate_ai_agent/core/control_center/manifest.py"])
+
+    def check_m12_control_center_dashboard_secret_safe(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        from ultimate_ai_agent.core.control_center import build_control_center_dashboard
+        from ultimate_ai_agent.core.model_runtime.redaction import contains_secret_like
+
+        snapshot = build_control_center_dashboard(api_route_count=74, foundation_gate_status="passed")
+        failures = []
+        if contains_secret_like(snapshot.model_dump(mode="json")):
+            failures.append("dashboard contains secret-like values")
+        if snapshot.runtime_readiness_summary.production_ready:
+            failures.append("dashboard claims production runtime readiness")
+        if snapshot.remote_worker_summary.execution_enabled:
+            failures.append("dashboard enables remote worker execution")
+        if snapshot.mobile_planning_summary.sensor_access_enabled:
+            failures.append("dashboard enables mobile sensors")
+        if snapshot.plugin_governance_summary.plugin_enablement_allowed:
+            failures.append("dashboard enables plugins")
+        return self._result(criterion, failures, ["src/ultimate_ai_agent/core/control_center/dashboard.py"])
+
+    def check_m12_control_center_action_preview_no_execution(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        from ultimate_ai_agent.core.control_center import (
+            ControlCenterActionKind,
+            ControlCenterRiskLevel,
+            preview_control_center_action,
+        )
+
+        base = {
+            "request_id": "m12_gate_preview",
+            "actor_context": {"actor_type": "user", "actor_id": "local_operator"},
+            "action_kind": ControlCenterActionKind.view_status,
+            "target_ref": "dashboard",
+            "purpose": "review status",
+            "risk_level": ControlCenterRiskLevel.safe,
+            "data_classification": "system_internal",
+            "consent_refs": [],
+        }
+        failures = []
+        safe = preview_control_center_action(base)
+        if not safe.allowed:
+            failures.append("safe preview was not allowed")
+        unsafe_cases = [
+            ("execute action", {**base, "action_kind": ControlCenterActionKind.disabled_execute}),
+            ("runtime execute", {**base, "target_ref": "runtime/execute/model"}),
+            ("remote dispatch", {**base, "target_ref": "remote-workers/dispatch/job"}),
+            ("plugin enable", {**base, "target_ref": "plugins/enable/build-web-apps"}),
+            ("mobile sensor", {**base, "target_ref": "mobile/sensors/camera"}),
+            ("provider invocation", {**base, "metadata": {"claim": "provider invocation requested"}}),
+            ("credential use", {**base, "metadata": {"claim": "credential use requested"}}),
+            ("mutation", {**base, "metadata": {"claim": "mutate file requested"}}),
+            ("arbitrary approval", {**base, "approval_ref": "approval_any_string"}),
+        ]
+        for label, payload in unsafe_cases:
+            decision = preview_control_center_action(payload)
+            if decision.allowed:
+                failures.append(f"unsafe preview allowed: {label}")
+            if decision.metadata.get("executed") is not False:
+                failures.append(f"preview execution marker unsafe: {label}")
+        return self._result(criterion, failures, ["src/ultimate_ai_agent/core/control_center/actions.py"])
+
+    def check_m12_control_center_api_read_only(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.api.manifest import iter_api_route_items
+        from ultimate_ai_agent.api.openapi import FORBIDDEN_ROUTE_FRAGMENTS
+
+        routes = iter_api_route_items(app)
+        paths = {route.path: route for route in routes}
+        required = {
+            "/control-center/manifest",
+            "/control-center/dashboard",
+            "/control-center/status",
+            "/control-center/routes",
+            "/control-center/approvals/summary",
+            "/control-center/runtime-readiness/summary",
+            "/control-center/foundation-gate/summary",
+            "/control-center/actions/preview",
+        }
+        failures = [f"missing control-center route: {path}" for path in sorted(required - set(paths))]
+        for path in sorted(path for path in paths if path.startswith("/control-center")):
+            route = paths[path]
+            if "control-center" not in route.tags:
+                failures.append(f"{path} has unexpected tags {route.tags}")
+            if not route.validation_only:
+                failures.append(f"{path} is not read-only/preview-only")
+        unsafe_routes = [
+            path
+            for path in paths
+            if path.startswith("/control-center") and any(fragment in path for fragment in FORBIDDEN_ROUTE_FRAGMENTS)
+        ]
+        failures.extend(f"forbidden control-center route present: {path}" for path in sorted(unsafe_routes))
+        return self._result(criterion, failures, ["src/ultimate_ai_agent/api/app.py", "src/ultimate_ai_agent/api/openapi.py"])
+
+    def check_m12_no_frontend_dependencies(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        forbidden_paths = [
+            "package.json",
+            "package-lock.json",
+            "pnpm-lock.yaml",
+            "yarn.lock",
+            "vite.config.ts",
+            "vite.config.js",
+            "next.config.js",
+            "next.config.ts",
+            "tailwind.config.js",
+            "tailwind.config.ts",
+            "components.json",
+            "node_modules",
+        ]
+        failures = [f"frontend artifact exists: {path}" for path in forbidden_paths if (self.root / path).exists()]
+        pyproject = self._read(self.root / "pyproject.toml").lower()
+        for dependency in ["react", "next", "vite", "tailwind", "shadcn"]:
+            if dependency in pyproject:
+                failures.append(f"frontend dependency marker in pyproject: {dependency}")
+        return self._result(criterion, failures, forbidden_paths + ["pyproject.toml"])
+
+    def check_m12_no_runtime_network_mobile_plugin_expansion(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        package = self.root / "src/ultimate_ai_agent/core/control_center"
+        forbidden_starts = [
+            "import " + "requests",
+            "from " + "requests import",
+            "import " + "httpx",
+            "from " + "httpx import",
+            "import " + "urllib",
+            "from " + "urllib import",
+            "import " + "socket",
+            "from " + "socket import",
+            "import " + "subprocess",
+            "from " + "subprocess import",
+            "import " + "openai",
+            "from " + "openai import",
+            "import " + "anthropic",
+            "from " + "anthropic import",
+            "import " + "tiktoken",
+            "import " + "tokenizers",
+        ]
+        forbidden_fragments = [
+            "urlopen",
+            "billing",
+            "eval(",
+            "exec(",
+            "enable_plugin(",
+            "dispatch_remote",
+            "mobile_sensor_access=true",
+            "runtime_execution=true",
+            "provider_invocation=true",
+            "browser automation is enabled",
+        ]
+        failures = []
+        for path in sorted(package.glob("*.py")):
+            rel_path = str(path.relative_to(self.root))
+            for line_no, stripped in enumerate(self._read(path).splitlines(), start=1):
+                stripped = stripped.strip().lower()
+                if stripped.startswith("[") or self._is_static_scanner_text(stripped):
+                    continue
+                if any(stripped.startswith(pattern) for pattern in forbidden_starts):
+                    failures.append(f"{rel_path}:{line_no} forbidden import")
+                if any(fragment in stripped for fragment in forbidden_fragments):
+                    failures.append(f"{rel_path}:{line_no} forbidden runtime expansion fragment")
+        return self._result(criterion, failures, ["src/ultimate_ai_agent/core/control_center"])
 
     def _skipped(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
         return FoundationGateResult(

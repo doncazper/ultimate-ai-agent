@@ -1,12 +1,12 @@
-# Ultimate AI Agent Canonical Bundle v0.15.1
+# Ultimate AI Agent Canonical Bundle v0.16.0
 
-This is the active project baseline after the v0.15.1 M11 runtime readiness taxonomy clarification patch.
+This is the active project baseline after the v0.16.0 M12 Control Center contract and read-only dashboard API foundation milestone.
 
 Start here:
 
 ```text
-README_IMPORT_v0_15_1.md
-ultimate_ai_agent_master_plan_v0_15_1.md
+README_IMPORT_v0_16_0.md
+ultimate_ai_agent_master_plan_v0_16_0.md
 docs/DOCUMENTATION_INDEX.md
 docs/canonical/09_roadmap.md
 docs/canonical/CANONICAL_DOC_MAP.md
@@ -21,13 +21,16 @@ docs/canonical/66_external_tooling_and_codex_plugin_governance.md
 docs/api/README.md
 docs/api/openapi_contract.md
 docs/api/route_inventory.md
+docs/control_center/CONTROL_CENTER_CONTRACT.md
+docs/control_center/DASHBOARD_SNAPSHOT.md
+docs/control_center/ACTION_PREVIEW_POLICY.md
 docs/runtime/model_runtime_adapter_harness.md
 docs/runtime/local_loopback_model_runtime.md
 docs/runtime/RUNTIME_READINESS.md
 docs/runtime/MANUAL_SMOKE_REPORTS.md
 docs/runtime/RUNTIME_CAPABILITY_MATRIX.md
 docs/security/approval_authority.md
-docs/implementation/foundation_gate_implementation_plan_v0_15_1.md
+docs/implementation/foundation_gate_implementation_plan_v0_16_0.md
 docs/maintenance/documentation_integrity_checklist.md
 docs/tooling/CODEX_PLUGIN_CAPABILITY_INVENTORY.md
 docs/tooling/CODEX_PLUGIN_RISK_POLICY.md
@@ -73,3 +76,7 @@ Runtime readiness rule:
 Runtime taxonomy clarification rule:
 
 > v0.15.1 clarifies M11 terminology only. `local_loopback_policy` is a supported validation-only contract; real smoke execution remains manual-only, approval-gated, fixed-prompt-only, and non-authoritative. `fake_manual_loopback_smoke` is an allowed fake/test manual smoke report origin, not production evidence and not a live runtime origin. This patch adds no runtime execution, route, dependency, provider call, remote execution, mobile sensor access, plugin enablement, or production readiness claim.
+
+Control Center contract rule:
+
+> v0.16.0 adds M12 backend Control Center contracts, read-only dashboard snapshots, preview-only action decisions, and read-only/preview-only API endpoints. It does not add a frontend app, TypeScript UI, React, Next.js, Vite, shadcn, Tailwind, Build Web Apps, Browser, Chrome, Computer Use, iOS/macOS build workflow, runtime execution, model/provider calls, network calls, remote execution, mobile sensor access, plugin enablement, or production Control Center. The Control Center is not the agent brain and cannot bypass Approval Authority, Consent Ledger, Tool Broker, Event Ledger, Secret Broker, or Foundation Gate.

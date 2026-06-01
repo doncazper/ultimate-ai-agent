@@ -490,6 +490,32 @@ def main():
         if not p.exists():
             fail(f"Required M11 file is missing: {rel_path}")
     ok("All M11 runtime readiness gate files exist")
+
+    # 8.20 Check M12 Control Center contract files existence
+    m12_files = [
+        "src/ultimate_ai_agent/core/control_center/__init__.py",
+        "src/ultimate_ai_agent/core/control_center/enums.py",
+        "src/ultimate_ai_agent/core/control_center/manifest.py",
+        "src/ultimate_ai_agent/core/control_center/dashboard.py",
+        "src/ultimate_ai_agent/core/control_center/actions.py",
+        "src/ultimate_ai_agent/core/control_center/policy.py",
+        "src/ultimate_ai_agent/core/control_center/summaries.py",
+        "src/ultimate_ai_agent/core/control_center/validation.py",
+        "tests/test_control_center_manifest.py",
+        "tests/test_control_center_dashboard.py",
+        "tests/test_control_center_action_preview.py",
+        "tests/test_control_center_api_routes.py",
+        "tests/test_control_center_no_execution.py",
+        "tests/test_m12_gate_integration.py",
+        "docs/control_center/CONTROL_CENTER_CONTRACT.md",
+        "docs/control_center/DASHBOARD_SNAPSHOT.md",
+        "docs/control_center/ACTION_PREVIEW_POLICY.md",
+    ]
+    for rel_path in m12_files:
+        p = ROOT / rel_path
+        if not p.exists():
+            fail(f"Required M12 file is missing: {rel_path}")
+    ok("All M12 Control Center contract and read-only dashboard API files exist")
     
     # 9. Enforce scans by delegating to verify_all
     try:

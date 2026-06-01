@@ -24,6 +24,9 @@ REQUIRED_ACTIVE_DOCS = [
     "docs/runtime/RUNTIME_READINESS.md",
     "docs/runtime/MANUAL_SMOKE_REPORTS.md",
     "docs/runtime/RUNTIME_CAPABILITY_MATRIX.md",
+    "docs/control_center/CONTROL_CENTER_CONTRACT.md",
+    "docs/control_center/DASHBOARD_SNAPSHOT.md",
+    "docs/control_center/ACTION_PREVIEW_POLICY.md",
 ]
 
 UNSAFE_IMPLEMENTATION_CLAIMS = [
@@ -40,6 +43,12 @@ UNSAFE_IMPLEMENTATION_CLAIMS = [
     "remote_execution_ready=true",
     "mobile_sensor_ready=true",
     "plugin_or_native_build_ready=true",
+    "control center frontend is implemented",
+    "typescript control center is implemented",
+    "control center executes actions",
+    "control center enables plugins",
+    "control center dispatches remote workers",
+    "control center calls models",
 ]
 
 ACTIVE_DOCS_TO_SCAN = [
@@ -57,6 +66,9 @@ ACTIVE_DOCS_TO_SCAN = [
     "docs/runtime/RUNTIME_READINESS.md",
     "docs/runtime/MANUAL_SMOKE_REPORTS.md",
     "docs/runtime/RUNTIME_CAPABILITY_MATRIX.md",
+    "docs/control_center/CONTROL_CENTER_CONTRACT.md",
+    "docs/control_center/DASHBOARD_SNAPSHOT.md",
+    "docs/control_center/ACTION_PREVIEW_POLICY.md",
     "docs/remote/REMOTE_WORKER_FOUNDATION.md",
     "docs/remote/REMOTE_NODE_SECURITY_MODEL.md",
     "docs/remote/REMOTE_JOB_ENVELOPE.md",

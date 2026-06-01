@@ -15,6 +15,7 @@ SCAN_SEQUENCE = [
     ("model runtime simulated-only scan", "verify_no_real_model_runtime_execution"),
     ("approval authority local-dev-only scan", "verify_no_real_approval_authority_integrations"),
     ("remote worker foundation-only scan", "verify_no_real_remote_worker_integrations"),
+    ("control center no-execution scan", "verify_no_control_center_runtime_or_frontend_expansion"),
     ("documentation integrity scan", "verify_documentation_integrity"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
     ("production truth integration scan", "verify_no_production_truth_integrations"),
@@ -295,6 +296,87 @@ def verify_no_real_remote_worker_integrations():
         except Exception:
             pass
     print("OK: Remote worker package has no live network, process, private mesh, tailnet, or remote execution code")
+
+def verify_no_control_center_runtime_or_frontend_expansion():
+    print("\n[Verifier] Running M12 Control Center no-execution/frontend guard...")
+    forbidden_frontend_files = [
+        "package.json",
+        "package-lock.json",
+        "pnpm-lock.yaml",
+        "yarn.lock",
+        "vite.config.ts",
+        "vite.config.js",
+        "next.config.js",
+        "next.config.mjs",
+        "tailwind.config.js",
+        "tailwind.config.ts",
+        "components.json",
+    ]
+    for rel_path in forbidden_frontend_files:
+        if (ROOT / rel_path).exists():
+            print(f"FAIL: Frontend/build tooling file is present during M12: {rel_path}")
+            sys.exit(1)
+    if (ROOT / "node_modules").exists():
+        print("FAIL: node_modules is present during M12")
+        sys.exit(1)
+
+    control_center_root = ROOT / "src" / "ultimate_ai_agent" / "core" / "control_center"
+    forbidden_fragments = [
+        "import requests",
+        "from requests import",
+        "import httpx",
+        "from httpx import",
+        "import urllib",
+        "from urllib import",
+        "import socket",
+        "from socket import",
+        "import subprocess",
+        "from subprocess import",
+        "import openai",
+        "from openai import",
+        "import anthropic",
+        "from anthropic import",
+        "tiktoken",
+        "tokenizers",
+        "billing",
+        "urlopen",
+        "os.system",
+        "eval(",
+        "exec(",
+        "plugin_enable(",
+        "dispatch_remote(",
+        "call_model(",
+        "provider_call(",
+        "mobile_sensor(",
+    ]
+    if control_center_root.exists():
+        for p in control_center_root.rglob("*.py"):
+            try:
+                content = p.read_text(encoding="utf-8")
+                for line in content.splitlines():
+                    stripped = line.strip()
+                    if any(fragment in stripped for fragment in forbidden_fragments):
+                        print(f"FAIL: Control Center runtime/frontend fragment in {p.relative_to(ROOT)}: {line}")
+                        sys.exit(1)
+            except Exception:
+                pass
+
+    forbidden_routes = [
+        "/control-center/actions/execute",
+        "/control-center/plugins/enable",
+        "/control-center/runtime/execute",
+        "/control-center/remote-workers/dispatch",
+        "/control-center/mobile/sensors",
+        "/control-center/frontend",
+    ]
+    api_app = ROOT / "src" / "ultimate_ai_agent" / "api" / "app.py"
+    if api_app.exists():
+        for line in api_app.read_text(encoding="utf-8").splitlines():
+            stripped = line.strip()
+            if stripped.startswith("@app.") and any(route in stripped for route in forbidden_routes):
+                print(f"FAIL: Forbidden Control Center execution route in api/app.py: {line}")
+                sys.exit(1)
+    print("OK: Control Center has no frontend files, execution routes, or runtime/provider/network expansions")
 
 def verify_documentation_integrity():
     print("\n[Verifier] Running documentation integrity scan...")

@@ -1,6 +1,6 @@
 # Documentation Index
 
-Current active baseline: **v0.15.1**
+Current active baseline: **v0.16.0**
 
 This index is the active entrypoint for documentation navigation. Historical release documents remain in the repository for audit history, but active truth starts with the current baseline files listed here.
 
@@ -9,8 +9,8 @@ This index is the active entrypoint for documentation navigation. Historical rel
 ```text
 README.md
 VERSION.md
-README_IMPORT_v0_15_1.md
-ultimate_ai_agent_master_plan_v0_15_1.md
+README_IMPORT_v0_16_0.md
+ultimate_ai_agent_master_plan_v0_16_0.md
 docs/canonical/CANONICAL_DOC_MAP.md
 docs/canonical/09_roadmap.md
 docs/maintenance/documentation_integrity_checklist.md
@@ -42,7 +42,17 @@ docs/api/openapi_contract.md
 docs/api/route_inventory.md
 ```
 
-API docs describe implemented validation, dry-run, simulated, and status routes. Future mobile/device routes are not implemented.
+API docs describe implemented validation, dry-run, simulated, status, and preview-only routes. Future mobile/device routes are not implemented.
+
+## Active Control Center Docs
+
+```text
+docs/control_center/CONTROL_CENTER_CONTRACT.md
+docs/control_center/DASHBOARD_SNAPSHOT.md
+docs/control_center/ACTION_PREVIEW_POLICY.md
+```
+
+M12 Control Center docs describe backend contracts, read-only dashboard snapshots, and action preview policy only. They do not describe a frontend implementation or execution capability.
 
 ## Active Runtime Docs
 
@@ -125,7 +135,7 @@ The Codex plugin capability inventory and risk policy record available developme
 
 ## Release Notes Index
 
-Current release notes: `docs/release_notes/v0_15_1.md`
+Current release notes: `docs/release_notes/v0_16_0.md`
 
 Historical release notes remain under `docs/release_notes/`. Historical docs may mention old active baselines in historical context; they are not the current source of truth.
 

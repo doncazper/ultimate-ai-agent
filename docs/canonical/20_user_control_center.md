@@ -96,3 +96,11 @@ Mobile capture cannot silently become memory, cannot approve actions, and cannot
 Future Web Control Center implementation may use Browser + Build Web Apps with explicit approval. Chrome authenticated profile control remains disabled unless separately approved. Computer Use remains disabled except explicit last-resort manual QA approval.
 
 iOS and macOS build plugins are not part of the web Control Center boundary. Build iOS Apps / XcodeBuildMCP remains disabled until a dedicated Mobile Companion implementation milestone. Build macOS Apps remains disabled until a dedicated Desktop/macOS Companion milestone.
+
+## M12 Backend Contract Boundary
+
+v0.16.0 adds backend Control Center contracts and read-only/preview-only API routes for a future UI. This is not the TypeScript Control Center implementation.
+
+The M12 API may expose manifest, dashboard snapshot, status, route summary, approval summary, runtime-readiness summary, Foundation Gate summary, and action preview data. It must not execute actions, mutate files, grant approvals, resolve credentials, enable plugins, run frontend tooling, start runtimes, call models/providers, dispatch remote workers, access mobile sensors, or become a production Control Center.
+
+Action preview decisions are policy previews only. They are not authority, approval, consent, execution, evidence, or proof of production readiness.

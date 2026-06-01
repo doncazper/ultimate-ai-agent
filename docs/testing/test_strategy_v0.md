@@ -64,3 +64,16 @@ Advanced modules remain blocked by capability flags.
 ## Rule
 
 Every bug fixed after M0 should produce either a regression test, an eval, or an explicit written reason why a test is not practical.
+
+## M12 Control Center Contract Tests
+
+M12 adds backend Control Center contract tests only:
+
+```text
+Control Center manifest surfaces are deterministic and read-only/preview-only.
+Dashboard snapshots contain safe summaries only.
+Action preview allows safe view previews and blocks execution, mutation, credential, remote, plugin, runtime, provider, and mobile sensor claims.
+API routes return ResultEnvelope data and expose no execute route.
+Foundation Gate includes M12 no-execution criteria.
+No frontend package files, native build workflow, Browser/Chrome/Computer Use bridge, plugin enablement, model/provider calls, network calls, remote dispatch, or mobile sensor access is added.
+```

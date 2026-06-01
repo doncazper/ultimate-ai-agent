@@ -15,6 +15,7 @@ CAPABILITIES_DECLARED = [
     "remote_worker_foundation_dry_run",
     "runtime_readiness_status",
     "manual_smoke_report_validation",
+    "control_center_read_only_dashboard",
 ]
 
 CAPABILITIES_BLOCKED = [
@@ -26,6 +27,12 @@ CAPABILITIES_BLOCKED = [
     "runtime_agent_config_loading",
     "runtime_execution_routes",
     "plugin_enablement_routes",
+    "control_center_execution",
+    "control_center_plugin_enablement",
+    "control_center_frontend_native_build_control",
+    "control_center_mobile_sensor_access",
+    "control_center_remote_dispatch",
+    "control_center_model_provider_invocation",
 ]
 
 ROUTE_GROUPS_BY_PREFIX = {
@@ -44,6 +51,7 @@ ROUTE_GROUPS_BY_PREFIX = {
     "/models": "model-router",
     "/model-runtime": "model-runtime",
     "/runtime": "runtime-readiness",
+    "/control-center": "control-center",
     "/remote-workers": "remote-workers",
     "/costs": "cost-governor",
     "/gate": "foundation-gate",

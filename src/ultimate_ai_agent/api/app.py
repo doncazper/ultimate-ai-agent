@@ -137,6 +137,12 @@ from ultimate_ai_agent.core.runtime_readiness import (
     build_readiness_report,
     validate_manual_smoke_report,
 )
+from ultimate_ai_agent.core.control_center import (
+    ControlCenterActionPreviewRequest,
+    build_control_center_dashboard,
+    build_control_center_manifest,
+    preview_control_center_action,
+)
 
 app = FastAPI(
     title="Ultimate AI Agent API Boundary",
@@ -977,6 +983,116 @@ def post_validate_runtime_smoke_report(payload: RuntimeSmokeReportValidatePayloa
         service="RuntimeReadinessAPI",
         trace_id=validation.report_id or "system",
         data=validation.model_dump(mode="json"),
+    )
+
+
+@app.get("/control-center/manifest", response_model=ResultEnvelope)
+def get_control_center_manifest():
+    manifest = build_control_center_manifest()
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_manifest",
+        service="ControlCenterAPI",
+        trace_id="system",
+        data=manifest.model_dump(mode="json"),
+    )
+
+
+@app.get("/control-center/dashboard", response_model=ResultEnvelope)
+def get_control_center_dashboard():
+    api_manifest = build_api_manifest(app)
+    dashboard = build_control_center_dashboard(
+        api_route_count=api_manifest.route_count,
+        foundation_gate_status="not_run_by_endpoint",
+    )
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_dashboard",
+        service="ControlCenterAPI",
+        trace_id="system",
+        data=dashboard.model_dump(mode="json"),
+    )
+
+
+@app.get("/control-center/status", response_model=ResultEnvelope)
+def get_control_center_status():
+    dashboard = build_control_center_dashboard()
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_status",
+        service="ControlCenterAPI",
+        trace_id="system",
+        data=dashboard.system_status.model_dump(mode="json"),
+    )
+
+
+@app.get("/control-center/routes", response_model=ResultEnvelope)
+def get_control_center_routes():
+    api_manifest = build_api_manifest(app)
+    control_center_routes = [
+        route.model_dump(mode="json")
+        for route in api_manifest.routes
+        if route.path.startswith("/control-center")
+    ]
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_routes",
+        service="ControlCenterAPI",
+        trace_id="system",
+        data={
+            "route_count": len(control_center_routes),
+            "routes": control_center_routes,
+            "read_only_preview_only": True,
+        },
+    )
+
+
+@app.get("/control-center/approvals/summary", response_model=ResultEnvelope)
+def get_control_center_approvals_summary():
+    dashboard = build_control_center_dashboard()
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_approvals_summary",
+        service="ControlCenterAPI",
+        trace_id="system",
+        data=dashboard.approval_summary.model_dump(mode="json"),
+    )
+
+
+@app.get("/control-center/runtime-readiness/summary", response_model=ResultEnvelope)
+def get_control_center_runtime_readiness_summary():
+    dashboard = build_control_center_dashboard()
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_runtime_readiness_summary",
+        service="ControlCenterAPI",
+        trace_id="system",
+        data=dashboard.runtime_readiness_summary.model_dump(mode="json"),
+    )
+
+
+@app.get("/control-center/foundation-gate/summary", response_model=ResultEnvelope)
+def get_control_center_foundation_gate_summary():
+    dashboard = build_control_center_dashboard(foundation_gate_status="not_run_by_endpoint")
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_foundation_gate_summary",
+        service="ControlCenterAPI",
+        trace_id="system",
+        data=dashboard.foundation_gate_summary.model_dump(mode="json"),
+    )
+
+
+@app.post("/control-center/actions/preview", response_model=ResultEnvelope)
+def post_control_center_action_preview(request: ControlCenterActionPreviewRequest):
+    decision = preview_control_center_action(request)
+    return ResultEnvelope(
+        success=decision.allowed,
+        operation="control_center_action_preview",
+        service="ControlCenterAPI",
+        trace_id=request.request_id,
+        data=decision.model_dump(mode="json"),
+        redactions_applied=decision.metadata.get("redactions_applied", []),
     )
 
 @app.post("/costs/budgets/validate", response_model=ResultEnvelope)
