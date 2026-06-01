@@ -14,7 +14,7 @@ Each route declares:
 - `requires_auth_future`
 - `blocked_from_production`
 
-Allowed side-effect classes in v0.13.1 are:
+Allowed side-effect classes in v0.13.2 are:
 
 - `none`
 - `validation_only`

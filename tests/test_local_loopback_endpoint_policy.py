@@ -8,10 +8,30 @@ def decision(endpoint, policy=None):
     return LocalLoopbackModelRuntimeAdapter().validate_endpoint(endpoint, policy or loopback_policy())
 
 
+def invalid_policy(**overrides):
+    return loopback_policy().model_copy(update=overrides)
+
+
 def test_valid_loopback_hosts_pass_endpoint_policy():
     assert decision(loopback_endpoint(base_url="http://localhost:11434/api/generate")).allowed is True
     assert decision(loopback_endpoint(base_url="http://127.0.0.1:11434/api/generate")).allowed is True
     assert decision(loopback_endpoint(base_url="http://[::1]:11434/api/generate")).allowed is True
+
+
+def test_loopback_policy_rejects_disable_loopback_guard():
+    with pytest.raises(ValueError, match="POLICY_CANNOT_DISABLE_LOOPBACK_GUARD"):
+        loopback_policy(deny_non_loopback=False)
+
+
+def test_loopback_policy_rejects_non_loopback_allowed_hosts():
+    for host in ["example.com", "192.168.1.5", "10.0.0.5", "8.8.8.8"]:
+        with pytest.raises(ValueError, match="ALLOWED_HOST_NOT_LOOPBACK"):
+            loopback_policy(allowed_hosts=[host])
+
+
+def test_loopback_policy_rejects_mixed_remote_allowlist():
+    with pytest.raises(ValueError, match="ALLOWED_HOST_NOT_LOOPBACK"):
+        loopback_policy(allowed_hosts=["127.0.0.1", "example.com"])
 
 
 def test_remote_hosts_and_https_remote_hosts_are_denied():
@@ -25,7 +45,7 @@ def test_remote_hosts_and_https_remote_hosts_are_denied():
 
 
 def test_caller_cannot_disable_loopback_guard_with_allowed_hosts_override():
-    hostile_policy = loopback_policy(allowed_hosts=["example.com"], deny_non_loopback=False)
+    hostile_policy = invalid_policy(allowed_hosts=["example.com"], deny_non_loopback=False)
     remote_endpoint = loopback_endpoint(
         base_url="http://example.com/api/generate",
         allowed_hosts=["example.com"],
@@ -39,7 +59,7 @@ def test_caller_cannot_disable_loopback_guard_with_allowed_hosts_override():
 
 
 def test_private_lan_hosts_are_denied_even_when_allowlisted():
-    hostile_policy = loopback_policy(
+    hostile_policy = invalid_policy(
         allowed_hosts=["127.0.0.1", "localhost", "::1", "192.168.1.5", "10.0.0.5"],
         deny_non_loopback=False,
     )
@@ -50,8 +70,17 @@ def test_private_lan_hosts_are_denied_even_when_allowlisted():
         assert "NON_LOOPBACK_HOST_DENIED" in blocked.reason_codes
 
 
+def test_public_ip_hosts_are_denied_even_when_allowlisted():
+    hostile_policy = invalid_policy(allowed_hosts=["8.8.8.8"], deny_non_loopback=False)
+    blocked = decision(loopback_endpoint(base_url="http://8.8.8.8/api/generate", allowed_hosts=["8.8.8.8"]), hostile_policy)
+
+    assert blocked.allowed is False
+    assert "NON_LOOPBACK_HOST_DENIED" in blocked.reason_codes
+    assert "ALLOWED_HOST_NOT_LOOPBACK" in blocked.reason_codes
+
+
 def test_mixed_allowlist_still_permits_loopback_only():
-    policy = loopback_policy(
+    policy = invalid_policy(
         allowed_hosts=["127.0.0.1", "localhost", "::1", "example.com"],
         deny_non_loopback=False,
     )

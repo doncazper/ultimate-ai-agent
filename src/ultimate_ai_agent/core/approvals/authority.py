@@ -113,6 +113,9 @@ class LocalApprovalAuthority:
     def get_grant(self, approval_ref: str) -> Optional[ApprovalGrant]:
         return self._grants.get(approval_ref)
 
+    def load_grant_for_validation(self, grant: ApprovalGrant) -> None:
+        self._grants[grant.approval_ref] = grant
+
     def list_grants(self, run_id: str | None = None) -> List[ApprovalGrant]:
         grants = list(self._grants.values())
         if run_id is not None:

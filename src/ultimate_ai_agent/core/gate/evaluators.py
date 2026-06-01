@@ -102,6 +102,9 @@ class FoundationGateEvaluator:
             "m9_loopback_runtime_files_present": self.check_m9_loopback_runtime_files_present,
             "m9_non_loopback_endpoints_denied": self.check_m9_non_loopback_endpoints_denied,
             "m9_non_loopback_policy_override_denied": self.check_m9_non_loopback_policy_override_denied,
+            "m9_loopback_policy_model_rejects_hostile_inputs": self.check_m9_loopback_policy_model_rejects_hostile_inputs,
+            "m9_public_and_private_ip_endpoints_denied": self.check_m9_public_and_private_ip_endpoints_denied,
+            "m9_approval_api_uses_public_authority_helper": self.check_m9_approval_api_uses_public_authority_helper,
             "m9_arbitrary_approval_refs_denied": self.check_m9_arbitrary_approval_refs_denied,
             "m9_fake_transport_only_in_gate": self.check_m9_fake_transport_only_in_gate,
             "m9_simulated_fallback_available": self.check_m9_simulated_fallback_available,
@@ -1082,8 +1085,11 @@ class FoundationGateEvaluator:
         policy = LoopbackRuntimePolicy(
             policy_id="m9_gate_override_policy",
             allow_real_loopback_execution=True,
-            allowed_hosts=["example.com"],
-            deny_non_loopback=False,
+        ).model_copy(
+            update={
+                "allowed_hosts": ["example.com"],
+                "deny_non_loopback": False,
+            }
         )
         endpoint = LoopbackRuntimeEndpoint(
             endpoint_id="m9_gate_override_endpoint",
@@ -1104,6 +1110,65 @@ class FoundationGateEvaluator:
             if reason not in decision.reason_codes:
                 failures.append(f"override decision missing {reason}")
         return self._result(criterion, failures, ["src/ultimate_ai_agent/core/model_runtime/local_adapter.py"])
+
+    def check_m9_loopback_policy_model_rejects_hostile_inputs(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        from ultimate_ai_agent.core.model_runtime import LoopbackRuntimePolicy
+
+        failures = []
+        hostile_inputs = [
+            {"deny_non_loopback": False},
+            {"allowed_hosts": ["example.com"]},
+            {"allowed_hosts": ["192.168.1.5"]},
+            {"allowed_hosts": ["10.0.0.5"]},
+            {"allowed_hosts": ["8.8.8.8"]},
+            {"allowed_hosts": ["127.0.0.1", "example.com"]},
+        ]
+        for payload in hostile_inputs:
+            try:
+                LoopbackRuntimePolicy(policy_id="m9_gate_hostile_policy", **payload)
+            except ValueError:
+                continue
+            failures.append(f"hostile policy accepted: {payload}")
+        return self._result(criterion, failures, ["src/ultimate_ai_agent/core/model_runtime/execution_policy.py"])
+
+    def check_m9_public_and_private_ip_endpoints_denied(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        from ultimate_ai_agent.core.model_runtime import LocalLoopbackModelRuntimeAdapter, LoopbackRuntimeEndpoint, LoopbackRuntimePolicy, ModelRuntimeKind
+
+        adapter = LocalLoopbackModelRuntimeAdapter()
+        policy = LoopbackRuntimePolicy(policy_id="m9_gate_ip_policy", allow_real_loopback_execution=True)
+        failures = []
+        for host in ["192.168.1.5", "10.0.0.5", "8.8.8.8"]:
+            endpoint = LoopbackRuntimeEndpoint(
+                endpoint_id=f"m9_gate_{host.replace('.', '_')}",
+                base_url="http" + f"://{host}/api/generate",
+                allowed_hosts=[host],
+                runtime_kind=ModelRuntimeKind.local_stub,
+                model_id="m9_gate_model",
+                enabled=True,
+                owner="foundation_gate",
+                source="foundation_gate",
+                version="0.0.0",
+            )
+            decision = adapter.validate_endpoint(endpoint, policy)
+            if decision.allowed or "NON_LOOPBACK_HOST_DENIED" not in decision.reason_codes:
+                failures.append(f"{host} was not denied")
+        return self._result(criterion, failures, ["src/ultimate_ai_agent/core/model_runtime/local_adapter.py"])
+
+    def check_m9_approval_api_uses_public_authority_helper(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        app_source = self._read(self.root / "src/ultimate_ai_agent/api/app.py")
+        authority_source = self._read(self.root / "src/ultimate_ai_agent/core/approvals/authority.py")
+        failures = []
+        if "authority._grants" in app_source:
+            failures.append("approval API mutates private _grants")
+        if "load_grant_for_validation" not in app_source:
+            failures.append("approval API does not use public grant-loading helper")
+        if "def load_grant_for_validation" not in authority_source:
+            failures.append("LocalApprovalAuthority helper is missing")
+        return self._result(
+            criterion,
+            failures,
+            ["src/ultimate_ai_agent/api/app.py", "src/ultimate_ai_agent/core/approvals/authority.py"],
+        )
 
     def check_m9_arbitrary_approval_refs_denied(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
         from ultimate_ai_agent.core.model_runtime import LocalLoopbackModelRuntimeAdapter

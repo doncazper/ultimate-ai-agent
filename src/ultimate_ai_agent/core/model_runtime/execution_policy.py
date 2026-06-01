@@ -1,4 +1,5 @@
 import uuid
+import ipaddress
 from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -25,6 +26,11 @@ class LoopbackRuntimePolicy(BaseModel):
 
     @model_validator(mode="after")
     def policy_must_be_secret_clean(self):
+        if self.deny_non_loopback is not True:
+            raise ValueError("POLICY_CANNOT_DISABLE_LOOPBACK_GUARD")
+        non_loopback_hosts = [host for host in self.allowed_hosts if not _is_loopback_allowed_host(host)]
+        if non_loopback_hosts:
+            raise ValueError("ALLOWED_HOST_NOT_LOOPBACK")
         assert_secret_clean(self.model_dump(mode="json"), "Loopback runtime policy")
         return self
 
@@ -47,3 +53,13 @@ class LocalRuntimeExecutionDecision(BaseModel):
     def decision_must_be_secret_clean(self):
         assert_secret_clean(self.model_dump(mode="json"), "Local runtime execution decision")
         return self
+
+
+def _is_loopback_allowed_host(host: str) -> bool:
+    normalized = host.strip().lower().strip("[]")
+    if normalized == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(normalized).is_loopback
+    except ValueError:
+        return False

@@ -1,6 +1,6 @@
 # Ultimate AI Agent Workspace Standards
 
-Active baseline: v0.13.1.
+Active baseline: v0.13.2.
 
 This repository is the Ultimate AI Agent foundation workspace. Treat it as a contract-first Python core, not a production runtime integration layer.
 
@@ -14,7 +14,7 @@ This repository is the Ultimate AI Agent foundation workspace. Treat it as a con
 - Do not add provider SDK calls, browser automation, production persistence, scanner runtimes, or runtime agent config loading.
 - M8 model runtime endpoints are simulated/dry-run only. Do not add live runtime URLs, tokenizers, billing APIs, network calls, or provider SDK calls.
 - M8.5 approval endpoints are local/dev validation-only. Do not treat arbitrary approval strings as authority, and do not add production auth, OAuth, persistence, or external actions.
-- M9 local loopback runtime support is dev-only, loopback-only, approval-gated, and must default to validation or simulated fallback. Caller policy cannot disable the loopback-only guard or use allowed host lists to authorize remote hosts. Tests and Foundation Gate must use fake transport and must not make real network/model calls.
+- M9 local loopback runtime support is dev-only, loopback-only, approval-gated, and must default to validation or simulated fallback. Caller policy cannot disable the loopback-only guard or use allowed host lists to authorize remote hosts; hostile policy inputs should fail validation before adapter execution. Tests and Foundation Gate must use fake transport and must not make real network/model calls.
 - API validation errors must be sanitized and must never echo raw invalid input values or secret-like field values.
 
 ## Workspace

@@ -1,6 +1,6 @@
 # Local Loopback Model Runtime
 
-M9 adds a dev-only local loopback runtime adapter harness. v0.13.1 hardens its endpoint policy so the loopback guard cannot be disabled by caller-supplied policy fields.
+M9 adds a dev-only local loopback runtime adapter harness. v0.13.2 hardens its endpoint policy so hostile caller-supplied policy fields are rejected before adapter validation.
 
 The default runtime posture remains validate-only or simulated fallback. Real local loopback execution is available only through library code when all of these are true:
 
@@ -16,7 +16,7 @@ The default runtime posture remains validate-only or simulated fallback. Real lo
 - token estimates fit policy and adapter limits
 - transport is explicitly injected
 
-Caller-supplied `allowed_hosts` values can narrow loopback endpoints, but they cannot expand the boundary to remote or private LAN hosts. `deny_non_loopback=false` is treated as an attempted override and does not permit non-loopback destinations.
+Caller-supplied `allowed_hosts` values can narrow loopback endpoints, but they cannot expand the boundary to remote, private LAN, or public IP hosts. `deny_non_loopback=false` is rejected as an attempted override and does not permit non-loopback destinations. Adapter validation still denies non-loopback hosts unconditionally as defense in depth.
 
 Tests and Foundation Gate use `FakeModelRuntimeTransport`. The default `DisabledNetworkTransport` never sends network traffic.
 

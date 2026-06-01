@@ -1,8 +1,12 @@
+from datetime import timedelta
+from pathlib import Path
+
 from fastapi.testclient import TestClient
 
 from tests.m85_helpers import approval_request
 from ultimate_ai_agent.api.app import app
-from ultimate_ai_agent.core.approvals import ApprovalReceipt, LocalApprovalAuthority
+from ultimate_ai_agent.core.approvals import ApprovalReceipt, ApprovalStatus, LocalApprovalAuthority
+from ultimate_ai_agent.core.time import utc_now
 
 
 client = TestClient(app)
@@ -31,6 +35,52 @@ def test_approval_api_arbitrary_ref_validation_denies():
     assert body["success"] is True
     assert body["data"]["allowed"] is False
     assert "APPROVAL_REF_UNKNOWN" in body["data"]["reason_codes"]
+
+
+def test_approval_api_uses_public_authority_helper():
+    app_source = Path("src/ultimate_ai_agent/api/app.py").read_text(encoding="utf-8")
+
+    assert "authority.load_grant_for_validation(" in app_source
+    assert "authority._grants" not in app_source
+
+
+def test_approval_api_validation_denies_wrong_subject_action_resource_expired_and_revoked():
+    request = approval_request()
+    authority = LocalApprovalAuthority()
+    authority.create_request(request)
+    grant = authority.grant(request.approval_request_id, approved_by_actor_id="human_reviewer")
+
+    for update, reason in [
+        ({"subject_id": "other_subject"}, "APPROVAL_SUBJECT_MISMATCH"),
+        ({"requested_action": "other_action"}, "APPROVAL_ACTION_NOT_GRANTED"),
+        ({"resource_refs": ["other_resource"]}, "APPROVAL_RESOURCE_NOT_GRANTED"),
+    ]:
+        payload = {
+            "validation_request": request.to_validation_request(grant.approval_ref).model_copy(update=update).model_dump(mode="json"),
+            "grants": [grant.model_dump(mode="json")],
+        }
+        body = client.post("/approvals/validate", json=payload).json()
+        assert body["success"] is True
+        assert body["data"]["allowed"] is False
+        assert reason in body["data"]["reason_codes"]
+
+    expired = grant.model_copy(update={"expires_at": utc_now() - timedelta(minutes=1)})
+    expired_payload = {
+        "validation_request": request.to_validation_request(expired.approval_ref).model_dump(mode="json"),
+        "grants": [expired.model_dump(mode="json")],
+    }
+    expired_body = client.post("/approvals/validate", json=expired_payload).json()
+    assert expired_body["data"]["allowed"] is False
+    assert "APPROVAL_EXPIRED" in expired_body["data"]["reason_codes"]
+
+    revoked = grant.model_copy(update={"status": ApprovalStatus.revoked, "revoked_at": utc_now()})
+    revoked_payload = {
+        "validation_request": request.to_validation_request(revoked.approval_ref).model_dump(mode="json"),
+        "grants": [revoked.model_dump(mode="json")],
+    }
+    revoked_body = client.post("/approvals/validate", json=revoked_payload).json()
+    assert revoked_body["data"]["allowed"] is False
+    assert "APPROVAL_REVOKED" in revoked_body["data"]["reason_codes"]
 
 
 def test_approval_api_validation_error_does_not_echo_secret():

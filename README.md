@@ -1,12 +1,12 @@
-# Ultimate AI Agent Canonical Bundle v0.13.1
+# Ultimate AI Agent Canonical Bundle v0.13.2
 
-This is the active project baseline after the M9 loopback policy hardening patch.
+This is the active project baseline after the M9.5 loopback policy and approval API hardening patch.
 
 Start here:
 
 ```text
-README_IMPORT_v0_13_1.md
-ultimate_ai_agent_master_plan_v0_13_1.md
+README_IMPORT_v0_13_2.md
+ultimate_ai_agent_master_plan_v0_13_2.md
 docs/canonical/09_roadmap.md
 docs/canonical/21_consent_and_permissions_ledger.md
 docs/canonical/37_tool_broker.md
@@ -19,7 +19,7 @@ docs/api/route_inventory.md
 docs/runtime/model_runtime_adapter_harness.md
 docs/runtime/local_loopback_model_runtime.md
 docs/security/approval_authority.md
-docs/implementation/foundation_gate_implementation_plan_v0_13_1.md
+docs/implementation/foundation_gate_implementation_plan_v0_13_2.md
 docs/testing/test_strategy_v0.md
 ```
 
@@ -41,4 +41,4 @@ Observability standards rule:
 
 Foundation Gate rule:
 
-> v0.13.1 keeps the local/dev loopback model runtime adapter harness and hardens endpoint policy: caller-supplied allowlists and `deny_non_loopback=false` cannot authorize non-loopback hosts. The default remains validate-only or simulated fallback; real loopback execution is library-level, opt-in, approval-gated, loopback-only, and test/gate coverage uses fake transport. M9 does not add cloud models, provider SDKs, API keys, tokenizers, billing APIs, remote hosts, scanners, browser automation, SDK/A2A runtime delegation, production persistence, production auth/OAuth, or external actions.
+> v0.13.2 keeps the local/dev loopback model runtime adapter harness and moves hostile policy rejection closer to the model boundary: `deny_non_loopback=false` and non-loopback `allowed_hosts` are rejected, while adapter-level denial remains in depth. The approval validation API now uses a public LocalApprovalAuthority helper instead of private state mutation. M9.5 does not add cloud models, provider SDKs, API keys, tokenizers, billing APIs, remote hosts, scanners, browser automation, SDK/A2A runtime delegation, production persistence, production auth/OAuth, or external actions.

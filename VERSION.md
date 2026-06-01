@@ -1,5 +1,5 @@
 # Ultimate AI Agent Version
 
-Current active baseline: **v0.13.1**
+Current active baseline: **v0.13.2**
 
-v0.13.1 is a targeted M9 patch release. It preserves the local/dev loopback runtime adapter while hardening endpoint policy so caller-supplied allowlists and `deny_non_loopback=false` cannot authorize non-loopback hosts.
+v0.13.2 is an M9.5 hardening patch release. It moves hostile loopback policy rejection into model validation, preserves adapter-level loopback denial, and replaces approval API private grant mutation with a public LocalApprovalAuthority helper.

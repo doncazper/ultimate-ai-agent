@@ -571,7 +571,7 @@ def post_validate_approval(payload: ApprovalValidatePayload):
         authority = LocalApprovalAuthority()
         for grant_payload in payload.grants:
             grant = ApprovalGrant(**grant_payload)
-            authority._grants[grant.approval_ref] = grant
+            authority.load_grant_for_validation(grant)
         decision = authority.validate(validation_request)
     except (ValidationError, ValueError) as exc:
         return _approval_validation_error("validate_approval", "system", exc)

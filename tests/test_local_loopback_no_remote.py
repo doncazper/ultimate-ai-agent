@@ -32,6 +32,23 @@ def test_credentialed_or_cloud_runtime_requests_are_denied_for_loopback_executio
     assert "MODEL_PROFILE_NOT_ACCEPTED_BY_ADAPTER" in cloud_result.reason_codes
 
 
+def test_public_ip_endpoint_is_denied_for_loopback_execution():
+    adapter = LocalLoopbackModelRuntimeAdapter()
+    policy = loopback_policy()
+    endpoint = loopback_endpoint(base_url="http://8.8.8.8/api/generate", allowed_hosts=["8.8.8.8"])
+
+    decision = adapter.validate_execution(
+        local_runtime_request(),
+        local_manifest(),
+        endpoint,
+        policy,
+        approval_decision=None,
+    )
+
+    assert decision.allowed is False
+    assert "NON_LOOPBACK_HOST_DENIED" in decision.reason_codes
+
+
 def test_soft_budget_warning_metadata_is_preserved_for_local_dev_execution():
     request = local_runtime_request(metadata={"route_reason_codes": ["SELECTED_PROFILE", "SOFT_BUDGET_EXCEEDED"]})
     _, _, grant, approval_decision = approval_for_runtime(request)

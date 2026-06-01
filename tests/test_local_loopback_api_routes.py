@@ -18,23 +18,48 @@ def test_local_loopback_endpoint_validation_rejects_remote_credentials_and_secre
         assert code in body["data"]["reason_codes"]
 
 
-def test_local_loopback_endpoint_api_rejects_allowed_remote_policy_override():
+def test_local_loopback_endpoint_validation_accepts_safe_loopback_hosts():
+    for url in [
+        "http://127.0.0.1/api/generate",
+        "http://localhost/api/generate",
+        "http://[::1]/api/generate",
+    ]:
+        payload = {"endpoint": loopback_endpoint(base_url=url).model_dump(mode="json"), "policy": loopback_policy().model_dump(mode="json")}
+        body = client.post("/model-runtime/local/endpoints/validate", json=payload).json()
+        assert body["success"] is True
+        assert body["data"]["reason_codes"] == ["ENDPOINT_ALLOWED"]
+
+
+def test_local_loopback_endpoint_api_rejects_allowed_remote_policy_override_safely():
     payload = {
         "endpoint": loopback_endpoint(
             base_url="http://example.com/api/generate",
             allowed_hosts=["example.com"],
         ).model_dump(mode="json"),
-        "policy": loopback_policy(
-            allowed_hosts=["example.com"],
-            deny_non_loopback=False,
-        ).model_dump(mode="json"),
+        "policy": {
+            **loopback_policy().model_dump(mode="json"),
+            "allowed_hosts": ["example.com"],
+            "deny_non_loopback": False,
+        },
     }
 
-    body = client.post("/model-runtime/local/endpoints/validate", json=payload).json()
+    response = client.post("/model-runtime/local/endpoints/validate", json=payload)
+    body = response.json()
 
     assert body["success"] is False
-    assert "NON_LOOPBACK_HOST_DENIED" in body["data"]["reason_codes"]
-    assert "POLICY_CANNOT_DISABLE_LOOPBACK_GUARD" in body["data"]["reason_codes"]
+    assert body["error"]["code"] == "MODEL_RUNTIME_VALIDATION_FAILED"
+    assert body["error"]["details_redacted"] is True
+    assert "example.com" not in response.text
+    assert "deny_non_loopback" not in response.text
+
+
+def test_local_loopback_api_does_not_expose_public_execution_route():
+    paths = {route.path for route in app.routes}
+
+    assert "/model-runtime/local/execution/validate" in paths
+    assert "/model-runtime/local/simulate-fallback" in paths
+    assert "/model-runtime/local/execute" not in paths
+    assert "/model-runtime/local/execution" not in paths
 
 
 def test_local_loopback_execution_validation_and_simulated_fallback_routes():
