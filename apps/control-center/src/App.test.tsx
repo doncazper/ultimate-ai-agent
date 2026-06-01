@@ -19,6 +19,11 @@ describe("Web Control Center shell", () => {
     render(<App />);
 
     expect(await screen.findByText("Mock fallback")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Overview" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Runtime" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Foundation Gate" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "API Routes" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Action Preview" })).toBeInTheDocument();
     expect(screen.getByText("Runtime readiness")).toBeInTheDocument();
     expect(screen.getByText("API boundary")).toBeInTheDocument();
     expect(screen.getByText(/No authority to run actions/i)).toBeInTheDocument();

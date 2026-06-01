@@ -1,5 +1,5 @@
 # Ultimate AI Agent Version
 
-Current active baseline: **v0.17.1**
+Current active baseline: **v0.17.2**
 
-v0.17.1 hardens the M13 Web Control Center read-only frontend shell. It clarifies preview-only UI language, adds frontend safety verification for forbidden execute/plugin/mobile/remote endpoints, blocks sensitive browser storage and mobile sensor APIs, documents mock fixture safety, and extends Foundation Gate coverage. It adds no runtime execution, model/provider calls, remote execution, mobile sensor access, plugin enablement, Chrome authenticated-profile use, Computer Use automation, iOS/macOS build workflows, or production Control Center authority.
+v0.17.2 hardens the M13 Web Control Center frontend verification path. It adds or strengthens frontend CI coverage, static safety verification, local browser smoke readiness documentation, and Foundation Gate checks for preview-only UI behavior, forbidden execute/plugin/mobile/remote controls, sensitive browser storage APIs, unsafe mock data, tracked generated frontend artifacts, and frontend secret fixtures. It adds no runtime execution, model/provider calls, remote execution, mobile sensor access, plugin enablement, Chrome authenticated-profile use, Computer Use automation, iOS/macOS build workflows, or production Control Center authority.

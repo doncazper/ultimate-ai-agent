@@ -1,6 +1,6 @@
 # Web Control Center Shell
 
-Status: Active for v0.17.1 / M13 safety polish.
+Status: Active for v0.17.2 / M13 verification hardening.
 
 M13 adds a local TypeScript React/Vite shell under `apps/control-center/` for reading existing backend Control Center and runtime readiness APIs. It is the first web UI surface for the future Control Center, but it is not a production Control Center and it has no authority to execute actions.
 
@@ -30,4 +30,4 @@ Non-goals:
 
 The shell is allowed to use local npm dependencies for React, Vite, TypeScript, Vitest, and Testing Library only. `node_modules`, `dist`, coverage output, `.env` files, and native/mobile build files are not release artifacts.
 
-v0.17.1 adds safety polish only. It does not add backend API paths, execution controls, sensitive browser storage, mobile sensor APIs, plugin enablement controls, or production Control Center authority.
+v0.17.2 adds verification hardening only. Frontend CI covers install, typecheck, lint, tests, and build; static verifiers cover frontend safety and manual local browser smoke readiness; and Foundation Gate checks the CI/static/browser-readiness boundary. It does not add backend API paths, execution controls, sensitive browser storage, mobile sensor APIs, plugin enablement controls, browser automation, Chrome authenticated profile control, Computer Use automation, native build workflows, or production Control Center authority.

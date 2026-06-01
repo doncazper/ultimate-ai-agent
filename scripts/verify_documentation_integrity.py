@@ -30,6 +30,7 @@ REQUIRED_ACTIVE_DOCS = [
     "docs/control_center/WEB_CONTROL_CENTER_SHELL.md",
     "docs/control_center/FRONTEND_SAFETY_POLICY.md",
     "docs/control_center/CONTROL_CENTER_FRONTEND_ROUTES.md",
+    "docs/control_center/LOCAL_BROWSER_SMOKE.md",
 ]
 
 UNSAFE_IMPLEMENTATION_CLAIMS = [
@@ -77,6 +78,7 @@ ACTIVE_DOCS_TO_SCAN = [
     "docs/control_center/WEB_CONTROL_CENTER_SHELL.md",
     "docs/control_center/FRONTEND_SAFETY_POLICY.md",
     "docs/control_center/CONTROL_CENTER_FRONTEND_ROUTES.md",
+    "docs/control_center/LOCAL_BROWSER_SMOKE.md",
     "docs/remote/REMOTE_WORKER_FOUNDATION.md",
     "docs/remote/REMOTE_NODE_SECURITY_MODEL.md",
     "docs/remote/REMOTE_JOB_ENVELOPE.md",

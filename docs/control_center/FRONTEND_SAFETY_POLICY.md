@@ -1,6 +1,6 @@
 # Frontend Safety Policy
 
-Status: Active for v0.17.1 / M13 safety polish.
+Status: Active for v0.17.2 / M13 verification hardening.
 
 The Web Control Center shell is a display and preview surface. The Python Agent Core remains the brain and source of policy enforcement.
 
@@ -15,6 +15,7 @@ Frontend safety rules:
 - The frontend must not use browser credential APIs, service workers, IndexedDB, CacheStorage, notification/push APIs, or clipboard writes.
 - The frontend must not include analytics, auth SDKs, payment SDKs, SaaS SDKs, model/provider SDKs, browser automation, native build tooling, mobile project files, or background services.
 - `scripts/verify_control_center_frontend.py` is the canonical static frontend safety verifier and is run by `scripts/verify_all.py` and Foundation Gate.
+- `scripts/verify_control_center_browser_smoke_readiness.py` verifies that local browser smoke readiness remains documented, static, manual, and local-only.
 
 Allowed local tooling:
 
@@ -24,8 +25,21 @@ Allowed local tooling:
 - TypeScript typechecking.
 - Vitest and Testing Library.
 - Browser verification against local dev targets when explicitly approved by the milestone prompt.
+- CI frontend checks inside `apps/control-center`: `npm ci`, typecheck, lint, tests, and build.
 
-Off-limits in M13:
+Local browser smoke readiness:
+
+- manual local browser smoke only.
+- local-only targets: `localhost`, `127.0.0.1`, and `::1`.
+- no authenticated browser profile.
+- no Chrome authenticated profile control.
+- no Computer Use.
+- no external sites.
+- no production backend.
+- no screenshots with secrets.
+- non-authoritative verification only.
+
+Off-limits in M13/v0.17.2:
 
 - Chrome authenticated profile control.
 - Computer Use automation.

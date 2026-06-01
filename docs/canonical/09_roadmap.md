@@ -23,9 +23,9 @@ OpenWebUI is a window into the agent, not the agent brain.
 
 Pre-coding foundation remediation, Runtime Hygiene Micro-Foundation, Local Runtime/Context Survival, Truth/Grounding/Evidence Governance, Observability Standards Mapping, and Minimum Lovable Kernel preparation.
 
-## Accepted baseline through v0.17.0
+## Accepted baseline through v0.17.2
 
-The active accepted baseline is v0.17.0. It includes foundation modules through M10.5 plus documentation integrity synchronization, Codex plugin/external tooling governance, M11 runtime readiness/report validation, M12 Control Center backend contract/API foundation, and M13 Web Control Center read-only frontend shell. v0.17.0 adds a local React/Vite shell only; it does not add production Control Center authority or execution capability.
+The active accepted baseline is v0.17.2. It includes foundation modules through M10.5 plus documentation integrity synchronization, Codex plugin/external tooling governance, M11 runtime readiness/report validation, M12 Control Center backend contract/API foundation, and M13 Web Control Center read-only frontend shell with CI/static/browser-readiness hardening. v0.17.2 adds verification hardening only; it does not add production Control Center authority or execution capability.
 
 Recent accepted milestones:
 
@@ -40,13 +40,15 @@ v0.14.6 — Codex plugin and external build tool governance inventory, docs/poli
 v0.15.0 — M11 runtime readiness gate, capability matrix, and manual smoke report validation
 v0.15.1 — M11 runtime readiness taxonomy clarification for local loopback policy and fake smoke origins
 v0.16.0 — M12 Control Center contract and read-only dashboard API foundation
-
 v0.17.0 — M13 Web Control Center read-only frontend shell
+v0.17.1 — M13 Web Control Center frontend safety polish
+v0.17.2 — M13 Web Control Center CI, static safety, and local browser smoke readiness hardening
 
 - adds local React/Vite/TypeScript app under `apps/control-center`.
 - consumes existing read-only/preview-only backend routes.
 - provides safe mock fallback data for local development.
 - action preview UI posts only to `/control-center/actions/preview`.
+- v0.17.1 and v0.17.2 harden frontend safety verification, CI coverage, and manual local browser smoke readiness.
 - keeps backend OpenAPI path count unchanged at `74`.
 - adds no runtime execution, model/provider calls, remote dispatch, mobile sensors, plugin enablement, native builds, Chrome/Computer Use automation, or production authority.
 ```

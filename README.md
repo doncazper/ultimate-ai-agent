@@ -1,12 +1,12 @@
-# Ultimate AI Agent Canonical Bundle v0.17.1
+# Ultimate AI Agent Canonical Bundle v0.17.2
 
-This is the active project baseline after the v0.17.1 Web Control Center safety polish and frontend contract hardening patch.
+This is the active project baseline after the v0.17.2 Web Control Center CI, static safety, and local browser smoke readiness hardening patch.
 
 Start here:
 
 ```text
-README_IMPORT_v0_17_1.md
-ultimate_ai_agent_master_plan_v0_17_1.md
+README_IMPORT_v0_17_2.md
+ultimate_ai_agent_master_plan_v0_17_2.md
 docs/DOCUMENTATION_INDEX.md
 docs/canonical/09_roadmap.md
 docs/canonical/CANONICAL_DOC_MAP.md
@@ -27,13 +27,14 @@ docs/control_center/ACTION_PREVIEW_POLICY.md
 docs/control_center/WEB_CONTROL_CENTER_SHELL.md
 docs/control_center/FRONTEND_SAFETY_POLICY.md
 docs/control_center/CONTROL_CENTER_FRONTEND_ROUTES.md
+docs/control_center/LOCAL_BROWSER_SMOKE.md
 docs/runtime/model_runtime_adapter_harness.md
 docs/runtime/local_loopback_model_runtime.md
 docs/runtime/RUNTIME_READINESS.md
 docs/runtime/MANUAL_SMOKE_REPORTS.md
 docs/runtime/RUNTIME_CAPABILITY_MATRIX.md
 docs/security/approval_authority.md
-docs/implementation/foundation_gate_implementation_plan_v0_17_1.md
+docs/implementation/foundation_gate_implementation_plan_v0_17_2.md
 docs/maintenance/documentation_integrity_checklist.md
 docs/tooling/CODEX_PLUGIN_CAPABILITY_INVENTORY.md
 docs/tooling/CODEX_PLUGIN_RISK_POLICY.md
@@ -91,3 +92,7 @@ Web Control Center shell rule:
 Web Control Center safety polish rule:
 
 > v0.17.1 hardens the M13 shell without starting M14. The action preview UI is explicitly preview-only, endpoint allowlists are typed, blocked preview decisions remain visible as safe non-execution results, mock fixtures remain non-authoritative, and `scripts/verify_control_center_frontend.py` plus Foundation Gate checks reject forbidden execution/plugin/mobile/remote endpoints, dangerous action labels, sensitive browser storage, browser credential APIs, camera/microphone/location/notification/push APIs, native build references, and secret-like fixture values. It adds no runtime/model/provider/network/remote/mobile/plugin execution, no production Control Center authority, no Chrome authenticated profile control, no Computer Use automation, and no iOS/macOS build workflow.
+
+Web Control Center verification hardening rule:
+
+> v0.17.2 hardens the M13 shell verification path without starting M14. CI now runs frontend dependency install, typecheck, lint, tests, and build inside `apps/control-center`; browser smoke readiness is documented as manual local-only and non-authoritative; and static verifiers plus Foundation Gate checks reject unsafe frontend CI, browser, plugin, mobile, native, remote, execution, analytics/SaaS SDK, generated artifact, and secret fixture drift. It adds no backend API path, runtime/model/provider/network/remote/mobile/plugin execution, production Control Center authority, Chrome authenticated profile control, Computer Use automation, or iOS/macOS build workflow.

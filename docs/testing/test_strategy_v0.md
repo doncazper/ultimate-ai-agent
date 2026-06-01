@@ -91,3 +91,16 @@ Secret-like input is redacted from user-visible output.
 Frontend source and package dependencies remain local shell only.
 Foundation Gate includes M13 frontend safety criteria.
 ```
+
+## v0.17.2 Web Control Center Verification Tests
+
+v0.17.2 adds hardening tests for CI/static/browser-readiness safety:
+
+```text
+Frontend CI runs npm ci, typecheck, lint, tests, and build inside apps/control-center.
+Browser smoke readiness documentation is manual, local-only, unauthenticated-profile-free, and non-authoritative.
+Browser smoke readiness verification is static-only and does not open browsers or start servers.
+Frontend safety verifier rejects forbidden endpoints, dangerous controls, sensitive browser APIs, analytics/SaaS SDK markers, secret-like fixtures, and tracked generated artifacts.
+Foundation Gate includes frontend CI and browser smoke readiness criteria.
+Backend OpenAPI path count remains unchanged at 74.
+```

@@ -1,0 +1,176 @@
+#!/usr/bin/env python3
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parent.parent
+
+SMOKE_DOC = "docs/control_center/LOCAL_BROWSER_SMOKE.md"
+FRONTEND_PACKAGE = "apps/control-center/package.json"
+CI_WORKFLOW = ".github/workflows/ci.yml"
+
+REQUIRED_DOC_WORDING = [
+    "manual local browser smoke",
+    "local-only",
+    "localhost",
+    "127.0.0.1",
+    "::1",
+    "no authenticated browser profile",
+    "no chrome authenticated profile control",
+    "no computer use",
+    "no external sites",
+    "no production backend",
+    "no screenshots with secrets",
+    "preview-only",
+    "no execute button",
+    "no plugin enable button",
+    "no mobile sensor button",
+    "no remote dispatch button",
+    "mock data marked mock",
+    "non-authoritative",
+]
+
+REQUIRED_FRONTEND_SCRIPTS = ["dev", "preview", "typecheck", "lint", "test", "build"]
+REQUIRED_CI_FRAGMENTS = [
+    "apps/control-center",
+    "npm ci",
+    "npm run typecheck --if-present",
+    "npm run lint --if-present",
+    "npm run test --if-present -- --run",
+    "npm run build --if-present",
+]
+
+FORBIDDEN_CI_FRAGMENTS = [
+    "playwright",
+    "puppeteer",
+    "selenium",
+    "webdriver",
+    "chrome --user-data-dir",
+    "google-chrome",
+    "computer use",
+    "xcodebuild",
+    "app-store-connect",
+    "fastlane",
+    "deploy",
+    "vercel",
+    "netlify",
+    "firebase deploy",
+    "https://",
+]
+
+FORBIDDEN_DOC_FRAGMENTS = [
+    "use chrome authenticated profile control",
+    "use computer use",
+    "external sites are allowed",
+    "production backend is allowed",
+    "screenshots may include secrets",
+    "execute actions",
+    "enable plugins",
+    "dispatch remote workers",
+    "access mobile sensors",
+]
+
+FORBIDDEN_TRACKED_FRAGMENTS = [
+    "apps/control-center/node_modules/",
+    "apps/control-center/dist/",
+    "apps/control-center/build/",
+    "apps/control-center/coverage/",
+    "apps/control-center/.next/",
+    "apps/control-center/.env",
+    "apps/control-center/ios/",
+    "apps/control-center/android/",
+    "apps/control-center/Package.swift",
+    "apps/control-center/Podfile",
+]
+
+
+def verify(root: Path = ROOT) -> list[str]:
+    failures: list[str] = []
+    failures.extend(_doc_failures(root))
+    failures.extend(_package_failures(root))
+    failures.extend(_ci_failures(root))
+    failures.extend(_tracked_artifact_failures(root))
+    return failures
+
+
+def _doc_failures(root: Path) -> list[str]:
+    path = root / SMOKE_DOC
+    if not path.exists():
+        return [f"missing browser smoke readiness doc: {SMOKE_DOC}"]
+    text = path.read_text(encoding="utf-8").lower()
+    failures = [
+        f"smoke doc missing required safety wording: {fragment}"
+        for fragment in REQUIRED_DOC_WORDING
+        if fragment not in text
+    ]
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        for fragment in FORBIDDEN_DOC_FRAGMENTS:
+            if fragment in stripped and not _line_is_negative_policy(stripped):
+                failures.append(f"forbidden smoke doc fragment: {fragment}")
+    return failures
+
+
+def _package_failures(root: Path) -> list[str]:
+    path = root / FRONTEND_PACKAGE
+    if not path.exists():
+        return [f"missing frontend package: {FRONTEND_PACKAGE}"]
+    try:
+        package = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        return [f"could not parse frontend package.json: {exc}"]
+    scripts = package.get("scripts", {})
+    return [
+        f"frontend package missing smoke-readiness script support: {script}"
+        for script in REQUIRED_FRONTEND_SCRIPTS
+        if script not in scripts
+    ]
+
+
+def _ci_failures(root: Path) -> list[str]:
+    path = root / CI_WORKFLOW
+    if not path.exists():
+        return [f"missing CI workflow: {CI_WORKFLOW}"]
+    text = path.read_text(encoding="utf-8").lower()
+    failures = [f"CI missing frontend check fragment: {fragment}" for fragment in REQUIRED_CI_FRAGMENTS if fragment not in text]
+    failures.extend(
+        f"forbidden CI browser automation fragment: {fragment}" for fragment in FORBIDDEN_CI_FRAGMENTS if fragment in text
+    )
+    return failures
+
+
+def _tracked_artifact_failures(root: Path) -> list[str]:
+    try:
+        tracked = subprocess.check_output(["git", "ls-files"], cwd=root, text=True, stderr=subprocess.DEVNULL).splitlines()
+    except (subprocess.SubprocessError, FileNotFoundError):
+        tracked = [str(path.relative_to(root)) for path in root.rglob("*") if path.is_file()]
+    failures = []
+    for rel_path in tracked:
+        if rel_path.endswith("/.env.example") or rel_path == ".env.example":
+            continue
+        if any(fragment in rel_path for fragment in FORBIDDEN_TRACKED_FRAGMENTS):
+            failures.append(f"forbidden tracked browser-smoke artifact: {rel_path}")
+    return failures
+
+
+def _line_is_negative_policy(line: str) -> bool:
+    return any(marker in line for marker in ["no ", "not ", "never", "disabled", "disallowed", "off-limits", "excluded"])
+
+
+def main() -> int:
+    print("=== Ultimate AI Agent Control Center Browser Smoke Readiness Verification ===")
+    failures = verify(ROOT)
+    if failures:
+        for failure in failures:
+            print(f"FAIL: {failure}")
+        return 1
+    print("Control Center browser smoke readiness verification PASSED")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

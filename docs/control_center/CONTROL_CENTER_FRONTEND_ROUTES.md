@@ -1,6 +1,6 @@
 # Control Center Frontend Routes
 
-Status: Active for v0.17.1 / M13 safety polish.
+Status: Active for v0.17.2 / M13 verification hardening.
 
 The frontend shell is served by Vite during local development. It is not mounted by the Python API and does not add OpenAPI paths.
 
@@ -43,6 +43,6 @@ Forbidden frontend route/API targets:
 - native/mobile build endpoints.
 - Chrome profile, Computer Use, iOS, macOS, keychain, signing, or App Store workflows.
 
-v0.17.1 adds a static frontend safety verifier that rejects forbidden execute, plugin enablement, runtime execution, remote dispatch, and mobile sensor endpoint strings in frontend implementation files.
+v0.17.2 keeps the frontend route set unchanged and adds CI/static/browser-readiness hardening. `scripts/verify_control_center_frontend.py` rejects forbidden execute, plugin enablement, runtime execution, remote dispatch, mobile sensor endpoint strings, analytics/SaaS SDK markers, sensitive browser APIs, and unsafe fixtures in frontend implementation files. `scripts/verify_control_center_browser_smoke_readiness.py` verifies that browser smoke readiness remains manual local-only documentation.
 
-OpenAPI remains a backend contract. v0.17.1 changes only `info.version` to `0.17.1`; backend path count remains `74` with unique operation IDs.
+OpenAPI remains a backend contract. v0.17.2 changes only `info.version` to `0.17.2`; backend path count remains `74` with unique operation IDs.

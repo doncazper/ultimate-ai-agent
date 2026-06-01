@@ -156,6 +156,9 @@ class FoundationGateEvaluator:
             "m13_backend_api_contract_unchanged": self.check_m13_backend_api_contract_unchanged,
             "m13_frontend_no_sensitive_browser_apis": self.check_m13_frontend_no_sensitive_browser_apis,
             "m13_control_center_frontend_safety_verifier_passes": self.check_m13_control_center_frontend_safety_verifier_passes,
+            "m13_frontend_ci_covers_local_checks": self.check_m13_frontend_ci_covers_local_checks,
+            "m13_browser_smoke_readiness_manual_local_only": self.check_m13_browser_smoke_readiness_manual_local_only,
+            "m13_browser_smoke_readiness_verifier_passes": self.check_m13_browser_smoke_readiness_verifier_passes,
             "documentation_integrity_current": self.check_documentation_integrity_current,
             "codex_plugin_governance_docs_present": self.check_codex_plugin_governance_docs_present,
         }
@@ -2572,6 +2575,79 @@ class FoundationGateEvaluator:
         spec.loader.exec_module(module)
         failures.extend(module.verify(self.root))
         return self._result(criterion, failures, ["scripts/verify_control_center_frontend.py", "apps/control-center"])
+
+    def check_m13_frontend_ci_covers_local_checks(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        workflow = self.root / ".github/workflows/ci.yml"
+        text = self._read(workflow).lower()
+        required = [
+            "apps/control-center",
+            "npm ci",
+            "npm run typecheck --if-present",
+            "npm run lint --if-present",
+            "npm run test --if-present -- --run",
+            "npm run build --if-present",
+        ]
+        forbidden = [
+            "playwright",
+            "puppeteer",
+            "selenium",
+            "webdriver",
+            "chrome --user-data-dir",
+            "computer use",
+            "xcodebuild",
+            "app-store-connect",
+            "fastlane",
+            "vercel",
+            "netlify",
+            "firebase deploy",
+        ]
+        failures = [f"CI missing frontend check fragment: {fragment}" for fragment in required if fragment not in text]
+        failures.extend(f"CI includes forbidden browser/native/deploy fragment: {fragment}" for fragment in forbidden if fragment in text)
+        return self._result(criterion, failures, [".github/workflows/ci.yml"])
+
+    def check_m13_browser_smoke_readiness_manual_local_only(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        doc = self.root / "docs/control_center/LOCAL_BROWSER_SMOKE.md"
+        text = self._read(doc).lower()
+        required = [
+            "manual local browser smoke",
+            "local-only",
+            "localhost",
+            "127.0.0.1",
+            "::1",
+            "no authenticated browser profile",
+            "no chrome authenticated profile control",
+            "no computer use",
+            "no external sites",
+            "no production backend",
+            "no screenshots with secrets",
+            "preview-only",
+            "non-authoritative",
+        ]
+        failures = [f"browser smoke doc missing safety fragment: {fragment}" for fragment in required if fragment not in text]
+        return self._result(criterion, failures, ["docs/control_center/LOCAL_BROWSER_SMOKE.md"])
+
+    def check_m13_browser_smoke_readiness_verifier_passes(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        import importlib.util
+
+        script = self.root / "scripts/verify_control_center_browser_smoke_readiness.py"
+        failures = []
+        if not script.exists():
+            failures.append("scripts/verify_control_center_browser_smoke_readiness.py missing")
+            return self._result(criterion, failures, [str(script.relative_to(self.root))])
+        spec = importlib.util.spec_from_file_location("verify_control_center_browser_smoke_readiness", script)
+        if spec is None or spec.loader is None:
+            failures.append("could not load browser smoke readiness verifier")
+            return self._result(criterion, failures, [str(script.relative_to(self.root))])
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        failures.extend(module.verify(self.root))
+        return self._result(
+            criterion,
+            failures,
+            ["scripts/verify_control_center_browser_smoke_readiness.py", "docs/control_center/LOCAL_BROWSER_SMOKE.md"],
+        )
 
     def _skipped(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
         return FoundationGateResult(

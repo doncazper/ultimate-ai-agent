@@ -56,6 +56,29 @@ NATIVE_OR_PLUGIN_FRAGMENTS = [
     "keychain",
 ]
 
+FORBIDDEN_FRONTEND_DEPENDENCIES = [
+    '"next"',
+    '"tailwindcss"',
+    '"stripe"',
+    '"@stripe/stripe-js"',
+    '"@supabase/supabase-js"',
+    '"firebase"',
+    '"auth0-js"',
+    '"analytics"',
+    '"@segment/analytics-next"',
+    '"@vercel/analytics"',
+    '"posthog-js"',
+    '"sentry"',
+    '"@sentry/react"',
+    '"openai"',
+    '"anthropic"',
+    '"expo"',
+    '"react-native"',
+    '"electron"',
+    '"playwright"',
+    '"puppeteer"',
+]
+
 SECRET_ASSIGNMENT = re.compile(
     r"(?i)(api[_-]?key|auth[_-]?token|authorization|cookie|password|secret|token)\s*[:=]\s*['\"]?([a-z0-9_./:-]{8,})"
 )
@@ -157,22 +180,7 @@ def _package_failures(app_root: Path) -> list[str]:
     if not package.exists():
         return []
     text = package.read_text(encoding="utf-8").lower()
-    forbidden_packages = [
-        '"next"',
-        '"tailwindcss"',
-        '"stripe"',
-        '"@supabase/supabase-js"',
-        '"firebase"',
-        '"auth0-js"',
-        '"openai"',
-        '"anthropic"',
-        '"expo"',
-        '"react-native"',
-        '"electron"',
-        '"playwright"',
-        '"puppeteer"',
-    ]
-    return [f"forbidden frontend dependency marker: {fragment}" for fragment in forbidden_packages if fragment in text]
+    return [f"forbidden frontend dependency marker: {fragment}" for fragment in FORBIDDEN_FRONTEND_DEPENDENCIES if fragment in text]
 
 
 def _implementation_files(app_root: Path) -> list[Path]:

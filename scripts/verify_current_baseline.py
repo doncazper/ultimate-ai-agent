@@ -533,11 +533,14 @@ def main():
         "apps/control-center/src/components/ActionPreviewForm.tsx",
         "apps/control-center/src/App.test.tsx",
         "scripts/verify_control_center_frontend.py",
+        "scripts/verify_control_center_browser_smoke_readiness.py",
         "tests/test_control_center_frontend_safety_verifier.py",
+        "tests/test_control_center_browser_smoke_readiness_verifier.py",
         "tests/test_m13_gate_integration.py",
         "docs/control_center/WEB_CONTROL_CENTER_SHELL.md",
         "docs/control_center/FRONTEND_SAFETY_POLICY.md",
         "docs/control_center/CONTROL_CENTER_FRONTEND_ROUTES.md",
+        "docs/control_center/LOCAL_BROWSER_SMOKE.md",
     ]
     for rel_path in m13_files:
         p = ROOT / rel_path

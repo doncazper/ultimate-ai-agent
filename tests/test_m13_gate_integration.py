@@ -17,6 +17,9 @@ def test_m13_foundation_gate_criteria_exist_and_pass():
         "m13_backend_api_contract_unchanged",
         "m13_frontend_no_sensitive_browser_apis",
         "m13_control_center_frontend_safety_verifier_passes",
+        "m13_frontend_ci_covers_local_checks",
+        "m13_browser_smoke_readiness_manual_local_only",
+        "m13_browser_smoke_readiness_verifier_passes",
     }
 
     criteria_by_id = {criterion.criterion_id: criterion for criterion in criteria}

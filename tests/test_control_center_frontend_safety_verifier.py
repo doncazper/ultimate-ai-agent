@@ -45,3 +45,44 @@ def test_control_center_frontend_verifier_blocks_forbidden_frontend_strings(tmp_
     failures = verifier.verify(tmp_path)
 
     assert any("dangerous action control label" in failure for failure in failures)
+
+
+def test_control_center_frontend_verifier_blocks_sensitive_browser_and_sdk_markers(tmp_path):
+    app_root = tmp_path / "apps/control-center"
+    (app_root / "src/api").mkdir(parents=True)
+    (app_root / "src/mocks").mkdir(parents=True)
+    (app_root / "src/components").mkdir(parents=True)
+    (app_root / "package.json").write_text(
+        '{"dependencies":{"react":"1.0.0","analytics":"1.0.0"}}',
+        encoding="utf-8",
+    )
+    (app_root / "package-lock.json").write_text("{}", encoding="utf-8")
+    (app_root / "src/api/endpoints.ts").write_text(
+        'export const API_ENDPOINTS = { actionPreview: "/control-center/actions/preview" } as const;\n',
+        encoding="utf-8",
+    )
+    (app_root / "src/api/client.ts").write_text(
+        'fetch(API_ENDPOINTS.actionPreview, { method: "POST" });\n',
+        encoding="utf-8",
+    )
+    (app_root / "src/api/redaction.ts").write_text("export const redact = true;\n", encoding="utf-8")
+    (app_root / "src/App.test.tsx").write_text("export const testFile = true;\n", encoding="utf-8")
+    (app_root / "src/mocks/controlCenterData.ts").write_text(
+        "export const mockControlCenterData = { mock: true, production_ready: false, "
+        "real_model_runtime_ready: false, remote_execution_ready: false, mobile_sensor_ready: false, "
+        "plugin_or_native_build_ready: false, execution_enabled: false, dispatch_enabled: false, "
+        "sensor_access_enabled: false, plugin_enablement_allowed: false, model_output_authoritative: false, "
+        "api_key: 'live-secret-value' };\n",
+        encoding="utf-8",
+    )
+    (app_root / "src/components/ActionPreviewForm.tsx").write_text(
+        "export function ActionPreviewForm() { window.localStorage.setItem('x', 'y'); return null; }\n",
+        encoding="utf-8",
+    )
+
+    verifier = load_verifier()
+    failures = verifier.verify(tmp_path)
+
+    assert any("forbidden frontend dependency marker" in failure and "analytics" in failure for failure in failures)
+    assert any("forbidden browser API" in failure and "localstorage" in failure for failure in failures)
+    assert any("secret-like fixture value" in failure for failure in failures)
