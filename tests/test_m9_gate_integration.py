@@ -12,6 +12,7 @@ def test_m9_gate_criteria_pass_on_current_repo():
     for criterion_id in [
         "m9_loopback_runtime_files_present",
         "m9_non_loopback_endpoints_denied",
+        "m9_non_loopback_policy_override_denied",
         "m9_arbitrary_approval_refs_denied",
         "m9_fake_transport_only_in_gate",
         "m9_simulated_fallback_available",

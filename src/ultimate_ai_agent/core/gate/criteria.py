@@ -431,6 +431,15 @@ def default_foundation_gate_criteria() -> List[FoundationGateCriterion]:
             "critical",
         ),
         _criterion(
+            "m9_non_loopback_policy_override_denied",
+            "M9 Non Loopback Policy Override Denied",
+            FoundationGateCategory.security,
+            "FoundationGateEvaluator.check_m9_non_loopback_policy_override_denied",
+            "Caller-supplied allowed_hosts and deny_non_loopback=false cannot authorize remote hosts.",
+            "A caller policy override authorized a non-loopback endpoint.",
+            "critical",
+        ),
+        _criterion(
             "m9_arbitrary_approval_refs_denied",
             "M9 Arbitrary Approval Refs Denied",
             FoundationGateCategory.security,

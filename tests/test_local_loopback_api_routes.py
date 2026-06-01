@@ -18,6 +18,25 @@ def test_local_loopback_endpoint_validation_rejects_remote_credentials_and_secre
         assert code in body["data"]["reason_codes"]
 
 
+def test_local_loopback_endpoint_api_rejects_allowed_remote_policy_override():
+    payload = {
+        "endpoint": loopback_endpoint(
+            base_url="http://example.com/api/generate",
+            allowed_hosts=["example.com"],
+        ).model_dump(mode="json"),
+        "policy": loopback_policy(
+            allowed_hosts=["example.com"],
+            deny_non_loopback=False,
+        ).model_dump(mode="json"),
+    }
+
+    body = client.post("/model-runtime/local/endpoints/validate", json=payload).json()
+
+    assert body["success"] is False
+    assert "NON_LOOPBACK_HOST_DENIED" in body["data"]["reason_codes"]
+    assert "POLICY_CANNOT_DISABLE_LOOPBACK_GUARD" in body["data"]["reason_codes"]
+
+
 def test_local_loopback_execution_validation_and_simulated_fallback_routes():
     validate_payload = {
         "request": local_runtime_request(approval_ref="human_approved_ref_123").model_dump(mode="json"),

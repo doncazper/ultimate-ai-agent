@@ -1,12 +1,12 @@
-# Ultimate AI Agent Canonical Bundle v0.13.0
+# Ultimate AI Agent Canonical Bundle v0.13.1
 
-This is the active project baseline after M9 Local Loopback Model Runtime Adapter.
+This is the active project baseline after the M9 loopback policy hardening patch.
 
 Start here:
 
 ```text
-README_IMPORT_v0_13_0.md
-ultimate_ai_agent_master_plan_v0_13_0.md
+README_IMPORT_v0_13_1.md
+ultimate_ai_agent_master_plan_v0_13_1.md
 docs/canonical/09_roadmap.md
 docs/canonical/21_consent_and_permissions_ledger.md
 docs/canonical/37_tool_broker.md
@@ -19,7 +19,7 @@ docs/api/route_inventory.md
 docs/runtime/model_runtime_adapter_harness.md
 docs/runtime/local_loopback_model_runtime.md
 docs/security/approval_authority.md
-docs/implementation/foundation_gate_implementation_plan_v0_13_0.md
+docs/implementation/foundation_gate_implementation_plan_v0_13_1.md
 docs/testing/test_strategy_v0.md
 ```
 
@@ -41,4 +41,4 @@ Observability standards rule:
 
 Foundation Gate rule:
 
-> v0.13.0 adds a local/dev loopback model runtime adapter harness. The default remains validate-only or simulated fallback; real loopback execution is library-level, opt-in, approval-gated, loopback-only, and test/gate coverage uses fake transport. M9 does not add cloud models, provider SDKs, API keys, tokenizers, billing APIs, remote hosts, scanners, browser automation, SDK/A2A runtime delegation, production persistence, production auth/OAuth, or external actions.
+> v0.13.1 keeps the local/dev loopback model runtime adapter harness and hardens endpoint policy: caller-supplied allowlists and `deny_non_loopback=false` cannot authorize non-loopback hosts. The default remains validate-only or simulated fallback; real loopback execution is library-level, opt-in, approval-gated, loopback-only, and test/gate coverage uses fake transport. M9 does not add cloud models, provider SDKs, API keys, tokenizers, billing APIs, remote hosts, scanners, browser automation, SDK/A2A runtime delegation, production persistence, production auth/OAuth, or external actions.

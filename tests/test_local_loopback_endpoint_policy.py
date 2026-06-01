@@ -24,6 +24,46 @@ def test_remote_hosts_and_https_remote_hosts_are_denied():
     assert "NON_LOOPBACK_HOST_DENIED" in https_remote.reason_codes
 
 
+def test_caller_cannot_disable_loopback_guard_with_allowed_hosts_override():
+    hostile_policy = loopback_policy(allowed_hosts=["example.com"], deny_non_loopback=False)
+    remote_endpoint = loopback_endpoint(
+        base_url="http://example.com/api/generate",
+        allowed_hosts=["example.com"],
+    )
+
+    remote = decision(remote_endpoint, hostile_policy)
+
+    assert remote.allowed is False
+    assert "NON_LOOPBACK_HOST_DENIED" in remote.reason_codes
+    assert "POLICY_CANNOT_DISABLE_LOOPBACK_GUARD" in remote.reason_codes
+
+
+def test_private_lan_hosts_are_denied_even_when_allowlisted():
+    hostile_policy = loopback_policy(
+        allowed_hosts=["127.0.0.1", "localhost", "::1", "192.168.1.5", "10.0.0.5"],
+        deny_non_loopback=False,
+    )
+
+    for url in ["http://192.168.1.5:11434/api/generate", "http://10.0.0.5:11434/api/generate"]:
+        blocked = decision(loopback_endpoint(base_url=url, allowed_hosts=hostile_policy.allowed_hosts), hostile_policy)
+        assert blocked.allowed is False
+        assert "NON_LOOPBACK_HOST_DENIED" in blocked.reason_codes
+
+
+def test_mixed_allowlist_still_permits_loopback_only():
+    policy = loopback_policy(
+        allowed_hosts=["127.0.0.1", "localhost", "::1", "example.com"],
+        deny_non_loopback=False,
+    )
+
+    local = decision(loopback_endpoint(base_url="http://127.0.0.1:11434/api/generate", allowed_hosts=policy.allowed_hosts), policy)
+    remote = decision(loopback_endpoint(base_url="http://example.com/api/generate", allowed_hosts=policy.allowed_hosts), policy)
+
+    assert local.allowed is True
+    assert remote.allowed is False
+    assert "NON_LOOPBACK_HOST_DENIED" in remote.reason_codes
+
+
 def test_url_credentials_secret_query_and_disabled_endpoint_are_denied():
     with_credentials = decision(loopback_endpoint(base_url="http://user:pass@127.0.0.1:11434/api/generate"))
     with_secret_query = decision(loopback_endpoint(base_url="http://127.0.0.1:11434/api/generate?api_key=abc"))

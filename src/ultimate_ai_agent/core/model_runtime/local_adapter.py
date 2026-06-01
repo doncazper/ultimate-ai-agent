@@ -27,7 +27,9 @@ class LocalLoopbackModelRuntimeAdapter:
         reasons: list[str] = []
         parsed = endpoint.parsed_url
         host = endpoint.host
-        allowed_hosts = set(policy.allowed_hosts).intersection(endpoint.allowed_hosts)
+        configured_hosts = set(policy.allowed_hosts).intersection(endpoint.allowed_hosts)
+        allowed_hosts = {candidate for candidate in configured_hosts if self._is_loopback_host(candidate)}
+        non_loopback_allowlist_entries = sorted(candidate for candidate in configured_hosts if not self._is_loopback_host(candidate))
         if not endpoint.enabled:
             reasons.append("ENDPOINT_DISABLED")
         if parsed.scheme not in set(policy.allowed_schemes):
@@ -38,7 +40,11 @@ class LocalLoopbackModelRuntimeAdapter:
             reasons.append("SECRET_QUERY_DENIED")
         if host not in allowed_hosts:
             reasons.append("HOST_NOT_ALLOWLISTED")
-        if policy.deny_non_loopback and not self._is_loopback_host(host):
+        if not self._is_loopback_host(host):
+            if host in non_loopback_allowlist_entries:
+                reasons.append("ALLOWED_HOST_NOT_LOOPBACK")
+            if not policy.deny_non_loopback:
+                reasons.append("POLICY_CANNOT_DISABLE_LOOPBACK_GUARD")
             reasons.append("NON_LOOPBACK_HOST_DENIED")
 
         return self._decision(
