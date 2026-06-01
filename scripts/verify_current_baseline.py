@@ -240,6 +240,26 @@ def main():
         if not p.exists():
             fail(f"Required M4 file is missing: {rel_path}")
     ok("All M4 memory service and file manager files exist")
+
+    # 8.9 Check M4.5 truth source/evidence governance files existence
+    m45_files = [
+        "src/ultimate_ai_agent/core/truth/__init__.py",
+        "src/ultimate_ai_agent/core/truth/enums.py",
+        "src/ultimate_ai_agent/core/truth/sources.py",
+        "src/ultimate_ai_agent/core/truth/grounding.py",
+        "src/ultimate_ai_agent/core/truth/claims.py",
+        "src/ultimate_ai_agent/core/truth/evidence.py",
+        "src/ultimate_ai_agent/core/truth/conflicts.py",
+        "src/ultimate_ai_agent/core/truth/retrieval_log.py",
+        "src/ultimate_ai_agent/core/truth/freshness.py",
+        "src/ultimate_ai_agent/core/truth/router.py",
+        "src/ultimate_ai_agent/core/truth/validation.py",
+    ]
+    for rel_path in m45_files:
+        p = ROOT / rel_path
+        if not p.exists():
+            fail(f"Required M4.5 file is missing: {rel_path}")
+    ok("All M4.5 truth source and evidence governance files exist")
     
     # 9. Enforce scans by delegating to verify_all
     from verify_all import (
@@ -248,12 +268,14 @@ def main():
         verify_no_blocked_modules,
         verify_no_forbidden_external_integrations,
         verify_no_shell_execution_in_runtime,
+        verify_no_production_truth_integrations,
     )
     verify_no_generated_artifacts()
     verify_no_obvious_secrets()
     verify_no_blocked_modules()
     verify_no_forbidden_external_integrations()
     verify_no_shell_execution_in_runtime()
+    verify_no_production_truth_integrations()
 
     print("\nConsistency verification PASSED")
 

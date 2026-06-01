@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
+from datetime import datetime
 from typing import List, Optional
 
 from ultimate_ai_agent import __version__
@@ -58,6 +59,20 @@ from ultimate_ai_agent.core.files import (
     FileSensitivity,
     FileWriteProposal,
     LocalFileManager,
+)
+from ultimate_ai_agent.core.truth import (
+    EvidenceItem,
+    EvidenceManifest,
+    FreshnessPolicy,
+    GroundingPolicy,
+    SourceConflictReport,
+    TruthRouteRequest,
+    TruthSourceManifest,
+    TruthSourceRouter,
+    classify_freshness,
+    enforce_freshness_policy,
+    validate_evidence_manifest,
+    validate_truth_source_manifest,
 )
 
 app = FastAPI(
@@ -351,6 +366,11 @@ class FileReadPreviewAPIRequest(BaseModel):
 class FileWriteAPIRequest(BaseModel):
     workspace_root: str
     proposal: FileWriteProposal
+
+class TruthFreshnessCheckRequest(BaseModel):
+    evidence_item: EvidenceItem
+    policy: FreshnessPolicy
+    current_time: Optional[datetime] = None
 
 @app.post("/consent/grants/validate", response_model=ResultEnvelope)
 def post_validate_consent_grant(grant: ConsentGrant):
@@ -791,3 +811,112 @@ def post_preview_file_diff(req: FileWriteAPIRequest):
             trace_id=req.proposal.run_id,
             error=err,
         )
+
+@app.post("/truth/sources/validate", response_model=ResultEnvelope)
+def post_validate_truth_source(source: TruthSourceManifest):
+    try:
+        validate_truth_source_manifest(source)
+        return ResultEnvelope(
+            success=True,
+            operation="validate_truth_source",
+            service="TruthSourceAPI",
+            trace_id=source.event_ref or "system",
+            data={"source_id": source.source_id, "status": "validated"},
+        )
+    except Exception as e:
+        err = ErrorEnvelope(
+            code="TRUTH_SOURCE_INVALID",
+            category=ErrorCategory.validation_error,
+            safe_message=str(e),
+            severity=Severity.medium,
+            retryable=False,
+            details_redacted=True,
+            source="TruthSourceAPI",
+        )
+        return ResultEnvelope(
+            success=False,
+            operation="validate_truth_source",
+            service="TruthSourceAPI",
+            trace_id=source.event_ref or "system",
+            error=err,
+            redactions_applied=["secret_value"],
+        )
+
+@app.post("/truth/grounding-policy/validate", response_model=ResultEnvelope)
+def post_validate_grounding_policy(policy: GroundingPolicy):
+    return ResultEnvelope(
+        success=True,
+        operation="validate_grounding_policy",
+        service="TruthSourceAPI",
+        trace_id="system",
+        data={"policy_id": policy.policy_id, "status": "validated"},
+    )
+
+@app.post("/truth/evidence/validate", response_model=ResultEnvelope)
+def post_validate_evidence_manifest(manifest: EvidenceManifest):
+    try:
+        validate_evidence_manifest(manifest)
+        return ResultEnvelope(
+            success=True,
+            operation="validate_evidence_manifest",
+            service="TruthSourceAPI",
+            trace_id=manifest.trace_id or manifest.run_id,
+            data={"manifest_id": manifest.manifest_id, "status": "validated"},
+        )
+    except Exception as e:
+        err = ErrorEnvelope(
+            code="EVIDENCE_MANIFEST_INVALID",
+            category=ErrorCategory.validation_error,
+            safe_message=str(e),
+            severity=Severity.medium,
+            retryable=False,
+            details_redacted=True,
+            source="TruthSourceAPI",
+        )
+        return ResultEnvelope(
+            success=False,
+            operation="validate_evidence_manifest",
+            service="TruthSourceAPI",
+            trace_id=manifest.trace_id or manifest.run_id,
+            error=err,
+            redactions_applied=["secret_value"],
+        )
+
+@app.post("/truth/route", response_model=ResultEnvelope)
+def post_route_truth_source(request: TruthRouteRequest):
+    decision = TruthSourceRouter().route(request)
+    return ResultEnvelope(
+        success=True,
+        operation="route_truth_source",
+        service="TruthSourceAPI",
+        trace_id=request.run_id,
+        data=decision.model_dump(),
+    )
+
+@app.post("/truth/freshness/check", response_model=ResultEnvelope)
+def post_check_truth_freshness(request: TruthFreshnessCheckRequest):
+    now = request.current_time or datetime.utcnow()
+    status = classify_freshness(request.evidence_item, request.policy, now)
+    allowed, reason = enforce_freshness_policy(request.evidence_item, request.policy, now)
+    return ResultEnvelope(
+        success=True,
+        operation="check_truth_freshness",
+        service="TruthSourceAPI",
+        trace_id=request.evidence_item.event_ref or "system",
+        data={
+            "evidence_id": request.evidence_item.evidence_id,
+            "freshness_status": status,
+            "allowed": allowed,
+            "reason": reason,
+        },
+    )
+
+@app.post("/truth/conflicts/validate", response_model=ResultEnvelope)
+def post_validate_source_conflict(conflict: SourceConflictReport):
+    return ResultEnvelope(
+        success=True,
+        operation="validate_source_conflict",
+        service="TruthSourceAPI",
+        trace_id="system",
+        data={"conflict_id": conflict.conflict_id, "status": "validated"},
+    )

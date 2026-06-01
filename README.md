@@ -1,19 +1,19 @@
-# Ultimate AI Agent Canonical Bundle v0.8.0
+# Ultimate AI Agent Canonical Bundle v0.8.1
 
-This is the active project baseline after Milestone M4 (Memory Service + File Manager foundation).
+This is the active project baseline after Milestone M4.5 (Truth Source Router + Evidence Governance foundation).
 
 Start here:
 
 ```text
-README_IMPORT_v0_8_0.md
-ultimate_ai_agent_master_plan_v0_8_0.md
+README_IMPORT_v0_8_1.md
+ultimate_ai_agent_master_plan_v0_8_1.md
 docs/canonical/09_roadmap.md
 docs/canonical/21_consent_and_permissions_ledger.md
 docs/canonical/37_tool_broker.md
 docs/canonical/42_autonomy_levels_and_standing_approvals.md
 docs/canonical/45_trusted_computing_base.md
 docs/canonical/63_observability_standards_mapping.md
-docs/implementation/foundation_gate_implementation_plan_v0_8_0.md
+docs/implementation/foundation_gate_implementation_plan_v0_8_1.md
 docs/testing/test_strategy_v0.md
 ```
 

@@ -146,6 +146,36 @@ def verify_no_shell_execution_in_runtime():
             pass
     print("OK: No shell/subprocess execution detected in runtime source")
 
+def verify_no_production_truth_integrations():
+    print("\n[Verifier] Running production truth integration scan...")
+    forbidden_imports = [
+        "import chromadb",
+        "from chromadb import",
+        "import faiss",
+        "from faiss import",
+        "import pgvector",
+        "from pgvector import",
+        "import pinecone",
+        "from pinecone import",
+        "import psycopg",
+        "from psycopg import",
+        "import sentence_transformers",
+        "from sentence_transformers import",
+        "import weaviate",
+        "from weaviate import",
+    ]
+    for p in (ROOT / "src").rglob("*.py"):
+        try:
+            content = p.read_text(encoding="utf-8")
+            for line in content.splitlines():
+                stripped = line.strip()
+                if any(stripped.startswith(pattern) for pattern in forbidden_imports):
+                    print(f"FAIL: Production truth integration import in {p.relative_to(ROOT)}: {line}")
+                    sys.exit(1)
+        except Exception:
+            pass
+    print("OK: No production truth connector, vector DB, pgvector, or embedding runtime imports detected in src")
+
 def main():
     print("=== Ultimate AI Agent Master Verification Suite ===")
 
@@ -164,6 +194,7 @@ def main():
     verify_no_blocked_modules()
     verify_no_forbidden_external_integrations()
     verify_no_shell_execution_in_runtime()
+    verify_no_production_truth_integrations()
 
     # 4. Run Baseline Consistency Verification
     run_cmd([sys.executable, "scripts/verify_current_baseline.py"])
