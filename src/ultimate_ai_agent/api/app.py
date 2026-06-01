@@ -74,6 +74,7 @@ from ultimate_ai_agent.core.truth import (
     validate_evidence_manifest,
     validate_truth_source_manifest,
 )
+from ultimate_ai_agent.core.kernel import MinimumKernelRunner
 
 app = FastAPI(
     title="Ultimate AI Agent API Boundary",
@@ -919,4 +920,34 @@ def post_validate_source_conflict(conflict: SourceConflictReport):
         service="TruthSourceAPI",
         trace_id="system",
         data={"conflict_id": conflict.conflict_id, "status": "validated"},
+    )
+
+@app.post("/kernel/tasks/run", response_model=ResultEnvelope)
+def post_run_kernel_task(payload: dict):
+    result = MinimumKernelRunner().run_payload(payload)
+    if result.success:
+        return ResultEnvelope(
+            success=True,
+            operation="run_kernel_task",
+            service="MinimumKernelAPI",
+            trace_id=result.run_id,
+            data=result.model_dump(),
+        )
+
+    return ResultEnvelope(
+        success=False,
+        operation="run_kernel_task",
+        service="MinimumKernelAPI",
+        trace_id=result.run_id,
+        data=result.model_dump(),
+        error=ErrorEnvelope(
+            code=result.errors[0] if result.errors else "KERNEL_TASK_FAILED",
+            category=ErrorCategory.validation_error,
+            safe_message=result.safe_message,
+            severity=Severity.medium,
+            retryable=False,
+            details_redacted=True,
+            source="MinimumKernelAPI",
+        ),
+        redactions_applied=result.redactions_applied,
     )

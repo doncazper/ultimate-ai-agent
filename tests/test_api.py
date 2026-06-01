@@ -8,13 +8,13 @@ def test_health_endpoint():
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "healthy"
-    assert data["version"] == "0.8.1"
+    assert data["version"] == "0.9.0"
 
 def test_version_endpoint():
     response = client.get("/version")
     assert response.status_code == 200
     data = response.json()
-    assert data["version"] == "0.8.1"
+    assert data["version"] == "0.9.0"
 
 def test_validate_contract_endpoint():
     contract_data = {

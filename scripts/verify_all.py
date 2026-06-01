@@ -176,6 +176,26 @@ def verify_no_production_truth_integrations():
             pass
     print("OK: No production truth connector, vector DB, pgvector, or embedding runtime imports detected in src")
 
+def verify_no_broad_filesystem_scanning():
+    print("\n[Verifier] Running broad filesystem scanning guard...")
+    forbidden_fragments = [
+        ".rglob(\"*\")",
+        ".rglob('*')",
+        "os.walk(",
+        "Path.home(",
+    ]
+    for p in (ROOT / "src").rglob("*.py"):
+        try:
+            content = p.read_text(encoding="utf-8")
+            for line in content.splitlines():
+                stripped = line.strip()
+                if any(fragment in stripped for fragment in forbidden_fragments):
+                    print(f"FAIL: Broad filesystem scanning/home access in {p.relative_to(ROOT)}: {line}")
+                    sys.exit(1)
+        except Exception:
+            pass
+    print("OK: No broad filesystem scanning or home-directory traversal detected in src")
+
 def main():
     print("=== Ultimate AI Agent Master Verification Suite ===")
 
@@ -195,6 +215,7 @@ def main():
     verify_no_forbidden_external_integrations()
     verify_no_shell_execution_in_runtime()
     verify_no_production_truth_integrations()
+    verify_no_broad_filesystem_scanning()
 
     # 4. Run Baseline Consistency Verification
     run_cmd([sys.executable, "scripts/verify_current_baseline.py"])

@@ -260,6 +260,22 @@ def main():
         if not p.exists():
             fail(f"Required M4.5 file is missing: {rel_path}")
     ok("All M4.5 truth source and evidence governance files exist")
+
+    # 8.10 Check M5 kernel files existence
+    m5_files = [
+        "src/ultimate_ai_agent/core/kernel/__init__.py",
+        "src/ultimate_ai_agent/core/kernel/enums.py",
+        "src/ultimate_ai_agent/core/kernel/requests.py",
+        "src/ultimate_ai_agent/core/kernel/results.py",
+        "src/ultimate_ai_agent/core/kernel/receipts.py",
+        "src/ultimate_ai_agent/core/kernel/runner.py",
+        "src/ultimate_ai_agent/core/kernel/validation.py",
+    ]
+    for rel_path in m5_files:
+        p = ROOT / rel_path
+        if not p.exists():
+            fail(f"Required M5 file is missing: {rel_path}")
+    ok("All M5 minimum lovable kernel files exist")
     
     # 9. Enforce scans by delegating to verify_all
     from verify_all import (
@@ -269,6 +285,7 @@ def main():
         verify_no_forbidden_external_integrations,
         verify_no_shell_execution_in_runtime,
         verify_no_production_truth_integrations,
+        verify_no_broad_filesystem_scanning,
     )
     verify_no_generated_artifacts()
     verify_no_obvious_secrets()
@@ -276,6 +293,7 @@ def main():
     verify_no_forbidden_external_integrations()
     verify_no_shell_execution_in_runtime()
     verify_no_production_truth_integrations()
+    verify_no_broad_filesystem_scanning()
 
     print("\nConsistency verification PASSED")
 
