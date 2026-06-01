@@ -1,5 +1,5 @@
 # Ultimate AI Agent Version
 
-Current active baseline: **v0.14.5**
+Current active baseline: **v0.14.6**
 
-v0.14.5 performs a documentation integrity and canonical synchronization pass. It adds a documentation index, canonical document map, documentation integrity checklist, and documentation verifier so active docs, roadmap, release notes, Foundation Gate plan, API docs, runtime docs, remote/private mesh docs, and mobile/device capability planning remain aligned. It adds no runtime features, model/provider calls, network calls, mobile app code, sensor access, remote execution, tailnet execution, scanners, Skill Factory, self-improving code, or external actions.
+v0.14.6 adds Codex plugin and external tooling governance documentation. It records available Codex plugin/tool capability classes, maps high-risk build/signing/browser/computer-use/cloud/plugin-install tools to future milestones, and adds policy docs requiring explicit milestone approval before any plugin enablement. It adds no plugin enablement, no mobile app code, no native builds, no Xcode/macOS/iOS workflows, no browser authenticated-profile control, no computer-use automation, no cloud training/uploads, no network calls, no dependencies, and no runtime capability.

@@ -1,8 +1,9 @@
 # 65 - Mobile Device Registry and Sensor Permission Manifest
 
-Status: Future planning only, v0.14.4
+Status: Future planning only, v0.14.6
 
 v0.14.5 documentation integrity preserves this as future planning only.
+v0.14.6 Codex plugin governance keeps iOS/Xcode tooling disabled until a dedicated Mobile Companion implementation milestone.
 
 This document names future model concepts only. It is not source code, not a runtime schema, not an OpenAPI contract, and not a permission implementation.
 
@@ -111,4 +112,4 @@ mobile.kill_switch
 
 ## Explicit Non-Implementation Statement
 
-These are future schemas only. There is no code yet, no mobile app yet, no OS permission integration yet, no sensor API yet, and no background service yet.
+These are future schemas only. There is no code yet, no mobile app yet, no OS permission integration yet, no sensor API yet, no background service yet, no iOS/Xcode build workflow, and no simulator/device workflow.

@@ -1,8 +1,9 @@
 # 64 - Mobile Companion and Device Capability Broker
 
-Status: Future planning only, v0.14.4
+Status: Future planning only, v0.14.6
 
 v0.14.5 documentation integrity preserves this as future planning only.
+v0.14.6 Codex plugin governance keeps iOS/Xcode tooling disabled until a dedicated Mobile Companion implementation milestone.
 
 ## Mobile Companion
 
@@ -123,7 +124,7 @@ Free, open-source, and self-hosted notification, pairing, sync, and local-networ
 
 ## Non-Goals
 
-v0.14.4 does not implement:
+v0.14.6 does not implement:
 
 ```text
 mobile app
@@ -133,4 +134,10 @@ background services
 phone-as-agent-brain behavior
 autonomous mobile actions
 runtime Device Capability Broker
+iOS build workflow
+Xcode workflow
+simulator/device workflow
+signing or provisioning workflow
 ```
+
+Build iOS Apps / XcodeBuildMCP may be evaluated only in a future Mobile Companion implementation milestone with explicit approval.

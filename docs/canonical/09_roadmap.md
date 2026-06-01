@@ -23,9 +23,9 @@ OpenWebUI is a window into the agent, not the agent brain.
 
 Pre-coding foundation remediation, Runtime Hygiene Micro-Foundation, Local Runtime/Context Survival, Truth/Grounding/Evidence Governance, Observability Standards Mapping, and Minimum Lovable Kernel preparation.
 
-## Accepted baseline through v0.14.5
+## Accepted baseline through v0.14.6
 
-The active accepted baseline is v0.14.5. It includes foundation modules through M10.5 plus documentation integrity synchronization. v0.14.5 adds no runtime feature and does not start M11.
+The active accepted baseline is v0.14.6. It includes foundation modules through M10.5 plus documentation integrity synchronization and Codex plugin/external tooling governance. v0.14.6 adds no runtime feature and does not start M11.
 
 Recent accepted milestones:
 
@@ -36,6 +36,7 @@ v0.14.2 — M10.5 policy hardening for loopback/runtime and approval validation
 v0.14.3 — open-source-first private mesh taxonomy with planned Headscale/generic WireGuard/Tailscale metadata
 v0.14.4 — Mobile Companion and Device Capability Broker roadmap planning only
 v0.14.5 — documentation integrity, canonical map, docs index, and documentation verifier
+v0.14.6 — Codex plugin and external build tool governance inventory, docs/policy only
 ```
 
 ## Minimum Lovable Kernel
@@ -230,6 +231,24 @@ Emergency Stop / Kill Switch
 ```
 
 Mobile is a future control, approval, capture, receipt, and status surface. It is not the agent brain. Device Capability Broker work must exist before any mobile sensor integration.
+
+## Future Codex/plugin governance
+
+v0.14.6 adds planning and policy docs for Codex plugins and external build tools. It does not enable any plugin or external runtime.
+
+```text
+Browser + Build Web Apps — future Web Control Center work only, with approval
+Build iOS Apps / XcodeBuildMCP — disabled until Mobile Companion implementation milestone
+Build macOS Apps — disabled until Desktop/macOS Companion milestone
+Chrome authenticated profile control — disabled unless explicitly approved
+Computer Use — disabled except explicit last-resort manual QA approval
+CodeRabbit/GitHub read-only — allowed for release readiness with explicit review prompt
+GitHub write/release — explicit approval or direct-push rules required
+Hugging Face Jobs/uploads/training — disabled
+Plugin/skill installers — disabled until Skill lifecycle security exists
+```
+
+No plugin enablement should occur during M11 unless a future prompt explicitly changes the tool boundary.
 
 ## Future milestone sequence notes
 

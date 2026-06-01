@@ -12,8 +12,12 @@ REQUIRED_ACTIVE_DOCS = [
     "docs/maintenance/documentation_integrity_checklist.md",
     "docs/canonical/64_mobile_companion_and_device_capability_broker.md",
     "docs/canonical/65_mobile_device_registry_and_sensor_permission_manifest.md",
+    "docs/canonical/66_external_tooling_and_codex_plugin_governance.md",
     "docs/backlog/mobile_companion_backlog.md",
     "docs/backlog/device_capability_broker_backlog.md",
+    "docs/backlog/codex_plugin_enablement_backlog.md",
+    "docs/tooling/CODEX_PLUGIN_CAPABILITY_INVENTORY.md",
+    "docs/tooling/CODEX_PLUGIN_RISK_POLICY.md",
     "docs/remote/PRIVATE_MESH_TRANSPORT_POLICY.md",
     "docs/remote/TAILNET_TRANSPORT_POLICY.md",
     "docs/remote/REMOTE_WORKER_FOUNDATION.md",
@@ -49,8 +53,12 @@ ACTIVE_DOCS_TO_SCAN = [
     "docs/remote/TAILNET_TRANSPORT_POLICY.md",
     "docs/canonical/64_mobile_companion_and_device_capability_broker.md",
     "docs/canonical/65_mobile_device_registry_and_sensor_permission_manifest.md",
+    "docs/canonical/66_external_tooling_and_codex_plugin_governance.md",
     "docs/backlog/mobile_companion_backlog.md",
     "docs/backlog/device_capability_broker_backlog.md",
+    "docs/backlog/codex_plugin_enablement_backlog.md",
+    "docs/tooling/CODEX_PLUGIN_CAPABILITY_INVENTORY.md",
+    "docs/tooling/CODEX_PLUGIN_RISK_POLICY.md",
 ]
 
 
@@ -105,6 +113,27 @@ def verify(root: Path = ROOT) -> list[str]:
         for phrase in UNSAFE_IMPLEMENTATION_CLAIMS:
             if phrase in lowered:
                 failures.append(f"unsafe implemented-capability claim in {rel_path}: {phrase}")
+
+    policy_text = "\n".join(
+        _read(root / rel_path).lower()
+        for rel_path in [
+            "docs/tooling/CODEX_PLUGIN_CAPABILITY_INVENTORY.md",
+            "docs/tooling/CODEX_PLUGIN_RISK_POLICY.md",
+            "docs/canonical/66_external_tooling_and_codex_plugin_governance.md",
+            "docs/backlog/codex_plugin_enablement_backlog.md",
+        ]
+        if (root / rel_path).exists()
+    )
+    policy_expectations = {
+        "iOS/macOS build plugins disabled or future-only": ["build ios apps", "build macos apps", "disabled"],
+        "Computer Use disabled or approval-only": ["computer use", "disabled"],
+        "Chrome authenticated profile disabled or approval-only": ["chrome authenticated", "disabled"],
+        "plugin/skill installers disabled": ["plugin/skill installers", "disabled"],
+        "Browser + Build Web Apps future approval": ["browser + build web apps", "approval"],
+    }
+    for label, required_fragments in policy_expectations.items():
+        if not all(fragment in policy_text for fragment in required_fragments):
+            failures.append(f"missing Codex plugin governance policy: {label}")
 
     return failures
 

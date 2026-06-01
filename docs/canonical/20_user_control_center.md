@@ -90,3 +90,9 @@ The Mobile Companion is a future extension of the Control Center. The phone is n
 Mobile approval queues must use Approval Authority. Mobile notifications must be receipt-backed. Mobile actions must be revocable and auditable. Mobile sensors must route through the future Device Capability Broker.
 
 Mobile capture cannot silently become memory, cannot approve actions, and cannot trigger external sends without governed approval. Web Control Center foundation comes before mobile sensor work.
+
+## Future UI Tooling Boundary
+
+Future Web Control Center implementation may use Browser + Build Web Apps with explicit approval. Chrome authenticated profile control remains disabled unless separately approved. Computer Use remains disabled except explicit last-resort manual QA approval.
+
+iOS and macOS build plugins are not part of the web Control Center boundary. Build iOS Apps / XcodeBuildMCP remains disabled until a dedicated Mobile Companion implementation milestone. Build macOS Apps remains disabled until a dedicated Desktop/macOS Companion milestone.

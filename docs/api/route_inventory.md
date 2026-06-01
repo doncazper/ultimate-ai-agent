@@ -80,4 +80,4 @@ Future mobile API planning:
 
 These routes are not implemented in v0.14.4. Future mobile routes are subject to Device Capability Broker, Consent Ledger, Approval Authority, Event Ledger, Redaction, and Receipt rules. No current route performs mobile pairing, sensor access, OS permission integration, background service work, mobile network calls, or autonomous mobile actions.
 
-v0.14.5 documentation integrity adds no route. The OpenAPI path count should remain unchanged except for `info.version`.
+v0.14.5 documentation integrity adds no route. v0.14.6 Codex plugin governance adds no route and no plugin enablement endpoint. The OpenAPI path count should remain unchanged except for `info.version`.

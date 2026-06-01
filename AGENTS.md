@@ -1,6 +1,6 @@
 # Ultimate AI Agent Workspace Standards
 
-Active baseline: v0.14.3.
+Active baseline: v0.14.6.
 
 This repository is the Ultimate AI Agent foundation workspace. Treat it as a contract-first Python core, not a production runtime integration layer.
 
@@ -20,6 +20,7 @@ This repository is the Ultimate AI Agent foundation workspace. Treat it as a con
 - v0.14.3 keeps private mesh/tailnet terms vendor-neutral and open-source-first. Headscale, generic WireGuard, Tailscale, private mesh, tailnet, and LAN transports are planned/disabled metadata only. Do not install, call, configure, or integrate Headscale, Tailscale, tailscaled, WireGuard, or `wg`; do not commit tailnet names, hostnames, private IPs, node keys, auth keys, OAuth data, credentials, or tokens.
 - v0.14.4 mobile companion work is planning-only. Phone/mobile is a future control, approval, capture, receipt, and status surface, not the agent brain. Do not add a mobile app, iOS/Android/native package, React Native, Expo, Flutter, Swift, Kotlin, Capacitor, Ionic, sensor access, OS permission integration, device pairing, background service, notification runtime, network call, autonomous mobile action, or runtime Device Capability Broker.
 - v0.14.5 documentation integrity work may update docs, release notes, verifier scripts, and gate documentation checks only. Keep active docs aligned with `VERSION.md`, `pyproject.toml`, package `__version__`, README import docs, release notes, API docs, roadmap, and Foundation Gate plan.
+- v0.14.6 Codex plugin governance work is docs/policy-only. Do not enable plugins, install plugins, configure plugins, add plugin marketplace/install behavior, run iOS/macOS builds, run Xcode, run simulators, access keychains/signing identities/provisioning profiles/App Store Connect, use Chrome authenticated profile control, use Computer Use automation, run Hugging Face jobs/uploads/training, or add dependencies/runtime capability. Browser + Build Web Apps are the future Web Control Center boundary with approval only. CodeRabbit/GitHub read-only review may be used for release readiness with explicit review prompts; GitHub write/release actions require direct approval or direct-push rules.
 - API validation errors must be sanitized and must never echo raw invalid input values or secret-like field values.
 
 ## Workspace

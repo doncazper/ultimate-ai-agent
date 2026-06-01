@@ -18,8 +18,8 @@ def test_documentation_integrity_verifier_flags_unsafe_active_claim(tmp_path: Pa
 
 
 def _write_minimal_repo(root: Path) -> None:
-    version = "0.14.5"
-    version_key = "0_14_5"
+    version = "0.14.6"
+    version_key = "0_14_6"
     files = {
         "VERSION.md": f"# Version\n\nCurrent active baseline: **v{version}**\n",
         "pyproject.toml": f'[project]\nversion = "{version}"\n',
@@ -35,8 +35,15 @@ def _write_minimal_repo(root: Path) -> None:
         f"docs/release_notes/v{version_key}.md": "active release notes\n",
         f"docs/implementation/foundation_gate_implementation_plan_v{version_key}.md": "active gate plan\n",
     }
+    policy_placeholder = (
+        "Browser + Build Web Apps may be used with approval.\n"
+        "Build iOS Apps and Build macOS Apps remain disabled.\n"
+        "Computer Use remains disabled.\n"
+        "Chrome authenticated profile control remains disabled.\n"
+        "Plugin/skill installers remain disabled.\n"
+    )
     for rel_path in [*verifier.REQUIRED_ACTIVE_DOCS, *verifier.ACTIVE_DOCS_TO_SCAN]:
-        files.setdefault(rel_path, "active documentation placeholder\n")
+        files.setdefault(rel_path, policy_placeholder)
     for rel_path, content in files.items():
         path = root / rel_path
         path.parent.mkdir(parents=True, exist_ok=True)

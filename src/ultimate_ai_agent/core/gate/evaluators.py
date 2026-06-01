@@ -133,6 +133,7 @@ class FoundationGateEvaluator:
             "m143_planned_mesh_transports_disabled": self.check_m143_planned_mesh_transports_disabled,
             "m143_no_live_mesh_integrations": self.check_m143_no_live_mesh_integrations,
             "documentation_integrity_current": self.check_documentation_integrity_current,
+            "codex_plugin_governance_docs_present": self.check_codex_plugin_governance_docs_present,
         }
         results = [
             evaluator_map.get(criterion.criterion_id, self._skipped)(criterion)
@@ -1793,6 +1794,10 @@ class FoundationGateEvaluator:
             "docs/DOCUMENTATION_INDEX.md",
             "docs/canonical/CANONICAL_DOC_MAP.md",
             "docs/maintenance/documentation_integrity_checklist.md",
+            "docs/tooling/CODEX_PLUGIN_CAPABILITY_INVENTORY.md",
+            "docs/tooling/CODEX_PLUGIN_RISK_POLICY.md",
+            "docs/canonical/66_external_tooling_and_codex_plugin_governance.md",
+            "docs/backlog/codex_plugin_enablement_backlog.md",
             f"README_IMPORT_v{version_key}.md",
             f"ultimate_ai_agent_master_plan_v{version_key}.md",
             f"docs/release_notes/v{version_key}.md",
@@ -1842,8 +1847,12 @@ class FoundationGateEvaluator:
             "docs/remote/TAILNET_TRANSPORT_POLICY.md",
             "docs/canonical/64_mobile_companion_and_device_capability_broker.md",
             "docs/canonical/65_mobile_device_registry_and_sensor_permission_manifest.md",
+            "docs/canonical/66_external_tooling_and_codex_plugin_governance.md",
             "docs/backlog/mobile_companion_backlog.md",
             "docs/backlog/device_capability_broker_backlog.md",
+            "docs/backlog/codex_plugin_enablement_backlog.md",
+            "docs/tooling/CODEX_PLUGIN_CAPABILITY_INVENTORY.md",
+            "docs/tooling/CODEX_PLUGIN_RISK_POLICY.md",
         ]
         for rel_path in active_docs:
             path = self.root / rel_path
@@ -1853,6 +1862,37 @@ class FoundationGateEvaluator:
             for phrase in unsafe_claims:
                 if phrase in source:
                     failures.append(f"{rel_path} contains unsafe implementation claim: {phrase}")
+        return self._result(criterion, failures, required)
+
+    def check_codex_plugin_governance_docs_present(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        required = [
+            "docs/tooling/CODEX_PLUGIN_CAPABILITY_INVENTORY.md",
+            "docs/tooling/CODEX_PLUGIN_RISK_POLICY.md",
+            "docs/canonical/66_external_tooling_and_codex_plugin_governance.md",
+            "docs/backlog/codex_plugin_enablement_backlog.md",
+        ]
+        failures = [f"missing {path}" for path in required if not (self.root / path).exists()]
+        combined = "\n".join(self._read(self.root / path).lower() for path in required if (self.root / path).exists())
+        expectations = {
+            "iOS/macOS build plugins disabled": ["build ios apps", "build macos apps", "disabled"],
+            "Computer Use disabled": ["computer use", "disabled"],
+            "Chrome authenticated profile disabled": ["chrome authenticated", "disabled"],
+            "plugin/skill installers disabled": ["plugin/skill installers", "disabled"],
+            "Browser + Build Web Apps approval boundary": ["browser + build web apps", "approval"],
+        }
+        for label, fragments in expectations.items():
+            if not all(fragment in combined for fragment in fragments):
+                failures.append(f"missing policy phrase: {label}")
+        forbidden_enablement_claims = [
+            "plugins are enabled",
+            "xcode workflow is enabled",
+            "computer use is enabled",
+            "chrome authenticated profile control is enabled",
+            "plugin installers are enabled",
+        ]
+        for phrase in forbidden_enablement_claims:
+            if phrase in combined:
+                failures.append(f"unsafe plugin enablement claim: {phrase}")
         return self._result(criterion, failures, required)
 
     def _skipped(self, criterion: FoundationGateCriterion) -> FoundationGateResult:

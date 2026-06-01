@@ -718,4 +718,13 @@ def default_foundation_gate_criteria() -> List[FoundationGateCriterion]:
             "Active documentation is missing or claims planned/disabled capabilities are implemented.",
             "critical",
         ),
+        _criterion(
+            "codex_plugin_governance_docs_present",
+            "Codex Plugin Governance Docs Present",
+            FoundationGateCategory.documentation,
+            "FoundationGateEvaluator.check_codex_plugin_governance_docs_present",
+            "Codex plugin inventory, risk policy, canonical governance doc, and enablement backlog are present and keep high-risk plugins disabled/future-only.",
+            "Codex plugin governance docs are missing or imply plugin enablement.",
+            "critical",
+        ),
     ]

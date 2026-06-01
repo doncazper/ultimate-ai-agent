@@ -1,6 +1,6 @@
 # Documentation Integrity Checklist
 
-Status: Active maintenance checklist, v0.14.5
+Status: Active maintenance checklist, v0.14.6
 
 Run this checklist before every release that changes docs, roadmap, API metadata, runtime boundaries, or release status.
 
@@ -26,6 +26,7 @@ Run this checklist before every release that changes docs, roadmap, API metadata
 - active import README includes current key docs.
 - active master plan matches current release purpose.
 - docs index and canonical map include newly added active docs.
+- active tooling governance docs are linked when Codex/plugin policy changes.
 
 ## Active vs Historical Docs
 
@@ -39,6 +40,7 @@ Run this checklist before every release that changes docs, roadmap, API metadata
 - docs do not claim mobile app, sensor access, OS permission integration, or background service exists unless implemented and gated.
 - docs do not claim remote execution, tailnet/private mesh execution, or remote approvals exist unless implemented and gated.
 - docs do not claim scanners, Skill Factory, self-improvement, production persistence, or external actions exist unless implemented and gated.
+- docs do not claim Codex plugins, plugin installers, native build tools, Xcode workflows, simulators, Chrome authenticated profile control, Computer Use automation, cloud jobs/uploads/training, or deployment workflows are enabled unless explicitly implemented and gated.
 
 ## Release Note Requirements
 
@@ -58,3 +60,4 @@ Run this checklist before every release that changes docs, roadmap, API metadata
 - documentation integrity verifier passes.
 - Foundation Gate includes documentation integrity when active docs are synchronized.
 - `verify_all.py` calls the documentation integrity verifier.
+- Codex plugin governance docs are present when active tooling policy references them.

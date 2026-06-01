@@ -1,6 +1,6 @@
 # OpenAPI Contract
 
-v0.14.5 preserves the FastAPI OpenAPI boundary and documents the current route contract without adding public real execution routes.
+v0.14.6 preserves the FastAPI OpenAPI boundary and documents the current route contract without adding public real execution routes.
 
 Contract rules:
 
@@ -14,6 +14,7 @@ Contract rules:
 - M10.5 remote worker routes may validate metadata, return static status, and produce dry-run results only. Public remote dispatch, execution, and subagent launch routes are forbidden.
 - v0.14.4 mobile/device APIs are future planning only and no mobile/device routes are implemented.
 - v0.14.5 documentation integrity adds no API route.
+- v0.14.6 Codex plugin governance adds no API route and no plugin enablement route.
 
 Verification:
 
@@ -25,7 +26,7 @@ Export:
 
 ```bash
 python scripts/export_openapi.py
-python scripts/export_openapi.py --output docs/api/openapi_v0_14_5.json
+python scripts/export_openapi.py --output docs/api/openapi_v0_14_6.json
 ```
 
 The second command is only for intentional versioned snapshots.

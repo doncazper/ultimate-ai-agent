@@ -1,12 +1,12 @@
-# Ultimate AI Agent Canonical Bundle v0.14.5
+# Ultimate AI Agent Canonical Bundle v0.14.6
 
-This is the active project baseline after the v0.14.5 documentation integrity and canonical synchronization patch.
+This is the active project baseline after the v0.14.6 Codex plugin and external build tool governance inventory patch.
 
 Start here:
 
 ```text
-README_IMPORT_v0_14_5.md
-ultimate_ai_agent_master_plan_v0_14_5.md
+README_IMPORT_v0_14_6.md
+ultimate_ai_agent_master_plan_v0_14_6.md
 docs/DOCUMENTATION_INDEX.md
 docs/canonical/09_roadmap.md
 docs/canonical/CANONICAL_DOC_MAP.md
@@ -17,14 +17,17 @@ docs/canonical/45_trusted_computing_base.md
 docs/canonical/63_observability_standards_mapping.md
 docs/canonical/64_mobile_companion_and_device_capability_broker.md
 docs/canonical/65_mobile_device_registry_and_sensor_permission_manifest.md
+docs/canonical/66_external_tooling_and_codex_plugin_governance.md
 docs/api/README.md
 docs/api/openapi_contract.md
 docs/api/route_inventory.md
 docs/runtime/model_runtime_adapter_harness.md
 docs/runtime/local_loopback_model_runtime.md
 docs/security/approval_authority.md
-docs/implementation/foundation_gate_implementation_plan_v0_14_5.md
+docs/implementation/foundation_gate_implementation_plan_v0_14_6.md
 docs/maintenance/documentation_integrity_checklist.md
+docs/tooling/CODEX_PLUGIN_CAPABILITY_INVENTORY.md
+docs/tooling/CODEX_PLUGIN_RISK_POLICY.md
 docs/testing/test_strategy_v0.md
 ```
 
@@ -55,3 +58,7 @@ Mobile planning rule:
 Documentation integrity rule:
 
 > v0.14.5 keeps active docs synchronized with the accepted baseline. Active docs must distinguish implemented, validation-only, dry-run-only, simulated-only, manual-only, planned/disabled, future/backlog, historical, and blocked capabilities. This patch adds no real model/provider/network/remote/mobile sensor execution and no new runtime power.
+
+Codex plugin governance rule:
+
+> v0.14.6 records Codex plugin and external build tool capability classes as governance documentation only. Browser + Build Web Apps may be considered for future Web Control Center work with approval. Chrome authenticated profile control, Computer Use, iOS/macOS build plugins, Hugging Face Jobs/uploads/training, and plugin/skill installers remain disabled unless a future milestone explicitly approves them. This patch adds no plugin enablement, native build workflow, dependency, network call, or runtime capability.

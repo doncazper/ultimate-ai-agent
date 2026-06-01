@@ -1,6 +1,6 @@
 # Documentation Index
 
-Current active baseline: **v0.14.5**
+Current active baseline: **v0.14.6**
 
 This index is the active entrypoint for documentation navigation. Historical release documents remain in the repository for audit history, but active truth starts with the current baseline files listed here.
 
@@ -9,11 +9,14 @@ This index is the active entrypoint for documentation navigation. Historical rel
 ```text
 README.md
 VERSION.md
-README_IMPORT_v0_14_5.md
-ultimate_ai_agent_master_plan_v0_14_5.md
+README_IMPORT_v0_14_6.md
+ultimate_ai_agent_master_plan_v0_14_6.md
 docs/canonical/CANONICAL_DOC_MAP.md
 docs/canonical/09_roadmap.md
 docs/maintenance/documentation_integrity_checklist.md
+docs/maintenance/codex_plugin_capability_inventory.md
+docs/tooling/CODEX_PLUGIN_CAPABILITY_INVENTORY.md
+docs/tooling/CODEX_PLUGIN_RISK_POLICY.md
 ```
 
 ## Active Canonical Docs
@@ -29,6 +32,7 @@ Key active canonical groups:
 - runtime and adapters: `docs/canonical/57_local_runtime_and_offline_agent_infrastructure.md`, `docs/canonical/58_agent_sdk_and_a2a_adapter_strategy.md`
 - security and privacy: `docs/canonical/23_security_threat_model.md`, `docs/canonical/24_data_lifecycle_and_privacy.md`, `docs/canonical/45_trusted_computing_base.md`, `docs/canonical/50_data_classification_policy.md`, `docs/canonical/51_redaction_and_safe_debugging.md`
 - mobile/device planning: `docs/canonical/64_mobile_companion_and_device_capability_broker.md`, `docs/canonical/65_mobile_device_registry_and_sensor_permission_manifest.md`
+- external tooling and Codex plugin governance: `docs/canonical/66_external_tooling_and_codex_plugin_governance.md`
 
 ## Active API Docs
 
@@ -97,13 +101,26 @@ docs/backlog/parking_lot.md
 docs/backlog/external_agent_tooling_watchlist.md
 docs/backlog/mobile_companion_backlog.md
 docs/backlog/device_capability_broker_backlog.md
+docs/backlog/codex_plugin_enablement_backlog.md
 ```
 
 Backlog files are not implementation claims.
 
+## Development Tooling Inventory
+
+```text
+docs/maintenance/codex_plugin_capability_inventory.md
+docs/tooling/CODEX_PLUGIN_CAPABILITY_INVENTORY.md
+docs/tooling/CODEX_PLUGIN_RISK_POLICY.md
+docs/canonical/66_external_tooling_and_codex_plugin_governance.md
+docs/backlog/codex_plugin_enablement_backlog.md
+```
+
+The Codex plugin capability inventory and risk policy record available development-assist tool classes and the approval boundaries for future UI, Mobile Companion, Desktop Companion, CI, security, and documentation milestones. They are guidance-only and do not enable plugins, activate build tools, add runtime behavior, or authorize credential-bearing workflows.
+
 ## Release Notes Index
 
-Current release notes: `docs/release_notes/v0_14_5.md`
+Current release notes: `docs/release_notes/v0_14_6.md`
 
 Historical release notes remain under `docs/release_notes/`. Historical docs may mention old active baselines in historical context; they are not the current source of truth.
 
