@@ -13,6 +13,8 @@ CAPABILITIES_DECLARED = [
     "local_dev_approval_validation",
     "manual_local_loopback_smoke_validation",
     "remote_worker_foundation_dry_run",
+    "runtime_readiness_status",
+    "manual_smoke_report_validation",
 ]
 
 CAPABILITIES_BLOCKED = [
@@ -22,6 +24,8 @@ CAPABILITIES_BLOCKED = [
     "browser_automation",
     "production_persistence",
     "runtime_agent_config_loading",
+    "runtime_execution_routes",
+    "plugin_enablement_routes",
 ]
 
 ROUTE_GROUPS_BY_PREFIX = {
@@ -39,6 +43,7 @@ ROUTE_GROUPS_BY_PREFIX = {
     "/adapter-manifest": "adapter-boundary",
     "/models": "model-router",
     "/model-runtime": "model-runtime",
+    "/runtime": "runtime-readiness",
     "/remote-workers": "remote-workers",
     "/costs": "cost-governor",
     "/gate": "foundation-gate",

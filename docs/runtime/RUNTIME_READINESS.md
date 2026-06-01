@@ -1,0 +1,33 @@
+# Runtime Readiness
+
+Status: Active M11 readiness/report validation contract, v0.15.0
+
+M11 adds a typed runtime readiness report generated from local known contract state only. It is not a production health check, not a runtime launcher, and not evidence that a model/provider/runtime is safe to call.
+
+The readiness report may say:
+
+- simulated runtime contracts exist.
+- local loopback policy validation exists.
+- manual local loopback smoke remains manual-only, fixed-prompt-only, approval-gated, and non-authoritative.
+- remote worker foundation remains validation/status/dry-run only.
+- private mesh, tailnet, Headscale, generic WireGuard, Tailscale, mobile companion, Device Capability Broker, and Codex plugin enablement remain planned-disabled or blocked.
+
+The readiness report must not say:
+
+- production runtime is ready.
+- real model execution is ready.
+- remote execution is ready.
+- live private mesh or tailnet is ready.
+- mobile sensors are ready.
+- Codex plugins, native build tools, Computer Use, or Chrome authenticated profile control are enabled.
+- model output is truth authority.
+
+Public API surface:
+
+```text
+GET /runtime/readiness
+GET /runtime/capability-matrix
+POST /runtime/smoke-reports/validate
+```
+
+These routes are status/validation only. No route executes, connects, dispatches, runs a provider call, enables a plugin, launches a native build, or performs a manual smoke call.

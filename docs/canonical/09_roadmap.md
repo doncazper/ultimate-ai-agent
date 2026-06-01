@@ -23,9 +23,9 @@ OpenWebUI is a window into the agent, not the agent brain.
 
 Pre-coding foundation remediation, Runtime Hygiene Micro-Foundation, Local Runtime/Context Survival, Truth/Grounding/Evidence Governance, Observability Standards Mapping, and Minimum Lovable Kernel preparation.
 
-## Accepted baseline through v0.14.6
+## Accepted baseline through v0.15.0
 
-The active accepted baseline is v0.14.6. It includes foundation modules through M10.5 plus documentation integrity synchronization and Codex plugin/external tooling governance. v0.14.6 adds no runtime feature and does not start M11.
+The active accepted baseline is v0.15.0. It includes foundation modules through M10.5 plus documentation integrity synchronization, Codex plugin/external tooling governance, and M11 runtime readiness/report validation. v0.15.0 adds readiness and validation contracts only; it does not add runtime execution.
 
 Recent accepted milestones:
 
@@ -37,6 +37,7 @@ v0.14.3 — open-source-first private mesh taxonomy with planned Headscale/gener
 v0.14.4 — Mobile Companion and Device Capability Broker roadmap planning only
 v0.14.5 — documentation integrity, canonical map, docs index, and documentation verifier
 v0.14.6 — Codex plugin and external build tool governance inventory, docs/policy only
+v0.15.0 — M11 runtime readiness gate, capability matrix, and manual smoke report validation
 ```
 
 ## Minimum Lovable Kernel

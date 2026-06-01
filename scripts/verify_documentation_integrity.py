@@ -21,6 +21,9 @@ REQUIRED_ACTIVE_DOCS = [
     "docs/remote/PRIVATE_MESH_TRANSPORT_POLICY.md",
     "docs/remote/TAILNET_TRANSPORT_POLICY.md",
     "docs/remote/REMOTE_WORKER_FOUNDATION.md",
+    "docs/runtime/RUNTIME_READINESS.md",
+    "docs/runtime/MANUAL_SMOKE_REPORTS.md",
+    "docs/runtime/RUNTIME_CAPABILITY_MATRIX.md",
 ]
 
 UNSAFE_IMPLEMENTATION_CLAIMS = [
@@ -32,6 +35,11 @@ UNSAFE_IMPLEMENTATION_CLAIMS = [
     "gps access is implemented",
     "skill factory is implemented",
     "scanner runtime is implemented",
+    "production_ready=true",
+    "real_model_runtime_ready=true",
+    "remote_execution_ready=true",
+    "mobile_sensor_ready=true",
+    "plugin_or_native_build_ready=true",
 ]
 
 ACTIVE_DOCS_TO_SCAN = [
@@ -46,6 +54,9 @@ ACTIVE_DOCS_TO_SCAN = [
     "docs/api/route_inventory.md",
     "docs/runtime/model_runtime_adapter_harness.md",
     "docs/runtime/local_loopback_model_runtime.md",
+    "docs/runtime/RUNTIME_READINESS.md",
+    "docs/runtime/MANUAL_SMOKE_REPORTS.md",
+    "docs/runtime/RUNTIME_CAPABILITY_MATRIX.md",
     "docs/remote/REMOTE_WORKER_FOUNDATION.md",
     "docs/remote/REMOTE_NODE_SECURITY_MODEL.md",
     "docs/remote/REMOTE_JOB_ENVELOPE.md",

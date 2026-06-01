@@ -1,12 +1,12 @@
-# Ultimate AI Agent Canonical Bundle v0.14.6
+# Ultimate AI Agent Canonical Bundle v0.15.0
 
-This is the active project baseline after the v0.14.6 Codex plugin and external build tool governance inventory patch.
+This is the active project baseline after the v0.15.0 M11 runtime foundation readiness and manual smoke report validation milestone.
 
 Start here:
 
 ```text
-README_IMPORT_v0_14_6.md
-ultimate_ai_agent_master_plan_v0_14_6.md
+README_IMPORT_v0_15_0.md
+ultimate_ai_agent_master_plan_v0_15_0.md
 docs/DOCUMENTATION_INDEX.md
 docs/canonical/09_roadmap.md
 docs/canonical/CANONICAL_DOC_MAP.md
@@ -23,8 +23,11 @@ docs/api/openapi_contract.md
 docs/api/route_inventory.md
 docs/runtime/model_runtime_adapter_harness.md
 docs/runtime/local_loopback_model_runtime.md
+docs/runtime/RUNTIME_READINESS.md
+docs/runtime/MANUAL_SMOKE_REPORTS.md
+docs/runtime/RUNTIME_CAPABILITY_MATRIX.md
 docs/security/approval_authority.md
-docs/implementation/foundation_gate_implementation_plan_v0_14_6.md
+docs/implementation/foundation_gate_implementation_plan_v0_15_0.md
 docs/maintenance/documentation_integrity_checklist.md
 docs/tooling/CODEX_PLUGIN_CAPABILITY_INVENTORY.md
 docs/tooling/CODEX_PLUGIN_RISK_POLICY.md
@@ -62,3 +65,7 @@ Documentation integrity rule:
 Codex plugin governance rule:
 
 > v0.14.6 records Codex plugin and external build tool capability classes as governance documentation only. Browser + Build Web Apps may be considered for future Web Control Center work with approval. Chrome authenticated profile control, Computer Use, iOS/macOS build plugins, Hugging Face Jobs/uploads/training, and plugin/skill installers remain disabled unless a future milestone explicitly approves them. This patch adds no plugin enablement, native build workflow, dependency, network call, or runtime capability.
+
+Runtime readiness rule:
+
+> v0.15.0 adds M11 runtime readiness reports, a deterministic capability matrix, manual smoke report validation, three runtime status/validation API routes, and Foundation Gate coverage. It does not add runtime execution, cloud/provider calls, remote execution, live private mesh/tailnet support, Headscale/Tailscale/WireGuard calls, mobile sensor access, plugin/tool enablement, native builds, browser automation, production persistence, or production readiness claims. Model output remains non-authoritative.

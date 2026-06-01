@@ -1,6 +1,6 @@
 # API Boundary
 
-The v0.14.6 API boundary is metadata-first, validation-first, approval-aware for local/dev policy checks, and simulated/fallback-first for model runtime behavior. It publishes the current OpenAPI schema and `/api/manifest` route inventory without adding cloud model calls, provider SDK calls, web fetching, browser automation, tokenizers, billing APIs, production auth, OAuth, private mesh networking, mobile sensor access, plugin enablement, or production persistence.
+The v0.15.0 API boundary is metadata-first, validation-first, approval-aware for local/dev policy checks, simulated/fallback-first for model runtime behavior, and readiness/status-only for M11 runtime readiness. It publishes the current OpenAPI schema and `/api/manifest` route inventory without adding cloud model calls, provider SDK calls, web fetching, browser automation, tokenizers, billing APIs, production auth, OAuth, private mesh networking, mobile sensor access, plugin enablement, or production persistence.
 
 Use:
 
@@ -23,6 +23,8 @@ M10.5 adds `/remote-workers/*` validation, status, and dry-run routes for remote
 
 v0.14.4 adds future mobile API planning only. Future mobile control APIs, approval queue APIs, receipt viewer APIs, mobile capture inbox APIs, device registry APIs, and device capability manifest APIs are not implemented. Any future routes are subject to Device Capability Broker, Consent Ledger, Approval Authority, Event Ledger, Redaction, and Receipt rules.
 
-v0.14.5 adds documentation integrity verification only. v0.14.6 adds Codex plugin/external tooling governance documentation only. Neither release adds, removes, or changes public API routes.
+v0.14.5 adds documentation integrity verification only. v0.14.6 adds Codex plugin/external tooling governance documentation only.
+
+v0.15.0 adds `/runtime/readiness`, `/runtime/capability-matrix`, and `/runtime/smoke-reports/validate` as status/validation routes only. These routes do not execute, connect, dispatch, run provider calls, enable plugins, launch native builds, inspect live tool state, or make production readiness claims.
 
 API validation errors are sanitized before they are returned. FastAPI/Pydantic validation failures must not echo raw invalid input values or secret-like field values.

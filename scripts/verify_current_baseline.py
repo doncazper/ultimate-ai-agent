@@ -465,6 +465,31 @@ def main():
         if not p.exists():
             fail(f"Required M10.5 file is missing: {rel_path}")
     ok("All M10.5 remote worker foundation files exist")
+
+    # 8.19 Check M11 runtime readiness gate files existence
+    m11_files = [
+        "src/ultimate_ai_agent/core/runtime_readiness/__init__.py",
+        "src/ultimate_ai_agent/core/runtime_readiness/enums.py",
+        "src/ultimate_ai_agent/core/runtime_readiness/matrix.py",
+        "src/ultimate_ai_agent/core/runtime_readiness/reports.py",
+        "src/ultimate_ai_agent/core/runtime_readiness/smoke_reports.py",
+        "src/ultimate_ai_agent/core/runtime_readiness/validators.py",
+        "src/ultimate_ai_agent/core/runtime_readiness/gate.py",
+        "tests/test_runtime_capability_matrix.py",
+        "tests/test_manual_smoke_report_validation.py",
+        "tests/test_runtime_readiness_report.py",
+        "tests/test_runtime_readiness_api_routes.py",
+        "tests/test_runtime_readiness_no_execution.py",
+        "tests/test_m11_gate_integration.py",
+        "docs/runtime/RUNTIME_READINESS.md",
+        "docs/runtime/MANUAL_SMOKE_REPORTS.md",
+        "docs/runtime/RUNTIME_CAPABILITY_MATRIX.md",
+    ]
+    for rel_path in m11_files:
+        p = ROOT / rel_path
+        if not p.exists():
+            fail(f"Required M11 file is missing: {rel_path}")
+    ok("All M11 runtime readiness gate files exist")
     
     # 9. Enforce scans by delegating to verify_all
     try:

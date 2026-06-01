@@ -1,6 +1,6 @@
 # Canonical Document Map
 
-Current active baseline: **v0.14.6**
+Current active baseline: **v0.15.0**
 
 This map links major systems to their canonical documentation. If a system has both canonical docs and runtime/API docs, canonical docs define principles and sequencing while runtime/API docs define current implementation boundaries.
 
@@ -26,12 +26,13 @@ This map links major systems to their canonical documentation. If a system has b
 | Model Runtime Adapter Harness | `docs/runtime/model_runtime_adapter_harness.md` |
 | Local Loopback Runtime | `docs/runtime/local_loopback_model_runtime.md`, `docs/canonical/57_local_runtime_and_offline_agent_infrastructure.md` |
 | Manual Smoke Harness | `docs/runtime/local_loopback_model_runtime.md` |
+| Runtime Readiness | `docs/runtime/RUNTIME_READINESS.md`, `docs/runtime/MANUAL_SMOKE_REPORTS.md`, `docs/runtime/RUNTIME_CAPABILITY_MATRIX.md` |
 | Remote Worker Foundation | `docs/remote/REMOTE_WORKER_FOUNDATION.md`, `docs/remote/REMOTE_NODE_SECURITY_MODEL.md`, `docs/remote/REMOTE_JOB_ENVELOPE.md` |
 | Private Mesh / Headscale / WireGuard / Tailscale Taxonomy | `docs/remote/PRIVATE_MESH_TRANSPORT_POLICY.md`, `docs/remote/TAILNET_TRANSPORT_POLICY.md`, `docs/decisions/ADR-open-source-first-private-networking.md` |
 | Mobile Companion | `docs/canonical/64_mobile_companion_and_device_capability_broker.md`, `docs/backlog/mobile_companion_backlog.md` |
 | Device Capability Broker | `docs/canonical/64_mobile_companion_and_device_capability_broker.md`, `docs/canonical/65_mobile_device_registry_and_sensor_permission_manifest.md`, `docs/backlog/device_capability_broker_backlog.md` |
 | Codex Plugin and External Tooling Governance | `docs/canonical/66_external_tooling_and_codex_plugin_governance.md`, `docs/tooling/CODEX_PLUGIN_CAPABILITY_INVENTORY.md`, `docs/tooling/CODEX_PLUGIN_RISK_POLICY.md`, `docs/backlog/codex_plugin_enablement_backlog.md` |
-| Foundation Gate | `docs/implementation/foundation_gate_implementation_plan_v0_14_6.md`, `docs/evals/foundation_gate_eval.md` |
+| Foundation Gate | `docs/implementation/foundation_gate_implementation_plan_v0_15_0.md`, `docs/evals/foundation_gate_eval.md` |
 | Testing Strategy | `docs/testing/test_strategy_v0.md`, `docs/testing/contract_test_matrix_v0_5_0.md`, `docs/testing/shadow_replay_plan_v0_5_0.md` |
 
 ## Source-of-Truth Hierarchy

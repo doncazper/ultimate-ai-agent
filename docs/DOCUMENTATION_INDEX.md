@@ -1,6 +1,6 @@
 # Documentation Index
 
-Current active baseline: **v0.14.6**
+Current active baseline: **v0.15.0**
 
 This index is the active entrypoint for documentation navigation. Historical release documents remain in the repository for audit history, but active truth starts with the current baseline files listed here.
 
@@ -9,8 +9,8 @@ This index is the active entrypoint for documentation navigation. Historical rel
 ```text
 README.md
 VERSION.md
-README_IMPORT_v0_14_6.md
-ultimate_ai_agent_master_plan_v0_14_6.md
+README_IMPORT_v0_15_0.md
+ultimate_ai_agent_master_plan_v0_15_0.md
 docs/canonical/CANONICAL_DOC_MAP.md
 docs/canonical/09_roadmap.md
 docs/maintenance/documentation_integrity_checklist.md
@@ -49,9 +49,14 @@ API docs describe implemented validation, dry-run, simulated, and status routes.
 ```text
 docs/runtime/model_runtime_adapter_harness.md
 docs/runtime/local_loopback_model_runtime.md
+docs/runtime/RUNTIME_READINESS.md
+docs/runtime/MANUAL_SMOKE_REPORTS.md
+docs/runtime/RUNTIME_CAPABILITY_MATRIX.md
 ```
 
 Model runtime docs distinguish simulated runtime behavior, dev/manual loopback readiness, fixed-prompt manual smoke, and non-authoritative model output. They do not describe general production model execution.
+
+M11 runtime readiness docs describe status/report validation only. They do not describe production runtime execution.
 
 ## Active Remote Worker and Private Mesh Docs
 

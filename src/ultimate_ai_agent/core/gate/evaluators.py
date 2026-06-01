@@ -132,6 +132,14 @@ class FoundationGateEvaluator:
             "m143_private_mesh_taxonomy_open_source_first": self.check_m143_private_mesh_taxonomy_open_source_first,
             "m143_planned_mesh_transports_disabled": self.check_m143_planned_mesh_transports_disabled,
             "m143_no_live_mesh_integrations": self.check_m143_no_live_mesh_integrations,
+            "m11_runtime_readiness_files_present": self.check_m11_runtime_readiness_files_present,
+            "m11_runtime_capability_matrix_safe": self.check_m11_runtime_capability_matrix_safe,
+            "m11_manual_smoke_report_validation_safe": self.check_m11_manual_smoke_report_validation_safe,
+            "m11_no_production_readiness_claim": self.check_m11_no_production_readiness_claim,
+            "m11_runtime_api_status_validation_only": self.check_m11_runtime_api_status_validation_only,
+            "m11_no_smoke_script_execution_in_gate": self.check_m11_no_smoke_script_execution_in_gate,
+            "m11_no_runtime_expansion_imports": self.check_m11_no_runtime_expansion_imports,
+            "m11_no_remote_mesh_mobile_or_plugin_enablement": self.check_m11_no_remote_mesh_mobile_or_plugin_enablement,
             "documentation_integrity_current": self.check_documentation_integrity_current,
             "codex_plugin_governance_docs_present": self.check_codex_plugin_governance_docs_present,
         }
@@ -1806,6 +1814,9 @@ class FoundationGateEvaluator:
             "docs/canonical/65_mobile_device_registry_and_sensor_permission_manifest.md",
             "docs/remote/PRIVATE_MESH_TRANSPORT_POLICY.md",
             "docs/remote/TAILNET_TRANSPORT_POLICY.md",
+            "docs/runtime/RUNTIME_READINESS.md",
+            "docs/runtime/MANUAL_SMOKE_REPORTS.md",
+            "docs/runtime/RUNTIME_CAPABILITY_MATRIX.md",
         ]
         failures = [f"missing {path}" for path in required if not (self.root / path).exists()]
         readme = self._read(self.root / "README.md")
@@ -1827,6 +1838,11 @@ class FoundationGateEvaluator:
             "gps access is implemented",
             "skill factory is implemented",
             "scanner runtime is implemented",
+            "production_ready=true",
+            "real_model_runtime_ready=true",
+            "remote_execution_ready=true",
+            "mobile_sensor_ready=true",
+            "plugin_or_native_build_ready=true",
         ]
         active_docs = [
             "README.md",
@@ -1840,6 +1856,9 @@ class FoundationGateEvaluator:
             "docs/api/route_inventory.md",
             "docs/runtime/model_runtime_adapter_harness.md",
             "docs/runtime/local_loopback_model_runtime.md",
+            "docs/runtime/RUNTIME_READINESS.md",
+            "docs/runtime/MANUAL_SMOKE_REPORTS.md",
+            "docs/runtime/RUNTIME_CAPABILITY_MATRIX.md",
             "docs/remote/REMOTE_WORKER_FOUNDATION.md",
             "docs/remote/REMOTE_NODE_SECURITY_MODEL.md",
             "docs/remote/REMOTE_JOB_ENVELOPE.md",
@@ -1894,6 +1913,202 @@ class FoundationGateEvaluator:
             if phrase in combined:
                 failures.append(f"unsafe plugin enablement claim: {phrase}")
         return self._result(criterion, failures, required)
+
+    def check_m11_runtime_readiness_files_present(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        required = [
+            "src/ultimate_ai_agent/core/runtime_readiness/__init__.py",
+            "src/ultimate_ai_agent/core/runtime_readiness/enums.py",
+            "src/ultimate_ai_agent/core/runtime_readiness/matrix.py",
+            "src/ultimate_ai_agent/core/runtime_readiness/reports.py",
+            "src/ultimate_ai_agent/core/runtime_readiness/smoke_reports.py",
+            "src/ultimate_ai_agent/core/runtime_readiness/validators.py",
+            "src/ultimate_ai_agent/core/runtime_readiness/gate.py",
+            "docs/runtime/RUNTIME_READINESS.md",
+            "docs/runtime/MANUAL_SMOKE_REPORTS.md",
+            "docs/runtime/RUNTIME_CAPABILITY_MATRIX.md",
+            "tests/test_runtime_capability_matrix.py",
+            "tests/test_manual_smoke_report_validation.py",
+            "tests/test_runtime_readiness_report.py",
+            "tests/test_runtime_readiness_api_routes.py",
+            "tests/test_runtime_readiness_no_execution.py",
+        ]
+        failures = [f"missing {path}" for path in required if not (self.root / path).exists()]
+        return self._result(criterion, failures, required)
+
+    def check_m11_runtime_capability_matrix_safe(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        from ultimate_ai_agent.core.runtime_readiness import RuntimeCapabilityStatus, RuntimeSurface, build_matrix
+
+        matrix = build_matrix()
+        entries = {entry.surface: entry for entry in matrix.entries}
+        expected = {
+            RuntimeSurface.remote_worker_foundation.value: RuntimeCapabilityStatus.dry_run_only.value,
+            RuntimeSurface.private_mesh_planned.value: RuntimeCapabilityStatus.planned_disabled.value,
+            RuntimeSurface.tailnet_planned.value: RuntimeCapabilityStatus.planned_disabled.value,
+            RuntimeSurface.headscale_planned.value: RuntimeCapabilityStatus.planned_disabled.value,
+            RuntimeSurface.generic_wireguard_planned.value: RuntimeCapabilityStatus.planned_disabled.value,
+            RuntimeSurface.tailscale_planned.value: RuntimeCapabilityStatus.planned_disabled.value,
+            RuntimeSurface.cloud_provider_runtime.value: RuntimeCapabilityStatus.blocked.value,
+            RuntimeSurface.manual_loopback_smoke.value: RuntimeCapabilityStatus.manual_only.value,
+            RuntimeSurface.mobile_companion_planned.value: RuntimeCapabilityStatus.planned_disabled.value,
+            RuntimeSurface.device_capability_broker_planned.value: RuntimeCapabilityStatus.planned_disabled.value,
+            RuntimeSurface.codex_plugin_governance.value: RuntimeCapabilityStatus.planned_disabled.value,
+        }
+        failures = []
+        for surface, status in expected.items():
+            entry = entries.get(surface)
+            if entry is None:
+                failures.append(f"missing matrix surface: {surface}")
+            elif entry.status != status:
+                failures.append(f"{surface} status is {entry.status}, expected {status}")
+        if not matrix.assert_no_runtime_expansion():
+            failures.append("matrix allows runtime expansion")
+        if not matrix.assert_foundation_gate_coverage():
+            failures.append("matrix entry missing Foundation Gate coverage")
+        return self._result(criterion, failures, ["src/ultimate_ai_agent/core/runtime_readiness/matrix.py"])
+
+    def check_m11_manual_smoke_report_validation_safe(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        from ultimate_ai_agent.core.runtime_readiness import validate_manual_smoke_report
+        from ultimate_ai_agent.core.runtime_readiness.gate import m11_gate_safe_smoke_report_payload
+
+        safe = validate_manual_smoke_report(m11_gate_safe_smoke_report_payload())
+        unsafe_payloads = [
+            ("raw prompt", {**m11_gate_safe_smoke_report_payload(), "raw_prompt": "user prompt"}),
+            (
+                "secret response",
+                {**m11_gate_safe_smoke_report_payload(), "response_preview": "api" + "_key='abcdefghijklmnop'"},
+            ),
+            ("remote endpoint", {**m11_gate_safe_smoke_report_payload(), "endpoint_summary": "https" + "://api.example.com"}),
+            (
+                "cloud claim",
+                {**m11_gate_safe_smoke_report_payload(), "metadata": {"claim": "cloud provider model call executed"}},
+            ),
+            (
+                "authoritative output",
+                {**m11_gate_safe_smoke_report_payload(), "model_output_authoritative": True},
+            ),
+        ]
+        failures = []
+        if not safe.allowed:
+            failures.append("safe manual smoke report was rejected")
+        for label, payload in unsafe_payloads:
+            validation = validate_manual_smoke_report(payload)
+            if validation.allowed:
+                failures.append(f"unsafe manual smoke report accepted: {label}")
+            if "abcdefghijklmnop" in validation.safe_message:
+                failures.append("unsafe secret echoed in validation message")
+        return self._result(criterion, failures, ["src/ultimate_ai_agent/core/runtime_readiness/smoke_reports.py"])
+
+    def check_m11_no_production_readiness_claim(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        from ultimate_ai_agent.core.runtime_readiness import build_readiness_report
+
+        report = build_readiness_report()
+        failures = []
+        checks = {
+            "production_ready": report.production_ready,
+            "real_model_runtime_ready": report.real_model_runtime_ready,
+            "remote_execution_ready": report.remote_execution_ready,
+            "mobile_sensor_ready": report.mobile_sensor_ready,
+            "plugin_or_native_build_ready": report.plugin_or_native_build_ready,
+            "model_output_authoritative": report.model_output_authoritative,
+        }
+        failures.extend(f"{name} is true" for name, value in checks.items() if value is True)
+        return self._result(criterion, failures, ["src/ultimate_ai_agent/core/runtime_readiness/reports.py"])
+
+    def check_m11_runtime_api_status_validation_only(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.api.manifest import iter_api_route_items
+        from ultimate_ai_agent.api.openapi import FORBIDDEN_ROUTE_FRAGMENTS
+
+        routes = iter_api_route_items(app)
+        paths = {route.path: route for route in routes}
+        required = {
+            "/runtime/readiness",
+            "/runtime/capability-matrix",
+            "/runtime/smoke-reports/validate",
+        }
+        failures = [f"missing runtime route: {path}" for path in sorted(required - set(paths))]
+        for path in sorted(path for path in paths if path.startswith("/runtime")):
+            route = paths[path]
+            if "runtime-readiness" not in route.tags:
+                failures.append(f"{path} has unexpected tags {route.tags}")
+            if not route.validation_only:
+                failures.append(f"{path} is not validation/status only")
+        unsafe_routes = [
+            path
+            for path in paths
+            if path.startswith("/runtime") and any(fragment in path for fragment in FORBIDDEN_ROUTE_FRAGMENTS)
+        ]
+        failures.extend(f"forbidden runtime route present: {path}" for path in sorted(unsafe_routes))
+        return self._result(criterion, failures, ["src/ultimate_ai_agent/api/app.py", "src/ultimate_ai_agent/api/openapi.py"])
+
+    def check_m11_no_smoke_script_execution_in_gate(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        failures = []
+        for rel_path in ["scripts/verify_all.py", "scripts/run_foundation_gate.py"]:
+            source = self._read(self.root / rel_path)
+            if "local_loopback_smoke.py" in source:
+                failures.append(f"{rel_path} references local_loopback_smoke.py")
+        return self._result(criterion, failures, ["scripts/verify_all.py", "scripts/run_foundation_gate.py"])
+
+    def check_m11_no_runtime_expansion_imports(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        package = self.root / "src/ultimate_ai_agent/core/runtime_readiness"
+        forbidden_starts = [
+            "import " + "requests",
+            "from " + "requests import",
+            "import " + "httpx",
+            "from " + "httpx import",
+            "import " + "urllib",
+            "from " + "urllib import",
+            "import " + "socket",
+            "import " + "subprocess",
+            "import " + "openai",
+            "import " + "anthropic",
+            "import " + "tiktoken",
+            "import " + "tokenizers",
+        ]
+        forbidden_fragments = ["billing", "eval(", "exec("]
+        failures = []
+        for path in sorted(package.glob("*.py")):
+            rel_path = str(path.relative_to(self.root))
+            for line_no, stripped in enumerate(self._read(path).splitlines(), start=1):
+                stripped = stripped.strip()
+                if self._is_static_scanner_text(stripped) or stripped.startswith("["):
+                    continue
+                if any(stripped.startswith(pattern) for pattern in forbidden_starts):
+                    failures.append(f"{rel_path}:{line_no} forbidden import")
+                if any(fragment in stripped for fragment in forbidden_fragments):
+                    failures.append(f"{rel_path}:{line_no} forbidden runtime fragment")
+        return self._result(criterion, failures, ["src/ultimate_ai_agent/core/runtime_readiness"])
+
+    def check_m11_no_remote_mesh_mobile_or_plugin_enablement(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        sources = [
+            "src/ultimate_ai_agent/core/runtime_readiness",
+            "src/ultimate_ai_agent/api/app.py",
+            "docs/runtime/RUNTIME_READINESS.md",
+            "docs/runtime/MANUAL_SMOKE_REPORTS.md",
+            "docs/runtime/RUNTIME_CAPABILITY_MATRIX.md",
+        ]
+        forbidden_claims = [
+            "remote_execution_ready=true",
+            "live mesh is enabled",
+            "tailnet is enabled",
+            "headscale is connected",
+            "wireguard is connected",
+            "mobile sensors are enabled",
+            "camera access is implemented",
+            "plugin enablement is implemented",
+            "native build execution is enabled",
+            "computer use automation is enabled",
+        ]
+        combined = ""
+        for source in sources:
+            path = self.root / source
+            if path.is_dir():
+                combined += "\n".join(self._read(child) for child in path.glob("*.py"))
+            else:
+                combined += "\n" + self._read(path)
+        lowered = combined.lower()
+        failures = [f"unsafe enablement claim: {phrase}" for phrase in forbidden_claims if phrase in lowered]
+        return self._result(criterion, failures, sources)
 
     def _skipped(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
         return FoundationGateResult(
@@ -1951,6 +2166,7 @@ class FoundationGateEvaluator:
         return (
             stripped.startswith(('"', "'", "#"))
             or " = [" in stripped
+            or " = (" in stripped
             or stripped.startswith(("forbidden = ", "forbidden_starts = ", "forbidden_contains = "))
             or stripped.startswith('if ".get(" in stripped')
         )

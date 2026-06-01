@@ -132,6 +132,11 @@ from ultimate_ai_agent.core.remote_workers import (
     default_remote_transport_registry,
     evaluate_remote_job_policy,
 )
+from ultimate_ai_agent.core.runtime_readiness import (
+    build_matrix,
+    build_readiness_report,
+    validate_manual_smoke_report,
+)
 
 app = FastAPI(
     title="Ultimate AI Agent API Boundary",
@@ -209,6 +214,11 @@ class RemoteJobValidatePayload(BaseModel):
 class RemoteDryRunPayload(BaseModel):
     job: dict
     policy: Optional[dict] = None
+
+    model_config = ConfigDict(extra="forbid")
+
+class RuntimeSmokeReportValidatePayload(BaseModel):
+    report: dict
 
     model_config = ConfigDict(extra="forbid")
 
@@ -934,6 +944,39 @@ def get_remote_workers_mesh_status():
             "dispatch_enabled": False,
             "foundation_only": True,
         },
+    )
+
+@app.get("/runtime/readiness", response_model=ResultEnvelope)
+def get_runtime_readiness():
+    report = build_readiness_report()
+    return ResultEnvelope(
+        success=True,
+        operation="runtime_readiness",
+        service="RuntimeReadinessAPI",
+        trace_id=report.report_id,
+        data=report.model_dump(mode="json"),
+    )
+
+@app.get("/runtime/capability-matrix", response_model=ResultEnvelope)
+def get_runtime_capability_matrix():
+    matrix = build_matrix()
+    return ResultEnvelope(
+        success=True,
+        operation="runtime_capability_matrix",
+        service="RuntimeReadinessAPI",
+        trace_id=matrix.matrix_id,
+        data=matrix.model_dump(mode="json"),
+    )
+
+@app.post("/runtime/smoke-reports/validate", response_model=ResultEnvelope)
+def post_validate_runtime_smoke_report(payload: RuntimeSmokeReportValidatePayload):
+    validation = validate_manual_smoke_report(payload.report)
+    return ResultEnvelope(
+        success=validation.allowed,
+        operation="validate_runtime_smoke_report",
+        service="RuntimeReadinessAPI",
+        trace_id=validation.report_id or "system",
+        data=validation.model_dump(mode="json"),
     )
 
 @app.post("/costs/budgets/validate", response_model=ResultEnvelope)
