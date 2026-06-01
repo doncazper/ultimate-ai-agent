@@ -268,8 +268,15 @@ def verify_no_real_remote_worker_integrations():
         "dispatch_job(",
         "execute_remote(",
         "launch_subagent(",
-        "tailscale",
         "tailscaled",
+        "tailscale.",
+        "tailscale(",
+        "headscale.",
+        "headscale(",
+        "wireguard.",
+        "wireguard(",
+        "wg ",
+        "wg-quick",
         "Serve",
         "Funnel",
     ]
@@ -286,7 +293,7 @@ def verify_no_real_remote_worker_integrations():
                     sys.exit(1)
         except Exception:
             pass
-    print("OK: Remote worker package has no live network, process, tailnet, or remote execution code")
+    print("OK: Remote worker package has no live network, process, private mesh, tailnet, or remote execution code")
 
 def verify_no_shell_execution_in_runtime():
     print("\n[Verifier] Running runtime shell/subprocess execution scan...")

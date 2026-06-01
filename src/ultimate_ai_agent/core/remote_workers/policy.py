@@ -1,9 +1,9 @@
 from datetime import datetime
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from ultimate_ai_agent.core.remote_workers.enums import RemoteRiskLevel
+from ultimate_ai_agent.core.remote_workers.enums import PrivateMeshProviderKind, RemoteRiskLevel
 from ultimate_ai_agent.core.remote_workers.jobs import RemoteJobEnvelope
 from ultimate_ai_agent.core.remote_workers.registry import RemoteNodeRegistry, RemoteTransportRegistry
 from ultimate_ai_agent.core.remote_workers.status import RemotePolicyDecision, allowed_decision, denied_decision
@@ -55,6 +55,37 @@ class RemoteExecutionPolicy(BaseModel):
         if self.allow_critical_actions:
             raise ValueError("REMOTE_CRITICAL_CANNOT_BE_ENABLED")
         assert_remote_secret_clean(self.model_dump(mode="json"), "Remote execution policy")
+        return self
+
+
+class RemoteTransportSelectionPolicy(BaseModel):
+    policy_id: str = Field(..., min_length=1)
+    prefer_open_source_first: bool = True
+    prefer_self_hosted_control_plane: bool = True
+    allowed_provider_kinds: List[PrivateMeshProviderKind] = Field(
+        default_factory=lambda: [
+            PrivateMeshProviderKind.headscale_planned,
+            PrivateMeshProviderKind.generic_wireguard_planned,
+            PrivateMeshProviderKind.manual_lan_planned,
+        ]
+    )
+    blocked_provider_kinds: List[PrivateMeshProviderKind] = Field(default_factory=lambda: [PrivateMeshProviderKind.tailscale_planned])
+    allow_proprietary_control_plane: bool = False
+    require_explicit_approval_for_proprietary_control_plane: bool = True
+    created_at: datetime = Field(default_factory=utc_now)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+    model_config = ConfigDict(use_enum_values=True, extra="forbid")
+
+    @model_validator(mode="after")
+    def selection_policy_must_be_safe(self):
+        if not self.prefer_open_source_first:
+            raise ValueError("REMOTE_OPEN_SOURCE_FIRST_REQUIRED")
+        if not self.prefer_self_hosted_control_plane:
+            raise ValueError("REMOTE_SELF_HOSTED_CONTROL_PLANE_REQUIRED")
+        if self.allow_proprietary_control_plane:
+            raise ValueError("REMOTE_PROPRIETARY_CONTROL_PLANE_NOT_SUPPORTED_IN_M10_5")
+        assert_remote_secret_clean(self.model_dump(mode="json"), "Remote transport selection policy")
         return self
 
 

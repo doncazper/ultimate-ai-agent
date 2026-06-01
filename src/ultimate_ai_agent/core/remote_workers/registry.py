@@ -1,6 +1,6 @@
 from typing import Dict, List, Optional
 
-from ultimate_ai_agent.core.remote_workers.enums import RemoteNodeStatus, RemoteTransportKind, RemoteTransportStatus
+from ultimate_ai_agent.core.remote_workers.enums import PrivateMeshProviderKind, RemoteNodeStatus, RemoteTransportKind, RemoteTransportStatus
 from ultimate_ai_agent.core.remote_workers.nodes import NodeCapabilitySet, NodeIdentity, RemoteNode
 from ultimate_ai_agent.core.remote_workers.status import RemotePolicyDecision, allowed_decision, denied_decision
 from ultimate_ai_agent.core.remote_workers.transports import RemoteTransportDescriptor
@@ -46,10 +46,18 @@ class RemoteTransportRegistry:
         return allowed_decision(["REMOTE_TRANSPORT_METADATA_ALLOWED"], "Remote transport metadata is valid.", transport_id=transport_id)
 
     def status_summary(self) -> Dict[str, object]:
+        planned_by_provider = {
+            transport.transport_id: transport.provider_kind
+            for transport in self._transports.values()
+            if transport.planned_only
+        }
         return {
             "transport_ids": sorted(self._transports),
             "live_network_enabled": False,
             "dispatch_enabled": False,
+            "open_source_first": True,
+            "self_hosted_control_plane_first": True,
+            "planned_private_mesh_providers": planned_by_provider,
             "planned_transports": sorted(
                 transport.transport_id for transport in self._transports.values() if transport.planned_only
             ),
@@ -121,11 +129,56 @@ def default_remote_transport_registry() -> RemoteTransportRegistry:
             version="0.0.0",
         ),
         RemoteTransportDescriptor(
+            transport_id="private_mesh_planned",
+            kind=RemoteTransportKind.private_mesh_planned,
+            provider_kind=PrivateMeshProviderKind.none,
+            status=RemoteTransportStatus.planned,
+            display_name="Private Mesh Planned",
+            description="Vendor-neutral private mesh metadata only; no network transport.",
+            owner="system",
+            source="default_remote_transport_registry",
+            version="0.0.0",
+        ),
+        RemoteTransportDescriptor(
+            transport_id="headscale_planned",
+            kind=RemoteTransportKind.headscale_planned,
+            provider_kind=PrivateMeshProviderKind.headscale_planned,
+            status=RemoteTransportStatus.planned,
+            display_name="Headscale Planned",
+            description="Planned self-hosted private mesh control-plane metadata only.",
+            owner="system",
+            source="default_remote_transport_registry",
+            version="0.0.0",
+        ),
+        RemoteTransportDescriptor(
+            transport_id="generic_wireguard_planned",
+            kind=RemoteTransportKind.generic_wireguard_planned,
+            provider_kind=PrivateMeshProviderKind.generic_wireguard_planned,
+            status=RemoteTransportStatus.planned,
+            display_name="Generic WireGuard Planned",
+            description="Planned generic private mesh metadata only.",
+            owner="system",
+            source="default_remote_transport_registry",
+            version="0.0.0",
+        ),
+        RemoteTransportDescriptor(
+            transport_id="tailscale_planned",
+            kind=RemoteTransportKind.tailscale_planned,
+            provider_kind=PrivateMeshProviderKind.tailscale_planned,
+            status=RemoteTransportStatus.planned,
+            display_name="Tailscale Planned",
+            description="Planned proprietary control-plane private mesh metadata only.",
+            owner="system",
+            source="default_remote_transport_registry",
+            version="0.0.0",
+        ),
+        RemoteTransportDescriptor(
             transport_id="tailnet_planned",
             kind=RemoteTransportKind.tailnet_planned,
+            provider_kind=PrivateMeshProviderKind.none,
             status=RemoteTransportStatus.planned,
             display_name="Tailnet Planned",
-            description="Planned private transport metadata only.",
+            description="Deprecated generic tailnet/private mesh metadata only.",
             owner="system",
             source="default_remote_transport_registry",
             version="0.0.0",
@@ -133,6 +186,7 @@ def default_remote_transport_registry() -> RemoteTransportRegistry:
         RemoteTransportDescriptor(
             transport_id="lan_planned",
             kind=RemoteTransportKind.lan_planned,
+            provider_kind=PrivateMeshProviderKind.manual_lan_planned,
             status=RemoteTransportStatus.planned,
             display_name="LAN Planned",
             description="Planned LAN transport metadata only.",
@@ -163,4 +217,3 @@ def default_remote_node_registry() -> RemoteNodeRegistry:
         )
     )
     return registry
-

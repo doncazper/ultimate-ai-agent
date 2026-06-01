@@ -10,3 +10,5 @@ No remote subagents, remote tools, listeners, background services, file transfer
 Remote worker output is always untrusted remote output. It is never trusted control input, never truth authority, and never approval authority.
 
 v0.14.2 hardens the M10.5 policy contract: `remote_tailnet_enabled=true` and `remote_personal_data_enabled=true` are rejected as unsupported in M10.5. Remote-worker API wrapper payloads reject unexpected top-level fields, and validation errors remain sanitized.
+
+v0.14.3 adds open-source-first private mesh taxonomy only. Planned Headscale, generic WireGuard, Tailscale, private mesh, tailnet, and LAN metadata remains disabled, planned-only, and no-network. Headscale is a future self-hosted/open-source option to evaluate first; it is not installed, called, configured, or integrated. Tailscale and WireGuard are also not installed, called, configured, or integrated.

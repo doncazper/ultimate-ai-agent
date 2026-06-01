@@ -1,12 +1,12 @@
-# Ultimate AI Agent Canonical Bundle v0.14.2
+# Ultimate AI Agent Canonical Bundle v0.14.3
 
-This is the active project baseline after the v0.14.2 M10.5 remote worker policy contract hardening patch.
+This is the active project baseline after the v0.14.3 open-source-first private mesh taxonomy patch.
 
 Start here:
 
 ```text
-README_IMPORT_v0_14_2.md
-ultimate_ai_agent_master_plan_v0_14_2.md
+README_IMPORT_v0_14_3.md
+ultimate_ai_agent_master_plan_v0_14_3.md
 docs/canonical/09_roadmap.md
 docs/canonical/21_consent_and_permissions_ledger.md
 docs/canonical/37_tool_broker.md
@@ -19,7 +19,7 @@ docs/api/route_inventory.md
 docs/runtime/model_runtime_adapter_harness.md
 docs/runtime/local_loopback_model_runtime.md
 docs/security/approval_authority.md
-docs/implementation/foundation_gate_implementation_plan_v0_14_2.md
+docs/implementation/foundation_gate_implementation_plan_v0_14_3.md
 docs/testing/test_strategy_v0.md
 ```
 
@@ -41,4 +41,4 @@ Observability standards rule:
 
 Foundation Gate rule:
 
-> v0.14.2 hardens REMOTE-01 / M10.5 remote worker foundation contracts. Remote worker support remains foundation-only, disabled by default, mock/local metadata only, and dry-run only. `remote_tailnet_enabled=true` and `remote_personal_data_enabled=true` are rejected as unsupported in M10.5, remote-worker API wrappers reject unexpected top-level fields, and the Foundation Gate covers those checks. It adds no live mesh networking, tailnet execution, listener, network call, job dispatch, remote subagent launch, remote Tool Broker execution, sandbox execution, personal-data access, write/send action, remote approval, background service, production persistence, provider SDK, tokenizer, billing API, or safety bypass.
+> v0.14.3 keeps REMOTE-01 / M10.5 foundation-only and adds open-source-first private mesh taxonomy. Headscale, generic WireGuard, Tailscale, private mesh, tailnet, and LAN transports are planned/disabled metadata only. Headscale is the first planned self-hosted/open-source control-plane option to evaluate; Tailscale remains planned metadata, not the default assumption. It adds no live mesh networking, Headscale integration, Tailscale integration, WireGuard command execution, listener, network call, job dispatch, remote subagent launch, remote Tool Broker execution, sandbox execution, personal-data access, write/send action, remote approval, background service, production persistence, provider SDK, tokenizer, billing API, credentials, node keys, hostnames, private IPs, or safety bypass.

@@ -926,6 +926,11 @@ def get_remote_workers_mesh_status():
         data={
             "status": "planned",
             "live_mesh_enabled": False,
+            "headscale_integrated": False,
+            "tailscale_integrated": False,
+            "wireguard_integrated": False,
+            "preferred_planned_providers": ["headscale_planned", "generic_wireguard_planned", "manual_lan_planned"],
+            "proprietary_control_plane_allowed": False,
             "dispatch_enabled": False,
             "foundation_only": True,
         },

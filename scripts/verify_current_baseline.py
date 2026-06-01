@@ -457,6 +457,8 @@ def main():
         "tests/test_remote_worker_api_routes.py",
         "tests/test_remote_worker_no_network.py",
         "tests/test_remote_worker_gate_integration.py",
+        "docs/remote/PRIVATE_MESH_TRANSPORT_POLICY.md",
+        "docs/decisions/ADR-open-source-first-private-networking.md",
     ]
     for rel_path in m105_files:
         p = ROOT / rel_path

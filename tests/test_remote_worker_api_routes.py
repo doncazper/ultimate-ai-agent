@@ -45,6 +45,64 @@ def test_remote_worker_validate_routes_and_tailnet_status_are_safe():
     assert client.get("/remote-workers/mesh/status").json()["data"]["live_mesh_enabled"] is False
 
 
+def test_remote_worker_status_includes_open_source_first_private_mesh_metadata():
+    status = client.get("/remote-workers/status").json()["data"]
+    mesh = client.get("/remote-workers/mesh/status").json()["data"]
+    transport_ids = set(status["transports"]["transport_ids"])
+
+    assert {"headscale_planned", "generic_wireguard_planned", "tailscale_planned", "private_mesh_planned"}.issubset(transport_ids)
+    assert status["transports"]["open_source_first"] is True
+    assert mesh["preferred_planned_providers"][:2] == ["headscale_planned", "generic_wireguard_planned"]
+    assert mesh["live_mesh_enabled"] is False
+    assert mesh["headscale_integrated"] is False
+    assert mesh["tailscale_integrated"] is False
+    assert mesh["wireguard_integrated"] is False
+
+
+def test_remote_worker_transport_validate_accepts_planned_headscale_descriptor_but_denies_enablement():
+    safe = client.post(
+        "/remote-workers/transports/validate",
+        json={
+            "transport": {
+                "transport_id": "headscale_planned_test",
+                "kind": "headscale_planned",
+                "provider_kind": "headscale_planned",
+                "status": "planned",
+                "display_name": "Headscale Planned",
+                "description": "Planned self-hosted private mesh metadata only.",
+                "owner": "tests",
+                "source": "fixture",
+                "version": "0.0.0",
+            }
+        },
+    ).json()
+    enabled = client.post(
+        "/remote-workers/transports/validate",
+        json={
+            "transport": {
+                "transport_id": "headscale_enabled_test",
+                "kind": "headscale_planned",
+                "provider_kind": "headscale_planned",
+                "status": "available",
+                "display_name": "Headscale Enabled",
+                "description": "Unsafe enabled private mesh metadata.",
+                "enabled": True,
+                "requires_network": True,
+                "owner": "tests",
+                "source": "fixture",
+                "version": "0.0.0",
+            }
+        },
+    ).json()
+
+    assert "data" in safe
+    assert safe["data"]["allowed"] is False
+    assert "REMOTE_TRANSPORT_PLANNED_ONLY" in safe["data"]["reason_codes"]
+    assert "data" in enabled
+    assert enabled["data"]["allowed"] is False
+    assert "REMOTE_TRANSPORT_NETWORK_DENIED" in enabled["data"]["reason_codes"]
+
+
 def test_remote_worker_policy_validate_rejects_unsupported_enable_flags():
     tailnet = client.post(
         "/remote-workers/policy/validate",

@@ -3,7 +3,7 @@ from typing import Any, Dict
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from ultimate_ai_agent.core.remote_workers.enums import RemoteTransportKind, RemoteTransportStatus
+from ultimate_ai_agent.core.remote_workers.enums import PrivateMeshProviderKind, RemoteTransportKind, RemoteTransportStatus
 from ultimate_ai_agent.core.remote_workers.validation import assert_remote_secret_clean
 from ultimate_ai_agent.core.time import utc_now
 
@@ -11,6 +11,7 @@ from ultimate_ai_agent.core.time import utc_now
 class RemoteTransportDescriptor(BaseModel):
     transport_id: str = Field(..., min_length=1)
     kind: RemoteTransportKind
+    provider_kind: PrivateMeshProviderKind = PrivateMeshProviderKind.none
     status: RemoteTransportStatus = RemoteTransportStatus.disabled
     display_name: str = Field(..., min_length=1)
     description: str = Field(..., min_length=1)
@@ -34,4 +35,3 @@ class RemoteTransportDescriptor(BaseModel):
     def descriptor_must_be_safe(self):
         assert_remote_secret_clean(self.model_dump(mode="json"), "Remote transport descriptor")
         return self
-

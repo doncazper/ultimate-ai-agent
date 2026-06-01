@@ -4,6 +4,7 @@ from tests.m7_helpers import actor
 from ultimate_ai_agent.core.remote_workers import (
     NodeCapabilitySet,
     NodeIdentity,
+    PrivateMeshProviderKind,
     RemoteAuditContext,
     RemoteExecutionPolicy,
     RemoteJobEnvelope,
@@ -11,6 +12,7 @@ from ultimate_ai_agent.core.remote_workers import (
     RemoteNodeRegistry,
     RemoteNodeStatus,
     RemoteRiskLevel,
+    RemoteTransportSelectionPolicy,
     default_remote_transport_registry,
     evaluate_remote_job_policy,
 )
@@ -78,6 +80,20 @@ def test_remote_policy_rejects_both_unsupported_enable_flags_safely():
     message = str(excinfo.value)
     assert "REMOTE_TAILNET_NOT_SUPPORTED_IN_M10_5" in message
     assert "REMOTE_PERSONAL_DATA_NOT_SUPPORTED_IN_M10_5" in message
+
+
+def test_remote_transport_selection_policy_is_open_source_first_and_planned_only():
+    policy = RemoteTransportSelectionPolicy(policy_id="mesh_selection")
+
+    assert policy.prefer_open_source_first is True
+    assert policy.prefer_self_hosted_control_plane is True
+    assert policy.allow_proprietary_control_plane is False
+    assert policy.require_explicit_approval_for_proprietary_control_plane is True
+    assert policy.allowed_provider_kinds[:2] == [
+        PrivateMeshProviderKind.headscale_planned,
+        PrivateMeshProviderKind.generic_wireguard_planned,
+    ]
+    assert PrivateMeshProviderKind.tailscale_planned in policy.blocked_provider_kinds
 
 
 def test_remote_policy_denies_risky_capabilities_even_when_flagged_on():

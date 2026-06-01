@@ -65,6 +65,6 @@ M10.5 remote worker foundation route group:
 - `/remote-workers/tailnet/status`
 - `/remote-workers/mesh/status`
 
-These routes validate remote worker metadata, return static planned status, or produce dry-run-only results. They never dispatch jobs, call live networking, call private transport services, start listeners, launch remote subagents, execute tools, transfer files, perform write/send behavior, or approve actions. Unsupported `remote_tailnet_enabled=true` and `remote_personal_data_enabled=true` policy inputs are rejected, and remote-worker API wrapper payloads reject unexpected top-level fields.
+These routes validate remote worker metadata, return static planned status, or produce dry-run-only results. They never dispatch jobs, call live networking, call private transport services, start listeners, launch remote subagents, execute tools, transfer files, perform write/send behavior, or approve actions. v0.14.3 route metadata treats Headscale, generic WireGuard, Tailscale, private mesh, tailnet, and LAN as planned/disabled metadata only; no connect, login, config, dispatch, or execute endpoint exists.
 
 Invalid payload responses are sanitized and must not include raw invalid input values.

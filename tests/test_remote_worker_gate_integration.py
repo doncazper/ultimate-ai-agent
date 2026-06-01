@@ -19,6 +19,9 @@ def test_m105_gate_criteria_pass_on_current_repo():
         "m105_remote_tailnet_enable_flag_rejected",
         "m105_remote_personal_data_enable_flag_rejected",
         "m105_remote_worker_api_extra_fields_forbidden",
+        "m143_private_mesh_taxonomy_open_source_first",
+        "m143_planned_mesh_transports_disabled",
+        "m143_no_live_mesh_integrations",
     ]
     for criterion_id in expected:
         assert criterion_id in results

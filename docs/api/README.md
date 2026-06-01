@@ -1,6 +1,6 @@
 # API Boundary
 
-The v0.14.2 API boundary is metadata-first, validation-first, approval-aware for local/dev policy checks, and simulated/fallback-first for model runtime behavior. It publishes the current OpenAPI schema and `/api/manifest` route inventory without adding cloud model calls, provider SDK calls, web fetching, browser automation, tokenizers, billing APIs, production auth, OAuth, or production persistence.
+The v0.14.3 API boundary is metadata-first, validation-first, approval-aware for local/dev policy checks, and simulated/fallback-first for model runtime behavior. It publishes the current OpenAPI schema and `/api/manifest` route inventory without adding cloud model calls, provider SDK calls, web fetching, browser automation, tokenizers, billing APIs, production auth, OAuth, private mesh networking, or production persistence.
 
 Use:
 
@@ -19,6 +19,6 @@ M9 adds `/model-runtime/local/*` validation and simulated fallback routes for lo
 
 M10 adds `/model-runtime/local/smoke/validate` for validation-only manual smoke readiness checks. The public API does not expose `/model-runtime/local/smoke/execute` or any other route that sends HTTP requests. The manual smoke script remains CLI-only, disabled by default, approval-gated, loopback-only, and fixed-prompt-only.
 
-M10.5 adds `/remote-workers/*` validation, status, and dry-run routes for remote worker foundation metadata only. These routes do not dispatch jobs, open network connections, call private transport services, start listeners, launch remote subagents, execute remote tools, transfer files, approve actions, or perform write/send behavior. v0.14.2 hardens this boundary so unsupported `remote_tailnet_enabled=true` and `remote_personal_data_enabled=true` policy inputs are rejected, and remote-worker API wrapper payloads reject unexpected top-level fields.
+M10.5 adds `/remote-workers/*` validation, status, and dry-run routes for remote worker foundation metadata only. These routes do not dispatch jobs, open network connections, call private transport services, start listeners, launch remote subagents, execute remote tools, transfer files, approve actions, or perform write/send behavior. v0.14.3 keeps private mesh/tailnet taxonomy vendor-neutral and open-source-first: Headscale, generic WireGuard, Tailscale, private mesh, tailnet, and LAN transports are planned/disabled metadata only.
 
 API validation errors are sanitized before they are returned. FastAPI/Pydantic validation failures must not echo raw invalid input values or secret-like field values.

@@ -21,3 +21,5 @@ No remote approvals exist in this milestone.
 Remote nodes cannot approve their own actions, cannot approve user approvals, and cannot convert credentials into consent. Unknown nodes are denied.
 
 v0.14.2 rejects `remote_personal_data_enabled=true` as unsupported in M10.5. Remote personal-data access remains disabled, and remote-worker policy validation must not imply that personal-data capability is available.
+
+v0.14.3 private mesh taxonomy does not change node authority. Remote nodes cannot claim Headscale, Tailscale, WireGuard, host, address, key, credential, or tailnet metadata as authority. Future remote HIGH/CRITICAL work must create local approval requests rather than remote approvals.

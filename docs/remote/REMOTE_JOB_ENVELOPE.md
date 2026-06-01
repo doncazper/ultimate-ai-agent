@@ -15,3 +15,4 @@ Dry-run results must report:
 - network_connections_opened=[]
 - output_trust_level=untrusted_remote_output
 
+v0.14.3 private mesh metadata does not change the envelope. Remote job envelopes must not carry Headscale, Tailscale, WireGuard, host, address, node key, auth key, token, OAuth, credential, tailnet name, raw file, personal data, or executable payload fields.

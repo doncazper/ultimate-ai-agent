@@ -1,6 +1,7 @@
 from ultimate_ai_agent.core.remote_workers.audit import RemoteAuditContext
 from ultimate_ai_agent.core.remote_workers.dry_run import RemoteDryRunBuilder
 from ultimate_ai_agent.core.remote_workers.enums import (
+    PrivateMeshProviderKind,
     RemoteJobStatus,
     RemoteNodeStatus,
     RemoteOutputTrustLevel,
@@ -10,7 +11,7 @@ from ultimate_ai_agent.core.remote_workers.enums import (
 )
 from ultimate_ai_agent.core.remote_workers.jobs import RemoteJobEnvelope
 from ultimate_ai_agent.core.remote_workers.nodes import NodeCapabilitySet, NodeIdentity, RemoteNode
-from ultimate_ai_agent.core.remote_workers.policy import RemoteExecutionPolicy, evaluate_remote_job_policy
+from ultimate_ai_agent.core.remote_workers.policy import RemoteExecutionPolicy, RemoteTransportSelectionPolicy, evaluate_remote_job_policy
 from ultimate_ai_agent.core.remote_workers.registry import (
     RemoteNodeRegistry,
     RemoteTransportRegistry,
@@ -25,6 +26,7 @@ from ultimate_ai_agent.core.remote_workers.validation import assert_remote_secre
 __all__ = [
     "NodeCapabilitySet",
     "NodeIdentity",
+    "PrivateMeshProviderKind",
     "RemoteAuditContext",
     "RemoteDryRunBuilder",
     "RemoteExecutionPolicy",
@@ -40,10 +42,10 @@ __all__ = [
     "RemoteTransportDescriptor",
     "RemoteTransportKind",
     "RemoteTransportRegistry",
+    "RemoteTransportSelectionPolicy",
     "RemoteTransportStatus",
     "assert_remote_secret_clean",
     "default_remote_node_registry",
     "default_remote_transport_registry",
     "evaluate_remote_job_policy",
 ]
-

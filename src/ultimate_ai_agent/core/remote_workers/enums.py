@@ -5,8 +5,20 @@ class RemoteTransportKind(str, Enum):
     local = "local"
     mock = "mock"
     manual = "manual"
+    private_mesh_planned = "private_mesh_planned"
+    headscale_planned = "headscale_planned"
     tailnet_planned = "tailnet_planned"
+    tailscale_planned = "tailscale_planned"
+    generic_wireguard_planned = "generic_wireguard_planned"
     lan_planned = "lan_planned"
+
+
+class PrivateMeshProviderKind(str, Enum):
+    none = "none"
+    headscale_planned = "headscale_planned"
+    generic_wireguard_planned = "generic_wireguard_planned"
+    tailscale_planned = "tailscale_planned"
+    manual_lan_planned = "manual_lan_planned"
 
 
 class RemoteTransportStatus(str, Enum):
@@ -48,4 +60,3 @@ class RemoteRiskLevel(str, Enum):
     high = "high"
     critical = "critical"
     forbidden = "forbidden"
-

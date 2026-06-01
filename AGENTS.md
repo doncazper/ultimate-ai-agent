@@ -1,6 +1,6 @@
 # Ultimate AI Agent Workspace Standards
 
-Active baseline: v0.14.2.
+Active baseline: v0.14.3.
 
 This repository is the Ultimate AI Agent foundation workspace. Treat it as a contract-first Python core, not a production runtime integration layer.
 
@@ -17,7 +17,7 @@ This repository is the Ultimate AI Agent foundation workspace. Treat it as a con
 - M9 local loopback runtime support is dev-only, loopback-only, approval-gated, and must default to validation or simulated fallback. Caller policy cannot disable the loopback-only guard or use allowed host lists to authorize remote hosts; hostile policy inputs should fail validation before adapter execution. Tests and Foundation Gate must use fake transport and must not make real network/model calls.
 - M10 manual local loopback smoke support is manual-only, disabled by default, approval-gated, loopback-only, and restricted to a fixed non-sensitive smoke prompt. Do not pass user prompts, files, memory, context packs, secrets, or task content into smoke execution. Do not add a public smoke execute API route.
 - M10.5 remote worker support is foundation-only, disabled by default, mock/local metadata only, and dry-run only. Do not add live mesh networking, tailnet execution, listeners, network calls, job dispatch, remote subagents, remote Tool Broker execution, remote approvals, personal-data access, write/send actions, critical remote work, background services, or private transport configuration.
-- v0.14.2 hardens M10.5 policy contracts: do not accept `remote_tailnet_enabled=true` or `remote_personal_data_enabled=true` as supported policy, and keep remote-worker API wrappers extra-forbid.
+- v0.14.3 keeps private mesh/tailnet terms vendor-neutral and open-source-first. Headscale, generic WireGuard, Tailscale, private mesh, tailnet, and LAN transports are planned/disabled metadata only. Do not install, call, configure, or integrate Headscale, Tailscale, tailscaled, WireGuard, or `wg`; do not commit tailnet names, hostnames, private IPs, node keys, auth keys, OAuth data, credentials, or tokens.
 - API validation errors must be sanitized and must never echo raw invalid input values or secret-like field values.
 
 ## Workspace

@@ -129,6 +129,9 @@ class FoundationGateEvaluator:
             "m105_remote_tailnet_enable_flag_rejected": self.check_m105_remote_tailnet_enable_flag_rejected,
             "m105_remote_personal_data_enable_flag_rejected": self.check_m105_remote_personal_data_enable_flag_rejected,
             "m105_remote_worker_api_extra_fields_forbidden": self.check_m105_remote_worker_api_extra_fields_forbidden,
+            "m143_private_mesh_taxonomy_open_source_first": self.check_m143_private_mesh_taxonomy_open_source_first,
+            "m143_planned_mesh_transports_disabled": self.check_m143_planned_mesh_transports_disabled,
+            "m143_no_live_mesh_integrations": self.check_m143_no_live_mesh_integrations,
         }
         results = [
             evaluator_map.get(criterion.criterion_id, self._skipped)(criterion)
@@ -1673,6 +1676,114 @@ class FoundationGateEvaluator:
         if "api_key" in response.text or "sk_secret_value_123456" in response.text:
             failures.append("extra top-level secret-like field leaked in validation response")
         return self._result(criterion, failures, ["src/ultimate_ai_agent/api/app.py"])
+
+    def check_m143_private_mesh_taxonomy_open_source_first(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        from ultimate_ai_agent.core.remote_workers import (
+            PrivateMeshProviderKind,
+            RemoteTransportSelectionPolicy,
+            default_remote_transport_registry,
+        )
+
+        policy = RemoteTransportSelectionPolicy(policy_id="m143_private_mesh_policy")
+        registry = default_remote_transport_registry()
+        failures = []
+        for transport_id in ["headscale_planned", "generic_wireguard_planned", "tailscale_planned", "private_mesh_planned"]:
+            if registry.get_transport(transport_id) is None:
+                failures.append(f"{transport_id} missing")
+        if policy.prefer_open_source_first is not True:
+            failures.append("open-source-first preference disabled")
+        if policy.prefer_self_hosted_control_plane is not True:
+            failures.append("self-hosted control-plane preference disabled")
+        if policy.allow_proprietary_control_plane:
+            failures.append("proprietary control plane allowed by default")
+        if policy.allowed_provider_kinds[:2] != [
+            PrivateMeshProviderKind.headscale_planned,
+            PrivateMeshProviderKind.generic_wireguard_planned,
+        ]:
+            failures.append("planned provider order does not evaluate Headscale and generic WireGuard first")
+        if PrivateMeshProviderKind.tailscale_planned not in policy.blocked_provider_kinds:
+            failures.append("Tailscale planned provider was not blocked by default")
+        docs = [
+            "docs/remote/PRIVATE_MESH_TRANSPORT_POLICY.md",
+            "docs/remote/TAILNET_TRANSPORT_POLICY.md",
+            "docs/decisions/ADR-open-source-first-private-networking.md",
+            "docs/release_notes/v0_14_3.md",
+        ]
+        required_phrases = ["open-source-first", "Headscale", "generic WireGuard", "Tailscale", "planned"]
+        for rel_path in docs:
+            source = self._read(self.root / rel_path)
+            if not source:
+                failures.append(f"missing {rel_path}")
+                continue
+            for phrase in required_phrases:
+                if phrase.lower() not in source.lower():
+                    failures.append(f"{rel_path} missing phrase: {phrase}")
+        return self._result(criterion, failures, ["src/ultimate_ai_agent/core/remote_workers", *docs])
+
+    def check_m143_planned_mesh_transports_disabled(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        from ultimate_ai_agent.core.remote_workers import default_remote_transport_registry
+
+        registry = default_remote_transport_registry()
+        failures = []
+        for transport_id in ["private_mesh_planned", "headscale_planned", "generic_wireguard_planned", "tailscale_planned", "tailnet_planned", "lan_planned"]:
+            descriptor = registry.get_transport(transport_id)
+            decision = registry.validate_transport(transport_id)
+            if descriptor is None:
+                failures.append(f"{transport_id} missing")
+                continue
+            if descriptor.enabled:
+                failures.append(f"{transport_id} enabled")
+            if descriptor.requires_network:
+                failures.append(f"{transport_id} requires network")
+            if descriptor.requires_credentials:
+                failures.append(f"{transport_id} requires credentials")
+            if descriptor.supports_dispatch:
+                failures.append(f"{transport_id} supports dispatch")
+            if decision.allowed:
+                failures.append(f"{transport_id} allowed")
+        return self._result(criterion, failures, ["src/ultimate_ai_agent/core/remote_workers/registry.py"])
+
+    def check_m143_no_live_mesh_integrations(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        failures = []
+        forbidden_runtime_fragments = [
+            "tailscaled",
+            "tailscale.",
+            "tailscale(",
+            "headscale.",
+            "headscale(",
+            "wireguard.",
+            "wireguard(",
+            "wg ",
+            "wg-quick",
+            "serve",
+            "funnel",
+            "urlopen",
+            "socket.",
+            "dispatch_job(",
+            "execute_remote(",
+            "launch_subagent(",
+        ]
+        for path in (self.root / "src/ultimate_ai_agent/core/remote_workers").rglob("*.py"):
+            source = self._read(path).lower()
+            for fragment in forbidden_runtime_fragments:
+                if fragment in source:
+                    failures.append(f"{path.relative_to(self.root)} contains live mesh fragment: {fragment}")
+        docs_to_scan = [
+            self.root / "docs/remote",
+            self.root / "docs/decisions",
+            self.root / "docs/release_notes",
+            self.root / "docs/implementation",
+        ]
+        tracked = "\n".join(self._read(path) for path in (self.root / "src/ultimate_ai_agent/core/remote_workers").rglob("*.py"))
+        for doc_root in docs_to_scan:
+            tracked += "\n" + "\n".join(self._read(path) for path in doc_root.rglob("*.md"))
+        private_ip = re.compile(r"\b(?:10\.\d{1,3}\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|172\.(?:1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3})\b")
+        if private_ip.search(tracked):
+            failures.append("private IP literal found in runtime/docs")
+        for forbidden_secretish in ["authkey-", "nodekey:", "tailnet name:", "oauth_client_secret"]:
+            if forbidden_secretish in tracked.lower():
+                failures.append(f"secret/private mesh config marker found: {forbidden_secretish}")
+        return self._result(criterion, failures, ["src/ultimate_ai_agent/core/remote_workers", "docs/remote"])
 
     def _skipped(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
         return FoundationGateResult(
