@@ -1,6 +1,6 @@
 # Manual Smoke Reports
 
-Status: Active M11 validation contract, v0.15.0
+Status: Active M11 validation contract, v0.15.1
 
 Manual smoke reports are safe summaries of a manual local loopback smoke attempt. They are not raw transcripts, not prompt logs, not model evidence, and not production readiness proof.
 
@@ -27,5 +27,8 @@ Rejected report content includes:
 - mobile sensor claims.
 - plugin/native build enablement claims.
 - authoritative model-output claims.
+- production runtime, production readiness, production evidence, real runtime origin, or real model output claims.
 
 Validation responses must be safe reason codes and messages only. They must not echo secrets, prompts, or raw response bodies.
+
+`fake_manual_loopback_smoke` is an allowed fake/test origin used by tests, gates, and validation examples. It is not a live runtime origin, not production evidence, and not proof that a real model/provider/runtime was called.

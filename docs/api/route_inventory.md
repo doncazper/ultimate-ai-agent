@@ -14,7 +14,7 @@ Each route declares:
 - `requires_auth_future`
 - `blocked_from_production`
 
-Allowed side-effect classes in v0.15.0 are:
+Allowed side-effect classes in v0.15.1 are:
 
 - `none`
 - `validation_only`
@@ -88,4 +88,4 @@ M11 runtime readiness route group:
 
 These routes expose readiness metadata, capability matrix metadata, and manual smoke report validation only. They do not execute runtimes, run manual smoke, connect to a mesh, dispatch workers, enable plugins, launch native builds, inspect live Codex tools, or claim production readiness.
 
-v0.14.5 documentation integrity adds no route. v0.14.6 Codex plugin governance adds no route and no plugin enablement endpoint. v0.15.0 adds exactly the three M11 runtime readiness status/validation routes.
+v0.14.5 documentation integrity adds no route. v0.14.6 Codex plugin governance adds no route and no plugin enablement endpoint. v0.15.0 adds exactly the three M11 runtime readiness status/validation routes. v0.15.1 adds no route and only clarifies runtime readiness taxonomy.

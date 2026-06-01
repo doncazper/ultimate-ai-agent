@@ -1,6 +1,6 @@
 # Ultimate AI Agent Workspace Standards
 
-Active baseline: v0.15.0.
+Active baseline: v0.15.1.
 
 This repository is the Ultimate AI Agent foundation workspace. Treat it as a contract-first Python core, not a production runtime integration layer.
 
@@ -22,6 +22,7 @@ This repository is the Ultimate AI Agent foundation workspace. Treat it as a con
 - v0.14.5 documentation integrity work may update docs, release notes, verifier scripts, and gate documentation checks only. Keep active docs aligned with `VERSION.md`, `pyproject.toml`, package `__version__`, README import docs, release notes, API docs, roadmap, and Foundation Gate plan.
 - v0.14.6 Codex plugin governance work is docs/policy-only. Do not enable plugins, install plugins, configure plugins, add plugin marketplace/install behavior, run iOS/macOS builds, run Xcode, run simulators, access keychains/signing identities/provisioning profiles/App Store Connect, use Chrome authenticated profile control, use Computer Use automation, run Hugging Face jobs/uploads/training, or add dependencies/runtime capability. Browser + Build Web Apps are the future Web Control Center boundary with approval only. CodeRabbit/GitHub read-only review may be used for release readiness with explicit review prompts; GitHub write/release actions require direct approval or direct-push rules.
 - v0.15.0 runtime readiness work is report/validation/status-only. Do not turn readiness reports, capability matrix entries, manual smoke reports, or runtime API status routes into execution authority. Do not add execute/run/connect/dispatch/provider/plugin-enable/mobile-sensor/native-build routes. Manual smoke reports are not production readiness evidence, and model output is not truth authority.
+- v0.15.1 is a taxonomy clarification patch only. `local_loopback_policy` means supported validation-only policy, not runtime execution readiness. `fake_manual_loopback_smoke` means fake/test report origin only, not production smoke evidence.
 - API validation errors must be sanitized and must never echo raw invalid input values or secret-like field values.
 
 ## Workspace

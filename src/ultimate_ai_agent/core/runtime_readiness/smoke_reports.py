@@ -20,6 +20,13 @@ REMOTE_EXECUTION_MARKERS = ("remote execution", "remote dispatch", "worker execu
 LIVE_MESH_MARKERS = ("live tailnet", "live mesh", "headscale", "tailscale", "wireguard connected", "node key")
 MOBILE_SENSOR_MARKERS = ("mobile camera", "microphone", "gps", "location sensor", "photos access", "contacts access")
 PLUGIN_BUILD_MARKERS = ("plugin enabled", "build plugin enabled", "xcode build", "simulator run", "computer use enabled")
+PRODUCTION_RUNTIME_MARKERS = (
+    "production runtime",
+    "production readiness",
+    "production evidence",
+    "real runtime origin",
+    "real model output",
+)
 
 
 class ManualSmokeReport(BaseModel):
@@ -144,6 +151,8 @@ def _claim_reasons(text: str) -> list[str]:
         reasons.append("MOBILE_SENSOR_CLAIM_REJECTED")
     if any(marker in lowered for marker in PLUGIN_BUILD_MARKERS):
         reasons.append("PLUGIN_OR_BUILD_TOOL_CLAIM_REJECTED")
+    if any(marker in lowered for marker in PRODUCTION_RUNTIME_MARKERS):
+        reasons.append("PRODUCTION_RUNTIME_CLAIM_REJECTED")
     return reasons
 
 

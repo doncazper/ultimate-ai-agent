@@ -1,12 +1,12 @@
-# Ultimate AI Agent Canonical Bundle v0.15.0
+# Ultimate AI Agent Canonical Bundle v0.15.1
 
-This is the active project baseline after the v0.15.0 M11 runtime foundation readiness and manual smoke report validation milestone.
+This is the active project baseline after the v0.15.1 M11 runtime readiness taxonomy clarification patch.
 
 Start here:
 
 ```text
-README_IMPORT_v0_15_0.md
-ultimate_ai_agent_master_plan_v0_15_0.md
+README_IMPORT_v0_15_1.md
+ultimate_ai_agent_master_plan_v0_15_1.md
 docs/DOCUMENTATION_INDEX.md
 docs/canonical/09_roadmap.md
 docs/canonical/CANONICAL_DOC_MAP.md
@@ -27,7 +27,7 @@ docs/runtime/RUNTIME_READINESS.md
 docs/runtime/MANUAL_SMOKE_REPORTS.md
 docs/runtime/RUNTIME_CAPABILITY_MATRIX.md
 docs/security/approval_authority.md
-docs/implementation/foundation_gate_implementation_plan_v0_15_0.md
+docs/implementation/foundation_gate_implementation_plan_v0_15_1.md
 docs/maintenance/documentation_integrity_checklist.md
 docs/tooling/CODEX_PLUGIN_CAPABILITY_INVENTORY.md
 docs/tooling/CODEX_PLUGIN_RISK_POLICY.md
@@ -69,3 +69,7 @@ Codex plugin governance rule:
 Runtime readiness rule:
 
 > v0.15.0 adds M11 runtime readiness reports, a deterministic capability matrix, manual smoke report validation, three runtime status/validation API routes, and Foundation Gate coverage. It does not add runtime execution, cloud/provider calls, remote execution, live private mesh/tailnet support, Headscale/Tailscale/WireGuard calls, mobile sensor access, plugin/tool enablement, native builds, browser automation, production persistence, or production readiness claims. Model output remains non-authoritative.
+
+Runtime taxonomy clarification rule:
+
+> v0.15.1 clarifies M11 terminology only. `local_loopback_policy` is a supported validation-only contract; real smoke execution remains manual-only, approval-gated, fixed-prompt-only, and non-authoritative. `fake_manual_loopback_smoke` is an allowed fake/test manual smoke report origin, not production evidence and not a live runtime origin. This patch adds no runtime execution, route, dependency, provider call, remote execution, mobile sensor access, plugin enablement, or production readiness claim.

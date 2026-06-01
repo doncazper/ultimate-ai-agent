@@ -1,6 +1,6 @@
 # Documentation Index
 
-Current active baseline: **v0.15.0**
+Current active baseline: **v0.15.1**
 
 This index is the active entrypoint for documentation navigation. Historical release documents remain in the repository for audit history, but active truth starts with the current baseline files listed here.
 
@@ -9,8 +9,8 @@ This index is the active entrypoint for documentation navigation. Historical rel
 ```text
 README.md
 VERSION.md
-README_IMPORT_v0_15_0.md
-ultimate_ai_agent_master_plan_v0_15_0.md
+README_IMPORT_v0_15_1.md
+ultimate_ai_agent_master_plan_v0_15_1.md
 docs/canonical/CANONICAL_DOC_MAP.md
 docs/canonical/09_roadmap.md
 docs/maintenance/documentation_integrity_checklist.md
@@ -56,7 +56,7 @@ docs/runtime/RUNTIME_CAPABILITY_MATRIX.md
 
 Model runtime docs distinguish simulated runtime behavior, dev/manual loopback readiness, fixed-prompt manual smoke, and non-authoritative model output. They do not describe general production model execution.
 
-M11 runtime readiness docs describe status/report validation only. They do not describe production runtime execution.
+M11 runtime readiness docs describe status/report validation only. They do not describe production runtime execution. v0.15.1 clarifies local loopback policy as supported validation-only and `fake_manual_loopback_smoke` as a fake/test report origin only.
 
 ## Active Remote Worker and Private Mesh Docs
 
@@ -125,7 +125,7 @@ The Codex plugin capability inventory and risk policy record available developme
 
 ## Release Notes Index
 
-Current release notes: `docs/release_notes/v0_14_6.md`
+Current release notes: `docs/release_notes/v0_15_1.md`
 
 Historical release notes remain under `docs/release_notes/`. Historical docs may mention old active baselines in historical context; they are not the current source of truth.
 

@@ -91,10 +91,23 @@ def build_matrix(baseline_version: str | None = None) -> RuntimeCapabilityMatrix
             RuntimeSurface.local_loopback_policy,
             RuntimeCapabilityStatus.supported,
             RuntimeRiskClass.medium,
-            "Local loopback policy validates endpoint safety without performing runtime execution.",
+            "Supported validation-only contract for local loopback endpoint policy; real smoke execution remains "
+            "manual-only, approval-gated, fixed-prompt-only, and non-authoritative.",
             ["validate loopback endpoint policy"],
-            ["non-loopback endpoints", "URL credentials", "secret query strings"],
+            [
+                "non-loopback endpoints",
+                "URL credentials",
+                "secret query strings",
+                "automated smoke execution",
+                "production runtime readiness claims",
+            ],
             ["src/ultimate_ai_agent/core/model_runtime/loopback.py"],
+            metadata={
+                "validation_only_contract": True,
+                "real_smoke_execution": "manual_only",
+                "approval_gated": True,
+                "production_runtime_ready": False,
+            },
         ),
         _entry(
             RuntimeSurface.manual_loopback_smoke,

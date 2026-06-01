@@ -52,6 +52,7 @@ def test_safe_manual_smoke_report_is_accepted():
         ({"metadata": {"claim": "live tailnet headscale wireguard connected"}}, "LIVE_MESH_CLAIM_REJECTED"),
         ({"metadata": {"claim": "mobile camera sensor enabled"}}, "MOBILE_SENSOR_CLAIM_REJECTED"),
         ({"metadata": {"claim": "xcode build plugin enabled"}}, "PLUGIN_OR_BUILD_TOOL_CLAIM_REJECTED"),
+        ({"metadata": {"claim": "production runtime evidence from fake origin"}}, "PRODUCTION_RUNTIME_CLAIM_REJECTED"),
         ({"model_output_authoritative": True}, "MODEL_OUTPUT_AUTHORITY_REJECTED"),
     ],
 )
@@ -72,3 +73,10 @@ def test_manual_smoke_report_forbids_raw_prompt_and_full_body_fields():
     )
     assert validation.allowed is False
     assert "REPORT_SCHEMA_INVALID" in validation.reason_codes
+
+
+def test_manual_smoke_report_rejects_unknown_response_origin():
+    validation = validate_manual_smoke_report(safe_report_payload(response_origin="production_model_runtime"))
+
+    assert validation.allowed is False
+    assert "SMOKE_RESPONSE_ORIGIN_NOT_ALLOWED" in validation.reason_codes

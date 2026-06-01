@@ -1,6 +1,6 @@
 # Runtime Capability Matrix
 
-Status: Active M11 matrix contract, v0.15.0
+Status: Active M11 matrix contract, v0.15.1
 
 The runtime capability matrix is a deterministic typed contract. It records what the current baseline can validate and what remains blocked, planned-disabled, manual-only, simulated-only, or dry-run-only.
 
@@ -9,7 +9,7 @@ Required M11 statuses:
 | Surface | Status |
 |---|---|
 | simulated model runtime | simulated_only |
-| local loopback policy | supported validation only |
+| local loopback policy | supported validation-only contract; real smoke execution remains manual-only, approval-gated, fixed-prompt-only, and non-authoritative |
 | manual loopback smoke | manual_only |
 | remote worker foundation | dry_run_only |
 | private mesh planned | planned_disabled |
@@ -30,3 +30,5 @@ Every entry must keep:
 - Foundation Gate coverage enabled
 
 The matrix is not a runtime dispatcher and does not inspect live Codex tools, keychains, provider credentials, remote hosts, local runtimes, mobile devices, or network state.
+
+v0.15.1 keeps the `local_loopback_policy` status as `supported` because policy validation is implemented. That status must not be read as readiness for automated smoke execution, production runtime execution, provider calls, or evidence authority.

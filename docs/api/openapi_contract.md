@@ -1,6 +1,6 @@
 # OpenAPI Contract
 
-v0.15.0 preserves the FastAPI OpenAPI boundary and documents the current route contract without adding public real execution routes.
+v0.15.1 preserves the FastAPI OpenAPI boundary and documents the current route contract without adding public real execution routes.
 
 Contract rules:
 
@@ -16,6 +16,7 @@ Contract rules:
 - v0.14.5 documentation integrity adds no API route.
 - v0.14.6 Codex plugin governance adds no API route and no plugin enablement route.
 - v0.15.0 runtime readiness adds three status/validation routes only and no execute, run, connect, dispatch, provider-call, plugin-enable, native-build, or smoke-execute route.
+- v0.15.1 adds no route and only clarifies runtime readiness taxonomy.
 
 Verification:
 
@@ -27,7 +28,7 @@ Export:
 
 ```bash
 python scripts/export_openapi.py
-python scripts/export_openapi.py --output docs/api/openapi_v0_15_0.json
+python scripts/export_openapi.py --output docs/api/openapi_v0_15_1.json
 ```
 
 The second command is only for intentional versioned snapshots.
