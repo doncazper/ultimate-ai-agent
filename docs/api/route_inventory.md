@@ -14,7 +14,7 @@ Each route declares:
 - `requires_auth_future`
 - `blocked_from_production`
 
-Allowed side-effect classes in v0.14.0 are:
+Allowed side-effect classes in v0.14.1 are:
 
 - `none`
 - `validation_only`
@@ -53,5 +53,18 @@ M10 manual smoke validation route:
 - `/model-runtime/local/smoke/validate`
 
 This route validates manual smoke readiness only. It never sends HTTP requests and there is no public smoke execute route.
+
+M10.5 remote worker foundation route group:
+
+- `/remote-workers/nodes/validate`
+- `/remote-workers/transports/validate`
+- `/remote-workers/policy/validate`
+- `/remote-workers/jobs/validate`
+- `/remote-workers/dry-run`
+- `/remote-workers/status`
+- `/remote-workers/tailnet/status`
+- `/remote-workers/mesh/status`
+
+These routes validate remote worker metadata, return static planned status, or produce dry-run-only results. They never dispatch jobs, call live networking, call private transport services, start listeners, launch remote subagents, execute tools, transfer files, perform write/send behavior, or approve actions.
 
 Invalid payload responses are sanitized and must not include raw invalid input values.

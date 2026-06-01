@@ -12,6 +12,7 @@ CAPABILITIES_DECLARED = [
     "foundation_gate_reporting",
     "local_dev_approval_validation",
     "manual_local_loopback_smoke_validation",
+    "remote_worker_foundation_dry_run",
 ]
 
 CAPABILITIES_BLOCKED = [
@@ -38,6 +39,7 @@ ROUTE_GROUPS_BY_PREFIX = {
     "/adapter-manifest": "adapter-boundary",
     "/models": "model-router",
     "/model-runtime": "model-runtime",
+    "/remote-workers": "remote-workers",
     "/costs": "cost-governor",
     "/gate": "foundation-gate",
     "/approvals": "approval-authority",

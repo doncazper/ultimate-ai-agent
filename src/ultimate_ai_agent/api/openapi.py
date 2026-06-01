@@ -20,6 +20,9 @@ FORBIDDEN_ROUTE_FRAGMENTS = [
     "/runtime/config/load",
     "/model-runtime/local/execute",
     "/model-runtime/local/smoke/execute",
+    "/remote-workers/dispatch",
+    "/remote-workers/execute",
+    "/remote-workers/subagents/launch",
 ]
 
 

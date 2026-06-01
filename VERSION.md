@@ -1,5 +1,5 @@
 # Ultimate AI Agent Version
 
-Current active baseline: **v0.14.0**
+Current active baseline: **v0.14.1**
 
-v0.14.0 implements M10 Manual Local Loopback Smoke Transport + Runtime Readiness Harness. It adds a manual-only, approval-gated, loopback-only smoke transport and script using fixed non-sensitive prompts, fake-transport test coverage, and Foundation Gate checks proving no cloud/provider/tokenizer/billing/external execution or public runtime execute API exists.
+v0.14.1 implements M10.5 Remote Worker and Tailnet Transport Foundation. It adds disabled-by-default remote worker schemas, planned tailnet/LAN transport metadata, mock/local-only registries, remote job envelope/result contracts, dry-run-only remote job validation, remote worker API status/dry-run endpoints, and Foundation Gate checks proving no listener, network call, Tailscale call, job dispatch, remote subagent launch, remote tool execution, personal-data access, write/send action, remote approval, or background service exists.

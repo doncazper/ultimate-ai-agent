@@ -116,6 +116,16 @@ class FoundationGateEvaluator:
             "m10_fixed_prompt_and_loopback_policy_enforced": self.check_m10_fixed_prompt_and_loopback_policy_enforced,
             "m10_smoke_approval_required": self.check_m10_smoke_approval_required,
             "m10_smoke_response_not_truth_authority": self.check_m10_smoke_response_not_truth_authority,
+            "m105_remote_worker_files_present": self.check_m105_remote_worker_files_present,
+            "m105_remote_capabilities_default_safe": self.check_m105_remote_capabilities_default_safe,
+            "m105_unknown_node_and_transport_denied": self.check_m105_unknown_node_and_transport_denied,
+            "m105_planned_transports_disabled": self.check_m105_planned_transports_disabled,
+            "m105_dry_run_dispatches_nothing": self.check_m105_dry_run_dispatches_nothing,
+            "m105_no_remote_network_or_background_execution": self.check_m105_no_remote_network_or_background_execution,
+            "m105_no_remote_subagents_tools_or_approvals": self.check_m105_no_remote_subagents_tools_or_approvals,
+            "m105_remote_output_untrusted": self.check_m105_remote_output_untrusted,
+            "m105_api_routes_are_dry_run_only": self.check_m105_api_routes_are_dry_run_only,
+            "m105_docs_foundation_only": self.check_m105_docs_foundation_only,
         }
         results = [
             evaluator_map.get(criterion.criterion_id, self._skipped)(criterion)
@@ -1404,6 +1414,219 @@ class FoundationGateEvaluator:
             failures.append("gate did not use fake manual smoke transport")
         return self._result(criterion, failures, ["src/ultimate_ai_agent/core/model_runtime/smoke.py"])
 
+    def check_m105_remote_worker_files_present(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        required = [
+            "src/ultimate_ai_agent/core/remote_workers/__init__.py",
+            "src/ultimate_ai_agent/core/remote_workers/enums.py",
+            "src/ultimate_ai_agent/core/remote_workers/nodes.py",
+            "src/ultimate_ai_agent/core/remote_workers/transports.py",
+            "src/ultimate_ai_agent/core/remote_workers/registry.py",
+            "src/ultimate_ai_agent/core/remote_workers/policy.py",
+            "src/ultimate_ai_agent/core/remote_workers/jobs.py",
+            "src/ultimate_ai_agent/core/remote_workers/results.py",
+            "src/ultimate_ai_agent/core/remote_workers/audit.py",
+            "src/ultimate_ai_agent/core/remote_workers/status.py",
+            "src/ultimate_ai_agent/core/remote_workers/validation.py",
+            "src/ultimate_ai_agent/core/remote_workers/dry_run.py",
+            "tests/test_remote_worker_models.py",
+            "tests/test_remote_worker_registry.py",
+            "tests/test_remote_worker_policy.py",
+            "tests/test_remote_worker_transports.py",
+            "tests/test_remote_worker_dry_run.py",
+            "tests/test_remote_worker_api_routes.py",
+            "tests/test_remote_worker_no_network.py",
+            "tests/test_remote_worker_gate_integration.py",
+        ]
+        failures = [f"missing {rel_path}" for rel_path in required if not (self.root / rel_path).exists()]
+        return self._result(criterion, failures, required)
+
+    def check_m105_remote_capabilities_default_safe(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        from ultimate_ai_agent.core.remote_workers import NodeCapabilitySet
+
+        capabilities = NodeCapabilitySet()
+        failures = []
+        for name, value in capabilities.model_dump().items():
+            if value is not False:
+                failures.append(f"{name} defaulted to {value}")
+        for field, value in {"can_approve_actions": True, "can_run_critical": True}.items():
+            try:
+                NodeCapabilitySet(**{field: value})
+                failures.append(f"{field} accepted true")
+            except ValueError:
+                pass
+        return self._result(criterion, failures, ["src/ultimate_ai_agent/core/remote_workers/nodes.py"])
+
+    def check_m105_unknown_node_and_transport_denied(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        from ultimate_ai_agent.core.remote_workers import RemoteNodeRegistry, RemoteTransportRegistry
+
+        node = RemoteNodeRegistry().validate_node("missing_node")
+        transport = RemoteTransportRegistry().validate_transport("missing_transport")
+        failures = []
+        if node.allowed or "REMOTE_NODE_UNKNOWN" not in node.reason_codes:
+            failures.append("unknown node was not denied")
+        if transport.allowed or "REMOTE_TRANSPORT_UNKNOWN" not in transport.reason_codes:
+            failures.append("unknown transport was not denied")
+        return self._result(criterion, failures, ["src/ultimate_ai_agent/core/remote_workers/registry.py"])
+
+    def check_m105_planned_transports_disabled(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        from ultimate_ai_agent.core.remote_workers import default_remote_transport_registry
+
+        registry = default_remote_transport_registry()
+        failures = []
+        for transport_id in ["tailnet_planned", "lan_planned"]:
+            descriptor = registry.get_transport(transport_id)
+            decision = registry.validate_transport(transport_id)
+            if descriptor is None:
+                failures.append(f"{transport_id} missing")
+                continue
+            if descriptor.enabled:
+                failures.append(f"{transport_id} enabled")
+            if decision.allowed:
+                failures.append(f"{transport_id} allowed")
+        return self._result(criterion, failures, ["src/ultimate_ai_agent/core/remote_workers/registry.py"])
+
+    def check_m105_dry_run_dispatches_nothing(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        from ultimate_ai_agent.core.remote_workers import (
+            RemoteDryRunBuilder,
+            RemoteExecutionPolicy,
+            default_remote_node_registry,
+            default_remote_transport_registry,
+        )
+
+        policy = RemoteExecutionPolicy(
+            policy_id="m105_gate_policy",
+            remote_workers_enabled=True,
+            remote_transports_enabled=True,
+            remote_accept_jobs=True,
+        )
+        envelope = RemoteDryRunBuilder().build_envelope(
+            task_summary="Validate remote worker dry-run metadata.",
+            node_id="mock_node",
+            transport_id="mock_metadata",
+            actor_context=self._actor(),
+            policy=policy,
+        )
+        result = RemoteDryRunBuilder().dry_run(envelope, default_remote_node_registry(), default_remote_transport_registry(), policy)
+        failures = []
+        if result.dispatch_performed:
+            failures.append("dry-run marked dispatch performed")
+        if result.remote_execution_performed:
+            failures.append("dry-run marked remote execution performed")
+        if result.subagent_launched:
+            failures.append("dry-run launched subagent")
+        if result.tools_executed:
+            failures.append("dry-run executed tools")
+        if result.network_connections_opened:
+            failures.append("dry-run opened network connections")
+        return self._result(criterion, failures, ["src/ultimate_ai_agent/core/remote_workers/dry_run.py"])
+
+    def check_m105_no_remote_network_or_background_execution(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        root = self.root / "src/ultimate_ai_agent/core/remote_workers"
+        forbidden_imports = {"socket", "subprocess", "threading", "asyncio", "requests", "httpx", "urllib"}
+        forbidden_fragments = ["Popen", "os.system", "Thread(", "urlopen", "dispatch_job(", "execute_remote(", "launch_subagent("]
+        failures = []
+        for path in root.rglob("*.py"):
+            source = self._read(path)
+            for line in source.splitlines():
+                stripped = line.strip()
+                if stripped.startswith("import ") or stripped.startswith("from "):
+                    if any(fragment in stripped for fragment in forbidden_imports):
+                        failures.append(f"{path.relative_to(self.root)} forbidden import: {stripped}")
+                if any(fragment in stripped for fragment in forbidden_fragments):
+                    failures.append(f"{path.relative_to(self.root)} forbidden fragment: {stripped}")
+        return self._result(criterion, failures, ["src/ultimate_ai_agent/core/remote_workers"])
+
+    def check_m105_no_remote_subagents_tools_or_approvals(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        from ultimate_ai_agent.core.remote_workers import RemoteExecutionPolicy, evaluate_remote_job_policy
+
+        failures = []
+        policy = RemoteExecutionPolicy(
+            policy_id="m105_gate_policy",
+            remote_workers_enabled=True,
+            remote_transports_enabled=True,
+            remote_accept_jobs=True,
+        )
+        for capability, reason in [
+            ("subagent", "REMOTE_SUBAGENT_DENIED"),
+            ("tools", "REMOTE_TOOL_EXECUTION_DENIED"),
+            ("approve", "REMOTE_APPROVAL_DENIED"),
+            ("personal_data", "REMOTE_PERSONAL_DATA_DENIED"),
+            ("write", "REMOTE_WRITE_DENIED"),
+            ("send", "REMOTE_SEND_DENIED"),
+        ]:
+            envelope = self._m105_remote_job(requested_capabilities=[capability])
+            decision = evaluate_remote_job_policy(envelope, self._m105_node_registry(), self._m105_transport_registry(), policy)
+            if decision.allowed or reason not in decision.reason_codes:
+                failures.append(f"{capability} not denied")
+        return self._result(criterion, failures, ["src/ultimate_ai_agent/core/remote_workers/policy.py"])
+
+    def check_m105_remote_output_untrusted(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        from ultimate_ai_agent.core.remote_workers import RemoteDryRunBuilder, RemoteExecutionPolicy, RemoteOutputTrustLevel
+
+        policy = RemoteExecutionPolicy(
+            policy_id="m105_gate_policy",
+            remote_workers_enabled=True,
+            remote_transports_enabled=True,
+            remote_accept_jobs=True,
+        )
+        result = RemoteDryRunBuilder().dry_run(
+            self._m105_remote_job(),
+            self._m105_node_registry(),
+            self._m105_transport_registry(),
+            policy,
+        )
+        failures = []
+        if result.output_trust_level != RemoteOutputTrustLevel.untrusted_remote_output:
+            failures.append("remote output not marked untrusted")
+        if result.metadata.get("foundation_only") is not True:
+            failures.append("remote result missing foundation_only marker")
+        return self._result(criterion, failures, ["src/ultimate_ai_agent/core/remote_workers/results.py"])
+
+    def check_m105_api_routes_are_dry_run_only(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        from ultimate_ai_agent.api.app import app
+
+        paths = {route.path for route in app.routes}
+        failures = []
+        required = {
+            "/remote-workers/nodes/validate",
+            "/remote-workers/transports/validate",
+            "/remote-workers/policy/validate",
+            "/remote-workers/jobs/validate",
+            "/remote-workers/dry-run",
+            "/remote-workers/status",
+            "/remote-workers/tailnet/status",
+            "/remote-workers/mesh/status",
+        }
+        for path in required:
+            if path not in paths:
+                failures.append(f"missing route {path}")
+        for forbidden in ["/remote-workers/dispatch", "/remote-workers/execute", "/remote-workers/subagents/launch"]:
+            if forbidden in paths:
+                failures.append(f"forbidden route present: {forbidden}")
+        return self._result(criterion, failures, ["src/ultimate_ai_agent/api/app.py"])
+
+    def check_m105_docs_foundation_only(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        docs = [
+            "docs/remote/REMOTE_WORKER_FOUNDATION.md",
+            "docs/remote/REMOTE_NODE_SECURITY_MODEL.md",
+            "docs/remote/REMOTE_JOB_ENVELOPE.md",
+            "docs/remote/TAILNET_TRANSPORT_POLICY.md",
+            "docs/decisions/remote_worker_tailnet_foundation.md",
+            "docs/release_notes/v0_14_1.md",
+        ]
+        failures = []
+        required_phrases = ["foundation-only", "No live networking", "No job dispatch", "No remote approvals"]
+        for rel_path in docs:
+            path = self.root / rel_path
+            if not path.exists():
+                failures.append(f"missing {rel_path}")
+                continue
+            source = self._read(path)
+            for phrase in required_phrases:
+                if phrase not in source:
+                    failures.append(f"{rel_path} missing phrase: {phrase}")
+        return self._result(criterion, failures, docs)
+
     def _skipped(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
         return FoundationGateResult(
             criterion_id=criterion.criterion_id,
@@ -1666,6 +1889,58 @@ class FoundationGateEvaluator:
         }
         payload.update(overrides)
         return ManualLoopbackSmokeRequest(**payload)
+
+    def _m105_node_registry(self):
+        from ultimate_ai_agent.core.remote_workers import (
+            NodeCapabilitySet,
+            NodeIdentity,
+            RemoteNode,
+            RemoteNodeRegistry,
+            RemoteNodeStatus,
+        )
+
+        registry = RemoteNodeRegistry()
+        registry.register_node(
+            RemoteNode(
+                node_id="mock_node",
+                identity=NodeIdentity(
+                    node_id="mock_node",
+                    display_name="Mock Node",
+                    owner="foundation_gate",
+                    source="foundation_gate",
+                    version="0.0.0",
+                ),
+                status=RemoteNodeStatus.mock_available,
+                capabilities=NodeCapabilitySet(),
+                allowed_transport_ids=["mock_metadata"],
+            )
+        )
+        return registry
+
+    def _m105_transport_registry(self):
+        from ultimate_ai_agent.core.remote_workers import default_remote_transport_registry
+
+        return default_remote_transport_registry()
+
+    def _m105_remote_job(self, **overrides):
+        from ultimate_ai_agent.core.remote_workers import RemoteAuditContext, RemoteJobEnvelope, RemoteRiskLevel
+
+        payload = {
+            "job_id": "m105_gate_job",
+            "correlation_id": "m105_gate_corr",
+            "node_id": "mock_node",
+            "transport_id": "mock_metadata",
+            "task_summary": "Validate remote worker dry-run metadata.",
+            "requested_capabilities": ["dry_run"],
+            "risk_level": RemoteRiskLevel.low,
+            "audit_context": RemoteAuditContext(
+                run_id="run_foundation_gate",
+                correlation_id="m105_gate_corr",
+                actor_context=self._actor(),
+            ),
+        }
+        payload.update(overrides)
+        return RemoteJobEnvelope(**payload)
 
     def _actor(self) -> ActorContext:
         return ActorContext(

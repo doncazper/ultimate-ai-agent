@@ -1,12 +1,12 @@
-# Ultimate AI Agent Canonical Bundle v0.14.0
+# Ultimate AI Agent Canonical Bundle v0.14.1
 
-This is the active project baseline after the M10 manual local loopback smoke harness milestone.
+This is the active project baseline after the M10.5 remote worker and tailnet transport foundation milestone.
 
 Start here:
 
 ```text
-README_IMPORT_v0_14_0.md
-ultimate_ai_agent_master_plan_v0_14_0.md
+README_IMPORT_v0_14_1.md
+ultimate_ai_agent_master_plan_v0_14_1.md
 docs/canonical/09_roadmap.md
 docs/canonical/21_consent_and_permissions_ledger.md
 docs/canonical/37_tool_broker.md
@@ -19,7 +19,7 @@ docs/api/route_inventory.md
 docs/runtime/model_runtime_adapter_harness.md
 docs/runtime/local_loopback_model_runtime.md
 docs/security/approval_authority.md
-docs/implementation/foundation_gate_implementation_plan_v0_14_0.md
+docs/implementation/foundation_gate_implementation_plan_v0_14_1.md
 docs/testing/test_strategy_v0.md
 ```
 
@@ -41,4 +41,4 @@ Observability standards rule:
 
 Foundation Gate rule:
 
-> v0.14.0 adds a manual-only local loopback smoke harness for explicit local/dev readiness checks. It is disabled by default, approval-gated, loopback-only, uses the current `local_stub` runtime kind, and sends only a fixed non-sensitive smoke prompt. Tests, CI, `verify_all.py`, and Foundation Gate use fake transport only. M10 does not add general agent model execution, cloud models, provider SDKs, API keys, tokenizers, billing APIs, scanners, browser automation, SDK/A2A runtime delegation, production persistence, production auth/OAuth, or external actions.
+> v0.14.1 adds REMOTE-01 / M10.5 remote worker foundation contracts. Remote worker support is foundation-only, disabled by default, mock/local metadata only, and dry-run only. It adds no live mesh networking, tailnet execution, listener, network call, job dispatch, remote subagent launch, remote Tool Broker execution, sandbox execution, personal-data access, write/send action, remote approval, background service, production persistence, provider SDK, tokenizer, billing API, or safety bypass.

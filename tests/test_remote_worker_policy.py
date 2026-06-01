@@ -1,0 +1,91 @@
+from tests.m7_helpers import actor
+from ultimate_ai_agent.core.remote_workers import (
+    NodeCapabilitySet,
+    NodeIdentity,
+    RemoteAuditContext,
+    RemoteExecutionPolicy,
+    RemoteJobEnvelope,
+    RemoteNode,
+    RemoteNodeRegistry,
+    RemoteNodeStatus,
+    RemoteRiskLevel,
+    default_remote_transport_registry,
+    evaluate_remote_job_policy,
+)
+
+
+def _envelope(**overrides):
+    payload = {
+        "job_id": "job_policy",
+        "correlation_id": "corr_policy",
+        "node_id": "node_mock",
+        "transport_id": "mock_metadata",
+        "task_summary": "Dry-run metadata validation.",
+        "requested_capabilities": ["dry_run"],
+        "risk_level": RemoteRiskLevel.low,
+        "audit_context": RemoteAuditContext(run_id="run_policy", correlation_id="corr_policy", actor_context=actor()),
+    }
+    payload.update(overrides)
+    return RemoteJobEnvelope(**payload)
+
+
+def _node_registry():
+    registry = RemoteNodeRegistry()
+    registry.register_node(
+        RemoteNode(
+            node_id="node_mock",
+            identity=NodeIdentity(node_id="node_mock", display_name="Mock Node", owner="tests", source="fixture", version="0.0.0"),
+            status=RemoteNodeStatus.mock_available,
+            capabilities=NodeCapabilitySet(),
+            allowed_transport_ids=["mock_metadata"],
+        )
+    )
+    return registry
+
+
+def test_remote_policy_defaults_safe_and_denies_unknowns():
+    policy = RemoteExecutionPolicy(policy_id="policy_remote")
+    decision = evaluate_remote_job_policy(_envelope(), RemoteNodeRegistry(), default_remote_transport_registry(), policy)
+
+    assert policy.remote_workers_enabled is False
+    assert policy.remote_dispatch_enabled is False
+    assert policy.remote_approvals_enabled is False
+    assert policy.allow_network is False
+    assert decision.allowed is False
+    assert "REMOTE_WORKERS_DISABLED" in decision.reason_codes
+    assert "REMOTE_NODE_UNKNOWN" in decision.reason_codes
+
+
+def test_remote_policy_denies_risky_capabilities_even_when_flagged_on():
+    policy = RemoteExecutionPolicy(
+        policy_id="policy_remote",
+        remote_workers_enabled=True,
+        remote_transports_enabled=True,
+        remote_accept_jobs=True,
+    )
+
+    for capability, reason in [
+        ("personal_data", "REMOTE_PERSONAL_DATA_DENIED"),
+        ("write", "REMOTE_WRITE_DENIED"),
+        ("send", "REMOTE_SEND_DENIED"),
+        ("approve", "REMOTE_APPROVAL_DENIED"),
+        ("subagent", "REMOTE_SUBAGENT_DENIED"),
+    ]:
+        decision = evaluate_remote_job_policy(
+            _envelope(requested_capabilities=[capability]),
+            _node_registry(),
+            default_remote_transport_registry(),
+            policy,
+        )
+        assert decision.allowed is False
+        assert reason in decision.reason_codes
+
+    critical = evaluate_remote_job_policy(
+        _envelope(risk_level=RemoteRiskLevel.critical),
+        _node_registry(),
+        default_remote_transport_registry(),
+        policy,
+    )
+    assert critical.allowed is False
+    assert "REMOTE_CRITICAL_DENIED" in critical.reason_codes
+

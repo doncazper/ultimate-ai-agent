@@ -70,6 +70,14 @@ GATE_TESTS = [
     "tests/test_manual_loopback_smoke_script.py",
     "tests/test_manual_loopback_smoke_api_routes.py",
     "tests/test_m10_gate_integration.py",
+    "tests/test_remote_worker_models.py",
+    "tests/test_remote_worker_registry.py",
+    "tests/test_remote_worker_policy.py",
+    "tests/test_remote_worker_transports.py",
+    "tests/test_remote_worker_dry_run.py",
+    "tests/test_remote_worker_api_routes.py",
+    "tests/test_remote_worker_no_network.py",
+    "tests/test_remote_worker_gate_integration.py",
 ]
 
 

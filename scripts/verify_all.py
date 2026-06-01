@@ -14,6 +14,7 @@ SCAN_SEQUENCE = [
     ("forbidden external integrations scan", "verify_no_forbidden_external_integrations"),
     ("model runtime simulated-only scan", "verify_no_real_model_runtime_execution"),
     ("approval authority local-dev-only scan", "verify_no_real_approval_authority_integrations"),
+    ("remote worker foundation-only scan", "verify_no_real_remote_worker_integrations"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
     ("production truth integration scan", "verify_no_production_truth_integrations"),
     ("broad filesystem scan", "verify_no_broad_filesystem_scanning"),
@@ -236,6 +237,56 @@ def verify_no_real_approval_authority_integrations():
         except Exception:
             pass
     print("OK: Approval authority package is local/dev only")
+
+def verify_no_real_remote_worker_integrations():
+    print("\n[Verifier] Running M10.5 remote worker foundation-only guard...")
+    remote_root = ROOT / "src" / "ultimate_ai_agent" / "core" / "remote_workers"
+    if not remote_root.exists():
+        print("OK: Remote worker package is absent")
+        return
+    forbidden_imports = [
+        "import requests",
+        "from requests import",
+        "import httpx",
+        "from httpx import",
+        "import urllib",
+        "from urllib import",
+        "import socket",
+        "from socket import",
+        "import subprocess",
+        "from subprocess import",
+        "import threading",
+        "from threading import",
+        "import asyncio",
+        "from asyncio import",
+    ]
+    forbidden_fragments = [
+        "urlopen",
+        "Popen",
+        "os.system",
+        "Thread(",
+        "dispatch_job(",
+        "execute_remote(",
+        "launch_subagent(",
+        "tailscale",
+        "tailscaled",
+        "Serve",
+        "Funnel",
+    ]
+    for p in remote_root.rglob("*.py"):
+        try:
+            content = p.read_text(encoding="utf-8")
+            for line in content.splitlines():
+                stripped = line.strip()
+                if any(stripped.startswith(pattern) for pattern in forbidden_imports):
+                    print(f"FAIL: Remote worker live import in {p.relative_to(ROOT)}: {line}")
+                    sys.exit(1)
+                if any(fragment in stripped for fragment in forbidden_fragments):
+                    print(f"FAIL: Remote worker live execution fragment in {p.relative_to(ROOT)}: {line}")
+                    sys.exit(1)
+        except Exception:
+            pass
+    print("OK: Remote worker package has no live network, process, tailnet, or remote execution code")
 
 def verify_no_shell_execution_in_runtime():
     print("\n[Verifier] Running runtime shell/subprocess execution scan...")

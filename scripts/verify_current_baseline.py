@@ -434,6 +434,35 @@ def main():
         if not p.exists():
             fail(f"Required M10 file is missing: {rel_path}")
     ok("All M10 manual local loopback smoke harness files exist")
+
+    # 8.18 Check M10.5 remote worker foundation files existence
+    m105_files = [
+        "src/ultimate_ai_agent/core/remote_workers/__init__.py",
+        "src/ultimate_ai_agent/core/remote_workers/enums.py",
+        "src/ultimate_ai_agent/core/remote_workers/nodes.py",
+        "src/ultimate_ai_agent/core/remote_workers/transports.py",
+        "src/ultimate_ai_agent/core/remote_workers/registry.py",
+        "src/ultimate_ai_agent/core/remote_workers/policy.py",
+        "src/ultimate_ai_agent/core/remote_workers/jobs.py",
+        "src/ultimate_ai_agent/core/remote_workers/results.py",
+        "src/ultimate_ai_agent/core/remote_workers/audit.py",
+        "src/ultimate_ai_agent/core/remote_workers/status.py",
+        "src/ultimate_ai_agent/core/remote_workers/validation.py",
+        "src/ultimate_ai_agent/core/remote_workers/dry_run.py",
+        "tests/test_remote_worker_models.py",
+        "tests/test_remote_worker_registry.py",
+        "tests/test_remote_worker_policy.py",
+        "tests/test_remote_worker_transports.py",
+        "tests/test_remote_worker_dry_run.py",
+        "tests/test_remote_worker_api_routes.py",
+        "tests/test_remote_worker_no_network.py",
+        "tests/test_remote_worker_gate_integration.py",
+    ]
+    for rel_path in m105_files:
+        p = ROOT / rel_path
+        if not p.exists():
+            fail(f"Required M10.5 file is missing: {rel_path}")
+    ok("All M10.5 remote worker foundation files exist")
     
     # 9. Enforce scans by delegating to verify_all
     try:

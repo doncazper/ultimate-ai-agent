@@ -122,6 +122,16 @@ from ultimate_ai_agent.core.model_runtime import (
     validate_runtime_response,
 )
 from ultimate_ai_agent.core.model_runtime.redaction import contains_secret_like
+from ultimate_ai_agent.core.remote_workers import (
+    RemoteDryRunBuilder,
+    RemoteExecutionPolicy,
+    RemoteJobEnvelope,
+    RemoteNode,
+    RemoteTransportDescriptor,
+    default_remote_node_registry,
+    default_remote_transport_registry,
+    evaluate_remote_job_policy,
+)
 
 app = FastAPI(
     title="Ultimate AI Agent API Boundary",
@@ -175,6 +185,22 @@ class LocalLoopbackExecutionValidatePayload(BaseModel):
 class LocalLoopbackSmokeValidatePayload(BaseModel):
     request: dict
     approval_decision: Optional[dict] = None
+
+class RemoteNodeValidatePayload(BaseModel):
+    node: dict
+
+class RemoteTransportValidatePayload(BaseModel):
+    transport: dict
+
+class RemotePolicyValidatePayload(BaseModel):
+    policy: dict
+
+class RemoteJobValidatePayload(BaseModel):
+    job: dict
+
+class RemoteDryRunPayload(BaseModel):
+    job: dict
+    policy: Optional[dict] = None
 
 class ApprovalValidatePayload(BaseModel):
     validation_request: dict
@@ -523,6 +549,25 @@ def _model_runtime_validation_error(operation: str, trace_id: str, exc: Exceptio
         redactions_applied=["invalid_payload"],
     )
 
+def _remote_worker_validation_error(operation: str, trace_id: str, exc: Exception) -> ResultEnvelope:
+    return ResultEnvelope(
+        success=False,
+        operation=operation,
+        service="RemoteWorkersAPI",
+        trace_id=trace_id,
+        error=ErrorEnvelope(
+            code="REMOTE_WORKER_VALIDATION_FAILED",
+            category=ErrorCategory.validation_error,
+            safe_message="Remote worker payload validation failed.",
+            severity=Severity.medium,
+            retryable=False,
+            details_redacted=True,
+            source="RemoteWorkersAPI",
+            caused_by=[type(exc).__name__],
+        ),
+        redactions_applied=["invalid_payload"],
+    )
+
 def _approval_validation_error(operation: str, trace_id: str, exc: Exception) -> ResultEnvelope:
     return ResultEnvelope(
         success=False,
@@ -717,6 +762,146 @@ def post_validate_local_loopback_smoke(payload: LocalLoopbackSmokeValidatePayloa
         service="ModelRuntimeAPI",
         trace_id=request.smoke_request_id,
         data=decision.model_dump(mode="json"),
+    )
+
+@app.post("/remote-workers/nodes/validate", response_model=ResultEnvelope)
+def post_validate_remote_worker_node(payload: RemoteNodeValidatePayload):
+    try:
+        node = RemoteNode(**payload.node)
+    except (ValidationError, ValueError) as exc:
+        return _remote_worker_validation_error("validate_remote_worker_node", "system", exc)
+    return ResultEnvelope(
+        success=True,
+        operation="validate_remote_worker_node",
+        service="RemoteWorkersAPI",
+        trace_id=node.node_id,
+        data={"node": node.model_dump(mode="json"), "live_worker_enabled": False},
+    )
+
+@app.post("/remote-workers/transports/validate", response_model=ResultEnvelope)
+def post_validate_remote_worker_transport(payload: RemoteTransportValidatePayload):
+    try:
+        descriptor = RemoteTransportDescriptor(**payload.transport)
+        registry = default_remote_transport_registry()
+        registry.register_transport(descriptor)
+        decision = registry.validate_transport(descriptor.transport_id)
+    except (ValidationError, ValueError) as exc:
+        return _remote_worker_validation_error("validate_remote_worker_transport", "system", exc)
+    return ResultEnvelope(
+        success=decision.allowed,
+        operation="validate_remote_worker_transport",
+        service="RemoteWorkersAPI",
+        trace_id=descriptor.transport_id,
+        data=decision.model_dump(mode="json"),
+    )
+
+@app.post("/remote-workers/policy/validate", response_model=ResultEnvelope)
+def post_validate_remote_worker_policy(payload: RemotePolicyValidatePayload):
+    try:
+        policy = RemoteExecutionPolicy(**payload.policy)
+    except (ValidationError, ValueError) as exc:
+        return _remote_worker_validation_error("validate_remote_worker_policy", "system", exc)
+    return ResultEnvelope(
+        success=True,
+        operation="validate_remote_worker_policy",
+        service="RemoteWorkersAPI",
+        trace_id=policy.policy_id,
+        data=policy.model_dump(mode="json"),
+    )
+
+@app.post("/remote-workers/jobs/validate", response_model=ResultEnvelope)
+def post_validate_remote_worker_job(payload: RemoteJobValidatePayload):
+    try:
+        job = RemoteJobEnvelope(**payload.job)
+    except (ValidationError, ValueError) as exc:
+        return _remote_worker_validation_error("validate_remote_worker_job", "system", exc)
+    policy = RemoteExecutionPolicy(
+        policy_id="api_remote_validation_policy",
+        remote_workers_enabled=True,
+        remote_transports_enabled=True,
+        remote_accept_jobs=True,
+    )
+    decision = evaluate_remote_job_policy(job, default_remote_node_registry(), default_remote_transport_registry(), policy)
+    return ResultEnvelope(
+        success=decision.allowed,
+        operation="validate_remote_worker_job",
+        service="RemoteWorkersAPI",
+        trace_id=job.correlation_id,
+        data=decision.model_dump(mode="json"),
+    )
+
+@app.post("/remote-workers/dry-run", response_model=ResultEnvelope)
+def post_remote_worker_dry_run(payload: RemoteDryRunPayload):
+    try:
+        job = RemoteJobEnvelope(**payload.job)
+        policy = (
+            RemoteExecutionPolicy(**payload.policy)
+            if payload.policy is not None
+            else RemoteExecutionPolicy(
+                policy_id="api_remote_dry_run_policy",
+                remote_workers_enabled=True,
+                remote_transports_enabled=True,
+                remote_accept_jobs=True,
+            )
+        )
+    except (ValidationError, ValueError) as exc:
+        return _remote_worker_validation_error("remote_worker_dry_run", "system", exc)
+    result = RemoteDryRunBuilder().dry_run(job, default_remote_node_registry(), default_remote_transport_registry(), policy)
+    return ResultEnvelope(
+        success=result.status == "simulated_result",
+        operation="remote_worker_dry_run",
+        service="RemoteWorkersAPI",
+        trace_id=job.correlation_id,
+        data=result.model_dump(mode="json"),
+    )
+
+@app.get("/remote-workers/status", response_model=ResultEnvelope)
+def get_remote_workers_status():
+    nodes = default_remote_node_registry()
+    transports = default_remote_transport_registry()
+    return ResultEnvelope(
+        success=True,
+        operation="remote_workers_status",
+        service="RemoteWorkersAPI",
+        trace_id="system",
+        data={
+            "nodes": nodes.status_summary(),
+            "transports": transports.status_summary(),
+            "live_network_enabled": False,
+            "dispatch_enabled": False,
+            "remote_approvals_enabled": False,
+            "foundation_only": True,
+        },
+    )
+
+@app.get("/remote-workers/tailnet/status", response_model=ResultEnvelope)
+def get_remote_workers_tailnet_status():
+    return ResultEnvelope(
+        success=True,
+        operation="remote_workers_tailnet_status",
+        service="RemoteWorkersAPI",
+        trace_id="system",
+        data={
+            "status": "planned",
+            "live_network_enabled": False,
+            "dispatch_enabled": False,
+            "foundation_only": True,
+        },
+    )
+
+@app.get("/remote-workers/mesh/status", response_model=ResultEnvelope)
+def get_remote_workers_mesh_status():
+    return ResultEnvelope(
+        success=True,
+        operation="remote_workers_mesh_status",
+        service="RemoteWorkersAPI",
+        trace_id="system",
+        data={
+            "status": "planned",
+            "live_mesh_enabled": False,
+            "dispatch_enabled": False,
+            "foundation_only": True,
+        },
     )
 
 @app.post("/costs/budgets/validate", response_model=ResultEnvelope)
