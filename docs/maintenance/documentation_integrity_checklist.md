@@ -1,6 +1,6 @@
 # Documentation Integrity Checklist
 
-Status: Active maintenance checklist, v0.20.0
+Status: Active maintenance checklist, v0.20.1
 
 Run this checklist before every release that changes docs, roadmap, API metadata, runtime boundaries, or release status.
 
@@ -70,6 +70,7 @@ Run this checklist before every release that changes docs, roadmap, API metadata
 - v0.19.0 M15 Approval Queue + Receipt/Event Viewer UI is frontend-only, read-only/preview-only, redacted summary-only, and adds no backend route or production authority.
 - v0.19.1 M15 Approval/Receipt UI safety hardening is frontend/verifier/Foundation Gate only, keeps OpenAPI path count unchanged, treats approval refs as identifiers only, keeps Python Agent Core as approval authority, and adds no approval execution, approve/deny mutation, M16 timeline, backend route, dependency, or production authority.
 - v0.20.0 M16 Event Timeline + Run/Receipt Trace Viewer is frontend-only, read-only, redacted summary-only, uses safe refs/evidence summaries, keeps OpenAPI path count unchanged, and adds no execution, backend route, raw payload display, external telemetry export, dependency, or production authority.
+- v0.20.1 M16 trace/redaction safety hardening is frontend/test/verifier/Foundation Gate/docs only, keeps OpenAPI path count unchanged, documents generated build-output hygiene, and adds no M17 viewer, execution, backend route, raw payload display, telemetry export, dependency, or production authority.
 - future post-M20 milestone prompts check `docs/roadmap/CAPABILITY_LAYERING_STRATEGY.md`.
 - future post-M20 milestone prompts check `docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md`.
 - future post-M20 milestone prompts check `docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md`.

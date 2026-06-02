@@ -278,7 +278,9 @@ def _tracked_artifact_failures(root: Path) -> list[str]:
     forbidden = [
         "apps/control-center/node_modules/",
         "apps/control-center/dist/",
+        "apps/control-center/build/",
         "apps/control-center/coverage/",
+        "apps/control-center/logs/",
         "apps/control-center/.next/",
         "apps/control-center/.env",
         "apps/control-center/ios/",

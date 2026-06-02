@@ -72,7 +72,11 @@ function TimelineEventRow({
   onSelect: (eventRef: string) => void;
 }) {
   return (
-    <article className={`review-card${selected ? " selected" : ""}`}>
+    <article
+      className={`review-card${selected ? " selected" : ""}`}
+      aria-current={selected ? "true" : undefined}
+      aria-label={`${item.eventRef} timeline event`}
+    >
       <div className="review-card-heading">
         <h3>{item.eventRef}</h3>
         <span>{item.status}</span>

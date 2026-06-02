@@ -1,6 +1,6 @@
 # Run Receipt Trace Viewer
 
-Status: Active for v0.20.0 / M16 Event Timeline + Run/Receipt Trace Viewer.
+Status: Active for v0.20.1 / M16 Event Timeline + Run/Receipt Trace Viewer hardening.
 
 The Run Receipt Trace Viewer is the selected-detail panel inside `/events/timeline`. It gives CCC Web a safe read-only trace summary for a selected event or receipt relationship.
 
@@ -37,3 +37,5 @@ Not allowed:
 - raw tool arguments unless a future reviewed milestone defines an explicitly safe summary contract.
 
 No backend route is added for M16. The viewer uses frontend mock trace data in this release. The Python Agent Core, Event Ledger, Approval Authority, Consent Ledger, Tool Broker, Secret Broker, Redaction, and Foundation Gate remain authoritative.
+
+v0.20.1 hardening adds interaction coverage for selecting a second `View trace` control. Selection changes only the visible selected trace summary and selected timeline-card state. It does not execute, export, approve, deny, write, send, run, deploy, enable, mutate, or dispatch anything.

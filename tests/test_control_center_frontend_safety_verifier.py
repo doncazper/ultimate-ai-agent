@@ -21,6 +21,26 @@ def test_control_center_frontend_verifier_passes_current_repo():
     assert verifier.verify(ROOT) == []
 
 
+def test_control_center_frontend_verifier_blocks_tracked_build_and_log_artifacts(tmp_path, monkeypatch):
+    verifier = load_verifier()
+
+    monkeypatch.setattr(
+        verifier.subprocess,
+        "check_output",
+        lambda *args, **kwargs: "\n".join(
+            [
+                "apps/control-center/build/index.html",
+                "apps/control-center/logs/frontend-smoke.log",
+            ]
+        ),
+    )
+
+    failures = verifier._tracked_artifact_failures(tmp_path)
+
+    assert any("apps/control-center/build/index.html" in failure for failure in failures)
+    assert any("apps/control-center/logs/frontend-smoke.log" in failure for failure in failures)
+
+
 def test_control_center_frontend_verifier_blocks_forbidden_frontend_strings(tmp_path):
     app_root = tmp_path / "apps/control-center"
     (app_root / "src/api").mkdir(parents=True)

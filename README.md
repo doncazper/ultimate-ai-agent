@@ -1,12 +1,12 @@
-# Ultimate AI Agent Canonical Bundle v0.20.0
+# Ultimate AI Agent Canonical Bundle v0.20.1
 
-This is the active project baseline after M16 Event Timeline + Run/Receipt Trace Viewer.
+This is the active project baseline after M16 trace/redaction safety hardening.
 
 Start here:
 
 ```text
-README_IMPORT_v0_20_0.md
-ultimate_ai_agent_master_plan_v0_20_0.md
+README_IMPORT_v0_20_1.md
+ultimate_ai_agent_master_plan_v0_20_1.md
 docs/DOCUMENTATION_INDEX.md
 docs/canonical/09_roadmap.md
 docs/canonical/CANONICAL_DOC_MAP.md
@@ -63,7 +63,7 @@ docs/runtime/RUNTIME_READINESS.md
 docs/runtime/MANUAL_SMOKE_REPORTS.md
 docs/runtime/RUNTIME_CAPABILITY_MATRIX.md
 docs/security/approval_authority.md
-docs/implementation/foundation_gate_implementation_plan_v0_20_0.md
+docs/implementation/foundation_gate_implementation_plan_v0_20_1.md
 docs/maintenance/documentation_integrity_checklist.md
 docs/tooling/CODEX_PLUGIN_CAPABILITY_INVENTORY.md
 docs/tooling/CODEX_PLUGIN_RISK_POLICY.md
@@ -169,3 +169,7 @@ Approval receipt UI safety hardening rule:
 Event timeline trace viewer rule:
 
 > v0.20.0 implements M16 Event Timeline + Run/Receipt Trace Viewer in CCC Web only. The UI adds `/events/timeline` with read-only redacted timeline summaries, selected run/receipt trace summaries, relation refs, and Foundation Gate evidence summaries. It uses safe refs and visibly mock non-authoritative fallback data. This release adds no backend API route, OpenAPI path count change, approval execution, tool execution, model/provider call, remote execution, mobile sensor access, plugin enablement, raw secret/prompt/file/memory/credential/provider payload display, raw event payload dump, production telemetry export, external observability integration, OpenTelemetry export, cloud traces, dependency, native build workflow, or production Control Center authority.
+
+Event timeline trace safety hardening rule:
+
+> v0.20.1 hardens M16 Event Timeline + Run/Receipt Trace Viewer safety. It adds interaction coverage for selecting alternate trace summaries while remaining read-only, strengthens M16 OpenAPI path-count and no-backend-timeline-route Foundation Gate checks, documents temporary build-output review hygiene, and records a whole-code bug/safety audit. It does not start M17 Evidence/File/Memory Viewer and adds no backend API route, runtime execution, model/provider call, remote execution, mobile sensor access, plugin enablement, telemetry export, external observability integration, raw secret/prompt/file/memory/credential/provider payload display, dependency, native build workflow, or production Control Center authority.

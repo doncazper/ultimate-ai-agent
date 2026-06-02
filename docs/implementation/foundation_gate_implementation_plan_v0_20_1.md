@@ -1,12 +1,12 @@
-# Foundation Gate Implementation Plan v0.20.0
+# Foundation Gate Implementation Plan v0.20.1
 
-Status: Historical Foundation Gate implementation plan for v0.20.0.
+Status: Current Foundation Gate implementation plan for v0.20.1.
 
-v0.20.0 adds Foundation Gate coverage for M16 Event Timeline + Run/Receipt Trace Viewer safety.
+v0.20.1 hardens Foundation Gate coverage for M16 Event Timeline + Run/Receipt Trace Viewer safety.
 
 ## Skill Package Security Rule
 
-v0.20.0 does not change the Skill Package Security Rule. The web shell may display plugin governance summaries only; it cannot install, enable, configure, or execute plugins or skills.
+v0.20.1 does not change the Skill Package Security Rule. The web shell may display plugin governance summaries only; it cannot install, enable, configure, or execute plugins or skills.
 
 All skills are untrusted packages by default until a manifest, declared permissions, source/provenance metadata, static review, sandbox test execution, Tool Broker permission mapping, Event Ledger logging, version pinning, revocation/disable support, and human approval for high-risk capabilities exist.
 
@@ -29,6 +29,9 @@ The evaluator checks:
 - safe mock event, run, correlation, receipt, relation, and Foundation Gate evidence refs exist.
 - raw prompt, file, memory, event, receipt, provider, secret, and credential-like trace fields are rejected.
 - execution, export, approval mutation, tool execution, runtime execution, remote dispatch, browser storage, credential field, and dangerous control fragments are absent from app implementation files.
+- OpenAPI path count remains `74`.
+- backend timeline, trace, raw event, and telemetry export routes are absent.
+- generated Control Center build and log artifacts remain untracked.
 - `scripts/verify_control_center_frontend.py` passes.
 - docs for the Event Timeline UI, Run Receipt Trace Viewer, and Trace Redaction Policy exist.
 

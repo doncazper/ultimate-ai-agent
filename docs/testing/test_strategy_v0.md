@@ -175,6 +175,24 @@ Foundation Gate criterion m16_event_timeline_trace_viewer_safe exists and passes
 Backend OpenAPI path count remains unchanged at 74.
 ```
 
+## v0.20.1 M16 Trace Redaction Safety Hardening Tests
+
+v0.20.1 adds focused hardening tests only:
+
+```text
+Event Timeline interaction test clicks a second View trace control.
+Selected trace detail changes to the second safe event ref.
+Selected timeline card exposes an accessible selected-state marker.
+Trace selection remains read-only and mock/non-authoritative.
+No execute, run, export, send, write, deploy, or enable controls appear.
+No raw prompt, secret, file, memory, credential, provider payload, or raw event content appears.
+Foundation Gate checks OpenAPI path count remains 74.
+Foundation Gate rejects backend timeline, trace, raw event, and telemetry export route expansion.
+Static frontend verifier rejects tracked Control Center build and log artifacts.
+Review builds prefer temporary Vite output paths such as `npm run build -- --outDir /tmp/uaa-control-center-review-dist`.
+Generated frontend artifacts remain ignored and untracked.
+```
+
 ## v0.18.3 OpenWebUI and CCC Strategy Tests
 
 v0.18.3 adds docs/verifier/gate tests only:

@@ -12,7 +12,7 @@ export const mockControlCenterData: ControlCenterData = {
   },
   manifest: {
     manifest_id: "mock_control_center_manifest_m16",
-    version: "0.20.0",
+    version: "0.20.1",
     generated_at: "2026-01-01T00:00:00Z",
     declared_capabilities: [
       "control_center_read_only_dashboard",
@@ -124,7 +124,7 @@ export const mockControlCenterData: ControlCenterData = {
   },
   dashboard: {
     snapshot_id: "mock_control_center_dashboard_m16",
-    baseline_version: "0.20.0",
+    baseline_version: "0.20.1",
     generated_at: "2026-01-01T00:00:00Z",
     system_status: {
       label: "Control Center",
@@ -216,7 +216,7 @@ export const mockControlCenterData: ControlCenterData = {
   },
   runtimeReadiness: {
     report_id: "mock_runtime_readiness_m16",
-    baseline_version: "0.20.0",
+    baseline_version: "0.20.1",
     status: "report_only",
     production_ready: false,
     real_model_runtime_ready: false,
@@ -230,7 +230,7 @@ export const mockControlCenterData: ControlCenterData = {
   },
   capabilityMatrix: {
     matrix_id: "mock_runtime_capability_matrix_m16",
-    baseline_version: "0.20.0",
+    baseline_version: "0.20.1",
     metadata: { mock: true, no_model_was_called: true },
     entries: [
       {

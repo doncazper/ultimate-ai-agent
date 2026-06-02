@@ -205,6 +205,35 @@ describe("Web Control Center shell", () => {
     expect(screen.queryByText(/provider payload/i)).not.toBeInTheDocument();
   });
 
+  it("switches the selected M16 trace while keeping the timeline read-only", async () => {
+    mockFetchWithFallback();
+    window.history.pushState({}, "", "/events/timeline");
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: /Event Timeline/i })).toBeInTheDocument();
+    expect(screen.getAllByRole("heading", { name: "mock_event_ref_001" }).length).toBeGreaterThan(0);
+    expect(screen.getByRole("article", { name: /mock_event_ref_001/i })).toHaveAttribute("aria-current", "true");
+
+    const traceButtons = screen.getAllByRole("button", { name: /view trace/i });
+    fireEvent.click(traceButtons[1]);
+
+    expect(screen.getAllByRole("heading", { name: "mock_event_ref_002" }).length).toBeGreaterThan(0);
+    expect(screen.getByRole("article", { name: /mock_event_ref_002/i })).toHaveAttribute("aria-current", "true");
+    expect(screen.getByText(/Trace detail is redacted summary metadata only/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/MOCK_DATA_ONLY/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/NO_PRODUCTION_AUTHORITY/i).length).toBeGreaterThan(0);
+
+    for (const label of [/^execute$/i, /^run$/i, /^export$/i, /^send$/i, /^write$/i, /^deploy$/i, /^enable$/i]) {
+      expect(screen.queryByRole("button", { name: label })).not.toBeInTheDocument();
+    }
+    expect(screen.queryByText(/raw prompt/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/raw secret/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/raw file/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/raw memory/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/raw credential/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/provider payload/i)).not.toBeInTheDocument();
+  });
+
   it("submits action preview only to the preview endpoint", async () => {
     const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
       if (options?.method === "POST") {
@@ -387,21 +416,21 @@ function envelopeForReadEndpoint(url: string) {
   const data = {
     [API_ENDPOINTS.controlCenterManifest]: {
       ...mockApiData.manifest,
-      version: "0.20.0"
+      version: "0.20.1"
     },
     [API_ENDPOINTS.controlCenterDashboard]: {
       ...mockApiData.dashboard,
-      baseline_version: "0.20.0"
+      baseline_version: "0.20.1"
     },
     [API_ENDPOINTS.controlCenterStatus]: mockApiData.status,
     [API_ENDPOINTS.controlCenterRoutes]: mockApiData.routes,
     [API_ENDPOINTS.runtimeReadiness]: {
       ...mockApiData.runtimeReadiness,
-      baseline_version: "0.20.0"
+      baseline_version: "0.20.1"
     },
     [API_ENDPOINTS.runtimeCapabilityMatrix]: {
       ...mockApiData.capabilityMatrix,
-      baseline_version: "0.20.0"
+      baseline_version: "0.20.1"
     }
   };
   const endpoint = Object.keys(data).find((candidate) => url.endsWith(candidate));
@@ -411,7 +440,7 @@ function envelopeForReadEndpoint(url: string) {
 const mockApiData = {
   manifest: {
     manifest_id: "test_manifest",
-    version: "0.20.0",
+    version: "0.20.1",
     generated_at: "2026-01-01T00:00:00Z",
     declared_capabilities: ["control_center_read_only_dashboard"],
     blocked_capabilities: ["runtime_execution", "remote_dispatch", "mobile_sensor_access", "plugin_enablement"],
@@ -421,7 +450,7 @@ const mockApiData = {
   },
   dashboard: {
     snapshot_id: "test_dashboard",
-    baseline_version: "0.20.0",
+    baseline_version: "0.20.1",
     generated_at: "2026-01-01T00:00:00Z",
     system_status: {
       label: "Control Center",
@@ -502,7 +531,7 @@ const mockApiData = {
   },
   runtimeReadiness: {
     report_id: "test_readiness",
-    baseline_version: "0.20.0",
+    baseline_version: "0.20.1",
     status: "report_only",
     production_ready: false,
     real_model_runtime_ready: false,
@@ -516,7 +545,7 @@ const mockApiData = {
   },
   capabilityMatrix: {
     matrix_id: "test_matrix",
-    baseline_version: "0.20.0",
+    baseline_version: "0.20.1",
     metadata: { no_model_was_called: true },
     entries: []
   },

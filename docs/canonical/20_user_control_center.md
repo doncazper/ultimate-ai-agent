@@ -206,3 +206,16 @@ v0.20.0 adds frontend-only CCC Web route `/events/timeline`:
 - Foundation Gate evidence summary: safe evidence refs and criterion/status summaries.
 
 M16 remains read-only. It adds no backend API route, OpenAPI path count change, approval execution, tool execution, runtime execution, model/provider call, remote execution, mobile sensor access, plugin enablement, dependency, native build workflow, external telemetry export, OpenTelemetry export, cloud traces, raw payload display, or production Control Center authority.
+
+## v0.20.1 M16 Trace Redaction Safety Hardening
+
+v0.20.1 hardens M16 without adding new authority or feature surfaces:
+
+- selecting `View trace` changes visible selected trace detail only.
+- selected timeline cards expose accessible selected-state metadata.
+- Foundation Gate checks OpenAPI path count remains `74`.
+- Foundation Gate rejects backend timeline, trace, raw event, and telemetry export route expansion.
+- static frontend verification rejects tracked Control Center build and log artifacts.
+- review builds should prefer temporary output paths such as `/tmp/uaa-control-center-review-dist`.
+
+v0.20.1 adds no M17 Evidence/File/Memory Viewer, backend API route, OpenAPI path count change, approval execution, tool execution, runtime execution, model/provider call, remote execution, mobile sensor access, plugin enablement, dependency, native build workflow, external telemetry export, OpenTelemetry export, cloud traces, raw payload display, or production Control Center authority.

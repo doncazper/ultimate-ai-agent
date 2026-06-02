@@ -50,6 +50,29 @@ from ultimate_ai_agent.core.truth.enums import (
 )
 
 
+EXPECTED_M16_OPENAPI_PATH_COUNT = 74
+M16_FORBIDDEN_BACKEND_ROUTES = (
+    "/events/timeline",
+    "/control-center/events/timeline",
+    "/timeline",
+    "/trace",
+    "/trace/export",
+    "/events/raw",
+    "/telemetry/export",
+)
+
+
+def m16_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M16_OPENAPI_PATH_COUNT) -> List[str]:
+    failures: List[str] = []
+    path_set = set(paths)
+    if len(path_set) != expected_path_count:
+        failures.append(f"M16 OpenAPI path count changed: expected {expected_path_count}, found {len(path_set)}")
+    forbidden_present = sorted(path for path in M16_FORBIDDEN_BACKEND_ROUTES if path in path_set)
+    if forbidden_present:
+        failures.append(f"M16 forbidden backend route(s) present: {', '.join(forbidden_present)}")
+    return failures
+
+
 class FoundationGateEvaluator:
     def __init__(self, root: Optional[Path] = None):
         self.root = root or Path(__file__).resolve().parents[4]
@@ -2971,6 +2994,7 @@ class FoundationGateEvaluator:
 
     def check_m16_event_timeline_trace_viewer_safe(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
         import importlib.util
+        from ultimate_ai_agent.api.app import app
 
         required_files = [
             "apps/control-center/src/components/EventTimelineTracePanel.tsx",
@@ -3062,6 +3086,13 @@ class FoundationGateEvaluator:
             "no external telemetry export",
         ]
         failures.extend(f"M16 docs missing required fragment: {fragment}" for fragment in doc_fragments if fragment not in docs_text)
+
+        try:
+            openapi_paths = app.openapi().get("paths", {})
+        except Exception as exc:
+            failures.append(f"M16 OpenAPI route guard could not generate schema: {exc}")
+        else:
+            failures.extend(m16_openapi_route_failures(openapi_paths))
 
         script = self.root / "scripts/verify_control_center_frontend.py"
         if script.exists():

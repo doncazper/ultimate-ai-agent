@@ -1,6 +1,6 @@
 # Frontend Safety Policy
 
-Status: Active for v0.20.0 / M16 Event Timeline + Run/Receipt Trace Viewer.
+Status: Active for v0.20.1 / M16 trace/redaction safety hardening.
 
 The Web Control Center shell is a display and preview surface. The Python Agent Core remains the brain and source of policy enforcement.
 
@@ -124,3 +124,11 @@ v0.19.1 keeps M15 frontend-only and adds no backend API route or OpenAPI path co
 M16 adds frontend-only `/events/timeline`. The route is read-only and summary-only. It may show event refs, run refs, correlation refs, receipt refs, evidence refs, relation refs, status, timestamps, actor summaries, source summaries, redaction status, and safe messages.
 
 It must not show raw prompts, raw secrets, raw file contents, raw memory contents, raw credentials, raw provider payloads, raw event payload dumps, raw receipt payload dumps, or unreviewed tool arguments. It must not add execution controls, approval execution, tool execution, trace export, production telemetry export, external observability integration, OpenTelemetry export, cloud traces, backend routes, or production Control Center authority.
+
+## v0.20.1 M16 Trace Redaction Safety Hardening
+
+v0.20.1 keeps M16 frontend-only and read-only. Selecting `View trace` may change visible selected trace detail and the selected-card marker only. It must not mutate data, execute actions, export traces, call telemetry systems, or bypass Python Agent Core authority.
+
+Release review builds should prefer temporary Vite output paths such as `npm run build -- --outDir /tmp/uaa-control-center-review-dist` where practical. Generated frontend `dist`, `build`, `coverage`, `logs`, dependency, native, and cache artifacts must remain ignored and untracked.
+
+M17 Evidence/File/Memory Viewer remains future work.

@@ -1,6 +1,6 @@
 # Local Backend Connection
 
-Status: Active for v0.20.0. Local backend connection behavior is unchanged by M15, v0.19.1 hardening, and M16 timeline/trace UI.
+Status: Active for v0.20.1. Local backend connection behavior is unchanged by M15, v0.19.1 hardening, and M16 timeline/trace UI.
 
 The Web Control Center may connect only to the local backend API boundary. The connection layer is frontend-only and does not add backend routes or backend authority.
 

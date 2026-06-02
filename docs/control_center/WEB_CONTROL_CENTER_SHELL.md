@@ -1,6 +1,6 @@
 # Web Control Center Shell
 
-Status: Active for v0.20.0 / M16 Event Timeline + Run/Receipt Trace Viewer.
+Status: Active for v0.20.1 / M16 Event Timeline + Run/Receipt Trace Viewer.
 
 M13 adds a local TypeScript React/Vite shell under `apps/control-center/` for reading existing backend Control Center and runtime readiness APIs. It is the first web UI surface for the future Control Center, but it is not a production Control Center and it has no authority to execute actions.
 
@@ -33,7 +33,7 @@ Non-goals:
 - no iOS/macOS build workflow.
 - no production authority.
 
-The shell is allowed to use local npm dependencies for React, Vite, TypeScript, Vitest, and Testing Library only. `node_modules`, `dist`, coverage output, `.env` files, and native/mobile build files are not release artifacts.
+The shell is allowed to use local npm dependencies for React, Vite, TypeScript, Vitest, and Testing Library only. `node_modules`, `dist`, `build`, coverage output, log output, `.env` files, and native/mobile build files are not release artifacts.
 
 v0.17.4 adds local browser smoke UX polish and safe reporting documentation only. Frontend CI still covers install, typecheck, lint, tests, and build; static verifiers cover frontend safety plus manual local browser smoke readiness/reporting; and Foundation Gate checks the CI/static/browser-readiness boundary. It does not add backend API paths, execution controls, sensitive browser storage, mobile sensor APIs, plugin enablement controls, browser automation, Chrome authenticated profile control, Computer Use automation, native build workflows, dependencies, or production Control Center authority.
 
@@ -104,3 +104,11 @@ v0.20.0 adds a read-only `/events/timeline` CCC Web route:
 - Foundation Gate evidence summary: safe criterion/evidence refs and statuses.
 
 The M16 route uses visibly mock, non-authoritative fallback data until a future reviewed backend contract adds safe live summaries. It adds no backend route, no execution control, no approval mutation, no trace export, no external telemetry, no raw payload display, and no production authority.
+
+## v0.20.1 M16 Trace Redaction Safety Hardening
+
+v0.20.1 hardens M16 without adding a new surface. The timeline route keeps selection local to the visible UI: clicking a second `View trace` control changes selected trace detail and selected-card state only.
+
+Foundation Gate now checks that OpenAPI path count remains `74` and that backend timeline, trace, raw event, and telemetry export routes remain absent. Release review builds should prefer temporary Vite output paths, and generated frontend build/log artifacts must remain ignored and untracked.
+
+M17 Evidence/File/Memory Viewer remains future work.
