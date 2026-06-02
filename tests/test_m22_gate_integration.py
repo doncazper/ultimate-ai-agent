@@ -60,6 +60,32 @@ def test_m22_gate_scans_local_runtime_contract_sources_for_forbidden_fragments(t
     assert any("import ollama" in failure for failure in failures)
 
 
+def test_m22_gate_scan_allows_harmless_get_method_usage(tmp_path):
+    source_file = tmp_path / "src" / "ultimate_ai_agent" / "core" / "model_runtime" / "metadata_contract.py"
+    source_file.parent.mkdir(parents=True)
+    source_file.write_text("def read_ref(metadata):\n    return metadata.get('runtime_profile_ref')\n", encoding="utf-8")
+
+    failures = m22_local_runtime_forbidden_fragment_failures(tmp_path)
+
+    assert failures == []
+
+
+def test_m22_gate_scan_blocks_qualified_runtime_network_calls(tmp_path):
+    source_file = tmp_path / "src" / "ultimate_ai_agent" / "core" / "model_runtime" / "runtime_client.py"
+    source_file.parent.mkdir(parents=True)
+    source_file.write_text(
+        "import requests\n"
+        "requests.get('http://localhost:11434/api/generate')\n"
+        "ollama.generate(model='demo')\n",
+        encoding="utf-8",
+    )
+
+    failures = m22_local_runtime_forbidden_fragment_failures(tmp_path)
+
+    assert any("requests.get(" in failure for failure in failures)
+    assert any("ollama.generate(" in failure for failure in failures)
+
+
 def test_verify_all_m22_helper_matches_gate_scan(tmp_path):
     source_file = tmp_path / "src" / "ultimate_ai_agent" / "core" / "model_runtime" / "runtime_client.py"
     source_file.parent.mkdir(parents=True)
@@ -69,3 +95,13 @@ def test_verify_all_m22_helper_matches_gate_scan(tmp_path):
 
     assert any("src/ultimate_ai_agent/core/model_runtime/runtime_client.py" in failure for failure in failures)
     assert any("import httpx" in failure for failure in failures)
+
+
+def test_verify_all_m22_helper_allows_harmless_get_method_usage(tmp_path):
+    source_file = tmp_path / "src" / "ultimate_ai_agent" / "core" / "model_runtime" / "metadata_contract.py"
+    source_file.parent.mkdir(parents=True)
+    source_file.write_text("def read_ref(metadata):\n    return metadata.get('runtime_profile_ref')\n", encoding="utf-8")
+
+    failures = find_m22_local_runtime_forbidden_fragment_failures(tmp_path)
+
+    assert failures == []

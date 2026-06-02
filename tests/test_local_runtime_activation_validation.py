@@ -93,3 +93,94 @@ def test_activation_request_forbids_raw_prompt_field():
             safe_summary="metadata only activation request",
             raw_prompt="not allowed",
         )
+
+
+@pytest.mark.parametrize("secret_key", ["api_key", "token", "Authorization"])
+def test_activation_policy_rejects_secret_like_metadata_keys(secret_key):
+    policy = LocalModelRuntimeActivationPolicy(metadata={secret_key: "safe-value"})
+
+    with pytest.raises(ValueError, match="secret-like"):
+        validate_local_runtime_activation_policy(policy)
+
+
+@pytest.mark.parametrize("secret_key", ["api_key", "token", "Authorization"])
+def test_activation_request_rejects_secret_like_metadata_keys(secret_key):
+    request = LocalModelRuntimeActivationRequest(
+        request_ref="local_runtime_activation_request_metadata_key",
+        runtime_kind=LocalModelRuntimeKind.ollama_planned,
+        safe_summary="metadata only activation request",
+        metadata={secret_key: "safe-value"},
+    )
+
+    with pytest.raises(ValueError, match="secret-like"):
+        validate_local_runtime_activation_request(request)
+
+
+@pytest.mark.parametrize("secret_key", ["api_key", "token", "Authorization"])
+def test_activation_decision_rejects_secret_like_metadata_keys(secret_key):
+    decision = LocalModelRuntimeActivationDecision(
+        decision_ref="local_runtime_activation_decision_metadata_key",
+        runtime_kind=LocalModelRuntimeKind.ollama_planned,
+        safe_message="metadata only activation decision",
+        metadata={secret_key: "safe-value"},
+    )
+
+    with pytest.raises(ValueError, match="secret-like"):
+        validate_local_runtime_activation_decision(decision)
+
+
+@pytest.mark.parametrize(
+    ("factory", "validator"),
+    [
+        (lambda: LocalModelRuntimeActivationPolicy(metadata={"runtime_profile_ref": "profile_local_stub"}), validate_local_runtime_activation_policy),
+        (
+            lambda: LocalModelRuntimeActivationRequest(
+                request_ref="local_runtime_activation_request_metadata_safe",
+                runtime_kind=LocalModelRuntimeKind.ollama_planned,
+                safe_summary="metadata only activation request",
+                metadata={"runtime_profile_ref": "profile_local_stub"},
+            ),
+            validate_local_runtime_activation_request,
+        ),
+        (
+            lambda: LocalModelRuntimeActivationDecision(
+                decision_ref="local_runtime_activation_decision_metadata_safe",
+                runtime_kind=LocalModelRuntimeKind.ollama_planned,
+                safe_message="metadata only activation decision",
+                metadata={"runtime_profile_ref": "profile_local_stub"},
+            ),
+            validate_local_runtime_activation_decision,
+        ),
+    ],
+)
+def test_activation_metadata_allows_safe_keys_and_values(factory, validator):
+    validator(factory())
+
+
+@pytest.mark.parametrize(
+    ("factory", "validator"),
+    [
+        (lambda: LocalModelRuntimeActivationPolicy(metadata={"safe_field": "api_key=sk_test_secret_value_12345"}), validate_local_runtime_activation_policy),
+        (
+            lambda: LocalModelRuntimeActivationRequest(
+                request_ref="local_runtime_activation_request_metadata_value",
+                runtime_kind=LocalModelRuntimeKind.ollama_planned,
+                safe_summary="metadata only activation request",
+                metadata={"safe_field": "api_key=sk_test_secret_value_12345"},
+            ),
+            validate_local_runtime_activation_request,
+        ),
+        (
+            lambda: LocalModelRuntimeActivationDecision(
+                decision_ref="local_runtime_activation_decision_metadata_value",
+                runtime_kind=LocalModelRuntimeKind.ollama_planned,
+                safe_message="metadata only activation decision",
+                metadata={"safe_field": "api_key=sk_test_secret_value_12345"},
+            ),
+            validate_local_runtime_activation_decision,
+        ),
+    ],
+)
+def test_activation_metadata_still_rejects_secret_like_values(factory, validator):
+    with pytest.raises(ValueError, match="secret-like"):
+        validator(factory())

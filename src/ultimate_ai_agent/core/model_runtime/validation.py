@@ -5,6 +5,19 @@ from ultimate_ai_agent.core.model_runtime.requests import ModelRuntimeRequest
 from ultimate_ai_agent.core.model_runtime.responses import ModelRuntimeResponse
 
 
+M22_SECRET_METADATA_KEY_FRAGMENTS = (
+    "secret",
+    "credential",
+    "password",
+    "authorization",
+    "cookie",
+    "token",
+    "api_" + "key",
+    "api-" + "key",
+    "client_" + "secret",
+)
+
+
 def _error(code: str, message: str, severity: Severity = Severity.medium) -> ErrorEnvelope:
     return ErrorEnvelope(
         code=code,
@@ -102,6 +115,35 @@ def validate_runtime_response(response: ModelRuntimeResponse) -> ResultEnvelope:
     )
 
 
+def _assert_safe_metadata_mapping(metadata, field_name: str) -> None:
+    from ultimate_ai_agent.core.model_runtime.redaction import assert_secret_clean
+
+    for key, value in metadata.items():
+        key_text = str(key)
+        if _is_m22_secret_metadata_key(key_text):
+            raise ValueError(f"{field_name} key contains secret-like content.")
+        assert_secret_clean(key_text, f"{field_name} key")
+        _assert_safe_metadata_value(value, f"{field_name} value")
+
+
+def _assert_safe_metadata_value(value, field_name: str) -> None:
+    from ultimate_ai_agent.core.model_runtime.redaction import assert_secret_clean
+
+    if isinstance(value, dict):
+        _assert_safe_metadata_mapping(value, field_name)
+        return
+    if isinstance(value, list):
+        for item in value:
+            _assert_safe_metadata_value(item, field_name)
+        return
+    assert_secret_clean(str(value), field_name)
+
+
+def _is_m22_secret_metadata_key(key: str) -> bool:
+    lowered = key.lower()
+    return any(fragment in lowered for fragment in M22_SECRET_METADATA_KEY_FRAGMENTS) or lowered in {"key", "auth"}
+
+
 def validate_local_runtime_activation_manifest(manifest):
     from ultimate_ai_agent.core.model_runtime.enums import LocalModelRuntimeStatus
     from ultimate_ai_agent.core.model_runtime.endpoint_policy import validate_local_runtime_endpoint_descriptor
@@ -177,8 +219,9 @@ def validate_local_runtime_activation_policy(policy):
     if not policy.requires_m23_for_real_call:
         raise ValueError("M22 policy must require M23 for a real local model call")
     assert_secret_clean(policy.safe_summary, "local runtime activation policy safe_summary")
-    for value in [*policy.metadata_refs, *[str(item) for item in policy.metadata.values()]]:
-        assert_secret_clean(value, "local runtime activation policy metadata")
+    for value in policy.metadata_refs:
+        assert_secret_clean(value, "local runtime activation policy metadata_refs")
+    _assert_safe_metadata_mapping(policy.metadata, "local runtime activation policy metadata")
     return policy
 
 
@@ -189,8 +232,7 @@ def validate_local_runtime_activation_request(request):
     assert_secret_clean(request.safe_summary, "local runtime activation request safe_summary")
     for value in request.metadata_refs:
         assert_secret_clean(value, "local runtime activation request metadata_refs")
-    for value in request.metadata.values():
-        assert_secret_clean(str(value), "local runtime activation request metadata")
+    _assert_safe_metadata_mapping(request.metadata, "local runtime activation request metadata")
     if request.runtime_execution_requested:
         if request.approval_ref:
             raise ValueError("approval_ref is not authority for local runtime execution in M22")
@@ -219,8 +261,7 @@ def validate_local_runtime_activation_decision(decision):
     assert_secret_clean(decision.safe_message, "local runtime activation decision safe_message")
     for value in decision.metadata_refs:
         assert_secret_clean(value, "local runtime activation decision metadata_refs")
-    for value in decision.metadata.values():
-        assert_secret_clean(str(value), "local runtime activation decision metadata")
+    _assert_safe_metadata_mapping(decision.metadata, "local runtime activation decision metadata")
     if decision.allowed:
         raise ValueError("M22 local runtime activation decisions cannot authorize activation")
     if decision.approval_ref_authorized:

@@ -1,6 +1,6 @@
 # Documentation Integrity Checklist
 
-Status: Active maintenance checklist, v0.26.0
+Status: Active maintenance checklist, v0.26.1
 
 Run this checklist before every release that changes docs, roadmap, API metadata, runtime boundaries, or release status.
 
@@ -79,6 +79,7 @@ Run this checklist before every release that changes docs, roadmap, API metadata
 - v0.25.0 M21 OpenWebUI Bridge + Chat Shell Integration Contract is contract/planning/validation only, keeps OpenAPI path count unchanged at 74, and adds no OpenWebUI integration, deployment config, Docker config, OpenWebUI plugin/function/pipeline/tool/admin/auth/cookie/API key/admin token workflow, browser profile access, live OpenWebUI connection, backend API route, frontend feature, runtime execution, local LLM call, model/provider call, tool execution, memory write, file access, remote execution, browser automation, Computer Use, mobile sensor access, plugin enablement, dependency, or production authority.
 - v0.25.1 M21 OpenWebUI Bridge Contract Safety Hardening is tests/verifier/Foundation Gate/docs/version only, keeps OpenAPI path count unchanged at 74, scans the OpenWebUI bridge package for forbidden runtime/config fragments, and adds no OpenWebUI integration, deployment config, Docker config, backend API route, frontend feature, runtime execution, local LLM call, model/provider call, tool execution, memory write, file access, remote execution, browser automation, Computer Use, mobile sensor access, plugin enablement, dependency, or production authority.
 - v0.26.0 M22 Local Model Runtime Activation Contract is contract/planning/validation only, keeps OpenAPI path count unchanged at 74, and no model was called, no runtime was activated, and no endpoint was contacted. It adds no backend route, runtime execution, local LLM call, model/provider call, endpoint probe, user prompt processing, tool execution, memory write, file write, OpenWebUI runtime behavior, dependency, or production authority.
+- v0.26.1 M22 Safety Hardening tightens verifier fragments, validates metadata keys as well as values in activation policy/request/decision contracts, removes brittle local route-count unit-test ownership, and cleans duplicate M22 docs wording. It keeps OpenAPI path count unchanged at 74 and adds no backend route, runtime execution, local LLM call, model/provider call, endpoint probe, user prompt processing, tool execution, memory write, file write, OpenWebUI runtime behavior, dependency, or production authority.
 - future post-M20 milestone prompts check `docs/roadmap/CAPABILITY_LAYERING_STRATEGY.md`.
 - future post-M20 milestone prompts check `docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md`.
 - future post-M20 milestone prompts check `docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md`.
@@ -123,7 +124,7 @@ Run this checklist before every release that changes docs, roadmap, API metadata
 - M20 docs say capture cannot silently become memory.
 - M20 docs say Device Capability Broker output is not trusted control input by default.
 - M21 is implemented/released as OpenWebUI Bridge + Chat Shell Integration Contract only.
-- M22 is implemented/released contract-only by v0.26.0; M23-M40 remain planned/provisional.
+- M22 is implemented/released contract-only by v0.26.0 and hardened by v0.26.1; M23-M40 remain planned/provisional.
 
 ## M21 Documentation Integrity Checks
 
@@ -135,4 +136,4 @@ Run this checklist before every release that changes docs, roadmap, API metadata
 - OpenWebUI refs are identifiers only and never authority.
 - no OpenWebUI integration, deployment config, Docker config, plugin/function/pipeline/tool/admin/auth/cookie/API key/admin token workflow, browser profile access, or live OpenWebUI connection is implemented.
 - no backend API route, frontend feature, runtime execution, local LLM call, model/provider call, tool execution, memory write, file access, remote execution, browser automation, Computer Use, mobile sensor access, plugin enablement, dependency, or production authority is added.
-- M22 is implemented/released contract-only by v0.26.0; M23 remains planned/provisional.
+- M22 is implemented/released contract-only by v0.26.0 and hardened by v0.26.1; M23 remains planned/provisional.

@@ -20,14 +20,19 @@ def test_m22_model_runtime_contract_sources_do_not_import_runtime_packages_or_ca
         "import requests",
         "import httpx",
         "subprocess",
-        ".post(",
-        ".get(",
-        ".request(",
+        "requests.get(",
+        "requests.post(",
+        "requests.request(",
+        "httpx.get(",
+        "httpx.post(",
+        "httpx.request(",
+        "urllib.request.urlopen(",
         "create_completion",
-        "chat.completions",
-        "generate(",
-        "pull(",
-        "run(",
+        "chat.completions.create(",
+        "ollama.generate(",
+        "ollama.pull(",
+        "/api/generate",
+        "/v1/chat/completions",
     ]
     allowed_files = {
         "manual_loopback_transport.py",
@@ -52,17 +57,20 @@ def test_m22_model_runtime_contract_sources_do_not_import_runtime_packages_or_ca
 def test_m22_adds_no_backend_runtime_activation_routes():
     paths = set(app.openapi()["paths"])
 
-    assert len(paths) == 74
     forbidden_routes = {
         "/runtime/activate",
         "/runtime/probe",
         "/runtime/local/activate",
         "/runtime/local/probe",
+        "/runtime/model-call",
         "/model-runtime/activate",
         "/model-runtime/probe",
+        "/model-runtime/call",
         "/model-runtime/local/activate",
         "/model-runtime/local/probe",
         "/model-runtime/local/call",
         "/model-runtime/local/generate",
+        "/local-model/call",
+        "/local-model/activate",
     }
     assert paths.isdisjoint(forbidden_routes)

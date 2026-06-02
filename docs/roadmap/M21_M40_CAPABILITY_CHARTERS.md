@@ -1,8 +1,8 @@
 # M21-M40 Capability Charters
 
-Status: Active roadmap projection maintained through v0.26.0. M21 and M22 are implemented/released contract-only; M23-M40 remain planned/provisional.
+Status: Active roadmap projection maintained through v0.26.1. M21 and M22 are implemented/released contract-only; M22 is safety-hardened; M23-M40 remain planned/provisional.
 
-These charters define capability layers after M20. v0.25.0 implements M21 as contract/planning/validation only. v0.26.0 implements M22 as contract/planning/validation only. M23-M40 are still future capability layers. Every milestone requires its own implementation prompt, review prompt, hardening expectation, and validation evidence before release.
+These charters define capability layers after M20. v0.25.0 implements M21 as contract/planning/validation only. v0.26.0 implements M22 as contract/planning/validation only, and v0.26.1 hardens M22 verifier precision plus metadata key secret hygiene only. M23-M40 are still future capability layers. Every milestone requires its own implementation prompt, review prompt, hardening expectation, and validation evidence before release.
 
 ## Shared Rules
 
@@ -779,7 +779,7 @@ Notes: Evals are not proof of production safety by themselves; they are gates an
 v0.23.0 / M19 is implemented as Mobile Companion Contract/API Planning only.
 M20 Device Capability Broker Contract is implemented/released as contract-only
 planning and validation. M21 is implemented/released by v0.25.0 as
-contract-only. M22 is implemented/released by v0.26.0 as contract-only.
+contract-only. M22 is implemented/released by v0.26.0 as contract-only and hardened by v0.26.1.
 M23-M40 remain planned/provisional. The M19 baseline
 adds no mobile app, Android app, iOS app, macOS app, native build workflow, OS
 permission integration, mobile sensor access, mobile approval execution,
@@ -792,5 +792,5 @@ v0.23.1 is a cleanup/hardening patch for M19 roadmap status and mobile contract
 safety tests only. v0.24.0 implements M20 Device Capability Broker Contract
 only. v0.25.0 implements M21 OpenWebUI Bridge + Chat Shell Integration
 Contract only. M22 Local Model Runtime Activation Contract is implemented by
-v0.26.0 as contract/planning/validation only. M23-M40 remain
+v0.26.0 as contract/planning/validation only and hardened by v0.26.1. M23-M40 remain
 planned/provisional until implemented by dedicated reviewed milestones.

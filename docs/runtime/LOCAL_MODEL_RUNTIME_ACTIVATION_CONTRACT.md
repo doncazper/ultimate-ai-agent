@@ -1,6 +1,6 @@
 # Local Model Runtime Activation Contract
 
-Status: Active M22 contract documentation for v0.26.0. Contract-only.
+Status: Active M22 contract documentation for v0.26.1. Contract-only.
 
 M22 defines how future local model runtimes are represented before any runtime is activated. The contract covers Ollama, llama.cpp, MLX, vLLM, LM Studio, OpenAI-compatible local endpoints, and generic loopback HTTP runtime profiles as metadata-only planned profiles.
 
@@ -16,18 +16,21 @@ M22 adds:
 
 M22 does not add:
 
-- real local model calls.
+- no real local model calls.
+- no runtime activation.
 - no runtime execution.
-- runtime activation.
-- endpoint probes.
 - no endpoint probe.
-- provider SDK imports.
-- runtime package imports.
-- user prompt processing.
-- tool execution.
-- memory writes.
-- backend API routes.
-- OpenAPI path count changes.
-- dependencies.
+- no health probe.
+- no provider SDK imports.
+- no runtime package imports.
+- no tokenizer packages.
+- no billing APIs.
+- no user prompt processing.
+- no tool execution.
+- no memory writes.
+- no OpenWebUI runtime bridge behavior.
+- no backend API routes.
+- no OpenAPI path count changes.
+- no dependencies.
 
 All M22 decisions are metadata-only and non-authoritative. Approval refs are identifiers only and cannot authorize activation. M23 remains future for any first bounded local model call.

@@ -1,12 +1,12 @@
-# Ultimate AI Agent Canonical Bundle v0.26.0
+# Ultimate AI Agent Canonical Bundle v0.26.1
 
-This is the active project baseline after v0.26.0 / M22 Local Model Runtime Activation Contract.
+This is the active project baseline after v0.26.1 / M22 Safety Hardening.
 
 Start here:
 
 ```text
-README_IMPORT_v0_26_0.md
-ultimate_ai_agent_master_plan_v0_26_0.md
+README_IMPORT_v0_26_1.md
+ultimate_ai_agent_master_plan_v0_26_1.md
 docs/DOCUMENTATION_INDEX.md
 docs/canonical/09_roadmap.md
 docs/canonical/CANONICAL_DOC_MAP.md
@@ -103,7 +103,7 @@ docs/runtime/LOCAL_RUNTIME_ACTIVATION_SECURITY_MODEL.md
 docs/runtime/LOCAL_RUNTIME_ACTIVATION_NON_GOALS.md
 docs/runtime/LOCAL_RUNTIME_M22_TO_M23_BOUNDARY.md
 docs/security/approval_authority.md
-docs/implementation/foundation_gate_implementation_plan_v0_26_0.md
+docs/implementation/foundation_gate_implementation_plan_v0_26_1.md
 docs/maintenance/documentation_integrity_checklist.md
 docs/tooling/CODEX_PLUGIN_CAPABILITY_INVENTORY.md
 docs/tooling/CODEX_PLUGIN_RISK_POLICY.md
@@ -155,7 +155,7 @@ OpenWebUI bridge contract rule:
 
 Local model runtime activation contract rule:
 
-> v0.26.0 implements M22 Local Model Runtime Activation Contract as contract/planning/validation only. It adds metadata-only local runtime activation contracts, planned-disabled provider profiles for Ollama, llama.cpp, MLX, vLLM, LM Studio, OpenAI-compatible local, and generic loopback HTTP runtimes, loopback/relative endpoint metadata policy, health probe plan validation, tests, docs, verifier coverage, and Foundation Gate criteria. No model was called. No runtime was activated. No endpoint was contacted. OpenAPI path count remains `74`. This release adds no backend API route, runtime execution, local LLM call, provider call, endpoint probe, user prompt processing, tool execution, memory write, file write, OpenWebUI runtime behavior, dependency, or production authority. M23 remains planned/provisional.
+> v0.26.0 implements M22 Local Model Runtime Activation Contract as contract/planning/validation only. It adds metadata-only local runtime activation contracts, planned-disabled provider profiles for Ollama, llama.cpp, MLX, vLLM, LM Studio, OpenAI-compatible local, and generic loopback HTTP runtimes, loopback/relative endpoint metadata policy, health probe plan validation, tests, docs, verifier coverage, and Foundation Gate criteria. v0.26.1 hardens M22 by tightening verifier fragments, validating metadata keys as well as values in activation policy/request/decision contracts, removing a brittle local route-count unit assertion, and cleaning duplicate docs wording. No model was called. No runtime was activated. No endpoint was contacted. OpenAPI path count remains `74`. This release adds no backend API route, runtime execution, local LLM call, provider call, endpoint probe, user prompt processing, tool execution, memory write, file write, OpenWebUI runtime behavior, dependency, or production authority. M23 remains planned/provisional.
 
 Roadmap status label cleanup rule:
 

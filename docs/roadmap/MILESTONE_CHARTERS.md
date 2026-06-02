@@ -68,7 +68,7 @@ Notes:
 - No milestone may skip review gates.
 - M14-M20 are frozen and implemented through v0.24.0, with v0.24.1 M20 safety hardening accepted, unless a reviewed roadmap patch supersedes them.
 - M21 is implemented/released by v0.25.0 as OpenWebUI Bridge + Chat Shell Integration Contract only.
-- M22 is implemented/released by v0.26.0 as contract-only; M23-M40 are planned/provisional in `docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md`.
+- M22 is implemented/released by v0.26.0 as contract-only and hardened by v0.26.1; M23-M40 are planned/provisional in `docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md`.
 - Future prompts after M20 must read `docs/roadmap/CAPABILITY_LAYERING_STRATEGY.md`, `docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md`, and `docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md`.
 
 ## M19 Current Status
@@ -110,7 +110,7 @@ workflow, backend API route, frontend feature, runtime execution, local LLM
 call, model/provider call, tool execution, memory write, file access, remote
 execution, browser automation, Computer Use, mobile sensor access, plugin
 enablement, dependency, or production authority. M22 is implemented/released
-contract-only by v0.26.0, and M23 remains planned/provisional.
+contract-only by v0.26.0, hardened by v0.26.1, and M23 remains planned/provisional.
 
 ## Review And Hardening Rule
 
