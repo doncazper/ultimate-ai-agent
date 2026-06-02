@@ -121,3 +121,20 @@ v0.18.3 adds CCC Android terminology for future native client planning only. No 
 v0.18.4 links future device registry and permission work to M31-M37 in `docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md`. M35 is the first planned/provisional Device Capability Broker Implementation, No Sensors Yet milestone; M37 is the first planned/provisional one-governed-sensor milestone.
 
 This patch adds no registry runtime, OS permission integration, Android/iOS app, background service, notification channel, sensor access, signing, keystore, provisioning, App Store workflow, Play Store workflow, or native build workflow.
+## M19 Update
+
+v0.23.0 / M19 adds Mobile Companion Contract/API Planning only. It does not
+implement a mobile device registry, Device Capability Broker, mobile app, OS
+permission integration, background service, notification runtime, pairing flow,
+sensor runtime, or native build workflow.
+
+M19 permission planning says iOS and Android permissions must be explicit and
+scoped in future reviewed milestones. There is no background location by
+default, no passive microphone, no silent photo/contact/calendar scan, no
+background service without reviewed policy, no notification runtime without
+receipt-backed policy, and no Play Store/signing/keystore/App
+Store/provisioning/keychain workflow until a dedicated release milestone.
+
+Device Capability Broker is required before sensors. Capture cannot silently
+become memory. Phone/mobile is not the agent brain. M20 remains
+planned/provisional.

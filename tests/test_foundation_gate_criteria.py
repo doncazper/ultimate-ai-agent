@@ -37,6 +37,8 @@ def test_default_foundation_gate_criteria_cover_m6_acceptance_surface():
         "m16_event_timeline_trace_viewer_safe",
         "m17_evidence_file_memory_viewer_safe",
         "m17_evidence_file_memory_viewer_hardening_safe",
+        "m18_local_runtime_manual_smoke_surface_safe",
+        "m19_mobile_companion_contract_planning_safe",
         "roadmap_milestone_charters_current",
         "documentation_integrity_current",
         "codex_plugin_governance_docs_present",

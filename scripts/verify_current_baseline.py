@@ -560,6 +560,36 @@ def main():
         if not p.exists():
             fail(f"Required M14 file is missing: {rel_path}")
     ok("All M14 Web Control Center local backend connection files exist")
+
+    # 8.23 Check M19 Mobile Companion contract/API planning files existence
+    m19_files = [
+        "src/ultimate_ai_agent/core/mobile_companion/__init__.py",
+        "src/ultimate_ai_agent/core/mobile_companion/enums.py",
+        "src/ultimate_ai_agent/core/mobile_companion/contracts.py",
+        "src/ultimate_ai_agent/core/mobile_companion/permissions.py",
+        "src/ultimate_ai_agent/core/mobile_companion/receipts.py",
+        "src/ultimate_ai_agent/core/mobile_companion/planning.py",
+        "tests/test_mobile_companion_contracts.py",
+        "tests/test_mobile_companion_permissions.py",
+        "tests/test_mobile_companion_no_sensor_access.py",
+        "tests/test_mobile_companion_no_authority.py",
+        "tests/test_m19_gate_integration.py",
+        "docs/mobile/MOBILE_COMPANION_CONTRACT.md",
+        "docs/mobile/MOBILE_CLIENT_SURFACE_ROLES.md",
+        "docs/mobile/MOBILE_API_PLANNING.md",
+        "docs/mobile/MOBILE_PERMISSION_RECEIPT_FLOW.md",
+        "docs/mobile/MOBILE_SENSOR_BOUNDARY.md",
+        "docs/mobile/MOBILE_SECURITY_MODEL.md",
+        "docs/mobile/MOBILE_CAPTURE_POLICY.md",
+        "docs/mobile/CCC_IOS_ANDROID_STRATEGY.md",
+        "docs/mobile/MOBILE_PAIRING_TRUST_PLANNING.md",
+        "docs/mobile/MOBILE_COMPANION_NON_GOALS.md",
+    ]
+    for rel_path in m19_files:
+        p = ROOT / rel_path
+        if not p.exists():
+            fail(f"Required M19 file is missing: {rel_path}")
+    ok("All M19 Mobile Companion contract/API planning files exist")
     
     # 9. Enforce scans by delegating to verify_all
     try:

@@ -114,3 +114,12 @@ v0.18.4 maps future native client contracts to M31 and future browser automation
 ## Source-of-Truth Boundary
 
 External review tools, coding agents, build plugins, browser controllers, and cloud tools may assist development, but their outputs are not authoritative evidence. The model is never the source of truth. The project remains governed by canonical docs, API/runtime contracts, verifier scripts, Foundation Gate, and human approval.
+## M19 Android and Native Tooling Boundary
+
+v0.23.0 / M19 adds Mobile Companion Contract/API Planning only. Android tools
+are future/high-risk. Gradle, Android Studio, Kotlin, Java, Play Store, and
+keystore workflows require a future dedicated milestone and explicit
+plugin/tooling approval. iOS tools remain future/high-risk. Swift, Xcode, App
+Store Connect, signing, provisioning, and keychain workflows require future
+approval. React Native, Expo, Flutter, Capacitor, and Ionic require future
+approval. No tooling is enabled in M19.

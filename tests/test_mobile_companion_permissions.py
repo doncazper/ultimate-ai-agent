@@ -1,0 +1,62 @@
+import pytest
+
+from ultimate_ai_agent.core.mobile_companion import (
+    MobileCapabilityKind,
+    MobileCapabilityStatus,
+    MobileDataClassification,
+    MobilePermissionDecision,
+    build_default_mobile_permission_manifest,
+)
+from ultimate_ai_agent.core.mobile_companion.contracts import MobileCapabilityPlan, MobileCaptureIntentPlan
+from ultimate_ai_agent.core.mobile_companion.planning import (
+    assert_no_silent_memory_write,
+    validate_mobile_capability_plan,
+    validate_mobile_capture_intent_plan,
+)
+
+
+def test_default_mobile_permission_manifest_denies_runtime_access():
+    manifest = build_default_mobile_permission_manifest()
+
+    assert manifest.contract_only is True
+    assert manifest.os_permission_integration_implemented is False
+    assert manifest.background_service_implemented is False
+    assert all(decision.decision != MobilePermissionDecision.allowed_contract_only for decision in manifest.decisions)
+
+
+def test_capability_allowed_now_is_rejected():
+    capability = MobileCapabilityPlan(
+        capability=MobileCapabilityKind.approvals_planned,
+        status=MobileCapabilityStatus.contract_only,
+        safe_summary="approval status summary only",
+        allowed_now=True,
+    )
+
+    with pytest.raises(ValueError, match="allowed_now"):
+        validate_mobile_capability_plan(capability)
+
+
+def test_sensitive_capture_storage_is_rejected_without_future_policy():
+    capture = MobileCaptureIntentPlan(
+        capture_ref="capture_plan_sensitive_001",
+        capability=MobileCapabilityKind.files_planned,
+        data_classification=MobileDataClassification.sensitive,
+        safe_summary="sensitive document capture planning only",
+        storage_allowed=True,
+    )
+
+    with pytest.raises(ValueError, match="storage_allowed"):
+        validate_mobile_capture_intent_plan(capture)
+
+
+def test_automatic_memory_write_is_rejected():
+    capture = MobileCaptureIntentPlan(
+        capture_ref="capture_plan_memory_001",
+        capability=MobileCapabilityKind.photos_planned,
+        data_classification=MobileDataClassification.personal,
+        safe_summary="redacted photo capture summary only",
+        automatic_memory_write=True,
+    )
+
+    with pytest.raises(ValueError, match="automatic_memory_write"):
+        assert_no_silent_memory_write(capture)

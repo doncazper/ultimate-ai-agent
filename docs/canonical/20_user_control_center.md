@@ -239,3 +239,15 @@ v0.21.1 hardens the existing frontend-only M17 surfaces. `/evidence`, `/files`, 
 The patch adds alternate safe mock refs, accessible selected-card reviewability, frontend tests, static verifier checks, browser smoke reviewability, docs, and Foundation Gate criteria. OpenAPI path count remains `74`, and no backend API route is added.
 
 v0.21.1 adds no M18 local runtime smoke control surface, file mutation, memory mutation, filesystem browsing, raw secret/prompt/file/memory/evidence/credential/provider payload display, embeddings, vector DB, memory provider implementation, runtime execution, model/provider call, remote dispatch, mobile sensor access, plugin enablement, dependency, auth, cookies, analytics, SaaS SDK, native build workflow, or production Control Center authority.
+## M19 Mobile Companion Boundary
+
+v0.23.0 / M19 adds Mobile Companion Contract/API Planning only. CCC Web remains
+the current TypeScript Web Control Center. CCC iOS and CCC Android are future
+native mobile control clients only; no mobile app, Android app, iOS app, native
+build workflow, OS permission integration, or mobile sensor access is added.
+
+All CCC clients are control surfaces, not the agent brain. All CCC clients must
+use Python Agent Core authority and must respect Approval Authority, Consent
+Ledger, Tool Broker, Event Ledger, Secret Broker, Redaction, receipts, and
+Foundation Gate. Mobile approval execution is not implemented. Capture cannot
+silently become memory. Device Capability Broker is required before sensors.

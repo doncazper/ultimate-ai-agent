@@ -69,3 +69,9 @@ Release/security audits:
 - Define design tooling approval, import/export, artifact review, and no automatic design sync policy.
 - Define OpenWebUI deployment/integration/plugin/function/pipeline/tool bridge approval policy.
 - Define Android native build, signing, keystore, Play Store, permission, background service, and notification channel policy.
+## M19 Native Mobile Tooling Backlog Note
+
+Android tools remain future/high-risk backlog items. Gradle, Android Studio,
+Kotlin, Java, Play Store, and keystore workflows require future dedicated
+approval. iOS tools remain future/high-risk. React Native, Expo, Flutter,
+Capacitor, and Ionic require future approval. No tooling is enabled in M19.

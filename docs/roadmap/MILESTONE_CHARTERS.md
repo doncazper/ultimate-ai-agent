@@ -1,6 +1,6 @@
 # Milestone Charters
 
-Status: Active roadmap governance template maintained through v0.22.1.
+Status: Active roadmap governance template maintained through v0.23.0.
 
 This document defines the required charter shape for every future milestone prompt. A milestone charter is planning authority only. It does not implement runtime behavior, frontend behavior, backend API routes, provider calls, network calls, remote execution, mobile sensor access, plugin enablement, native build workflows, production persistence, or external actions.
 
@@ -69,6 +69,16 @@ Notes:
 - M14-M20 remain frozen and unchanged unless a reviewed roadmap patch supersedes them.
 - M21-M40 are planned/provisional in `docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md`.
 - Future prompts after M20 must read `docs/roadmap/CAPABILITY_LAYERING_STRATEGY.md`, `docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md`, and `docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md`.
+
+## M19 Current Status
+
+v0.23.0 / M19 is implemented as Mobile Companion Contract/API Planning only.
+M19 adds contract models, validation helpers, docs, tests, verifier coverage,
+and Foundation Gate criteria. It adds no mobile app, no Android app, no iOS
+app, no native build workflow, no OS permission integration, no mobile sensor
+access, no backend API route, and no OpenAPI path count change. Device
+Capability Broker is required before sensors. Capture cannot silently become
+memory. Phone/mobile is not the agent brain. M20 remains planned/provisional.
 
 ## Review And Hardening Rule
 

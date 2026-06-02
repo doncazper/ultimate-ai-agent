@@ -33,3 +33,16 @@ Mobile Companion remains a future governed sensor/capture device client concept.
 ## Open Design System
 
 Open Design System is design governance for CCC surfaces. Open Design does not replace OpenWebUI. Design docs guide custom CCC Web, CCC iOS, CCC Android, and CCC macOS surfaces without enabling design tools or design-to-code workflows.
+## M19 Mobile Companion Contract Planning
+
+v0.23.0 / M19 adds Mobile Companion Contract/API Planning only. CCC Web remains
+the current TypeScript Web Control Center. CCC iOS and CCC Android are future
+native mobile control clients only. No CCC native implementation is added, no
+Android app is implemented yet, no iOS app is implemented yet, and no macOS app
+is implemented yet.
+
+All CCC clients are control surfaces, not the agent brain. All CCC clients must
+use Python Agent Core authority. M19 adds no native build workflow, no mobile
+sensor access, no OS permission integration, no signing, keystore,
+provisioning, App Store, or Play Store workflow. Device Capability Broker is
+required before sensors. Capture cannot silently become memory.

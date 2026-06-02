@@ -199,3 +199,23 @@ v0.18.4 adds post-M20 roadmap projection docs only. Mobile and device work remai
 - M37 - One Governed Sensor Capability.
 
 These milestones require dedicated implementation prompts and review prompts. v0.18.4 adds no mobile app, Android app, iOS app, macOS app, Device Capability Broker implementation, mobile capture, sensor access, OS permission integration, native build workflow, signing, keystore, provisioning, App Store workflow, or Play Store workflow.
+## M19 Update
+
+v0.23.0 / M19 is implemented as Mobile Companion Contract/API Planning only.
+It adds Python contract models and validation helpers under
+`src/ultimate_ai_agent/core/mobile_companion/`, plus docs, tests, verifier
+coverage, and Foundation Gate criteria. It adds no backend API route and
+OpenAPI path count remains `74`.
+
+M19 defines CCC iOS and CCC Android as future planned clients only. No mobile
+app, Android app, iOS app, macOS app, Swift, Kotlin, Java, React Native, Expo,
+Flutter, Gradle, Android Studio, Xcode, native package, native build workflow,
+OS permission integration, signing, keystore, provisioning, App Store, or Play
+Store workflow is added.
+
+Device Capability Broker is required before sensors. M19 adds no camera,
+microphone, location, notification, contacts, calendar, files, photos,
+Bluetooth, NFC, biometrics, background service, or mobile sensor access.
+Capture cannot silently become memory. Mobile approval execution is not
+implemented. Phone/mobile is not the agent brain and phone output is not
+trusted control input. M20 remains planned/provisional.

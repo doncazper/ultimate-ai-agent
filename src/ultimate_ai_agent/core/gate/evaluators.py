@@ -92,6 +92,21 @@ M18_FORBIDDEN_BACKEND_ROUTES = (
     "/control-center/runtime/execute",
     "/control-center/runtime/connect",
 )
+EXPECTED_M19_OPENAPI_PATH_COUNT = 74
+M19_FORBIDDEN_BACKEND_ROUTES = (
+    "/mobile",
+    "/mobile/manifest",
+    "/mobile/sensors",
+    "/mobile/capture",
+    "/mobile/permissions",
+    "/mobile/approvals/execute",
+    "/mobile/approvals/approve",
+    "/mobile/approvals/deny",
+    "/device-capability-broker",
+    "/device-capability-broker/capabilities",
+    "/control-center/mobile/sensors",
+    "/control-center/mobile/capture",
+)
 
 
 def m16_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M16_OPENAPI_PATH_COUNT) -> List[str]:
@@ -124,6 +139,17 @@ def m18_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
     forbidden_present = sorted(path for path in M18_FORBIDDEN_BACKEND_ROUTES if path in path_set)
     if forbidden_present:
         failures.append(f"M18 forbidden backend route(s) present: {', '.join(forbidden_present)}")
+    return failures
+
+
+def m19_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M19_OPENAPI_PATH_COUNT) -> List[str]:
+    failures: List[str] = []
+    path_set = set(paths)
+    if len(path_set) != expected_path_count:
+        failures.append(f"M19 OpenAPI path count changed: expected {expected_path_count}, found {len(path_set)}")
+    forbidden_present = sorted(path for path in M19_FORBIDDEN_BACKEND_ROUTES if path in path_set)
+    if forbidden_present:
+        failures.append(f"M19 forbidden backend route(s) present: {', '.join(forbidden_present)}")
     return failures
 
 
@@ -244,6 +270,7 @@ class FoundationGateEvaluator:
             "m17_evidence_file_memory_viewer_safe": self.check_m17_evidence_file_memory_viewer_safe,
             "m17_evidence_file_memory_viewer_hardening_safe": self.check_m17_evidence_file_memory_viewer_hardening_safe,
             "m18_local_runtime_manual_smoke_surface_safe": self.check_m18_local_runtime_manual_smoke_surface_safe,
+            "m19_mobile_companion_contract_planning_safe": self.check_m19_mobile_companion_contract_planning_safe,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -3628,6 +3655,158 @@ class FoundationGateEvaluator:
                 module = importlib.util.module_from_spec(spec)
                 spec.loader.exec_module(module)
                 failures.extend(module.verify(self.root))
+
+        return self._result(criterion, failures, required_files)
+
+    def check_m19_mobile_companion_contract_planning_safe(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.mobile_companion import (
+            build_default_mobile_companion_manifest,
+            build_default_mobile_permission_manifest,
+        )
+        from ultimate_ai_agent.core.mobile_companion.planning import (
+            assert_mobile_contract_only,
+        )
+
+        required_files = [
+            "src/ultimate_ai_agent/core/mobile_companion/__init__.py",
+            "src/ultimate_ai_agent/core/mobile_companion/enums.py",
+            "src/ultimate_ai_agent/core/mobile_companion/contracts.py",
+            "src/ultimate_ai_agent/core/mobile_companion/permissions.py",
+            "src/ultimate_ai_agent/core/mobile_companion/receipts.py",
+            "src/ultimate_ai_agent/core/mobile_companion/planning.py",
+            "tests/test_mobile_companion_contracts.py",
+            "tests/test_mobile_companion_permissions.py",
+            "tests/test_mobile_companion_no_sensor_access.py",
+            "tests/test_mobile_companion_no_authority.py",
+            "tests/test_m19_gate_integration.py",
+            "docs/mobile/MOBILE_COMPANION_CONTRACT.md",
+            "docs/mobile/MOBILE_CLIENT_SURFACE_ROLES.md",
+            "docs/mobile/MOBILE_API_PLANNING.md",
+            "docs/mobile/MOBILE_PERMISSION_RECEIPT_FLOW.md",
+            "docs/mobile/MOBILE_SENSOR_BOUNDARY.md",
+            "docs/mobile/MOBILE_SECURITY_MODEL.md",
+            "docs/mobile/MOBILE_CAPTURE_POLICY.md",
+            "docs/mobile/CCC_IOS_ANDROID_STRATEGY.md",
+            "docs/mobile/MOBILE_PAIRING_TRUST_PLANNING.md",
+            "docs/mobile/MOBILE_COMPANION_NON_GOALS.md",
+            "docs/implementation/foundation_gate_implementation_plan_v0_23_0.md",
+            "docs/release_notes/v0_23_0.md",
+        ]
+        failures = [
+            f"missing M19 mobile companion contract/planning file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+
+        try:
+            manifest = build_default_mobile_companion_manifest()
+            permission_manifest = build_default_mobile_permission_manifest()
+            assert_mobile_contract_only(manifest)
+            if not manifest.contract_only:
+                failures.append("default mobile companion manifest is not contract-only")
+            if manifest.mobile_client_is_authority:
+                failures.append("default mobile companion manifest claims mobile authority")
+            if manifest.sensor_access_enabled:
+                failures.append("default mobile companion manifest enables sensor access")
+            if manifest.mobile_approval_execution_implemented:
+                failures.append("default manifest enables mobile approval execution")
+            if not manifest.device_capability_broker_required:
+                failures.append("default manifest does not require Device Capability Broker")
+            if not permission_manifest.contract_only:
+                failures.append("default mobile permission manifest is not contract-only")
+            if permission_manifest.os_permission_integration_implemented:
+                failures.append("default permission manifest enables OS permissions")
+        except Exception as exc:
+            failures.append(f"M19 mobile companion default contract failed validation: {exc}")
+
+        try:
+            openapi_paths = app.openapi().get("paths", {})
+        except Exception as exc:
+            failures.append(f"M19 OpenAPI route guard could not generate schema: {exc}")
+        else:
+            failures.extend(m19_openapi_route_failures(openapi_paths))
+
+        forbidden_dirs = [
+            "ios",
+            "android",
+            "mobile-app",
+            "react-native",
+            "expo",
+            "flutter",
+            "capacitor",
+            "ionic",
+            "src/ultimate_ai_agent/core/device_capability_broker",
+        ]
+        for rel_path in forbidden_dirs:
+            if (self.root / rel_path).exists():
+                failures.append(f"M19 forbidden native/mobile implementation directory exists: {rel_path}")
+
+        forbidden_files = [
+            "build.gradle",
+            "settings.gradle",
+            "gradlew",
+            "AndroidManifest.xml",
+            "Info.plist",
+            "Package.swift",
+            "Podfile",
+            "pubspec.yaml",
+            "app.json",
+            "app.config.js",
+            "capacitor.config.ts",
+            "ionic.config.json",
+        ]
+        for file_name in forbidden_files:
+            for rel in [
+                file_name,
+                f"apps/{file_name}",
+                f"apps/control-center/{file_name}",
+                f"src/{file_name}",
+            ]:
+                if (self.root / rel).exists():
+                    failures.append(f"M19 forbidden native/mobile implementation file exists: {rel}")
+
+        scan_roots = ["src", "apps", "scripts", "tests"]
+        forbidden_fragments = [
+            "navigator.geolocation",
+            "navigator.mediaDevices",
+            "Notification.requestPermission",
+            "PushManager",
+            "android.permission",
+            "Manifest.permission",
+            "CLLocation",
+            "AVCapture",
+            "LocationManager",
+            "CameraManager",
+        ]
+        for rel_root in scan_roots:
+            root = self.root / rel_root
+            if not root.exists():
+                continue
+            candidate_files = []
+            if rel_root in {"src", "scripts", "tests"}:
+                candidate_files.extend(root.rglob("*.py"))
+            if rel_root == "apps":
+                candidate_files.extend(root.rglob("*.ts"))
+                candidate_files.extend(root.rglob("*.tsx"))
+                candidate_files.extend(root.rglob("*.js"))
+                candidate_files.extend(root.rglob("*.jsx"))
+            for path in candidate_files:
+                rel = path.relative_to(self.root).as_posix()
+                if not path.is_file() or "__pycache__" in rel or "node_modules/" in rel:
+                    continue
+                if rel in {
+                    "src/ultimate_ai_agent/core/gate/evaluators.py",
+                    "scripts/verify_all.py",
+                    "scripts/verify_control_center_frontend.py",
+                }:
+                    continue
+                text = self._read(path)
+                for fragment in forbidden_fragments:
+                    if fragment in text:
+                        failures.append(f"M19 forbidden mobile sensor fragment in {rel}: {fragment}")
 
         return self._result(criterion, failures, required_files)
 

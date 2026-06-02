@@ -60,6 +60,16 @@ REQUIRED_ACTIVE_DOCS = [
     "docs/ui/CLIENT_SURFACE_ROLES.md",
     "docs/ui/OPENWEBUI_INTEGRATION_ROADMAP.md",
     "docs/ui/CCC_NATIVE_CLIENT_STRATEGY.md",
+    "docs/mobile/MOBILE_COMPANION_CONTRACT.md",
+    "docs/mobile/MOBILE_CLIENT_SURFACE_ROLES.md",
+    "docs/mobile/MOBILE_API_PLANNING.md",
+    "docs/mobile/MOBILE_PERMISSION_RECEIPT_FLOW.md",
+    "docs/mobile/MOBILE_SENSOR_BOUNDARY.md",
+    "docs/mobile/MOBILE_SECURITY_MODEL.md",
+    "docs/mobile/MOBILE_CAPTURE_POLICY.md",
+    "docs/mobile/CCC_IOS_ANDROID_STRATEGY.md",
+    "docs/mobile/MOBILE_PAIRING_TRUST_PLANNING.md",
+    "docs/mobile/MOBILE_COMPANION_NON_GOALS.md",
     "docs/roadmap/CAPABILITY_LAYERING_STRATEGY.md",
     "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
     "docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md",
@@ -87,6 +97,19 @@ REQUIRED_UI_STRATEGY_DOCS = [
     "docs/ui/CLIENT_SURFACE_ROLES.md",
     "docs/ui/OPENWEBUI_INTEGRATION_ROADMAP.md",
     "docs/ui/CCC_NATIVE_CLIENT_STRATEGY.md",
+]
+
+REQUIRED_MOBILE_DOCS = [
+    "docs/mobile/MOBILE_COMPANION_CONTRACT.md",
+    "docs/mobile/MOBILE_CLIENT_SURFACE_ROLES.md",
+    "docs/mobile/MOBILE_API_PLANNING.md",
+    "docs/mobile/MOBILE_PERMISSION_RECEIPT_FLOW.md",
+    "docs/mobile/MOBILE_SENSOR_BOUNDARY.md",
+    "docs/mobile/MOBILE_SECURITY_MODEL.md",
+    "docs/mobile/MOBILE_CAPTURE_POLICY.md",
+    "docs/mobile/CCC_IOS_ANDROID_STRATEGY.md",
+    "docs/mobile/MOBILE_PAIRING_TRUST_PLANNING.md",
+    "docs/mobile/MOBILE_COMPANION_NON_GOALS.md",
 ]
 
 REQUIRED_POST_M20_ROADMAP_DOCS = [
@@ -163,6 +186,7 @@ ACTIVE_DOCS_TO_SCAN = [
     "docs/control_center/RUNTIME_SMOKE_UI_SAFETY.md",
     *REQUIRED_DESIGN_DOCS,
     *REQUIRED_UI_STRATEGY_DOCS,
+    *REQUIRED_MOBILE_DOCS,
     "docs/remote/REMOTE_WORKER_FOUNDATION.md",
     "docs/remote/REMOTE_NODE_SECURITY_MODEL.md",
     "docs/remote/REMOTE_JOB_ENVELOPE.md",
@@ -255,6 +279,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_roadmap_milestone_charters(root))
     failures.extend(_verify_open_design_governance(root))
     failures.extend(_verify_openwebui_ccc_strategy(root))
+    failures.extend(_verify_mobile_companion_contract_docs(root))
     failures.extend(_verify_post_m20_roadmap_projection(root))
     failures.extend(_verify_post_m18_roadmap_status_labels(root))
 
@@ -393,6 +418,86 @@ def _verify_openwebui_ccc_strategy(root: Path) -> list[str]:
     for failure, fragment in expectations.items():
         if fragment not in ui_text:
             failures.append(failure)
+
+    return failures
+
+
+def _verify_mobile_companion_contract_docs(root: Path) -> list[str]:
+    failures: list[str] = []
+    for rel_path in REQUIRED_MOBILE_DOCS:
+        if not (root / rel_path).exists():
+            failures.append(f"missing active documentation file: {rel_path}")
+
+    mobile_text = "\n".join(
+        _read(root / rel_path).lower() for rel_path in REQUIRED_MOBILE_DOCS if (root / rel_path).exists()
+    )
+    expectations = {
+        "mobile docs must say M19 is contract/API planning only": "contract/api planning only",
+        "mobile docs must mention iOS": "ios",
+        "mobile docs must mention Android": "android",
+        "mobile docs must say no mobile app": "no mobile app",
+        "mobile docs must say no Android app": "no android app",
+        "mobile docs must say no iOS app": "no ios app",
+        "mobile docs must say no native build workflow": "no native build workflow",
+        "mobile docs must say no OS permission integration": "no os permission integration",
+        "mobile docs must say no mobile sensor access": "no mobile sensor access",
+        "mobile docs must say Device Capability Broker is required before sensors": (
+            "device capability broker is required before sensors"
+        ),
+        "mobile docs must say capture cannot silently become memory": (
+            "capture cannot silently become memory"
+        ),
+        "mobile docs must say phone/mobile is not the agent brain": "phone/mobile is not the agent brain",
+        "mobile docs must say phone output is not trusted control input": (
+            "phone output is not trusted control input"
+        ),
+        "mobile docs must say no native build workflow is added": "no native build workflow is added",
+        "mobile docs must say M20 remains planned": "m20 remains planned",
+    }
+    for failure, fragment in expectations.items():
+        if fragment not in mobile_text:
+            failures.append(failure)
+
+    sequence_path = root / "docs/roadmap/NEXT_SEQUENCE_v0_17_5.md"
+    sequence = _read(sequence_path).lower() if sequence_path.exists() else ""
+    m19_section = _milestone_section(sequence, "v0.23.0 / m19")
+    m20_section = _milestone_section(sequence, "v0.24.0 / m20")
+    if "status: implemented" not in m19_section:
+        failures.append("roadmap sequence must mark M19/v0.23.0 as implemented")
+    if "status: planned/provisional" not in m20_section:
+        failures.append("roadmap sequence must keep M20/v0.24.0 planned/provisional")
+
+    active_docs = "\n".join(
+        _read(root / rel_path).lower()
+        for rel_path in [
+            "docs/canonical/09_roadmap.md",
+            "docs/canonical/64_mobile_companion_and_device_capability_broker.md",
+            "docs/canonical/65_mobile_device_registry_and_sensor_permission_manifest.md",
+            "docs/roadmap/MILESTONE_CHARTERS.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+            "docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md",
+            "docs/DOCUMENTATION_INDEX.md",
+            "docs/canonical/CANONICAL_DOC_MAP.md",
+            "docs/maintenance/documentation_integrity_checklist.md",
+        ]
+        if (root / rel_path).exists()
+    )
+    for fragment in [
+        "m19",
+        "contract/api planning only",
+        "no mobile app",
+        "no android app",
+        "no ios app",
+        "no native build workflow",
+        "no os permission integration",
+        "no mobile sensor access",
+        "device capability broker is required before sensors",
+        "capture cannot silently become memory",
+        "phone/mobile is not the agent brain",
+        "m20 remains planned",
+    ]:
+        if fragment not in active_docs:
+            failures.append(f"active docs missing M19 mobile boundary fragment: {fragment}")
 
     return failures
 
@@ -574,13 +679,17 @@ def _verify_post_m18_roadmap_status_labels(root: Path) -> list[str]:
         failures.append("roadmap sequence must mark M18/v0.22.0 as implemented after accepted v0.22.0")
     if "v0.22.0 has implemented m18" not in roadmap:
         failures.append("canonical roadmap must mention accepted M18 implementation after v0.22.0")
-    for milestone in ["v0.23.0 / m19", "v0.24.0 / m20"]:
+    milestone_expectations = {
+        "v0.23.0 / m19": "implemented",
+        "v0.24.0 / m20": "planned/provisional",
+    }
+    for milestone, expected_status in milestone_expectations.items():
         section = _milestone_section(sequence, milestone)
         if not section:
-            failures.append(f"roadmap sequence missing {milestone.upper()} planned status")
+            failures.append(f"roadmap sequence missing {milestone.upper()} status")
             continue
-        if "status: planned/provisional" not in section:
-            failures.append(f"roadmap sequence must keep {milestone.upper()} planned/provisional")
+        if f"status: {expected_status}" not in section:
+            failures.append(f"roadmap sequence must mark {milestone.upper()} {expected_status}")
     if "m21-m40 remain planned/provisional" not in sequence:
         failures.append("roadmap sequence must keep M21-M40 planned/provisional")
     return failures

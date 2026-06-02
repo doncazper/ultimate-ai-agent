@@ -1,0 +1,39 @@
+# Mobile Companion Contract
+
+Status: Current M19 contract/API planning doc for v0.23.0.
+
+M19 implements Mobile Companion Contract/API Planning only. It adds Python
+contract models and validation helpers under
+`src/ultimate_ai_agent/core/mobile_companion/`; it adds no backend API route,
+no frontend route, no mobile app, no Android app, no iOS app, no native build
+workflow, no mobile sensor access, and no OS permission integration.
+
+The Mobile Companion is a future control, approval/status, receipt, capture
+inbox, emergency stop, and status dashboard surface. Phone/mobile is not the
+agent brain. Python Agent Core remains the only authority for approvals,
+consent, tools, events, secrets, redaction, receipts, Foundation Gate, and
+governed source systems.
+
+M19 contract rules:
+
+- all mobile client plans are contract-only and `implemented_now=false`.
+- all capability plans default to `allowed_now=false`.
+- iOS and Android are future planned clients only.
+- no Swift, Kotlin, Java, React Native, Expo, Flutter, Gradle, Android Studio,
+  Xcode, signing, keystore, provisioning, App Store, or Play Store workflow is
+  added.
+- no camera, microphone, location, notifications, contacts, calendar, files,
+  photos, Bluetooth, NFC, or biometrics access is enabled.
+- sensor capability plans require a future Device Capability Broker before any
+  implementation.
+- mobile approval execution is not implemented.
+- arbitrary strings, mobile output, phone output, sensor output, and capture
+  output are not authority.
+- phone output is not trusted control input.
+- capture cannot silently become memory.
+- safe summaries and metadata refs must not contain secrets, raw prompts, raw
+  files, raw memory, raw location, raw camera, raw microphone, raw contacts,
+  raw calendar, or raw photos.
+
+M20 Device Capability Broker remains planned/provisional. M19 does not
+implement M20. No native build workflow is added.

@@ -768,3 +768,13 @@ Hardening expectation: eval data hygiene, determinism, and false-authority harde
 Source-of-truth docs: `docs/testing/test_strategy_v0.md`, `docs/roadmap/CAPABILITY_LAYERING_STRATEGY.md`.
 
 Notes: Evals are not proof of production safety by themselves; they are gates and evidence.
+## M19 Baseline Note
+
+v0.23.0 / M19 is implemented as Mobile Companion Contract/API Planning only.
+M20 Device Capability Broker remains planned/provisional. M21-M40 remain
+planned/provisional. The M19 baseline adds no mobile app, Android app, iOS app,
+macOS app, native build workflow, OS permission integration, mobile sensor
+access, mobile approval execution, runtime execution, model/provider calls,
+remote execution, plugin enablement, dependency, or production Control Center
+authority. Capture cannot silently become memory. Phone/mobile is not the agent
+brain. Device Capability Broker is required before sensors.

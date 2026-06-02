@@ -130,3 +130,10 @@ M18 adds `/runtime/local` and `/runtime/manual-smoke` to the Web Control Center 
 `/runtime/local` displays read-only readiness and capability matrix summaries. `/runtime/manual-smoke` displays validation-only manual smoke report metadata. Neither route starts, stops, connects, launches, executes, calls models, performs manual smoke, dispatches remote work, enables plugins, accesses sensors, exposes raw reports, or adds backend routes. OpenAPI path count remains `74`.
 
 `/evidence`, `/files`, and `/memory` remain frontend-only, read-only, visibly mock, non-authoritative, and redacted summary-only. OpenAPI path count remains `74`, and no backend API route is added.
+## M19 Mobile Companion Boundary
+
+v0.23.0 / M19 adds Mobile Companion Contract/API Planning only and does not add
+CCC Web behavior. The Web Control Center remains read-only/preview-only. M19
+adds no backend API route, no frontend route, no mobile app, no Android app, no
+iOS app, no native build workflow, no OS permission integration, no mobile
+sensor access, and no production Control Center authority.

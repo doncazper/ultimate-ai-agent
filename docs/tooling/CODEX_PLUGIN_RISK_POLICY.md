@@ -108,3 +108,10 @@ v0.18.2 adds design governance docs only. Design tools are not enabled. Future d
 v0.18.3 adds OpenWebUI and CCC strategy docs only. OpenWebUI deployment/integration tooling is future-only. OpenWebUI plugins, functions, pipelines, tools, admin/config workflows, and bridges are high-risk until governed. Native CCC iOS, Android, and macOS build workflows are critical until dedicated milestones define permissions, signing, keystore/keychain, store, background-service, notification, sensor, and receipt-backed policies.
 
 v0.18.4 adds post-M20 roadmap projection docs only. Future watchlist entries for MCP, Agent Skills, AGENTS.md, sandboxes, browser automation, observability, OpenWebUI, CCC native clients, and eval tooling are not plugin enablement, dependency approval, runtime execution, or parity claims.
+## M19 Native Mobile Tooling Boundary
+
+Android tooling is future/high-risk. Gradle, Android Studio, Kotlin, Java, Play
+Store, and keystore workflows require future approval. iOS tooling remains
+future/high-risk. React Native, Expo, Flutter, Capacitor, and Ionic require
+future approval. v0.23.0 / M19 enables no plugins, installs no dependencies,
+runs no native build workflow, and adds no mobile sensor access.

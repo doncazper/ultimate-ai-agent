@@ -1,12 +1,12 @@
-# Ultimate AI Agent Canonical Bundle v0.22.1
+# Ultimate AI Agent Canonical Bundle v0.23.0
 
-This is the active project baseline after v0.22.1 roadmap status label cleanup following accepted v0.22.0 / M18.
+This is the active project baseline after v0.23.0 / M19 Mobile Companion Contract/API Planning.
 
 Start here:
 
 ```text
-README_IMPORT_v0_22_1.md
-ultimate_ai_agent_master_plan_v0_22_1.md
+README_IMPORT_v0_23_0.md
+ultimate_ai_agent_master_plan_v0_23_0.md
 docs/DOCUMENTATION_INDEX.md
 docs/canonical/09_roadmap.md
 docs/canonical/CANONICAL_DOC_MAP.md
@@ -25,6 +25,16 @@ docs/canonical/63_observability_standards_mapping.md
 docs/canonical/64_mobile_companion_and_device_capability_broker.md
 docs/canonical/65_mobile_device_registry_and_sensor_permission_manifest.md
 docs/canonical/66_external_tooling_and_codex_plugin_governance.md
+docs/mobile/MOBILE_COMPANION_CONTRACT.md
+docs/mobile/MOBILE_CLIENT_SURFACE_ROLES.md
+docs/mobile/MOBILE_API_PLANNING.md
+docs/mobile/MOBILE_PERMISSION_RECEIPT_FLOW.md
+docs/mobile/MOBILE_SENSOR_BOUNDARY.md
+docs/mobile/MOBILE_SECURITY_MODEL.md
+docs/mobile/MOBILE_CAPTURE_POLICY.md
+docs/mobile/CCC_IOS_ANDROID_STRATEGY.md
+docs/mobile/MOBILE_PAIRING_TRUST_PLANNING.md
+docs/mobile/MOBILE_COMPANION_NON_GOALS.md
 docs/api/README.md
 docs/api/openapi_contract.md
 docs/api/route_inventory.md
@@ -70,7 +80,7 @@ docs/runtime/RUNTIME_READINESS.md
 docs/runtime/MANUAL_SMOKE_REPORTS.md
 docs/runtime/RUNTIME_CAPABILITY_MATRIX.md
 docs/security/approval_authority.md
-docs/implementation/foundation_gate_implementation_plan_v0_22_1.md
+docs/implementation/foundation_gate_implementation_plan_v0_23_0.md
 docs/maintenance/documentation_integrity_checklist.md
 docs/tooling/CODEX_PLUGIN_CAPABILITY_INVENTORY.md
 docs/tooling/CODEX_PLUGIN_RISK_POLICY.md
@@ -114,7 +124,7 @@ Local runtime status rule:
 
 Roadmap status label cleanup rule:
 
-> v0.22.1 is documentation hygiene only after accepted v0.22.0 / M18. It may update active version docs, release/import/master docs, roadmap labels, documentation verifier checks, and Foundation Gate documentation pointers so M18 is marked implemented while M19/M20 and M21-M40 remain planned/provisional. This patch adds no M19 Mobile Companion Contract/API Planning, backend API route, frontend feature, OpenAPI path count change, runtime execution, manual smoke execution, model/provider call, remote execution, mobile sensor access, plugin enablement, OpenWebUI integration, dependency, architecture behavior change, native build workflow, or production Control Center authority.
+> v0.23.0 implements M19 Mobile Companion Contract/API Planning only. It adds strict Python contract models, validation helpers, docs, tests, static verifier coverage, and Foundation Gate criteria for future CCC iOS/Android/mobile companion planning. OpenAPI path count remains `74`. This release adds no M20 Device Capability Broker, backend API route, frontend feature, Android app, iOS app, macOS app, native build workflow, OS permission integration, mobile sensor access, mobile approval execution, runtime execution, manual smoke execution, model/provider call, remote execution, plugin enablement, OpenWebUI integration, dependency, architecture behavior change, or production Control Center authority.
 
 Mobile planning rule:
 

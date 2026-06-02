@@ -60,3 +60,11 @@ Future implementation prompts after M20 must read:
 - `docs/roadmap/STANDARDS_ALIGNMENT_WATCHLIST.md`.
 
 No M21-M40 milestone is implemented by this patch.
+## M19 Baseline Note
+
+v0.23.0 / M19 is implemented as Mobile Companion Contract/API Planning only.
+It does not implement M20 Device Capability Broker. Device Capability Broker is
+required before sensors, and M20 remains planned/provisional. M19 adds no
+mobile app, Android app, iOS app, native build workflow, OS permission
+integration, or mobile sensor access. Capture cannot silently become memory.
+Phone/mobile is not the agent brain.

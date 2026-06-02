@@ -1,6 +1,6 @@
 # Foundation Gate Implementation Plan v0.22.1
 
-Status: Current Foundation Gate implementation plan for v0.22.1.
+Status: Historical Foundation Gate implementation plan for v0.22.1.
 
 v0.22.1 is documentation hygiene only after accepted v0.22.0 / M18.
 

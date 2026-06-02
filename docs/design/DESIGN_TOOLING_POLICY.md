@@ -26,3 +26,9 @@ Tool governance mapping:
 - `docs/backlog/codex_plugin_enablement_backlog.md` tracks future plugin lifecycle work.
 
 Browser may be used only for local UI verification under the existing local browser smoke policy. Chrome authenticated profile control and Computer Use remain disabled. Build iOS Apps and Build macOS Apps remain disabled for design work.
+## M19 Native Tooling Boundary
+
+v0.23.0 / M19 adds no native design or build tooling. No Android Studio, Gradle,
+Kotlin, Java, Xcode, Swift, React Native, Expo, Flutter, Capacitor, Ionic,
+signing, keystore, provisioning, App Store, or Play Store workflow is enabled.
+Device Capability Broker is required before sensors, and M20 remains planned.

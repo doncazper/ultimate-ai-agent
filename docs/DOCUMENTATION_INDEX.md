@@ -1,6 +1,6 @@
 # Documentation Index
 
-Current active baseline: **v0.22.1**
+Current active baseline: **v0.23.0**
 
 This index is the active entrypoint for documentation navigation. Historical release documents remain in the repository for audit history, but active truth starts with the current baseline files listed here.
 
@@ -9,8 +9,8 @@ This index is the active entrypoint for documentation navigation. Historical rel
 ```text
 README.md
 VERSION.md
-README_IMPORT_v0_22_1.md
-ultimate_ai_agent_master_plan_v0_22_1.md
+README_IMPORT_v0_23_0.md
+ultimate_ai_agent_master_plan_v0_23_0.md
 docs/canonical/CANONICAL_DOC_MAP.md
 docs/canonical/09_roadmap.md
 docs/roadmap/MILESTONE_CHARTERS.md
@@ -28,6 +28,16 @@ docs/ui/OPENWEBUI_AND_CCC_STRATEGY.md
 docs/ui/CLIENT_SURFACE_ROLES.md
 docs/ui/OPENWEBUI_INTEGRATION_ROADMAP.md
 docs/ui/CCC_NATIVE_CLIENT_STRATEGY.md
+docs/mobile/MOBILE_COMPANION_CONTRACT.md
+docs/mobile/MOBILE_CLIENT_SURFACE_ROLES.md
+docs/mobile/MOBILE_API_PLANNING.md
+docs/mobile/MOBILE_PERMISSION_RECEIPT_FLOW.md
+docs/mobile/MOBILE_SENSOR_BOUNDARY.md
+docs/mobile/MOBILE_SECURITY_MODEL.md
+docs/mobile/MOBILE_CAPTURE_POLICY.md
+docs/mobile/CCC_IOS_ANDROID_STRATEGY.md
+docs/mobile/MOBILE_PAIRING_TRUST_PLANNING.md
+docs/mobile/MOBILE_COMPANION_NON_GOALS.md
 docs/control_center/APPROVAL_QUEUE_UI.md
 docs/control_center/RECEIPT_EVENT_VIEWER.md
 docs/control_center/APPROVAL_RECEIPT_UI_SAFETY.md
@@ -55,7 +65,7 @@ Key active canonical groups:
 - truth, evidence, memory, and files: `docs/canonical/03_memory_system.md`, `docs/canonical/10_file_management.md`, `docs/canonical/59_truth_grounding_and_evidence_governance.md`, `docs/canonical/60_truth_source_router.md`, `docs/canonical/61_evidence_manifest_and_claim_verification.md`
 - runtime and adapters: `docs/canonical/57_local_runtime_and_offline_agent_infrastructure.md`, `docs/canonical/58_agent_sdk_and_a2a_adapter_strategy.md`
 - security and privacy: `docs/canonical/23_security_threat_model.md`, `docs/canonical/24_data_lifecycle_and_privacy.md`, `docs/canonical/45_trusted_computing_base.md`, `docs/canonical/50_data_classification_policy.md`, `docs/canonical/51_redaction_and_safe_debugging.md`
-- mobile/device planning: `docs/canonical/64_mobile_companion_and_device_capability_broker.md`, `docs/canonical/65_mobile_device_registry_and_sensor_permission_manifest.md`
+- mobile/device planning: `docs/canonical/64_mobile_companion_and_device_capability_broker.md`, `docs/canonical/65_mobile_device_registry_and_sensor_permission_manifest.md`, `docs/mobile/MOBILE_COMPANION_CONTRACT.md`, `docs/mobile/MOBILE_SENSOR_BOUNDARY.md`, `docs/mobile/MOBILE_SECURITY_MODEL.md`
 - external tooling and Codex plugin governance: `docs/canonical/66_external_tooling_and_codex_plugin_governance.md`
 - UI/client strategy: `docs/ui/OPENWEBUI_AND_CCC_STRATEGY.md`, `docs/ui/CLIENT_SURFACE_ROLES.md`, `docs/ui/OPENWEBUI_INTEGRATION_ROADMAP.md`, `docs/ui/CCC_NATIVE_CLIENT_STRATEGY.md`
 
@@ -96,7 +106,7 @@ docs/control_center/MANUAL_SMOKE_CONTROL_SURFACE.md
 docs/control_center/RUNTIME_SMOKE_UI_SAFETY.md
 ```
 
-M12 Control Center docs describe backend contracts, read-only dashboard snapshots, and action preview policy only. M13 adds a local Web Control Center shell that consumes those routes, renders safe mock fallback data, and submits only preview-only action requests. v0.17.4 polishes local shell reviewability and adds safe local browser smoke reporting documentation. v0.18.0 / M14 stabilizes local backend connection behavior with local-only API base URL policy and visible live/degraded/mock fallback states. v0.18.1 hardens M14 connection safety for public/private non-loopback hosts, URL credentials, secret-like query parameters, and unknown/checking states. v0.18.2 adds Open Design governance docs for Control Center and Mobile Companion UI work. v0.19.0 / M15 adds read-only/preview-only approval queue, receipt viewer, and event viewer UI surfaces with redacted summary-only data. v0.19.1 hardens M15 approval authority and redacted-detail safety copy plus static verifier/Foundation Gate checks. v0.20.0 / M16 adds a read-only event timeline and run/receipt trace viewer with safe refs and Foundation Gate evidence summaries. v0.20.1 hardens M16 trace/redaction safety, second-trace selection coverage, generated build-output hygiene, and no-backend-route Foundation Gate checks. v0.21.0 / M17 adds read-only evidence, file ref, and memory ref summary viewers. v0.21.1 hardens M17 selected-state reviewability, alternate safe mock refs, frontend tests, static verifier coverage, docs, and Foundation Gate checks. v0.21.2 normalizes developer verification commands around `.venv/bin/python` and Makefile targets. v0.22.0 / M18 adds read-only local runtime status and validation-only manual smoke report summary surfaces. v0.22.1 cleans up roadmap status labels after M18 and adds no Control Center behavior. The shell is not production authority and does not add execution capability.
+M12 Control Center docs describe backend contracts, read-only dashboard snapshots, and action preview policy only. M13 adds a local Web Control Center shell that consumes those routes, renders safe mock fallback data, and submits only preview-only action requests. v0.17.4 polishes local shell reviewability and adds safe local browser smoke reporting documentation. v0.18.0 / M14 stabilizes local backend connection behavior with local-only API base URL policy and visible live/degraded/mock fallback states. v0.18.1 hardens M14 connection safety for public/private non-loopback hosts, URL credentials, secret-like query parameters, and unknown/checking states. v0.18.2 adds Open Design governance docs for Control Center and Mobile Companion UI work. v0.19.0 / M15 adds read-only/preview-only approval queue, receipt viewer, and event viewer UI surfaces with redacted summary-only data. v0.19.1 hardens M15 approval authority and redacted-detail safety copy plus static verifier/Foundation Gate checks. v0.20.0 / M16 adds a read-only event timeline and run/receipt trace viewer with safe refs and Foundation Gate evidence summaries. v0.20.1 hardens M16 trace/redaction safety, second-trace selection coverage, generated build-output hygiene, and no-backend-route Foundation Gate checks. v0.21.0 / M17 adds read-only evidence, file ref, and memory ref summary viewers. v0.21.1 hardens M17 selected-state reviewability, alternate safe mock refs, frontend tests, static verifier coverage, docs, and Foundation Gate checks. v0.21.2 normalizes developer verification commands around `.venv/bin/python` and Makefile targets. v0.22.0 / M18 adds read-only local runtime status and validation-only manual smoke report summary surfaces. v0.23.0 / M19 adds mobile companion contract/API planning only and adds no Control Center behavior. The shell is not production authority and does not add execution capability.
 
 ## Active Design Governance Docs
 
@@ -115,7 +125,7 @@ docs/design/RESPONSIVE_LAYOUT_BASELINE.md
 
 v0.18.2 adds Open Design System and UI Design Governance documentation only. The design source of truth is repo-owned docs, reviewed components, and future repo-owned tokens. Design tools, design SaaS, UI generators, screenshot-to-code, and design-to-code systems are not enabled and are not authority.
 
-M15 Approval Queue + Receipt/Event Viewer UI is implemented in v0.19.0 as read-only/preview-only CCC Web summary views. v0.19.1 hardens its authority-boundary and redacted-detail safety checks. v0.20.0 adds M16 Event Timeline + Run/Receipt Trace Viewer as a read-only summary surface. v0.20.1 hardens M16 trace/redaction safety and keeps generated frontend artifacts ignored/untracked. v0.21.0 adds M17 Evidence/File/Memory Viewer as read-only, summary-only CCC Web views. v0.21.1 hardens the existing M17 views without adding approval execution, backend authority, raw data display, or backend API routes. v0.21.2 is dev tooling/docs only and changes no Control Center behavior. v0.22.0 adds M18 local runtime status and manual smoke report summary surfaces; v0.22.1 changes documentation labels only.
+M15 Approval Queue + Receipt/Event Viewer UI is implemented in v0.19.0 as read-only/preview-only CCC Web summary views. v0.19.1 hardens its authority-boundary and redacted-detail safety checks. v0.20.0 adds M16 Event Timeline + Run/Receipt Trace Viewer as a read-only summary surface. v0.20.1 hardens M16 trace/redaction safety and keeps generated frontend artifacts ignored/untracked. v0.21.0 adds M17 Evidence/File/Memory Viewer as read-only, summary-only CCC Web views. v0.21.1 hardens the existing M17 views without adding approval execution, backend authority, raw data display, or backend API routes. v0.21.2 is dev tooling/docs only and changes no Control Center behavior. v0.22.0 adds M18 local runtime status and manual smoke report summary surfaces; v0.23.0 adds M19 mobile companion contract/API planning only.
 
 ## Active UI Client Strategy Docs
 
@@ -228,7 +238,7 @@ The Codex plugin capability inventory and risk policy record available developme
 
 ## Release Notes Index
 
-Current release notes: `docs/release_notes/v0_22_1.md`
+Current release notes: `docs/release_notes/v0_23_0.md`
 
 Historical release notes remain under `docs/release_notes/`. Historical docs may mention old active baselines in historical context; they are not the current source of truth.
 

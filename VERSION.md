@@ -1,5 +1,5 @@
 # Ultimate AI Agent Version
 
-Current active baseline: **v0.22.1**
+Current active baseline: **v0.23.0**
 
-v0.22.1 is a docs-only roadmap status label cleanup after accepted v0.22.0 / M18. It marks M18 as implemented, keeps M19/M20 and M21-M40 planned/provisional, updates active release/import/master/Foundation Gate documentation pointers, and adds documentation-integrity coverage for the status labels. It adds no backend API routes, frontend behavior, runtime execution, manual smoke execution, model/provider calls, remote execution, mobile/native functionality, plugin enablement, dependencies, OpenWebUI integration, or production Control Center authority.
+v0.23.0 implements M19 Mobile Companion Contract/API Planning only. It adds Python contract models, validation helpers, docs, tests, verifier coverage, and Foundation Gate criteria for future mobile clients while keeping OpenAPI path count at 74. It adds no backend API routes, frontend behavior, Android app, iOS app, macOS app, native build workflow, OS permission integration, mobile sensor access, runtime execution, manual smoke execution, model/provider calls, remote execution, plugin enablement, dependencies, OpenWebUI integration, or production Control Center authority. M20 Device Capability Broker remains planned/provisional.

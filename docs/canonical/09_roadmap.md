@@ -448,3 +448,19 @@ Voice/mobile UX
 ## Non-negotiable sequencing rule
 
 Do not build scanners, companion proactivity, Skill Factory, self-improving code, autopilot workflows, provider-specific integrations, or high-autonomy external execution before the kernel, memory/files, event ledger, permission model, Tool Broker, Model Router, Cost Governor, Secret Broker, Provider Registry, rollback primitives, runtime hygiene contracts, context survival contracts, local runtime profiles, SDK/A2A adapter boundaries, observability standards mapping, Truth Source Router, Evidence Manifest, API boundary, and contract tests work.
+## v0.23.0 / M19 Status
+
+v0.23.0 implements M19 Mobile Companion Contract/API Planning only. It adds
+contract models, validation helpers, docs, tests, verifier coverage, and
+Foundation Gate criteria. It adds no backend API route and keeps OpenAPI path
+count at `74`.
+
+M19 marks CCC iOS and CCC Android as future planned clients only. It adds no
+mobile app, Android app, iOS app, macOS app, native build workflow, OS
+permission integration, mobile sensor access, mobile approval execution,
+runtime execution, model/provider calls, remote execution, plugin enablement,
+dependencies, OpenWebUI integration, or production Control Center authority.
+
+Device Capability Broker is required before sensors. Capture cannot silently
+become memory. Phone/mobile is not the agent brain. M20 remains
+planned/provisional. M21-M40 remain planned/provisional.

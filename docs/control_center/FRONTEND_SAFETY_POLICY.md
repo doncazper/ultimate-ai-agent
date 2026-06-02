@@ -153,3 +153,10 @@ M18 adds frontend-only `/runtime/local` and `/runtime/manual-smoke` routes. `/ru
 These routes may show readiness status, capability matrix summaries, manual smoke report refs, fixed prompt hash values, validation reason codes, redaction status, and non-authoritative warnings.
 
 They must not add backend routes, runtime execution, manual smoke execution, model/provider calls, local runtime provider integrations, remote execution, mobile sensor access, plugin enablement, OpenWebUI integration, raw smoke report display, raw prompts, raw response bodies, credentials, provider payloads, dependencies, or production Control Center authority.
+## M19 Mobile Safety Boundary
+
+Frontend code must not add mobile sensor APIs, native mobile endpoints, Android
+or iOS app scaffolding, OS permission prompts, background services, notification
+permission requests, or mobile approval execution. M19 is Mobile Companion
+Contract/API Planning only. Device Capability Broker is required before sensors,
+capture cannot silently become memory, and phone/mobile is not the agent brain.

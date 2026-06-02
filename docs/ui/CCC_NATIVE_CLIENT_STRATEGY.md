@@ -101,3 +101,29 @@ This patch adds no OS permission integration.
 No OS permission integration is added.
 This patch adds no signing, keystore, provisioning, App Store, or Play Store workflow.
 No signing, keystore, provisioning, App Store, or Play Store workflow is added.
+## M19 Mobile Companion Contract Planning
+
+v0.23.0 / M19 adds Mobile Companion Contract/API Planning only. It adds no CCC
+native implementation. It adds no Android app. It adds no iOS app. It adds no
+macOS app. It adds no native build workflow. It adds no mobile sensor access.
+It adds no OS permission integration. It adds no signing, keystore,
+provisioning, App Store, or Play Store workflow.
+
+CCC iOS is a future native mobile control client and no iOS app is implemented
+yet. CCC Android is a future native mobile control client and no Android app is
+implemented yet. CCC macOS is a future desktop/local companion client and no
+macOS app is implemented yet.
+
+Android permissions must be explicit and scoped. No background location by
+default. No passive microphone. No silent photo/contact/calendar scans. No
+background service without reviewed policy. No notification runtime without
+receipt-backed policy. No Play Store/signing/keystore workflow until a
+dedicated release milestone.
+
+iOS follows the same sensor and permission constraints. No App
+Store/signing/provisioning/keychain workflow until a dedicated release
+milestone. macOS adds no keychain/menu bar/background agent/notarization
+workflow until a dedicated release milestone.
+
+All CCC clients are control surfaces, not the agent brain. Device Capability
+Broker is required before sensors. Capture cannot silently become memory.

@@ -38,3 +38,16 @@ Explicit non-implementation statement:
 - no backend API route is added in this patch.
 - no frontend feature is added in this patch.
 - no runtime execution, model/provider call, network call, remote execution, plugin enablement, dependency, native build workflow, mobile sensor access, OS permission integration, or production authority is added in this patch.
+## M19 Mobile Companion Contract Planning
+
+v0.23.0 / M19 adds Mobile Companion Contract/API Planning only. OpenWebUI
+remains the preferred conversational web shell and is not the agent brain. CCC
+means Control Center Clients, including CCC Web, CCC iOS, CCC Android, and CCC
+macOS. CCC is the governance/control layer and must use Python Agent Core
+authority.
+
+M19 adds no OpenWebUI integration, no OpenWebUI deployment config, no backend
+API route, no native CCC implementation, no Android app, no iOS app, no macOS
+app, no native build workflow, no mobile sensor access, and no OS permission
+integration. Device Capability Broker is required before sensors. Capture
+cannot silently become memory. M20 remains planned/provisional.

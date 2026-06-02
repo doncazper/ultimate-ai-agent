@@ -23,6 +23,7 @@ SCAN_SEQUENCE = [
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
     ("production truth integration scan", "verify_no_production_truth_integrations"),
     ("broad filesystem scan", "verify_no_broad_filesystem_scanning"),
+    ("mobile companion contract-only scan", "verify_no_mobile_native_or_sensor_implementation"),
 ]
 
 
@@ -613,6 +614,115 @@ def verify_no_broad_filesystem_scanning():
         except Exception:
             pass
     print("OK: No broad filesystem scanning or home-directory traversal detected in src")
+
+
+def verify_no_mobile_native_or_sensor_implementation():
+    print("\n[Verifier] Running M19 mobile companion contract-only guard...")
+    try:
+        git_files_raw = subprocess.check_output(["git", "ls-files"], text=True)
+        git_files = git_files_raw.splitlines()
+    except subprocess.SubprocessError:
+        git_files = []
+
+    forbidden_dir_prefixes = (
+        "ios/",
+        "android/",
+        "mobile-app/",
+        "apps/ios/",
+        "apps/android/",
+        "apps/mobile/",
+        "react-native/",
+        "expo/",
+        "flutter/",
+        "capacitor/",
+        "ionic/",
+        "src/ultimate_ai_agent/core/device_capability_broker/",
+    )
+    forbidden_file_names = {
+        "build.gradle",
+        "settings.gradle",
+        "gradlew",
+        "AndroidManifest.xml",
+        "Info.plist",
+        "Package.swift",
+        "Podfile",
+        "pubspec.yaml",
+        "app.json",
+        "app.config.js",
+        "capacitor.config.ts",
+        "capacitor.config.js",
+        "ionic.config.json",
+    }
+    for rel_path in git_files:
+        if rel_path.startswith(forbidden_dir_prefixes):
+            print(f"FAIL: Forbidden native/mobile implementation path tracked in git: {rel_path}")
+            sys.exit(1)
+        if Path(rel_path).name in forbidden_file_names:
+            print(f"FAIL: Forbidden native/mobile build or store file tracked in git: {rel_path}")
+            sys.exit(1)
+        if rel_path.endswith((".swift", ".kt", ".kts", ".java")) and not rel_path.startswith("docs/"):
+            print(f"FAIL: Forbidden native mobile source file tracked in git: {rel_path}")
+            sys.exit(1)
+
+    forbidden_dependencies = [
+        '"expo"',
+        '"react-native"',
+        '"flutter"',
+        '"@capacitor/',
+        '"@ionic/',
+        '"android"',
+        '"gradle"',
+    ]
+    for rel_path in ["apps/control-center/package.json", "pyproject.toml"]:
+        path = ROOT / rel_path
+        if not path.exists():
+            continue
+        text = path.read_text(encoding="utf-8").lower()
+        for fragment in forbidden_dependencies:
+            if fragment in text:
+                print(f"FAIL: Forbidden mobile/native dependency fragment in {rel_path}: {fragment}")
+                sys.exit(1)
+
+    implementation_roots = [ROOT / "src", ROOT / "apps", ROOT / "scripts", ROOT / "tests"]
+    forbidden_fragments = [
+        "navigator.geolocation",
+        "navigator.mediadevices",
+        "notification.requestpermission",
+        "pushmanager",
+        "android.permission",
+        "cllocation",
+        "avcapture",
+        "locationmanager",
+        "cameramanager",
+    ]
+    for root in implementation_roots:
+        if not root.exists():
+            continue
+        candidate_files = []
+        if root.name in {"src", "scripts", "tests"}:
+            candidate_files.extend(root.rglob("*.py"))
+        else:
+            candidate_files.extend(root.rglob("*.ts"))
+            candidate_files.extend(root.rglob("*.tsx"))
+            candidate_files.extend(root.rglob("*.js"))
+            candidate_files.extend(root.rglob("*.jsx"))
+        for path in candidate_files:
+            rel = path.relative_to(ROOT).as_posix()
+            if not path.is_file() or "__pycache__" in rel or "node_modules/" in rel:
+                continue
+            text = path.read_text(encoding="utf-8").lower()
+            if rel in {
+                "scripts/verify_all.py",
+                "scripts/verify_control_center_frontend.py",
+                "src/ultimate_ai_agent/core/gate/evaluators.py",
+            }:
+                continue
+            for fragment in forbidden_fragments:
+                if fragment in text:
+                    print(f"FAIL: Forbidden mobile sensor/runtime fragment in {rel}: {fragment}")
+                    sys.exit(1)
+
+    print("OK: No native mobile app, sensor API, OS permission, or mobile dependency implementation detected")
 
 
 def run_static_scans():

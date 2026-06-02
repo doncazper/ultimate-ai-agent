@@ -34,3 +34,10 @@ Tooling boundary:
 Open-source, self-hosted, portable, and inspectable workflows should be evaluated first where practical. Vendor tools such as Figma, Stitch, Framer, screenshot-to-code, design-to-code, or AI UI generators may be evaluated later only as optional import/export aids under an explicit future milestone.
 
 v0.18.2 adds no UI behavior, frontend route, backend API route, runtime execution, model/provider call, remote execution, mobile sensor access, plugin enablement, dependency, design-tool integration, or production Control Center authority.
+## M19 Mobile Design Boundary
+
+v0.23.0 / M19 adds Mobile Companion Contract/API Planning only. It does not add
+mobile UI implementation, Android app, iOS app, native package, native build
+workflow, OS permission integration, mobile sensor access, or design tooling.
+Future CCC iOS and CCC Android designs must remain control surfaces, not the
+agent brain, and must use Python Agent Core authority.
