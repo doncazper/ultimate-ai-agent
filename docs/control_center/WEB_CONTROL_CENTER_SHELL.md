@@ -1,6 +1,6 @@
 # Web Control Center Shell
 
-Status: Active for M17 Evidence/File/Memory Viewer as of v0.21.2.
+Status: Active for M18 Local Runtime Status + Manual Smoke Control Surface as of v0.22.0.
 
 M13 adds a local TypeScript React/Vite shell under `apps/control-center/` for reading existing backend Control Center and runtime readiness APIs. It is the first web UI surface for the future Control Center, but it is not a production Control Center and it has no authority to execute actions.
 
@@ -122,5 +122,11 @@ M17 adds no backend route, OpenAPI path count change, file mutation, memory muta
 ## v0.21.1 M17 Evidence File Memory Viewer Safety Hardening
 
 v0.21.1 hardens the existing M17 routes with alternate safe mock refs, accessible selected-card reviewability, frontend tests, static verifier checks, docs, browser smoke reviewability, and Foundation Gate criteria.
+
+## v0.22.0 M18 Local Runtime Status Manual Smoke Surface
+
+M18 adds `/runtime/local` and `/runtime/manual-smoke` to the Web Control Center shell. The routes are frontend-only and use existing runtime readiness/validation contracts.
+
+`/runtime/local` displays read-only readiness and capability matrix summaries. `/runtime/manual-smoke` displays validation-only manual smoke report metadata. Neither route starts, stops, connects, launches, executes, calls models, performs manual smoke, dispatches remote work, enables plugins, accesses sensors, exposes raw reports, or adds backend routes. OpenAPI path count remains `74`.
 
 `/evidence`, `/files`, and `/memory` remain frontend-only, read-only, visibly mock, non-authoritative, and redacted summary-only. OpenAPI path count remains `74`, and no backend API route is added.

@@ -11,6 +11,10 @@ import {
 import { EventViewerPanel } from "./components/EventViewerPanel";
 import { EventTimelineTracePanel } from "./components/EventTimelineTracePanel";
 import { FoundationGatePanel } from "./components/FoundationGatePanel";
+import {
+  LocalRuntimeStatusPanel,
+  ManualSmokeControlSurfacePanel
+} from "./components/LocalRuntimeStatusPanel";
 import { ReceiptViewerPanel } from "./components/ReceiptViewerPanel";
 import { RuntimeReadinessPanel } from "./components/RuntimeReadinessPanel";
 import {
@@ -32,6 +36,8 @@ export const navItems = [
   { path: "/evidence", label: "Evidence" },
   { path: "/files", label: "Files" },
   { path: "/memory", label: "Memory" },
+  { path: "/runtime/local", label: "Local Runtime" },
+  { path: "/runtime/manual-smoke", label: "Manual Smoke" },
   { path: "/remote-workers", label: "Remote Workers" },
   { path: "/mobile-planning", label: "Mobile Planning" },
   { path: "/plugin-governance", label: "Plugin Governance" },
@@ -60,6 +66,16 @@ export function renderRoute(path: string, data: ControlCenterData) {
       return <FileReferenceViewerPanel knowledge={data.m17Knowledge} />;
     case "/memory":
       return <MemoryViewerPanel knowledge={data.m17Knowledge} />;
+    case "/runtime/local":
+      return (
+        <LocalRuntimeStatusPanel
+          report={data.runtimeReadiness}
+          matrix={data.capabilityMatrix}
+          runtime={data.m18Runtime}
+        />
+      );
+    case "/runtime/manual-smoke":
+      return <ManualSmokeControlSurfacePanel runtime={data.m18Runtime} />;
     case "/remote-workers":
       return (
         <RemoteWorkerSummaryPanel

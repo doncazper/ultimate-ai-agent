@@ -11,6 +11,7 @@ export const API_ENDPOINTS = {
   foundationGateSummary: "/control-center/foundation-gate/summary",
   runtimeReadiness: "/runtime/readiness",
   runtimeCapabilityMatrix: "/runtime/capability-matrix",
+  runtimeSmokeReportValidate: "/runtime/smoke-reports/validate",
   actionPreview: "/control-center/actions/preview"
 } as const;
 
@@ -35,4 +36,10 @@ export function isAllowedReadEndpoint(endpoint: string): endpoint is (typeof REA
 
 export function isPreviewEndpoint(endpoint: string): endpoint is typeof API_ENDPOINTS.actionPreview {
   return endpoint === API_ENDPOINTS.actionPreview;
+}
+
+export function isRuntimeValidationEndpoint(
+  endpoint: string
+): endpoint is typeof API_ENDPOINTS.runtimeSmokeReportValidate {
+  return endpoint === API_ENDPOINTS.runtimeSmokeReportValidate;
 }

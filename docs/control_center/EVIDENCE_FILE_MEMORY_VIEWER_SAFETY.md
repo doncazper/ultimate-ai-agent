@@ -1,6 +1,6 @@
 # Evidence, File, And Memory Viewer Safety
 
-Status: Current for M17 as of v0.21.2.
+Status: Active M17 safety policy, still enforced under v0.22.0.
 
 M17 adds governed Web Control Center read-only and summary-only viewers for evidence refs, file refs, and memory refs. The patch is frontend-only and uses visibly mock, non-authoritative data.
 

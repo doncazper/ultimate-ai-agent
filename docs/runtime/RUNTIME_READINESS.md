@@ -1,6 +1,6 @@
 # Runtime Readiness
 
-Status: Active M11 readiness/report validation contract, v0.15.1
+Status: Active M11 readiness/report validation contract, surfaced in CCC Web by v0.22.0 / M18.
 
 M11 adds a typed runtime readiness report generated from local known contract state only. It is not a production health check, not a runtime launcher, and not evidence that a model/provider/runtime is safe to call.
 
@@ -43,3 +43,11 @@ v0.18.4 adds roadmap projection docs only. Future runtime work is planned/provis
 - v0.27.1 - Local LLM Call Hardening.
 
 These milestones require dedicated implementation and review prompts. v0.18.4 adds no local model execution, provider call, network call, OpenWebUI bridge, tool use, memory write, or production readiness claim.
+
+## v0.22.0 M18 Web Surface
+
+v0.22.0 adds a read-only CCC Web local runtime status page at `/runtime/local`.
+
+This page surfaces existing readiness and capability matrix summaries only. It adds no backend route, no runtime execution, no manual smoke execution, no model/provider calls, no local runtime provider integration, no remote execution, no mobile sensor access, no plugin enablement, no OpenWebUI integration, and no production readiness claim.
+
+OpenAPI path count remains `74`.

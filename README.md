@@ -1,12 +1,12 @@
-# Ultimate AI Agent Canonical Bundle v0.21.2
+# Ultimate AI Agent Canonical Bundle v0.22.0
 
-This is the active project baseline after v0.21.2 Developer Environment Command Normalization.
+This is the active project baseline after v0.22.0 M18 Local Runtime Status + Manual Smoke Control Surface.
 
 Start here:
 
 ```text
-README_IMPORT_v0_21_2.md
-ultimate_ai_agent_master_plan_v0_21_2.md
+README_IMPORT_v0_22_0.md
+ultimate_ai_agent_master_plan_v0_22_0.md
 docs/DOCUMENTATION_INDEX.md
 docs/canonical/09_roadmap.md
 docs/canonical/CANONICAL_DOC_MAP.md
@@ -47,6 +47,9 @@ docs/control_center/EVIDENCE_VIEWER.md
 docs/control_center/FILE_REFERENCE_VIEWER.md
 docs/control_center/MEMORY_VIEWER.md
 docs/control_center/EVIDENCE_FILE_MEMORY_VIEWER_SAFETY.md
+docs/control_center/LOCAL_RUNTIME_STATUS_UI.md
+docs/control_center/MANUAL_SMOKE_CONTROL_SURFACE.md
+docs/control_center/RUNTIME_SMOKE_UI_SAFETY.md
 docs/design/OPEN_DESIGN_SYSTEM.md
 docs/design/CONTROL_CENTER_DESIGN_LANGUAGE.md
 docs/design/STATUS_AND_RISK_VISUAL_LANGUAGE.md
@@ -67,7 +70,7 @@ docs/runtime/RUNTIME_READINESS.md
 docs/runtime/MANUAL_SMOKE_REPORTS.md
 docs/runtime/RUNTIME_CAPABILITY_MATRIX.md
 docs/security/approval_authority.md
-docs/implementation/foundation_gate_implementation_plan_v0_21_2.md
+docs/implementation/foundation_gate_implementation_plan_v0_22_0.md
 docs/maintenance/documentation_integrity_checklist.md
 docs/tooling/CODEX_PLUGIN_CAPABILITY_INVENTORY.md
 docs/tooling/CODEX_PLUGIN_RISK_POLICY.md
@@ -104,6 +107,10 @@ make frontend-check
 ```
 
 Use `.venv/bin/python`, not bare `python`, for repo verification commands. Shell aliases are not reliable in Codex and other non-interactive shells, and no global Python alias is required.
+
+Local runtime status rule:
+
+> v0.22.0 implements M18 Local Runtime Status + Manual Smoke Control Surface in CCC Web only. `/runtime/local` is read-only local runtime status, and `/runtime/manual-smoke` is validation-only manual smoke report summary display. OpenAPI path count remains `74` and no backend route is added. Manual smoke execution remains CLI-only, fixed-prompt-only, approval-gated, and non-authoritative. This release adds no runtime execution, manual smoke execution, model/provider call, local runtime provider integration, remote execution, mobile sensor access, plugin enablement, OpenWebUI integration, dependency, production persistence, raw smoke report display, raw prompts, raw response bodies, credentials, provider payloads, or production Control Center authority.
 
 Mobile planning rule:
 

@@ -1,6 +1,6 @@
 # File Reference Viewer
 
-Status: Current for M17 as of v0.21.2.
+Status: Active M17 viewer, still enforced under v0.22.0.
 
 The File Reference Viewer is a Web Control Center read-only and summary-only surface for file refs. It shows safe filename labels, file kind, size summary, data classification, source surface, event refs, receipt refs, evidence refs, redaction status, and safe refs.
 

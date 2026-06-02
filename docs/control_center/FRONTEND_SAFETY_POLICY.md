@@ -1,13 +1,14 @@
 # Frontend Safety Policy
 
-Status: Active for M17 Evidence/File/Memory Viewer as of v0.21.2.
+Status: Active for M18 Local Runtime Status + Manual Smoke Control Surface as of v0.22.0.
 
 The Web Control Center shell is a display and preview surface. The Python Agent Core remains the brain and source of policy enforcement.
 
 Frontend safety rules:
 
 - UI controls may read status, route inventory, readiness reports, and summaries.
-- The only POST from the frontend is `/control-center/actions/preview`.
+- The only action preview POST from the frontend is `/control-center/actions/preview`.
+- M18 may reference the existing validation-only `POST /runtime/smoke-reports/validate` route for safe manual smoke report metadata validation.
 - Action preview must never be treated as execution, approval, credential resolution, remote dispatch, model invocation, plugin enablement, or sensor access.
 - Mock fixtures must be visibly marked mock and non-authoritative.
 - Approval, receipt, and event viewer fixtures must be redacted summary-only and must not show raw secrets, prompt bodies, file bodies, memory contents, or provider payloads.
@@ -144,3 +145,11 @@ Memory is recall, not authority. Canonical files and governed source systems out
 v0.21.1 hardens M17 only. Alternate mock evidence, file ref, and memory ref entries must remain visibly mock, non-authoritative, redacted summary-only, and safe-ref based. Selected cards must expose accessible selected-state reviewability for browser smoke and tests.
 
 This patch adds no M18 surface, backend API route, OpenAPI path count change, file mutation, memory mutation, filesystem browsing, raw secret/prompt/file/memory/evidence/credential/provider payload display, embeddings, vector DB, memory provider implementation, runtime execution, model/provider calls, remote execution, mobile sensor access, plugin enablement, dependencies, auth, cookies, analytics, SaaS SDKs, native build workflow, or production Control Center authority.
+
+## v0.22.0 M18 Runtime Smoke UI Safety
+
+M18 adds frontend-only `/runtime/local` and `/runtime/manual-smoke` routes. `/runtime/local` is read-only local runtime status. `/runtime/manual-smoke` is validation-only manual smoke report summary display.
+
+These routes may show readiness status, capability matrix summaries, manual smoke report refs, fixed prompt hash values, validation reason codes, redaction status, and non-authoritative warnings.
+
+They must not add backend routes, runtime execution, manual smoke execution, model/provider calls, local runtime provider integrations, remote execution, mobile sensor access, plugin enablement, OpenWebUI integration, raw smoke report display, raw prompts, raw response bodies, credentials, provider payloads, dependencies, or production Control Center authority.

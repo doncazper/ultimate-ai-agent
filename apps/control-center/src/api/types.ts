@@ -416,6 +416,48 @@ export interface M17KnowledgeData {
   memories: MemorySummaryItem[];
 }
 
+export interface LocalRuntimeSurfaceSummaryItem {
+  surfaceRef: string;
+  status: string;
+  riskClass: string;
+  sourceRoute: string;
+  realModelCallAllowed: boolean;
+  realNetworkAllowed: boolean;
+  userContentAllowed: boolean;
+  secretsAllowed: boolean;
+  safeSummary: string;
+  guardrailRefs: string[];
+  redactionStatus: "redacted_summary_only";
+}
+
+export interface ManualSmokeReportSummaryItem {
+  reportRef: string;
+  requestRef: string;
+  validationStatus: string;
+  endpointSummary: string;
+  modelIdSummary: string;
+  fixedPromptHash: string;
+  responseOrigin: string;
+  responsePreviewShown: boolean;
+  modelOutputAuthoritative: boolean;
+  reasonCodes: string[];
+  redactionStatus: "redacted_summary_only";
+  safeMessage: string;
+  createdAt: string;
+}
+
+export interface M18RuntimeData {
+  status: "mock_preview_only" | "summary_only";
+  readOnly: boolean;
+  validationOnly: boolean;
+  mock: boolean;
+  nonAuthoritative: boolean;
+  boundarySummary: string;
+  warningCodes: string[];
+  localRuntimeSurfaces: LocalRuntimeSurfaceSummaryItem[];
+  manualSmokeReports: ManualSmokeReportSummaryItem[];
+}
+
 export interface ControlCenterData {
   manifest: ControlCenterManifest;
   dashboard: ControlCenterDashboardSnapshot;
@@ -426,6 +468,7 @@ export interface ControlCenterData {
   m15Review: M15ReviewData;
   m16Trace: M16TraceData;
   m17Knowledge: M17KnowledgeData;
+  m18Runtime: M18RuntimeData;
   source: "api" | "mock";
   connection: BackendConnectionSummary;
 }

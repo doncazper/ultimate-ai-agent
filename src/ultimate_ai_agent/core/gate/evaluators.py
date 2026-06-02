@@ -78,6 +78,20 @@ M17_FORBIDDEN_BACKEND_ROUTES = (
     "/control-center/files/write",
     "/control-center/memory/write",
 )
+EXPECTED_M18_OPENAPI_PATH_COUNT = 74
+M18_FORBIDDEN_BACKEND_ROUTES = (
+    "/runtime/smoke-reports/execute",
+    "/runtime/local/execute",
+    "/runtime/local/run",
+    "/runtime/local/start",
+    "/runtime/local/stop",
+    "/runtime/local/connect",
+    "/runtime/manual-smoke/execute",
+    "/runtime/manual-smoke/run",
+    "/model-runtime/local/smoke/execute",
+    "/control-center/runtime/execute",
+    "/control-center/runtime/connect",
+)
 
 
 def m16_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M16_OPENAPI_PATH_COUNT) -> List[str]:
@@ -99,6 +113,17 @@ def m17_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
     forbidden_present = sorted(path for path in M17_FORBIDDEN_BACKEND_ROUTES if path in path_set)
     if forbidden_present:
         failures.append(f"M17 forbidden backend route(s) present: {', '.join(forbidden_present)}")
+    return failures
+
+
+def m18_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M18_OPENAPI_PATH_COUNT) -> List[str]:
+    failures: List[str] = []
+    path_set = set(paths)
+    if len(path_set) != expected_path_count:
+        failures.append(f"M18 OpenAPI path count changed: expected {expected_path_count}, found {len(path_set)}")
+    forbidden_present = sorted(path for path in M18_FORBIDDEN_BACKEND_ROUTES if path in path_set)
+    if forbidden_present:
+        failures.append(f"M18 forbidden backend route(s) present: {', '.join(forbidden_present)}")
     return failures
 
 
@@ -218,6 +243,7 @@ class FoundationGateEvaluator:
             "m16_event_timeline_trace_viewer_safe": self.check_m16_event_timeline_trace_viewer_safe,
             "m17_evidence_file_memory_viewer_safe": self.check_m17_evidence_file_memory_viewer_safe,
             "m17_evidence_file_memory_viewer_hardening_safe": self.check_m17_evidence_file_memory_viewer_hardening_safe,
+            "m18_local_runtime_manual_smoke_surface_safe": self.check_m18_local_runtime_manual_smoke_surface_safe,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -2821,8 +2847,17 @@ class FoundationGateEvaluator:
         local_proxy_target = 'target: "' + "http" + '://127.0.0.1:8000"'
         if local_proxy_target not in vite_config:
             failures.append("Vite dev proxy is not pinned to local backend loopback")
-        if '"/control-center"' not in vite_config or '"/runtime"' not in vite_config:
-            failures.append("Vite dev proxy does not cover local read route groups")
+        required_proxy_routes = [
+            '"/control-center"',
+            '"/runtime/readiness"',
+            '"/runtime/capability-matrix"',
+            '"/runtime/smoke-reports"',
+        ]
+        for route in required_proxy_routes:
+            if route not in vite_config:
+                failures.append(f"Vite dev proxy does not cover local backend route: {route}")
+        if re.search(r'["\']/runtime["\']\s*:', vite_config):
+            failures.append("Vite dev proxy must not proxy broad /runtime frontend route space")
         if "changeOrigin: true" in vite_config:
             failures.append("Vite dev proxy rewrites origin")
         forbidden_client_fragments = [
@@ -3424,6 +3459,165 @@ class FoundationGateEvaluator:
             failures.append(f"M17 hardening OpenAPI route guard could not generate schema: {exc}")
         else:
             failures.extend(m17_openapi_route_failures(openapi_paths))
+
+        script = self.root / "scripts/verify_control_center_frontend.py"
+        if script.exists():
+            spec = importlib.util.spec_from_file_location("verify_control_center_frontend", script)
+            if spec is None or spec.loader is None:
+                failures.append("could not load frontend safety verifier")
+            else:
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
+                failures.extend(module.verify(self.root))
+
+        return self._result(criterion, failures, required_files)
+
+    def check_m18_local_runtime_manual_smoke_surface_safe(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        import importlib.util
+        from ultimate_ai_agent.api.app import app
+
+        required_files = [
+            "apps/control-center/src/App.test.tsx",
+            "apps/control-center/src/components/LocalRuntimeStatusPanel.tsx",
+            "apps/control-center/src/routes.tsx",
+            "apps/control-center/src/api/endpoints.ts",
+            "apps/control-center/src/api/types.ts",
+            "apps/control-center/src/mocks/controlCenterData.ts",
+            "scripts/verify_control_center_frontend.py",
+            "tests/test_control_center_frontend_safety_verifier.py",
+            "docs/control_center/LOCAL_RUNTIME_STATUS_UI.md",
+            "docs/control_center/MANUAL_SMOKE_CONTROL_SURFACE.md",
+            "docs/control_center/RUNTIME_SMOKE_UI_SAFETY.md",
+            "docs/implementation/foundation_gate_implementation_plan_v0_22_0.md",
+            "docs/release_notes/v0_22_0.md",
+        ]
+        failures = [
+            f"missing M18 local runtime/manual smoke file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        implementation_files = [
+            "apps/control-center/src/App.test.tsx",
+            "apps/control-center/src/components/LocalRuntimeStatusPanel.tsx",
+            "apps/control-center/src/routes.tsx",
+            "apps/control-center/src/api/endpoints.ts",
+            "apps/control-center/src/api/types.ts",
+            "apps/control-center/src/mocks/controlCenterData.ts",
+        ]
+        runtime_implementation_files = [
+            "apps/control-center/src/components/LocalRuntimeStatusPanel.tsx",
+            "apps/control-center/src/routes.tsx",
+            "apps/control-center/src/api/endpoints.ts",
+            "apps/control-center/src/api/types.ts",
+            "apps/control-center/src/mocks/controlCenterData.ts",
+        ]
+        implementation_text = "\n".join(
+            self._read(self.root / path) for path in implementation_files if (self.root / path).exists()
+        )
+        runtime_implementation_text = "\n".join(
+            self._read(self.root / path) for path in runtime_implementation_files if (self.root / path).exists()
+        )
+        lowered = runtime_implementation_text.lower().replace(" ", "")
+
+        required_fragments = [
+            "LocalRuntimeStatusPanel",
+            "ManualSmokeControlSurfacePanel",
+            'path: "/runtime/local"',
+            'path: "/runtime/manual-smoke"',
+            'runtimeSmokeReportValidate: "/runtime/smoke-reports/validate"',
+            "isRuntimeValidationEndpoint",
+            "M18 local runtime surface",
+            "Local runtime status is read-only",
+            "No local runtime is started, stopped, connected, or executed from this UI",
+            "Manual smoke reports are safe summaries",
+            "Manual smoke execution remains CLI-only, fixed-prompt-only, approval-gated",
+            "m18Runtime",
+            "mock_manual_smoke_report_ref_001",
+            "runtime_readiness_report",
+            "manual_loopback_smoke",
+            "fixed_prompt_hash_mock_001",
+            "responsePreviewShown: false",
+            "modelOutputAuthoritative: false",
+            "NO_RUNTIME_EXECUTION",
+            "VALIDATION_ONLY",
+            "redacted_summary_only",
+        ]
+        failures.extend(f"M18 UI missing required fragment: {fragment}" for fragment in required_fragments if fragment not in implementation_text)
+
+        forbidden_fragments = [
+            "/runtime/smoke-reports/execute",
+            "/runtime/local/execute",
+            "/runtime/local/run",
+            "/runtime/local/start",
+            "/runtime/local/stop",
+            "/runtime/local/connect",
+            "/runtime/manual-smoke/execute",
+            "/runtime/manual-smoke/run",
+            "/model-runtime/local/smoke/execute",
+            "<button>execute</button>",
+            "<button>run</button>",
+            "<button>runsmoke</button>",
+            "<button>executesmoke</button>",
+            "<button>startruntime</button>",
+            "<button>stopruntime</button>",
+            "<button>connectruntime</button>",
+            "<button>callmodel</button>",
+            "localstorage",
+            "sessionstorage",
+            "document.cookie",
+            'type="password"',
+            'name="apikey"',
+            'name="token"',
+            "rawpromptbody",
+            "rawresponsebody",
+            "rawtranscript",
+            "rawproviderpayload",
+            "credentialref",
+            "credentialhandle",
+            "apikey",
+            "authtoken",
+        ]
+        failures.extend(f"M18 implementation contains forbidden fragment: {fragment}" for fragment in forbidden_fragments if fragment in lowered)
+
+        docs_text = "\n".join(
+            self._read(self.root / path)
+            for path in [
+                "docs/control_center/LOCAL_RUNTIME_STATUS_UI.md",
+                "docs/control_center/MANUAL_SMOKE_CONTROL_SURFACE.md",
+                "docs/control_center/RUNTIME_SMOKE_UI_SAFETY.md",
+                "docs/control_center/CONTROL_CENTER_FRONTEND_ROUTES.md",
+                "docs/control_center/FRONTEND_SAFETY_POLICY.md",
+                "docs/implementation/foundation_gate_implementation_plan_v0_22_0.md",
+                "docs/release_notes/v0_22_0.md",
+            ]
+        )
+        doc_fragments = [
+            "v0.22.0",
+            "M18",
+            "read-only",
+            "validation-only",
+            "No backend route is added",
+            "OpenAPI path count remains `74`",
+            "no runtime execution",
+            "no model/provider calls",
+            "no manual smoke execution",
+            "no raw smoke report",
+            "no raw prompts",
+            "no raw response bodies",
+            "no credentials",
+            "visibly mock",
+            "non-authoritative",
+        ]
+        failures.extend(f"M18 docs missing required fragment: {fragment}" for fragment in doc_fragments if fragment not in docs_text)
+
+        try:
+            openapi_paths = app.openapi().get("paths", {})
+        except Exception as exc:
+            failures.append(f"M18 OpenAPI route guard could not generate schema: {exc}")
+        else:
+            failures.extend(m18_openapi_route_failures(openapi_paths))
 
         script = self.root / "scripts/verify_control_center_frontend.py"
         if script.exists():

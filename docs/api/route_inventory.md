@@ -14,7 +14,7 @@ Each route declares:
 - `requires_auth_future`
 - `blocked_from_production`
 
-Allowed side-effect classes in v0.21.2 are:
+Allowed side-effect classes in v0.22.0 are:
 
 - `none`
 - `validation_only`
@@ -106,6 +106,8 @@ v0.21.1 M17 Evidence/File/Memory Viewer safety hardening adds no backend route. 
 
 v0.21.2 Developer Environment Command Normalization adds no backend route. It adds repo-local verification command wrappers and a developer environment verifier only. OpenAPI path count remains `74`.
 
+v0.22.0 M18 Local Runtime Status + Manual Smoke Control Surface adds no backend route. `/runtime/local` and `/runtime/manual-smoke` are frontend routes inside CCC Web only. They surface existing runtime readiness, capability matrix, and manual smoke report validation metadata. OpenAPI path count remains `74`.
+
 M12 Control Center route group:
 
 - `/control-center/manifest`
@@ -124,7 +126,8 @@ M13 Web Control Center frontend shell:
 - no backend route is added.
 - OpenAPI path count remains `74`.
 - the shell consumes existing read-only/preview-only API routes.
-- the only frontend POST target is `/control-center/actions/preview`.
+- the only action-preview frontend POST target is `/control-center/actions/preview`.
+- M18 may reference the existing validation-only `/runtime/smoke-reports/validate` route.
 
 v0.17.1 Web Control Center safety polish:
 
@@ -156,3 +159,4 @@ v0.17.3 documentation cleanup, v0.17.4 local browser smoke polish, v0.17.5 roadm
 - v0.21.0 adds frontend-only M17 evidence/file/memory summary viewers, with no new backend route, OpenAPI path count change, execution path, file mutation path, memory mutation path, filesystem browse path, raw payload route, dependency, external API host, or authority.
 - v0.21.1 hardens frontend-only M17 evidence/file/memory summary viewers, with no new backend route, OpenAPI path count change, M18 runtime smoke surface, execution path, file mutation path, memory mutation path, filesystem browse path, raw payload route, dependency, external API host, auth, cookies, analytics, SaaS SDK, or authority.
 - v0.21.2 normalizes developer environment commands, with no new backend route, OpenAPI path count change, M18 runtime smoke surface, runtime feature, frontend feature, execution path, dependency, network call, model/provider call, mobile/native/browser/computer-use functionality, plugin enablement, global tool install, or authority.
+- v0.22.0 implements frontend-only M18 local runtime status and manual smoke report validation summaries, with no new backend route, OpenAPI path count change, runtime execution path, smoke execution path, model/provider call, remote execution, mobile sensor access, plugin enablement, OpenWebUI integration, raw smoke report route, raw prompt route, raw response route, credential route, dependency, or authority.

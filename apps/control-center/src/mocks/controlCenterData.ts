@@ -11,15 +11,16 @@ export const mockControlCenterData: ControlCenterData = {
     warnings: ["MOCK_DATA_ONLY", "NO_PRODUCTION_AUTHORITY"]
   },
   manifest: {
-    manifest_id: "mock_control_center_manifest_m17",
-    version: "0.21.1",
+    manifest_id: "mock_control_center_manifest_m18",
+    version: "0.22.0",
     generated_at: "2026-01-01T00:00:00Z",
     declared_capabilities: [
       "control_center_read_only_dashboard",
       "control_center_action_preview",
       "control_center_m15_review_preview",
       "control_center_m16_timeline_trace_preview",
-      "control_center_m17_knowledge_reference_preview"
+      "control_center_m17_knowledge_reference_preview",
+      "control_center_m18_local_runtime_manual_smoke_preview"
     ],
     blocked_capabilities: [
       "runtime_execution",
@@ -105,6 +106,23 @@ export const mockControlCenterData: ControlCenterData = {
         }
       },
       {
+        surface: "local_runtime_manual_smoke_status",
+        status: "validation_only",
+        description: "Mock local runtime readiness and manual smoke report validation summaries for M18.",
+        route_refs: ["/runtime/readiness", "/runtime/capability-matrix", "/runtime/smoke-reports/validate"],
+        execution_allowed: false,
+        mutation_allowed: false,
+        credential_resolution_allowed: false,
+        approval_grant_allowed: false,
+        metadata: {
+          mock: true,
+          redacted_summary_only: true,
+          runtime_execution_allowed: false,
+          smoke_execution_allowed: false,
+          model_output_authoritative: false
+        }
+      },
+      {
         surface: "remote_workers",
         status: "dry_run_only",
         description: "Remote worker controls remain dry-run-only.",
@@ -140,8 +158,8 @@ export const mockControlCenterData: ControlCenterData = {
     ]
   },
   dashboard: {
-    snapshot_id: "mock_control_center_dashboard_m17",
-    baseline_version: "0.21.1",
+    snapshot_id: "mock_control_center_dashboard_m18",
+    baseline_version: "0.22.0",
     generated_at: "2026-01-01T00:00:00Z",
     system_status: {
       label: "Control Center",
@@ -232,22 +250,22 @@ export const mockControlCenterData: ControlCenterData = {
     ]
   },
   runtimeReadiness: {
-    report_id: "mock_runtime_readiness_m17",
-    baseline_version: "0.21.1",
+    report_id: "mock_runtime_readiness_m18",
+    baseline_version: "0.22.0",
     status: "report_only",
     production_ready: false,
     real_model_runtime_ready: false,
     remote_execution_ready: false,
     mobile_sensor_ready: false,
     plugin_or_native_build_ready: false,
-    capability_matrix_ref: "mock_runtime_capability_matrix_m17",
+    capability_matrix_ref: "mock_runtime_capability_matrix_m18",
     warnings: ["MOCK_DATA_ONLY"],
     blockers: [],
     metadata: { mock: true, model_output_authoritative: false }
   },
   capabilityMatrix: {
-    matrix_id: "mock_runtime_capability_matrix_m17",
-    baseline_version: "0.21.1",
+    matrix_id: "mock_runtime_capability_matrix_m18",
+    baseline_version: "0.22.0",
     metadata: { mock: true, no_model_was_called: true },
     entries: [
       {
@@ -626,6 +644,85 @@ export const mockControlCenterData: ControlCenterData = {
         previewOnly: true,
         readOnly: true,
         mock: true
+      }
+    ]
+  },
+  m18Runtime: {
+    status: "mock_preview_only",
+    readOnly: true,
+    validationOnly: true,
+    mock: true,
+    nonAuthoritative: true,
+    boundarySummary:
+      "M18 local runtime and manual smoke views show readiness metadata and report validation summaries only.",
+    warningCodes: [
+      "MOCK_DATA_ONLY",
+      "NO_PRODUCTION_AUTHORITY",
+      "REDACTED_SUMMARY_ONLY",
+      "VALIDATION_ONLY",
+      "NO_RUNTIME_EXECUTION",
+      "NO_MODEL_CALLS"
+    ],
+    localRuntimeSurfaces: [
+      {
+        surfaceRef: "runtime_readiness_report",
+        status: "report_only",
+        riskClass: "medium",
+        sourceRoute: "/runtime/readiness",
+        realModelCallAllowed: false,
+        realNetworkAllowed: false,
+        userContentAllowed: false,
+        secretsAllowed: false,
+        safeSummary:
+          "Readiness report summarizes local contract state without claiming production runtime readiness.",
+        guardrailRefs: ["m11_runtime_readiness", "m18_local_runtime_manual_smoke_surface_safe"],
+        redactionStatus: "redacted_summary_only"
+      },
+      {
+        surfaceRef: "runtime_capability_matrix",
+        status: "metadata_only",
+        riskClass: "medium",
+        sourceRoute: "/runtime/capability-matrix",
+        realModelCallAllowed: false,
+        realNetworkAllowed: false,
+        userContentAllowed: false,
+        secretsAllowed: false,
+        safeSummary:
+          "Capability matrix lists allowed and blocked runtime categories without enabling any provider.",
+        guardrailRefs: ["m11_runtime_capability_matrix", "m18_openapi_route_guard"],
+        redactionStatus: "redacted_summary_only"
+      },
+      {
+        surfaceRef: "manual_loopback_smoke",
+        status: "manual_only_validation_ready",
+        riskClass: "high",
+        sourceRoute: "/runtime/smoke-reports/validate",
+        realModelCallAllowed: false,
+        realNetworkAllowed: false,
+        userContentAllowed: false,
+        secretsAllowed: false,
+        safeSummary:
+          "Manual smoke reports may be validated as metadata; the UI cannot perform the smoke attempt.",
+        guardrailRefs: ["m10_manual_smoke", "m11_manual_smoke_report_validation_safe"],
+        redactionStatus: "redacted_summary_only"
+      }
+    ],
+    manualSmokeReports: [
+      {
+        reportRef: "mock_manual_smoke_report_ref_001",
+        requestRef: "mock_manual_smoke_request_ref_001",
+        validationStatus: "mock_valid_summary",
+        endpointSummary: "loopback endpoint summary only",
+        modelIdSummary: "local model id summary only",
+        fixedPromptHash: "fixed_prompt_hash_mock_001",
+        responseOrigin: "fake_manual_loopback_smoke",
+        responsePreviewShown: false,
+        modelOutputAuthoritative: false,
+        reasonCodes: ["MANUAL_SMOKE_REPORT_SAFE", "MODEL_OUTPUT_NOT_AUTHORITY"],
+        redactionStatus: "redacted_summary_only",
+        safeMessage:
+          "Mock validation summary only; no smoke attempt was performed and no response text is shown.",
+        createdAt: "2026-01-01T00:30:00Z"
       }
     ]
   }

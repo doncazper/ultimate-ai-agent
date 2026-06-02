@@ -21,6 +21,7 @@ REQUIRED_FILES = [
     "src/components/EventViewerPanel.tsx",
     "src/components/EventTimelineTracePanel.tsx",
     "src/components/EvidenceFileMemoryViewerPanel.tsx",
+    "src/components/LocalRuntimeStatusPanel.tsx",
     "src/mocks/controlCenterData.ts",
     "src/App.test.tsx",
 ]
@@ -61,6 +62,15 @@ FORBIDDEN_ENDPOINTS = [
     "/memory/delete",
     "/memory/learn",
     "/memory/forget",
+    "/runtime/smoke-reports/execute",
+    "/runtime/local/execute",
+    "/runtime/local/run",
+    "/runtime/local/start",
+    "/runtime/local/stop",
+    "/runtime/local/connect",
+    "/runtime/manual-smoke/execute",
+    "/runtime/manual-smoke/run",
+    "/model-runtime/local/smoke/execute",
 ]
 
 DANGEROUS_BUTTON_LABELS = [
@@ -84,6 +94,13 @@ DANGEROUS_BUTTON_LABELS = [
     "Browse filesystem",
     "Reveal raw",
     "Show raw",
+    "Run smoke",
+    "Execute smoke",
+    "Start runtime",
+    "Stop runtime",
+    "Connect runtime",
+    "Launch runtime",
+    "Call model",
 ]
 
 BROWSER_API_FRAGMENTS = [
@@ -159,6 +176,11 @@ RAW_M17_KNOWLEDGE_FIELD = re.compile(
 )
 CREDENTIAL_M17_KNOWLEDGE_FIELD = re.compile(r"\b(?:credentialRef|credentialHandle|apiKey|authToken|password|secretRef)\b")
 PRIVATE_PATH_FRAGMENT = re.compile(r"(/Users/|/home/|[A-Za-z]:\\Users\\)")
+RAW_M18_RUNTIME_FIELD = re.compile(
+    r"\b(raw(?:Prompt|Response|Transcript|File|Memory|Credential|Provider|Secret)[A-Za-z0-9_]*|"
+    r"(?:prompt|response|transcript|provider|secret)(?:Body|Payload|Content))\b"
+)
+CREDENTIAL_M18_RUNTIME_FIELD = re.compile(r"\b(?:credentialRef|credentialHandle|apiKey|authToken|password|secretRef)\b")
 
 M15_AUTHORITY_BOUNDARY_MARKERS = [
     "This UI cannot grant, deny, execute, or bypass approvals",
@@ -194,6 +216,23 @@ M17_HARDENING_SELECTED_STATE_MARKERS = [
     "evidence summary",
     "file ref summary",
     "memory summary",
+]
+
+M18_RUNTIME_BOUNDARY_MARKERS = [
+    "Local runtime status is read-only",
+    "No local runtime is started, stopped, connected, or executed from this UI",
+    "Manual smoke reports are safe summaries",
+    "Manual smoke execution remains CLI-only, fixed-prompt-only, approval-gated",
+]
+
+M18_RUNTIME_MOCK_MARKERS = [
+    "m18Runtime",
+    "mock_manual_smoke_report_ref_001",
+    "runtime_readiness_report",
+    "manual_loopback_smoke",
+    "VALIDATION_ONLY",
+    "NO_RUNTIME_EXECUTION",
+    "modelOutputAuthoritative: false",
 ]
 
 
@@ -261,6 +300,10 @@ def verify(root: Path = ROOT) -> list[str]:
             "no_external_export",
             "no_raw_content",
             "memory_not_authority",
+            "m18runtime",
+            "validation_only",
+            "no_runtime_execution",
+            "modeloutputauthoritative: false",
         ]
         normalized_mock = mock_lowered.replace("_", "").replace(" ", "")
         for fragment in required_mock_safety:
@@ -270,9 +313,13 @@ def verify(root: Path = ROOT) -> list[str]:
         failures.extend(_m15_review_field_failures(mock_path.relative_to(root), mock_text))
         failures.extend(_m16_trace_field_failures(mock_path.relative_to(root), mock_text))
         failures.extend(_m17_knowledge_field_failures(mock_path.relative_to(root), mock_text))
+        failures.extend(_m18_runtime_field_failures(mock_path.relative_to(root), mock_text))
         for marker in M17_HARDENING_MOCK_MARKERS:
             if marker.lower() not in mock_lowered:
                 failures.append(f"M17 hardening mock marker missing: {marker}")
+        for marker in M18_RUNTIME_MOCK_MARKERS:
+            if marker.lower() not in mock_lowered:
+                failures.append(f"M18 runtime mock marker missing: {marker}")
 
     approval_panel = app_root / "src/components/ApprovalQueuePanel.tsx"
     if approval_panel.exists():
@@ -298,6 +345,13 @@ def verify(root: Path = ROOT) -> list[str]:
             if marker not in text:
                 failures.append(f"M17 hardening selected-state marker missing in {knowledge_panel.relative_to(root)}: {marker}")
 
+    runtime_panel = app_root / "src/components/LocalRuntimeStatusPanel.tsx"
+    if runtime_panel.exists():
+        text = runtime_panel.read_text(encoding="utf-8")
+        for marker in M18_RUNTIME_BOUNDARY_MARKERS:
+            if marker not in text:
+                failures.append(f"M18 runtime boundary copy missing in {runtime_panel.relative_to(root)}: {marker}")
+
     endpoints = app_root / "src/api/endpoints.ts"
     base_url = app_root / "src/api/baseUrl.ts"
     client = app_root / "src/api/client.ts"
@@ -308,8 +362,12 @@ def verify(root: Path = ROOT) -> list[str]:
             failures.append("action preview endpoint declaration is missing")
         if text.count("/control-center/actions/preview") != 1:
             failures.append("action preview endpoint must appear exactly once in endpoint declarations")
+        if 'runtimeSmokeReportValidate: "/runtime/smoke-reports/validate"' not in text:
+            failures.append("runtime smoke report validation endpoint declaration is missing")
         if "isAllowedReadEndpoint" not in text or "isPreviewEndpoint" not in text:
             failures.append("endpoint allowlist helpers are missing")
+        if "isRuntimeValidationEndpoint" not in text:
+            failures.append("runtime validation endpoint allowlist helper is missing")
     if client.exists():
         text = client.read_text(encoding="utf-8")
         if text.count('method: "POST"') != 1:
@@ -338,8 +396,17 @@ def verify(root: Path = ROOT) -> list[str]:
         text = vite_config.read_text(encoding="utf-8")
         if 'target: "http://127.0.0.1:8000"' not in text:
             failures.append("Vite dev proxy must target only http://127.0.0.1:8000")
-        if '"/control-center"' not in text or '"/runtime"' not in text:
-            failures.append("Vite dev proxy must cover local Control Center and runtime read routes")
+        required_proxy_routes = [
+            '"/control-center"',
+            '"/runtime/readiness"',
+            '"/runtime/capability-matrix"',
+            '"/runtime/smoke-reports"',
+        ]
+        for route in required_proxy_routes:
+            if route not in text:
+                failures.append(f"Vite dev proxy must cover local backend route: {route}")
+        if re.search(r'["\']/runtime["\']\s*:', text):
+            failures.append("Vite dev proxy must not proxy broad /runtime frontend route space")
         if "changeOrigin: true" in text:
             failures.append("Vite dev proxy must not rewrite origin for local backend checks")
         for match in ABSOLUTE_API_URL.finditer(text):
@@ -455,6 +522,19 @@ def _m17_knowledge_field_failures(rel: Path, text: str) -> list[str]:
         failures.append(f"credential-like M17 knowledge field in {rel}: {match.group(0)}")
     for match in PRIVATE_PATH_FRAGMENT.finditer(m17_text):
         failures.append(f"private path fragment in M17 knowledge fixture in {rel}: {match.group(0)}")
+    return failures
+
+
+def _m18_runtime_field_failures(rel: Path, text: str) -> list[str]:
+    failures: list[str] = []
+    m18_index = text.lower().find("m18runtime")
+    if m18_index == -1:
+        return failures
+    m18_text = text[m18_index:]
+    for match in RAW_M18_RUNTIME_FIELD.finditer(m18_text):
+        failures.append(f"raw M18 runtime field in {rel}: {match.group(0)}")
+    for match in CREDENTIAL_M18_RUNTIME_FIELD.finditer(m18_text):
+        failures.append(f"credential-like M18 runtime field in {rel}: {match.group(0)}")
     return failures
 
 

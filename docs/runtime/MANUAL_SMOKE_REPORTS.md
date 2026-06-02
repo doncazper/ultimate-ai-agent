@@ -1,6 +1,6 @@
 # Manual Smoke Reports
 
-Status: Active M11 validation contract, v0.15.1
+Status: Active M11 validation contract, surfaced in CCC Web by v0.22.0 / M18.
 
 Manual smoke reports are safe summaries of a manual local loopback smoke attempt. They are not raw transcripts, not prompt logs, not model evidence, and not production readiness proof.
 
@@ -32,3 +32,11 @@ Rejected report content includes:
 Validation responses must be safe reason codes and messages only. They must not echo secrets, prompts, or raw response bodies.
 
 `fake_manual_loopback_smoke` is an allowed fake/test origin used by tests, gates, and validation examples. It is not a live runtime origin, not production evidence, and not proof that a real model/provider/runtime was called.
+
+## v0.22.0 M18 Web Surface
+
+v0.22.0 adds a validation-only CCC Web manual smoke report surface at `/runtime/manual-smoke`.
+
+The surface may display safe report refs, request refs, endpoint summaries, model ID summaries, fixed prompt hashes, response origin labels, reason codes, redaction status, and model-output-authority flags. It must show no raw smoke report, no raw prompts, no raw response bodies, no raw transcripts, no credentials, no endpoint secrets, and no provider payloads.
+
+The surface adds no backend route. OpenAPI path count remains `74`. It performs no manual smoke execution, no runtime execution, and no model/provider calls.

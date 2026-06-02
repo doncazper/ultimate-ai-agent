@@ -10,7 +10,15 @@ export default defineConfig({
         target: "http://127.0.0.1:8000",
         changeOrigin: false
       },
-      "/runtime": {
+      "/runtime/readiness": {
+        target: "http://127.0.0.1:8000",
+        changeOrigin: false
+      },
+      "/runtime/capability-matrix": {
+        target: "http://127.0.0.1:8000",
+        changeOrigin: false
+      },
+      "/runtime/smoke-reports": {
         target: "http://127.0.0.1:8000",
         changeOrigin: false
       }

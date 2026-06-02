@@ -74,6 +74,8 @@ describe("Web Control Center shell", () => {
       ["/evidence", /Evidence Viewer/i],
       ["/files", /File Reference Viewer/i],
       ["/memory", /Memory Viewer/i],
+      ["/runtime/local", /Local Runtime Status/i],
+      ["/runtime/manual-smoke", /Manual Smoke Control Surface/i],
       ["/remote-workers", /Remote worker boundary/i],
       ["/mobile-planning", /Mobile planning/i],
       ["/plugin-governance", /Plugin governance/i],
@@ -350,6 +352,55 @@ describe("Web Control Center shell", () => {
     }
   });
 
+  it("renders M18 local runtime status as read-only validation-only metadata", async () => {
+    mockFetchWithFallback();
+    window.history.pushState({}, "", "/runtime/local");
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: /Local Runtime Status/i })).toBeInTheDocument();
+    expect(screen.getByText(/M18 local runtime surface/i)).toBeInTheDocument();
+    expect(screen.getByText(/Local runtime status is read-only/i)).toBeInTheDocument();
+    expect(screen.getByText(/Runtime readiness report/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/manual_loopback_smoke/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/MOCK_DATA_ONLY/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/NO_RUNTIME_EXECUTION/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/No local runtime is started, stopped, connected, or executed from this UI/i)).toBeInTheDocument();
+    expect(screen.getByText(/Model output remains non-authoritative/i)).toBeInTheDocument();
+
+    for (const label of [/^execute$/i, /^run$/i, /^start$/i, /^stop$/i, /^connect$/i, /^launch$/i, /^call model$/i]) {
+      expect(screen.queryByRole("button", { name: label })).not.toBeInTheDocument();
+    }
+    expect(screen.queryByText(/raw prompt/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/raw response/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/provider payload/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/supersecretvalue123/i)).not.toBeInTheDocument();
+  });
+
+  it("renders M18 manual smoke report handling without execution or raw report display", async () => {
+    mockFetchWithFallback();
+    window.history.pushState({}, "", "/runtime/manual-smoke");
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: /Manual Smoke Control Surface/i })).toBeInTheDocument();
+    expect(screen.getByText(/validation-only report surface/i)).toBeInTheDocument();
+    expect(screen.getByText(/Manual smoke reports are safe summaries/i)).toBeInTheDocument();
+    expect(screen.getByText(/mock_manual_smoke_report_ref_001/i)).toBeInTheDocument();
+    expect(screen.getByText(/fixed prompt hash/i)).toBeInTheDocument();
+    expect(screen.getByText(/response preview shown: no/i)).toBeInTheDocument();
+    expect(screen.getByText(/Manual smoke execution remains CLI-only, fixed-prompt-only, approval-gated/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/REDACTED_SUMMARY_ONLY/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/VALIDATION_ONLY/i).length).toBeGreaterThan(0);
+
+    for (const label of [/^execute$/i, /^run$/i, /^start$/i, /^stop$/i, /^connect$/i, /^launch$/i, /^send$/i]) {
+      expect(screen.queryByRole("button", { name: label })).not.toBeInTheDocument();
+    }
+    expect(screen.queryByText(/raw prompt/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/raw response body/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/raw transcript/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/api_key/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/token=/i)).not.toBeInTheDocument();
+  });
+
   it("submits action preview only to the preview endpoint", async () => {
     const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
       if (options?.method === "POST") {
@@ -520,7 +571,9 @@ describe("Web Control Center shell", () => {
 
   it("keeps read endpoints separate from the single preview POST endpoint", () => {
     expect(READ_ENDPOINTS).not.toContain(API_ENDPOINTS.actionPreview);
+    expect(READ_ENDPOINTS).not.toContain(API_ENDPOINTS.runtimeSmokeReportValidate);
     expect(API_ENDPOINTS.actionPreview).toBe("/control-center/actions/preview");
+    expect(API_ENDPOINTS.runtimeSmokeReportValidate).toBe("/runtime/smoke-reports/validate");
     expect(isPreviewEndpoint(API_ENDPOINTS.actionPreview)).toBe(true);
     expect(isAllowedReadEndpoint(API_ENDPOINTS.controlCenterDashboard)).toBe(true);
     expect(isAllowedReadEndpoint("/control-center/actions/execute")).toBe(false);

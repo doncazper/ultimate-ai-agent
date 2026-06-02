@@ -632,6 +632,93 @@ def test_control_center_frontend_verifier_requires_m17_hardening_markers(tmp_pat
     assert any("M17 hardening selected-state marker missing" in failure for failure in failures)
 
 
+def test_control_center_frontend_verifier_blocks_m18_runtime_execution_and_raw_smoke_fields(tmp_path):
+    app_root = tmp_path / "apps/control-center"
+    (app_root / "src/api").mkdir(parents=True)
+    (app_root / "src/mocks").mkdir(parents=True)
+    (app_root / "src/components").mkdir(parents=True)
+    (app_root / "package.json").write_text('{"dependencies":{"react":"1.0.0"}}', encoding="utf-8")
+    (app_root / "package-lock.json").write_text("{}", encoding="utf-8")
+    (app_root / "vite.config.ts").write_text(
+        'export default { server: { proxy: { "/control-center": { target: "http://127.0.0.1:8000" }, '
+        '"/runtime": { target: "http://127.0.0.1:8000" } } } };\n',
+        encoding="utf-8",
+    )
+    (app_root / "src/api/baseUrl.ts").write_text(
+        "export function resolveApiBaseUrl() { return true; }\n"
+        "const policy = ['localhost', '127.0.0.1', '::1', 'EXTERNAL_API_BASE_URL_BLOCKED', "
+        "'SECRET_LIKE_API_BASE_URL_REJECTED', 'containsSecretLike'];\n",
+        encoding="utf-8",
+    )
+    (app_root / "src/api/client.ts").write_text(
+        'import { resolveApiBaseUrl } from "./baseUrl";\n'
+        'fetch(API_ENDPOINTS.actionPreview, { method: "POST" });\n'
+        'fetch("/runtime/smoke-reports/execute", { method: "POST" });\n',
+        encoding="utf-8",
+    )
+    (app_root / "src/api/endpoints.ts").write_text(
+        'export const API_ENDPOINTS = { actionPreview: "/control-center/actions/preview", '
+        'runtimeSmokeReportValidate: "/runtime/smoke-reports/validate" } as const;\n'
+        "export function isAllowedReadEndpoint() { return true; }\n"
+        "export function isPreviewEndpoint() { return true; }\n"
+        "export function isRuntimeValidationEndpoint() { return true; }\n",
+        encoding="utf-8",
+    )
+    (app_root / "src/api/redaction.ts").write_text("export const redact = true;\n", encoding="utf-8")
+    (app_root / "src/App.test.tsx").write_text("export const testFile = true;\n", encoding="utf-8")
+    (app_root / "src/components/ActionPreviewForm.tsx").write_text(
+        "export function ActionPreviewForm() { return null; }\n",
+        encoding="utf-8",
+    )
+    (app_root / "src/components/ApprovalQueuePanel.tsx").write_text(
+        "export function ApprovalQueuePanel() { return null; }\n",
+        encoding="utf-8",
+    )
+    (app_root / "src/components/ReceiptViewerPanel.tsx").write_text(
+        "export function ReceiptViewerPanel() { return null; }\n",
+        encoding="utf-8",
+    )
+    (app_root / "src/components/EventViewerPanel.tsx").write_text(
+        "export function EventViewerPanel() { return null; }\n",
+        encoding="utf-8",
+    )
+    (app_root / "src/components/EventTimelineTracePanel.tsx").write_text(
+        "export function EventTimelineTracePanel() { return null; }\n",
+        encoding="utf-8",
+    )
+    (app_root / "src/components/EvidenceFileMemoryViewerPanel.tsx").write_text(
+        "export function EvidenceFileMemoryViewerPanel() { return null; }\n",
+        encoding="utf-8",
+    )
+    (app_root / "src/components/LocalRuntimeStatusPanel.tsx").write_text(
+        'export function LocalRuntimeStatusPanel() { return <button>Run smoke</button>; }\n',
+        encoding="utf-8",
+    )
+    (app_root / "src/mocks/controlCenterData.ts").write_text(
+        "export const mockControlCenterData = { mock: true, production_ready: false, "
+        "real_model_runtime_ready: false, remote_execution_ready: false, mobile_sensor_ready: false, "
+        "plugin_or_native_build_ready: false, execution_enabled: false, dispatch_enabled: false, "
+        "sensor_access_enabled: false, plugin_enablement_allowed: false, model_output_authoritative: false, "
+        "m15Review: { nonAuthoritative: true, redactionStatus: 'redacted_summary_only', "
+        "approvalGrantAllowed: false }, "
+        "m16Trace: { nonAuthoritative: true, redactionStatus: 'redacted_summary_only' }, "
+        "m17Knowledge: { nonAuthoritative: true, redactionStatus: 'redacted_summary_only', "
+        "NO_RAW_CONTENT: true, MEMORY_NOT_AUTHORITY: true }, "
+        "m18Runtime: { nonAuthoritative: true, redactionStatus: 'redacted_summary_only', "
+        "rawPromptBody: 'prompt text', rawResponseBody: 'response text', apiKey: 'live_secret_value_123456' } };\n",
+        encoding="utf-8",
+    )
+
+    verifier = load_verifier()
+    failures = verifier.verify(tmp_path)
+
+    assert any("/runtime/smoke-reports/execute" in failure for failure in failures)
+    assert any("dangerous action control label" in failure and "Run smoke" in failure for failure in failures)
+    assert any("raw M18 runtime field" in failure and "rawPromptBody" in failure for failure in failures)
+    assert any("raw M18 runtime field" in failure and "rawResponseBody" in failure for failure in failures)
+    assert any("credential-like M18 runtime field" in failure and "apiKey" in failure for failure in failures)
+
+
 def test_control_center_frontend_verifier_blocks_sensitive_browser_and_sdk_markers(tmp_path):
     app_root = tmp_path / "apps/control-center"
     (app_root / "src/api").mkdir(parents=True)
@@ -761,6 +848,63 @@ def test_control_center_frontend_verifier_blocks_external_proxy_targets_and_url_
 
     assert any("Vite dev proxy must target only http://127.0.0.1:8000" in failure for failure in failures)
     assert any("forbidden URL credentials" in failure for failure in failures)
+
+
+def test_control_center_frontend_verifier_blocks_broad_runtime_proxy(tmp_path):
+    app_root = tmp_path / "apps/control-center"
+    (app_root / "src/api").mkdir(parents=True)
+    (app_root / "src/mocks").mkdir(parents=True)
+    (app_root / "src/components").mkdir(parents=True)
+    (app_root / "package.json").write_text('{"dependencies":{"react":"1.0.0"}}', encoding="utf-8")
+    (app_root / "package-lock.json").write_text("{}", encoding="utf-8")
+    (app_root / "vite.config.ts").write_text(
+        'export default { server: { proxy: { "/control-center": { target: "http://127.0.0.1:8000" }, '
+        '"/runtime": { target: "http://127.0.0.1:8000" } } } };\n',
+        encoding="utf-8",
+    )
+    (app_root / "src/api/baseUrl.ts").write_text(
+        "export function resolveApiBaseUrl() { return true; }\n"
+        "const policy = ['localhost', '127.0.0.1', '::1', 'EXTERNAL_API_BASE_URL_BLOCKED', "
+        "'SECRET_LIKE_API_BASE_URL_REJECTED', 'containsSecretLike'];\n",
+        encoding="utf-8",
+    )
+    (app_root / "src/api/client.ts").write_text(
+        'import { resolveApiBaseUrl } from "./baseUrl";\n'
+        'fetch(API_ENDPOINTS.actionPreview, { method: "POST" });\n',
+        encoding="utf-8",
+    )
+    (app_root / "src/api/endpoints.ts").write_text(
+        'export const API_ENDPOINTS = { actionPreview: "/control-center/actions/preview", '
+        'runtimeSmokeReportValidate: "/runtime/smoke-reports/validate" } as const;\n'
+        "export function isAllowedReadEndpoint() { return true; }\n"
+        "export function isPreviewEndpoint() { return true; }\n"
+        "export function isRuntimeValidationEndpoint() { return true; }\n",
+        encoding="utf-8",
+    )
+    (app_root / "src/api/redaction.ts").write_text("export const redact = true;\n", encoding="utf-8")
+    (app_root / "src/App.test.tsx").write_text("export const testFile = true;\n", encoding="utf-8")
+    (app_root / "src/mocks/controlCenterData.ts").write_text(
+        "export const mockControlCenterData = { mock: true, production_ready: false, "
+        "real_model_runtime_ready: false, remote_execution_ready: false, mobile_sensor_ready: false, "
+        "plugin_or_native_build_ready: false, execution_enabled: false, dispatch_enabled: false, "
+        "sensor_access_enabled: false, plugin_enablement_allowed: false, model_output_authoritative: false, "
+        "m15Review: { nonAuthoritative: true, redactionStatus: 'redacted_summary_only', "
+        "approvalGrantAllowed: false, externalExportAllowed: false }, "
+        "m16Trace: { noExternalExport: true, noRawContent: true }, "
+        "m17Knowledge: { memoryNotAuthority: true, noRawContent: true }, "
+        "m18Runtime: { validationOnly: true, noRuntimeExecution: true, "
+        "modelOutputAuthoritative: false } };\n",
+        encoding="utf-8",
+    )
+    (app_root / "src/components/ActionPreviewForm.tsx").write_text(
+        "export function ActionPreviewForm() { return null; }\n",
+        encoding="utf-8",
+    )
+
+    verifier = load_verifier()
+    failures = verifier.verify(tmp_path)
+
+    assert any("Vite dev proxy must not proxy broad /runtime frontend route space" in failure for failure in failures)
 
 
 def test_control_center_frontend_verifier_blocks_secret_like_env_examples(tmp_path):

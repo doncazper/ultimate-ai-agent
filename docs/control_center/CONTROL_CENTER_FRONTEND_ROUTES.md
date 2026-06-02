@@ -1,6 +1,6 @@
 # Control Center Frontend Routes
 
-Status: Active for M17 Evidence/File/Memory Viewer as of v0.21.2.
+Status: Active for M18 Local Runtime Status + Manual Smoke Control Surface as of v0.22.0.
 
 The frontend shell is served by Vite during local development. It is not mounted by the Python API and does not add OpenAPI paths.
 
@@ -18,6 +18,8 @@ Implemented frontend pages:
 - `/evidence`
 - `/files`
 - `/memory`
+- `/runtime/local`
+- `/runtime/manual-smoke`
 - `/remote-workers`
 - `/mobile-planning`
 - `/plugin-governance`
@@ -37,6 +39,7 @@ Backend API endpoints consumed:
 - `GET /control-center/foundation-gate/summary`
 - `GET /runtime/readiness`
 - `GET /runtime/capability-matrix`
+- `POST /runtime/smoke-reports/validate`
 - `POST /control-center/actions/preview`
 
 Forbidden frontend route/API targets:
@@ -51,7 +54,7 @@ Forbidden frontend route/API targets:
 
 v0.17.4 keeps the frontend route set unchanged and adds local browser smoke UX polish plus safe reporting documentation. `scripts/verify_control_center_frontend.py` rejects forbidden execute, plugin enablement, runtime execution, remote dispatch, mobile sensor endpoint strings, analytics/SaaS SDK markers, sensitive browser APIs, and unsafe fixtures in frontend implementation files. `scripts/verify_control_center_browser_smoke_readiness.py` verifies that browser smoke readiness and reporting remain manual local-only documentation.
 
-OpenAPI remains a backend contract. v0.21.1 changes only `info.version` to `0.21.1`; backend path count remains `74` with unique operation IDs.
+OpenAPI remains a backend contract. v0.22.0 changes only `info.version` to `0.22.0`; backend path count remains `74` with unique operation IDs.
 
 ## v0.18.0 M14 Connection Stabilization
 
@@ -129,3 +132,12 @@ v0.21.1 keeps the same frontend routes and no backend API paths:
 - `/memory`
 
 The hardening patch adds alternate safe mock refs, selected-card reviewability, tests, verifier checks, docs, and Foundation Gate criteria only.
+
+## v0.22.0 M18 Local Runtime Status Manual Smoke Surface
+
+v0.22.0 adds two frontend routes and no backend API paths:
+
+- `/runtime/local`: read-only local runtime readiness and capability matrix status.
+- `/runtime/manual-smoke`: validation-only manual smoke report summary surface.
+
+These routes use safe mock fallback data and existing runtime readiness/validation contracts. They do not add local runtime execution, manual smoke execution, backend routes, provider calls, remote dispatch, mobile sensor access, plugin enablement, OpenWebUI integration, raw smoke report display, raw prompts, raw response bodies, credentials, provider payloads, dependencies, or production Control Center authority.

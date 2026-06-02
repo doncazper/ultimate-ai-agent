@@ -1,5 +1,5 @@
 # Ultimate AI Agent Version
 
-Current active baseline: **v0.21.2**
+Current active baseline: **v0.22.0**
 
-v0.21.2 normalizes developer environment commands. It adds repo-local Makefile targets and a dev-environment verifier so Codex and local shells use `.venv/bin/python` rather than relying on a bare `python` binary on PATH. It adds no runtime features, frontend features, backend API routes, dependencies, model/provider calls, network calls, mobile/native functionality, plugin enablement, or production capability.
+v0.22.0 implements M18 Local Runtime Status + Manual Smoke Control Surface in CCC Web only. It adds read-only `/runtime/local`, validation-only `/runtime/manual-smoke`, safe mock summaries, tests, docs, verifier coverage, and Foundation Gate criteria. It adds no backend API routes, runtime execution, manual smoke execution, model/provider calls, remote execution, mobile/native functionality, plugin enablement, dependencies, OpenWebUI integration, or production Control Center authority.
