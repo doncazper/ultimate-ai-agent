@@ -1,5 +1,5 @@
 # Ultimate AI Agent Version
 
-Current active baseline: **v0.22.0**
+Current active baseline: **v0.22.1**
 
-v0.22.0 implements M18 Local Runtime Status + Manual Smoke Control Surface in CCC Web only. It adds read-only `/runtime/local`, validation-only `/runtime/manual-smoke`, safe mock summaries, tests, docs, verifier coverage, and Foundation Gate criteria. It adds no backend API routes, runtime execution, manual smoke execution, model/provider calls, remote execution, mobile/native functionality, plugin enablement, dependencies, OpenWebUI integration, or production Control Center authority.
+v0.22.1 is a docs-only roadmap status label cleanup after accepted v0.22.0 / M18. It marks M18 as implemented, keeps M19/M20 and M21-M40 planned/provisional, updates active release/import/master/Foundation Gate documentation pointers, and adds documentation-integrity coverage for the status labels. It adds no backend API routes, frontend behavior, runtime execution, manual smoke execution, model/provider calls, remote execution, mobile/native functionality, plugin enablement, dependencies, OpenWebUI integration, or production Control Center authority.

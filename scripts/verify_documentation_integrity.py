@@ -256,6 +256,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_open_design_governance(root))
     failures.extend(_verify_openwebui_ccc_strategy(root))
     failures.extend(_verify_post_m20_roadmap_projection(root))
+    failures.extend(_verify_post_m18_roadmap_status_labels(root))
 
     policy_text = "\n".join(
         _read(root / rel_path).lower()
@@ -553,6 +554,49 @@ def _verify_roadmap_milestone_charters(root: Path) -> list[str]:
             if fragment not in docs_text:
                 failures.append(f"M15 active docs missing safety fragment: {fragment}")
     return failures
+
+
+def _verify_post_m18_roadmap_status_labels(root: Path) -> list[str]:
+    active = _version_tuple(_active_version(root))
+    if active < (0, 22, 1):
+        return []
+
+    failures: list[str] = []
+    sequence_path = root / "docs/roadmap/NEXT_SEQUENCE_v0_17_5.md"
+    roadmap_path = root / "docs/canonical/09_roadmap.md"
+    if not sequence_path.exists() or not roadmap_path.exists():
+        return failures
+
+    sequence = _read(sequence_path).lower()
+    roadmap = _read(roadmap_path).lower()
+    m18_section = _milestone_section(sequence, "v0.22.0 / m18")
+    if not m18_section or "status: implemented" not in m18_section:
+        failures.append("roadmap sequence must mark M18/v0.22.0 as implemented after accepted v0.22.0")
+    if "v0.22.0 has implemented m18" not in roadmap:
+        failures.append("canonical roadmap must mention accepted M18 implementation after v0.22.0")
+    for milestone in ["v0.23.0 / m19", "v0.24.0 / m20"]:
+        section = _milestone_section(sequence, milestone)
+        if not section:
+            failures.append(f"roadmap sequence missing {milestone.upper()} planned status")
+            continue
+        if "status: planned/provisional" not in section:
+            failures.append(f"roadmap sequence must keep {milestone.upper()} planned/provisional")
+    if "m21-m40 remain planned/provisional" not in sequence:
+        failures.append("roadmap sequence must keep M21-M40 planned/provisional")
+    return failures
+
+
+def _milestone_section(text: str, milestone: str) -> str:
+    heading_marker = "## "
+    index = text.find(f"{heading_marker}{milestone}")
+    if index == -1:
+        index = text.find(f"{heading_marker}")
+        while index != -1 and milestone not in text[index : text.find("\n", index) if text.find("\n", index) != -1 else None]:
+            index = text.find(f"{heading_marker}", index + len(heading_marker))
+    if index == -1:
+        return ""
+    next_heading = text.find("##", index + 1)
+    return text[index : next_heading if next_heading != -1 else None]
 
 
 def main() -> int:

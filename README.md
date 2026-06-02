@@ -1,12 +1,12 @@
-# Ultimate AI Agent Canonical Bundle v0.22.0
+# Ultimate AI Agent Canonical Bundle v0.22.1
 
-This is the active project baseline after v0.22.0 M18 Local Runtime Status + Manual Smoke Control Surface.
+This is the active project baseline after v0.22.1 roadmap status label cleanup following accepted v0.22.0 / M18.
 
 Start here:
 
 ```text
-README_IMPORT_v0_22_0.md
-ultimate_ai_agent_master_plan_v0_22_0.md
+README_IMPORT_v0_22_1.md
+ultimate_ai_agent_master_plan_v0_22_1.md
 docs/DOCUMENTATION_INDEX.md
 docs/canonical/09_roadmap.md
 docs/canonical/CANONICAL_DOC_MAP.md
@@ -70,7 +70,7 @@ docs/runtime/RUNTIME_READINESS.md
 docs/runtime/MANUAL_SMOKE_REPORTS.md
 docs/runtime/RUNTIME_CAPABILITY_MATRIX.md
 docs/security/approval_authority.md
-docs/implementation/foundation_gate_implementation_plan_v0_22_0.md
+docs/implementation/foundation_gate_implementation_plan_v0_22_1.md
 docs/maintenance/documentation_integrity_checklist.md
 docs/tooling/CODEX_PLUGIN_CAPABILITY_INVENTORY.md
 docs/tooling/CODEX_PLUGIN_RISK_POLICY.md
@@ -111,6 +111,10 @@ Use `.venv/bin/python`, not bare `python`, for repo verification commands. Shell
 Local runtime status rule:
 
 > v0.22.0 implements M18 Local Runtime Status + Manual Smoke Control Surface in CCC Web only. `/runtime/local` is read-only local runtime status, and `/runtime/manual-smoke` is validation-only manual smoke report summary display. OpenAPI path count remains `74` and no backend route is added. Manual smoke execution remains CLI-only, fixed-prompt-only, approval-gated, and non-authoritative. This release adds no runtime execution, manual smoke execution, model/provider call, local runtime provider integration, remote execution, mobile sensor access, plugin enablement, OpenWebUI integration, dependency, production persistence, raw smoke report display, raw prompts, raw response bodies, credentials, provider payloads, or production Control Center authority.
+
+Roadmap status label cleanup rule:
+
+> v0.22.1 is documentation hygiene only after accepted v0.22.0 / M18. It may update active version docs, release/import/master docs, roadmap labels, documentation verifier checks, and Foundation Gate documentation pointers so M18 is marked implemented while M19/M20 and M21-M40 remain planned/provisional. This patch adds no M19 Mobile Companion Contract/API Planning, backend API route, frontend feature, OpenAPI path count change, runtime execution, manual smoke execution, model/provider call, remote execution, mobile sensor access, plugin enablement, OpenWebUI integration, dependency, architecture behavior change, native build workflow, or production Control Center authority.
 
 Mobile planning rule:
 

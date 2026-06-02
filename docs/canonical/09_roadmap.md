@@ -1,4 +1,4 @@
-# 09 - Roadmap v0.21.2
+# 09 - Roadmap v0.22.1
 
 Status: Active foundation-first roadmap. This is the single roadmap source of truth.
 
@@ -25,7 +25,16 @@ The original foundation sequence established runtime hygiene, local runtime/cont
 
 ## Current accepted baseline
 
-The active accepted baseline is v0.21.2. It normalizes developer environment verification commands after accepted v0.21.1 M17 safety hardening.
+The active accepted baseline is v0.22.1. It cleans up roadmap status labels after accepted v0.22.0 / M18 so M18 is marked implemented while M19/M20 and M21-M40 remain planned/provisional.
+
+v0.22.1 adds:
+
+- roadmap status-label cleanup in `docs/roadmap/NEXT_SEQUENCE_v0_17_5.md`.
+- active release/import/master/Foundation Gate documentation pointers for v0.22.1.
+- documentation-integrity verifier coverage for post-M18 status labels.
+- no M19 implementation, backend route, frontend feature, runtime execution, manual smoke execution, model/provider call, remote execution, mobile sensor access, plugin enablement, OpenWebUI integration, dependency, architecture behavior change, native build workflow, or production Control Center authority.
+
+v0.22.0 implements M18 Local Runtime Status + Manual Smoke Control Surface in CCC Web only. It adds read-only `/runtime/local`, validation-only `/runtime/manual-smoke`, safe mock summaries, tests, docs, verifier coverage, and Foundation Gate criteria. It adds no backend API route, OpenAPI path count change, runtime execution, manual smoke execution, model/provider call, local runtime provider integration, remote execution, mobile sensor access, plugin enablement, OpenWebUI integration, dependency, native build workflow, or production Control Center authority.
 
 v0.18.4 adds:
 
@@ -78,7 +87,7 @@ v0.21.2 normalizes developer environment commands as dev tooling/docs work only.
 
 ## Accepted baseline through v0.21.2
 
-The active accepted baseline includes foundation modules through M10.5 plus documentation integrity synchronization, Codex plugin/external tooling governance, M11 runtime readiness/report validation, M12 Control Center backend contract/API foundation, M13 Web Control Center read-only frontend shell with CI/static/browser-readiness hardening, the v0.17.5 roadmap charter freeze, M14 local backend connection stabilization and safety hardening, v0.18.2 design governance, v0.18.3 OpenWebUI/CCC client strategy clarification, v0.18.4 post-M20 roadmap projection, v0.19.0 M15 Approval Queue + Receipt/Event Viewer UI, v0.19.1 M15 Approval/Receipt UI safety hardening, v0.20.0 M16 Event Timeline + Run/Receipt Trace Viewer, v0.20.1 M16 trace/redaction safety hardening, v0.21.0 M17 Evidence/File/Memory Viewer, v0.21.1 M17 safety hardening, and v0.21.2 developer environment command normalization. v0.17.4 polished local shell reviewability and browser smoke reporting only; it did not start M14, add backend API paths, add dependencies, add production Control Center authority, or add execution capability.
+The active accepted baseline includes foundation modules through M10.5 plus documentation integrity synchronization, Codex plugin/external tooling governance, M11 runtime readiness/report validation, M12 Control Center backend contract/API foundation, M13 Web Control Center read-only frontend shell with CI/static/browser-readiness hardening, the v0.17.5 roadmap charter freeze, M14 local backend connection stabilization and safety hardening, v0.18.2 design governance, v0.18.3 OpenWebUI/CCC client strategy clarification, v0.18.4 post-M20 roadmap projection, v0.19.0 M15 Approval Queue + Receipt/Event Viewer UI, v0.19.1 M15 Approval/Receipt UI safety hardening, v0.20.0 M16 Event Timeline + Run/Receipt Trace Viewer, v0.20.1 M16 trace/redaction safety hardening, v0.21.0 M17 Evidence/File/Memory Viewer, v0.21.1 M17 safety hardening, v0.21.2 developer environment command normalization, v0.22.0 M18 Local Runtime Status + Manual Smoke Control Surface, and v0.22.1 roadmap status label cleanup. v0.17.4 polished local shell reviewability and browser smoke reporting only; it did not start M14, add backend API paths, add dependencies, add production Control Center authority, or add execution capability.
 
 Recent accepted milestones:
 
@@ -111,6 +120,8 @@ v0.20.1 — M16 Trace/Redaction Safety Hardening
 v0.21.0 — M17 Evidence/File/Memory Viewer
 v0.21.1 — M17 Evidence/File/Memory Viewer Safety Hardening
 v0.21.2 — Developer Environment Command Normalization
+v0.22.0 — M18 Local Runtime Status + Manual Smoke Control Surface
+v0.22.1 — Roadmap Status Label Cleanup After M18
 
 - adds local React/Vite/TypeScript app under `apps/control-center`.
 - consumes existing read-only/preview-only backend routes.
@@ -132,6 +143,8 @@ v0.21.2 — Developer Environment Command Normalization
 - v0.21.0 adds read-only evidence, file ref, and memory ref summary viewers.
 - v0.21.1 hardens M17 selected-state reviewability, alternate safe mock refs, tests, verifiers, docs, and Foundation Gate checks.
 - v0.21.2 adds repo-local developer verification command normalization using `.venv/bin/python` and Makefile targets.
+- v0.22.0 adds read-only local runtime status and validation-only manual smoke report summary surfaces.
+- v0.22.1 cleans up roadmap status labels after M18 without adding capability.
 - keeps backend OpenAPI path count unchanged at `74`.
 - adds no runtime execution, model/provider calls, OpenWebUI integration, remote dispatch, mobile sensors, plugin enablement, native builds, Chrome/Computer Use automation, design tool enablement, native CCC implementation, M21-M40 implementation, or production authority.
 ```
@@ -140,7 +153,7 @@ v0.21.2 — Developer Environment Command Normalization
 
 The detailed sequence is frozen in `docs/roadmap/NEXT_SEQUENCE_v0_17_5.md`. The milestone charter template is `docs/roadmap/MILESTONE_CHARTERS.md`. These files must be checked before writing future milestone prompts.
 
-v0.18.0 and v0.18.1 have implemented and hardened M14 from that sequence. v0.18.2 has implemented the Open Design governance milestone. v0.18.3 has implemented OpenWebUI and CCC Client Strategy clarification. v0.18.4 has implemented post-M20 roadmap projection docs. v0.19.0 has implemented M15 frontend-only Approval Queue + Receipt/Event Viewer UI. v0.19.1 has hardened M15 Approval/Receipt UI safety. v0.20.0 has implemented M16 frontend-only Event Timeline + Run/Receipt Trace Viewer. v0.20.1 has hardened M16 trace/redaction safety. v0.21.0 has implemented M17 frontend-only Evidence/File/Memory Viewer. v0.21.1 has hardened M17 evidence/file/memory viewer safety. v0.21.2 has normalized developer environment commands. Items after v0.21.2 remain planned/provisional until superseded by a reviewed roadmap patch.
+v0.18.0 and v0.18.1 have implemented and hardened M14 from that sequence. v0.18.2 has implemented the Open Design governance milestone. v0.18.3 has implemented OpenWebUI and CCC Client Strategy clarification. v0.18.4 has implemented post-M20 roadmap projection docs. v0.19.0 has implemented M15 frontend-only Approval Queue + Receipt/Event Viewer UI. v0.19.1 has hardened M15 Approval/Receipt UI safety. v0.20.0 has implemented M16 frontend-only Event Timeline + Run/Receipt Trace Viewer. v0.20.1 has hardened M16 trace/redaction safety. v0.21.0 has implemented M17 frontend-only Evidence/File/Memory Viewer. v0.21.1 has hardened M17 evidence/file/memory viewer safety. v0.21.2 has normalized developer environment commands. v0.22.0 has implemented M18 frontend-only Local Runtime Status + Manual Smoke Control Surface. v0.22.1 has cleaned up roadmap status labels only. M19 and M20 remain planned/provisional until superseded by a reviewed roadmap patch.
 
 ```text
 v0.17.5 — Roadmap Projection + M14-M20 Milestone Charter Freeze, docs-only
@@ -156,9 +169,10 @@ v0.20.1 — M16 Hardening: Trace/Redaction Safety + Whole-Code Bug Audit, implem
 v0.21.0 / M17 — Evidence/File/Memory Viewer, implemented read-only
 v0.21.1 — M17 Hardening: Evidence/File/Memory Viewer Safety, implemented
 v0.21.2 — Developer Environment Command Normalization, implemented
-v0.22.0 / M18 — Local Runtime Status + Manual Smoke Control Surface
-v0.23.0 / M19 — Mobile Companion Contract/API Planning
-v0.24.0 / M20 — Device Capability Broker Contract
+v0.22.0 / M18 — Local Runtime Status + Manual Smoke Control Surface, implemented read-only/validation-only
+v0.22.1 — Roadmap Status Label Cleanup After M18, docs-only
+v0.23.0 / M19 — Mobile Companion Contract/API Planning, planned/provisional
+v0.24.0 / M20 — Device Capability Broker Contract, planned/provisional
 v0.25.0 / M21 — OpenWebUI Bridge + Chat Shell Integration Contract, planned/provisional
 v0.26.0 / M22 — Local Model Runtime Activation Contract, planned/provisional
 v0.27.0 / M23 — First Real Local LLM Call, Non-Tool, Non-Authoritative, planned/provisional

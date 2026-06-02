@@ -1,6 +1,6 @@
 # Next Sequence v0.17.5
 
-Status: Active roadmap projection and M14-M20 milestone charter freeze, updated through v0.19.1 M15 Approval/Receipt UI safety hardening.
+Status: Active roadmap projection and M14-M20 milestone charter freeze, maintained through v0.22.1 roadmap status label cleanup after accepted v0.22.0 / M18.
 
 v0.17.5 freezes the next canonical sequence after the v0.17.x Web Control Center shell hardening work. Items after v0.17.5 are planned/provisional but canonical until superseded by a reviewed roadmap patch.
 
@@ -14,7 +14,7 @@ No item in this sequence may add production Control Center authority, runtime ex
 
 v0.18.3 clarifies that OpenWebUI remains the preferred conversational web shell and CCC means Control Center Clients: CCC Web, CCC iOS, CCC Android, and CCC macOS. Open Design governs custom CCC surfaces and does not replace OpenWebUI.
 
-v0.19.0 implements M15 Approval Queue + Receipt/Event Viewer UI. v0.19.1 hardens M15 Approval/Receipt UI safety. M14-M20 remain frozen and unchanged. M21-M40 are planned/provisional capability-layer charters in `docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md` and do not authorize implementation.
+v0.19.0 implements M15 Approval Queue + Receipt/Event Viewer UI. v0.19.1 hardens M15 Approval/Receipt UI safety. v0.20.0 implements M16 Event Timeline + Run/Receipt Trace Viewer. v0.20.1 hardens M16 trace/redaction safety. v0.21.0 implements M17 Evidence/File/Memory Viewer. v0.21.1 hardens M17 viewer safety. v0.21.2 normalizes developer verification commands. v0.22.0 implements M18 Local Runtime Status + Manual Smoke Control Surface. v0.22.1 cleans up roadmap status labels only. M19 and M20 remain frozen planned/provisional. M21-M40 are planned/provisional capability-layer charters in `docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md` and do not authorize implementation.
 
 ## 1. v0.17.5 - Roadmap Projection + M14-M20 Milestone Charter Freeze
 
@@ -111,7 +111,7 @@ Source-of-truth docs:
 
 ## 3. v0.18.1 - M14 Hardening: Control Center Backend Connection Safety
 
-Status: planned/provisional.
+Status: implemented.
 
 Purpose: harden M14 connection behavior and prevent local backend connection work from becoming authority, credential handling, or external network access.
 
@@ -249,7 +249,7 @@ Source-of-truth docs:
 
 ## 5. v0.19.0 / M15 - Approval Queue + Receipt/Event Viewer UI
 
-Status: planned/provisional.
+Status: implemented.
 
 Purpose: show approval queue summaries, approval details, receipt summaries, and event summaries in the Web Control Center.
 
@@ -290,7 +290,7 @@ Source-of-truth docs:
 
 ## 6. v0.19.1 - M15 Hardening: Approval/Receipt UI Safety
 
-Status: planned/provisional.
+Status: implemented.
 
 Purpose: harden approval and receipt/event UI against authority bypass, dark patterns, and secret leakage.
 
@@ -325,7 +325,7 @@ Source-of-truth docs:
 
 ## 7. v0.20.0 / M16 - Event Timeline + Run/Receipt Trace Viewer
 
-Status: planned/provisional.
+Status: implemented.
 
 Purpose: provide read-only timeline and trace views for runs, events, receipts, and Foundation Gate evidence.
 
@@ -361,7 +361,7 @@ Source-of-truth docs:
 
 ## 8. v0.21.0 / M17 - Evidence/File/Memory Viewer
 
-Status: planned/provisional.
+Status: implemented.
 
 Purpose: add governed read-only views for evidence refs, file refs, and memory records.
 
@@ -399,7 +399,7 @@ Source-of-truth docs:
 
 ## 9. v0.22.0 / M18 - Local Runtime Status + Manual Smoke Control Surface
 
-Status: planned/provisional.
+Status: implemented.
 
 Purpose: show local runtime readiness and manual smoke status without turning it into general model execution.
 

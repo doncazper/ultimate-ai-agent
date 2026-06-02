@@ -126,9 +126,29 @@ def test_documentation_integrity_verifier_rejects_implemented_post_m20_claims(tm
     assert any("M21-M40 docs must not claim implementation" in failure for failure in failures)
 
 
-def _write_minimal_repo(root: Path) -> None:
-    version = "0.14.6"
-    version_key = "0_14_6"
+def test_documentation_integrity_verifier_requires_post_m18_status_labels(tmp_path: Path):
+    _write_minimal_repo(tmp_path, version="0.22.1")
+    sequence = tmp_path / "docs/roadmap/NEXT_SEQUENCE_v0_17_5.md"
+    sequence.write_text(
+        "M14 is Web Control Center Local Backend Connection Stabilization.\n"
+        "M15 is Approval Queue + Receipt/Event Viewer UI.\n"
+        "v0.17.4 local browser smoke was not M14.\n"
+        "v0.22.0 / M18 - Local Runtime Status + Manual Smoke Control Surface\n"
+        "Status: planned/provisional.\n"
+        "v0.23.0 / M19 - Mobile Companion Contract/API Planning\n"
+        "Status: planned/provisional.\n"
+        "v0.24.0 / M20 - Device Capability Broker Contract\n"
+        "Status: planned/provisional.\n",
+        encoding="utf-8",
+    )
+
+    failures = verifier.verify(tmp_path)
+
+    assert any("roadmap sequence must mark M18/v0.22.0 as implemented" in failure for failure in failures)
+
+
+def _write_minimal_repo(root: Path, version: str = "0.14.6") -> None:
+    version_key = version.replace(".", "_")
     files = {
         "VERSION.md": f"# Version\n\nCurrent active baseline: **v{version}**\n",
         "pyproject.toml": f'[project]\nversion = "{version}"\n',

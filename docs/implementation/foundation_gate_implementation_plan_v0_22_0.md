@@ -1,6 +1,6 @@
 # Foundation Gate Implementation Plan v0.22.0
 
-Status: Current Foundation Gate implementation plan for v0.22.0.
+Status: Historical Foundation Gate implementation plan for v0.22.0.
 
 v0.22.0 adds M18 Local Runtime Status + Manual Smoke Control Surface safety coverage.
 

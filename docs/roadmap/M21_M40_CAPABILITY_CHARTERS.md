@@ -1,6 +1,6 @@
 # M21-M40 Capability Charters
 
-Status: Active roadmap projection for v0.19.1. Planned/provisional documentation only.
+Status: Active roadmap projection maintained through v0.22.1. Planned/provisional documentation only.
 
 These charters define future capability layers after M20. They are not implementation. Every milestone requires its own implementation prompt, review prompt, hardening expectation, and validation evidence before release.
 

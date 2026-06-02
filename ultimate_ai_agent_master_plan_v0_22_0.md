@@ -1,6 +1,6 @@
 # Ultimate AI Agent Master Plan v0.22.0
 
-Status: Current master plan for v0.22.0.
+Status: Historical master plan for v0.22.0.
 
 v0.22.0 implements M18 Local Runtime Status + Manual Smoke Control Surface in CCC Web.
 
