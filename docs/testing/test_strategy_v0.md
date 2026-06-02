@@ -229,6 +229,24 @@ Foundation Gate criterion m17_evidence_file_memory_viewer_hardening_safe exists 
 Backend OpenAPI path count remains unchanged at 74.
 ```
 
+## v0.21.2 Developer Environment Command Normalization Tests
+
+v0.21.2 adds focused dev tooling tests only:
+
+```text
+Dev environment verifier checks `.venv/bin/python` exists.
+Dev environment verifier prints the venv Python version.
+Dev environment verifier confirms `ultimate_ai_agent`, pytest, and Ruff are importable through the venv Python.
+Dev environment verifier prints remediation using `python3 -m venv .venv` and `.venv/bin/python -m pip install -e ".[dev]"`.
+Control Center package metadata is detected when `apps/control-center` exists.
+Missing npm is a warning unless frontend checks are explicitly required by the current repo convention.
+Makefile targets `doctor`, `test`, `verify`, `frontend-check`, `openapi`, and `ruff` use `.venv/bin/python`.
+Repo verification commands should use `.venv/bin/python` or Makefile targets, not bare `python`.
+Shell aliases are not reliable for Codex/non-interactive shells.
+No global Python alias is required.
+No runtime behavior, frontend behavior, backend API route, dependency, network call, plugin enablement, or production capability is added.
+```
+
 ## v0.18.3 OpenWebUI and CCC Strategy Tests
 
 v0.18.3 adds docs/verifier/gate tests only:

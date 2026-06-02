@@ -1,12 +1,12 @@
-# Ultimate AI Agent Canonical Bundle v0.21.1
+# Ultimate AI Agent Canonical Bundle v0.21.2
 
-This is the active project baseline after v0.21.1 M17 Evidence/File/Memory Viewer safety hardening.
+This is the active project baseline after v0.21.2 Developer Environment Command Normalization.
 
 Start here:
 
 ```text
-README_IMPORT_v0_21_1.md
-ultimate_ai_agent_master_plan_v0_21_1.md
+README_IMPORT_v0_21_2.md
+ultimate_ai_agent_master_plan_v0_21_2.md
 docs/DOCUMENTATION_INDEX.md
 docs/canonical/09_roadmap.md
 docs/canonical/CANONICAL_DOC_MAP.md
@@ -67,7 +67,7 @@ docs/runtime/RUNTIME_READINESS.md
 docs/runtime/MANUAL_SMOKE_REPORTS.md
 docs/runtime/RUNTIME_CAPABILITY_MATRIX.md
 docs/security/approval_authority.md
-docs/implementation/foundation_gate_implementation_plan_v0_21_1.md
+docs/implementation/foundation_gate_implementation_plan_v0_21_2.md
 docs/maintenance/documentation_integrity_checklist.md
 docs/tooling/CODEX_PLUGIN_CAPABILITY_INVENTORY.md
 docs/tooling/CODEX_PLUGIN_RISK_POLICY.md
@@ -93,6 +93,17 @@ Observability standards rule:
 Foundation Gate rule:
 
 > v0.14.3 keeps REMOTE-01 / M10.5 foundation-only and adds open-source-first private mesh taxonomy. Headscale, generic WireGuard, Tailscale, private mesh, tailnet, and LAN transports are planned/disabled metadata only. Headscale is the first planned self-hosted/open-source control-plane option to evaluate; Tailscale remains planned metadata, not the default assumption. It adds no live mesh networking, Headscale integration, Tailscale integration, WireGuard command execution, listener, network call, job dispatch, remote subagent launch, remote Tool Broker execution, sandbox execution, personal-data access, write/send action, remote approval, background service, production persistence, provider SDK, tokenizer, billing API, credentials, node keys, hostnames, private IPs, or safety bypass.
+
+Developer command rule:
+
+```text
+make doctor
+make test
+make verify
+make frontend-check
+```
+
+Use `.venv/bin/python`, not bare `python`, for repo verification commands. Shell aliases are not reliable in Codex and other non-interactive shells, and no global Python alias is required.
 
 Mobile planning rule:
 
@@ -185,3 +196,7 @@ M17 Evidence/File/Memory Viewer rule:
 M17 Evidence/File/Memory Viewer safety hardening rule:
 
 > v0.21.1 hardens the existing M17 Evidence/File/Memory Viewer only. `/evidence`, `/files`, and `/memory` remain frontend-only, read-only, summary-only, visibly mock, non-authoritative, and redacted. This patch adds alternate safe mock refs, accessible selected-card reviewability, stronger frontend tests, static verifier checks, docs, and Foundation Gate criteria. OpenAPI path count remains `74`. This patch adds no M18 Local Runtime Status + Manual Smoke Control Surface, backend API route, file mutation, memory mutation, filesystem browsing, raw secret/prompt/file/memory/evidence/credential/provider payload display, embedding/vector DB/memory provider implementation, runtime execution, model/provider call, remote execution, mobile sensor access, plugin enablement, dependency, native build workflow, auth, cookies, analytics, SaaS SDK, or production Control Center authority.
+
+Developer environment command normalization rule:
+
+> v0.21.2 normalizes developer verification commands only. Repo-local commands should use `.venv/bin/python` or Makefile targets such as `make doctor`, `make test`, `make verify`, and `make frontend-check`; shell aliases and a bare `python` binary are not reliable in Codex or other non-interactive shells. This patch adds no runtime feature, frontend feature, backend API route, dependency, global tool install, application behavior change, runtime/model/provider call, network call, mobile/native/browser/computer-use functionality, plugin enablement, or production capability.

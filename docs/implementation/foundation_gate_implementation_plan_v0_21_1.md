@@ -1,6 +1,6 @@
 # Foundation Gate Implementation Plan v0.21.1
 
-Status: Current Foundation Gate implementation plan for v0.21.1.
+Status: Historical Foundation Gate implementation plan for v0.21.1.
 
 v0.21.1 adds Foundation Gate coverage for M17 Evidence/File/Memory Viewer safety hardening.
 

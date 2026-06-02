@@ -1,6 +1,6 @@
 # Control Center Frontend Routes
 
-Status: Active for v0.21.1 / M17 Evidence/File/Memory Viewer.
+Status: Active for M17 Evidence/File/Memory Viewer as of v0.21.2.
 
 The frontend shell is served by Vite during local development. It is not mounted by the Python API and does not add OpenAPI paths.
 

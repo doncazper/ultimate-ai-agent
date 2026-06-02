@@ -1,6 +1,6 @@
 # OpenAPI Contract
 
-v0.21.1 preserves the FastAPI OpenAPI boundary and documents the current route contract without adding public real execution routes.
+v0.21.2 preserves the FastAPI OpenAPI boundary and documents the current route contract without adding public real execution routes.
 
 Contract rules:
 
@@ -18,19 +18,19 @@ Contract rules:
 - v0.15.0 runtime readiness adds three status/validation routes only and no execute, run, connect, dispatch, provider-call, plugin-enable, native-build, or smoke-execute route.
 - v0.15.1 adds no route and only clarifies runtime readiness taxonomy.
 - v0.16.0 Control Center routes are read-only/preview-only and no `/control-center/actions/execute`, `/control-center/plugins/enable`, `/control-center/runtime/execute`, `/control-center/remote-workers/dispatch`, `/control-center/mobile/sensors`, or `/control-center/frontend` route exists.
-- v0.17.0 adds a local Web Control Center frontend shell only. v0.17.1 and v0.17.2 add frontend verification hardening only. v0.17.3 cleans up release documentation labels. v0.17.4 adds local browser smoke UX polish and reporting docs only. v0.17.5 freezes roadmap milestone charters only. v0.18.0 adds M14 frontend-only local backend connection stabilization. v0.18.1 hardens that frontend-only connection safety. v0.18.2 adds design governance docs only. v0.18.3 adds OpenWebUI/CCC strategy docs only. v0.18.4 adds post-M20 roadmap projection docs only. v0.19.0 adds M15 frontend-only approval, receipt, and event viewer UI. v0.19.1 hardens M15 frontend-only approval/receipt UI safety. v0.20.0 adds M16 frontend-only event timeline and run/receipt trace viewer UI. v0.20.1 hardens M16 trace/redaction safety only. v0.21.0 adds M17 frontend-only evidence, file ref, and memory ref summary viewers. v0.21.1 hardens M17 frontend-only safety only. Backend path count remains `74`; only `info.version` changes to the active package version.
+- v0.17.0 adds a local Web Control Center frontend shell only. v0.17.1 and v0.17.2 add frontend verification hardening only. v0.17.3 cleans up release documentation labels. v0.17.4 adds local browser smoke UX polish and reporting docs only. v0.17.5 freezes roadmap milestone charters only. v0.18.0 adds M14 frontend-only local backend connection stabilization. v0.18.1 hardens that frontend-only connection safety. v0.18.2 adds design governance docs only. v0.18.3 adds OpenWebUI/CCC strategy docs only. v0.18.4 adds post-M20 roadmap projection docs only. v0.19.0 adds M15 frontend-only approval, receipt, and event viewer UI. v0.19.1 hardens M15 frontend-only approval/receipt UI safety. v0.20.0 adds M16 frontend-only event timeline and run/receipt trace viewer UI. v0.20.1 hardens M16 trace/redaction safety only. v0.21.0 adds M17 frontend-only evidence, file ref, and memory ref summary viewers. v0.21.1 hardens M17 frontend-only safety only. v0.21.2 normalizes developer commands only. Backend path count remains `74`; only `info.version` changes to the active package version.
 
 Verification:
 
 ```bash
-python scripts/verify_openapi_contract.py
+.venv/bin/python scripts/verify_openapi_contract.py
 ```
 
 Export:
 
 ```bash
-python scripts/export_openapi.py
-python scripts/export_openapi.py --output /tmp/openapi_v0_21_1.json
+.venv/bin/python scripts/export_openapi.py
+.venv/bin/python scripts/export_openapi.py --output /tmp/openapi_v0_21_2.json
 ```
 
 The second command is only for intentional versioned snapshots.

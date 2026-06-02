@@ -1,6 +1,6 @@
 # Evidence Viewer
 
-Status: Current for v0.21.1 / M17.
+Status: Current for M17 as of v0.21.2.
 
 The Evidence Viewer is a Web Control Center read-only and summary-only surface for governed evidence refs. It shows safe refs, redacted metadata, source type summaries, claim refs, event refs, receipt refs, file refs, memory refs, confidence status, provenance summary, and redaction status.
 

@@ -1,5 +1,5 @@
 # Ultimate AI Agent Version
 
-Current active baseline: **v0.21.1**
+Current active baseline: **v0.21.2**
 
-v0.21.1 hardens the M17 Evidence/File/Memory Viewer in CCC Web only. It adds alternate safe mock refs, accessible selected-card reviewability, stronger frontend tests, static verifier coverage, docs, and Foundation Gate criteria while keeping `/evidence`, `/files`, and `/memory` frontend-only, read-only, summary-only, visibly mock, non-authoritative, and redacted. It adds no backend API routes, OpenAPI path count change, file mutation, memory mutation, filesystem browsing, runtime execution, model/provider calls, remote execution, mobile sensor access, plugin enablement, raw secret/prompt/file/memory/evidence/credential/provider payload display, dependencies, native build workflow, M18 surface, or production Control Center authority.
+v0.21.2 normalizes developer environment commands. It adds repo-local Makefile targets and a dev-environment verifier so Codex and local shells use `.venv/bin/python` rather than relying on a bare `python` binary on PATH. It adds no runtime features, frontend features, backend API routes, dependencies, model/provider calls, network calls, mobile/native functionality, plugin enablement, or production capability.

@@ -1,6 +1,6 @@
 # Ultimate AI Agent Master Plan v0.21.1
 
-Status: Current master plan for v0.21.1.
+Status: Historical master plan for v0.21.1.
 
 v0.21.1 hardens M17 Evidence/File/Memory Viewer safety. It is a frontend/test/verifier/docs/Foundation Gate patch only.
 

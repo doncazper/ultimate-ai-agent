@@ -1,6 +1,6 @@
 # Frontend Safety Policy
 
-Status: Active for v0.21.1 / M17 Evidence/File/Memory Viewer.
+Status: Active for M17 Evidence/File/Memory Viewer as of v0.21.2.
 
 The Web Control Center shell is a display and preview surface. The Python Agent Core remains the brain and source of policy enforcement.
 

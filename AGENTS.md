@@ -1,6 +1,6 @@
 # Ultimate AI Agent Workspace Standards
 
-Active baseline: v0.21.1.
+Active baseline: v0.21.2.
 
 This repository is the Ultimate AI Agent foundation workspace. Treat it as a contract-first Python core, not a production runtime integration layer.
 
@@ -41,12 +41,15 @@ This repository is the Ultimate AI Agent foundation workspace. Treat it as a con
 - v0.20.1 M16 trace/redaction safety hardening keeps `/events/timeline` read-only and frontend-only. It may add tests, docs, static verifier checks, and Foundation Gate checks for alternate trace selection, redacted summary-only display, OpenAPI path count, and no backend timeline/raw/export routes. Review builds should prefer temporary Vite output paths such as `/tmp/uaa-control-center-review-dist`, and generated frontend build/log artifacts must remain ignored and untracked. Do not use v0.20.1 to start M17 Evidence/File/Memory Viewer, add backend API routes, runtime execution, model/provider calls, remote execution, mobile sensor access, plugin enablement, telemetry export, external observability integration, raw secret/prompt/file/memory/credential/provider payload display, dependencies, native build workflows, or production Control Center authority.
 - v0.21.0 M17 Evidence/File/Memory Viewer adds read-only `/evidence`, `/files`, and `/memory` CCC Web surfaces only. It may show redacted evidence refs, safe file refs, memory refs, relation refs, status, confidence, staleness, conflict indicators, data classification, and safe summaries. Memory is recall, not authority; canonical files and governed source systems outrank memory. Do not use v0.21.0 to add backend API routes, OpenAPI path count changes, file mutation, memory mutation, filesystem browsing, raw secret/prompt/file/memory/evidence/credential/provider payload display, embeddings, vector DB, memory provider implementation, runtime/model/provider calls, remote execution, mobile sensor access, plugin enablement, dependencies, native build workflows, or production Control Center authority.
 - v0.21.1 M17 Evidence/File/Memory Viewer safety hardening keeps `/evidence`, `/files`, and `/memory` frontend-only, read-only, visibly mock, non-authoritative, and redacted summary-only. It may add alternate safe mock refs, selected-card reviewability, tests, static verifier checks, docs, browser-smoke reviewability, and Foundation Gate criteria. Do not use v0.21.1 to start M18 Local Runtime Status + Manual Smoke Control Surface, add backend API routes, change OpenAPI path count from 74, add file mutation, memory mutation, filesystem browsing, raw secret/prompt/file/memory/evidence/credential/provider payload display, embeddings, vector DB, memory provider implementation, runtime/model/provider calls, remote execution, mobile sensor access, plugin enablement, dependencies, auth, credentials, cookies, analytics, SaaS SDKs, native build workflows, or production Control Center authority.
+- v0.21.2 Developer Environment Command Normalization is dev tooling/docs only. It may add repo-local Makefile targets, `scripts/verify_dev_environment.py`, tests, and docs so verification uses `.venv/bin/python` rather than a bare `python` binary. Do not use v0.21.2 to start M18, add runtime features, frontend features, backend API routes, dependencies, global tool installs, application behavior changes, runtime/model/provider calls, network calls, mobile/native/browser/computer-use functionality, plugin enablement, or production capability.
 - API validation errors must be sanitized and must never echo raw invalid input values or secret-like field values.
 
 ## Workspace
 
 - Keep milestone changes small and release-gated.
 - Prefer typed contracts, deterministic tests, and metadata-only verification before implementation work.
+- Prefer `make doctor`, `make test`, `make verify`, and `make frontend-check` for repo-local verification.
+- Use `.venv/bin/python`, not bare `python`, for repo verification commands. Shell aliases are not reliable in Codex or other non-interactive shells, and no global Python alias is required.
 - Before release, run `PYTHONPATH=src .venv/bin/python -m pytest`, `.venv/bin/python scripts/verify_current_baseline.py`, `.venv/bin/python scripts/verify_documentation_integrity.py`, `.venv/bin/python scripts/verify_skill_package_security_rule.py`, `.venv/bin/python scripts/verify_all.py`, `.venv/bin/python scripts/run_foundation_gate.py`, `.venv/bin/python scripts/verify_openapi_contract.py`, and `.venv/bin/python -m ruff check .`.
 - Update `scripts/verify_openapi_contract.py` and the Foundation Gate when the API boundary changes.
 - Keep generated OpenAPI JSON out of git unless a release explicitly asks for a versioned schema snapshot.

@@ -14,7 +14,7 @@ Each route declares:
 - `requires_auth_future`
 - `blocked_from_production`
 
-Allowed side-effect classes in v0.21.1 are:
+Allowed side-effect classes in v0.21.2 are:
 
 - `none`
 - `validation_only`
@@ -104,6 +104,8 @@ v0.21.0 M17 Evidence/File/Memory Viewer adds no backend route. The new `/evidenc
 
 v0.21.1 M17 Evidence/File/Memory Viewer safety hardening adds no backend route. `/evidence`, `/files`, and `/memory` remain frontend routes inside CCC Web only. OpenAPI path count remains `74`.
 
+v0.21.2 Developer Environment Command Normalization adds no backend route. It adds repo-local verification command wrappers and a developer environment verifier only. OpenAPI path count remains `74`.
+
 M12 Control Center route group:
 
 - `/control-center/manifest`
@@ -153,3 +155,4 @@ v0.17.3 documentation cleanup, v0.17.4 local browser smoke polish, v0.17.5 roadm
 - v0.20.1 hardens frontend-only M16 trace/redaction safety, with no new backend route, OpenAPI path count change, M17 viewer, execution path, mutation path, raw payload route, observability export route, dependency, external API host, or authority.
 - v0.21.0 adds frontend-only M17 evidence/file/memory summary viewers, with no new backend route, OpenAPI path count change, execution path, file mutation path, memory mutation path, filesystem browse path, raw payload route, dependency, external API host, or authority.
 - v0.21.1 hardens frontend-only M17 evidence/file/memory summary viewers, with no new backend route, OpenAPI path count change, M18 runtime smoke surface, execution path, file mutation path, memory mutation path, filesystem browse path, raw payload route, dependency, external API host, auth, cookies, analytics, SaaS SDK, or authority.
+- v0.21.2 normalizes developer environment commands, with no new backend route, OpenAPI path count change, M18 runtime smoke surface, runtime feature, frontend feature, execution path, dependency, network call, model/provider call, mobile/native/browser/computer-use functionality, plugin enablement, global tool install, or authority.

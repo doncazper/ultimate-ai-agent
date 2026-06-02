@@ -1,6 +1,6 @@
 # Memory Viewer
 
-Status: Current for v0.21.1 / M17.
+Status: Current for M17 as of v0.21.2.
 
 The Memory Viewer is a Web Control Center read-only and summary-only surface for memory record refs. It shows safe refs, memory type, source refs, confidence status, review status, staleness, conflict indicators, data classification, redaction status, and related evidence/event/receipt refs.
 
