@@ -19,3 +19,13 @@ data scraping.
 
 Device Capability Broker output is not trusted control input by default.
 Capture cannot silently become memory.
+
+## v0.24.1 M20 Hardening Note
+
+v0.24.1 hardens the no-sensor boundary. No sensor is enabled. No sensor is
+implemented. Camera, microphone, location, notifications, contacts, calendar,
+photos, files, clipboard, Bluetooth, NFC, biometrics, motion, health, local
+network, and screen capture remain planned-disabled or future-broker-only.
+Background services and notification runtime are blocked. OS permission
+integration is absent. Device pairing runtime is future. M21 remains
+planned/provisional.

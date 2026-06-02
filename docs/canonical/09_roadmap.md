@@ -1,4 +1,4 @@
-# 09 - Roadmap v0.24.0
+# 09 - Roadmap v0.24.1
 
 Status: Active foundation-first roadmap. This is the single roadmap source of truth.
 
@@ -25,7 +25,15 @@ The original foundation sequence established runtime hygiene, local runtime/cont
 
 ## Current accepted baseline
 
-The active accepted baseline is v0.24.0. It implements v0.24.0 / M20 Device Capability Broker Contract as contract-only planning and validation. v0.23.0 / M19 is implemented/released as contract/API planning only. M21-M40 remain planned/provisional.
+The active accepted baseline is v0.24.1. It hardens v0.24.0 / M20 Device Capability Broker Contract safety while keeping M20 contract-only. v0.23.0 / M19 is implemented/released as contract/API planning only. M21-M40 remain planned/provisional.
+
+v0.24.1 adds:
+
+- validator hardening for enabled and implemented capability flags, permission runtime claims, notification push runtime claims, background service runtime claims, validation decision allow claims, redacted receipt requirements, contract-only revocation plans, raw payload-like metadata, geolocation coordinates, private local paths, and secret-like metadata.
+- expanded tests for every major device capability rejecting current enablement and implementation claims.
+- static verifier and Foundation Gate hardening for expanded device/mobile route drift and sensor/native API fragments.
+- docs hardening that says no device capability is enabled or implemented, user gesture is future contract metadata only, raw payloads are blocked, receipts remain redacted, and M21 remains planned/provisional.
+- no M21 OpenWebUI Bridge, Device Capability Broker runtime implementation, mobile app, native build workflow, sensor API, OS permission code, backend API route, dependency, runtime execution, model/provider call, remote execution, plugin enablement, architecture behavior change, or production authority.
 
 v0.24.0 adds:
 
@@ -90,9 +98,9 @@ v0.21.1 hardens M17 Evidence/File/Memory Viewer as frontend/test/verifier/Founda
 
 v0.21.2 normalizes developer environment commands as dev tooling/docs work only. It adds repo-local Makefile targets and `scripts/verify_dev_environment.py` so Codex and local shells use `.venv/bin/python` rather than relying on a bare `python` binary on PATH. It adds no M18 Local Runtime Status + Manual Smoke Control Surface, runtime feature, frontend feature, backend API path, OpenAPI path count change, dependency, global tool install, application behavior change, runtime/model/provider call, network call, mobile/native/browser/computer-use functionality, plugin enablement, or production capability.
 
-## Accepted baseline through v0.24.0
+## Accepted baseline through v0.24.1
 
-The active accepted baseline includes foundation modules through M10.5 plus documentation integrity synchronization, Codex plugin/external tooling governance, M11 runtime readiness/report validation, M12 Control Center backend contract/API foundation, M13 Web Control Center read-only frontend shell with CI/static/browser-readiness hardening, the v0.17.5 roadmap charter freeze, M14 local backend connection stabilization and safety hardening, v0.18.2 design governance, v0.18.3 OpenWebUI/CCC client strategy clarification, v0.18.4 post-M20 roadmap projection, v0.19.0 M15 Approval Queue + Receipt/Event Viewer UI, v0.19.1 M15 Approval/Receipt UI safety hardening, v0.20.0 M16 Event Timeline + Run/Receipt Trace Viewer, v0.20.1 M16 trace/redaction safety hardening, v0.21.0 M17 Evidence/File/Memory Viewer, v0.21.1 M17 safety hardening, v0.21.2 developer environment command normalization, v0.22.0 M18 Local Runtime Status + Manual Smoke Control Surface, v0.22.1 roadmap status label cleanup, v0.23.0 M19 Mobile Companion Contract/API Planning, v0.23.1 M19 roadmap/mobile-contract safety cleanup, and v0.24.0 M20 Device Capability Broker Contract. v0.17.4 polished local shell reviewability and browser smoke reporting only; it did not start M14, add backend API paths, add dependencies, add production Control Center authority, or add execution capability.
+The active accepted baseline includes foundation modules through M10.5 plus documentation integrity synchronization, Codex plugin/external tooling governance, M11 runtime readiness/report validation, M12 Control Center backend contract/API foundation, M13 Web Control Center read-only frontend shell with CI/static/browser-readiness hardening, the v0.17.5 roadmap charter freeze, M14 local backend connection stabilization and safety hardening, v0.18.2 design governance, v0.18.3 OpenWebUI/CCC client strategy clarification, v0.18.4 post-M20 roadmap projection, v0.19.0 M15 Approval Queue + Receipt/Event Viewer UI, v0.19.1 M15 Approval/Receipt UI safety hardening, v0.20.0 M16 Event Timeline + Run/Receipt Trace Viewer, v0.20.1 M16 trace/redaction safety hardening, v0.21.0 M17 Evidence/File/Memory Viewer, v0.21.1 M17 safety hardening, v0.21.2 developer environment command normalization, v0.22.0 M18 Local Runtime Status + Manual Smoke Control Surface, v0.22.1 roadmap status label cleanup, v0.23.0 M19 Mobile Companion Contract/API Planning, v0.23.1 M19 roadmap/mobile-contract safety cleanup, v0.24.0 M20 Device Capability Broker Contract, and v0.24.1 M20 safety hardening. v0.17.4 polished local shell reviewability and browser smoke reporting only; it did not start M14, add backend API paths, add dependencies, add production Control Center authority, or add execution capability.
 
 Recent accepted milestones:
 
@@ -130,6 +138,7 @@ v0.22.1 — Roadmap Status Label Cleanup After M18
 v0.23.0 — M19 Mobile Companion Contract/API Planning
 v0.23.1 — M19 Roadmap Status + Mobile Contract Safety Hardening
 v0.24.0 — M20 Device Capability Broker Contract
+v0.24.1 — M20 Device Capability Broker Contract Safety Hardening
 
 - adds local React/Vite/TypeScript app under `apps/control-center`.
 - consumes existing read-only/preview-only backend routes.
@@ -164,7 +173,7 @@ v0.24.0 — M20 Device Capability Broker Contract
 
 The detailed sequence is frozen in `docs/roadmap/NEXT_SEQUENCE_v0_17_5.md`. The milestone charter template is `docs/roadmap/MILESTONE_CHARTERS.md`. These files must be checked before writing future milestone prompts.
 
-v0.18.0 and v0.18.1 have implemented and hardened M14 from that sequence. v0.18.2 has implemented the Open Design governance milestone. v0.18.3 has implemented OpenWebUI and CCC Client Strategy clarification. v0.18.4 has implemented post-M20 roadmap projection docs. v0.19.0 has implemented M15 frontend-only Approval Queue + Receipt/Event Viewer UI. v0.19.1 has hardened M15 Approval/Receipt UI safety. v0.20.0 has implemented M16 frontend-only Event Timeline + Run/Receipt Trace Viewer. v0.20.1 has hardened M16 trace/redaction safety. v0.21.0 has implemented M17 frontend-only Evidence/File/Memory Viewer. v0.21.1 has hardened M17 evidence/file/memory viewer safety. v0.21.2 has normalized developer environment commands. v0.22.0 has implemented M18 frontend-only Local Runtime Status + Manual Smoke Control Surface. v0.22.1 has cleaned up roadmap status labels only. v0.23.0 has implemented/released M19 Mobile Companion Contract/API Planning only. v0.23.1 has hardened M19 roadmap currentness and mobile contract safety tests only. v0.24.0 has implemented/released M20 Device Capability Broker Contract only. M21 remains planned/provisional until superseded by a reviewed roadmap patch.
+v0.18.0 and v0.18.1 have implemented and hardened M14 from that sequence. v0.18.2 has implemented the Open Design governance milestone. v0.18.3 has implemented OpenWebUI and CCC Client Strategy clarification. v0.18.4 has implemented post-M20 roadmap projection docs. v0.19.0 has implemented M15 frontend-only Approval Queue + Receipt/Event Viewer UI. v0.19.1 has hardened M15 Approval/Receipt UI safety. v0.20.0 has implemented M16 frontend-only Event Timeline + Run/Receipt Trace Viewer. v0.20.1 has hardened M16 trace/redaction safety. v0.21.0 has implemented M17 frontend-only Evidence/File/Memory Viewer. v0.21.1 has hardened M17 evidence/file/memory viewer safety. v0.21.2 has normalized developer environment commands. v0.22.0 has implemented M18 frontend-only Local Runtime Status + Manual Smoke Control Surface. v0.22.1 has cleaned up roadmap status labels only. v0.23.0 has implemented/released M19 Mobile Companion Contract/API Planning only. v0.23.1 has hardened M19 roadmap currentness and mobile contract safety tests only. v0.24.0 has implemented/released M20 Device Capability Broker Contract only. v0.24.1 has hardened M20 Device Capability Broker Contract safety only. M21 remains planned/provisional until superseded by a reviewed roadmap patch.
 
 ```text
 v0.17.5 — Roadmap Projection + M14-M20 Milestone Charter Freeze, docs-only

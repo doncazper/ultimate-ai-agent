@@ -12,42 +12,73 @@ from ultimate_ai_agent.core.device_capabilities import (
 )
 from ultimate_ai_agent.core.device_capabilities.validation import (
     assert_no_sensor_access_enabled,
+    validate_device_capability_descriptor,
     validate_device_permission_request,
 )
+
+MAJOR_DEVICE_CAPABILITY_KINDS = [
+    DeviceCapabilityKind.camera,
+    DeviceCapabilityKind.microphone,
+    DeviceCapabilityKind.location,
+    DeviceCapabilityKind.notifications,
+    DeviceCapabilityKind.contacts,
+    DeviceCapabilityKind.calendar,
+    DeviceCapabilityKind.photos,
+    DeviceCapabilityKind.files,
+    DeviceCapabilityKind.clipboard,
+    DeviceCapabilityKind.bluetooth,
+    DeviceCapabilityKind.nfc,
+    DeviceCapabilityKind.biometrics,
+    DeviceCapabilityKind.local_network,
+    DeviceCapabilityKind.motion,
+    DeviceCapabilityKind.health,
+    DeviceCapabilityKind.screen_capture,
+    DeviceCapabilityKind.background_service,
+    DeviceCapabilityKind.device_identity,
+    DeviceCapabilityKind.device_pairing,
+]
+
+
+def _descriptor_for_kind(capability_kind, **overrides):
+    values = {
+        "capability_id": f"{capability_kind.value}_contract",
+        "platform": DevicePlatform.android_planned,
+        "kind": capability_kind,
+        "status": DeviceCapabilityStatus.future_requires_broker,
+        "purpose": f"future {capability_kind.value} planning only",
+        "risk_level": DeviceRiskLevel.high,
+        "data_classification": DeviceDataClassification.sensitive,
+        "safe_summary": f"{capability_kind.value} planning metadata only",
+    }
+    if capability_kind == DeviceCapabilityKind.background_service:
+        values["status"] = DeviceCapabilityStatus.blocked
+    if capability_kind in {
+        DeviceCapabilityKind.device_identity,
+        DeviceCapabilityKind.device_pairing,
+    }:
+        values["status"] = DeviceCapabilityStatus.future_requires_pairing
+        values["requires_pairing"] = True
+    values.update(overrides)
+    return DeviceCapabilityDescriptor(**values)
 
 
 @pytest.mark.parametrize(
     "capability_kind",
-    [
-        DeviceCapabilityKind.camera,
-        DeviceCapabilityKind.microphone,
-        DeviceCapabilityKind.location,
-        DeviceCapabilityKind.contacts,
-        DeviceCapabilityKind.calendar,
-        DeviceCapabilityKind.photos,
-        DeviceCapabilityKind.files,
-        DeviceCapabilityKind.clipboard,
-        DeviceCapabilityKind.bluetooth,
-        DeviceCapabilityKind.nfc,
-        DeviceCapabilityKind.biometrics,
-        DeviceCapabilityKind.notifications,
-    ],
+    MAJOR_DEVICE_CAPABILITY_KINDS,
 )
 def test_future_device_capabilities_cannot_be_enabled_now(capability_kind):
-    descriptor = DeviceCapabilityDescriptor(
-        capability_id=f"{capability_kind.value}_contract",
-        platform=DevicePlatform.android_planned,
-        kind=capability_kind,
-        status=DeviceCapabilityStatus.future_requires_broker,
-        purpose=f"future {capability_kind.value} planning only",
-        risk_level=DeviceRiskLevel.high,
-        data_classification=DeviceDataClassification.sensitive,
-        safe_summary=f"{capability_kind.value} planning metadata only",
-        allowed_now=True,
-    )
+    descriptor = _descriptor_for_kind(capability_kind, allowed_now=True)
 
     with pytest.raises(ValueError, match="allowed_now"):
         assert_no_sensor_access_enabled(descriptor)
+
+
+@pytest.mark.parametrize("capability_kind", MAJOR_DEVICE_CAPABILITY_KINDS)
+def test_future_device_capabilities_cannot_be_implemented_now(capability_kind):
+    descriptor = _descriptor_for_kind(capability_kind, implemented_now=True)
+
+    with pytest.raises(ValueError, match="implemented_now"):
+        validate_device_capability_descriptor(descriptor)
 
 
 def test_permission_request_rejects_user_gesture_present_as_runtime_claim():

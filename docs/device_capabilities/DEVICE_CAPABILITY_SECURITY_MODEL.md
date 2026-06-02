@@ -17,3 +17,13 @@ Notifications must not expose private content without a future reviewed
 receipt-backed policy. Background services are blocked. Silent capture is
 blocked. OS permission integration is absent. Native app implementation is
 absent.
+
+## v0.24.1 M20 Hardening Note
+
+v0.24.1 keeps M20 security hardening contract-only. No capability is enabled or
+implemented. Device output is not trusted control input by default.
+Notification runtime and push runtime are blocked. Background services are
+blocked. Permission runtime claims are blocked. Device pairing runtime is
+future. Raw payloads, raw coordinates, raw audio/image/contact/calendar/photo/
+biometric payload-like fields, private local paths, and secret-like metadata
+are blocked. M21 remains planned/provisional.

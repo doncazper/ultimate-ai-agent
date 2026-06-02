@@ -5,6 +5,7 @@ from typing import Any
 from ultimate_ai_agent.core.device_capabilities.contracts import (
     DeviceCapabilityDescriptor,
     DeviceCapabilityManifest,
+    DeviceCapabilityValidationDecision,
     DeviceCaptureIntentContract,
     DeviceCapabilityReceiptPlan,
     DevicePermissionRequestContract,
@@ -13,9 +14,11 @@ from ultimate_ai_agent.core.device_capabilities.contracts import (
 )
 from ultimate_ai_agent.core.device_capabilities.enums import (
     DeviceCapabilityKind,
+    DeviceCapabilityDecisionStatus,
     DeviceCapabilityStatus,
     DeviceCaptureMode,
     DevicePermissionScope,
+    DeviceReceiptRequirement,
 )
 
 
@@ -57,14 +60,24 @@ PRIVATE_PATH = re.compile(
     r"(?i)(/users/[^/\s]+|/home/[^/\s]+|/private/|\\users\\[^\\\s]+|[a-z]:\\users\\[^\\\s]+)"
 )
 RAW_DEVICE_CONTENT = {
+    "base64_image",
     "coordinates",
+    "gps",
+    "lat",
+    "lng",
     "latitude",
     "longitude",
+    "audio_data",
     "audio_buffer",
+    "image_data",
     "image_bytes",
+    "contact_record",
     "contact_data",
+    "calendar_event",
     "calendar_entry",
+    "photo_bytes",
     "photo_data",
+    "biometric_template",
     "biometric_data",
     "file_contents",
     "raw_payload",
@@ -75,6 +88,10 @@ RAW_DEVICE_CONTENT = {
     "raw_calendar",
     "raw_photo",
 }
+GEO_COORDINATE_PAIR = re.compile(
+    r"(?<![\w.-])-?(?:[0-8]?\d(?:\.\d+)?|90(?:\.0+)?),\s*"
+    r"-?(?:1[0-7]\d(?:\.\d+)?|\d{1,2}(?:\.\d+)?|180(?:\.0+)?)(?![\w.-])"
+)
 
 
 def validate_device_capability_descriptor(
@@ -123,6 +140,12 @@ def validate_device_permission_request(
     _assert_safe_metadata(request.metadata)
     if request.user_gesture_present:
         raise ValueError("user_gesture_present would imply runtime device access in M20")
+    if request.os_permission_runtime_claimed:
+        raise ValueError("OS permission runtime is not implemented in M20")
+    if request.notification_push_runtime_claimed:
+        raise ValueError("notification push runtime is not implemented in M20")
+    if request.background_service_runtime_claimed:
+        raise ValueError("background service runtime is not implemented in M20")
     if request.requested_scope in {
         DevicePermissionScope.background_blocked,
         DevicePermissionScope.standing_blocked,
@@ -159,6 +182,21 @@ def validate_device_capture_intent(
     return intent
 
 
+def validate_device_capability_decision(
+    decision: DeviceCapabilityValidationDecision,
+) -> DeviceCapabilityValidationDecision:
+    _assert_safe_text(decision.subject_ref)
+    _assert_safe_text(decision.safe_message)
+    _assert_safe_text(decision.required_next_action)
+    _assert_metadata_refs_only(decision.metadata_refs)
+    _assert_safe_metadata(decision.metadata)
+    if decision.allowed:
+        raise ValueError("device capability decisions cannot be allowed in M20")
+    if decision.status == DeviceCapabilityDecisionStatus.contract_valid:
+        raise ValueError("contract_valid decisions can be misread as runtime authority in M20")
+    return decision
+
+
 def validate_device_trust_handshake_plan(
     plan: DeviceTrustHandshakePlan,
 ) -> DeviceTrustHandshakePlan:
@@ -178,6 +216,8 @@ def validate_device_revocation_plan(plan: DeviceRevocationPlan) -> DeviceRevocat
     _assert_safe_text(plan.safe_summary)
     _assert_metadata_refs_only(plan.metadata_refs)
     _assert_safe_metadata(plan.metadata)
+    if not plan.contract_only:
+        raise ValueError("device revocation plans must remain contract-only in M20")
     if not plan.revocation_supported:
         raise ValueError("future device capability plans must support revocation")
     if not plan.receipt_required:
@@ -192,6 +232,8 @@ def validate_device_receipt_plan(
     _assert_safe_text(plan.retention_summary)
     _assert_metadata_refs_only(plan.metadata_refs)
     _assert_safe_metadata(plan.metadata)
+    if plan.receipt_requirement != DeviceReceiptRequirement.redacted_receipt_required:
+        raise ValueError("device capability receipt plans require a redacted receipt")
     if not plan.redaction_required:
         raise ValueError("device capability receipts require redaction")
     if plan.storage_allowed:
@@ -346,6 +388,8 @@ def _assert_safe_text(text: str) -> None:
     lowered = text.lower()
     if PRIVATE_PATH.search(text):
         raise ValueError("private/home path values are not allowed in device contracts")
+    if GEO_COORDINATE_PAIR.search(text):
+        raise ValueError("raw geolocation coordinate values are not allowed")
     for key in RAW_DEVICE_CONTENT:
         if key.replace("_", " ") in lowered or key in lowered:
             raise ValueError("raw device content fields are not allowed")

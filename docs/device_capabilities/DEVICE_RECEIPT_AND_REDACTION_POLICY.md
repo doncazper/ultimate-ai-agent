@@ -15,3 +15,11 @@ revocation refs when safe, and the validation decision.
 
 M20 adds no receipt runtime and no raw payload storage. Capture cannot silently
 become memory and cannot trigger external sends.
+
+## v0.24.1 M20 Hardening Note
+
+v0.24.1 requires device receipt plans to remain redacted receipt contracts.
+Receipt plans must not mark receipt requirements as not applicable. Receipt
+plans must not allow raw storage. Safe summaries and metadata refs must reject
+secret-like values, raw device payload-like fields, geolocation coordinates,
+and private local paths. M21 remains planned/provisional.

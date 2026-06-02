@@ -1,12 +1,12 @@
-# Ultimate AI Agent Canonical Bundle v0.24.0
+# Ultimate AI Agent Canonical Bundle v0.24.1
 
-This is the active project baseline after v0.24.0 / M20 Device Capability Broker Contract.
+This is the active project baseline after v0.24.1 / M20 Device Capability Broker Contract Safety Hardening.
 
 Start here:
 
 ```text
-README_IMPORT_v0_24_0.md
-ultimate_ai_agent_master_plan_v0_24_0.md
+README_IMPORT_v0_24_1.md
+ultimate_ai_agent_master_plan_v0_24_1.md
 docs/DOCUMENTATION_INDEX.md
 docs/canonical/09_roadmap.md
 docs/canonical/CANONICAL_DOC_MAP.md
@@ -89,7 +89,7 @@ docs/runtime/RUNTIME_READINESS.md
 docs/runtime/MANUAL_SMOKE_REPORTS.md
 docs/runtime/RUNTIME_CAPABILITY_MATRIX.md
 docs/security/approval_authority.md
-docs/implementation/foundation_gate_implementation_plan_v0_24_0.md
+docs/implementation/foundation_gate_implementation_plan_v0_24_1.md
 docs/maintenance/documentation_integrity_checklist.md
 docs/tooling/CODEX_PLUGIN_CAPABILITY_INVENTORY.md
 docs/tooling/CODEX_PLUGIN_RISK_POLICY.md
@@ -133,7 +133,7 @@ Local runtime status rule:
 
 Device Capability Broker contract rule:
 
-> v0.24.0 implements M20 Device Capability Broker Contract as contract-only planning and validation. It defines future device capability manifests, permission lifecycle, capture intent, receipt/redaction, trust/revocation, and security boundaries for CCC iOS, CCC Android, CCC macOS, and mobile web/PWA surfaces. OpenAPI path count remains `74`. M21 remains planned/provisional. This release adds no mobile app, Android app, iOS app, macOS app, native build workflow, OS permission runtime, sensor access, push notification runtime, background service runtime, device pairing runtime, backend API route, runtime execution, model/provider call, remote execution, plugin enablement, dependency, OpenWebUI integration, or production authority.
+> v0.24.1 hardens M20 Device Capability Broker Contract safety while keeping it contract-only. It rejects enabled and implemented capability flags, raw payloads, silent/passive/background/continuous capture, automatic memory writes, external sends, permission runtime claims, notification push runtime claims, background service runtime claims, device pairing runtime claims, raw payload-like metadata, private local paths, and secret-like metadata. OpenAPI path count remains `74`. M21 remains planned/provisional. This release adds no M21 OpenWebUI Bridge, Device Capability Broker runtime implementation, mobile app, Android app, iOS app, macOS app, native build workflow, OS permission runtime, sensor access, push notification runtime, background service runtime, device pairing runtime, backend API route, runtime execution, model/provider call, remote execution, plugin enablement, dependency, architecture behavior change, or production authority.
 
 Roadmap status label cleanup rule:
 

@@ -736,6 +736,7 @@ def verify_no_mobile_native_or_sensor_implementation():
                 "scripts/verify_all.py",
                 "scripts/verify_control_center_frontend.py",
                 "src/ultimate_ai_agent/core/gate/evaluators.py",
+                "tests/test_control_center_frontend_safety_verifier.py",
             }:
                 continue
             for fragment in forbidden_fragments:

@@ -344,3 +344,21 @@ Foundation Gate includes m20_device_capability_broker_contract_safe.
 OpenAPI path count remains unchanged at 74.
 M21 remains planned/provisional.
 ```
+
+## v0.24.1 M20 Hardening Tests
+
+v0.24.1 adds focused hardening tests only:
+
+```text
+every major DeviceCapabilityKind rejects allowed_now=true.
+every major DeviceCapabilityKind rejects implemented_now=true.
+permission contracts reject OS permission runtime, notification push runtime, and background service runtime claims.
+validation decisions cannot allow device capability runtime authority.
+receipt plans require redacted receipts and no raw storage.
+revocation plans remain contract-only.
+raw payload-like metadata, geolocation coordinates, private local paths, and secret-like text are rejected.
+static frontend verifier rejects expanded device capability and mobile permission/background-service route drift.
+Foundation Gate rejects expanded device capability backend routes and keeps OpenAPI path count at 74.
+M21 remains planned/provisional.
+No Device Capability Broker runtime implementation, mobile app, native build workflow, sensor API, OS permission code, backend API route, dependency, runtime execution, model/provider call, remote execution, plugin enablement, or architecture behavior change is added.
+```

@@ -2,14 +2,20 @@ import pytest
 
 from ultimate_ai_agent.core.device_capabilities import (
     DeviceCapabilityDescriptor,
+    DeviceCapabilityDecisionStatus,
     DeviceCapabilityKind,
     DeviceCapabilityStatus,
+    DeviceCapabilityValidationDecision,
     DeviceCaptureIntentContract,
     DeviceCaptureMode,
     DeviceDataClassification,
+    DevicePermissionRequestContract,
     DevicePermissionScope,
     DevicePlatform,
+    DeviceReceiptRequirement,
     DeviceRiskLevel,
+    DeviceCapabilityReceiptPlan,
+    DeviceRevocationPlan,
     build_default_device_capability_manifest,
 )
 from ultimate_ai_agent.core.device_capabilities.validation import (
@@ -20,7 +26,11 @@ from ultimate_ai_agent.core.device_capabilities.validation import (
     assert_no_secret_metadata,
     assert_no_silent_capture,
     validate_device_capability_descriptor,
+    validate_device_capability_decision,
     validate_device_capture_intent,
+    validate_device_permission_request,
+    validate_device_receipt_plan,
+    validate_device_revocation_plan,
 )
 
 
@@ -53,6 +63,21 @@ def _capture_intent(**overrides):
     }
     values.update(overrides)
     return DeviceCaptureIntentContract(**values)
+
+
+def _permission_request(**overrides):
+    values = {
+        "request_id": "permission_camera_001",
+        "platform": DevicePlatform.ios_planned,
+        "capability_kind": DeviceCapabilityKind.camera,
+        "purpose": "future selected camera permission planning",
+        "risk_level": DeviceRiskLevel.high,
+        "data_classification": DeviceDataClassification.sensitive,
+        "broker_ref": "dcb_contract_only",
+        "safe_summary": "camera permission planning metadata only",
+    }
+    values.update(overrides)
+    return DevicePermissionRequestContract(**values)
 
 
 @pytest.mark.parametrize(
@@ -126,3 +151,58 @@ def test_manifest_level_validation_helpers_pin_no_runtime_flags():
     assert_no_os_permission_integration(_descriptor())
     assert_no_background_service(_descriptor())
     assert_no_secret_metadata(manifest)
+
+
+@pytest.mark.parametrize(
+    ("field", "message"),
+    [
+        ("os_permission_runtime_claimed", "OS permission"),
+        ("notification_push_runtime_claimed", "notification push runtime"),
+        ("background_service_runtime_claimed", "background service"),
+    ],
+)
+def test_permission_request_rejects_runtime_permission_drift_flags(field, message):
+    request = _permission_request(**{field: True})
+
+    with pytest.raises(ValueError, match=message):
+        validate_device_permission_request(request)
+
+
+def test_validation_decision_cannot_allow_device_capability_runtime():
+    decision = DeviceCapabilityValidationDecision(
+        decision_id="decision_runtime_claim",
+        subject_ref="camera_contract",
+        allowed=True,
+        status=DeviceCapabilityDecisionStatus.contract_valid,
+        safe_message="camera contract is allowed now",
+    )
+
+    with pytest.raises(ValueError, match="allowed"):
+        validate_device_capability_decision(decision)
+
+
+def test_receipt_plan_requires_redacted_receipt_and_no_raw_storage():
+    plan = DeviceCapabilityReceiptPlan(
+        receipt_plan_id="receipt_plan_not_applicable",
+        platform=DevicePlatform.ios_planned,
+        capability_kind=DeviceCapabilityKind.camera,
+        receipt_requirement=DeviceReceiptRequirement.not_applicable,
+        retention_summary="redacted receipt planning only",
+        safe_summary="camera receipt planning metadata only",
+    )
+
+    with pytest.raises(ValueError, match="redacted receipt"):
+        validate_device_receipt_plan(plan)
+
+
+def test_revocation_plan_remains_contract_only():
+    plan = DeviceRevocationPlan(
+        plan_id="revocation_runtime_claim",
+        platform=DevicePlatform.android_planned,
+        capability_kind=DeviceCapabilityKind.location,
+        contract_only=False,
+        safe_summary="location revocation runtime is available",
+    )
+
+    with pytest.raises(ValueError, match="contract-only"):
+        validate_device_revocation_plan(plan)

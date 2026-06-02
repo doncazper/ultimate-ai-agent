@@ -648,6 +648,16 @@ def _verify_m20_device_capability_docs(root: Path, version: str | None) -> list[
         ),
         "M20 device docs must block external sends": "external sends are not allowed",
         "M20 device docs must mention M21 remains planned/provisional": "m21 remains planned/provisional",
+        "M20 device docs must say no capabilities are enabled": "no capabilities are enabled",
+        "M20 device docs must say no capabilities are implemented": "no capabilities are implemented",
+        "M20 device docs must say raw payloads are blocked": "raw payloads are blocked",
+        "M20 device docs must say user gesture is future contract metadata": (
+            "user gesture is future contract metadata"
+        ),
+        "M20 device docs must say notification runtime is blocked": "notification runtime is blocked",
+        "M20 device docs must say background services are blocked": "background services are blocked",
+        "M20 device docs must say device pairing runtime is future": "device pairing runtime is future",
+        "M20 device docs must say receipts remain redacted": "receipts remain redacted",
     }
     for failure, fragment in expectations.items():
         if fragment not in device_text:
@@ -669,6 +679,18 @@ def _verify_m20_device_capability_docs(root: Path, version: str | None) -> list[
         failures.append("active roadmap docs must mark M20/v0.24.0 as implemented/released")
     if not m21_planned:
         failures.append("active roadmap docs must keep M21/v0.25.0 planned/provisional")
+
+    linked_docs_text = "\n".join(
+        _read(root / rel_path).lower()
+        for rel_path in [
+            "docs/DOCUMENTATION_INDEX.md",
+            "docs/canonical/CANONICAL_DOC_MAP.md",
+        ]
+        if (root / rel_path).exists()
+    )
+    for rel_path in REQUIRED_DEVICE_CAPABILITY_DOCS:
+        if rel_path.lower() not in linked_docs_text:
+            failures.append(f"device capability docs must be linked from active indexes: {rel_path}")
 
     forbidden_claims = [
         "m21 is implemented",

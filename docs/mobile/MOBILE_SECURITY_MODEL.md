@@ -46,3 +46,13 @@ security concerns. Biometrics are not authority. Device output is not trusted
 control input by default. M20 adds no sensor access, OS permission integration,
 native clients, backend API route, dependency, runtime execution, or production
 authority. M21 remains planned/provisional.
+
+## v0.24.1 M20 Hardening Note
+
+v0.24.1 hardens M20 without adding mobile implementation. No capability is
+enabled or implemented. Notification runtime and push runtime are blocked.
+Background services are blocked. Device pairing runtime remains future.
+Receipts are redacted and must not include raw payloads. Device output is not
+trusted control input by default. Mobile capture cannot approve actions,
+execute actions, bypass governance, silently become memory, or trigger external
+sends. M21 remains planned/provisional.

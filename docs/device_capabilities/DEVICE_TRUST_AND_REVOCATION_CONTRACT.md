@@ -16,3 +16,13 @@ agent brain and are not approval authority.
 
 M20 adds no signing, provisioning, keychain, keystore, App Store, Play Store,
 native build workflow, background service, or OS permission integration.
+
+## v0.24.1 M20 Hardening Note
+
+v0.24.1 keeps trust and revocation contract-only. Device pairing runtime is
+future. Device identity runtime is future. Revocation plans remain
+contract-only, receipt-backed, and non-authoritative. A device trust plan
+cannot make a device client the agent brain, cannot approve actions, cannot
+execute actions, and cannot bypass Approval Authority, Consent Ledger, Tool
+Broker, Event Ledger, Secret Broker, Redaction, or Foundation Gate. M21 remains
+planned/provisional.

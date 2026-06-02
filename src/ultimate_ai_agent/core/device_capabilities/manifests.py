@@ -29,7 +29,7 @@ M20_DEVICE_CAPABILITY_DOCS = [
 
 
 def build_default_device_capability_manifest(
-    baseline_version: str = "0.24.0",
+    baseline_version: str = "0.24.1",
 ) -> DeviceCapabilityManifest:
     capabilities = [
         _capability(

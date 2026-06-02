@@ -62,6 +62,9 @@ class DevicePermissionRequestContract(_DeviceCapabilityContractModel):
     requested_scope: DevicePermissionScope = DevicePermissionScope.one_time_planned
     requested_capture_mode: DeviceCaptureMode = DeviceCaptureMode.manual_selected_planned
     user_gesture_present: bool = False
+    os_permission_runtime_claimed: bool = False
+    notification_push_runtime_claimed: bool = False
+    background_service_runtime_claimed: bool = False
     broker_ref: str = Field(..., min_length=1)
     consent_refs: list[str] = Field(default_factory=list)
     receipt_refs: list[str] = Field(default_factory=list)
@@ -109,7 +112,7 @@ class DeviceCapabilityValidationDecision(_DeviceCapabilityContractModel):
 class DeviceCapabilityManifest(_DeviceCapabilityContractModel):
     manifest_id: str = "device_capability_manifest_m20"
     milestone: str = "M20"
-    baseline_version: str = "0.24.0"
+    baseline_version: str = "0.24.1"
     generated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     contract_only: bool = True
     platforms: list[DevicePlatform] = Field(default_factory=list)
@@ -158,6 +161,7 @@ class DeviceRevocationPlan(_DeviceCapabilityContractModel):
     plan_id: str = Field(..., min_length=1)
     platform: DevicePlatform
     capability_kind: DeviceCapabilityKind
+    contract_only: bool = True
     revocation_supported: bool = True
     receipt_required: bool = True
     safe_summary: str = Field(..., min_length=1)

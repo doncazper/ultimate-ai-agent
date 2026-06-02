@@ -136,8 +136,8 @@ receipt-backed policy, and no Play Store/signing/keystore/App
 Store/provisioning/keychain workflow until a dedicated release milestone.
 
 Device Capability Broker is required before sensors. Capture cannot silently
-become memory. Phone/mobile is not the agent brain. M20 remains
-planned/provisional.
+become memory. Phone/mobile is not the agent brain. M20 is now
+implemented/released as Device Capability Broker Contract only.
 
 ## v0.23.1 M19 Hardening Note
 
@@ -163,3 +163,13 @@ execution, plugin enablement, OpenWebUI integration, or production authority.
 
 Device Capability Broker output is not trusted control input by default.
 Capture cannot silently become memory. M21 remains planned/provisional.
+
+## v0.24.1 M20 Hardening Note
+
+v0.24.1 hardens the M20 Device Capability Broker Contract while keeping it
+contract-only. No device capability is enabled. No device capability is
+implemented. Permission runtime claims, notification runtime, push runtime,
+background services, OS permission integration, raw payloads, automatic memory
+writes, external sends, device pairing runtime, and device identity runtime
+remain blocked. User gesture is future contract metadata only. M21 remains
+planned/provisional.

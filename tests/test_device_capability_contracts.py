@@ -21,7 +21,7 @@ def test_default_device_capability_manifest_is_contract_only_and_not_authority()
     manifest = build_default_device_capability_manifest()
 
     assert manifest.milestone == "M20"
-    assert manifest.baseline_version == "0.24.0"
+    assert manifest.baseline_version == "0.24.1"
     assert manifest.contract_only is True
     assert manifest.device_clients_are_authority is False
     assert manifest.device_output_is_trusted_control_input is False

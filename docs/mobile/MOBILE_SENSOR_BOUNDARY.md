@@ -38,3 +38,14 @@ backend API route, background service, notification runtime, dependency,
 runtime execution, model/provider call, remote execution, plugin enablement, or
 production authority. Device Capability Broker output is not trusted control
 input by default. Capture cannot silently become memory.
+
+## v0.24.1 M20 Hardening Note
+
+v0.24.1 keeps M20 contract-only and hardens the same no-sensor boundary. No
+mobile sensor is enabled. No mobile sensor is implemented. User gesture is
+future contract metadata only and not runtime permission or capture authority.
+Permission runtime claims, notification push runtime, background service
+runtime, OS permission integration, raw payloads, private local paths, silent
+capture, passive capture, background capture, continuous capture, automatic
+memory writes, and external sends remain blocked. M21 remains
+planned/provisional.

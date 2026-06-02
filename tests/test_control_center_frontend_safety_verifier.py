@@ -21,6 +21,40 @@ def test_control_center_frontend_verifier_passes_current_repo():
     assert verifier.verify(ROOT) == []
 
 
+def test_control_center_frontend_verifier_tracks_m20_device_drift_strings():
+    verifier = load_verifier()
+
+    for endpoint in [
+        "/device-capabilities/bluetooth",
+        "/device-capabilities/nfc",
+        "/device-capabilities/biometrics",
+        "/device-capabilities/local-network",
+        "/device-capabilities/screen-capture",
+        "/mobile/permissions",
+        "/mobile/background-service",
+    ]:
+        assert endpoint in verifier.FORBIDDEN_ENDPOINTS
+
+    for fragment in [
+        "android.permission",
+        "manifest.permission",
+        "avcapture",
+        "cllocation",
+        "locationmanager",
+        "navigator.geolocation",
+        "navigator.mediadevices",
+        "notification.requestpermission",
+        "pushmanager",
+    ]:
+        assert (
+            fragment in verifier.BROWSER_API_FRAGMENTS
+            or fragment in verifier.NATIVE_OR_PLUGIN_FRAGMENTS
+        )
+
+    for dependency in ['"@capacitor/core"', '"cordova"', '"ionic"', '"flutter"']:
+        assert dependency in verifier.FORBIDDEN_FRONTEND_DEPENDENCIES
+
+
 def test_control_center_frontend_verifier_blocks_tracked_build_and_log_artifacts(tmp_path, monkeypatch):
     verifier = load_verifier()
 

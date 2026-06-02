@@ -16,6 +16,9 @@ def test_m20_device_capability_contract_criterion_exists_and_passes():
     assert "no sensor access" in criterion.pass_condition
     assert "no OS permission integration" in criterion.pass_condition
     assert "no native app" in criterion.pass_condition
+    assert "enabled and implemented capability flags are rejected" in criterion.pass_condition
+    assert "notification runtime" in criterion.pass_condition
+    assert "permission runtime claims" in criterion.pass_condition
     assert "OpenAPI path count at 74" in criterion.pass_condition
     assert "M21 planned" in criterion.pass_condition
 
@@ -41,6 +44,11 @@ def test_m20_openapi_route_guard_rejects_device_runtime_expansion():
     assert EXPECTED_M20_OPENAPI_PATH_COUNT == 74
     assert "/device-capabilities" in M20_FORBIDDEN_BACKEND_ROUTES
     assert "/device-capabilities/execute" in M20_FORBIDDEN_BACKEND_ROUTES
+    assert "/device-capabilities/bluetooth" in M20_FORBIDDEN_BACKEND_ROUTES
+    assert "/device-capabilities/local-network" in M20_FORBIDDEN_BACKEND_ROUTES
+    assert "/device-capabilities/screen-capture" in M20_FORBIDDEN_BACKEND_ROUTES
+    assert "/mobile/permissions" in M20_FORBIDDEN_BACKEND_ROUTES
+    assert "/mobile/background-service" in M20_FORBIDDEN_BACKEND_ROUTES
     assert "/mobile/sensors" in M20_FORBIDDEN_BACKEND_ROUTES
     assert any("OpenAPI path count" in failure for failure in failures)
     assert any("/device-capabilities" in failure for failure in failures)

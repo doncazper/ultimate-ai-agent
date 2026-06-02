@@ -127,10 +127,20 @@ M20_FORBIDDEN_BACKEND_ROUTES = (
     "/device-capabilities/calendar",
     "/device-capabilities/photos",
     "/device-capabilities/files",
+    "/device-capabilities/clipboard",
+    "/device-capabilities/bluetooth",
+    "/device-capabilities/nfc",
+    "/device-capabilities/biometrics",
+    "/device-capabilities/local-network",
+    "/device-capabilities/motion",
+    "/device-capabilities/health",
+    "/device-capabilities/screen-capture",
+    "/device-capabilities/background-service",
     "/device-capability-broker",
     "/device-capability-broker/execute",
     "/device-capability-broker/capabilities",
     "/device-capability-broker/pair",
+    "/mobile/permissions",
     "/mobile/sensors",
     "/mobile/camera",
     "/mobile/microphone",
@@ -138,6 +148,7 @@ M20_FORBIDDEN_BACKEND_ROUTES = (
     "/mobile/notifications",
     "/mobile/capture",
     "/mobile/pair",
+    "/mobile/background-service",
 )
 
 
@@ -3869,6 +3880,7 @@ class FoundationGateEvaluator:
                     "src/ultimate_ai_agent/core/gate/evaluators.py",
                     "scripts/verify_all.py",
                     "scripts/verify_control_center_frontend.py",
+                    "tests/test_control_center_frontend_safety_verifier.py",
                 }:
                     continue
                 text = self._read(path)
@@ -3956,6 +3968,7 @@ class FoundationGateEvaluator:
                 DeviceCapabilityKind.camera,
                 DeviceCapabilityKind.microphone,
                 DeviceCapabilityKind.location,
+                DeviceCapabilityKind.notifications,
                 DeviceCapabilityKind.contacts,
                 DeviceCapabilityKind.calendar,
                 DeviceCapabilityKind.photos,
@@ -3964,7 +3977,10 @@ class FoundationGateEvaluator:
                 DeviceCapabilityKind.bluetooth,
                 DeviceCapabilityKind.nfc,
                 DeviceCapabilityKind.biometrics,
-                DeviceCapabilityKind.notifications,
+                DeviceCapabilityKind.local_network,
+                DeviceCapabilityKind.motion,
+                DeviceCapabilityKind.health,
+                DeviceCapabilityKind.screen_capture,
             ]:
                 capability = capabilities_by_kind.get(capability_kind)
                 if capability is None:
@@ -4070,6 +4086,7 @@ class FoundationGateEvaluator:
                     "src/ultimate_ai_agent/core/gate/evaluators.py",
                     "scripts/verify_all.py",
                     "scripts/verify_control_center_frontend.py",
+                    "tests/test_control_center_frontend_safety_verifier.py",
                 }:
                     continue
                 text = self._read(path)

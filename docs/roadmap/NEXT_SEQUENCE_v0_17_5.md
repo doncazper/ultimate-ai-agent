@@ -1,6 +1,6 @@
 # Next Sequence v0.17.5
 
-Status: Active roadmap projection and M14-M20 milestone charter freeze, maintained through v0.24.0 / M20.
+Status: Active roadmap projection and M14-M20 milestone charter freeze, maintained through v0.24.1 / M20 hardening.
 
 v0.17.5 freezes the next canonical sequence after the v0.17.x Web Control Center shell hardening work. Items after v0.17.5 are planned/provisional but canonical until superseded by a reviewed roadmap patch.
 
@@ -14,7 +14,7 @@ No item in this sequence may add production Control Center authority, runtime ex
 
 v0.18.3 clarifies that OpenWebUI remains the preferred conversational web shell and CCC means Control Center Clients: CCC Web, CCC iOS, CCC Android, and CCC macOS. Open Design governs custom CCC surfaces and does not replace OpenWebUI.
 
-v0.19.0 implements M15 Approval Queue + Receipt/Event Viewer UI. v0.19.1 hardens M15 Approval/Receipt UI safety. v0.20.0 implements M16 Event Timeline + Run/Receipt Trace Viewer. v0.20.1 hardens M16 trace/redaction safety. v0.21.0 implements M17 Evidence/File/Memory Viewer. v0.21.1 hardens M17 viewer safety. v0.21.2 normalizes developer verification commands. v0.22.0 implements M18 Local Runtime Status + Manual Smoke Control Surface. v0.22.1 cleans up roadmap status labels only. v0.23.0 implements M19 Mobile Companion Contract/API Planning only. v0.23.1 hardens M19 roadmap status and mobile contract safety tests only. v0.24.0 implements M20 Device Capability Broker Contract as contract-only planning and validation. M21-M40 are planned/provisional capability-layer charters in `docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md` and do not authorize implementation.
+v0.19.0 implements M15 Approval Queue + Receipt/Event Viewer UI. v0.19.1 hardens M15 Approval/Receipt UI safety. v0.20.0 implements M16 Event Timeline + Run/Receipt Trace Viewer. v0.20.1 hardens M16 trace/redaction safety. v0.21.0 implements M17 Evidence/File/Memory Viewer. v0.21.1 hardens M17 viewer safety. v0.21.2 normalizes developer verification commands. v0.22.0 implements M18 Local Runtime Status + Manual Smoke Control Surface. v0.22.1 cleans up roadmap status labels only. v0.23.0 implements M19 Mobile Companion Contract/API Planning only. v0.23.1 hardens M19 roadmap status and mobile contract safety tests only. v0.24.0 implements M20 Device Capability Broker Contract as contract-only planning and validation. v0.24.1 hardens M20 Device Capability Broker Contract safety only. M21-M40 are planned/provisional capability-layer charters in `docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md` and do not authorize implementation.
 
 ## 1. v0.17.5 - Roadmap Projection + M14-M20 Milestone Charter Freeze
 
@@ -522,6 +522,13 @@ Acceptance criteria:
 - mobile sensor capture cannot silently become memory or approve actions.
 - OpenAPI path count remains `74`.
 - M21 remains planned/provisional.
+
+v0.24.1 hardening adds validator, test, documentation, static verifier, and
+Foundation Gate coverage so every major device capability rejects current
+enablement and implementation claims, runtime permission claims, notification
+push runtime claims, background service runtime claims, raw payload-like
+metadata, non-redacted receipts, and non-contract revocation plans. It adds no
+runtime implementation and does not start M21.
 
 Review prompt required: yes.
 

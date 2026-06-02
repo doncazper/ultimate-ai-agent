@@ -27,3 +27,12 @@ safe summary.
 Background permissions, standing permissions, passive capture, continuous
 capture, and silent capture remain blocked unless a future reviewed milestone
 explicitly creates a narrower policy.
+
+## v0.24.1 M20 Hardening Note
+
+v0.24.1 treats one-time, session, and foreground scopes as planned metadata
+only. They do not imply implemented runtime permission access. User gesture is
+future contract metadata only and cannot imply current capture execution.
+OS permission runtime, notification push runtime, background service runtime,
+background capture, passive capture, and continuous capture remain blocked.
+M21 remains planned/provisional.

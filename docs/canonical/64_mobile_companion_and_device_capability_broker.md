@@ -251,3 +251,13 @@ integration, or production authority. M21 remains planned/provisional.
 
 Device Capability Broker output is not trusted control input by default.
 Capture cannot silently become memory or trigger external sends.
+
+## v0.24.1 M20 Hardening Note
+
+v0.24.1 keeps the M20 Device Capability Broker Contract contract-only. No
+device capability is enabled or implemented. User gesture is future contract
+metadata only, not runtime permission or capture authority. Notification
+runtime, push runtime, background services, OS permission integration, mobile
+sensor access, device pairing runtime, and device identity runtime remain
+blocked. Raw payloads are blocked, receipts remain redacted, and M21 remains
+planned/provisional.

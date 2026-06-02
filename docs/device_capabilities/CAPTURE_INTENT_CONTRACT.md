@@ -15,3 +15,12 @@ Future capture must be redacted, classified, consent-bound, retention-bound,
 revocation-aware, and receipt-backed before any implementation. Future capture
 receipts must use safe refs and must not include raw photos, audio, location,
 contact, calendar, file, clipboard, biometric, or credential content.
+
+## v0.24.1 M20 Hardening Note
+
+v0.24.1 keeps capture contract-only. User gesture is future contract metadata
+only and cannot imply current capture execution. Silent capture, passive
+capture, background capture, continuous capture, automatic memory writes,
+external sends, raw payloads, geolocation coordinates, audio/image/contact/
+calendar/photo/biometric payload-like metadata, and private local paths are
+blocked. M21 remains planned/provisional.
