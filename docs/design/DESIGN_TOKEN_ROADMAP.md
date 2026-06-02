@@ -1,6 +1,6 @@
 # Design Token Roadmap
 
-Status: Future roadmap for v0.18.2. Documentation only.
+Status: Future roadmap for v0.18.3. Documentation only.
 
 Future tokens should be repo-owned, inspectable, portable, reviewed, and generated only from reviewed source files. No package dependency, Tailwind dependency, shadcn dependency, design system package, icon pack, or animation library is added by v0.18.2.
 

@@ -1,6 +1,6 @@
 # Documentation Index
 
-Current active baseline: **v0.18.2**
+Current active baseline: **v0.18.3**
 
 This index is the active entrypoint for documentation navigation. Historical release documents remain in the repository for audit history, but active truth starts with the current baseline files listed here.
 
@@ -9,8 +9,8 @@ This index is the active entrypoint for documentation navigation. Historical rel
 ```text
 README.md
 VERSION.md
-README_IMPORT_v0_18_2.md
-ultimate_ai_agent_master_plan_v0_18_2.md
+README_IMPORT_v0_18_3.md
+ultimate_ai_agent_master_plan_v0_18_3.md
 docs/canonical/CANONICAL_DOC_MAP.md
 docs/canonical/09_roadmap.md
 docs/roadmap/MILESTONE_CHARTERS.md
@@ -19,6 +19,10 @@ docs/maintenance/documentation_integrity_checklist.md
 docs/maintenance/codex_plugin_capability_inventory.md
 docs/tooling/CODEX_PLUGIN_CAPABILITY_INVENTORY.md
 docs/tooling/CODEX_PLUGIN_RISK_POLICY.md
+docs/ui/OPENWEBUI_AND_CCC_STRATEGY.md
+docs/ui/CLIENT_SURFACE_ROLES.md
+docs/ui/OPENWEBUI_INTEGRATION_ROADMAP.md
+docs/ui/CCC_NATIVE_CLIENT_STRATEGY.md
 ```
 
 ## Active Canonical Docs
@@ -35,6 +39,7 @@ Key active canonical groups:
 - security and privacy: `docs/canonical/23_security_threat_model.md`, `docs/canonical/24_data_lifecycle_and_privacy.md`, `docs/canonical/45_trusted_computing_base.md`, `docs/canonical/50_data_classification_policy.md`, `docs/canonical/51_redaction_and_safe_debugging.md`
 - mobile/device planning: `docs/canonical/64_mobile_companion_and_device_capability_broker.md`, `docs/canonical/65_mobile_device_registry_and_sensor_permission_manifest.md`
 - external tooling and Codex plugin governance: `docs/canonical/66_external_tooling_and_codex_plugin_governance.md`
+- UI/client strategy: `docs/ui/OPENWEBUI_AND_CCC_STRATEGY.md`, `docs/ui/CLIENT_SURFACE_ROLES.md`, `docs/ui/OPENWEBUI_INTEGRATION_ROADMAP.md`, `docs/ui/CCC_NATIVE_CLIENT_STRATEGY.md`
 
 ## Active API Docs
 
@@ -80,6 +85,17 @@ docs/design/RESPONSIVE_LAYOUT_BASELINE.md
 v0.18.2 adds Open Design System and UI Design Governance documentation only. The design source of truth is repo-owned docs, reviewed components, and future repo-owned tokens. Design tools, design SaaS, UI generators, screenshot-to-code, and design-to-code systems are not enabled and are not authority.
 
 M15 is Approval Queue + Receipt/Event Viewer UI and remains future work governed by read-only/preview-only Control Center boundaries until a reviewed milestone explicitly changes them.
+
+## Active UI Client Strategy Docs
+
+```text
+docs/ui/OPENWEBUI_AND_CCC_STRATEGY.md
+docs/ui/CLIENT_SURFACE_ROLES.md
+docs/ui/OPENWEBUI_INTEGRATION_ROADMAP.md
+docs/ui/CCC_NATIVE_CLIENT_STRATEGY.md
+```
+
+v0.18.3 clarifies that OpenWebUI is the preferred conversational web shell, CCC means Control Center Clients, and CCC covers CCC Web, CCC iOS, CCC Android, and CCC macOS. Open Design governs custom CCC surfaces and does not replace OpenWebUI. These docs add no OpenWebUI integration, deployment config, frontend feature, backend API route, native app, native build workflow, mobile sensor access, OS permission integration, signing, keystore, provisioning, App Store, or Play Store workflow.
 
 ## Active Runtime Docs
 
@@ -167,7 +183,7 @@ The Codex plugin capability inventory and risk policy record available developme
 
 ## Release Notes Index
 
-Current release notes: `docs/release_notes/v0_18_2.md`
+Current release notes: `docs/release_notes/v0_18_3.md`
 
 Historical release notes remain under `docs/release_notes/`. Historical docs may mention old active baselines in historical context; they are not the current source of truth.
 
@@ -182,4 +198,4 @@ python scripts/verify_all.py
 python scripts/run_foundation_gate.py
 ```
 
-The documentation integrity verifier checks active version alignment, active release docs, active index/map/checklist docs, design governance docs, mobile/private mesh doc presence, and obvious unsafe implementation claims.
+The documentation integrity verifier checks active version alignment, active release docs, active index/map/checklist docs, design governance docs, OpenWebUI/CCC strategy docs, mobile/private mesh doc presence, and obvious unsafe implementation claims.

@@ -1,8 +1,10 @@
 # Open Design System
 
-Status: Active design governance for v0.18.2. Documentation only.
+Status: Active design governance for v0.18.3. Documentation only.
 
 Open Design for Ultimate AI Agent means the design source of truth lives in this repository: reviewed documentation, reviewed component code, and future repo-owned design tokens. Proprietary canvases, screenshots, AI UI generators, design-to-code systems, and design SaaS exports may assist future review, but they are not authority.
+
+Open Design does not replace OpenWebUI. OpenWebUI remains the preferred conversational web shell. Open Design governs custom CCC surfaces: CCC Web, CCC iOS, CCC Android, and CCC macOS.
 
 The Control Center and future Mobile Companion should share these principles:
 

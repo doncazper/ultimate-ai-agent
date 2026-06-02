@@ -1,6 +1,6 @@
 # Local Backend Connection
 
-Status: Active for v0.18.2 / Open Design System and UI Design Governance.
+Status: Active for v0.18.3 / OpenWebUI and CCC Client Strategy clarification.
 
 The Web Control Center may connect only to the local backend API boundary. The connection layer is frontend-only and does not add backend routes or backend authority.
 

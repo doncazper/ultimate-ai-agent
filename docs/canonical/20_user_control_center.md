@@ -136,3 +136,21 @@ v0.18.2 adds repo-owned Open Design System and UI Design Governance documentatio
 Design docs, reviewed components, and future repo-owned tokens are the design source of truth. Design tools, design SaaS, UI generators, screenshot-to-code, and design-to-code tools are not authority and are not enabled by v0.18.2.
 
 M15 approval, receipt, and event viewer UI must read the design governance docs before implementation. Future Mobile Companion UI should inherit these principles while remaining a control, approval, capture, receipt, and status surface, not the agent brain.
+
+## v0.18.3 OpenWebUI and CCC Client Strategy
+
+v0.18.3 clarifies the long-term UI/client split:
+
+- Python Agent Core remains the brain and authority layer.
+- OpenWebUI is the preferred conversational web shell and is not the agent brain.
+- CCC means Control Center Clients.
+- CCC is the governance/control client family.
+- CCC Web is the current TypeScript web Control Center.
+- CCC iOS is a future native mobile control client.
+- CCC Android is a future native mobile control client.
+- CCC macOS is a future desktop/local companion client.
+- Open Design governs custom CCC surfaces and does not replace OpenWebUI.
+
+All CCC clients must respect Approval Authority, Consent Ledger, Tool Broker, Event Ledger, Secret Broker, Redaction, and Foundation Gate. All CCC clients must use stable API/OpenAPI contracts, avoid secrets in local/browser/mobile storage, remain auditable and receipt-backed, and must not bypass approvals or execute actions locally.
+
+v0.18.3 adds no M15 Approval Queue + Receipt/Event Viewer UI, OpenWebUI integration, OpenWebUI deployment config, frontend feature, backend API route, native CCC implementation, Android app, iOS app, macOS app, native build workflow, mobile sensor access, OS permission integration, signing, keystore, provisioning, App Store workflow, Play Store workflow, dependency, plugin enablement, runtime execution, model/provider call, network call, remote execution, or production authority.

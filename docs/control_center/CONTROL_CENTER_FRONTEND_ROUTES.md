@@ -1,6 +1,6 @@
 # Control Center Frontend Routes
 
-Status: Active for v0.18.2 / Open Design System and UI Design Governance. The frontend route set is unchanged.
+Status: Active for v0.18.3 / OpenWebUI and CCC Client Strategy clarification. The frontend route set is unchanged.
 
 The frontend shell is served by Vite during local development. It is not mounted by the Python API and does not add OpenAPI paths.
 
@@ -45,7 +45,7 @@ Forbidden frontend route/API targets:
 
 v0.17.4 keeps the frontend route set unchanged and adds local browser smoke UX polish plus safe reporting documentation. `scripts/verify_control_center_frontend.py` rejects forbidden execute, plugin enablement, runtime execution, remote dispatch, mobile sensor endpoint strings, analytics/SaaS SDK markers, sensitive browser APIs, and unsafe fixtures in frontend implementation files. `scripts/verify_control_center_browser_smoke_readiness.py` verifies that browser smoke readiness and reporting remain manual local-only documentation.
 
-OpenAPI remains a backend contract. v0.18.2 changes only `info.version` to `0.18.2`; backend path count remains `74` with unique operation IDs.
+OpenAPI remains a backend contract. v0.18.3 changes only `info.version` to `0.18.3`; backend path count remains `74` with unique operation IDs.
 
 ## v0.18.0 M14 Connection Stabilization
 
@@ -75,3 +75,9 @@ v0.18.2 adds no frontend routes and no backend API paths. It documents the desig
 - `docs/design/RESPONSIVE_LAYOUT_BASELINE.md`
 
 M15 remains future work and must preserve read-only/preview-only Control Center boundaries.
+
+## v0.18.3 CCC Web Route Boundary
+
+v0.18.3 clarifies that the existing route set belongs to CCC Web, the current TypeScript web Control Center. CCC iOS, CCC Android, and CCC macOS are future native clients only. OpenWebUI remains a separate preferred conversational web shell.
+
+No frontend route, backend API path, OpenWebUI integration, native client route, mobile sensor route, OS permission route, native build workflow, or production authority is added.

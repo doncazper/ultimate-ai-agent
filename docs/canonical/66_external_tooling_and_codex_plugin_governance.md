@@ -23,6 +23,8 @@ computer use
 cloud compute/training
 plugin/skill installation
 design tooling
+OpenWebUI deployment/integration tooling
+native Android build
 ```
 
 ## Enablement Requirements
@@ -72,6 +74,8 @@ Foundation Gate
 - Chrome authenticated profile control remains disabled unless explicitly approved.
 - Build iOS Apps / XcodeBuildMCP remains disabled until a dedicated Mobile Companion implementation milestone.
 - Build macOS Apps remains disabled until a dedicated Desktop/macOS Companion milestone.
+- Android, Gradle, Android Studio, Play Store, signing, keystore, and Android device workflows remain disabled until a dedicated CCC Android implementation milestone.
+- OpenWebUI deployment, admin/config, plugin, function, pipeline, tool, and bridge tooling remains disabled until a dedicated OpenWebUI integration milestone.
 - CodeRabbit and GitHub read-only review can be used for release readiness with explicit review prompts.
 - GitHub write, release, push, tag, or PR actions require explicit approval or direct-push rules.
 - Computer Use remains disabled except explicit last-resort manual QA approval.
@@ -93,9 +97,15 @@ Design tools are development aids and are not authority. v0.18.2 records design 
 - Browser may be used only for local UI verification under existing local browser smoke policy.
 - Chrome authenticated profile control and Computer Use remain disabled.
 
+## OpenWebUI Tooling
+
+OpenWebUI deployment and integration tooling is future-only. OpenWebUI admin/config/deployment plugins, OpenWebUI plugins/functions/pipelines/tools, bridge helpers, and deployment automation must not be enabled without an explicit milestone.
+
+Any future OpenWebUI bridge must be treated like external tool integration and pass Tool Broker, Approval Authority, Event Ledger, Secret Broker, Redaction, and Foundation Gate gates. It must not bypass Python Agent Core, access credentials directly, expose a public chat shell without security review, or depend on an external hosted OpenWebUI service without a reviewed contract.
+
 ## Mobile and Desktop Build Plugins
 
-iOS and macOS build plugins are future-only. They may involve Xcode, native build systems, signing identities, provisioning profiles, keychains, simulator/device access, app entitlements, camera/microphone/location permissions, push notification credentials, and App Store Connect credentials. They must remain disabled until dedicated milestones define the approval and safety boundary.
+iOS, Android, and macOS build plugins are future-only. They may involve Xcode, Gradle, Android Studio, native build systems, signing identities, provisioning profiles, keystores, keychains, simulator/device access, app entitlements, camera/microphone/location permissions, push notification credentials, App Store Connect credentials, and Play Store workflows. They must remain disabled until dedicated milestones define the approval and safety boundary.
 
 ## Source-of-Truth Boundary
 

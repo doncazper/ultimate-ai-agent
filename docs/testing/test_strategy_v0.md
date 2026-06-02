@@ -105,6 +105,24 @@ Foundation Gate includes frontend CI and browser smoke readiness criteria.
 Backend OpenAPI path count remains unchanged at 74.
 ```
 
+## v0.18.3 OpenWebUI and CCC Strategy Tests
+
+v0.18.3 adds docs/verifier/gate tests only:
+
+```text
+Required docs/ui files exist.
+OpenWebUI is the preferred conversational web shell.
+OpenWebUI is not the agent brain.
+CCC means Control Center Clients.
+CCC is the governance/control layer.
+CCC Web, CCC iOS, CCC Android, and CCC macOS are defined.
+Open Design does not replace OpenWebUI.
+CCC native clients remain future-only.
+No OpenWebUI integration, deployment config, native CCC implementation, Android app, iOS app, macOS app, native build workflow, mobile sensor access, OS permission integration, signing, keystore, App Store, or Play Store workflow is added.
+Foundation Gate includes openwebui_ccc_strategy_docs_present.
+Backend OpenAPI path count remains unchanged at 74.
+```
+
 ## v0.17.4 Web Control Center Local Smoke Polish Tests
 
 v0.17.4 adds focused frontend and static documentation tests only:

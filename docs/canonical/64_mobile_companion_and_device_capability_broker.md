@@ -153,3 +153,36 @@ v0.18.2 adds Open Design System and UI Design Governance docs for future Control
 - no design tool, design SaaS, UI generator, screenshot-to-code, or design-to-code authority.
 
 These docs add no mobile app, sensor API, native package, design tool integration, or mobile runtime capability.
+
+## v0.18.3 CCC Native Client Clarification
+
+CCC means Control Center Clients. Future mobile and desktop companion work should use the CCC naming when it is part of the custom governance/control client family:
+
+- CCC Web is the current TypeScript web Control Center.
+- CCC iOS is a future native mobile control client.
+- CCC Android is a future native mobile control client.
+- CCC macOS is a future desktop/local companion client.
+
+CCC iOS and CCC Android are future approval, status, receipt, and user-reviewed capture surfaces only. They are not the agent brain and must use Python Agent Core authority. No Android app, iOS app, macOS app, native package, sensor access, OS permission integration, background service, notification runtime, signing, keystore, provisioning, App Store workflow, Play Store workflow, or native build workflow is added by v0.18.3.
+
+Android planning constraints:
+
+- Android permissions must be explicit and scoped.
+- no background location by default.
+- no passive microphone.
+- no silent photo, contact, or calendar scans.
+- no background service without reviewed policy.
+- no notification runtime without receipt-backed policy.
+- no Play Store, signing, or keystore workflow until a dedicated release milestone.
+
+iOS planning constraints:
+
+- iOS permissions must be explicit and scoped.
+- no background location by default.
+- no passive microphone.
+- no silent photo, contact, or calendar scans.
+- no App Store, signing, provisioning, or keychain workflow until a dedicated release milestone.
+
+macOS planning constraints:
+
+- no keychain, menu bar, background agent, signing, entitlement, or notarization workflow until a dedicated release milestone.

@@ -1,6 +1,6 @@
 # Milestone Charters
 
-Status: Active roadmap governance template for v0.18.2.
+Status: Active roadmap governance template for v0.18.3.
 
 This document defines the required charter shape for every future milestone prompt. A milestone charter is planning authority only. It does not implement runtime behavior, frontend behavior, backend API routes, provider calls, network calls, remote execution, mobile sensor access, plugin enablement, native build workflows, production persistence, or external actions.
 
@@ -52,10 +52,12 @@ Notes:
 ## Governance Rules
 
 - Python Agent Core remains the brain.
-- TypeScript Control Center is the user control layer.
-- Control Center is not the agent brain and cannot bypass Approval Authority, Consent Ledger, Tool Broker, Event Ledger, Secret Broker, Foundation Gate, or governed source systems.
-- OpenWebUI is an optional shell, not the agent brain.
+- OpenWebUI is the preferred conversational web shell, not the agent brain.
+- CCC means Control Center Clients: CCC Web, CCC iOS, CCC Android, and CCC macOS.
+- CCC is the governance/control client family and cannot bypass Approval Authority, Consent Ledger, Tool Broker, Event Ledger, Secret Broker, Foundation Gate, or governed source systems.
+- TypeScript Control Center is CCC Web.
 - Mobile Companion is a future control, approval, capture, receipt, and status surface, not the agent brain.
+- Open Design governs custom CCC surfaces and does not replace OpenWebUI.
 - The model is never the source of truth, and model output is not authoritative evidence.
 - Consent and credentials are separate.
 - Arbitrary string refs are not authority.

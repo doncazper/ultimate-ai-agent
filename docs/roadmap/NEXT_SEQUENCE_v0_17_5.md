@@ -1,6 +1,6 @@
 # Next Sequence v0.17.5
 
-Status: Active roadmap projection and M14-M20 milestone charter freeze.
+Status: Active roadmap projection and M14-M20 milestone charter freeze, updated through v0.18.3 strategy clarification.
 
 v0.17.5 freezes the next canonical sequence after the v0.17.x Web Control Center shell hardening work. Items after v0.17.5 are planned/provisional but canonical until superseded by a reviewed roadmap patch.
 
@@ -11,6 +11,8 @@ This document resolves the M14 ambiguity:
 - Local browser smoke / UX polish was **v0.17.4**, not M14.
 
 No item in this sequence may add production Control Center authority, runtime execution, model/provider calls, network calls, remote execution, mobile sensor access, plugin enablement, native build workflows, production persistence, or external actions unless a future reviewed milestone explicitly changes the boundary.
+
+v0.18.3 clarifies that OpenWebUI remains the preferred conversational web shell and CCC means Control Center Clients: CCC Web, CCC iOS, CCC Android, and CCC macOS. Open Design governs custom CCC surfaces and does not replace OpenWebUI.
 
 ## 1. v0.17.5 - Roadmap Projection + M14-M20 Milestone Charter Freeze
 
@@ -184,6 +186,64 @@ Source-of-truth docs:
 - `docs/design/DESIGN_ARTIFACT_GOVERNANCE.md`
 - `docs/design/COMPONENT_TAXONOMY.md`
 - `docs/design/RESPONSIVE_LAYOUT_BASELINE.md`
+
+## 4.5. v0.18.3 - OpenWebUI + CCC Client Strategy Clarification
+
+Status: implemented.
+
+Purpose: clarify OpenWebUI as the preferred conversational web shell and CCC as the Control Center Clients family before M15 UI expansion.
+
+Allowed scope:
+
+- UI strategy docs.
+- roadmap docs.
+- canonical docs.
+- release/version docs.
+- conservative documentation verifier checks.
+- optional Foundation Gate documentation criterion.
+
+Must not add:
+
+- M15 Approval Queue + Receipt/Event Viewer UI.
+- OpenWebUI integration.
+- OpenWebUI deployment config.
+- OpenWebUI plugin/function/tool bridge.
+- frontend features.
+- backend API routes.
+- runtime execution.
+- model/provider calls.
+- network calls.
+- remote execution.
+- native CCC implementation.
+- Android app.
+- iOS app.
+- macOS app.
+- mobile sensor access.
+- OS permission integration.
+- native build workflows.
+- signing, keystore, provisioning, App Store, or Play Store workflows.
+- plugin enablement.
+- dependencies.
+
+Acceptance criteria:
+
+- OpenWebUI remains the preferred conversational web shell.
+- OpenWebUI is not the agent brain.
+- CCC means Control Center Clients.
+- CCC Web, CCC iOS, CCC Android, and CCC macOS are defined.
+- Open Design governs custom CCC surfaces and does not replace OpenWebUI.
+- native clients remain future-only and require dedicated milestones.
+
+Review prompt required: yes.
+
+Hardening patch expectation: may be paired with the next UI milestone review.
+
+Source-of-truth docs:
+
+- `docs/ui/OPENWEBUI_AND_CCC_STRATEGY.md`
+- `docs/ui/CLIENT_SURFACE_ROLES.md`
+- `docs/ui/OPENWEBUI_INTEGRATION_ROADMAP.md`
+- `docs/ui/CCC_NATIVE_CLIENT_STRATEGY.md`
 
 ## 5. v0.19.0 / M15 - Approval Queue + Receipt/Event Viewer UI
 
@@ -407,6 +467,15 @@ Source-of-truth docs:
 
 - `docs/canonical/64_mobile_companion_and_device_capability_broker.md`
 - `docs/canonical/65_mobile_device_registry_and_sensor_permission_manifest.md`
+
+## Post-M20 Placeholders
+
+These are placeholders only. They do not reorder M14-M20 and do not authorize implementation.
+
+- OpenWebUI Bridge / Chat Shell Integration Contract.
+- CCC Native Client Contract: iOS/Android/macOS Planning.
+- OpenWebUI local LLM runtime bridge, validation-only.
+- Mobile/desktop companion implementations only after contracts.
 
 ## 11. v0.24.0 / M20 - Device Capability Broker Contract
 

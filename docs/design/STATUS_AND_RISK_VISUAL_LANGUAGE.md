@@ -1,6 +1,6 @@
 # Status And Risk Visual Language
 
-Status: Active design governance for v0.18.2. Documentation only.
+Status: Active design governance for v0.18.3. Documentation only.
 
 Risk and status labels must be textual, not color-only. Icons, color, borders, and tone may support meaning, but visible text carries the contract.
 

@@ -26,3 +26,9 @@ No `/control-center/actions/execute`, `/control-center/plugins/enable`, `/contro
 ## v0.18.2 Design Governance
 
 Open Design System and UI Design Governance docs apply to future Control Center UI work, including M15 approval, receipt, and event viewer surfaces. They add no backend route and no frontend behavior. Design tools are not enabled and are not authority.
+
+## v0.18.3 OpenWebUI and CCC Strategy
+
+v0.18.3 clarifies that CCC means Control Center Clients across CCC Web, CCC iOS, CCC Android, and CCC macOS. This contract still covers the current backend Control Center API only. OpenWebUI remains a preferred conversational web shell and is not the agent brain.
+
+No OpenWebUI bridge route, native CCC route, Android route, iOS route, macOS route, mobile sensor route, OS permission route, native build workflow, or production authority is added.

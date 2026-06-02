@@ -71,6 +71,32 @@ def test_documentation_integrity_verifier_requires_design_tooling_safety_languag
     assert any("design docs must say no automatic design sync" in failure for failure in failures)
 
 
+def test_documentation_integrity_verifier_requires_openwebui_ccc_strategy_docs(tmp_path: Path):
+    _write_minimal_repo(tmp_path)
+    (tmp_path / "docs/ui/OPENWEBUI_AND_CCC_STRATEGY.md").unlink(missing_ok=True)
+
+    failures = verifier.verify(tmp_path)
+
+    assert any("docs/ui/OPENWEBUI_AND_CCC_STRATEGY.md" in failure for failure in failures)
+
+
+def test_documentation_integrity_verifier_requires_ccc_native_client_boundaries(tmp_path: Path):
+    _write_minimal_repo(tmp_path)
+    native_strategy = tmp_path / "docs/ui/CCC_NATIVE_CLIENT_STRATEGY.md"
+    native_strategy.parent.mkdir(parents=True, exist_ok=True)
+    native_strategy.write_text(
+        "CCC means Control Center Clients.\n"
+        "CCC Web is ready. CCC iOS is ready. CCC Android is ready. CCC macOS is ready.\n",
+        encoding="utf-8",
+    )
+
+    failures = verifier.verify(tmp_path)
+
+    assert any("CCC docs must define CCC Android" in failure for failure in failures)
+    assert any("CCC native strategy must say no Android app is implemented" in failure for failure in failures)
+    assert any("CCC native strategy must say no native build workflow is added" in failure for failure in failures)
+
+
 def _write_minimal_repo(root: Path) -> None:
     version = "0.14.6"
     version_key = "0_14_6"
@@ -112,6 +138,32 @@ def _write_minimal_repo(root: Path) -> None:
             "screenshots and design artifacts must not contain secrets\n"
             "Control Center design governance\n"
             "Mobile Companion design governance\n",
+        )
+    for rel_path in getattr(verifier, "REQUIRED_UI_STRATEGY_DOCS", []):
+        files.setdefault(
+            rel_path,
+            "OpenWebUI is the preferred conversational web shell.\n"
+            "OpenWebUI is not the agent brain.\n"
+            "OpenWebUI must not bypass Python Agent Core.\n"
+            "No OpenWebUI integration is implemented in this patch.\n"
+            "No OpenWebUI deployment config is added in this patch.\n"
+            "CCC means Control Center Clients.\n"
+            "CCC is the governance/control layer.\n"
+            "CCC Web is the current TypeScript web Control Center.\n"
+            "CCC iOS is a future native mobile control client.\n"
+            "CCC Android is a future native mobile control client.\n"
+            "CCC macOS is a future desktop/local companion client.\n"
+            "Open Design does not replace OpenWebUI.\n"
+            "all CCC clients are control surfaces, not the agent brain.\n"
+            "all CCC clients must use Python Agent Core authority.\n"
+            "no Android app is implemented yet.\n"
+            "no iOS app is implemented yet.\n"
+            "no macOS app is implemented yet.\n"
+            "no CCC native implementation is added.\n"
+            "no native build workflow is added.\n"
+            "no mobile sensor access is added.\n"
+            "no OS permission integration is added.\n"
+            "no signing, keystore, provisioning, App Store, or Play Store workflow is added.\n",
         )
     files["docs/roadmap/MILESTONE_CHARTERS.md"] = (
         "version\nmilestone code\ntitle\nstatus\npurpose\nallowed scope\nmust not add\n"

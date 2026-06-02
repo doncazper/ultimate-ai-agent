@@ -113,3 +113,5 @@ mobile.kill_switch
 ## Explicit Non-Implementation Statement
 
 These are future schemas only. There is no code yet, no mobile app yet, no OS permission integration yet, no sensor API yet, no background service yet, no iOS/Xcode build workflow, and no simulator/device workflow.
+
+v0.18.3 adds CCC Android terminology for future native client planning only. No Android app, Kotlin, Java, Gradle, Android Studio project, Android permission integration, background service, notification channel, Play Store workflow, signing, keystore, native package, mobile sensor access, or runtime Device Capability Broker is implemented.

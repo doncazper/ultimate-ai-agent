@@ -1,6 +1,6 @@
 # Frontend Safety Policy
 
-Status: Active for v0.18.2 / Open Design System and UI Design Governance.
+Status: Active for v0.18.3 / OpenWebUI and CCC Client Strategy clarification.
 
 The Web Control Center shell is a display and preview surface. The Python Agent Core remains the brain and source of policy enforcement.
 
@@ -100,3 +100,9 @@ Control Center UI changes must follow:
 - `docs/design/RESPONSIVE_LAYOUT_BASELINE.md`
 
 Design governance does not add frontend behavior, dependencies, Tailwind, shadcn, design system packages, icon packs, analytics, auth, payment SDKs, design tool integration, Chrome authenticated profile control, Computer Use, plugin enablement, mobile sensor access, remote dispatch, model/provider calls, or production authority.
+
+## v0.18.3 CCC Web Boundary
+
+v0.18.3 clarifies CCC Web as the current TypeScript web Control Center and CCC as the broader Control Center Clients family. OpenWebUI is the preferred conversational web shell and Open Design does not replace OpenWebUI.
+
+The frontend safety boundary is unchanged: no OpenWebUI integration, deployment config, new frontend feature, backend route, native CCC implementation, Android app, iOS app, macOS app, mobile sensor access, OS permission integration, native build workflow, signing/store workflow, or production authority is added.

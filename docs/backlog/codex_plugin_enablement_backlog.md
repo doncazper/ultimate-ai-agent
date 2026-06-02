@@ -24,6 +24,7 @@ Future Web Control Center:
 - Chrome authenticated profile control remains disabled unless separately approved.
 - deployment and credential-bearing integrations remain out of scope unless explicitly approved.
 - design tools such as Figma, Stitch, Framer, screenshot-to-code, design-to-code, and AI UI generators remain future-only and disabled unless explicitly approved.
+- OpenWebUI deployment, admin/config, plugins, functions, pipelines, tools, and bridge tooling remain future-only and disabled unless a dedicated OpenWebUI integration milestone approves them.
 
 Future OpenAPI client generation:
 
@@ -33,12 +34,14 @@ Future OpenAPI client generation:
 Future Mobile Companion planning:
 
 - docs tools only.
-- no iOS builds, native mobile packages, Xcode, simulators, sensors, or OS permissions.
+- no iOS or Android builds, native mobile packages, Xcode, Gradle, Android Studio, simulators, devices, sensors, OS permissions, signing, keystores, provisioning, App Store, or Play Store workflows.
 
 Future Mobile Companion implementation:
 
 - iOS plugin use only after dedicated approval.
 - define signing, simulator, device, keychain, provisioning, App Store Connect, sensor, and entitlement boundaries first.
+- Android build/tool use only after dedicated approval.
+- define Gradle, Android Studio, signing, keystore, Play Store, Android permissions, background service, notification channel, sensor, and device boundaries first.
 
 Future macOS/Desktop Companion:
 
@@ -64,3 +67,5 @@ Release/security audits:
 - Define cloud job, upload, and cost-control policy.
 - Define plugin/skill installer provenance, sandbox, revocation, and disable policy.
 - Define design tooling approval, import/export, artifact review, and no automatic design sync policy.
+- Define OpenWebUI deployment/integration/plugin/function/pipeline/tool bridge approval policy.
+- Define Android native build, signing, keystore, Play Store, permission, background service, and notification channel policy.

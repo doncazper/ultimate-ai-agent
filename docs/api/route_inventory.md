@@ -14,7 +14,7 @@ Each route declares:
 - `requires_auth_future`
 - `blocked_from_production`
 
-Allowed side-effect classes in v0.18.2 are:
+Allowed side-effect classes in v0.18.3 are:
 
 - `none`
 - `validation_only`
@@ -124,7 +124,7 @@ v0.17.2 Web Control Center verification hardening:
 - frontend CI runs local npm install/typecheck/lint/test/build checks only.
 - local browser smoke readiness is manual, local-only, unauthenticated-profile-free, and non-authoritative.
 
-v0.17.3 documentation cleanup, v0.17.4 local browser smoke polish, v0.17.5 roadmap charter freeze, v0.18.0 M14 local backend connection stabilization, v0.18.1 M14 connection safety hardening, and v0.18.2 Open Design governance:
+v0.17.3 documentation cleanup, v0.17.4 local browser smoke polish, v0.17.5 roadmap charter freeze, v0.18.0 M14 local backend connection stabilization, v0.18.1 M14 connection safety hardening, v0.18.2 Open Design governance, and v0.18.3 OpenWebUI/CCC strategy clarification:
 
 - no backend route is added.
 - OpenAPI path count remains `74`.
@@ -132,3 +132,4 @@ v0.17.3 documentation cleanup, v0.17.4 local browser smoke polish, v0.17.5 roadm
 - v0.17.5 freezes roadmap milestone charters and adds no backend route, frontend feature, execution path, dependency, or authority.
 - v0.18.1 hardens local-only frontend API base policy and visible backend connection states, with no new backend route, dependency, execution path, external API host, or authority.
 - v0.18.2 adds design governance docs, with no new backend route, dependency, execution path, design-tool integration, external API host, or authority.
+- v0.18.3 adds OpenWebUI/CCC strategy docs, with no new backend route, OpenWebUI bridge route, native CCC route, dependency, execution path, mobile sensor route, OS permission route, external API host, or authority.

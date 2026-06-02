@@ -13,6 +13,7 @@ High-risk plugins require milestone-specific approval before use. External tools
 | --- | --- | --- | --- | --- | --- | --- |
 | Browser | In-app browser for local web pages, localhost UI checks, screenshots, and browser QA. | Yes. | Approved later with task-specific Web Control Center use. | Medium. | Future Web Control Center and API docs preview. | Future-only with approval. |
 | Build iOS Apps / XcodeBuildMCP | iOS project discovery, simulator build/run/test, SwiftUI/App Intents, logs, coverage, and possible device workflows when configured. | Yes. | Keep disabled until a dedicated Mobile Companion implementation milestone. | Critical. | Future Mobile Companion implementation after policy/signing boundaries exist. | Disabled/future-only. |
+| Native Android build tooling | Kotlin, Java, Gradle, Android Studio, Android device, signing, keystore, Play Store, permissions, background service, and notification channel workflows. | Not configured. | Keep disabled until a dedicated CCC Android implementation milestone. | Critical. | Future CCC Android after policy/signing/permission boundaries exist. | Disabled/future-only. |
 | Build macOS Apps | macOS SwiftUI/AppKit build, run, test, signing, entitlement, packaging, and notarization workflows. | Yes. | Keep disabled until a dedicated Desktop/macOS Companion milestone. | Critical. | Future Desktop/macOS Companion. | Disabled/future-only. |
 | Build Web Apps | Web app implementation, frontend testing, React/Next guidance, shadcn guidance, and UI polish. | Yes. | Use with Browser only for future Web Control Center work after approval. | Medium to high. | Future Web Control Center. | Future-only with approval. |
 | Chrome | User Chrome profile control, authenticated sessions, tabs, cookies, and extensions. | Yes. | Keep disabled unless explicitly approved for authenticated-profile QA. | High. | Authenticated UI QA only if separately approved. | Disabled by default. |
@@ -30,6 +31,7 @@ High-risk plugins require milestone-specific approval before use. External tools
 | web.run | Internet lookup and retrieval. | Yes. | Use when current external facts are required. | Low to medium. | Standards/docs research. | Allowed only when relevant. |
 | image_gen | Bitmap image generation. | Yes. | Use only when requested for visual artifacts. | Low to medium. | UI mockups or docs visuals. | Future-only with request. |
 | Design tools | Figma, Stitch, Framer, screenshot-to-code, design-to-code, and AI UI generator workflows. | Not enabled. | Keep disabled until explicit design-tool milestone approval. | High. | Future optional design import/export evaluation. | Disabled/future-only. |
+| OpenWebUI tooling | OpenWebUI deployment, admin/config, plugin, function, pipeline, tool, and bridge workflows. | Not enabled. | Keep disabled until explicit OpenWebUI integration milestone approval. | High. | Future OpenWebUI Bridge / Chat Shell Integration Contract. | Disabled/future-only. |
 | Plugin/skill install tools | Discover, create, or install Codex plugins and skills. | Visible. | Keep disabled due to supply-chain risk. | High. | Tooling administration only after security lifecycle exists. | Disabled by default. |
 
 ## Inventory Rules
@@ -44,11 +46,13 @@ High-risk plugins require milestone-specific approval before use. External tools
 - Browser plus Build Web Apps may be considered for future Web Control Center work with explicit approval.
 - Chrome authenticated profile control remains disabled unless explicitly approved.
 - Build iOS Apps / XcodeBuildMCP remains disabled until a dedicated Mobile Companion implementation milestone.
+- Native Android build tooling remains disabled until a dedicated CCC Android implementation milestone.
 - Build macOS Apps remains disabled until a dedicated Desktop/macOS Companion milestone.
 - CodeRabbit and GitHub read-only review can be used for release readiness with explicit review prompts.
 - GitHub write, release, push, tag, or PR actions require explicit approval or direct-push rules.
 - Computer Use remains disabled except explicit last-resort manual QA approval.
 - Hugging Face Jobs, uploads, training, and Spaces deployment remain disabled.
 - Design tools, design SaaS sync, screenshot-to-code, design-to-code, and AI UI generators remain disabled unless a future milestone explicitly approves optional import/export use.
+- OpenWebUI deployment, admin/config, plugin, function, pipeline, tool, and bridge workflows remain disabled unless a future milestone explicitly approves them.
 - Plugin/skill installers remain disabled due to supply-chain risk.
 - Shell/exec commands are allowed narrowly for test, verifier, git, and explicitly scoped implementation workflows only.

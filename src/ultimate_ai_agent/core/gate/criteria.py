@@ -980,6 +980,15 @@ def default_foundation_gate_criteria() -> List[FoundationGateCriterion]:
             "critical",
         ),
         _criterion(
+            "openwebui_ccc_strategy_docs_present",
+            "OpenWebUI CCC Strategy Docs Present",
+            FoundationGateCategory.documentation,
+            "FoundationGateEvaluator.check_openwebui_ccc_strategy_docs_present",
+            "OpenWebUI and CCC strategy docs exist, define OpenWebUI as the chat shell, CCC as the governance/control client family, and keep native clients future-only.",
+            "OpenWebUI/CCC strategy docs are missing or imply OpenWebUI authority bypass, missing Android/macOS/iOS roles, native implementation, sensor access, or native build workflows.",
+            "critical",
+        ),
+        _criterion(
             "roadmap_milestone_charters_current",
             "Roadmap Milestone Charters Current",
             FoundationGateCategory.documentation,

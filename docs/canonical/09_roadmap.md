@@ -1,4 +1,4 @@
-# 09 - Roadmap v0.18.2
+# 09 - Roadmap v0.18.3
 
 Status: Active foundation-first roadmap. This is the single roadmap source of truth.
 
@@ -10,14 +10,14 @@ Build a Commander-led, spec-driven, memory-backed, relationship-aware AI operati
 
 ```text
 Python/FastAPI/Pydantic Agent Core
-TypeScript Control Center later
-OpenWebUI optional early chat shell
+CCC Web / TypeScript Control Center
+OpenWebUI preferred conversational web shell
 Postgres canonical database
 Docker Compose local development
 Stable Agent API Boundary
 ```
 
-OpenWebUI is a window into the agent, not the agent brain.
+OpenWebUI is a window into the agent, not the agent brain. CCC means Control Center Clients: CCC Web, CCC iOS, CCC Android, and CCC macOS.
 
 ## Foundation Phase Context
 
@@ -25,9 +25,20 @@ The original foundation sequence established runtime hygiene, local runtime/cont
 
 ## Current accepted baseline
 
-The active accepted baseline is v0.18.2. It implements Open Design System and UI Design Governance documentation after accepted v0.18.1 M14 hardening.
+The active accepted baseline is v0.18.3. It clarifies OpenWebUI and CCC Client Strategy after accepted v0.18.2 Open Design governance.
 
-v0.18.2 adds:
+v0.18.3 adds:
+
+- `docs/ui/*` OpenWebUI and CCC strategy docs.
+- OpenWebUI as the preferred conversational web shell, not the agent brain.
+- CCC as Control Center Clients: CCC Web, CCC iOS, CCC Android, and CCC macOS.
+- CCC Web as the current TypeScript web Control Center.
+- CCC iOS, CCC Android, and CCC macOS as future native clients only.
+- Open Design as governance for custom CCC surfaces, not a replacement for OpenWebUI.
+- conservative documentation verifier and Foundation Gate checks for OpenWebUI/CCC strategy.
+- no OpenWebUI integration, deployment config, frontend feature, backend route, native app, native build workflow, mobile sensor access, OS permission integration, signing/store workflow, dependency, or production authority.
+
+v0.18.2 added:
 
 - `docs/design/*` as repo-owned design governance.
 - Control Center design language, status/risk visual language, accessibility baseline, UI copy/action language, component taxonomy, responsive layout baseline, design artifact governance, design tooling policy, and design token roadmap.
@@ -40,11 +51,11 @@ v0.17.5 resolved the M14 ambiguity:
 - Approval Queue + Receipt/Event Viewer UI moves to M15.
 - local browser smoke / UX polish was v0.17.4, not M14.
 
-v0.18.2 implements design governance only. It does not add M15 Approval Queue + Receipt/Event Viewer UI, frontend behavior, backend API paths, runtime execution, model/provider calls, remote dispatch, mobile app or sensor code, plugin enablement, dependencies, auth, credentials, cookies, analytics/SaaS SDKs, design tool integration, external API hosts, or production Control Center authority.
+v0.18.3 implements strategy clarification only. It does not add M15 Approval Queue + Receipt/Event Viewer UI, frontend behavior, backend API paths, OpenWebUI integration, OpenWebUI deployment config, runtime execution, model/provider calls, network calls, remote dispatch, native CCC implementation, Android app, iOS app, macOS app, mobile app or sensor code, OS permission integration, signing, keystore, provisioning, App Store or Play Store workflow, plugin enablement, dependencies, auth, credentials, cookies, analytics/SaaS SDKs, design tool integration, external API hosts, or production Control Center authority.
 
-## Accepted baseline through v0.18.2
+## Accepted baseline through v0.18.3
 
-The active accepted baseline includes foundation modules through M10.5 plus documentation integrity synchronization, Codex plugin/external tooling governance, M11 runtime readiness/report validation, M12 Control Center backend contract/API foundation, M13 Web Control Center read-only frontend shell with CI/static/browser-readiness hardening, the v0.17.5 roadmap charter freeze, M14 local backend connection stabilization and safety hardening, and v0.18.2 design governance. v0.17.4 polished local shell reviewability and browser smoke reporting only; it did not start M14, add backend API paths, add dependencies, add production Control Center authority, or add execution capability.
+The active accepted baseline includes foundation modules through M10.5 plus documentation integrity synchronization, Codex plugin/external tooling governance, M11 runtime readiness/report validation, M12 Control Center backend contract/API foundation, M13 Web Control Center read-only frontend shell with CI/static/browser-readiness hardening, the v0.17.5 roadmap charter freeze, M14 local backend connection stabilization and safety hardening, v0.18.2 design governance, and v0.18.3 OpenWebUI/CCC client strategy clarification. v0.17.4 polished local shell reviewability and browser smoke reporting only; it did not start M14, add backend API paths, add dependencies, add production Control Center authority, or add execution capability.
 
 Recent accepted milestones:
 
@@ -68,6 +79,7 @@ v0.17.5 — Roadmap Projection + M14-M20 Milestone Charter Freeze
 v0.18.0 — M14 Web Control Center Local Backend Connection Stabilization
 v0.18.1 — M14 Hardening: Control Center Backend Connection Safety
 v0.18.2 — Open Design System + UI Design Governance
+v0.18.3 — OpenWebUI + CCC Client Strategy Clarification
 
 - adds local React/Vite/TypeScript app under `apps/control-center`.
 - consumes existing read-only/preview-only backend routes.
@@ -80,21 +92,23 @@ v0.18.2 — Open Design System + UI Design Governance
 - v0.18.0 adds local-only backend connection policy and visible live/degraded/mock fallback states for M14.
 - v0.18.1 hardens M14 local backend connection safety.
 - v0.18.2 adds repo-owned Open Design System and UI Design Governance docs before M15.
+- v0.18.3 clarifies OpenWebUI and CCC Web/iOS/Android/macOS strategy before M15.
 - keeps backend OpenAPI path count unchanged at `74`.
-- adds no runtime execution, model/provider calls, remote dispatch, mobile sensors, plugin enablement, native builds, Chrome/Computer Use automation, design tool enablement, or production authority.
+- adds no runtime execution, model/provider calls, OpenWebUI integration, remote dispatch, mobile sensors, plugin enablement, native builds, Chrome/Computer Use automation, design tool enablement, native CCC implementation, or production authority.
 ```
 
 ## Next canonical sequence from v0.17.5
 
 The detailed sequence is frozen in `docs/roadmap/NEXT_SEQUENCE_v0_17_5.md`. The milestone charter template is `docs/roadmap/MILESTONE_CHARTERS.md`. These files must be checked before writing future milestone prompts.
 
-v0.18.0 and v0.18.1 have implemented and hardened M14 from that sequence. v0.18.2 has implemented the Open Design governance milestone. Items after v0.18.2 remain planned/provisional until superseded by a reviewed roadmap patch.
+v0.18.0 and v0.18.1 have implemented and hardened M14 from that sequence. v0.18.2 has implemented the Open Design governance milestone. v0.18.3 has implemented OpenWebUI and CCC Client Strategy clarification. Items after v0.18.3 remain planned/provisional until superseded by a reviewed roadmap patch.
 
 ```text
 v0.17.5 — Roadmap Projection + M14-M20 Milestone Charter Freeze, docs-only
 v0.18.0 / M14 — Web Control Center Local Backend Connection Stabilization, implemented
 v0.18.1 — M14 Hardening: Control Center Backend Connection Safety, implemented
 v0.18.2 — Open Design System + UI Design Governance, implemented
+v0.18.3 — OpenWebUI + CCC Client Strategy Clarification, implemented
 v0.19.0 / M15 — Approval Queue + Receipt/Event Viewer UI, read-only/preview-only
 v0.19.1 — M15 Hardening: Approval/Receipt UI Safety
 v0.20.0 / M16 — Event Timeline + Run/Receipt Trace Viewer
@@ -102,6 +116,10 @@ v0.21.0 / M17 — Evidence/File/Memory Viewer, read-only
 v0.22.0 / M18 — Local Runtime Status + Manual Smoke Control Surface
 v0.23.0 / M19 — Mobile Companion Contract/API Planning
 v0.24.0 / M20 — Device Capability Broker Contract
+Post-M20 — OpenWebUI Bridge / Chat Shell Integration Contract
+Post-M20 — CCC Native Client Contract: iOS/Android/macOS Planning
+Post-M20 — OpenWebUI local LLM runtime bridge, validation-only
+Post-M20 — Mobile/desktop companion implementations only after contracts
 ```
 
 M14 is not local browser smoke / UX polish. That work was v0.17.4. M15 is the first planned approval queue plus receipt/event viewer UI milestone, and it remains read-only/preview-only unless a future backend contract explicitly changes that boundary.

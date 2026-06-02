@@ -43,6 +43,10 @@ REQUIRED_ACTIVE_DOCS = [
     "docs/design/DESIGN_ARTIFACT_GOVERNANCE.md",
     "docs/design/COMPONENT_TAXONOMY.md",
     "docs/design/RESPONSIVE_LAYOUT_BASELINE.md",
+    "docs/ui/OPENWEBUI_AND_CCC_STRATEGY.md",
+    "docs/ui/CLIENT_SURFACE_ROLES.md",
+    "docs/ui/OPENWEBUI_INTEGRATION_ROADMAP.md",
+    "docs/ui/CCC_NATIVE_CLIENT_STRATEGY.md",
     "docs/roadmap/MILESTONE_CHARTERS.md",
     "docs/roadmap/NEXT_SEQUENCE_v0_17_5.md",
 ]
@@ -58,6 +62,13 @@ REQUIRED_DESIGN_DOCS = [
     "docs/design/DESIGN_ARTIFACT_GOVERNANCE.md",
     "docs/design/COMPONENT_TAXONOMY.md",
     "docs/design/RESPONSIVE_LAYOUT_BASELINE.md",
+]
+
+REQUIRED_UI_STRATEGY_DOCS = [
+    "docs/ui/OPENWEBUI_AND_CCC_STRATEGY.md",
+    "docs/ui/CLIENT_SURFACE_ROLES.md",
+    "docs/ui/OPENWEBUI_INTEGRATION_ROADMAP.md",
+    "docs/ui/CCC_NATIVE_CLIENT_STRATEGY.md",
 ]
 
 UNSAFE_IMPLEMENTATION_CLAIMS = [
@@ -111,6 +122,7 @@ ACTIVE_DOCS_TO_SCAN = [
     "docs/control_center/LOCAL_BROWSER_SMOKE.md",
     "docs/control_center/LOCAL_BROWSER_SMOKE_REPORTING.md",
     *REQUIRED_DESIGN_DOCS,
+    *REQUIRED_UI_STRATEGY_DOCS,
     "docs/remote/REMOTE_WORKER_FOUNDATION.md",
     "docs/remote/REMOTE_NODE_SECURITY_MODEL.md",
     "docs/remote/REMOTE_JOB_ENVELOPE.md",
@@ -195,6 +207,7 @@ def verify(root: Path = ROOT) -> list[str]:
 
     failures.extend(_verify_roadmap_milestone_charters(root))
     failures.extend(_verify_open_design_governance(root))
+    failures.extend(_verify_openwebui_ccc_strategy(root))
 
     policy_text = "\n".join(
         _read(root / rel_path).lower()
@@ -273,6 +286,64 @@ def _verify_open_design_governance(root: Path) -> list[str]:
         roadmap_text = _read(roadmap_path).lower()
     if "v0.18.2" not in roadmap_text or "open design system" not in roadmap_text:
         failures.append("roadmap must mention v0.18.2 Open Design implementation")
+
+    return failures
+
+
+def _verify_openwebui_ccc_strategy(root: Path) -> list[str]:
+    failures: list[str] = []
+    for rel_path in REQUIRED_UI_STRATEGY_DOCS:
+        if not (root / rel_path).exists():
+            failures.append(f"missing active documentation file: {rel_path}")
+
+    ui_text = "\n".join(
+        _read(root / rel_path).lower() for rel_path in REQUIRED_UI_STRATEGY_DOCS if (root / rel_path).exists()
+    )
+    expectations = {
+        "UI strategy docs must say OpenWebUI is the preferred conversational web shell": (
+            "openwebui is the preferred conversational web shell"
+        ),
+        "UI strategy docs must say OpenWebUI is not the agent brain": "openwebui is not the agent brain",
+        "UI strategy docs must say OpenWebUI must not bypass Python Agent Core": (
+            "openwebui must not bypass python agent core"
+        ),
+        "UI strategy docs must say no OpenWebUI integration is implemented yet": (
+            "no openwebui integration is implemented"
+        ),
+        "UI strategy docs must say no OpenWebUI deployment config is added": (
+            "no openwebui deployment config is added"
+        ),
+        "UI strategy docs must say CCC means Control Center Clients": "ccc means control center clients",
+        "UI strategy docs must say CCC is the governance/control layer": "ccc is the governance/control layer",
+        "UI strategy docs must say Open Design does not replace OpenWebUI": "open design does not replace openwebui",
+        "CCC docs must define CCC Web": "ccc web is the current typescript web control center",
+        "CCC docs must define CCC iOS": "ccc ios is a future native mobile control client",
+        "CCC docs must define CCC Android": "ccc android is a future native mobile control client",
+        "CCC docs must define CCC macOS": "ccc macos is a future desktop/local companion client",
+        "CCC docs must say all clients are control surfaces": (
+            "all ccc clients are control surfaces, not the agent brain"
+        ),
+        "CCC docs must say all clients use Python Agent Core authority": (
+            "all ccc clients must use python agent core authority"
+        ),
+        "CCC native strategy must say no Android app is implemented": "no android app is implemented yet",
+        "CCC native strategy must say no iOS app is implemented": "no ios app is implemented yet",
+        "CCC native strategy must say no macOS app is implemented": "no macos app is implemented yet",
+        "CCC native strategy must say no CCC native implementation is added": (
+            "no ccc native implementation is added"
+        ),
+        "CCC native strategy must say no native build workflow is added": "no native build workflow is added",
+        "CCC native strategy must say no mobile sensor access is added": "no mobile sensor access is added",
+        "CCC native strategy must say no OS permission integration is added": (
+            "no os permission integration is added"
+        ),
+        "CCC native strategy must say no signing/store workflow is added": (
+            "no signing, keystore, provisioning, app store, or play store workflow is added"
+        ),
+    }
+    for failure, fragment in expectations.items():
+        if fragment not in ui_text:
+            failures.append(failure)
 
     return failures
 

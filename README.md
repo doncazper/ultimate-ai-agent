@@ -1,12 +1,12 @@
-# Ultimate AI Agent Canonical Bundle v0.18.2
+# Ultimate AI Agent Canonical Bundle v0.18.3
 
-This is the active project baseline after Open Design System and UI Design Governance documentation.
+This is the active project baseline after OpenWebUI and CCC Client Strategy clarification.
 
 Start here:
 
 ```text
-README_IMPORT_v0_18_2.md
-ultimate_ai_agent_master_plan_v0_18_2.md
+README_IMPORT_v0_18_3.md
+ultimate_ai_agent_master_plan_v0_18_3.md
 docs/DOCUMENTATION_INDEX.md
 docs/canonical/09_roadmap.md
 docs/canonical/CANONICAL_DOC_MAP.md
@@ -42,13 +42,17 @@ docs/design/UI_COPY_AND_ACTION_LANGUAGE.md
 docs/design/DESIGN_ARTIFACT_GOVERNANCE.md
 docs/design/COMPONENT_TAXONOMY.md
 docs/design/RESPONSIVE_LAYOUT_BASELINE.md
+docs/ui/OPENWEBUI_AND_CCC_STRATEGY.md
+docs/ui/CLIENT_SURFACE_ROLES.md
+docs/ui/OPENWEBUI_INTEGRATION_ROADMAP.md
+docs/ui/CCC_NATIVE_CLIENT_STRATEGY.md
 docs/runtime/model_runtime_adapter_harness.md
 docs/runtime/local_loopback_model_runtime.md
 docs/runtime/RUNTIME_READINESS.md
 docs/runtime/MANUAL_SMOKE_REPORTS.md
 docs/runtime/RUNTIME_CAPABILITY_MATRIX.md
 docs/security/approval_authority.md
-docs/implementation/foundation_gate_implementation_plan_v0_18_2.md
+docs/implementation/foundation_gate_implementation_plan_v0_18_3.md
 docs/maintenance/documentation_integrity_checklist.md
 docs/tooling/CODEX_PLUGIN_CAPABILITY_INVENTORY.md
 docs/tooling/CODEX_PLUGIN_RISK_POLICY.md
@@ -61,7 +65,7 @@ Core rule:
 
 Stack rule:
 
-> Python Agent Core is the brain. TypeScript Control Center is the user control layer. OpenWebUI is an optional early chat shell, not the agent brain.
+> Python Agent Core is the brain. OpenWebUI is the preferred conversational web shell, not the agent brain. CCC means Control Center Clients: CCC Web, CCC iOS, CCC Android, and CCC macOS. CCC is the governance/control client family and must use Python Agent Core authority.
 
 Truth-source rule:
 
@@ -134,3 +138,7 @@ Web Control Center local backend connection hardening rule:
 Open Design System and UI Design Governance rule:
 
 > v0.18.2 adds repo-owned Open Design System and Control Center UI Design Governance documentation before M15. Design docs, reviewed components, and future repo-owned tokens are the design source of truth; design tools, design SaaS, UI generators, screenshot-to-code, and design-to-code systems are not authority and are not enabled. M15 Approval Queue + Receipt/Event Viewer UI remains future work and must read the design governance docs before implementation. This release adds no frontend behavior, backend API route, runtime/model/provider call, remote dispatch, mobile sensor access, plugin enablement, dependency, design tool integration, Chrome authenticated profile control, Computer Use automation, iOS/macOS build workflow, analytics/SaaS SDK, automatic design sync, automatic design-to-code, or production Control Center authority.
+
+OpenWebUI and CCC Client Strategy rule:
+
+> v0.18.3 clarifies OpenWebUI and CCC Client Strategy before M15. OpenWebUI is the preferred conversational web shell and is not the agent brain. CCC means Control Center Clients: CCC Web, CCC iOS, CCC Android, and CCC macOS. CCC Web is the current TypeScript web Control Center; CCC iOS, CCC Android, and CCC macOS are future native clients only. Open Design governs custom CCC surfaces and does not replace OpenWebUI. This release adds no OpenWebUI integration, OpenWebUI deployment config, backend API route, frontend feature, native CCC implementation, Android app, iOS app, macOS app, native build workflow, mobile sensor access, OS permission integration, signing, keystore, provisioning, App Store workflow, Play Store workflow, dependency, plugin enablement, runtime execution, model/provider call, network call, remote execution, or production authority.

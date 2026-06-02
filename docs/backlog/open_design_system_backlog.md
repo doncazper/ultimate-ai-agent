@@ -1,6 +1,6 @@
 # Open Design System Backlog
 
-Status: Future backlog for v0.18.2. Not implemented.
+Status: Future backlog for v0.18.3. Not implemented.
 
 This backlog tracks future design-system work after the Open Design System and UI Design Governance documentation baseline. It does not implement frontend behavior, tokens, dependencies, design tools, design SaaS sync, design-to-code, screenshot-to-code, or visual regression infrastructure.
 

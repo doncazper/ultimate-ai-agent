@@ -163,6 +163,7 @@ class FoundationGateEvaluator:
             "m14_connection_states_visible_and_safe": self.check_m14_connection_states_visible_and_safe,
             "m14_backend_api_contract_unchanged": self.check_m14_backend_api_contract_unchanged,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
+            "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "roadmap_milestone_charters_current": self.check_roadmap_milestone_charters_current,
             "documentation_integrity_current": self.check_documentation_integrity_current,
             "codex_plugin_governance_docs_present": self.check_codex_plugin_governance_docs_present,
@@ -2915,6 +2916,37 @@ class FoundationGateEvaluator:
             if path not in control_center_text
         )
         return self._result(criterion, failures, [*required_docs, *control_center_docs])
+
+    def check_openwebui_ccc_strategy_docs_present(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        required_docs = [
+            "docs/ui/OPENWEBUI_AND_CCC_STRATEGY.md",
+            "docs/ui/CLIENT_SURFACE_ROLES.md",
+            "docs/ui/OPENWEBUI_INTEGRATION_ROADMAP.md",
+            "docs/ui/CCC_NATIVE_CLIENT_STRATEGY.md",
+        ]
+        failures = [f"missing OpenWebUI/CCC strategy doc: {path}" for path in required_docs if not (self.root / path).exists()]
+        ui_text = "\n".join(self._read(self.root / path).lower() for path in required_docs)
+        expectations = {
+            "UI strategy docs missing OpenWebUI chat shell boundary": (
+                "openwebui is the preferred conversational web shell"
+            ),
+            "UI strategy docs missing OpenWebUI not-brain boundary": "openwebui is not the agent brain",
+            "UI strategy docs missing CCC governance/control boundary": "ccc is the governance/control layer",
+            "UI strategy docs missing Open Design relationship": "open design does not replace openwebui",
+            "UI strategy docs missing no OpenWebUI integration boundary": "no openwebui integration is implemented",
+            "UI strategy docs missing CCC Web definition": "ccc web is the current typescript web control center",
+            "UI strategy docs missing CCC iOS definition": "ccc ios is a future native mobile control client",
+            "UI strategy docs missing CCC Android definition": "ccc android is a future native mobile control client",
+            "UI strategy docs missing CCC macOS definition": "ccc macos is a future desktop/local companion client",
+            "UI strategy docs missing no native implementation boundary": "no ccc native implementation is added",
+            "UI strategy docs missing no native build workflow boundary": "no native build workflow is added",
+            "UI strategy docs missing no mobile sensor access boundary": "no mobile sensor access is added",
+            "UI strategy docs missing no OS permission integration boundary": "no os permission integration is added",
+        }
+        for failure, fragment in expectations.items():
+            if fragment not in ui_text:
+                failures.append(failure)
+        return self._result(criterion, failures, required_docs)
 
     def _skipped(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
         return FoundationGateResult(

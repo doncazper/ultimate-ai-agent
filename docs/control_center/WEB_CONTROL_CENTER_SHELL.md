@@ -1,6 +1,6 @@
 # Web Control Center Shell
 
-Status: Active for v0.18.2 / Open Design System and UI Design Governance.
+Status: Active for v0.18.3 / OpenWebUI and CCC Client Strategy clarification.
 
 M13 adds a local TypeScript React/Vite shell under `apps/control-center/` for reading existing backend Control Center and runtime readiness APIs. It is the first web UI surface for the future Control Center, but it is not a production Control Center and it has no authority to execute actions.
 
@@ -73,3 +73,9 @@ v0.18.2 adds design governance documentation only. Future Control Center UI work
 - `docs/design/RESPONSIVE_LAYOUT_BASELINE.md`
 
 The design docs do not enable design tools, design SaaS, design-to-code, screenshot-to-code, new frontend behavior, new dependencies, backend routes, M15 UI, or production Control Center authority.
+
+## v0.18.3 CCC Web Strategy
+
+v0.18.3 clarifies that this shell is CCC Web, the current TypeScript web Control Center. CCC means Control Center Clients and also includes future CCC iOS, CCC Android, and CCC macOS planning. OpenWebUI remains the preferred conversational web shell, while Open Design governs custom CCC surfaces and does not replace OpenWebUI.
+
+This shell remains read-only/preview-only and is not the agent brain. v0.18.3 adds no frontend feature, backend API route, OpenWebUI integration, native CCC implementation, Android app, iOS app, macOS app, mobile sensor access, native build workflow, OS permission integration, or production authority.
