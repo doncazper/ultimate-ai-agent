@@ -22,6 +22,7 @@ SCAN_SEQUENCE = [
     ("control center browser smoke readiness verifier", "verify_control_center_browser_smoke_readiness_script"),
     ("documentation integrity scan", "verify_documentation_integrity"),
     ("OpenWebUI bridge contract-only scan", "verify_no_openwebui_runtime_or_config_implementation"),
+    ("local model runtime activation contract-only scan", "verify_no_local_runtime_activation_implementation"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
     ("production truth integration scan", "verify_no_production_truth_integrations"),
     ("broad filesystem scan", "verify_no_broad_filesystem_scanning"),
@@ -73,6 +74,34 @@ OPENWEBUI_ALLOWED_FRAGMENT_SCAN_FILES = {
     "scripts/verify_control_center_frontend.py",
     "scripts/verify_documentation_integrity.py",
     "src/ultimate_ai_agent/core/gate/evaluators.py",
+}
+M22_LOCAL_RUNTIME_FORBIDDEN_FRAGMENTS = (
+    "import ollama",
+    "from ollama import",
+    "import llama_cpp",
+    "from llama_cpp import",
+    "import mlx",
+    "from mlx import",
+    "import vllm",
+    "from vllm import",
+    "import lmstudio",
+    "import requests",
+    "import httpx",
+    "subprocess",
+    ".post(",
+    ".get(",
+    ".request(",
+    "create_completion",
+    "chat.completions",
+    "generate(",
+    "pull(",
+)
+M22_LOCAL_RUNTIME_ALLOWED_SOURCE_FILES = {
+    "src/ultimate_ai_agent/core/model_runtime/local_adapter.py",
+    "src/ultimate_ai_agent/core/model_runtime/manual_loopback_transport.py",
+    "src/ultimate_ai_agent/core/model_runtime/smoke_policy.py",
+    "src/ultimate_ai_agent/core/model_runtime/simulator.py",
+    "src/ultimate_ai_agent/core/model_runtime/transports.py",
 }
 
 
@@ -131,6 +160,23 @@ def find_openwebui_forbidden_runtime_fragment_failures(root=ROOT):
             for fragment in OPENWEBUI_FORBIDDEN_RUNTIME_FRAGMENTS:
                 if fragment in text:
                     failures.append(f"Forbidden OpenWebUI runtime/config fragment in {rel}: {fragment}")
+    return failures
+
+def find_m22_local_runtime_forbidden_fragment_failures(root=ROOT):
+    failures = []
+    runtime_root = Path(root) / "src" / "ultimate_ai_agent" / "core" / "model_runtime"
+    if not runtime_root.exists():
+        return failures
+    for path in runtime_root.rglob("*.py"):
+        rel = path.relative_to(root).as_posix()
+        if "__pycache__" in path.parts:
+            continue
+        if rel in M22_LOCAL_RUNTIME_ALLOWED_SOURCE_FILES:
+            continue
+        text = path.read_text(encoding="utf-8").lower()
+        for fragment in M22_LOCAL_RUNTIME_FORBIDDEN_FRAGMENTS:
+            if fragment in text:
+                failures.append(f"Forbidden M22 local runtime activation fragment in {rel}: {fragment}")
     return failures
 
 def verify_no_generated_artifacts():
@@ -708,6 +754,67 @@ def verify_no_openwebui_runtime_or_config_implementation():
         sys.exit(1)
 
     print("OK: No OpenWebUI runtime, deployment config, dependency, or execution route implementation detected")
+
+def verify_no_local_runtime_activation_implementation():
+    print("\n[Verifier] Running M22 local runtime activation contract-only guard...")
+    forbidden_dependencies = [
+        '"ollama"',
+        '"llama-cpp-python"',
+        '"mlx"',
+        '"vllm"',
+        '"lmstudio"',
+        "ollama==",
+        "llama-cpp-python==",
+        "mlx==",
+        "vllm==",
+        "lmstudio==",
+    ]
+    for rel_path in ["apps/control-center/package.json", "pyproject.toml"]:
+        path = ROOT / rel_path
+        if not path.exists():
+            continue
+        text = path.read_text(encoding="utf-8").lower()
+        for fragment in forbidden_dependencies:
+            if fragment in text:
+                print(f"FAIL: Forbidden local runtime dependency fragment in {rel_path}: {fragment}")
+                sys.exit(1)
+
+    for failure in find_m22_local_runtime_forbidden_fragment_failures(ROOT):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+
+        paths = set(app.openapi().get("paths", {}))
+    except Exception as exc:
+        print(f"FAIL: M22 OpenAPI guard could not generate schema: {exc}")
+        sys.exit(1)
+    forbidden_routes = {
+        "/runtime/activate",
+        "/runtime/probe",
+        "/runtime/local/activate",
+        "/runtime/local/probe",
+        "/runtime/local/call",
+        "/runtime/local/generate",
+        "/model-runtime/activate",
+        "/model-runtime/probe",
+        "/model-runtime/local/activate",
+        "/model-runtime/local/probe",
+        "/model-runtime/local/call",
+        "/model-runtime/local/generate",
+        "/model-runtime/execute",
+    }
+    if len(paths) != 74:
+        print(f"FAIL: M22 expected OpenAPI path count 74, found {len(paths)}")
+        sys.exit(1)
+    forbidden_present = sorted(paths.intersection(forbidden_routes))
+    if forbidden_present:
+        print(f"FAIL: M22 forbidden runtime activation route(s) present: {', '.join(forbidden_present)}")
+        sys.exit(1)
+
+    print("OK: No M22 local runtime activation, endpoint probe, runtime client, dependency, or route implementation detected")
 
 def verify_no_shell_execution_in_runtime():
     print("\n[Verifier] Running runtime shell/subprocess execution scan...")

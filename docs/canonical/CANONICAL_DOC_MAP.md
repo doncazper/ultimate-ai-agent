@@ -1,6 +1,6 @@
 # Canonical Document Map
 
-Current active baseline: **v0.25.1**
+Current active baseline: **v0.26.0**
 
 This map links major systems to their canonical documentation. If a system has both canonical docs and runtime/API docs, canonical docs define principles and sequencing while runtime/API docs define current implementation boundaries.
 
@@ -32,12 +32,13 @@ This map links major systems to their canonical documentation. If a system has b
 | Local Loopback Runtime | `docs/runtime/local_loopback_model_runtime.md`, `docs/canonical/57_local_runtime_and_offline_agent_infrastructure.md` |
 | Manual Smoke Harness | `docs/runtime/local_loopback_model_runtime.md` |
 | Runtime Readiness | `docs/runtime/RUNTIME_READINESS.md`, `docs/runtime/MANUAL_SMOKE_REPORTS.md`, `docs/runtime/RUNTIME_CAPABILITY_MATRIX.md` |
+| Local Model Runtime Activation Contract | `docs/runtime/LOCAL_MODEL_RUNTIME_ACTIVATION_CONTRACT.md`, `docs/runtime/LOCAL_RUNTIME_PROVIDER_PROFILES.md`, `docs/runtime/LOCAL_RUNTIME_ENDPOINT_POLICY.md`, `docs/runtime/LOCAL_RUNTIME_HEALTH_PROBE_PLAN.md`, `docs/runtime/LOCAL_RUNTIME_ACTIVATION_SECURITY_MODEL.md`, `docs/runtime/LOCAL_RUNTIME_ACTIVATION_NON_GOALS.md`, `docs/runtime/LOCAL_RUNTIME_M22_TO_M23_BOUNDARY.md` |
 | Remote Worker Foundation | `docs/remote/REMOTE_WORKER_FOUNDATION.md`, `docs/remote/REMOTE_NODE_SECURITY_MODEL.md`, `docs/remote/REMOTE_JOB_ENVELOPE.md` |
 | Private Mesh / Headscale / WireGuard / Tailscale Taxonomy | `docs/remote/PRIVATE_MESH_TRANSPORT_POLICY.md`, `docs/remote/TAILNET_TRANSPORT_POLICY.md`, `docs/decisions/ADR-open-source-first-private-networking.md` |
 | Mobile Companion | `docs/canonical/64_mobile_companion_and_device_capability_broker.md`, `docs/mobile/MOBILE_COMPANION_CONTRACT.md`, `docs/mobile/MOBILE_CLIENT_SURFACE_ROLES.md`, `docs/mobile/MOBILE_API_PLANNING.md`, `docs/mobile/MOBILE_PERMISSION_RECEIPT_FLOW.md`, `docs/mobile/MOBILE_SENSOR_BOUNDARY.md`, `docs/mobile/MOBILE_SECURITY_MODEL.md`, `docs/mobile/MOBILE_CAPTURE_POLICY.md`, `docs/mobile/CCC_IOS_ANDROID_STRATEGY.md`, `docs/mobile/MOBILE_PAIRING_TRUST_PLANNING.md`, `docs/mobile/MOBILE_COMPANION_NON_GOALS.md`, `docs/backlog/mobile_companion_backlog.md` |
 | Device Capability Broker | `docs/canonical/64_mobile_companion_and_device_capability_broker.md`, `docs/canonical/65_mobile_device_registry_and_sensor_permission_manifest.md`, `docs/device_capabilities/DEVICE_CAPABILITY_BROKER_CONTRACT.md`, `docs/device_capabilities/CAPABILITY_MANIFEST_SCHEMA.md`, `docs/device_capabilities/DEVICE_PERMISSION_LIFECYCLE.md`, `docs/device_capabilities/CAPTURE_INTENT_CONTRACT.md`, `docs/device_capabilities/SENSOR_BOUNDARY_AND_NON_GOALS.md`, `docs/device_capabilities/DEVICE_TRUST_AND_REVOCATION_CONTRACT.md`, `docs/device_capabilities/DEVICE_RECEIPT_AND_REDACTION_POLICY.md`, `docs/device_capabilities/DEVICE_CAPABILITY_SECURITY_MODEL.md`, `docs/device_capabilities/DEVICE_CAPABILITY_BROKER_NON_GOALS.md`, `docs/mobile/MOBILE_SENSOR_BOUNDARY.md`, `docs/backlog/device_capability_broker_backlog.md` |
 | Codex Plugin and External Tooling Governance | `docs/canonical/66_external_tooling_and_codex_plugin_governance.md`, `docs/tooling/CODEX_PLUGIN_CAPABILITY_INVENTORY.md`, `docs/tooling/CODEX_PLUGIN_RISK_POLICY.md`, `docs/backlog/codex_plugin_enablement_backlog.md` |
-| Foundation Gate | `docs/implementation/foundation_gate_implementation_plan_v0_24_1.md`, `docs/evals/foundation_gate_eval.md` |
+| Foundation Gate | `docs/implementation/foundation_gate_implementation_plan_v0_26_0.md`, `docs/evals/foundation_gate_eval.md` |
 | Testing Strategy | `docs/testing/test_strategy_v0.md`, `docs/testing/contract_test_matrix_v0_5_0.md`, `docs/testing/shadow_replay_plan_v0_5_0.md` |
 
 ## Source-of-Truth Hierarchy

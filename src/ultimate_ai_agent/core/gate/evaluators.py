@@ -164,6 +164,61 @@ M21_FORBIDDEN_BACKEND_ROUTES = (
     "/runtime/execute",
     "/model-runtime/execute",
 )
+EXPECTED_M22_OPENAPI_PATH_COUNT = 74
+M22_FORBIDDEN_BACKEND_ROUTES = (
+    "/runtime/activate",
+    "/runtime/probe",
+    "/runtime/local/activate",
+    "/runtime/local/probe",
+    "/runtime/local/call",
+    "/runtime/local/generate",
+    "/model-runtime/activate",
+    "/model-runtime/probe",
+    "/model-runtime/local/activate",
+    "/model-runtime/local/probe",
+    "/model-runtime/local/call",
+    "/model-runtime/local/generate",
+    "/model-runtime/execute",
+)
+M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
+    "import ollama",
+    "from ollama import",
+    "import llama_cpp",
+    "from llama_cpp import",
+    "import mlx",
+    "from mlx import",
+    "import vllm",
+    "from vllm import",
+    "import lmstudio",
+    "import " + "requests",
+    "import " + "httpx",
+    "subprocess",
+    ".post(",
+    ".get(",
+    ".request(",
+    "create_completion",
+    "chat.completions",
+    "generate(",
+    "pull(",
+)
+M22_LOCAL_RUNTIME_SCAN_EXCLUDED_DIRS = {
+    ".git",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".venv",
+    "__pycache__",
+    "build",
+    "dist",
+    "node_modules",
+}
+M22_LOCAL_RUNTIME_ALLOWED_SOURCE_FILES = {
+    "src/ultimate_ai_agent/core/model_runtime/local_adapter.py",
+    "src/ultimate_ai_agent/core/model_runtime/manual_loopback_transport.py",
+    "src/ultimate_ai_agent/core/model_runtime/smoke_policy.py",
+    "src/ultimate_ai_agent/core/model_runtime/simulator.py",
+    "src/ultimate_ai_agent/core/model_runtime/transports.py",
+}
 M21_FORBIDDEN_OPENWEBUI_CONFIG_PATH_FRAGMENTS = (
     "docker-compose.openwebui",
     "openwebui.config",
@@ -277,6 +332,35 @@ def m21_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
     forbidden_present = sorted(path for path in M21_FORBIDDEN_BACKEND_ROUTES if path in path_set)
     if forbidden_present:
         failures.append(f"M21 forbidden backend route(s) present: {', '.join(forbidden_present)}")
+    return failures
+
+
+def m22_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M22_OPENAPI_PATH_COUNT) -> List[str]:
+    failures: List[str] = []
+    path_set = set(paths)
+    if len(path_set) != expected_path_count:
+        failures.append(f"M22 OpenAPI path count changed: expected {expected_path_count}, found {len(path_set)}")
+    forbidden_present = sorted(path for path in M22_FORBIDDEN_BACKEND_ROUTES if path in path_set)
+    if forbidden_present:
+        failures.append(f"M22 forbidden backend route(s) present: {', '.join(forbidden_present)}")
+    return failures
+
+
+def m22_local_runtime_forbidden_fragment_failures(root: Path) -> List[str]:
+    failures: List[str] = []
+    runtime_root = root / "src" / "ultimate_ai_agent" / "core" / "model_runtime"
+    if not runtime_root.exists():
+        return failures
+    for path in runtime_root.rglob("*.py"):
+        rel = path.relative_to(root).as_posix()
+        if any(part in M22_LOCAL_RUNTIME_SCAN_EXCLUDED_DIRS for part in path.parts):
+            continue
+        if rel in M22_LOCAL_RUNTIME_ALLOWED_SOURCE_FILES:
+            continue
+        text = path.read_text(encoding="utf-8").lower()
+        for fragment in M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS:
+            if fragment in text:
+                failures.append(f"M22 forbidden local runtime fragment in {rel}: {fragment}")
     return failures
 
 
@@ -462,6 +546,9 @@ class FoundationGateEvaluator:
             "m19_mobile_companion_contract_planning_safe": self.check_m19_mobile_companion_contract_planning_safe,
             "m20_device_capability_broker_contract_safe": self.check_m20_device_capability_broker_contract_safe,
             "m21_openwebui_bridge_contract_safe": self.check_m21_openwebui_bridge_contract_safe,
+            "m22_local_model_runtime_activation_contract_safe": (
+                self.check_m22_local_model_runtime_activation_contract_safe
+            ),
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -4341,8 +4428,114 @@ class FoundationGateEvaluator:
         roadmap_text = self._read(self.root / "docs/canonical/09_roadmap.md").lower()
         if "v0.25.0 / m21" not in roadmap_text or "implemented" not in roadmap_text:
             failures.append("canonical roadmap must mark v0.25.0 / M21 implemented")
-        if "v0.26.0 / m22" not in roadmap_text or "planned/provisional" not in roadmap_text:
+        active_version = self._active_version() or "0.0.0"
+        version_tuple = tuple(int(part) for part in active_version.split("."))
+        if version_tuple >= (0, 26, 0):
+            if "v0.26.0 / m22" not in roadmap_text or "implemented" not in roadmap_text:
+                failures.append("canonical roadmap must mark v0.26.0 / M22 implemented")
+        elif "v0.26.0 / m22" not in roadmap_text or "planned/provisional" not in roadmap_text:
             failures.append("canonical roadmap must keep M22 planned/provisional")
+        if "v0.27.0 / m23" not in roadmap_text or "planned/provisional" not in roadmap_text:
+            failures.append("canonical roadmap must keep M23 planned/provisional")
+
+        return self._result(criterion, failures, required_files)
+
+    def check_m22_local_model_runtime_activation_contract_safe(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.model_runtime import (
+            LocalModelRuntimeKind,
+            LocalModelRuntimeStatus,
+            build_default_local_runtime_activation_manifest,
+            validate_local_runtime_activation_manifest,
+        )
+
+        required_files = [
+            "src/ultimate_ai_agent/core/model_runtime/activation.py",
+            "src/ultimate_ai_agent/core/model_runtime/provider_profiles.py",
+            "src/ultimate_ai_agent/core/model_runtime/endpoint_policy.py",
+            "src/ultimate_ai_agent/core/model_runtime/health_plan.py",
+            "src/ultimate_ai_agent/core/model_runtime/activation_manifest.py",
+            "tests/test_local_runtime_activation_contracts.py",
+            "tests/test_local_runtime_provider_profiles.py",
+            "tests/test_local_runtime_endpoint_policy.py",
+            "tests/test_local_runtime_activation_validation.py",
+            "tests/test_local_runtime_health_probe_plan.py",
+            "tests/test_local_runtime_no_execution.py",
+            "tests/test_m22_gate_integration.py",
+            "docs/runtime/LOCAL_MODEL_RUNTIME_ACTIVATION_CONTRACT.md",
+            "docs/runtime/LOCAL_RUNTIME_PROVIDER_PROFILES.md",
+            "docs/runtime/LOCAL_RUNTIME_ENDPOINT_POLICY.md",
+            "docs/runtime/LOCAL_RUNTIME_HEALTH_PROBE_PLAN.md",
+            "docs/runtime/LOCAL_RUNTIME_ACTIVATION_SECURITY_MODEL.md",
+            "docs/runtime/LOCAL_RUNTIME_ACTIVATION_NON_GOALS.md",
+            "docs/runtime/LOCAL_RUNTIME_M22_TO_M23_BOUNDARY.md",
+            "docs/implementation/foundation_gate_implementation_plan_v0_26_0.md",
+            "docs/release_notes/v0_26_0.md",
+        ]
+        failures = [
+            f"missing M22 local runtime activation contract file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+
+        try:
+            manifest = build_default_local_runtime_activation_manifest()
+            validate_local_runtime_activation_manifest(manifest)
+            if manifest.status != LocalModelRuntimeStatus.contract_only:
+                failures.append("default local runtime activation manifest is not contract-only")
+            if manifest.activation_allowed_now:
+                failures.append("default local runtime activation manifest allows activation")
+            if manifest.real_model_call_allowed:
+                failures.append("default local runtime activation manifest allows a real model call")
+            if manifest.runtime_execution_allowed:
+                failures.append("default local runtime activation manifest allows runtime execution")
+            if manifest.provider_call_allowed:
+                failures.append("default local runtime activation manifest allows provider call")
+            if manifest.endpoint_probe_allowed:
+                failures.append("default local runtime activation manifest allows endpoint probe")
+            if manifest.user_content_allowed:
+                failures.append("default local runtime activation manifest allows user content")
+            if manifest.tool_call_allowed:
+                failures.append("default local runtime activation manifest allows tool call")
+            if manifest.memory_write_allowed:
+                failures.append("default local runtime activation manifest allows memory write")
+            if manifest.secret_material_allowed:
+                failures.append("default local runtime activation manifest allows secret material")
+            if not manifest.no_model_called:
+                failures.append("default manifest must record no model was called")
+            if not manifest.no_runtime_activated:
+                failures.append("default manifest must record no runtime was activated")
+            if not manifest.no_endpoint_contacted:
+                failures.append("default manifest must record no endpoint was contacted")
+            kinds = {profile.kind for profile in manifest.provider_profiles}
+            expected_kinds = {
+                LocalModelRuntimeKind.ollama_planned,
+                LocalModelRuntimeKind.llama_cpp_planned,
+                LocalModelRuntimeKind.mlx_planned,
+                LocalModelRuntimeKind.vllm_planned,
+                LocalModelRuntimeKind.lm_studio_planned,
+                LocalModelRuntimeKind.openai_compatible_local_planned,
+                LocalModelRuntimeKind.generic_loopback_http_planned,
+            }
+            if kinds != expected_kinds:
+                failures.append("default local runtime activation manifest missing provider profiles")
+        except Exception as exc:
+            failures.append(f"M22 local runtime activation default contract failed validation: {exc}")
+
+        try:
+            openapi_paths = app.openapi().get("paths", {})
+        except Exception as exc:
+            failures.append(f"M22 OpenAPI route guard could not generate schema: {exc}")
+        else:
+            failures.extend(m22_openapi_route_failures(openapi_paths))
+
+        failures.extend(m22_local_runtime_forbidden_fragment_failures(self.root))
+
+        roadmap_text = self._read(self.root / "docs/canonical/09_roadmap.md").lower()
+        if "v0.26.0 / m22" not in roadmap_text or "implemented" not in roadmap_text:
+            failures.append("canonical roadmap must mark v0.26.0 / M22 implemented")
         if "v0.27.0 / m23" not in roadmap_text or "planned/provisional" not in roadmap_text:
             failures.append("canonical roadmap must keep M23 planned/provisional")
 
@@ -4466,7 +4659,10 @@ class FoundationGateEvaluator:
         for failure, fragment in expectations.items():
             if fragment not in roadmap_text:
                 failures.append(failure)
-        implemented_claims = [f"m{number} is implemented" for number in range(22, 41)] + [
+        active_version = self._active_version() or "0.0.0"
+        version_tuple = tuple(int(part) for part in active_version.split("."))
+        implemented_claim_start = 23 if version_tuple >= (0, 26, 0) else 22
+        implemented_claims = [f"m{number} is implemented" for number in range(implemented_claim_start, 41)] + [
             "m21-m40 are implemented",
             "m21 through m40 are implemented",
             "post-m20 capabilities are implemented",

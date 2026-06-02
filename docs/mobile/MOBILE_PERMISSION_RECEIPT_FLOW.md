@@ -48,4 +48,5 @@ background service, notification runtime, dependency, runtime execution,
 model/provider call, remote execution, plugin enablement, OpenWebUI
 integration, or production authority is added. v0.25.0 implements M21
 OpenWebUI Bridge + Chat Shell Integration Contract as contract/planning/
-validation only. M22 and M23 remain planned/provisional.
+validation only. v0.26.0 implements M22 contract-only, and M23 remains
+planned/provisional.

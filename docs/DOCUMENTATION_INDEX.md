@@ -1,6 +1,6 @@
 # Documentation Index
 
-Current active baseline: **v0.25.1**
+Current active baseline: **v0.26.0**
 
 This index is the active entrypoint for documentation navigation. Historical release documents remain in the repository for audit history, but active truth starts with the current baseline files listed here.
 
@@ -9,8 +9,8 @@ This index is the active entrypoint for documentation navigation. Historical rel
 ```text
 README.md
 VERSION.md
-README_IMPORT_v0_25_1.md
-ultimate_ai_agent_master_plan_v0_25_1.md
+README_IMPORT_v0_26_0.md
+ultimate_ai_agent_master_plan_v0_26_0.md
 docs/canonical/CANONICAL_DOC_MAP.md
 docs/canonical/09_roadmap.md
 docs/roadmap/MILESTONE_CHARTERS.md
@@ -35,6 +35,13 @@ docs/openwebui/OPENWEBUI_SECURITY_MODEL.md
 docs/openwebui/OPENWEBUI_AUTHORITY_BOUNDARY.md
 docs/openwebui/OPENWEBUI_NON_GOALS.md
 docs/openwebui/OPENWEBUI_FUTURE_INTEGRATION_STAGES.md
+docs/runtime/LOCAL_MODEL_RUNTIME_ACTIVATION_CONTRACT.md
+docs/runtime/LOCAL_RUNTIME_PROVIDER_PROFILES.md
+docs/runtime/LOCAL_RUNTIME_ENDPOINT_POLICY.md
+docs/runtime/LOCAL_RUNTIME_HEALTH_PROBE_PLAN.md
+docs/runtime/LOCAL_RUNTIME_ACTIVATION_SECURITY_MODEL.md
+docs/runtime/LOCAL_RUNTIME_ACTIVATION_NON_GOALS.md
+docs/runtime/LOCAL_RUNTIME_M22_TO_M23_BOUNDARY.md
 docs/device_capabilities/DEVICE_CAPABILITY_BROKER_CONTRACT.md
 docs/device_capabilities/CAPABILITY_MANIFEST_SCHEMA.md
 docs/device_capabilities/DEVICE_PERMISSION_LIFECYCLE.md
@@ -123,7 +130,7 @@ docs/control_center/MANUAL_SMOKE_CONTROL_SURFACE.md
 docs/control_center/RUNTIME_SMOKE_UI_SAFETY.md
 ```
 
-M12 Control Center docs describe backend contracts, read-only dashboard snapshots, and action preview policy only. M13 adds a local Web Control Center shell that consumes those routes, renders safe mock fallback data, and submits only preview-only action requests. v0.17.4 polishes local shell reviewability and adds safe local browser smoke reporting documentation. v0.18.0 / M14 stabilizes local backend connection behavior with local-only API base URL policy and visible live/degraded/mock fallback states. v0.18.1 hardens M14 connection safety for public/private non-loopback hosts, URL credentials, secret-like query parameters, and unknown/checking states. v0.18.2 adds Open Design governance docs for Control Center and Mobile Companion UI work. v0.19.0 / M15 adds read-only/preview-only approval queue, receipt viewer, and event viewer UI surfaces with redacted summary-only data. v0.19.1 hardens M15 approval authority and redacted-detail safety copy plus static verifier/Foundation Gate checks. v0.20.0 / M16 adds a read-only event timeline and run/receipt trace viewer with safe refs and Foundation Gate evidence summaries. v0.20.1 hardens M16 trace/redaction safety, second-trace selection coverage, generated build-output hygiene, and no-backend-route Foundation Gate checks. v0.21.0 / M17 adds read-only evidence, file ref, and memory ref summary viewers. v0.21.1 hardens M17 selected-state reviewability, alternate safe mock refs, frontend tests, static verifier coverage, docs, and Foundation Gate checks. v0.21.2 normalizes developer verification commands around `.venv/bin/python` and Makefile targets. v0.22.0 / M18 adds read-only local runtime status and validation-only manual smoke report summary surfaces. v0.23.0 / M19 adds mobile companion contract/API planning only. v0.23.1 hardens M19 roadmap status and mobile contract safety tests only. v0.24.0 / M20 adds Device Capability Broker Contract as contract-only planning and validation. v0.24.1 hardens M20 Device Capability Broker Contract safety without adding runtime authority. v0.25.0 / M21 adds OpenWebUI Bridge + Chat Shell Integration Contract as contract/planning/validation only. v0.25.1 hardens M21 OpenWebUI content-mode semantics, authority text validation, and verifier/Foundation Gate scanning without adding execution capability.
+M12 Control Center docs describe backend contracts, read-only dashboard snapshots, and action preview policy only. M13 adds a local Web Control Center shell that consumes those routes, renders safe mock fallback data, and submits only preview-only action requests. v0.17.4 polishes local shell reviewability and adds safe local browser smoke reporting documentation. v0.18.0 / M14 stabilizes local backend connection behavior with local-only API base URL policy and visible live/degraded/mock fallback states. v0.18.1 hardens M14 connection safety for public/private non-loopback hosts, URL credentials, secret-like query parameters, and unknown/checking states. v0.18.2 adds Open Design governance docs for Control Center and Mobile Companion UI work. v0.19.0 / M15 adds read-only/preview-only approval queue, receipt viewer, and event viewer UI surfaces with redacted summary-only data. v0.19.1 hardens M15 approval authority and redacted-detail safety copy plus static verifier/Foundation Gate checks. v0.20.0 / M16 adds a read-only event timeline and run/receipt trace viewer with safe refs and Foundation Gate evidence summaries. v0.20.1 hardens M16 trace/redaction safety, second-trace selection coverage, generated build-output hygiene, and no-backend-route Foundation Gate checks. v0.21.0 / M17 adds read-only evidence, file ref, and memory ref summary viewers. v0.21.1 hardens M17 selected-state reviewability, alternate safe mock refs, frontend tests, static verifier coverage, docs, and Foundation Gate checks. v0.21.2 normalizes developer verification commands around `.venv/bin/python` and Makefile targets. v0.22.0 / M18 adds read-only local runtime status and validation-only manual smoke report summary surfaces. v0.23.0 / M19 adds mobile companion contract/API planning only. v0.23.1 hardens M19 roadmap status and mobile contract safety tests only. v0.24.0 / M20 adds Device Capability Broker Contract as contract-only planning and validation. v0.24.1 hardens M20 Device Capability Broker Contract safety without adding runtime authority. v0.25.0 / M21 adds OpenWebUI Bridge + Chat Shell Integration Contract as contract/planning/validation only. v0.25.1 hardens M21 OpenWebUI content-mode semantics, authority text validation, and verifier/Foundation Gate scanning without adding execution capability. v0.26.0 / M22 adds Local Model Runtime Activation Contract as contract/planning/validation only.
 
 ## Active Design Governance Docs
 
@@ -155,7 +162,7 @@ docs/ui/CCC_NATIVE_CLIENT_STRATEGY.md
 
 v0.18.3 clarifies that OpenWebUI is the preferred conversational web shell, CCC means Control Center Clients, and CCC covers CCC Web, CCC iOS, CCC Android, and CCC macOS. Open Design governs custom CCC surfaces and does not replace OpenWebUI. These docs add no OpenWebUI integration, deployment config, frontend feature, backend API route, native app, native build workflow, mobile sensor access, OS permission integration, signing, keystore, provisioning, App Store, or Play Store workflow.
 
-v0.25.1 hardens M21 OpenWebUI Bridge + Chat Shell Integration Contract safety while keeping M21 contract/planning/validation only. OpenWebUI remains the preferred conversational web shell and is not the agent brain. Python Agent Core remains authority. M21 allows only summary/ref/redacted-preview content modes, rejects blocked raw/future modes for refs and envelopes, permits safe negated authority-boundary text, rejects positive OpenWebUI authority claims, and scans the OpenWebUI bridge package for forbidden runtime/config fragments. M21 adds no OpenWebUI integration, deployment config, Docker config, OpenWebUI plugins/functions/pipelines/tools/admin/auth/cookie/API key/admin token workflow, browser profile access, live OpenWebUI connection, backend API route, frontend feature, runtime execution, local LLM call, model/provider call, tool execution, memory write, file access, remote execution, browser automation, Computer Use, mobile sensor access, plugin enablement, dependency, or production authority. M22 and M23 remain planned/provisional.
+v0.25.1 hardens M21 OpenWebUI Bridge + Chat Shell Integration Contract safety while keeping M21 contract/planning/validation only. OpenWebUI remains the preferred conversational web shell and is not the agent brain. Python Agent Core remains authority. M21 allows only summary/ref/redacted-preview content modes, rejects blocked raw/future modes for refs and envelopes, permits safe negated authority-boundary text, rejects positive OpenWebUI authority claims, and scans the OpenWebUI bridge package for forbidden runtime/config fragments. M21 adds no OpenWebUI integration, deployment config, Docker config, OpenWebUI plugins/functions/pipelines/tools/admin/auth/cookie/API key/admin token workflow, browser profile access, live OpenWebUI connection, backend API route, frontend feature, runtime execution, local LLM call, model/provider call, tool execution, memory write, file access, remote execution, browser automation, Computer Use, mobile sensor access, plugin enablement, dependency, or production authority. v0.26.0 implements M22 as contract-only metadata/validation. M23 remains planned/provisional.
 
 ## Active Post-M20 Roadmap Projection Docs
 
@@ -177,11 +184,20 @@ docs/runtime/local_loopback_model_runtime.md
 docs/runtime/RUNTIME_READINESS.md
 docs/runtime/MANUAL_SMOKE_REPORTS.md
 docs/runtime/RUNTIME_CAPABILITY_MATRIX.md
+docs/runtime/LOCAL_MODEL_RUNTIME_ACTIVATION_CONTRACT.md
+docs/runtime/LOCAL_RUNTIME_PROVIDER_PROFILES.md
+docs/runtime/LOCAL_RUNTIME_ENDPOINT_POLICY.md
+docs/runtime/LOCAL_RUNTIME_HEALTH_PROBE_PLAN.md
+docs/runtime/LOCAL_RUNTIME_ACTIVATION_SECURITY_MODEL.md
+docs/runtime/LOCAL_RUNTIME_ACTIVATION_NON_GOALS.md
+docs/runtime/LOCAL_RUNTIME_M22_TO_M23_BOUNDARY.md
 ```
 
 Model runtime docs distinguish simulated runtime behavior, dev/manual loopback readiness, fixed-prompt manual smoke, and non-authoritative model output. They do not describe general production model execution.
 
 M11 runtime readiness docs describe status/report validation only. They do not describe production runtime execution. v0.15.1 clarifies local loopback policy as supported validation-only and `fake_manual_loopback_smoke` as a fake/test report origin only.
+
+v0.26.0 / M22 adds Local Model Runtime Activation Contract docs as contract/planning/validation only. No model was called. No runtime was activated. No endpoint was contacted. M22 adds no backend API route, runtime execution, local LLM call, provider call, endpoint probe, user prompt processing, tool execution, memory write, file write, OpenWebUI runtime behavior, dependency, or production authority. M23 remains planned/provisional.
 
 ## Active Remote Worker and Private Mesh Docs
 
@@ -257,7 +273,7 @@ The Codex plugin capability inventory and risk policy record available developme
 
 ## Release Notes Index
 
-Current release notes: `docs/release_notes/v0_25_1.md`
+Current release notes: `docs/release_notes/v0_26_0.md`
 
 Historical release notes remain under `docs/release_notes/`. Historical docs may mention old active baselines in historical context; they are not the current source of truth.
 

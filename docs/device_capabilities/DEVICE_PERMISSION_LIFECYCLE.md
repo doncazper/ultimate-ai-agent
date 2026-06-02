@@ -36,4 +36,5 @@ future contract metadata only and cannot imply current capture execution.
 OS permission runtime, notification push runtime, background service runtime,
 background capture, passive capture, and continuous capture remain blocked.
 v0.25.0 implements M21 OpenWebUI Bridge + Chat Shell Integration Contract as
-contract/planning/validation only. M22 and M23 remain planned/provisional.
+contract/planning/validation only. v0.26.0 implements M22 contract-only, and
+M23 remains planned/provisional.

@@ -1,12 +1,12 @@
-# Ultimate AI Agent Canonical Bundle v0.25.1
+# Ultimate AI Agent Canonical Bundle v0.26.0
 
-This is the active project baseline after v0.25.1 / M21 OpenWebUI Bridge Contract Safety Hardening.
+This is the active project baseline after v0.26.0 / M22 Local Model Runtime Activation Contract.
 
 Start here:
 
 ```text
-README_IMPORT_v0_25_1.md
-ultimate_ai_agent_master_plan_v0_25_1.md
+README_IMPORT_v0_26_0.md
+ultimate_ai_agent_master_plan_v0_26_0.md
 docs/DOCUMENTATION_INDEX.md
 docs/canonical/09_roadmap.md
 docs/canonical/CANONICAL_DOC_MAP.md
@@ -95,8 +95,15 @@ docs/runtime/local_loopback_model_runtime.md
 docs/runtime/RUNTIME_READINESS.md
 docs/runtime/MANUAL_SMOKE_REPORTS.md
 docs/runtime/RUNTIME_CAPABILITY_MATRIX.md
+docs/runtime/LOCAL_MODEL_RUNTIME_ACTIVATION_CONTRACT.md
+docs/runtime/LOCAL_RUNTIME_PROVIDER_PROFILES.md
+docs/runtime/LOCAL_RUNTIME_ENDPOINT_POLICY.md
+docs/runtime/LOCAL_RUNTIME_HEALTH_PROBE_PLAN.md
+docs/runtime/LOCAL_RUNTIME_ACTIVATION_SECURITY_MODEL.md
+docs/runtime/LOCAL_RUNTIME_ACTIVATION_NON_GOALS.md
+docs/runtime/LOCAL_RUNTIME_M22_TO_M23_BOUNDARY.md
 docs/security/approval_authority.md
-docs/implementation/foundation_gate_implementation_plan_v0_25_1.md
+docs/implementation/foundation_gate_implementation_plan_v0_26_0.md
 docs/maintenance/documentation_integrity_checklist.md
 docs/tooling/CODEX_PLUGIN_CAPABILITY_INVENTORY.md
 docs/tooling/CODEX_PLUGIN_RISK_POLICY.md
@@ -144,7 +151,11 @@ Device Capability Broker contract rule:
 
 OpenWebUI bridge contract rule:
 
-> v0.25.1 hardens M21 OpenWebUI Bridge + Chat Shell Integration Contract safety while keeping M21 contract/planning/validation only. OpenWebUI is the preferred conversational web shell and is not the agent brain. Python Agent Core remains authority. OpenWebUI refs are identifiers only and never authority. Chat ingress/egress contracts allow only summary/ref/redacted-preview content modes and reject raw content, secret-like metadata, direct tool execution, memory writes, runtime calls, provider calls, action execution, and approval grants. Static verifier and Foundation Gate scans include the OpenWebUI bridge package and recursively reject forbidden OpenWebUI config/path names outside docs. OpenAPI path count remains `74`. M22 Local Model Runtime Activation Contract and M23 First Real Local LLM Call remain planned/provisional. This release adds no OpenWebUI integration, deployment config, Docker config, OpenWebUI plugin/function/pipeline/tool/admin/auth/cookie/API key/admin token workflow, browser profile access, live OpenWebUI connection, backend API route, frontend feature, runtime execution, local LLM call, model/provider call, tool execution, memory write, file access, remote execution, browser automation, Computer Use, mobile sensor access, plugin enablement, dependency, or production authority.
+> v0.25.1 hardens M21 OpenWebUI Bridge + Chat Shell Integration Contract safety while keeping M21 contract/planning/validation only. OpenWebUI is the preferred conversational web shell and is not the agent brain. Python Agent Core remains authority. OpenWebUI refs are identifiers only and never authority. Chat ingress/egress contracts allow only summary/ref/redacted-preview content modes and reject raw content, secret-like metadata, direct tool execution, memory writes, runtime calls, provider calls, action execution, and approval grants. Static verifier and Foundation Gate scans include the OpenWebUI bridge package and recursively reject forbidden OpenWebUI config/path names outside docs. OpenAPI path count remains `74`. v0.26.0 now implements M22 Local Model Runtime Activation Contract as contract-only metadata/validation. M23 First Real Local LLM Call remains planned/provisional. M21 adds no OpenWebUI integration, deployment config, Docker config, OpenWebUI plugin/function/pipeline/tool/admin/auth/cookie/API key/admin token workflow, browser profile access, live OpenWebUI connection, backend API route, frontend feature, runtime execution, local LLM call, model/provider call, tool execution, memory write, file access, remote execution, browser automation, Computer Use, mobile sensor access, plugin enablement, dependency, or production authority.
+
+Local model runtime activation contract rule:
+
+> v0.26.0 implements M22 Local Model Runtime Activation Contract as contract/planning/validation only. It adds metadata-only local runtime activation contracts, planned-disabled provider profiles for Ollama, llama.cpp, MLX, vLLM, LM Studio, OpenAI-compatible local, and generic loopback HTTP runtimes, loopback/relative endpoint metadata policy, health probe plan validation, tests, docs, verifier coverage, and Foundation Gate criteria. No model was called. No runtime was activated. No endpoint was contacted. OpenAPI path count remains `74`. This release adds no backend API route, runtime execution, local LLM call, provider call, endpoint probe, user prompt processing, tool execution, memory write, file write, OpenWebUI runtime behavior, dependency, or production authority. M23 remains planned/provisional.
 
 Roadmap status label cleanup rule:
 

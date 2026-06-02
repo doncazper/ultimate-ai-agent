@@ -1,0 +1,71 @@
+from ultimate_ai_agent.core.gate import FoundationGateEvaluator, default_foundation_gate_criteria
+from ultimate_ai_agent.core.gate.evaluators import (
+    EXPECTED_M22_OPENAPI_PATH_COUNT,
+    M22_FORBIDDEN_BACKEND_ROUTES,
+    m22_local_runtime_forbidden_fragment_failures,
+    m22_openapi_route_failures,
+)
+from scripts.verify_all import find_m22_local_runtime_forbidden_fragment_failures
+
+
+def test_m22_local_runtime_activation_contract_criterion_exists_and_passes():
+    criteria = default_foundation_gate_criteria()
+    criteria_by_id = {criterion.criterion_id: criterion for criterion in criteria}
+
+    assert "m22_local_model_runtime_activation_contract_safe" in criteria_by_id
+    criterion = criteria_by_id["m22_local_model_runtime_activation_contract_safe"]
+    assert "contract-only" in criterion.pass_condition
+    assert "no model was called" in criterion.pass_condition
+    assert "no runtime was activated" in criterion.pass_condition
+    assert "OpenAPI path count at 74" in criterion.pass_condition
+    assert "M23 planned" in criterion.pass_condition
+
+    report = FoundationGateEvaluator().evaluate([criterion])
+
+    assert report.failed_count == 0
+    assert report.passed_count == 1
+
+
+def test_m22_openapi_route_guard_rejects_activation_or_probe_routes():
+    failures = m22_openapi_route_failures(
+        {
+            "/health",
+            "/runtime/activate",
+            "/runtime/probe",
+            "/runtime/local/activate",
+            "/model-runtime/activate",
+            "/model-runtime/probe",
+            "/model-runtime/local/call",
+        },
+        expected_path_count=EXPECTED_M22_OPENAPI_PATH_COUNT,
+    )
+
+    assert EXPECTED_M22_OPENAPI_PATH_COUNT == 74
+    assert "/runtime/activate" in M22_FORBIDDEN_BACKEND_ROUTES
+    assert "/model-runtime/probe" in M22_FORBIDDEN_BACKEND_ROUTES
+    assert "/model-runtime/local/call" in M22_FORBIDDEN_BACKEND_ROUTES
+    assert any("OpenAPI path count" in failure for failure in failures)
+    assert any("/runtime/activate" in failure for failure in failures)
+    assert any("/model-runtime/local/call" in failure for failure in failures)
+
+
+def test_m22_gate_scans_local_runtime_contract_sources_for_forbidden_fragments(tmp_path):
+    source_file = tmp_path / "src" / "ultimate_ai_agent" / "core" / "model_runtime" / "runtime_client.py"
+    source_file.parent.mkdir(parents=True)
+    source_file.write_text("import ollama\nclient.generate('hello')\n", encoding="utf-8")
+
+    failures = m22_local_runtime_forbidden_fragment_failures(tmp_path)
+
+    assert any("src/ultimate_ai_agent/core/model_runtime/runtime_client.py" in failure for failure in failures)
+    assert any("import ollama" in failure for failure in failures)
+
+
+def test_verify_all_m22_helper_matches_gate_scan(tmp_path):
+    source_file = tmp_path / "src" / "ultimate_ai_agent" / "core" / "model_runtime" / "runtime_client.py"
+    source_file.parent.mkdir(parents=True)
+    source_file.write_text("import httpx\nhttpx.post('http://localhost')\n", encoding="utf-8")
+
+    failures = find_m22_local_runtime_forbidden_fragment_failures(tmp_path)
+
+    assert any("src/ultimate_ai_agent/core/model_runtime/runtime_client.py" in failure for failure in failures)
+    assert any("import httpx" in failure for failure in failures)

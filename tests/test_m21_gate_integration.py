@@ -26,7 +26,7 @@ def test_m21_openwebui_bridge_contract_criterion_exists_and_passes():
     assert "no direct memory write" in criterion.pass_condition
     assert "no runtime execution" in criterion.pass_condition
     assert "OpenAPI path count at 74" in criterion.pass_condition
-    assert "M22 planned" in criterion.pass_condition
+    assert "M22 is now contract-only" in criterion.pass_condition
 
     report = FoundationGateEvaluator().evaluate([criterion])
 

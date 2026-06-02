@@ -377,6 +377,6 @@ raw content, secret-like metadata, arbitrary approval authority, direct tool exe
 static verifiers reject OpenWebUI runtime/config/dependency/route drift.
 Foundation Gate includes m21_openwebui_bridge_contract_safe.
 OpenAPI path count remains unchanged at 74.
-M22 and M23 remain planned/provisional.
+M22 is implemented/released contract-only by v0.26.0. M23 remains planned/provisional.
 No OpenWebUI integration, deployment config, Docker config, backend API route, frontend feature, runtime execution, local LLM call, model/provider call, tool execution, memory write, file access, remote execution, browser automation, Computer Use, mobile sensor access, plugin enablement, dependency, or production authority is added.
 ```

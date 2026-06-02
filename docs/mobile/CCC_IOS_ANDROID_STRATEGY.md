@@ -51,4 +51,5 @@ integration, background service, notification runtime, pairing runtime,
 backend API route, dependency, native build workflow, signing, keystore,
 provisioning, App Store workflow, Play Store workflow, or production authority.
 v0.25.0 implements M21 OpenWebUI Bridge + Chat Shell Integration Contract as
-contract/planning/validation only. M22 and M23 remain planned/provisional.
+contract/planning/validation only. v0.26.0 implements M22 contract-only, and
+M23 remains planned/provisional.

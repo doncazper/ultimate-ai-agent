@@ -43,4 +43,5 @@ Expo, Flutter, Capacitor, Ionic, signing, keystore, provisioning, App Store,
 Play Store workflow, sensor access, OS permission integration, backend API
 route, dependency, runtime execution, or production authority. v0.25.0
 implements M21 OpenWebUI Bridge + Chat Shell Integration Contract as
-contract/planning/validation only. M22 and M23 remain planned/provisional.
+contract/planning/validation only. v0.26.0 implements M22 contract-only, and
+M23 remains planned/provisional.

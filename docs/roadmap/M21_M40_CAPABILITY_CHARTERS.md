@@ -1,8 +1,8 @@
 # M21-M40 Capability Charters
 
-Status: Active roadmap projection maintained through v0.25.0. M21 is implemented/released contract-only; M22-M40 remain planned/provisional.
+Status: Active roadmap projection maintained through v0.26.0. M21 and M22 are implemented/released contract-only; M23-M40 remain planned/provisional.
 
-These charters define capability layers after M20. v0.25.0 implements M21 as contract/planning/validation only. M22-M40 are still future capability layers. Every milestone requires its own implementation prompt, review prompt, hardening expectation, and validation evidence before release.
+These charters define capability layers after M20. v0.25.0 implements M21 as contract/planning/validation only. v0.26.0 implements M22 as contract/planning/validation only. M23-M40 are still future capability layers. Every milestone requires its own implementation prompt, review prompt, hardening expectation, and validation evidence before release.
 
 ## Shared Rules
 
@@ -59,22 +59,27 @@ Notes: M21 is contract-only. OpenWebUI integration remains not implemented until
 
 ## v0.26.0 / M22 - Local Model Runtime Activation Contract
 
-Status: planned/provisional.
+Status: implemented/released contract-only.
 
 Purpose: Define how local runtimes like Ollama, llama.cpp, MLX, vLLM, and LM Studio can be represented safely.
 
 Allowed scope:
 
 - local runtime provider profiles.
-- local-only endpoint registry.
-- runtime health validation.
-- capability matrix updates.
-- manual approval requirements.
+- loopback/relative endpoint metadata policy.
+- activation policy, request, and decision contracts.
+- runtime health probe plan validation.
+- tests, docs, static verifier coverage, and Foundation Gate criteria.
 
 Must not add:
 
 - cloud provider calls.
 - external model APIs.
+- runtime activation.
+- endpoint probes.
+- real local model calls.
+- provider SDK imports.
+- runtime package imports.
 - tool use.
 - memory writes.
 - user-content execution.
@@ -82,15 +87,15 @@ Must not add:
 
 Dependencies: M21 contracts, runtime readiness docs, local-only endpoint policy.
 
-Acceptance criteria: local runtime profiles are metadata/validation-only and cannot execute user content, tools, or memory writes.
+Acceptance criteria: local runtime profiles are metadata/validation-only and cannot execute user content, tools, or memory writes. No model was called, no runtime was activated, no endpoint was contacted, and OpenAPI path count remains `74`.
 
 Review prompt required: yes.
 
 Hardening expectation: local endpoint, timeout, and secret handling hardening before M23.
 
-Source-of-truth docs: `docs/runtime/RUNTIME_READINESS.md`, `docs/runtime/RUNTIME_CAPABILITY_MATRIX.md`, `docs/roadmap/CAPABILITY_LAYERING_STRATEGY.md`.
+Source-of-truth docs: `docs/runtime/LOCAL_MODEL_RUNTIME_ACTIVATION_CONTRACT.md`, `docs/runtime/LOCAL_RUNTIME_PROVIDER_PROFILES.md`, `docs/runtime/LOCAL_RUNTIME_ENDPOINT_POLICY.md`, `docs/runtime/LOCAL_RUNTIME_HEALTH_PROBE_PLAN.md`, `docs/runtime/LOCAL_RUNTIME_ACTIVATION_SECURITY_MODEL.md`, `docs/runtime/LOCAL_RUNTIME_ACTIVATION_NON_GOALS.md`, `docs/runtime/LOCAL_RUNTIME_M22_TO_M23_BOUNDARY.md`, `docs/runtime/RUNTIME_READINESS.md`, `docs/runtime/RUNTIME_CAPABILITY_MATRIX.md`, `docs/roadmap/CAPABILITY_LAYERING_STRATEGY.md`.
 
-Notes: Free/open-source/self-hosted local runtimes should be evaluated first where practical.
+Notes: Free/open-source/self-hosted local runtimes should be evaluated first where practical. M23 remains planned/provisional.
 
 ## v0.27.0 / M23 - First Real Local LLM Call, Non-Tool, Non-Authoritative
 
@@ -774,7 +779,8 @@ Notes: Evals are not proof of production safety by themselves; they are gates an
 v0.23.0 / M19 is implemented as Mobile Companion Contract/API Planning only.
 M20 Device Capability Broker Contract is implemented/released as contract-only
 planning and validation. M21 is implemented/released by v0.25.0 as
-contract-only. M22-M40 remain planned/provisional. The M19 baseline
+contract-only. M22 is implemented/released by v0.26.0 as contract-only.
+M23-M40 remain planned/provisional. The M19 baseline
 adds no mobile app, Android app, iOS app, macOS app, native build workflow, OS
 permission integration, mobile sensor access, mobile approval execution,
 runtime execution, model/provider calls, remote execution, plugin enablement,
@@ -785,5 +791,6 @@ contracts are required before sensors.
 v0.23.1 is a cleanup/hardening patch for M19 roadmap status and mobile contract
 safety tests only. v0.24.0 implements M20 Device Capability Broker Contract
 only. v0.25.0 implements M21 OpenWebUI Bridge + Chat Shell Integration
-Contract only. M22-M40 remain planned/provisional until implemented by dedicated
-reviewed milestones.
+Contract only. M22 Local Model Runtime Activation Contract is implemented by
+v0.26.0 as contract/planning/validation only. M23-M40 remain
+planned/provisional until implemented by dedicated reviewed milestones.

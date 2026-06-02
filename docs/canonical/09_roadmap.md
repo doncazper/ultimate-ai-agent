@@ -1,4 +1,4 @@
-# 09 - Roadmap v0.25.1
+# 09 - Roadmap v0.26.0
 
 Status: Active foundation-first roadmap. This is the single roadmap source of truth.
 
@@ -25,7 +25,7 @@ The original foundation sequence established runtime hygiene, local runtime/cont
 
 ## Current accepted baseline
 
-The active accepted baseline is v0.25.1. It hardens v0.25.0 / M21 OpenWebUI Bridge + Chat Shell Integration Contract while keeping M21 contract/planning/validation only. v0.24.0 / M20 remains implemented/released as Device Capability Broker Contract only, and v0.24.1 remains its safety hardening patch. v0.23.0 / M19 is implemented/released as contract/API planning only. M22-M40 remain planned/provisional.
+The active accepted baseline is v0.26.0. It implements M22 Local Model Runtime Activation Contract as contract/planning/validation only. v0.25.0 / M21 remains implemented/released as OpenWebUI Bridge + Chat Shell Integration Contract only, and v0.25.1 remains its safety hardening patch. v0.24.0 / M20 remains implemented/released as Device Capability Broker Contract only, and v0.24.1 remains its safety hardening patch. v0.23.0 / M19 is implemented/released as contract/API planning only. M23-M40 remain planned/provisional.
 
 v0.25.0 adds:
 
@@ -37,6 +37,8 @@ v0.25.0 adds:
 v0.25.0 does not add OpenWebUI integration, deployment config, Docker config, OpenWebUI plugin/function/pipeline/tool/admin/auth/cookie/API key/admin token workflow, browser profile access, live OpenWebUI connection, backend API route, frontend feature, runtime execution, local LLM call, model/provider call, tool execution, memory write, file access, remote execution, browser automation, Computer Use, mobile sensor access, plugin enablement, dependency, or production authority.
 
 v0.25.1 hardens M21 by clarifying that `raw_content_blocked` and `future_requires_contract` are blocked content-mode sentinels, not valid ref/envelope modes; allowing safe negated authority-boundary text; rejecting positive OpenWebUI authority claims; scanning `src/ultimate_ai_agent/core/openwebui_bridge/` for forbidden runtime/config fragments; and recursively rejecting forbidden OpenWebUI config/path names outside docs. OpenAPI path count remains `74`. v0.25.1 adds no OpenWebUI integration, deployment config, Docker config, OpenWebUI plugin/function/pipeline/tool/admin/auth/cookie/API key/admin token workflow, browser profile access, live OpenWebUI connection, backend API route, frontend feature, runtime execution, local LLM call, model/provider call, tool execution, memory write, file access, remote execution, browser automation, Computer Use, mobile sensor access, plugin enablement, dependency, or production authority.
+
+v0.26.0 implements M22 Local Model Runtime Activation Contract as contract/planning/validation only. It adds metadata-only local runtime activation contracts, planned-disabled provider profiles, loopback/relative metadata endpoint policy validation, health probe plan validation, tests, static verifier coverage, Foundation Gate criteria, and docs. No model was called, no runtime was activated, and no endpoint was contacted. OpenAPI path count remains `74`. v0.26.0 adds no backend API route, runtime execution, local LLM call, model/provider call, endpoint probe, user prompt processing, tool execution, memory write, file write, OpenWebUI runtime behavior, dependency, or production authority. M23 remains planned/provisional.
 
 v0.24.1 adds:
 
@@ -109,9 +111,9 @@ v0.21.1 hardens M17 Evidence/File/Memory Viewer as frontend/test/verifier/Founda
 
 v0.21.2 normalizes developer environment commands as dev tooling/docs work only. It adds repo-local Makefile targets and `scripts/verify_dev_environment.py` so Codex and local shells use `.venv/bin/python` rather than relying on a bare `python` binary on PATH. It adds no M18 Local Runtime Status + Manual Smoke Control Surface, runtime feature, frontend feature, backend API path, OpenAPI path count change, dependency, global tool install, application behavior change, runtime/model/provider call, network call, mobile/native/browser/computer-use functionality, plugin enablement, or production capability.
 
-## Accepted baseline through v0.25.1
+## Accepted baseline through v0.26.0
 
-The active accepted baseline includes foundation modules through M10.5 plus documentation integrity synchronization, Codex plugin/external tooling governance, M11 runtime readiness/report validation, M12 Control Center backend contract/API foundation, M13 Web Control Center read-only frontend shell with CI/static/browser-readiness hardening, the v0.17.5 roadmap charter freeze, M14 local backend connection stabilization and safety hardening, v0.18.2 design governance, v0.18.3 OpenWebUI/CCC client strategy clarification, v0.18.4 post-M20 roadmap projection, v0.19.0 M15 Approval Queue + Receipt/Event Viewer UI, v0.19.1 M15 Approval/Receipt UI safety hardening, v0.20.0 M16 Event Timeline + Run/Receipt Trace Viewer, v0.20.1 M16 trace/redaction safety hardening, v0.21.0 M17 Evidence/File/Memory Viewer, v0.21.1 M17 safety hardening, v0.21.2 developer environment command normalization, v0.22.0 M18 Local Runtime Status + Manual Smoke Control Surface, v0.22.1 roadmap status label cleanup, v0.23.0 M19 Mobile Companion Contract/API Planning, v0.23.1 M19 roadmap/mobile-contract safety cleanup, v0.24.0 M20 Device Capability Broker Contract, v0.24.1 M20 safety hardening, v0.25.0 M21 OpenWebUI Bridge + Chat Shell Integration Contract, and v0.25.1 M21 OpenWebUI bridge contract safety hardening. v0.17.4 polished local shell reviewability and browser smoke reporting only; it did not start M14, add backend API paths, add dependencies, add production Control Center authority, or add execution capability.
+The active accepted baseline includes foundation modules through M10.5 plus documentation integrity synchronization, Codex plugin/external tooling governance, M11 runtime readiness/report validation, M12 Control Center backend contract/API foundation, M13 Web Control Center read-only frontend shell with CI/static/browser-readiness hardening, the v0.17.5 roadmap charter freeze, M14 local backend connection stabilization and safety hardening, v0.18.2 design governance, v0.18.3 OpenWebUI/CCC client strategy clarification, v0.18.4 post-M20 roadmap projection, v0.19.0 M15 Approval Queue + Receipt/Event Viewer UI, v0.19.1 M15 Approval/Receipt UI safety hardening, v0.20.0 M16 Event Timeline + Run/Receipt Trace Viewer, v0.20.1 M16 trace/redaction safety hardening, v0.21.0 M17 Evidence/File/Memory Viewer, v0.21.1 M17 safety hardening, v0.21.2 developer environment command normalization, v0.22.0 M18 Local Runtime Status + Manual Smoke Control Surface, v0.22.1 roadmap status label cleanup, v0.23.0 M19 Mobile Companion Contract/API Planning, v0.23.1 M19 roadmap/mobile-contract safety cleanup, v0.24.0 M20 Device Capability Broker Contract, v0.24.1 M20 safety hardening, v0.25.0 M21 OpenWebUI Bridge + Chat Shell Integration Contract, v0.25.1 M21 OpenWebUI bridge contract safety hardening, and v0.26.0 M22 Local Model Runtime Activation Contract. v0.17.4 polished local shell reviewability and browser smoke reporting only; it did not start M14, add backend API paths, add dependencies, add production Control Center authority, or add execution capability.
 
 Recent accepted milestones:
 
@@ -152,6 +154,7 @@ v0.24.0 — M20 Device Capability Broker Contract
 v0.24.1 — M20 Device Capability Broker Contract Safety Hardening
 v0.25.0 — M21 OpenWebUI Bridge + Chat Shell Integration Contract
 v0.25.1 — M21 OpenWebUI Bridge Contract Safety Hardening
+v0.26.0 — M22 Local Model Runtime Activation Contract
 
 - adds local React/Vite/TypeScript app under `apps/control-center`.
 - consumes existing read-only/preview-only backend routes.
@@ -186,7 +189,7 @@ v0.25.1 — M21 OpenWebUI Bridge Contract Safety Hardening
 
 The detailed sequence is frozen in `docs/roadmap/NEXT_SEQUENCE_v0_17_5.md`. The milestone charter template is `docs/roadmap/MILESTONE_CHARTERS.md`. These files must be checked before writing future milestone prompts.
 
-v0.18.0 and v0.18.1 have implemented and hardened M14 from that sequence. v0.18.2 has implemented the Open Design governance milestone. v0.18.3 has implemented OpenWebUI and CCC Client Strategy clarification. v0.18.4 has implemented post-M20 roadmap projection docs. v0.19.0 has implemented M15 frontend-only Approval Queue + Receipt/Event Viewer UI. v0.19.1 has hardened M15 Approval/Receipt UI safety. v0.20.0 has implemented M16 frontend-only Event Timeline + Run/Receipt Trace Viewer. v0.20.1 has hardened M16 trace/redaction safety. v0.21.0 has implemented M17 frontend-only Evidence/File/Memory Viewer. v0.21.1 has hardened M17 evidence/file/memory viewer safety. v0.21.2 has normalized developer environment commands. v0.22.0 has implemented M18 frontend-only Local Runtime Status + Manual Smoke Control Surface. v0.22.1 has cleaned up roadmap status labels only. v0.23.0 has implemented/released M19 Mobile Companion Contract/API Planning only. v0.23.1 has hardened M19 roadmap currentness and mobile contract safety tests only. v0.24.0 has implemented/released M20 Device Capability Broker Contract only. v0.24.1 has hardened M20 Device Capability Broker Contract safety only. v0.25.0 has implemented/released M21 OpenWebUI Bridge + Chat Shell Integration Contract as contract/planning/validation only. v0.25.1 has hardened M21 OpenWebUI bridge contract safety only. M22 and M23 remain planned/provisional until superseded by reviewed roadmap patches.
+v0.18.0 and v0.18.1 have implemented and hardened M14 from that sequence. v0.18.2 has implemented the Open Design governance milestone. v0.18.3 has implemented OpenWebUI and CCC Client Strategy clarification. v0.18.4 has implemented post-M20 roadmap projection docs. v0.19.0 has implemented M15 frontend-only Approval Queue + Receipt/Event Viewer UI. v0.19.1 has hardened M15 Approval/Receipt UI safety. v0.20.0 has implemented M16 frontend-only Event Timeline + Run/Receipt Trace Viewer. v0.20.1 has hardened M16 trace/redaction safety. v0.21.0 has implemented M17 frontend-only Evidence/File/Memory Viewer. v0.21.1 has hardened M17 evidence/file/memory viewer safety. v0.21.2 has normalized developer environment commands. v0.22.0 has implemented M18 frontend-only Local Runtime Status + Manual Smoke Control Surface. v0.22.1 has cleaned up roadmap status labels only. v0.23.0 has implemented/released M19 Mobile Companion Contract/API Planning only. v0.23.1 has hardened M19 roadmap currentness and mobile contract safety tests only. v0.24.0 has implemented/released M20 Device Capability Broker Contract only. v0.24.1 has hardened M20 Device Capability Broker Contract safety only. v0.25.0 has implemented/released M21 OpenWebUI Bridge + Chat Shell Integration Contract as contract/planning/validation only. v0.25.1 has hardened M21 OpenWebUI bridge contract safety only. v0.26.0 has implemented/released M22 Local Model Runtime Activation Contract as contract/planning/validation only. M23 remains planned/provisional until superseded by a reviewed roadmap patch.
 
 ```text
 v0.17.5 — Roadmap Projection + M14-M20 Milestone Charter Freeze, docs-only
@@ -208,7 +211,7 @@ v0.23.0 / M19 — Mobile Companion Contract/API Planning, implemented/released c
 v0.23.1 — M19 Roadmap Status + Mobile Contract Safety Hardening, implemented cleanup/hardening only
 v0.24.0 / M20 — Device Capability Broker Contract, implemented/released contract-only
 v0.25.0 / M21 — OpenWebUI Bridge + Chat Shell Integration Contract, implemented/released contract-only
-v0.26.0 / M22 — Local Model Runtime Activation Contract, planned/provisional
+v0.26.0 / M22 — Local Model Runtime Activation Contract, implemented/released contract-only
 v0.27.0 / M23 — First Real Local LLM Call, Non-Tool, Non-Authoritative, planned/provisional
 v0.28.0 / M24 — Memory Provider Abstraction + Local Memory Store, planned/provisional
 v0.29.0 / M25 — Truth Source Router + Evidence Claim Checker, planned/provisional

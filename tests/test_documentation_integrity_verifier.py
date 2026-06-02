@@ -293,16 +293,41 @@ def _write_minimal_repo(root: Path, version: str = "0.14.6") -> None:
             "No provider call.\n"
             "No backend API route.\n"
             "Refs are identifiers only.\n"
-            "M22 remains planned/provisional.\n"
+            "M22 is implemented/released contract-only by v0.26.0.\n"
             "M23 remains planned/provisional.\n",
         )
+    for rel_path in getattr(verifier, "REQUIRED_LOCAL_RUNTIME_ACTIVATION_DOCS", []):
+        files.setdefault(
+            rel_path,
+            "M22 is contract-only.\n"
+            "No model was called.\n"
+            "No runtime was activated.\n"
+            "No endpoint was contacted.\n"
+            "No backend API route.\n"
+            "OpenAPI path count remains 74.\n"
+            "No runtime execution.\n"
+            "No provider call.\n"
+            "No endpoint probe.\n"
+            "No user prompt processing.\n"
+            "No tool execution.\n"
+            "No memory write.\n"
+            "No dependency.\n"
+            "M23 remains future.\n",
+        )
     version_tuple = tuple(int(part) for part in version.split("."))
-    post_m20_status = (
-        "M21 is implemented/released by v0.25.0 as contract-only.\n"
-        "M22-M40 remain planned/provisional.\n"
-        if version_tuple >= (0, 25, 0)
-        else "M21-M40 remain planned/provisional.\n"
-    )
+    if version_tuple >= (0, 26, 0):
+        post_m20_status = (
+            "M21 is implemented/released by v0.25.0 as contract-only.\n"
+            "M22 is implemented/released by v0.26.0 as contract-only.\n"
+            "M23-M40 remain planned/provisional.\n"
+        )
+    elif version_tuple >= (0, 25, 0):
+        post_m20_status = (
+            "M21 is implemented/released by v0.25.0 as contract-only.\n"
+            "M22-M40 remain planned/provisional.\n"
+        )
+    else:
+        post_m20_status = "M21-M40 remain planned/provisional.\n"
     m21_status = (
         "M21 - OpenWebUI Bridge + Chat Shell Integration Contract, implemented/released contract-only.\n"
         if version_tuple >= (0, 25, 0)
@@ -317,9 +342,12 @@ def _write_minimal_repo(root: Path, version: str = "0.14.6") -> None:
         files.setdefault(
             rel_path,
             m21_status
-            +
-            "M22 - Local Model Runtime Activation Contract, planned/provisional.\n"
-            "M23 - First Real Local LLM Call, Non-Tool, Non-Authoritative, planned/provisional.\n"
+            + (
+                "M22 - Local Model Runtime Activation Contract, implemented/released contract-only.\n"
+                if version_tuple >= (0, 26, 0)
+                else "M22 - Local Model Runtime Activation Contract, planned/provisional.\n"
+            )
+            + "M23 - First Real Local LLM Call, Non-Tool, Non-Authoritative, planned/provisional.\n"
             "M24 - Memory Provider Abstraction + Local Memory Store, planned/provisional.\n"
             "M25 - Truth Source Router + Evidence Claim Checker, planned/provisional.\n"
             "M26 - Tool Execution Sandbox Contract, Dry-Run Only, planned/provisional.\n"

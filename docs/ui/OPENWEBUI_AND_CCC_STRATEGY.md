@@ -57,5 +57,6 @@ integration, no OpenWebUI deployment config, no backend API route, no frontend
 feature, no runtime execution, no local LLM call, no model/provider call, no
 tool execution, no memory write, no file access, no remote execution, no
 browser automation, no Computer Use, no mobile sensor access, no plugin
-enablement, no dependency, and no production authority. M22 and M23 remain
-planned/provisional.
+enablement, no dependency, and no production authority. v0.26.0 implements
+M22 Local Model Runtime Activation Contract as contract/planning/validation
+only. M23 remains planned/provisional.
