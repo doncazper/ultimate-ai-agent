@@ -1,6 +1,6 @@
 # Ultimate AI Agent Master Plan v0.20.1
 
-Status: Current master plan for v0.20.1.
+Status: Historical master plan for v0.20.1.
 
 v0.20.1 hardens M16 Event Timeline + Run/Receipt Trace Viewer safety.
 

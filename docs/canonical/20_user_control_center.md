@@ -219,3 +219,15 @@ v0.20.1 hardens M16 without adding new authority or feature surfaces:
 - review builds should prefer temporary output paths such as `/tmp/uaa-control-center-review-dist`.
 
 v0.20.1 adds no M17 Evidence/File/Memory Viewer, backend API route, OpenAPI path count change, approval execution, tool execution, runtime execution, model/provider call, remote execution, mobile sensor access, plugin enablement, dependency, native build workflow, external telemetry export, OpenTelemetry export, cloud traces, raw payload display, or production Control Center authority.
+
+## v0.21.0 M17 Evidence File Memory Viewer
+
+v0.21.0 adds frontend-only CCC Web routes for evidence, file ref, and memory ref inspection:
+
+- `/evidence`: Evidence Viewer summaries and selected details.
+- `/files`: File Reference Viewer summaries and selected details.
+- `/memory`: Memory Viewer summaries and selected details.
+
+The views show redacted summary-only data and visibly mock, non-authoritative fallback records. Memory is recall, not authority. Canonical files and governed source systems outrank memory.
+
+M17 adds no backend API route, OpenAPI path count change, file mutation, memory mutation, filesystem browsing, raw secret/prompt/file/memory/evidence/credential/provider payload display, embeddings, vector DB, memory provider implementation, runtime execution, model/provider call, remote dispatch, mobile sensor access, plugin enablement, dependency, native build workflow, or production Control Center authority.

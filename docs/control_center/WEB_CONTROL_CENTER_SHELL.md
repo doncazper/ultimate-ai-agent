@@ -1,12 +1,12 @@
 # Web Control Center Shell
 
-Status: Active for v0.20.1 / M16 Event Timeline + Run/Receipt Trace Viewer.
+Status: Active for v0.21.0 / M17 Evidence/File/Memory Viewer.
 
 M13 adds a local TypeScript React/Vite shell under `apps/control-center/` for reading existing backend Control Center and runtime readiness APIs. It is the first web UI surface for the future Control Center, but it is not a production Control Center and it has no authority to execute actions.
 
 Implemented shell behavior:
 
-- renders read-only dashboard, runtime readiness, Foundation Gate, API route, approval queue, receipt viewer, event viewer, event timeline trace viewer, remote worker, private mesh, mobile planning, and plugin governance summaries.
+- renders read-only dashboard, runtime readiness, Foundation Gate, API route, approval queue, receipt viewer, event viewer, event timeline trace viewer, evidence viewer, file reference viewer, memory viewer, remote worker, private mesh, mobile planning, and plugin governance summaries.
 - submits exactly one preview-only request type to `/control-center/actions/preview`.
 - labels action preview as preview-only and displays blocked decisions as non-executed safety results.
 - exposes the action preview risk level as policy metadata only.
@@ -111,4 +111,10 @@ v0.20.1 hardens M16 without adding a new surface. The timeline route keeps selec
 
 Foundation Gate now checks that OpenAPI path count remains `74` and that backend timeline, trace, raw event, and telemetry export routes remain absent. Release review builds should prefer temporary Vite output paths, and generated frontend build/log artifacts must remain ignored and untracked.
 
-M17 Evidence/File/Memory Viewer remains future work.
+## v0.21.0 M17 Evidence File Memory Viewer
+
+v0.21.0 adds read-only CCC Web routes for `/evidence`, `/files`, and `/memory`.
+
+The M17 routes use visibly mock, non-authoritative fallback data until a future reviewed backend contract adds safe live summaries. They show safe refs, redacted summary metadata, data classification labels, provenance summaries, stale/conflict indicators, and relation refs only. Memory is recall, not authority; canonical files and governed source systems outrank memory.
+
+M17 adds no backend route, OpenAPI path count change, file mutation, memory mutation, filesystem browsing, raw prompt display, raw secret display, raw file display, raw memory display, raw evidence payload display, raw credential display, raw provider payload display, embeddings, vector DB, memory provider implementation, execution control, dependency, native build workflow, or production authority.

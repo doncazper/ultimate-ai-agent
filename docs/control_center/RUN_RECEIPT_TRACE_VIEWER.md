@@ -1,6 +1,6 @@
 # Run Receipt Trace Viewer
 
-Status: Active for v0.20.1 / M16 Event Timeline + Run/Receipt Trace Viewer hardening.
+Status: Active for v0.21.0; M16 Run/Receipt Trace Viewer remains read-only.
 
 The Run Receipt Trace Viewer is the selected-detail panel inside `/events/timeline`. It gives CCC Web a safe read-only trace summary for a selected event or receipt relationship.
 

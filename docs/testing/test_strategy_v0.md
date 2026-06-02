@@ -193,6 +193,25 @@ Review builds prefer temporary Vite output paths such as `npm run build -- --out
 Generated frontend artifacts remain ignored and untracked.
 ```
 
+## v0.21.0 M17 Evidence File Memory Viewer Tests
+
+v0.21.0 adds focused frontend, verifier, and Foundation Gate tests only:
+
+```text
+Evidence Viewer route renders read-only redacted evidence ref summaries.
+File Reference Viewer route renders safe file ref metadata without raw file contents.
+Memory Viewer route renders recall-only memory ref summaries.
+Memory is recall, not authority.
+Canonical files and governed source systems outrank memory.
+No file mutation, memory mutation, filesystem browsing, execute, run, reveal raw, or show raw controls appear.
+No raw prompt, secret, file, memory, evidence, credential, provider payload, or private path appears.
+Static frontend verifier rejects raw M17 knowledge fields and credential-like knowledge fields.
+Static frontend verifier rejects private path fragments in M17 mock fixtures.
+Static frontend verifier requires M17 read-only, summary-only boundary copy.
+Foundation Gate criterion m17_evidence_file_memory_viewer_safe exists and passes.
+Backend OpenAPI path count remains unchanged at 74.
+```
+
 ## v0.18.3 OpenWebUI and CCC Strategy Tests
 
 v0.18.3 adds docs/verifier/gate tests only:

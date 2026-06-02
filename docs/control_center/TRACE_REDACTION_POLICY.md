@@ -1,6 +1,6 @@
 # Trace Redaction Policy
 
-Status: Active for v0.20.1 / M16 Event Timeline + Run/Receipt Trace Viewer hardening.
+Status: Active for v0.21.0; M16 trace redaction remains enforced.
 
 M16 trace displays are redacted summary-only. Trace views may display safe refs and safe summaries, but they must not display raw payloads.
 

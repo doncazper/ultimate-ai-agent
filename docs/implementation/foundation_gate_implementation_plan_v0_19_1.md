@@ -1,6 +1,6 @@
 # Foundation Gate Implementation Plan v0.19.1
 
-Status: Current Foundation Gate implementation plan for v0.19.1.
+Status: Historical Foundation Gate implementation plan for v0.19.1.
 
 v0.19.1 hardens Foundation Gate coverage for M15 Approval Queue + Receipt/Event Viewer UI safety.
 

@@ -989,6 +989,15 @@ def default_foundation_gate_criteria() -> List[FoundationGateCriterion]:
             "critical",
         ),
         _criterion(
+            "m17_evidence_file_memory_viewer_safe",
+            "M17 Evidence File Memory Viewer Safe",
+            FoundationGateCategory.security,
+            "FoundationGateEvaluator.check_m17_evidence_file_memory_viewer_safe",
+            "Evidence, file ref, and memory viewer files exist, remain read-only/preview-only, show summary-only refs with redacted metadata, treat memory as recall and not authority, expose no raw file, memory, evidence, prompt, provider, credential, mutation, filesystem browse, or execution controls, and pass the frontend safety verifier.",
+            "M17 evidence, file ref, or memory viewer is missing or violates the read-only summary-only redaction safety boundary.",
+            "critical",
+        ),
+        _criterion(
             "open_design_governance_docs_present",
             "Open Design Governance Docs Present",
             FoundationGateCategory.documentation,

@@ -1,6 +1,6 @@
 # Frontend Safety Policy
 
-Status: Active for v0.20.1 / M16 trace/redaction safety hardening.
+Status: Active for v0.21.0 / M17 Evidence/File/Memory Viewer.
 
 The Web Control Center shell is a display and preview surface. The Python Agent Core remains the brain and source of policy enforcement.
 
@@ -131,4 +131,10 @@ v0.20.1 keeps M16 frontend-only and read-only. Selecting `View trace` may change
 
 Release review builds should prefer temporary Vite output paths such as `npm run build -- --outDir /tmp/uaa-control-center-review-dist` where practical. Generated frontend `dist`, `build`, `coverage`, `logs`, dependency, native, and cache artifacts must remain ignored and untracked.
 
-M17 Evidence/File/Memory Viewer remains future work.
+## v0.21.0 M17 Evidence File Memory Viewer Safety
+
+M17 adds frontend-only `/evidence`, `/files`, and `/memory` routes. These routes are read-only and summary-only. They may show evidence refs, file refs, memory refs, event refs, receipt refs, data classification labels, confidence status, staleness, conflict indicators, provenance summaries, redaction status, and safe messages.
+
+They must not show raw prompts, raw secrets, raw file contents, raw memory contents, raw evidence payloads, raw credentials, raw provider payloads, or unreviewed tool arguments. They must not add file mutation, memory mutation, filesystem browsing, execution controls, approval execution, tool execution, backend routes, embeddings, vector DB, memory provider implementation, or production Control Center authority.
+
+Memory is recall, not authority. Canonical files and governed source systems outrank memory.

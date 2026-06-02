@@ -3,6 +3,11 @@ import { ActionPreviewForm } from "./components/ActionPreviewForm";
 import { ApprovalQueuePanel } from "./components/ApprovalQueuePanel";
 import { ApiRouteInventoryPanel } from "./components/ApiRouteInventoryPanel";
 import { DashboardSummary } from "./components/DashboardSummary";
+import {
+  EvidenceViewerPanel,
+  FileReferenceViewerPanel,
+  MemoryViewerPanel
+} from "./components/EvidenceFileMemoryViewerPanel";
 import { EventViewerPanel } from "./components/EventViewerPanel";
 import { EventTimelineTracePanel } from "./components/EventTimelineTracePanel";
 import { FoundationGatePanel } from "./components/FoundationGatePanel";
@@ -24,6 +29,9 @@ export const navItems = [
   { path: "/receipts", label: "Receipts" },
   { path: "/events", label: "Events" },
   { path: "/events/timeline", label: "Timeline" },
+  { path: "/evidence", label: "Evidence" },
+  { path: "/files", label: "Files" },
+  { path: "/memory", label: "Memory" },
   { path: "/remote-workers", label: "Remote Workers" },
   { path: "/mobile-planning", label: "Mobile Planning" },
   { path: "/plugin-governance", label: "Plugin Governance" },
@@ -46,6 +54,12 @@ export function renderRoute(path: string, data: ControlCenterData) {
       return <EventViewerPanel review={data.m15Review} />;
     case "/events/timeline":
       return <EventTimelineTracePanel trace={data.m16Trace} />;
+    case "/evidence":
+      return <EvidenceViewerPanel knowledge={data.m17Knowledge} />;
+    case "/files":
+      return <FileReferenceViewerPanel knowledge={data.m17Knowledge} />;
+    case "/memory":
+      return <MemoryViewerPanel knowledge={data.m17Knowledge} />;
     case "/remote-workers":
       return (
         <RemoteWorkerSummaryPanel

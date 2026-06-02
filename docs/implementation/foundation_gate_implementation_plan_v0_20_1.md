@@ -1,6 +1,6 @@
 # Foundation Gate Implementation Plan v0.20.1
 
-Status: Current Foundation Gate implementation plan for v0.20.1.
+Status: Historical Foundation Gate implementation plan for v0.20.1.
 
 v0.20.1 hardens Foundation Gate coverage for M16 Event Timeline + Run/Receipt Trace Viewer safety.
 

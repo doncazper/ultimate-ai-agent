@@ -11,14 +11,15 @@ export const mockControlCenterData: ControlCenterData = {
     warnings: ["MOCK_DATA_ONLY", "NO_PRODUCTION_AUTHORITY"]
   },
   manifest: {
-    manifest_id: "mock_control_center_manifest_m16",
-    version: "0.20.1",
+    manifest_id: "mock_control_center_manifest_m17",
+    version: "0.21.0",
     generated_at: "2026-01-01T00:00:00Z",
     declared_capabilities: [
       "control_center_read_only_dashboard",
       "control_center_action_preview",
       "control_center_m15_review_preview",
-      "control_center_m16_timeline_trace_preview"
+      "control_center_m16_timeline_trace_preview",
+      "control_center_m17_knowledge_reference_preview"
     ],
     blocked_capabilities: [
       "runtime_execution",
@@ -88,6 +89,22 @@ export const mockControlCenterData: ControlCenterData = {
         metadata: { mock: true, redacted_summary_only: true, external_export_allowed: false }
       },
       {
+        surface: "evidence_file_memory_viewer",
+        status: "preview_only",
+        description: "Mock evidence, file ref, and memory ref summaries for M17.",
+        route_refs: [],
+        execution_allowed: false,
+        mutation_allowed: false,
+        credential_resolution_allowed: false,
+        approval_grant_allowed: false,
+        metadata: {
+          mock: true,
+          redacted_summary_only: true,
+          raw_content_allowed: false,
+          memory_authority_allowed: false
+        }
+      },
+      {
         surface: "remote_workers",
         status: "dry_run_only",
         description: "Remote worker controls remain dry-run-only.",
@@ -123,8 +140,8 @@ export const mockControlCenterData: ControlCenterData = {
     ]
   },
   dashboard: {
-    snapshot_id: "mock_control_center_dashboard_m16",
-    baseline_version: "0.20.1",
+    snapshot_id: "mock_control_center_dashboard_m17",
+    baseline_version: "0.21.0",
     generated_at: "2026-01-01T00:00:00Z",
     system_status: {
       label: "Control Center",
@@ -215,22 +232,22 @@ export const mockControlCenterData: ControlCenterData = {
     ]
   },
   runtimeReadiness: {
-    report_id: "mock_runtime_readiness_m16",
-    baseline_version: "0.20.1",
+    report_id: "mock_runtime_readiness_m17",
+    baseline_version: "0.21.0",
     status: "report_only",
     production_ready: false,
     real_model_runtime_ready: false,
     remote_execution_ready: false,
     mobile_sensor_ready: false,
     plugin_or_native_build_ready: false,
-    capability_matrix_ref: "mock_runtime_capability_matrix_m16",
+    capability_matrix_ref: "mock_runtime_capability_matrix_m17",
     warnings: ["MOCK_DATA_ONLY"],
     blockers: [],
     metadata: { mock: true, model_output_authoritative: false }
   },
   capabilityMatrix: {
-    matrix_id: "mock_runtime_capability_matrix_m16",
-    baseline_version: "0.20.1",
+    matrix_id: "mock_runtime_capability_matrix_m17",
+    baseline_version: "0.21.0",
     metadata: { mock: true, no_model_was_called: true },
     entries: [
       {
@@ -465,6 +482,89 @@ export const mockControlCenterData: ControlCenterData = {
         eventRefs: ["mock_event_ref_001", "mock_event_ref_002"],
         safeSummary: "Mock Foundation Gate evidence confirms timeline trace summaries stay read-only and redacted.",
         redactionStatus: "redacted_summary_only"
+      }
+    ]
+  },
+  m17Knowledge: {
+    status: "mock_preview_only",
+    readOnly: true,
+    previewOnly: true,
+    mock: true,
+    nonAuthoritative: true,
+    boundarySummary:
+      "Evidence, file ref, and memory views show redacted summaries only; Python Agent Core remains the authority boundary.",
+    warningCodes: [
+      "MOCK_DATA_ONLY",
+      "NO_PRODUCTION_AUTHORITY",
+      "REDACTED_SUMMARY_ONLY",
+      "NO_RAW_CONTENT",
+      "MEMORY_NOT_AUTHORITY"
+    ],
+    evidence: [
+      {
+        evidenceRef: "mock_evidence_ref_001",
+        evidenceType: "claim_support_summary",
+        sourceType: "canonical_file_summary",
+        sourceRef: "mock_source_ref_canonical_001",
+        claimRefs: ["mock_claim_ref_001"],
+        eventRefs: ["mock_event_ref_001"],
+        receiptRefs: ["mock_receipt_ref_001"],
+        fileRefs: ["mock_file_ref_001"],
+        memoryRefs: ["mock_memory_ref_001"],
+        confidenceStatus: "review_required",
+        redactionStatus: "redacted_summary_only",
+        dataClassification: "project_private",
+        safeSummary:
+          "Redacted evidence summary links a governed source ref to a claim ref without exposing source material.",
+        provenanceSummary:
+          "Canonical source refs and governed evidence summaries outrank memory recall for this item.",
+        timestamp: "2026-01-01T00:20:00Z",
+        previewOnly: true,
+        readOnly: true,
+        mock: true
+      }
+    ],
+    fileRefs: [
+      {
+        fileRef: "mock_file_ref_001",
+        fileKind: "canonical",
+        safeFilename: "redacted-project-plan.md",
+        sizeSummary: "12 KB redacted metadata",
+        dataClassification: "project_private",
+        sourceSurface: "CCC Web mock surface",
+        eventRefs: ["mock_event_ref_001"],
+        receiptRefs: ["mock_receipt_ref_001"],
+        evidenceRefs: ["mock_evidence_ref_001"],
+        redactionStatus: "redacted_summary_only",
+        safeMetadataSummary:
+          "File ref summary shows a safe label, size summary, and related refs without file body text.",
+        pathDisclosure: "redacted_safe_label_only",
+        previewOnly: true,
+        readOnly: true,
+        mock: true
+      }
+    ],
+    memories: [
+      {
+        memoryRef: "mock_memory_ref_001",
+        memoryType: "project_constraint",
+        sourceRefs: ["mock_evidence_ref_001", "mock_file_ref_001"],
+        confidenceStatus: "needs_review",
+        reviewStatus: "review_required",
+        staleStatus: "Marked stale",
+        conflictStatus: "Conflict indicator: canonical source outranks memory",
+        dataClassification: "project_private",
+        redactionStatus: "redacted_summary_only",
+        safeSummary:
+          "Redacted memory summary records a recalled project constraint without exposing stored memory text.",
+        relatedEventRefs: ["mock_event_ref_001"],
+        relatedReceiptRefs: ["mock_receipt_ref_001"],
+        relatedEvidenceRefs: ["mock_evidence_ref_001"],
+        authorityNotice:
+          "Memory summary remains recall-only. Governed source refs outrank it.",
+        previewOnly: true,
+        readOnly: true,
+        mock: true
       }
     ]
   }

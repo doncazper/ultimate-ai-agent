@@ -1,12 +1,12 @@
-# Ultimate AI Agent Canonical Bundle v0.20.1
+# Ultimate AI Agent Canonical Bundle v0.21.0
 
-This is the active project baseline after M16 trace/redaction safety hardening.
+This is the active project baseline after M17 Evidence/File/Memory Viewer.
 
 Start here:
 
 ```text
-README_IMPORT_v0_20_1.md
-ultimate_ai_agent_master_plan_v0_20_1.md
+README_IMPORT_v0_21_0.md
+ultimate_ai_agent_master_plan_v0_21_0.md
 docs/DOCUMENTATION_INDEX.md
 docs/canonical/09_roadmap.md
 docs/canonical/CANONICAL_DOC_MAP.md
@@ -43,6 +43,10 @@ docs/control_center/APPROVAL_RECEIPT_UI_SAFETY.md
 docs/control_center/EVENT_TIMELINE_UI.md
 docs/control_center/RUN_RECEIPT_TRACE_VIEWER.md
 docs/control_center/TRACE_REDACTION_POLICY.md
+docs/control_center/EVIDENCE_VIEWER.md
+docs/control_center/FILE_REFERENCE_VIEWER.md
+docs/control_center/MEMORY_VIEWER.md
+docs/control_center/EVIDENCE_FILE_MEMORY_VIEWER_SAFETY.md
 docs/design/OPEN_DESIGN_SYSTEM.md
 docs/design/CONTROL_CENTER_DESIGN_LANGUAGE.md
 docs/design/STATUS_AND_RISK_VISUAL_LANGUAGE.md
@@ -63,7 +67,7 @@ docs/runtime/RUNTIME_READINESS.md
 docs/runtime/MANUAL_SMOKE_REPORTS.md
 docs/runtime/RUNTIME_CAPABILITY_MATRIX.md
 docs/security/approval_authority.md
-docs/implementation/foundation_gate_implementation_plan_v0_20_1.md
+docs/implementation/foundation_gate_implementation_plan_v0_21_0.md
 docs/maintenance/documentation_integrity_checklist.md
 docs/tooling/CODEX_PLUGIN_CAPABILITY_INVENTORY.md
 docs/tooling/CODEX_PLUGIN_RISK_POLICY.md
@@ -173,3 +177,7 @@ Event timeline trace viewer rule:
 Event timeline trace safety hardening rule:
 
 > v0.20.1 hardens M16 Event Timeline + Run/Receipt Trace Viewer safety. It adds interaction coverage for selecting alternate trace summaries while remaining read-only, strengthens M16 OpenAPI path-count and no-backend-timeline-route Foundation Gate checks, documents temporary build-output review hygiene, and records a whole-code bug/safety audit. It does not start M17 Evidence/File/Memory Viewer and adds no backend API route, runtime execution, model/provider call, remote execution, mobile sensor access, plugin enablement, telemetry export, external observability integration, raw secret/prompt/file/memory/credential/provider payload display, dependency, native build workflow, or production Control Center authority.
+
+M17 Evidence/File/Memory Viewer rule:
+
+> v0.21.0 implements M17 Evidence/File/Memory Viewer in CCC Web only. It adds `/evidence`, `/files`, and `/memory` frontend routes with read-only, summary-only, redacted mock evidence refs, file refs, and memory refs. Memory is recall, not authority; canonical files and governed source systems outrank memory. This release adds no backend API route, OpenAPI path count change, file mutation, memory mutation, filesystem browsing, runtime execution, model/provider call, remote execution, mobile sensor access, plugin enablement, raw secret/prompt/file/memory/evidence/credential/provider payload display, dependency, native build workflow, or production Control Center authority.

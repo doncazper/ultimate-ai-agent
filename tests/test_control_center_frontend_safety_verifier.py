@@ -400,6 +400,159 @@ def test_control_center_frontend_verifier_requires_m16_trace_boundary_copy(tmp_p
     assert any("M16 trace boundary copy" in failure for failure in failures)
 
 
+def test_control_center_frontend_verifier_blocks_raw_m17_knowledge_fields_and_paths(tmp_path):
+    app_root = tmp_path / "apps/control-center"
+    (app_root / "src/api").mkdir(parents=True)
+    (app_root / "src/mocks").mkdir(parents=True)
+    (app_root / "src/components").mkdir(parents=True)
+    (app_root / "package.json").write_text('{"dependencies":{"react":"1.0.0"}}', encoding="utf-8")
+    (app_root / "package-lock.json").write_text("{}", encoding="utf-8")
+    (app_root / "vite.config.ts").write_text(
+        'export default { server: { proxy: { "/control-center": { target: "http://127.0.0.1:8000" }, '
+        '"/runtime": { target: "http://127.0.0.1:8000" } } } };\n',
+        encoding="utf-8",
+    )
+    (app_root / "src/api/baseUrl.ts").write_text(
+        "export function resolveApiBaseUrl() { return true; }\n"
+        "const policy = ['localhost', '127.0.0.1', '::1', 'EXTERNAL_API_BASE_URL_BLOCKED', "
+        "'SECRET_LIKE_API_BASE_URL_REJECTED', 'containsSecretLike'];\n",
+        encoding="utf-8",
+    )
+    (app_root / "src/api/client.ts").write_text(
+        'import { resolveApiBaseUrl } from "./baseUrl";\n'
+        'fetch(API_ENDPOINTS.actionPreview, { method: "POST" });\n',
+        encoding="utf-8",
+    )
+    (app_root / "src/api/endpoints.ts").write_text(
+        'export const API_ENDPOINTS = { actionPreview: "/control-center/actions/preview" } as const;\n'
+        "export function isAllowedReadEndpoint() { return true; }\n"
+        "export function isPreviewEndpoint() { return true; }\n",
+        encoding="utf-8",
+    )
+    (app_root / "src/api/redaction.ts").write_text("export const redact = true;\n", encoding="utf-8")
+    (app_root / "src/App.test.tsx").write_text("export const testFile = true;\n", encoding="utf-8")
+    (app_root / "src/components/ActionPreviewForm.tsx").write_text(
+        "export function ActionPreviewForm() { return null; }\n",
+        encoding="utf-8",
+    )
+    (app_root / "src/components/ApprovalQueuePanel.tsx").write_text(
+        "export function ApprovalQueuePanel() { return null; }\n",
+        encoding="utf-8",
+    )
+    (app_root / "src/components/ReceiptViewerPanel.tsx").write_text(
+        "export function ReceiptViewerPanel() { return null; }\n",
+        encoding="utf-8",
+    )
+    (app_root / "src/components/EventViewerPanel.tsx").write_text(
+        "export function EventViewerPanel() { return null; }\n",
+        encoding="utf-8",
+    )
+    (app_root / "src/components/EventTimelineTracePanel.tsx").write_text(
+        "export function EventTimelineTracePanel() { return null; }\n",
+        encoding="utf-8",
+    )
+    (app_root / "src/components/EvidenceFileMemoryViewerPanel.tsx").write_text(
+        "export function EvidenceFileMemoryViewerPanel() { return null; }\n",
+        encoding="utf-8",
+    )
+    (app_root / "src/mocks/controlCenterData.ts").write_text(
+        "export const mockControlCenterData = { mock: true, production_ready: false, "
+        "real_model_runtime_ready: false, remote_execution_ready: false, mobile_sensor_ready: false, "
+        "plugin_or_native_build_ready: false, execution_enabled: false, dispatch_enabled: false, "
+        "sensor_access_enabled: false, plugin_enablement_allowed: false, model_output_authoritative: false, "
+        "m15Review: { nonAuthoritative: true, redactionStatus: 'redacted_summary_only', "
+        "approvalGrantAllowed: false }, "
+        "m16Trace: { nonAuthoritative: true, redactionStatus: 'redacted_summary_only' }, "
+        "m17Knowledge: { nonAuthoritative: true, redactionStatus: 'redacted_summary_only', "
+        "rawEvidencePayload: 'evidence payload', rawFileContent: 'file text', rawMemoryContent: 'memory text', "
+        "credentialRef: 'cred_live_value_123456', filePath: '/Users/example/project/private.md' } };\n",
+        encoding="utf-8",
+    )
+
+    verifier = load_verifier()
+    failures = verifier.verify(tmp_path)
+
+    assert any("raw M17 knowledge field" in failure and "rawEvidencePayload" in failure for failure in failures)
+    assert any("raw M17 knowledge field" in failure and "rawFileContent" in failure for failure in failures)
+    assert any("raw M17 knowledge field" in failure and "rawMemoryContent" in failure for failure in failures)
+    assert any("credential-like M17 knowledge field" in failure and "credentialRef" in failure for failure in failures)
+    assert any("private path fragment in M17 knowledge fixture" in failure for failure in failures)
+
+
+def test_control_center_frontend_verifier_requires_m17_knowledge_boundary_copy(tmp_path):
+    app_root = tmp_path / "apps/control-center"
+    (app_root / "src/api").mkdir(parents=True)
+    (app_root / "src/mocks").mkdir(parents=True)
+    (app_root / "src/components").mkdir(parents=True)
+    (app_root / "package.json").write_text('{"dependencies":{"react":"1.0.0"}}', encoding="utf-8")
+    (app_root / "package-lock.json").write_text("{}", encoding="utf-8")
+    (app_root / "vite.config.ts").write_text(
+        'export default { server: { proxy: { "/control-center": { target: "http://127.0.0.1:8000" }, '
+        '"/runtime": { target: "http://127.0.0.1:8000" } } } };\n',
+        encoding="utf-8",
+    )
+    (app_root / "src/api/baseUrl.ts").write_text(
+        "export function resolveApiBaseUrl() { return true; }\n"
+        "const policy = ['localhost', '127.0.0.1', '::1', 'EXTERNAL_API_BASE_URL_BLOCKED', "
+        "'SECRET_LIKE_API_BASE_URL_REJECTED', 'containsSecretLike'];\n",
+        encoding="utf-8",
+    )
+    (app_root / "src/api/client.ts").write_text(
+        'import { resolveApiBaseUrl } from "./baseUrl";\n'
+        'fetch(API_ENDPOINTS.actionPreview, { method: "POST" });\n',
+        encoding="utf-8",
+    )
+    (app_root / "src/api/endpoints.ts").write_text(
+        'export const API_ENDPOINTS = { actionPreview: "/control-center/actions/preview" } as const;\n'
+        "export function isAllowedReadEndpoint() { return true; }\n"
+        "export function isPreviewEndpoint() { return true; }\n",
+        encoding="utf-8",
+    )
+    (app_root / "src/api/redaction.ts").write_text("export const redact = true;\n", encoding="utf-8")
+    (app_root / "src/App.test.tsx").write_text("export const testFile = true;\n", encoding="utf-8")
+    (app_root / "src/components/ActionPreviewForm.tsx").write_text(
+        "export function ActionPreviewForm() { return null; }\n",
+        encoding="utf-8",
+    )
+    (app_root / "src/components/ApprovalQueuePanel.tsx").write_text(
+        "export function ApprovalQueuePanel() { return null; }\n",
+        encoding="utf-8",
+    )
+    (app_root / "src/components/ReceiptViewerPanel.tsx").write_text(
+        "export function ReceiptViewerPanel() { return null; }\n",
+        encoding="utf-8",
+    )
+    (app_root / "src/components/EventViewerPanel.tsx").write_text(
+        "export function EventViewerPanel() { return null; }\n",
+        encoding="utf-8",
+    )
+    (app_root / "src/components/EventTimelineTracePanel.tsx").write_text(
+        "export function EventTimelineTracePanel() { return null; }\n",
+        encoding="utf-8",
+    )
+    (app_root / "src/components/EvidenceFileMemoryViewerPanel.tsx").write_text(
+        "export function EvidenceFileMemoryViewerPanel() { return <p>Knowledge refs</p>; }\n",
+        encoding="utf-8",
+    )
+    (app_root / "src/mocks/controlCenterData.ts").write_text(
+        "export const mockControlCenterData = { mock: true, production_ready: false, "
+        "real_model_runtime_ready: false, remote_execution_ready: false, mobile_sensor_ready: false, "
+        "plugin_or_native_build_ready: false, execution_enabled: false, dispatch_enabled: false, "
+        "sensor_access_enabled: false, plugin_enablement_allowed: false, model_output_authoritative: false, "
+        "m15Review: { nonAuthoritative: true, redactionStatus: 'redacted_summary_only', "
+        "approvalGrantAllowed: false }, "
+        "m16Trace: { nonAuthoritative: true, redactionStatus: 'redacted_summary_only' }, "
+        "m17Knowledge: { nonAuthoritative: true, redactionStatus: 'redacted_summary_only', "
+        "NO_RAW_CONTENT: true, MEMORY_NOT_AUTHORITY: true } };\n",
+        encoding="utf-8",
+    )
+
+    verifier = load_verifier()
+    failures = verifier.verify(tmp_path)
+
+    assert any("M17 knowledge boundary copy" in failure for failure in failures)
+
+
 def test_control_center_frontend_verifier_blocks_sensitive_browser_and_sdk_markers(tmp_path):
     app_root = tmp_path / "apps/control-center"
     (app_root / "src/api").mkdir(parents=True)

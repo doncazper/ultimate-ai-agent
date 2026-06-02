@@ -344,6 +344,78 @@ export interface M16TraceData {
   foundationGateEvidence: FoundationGateEvidenceSummaryItem[];
 }
 
+export interface EvidenceSummaryItem {
+  evidenceRef: string;
+  evidenceType: string;
+  sourceType: string;
+  sourceRef: string;
+  claimRefs: string[];
+  eventRefs: string[];
+  receiptRefs: string[];
+  fileRefs: string[];
+  memoryRefs: string[];
+  confidenceStatus: string;
+  redactionStatus: "redacted_summary_only";
+  dataClassification: string;
+  safeSummary: string;
+  provenanceSummary: string;
+  timestamp: string;
+  previewOnly: boolean;
+  readOnly: boolean;
+  mock: boolean;
+}
+
+export interface FileReferenceSummaryItem {
+  fileRef: string;
+  fileKind: string;
+  safeFilename: string;
+  sizeSummary: string;
+  dataClassification: string;
+  sourceSurface: string;
+  eventRefs: string[];
+  receiptRefs: string[];
+  evidenceRefs: string[];
+  redactionStatus: "redacted_summary_only";
+  safeMetadataSummary: string;
+  pathDisclosure: string;
+  previewOnly: boolean;
+  readOnly: boolean;
+  mock: boolean;
+}
+
+export interface MemorySummaryItem {
+  memoryRef: string;
+  memoryType: string;
+  sourceRefs: string[];
+  confidenceStatus: string;
+  reviewStatus: string;
+  staleStatus: string;
+  conflictStatus: string;
+  dataClassification: string;
+  redactionStatus: "redacted_summary_only";
+  safeSummary: string;
+  relatedEventRefs: string[];
+  relatedReceiptRefs: string[];
+  relatedEvidenceRefs: string[];
+  authorityNotice: string;
+  previewOnly: boolean;
+  readOnly: boolean;
+  mock: boolean;
+}
+
+export interface M17KnowledgeData {
+  status: "mock_preview_only" | "summary_only";
+  readOnly: boolean;
+  previewOnly: boolean;
+  mock: boolean;
+  nonAuthoritative: boolean;
+  boundarySummary: string;
+  warningCodes: string[];
+  evidence: EvidenceSummaryItem[];
+  fileRefs: FileReferenceSummaryItem[];
+  memories: MemorySummaryItem[];
+}
+
 export interface ControlCenterData {
   manifest: ControlCenterManifest;
   dashboard: ControlCenterDashboardSnapshot;
@@ -353,6 +425,7 @@ export interface ControlCenterData {
   capabilityMatrix: RuntimeCapabilityMatrix;
   m15Review: M15ReviewData;
   m16Trace: M16TraceData;
+  m17Knowledge: M17KnowledgeData;
   source: "api" | "mock";
   connection: BackendConnectionSummary;
 }

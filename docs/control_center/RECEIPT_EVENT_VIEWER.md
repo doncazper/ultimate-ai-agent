@@ -1,6 +1,6 @@
 # Receipt And Event Viewer
 
-Status: Active for v0.20.1 / M15 Receipt/Event Viewer plus M16 timeline adjacency.
+Status: Active for v0.21.0 / M15 Receipt/Event Viewer plus M16/M17 adjacency.
 
 The Receipt Viewer and Event Viewer are read-only and preview-only CCC Web surfaces. They show redacted summary-only records for inspection and review. They are not the Event Ledger, not receipt authority, and not execution authority.
 

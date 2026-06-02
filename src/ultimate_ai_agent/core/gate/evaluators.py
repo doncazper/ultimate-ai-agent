@@ -60,6 +60,24 @@ M16_FORBIDDEN_BACKEND_ROUTES = (
     "/events/raw",
     "/telemetry/export",
 )
+EXPECTED_M17_OPENAPI_PATH_COUNT = 74
+M17_FORBIDDEN_BACKEND_ROUTES = (
+    "/evidence/raw",
+    "/evidence/payload",
+    "/files/content",
+    "/files/write",
+    "/files/delete",
+    "/filesystem/browse",
+    "/memory/raw",
+    "/memory/content",
+    "/memory/write",
+    "/memory/delete",
+    "/memory/learn",
+    "/memory/forget",
+    "/control-center/evidence/raw",
+    "/control-center/files/write",
+    "/control-center/memory/write",
+)
 
 
 def m16_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M16_OPENAPI_PATH_COUNT) -> List[str]:
@@ -70,6 +88,17 @@ def m16_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
     forbidden_present = sorted(path for path in M16_FORBIDDEN_BACKEND_ROUTES if path in path_set)
     if forbidden_present:
         failures.append(f"M16 forbidden backend route(s) present: {', '.join(forbidden_present)}")
+    return failures
+
+
+def m17_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M17_OPENAPI_PATH_COUNT) -> List[str]:
+    failures: List[str] = []
+    path_set = set(paths)
+    if len(path_set) != expected_path_count:
+        failures.append(f"M17 OpenAPI path count changed: expected {expected_path_count}, found {len(path_set)}")
+    forbidden_present = sorted(path for path in M17_FORBIDDEN_BACKEND_ROUTES if path in path_set)
+    if forbidden_present:
+        failures.append(f"M17 forbidden backend route(s) present: {', '.join(forbidden_present)}")
     return failures
 
 
@@ -187,6 +216,7 @@ class FoundationGateEvaluator:
             "m14_backend_api_contract_unchanged": self.check_m14_backend_api_contract_unchanged,
             "m15_approval_receipt_event_ui_safe": self.check_m15_approval_receipt_event_ui_safe,
             "m16_event_timeline_trace_viewer_safe": self.check_m16_event_timeline_trace_viewer_safe,
+            "m17_evidence_file_memory_viewer_safe": self.check_m17_evidence_file_memory_viewer_safe,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -3093,6 +3123,147 @@ class FoundationGateEvaluator:
             failures.append(f"M16 OpenAPI route guard could not generate schema: {exc}")
         else:
             failures.extend(m16_openapi_route_failures(openapi_paths))
+
+        script = self.root / "scripts/verify_control_center_frontend.py"
+        if script.exists():
+            spec = importlib.util.spec_from_file_location("verify_control_center_frontend", script)
+            if spec is None or spec.loader is None:
+                failures.append("could not load frontend safety verifier")
+            else:
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
+                failures.extend(module.verify(self.root))
+
+        return self._result(criterion, failures, required_files)
+
+    def check_m17_evidence_file_memory_viewer_safe(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        import importlib.util
+        from ultimate_ai_agent.api.app import app
+
+        required_files = [
+            "apps/control-center/src/components/EvidenceFileMemoryViewerPanel.tsx",
+            "apps/control-center/src/routes.tsx",
+            "apps/control-center/src/api/types.ts",
+            "apps/control-center/src/mocks/controlCenterData.ts",
+            "scripts/verify_control_center_frontend.py",
+            "docs/control_center/EVIDENCE_VIEWER.md",
+            "docs/control_center/FILE_REFERENCE_VIEWER.md",
+            "docs/control_center/MEMORY_VIEWER.md",
+            "docs/control_center/EVIDENCE_FILE_MEMORY_VIEWER_SAFETY.md",
+        ]
+        implementation_files = [
+            "apps/control-center/src/components/EvidenceFileMemoryViewerPanel.tsx",
+            "apps/control-center/src/routes.tsx",
+            "apps/control-center/src/api/types.ts",
+            "apps/control-center/src/mocks/controlCenterData.ts",
+        ]
+        failures = [f"missing M17 evidence/file/memory file: {path}" for path in required_files if not (self.root / path).exists()]
+        components = "\n".join(self._read(self.root / path) for path in implementation_files if (self.root / path).exists())
+        lowered = components.lower().replace(" ", "")
+
+        required_fragments = [
+            "EvidenceViewerPanel",
+            "FileReferenceViewerPanel",
+            "MemoryViewerPanel",
+            'path: "/evidence"',
+            'path: "/files"',
+            'path: "/memory"',
+            "Evidence Viewer",
+            "File Reference Viewer",
+            "Memory Viewer",
+            "M17 knowledge surface",
+            "Evidence views are read-only",
+            "File ref views are read-only",
+            "Memory is recall, not authority",
+            "Canonical files and governed source systems outrank memory",
+            "mock_evidence_ref_001",
+            "mock_file_ref_001",
+            "mock_memory_ref_001",
+            "redacted_summary_only",
+            "NO_RAW_CONTENT",
+            "MEMORY_NOT_AUTHORITY",
+            "No filesystem browsing is available",
+            "File writes are not available from this UI",
+            "Memory detail is redacted summary metadata only",
+            "Evidence detail is redacted summary metadata only",
+            "File ref detail is redacted summary metadata only",
+        ]
+        failures.extend(f"M17 UI missing required fragment: {fragment}" for fragment in required_fragments if fragment not in components)
+
+        forbidden_fragments = [
+            "/evidence/raw",
+            "/evidence/payload",
+            "/files/content",
+            "/files/write",
+            "/files/delete",
+            "/filesystem/browse",
+            "/memory/raw",
+            "/memory/content",
+            "/memory/write",
+            "/memory/delete",
+            "/memory/learn",
+            "/memory/forget",
+            "<button>editmemory</button>",
+            "<button>deletememory</button>",
+            "<button>savememory</button>",
+            "<button>learnthis</button>",
+            "<button>forgetthis</button>",
+            "<button>openfile</button>",
+            "<button>deletefile</button>",
+            "<button>writefile</button>",
+            "<button>browsefilesystem</button>",
+            "<button>revealraw</button>",
+            "<button>showraw</button>",
+            "<button>execute</button>",
+            "<button>run</button>",
+            "localstorage",
+            "sessionstorage",
+            "document.cookie",
+            'type="password"',
+            'name="apikey"',
+            'name="token"',
+            "rawpromptbody",
+            "rawfilecontent",
+            "rawmemorycontent",
+            "rawevidencepayload",
+            "rawproviderpayload",
+            "authoritativetruth",
+            "credentialref",
+            "credentialhandle",
+            "/users/",
+            "/home/",
+        ]
+        failures.extend(f"M17 UI contains forbidden fragment: {fragment}" for fragment in forbidden_fragments if fragment in lowered)
+
+        docs_text = "\n".join(self._read(self.root / path) for path in required_files if path.startswith("docs/"))
+        doc_fragments = [
+            "read-only",
+            "summary-only",
+            "redacted",
+            "safe refs",
+            "No backend route is added",
+            "memory is recall, not authority",
+            "canonical files and governed source systems outrank memory",
+            "no raw prompts",
+            "no raw secrets",
+            "no raw file contents",
+            "no raw memory contents",
+            "no raw evidence payloads",
+            "no raw credentials",
+            "no raw provider payloads",
+            "no file mutation",
+            "no memory mutation",
+            "no filesystem browsing",
+            "no execution controls",
+        ]
+        failures.extend(f"M17 docs missing required fragment: {fragment}" for fragment in doc_fragments if fragment not in docs_text)
+
+        try:
+            openapi_paths = app.openapi().get("paths", {})
+        except Exception as exc:
+            failures.append(f"M17 OpenAPI route guard could not generate schema: {exc}")
+        else:
+            failures.extend(m17_openapi_route_failures(openapi_paths))
 
         script = self.root / "scripts/verify_control_center_frontend.py"
         if script.exists():

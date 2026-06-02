@@ -1,6 +1,6 @@
 # README Import v0.20.1
 
-Status: Current import README for v0.20.1.
+Status: Historical import README for v0.20.1.
 
 Start from:
 

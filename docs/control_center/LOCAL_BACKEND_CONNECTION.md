@@ -1,6 +1,6 @@
 # Local Backend Connection
 
-Status: Active for v0.20.1. Local backend connection behavior is unchanged by M15, v0.19.1 hardening, and M16 timeline/trace UI.
+Status: Active for v0.21.0. Local backend connection behavior is unchanged by M15, v0.19.1 hardening, M16 timeline/trace UI, and M17 evidence/file/memory viewer UI.
 
 The Web Control Center may connect only to the local backend API boundary. The connection layer is frontend-only and does not add backend routes or backend authority.
 
@@ -43,7 +43,7 @@ Safety requirements:
 - the Vite dev proxy, when used, must stay pinned to `http://127.0.0.1:8000`.
 - Vite proxy configuration and env examples must not include external targets, URL credentials, or secret-like API base strings.
 
-M14 is not M15. v0.19.0 implements M15 as frontend-only Approval Queue + Receipt/Event Viewer UI while preserving the M14 local backend connection boundary. v0.19.1 hardens M15 UI safety without changing local backend connection behavior.
+M14 is not M15, M16, or M17. v0.19.0 implements M15 as frontend-only Approval Queue + Receipt/Event Viewer UI while preserving the M14 local backend connection boundary. v0.19.1 hardens M15 UI safety without changing local backend connection behavior. v0.21.0 implements M17 as frontend-only evidence/file/memory summary viewers and adds no backend connection power.
 
 Design governance references for connection-state UI:
 

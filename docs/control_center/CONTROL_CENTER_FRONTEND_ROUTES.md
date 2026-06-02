@@ -1,6 +1,6 @@
 # Control Center Frontend Routes
 
-Status: Active for v0.20.1 / M16 trace/redaction safety hardening.
+Status: Active for v0.21.0 / M17 Evidence/File/Memory Viewer.
 
 The frontend shell is served by Vite during local development. It is not mounted by the Python API and does not add OpenAPI paths.
 
@@ -15,6 +15,9 @@ Implemented frontend pages:
 - `/receipts`
 - `/events`
 - `/events/timeline`
+- `/evidence`
+- `/files`
+- `/memory`
 - `/remote-workers`
 - `/mobile-planning`
 - `/plugin-governance`
@@ -48,7 +51,7 @@ Forbidden frontend route/API targets:
 
 v0.17.4 keeps the frontend route set unchanged and adds local browser smoke UX polish plus safe reporting documentation. `scripts/verify_control_center_frontend.py` rejects forbidden execute, plugin enablement, runtime execution, remote dispatch, mobile sensor endpoint strings, analytics/SaaS SDK markers, sensitive browser APIs, and unsafe fixtures in frontend implementation files. `scripts/verify_control_center_browser_smoke_readiness.py` verifies that browser smoke readiness and reporting remain manual local-only documentation.
 
-OpenAPI remains a backend contract. v0.20.1 changes only `info.version` to `0.20.1`; backend path count remains `74` with unique operation IDs.
+OpenAPI remains a backend contract. v0.21.0 changes only `info.version` to `0.21.0`; backend path count remains `74` with unique operation IDs.
 
 ## v0.18.0 M14 Connection Stabilization
 
@@ -106,3 +109,13 @@ v0.20.0 adds one frontend route and no backend API paths:
 This route uses safe mock fallback data, safe refs, and redacted summary-only copy. It does not add dynamic backend trace routes, approval execution, tool execution, trace export, external telemetry, OpenTelemetry export, cloud traces, raw prompt display, raw secret display, raw file display, raw memory display, raw credential display, raw provider payload display, raw event payload dumps, or OpenAPI path count changes.
 
 v0.20.1 hardens this route with second-trace selection coverage and Foundation Gate checks that reject backend timeline/raw/export route expansion. Selecting `View trace` changes visible selection only.
+
+## v0.21.0 M17 Evidence File Memory Viewer
+
+v0.21.0 adds three frontend routes and no backend API paths:
+
+- `/evidence`: Evidence Viewer with redacted evidence ref summaries.
+- `/files`: File Reference Viewer with safe file ref metadata summaries.
+- `/memory`: Memory Viewer with recall-only memory ref summaries.
+
+These routes use safe mock fallback data, safe refs, redacted summary-only copy, and visible non-authoritative markers. They do not add dynamic backend evidence, file, or memory detail routes; file mutation; memory mutation; filesystem browsing; raw prompt display; raw secret display; raw file display; raw memory display; raw evidence payload display; raw credential display; raw provider payload display; embeddings; vector DB; memory provider implementation; execution controls; or OpenAPI path count changes.

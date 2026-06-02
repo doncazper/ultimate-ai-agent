@@ -1,5 +1,5 @@
 # Ultimate AI Agent Version
 
-Current active baseline: **v0.20.1**
+Current active baseline: **v0.21.0**
 
-v0.20.1 hardens M16 Event Timeline + Run/Receipt Trace Viewer safety. It adds frontend interaction coverage for selecting alternate trace summaries while remaining read-only, strengthens M16 route-count and no-timeline-backend-route Foundation Gate checks, documents generated frontend build-output review hygiene, performs a whole-code bug/safety audit, and preserves redacted summary-only trace behavior. It adds no backend API routes, runtime execution, model/provider calls, remote execution, mobile sensor access, plugin enablement, telemetry export, external observability integration, raw secret/prompt/file/memory/credential display, dependencies, or production Control Center authority.
+v0.21.0 implements M17 Evidence/File/Memory Viewer in CCC Web only. It adds read-only, summary-only, redacted evidence refs, file refs, and memory refs using visibly mock non-authoritative frontend data. Memory is recall, not authority, and canonical files plus governed source systems outrank memory. It adds no backend API routes, OpenAPI path count change, file mutation, memory mutation, filesystem browsing, runtime execution, model/provider calls, remote execution, mobile sensor access, plugin enablement, raw secret/prompt/file/memory/evidence/credential/provider payload display, dependencies, native build workflow, or production Control Center authority.

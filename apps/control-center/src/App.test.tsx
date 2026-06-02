@@ -71,6 +71,9 @@ describe("Web Control Center shell", () => {
       ["/receipts", /Receipt Viewer/i],
       ["/events", /Event Viewer/i],
       ["/events/timeline", /Event Timeline/i],
+      ["/evidence", /Evidence Viewer/i],
+      ["/files", /File Reference Viewer/i],
+      ["/memory", /Memory Viewer/i],
       ["/remote-workers", /Remote worker boundary/i],
       ["/mobile-planning", /Mobile planning/i],
       ["/plugin-governance", /Plugin governance/i],
@@ -232,6 +235,71 @@ describe("Web Control Center shell", () => {
     expect(screen.queryByText(/raw memory/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/raw credential/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/provider payload/i)).not.toBeInTheDocument();
+  });
+
+  it("renders M17 evidence summaries and details as read-only redacted metadata", async () => {
+    mockFetchWithFallback();
+    window.history.pushState({}, "", "/evidence");
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: /Evidence Viewer/i })).toBeInTheDocument();
+    expect(screen.getByText(/M17 knowledge surface/i)).toBeInTheDocument();
+    expect(screen.getByText(/Evidence views are read-only/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/MOCK_DATA_ONLY/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/REDACTED_SUMMARY_ONLY/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("mock_evidence_ref_001").length).toBeGreaterThan(0);
+    expect(screen.getByText(/Source type/i)).toBeInTheDocument();
+    expect(screen.getByText(/Provenance summary/i)).toBeInTheDocument();
+    expect(screen.getByText(/Evidence detail is redacted summary metadata only/i)).toBeInTheDocument();
+
+    for (const label of [/^execute$/i, /^run$/i, /^write$/i, /^delete$/i, /^reveal raw$/i, /^show raw$/i]) {
+      expect(screen.queryByRole("button", { name: label })).not.toBeInTheDocument();
+    }
+    expect(screen.queryByText(/raw prompt/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/raw secret/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/raw file/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/raw memory/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/provider payload/i)).not.toBeInTheDocument();
+  });
+
+  it("renders M17 file ref summaries without raw file contents or filesystem controls", async () => {
+    mockFetchWithFallback();
+    window.history.pushState({}, "", "/files");
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: /File Reference Viewer/i })).toBeInTheDocument();
+    expect(screen.getByText(/File ref views are read-only/i)).toBeInTheDocument();
+    expect(screen.getAllByText("mock_file_ref_001").length).toBeGreaterThan(0);
+    expect(screen.getByText(/Safe filename/i)).toBeInTheDocument();
+    expect(screen.getByText(/File writes are not available from this UI/i)).toBeInTheDocument();
+    expect(screen.getByText(/No filesystem browsing is available/i)).toBeInTheDocument();
+
+    for (const label of [/open file/i, /delete file/i, /write file/i, /browse filesystem/i, /^execute$/i]) {
+      expect(screen.queryByRole("button", { name: label })).not.toBeInTheDocument();
+    }
+    expect(screen.queryByText(/raw file content/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(new RegExp("/Users/", "i"))).not.toBeInTheDocument();
+    expect(screen.queryByText(/\/home\//i)).not.toBeInTheDocument();
+  });
+
+  it("renders M17 memory summaries as recall and never authority", async () => {
+    mockFetchWithFallback();
+    window.history.pushState({}, "", "/memory");
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: /Memory Viewer/i })).toBeInTheDocument();
+    expect(screen.getByText(/Memory is recall, not authority/i)).toBeInTheDocument();
+    expect(screen.getByText(/Canonical files and governed source systems outrank memory/i)).toBeInTheDocument();
+    expect(screen.getAllByText("mock_memory_ref_001").length).toBeGreaterThan(0);
+    expect(screen.getByText(/Marked stale/i)).toBeInTheDocument();
+    expect(screen.getByText(/Conflict indicator/i)).toBeInTheDocument();
+    expect(screen.getByText(/Memory detail is redacted summary metadata only/i)).toBeInTheDocument();
+
+    for (const label of [/edit memory/i, /delete memory/i, /save memory/i, /learn this/i, /forget this/i]) {
+      expect(screen.queryByRole("button", { name: label })).not.toBeInTheDocument();
+    }
+    expect(screen.queryByText(/raw memory content/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/authoritative truth/i)).not.toBeInTheDocument();
   });
 
   it("submits action preview only to the preview endpoint", async () => {

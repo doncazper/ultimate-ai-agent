@@ -1,4 +1,4 @@
-# 09 - Roadmap v0.20.1
+# 09 - Roadmap v0.21.0
 
 Status: Active foundation-first roadmap. This is the single roadmap source of truth.
 
@@ -25,7 +25,7 @@ The original foundation sequence established runtime hygiene, local runtime/cont
 
 ## Current accepted baseline
 
-The active accepted baseline is v0.20.1. It hardens M16 Event Timeline + Run/Receipt Trace Viewer safety after accepted v0.20.0 M16 UI work.
+The active accepted baseline is v0.21.0. It implements M17 Evidence/File/Memory Viewer after accepted v0.20.1 M16 trace/redaction safety hardening.
 
 v0.18.4 adds:
 
@@ -70,9 +70,11 @@ v0.20.0 implements M16 Event Timeline + Run/Receipt Trace Viewer as frontend-onl
 
 v0.20.1 hardens M16 trace/redaction safety as frontend/test/verifier/Foundation Gate/docs work only. It adds second-trace selection coverage, accessible selected-card state, OpenAPI path-count/no-backend-route M16 gate checks, generated build/log artifact verifier coverage, and review-build hygiene docs. It adds no backend API paths, OpenAPI path count change, M17 Evidence/File/Memory Viewer, execution, export, model/provider calls, remote execution, mobile sensor access, plugin enablement, dependencies, native build workflow, raw payload display, or production Control Center authority.
 
-## Accepted baseline through v0.20.1
+v0.21.0 implements M17 Evidence/File/Memory Viewer as frontend-only CCC Web work. It adds `/evidence`, `/files`, and `/memory` routes with redacted evidence refs, safe file refs, recall-only memory refs, frontend tests, static verifier checks, docs, and Foundation Gate coverage. It adds no backend API paths, OpenAPI path count change, file mutation, memory mutation, filesystem browsing, runtime execution, model/provider calls, remote execution, mobile sensor access, plugin enablement, dependencies, native build workflow, raw payload display, embeddings, vector DB, memory provider implementation, or production Control Center authority.
 
-The active accepted baseline includes foundation modules through M10.5 plus documentation integrity synchronization, Codex plugin/external tooling governance, M11 runtime readiness/report validation, M12 Control Center backend contract/API foundation, M13 Web Control Center read-only frontend shell with CI/static/browser-readiness hardening, the v0.17.5 roadmap charter freeze, M14 local backend connection stabilization and safety hardening, v0.18.2 design governance, v0.18.3 OpenWebUI/CCC client strategy clarification, v0.18.4 post-M20 roadmap projection, v0.19.0 M15 Approval Queue + Receipt/Event Viewer UI, v0.19.1 M15 Approval/Receipt UI safety hardening, v0.20.0 M16 Event Timeline + Run/Receipt Trace Viewer, and v0.20.1 M16 trace/redaction safety hardening. v0.17.4 polished local shell reviewability and browser smoke reporting only; it did not start M14, add backend API paths, add dependencies, add production Control Center authority, or add execution capability.
+## Accepted baseline through v0.21.0
+
+The active accepted baseline includes foundation modules through M10.5 plus documentation integrity synchronization, Codex plugin/external tooling governance, M11 runtime readiness/report validation, M12 Control Center backend contract/API foundation, M13 Web Control Center read-only frontend shell with CI/static/browser-readiness hardening, the v0.17.5 roadmap charter freeze, M14 local backend connection stabilization and safety hardening, v0.18.2 design governance, v0.18.3 OpenWebUI/CCC client strategy clarification, v0.18.4 post-M20 roadmap projection, v0.19.0 M15 Approval Queue + Receipt/Event Viewer UI, v0.19.1 M15 Approval/Receipt UI safety hardening, v0.20.0 M16 Event Timeline + Run/Receipt Trace Viewer, v0.20.1 M16 trace/redaction safety hardening, and v0.21.0 M17 Evidence/File/Memory Viewer. v0.17.4 polished local shell reviewability and browser smoke reporting only; it did not start M14, add backend API paths, add dependencies, add production Control Center authority, or add execution capability.
 
 Recent accepted milestones:
 
@@ -102,6 +104,7 @@ v0.19.0 — M15 Approval Queue + Receipt/Event Viewer UI
 v0.19.1 — M15 Approval/Receipt UI Safety Hardening
 v0.20.0 — M16 Event Timeline + Run/Receipt Trace Viewer
 v0.20.1 — M16 Trace/Redaction Safety Hardening
+v0.21.0 — M17 Evidence/File/Memory Viewer
 
 - adds local React/Vite/TypeScript app under `apps/control-center`.
 - consumes existing read-only/preview-only backend routes.
@@ -120,6 +123,7 @@ v0.20.1 — M16 Trace/Redaction Safety Hardening
 - v0.19.1 hardens M15 approval authority and redacted-detail safety checks.
 - v0.20.0 adds read-only event timeline and run/receipt trace viewer summaries.
 - v0.20.1 hardens M16 trace selection coverage, OpenAPI/no-backend-route checks, and generated artifact hygiene.
+- v0.21.0 adds read-only evidence, file ref, and memory ref summary viewers.
 - keeps backend OpenAPI path count unchanged at `74`.
 - adds no runtime execution, model/provider calls, OpenWebUI integration, remote dispatch, mobile sensors, plugin enablement, native builds, Chrome/Computer Use automation, design tool enablement, native CCC implementation, M21-M40 implementation, or production authority.
 ```
@@ -128,7 +132,7 @@ v0.20.1 — M16 Trace/Redaction Safety Hardening
 
 The detailed sequence is frozen in `docs/roadmap/NEXT_SEQUENCE_v0_17_5.md`. The milestone charter template is `docs/roadmap/MILESTONE_CHARTERS.md`. These files must be checked before writing future milestone prompts.
 
-v0.18.0 and v0.18.1 have implemented and hardened M14 from that sequence. v0.18.2 has implemented the Open Design governance milestone. v0.18.3 has implemented OpenWebUI and CCC Client Strategy clarification. v0.18.4 has implemented post-M20 roadmap projection docs. v0.19.0 has implemented M15 frontend-only Approval Queue + Receipt/Event Viewer UI. v0.19.1 has hardened M15 Approval/Receipt UI safety. v0.20.0 has implemented M16 frontend-only Event Timeline + Run/Receipt Trace Viewer. v0.20.1 has hardened M16 trace/redaction safety. Items after v0.20.1 remain planned/provisional until superseded by a reviewed roadmap patch.
+v0.18.0 and v0.18.1 have implemented and hardened M14 from that sequence. v0.18.2 has implemented the Open Design governance milestone. v0.18.3 has implemented OpenWebUI and CCC Client Strategy clarification. v0.18.4 has implemented post-M20 roadmap projection docs. v0.19.0 has implemented M15 frontend-only Approval Queue + Receipt/Event Viewer UI. v0.19.1 has hardened M15 Approval/Receipt UI safety. v0.20.0 has implemented M16 frontend-only Event Timeline + Run/Receipt Trace Viewer. v0.20.1 has hardened M16 trace/redaction safety. v0.21.0 has implemented M17 frontend-only Evidence/File/Memory Viewer. Items after v0.21.0 remain planned/provisional until superseded by a reviewed roadmap patch.
 
 ```text
 v0.17.5 — Roadmap Projection + M14-M20 Milestone Charter Freeze, docs-only
@@ -141,7 +145,7 @@ v0.19.0 / M15 — Approval Queue + Receipt/Event Viewer UI, implemented read-onl
 v0.19.1 — M15 Hardening: Approval/Receipt UI Safety, implemented
 v0.20.0 / M16 — Event Timeline + Run/Receipt Trace Viewer, implemented read-only
 v0.20.1 — M16 Hardening: Trace/Redaction Safety + Whole-Code Bug Audit, implemented
-v0.21.0 / M17 — Evidence/File/Memory Viewer, read-only
+v0.21.0 / M17 — Evidence/File/Memory Viewer, implemented read-only
 v0.22.0 / M18 — Local Runtime Status + Manual Smoke Control Surface
 v0.23.0 / M19 — Mobile Companion Contract/API Planning
 v0.24.0 / M20 — Device Capability Broker Contract
