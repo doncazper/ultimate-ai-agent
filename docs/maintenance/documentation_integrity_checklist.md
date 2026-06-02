@@ -1,6 +1,6 @@
 # Documentation Integrity Checklist
 
-Status: Active maintenance checklist, v0.21.2
+Status: Active maintenance checklist, v0.24.0
 
 Run this checklist before every release that changes docs, roadmap, API metadata, runtime boundaries, or release status.
 
@@ -50,6 +50,7 @@ Run this checklist before every release that changes docs, roadmap, API metadata
 - docs do not claim design tools, design SaaS sync, UI generators, screenshot-to-code, design-to-code, or automatic design commits are enabled unless implemented and gated.
 - docs do not claim OpenWebUI integration, deployment config, plugin/function/tool bridge, native CCC implementation, Android app, iOS app, macOS app, OS permission integration, signing, keystore, App Store workflow, or Play Store workflow exists unless implemented and gated.
 - docs do not claim M21-M40 capabilities are implemented unless a dedicated future milestone implements and gates them.
+- docs do not claim Device Capability Broker runtime implementation, sensor access, device pairing runtime, mobile storage runtime, backend device routes, or device-client authority exists unless implemented and gated.
 
 ## Release Note Requirements
 
@@ -74,6 +75,7 @@ Run this checklist before every release that changes docs, roadmap, API metadata
 - v0.21.0 M17 Evidence/File/Memory Viewer is frontend-only, read-only, redacted summary-only, uses safe refs and memory recall-only summaries, keeps OpenAPI path count unchanged, and adds no file mutation, memory mutation, filesystem browsing, backend route, raw payload display, embedding/vector DB/memory provider implementation, dependency, or production authority.
 - v0.21.1 M17 Evidence/File/Memory Viewer safety hardening is frontend/test/verifier/Foundation Gate/docs only, keeps OpenAPI path count unchanged at 74, and adds no M18 surface, backend route, raw payload display, file mutation, memory mutation, filesystem browsing, embedding/vector DB/memory provider implementation, dependency, auth, cookies, analytics, SaaS SDK, or production authority.
 - v0.21.2 Developer Environment Command Normalization is dev tooling/docs only, standardizes repo verification on `.venv/bin/python` or Makefile targets, requires no global Python alias, and adds no M18 surface, runtime behavior, frontend behavior, backend route, dependency, network call, model/provider call, mobile/native/browser/computer-use functionality, plugin enablement, or production capability.
+- v0.24.0 M20 Device Capability Broker Contract is contract-only planning and validation, keeps OpenAPI path count unchanged at 74, and adds no runtime broker implementation, sensor access, OS permission integration, native clients, pairing runtime, backend API route, dependency, runtime execution, model/provider call, remote execution, plugin enablement, OpenWebUI integration, or production authority.
 - future post-M20 milestone prompts check `docs/roadmap/CAPABILITY_LAYERING_STRATEGY.md`.
 - future post-M20 milestone prompts check `docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md`.
 - future post-M20 milestone prompts check `docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md`.
@@ -91,9 +93,9 @@ Run this checklist before every release that changes docs, roadmap, API metadata
 - Developer environment docs say to use `.venv/bin/python`, not bare `python`, because shell aliases are not reliable for Codex/non-interactive shells and no global Python alias is required.
 ## M19 Documentation Integrity Checks
 
-- active baseline points to v0.23.1.
+- active baseline points to v0.24.0.
 - M19 is implemented as Mobile Companion Contract/API Planning only.
-- M20 remains planned/provisional.
+- M20 is implemented/released as Device Capability Broker Contract only.
 - v0.23.0 / M19 is marked implemented/released in active roadmap docs.
 - v0.23.1 is documented as M19 cleanup/hardening only.
 - mobile docs must say no mobile app, no Android app, no iOS app, no native
@@ -106,3 +108,16 @@ Run this checklist before every release that changes docs, roadmap, API metadata
 - mobile docs must say metadata refs must not contain secrets.
 - mobile docs must say external sends are not allowed.
 - mobile docs must say background services are not enabled.
+
+## M20 Documentation Integrity Checks
+
+- active baseline points to v0.24.0.
+- M20 is implemented/released as Device Capability Broker Contract only.
+- M20 is contract-only.
+- M20 docs say no sensors are implemented.
+- M20 docs say no OS permissions are implemented.
+- M20 docs say no native app is implemented.
+- M20 docs say capture cannot silently become memory.
+- M20 docs say Device Capability Broker output is not trusted control input by default.
+- M21 remains planned/provisional.
+- M21-M40 remain planned/provisional.

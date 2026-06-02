@@ -1025,6 +1025,15 @@ def default_foundation_gate_criteria() -> List[FoundationGateCriterion]:
             "critical",
         ),
         _criterion(
+            "m20_device_capability_broker_contract_safe",
+            "M20 Device Capability Broker Contract Safe",
+            FoundationGateCategory.security,
+            "FoundationGateEvaluator.check_m20_device_capability_broker_contract_safe",
+            "M20 Device Capability Broker is contract-only, adds no sensor access, no OS permission integration, no native app, no runtime broker, no backend routes, rejects silent capture, raw payloads, automatic memory writes, external sends, background services, and device-client authority, keeps OpenAPI path count at 74, and leaves M21 planned.",
+            "M20 Device Capability Broker contract is missing or violates the contract-only, no-device-runtime, no-sensor, no-authority boundary.",
+            "critical",
+        ),
+        _criterion(
             "open_design_governance_docs_present",
             "Open Design Governance Docs Present",
             FoundationGateCategory.documentation,

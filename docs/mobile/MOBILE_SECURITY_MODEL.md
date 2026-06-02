@@ -36,3 +36,13 @@ and memory-write checks. OS permission integration and background services are
 rejected as contract flags. No Android app, iOS app, macOS app, native package,
 native build workflow, signing, keystore, provisioning, App Store workflow, or
 Play Store workflow exists.
+
+## v0.24.0 M20 Device Capability Broker Contract
+
+v0.24.0 implements M20 Device Capability Broker Contract as contract-only
+planning and validation. Device loss, shared devices, notification privacy,
+mobile storage risk, compromised devices, and malicious app assumptions remain
+security concerns. Biometrics are not authority. Device output is not trusted
+control input by default. M20 adds no sensor access, OS permission integration,
+native clients, backend API route, dependency, runtime execution, or production
+authority. M21 remains planned/provisional.

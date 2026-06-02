@@ -271,7 +271,7 @@ v0.23.1 adds cleanup/hardening tests only:
 
 ```text
 Roadmap currentness marks v0.23.0 / M19 implemented/released.
-M20 remains planned/provisional.
+Roadmap currentness marks v0.24.0 / M20 implemented/released as contract-only.
 M21-M40 remain planned/provisional.
 Contacts and calendar capability plans cannot be enabled.
 Contacts and calendar capability plans require a future Device Capability Broker.
@@ -328,4 +328,19 @@ Design docs say screenshots and design artifacts must not contain secrets.
 Control Center docs link design governance docs.
 Foundation Gate includes open_design_governance_docs_present.
 Backend OpenAPI path count remains unchanged at 74.
+```
+
+## v0.24.0 M20 Device Capability Broker Contract Tests
+
+v0.24.0 adds contract-only tests for future device capabilities:
+
+```text
+default Device Capability Broker manifest is contract-only.
+all device capabilities are allowed_now=false and implemented_now=false.
+camera/microphone/location/notifications/contacts/calendar/photos/files/clipboard/Bluetooth/NFC/biometrics remain planned/disabled.
+silent capture, background capture, passive capture, continuous capture, raw payloads, automatic memory writes, external sends, OS permission integration, background services, runtime pairing claims, and device-client authority are rejected.
+docs/device_capabilities files exist.
+Foundation Gate includes m20_device_capability_broker_contract_safe.
+OpenAPI path count remains unchanged at 74.
+M21 remains planned/provisional.
 ```

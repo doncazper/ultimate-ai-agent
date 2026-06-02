@@ -1,12 +1,12 @@
-# Ultimate AI Agent Canonical Bundle v0.23.1
+# Ultimate AI Agent Canonical Bundle v0.24.0
 
-This is the active project baseline after v0.23.1 / M19 Roadmap Status + Mobile Contract Safety Hardening.
+This is the active project baseline after v0.24.0 / M20 Device Capability Broker Contract.
 
 Start here:
 
 ```text
-README_IMPORT_v0_23_1.md
-ultimate_ai_agent_master_plan_v0_23_1.md
+README_IMPORT_v0_24_0.md
+ultimate_ai_agent_master_plan_v0_24_0.md
 docs/DOCUMENTATION_INDEX.md
 docs/canonical/09_roadmap.md
 docs/canonical/CANONICAL_DOC_MAP.md
@@ -25,6 +25,15 @@ docs/canonical/63_observability_standards_mapping.md
 docs/canonical/64_mobile_companion_and_device_capability_broker.md
 docs/canonical/65_mobile_device_registry_and_sensor_permission_manifest.md
 docs/canonical/66_external_tooling_and_codex_plugin_governance.md
+docs/device_capabilities/DEVICE_CAPABILITY_BROKER_CONTRACT.md
+docs/device_capabilities/CAPABILITY_MANIFEST_SCHEMA.md
+docs/device_capabilities/DEVICE_PERMISSION_LIFECYCLE.md
+docs/device_capabilities/CAPTURE_INTENT_CONTRACT.md
+docs/device_capabilities/SENSOR_BOUNDARY_AND_NON_GOALS.md
+docs/device_capabilities/DEVICE_TRUST_AND_REVOCATION_CONTRACT.md
+docs/device_capabilities/DEVICE_RECEIPT_AND_REDACTION_POLICY.md
+docs/device_capabilities/DEVICE_CAPABILITY_SECURITY_MODEL.md
+docs/device_capabilities/DEVICE_CAPABILITY_BROKER_NON_GOALS.md
 docs/mobile/MOBILE_COMPANION_CONTRACT.md
 docs/mobile/MOBILE_CLIENT_SURFACE_ROLES.md
 docs/mobile/MOBILE_API_PLANNING.md
@@ -80,7 +89,7 @@ docs/runtime/RUNTIME_READINESS.md
 docs/runtime/MANUAL_SMOKE_REPORTS.md
 docs/runtime/RUNTIME_CAPABILITY_MATRIX.md
 docs/security/approval_authority.md
-docs/implementation/foundation_gate_implementation_plan_v0_23_1.md
+docs/implementation/foundation_gate_implementation_plan_v0_24_0.md
 docs/maintenance/documentation_integrity_checklist.md
 docs/tooling/CODEX_PLUGIN_CAPABILITY_INVENTORY.md
 docs/tooling/CODEX_PLUGIN_RISK_POLICY.md
@@ -121,6 +130,10 @@ Use `.venv/bin/python`, not bare `python`, for repo verification commands. Shell
 Local runtime status rule:
 
 > v0.22.0 implements M18 Local Runtime Status + Manual Smoke Control Surface in CCC Web only. `/runtime/local` is read-only local runtime status, and `/runtime/manual-smoke` is validation-only manual smoke report summary display. OpenAPI path count remains `74` and no backend route is added. Manual smoke execution remains CLI-only, fixed-prompt-only, approval-gated, and non-authoritative. This release adds no runtime execution, manual smoke execution, model/provider call, local runtime provider integration, remote execution, mobile sensor access, plugin enablement, OpenWebUI integration, dependency, production persistence, raw smoke report display, raw prompts, raw response bodies, credentials, provider payloads, or production Control Center authority.
+
+Device Capability Broker contract rule:
+
+> v0.24.0 implements M20 Device Capability Broker Contract as contract-only planning and validation. It defines future device capability manifests, permission lifecycle, capture intent, receipt/redaction, trust/revocation, and security boundaries for CCC iOS, CCC Android, CCC macOS, and mobile web/PWA surfaces. OpenAPI path count remains `74`. M21 remains planned/provisional. This release adds no mobile app, Android app, iOS app, macOS app, native build workflow, OS permission runtime, sensor access, push notification runtime, background service runtime, device pairing runtime, backend API route, runtime execution, model/provider call, remote execution, plugin enablement, dependency, OpenWebUI integration, or production authority.
 
 Roadmap status label cleanup rule:
 

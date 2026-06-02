@@ -30,3 +30,13 @@ routes absent. Contacts and calendar are contract-only planning records, not
 API-enabled capabilities. Metadata refs must be secret-free. External sends,
 OS permission integration, background services, Android/iOS app code, native
 build workflows, and sensor APIs remain absent.
+
+## v0.24.0 M20 Device Capability Broker Contract
+
+v0.24.0 implements M20 Device Capability Broker Contract as contract-only
+planning and validation. `/device-capabilities`, `/device-capabilities/execute`,
+`/device-capability-broker`, `/mobile/sensors`, `/mobile/capture`, and related
+device runtime routes remain absent. OpenAPI path count remains `74`. M20 adds
+no backend API route, sensor access, OS permission integration, pairing
+runtime, native client, dependency, runtime execution, model/provider call,
+remote execution, plugin enablement, or production authority.

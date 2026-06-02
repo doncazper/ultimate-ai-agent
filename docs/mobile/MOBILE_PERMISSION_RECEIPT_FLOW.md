@@ -37,3 +37,13 @@ sends are denied. OS permission integration and background services are not
 implemented. Android and iOS remain planned client surfaces only; no app,
 permission runtime, notification runtime, signing, keystore, provisioning, App
 Store workflow, or Play Store workflow exists.
+
+## v0.24.0 M20 Device Capability Broker Contract
+
+v0.24.0 implements M20 Device Capability Broker Contract as contract-only
+planning and validation. Future device permission lifecycle, receipts,
+redaction, revocation, and auditability are defined, but no sensor access, OS
+permission integration, native clients, pairing runtime, backend API route,
+background service, notification runtime, dependency, runtime execution,
+model/provider call, remote execution, plugin enablement, OpenWebUI
+integration, or production authority is added. M21 remains planned/provisional.

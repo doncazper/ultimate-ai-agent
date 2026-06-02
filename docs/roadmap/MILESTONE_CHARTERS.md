@@ -1,6 +1,6 @@
 # Milestone Charters
 
-Status: Active roadmap governance template maintained through v0.23.1.
+Status: Active roadmap governance template maintained through v0.24.0.
 
 This document defines the required charter shape for every future milestone prompt. A milestone charter is planning authority only. It does not implement runtime behavior, frontend behavior, backend API routes, provider calls, network calls, remote execution, mobile sensor access, plugin enablement, native build workflows, production persistence, or external actions.
 
@@ -66,7 +66,7 @@ Notes:
 - Mobile sensor output is not trusted control input by default.
 - Parked work must not become active without an explicit reintroduction prompt.
 - No milestone may skip review gates.
-- M14-M20 remain frozen and unchanged unless a reviewed roadmap patch supersedes them.
+- M14-M20 are frozen and implemented through v0.24.0 unless a reviewed roadmap patch supersedes them.
 - M21-M40 are planned/provisional in `docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md`.
 - Future prompts after M20 must read `docs/roadmap/CAPABILITY_LAYERING_STRATEGY.md`, `docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md`, and `docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md`.
 
@@ -78,13 +78,22 @@ and Foundation Gate criteria. It adds no mobile app, no Android app, no iOS
 app, no native build workflow, no OS permission integration, no mobile sensor
 access, no backend API route, and no OpenAPI path count change. Device
 Capability Broker is required before sensors. Capture cannot silently become
-memory. Phone/mobile is not the agent brain. M20 remains planned/provisional.
+memory. Phone/mobile is not the agent brain. M20 is implemented/released as
+Device Capability Broker Contract only.
 
 v0.23.1 hardens M19 roadmap status and mobile contract safety tests only. It
 adds no M20 Device Capability Broker implementation, mobile app, Android app,
 iOS app, macOS app, native build workflow, mobile sensor access, OS permission
 integration, backend API route, dependency, runtime execution, model/provider
 call, remote execution, plugin enablement, or production authority.
+
+v0.24.0 implements M20 Device Capability Broker Contract as contract-only
+planning and validation. It adds no Device Capability Broker runtime
+implementation, mobile app, Android app, iOS app, macOS app, native build
+workflow, mobile sensor access, OS permission integration, background service,
+notification runtime, backend API route, dependency, runtime execution,
+model/provider call, remote execution, plugin enablement, OpenWebUI
+integration, or production authority. M21-M40 remain planned/provisional.
 
 ## Review And Hardening Rule
 

@@ -1,6 +1,6 @@
 # M21-M40 Capability Charters
 
-Status: Active roadmap projection maintained through v0.23.1. Planned/provisional documentation only.
+Status: Active roadmap projection maintained through v0.24.0. Planned/provisional documentation only.
 
 These charters define future capability layers after M20. They are not implementation. Every milestone requires its own implementation prompt, review prompt, hardening expectation, and validation evidence before release.
 
@@ -771,14 +771,16 @@ Notes: Evals are not proof of production safety by themselves; they are gates an
 ## M19 Baseline Note
 
 v0.23.0 / M19 is implemented as Mobile Companion Contract/API Planning only.
-M20 Device Capability Broker remains planned/provisional. M21-M40 remain
-planned/provisional. The M19 baseline adds no mobile app, Android app, iOS app,
-macOS app, native build workflow, OS permission integration, mobile sensor
-access, mobile approval execution, runtime execution, model/provider calls,
-remote execution, plugin enablement, dependency, or production Control Center
-authority. Capture cannot silently become memory. Phone/mobile is not the agent
-brain. Device Capability Broker is required before sensors.
+M20 Device Capability Broker Contract is implemented/released as contract-only
+planning and validation. M21-M40 remain planned/provisional. The M19 baseline
+adds no mobile app, Android app, iOS app, macOS app, native build workflow, OS
+permission integration, mobile sensor access, mobile approval execution,
+runtime execution, model/provider calls, remote execution, plugin enablement,
+dependency, or production Control Center authority. Capture cannot silently
+become memory. Phone/mobile is not the agent brain. Device Capability Broker
+contracts are required before sensors.
 
 v0.23.1 is a cleanup/hardening patch for M19 roadmap status and mobile contract
-safety tests only. M20 remains planned/provisional. M21-M40 remain
-planned/provisional until implemented by dedicated reviewed milestones.
+safety tests only. v0.24.0 implements M20 Device Capability Broker Contract
+only. M21-M40 remain planned/provisional until implemented by dedicated
+reviewed milestones.

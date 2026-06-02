@@ -31,4 +31,15 @@ Browser may be used only for local UI verification under the existing local brow
 v0.23.0 / M19 adds no native design or build tooling. No Android Studio, Gradle,
 Kotlin, Java, Xcode, Swift, React Native, Expo, Flutter, Capacitor, Ionic,
 signing, keystore, provisioning, App Store, or Play Store workflow is enabled.
-Device Capability Broker is required before sensors, and M20 remains planned.
+Device Capability Broker is required before sensors. M20 is implemented as
+contract-only planning and validation.
+
+## M20 Device Capability Broker Design Boundary
+
+v0.24.0 implements M20 Device Capability Broker Contract as contract-only
+planning and validation. It adds no design tool integration, native build
+workflow, Android Studio, Gradle, Kotlin, Java, Xcode, Swift, React Native,
+Expo, Flutter, Capacitor, Ionic, signing, keystore, provisioning, App Store,
+Play Store workflow, sensor access, OS permission integration, backend API
+route, dependency, runtime execution, or production authority. M21 remains
+planned/provisional.

@@ -29,7 +29,8 @@ M19 explicitly does not add:
 - silent memory write.
 
 Phone/mobile is not the agent brain. Capture cannot silently become memory.
-Device Capability Broker is required before sensors. M20 remains planned.
+Device Capability Broker is required before sensors. M20 is implemented as
+contract-only planning and validation.
 
 ## v0.23.1 Hardening Note
 
@@ -39,3 +40,13 @@ notification runtime, Android implementation, iOS implementation, macOS
 implementation, native build workflows, signing, keystore, provisioning, App
 Store workflow, Play Store workflow, Device Capability Broker implementation,
 and production authority remain out of scope.
+
+## v0.24.0 M20 Device Capability Broker Contract
+
+v0.24.0 implements M20 Device Capability Broker Contract as contract-only
+planning and validation. It remains a non-goal to add sensor access, OS
+permission integration, native clients, pairing runtime, mobile storage
+runtime, backend API routes, background services, notification runtime,
+dependencies, runtime execution, model/provider calls, remote execution, plugin
+enablement, OpenWebUI integration, or production authority. M21 remains
+planned/provisional.

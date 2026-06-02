@@ -590,6 +590,41 @@ def main():
         if not p.exists():
             fail(f"Required M19 file is missing: {rel_path}")
     ok("All M19 Mobile Companion contract/API planning files exist")
+
+    # 8.24 Check M20 Device Capability Broker contract files existence
+    m20_files = [
+        "src/ultimate_ai_agent/core/device_capabilities/__init__.py",
+        "src/ultimate_ai_agent/core/device_capabilities/contracts.py",
+        "src/ultimate_ai_agent/core/device_capabilities/enums.py",
+        "src/ultimate_ai_agent/core/device_capabilities/manifests.py",
+        "src/ultimate_ai_agent/core/device_capabilities/policy.py",
+        "src/ultimate_ai_agent/core/device_capabilities/receipts.py",
+        "src/ultimate_ai_agent/core/device_capabilities/validation.py",
+        "tests/test_device_capability_contracts.py",
+        "tests/test_device_capability_manifest.py",
+        "tests/test_device_capability_validation.py",
+        "tests/test_device_capability_no_sensor_access.py",
+        "tests/test_device_capability_no_authority.py",
+        "tests/test_m20_gate_integration.py",
+        "docs/device_capabilities/DEVICE_CAPABILITY_BROKER_CONTRACT.md",
+        "docs/device_capabilities/CAPABILITY_MANIFEST_SCHEMA.md",
+        "docs/device_capabilities/DEVICE_PERMISSION_LIFECYCLE.md",
+        "docs/device_capabilities/CAPTURE_INTENT_CONTRACT.md",
+        "docs/device_capabilities/SENSOR_BOUNDARY_AND_NON_GOALS.md",
+        "docs/device_capabilities/DEVICE_TRUST_AND_REVOCATION_CONTRACT.md",
+        "docs/device_capabilities/DEVICE_RECEIPT_AND_REDACTION_POLICY.md",
+        "docs/device_capabilities/DEVICE_CAPABILITY_SECURITY_MODEL.md",
+        "docs/device_capabilities/DEVICE_CAPABILITY_BROKER_NON_GOALS.md",
+        "docs/release_notes/v0_24_0.md",
+        "README_IMPORT_v0_24_0.md",
+        "ultimate_ai_agent_master_plan_v0_24_0.md",
+        "docs/implementation/foundation_gate_implementation_plan_v0_24_0.md",
+    ]
+    for rel_path in m20_files:
+        p = ROOT / rel_path
+        if not p.exists():
+            fail(f"Required M20 file is missing: {rel_path}")
+    ok("All M20 Device Capability Broker contract files exist")
     
     # 9. Enforce scans by delegating to verify_all
     try:

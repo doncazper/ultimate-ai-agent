@@ -218,7 +218,8 @@ microphone, location, notification, contacts, calendar, files, photos,
 Bluetooth, NFC, biometrics, background service, or mobile sensor access.
 Capture cannot silently become memory. Mobile approval execution is not
 implemented. Phone/mobile is not the agent brain and phone output is not
-trusted control input. M20 remains planned/provisional.
+trusted control input. M20 is implemented as contract-only planning and
+validation.
 
 ## v0.23.1 M19 Hardening Note
 
@@ -233,3 +234,20 @@ mobile sensor access, OS permission integration, signing, keystore,
 provisioning, App Store workflow, Play Store workflow, backend API route,
 dependency, runtime execution, model/provider call, remote execution, plugin
 enablement, or production authority.
+
+## v0.24.0 M20 Device Capability Broker Contract
+
+v0.24.0 implements M20 Device Capability Broker Contract as contract-only
+planning and validation. It defines future device capability manifests,
+permission lifecycle, capture intent, receipt/redaction, trust/revocation, and
+security boundaries before any future sensor implementation.
+
+M20 adds no Device Capability Broker runtime implementation, mobile app,
+Android app, iOS app, macOS app, native build workflow, mobile sensor access,
+OS permission integration, background service, notification runtime, device
+pairing runtime, backend API route, dependency, runtime execution,
+model/provider call, remote execution, plugin enablement, OpenWebUI
+integration, or production authority. M21 remains planned/provisional.
+
+Device Capability Broker output is not trusted control input by default.
+Capture cannot silently become memory or trigger external sends.

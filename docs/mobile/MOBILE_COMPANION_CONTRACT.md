@@ -50,3 +50,14 @@ support is planned, not implemented. iOS support is planned, not implemented.
 No mobile app, native build workflow, mobile sensor access, OS permission
 integration, signing, keystore, provisioning, App Store workflow, or Play Store
 workflow exists.
+
+## v0.24.0 M20 Device Capability Broker Contract
+
+v0.24.0 implements M20 Device Capability Broker Contract as contract-only
+planning and validation. M20 adds no sensor access, OS permission integration,
+native clients, pairing runtime, mobile storage runtime, backend API route,
+dependency, background service, notification runtime, runtime execution,
+model/provider call, remote execution, plugin enablement, OpenWebUI
+integration, or production authority. Device Capability Broker output is not
+trusted control input by default. Capture cannot silently become memory. M21
+remains planned/provisional.

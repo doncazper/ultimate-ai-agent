@@ -115,6 +115,30 @@ M19_FORBIDDEN_BACKEND_ROUTES = (
     "/control-center/mobile/sensors",
     "/control-center/mobile/capture",
 )
+EXPECTED_M20_OPENAPI_PATH_COUNT = 74
+M20_FORBIDDEN_BACKEND_ROUTES = (
+    "/device-capabilities",
+    "/device-capabilities/execute",
+    "/device-capabilities/camera",
+    "/device-capabilities/microphone",
+    "/device-capabilities/location",
+    "/device-capabilities/notifications",
+    "/device-capabilities/contacts",
+    "/device-capabilities/calendar",
+    "/device-capabilities/photos",
+    "/device-capabilities/files",
+    "/device-capability-broker",
+    "/device-capability-broker/execute",
+    "/device-capability-broker/capabilities",
+    "/device-capability-broker/pair",
+    "/mobile/sensors",
+    "/mobile/camera",
+    "/mobile/microphone",
+    "/mobile/location",
+    "/mobile/notifications",
+    "/mobile/capture",
+    "/mobile/pair",
+)
 
 
 def m16_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M16_OPENAPI_PATH_COUNT) -> List[str]:
@@ -158,6 +182,17 @@ def m19_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
     forbidden_present = sorted(path for path in M19_FORBIDDEN_BACKEND_ROUTES if path in path_set)
     if forbidden_present:
         failures.append(f"M19 forbidden backend route(s) present: {', '.join(forbidden_present)}")
+    return failures
+
+
+def m20_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M20_OPENAPI_PATH_COUNT) -> List[str]:
+    failures: List[str] = []
+    path_set = set(paths)
+    if len(path_set) != expected_path_count:
+        failures.append(f"M20 OpenAPI path count changed: expected {expected_path_count}, found {len(path_set)}")
+    forbidden_present = sorted(path for path in M20_FORBIDDEN_BACKEND_ROUTES if path in path_set)
+    if forbidden_present:
+        failures.append(f"M20 forbidden backend route(s) present: {', '.join(forbidden_present)}")
     return failures
 
 
@@ -279,6 +314,7 @@ class FoundationGateEvaluator:
             "m17_evidence_file_memory_viewer_hardening_safe": self.check_m17_evidence_file_memory_viewer_hardening_safe,
             "m18_local_runtime_manual_smoke_surface_safe": self.check_m18_local_runtime_manual_smoke_surface_safe,
             "m19_mobile_companion_contract_planning_safe": self.check_m19_mobile_companion_contract_planning_safe,
+            "m20_device_capability_broker_contract_safe": self.check_m20_device_capability_broker_contract_safe,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -3839,6 +3875,213 @@ class FoundationGateEvaluator:
                 for fragment in forbidden_fragments:
                     if fragment in text:
                         failures.append(f"M19 forbidden mobile sensor fragment in {rel}: {fragment}")
+
+        return self._result(criterion, failures, required_files)
+
+    def check_m20_device_capability_broker_contract_safe(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.device_capabilities import (
+            DeviceCapabilityKind,
+            DeviceCapabilityStatus,
+            build_default_device_capability_manifest,
+        )
+        from ultimate_ai_agent.core.device_capabilities.validation import (
+            assert_device_contract_only,
+        )
+
+        required_files = [
+            "src/ultimate_ai_agent/core/device_capabilities/__init__.py",
+            "src/ultimate_ai_agent/core/device_capabilities/enums.py",
+            "src/ultimate_ai_agent/core/device_capabilities/contracts.py",
+            "src/ultimate_ai_agent/core/device_capabilities/manifests.py",
+            "src/ultimate_ai_agent/core/device_capabilities/validation.py",
+            "src/ultimate_ai_agent/core/device_capabilities/policy.py",
+            "src/ultimate_ai_agent/core/device_capabilities/receipts.py",
+            "tests/test_device_capability_contracts.py",
+            "tests/test_device_capability_manifest.py",
+            "tests/test_device_capability_validation.py",
+            "tests/test_device_capability_no_sensor_access.py",
+            "tests/test_device_capability_no_authority.py",
+            "tests/test_m20_gate_integration.py",
+            "docs/device_capabilities/DEVICE_CAPABILITY_BROKER_CONTRACT.md",
+            "docs/device_capabilities/CAPABILITY_MANIFEST_SCHEMA.md",
+            "docs/device_capabilities/DEVICE_PERMISSION_LIFECYCLE.md",
+            "docs/device_capabilities/CAPTURE_INTENT_CONTRACT.md",
+            "docs/device_capabilities/SENSOR_BOUNDARY_AND_NON_GOALS.md",
+            "docs/device_capabilities/DEVICE_TRUST_AND_REVOCATION_CONTRACT.md",
+            "docs/device_capabilities/DEVICE_RECEIPT_AND_REDACTION_POLICY.md",
+            "docs/device_capabilities/DEVICE_CAPABILITY_SECURITY_MODEL.md",
+            "docs/device_capabilities/DEVICE_CAPABILITY_BROKER_NON_GOALS.md",
+            "docs/implementation/foundation_gate_implementation_plan_v0_24_0.md",
+            "docs/release_notes/v0_24_0.md",
+        ]
+        failures = [
+            f"missing M20 Device Capability Broker contract file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+
+        try:
+            manifest = build_default_device_capability_manifest()
+            assert_device_contract_only(manifest)
+            if not manifest.contract_only:
+                failures.append("default device capability manifest is not contract-only")
+            if manifest.sensor_access_enabled:
+                failures.append("default device capability manifest enables sensor access")
+            if manifest.os_permission_integration_implemented:
+                failures.append("default device capability manifest enables OS permissions")
+            if manifest.backend_routes_added:
+                failures.append("default device capability manifest adds backend routes")
+            if manifest.runtime_broker_implemented:
+                failures.append("default device capability manifest implements runtime broker")
+            if manifest.native_client_implemented:
+                failures.append("default device capability manifest implements native clients")
+            if manifest.device_clients_are_authority:
+                failures.append("default device capability manifest claims device authority")
+            if manifest.device_output_is_trusted_control_input:
+                failures.append("default device output is trusted control input")
+            if manifest.automatic_memory_write_allowed:
+                failures.append("default manifest allows automatic memory write")
+            if manifest.external_send_allowed:
+                failures.append("default manifest allows external sends")
+            if manifest.raw_payload_allowed:
+                failures.append("default manifest allows raw payloads")
+            capabilities_by_kind = {
+                capability.kind: capability
+                for capability in manifest.capabilities
+            }
+            for capability_kind in [
+                DeviceCapabilityKind.camera,
+                DeviceCapabilityKind.microphone,
+                DeviceCapabilityKind.location,
+                DeviceCapabilityKind.contacts,
+                DeviceCapabilityKind.calendar,
+                DeviceCapabilityKind.photos,
+                DeviceCapabilityKind.files,
+                DeviceCapabilityKind.clipboard,
+                DeviceCapabilityKind.bluetooth,
+                DeviceCapabilityKind.nfc,
+                DeviceCapabilityKind.biometrics,
+                DeviceCapabilityKind.notifications,
+            ]:
+                capability = capabilities_by_kind.get(capability_kind)
+                if capability is None:
+                    failures.append(f"default manifest missing {capability_kind.value}")
+                    continue
+                if capability.status not in {
+                    DeviceCapabilityStatus.planned_disabled,
+                    DeviceCapabilityStatus.future_requires_broker,
+                    DeviceCapabilityStatus.blocked,
+                }:
+                    failures.append(f"{capability_kind.value} is not future-broker-only")
+                if capability.allowed_now:
+                    failures.append(f"{capability_kind.value} is enabled")
+                if capability.implemented_now:
+                    failures.append(f"{capability_kind.value} is implemented")
+                if not capability.requires_device_capability_broker:
+                    failures.append(f"{capability_kind.value} must require Device Capability Broker")
+            background_service = capabilities_by_kind.get(DeviceCapabilityKind.background_service)
+            if background_service is None:
+                failures.append("default manifest missing background_service")
+            elif background_service.status != DeviceCapabilityStatus.blocked:
+                failures.append("background_service must remain blocked")
+        except Exception as exc:
+            failures.append(f"M20 device capability default contract failed validation: {exc}")
+
+        try:
+            openapi_paths = app.openapi().get("paths", {})
+        except Exception as exc:
+            failures.append(f"M20 OpenAPI route guard could not generate schema: {exc}")
+        else:
+            failures.extend(m20_openapi_route_failures(openapi_paths))
+
+        forbidden_dirs = [
+            "ios",
+            "android",
+            "mobile-app",
+            "react-native",
+            "expo",
+            "flutter",
+            "capacitor",
+            "ionic",
+            "src/ultimate_ai_agent/core/device_capability_broker",
+        ]
+        for rel_path in forbidden_dirs:
+            if (self.root / rel_path).exists():
+                failures.append(f"M20 forbidden native/mobile implementation directory exists: {rel_path}")
+
+        forbidden_files = [
+            "build.gradle",
+            "settings.gradle",
+            "gradlew",
+            "AndroidManifest.xml",
+            "Info.plist",
+            "Package.swift",
+            "Podfile",
+            "pubspec.yaml",
+            "app.json",
+            "app.config.js",
+            "capacitor.config.ts",
+            "ionic.config.json",
+        ]
+        for file_name in forbidden_files:
+            for rel in [
+                file_name,
+                f"apps/{file_name}",
+                f"apps/control-center/{file_name}",
+                f"src/{file_name}",
+            ]:
+                if (self.root / rel).exists():
+                    failures.append(f"M20 forbidden native/mobile implementation file exists: {rel}")
+
+        scan_roots = ["src", "apps", "scripts", "tests"]
+        forbidden_fragments = [
+            "navigator.geolocation",
+            "navigator.mediaDevices",
+            "Notification.requestPermission",
+            "PushManager",
+            "android.permission",
+            "Manifest.permission",
+            "CLLocation",
+            "AVCapture",
+            "LocationManager",
+            "CameraManager",
+            "AudioRecord",
+        ]
+        for rel_root in scan_roots:
+            root = self.root / rel_root
+            if not root.exists():
+                continue
+            candidate_files = []
+            if rel_root in {"src", "scripts", "tests"}:
+                candidate_files.extend(root.rglob("*.py"))
+            if rel_root == "apps":
+                candidate_files.extend(root.rglob("*.ts"))
+                candidate_files.extend(root.rglob("*.tsx"))
+                candidate_files.extend(root.rglob("*.js"))
+                candidate_files.extend(root.rglob("*.jsx"))
+            for path in candidate_files:
+                rel = path.relative_to(self.root).as_posix()
+                if not path.is_file() or "__pycache__" in rel or "node_modules/" in rel:
+                    continue
+                if rel in {
+                    "src/ultimate_ai_agent/core/gate/evaluators.py",
+                    "scripts/verify_all.py",
+                    "scripts/verify_control_center_frontend.py",
+                }:
+                    continue
+                text = self._read(path)
+                for fragment in forbidden_fragments:
+                    if fragment in text:
+                        failures.append(f"M20 forbidden device/sensor fragment in {rel}: {fragment}")
+
+        roadmap_text = self._read(self.root / "docs/canonical/09_roadmap.md").lower()
+        if "v0.24.0 / m20" not in roadmap_text or "implemented" not in roadmap_text:
+            failures.append("canonical roadmap must mark v0.24.0 / M20 implemented")
+        if "v0.25.0 / m21" not in roadmap_text or "planned/provisional" not in roadmap_text:
+            failures.append("canonical roadmap must keep M21 planned/provisional")
 
         return self._result(criterion, failures, required_files)
 

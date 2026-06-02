@@ -50,4 +50,5 @@ M19 adds no OpenWebUI integration, no OpenWebUI deployment config, no backend
 API route, no native CCC implementation, no Android app, no iOS app, no macOS
 app, no native build workflow, no mobile sensor access, and no OS permission
 integration. Device Capability Broker is required before sensors. Capture
-cannot silently become memory. M20 remains planned/provisional.
+cannot silently become memory. M20 is implemented as contract-only planning and
+validation. M21 remains planned/provisional.

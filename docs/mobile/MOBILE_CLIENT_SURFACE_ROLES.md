@@ -32,3 +32,13 @@ No mobile/native client can approve actions locally, execute actions locally,
 bypass Python Agent Core authority, enable contacts/calendar, store secret-like
 metadata refs, send externally, integrate OS permissions, or run background
 services.
+
+## v0.24.0 M20 Device Capability Broker Contract
+
+v0.24.0 implements M20 Device Capability Broker Contract as contract-only
+planning and validation for future CCC iOS, CCC Android, CCC macOS, and mobile
+web/PWA device capabilities. No client becomes authority. M20 adds no native
+client, sensor access, OS permission integration, pairing runtime, backend API
+route, dependency, runtime execution, model/provider call, remote execution,
+plugin enablement, or production authority. Device output is not trusted
+control input by default. M21 remains planned/provisional.

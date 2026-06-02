@@ -30,3 +30,14 @@ secrets or raw content. External sends are not allowed. Capture cannot silently
 become memory. OS permissions, background services, notification runtime,
 mobile sensor APIs, Android implementation, iOS implementation, and native
 build workflows remain absent.
+
+## v0.24.0 M20 Device Capability Broker Contract
+
+v0.24.0 implements M20 Device Capability Broker Contract as contract-only
+planning and validation. Future capture intents must require an explicit user
+gesture, redaction, retention policy, receipt, and revocation behavior. M20
+adds no capture runtime, sensor access, OS permission integration, native
+client, backend API route, background service, notification runtime,
+dependency, runtime execution, model/provider call, remote execution, plugin
+enablement, or production authority. Capture cannot silently become memory and
+cannot trigger external sends.

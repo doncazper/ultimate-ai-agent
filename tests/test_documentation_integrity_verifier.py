@@ -171,6 +171,23 @@ def test_documentation_integrity_verifier_rejects_stale_v023_roadmap_currentness
     assert any("active roadmap docs must not be maintained only through v0.22.1" in failure for failure in failures)
 
 
+def test_documentation_integrity_verifier_requires_m20_device_capability_docs(tmp_path: Path):
+    _write_minimal_repo(tmp_path, version="0.24.0")
+    roadmap = tmp_path / "docs/canonical/09_roadmap.md"
+    roadmap.write_text(
+        "The active accepted baseline is v0.24.0.\n"
+        "v0.24.0 / M20 - Device Capability Broker Contract, planned/provisional.\n"
+        "v0.25.0 / M21 - OpenWebUI Bridge + Chat Shell Integration Contract, implemented.\n",
+        encoding="utf-8",
+    )
+
+    failures = verifier.verify(tmp_path)
+
+    assert any("docs/device_capabilities/DEVICE_CAPABILITY_BROKER_CONTRACT.md" in failure for failure in failures)
+    assert any("M20/v0.24.0 as implemented/released" in failure for failure in failures)
+    assert any("M21/v0.25.0 planned/provisional" in failure for failure in failures)
+
+
 def _write_minimal_repo(root: Path, version: str = "0.14.6") -> None:
     version_key = version.replace(".", "_")
     files = {

@@ -46,3 +46,14 @@ use Python Agent Core authority. M19 adds no native build workflow, no mobile
 sensor access, no OS permission integration, no signing, keystore,
 provisioning, App Store, or Play Store workflow. Device Capability Broker is
 required before sensors. Capture cannot silently become memory.
+
+## M20 Device Capability Broker Contract
+
+v0.24.0 / M20 implements Device Capability Broker Contract as contract-only
+planning and validation. CCC Web remains the current TypeScript Web Control
+Center. CCC iOS, CCC Android, and CCC macOS remain future clients. M20 adds no
+native client, sensor access, OS permission integration, device pairing
+runtime, backend API route, dependency, runtime execution, model/provider call,
+remote execution, plugin enablement, OpenWebUI integration, or production
+authority. Device output is not trusted control input by default. M21 remains
+planned/provisional.

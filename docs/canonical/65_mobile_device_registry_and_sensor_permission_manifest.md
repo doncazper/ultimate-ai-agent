@@ -149,3 +149,17 @@ notification runtime are not enabled. Android and iOS support remain planned,
 not implemented. No mobile app, native build workflow, signing, keystore,
 provisioning, App Store workflow, Play Store workflow, sensor API, runtime
 registry, backend API route, dependency, or production authority is added.
+
+## v0.24.0 M20 Device Capability Broker Contract
+
+v0.24.0 implements M20 Device Capability Broker Contract as contract-only
+planning and validation. Future sensors require this contract and future
+implementation milestones before any device capability runtime exists.
+
+M20 adds no sensor access, OS permission integration, native clients, pairing
+runtime, mobile storage runtime, backend API route, dependency, background
+service, notification runtime, runtime execution, model/provider call, remote
+execution, plugin enablement, OpenWebUI integration, or production authority.
+
+Device Capability Broker output is not trusted control input by default.
+Capture cannot silently become memory. M21 remains planned/provisional.

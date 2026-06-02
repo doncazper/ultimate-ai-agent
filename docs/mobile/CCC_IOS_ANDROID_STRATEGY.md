@@ -41,3 +41,13 @@ planned/disabled and require a future Device Capability Broker. Metadata refs
 must not contain secrets. External sends, OS permission integration, background
 services, notification runtime, native build workflows, signing, keystore,
 provisioning, App Store workflow, and Play Store workflow remain absent.
+
+## v0.24.0 M20 Device Capability Broker Contract
+
+v0.24.0 implements M20 Device Capability Broker Contract as contract-only
+planning and validation. CCC iOS and CCC Android remain future clients only.
+M20 adds no Android app, iOS app, native package, sensor access, OS permission
+integration, background service, notification runtime, pairing runtime,
+backend API route, dependency, native build workflow, signing, keystore,
+provisioning, App Store workflow, Play Store workflow, or production authority.
+M21 remains planned/provisional.

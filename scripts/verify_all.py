@@ -23,7 +23,7 @@ SCAN_SEQUENCE = [
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
     ("production truth integration scan", "verify_no_production_truth_integrations"),
     ("broad filesystem scan", "verify_no_broad_filesystem_scanning"),
-    ("mobile companion contract-only scan", "verify_no_mobile_native_or_sensor_implementation"),
+    ("mobile/device capability contract-only scan", "verify_no_mobile_native_or_sensor_implementation"),
 ]
 
 
@@ -371,6 +371,13 @@ def verify_no_control_center_runtime_or_frontend_expansion():
         "/control-center/runtime/execute",
         "/control-center/remote-workers/dispatch",
         "/control-center/mobile/sensors",
+        "/device-capabilities",
+        "/device-capability-broker",
+        "/mobile/camera",
+        "/mobile/microphone",
+        "/mobile/location",
+        "/mobile/notifications",
+        "/mobile/capture",
         "/control-center/frontend",
     ]
     api_app = ROOT / "src" / "ultimate_ai_agent" / "api" / "app.py"
@@ -481,6 +488,13 @@ def verify_m13_web_control_center_frontend_safety():
         "/control-center/runtime/execute",
         "/control-center/remote-workers/dispatch",
         "/control-center/mobile/sensors",
+        "/device-capabilities",
+        "/device-capability-broker",
+        "/mobile/camera",
+        "/mobile/microphone",
+        "/mobile/location",
+        "/mobile/notifications",
+        "/mobile/capture",
         "/control-center/frontend",
         "/model-runtime/execute",
         "/remote-workers/dispatch",
@@ -617,7 +631,7 @@ def verify_no_broad_filesystem_scanning():
 
 
 def verify_no_mobile_native_or_sensor_implementation():
-    print("\n[Verifier] Running M19 mobile companion contract-only guard...")
+    print("\n[Verifier] Running M20 mobile/device capability contract-only guard...")
     try:
         git_files_raw = subprocess.check_output(["git", "ls-files"], text=True)
         git_files = git_files_raw.splitlines()
@@ -690,10 +704,17 @@ def verify_no_mobile_native_or_sensor_implementation():
         "notification.requestpermission",
         "pushmanager",
         "android.permission",
+        "manifest.permission.",
         "cllocation",
         "avcapture",
         "locationmanager",
         "cameramanager",
+        "audiorecord",
+        "getusermedia",
+        "mediadevices.getusermedia",
+        "navigator.bluetooth",
+        "nfcadapter",
+        "biometricauthentication",
     ]
     for root in implementation_roots:
         if not root.exists():
