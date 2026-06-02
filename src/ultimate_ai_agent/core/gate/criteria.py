@@ -1020,7 +1020,7 @@ def default_foundation_gate_criteria() -> List[FoundationGateCriterion]:
             "M19 Mobile Companion Contract Planning Safe",
             FoundationGateCategory.security,
             "FoundationGateEvaluator.check_m19_mobile_companion_contract_planning_safe",
-            "M19 mobile companion is contract/API planning only, adds no mobile app, no native build workflow, no sensor access, no mobile approval execution, requires a future Device Capability Broker before sensors, keeps OpenAPI path count at 74, and leaves M20 planned.",
+            "M19 mobile companion is contract/API planning only, adds no mobile app, no native build workflow, no sensor access, no mobile approval execution, keeps contacts/calendar planned-disabled and future-broker-only, rejects secret-like metadata refs, blocks external sends, rejects OS permission integration and background services, requires a future Device Capability Broker before sensors, keeps OpenAPI path count at 74, and leaves M20 planned.",
             "M19 mobile companion planning is missing or violates the contract-only, no-native, no-sensor, no-authority boundary.",
             "critical",
         ),

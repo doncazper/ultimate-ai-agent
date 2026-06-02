@@ -138,3 +138,14 @@ Store/provisioning/keychain workflow until a dedicated release milestone.
 Device Capability Broker is required before sensors. Capture cannot silently
 become memory. Phone/mobile is not the agent brain. M20 remains
 planned/provisional.
+
+## v0.23.1 M19 Hardening Note
+
+v0.23.1 keeps device registry and sensor permission manifest work planning-only.
+Contacts and calendar are planned/disabled and require a future Device
+Capability Broker. Metadata refs must not contain secrets. External sends are
+not allowed. OS permissions are not integrated. Background services and
+notification runtime are not enabled. Android and iOS support remain planned,
+not implemented. No mobile app, native build workflow, signing, keystore,
+provisioning, App Store workflow, Play Store workflow, sensor API, runtime
+registry, backend API route, dependency, or production authority is added.

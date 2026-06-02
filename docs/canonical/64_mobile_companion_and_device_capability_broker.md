@@ -219,3 +219,17 @@ Bluetooth, NFC, biometrics, background service, or mobile sensor access.
 Capture cannot silently become memory. Mobile approval execution is not
 implemented. Phone/mobile is not the agent brain and phone output is not
 trusted control input. M20 remains planned/provisional.
+
+## v0.23.1 M19 Hardening Note
+
+v0.23.1 is a cleanup/hardening patch for M19 roadmap status and mobile contract
+safety tests only. Contacts and calendar are planned/disabled capabilities and
+require a future Device Capability Broker. Metadata refs must not contain
+secret-like values. External sends are not allowed. OS permission integration is
+not implemented. Background services are not enabled. Android support is
+planned, not implemented. iOS support is planned, not implemented. This patch
+adds no mobile app, Android app, iOS app, macOS app, native build workflow,
+mobile sensor access, OS permission integration, signing, keystore,
+provisioning, App Store workflow, Play Store workflow, backend API route,
+dependency, runtime execution, model/provider call, remote execution, plugin
+enablement, or production authority.

@@ -18,6 +18,7 @@ from ultimate_ai_agent.core.mobile_companion.planning import (
 def test_default_mobile_permission_manifest_denies_runtime_access():
     manifest = build_default_mobile_permission_manifest()
 
+    assert manifest.version == "0.23.1"
     assert manifest.contract_only is True
     assert manifest.os_permission_integration_implemented is False
     assert manifest.background_service_implemented is False
@@ -33,6 +34,49 @@ def test_capability_allowed_now_is_rejected():
     )
 
     with pytest.raises(ValueError, match="allowed_now"):
+        validate_mobile_capability_plan(capability)
+
+
+def test_metadata_refs_reject_secret_like_values():
+    capability = MobileCapabilityPlan(
+        capability=MobileCapabilityKind.contacts_planned,
+        status=MobileCapabilityStatus.future_requires_device_capability_broker,
+        safe_summary="contact planning metadata only",
+        metadata_refs=[
+            "api_key=redacted",
+            "token=redacted",
+            "secret=redacted",
+            "password=redacted",
+            "Authorization: redacted",
+            "Cookie: redacted",
+        ],
+    )
+
+    with pytest.raises(ValueError, match="secret-like"):
+        validate_mobile_capability_plan(capability)
+
+
+def test_os_permission_integration_flag_is_rejected():
+    capability = MobileCapabilityPlan(
+        capability=MobileCapabilityKind.location_planned,
+        status=MobileCapabilityStatus.future_requires_device_capability_broker,
+        safe_summary="location planning metadata only",
+        os_permission_integrated=True,
+    )
+
+    with pytest.raises(ValueError, match="OS permission"):
+        validate_mobile_capability_plan(capability)
+
+
+def test_background_service_flag_is_rejected():
+    capability = MobileCapabilityPlan(
+        capability=MobileCapabilityKind.location_planned,
+        status=MobileCapabilityStatus.future_requires_device_capability_broker,
+        safe_summary="location planning metadata only",
+        background_service_enabled=True,
+    )
+
+    with pytest.raises(ValueError, match="background service"):
         validate_mobile_capability_plan(capability)
 
 

@@ -265,6 +265,28 @@ Foundation Gate includes openwebui_ccc_strategy_docs_present.
 Backend OpenAPI path count remains unchanged at 74.
 ```
 
+## v0.23.1 M19 Cleanup And Mobile Contract Safety Tests
+
+v0.23.1 adds cleanup/hardening tests only:
+
+```text
+Roadmap currentness marks v0.23.0 / M19 implemented/released.
+M20 remains planned/provisional.
+M21-M40 remain planned/provisional.
+Contacts and calendar capability plans cannot be enabled.
+Contacts and calendar capability plans require a future Device Capability Broker.
+Contacts and calendar cannot be represented as implemented.
+Metadata refs reject secret-like values.
+External sends are rejected independently.
+OS permission integration flags are rejected.
+Background service flags are rejected.
+No backend API route, dependency, mobile app, Android app, iOS app, macOS app,
+native build workflow, mobile sensor access, OS permission integration,
+background service, notification runtime, Device Capability Broker
+implementation, runtime execution, model/provider call, remote execution,
+plugin enablement, or production authority is added.
+```
+
 ## v0.17.4 Web Control Center Local Smoke Polish Tests
 
 v0.17.4 adds focused frontend and static documentation tests only:

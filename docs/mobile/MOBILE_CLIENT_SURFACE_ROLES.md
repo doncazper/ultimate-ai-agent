@@ -1,6 +1,6 @@
 # Mobile Client Surface Roles
 
-Status: Current M19 mobile client role planning doc for v0.23.0.
+Status: Current M19 mobile client role planning doc through v0.23.1.
 
 Mobile clients are control surfaces, not the agent brain. CCC Web remains the
 current TypeScript Web Control Center. CCC iOS and CCC Android are future
@@ -23,3 +23,12 @@ Planned client roles:
 No client may bypass approvals, execute actions locally, store secrets in
 browser/mobile/local storage, or treat mobile output as trusted control input.
 M19 adds no native build workflow and no OS permission integration.
+
+## v0.23.1 Hardening Note
+
+v0.23.1 keeps CCC iOS and CCC Android as future planned clients only. Android
+support is planned, not implemented. iOS support is planned, not implemented.
+No mobile/native client can approve actions locally, execute actions locally,
+bypass Python Agent Core authority, enable contacts/calendar, store secret-like
+metadata refs, send externally, integrate OS permissions, or run background
+services.

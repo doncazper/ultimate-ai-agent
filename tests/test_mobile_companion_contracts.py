@@ -16,7 +16,7 @@ def test_default_mobile_companion_manifest_is_contract_only_and_not_authority():
     manifest = build_default_mobile_companion_manifest()
 
     assert manifest.milestone == "M19"
-    assert manifest.version == "0.23.0"
+    assert manifest.version == "0.23.1"
     assert manifest.contract_only is True
     assert manifest.mobile_client_is_authority is False
     assert manifest.mobile_approval_execution_implemented is False
@@ -28,6 +28,17 @@ def test_default_mobile_companion_manifest_is_contract_only_and_not_authority():
         MobileClientPlatform.mobile_web_planned,
     }
     assert all(not capability.allowed_now for capability in manifest.capabilities)
+    capabilities_by_kind = {capability.capability: capability for capability in manifest.capabilities}
+    for capability_kind in [
+        MobileCapabilityKind.contacts_planned,
+        MobileCapabilityKind.calendar_planned,
+    ]:
+        planned_capability = capabilities_by_kind[capability_kind]
+        assert planned_capability.status == MobileCapabilityStatus.future_requires_device_capability_broker
+        assert planned_capability.allowed_now is False
+        assert planned_capability.os_permission_integrated is False
+        assert planned_capability.background_service_enabled is False
+        assert planned_capability.requires_device_capability_broker is True
 
     assert_mobile_contract_only(manifest)
 

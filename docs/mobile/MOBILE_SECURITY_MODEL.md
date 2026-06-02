@@ -1,6 +1,6 @@
 # Mobile Security Model
 
-Status: Current M19 mobile security planning doc for v0.23.0.
+Status: Current M19 mobile security planning doc through v0.23.1.
 
 Mobile Companion clients are control surfaces, not the agent brain. Python
 Agent Core remains authority. M19 adds no mobile implementation, no Android
@@ -26,3 +26,13 @@ Security boundaries:
 Mobile capture, phone output, and sensor output are not trusted source of truth.
 Receipts and evidence refs are safe summaries only until future reviewed
 milestones define stronger authority.
+
+## v0.23.1 Hardening Note
+
+v0.23.1 strengthens tests and verifiers for M19 safety boundaries. Metadata refs
+must not contain secret-like values. Contacts/calendar remain disabled and
+future-broker-only. External sends are blocked independently of silent capture
+and memory-write checks. OS permission integration and background services are
+rejected as contract flags. No Android app, iOS app, macOS app, native package,
+native build workflow, signing, keystore, provisioning, App Store workflow, or
+Play Store workflow exists.

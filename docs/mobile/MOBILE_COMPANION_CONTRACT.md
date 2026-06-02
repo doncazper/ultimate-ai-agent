@@ -1,6 +1,6 @@
 # Mobile Companion Contract
 
-Status: Current M19 contract/API planning doc for v0.23.0.
+Status: Current M19 contract/API planning doc through v0.23.1.
 
 M19 implements Mobile Companion Contract/API Planning only. It adds Python
 contract models and validation helpers under
@@ -37,3 +37,16 @@ M19 contract rules:
 
 M20 Device Capability Broker remains planned/provisional. M19 does not
 implement M20. No native build workflow is added.
+
+## v0.23.1 Hardening Note
+
+v0.23.1 is a cleanup/hardening patch. Contacts and calendar are
+planned/disabled capabilities and require a future Device Capability Broker.
+Metadata refs must not contain secrets, API keys, tokens, passwords,
+Authorization values, Cookie values, raw prompts, raw files, raw memory, raw
+credentials, or raw mobile content. External sends are not allowed. OS
+permissions are not integrated. Background services are not enabled. Android
+support is planned, not implemented. iOS support is planned, not implemented.
+No mobile app, native build workflow, mobile sensor access, OS permission
+integration, signing, keystore, provisioning, App Store workflow, or Play Store
+workflow exists.

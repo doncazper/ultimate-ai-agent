@@ -1,6 +1,6 @@
 # Mobile API Planning
 
-Status: Current M19 API planning doc for v0.23.0.
+Status: Current M19 API planning doc through v0.23.1.
 
 M19 adds no backend API route. OpenAPI path count remains `74`.
 
@@ -21,3 +21,12 @@ Forbidden in M19:
 
 M20 Device Capability Broker remains planned/provisional and is required before
 any future sensor implementation.
+
+## v0.23.1 Hardening Note
+
+v0.23.1 keeps `/mobile`, `/mobile/sensors`, `/mobile/permissions`,
+`/mobile/capture`, `/mobile/approvals/execute`, and Device Capability Broker
+routes absent. Contacts and calendar are contract-only planning records, not
+API-enabled capabilities. Metadata refs must be secret-free. External sends,
+OS permission integration, background services, Android/iOS app code, native
+build workflows, and sensor APIs remain absent.

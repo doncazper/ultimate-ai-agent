@@ -1,6 +1,6 @@
 # Mobile Permission Receipt Flow
 
-Status: Current M19 permission/receipt planning doc for v0.23.0.
+Status: Current M19 permission/receipt planning doc through v0.23.1.
 
 M19 models permission decisions as contract-only planning metadata. It does not
 request, grant, store, or integrate OS permissions. It adds no camera,
@@ -28,3 +28,12 @@ Receipt planning rules:
 - no raw payload storage is allowed by M19.
 - capture cannot silently become memory.
 - memory writes require future reviewed policy and Python Agent Core authority.
+
+## v0.23.1 Hardening Note
+
+v0.23.1 keeps all permission and receipt planning contract-only. Contacts and
+calendar remain planned/disabled. Metadata refs must be secret-free. External
+sends are denied. OS permission integration and background services are not
+implemented. Android and iOS remain planned client surfaces only; no app,
+permission runtime, notification runtime, signing, keystore, provisioning, App
+Store workflow, or Play Store workflow exists.

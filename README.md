@@ -1,12 +1,12 @@
-# Ultimate AI Agent Canonical Bundle v0.23.0
+# Ultimate AI Agent Canonical Bundle v0.23.1
 
-This is the active project baseline after v0.23.0 / M19 Mobile Companion Contract/API Planning.
+This is the active project baseline after v0.23.1 / M19 Roadmap Status + Mobile Contract Safety Hardening.
 
 Start here:
 
 ```text
-README_IMPORT_v0_23_0.md
-ultimate_ai_agent_master_plan_v0_23_0.md
+README_IMPORT_v0_23_1.md
+ultimate_ai_agent_master_plan_v0_23_1.md
 docs/DOCUMENTATION_INDEX.md
 docs/canonical/09_roadmap.md
 docs/canonical/CANONICAL_DOC_MAP.md
@@ -80,7 +80,7 @@ docs/runtime/RUNTIME_READINESS.md
 docs/runtime/MANUAL_SMOKE_REPORTS.md
 docs/runtime/RUNTIME_CAPABILITY_MATRIX.md
 docs/security/approval_authority.md
-docs/implementation/foundation_gate_implementation_plan_v0_23_0.md
+docs/implementation/foundation_gate_implementation_plan_v0_23_1.md
 docs/maintenance/documentation_integrity_checklist.md
 docs/tooling/CODEX_PLUGIN_CAPABILITY_INVENTORY.md
 docs/tooling/CODEX_PLUGIN_RISK_POLICY.md
@@ -124,7 +124,7 @@ Local runtime status rule:
 
 Roadmap status label cleanup rule:
 
-> v0.23.0 implements M19 Mobile Companion Contract/API Planning only. It adds strict Python contract models, validation helpers, docs, tests, static verifier coverage, and Foundation Gate criteria for future CCC iOS/Android/mobile companion planning. OpenAPI path count remains `74`. This release adds no M20 Device Capability Broker, backend API route, frontend feature, Android app, iOS app, macOS app, native build workflow, OS permission integration, mobile sensor access, mobile approval execution, runtime execution, manual smoke execution, model/provider call, remote execution, plugin enablement, OpenWebUI integration, dependency, architecture behavior change, or production Control Center authority.
+> v0.23.1 hardens M19 Mobile Companion Contract/API Planning and cleans up roadmap currentness after v0.23.0. v0.23.0 / M19 is implemented/released as contract/API planning only, while M20 and M21-M40 remain planned/provisional. v0.23.1 deepens tests and verifier coverage for contacts/calendar capability denial, secret-like metadata refs, external-send blocking, OS-permission integration blocking, and background-service blocking. OpenAPI path count remains `74`. This release adds no M20 Device Capability Broker, backend API route, frontend feature, Android app, iOS app, macOS app, native build workflow, OS permission integration, mobile sensor access, push notification runtime, background service, mobile approval execution, runtime execution, manual smoke execution, model/provider call, remote execution, plugin enablement, OpenWebUI integration, dependency, architecture behavior change, or production Control Center authority.
 
 Mobile planning rule:
 

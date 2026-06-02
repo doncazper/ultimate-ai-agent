@@ -281,6 +281,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_openwebui_ccc_strategy(root))
     failures.extend(_verify_mobile_companion_contract_docs(root))
     failures.extend(_verify_post_m20_roadmap_projection(root))
+    failures.extend(_verify_m19_roadmap_currentness(root, version))
     failures.extend(_verify_post_m18_roadmap_status_labels(root))
 
     policy_text = "\n".join(
@@ -303,6 +304,58 @@ def verify(root: Path = ROOT) -> list[str]:
     for label, required_fragments in policy_expectations.items():
         if not all(fragment in policy_text for fragment in required_fragments):
             failures.append(f"missing Codex plugin governance policy: {label}")
+
+    return failures
+
+
+def _verify_m19_roadmap_currentness(root: Path, version: str | None) -> list[str]:
+    failures: list[str] = []
+    if _version_tuple(version) < (0, 23, 1):
+        return failures
+
+    canonical_path = root / "docs/canonical/09_roadmap.md"
+    post_m20_path = root / "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md"
+    m21_m40_path = root / "docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md"
+    canonical = _read(canonical_path).lower() if canonical_path.exists() else ""
+    post_m20 = _read(post_m20_path).lower() if post_m20_path.exists() else ""
+    m21_m40 = _read(m21_m40_path).lower() if m21_m40_path.exists() else ""
+    active_roadmaps = "\n".join([canonical, post_m20, m21_m40])
+
+    if "active accepted baseline is v0.22.1" in canonical:
+        failures.append("canonical roadmap must not claim active baseline v0.22.1 after v0.23.1")
+    if "maintained through v0.22.1" in active_roadmaps:
+        failures.append("active roadmap docs must not be maintained only through v0.22.1 after v0.23.1")
+
+    m19_released = re.search(
+        r"v0\.23\.0\s*/\s*m19[^\n]*(implemented|released)",
+        canonical,
+    )
+    m20_planned = re.search(
+        r"v0\.24\.0\s*/\s*m20[^\n]*planned/provisional",
+        canonical,
+    )
+    if not m19_released:
+        failures.append("canonical roadmap must mark M19/v0.23.0 as implemented/released")
+    if not m20_planned:
+        failures.append("canonical roadmap must keep M20/v0.24.0 planned/provisional")
+
+    forbidden_claims = [
+        "m20 is implemented",
+        "m20 has implemented",
+        "device capability broker is implemented",
+        "device capability broker implementation is complete",
+        "mobile app is implemented",
+        "android app is implemented",
+        "ios app is implemented",
+        "mobile sensor access is implemented",
+        "os permission integration is implemented",
+    ]
+    for claim in forbidden_claims:
+        if claim in active_roadmaps:
+            failures.append(f"active roadmap docs must not claim future mobile capability implementation: {claim}")
+
+    if "m21-m40 remain planned/provisional" not in active_roadmaps:
+        failures.append("post-M20 roadmap docs must keep M21-M40 planned/provisional")
 
     return failures
 

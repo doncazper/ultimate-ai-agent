@@ -1,6 +1,6 @@
 # Ultimate AI Agent Master Plan v0.23.0
 
-Status: Current master plan for v0.23.0 / M19.
+Status: Historical master plan for v0.23.0 / M19.
 
 v0.23.0 implements M19 Mobile Companion Contract/API Planning only.
 

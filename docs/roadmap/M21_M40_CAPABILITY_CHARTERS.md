@@ -1,6 +1,6 @@
 # M21-M40 Capability Charters
 
-Status: Active roadmap projection maintained through v0.22.1. Planned/provisional documentation only.
+Status: Active roadmap projection maintained through v0.23.1. Planned/provisional documentation only.
 
 These charters define future capability layers after M20. They are not implementation. Every milestone requires its own implementation prompt, review prompt, hardening expectation, and validation evidence before release.
 
@@ -778,3 +778,7 @@ access, mobile approval execution, runtime execution, model/provider calls,
 remote execution, plugin enablement, dependency, or production Control Center
 authority. Capture cannot silently become memory. Phone/mobile is not the agent
 brain. Device Capability Broker is required before sensors.
+
+v0.23.1 is a cleanup/hardening patch for M19 roadmap status and mobile contract
+safety tests only. M20 remains planned/provisional. M21-M40 remain
+planned/provisional until implemented by dedicated reviewed milestones.

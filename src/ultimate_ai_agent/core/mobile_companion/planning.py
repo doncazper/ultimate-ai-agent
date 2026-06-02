@@ -44,7 +44,7 @@ RAW_CONTENT_KEYS = {
 
 
 def build_default_mobile_companion_manifest(
-    version: str = "0.23.0",
+    version: str = "0.23.1",
 ) -> MobileCompanionManifest:
     clients = [
         MobileClientPlan(
@@ -103,6 +103,16 @@ def build_default_mobile_companion_manifest(
             capability=MobileCapabilityKind.location_planned,
             status=MobileCapabilityStatus.future_requires_device_capability_broker,
             safe_summary="Location planning only; no sensor access is enabled.",
+        ),
+        MobileCapabilityPlan(
+            capability=MobileCapabilityKind.contacts_planned,
+            status=MobileCapabilityStatus.future_requires_device_capability_broker,
+            safe_summary="Contacts planning only; no contact access is enabled.",
+        ),
+        MobileCapabilityPlan(
+            capability=MobileCapabilityKind.calendar_planned,
+            status=MobileCapabilityStatus.future_requires_device_capability_broker,
+            safe_summary="Calendar planning only; no calendar access is enabled.",
         ),
     ]
     manifest = MobileCompanionManifest(

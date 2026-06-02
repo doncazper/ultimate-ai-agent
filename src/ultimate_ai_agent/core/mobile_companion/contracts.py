@@ -54,7 +54,7 @@ class MobilePermissionDecisionPlan(_MobileContractModel):
 
 class MobilePermissionManifest(_MobileContractModel):
     milestone: str = "M19"
-    version: str = "0.23.0"
+    version: str = "0.23.1"
     contract_only: bool = True
     os_permission_integration_implemented: bool = False
     background_service_implemented: bool = False
@@ -89,7 +89,7 @@ class MobileReceiptPlan(_MobileContractModel):
 
 class MobileCompanionManifest(_MobileContractModel):
     milestone: str = "M19"
-    version: str = "0.23.0"
+    version: str = "0.23.1"
     contract_only: bool = True
     clients: list[MobileClientPlan] = Field(default_factory=list)
     capabilities: list[MobileCapabilityPlan] = Field(default_factory=list)

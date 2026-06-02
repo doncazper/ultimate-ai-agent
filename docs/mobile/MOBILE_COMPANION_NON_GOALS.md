@@ -1,6 +1,6 @@
 # Mobile Companion Non-Goals
 
-Status: Current M19 non-goals doc for v0.23.0.
+Status: Current M19 non-goals doc through v0.23.1.
 
 M19 explicitly does not add:
 
@@ -30,3 +30,12 @@ M19 explicitly does not add:
 
 Phone/mobile is not the agent brain. Capture cannot silently become memory.
 Device Capability Broker is required before sensors. M20 remains planned.
+
+## v0.23.1 Hardening Note
+
+v0.23.1 does not remove any M19 non-goal. Contacts/calendar access, secret-like
+metadata refs, external sends, OS permission integration, background services,
+notification runtime, Android implementation, iOS implementation, macOS
+implementation, native build workflows, signing, keystore, provisioning, App
+Store workflow, Play Store workflow, Device Capability Broker implementation,
+and production authority remain out of scope.

@@ -91,12 +91,18 @@ Run this checklist before every release that changes docs, roadmap, API metadata
 - Developer environment docs say to use `.venv/bin/python`, not bare `python`, because shell aliases are not reliable for Codex/non-interactive shells and no global Python alias is required.
 ## M19 Documentation Integrity Checks
 
-- active baseline points to v0.23.0.
+- active baseline points to v0.23.1.
 - M19 is implemented as Mobile Companion Contract/API Planning only.
 - M20 remains planned/provisional.
+- v0.23.0 / M19 is marked implemented/released in active roadmap docs.
+- v0.23.1 is documented as M19 cleanup/hardening only.
 - mobile docs must say no mobile app, no Android app, no iOS app, no native
   build workflow, no OS permission integration, and no mobile sensor access.
 - mobile docs must say Device Capability Broker is required before sensors.
 - mobile docs must say capture cannot silently become memory.
 - mobile docs must say phone/mobile is not the agent brain and phone output is
   not trusted control input.
+- mobile docs must say contacts/calendar remain planned/disabled.
+- mobile docs must say metadata refs must not contain secrets.
+- mobile docs must say external sends are not allowed.
+- mobile docs must say background services are not enabled.

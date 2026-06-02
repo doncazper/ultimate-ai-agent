@@ -96,7 +96,13 @@ EXPECTED_M19_OPENAPI_PATH_COUNT = 74
 M19_FORBIDDEN_BACKEND_ROUTES = (
     "/mobile",
     "/mobile/manifest",
+    "/mobile/register",
+    "/mobile/pair",
     "/mobile/sensors",
+    "/mobile/camera",
+    "/mobile/microphone",
+    "/mobile/location",
+    "/mobile/notifications",
     "/mobile/capture",
     "/mobile/permissions",
     "/mobile/approvals/execute",
@@ -104,6 +110,8 @@ M19_FORBIDDEN_BACKEND_ROUTES = (
     "/mobile/approvals/deny",
     "/device-capability-broker",
     "/device-capability-broker/capabilities",
+    "/device-capabilities",
+    "/device-capabilities/execute",
     "/control-center/mobile/sensors",
     "/control-center/mobile/capture",
 )
@@ -3663,6 +3671,8 @@ class FoundationGateEvaluator:
     ) -> FoundationGateResult:
         from ultimate_ai_agent.api.app import app
         from ultimate_ai_agent.core.mobile_companion import (
+            MobileCapabilityKind,
+            MobileCapabilityStatus,
             build_default_mobile_companion_manifest,
             build_default_mobile_permission_manifest,
         )
@@ -3692,8 +3702,8 @@ class FoundationGateEvaluator:
             "docs/mobile/CCC_IOS_ANDROID_STRATEGY.md",
             "docs/mobile/MOBILE_PAIRING_TRUST_PLANNING.md",
             "docs/mobile/MOBILE_COMPANION_NON_GOALS.md",
-            "docs/implementation/foundation_gate_implementation_plan_v0_23_0.md",
-            "docs/release_notes/v0_23_0.md",
+            "docs/implementation/foundation_gate_implementation_plan_v0_23_1.md",
+            "docs/release_notes/v0_23_1.md",
         ]
         failures = [
             f"missing M19 mobile companion contract/planning file: {path}"
@@ -3719,6 +3729,28 @@ class FoundationGateEvaluator:
                 failures.append("default mobile permission manifest is not contract-only")
             if permission_manifest.os_permission_integration_implemented:
                 failures.append("default permission manifest enables OS permissions")
+            capabilities_by_kind = {
+                capability.capability: capability
+                for capability in manifest.capabilities
+            }
+            for capability_kind in [
+                MobileCapabilityKind.contacts_planned,
+                MobileCapabilityKind.calendar_planned,
+            ]:
+                capability = capabilities_by_kind.get(capability_kind)
+                if capability is None:
+                    failures.append(f"default manifest missing {capability_kind.value}")
+                    continue
+                if capability.status != MobileCapabilityStatus.future_requires_device_capability_broker:
+                    failures.append(f"{capability_kind.value} must remain future-broker-only")
+                if capability.allowed_now:
+                    failures.append(f"{capability_kind.value} is enabled")
+                if capability.os_permission_integrated:
+                    failures.append(f"{capability_kind.value} integrates OS permissions")
+                if capability.background_service_enabled:
+                    failures.append(f"{capability_kind.value} enables background services")
+                if not capability.requires_device_capability_broker:
+                    failures.append(f"{capability_kind.value} must require Device Capability Broker")
         except Exception as exc:
             failures.append(f"M19 mobile companion default contract failed validation: {exc}")
 

@@ -1,8 +1,8 @@
 # Post-M20 Capability Layer Roadmap
 
-Status: Active roadmap projection maintained through v0.22.1. Planned/provisional documentation only.
+Status: Active roadmap projection maintained through v0.23.1. Planned/provisional documentation only.
 
-M14-M20 remain frozen and unchanged. M21-M40 are provisional but canonical after v0.18.4 unless superseded by a reviewed roadmap patch.
+M14-M19 remain implemented/released through reviewed milestones. M20 remains planned/provisional. M21-M40 are provisional but canonical after v0.18.4 unless superseded by a reviewed roadmap patch.
 
 These milestones are high-level charters, not implementation. Every milestone needs its own implementation prompt and review prompt. Every risky surface gets a hardening patch before the next capability jump.
 
@@ -68,3 +68,10 @@ required before sensors, and M20 remains planned/provisional. M19 adds no
 mobile app, Android app, iOS app, native build workflow, OS permission
 integration, or mobile sensor access. Capture cannot silently become memory.
 Phone/mobile is not the agent brain.
+
+v0.23.1 is a cleanup/hardening patch for M19 roadmap status and mobile contract
+safety tests only. It adds no Device Capability Broker implementation, mobile
+app, Android app, iOS app, macOS app, native build workflow, mobile sensor
+access, OS permission integration, background service, notification runtime,
+backend API route, dependency, runtime execution, model/provider call, remote
+execution, plugin enablement, or production authority.

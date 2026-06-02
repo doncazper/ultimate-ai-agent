@@ -1,6 +1,6 @@
 # README Import v0.23.0
 
-Status: Current import README for v0.23.0 / M19.
+Status: Historical import README for v0.23.0 / M19.
 
 v0.23.0 implements M19 Mobile Companion Contract/API Planning only.
 
