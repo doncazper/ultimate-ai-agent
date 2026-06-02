@@ -1,6 +1,6 @@
 # Post-M20 Capability Layer Roadmap
 
-Status: Active roadmap projection for v0.18.4. Planned/provisional documentation only.
+Status: Active roadmap projection for v0.19.0. Planned/provisional documentation only.
 
 M14-M20 remain frozen and unchanged. M21-M40 are provisional but canonical after v0.18.4 unless superseded by a reviewed roadmap patch.
 

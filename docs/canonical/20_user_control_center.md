@@ -113,12 +113,12 @@ v0.18.0 implements M14 local backend connection stabilization in the existing We
 
 ```text
 M14 — Web Control Center Local Backend Connection Stabilization, implemented
-M15 — Approval Queue + Receipt/Event Viewer UI, future read-only/preview-only milestone
+M15 — Approval Queue + Receipt/Event Viewer UI, implemented read-only/preview-only milestone
 ```
 
 M14 is about reliable local backend connection states, typed API-client hardening, backend unavailable states, mock-to-live clarity, local-only API base policy, and safe error handling. M14 adds no backend route, execution, new authority, model/provider call, remote dispatch, mobile sensor control, plugin enablement, auth, credentials, cookies, analytics/SaaS SDK, external API host, or approval/receipt UI expansion beyond already-existing read-only summaries.
 
-M15 is the first planned approval queue plus receipt/event viewer UI milestone. It remains read-only/preview-only unless a separate reviewed backend contract explicitly adds authority. The Control Center must not execute actions, approve actions, bypass Approval Authority, write files, mutate memory, resolve credentials, enable plugins, access mobile sensors, or dispatch remote workers.
+M15 is the first approval queue plus receipt/event viewer UI milestone. It is implemented in v0.19.0 as read-only/preview-only CCC Web inspection panels. It adds no backend API route and remains read-only/preview-only unless a separate reviewed backend contract explicitly adds authority. The Control Center must not execute actions, approve actions, bypass Approval Authority, write files, mutate memory, resolve credentials, enable plugins, access mobile sensors, or dispatch remote workers.
 
 ## v0.18.2 Open Design Governance
 
@@ -168,3 +168,13 @@ Relevant future milestones:
 - M34 - macOS Local Companion Contract / Prototype.
 
 These are planned/provisional only. v0.18.4 adds no OpenWebUI integration, M15 UI, native CCC implementation, device pairing, mobile app, macOS app, sensor access, browser automation, or production Control Center authority.
+
+## v0.19.0 M15 Approval Receipt Event Viewer
+
+v0.19.0 adds frontend-only CCC Web routes for approval, receipt, and event inspection:
+
+- `/approvals`: Approval Queue summaries and selected details.
+- `/receipts`: Receipt Viewer summaries and selected details.
+- `/events`: Event Viewer summaries and selected details.
+
+The views show redacted summary-only data and visibly mock, non-authoritative fallback records. Approval Authority remains in Python Agent Core. M15 adds no backend route, approval execution, approve/reject mutation, receipt/event mutation, raw secret/prompt/file/memory display, runtime execution, model/provider call, remote dispatch, mobile sensor access, plugin enablement, native build workflow, or production Control Center authority.

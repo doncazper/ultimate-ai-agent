@@ -1,6 +1,6 @@
 # Next Sequence v0.17.5
 
-Status: Active roadmap projection and M14-M20 milestone charter freeze, updated through v0.18.4 post-M20 roadmap projection.
+Status: Active roadmap projection and M14-M20 milestone charter freeze, updated through v0.19.0 M15 Approval Queue + Receipt/Event Viewer UI.
 
 v0.17.5 freezes the next canonical sequence after the v0.17.x Web Control Center shell hardening work. Items after v0.17.5 are planned/provisional but canonical until superseded by a reviewed roadmap patch.
 
@@ -14,7 +14,7 @@ No item in this sequence may add production Control Center authority, runtime ex
 
 v0.18.3 clarifies that OpenWebUI remains the preferred conversational web shell and CCC means Control Center Clients: CCC Web, CCC iOS, CCC Android, and CCC macOS. Open Design governs custom CCC surfaces and does not replace OpenWebUI.
 
-v0.18.4 adds post-M20 roadmap projection docs. M14-M20 remain frozen and unchanged. M21-M40 are planned/provisional capability-layer charters in `docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md` and do not authorize implementation.
+v0.19.0 implements M15 Approval Queue + Receipt/Event Viewer UI. M14-M20 remain frozen and unchanged. M21-M40 are planned/provisional capability-layer charters in `docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md` and do not authorize implementation.
 
 ## 1. v0.17.5 - Roadmap Projection + M14-M20 Milestone Charter Freeze
 
@@ -206,7 +206,7 @@ Allowed scope:
 
 Must not add:
 
-- M15 Approval Queue + Receipt/Event Viewer UI.
+- M15 Approval Queue + Receipt/Event Viewer UI, implemented in v0.19.0 as read-only/preview-only frontend UI.
 - OpenWebUI integration.
 - OpenWebUI deployment config.
 - OpenWebUI plugin/function/tool bridge.

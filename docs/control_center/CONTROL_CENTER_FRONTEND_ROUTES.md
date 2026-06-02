@@ -1,6 +1,6 @@
 # Control Center Frontend Routes
 
-Status: Active for v0.18.4 / post-M20 roadmap projection. The frontend route set is unchanged.
+Status: Active for v0.19.0 / M15 Approval Queue + Receipt/Event Viewer UI.
 
 The frontend shell is served by Vite during local development. It is not mounted by the Python API and does not add OpenAPI paths.
 
@@ -12,6 +12,8 @@ Implemented frontend pages:
 - `/foundation-gate`
 - `/api-routes`
 - `/approvals`
+- `/receipts`
+- `/events`
 - `/remote-workers`
 - `/mobile-planning`
 - `/plugin-governance`
@@ -45,7 +47,7 @@ Forbidden frontend route/API targets:
 
 v0.17.4 keeps the frontend route set unchanged and adds local browser smoke UX polish plus safe reporting documentation. `scripts/verify_control_center_frontend.py` rejects forbidden execute, plugin enablement, runtime execution, remote dispatch, mobile sensor endpoint strings, analytics/SaaS SDK markers, sensitive browser APIs, and unsafe fixtures in frontend implementation files. `scripts/verify_control_center_browser_smoke_readiness.py` verifies that browser smoke readiness and reporting remain manual local-only documentation.
 
-OpenAPI remains a backend contract. v0.18.3 changes only `info.version` to `0.18.3`; backend path count remains `74` with unique operation IDs.
+OpenAPI remains a backend contract. v0.19.0 changes only `info.version` to `0.19.0`; backend path count remains `74` with unique operation IDs.
 
 ## v0.18.0 M14 Connection Stabilization
 
@@ -74,10 +76,20 @@ v0.18.2 adds no frontend routes and no backend API paths. It documents the desig
 - `docs/design/COMPONENT_TAXONOMY.md`
 - `docs/design/RESPONSIVE_LAYOUT_BASELINE.md`
 
-M15 remains future work and must preserve read-only/preview-only Control Center boundaries.
+M15 is implemented in v0.19.0 as read-only/preview-only frontend route panels for `/approvals`, `/receipts`, and `/events`.
 
 ## v0.18.3 CCC Web Route Boundary
 
 v0.18.3 clarifies that the existing route set belongs to CCC Web, the current TypeScript web Control Center. CCC iOS, CCC Android, and CCC macOS are future native clients only. OpenWebUI remains a separate preferred conversational web shell.
 
 No frontend route, backend API path, OpenWebUI integration, native client route, mobile sensor route, OS permission route, native build workflow, or production authority is added.
+
+## v0.19.0 M15 Approval Receipt Event Viewer
+
+v0.19.0 adds three frontend routes and no backend API paths:
+
+- `/approvals`: Approval Queue list and selected detail panel.
+- `/receipts`: Receipt Viewer list and selected detail panel.
+- `/events`: Event Viewer list and selected detail panel.
+
+These routes use safe mock fallback data and selected item detail panels because the current route framework is a simple path switch. They do not add dynamic backend detail routes, execute approvals, grant/reject approvals, mutate receipts/events, expose raw event data, or change OpenAPI path count.

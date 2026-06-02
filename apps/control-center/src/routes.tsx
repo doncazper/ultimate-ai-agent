@@ -1,11 +1,13 @@
 import type { ControlCenterData } from "./api/types";
 import { ActionPreviewForm } from "./components/ActionPreviewForm";
+import { ApprovalQueuePanel } from "./components/ApprovalQueuePanel";
 import { ApiRouteInventoryPanel } from "./components/ApiRouteInventoryPanel";
 import { DashboardSummary } from "./components/DashboardSummary";
+import { EventViewerPanel } from "./components/EventViewerPanel";
 import { FoundationGatePanel } from "./components/FoundationGatePanel";
+import { ReceiptViewerPanel } from "./components/ReceiptViewerPanel";
 import { RuntimeReadinessPanel } from "./components/RuntimeReadinessPanel";
 import {
-  ApprovalSummaryPanel,
   MobilePlanningPanel,
   PluginGovernancePanel,
   RemoteWorkerSummaryPanel
@@ -18,6 +20,8 @@ export const navItems = [
   { path: "/foundation-gate", label: "Foundation Gate" },
   { path: "/api-routes", label: "API Routes" },
   { path: "/approvals", label: "Approvals" },
+  { path: "/receipts", label: "Receipts" },
+  { path: "/events", label: "Events" },
   { path: "/remote-workers", label: "Remote Workers" },
   { path: "/mobile-planning", label: "Mobile Planning" },
   { path: "/plugin-governance", label: "Plugin Governance" },
@@ -33,7 +37,11 @@ export function renderRoute(path: string, data: ControlCenterData) {
     case "/api-routes":
       return <ApiRouteInventoryPanel routes={data.routes} />;
     case "/approvals":
-      return <ApprovalSummaryPanel summary={data.dashboard.approval_summary} />;
+      return <ApprovalQueuePanel review={data.m15Review} />;
+    case "/receipts":
+      return <ReceiptViewerPanel review={data.m15Review} />;
+    case "/events":
+      return <EventViewerPanel review={data.m15Review} />;
     case "/remote-workers":
       return (
         <RemoteWorkerSummaryPanel

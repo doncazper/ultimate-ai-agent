@@ -1,12 +1,12 @@
-# Ultimate AI Agent Canonical Bundle v0.18.4
+# Ultimate AI Agent Canonical Bundle v0.19.0
 
-This is the active project baseline after post-M20 roadmap projection and M21-M40 capability-layer charters.
+This is the active project baseline after M15 Approval Queue + Receipt/Event Viewer UI.
 
 Start here:
 
 ```text
-README_IMPORT_v0_18_4.md
-ultimate_ai_agent_master_plan_v0_18_4.md
+README_IMPORT_v0_19_0.md
+ultimate_ai_agent_master_plan_v0_19_0.md
 docs/DOCUMENTATION_INDEX.md
 docs/canonical/09_roadmap.md
 docs/canonical/CANONICAL_DOC_MAP.md
@@ -37,6 +37,9 @@ docs/control_center/CONTROL_CENTER_FRONTEND_ROUTES.md
 docs/control_center/LOCAL_BACKEND_CONNECTION.md
 docs/control_center/LOCAL_BROWSER_SMOKE.md
 docs/control_center/LOCAL_BROWSER_SMOKE_REPORTING.md
+docs/control_center/APPROVAL_QUEUE_UI.md
+docs/control_center/RECEIPT_EVENT_VIEWER.md
+docs/control_center/APPROVAL_RECEIPT_UI_SAFETY.md
 docs/design/OPEN_DESIGN_SYSTEM.md
 docs/design/CONTROL_CENTER_DESIGN_LANGUAGE.md
 docs/design/STATUS_AND_RISK_VISUAL_LANGUAGE.md
@@ -57,7 +60,7 @@ docs/runtime/RUNTIME_READINESS.md
 docs/runtime/MANUAL_SMOKE_REPORTS.md
 docs/runtime/RUNTIME_CAPABILITY_MATRIX.md
 docs/security/approval_authority.md
-docs/implementation/foundation_gate_implementation_plan_v0_18_4.md
+docs/implementation/foundation_gate_implementation_plan_v0_19_0.md
 docs/maintenance/documentation_integrity_checklist.md
 docs/tooling/CODEX_PLUGIN_CAPABILITY_INVENTORY.md
 docs/tooling/CODEX_PLUGIN_RISK_POLICY.md
@@ -142,7 +145,7 @@ Web Control Center local backend connection hardening rule:
 
 Open Design System and UI Design Governance rule:
 
-> v0.18.2 adds repo-owned Open Design System and Control Center UI Design Governance documentation before M15. Design docs, reviewed components, and future repo-owned tokens are the design source of truth; design tools, design SaaS, UI generators, screenshot-to-code, and design-to-code systems are not authority and are not enabled. M15 Approval Queue + Receipt/Event Viewer UI remains future work and must read the design governance docs before implementation. This release adds no frontend behavior, backend API route, runtime/model/provider call, remote dispatch, mobile sensor access, plugin enablement, dependency, design tool integration, Chrome authenticated profile control, Computer Use automation, iOS/macOS build workflow, analytics/SaaS SDK, automatic design sync, automatic design-to-code, or production Control Center authority.
+> v0.18.2 adds repo-owned Open Design System and Control Center UI Design Governance documentation before M15. Design docs, reviewed components, and future repo-owned tokens are the design source of truth; design tools, design SaaS, UI generators, screenshot-to-code, and design-to-code systems are not authority and are not enabled. At v0.18.2, M15 Approval Queue + Receipt/Event Viewer UI was still future work; v0.19.0 implements it under the same read-only/preview-only design governance boundary. v0.18.2 adds no frontend behavior, backend API route, runtime/model/provider call, remote dispatch, mobile sensor access, plugin enablement, dependency, design tool integration, Chrome authenticated profile control, Computer Use automation, iOS/macOS build workflow, analytics/SaaS SDK, automatic design sync, automatic design-to-code, or production Control Center authority.
 
 OpenWebUI and CCC Client Strategy rule:
 
@@ -151,3 +154,7 @@ OpenWebUI and CCC Client Strategy rule:
 Post-M20 roadmap projection rule:
 
 > v0.18.4 adds post-M20 roadmap projection and M21-M40 capability-layer charters only. M14-M20 remain frozen and unchanged. M21-M40 are planned/provisional charters for OpenWebUI bridge contracts, local model runtime activation, first bounded local LLM calls, memory provider abstraction, truth/evidence governance, sandbox/tool lifecycle, MCP/Agent Skills/AGENTS.md trust registry, CCC native client contracts for iOS/Android/macOS, device pairing, Device Capability Broker implementation, selected mobile capture, one governed sensor capability, browser automation contracts, observability exports, and agent evaluation/regression harnesses. This release adds no implementation of those capabilities, backend API route, frontend behavior, runtime execution, model/provider call, network call, remote execution, mobile sensor access, plugin enablement, dependency, native build workflow, or external action.
+
+Approval queue receipt event viewer rule:
+
+> v0.19.0 implements M15 Approval Queue + Receipt/Event Viewer UI in CCC Web. The UI adds read-only/preview-only approval request, receipt, and event summary views with selected detail panels, visibly mock non-authoritative fallback data, redacted display rules, frontend tests, static frontend safety verification, and Foundation Gate coverage. This release adds no backend API route, approval execution, approval grant/reject mutation, send/write/run/deploy/enable controls, raw secret/prompt/file/memory display, runtime execution, model/provider call, remote execution, mobile sensor access, plugin enablement, native build workflow, or production Control Center authority.

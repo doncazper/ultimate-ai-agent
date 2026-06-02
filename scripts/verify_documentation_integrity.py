@@ -33,6 +33,9 @@ REQUIRED_ACTIVE_DOCS = [
     "docs/control_center/LOCAL_BACKEND_CONNECTION.md",
     "docs/control_center/LOCAL_BROWSER_SMOKE.md",
     "docs/control_center/LOCAL_BROWSER_SMOKE_REPORTING.md",
+    "docs/control_center/APPROVAL_QUEUE_UI.md",
+    "docs/control_center/RECEIPT_EVENT_VIEWER.md",
+    "docs/control_center/APPROVAL_RECEIPT_UI_SAFETY.md",
     "docs/design/OPEN_DESIGN_SYSTEM.md",
     "docs/design/CONTROL_CENTER_DESIGN_LANGUAGE.md",
     "docs/design/STATUS_AND_RISK_VISUAL_LANGUAGE.md",
@@ -135,6 +138,9 @@ ACTIVE_DOCS_TO_SCAN = [
     "docs/control_center/LOCAL_BACKEND_CONNECTION.md",
     "docs/control_center/LOCAL_BROWSER_SMOKE.md",
     "docs/control_center/LOCAL_BROWSER_SMOKE_REPORTING.md",
+    "docs/control_center/APPROVAL_QUEUE_UI.md",
+    "docs/control_center/RECEIPT_EVENT_VIEWER.md",
+    "docs/control_center/APPROVAL_RECEIPT_UI_SAFETY.md",
     *REQUIRED_DESIGN_DOCS,
     *REQUIRED_UI_STRATEGY_DOCS,
     "docs/remote/REMOTE_WORKER_FOUNDATION.md",
@@ -160,6 +166,13 @@ def _read(path: Path) -> str:
 def _active_version(root: Path) -> str | None:
     match = re.search(r"Current active baseline:\s*\*\*v?(\d+\.\d+\.\d+)\*\*", _read(root / "VERSION.md"))
     return match.group(1) if match else None
+
+
+def _version_tuple(version: str | None) -> tuple[int, int, int]:
+    if not version:
+        return (0, 0, 0)
+    parts = version.split(".")
+    return (int(parts[0]), int(parts[1]), int(parts[2]))
 
 
 def verify(root: Path = ROOT) -> list[str]:
@@ -483,22 +496,42 @@ def _verify_roadmap_milestone_charters(root: Path) -> list[str]:
     if any(pattern in sequence for pattern in forbidden_m14_smoke_patterns):
         failures.append("M14 must not be local browser smoke / UX polish")
 
-    implemented_m15_claims = [
-        "m15 is implemented",
-        "m15 has been implemented",
-        "implemented m15",
-        "m15 implementation complete",
-        "approval queue is implemented",
-        "receipt/event viewer ui is implemented",
-    ]
-    for rel_path in ACTIVE_DOCS_TO_SCAN:
-        path = root / rel_path
-        if not path.exists():
-            continue
-        lowered = _read(path).lower()
-        for claim in implemented_m15_claims:
-            if claim in lowered:
-                failures.append(f"active docs claim M15 is already implemented: {rel_path}")
+    if _version_tuple(_active_version(root)) < (0, 19, 0):
+        implemented_m15_claims = [
+            "m15 is implemented",
+            "m15 has been implemented",
+            "implemented m15",
+            "m15 implementation complete",
+            "approval queue is implemented",
+            "receipt/event viewer ui is implemented",
+        ]
+        for rel_path in ACTIVE_DOCS_TO_SCAN:
+            path = root / rel_path
+            if not path.exists():
+                continue
+            lowered = _read(path).lower()
+            for claim in implemented_m15_claims:
+                if claim in lowered:
+                    failures.append(f"active docs claim M15 is already implemented: {rel_path}")
+    else:
+        docs_text = "\n".join(
+            _read(root / rel_path).lower()
+            for rel_path in [
+                "docs/control_center/APPROVAL_QUEUE_UI.md",
+                "docs/control_center/RECEIPT_EVENT_VIEWER.md",
+                "docs/control_center/APPROVAL_RECEIPT_UI_SAFETY.md",
+            ]
+            if (root / rel_path).exists()
+        )
+        for fragment in [
+            "read-only",
+            "preview-only",
+            "redacted",
+            "no backend route",
+            "approval authority remains",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M15 active docs missing safety fragment: {fragment}")
     return failures
 
 

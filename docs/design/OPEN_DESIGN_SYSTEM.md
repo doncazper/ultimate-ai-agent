@@ -1,6 +1,6 @@
 # Open Design System
 
-Status: Active design governance for v0.18.4. Documentation only.
+Status: Active design governance for v0.19.0. Documentation only.
 
 Open Design for Ultimate AI Agent means the design source of truth lives in this repository: reviewed documentation, reviewed component code, and future repo-owned design tokens. Proprietary canvases, screenshots, AI UI generators, design-to-code systems, and design SaaS exports may assist future review, but they are not authority.
 

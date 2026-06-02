@@ -261,6 +261,127 @@ main {
   font-size: 0.9rem;
 }
 
+.review-layout {
+  display: grid;
+  grid-template-columns: minmax(260px, 360px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.review-list {
+  display: grid;
+  gap: 12px;
+}
+
+.review-card {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid #d9e2ec;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.review-card.selected {
+  border-color: #0b69a3;
+  box-shadow: inset 3px 0 0 #0b69a3;
+}
+
+.review-card-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.review-card-heading h3 {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: 1rem;
+}
+
+.review-card-heading span {
+  flex: 0 0 auto;
+  max-width: 48%;
+  overflow-wrap: anywhere;
+  padding: 4px 7px;
+  border-radius: 6px;
+  background: #f0f4f8;
+  color: #334e68;
+  font-size: 0.78rem;
+}
+
+.review-card p,
+.review-detail p,
+.review-meta {
+  margin: 0;
+  color: #52606d;
+  line-height: 1.5;
+}
+
+.secondary-button {
+  justify-self: start;
+  border: 1px solid #9fb3c8;
+  border-radius: 6px;
+  padding: 8px 10px;
+  background: #ffffff;
+  color: #243b53;
+  cursor: pointer;
+}
+
+.secondary-button:hover {
+  background: #f0f4f8;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+
+.detail-grid div {
+  min-width: 0;
+  padding: 10px;
+  border-radius: 6px;
+  background: #f0f4f8;
+}
+
+.detail-grid dt {
+  color: #52606d;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+}
+
+.detail-grid dd {
+  margin: 4px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.tag-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.tag-list div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tag-list span {
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: #e6f6ff;
+  color: #0b69a3;
+  font-size: 0.82rem;
+}
+
+.safe-copy {
+  padding-top: 12px;
+}
+
 .flag-list {
   display: grid;
   gap: 8px;
@@ -386,6 +507,19 @@ th {
 
   .panel-grid {
     grid-template-columns: 1fr;
+  }
+
+  .review-layout,
+  .detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .review-card-heading {
+    flex-direction: column;
+  }
+
+  .review-card-heading span {
+    max-width: 100%;
   }
 
   main {

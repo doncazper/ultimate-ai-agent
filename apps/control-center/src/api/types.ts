@@ -224,6 +224,74 @@ export interface ActionPreviewDecision {
   metadata: Record<string, boolean | string | string[]>;
 }
 
+export type ReviewRiskLevel = "low" | "medium" | "high" | "critical";
+
+export interface ApprovalQueueItem {
+  approvalRef: string;
+  status: "pending_review" | "preview_only" | "blocked" | "expired";
+  riskLevel: ReviewRiskLevel;
+  dataClassification: string;
+  actorSummary: string;
+  requestedActionSummary: string;
+  subjectSummary: string;
+  reasonCodes: string[];
+  createdAt: string;
+  expiresAt?: string;
+  requiredNextAction: string;
+  safeMessage: string;
+  previewOutcomeSummary: string;
+  relatedRefs: string[];
+  previewOnly: boolean;
+  readOnly: boolean;
+  mock: boolean;
+}
+
+export interface ReceiptSummaryItem {
+  receiptRef: string;
+  eventRefs: string[];
+  actionTypeSummary: string;
+  actorSummary: string;
+  status: string;
+  riskLevel: ReviewRiskLevel;
+  dataClassification: string;
+  redactionStatus: "redacted_summary_only";
+  safeMessage: string;
+  timestamp: string;
+  relatedRefs: string[];
+  previewOnly: boolean;
+  readOnly: boolean;
+  mock: boolean;
+}
+
+export interface EventSummaryItem {
+  eventRef: string;
+  eventType: string;
+  actorSummary: string;
+  sourceSurface: string;
+  resultStatus: string;
+  reasonCodes: string[];
+  timestamp: string;
+  relatedRefs: string[];
+  redactionStatus: "redacted_summary_only";
+  safeMessage: string;
+  previewOnly: boolean;
+  readOnly: boolean;
+  mock: boolean;
+}
+
+export interface M15ReviewData {
+  status: "mock_preview_only" | "summary_only";
+  readOnly: boolean;
+  previewOnly: boolean;
+  mock: boolean;
+  nonAuthoritative: boolean;
+  authorityBoundary: string;
+  warningCodes: string[];
+  approvalQueue: ApprovalQueueItem[];
+  receipts: ReceiptSummaryItem[];
+  events: EventSummaryItem[];
+}
+
 export interface ControlCenterData {
   manifest: ControlCenterManifest;
   dashboard: ControlCenterDashboardSnapshot;
@@ -231,6 +299,7 @@ export interface ControlCenterData {
   routes: ApiRouteInventory;
   runtimeReadiness: RuntimeReadinessReport;
   capabilityMatrix: RuntimeCapabilityMatrix;
+  m15Review: M15ReviewData;
   source: "api" | "mock";
   connection: BackendConnectionSummary;
 }

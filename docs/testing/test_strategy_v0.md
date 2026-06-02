@@ -127,6 +127,20 @@ M21-M40 remain planned/provisional.
 Docs do not claim M21-M40 implementation.
 Foundation Gate includes post_m20_roadmap_projection_present.
 Backend OpenAPI path count remains unchanged at 74.
+
+## v0.19.0 M15 Approval Receipt Event Viewer Tests
+
+v0.19.0 adds frontend, verifier, and Foundation Gate tests only for M15 UI:
+
+- Approval Queue route renders read-only/preview-only summaries and selected details.
+- Receipt Viewer route renders redacted summary-only receipt summaries and selected details.
+- Event Viewer route renders redacted event summaries and selected details.
+- M15 mock data is visibly mock and non-authoritative.
+- active approval/action controls and mutation endpoints are absent.
+- static frontend verifier rejects approval execution, approve/reject mutation, receipt mutation, raw event, raw memory, raw file, sensitive browser storage, credential field, unsafe dependency, generated artifact, and unsafe API base drift.
+- Foundation Gate criterion `m15_approval_receipt_event_ui_safe` exists and passes.
+
+Backend OpenAPI path count remains unchanged at 74.
 ```
 
 ## v0.18.3 OpenWebUI and CCC Strategy Tests

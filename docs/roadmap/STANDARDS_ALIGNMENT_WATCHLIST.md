@@ -1,6 +1,6 @@
 # Standards Alignment Watchlist
 
-Status: Active roadmap watchlist for v0.18.4. Documentation only.
+Status: Active roadmap watchlist for v0.19.0. Documentation only.
 
 This watchlist records standards and convention surfaces to evaluate during future milestone planning. It adds no integration, no plugin enablement, no external network, no dependency, and no parity claim.
 

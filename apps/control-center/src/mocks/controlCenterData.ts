@@ -11,10 +11,14 @@ export const mockControlCenterData: ControlCenterData = {
     warnings: ["MOCK_DATA_ONLY", "NO_PRODUCTION_AUTHORITY"]
   },
   manifest: {
-    manifest_id: "mock_control_center_manifest_m14",
-    version: "0.18.1",
+    manifest_id: "mock_control_center_manifest_m15",
+    version: "0.19.0",
     generated_at: "2026-01-01T00:00:00Z",
-    declared_capabilities: ["control_center_read_only_dashboard", "control_center_action_preview"],
+    declared_capabilities: [
+      "control_center_read_only_dashboard",
+      "control_center_action_preview",
+      "control_center_m15_review_preview"
+    ],
     blocked_capabilities: [
       "runtime_execution",
       "model_execution",
@@ -61,6 +65,17 @@ export const mockControlCenterData: ControlCenterData = {
         metadata: { mock: true }
       },
       {
+        surface: "approval_receipt_event_review",
+        status: "preview_only",
+        description: "Mock approval, receipt, and event review summaries for M15.",
+        route_refs: [],
+        execution_allowed: false,
+        mutation_allowed: false,
+        credential_resolution_allowed: false,
+        approval_grant_allowed: false,
+        metadata: { mock: true, redacted_summary_only: true }
+      },
+      {
         surface: "remote_workers",
         status: "dry_run_only",
         description: "Remote worker controls remain dry-run-only.",
@@ -96,8 +111,8 @@ export const mockControlCenterData: ControlCenterData = {
     ]
   },
   dashboard: {
-    snapshot_id: "mock_control_center_dashboard_m14",
-    baseline_version: "0.18.1",
+    snapshot_id: "mock_control_center_dashboard_m15",
+    baseline_version: "0.19.0",
     generated_at: "2026-01-01T00:00:00Z",
     system_status: {
       label: "Control Center",
@@ -188,22 +203,22 @@ export const mockControlCenterData: ControlCenterData = {
     ]
   },
   runtimeReadiness: {
-    report_id: "mock_runtime_readiness_m14",
-    baseline_version: "0.18.1",
+    report_id: "mock_runtime_readiness_m15",
+    baseline_version: "0.19.0",
     status: "report_only",
     production_ready: false,
     real_model_runtime_ready: false,
     remote_execution_ready: false,
     mobile_sensor_ready: false,
     plugin_or_native_build_ready: false,
-    capability_matrix_ref: "mock_runtime_capability_matrix_m14",
+    capability_matrix_ref: "mock_runtime_capability_matrix_m15",
     warnings: ["MOCK_DATA_ONLY"],
     blockers: [],
     metadata: { mock: true, model_output_authoritative: false }
   },
   capabilityMatrix: {
-    matrix_id: "mock_runtime_capability_matrix_m14",
-    baseline_version: "0.18.1",
+    matrix_id: "mock_runtime_capability_matrix_m15",
+    baseline_version: "0.19.0",
     metadata: { mock: true, no_model_was_called: true },
     entries: [
       {
@@ -238,6 +253,120 @@ export const mockControlCenterData: ControlCenterData = {
         user_content_allowed: false,
         secrets_allowed: false,
         summary: "Cloud provider runtime is blocked."
+      }
+    ]
+  },
+  m15Review: {
+    status: "mock_preview_only",
+    readOnly: true,
+    previewOnly: true,
+    mock: true,
+    nonAuthoritative: true,
+    authorityBoundary: "Approval Authority handles final decision; Control Center displays summaries only.",
+    warningCodes: ["MOCK_DATA_ONLY", "NO_PRODUCTION_AUTHORITY", "REDACTED_SUMMARY_ONLY"],
+    approvalQueue: [
+      {
+        approvalRef: "mock_approval_ref_001",
+        status: "pending_review",
+        riskLevel: "medium",
+        dataClassification: "internal",
+        actorSummary: "Local developer session summary",
+        requestedActionSummary: "Preview-only policy review for a proposed local workspace change.",
+        subjectSummary: "Mock local review subject; no file body or prompt body is shown.",
+        reasonCodes: ["CONTROL_CENTER_REVIEW_REQUIRED", "APPROVAL_AUTHORITY_REQUIRED"],
+        createdAt: "2026-01-01T00:00:00Z",
+        expiresAt: "2026-01-01T01:00:00Z",
+        requiredNextAction: "Review in Python Agent Core approval authority.",
+        safeMessage: "No approval was granted from this UI.",
+        previewOutcomeSummary: "Grant or denial outcome is preview-only and non-authoritative.",
+        relatedRefs: ["mock_receipt_ref_001", "mock_event_ref_001"],
+        previewOnly: true,
+        readOnly: true,
+        mock: true
+      },
+      {
+        approvalRef: "mock_approval_ref_002",
+        status: "preview_only",
+        riskLevel: "low",
+        dataClassification: "public",
+        actorSummary: "Control Center mock reviewer",
+        requestedActionSummary: "Summary inspection request for a redacted receipt.",
+        subjectSummary: "Mock receipt summary reference only.",
+        reasonCodes: ["SUMMARY_ONLY", "NO_AUTHORITY_GRANTED"],
+        createdAt: "2026-01-01T00:10:00Z",
+        requiredNextAction: "No action available in the Control Center.",
+        safeMessage: "Approval refs are displayed as identifiers only, never as authority.",
+        previewOutcomeSummary: "Preview indicates no mutation path.",
+        relatedRefs: ["mock_receipt_ref_002"],
+        previewOnly: true,
+        readOnly: true,
+        mock: true
+      }
+    ],
+    receipts: [
+      {
+        receiptRef: "mock_receipt_ref_001",
+        eventRefs: ["mock_event_ref_001"],
+        actionTypeSummary: "approval_review_preview",
+        actorSummary: "Local developer session summary",
+        status: "recorded_summary",
+        riskLevel: "medium",
+        dataClassification: "internal",
+        redactionStatus: "redacted_summary_only",
+        safeMessage: "Receipt is a redacted summary; no receipt mutation is available from this UI.",
+        timestamp: "2026-01-01T00:02:00Z",
+        relatedRefs: ["mock_approval_ref_001"],
+        previewOnly: true,
+        readOnly: true,
+        mock: true
+      },
+      {
+        receiptRef: "mock_receipt_ref_002",
+        eventRefs: ["mock_event_ref_002"],
+        actionTypeSummary: "event_summary_review",
+        actorSummary: "Control Center mock reviewer",
+        status: "summary_only",
+        riskLevel: "low",
+        dataClassification: "public",
+        redactionStatus: "redacted_summary_only",
+        safeMessage: "Mock receipt summary only; backend evidence remains source of truth.",
+        timestamp: "2026-01-01T00:12:00Z",
+        relatedRefs: ["mock_approval_ref_002"],
+        previewOnly: true,
+        readOnly: true,
+        mock: true
+      }
+    ],
+    events: [
+      {
+        eventRef: "mock_event_ref_001",
+        eventType: "approval_review_preview",
+        actorSummary: "Local developer session summary",
+        sourceSurface: "CCC Web mock surface",
+        resultStatus: "summary_recorded",
+        reasonCodes: ["CONTROL_CENTER_REVIEW_REQUIRED", "REDACTED_SUMMARY_ONLY"],
+        timestamp: "2026-01-01T00:02:00Z",
+        relatedRefs: ["mock_approval_ref_001", "mock_receipt_ref_001"],
+        redactionStatus: "redacted_summary_only",
+        safeMessage: "No event action is available from this UI.",
+        previewOnly: true,
+        readOnly: true,
+        mock: true
+      },
+      {
+        eventRef: "mock_event_ref_002",
+        eventType: "receipt_summary_view",
+        actorSummary: "Control Center mock reviewer",
+        sourceSurface: "CCC Web mock surface",
+        resultStatus: "summary_only",
+        reasonCodes: ["NO_AUTHORITY_GRANTED"],
+        timestamp: "2026-01-01T00:12:00Z",
+        relatedRefs: ["mock_receipt_ref_002"],
+        redactionStatus: "redacted_summary_only",
+        safeMessage: "Event record is safe display metadata only.",
+        previewOnly: true,
+        readOnly: true,
+        mock: true
       }
     ]
   }

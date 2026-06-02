@@ -1,6 +1,6 @@
 # Documentation Integrity Checklist
 
-Status: Active maintenance checklist, v0.18.4
+Status: Active maintenance checklist, v0.19.0
 
 Run this checklist before every release that changes docs, roadmap, API metadata, runtime boundaries, or release status.
 
@@ -67,6 +67,7 @@ Run this checklist before every release that changes docs, roadmap, API metadata
 - v0.18.2 design governance remains before M15 and does not implement M15 UI.
 - v0.18.3 OpenWebUI/CCC strategy remains before M15 and does not implement M15 UI, OpenWebUI integration, or native clients.
 - v0.18.4 post-M20 roadmap projection keeps M21-M40 planned/provisional and does not implement those capabilities.
+- v0.19.0 M15 Approval Queue + Receipt/Event Viewer UI is frontend-only, read-only/preview-only, redacted summary-only, and adds no backend route or production authority.
 - future post-M20 milestone prompts check `docs/roadmap/CAPABILITY_LAYERING_STRATEGY.md`.
 - future post-M20 milestone prompts check `docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md`.
 - future post-M20 milestone prompts check `docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md`.

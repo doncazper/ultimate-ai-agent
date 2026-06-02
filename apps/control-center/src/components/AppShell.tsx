@@ -33,8 +33,8 @@ export function AppShell({ children, activePath }: AppShellProps) {
       <div className="workspace">
         <header className="topbar">
           <div>
-            <p className="eyebrow">v0.18.1 local backend connection safety</p>
-            <h1>Read-only dashboard and preview API</h1>
+            <p className="eyebrow">v0.19.0 M15 approval receipt event review</p>
+            <h1>Read-only governance and preview surfaces</h1>
           </div>
           <div className="topbar-actions" aria-label="Control Center safety status">
             <span className="status-pill">Read-only</span>

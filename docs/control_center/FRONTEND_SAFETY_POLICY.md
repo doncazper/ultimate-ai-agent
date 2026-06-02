@@ -1,6 +1,6 @@
 # Frontend Safety Policy
 
-Status: Active for v0.18.4 / post-M20 roadmap projection. Frontend safety policy is unchanged.
+Status: Active for v0.19.0 / M15 Approval Queue + Receipt/Event Viewer UI.
 
 The Web Control Center shell is a display and preview surface. The Python Agent Core remains the brain and source of policy enforcement.
 
@@ -10,6 +10,7 @@ Frontend safety rules:
 - The only POST from the frontend is `/control-center/actions/preview`.
 - Action preview must never be treated as execution, approval, credential resolution, remote dispatch, model invocation, plugin enablement, or sensor access.
 - Mock fixtures must be visibly marked mock and non-authoritative.
+- Approval, receipt, and event viewer fixtures must be redacted summary-only and must not show raw secrets, prompt bodies, file bodies, memory contents, or provider payloads.
 - API base URLs must be local-only: relative path, localhost, 127.0.0.1, or loopback IPv6.
 - External absolute API URLs, public/private non-loopback hosts, URL credentials, and secret-like API base strings must be blocked or rejected.
 - Unknown/checking, live, degraded, offline-safe, and mock fallback connection states must be visible and safe.
@@ -77,7 +78,7 @@ v0.18.1 strengthens the same M14 boundary:
 - Vite proxy targets and env examples are statically checked for unsafe API base values.
 - unknown/checking connection states are explicit.
 
-M15 Approval Queue + Receipt/Event Viewer UI remains future work. Future frontend prompts must preserve these safety boundaries unless a reviewed milestone explicitly changes them:
+M15 Approval Queue + Receipt/Event Viewer UI is implemented in v0.19.0 and preserves these safety boundaries:
 
 - no execution.
 - no approval authority bypass.
@@ -86,6 +87,8 @@ M15 Approval Queue + Receipt/Event Viewer UI remains future work. Future fronten
 - no remote dispatch.
 - no model/provider invocation.
 - no sensitive browser storage, cookies, credential APIs, camera, microphone, location, notification, push, service worker, IndexedDB, CacheStorage, or clipboard-write APIs.
+- no raw receipt/event/prompt/file/memory display.
+- no receipt or event mutation endpoints.
 
 ## v0.18.2 Design Governance Boundary
 
@@ -106,3 +109,7 @@ Design governance does not add frontend behavior, dependencies, Tailwind, shadcn
 v0.18.3 clarifies CCC Web as the current TypeScript web Control Center and CCC as the broader Control Center Clients family. OpenWebUI is the preferred conversational web shell and Open Design does not replace OpenWebUI.
 
 The frontend safety boundary is unchanged: no OpenWebUI integration, deployment config, new frontend feature, backend route, native CCC implementation, Android app, iOS app, macOS app, mobile sensor access, OS permission integration, native build workflow, signing/store workflow, or production authority is added.
+
+## v0.19.0 M15 Approval Receipt Event Viewer Safety
+
+M15 adds frontend-only `/approvals`, `/receipts`, and `/events` routes. These routes are read-only and preview-only. `scripts/verify_control_center_frontend.py` rejects dangerous M15 mutation endpoints, active approval/action button labels, sensitive browser APIs, unsafe dependencies, secret-like fixtures, and generated artifacts. Foundation Gate criterion `m15_approval_receipt_event_ui_safe` verifies the same boundary.

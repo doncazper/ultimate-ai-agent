@@ -162,6 +162,7 @@ class FoundationGateEvaluator:
             "m14_local_backend_api_base_policy": self.check_m14_local_backend_api_base_policy,
             "m14_connection_states_visible_and_safe": self.check_m14_connection_states_visible_and_safe,
             "m14_backend_api_contract_unchanged": self.check_m14_backend_api_contract_unchanged,
+            "m15_approval_receipt_event_ui_safe": self.check_m15_approval_receipt_event_ui_safe,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -1962,11 +1963,18 @@ class FoundationGateEvaluator:
             "m14 - ux polish",
             "m14 — ux polish",
             "m14: ux polish",
-            "m15 is implemented",
-            "m15 has been implemented",
-            "implemented m15",
-            "m15 implementation complete",
         ]
+        active_version = self._active_version() or "0.0.0"
+        version_tuple = tuple(int(part) for part in active_version.split("."))
+        if version_tuple < (0, 19, 0):
+            forbidden.extend(
+                [
+                    "m15 is implemented",
+                    "m15 has been implemented",
+                    "implemented m15",
+                    "m15 implementation complete",
+                ]
+            )
         combined = "\n".join([sequence, roadmap])
         for phrase in forbidden:
             if phrase in combined:
@@ -2863,6 +2871,90 @@ class FoundationGateEvaluator:
             failures,
             ["src/ultimate_ai_agent/api/app.py", "src/ultimate_ai_agent/api/manifest.py"],
         )
+
+    def check_m15_approval_receipt_event_ui_safe(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        import importlib.util
+
+        required_files = [
+            "apps/control-center/src/components/ApprovalQueuePanel.tsx",
+            "apps/control-center/src/components/ReceiptViewerPanel.tsx",
+            "apps/control-center/src/components/EventViewerPanel.tsx",
+            "apps/control-center/src/routes.tsx",
+            "apps/control-center/src/api/types.ts",
+            "apps/control-center/src/mocks/controlCenterData.ts",
+            "scripts/verify_control_center_frontend.py",
+        ]
+        implementation_files = [
+            "apps/control-center/src/components/ApprovalQueuePanel.tsx",
+            "apps/control-center/src/components/ReceiptViewerPanel.tsx",
+            "apps/control-center/src/components/EventViewerPanel.tsx",
+            "apps/control-center/src/routes.tsx",
+            "apps/control-center/src/api/types.ts",
+            "apps/control-center/src/mocks/controlCenterData.ts",
+        ]
+        failures = [f"missing M15 frontend file: {path}" for path in required_files if not (self.root / path).exists()]
+        components = "\n".join(self._read(self.root / path) for path in implementation_files if (self.root / path).exists())
+        lowered = components.lower()
+
+        required_fragments = [
+            "ApprovalQueuePanel",
+            "ReceiptViewerPanel",
+            "EventViewerPanel",
+            'path: "/approvals"',
+            'path: "/receipts"',
+            'path: "/events"',
+            "Approval Queue",
+            "Receipt Viewer",
+            "Event Viewer",
+            "read-only",
+            "preview-only",
+            "Approval Authority handles final decision",
+            "redacted_summary_only",
+            "MOCK_DATA_ONLY",
+            "nonAuthoritative",
+            "approvalQueue",
+            "receipts",
+            "events",
+        ]
+        failures.extend(f"M15 UI missing required fragment: {fragment}" for fragment in required_fragments if fragment not in components)
+
+        forbidden_fragments = [
+            "/approvals/approve",
+            "/approvals/deny",
+            "/control-center/approvals/execute",
+            "/control-center/approvals/approve",
+            "/control-center/approvals/deny",
+            "/receipts/delete",
+            "/events/raw",
+            "/memory/raw",
+            "/files/raw",
+            "<button>approve</button>",
+            "<button>deny</button>",
+            "<button>execute</button>",
+            "<button>run</button>",
+            "<button>send</button>",
+            "<button>deploy</button>",
+            "<button>enable</button>",
+            "localstorage",
+            "sessionstorage",
+            "document.cookie",
+            'type="password"',
+            'name="apikey"',
+            'name="token"',
+        ]
+        failures.extend(f"M15 UI contains forbidden fragment: {fragment}" for fragment in forbidden_fragments if fragment in lowered)
+
+        script = self.root / "scripts/verify_control_center_frontend.py"
+        if script.exists():
+            spec = importlib.util.spec_from_file_location("verify_control_center_frontend", script)
+            if spec is None or spec.loader is None:
+                failures.append("could not load frontend safety verifier")
+            else:
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
+                failures.extend(module.verify(self.root))
+
+        return self._result(criterion, failures, required_files)
 
     def check_open_design_governance_docs_present(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
         required_docs = [

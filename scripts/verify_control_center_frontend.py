@@ -16,12 +16,24 @@ REQUIRED_FILES = [
     "src/api/endpoints.ts",
     "src/api/redaction.ts",
     "src/components/ActionPreviewForm.tsx",
+    "src/components/ApprovalQueuePanel.tsx",
+    "src/components/ReceiptViewerPanel.tsx",
+    "src/components/EventViewerPanel.tsx",
     "src/mocks/controlCenterData.ts",
     "src/App.test.tsx",
 ]
 
 FORBIDDEN_ENDPOINTS = [
     "/control-center/actions/execute",
+    "/approvals/approve",
+    "/approvals/deny",
+    "/control-center/approvals/execute",
+    "/control-center/approvals/approve",
+    "/control-center/approvals/deny",
+    "/receipts/delete",
+    "/events/raw",
+    "/memory/raw",
+    "/files/raw",
     "/control-center/plugins/enable",
     "/runtime/execute",
     "/control-center/runtime/execute",
@@ -31,7 +43,7 @@ FORBIDDEN_ENDPOINTS = [
     "/control-center/mobile/sensors",
 ]
 
-DANGEROUS_BUTTON_LABELS = ["Execute", "Run", "Send", "Deploy", "Enable", "Approve"]
+DANGEROUS_BUTTON_LABELS = ["Approve", "Deny", "Execute", "Run", "Send", "Deploy", "Enable", "Install", "Publish"]
 
 BROWSER_API_FRAGMENTS = [
     "localstorage",
@@ -146,9 +158,15 @@ def verify(root: Path = ROOT) -> list[str]:
             "sensor_access_enabled: false",
             "plugin_enablement_allowed: false",
             "model_output_authoritative: false",
+            "m15review",
+            "non-authoritative",
+            "redacted_summary_only",
+            "approvalgrantallowed: false",
         ]
+        normalized_mock = mock_lowered.replace("_", "").replace(" ", "")
         for fragment in required_mock_safety:
-            if fragment not in mock_lowered:
+            normalized_fragment = fragment.lower().replace("_", "").replace(" ", "")
+            if normalized_fragment not in normalized_mock and fragment not in mock_lowered:
                 failures.append(f"mock fixture missing safety marker: {fragment}")
 
     endpoints = app_root / "src/api/endpoints.ts"

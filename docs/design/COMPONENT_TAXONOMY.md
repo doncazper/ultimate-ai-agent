@@ -1,6 +1,6 @@
 # Component Taxonomy
 
-Status: Active design governance for v0.18.4. Documentation only.
+Status: Active design governance for v0.19.0. Documentation only.
 
 This taxonomy names current and future Control Center component classes. It does not implement new components.
 

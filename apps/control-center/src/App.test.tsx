@@ -67,7 +67,9 @@ describe("Web Control Center shell", () => {
       ["/runtime", /Runtime readiness/i],
       ["/foundation-gate", /Foundation Gate/i],
       ["/api-routes", /API Routes/i],
-      ["/approvals", /Approvals/i],
+      ["/approvals", /Approval Queue/i],
+      ["/receipts", /Receipt Viewer/i],
+      ["/events", /Event Viewer/i],
       ["/remote-workers", /Remote worker boundary/i],
       ["/mobile-planning", /Mobile planning/i],
       ["/plugin-governance", /Plugin governance/i],
@@ -103,6 +105,57 @@ describe("Web Control Center shell", () => {
     expect(screen.getByRole("status")).toHaveTextContent(/checking local backend connection state/i);
     expect(screen.queryByRole("button", { name: /execute/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /approve/i })).not.toBeInTheDocument();
+  });
+
+  it("renders M15 approval queue as read-only preview-only summaries", async () => {
+    mockFetchWithFallback();
+    window.history.pushState({}, "", "/approvals");
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: /Approval Queue/i })).toBeInTheDocument();
+    expect(screen.getAllByText(/read-only/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/preview-only/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Approval Authority handles final decision/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/MOCK_DATA_ONLY/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("mock_approval_ref_001").length).toBeGreaterThan(0);
+    expect(screen.getByText(/risk: medium/i)).toBeInTheDocument();
+    expect(screen.getByText(/data: internal/i)).toBeInTheDocument();
+    expect(screen.getByText(/CONTROL_CENTER_REVIEW_REQUIRED/i)).toBeInTheDocument();
+    expect(screen.getByText(/No approval was granted from this UI/i)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^approve$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^deny$/i })).not.toBeInTheDocument();
+  });
+
+  it("renders M15 receipt summaries and details without raw sensitive content", async () => {
+    mockFetchWithFallback();
+    window.history.pushState({}, "", "/receipts");
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: /Receipt Viewer/i })).toBeInTheDocument();
+    expect(screen.getByText(/redacted summary-only receipt records/i)).toBeInTheDocument();
+    expect(screen.getAllByText("mock_receipt_ref_001").length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/redacted_summary_only/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/No receipt mutation is available from this UI/i).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/raw prompt/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/raw file/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/raw memory/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/supersecretvalue123/i)).not.toBeInTheDocument();
+  });
+
+  it("renders M15 event summaries and details without raw prompt file memory or credentials", async () => {
+    mockFetchWithFallback();
+    window.history.pushState({}, "", "/events");
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: /Event Viewer/i })).toBeInTheDocument();
+    expect(screen.getByText(/redacted event summaries/i)).toBeInTheDocument();
+    expect(screen.getAllByText("mock_event_ref_001").length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/source: CCC Web mock surface/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/No event action is available from this UI/i)).toBeInTheDocument();
+    expect(screen.queryByText(/raw prompt/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/raw file/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/raw memory/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/credential/i)).not.toBeInTheDocument();
   });
 
   it("submits action preview only to the preview endpoint", async () => {
@@ -287,21 +340,21 @@ function envelopeForReadEndpoint(url: string) {
   const data = {
     [API_ENDPOINTS.controlCenterManifest]: {
       ...mockApiData.manifest,
-      version: "0.18.1"
+      version: "0.19.0"
     },
     [API_ENDPOINTS.controlCenterDashboard]: {
       ...mockApiData.dashboard,
-      baseline_version: "0.18.1"
+      baseline_version: "0.19.0"
     },
     [API_ENDPOINTS.controlCenterStatus]: mockApiData.status,
     [API_ENDPOINTS.controlCenterRoutes]: mockApiData.routes,
     [API_ENDPOINTS.runtimeReadiness]: {
       ...mockApiData.runtimeReadiness,
-      baseline_version: "0.18.1"
+      baseline_version: "0.19.0"
     },
     [API_ENDPOINTS.runtimeCapabilityMatrix]: {
       ...mockApiData.capabilityMatrix,
-      baseline_version: "0.18.1"
+      baseline_version: "0.19.0"
     }
   };
   const endpoint = Object.keys(data).find((candidate) => url.endsWith(candidate));
@@ -311,7 +364,7 @@ function envelopeForReadEndpoint(url: string) {
 const mockApiData = {
   manifest: {
     manifest_id: "test_manifest",
-    version: "0.18.1",
+    version: "0.19.0",
     generated_at: "2026-01-01T00:00:00Z",
     declared_capabilities: ["control_center_read_only_dashboard"],
     blocked_capabilities: ["runtime_execution", "remote_dispatch", "mobile_sensor_access", "plugin_enablement"],
@@ -321,7 +374,7 @@ const mockApiData = {
   },
   dashboard: {
     snapshot_id: "test_dashboard",
-    baseline_version: "0.18.1",
+    baseline_version: "0.19.0",
     generated_at: "2026-01-01T00:00:00Z",
     system_status: {
       label: "Control Center",
@@ -402,7 +455,7 @@ const mockApiData = {
   },
   runtimeReadiness: {
     report_id: "test_readiness",
-    baseline_version: "0.18.1",
+    baseline_version: "0.19.0",
     status: "report_only",
     production_ready: false,
     real_model_runtime_ready: false,
@@ -416,8 +469,73 @@ const mockApiData = {
   },
   capabilityMatrix: {
     matrix_id: "test_matrix",
-    baseline_version: "0.18.1",
+    baseline_version: "0.19.0",
     metadata: { no_model_was_called: true },
     entries: []
+  },
+  m15Review: {
+    status: "mock_preview_only",
+    readOnly: true,
+    previewOnly: true,
+    mock: true,
+    nonAuthoritative: true,
+    authorityBoundary: "Approval Authority handles final decision; Control Center displays summaries only.",
+    warningCodes: ["MOCK_DATA_ONLY", "REDACTED_SUMMARY_ONLY"],
+    approvalQueue: [
+      {
+        approvalRef: "mock_approval_ref_001",
+        status: "pending_review",
+        riskLevel: "medium",
+        dataClassification: "internal",
+        actorSummary: "Local developer session summary",
+        requestedActionSummary: "Preview-only policy review for a proposed local workspace change.",
+        subjectSummary: "Mock local review subject; no file body or prompt body is shown.",
+        reasonCodes: ["CONTROL_CENTER_REVIEW_REQUIRED"],
+        createdAt: "2026-01-01T00:00:00Z",
+        expiresAt: "2026-01-01T01:00:00Z",
+        requiredNextAction: "Review in Python Agent Core approval authority.",
+        safeMessage: "No approval was granted from this UI.",
+        previewOutcomeSummary: "Grant or denial outcome is preview-only and non-authoritative.",
+        relatedRefs: ["mock_receipt_ref_001", "mock_event_ref_001"],
+        previewOnly: true,
+        readOnly: true,
+        mock: true
+      }
+    ],
+    receipts: [
+      {
+        receiptRef: "mock_receipt_ref_001",
+        eventRefs: ["mock_event_ref_001"],
+        actionTypeSummary: "approval_review_preview",
+        actorSummary: "Local developer session summary",
+        status: "recorded_summary",
+        riskLevel: "medium",
+        dataClassification: "internal",
+        redactionStatus: "redacted_summary_only",
+        safeMessage: "Receipt is a redacted summary; no receipt mutation is available from this UI.",
+        timestamp: "2026-01-01T00:02:00Z",
+        relatedRefs: ["mock_approval_ref_001"],
+        previewOnly: true,
+        readOnly: true,
+        mock: true
+      }
+    ],
+    events: [
+      {
+        eventRef: "mock_event_ref_001",
+        eventType: "approval_review_preview",
+        actorSummary: "Local developer session summary",
+        sourceSurface: "CCC Web mock surface",
+        resultStatus: "summary_recorded",
+        reasonCodes: ["CONTROL_CENTER_REVIEW_REQUIRED"],
+        timestamp: "2026-01-01T00:02:00Z",
+        relatedRefs: ["mock_approval_ref_001", "mock_receipt_ref_001"],
+        redactionStatus: "redacted_summary_only",
+        safeMessage: "No event action is available from this UI.",
+        previewOnly: true,
+        readOnly: true,
+        mock: true
+      }
+    ]
   }
 };

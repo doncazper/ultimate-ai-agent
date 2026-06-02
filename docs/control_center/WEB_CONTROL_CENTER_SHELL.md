@@ -1,12 +1,12 @@
 # Web Control Center Shell
 
-Status: Active for v0.18.4 / post-M20 roadmap projection. Web Control Center behavior is unchanged.
+Status: Active for v0.19.0 / M15 Approval Queue + Receipt/Event Viewer UI.
 
 M13 adds a local TypeScript React/Vite shell under `apps/control-center/` for reading existing backend Control Center and runtime readiness APIs. It is the first web UI surface for the future Control Center, but it is not a production Control Center and it has no authority to execute actions.
 
 Implemented shell behavior:
 
-- renders read-only dashboard, runtime readiness, Foundation Gate, API route, approval, remote worker, private mesh, mobile planning, and plugin governance summaries.
+- renders read-only dashboard, runtime readiness, Foundation Gate, API route, approval queue, receipt viewer, event viewer, remote worker, private mesh, mobile planning, and plugin governance summaries.
 - submits exactly one preview-only request type to `/control-center/actions/preview`.
 - labels action preview as preview-only and displays blocked decisions as non-executed safety results.
 - exposes the action preview risk level as policy metadata only.
@@ -48,7 +48,7 @@ v0.18.0 implements M14 local backend connection stabilization:
 - partial backend failures show degraded state and call out non-authoritative mock fallback panels.
 - OpenAPI path count remains `74`; no backend route is added.
 
-M15 Approval Queue + Receipt/Event Viewer UI remains future work. M14 must keep the shell read-only/preview-only and must not add execution, approval authority, plugin enablement, remote dispatch, mobile sensor control, model/provider calls, auth, credentials, cookies, analytics/SaaS SDKs, production persistence, external API hosts, dependencies, or production Control Center authority.
+M14 kept local backend connection stabilization separate from M15. M15 is implemented in v0.19.0 as read-only/preview-only frontend inspection panels and adds no backend API routes, execution, approval authority, plugin enablement, remote dispatch, mobile sensor control, model/provider calls, auth, credentials, cookies, analytics/SaaS SDKs, production persistence, external API hosts, dependencies, or production Control Center authority.
 
 ## v0.18.1 M14 Connection Safety Hardening
 
@@ -79,3 +79,13 @@ The design docs do not enable design tools, design SaaS, design-to-code, screens
 v0.18.3 clarifies that this shell is CCC Web, the current TypeScript web Control Center. CCC means Control Center Clients and also includes future CCC iOS, CCC Android, and CCC macOS planning. OpenWebUI remains the preferred conversational web shell, while Open Design governs custom CCC surfaces and does not replace OpenWebUI.
 
 This shell remains read-only/preview-only and is not the agent brain. v0.18.3 adds no frontend feature, backend API route, OpenWebUI integration, native CCC implementation, Android app, iOS app, macOS app, mobile sensor access, native build workflow, OS permission integration, or production authority.
+
+## v0.19.0 M15 Approval Receipt Event Viewer
+
+v0.19.0 adds read-only/preview-only CCC Web inspection panels:
+
+- Approval Queue: approval request summaries and selected details.
+- Receipt Viewer: redacted summary-only receipt records and selected details.
+- Event Viewer: redacted event summaries and selected details.
+
+The M15 panels use visibly mock, non-authoritative fallback data until a future reviewed backend contract adds safe live summaries. They add no backend routes and no authority to approve, reject, execute, send, write, run, deploy, enable, or mutate.

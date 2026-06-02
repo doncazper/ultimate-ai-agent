@@ -1,6 +1,6 @@
 # Control Center Design Language
 
-Status: Active design governance for v0.18.4. Documentation only.
+Status: Active design governance for v0.19.0. Documentation only.
 
 The Web Control Center is an operational control surface, not a marketing site. It should feel calm, dense, readable, status-first, and built for repeated inspection.
 

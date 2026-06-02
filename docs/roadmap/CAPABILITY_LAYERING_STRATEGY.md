@@ -1,6 +1,6 @@
 # Capability Layering Strategy
 
-Status: Active roadmap projection for v0.18.4. Documentation only.
+Status: Active roadmap projection for v0.19.0. Documentation only.
 
 This strategy defines the post-M20 layering order for future capability work. It does not implement runtime execution, model calls, tools, memory writes, native clients, sensors, browser automation, plugin enablement, dependencies, or external actions.
 
