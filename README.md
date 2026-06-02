@@ -1,12 +1,12 @@
-# Ultimate AI Agent Canonical Bundle v0.17.5
+# Ultimate AI Agent Canonical Bundle v0.18.0
 
-This is the active project baseline after the v0.17.5 roadmap projection and M14-M20 milestone charter freeze patch.
+This is the active project baseline after M14 Web Control Center Local Backend Connection Stabilization.
 
 Start here:
 
 ```text
-README_IMPORT_v0_17_5.md
-ultimate_ai_agent_master_plan_v0_17_5.md
+README_IMPORT_v0_18_0.md
+ultimate_ai_agent_master_plan_v0_18_0.md
 docs/DOCUMENTATION_INDEX.md
 docs/canonical/09_roadmap.md
 docs/canonical/CANONICAL_DOC_MAP.md
@@ -29,6 +29,7 @@ docs/control_center/ACTION_PREVIEW_POLICY.md
 docs/control_center/WEB_CONTROL_CENTER_SHELL.md
 docs/control_center/FRONTEND_SAFETY_POLICY.md
 docs/control_center/CONTROL_CENTER_FRONTEND_ROUTES.md
+docs/control_center/LOCAL_BACKEND_CONNECTION.md
 docs/control_center/LOCAL_BROWSER_SMOKE.md
 docs/control_center/LOCAL_BROWSER_SMOKE_REPORTING.md
 docs/runtime/model_runtime_adapter_harness.md
@@ -37,7 +38,7 @@ docs/runtime/RUNTIME_READINESS.md
 docs/runtime/MANUAL_SMOKE_REPORTS.md
 docs/runtime/RUNTIME_CAPABILITY_MATRIX.md
 docs/security/approval_authority.md
-docs/implementation/foundation_gate_implementation_plan_v0_17_5.md
+docs/implementation/foundation_gate_implementation_plan_v0_18_0.md
 docs/maintenance/documentation_integrity_checklist.md
 docs/tooling/CODEX_PLUGIN_CAPABILITY_INVENTORY.md
 docs/tooling/CODEX_PLUGIN_RISK_POLICY.md
@@ -111,3 +112,7 @@ Web Control Center local smoke polish rule:
 Roadmap projection rule:
 
 > v0.17.5 freezes the next canonical sequence without starting M14. M14 is Web Control Center Local Backend Connection Stabilization. M15 is Approval Queue + Receipt/Event Viewer UI. Local browser smoke / UX polish was v0.17.4, not M14. This patch adds no frontend feature, backend API route, runtime/model/provider/network execution, remote dispatch, mobile/native/sensor code, plugin enablement, dependency, architecture change, Chrome authenticated profile control, Computer Use automation, iOS/macOS build workflow, generated artifact, or production Control Center authority.
+
+Web Control Center local backend connection rule:
+
+> v0.18.0 implements M14 local backend connection stabilization in the existing Web Control Center shell only. API base URLs are local-only: relative path, localhost, 127.0.0.1, and loopback IPv6 are allowed; external absolute API URLs and secret-like query strings are blocked or rejected. The shell displays backend online, degraded, offline-safe, and mock fallback states, and any mock fallback remains visibly non-authoritative. OpenAPI path count remains `74`. This release adds no M15 approval queue, receipt/event viewer UI, backend API route, runtime/model/provider call, remote dispatch, mobile sensor access, plugin enablement, auth, credentials, cookies, Authorization headers, API keys, analytics/SaaS SDK, dependency, native build workflow, external API host, or production Control Center authority.

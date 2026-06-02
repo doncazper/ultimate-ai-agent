@@ -30,6 +30,7 @@ REQUIRED_ACTIVE_DOCS = [
     "docs/control_center/WEB_CONTROL_CENTER_SHELL.md",
     "docs/control_center/FRONTEND_SAFETY_POLICY.md",
     "docs/control_center/CONTROL_CENTER_FRONTEND_ROUTES.md",
+    "docs/control_center/LOCAL_BACKEND_CONNECTION.md",
     "docs/control_center/LOCAL_BROWSER_SMOKE.md",
     "docs/control_center/LOCAL_BROWSER_SMOKE_REPORTING.md",
     "docs/roadmap/MILESTONE_CHARTERS.md",
@@ -83,6 +84,7 @@ ACTIVE_DOCS_TO_SCAN = [
     "docs/control_center/WEB_CONTROL_CENTER_SHELL.md",
     "docs/control_center/FRONTEND_SAFETY_POLICY.md",
     "docs/control_center/CONTROL_CENTER_FRONTEND_ROUTES.md",
+    "docs/control_center/LOCAL_BACKEND_CONNECTION.md",
     "docs/control_center/LOCAL_BROWSER_SMOKE.md",
     "docs/control_center/LOCAL_BROWSER_SMOKE_REPORTING.md",
     "docs/remote/REMOTE_WORKER_FOUNDATION.md",
@@ -246,20 +248,22 @@ def _verify_roadmap_milestone_charters(root: Path) -> list[str]:
     if any(pattern in sequence for pattern in forbidden_m14_smoke_patterns):
         failures.append("M14 must not be local browser smoke / UX polish")
 
-    implemented_m14_claims = [
-        "m14 is implemented",
-        "m14 has been implemented",
-        "implemented m14",
-        "m14 implementation complete",
+    implemented_m15_claims = [
+        "m15 is implemented",
+        "m15 has been implemented",
+        "implemented m15",
+        "m15 implementation complete",
+        "approval queue is implemented",
+        "receipt/event viewer ui is implemented",
     ]
     for rel_path in ACTIVE_DOCS_TO_SCAN:
         path = root / rel_path
         if not path.exists():
             continue
         lowered = _read(path).lower()
-        for claim in implemented_m14_claims:
+        for claim in implemented_m15_claims:
             if claim in lowered:
-                failures.append(f"active docs claim M14 is already implemented: {rel_path}")
+                failures.append(f"active docs claim M15 is already implemented: {rel_path}")
     return failures
 
 

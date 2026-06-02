@@ -10,6 +10,17 @@ export type CapabilityStatus =
 
 export type ControlCenterActionStatus = "allowed_preview" | "approval_required" | "blocked";
 
+export type BackendConnectionState = "online" | "offline" | "degraded" | "mock_fallback";
+
+export interface BackendConnectionSummary {
+  state: BackendConnectionState;
+  apiBaseLabel: string;
+  checkedAt: string;
+  safeMessage: string;
+  usingMockData: boolean;
+  warnings: string[];
+}
+
 export interface ResultEnvelope<T> {
   success?: boolean;
   ok: boolean;
@@ -221,4 +232,5 @@ export interface ControlCenterData {
   runtimeReadiness: RuntimeReadinessReport;
   capabilityMatrix: RuntimeCapabilityMatrix;
   source: "api" | "mock";
+  connection: BackendConnectionSummary;
 }

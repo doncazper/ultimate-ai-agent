@@ -159,6 +159,9 @@ class FoundationGateEvaluator:
             "m13_frontend_ci_covers_local_checks": self.check_m13_frontend_ci_covers_local_checks,
             "m13_browser_smoke_readiness_manual_local_only": self.check_m13_browser_smoke_readiness_manual_local_only,
             "m13_browser_smoke_readiness_verifier_passes": self.check_m13_browser_smoke_readiness_verifier_passes,
+            "m14_local_backend_api_base_policy": self.check_m14_local_backend_api_base_policy,
+            "m14_connection_states_visible_and_safe": self.check_m14_connection_states_visible_and_safe,
+            "m14_backend_api_contract_unchanged": self.check_m14_backend_api_contract_unchanged,
             "roadmap_milestone_charters_current": self.check_roadmap_milestone_charters_current,
             "documentation_integrity_current": self.check_documentation_integrity_current,
             "codex_plugin_governance_docs_present": self.check_codex_plugin_governance_docs_present,
@@ -1947,6 +1950,8 @@ class FoundationGateEvaluator:
             failures.append("canonical roadmap does not resolve M14")
         if "approval queue + receipt/event viewer ui moves to m15" not in roadmap:
             failures.append("canonical roadmap does not move approval/receipt UI to M15")
+        if "v0.18.0 / m14" not in roadmap or "implemented" not in roadmap:
+            failures.append("canonical roadmap does not mark M14 connection stabilization as implemented in v0.18.0")
         forbidden = [
             "m14 - local browser smoke",
             "m14 — local browser smoke",
@@ -1954,10 +1959,10 @@ class FoundationGateEvaluator:
             "m14 - ux polish",
             "m14 — ux polish",
             "m14: ux polish",
-            "m14 is implemented",
-            "m14 has been implemented",
-            "implemented m14",
-            "m14 implementation complete",
+            "m15 is implemented",
+            "m15 has been implemented",
+            "implemented m15",
+            "m15 implementation complete",
         ]
         combined = "\n".join([sequence, roadmap])
         for phrase in forbidden:
@@ -2710,6 +2715,133 @@ class FoundationGateEvaluator:
             criterion,
             failures,
             ["scripts/verify_control_center_browser_smoke_readiness.py", "docs/control_center/LOCAL_BROWSER_SMOKE.md"],
+        )
+
+    def check_m14_local_backend_api_base_policy(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        app_root = self.root / "apps/control-center/src"
+        base_url = self._read(app_root / "api/baseUrl.ts")
+        client = self._read(app_root / "api/client.ts")
+        tests = self._read(app_root / "api/baseUrl.test.ts")
+        vite_config = self._read(self.root / "apps/control-center/vite.config.ts")
+        failures = []
+        required_policy_fragments = [
+            "resolveApiBaseUrl",
+            "localhost",
+            "127.0.0.1",
+            "::1",
+            "EXTERNAL_API_BASE_URL_BLOCKED",
+            "SECRET_LIKE_API_BASE_URL_REJECTED",
+            "containsSecretLike",
+        ]
+        for fragment in required_policy_fragments:
+            if fragment not in base_url:
+                failures.append(f"API base policy missing fragment: {fragment}")
+        external_fixture = "https" + "://api.example.com"
+        for fragment in [external_fixture, "supersecretvalue123", '"tok" + "en"']:
+            if fragment not in tests:
+                failures.append(f"API base policy tests missing unsafe case: {fragment}")
+        if "resolveApiBaseUrl" not in client:
+            failures.append("frontend client does not use resolveApiBaseUrl")
+        local_proxy_target = 'target: "' + "http" + '://127.0.0.1:8000"'
+        if local_proxy_target not in vite_config:
+            failures.append("Vite dev proxy is not pinned to local backend loopback")
+        if '"/control-center"' not in vite_config or '"/runtime"' not in vite_config:
+            failures.append("Vite dev proxy does not cover local read route groups")
+        if "changeOrigin: true" in vite_config:
+            failures.append("Vite dev proxy rewrites origin")
+        forbidden_client_fragments = [
+            "Authorization",
+            "Bearer ",
+            "api_key",
+            "document.cookie",
+            "localStorage",
+            "sessionStorage",
+        ]
+        failures.extend(
+            f"frontend client contains forbidden connection fragment: {fragment}"
+            for fragment in forbidden_client_fragments
+            if fragment in client
+        )
+        return self._result(
+            criterion,
+            failures,
+            [
+                "apps/control-center/src/api/baseUrl.ts",
+                "apps/control-center/src/api/client.ts",
+                "apps/control-center/vite.config.ts",
+            ],
+        )
+
+    def check_m14_connection_states_visible_and_safe(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        app = self._read(self.root / "apps/control-center/src/App.tsx")
+        types = self._read(self.root / "apps/control-center/src/api/types.ts")
+        client = self._read(self.root / "apps/control-center/src/api/client.ts")
+        mock = self._read(self.root / "apps/control-center/src/mocks/controlCenterData.ts")
+        tests = self._read(self.root / "apps/control-center/src/App.test.tsx")
+        combined = "\n".join([app, types, client, mock, tests])
+        failures = []
+        required_fragments = [
+            "BackendConnectionSummary",
+            "online",
+            "degraded",
+            "offline",
+            "mock_fallback",
+            "Backend online",
+            "Backend degraded",
+            "Mock fallback active",
+            "non-authoritative mock fallback",
+            "API base:",
+            "usingMockData",
+            "LOCAL_BACKEND_DEGRADED",
+            "PARTIAL_MOCK_FALLBACK",
+            "MOCK_DATA_ONLY",
+        ]
+        for fragment in required_fragments:
+            if fragment not in combined:
+                failures.append(f"connection state fragment missing: {fragment}")
+        forbidden_fragments = [
+            "production_authority: true",
+            "productionControlCenter: true",
+            "approval_grants_created: true",
+            "Authorization",
+            "document.cookie",
+        ]
+        failures.extend(
+            f"unsafe connection state fragment: {fragment}"
+            for fragment in forbidden_fragments
+            if fragment in combined
+        )
+        return self._result(
+            criterion,
+            failures,
+            [
+                "apps/control-center/src/App.tsx",
+                "apps/control-center/src/api/client.ts",
+                "apps/control-center/src/api/types.ts",
+                "apps/control-center/src/mocks/controlCenterData.ts",
+            ],
+        )
+
+    def check_m14_backend_api_contract_unchanged(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        result = self.check_m13_backend_api_contract_unchanged(criterion)
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.api.manifest import iter_api_route_items
+
+        paths = {route.path for route in iter_api_route_items(app)}
+        forbidden = [
+            "/control-center/approvals",
+            "/control-center/approval-queue",
+            "/control-center/events",
+            "/control-center/receipts",
+            "/control-center/actions/execute",
+            "/control-center/runtime/connect",
+        ]
+        failures = list(result.failures)
+        failures.extend(f"out-of-scope M14 route present: {path}" for path in forbidden if path in paths)
+        return self._result(
+            criterion,
+            failures,
+            ["src/ultimate_ai_agent/api/app.py", "src/ultimate_ai_agent/api/manifest.py"],
         )
 
     def _skipped(self, criterion: FoundationGateCriterion) -> FoundationGateResult:

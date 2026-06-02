@@ -1,6 +1,6 @@
 # Documentation Index
 
-Current active baseline: **v0.17.5**
+Current active baseline: **v0.18.0**
 
 This index is the active entrypoint for documentation navigation. Historical release documents remain in the repository for audit history, but active truth starts with the current baseline files listed here.
 
@@ -9,8 +9,8 @@ This index is the active entrypoint for documentation navigation. Historical rel
 ```text
 README.md
 VERSION.md
-README_IMPORT_v0_17_5.md
-ultimate_ai_agent_master_plan_v0_17_5.md
+README_IMPORT_v0_18_0.md
+ultimate_ai_agent_master_plan_v0_18_0.md
 docs/canonical/CANONICAL_DOC_MAP.md
 docs/canonical/09_roadmap.md
 docs/roadmap/MILESTONE_CHARTERS.md
@@ -55,13 +55,14 @@ docs/control_center/ACTION_PREVIEW_POLICY.md
 docs/control_center/WEB_CONTROL_CENTER_SHELL.md
 docs/control_center/FRONTEND_SAFETY_POLICY.md
 docs/control_center/CONTROL_CENTER_FRONTEND_ROUTES.md
+docs/control_center/LOCAL_BACKEND_CONNECTION.md
 docs/control_center/LOCAL_BROWSER_SMOKE.md
 docs/control_center/LOCAL_BROWSER_SMOKE_REPORTING.md
 ```
 
-M12 Control Center docs describe backend contracts, read-only dashboard snapshots, and action preview policy only. M13 adds a local Web Control Center shell that consumes those routes, renders safe mock fallback data, and submits only preview-only action requests. v0.17.4 polishes local shell reviewability and adds safe local browser smoke reporting documentation. The shell is not production authority and does not add execution capability.
+M12 Control Center docs describe backend contracts, read-only dashboard snapshots, and action preview policy only. M13 adds a local Web Control Center shell that consumes those routes, renders safe mock fallback data, and submits only preview-only action requests. v0.17.4 polishes local shell reviewability and adds safe local browser smoke reporting documentation. v0.18.0 / M14 stabilizes local backend connection behavior with local-only API base URL policy and visible live/degraded/mock fallback states. The shell is not production authority and does not add execution capability.
 
-v0.17.5 freezes the next Control Center sequence: M14 is Web Control Center Local Backend Connection Stabilization, and M15 is Approval Queue + Receipt/Event Viewer UI. Both remain governed by read-only/preview-only Control Center boundaries until a reviewed milestone explicitly changes them.
+M15 is Approval Queue + Receipt/Event Viewer UI and remains future work governed by read-only/preview-only Control Center boundaries until a reviewed milestone explicitly changes them.
 
 ## Active Runtime Docs
 
@@ -148,7 +149,7 @@ The Codex plugin capability inventory and risk policy record available developme
 
 ## Release Notes Index
 
-Current release notes: `docs/release_notes/v0_17_5.md`
+Current release notes: `docs/release_notes/v0_18_0.md`
 
 Historical release notes remain under `docs/release_notes/`. Historical docs may mention old active baselines in historical context; they are not the current source of truth.
 

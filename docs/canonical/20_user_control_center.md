@@ -107,15 +107,15 @@ v0.17.0 adds the first local Web Control Center shell. It is a React/Vite/TypeSc
 
 Action preview decisions are policy previews only. They are not authority, approval, consent, execution, evidence, or proof of production readiness.
 
-## v0.17.5 Roadmap Projection
+## v0.18.0 M14 Local Backend Connection
 
-v0.17.5 freezes the next Control Center sequence without implementing it.
+v0.18.0 implements M14 local backend connection stabilization in the existing Web Control Center shell.
 
 ```text
-M14 — Web Control Center Local Backend Connection Stabilization
-M15 — Approval Queue + Receipt/Event Viewer UI, read-only/preview-only
+M14 — Web Control Center Local Backend Connection Stabilization, implemented
+M15 — Approval Queue + Receipt/Event Viewer UI, future read-only/preview-only milestone
 ```
 
-M14 is about reliable local backend connection states, typed API-client hardening, backend unavailable states, mock-to-live clarity, localhost-only docs, and safe error handling. M14 must not add execution, new authority, model/provider calls, remote dispatch, mobile sensor control, plugin enablement, or approval/receipt UI expansion beyond already-existing read-only summaries.
+M14 is about reliable local backend connection states, typed API-client hardening, backend unavailable states, mock-to-live clarity, local-only API base policy, and safe error handling. M14 adds no backend route, execution, new authority, model/provider call, remote dispatch, mobile sensor control, plugin enablement, auth, credentials, cookies, analytics/SaaS SDK, external API host, or approval/receipt UI expansion beyond already-existing read-only summaries.
 
 M15 is the first planned approval queue plus receipt/event viewer UI milestone. It remains read-only/preview-only unless a separate reviewed backend contract explicitly adds authority. The Control Center must not execute actions, approve actions, bypass Approval Authority, write files, mutate memory, resolve credentials, enable plugins, access mobile sensors, or dispatch remote workers.

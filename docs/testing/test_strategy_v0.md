@@ -117,3 +117,19 @@ Secret-like backend preview errors are redacted before user-visible display.
 Local browser smoke reporting docs remain local-only, non-authoritative, and free of generated artifact requirements.
 Backend OpenAPI path count remains unchanged at 74.
 ```
+
+## v0.18.0 M14 Local Backend Connection Tests
+
+v0.18.0 adds focused frontend and static gate tests only:
+
+```text
+API base URL policy allows relative, localhost, 127.0.0.1, and loopback IPv6 bases.
+External absolute API bases are blocked.
+Secret-like API base URL strings are rejected and redacted.
+The Web Control Center displays backend online state when all local read requests succeed.
+The Web Control Center displays degraded state when some local read requests fail and non-authoritative mock fallback fills missing panels.
+Mock fallback remains visibly non-authoritative when the backend is unavailable or the base URL is rejected.
+Frontend safety verifier requires the local backend base policy and rejects external API URL markers.
+Foundation Gate includes M14 local backend connection criteria.
+Backend OpenAPI path count remains unchanged at 74.
+```

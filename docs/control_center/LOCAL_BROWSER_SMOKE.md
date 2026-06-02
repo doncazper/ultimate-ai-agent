@@ -1,6 +1,6 @@
 # Local Browser Smoke Readiness
 
-Status: Active for v0.17.5 roadmap projection; local browser smoke guidance was added/polished in v0.17.4.
+Status: Active for v0.18.0; local browser smoke guidance was added/polished in v0.17.4.
 
 This document defines manual local browser smoke readiness for the Web Control Center shell. It is local-only, optional, non-authoritative, and never part of CI or Foundation Gate browser execution.
 
@@ -41,6 +41,8 @@ Manual local browser smoke checklist:
 - no mobile sensor button.
 - no remote dispatch button.
 - mock data marked mock when backend data is unavailable.
+- backend connection state is visible as online, degraded, or mock fallback.
+- API base display remains local-only and does not include secret-like values.
 - blocked preview results remain non-authoritative and show no action was executed.
 
 Use `docs/control_center/LOCAL_BROWSER_SMOKE_REPORTING.md` for the safe local browser smoke report format. Reports must be local-only, non-authoritative, and free of secrets, raw prompts, file content, memory content, credentials, cookies, screenshots with secrets, browser traces, and generated artifacts.

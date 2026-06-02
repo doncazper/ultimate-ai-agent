@@ -19,7 +19,9 @@ describe("Web Control Center shell", () => {
     window.history.pushState({}, "", "/dashboard");
     render(<App />);
 
-    expect(await screen.findByText("Mock fallback")).toBeInTheDocument();
+    expect(await screen.findByText("Mock fallback active")).toBeInTheDocument();
+    expect(screen.getByText(/Backend unavailable; showing non-authoritative mock fallback data/i)).toBeInTheDocument();
+    expect(screen.getByText(/API base: relative local API/i)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Overview" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Runtime" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Foundation Gate" })).toBeInTheDocument();
@@ -130,6 +132,44 @@ describe("Web Control Center shell", () => {
     expect(screen.queryByRole("button", { name: /execute/i })).not.toBeInTheDocument();
   });
 
+  it("shows live local backend connection state only when every read request succeeds", async () => {
+    const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
+      if (options?.method === "POST") {
+        throw new Error("unexpected preview request");
+      }
+      return new Response(JSON.stringify(envelopeForReadEndpoint(String(url))), {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/dashboard");
+    render(<App />);
+
+    expect(await screen.findByText("Backend online")).toBeInTheDocument();
+    expect(screen.getByText(/Live data came from local read-only\/preview-only backend API routes/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Mock fallback active/i)).not.toBeInTheDocument();
+  });
+
+  it("shows degraded local backend state when only part of the read set succeeds", async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      if (String(url).includes(API_ENDPOINTS.runtimeCapabilityMatrix)) {
+        throw new Error("capability matrix unavailable");
+      }
+      return new Response(JSON.stringify(envelopeForReadEndpoint(String(url))), {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/dashboard");
+    render(<App />);
+
+    expect(await screen.findByText("Backend degraded")).toBeInTheDocument();
+    expect(screen.getByText(/Some local backend summaries were unavailable/i)).toBeInTheDocument();
+    expect(screen.getByText(/non-authoritative mock fallback filled missing panels/i)).toBeInTheDocument();
+  });
+
   it("does not expose dangerous action control labels", async () => {
     mockFetchWithFallback();
     window.history.pushState({}, "", "/action-preview");
@@ -231,3 +271,142 @@ describe("Web Control Center shell", () => {
     expect(isPreviewEndpoint("/control-center/plugins/enable")).toBe(false);
   });
 });
+
+function envelopeForReadEndpoint(url: string) {
+  const data = {
+    [API_ENDPOINTS.controlCenterManifest]: {
+      ...mockApiData.manifest,
+      version: "0.18.0"
+    },
+    [API_ENDPOINTS.controlCenterDashboard]: {
+      ...mockApiData.dashboard,
+      baseline_version: "0.18.0"
+    },
+    [API_ENDPOINTS.controlCenterStatus]: mockApiData.status,
+    [API_ENDPOINTS.controlCenterRoutes]: mockApiData.routes,
+    [API_ENDPOINTS.runtimeReadiness]: {
+      ...mockApiData.runtimeReadiness,
+      baseline_version: "0.18.0"
+    },
+    [API_ENDPOINTS.runtimeCapabilityMatrix]: {
+      ...mockApiData.capabilityMatrix,
+      baseline_version: "0.18.0"
+    }
+  };
+  const endpoint = Object.keys(data).find((candidate) => url.endsWith(candidate));
+  return { ok: true, result: data[endpoint as keyof typeof data] };
+}
+
+const mockApiData = {
+  manifest: {
+    manifest_id: "test_manifest",
+    version: "0.18.0",
+    generated_at: "2026-01-01T00:00:00Z",
+    declared_capabilities: ["control_center_read_only_dashboard"],
+    blocked_capabilities: ["runtime_execution", "remote_dispatch", "mobile_sensor_access", "plugin_enablement"],
+    api_route_refs: ["/control-center/dashboard", "/control-center/actions/preview"],
+    metadata: { read_only: true, preview_only: true, production_control_center: false },
+    surfaces: []
+  },
+  dashboard: {
+    snapshot_id: "test_dashboard",
+    baseline_version: "0.18.0",
+    generated_at: "2026-01-01T00:00:00Z",
+    system_status: {
+      label: "Control Center",
+      status: "read_only",
+      summary: "Read-only local backend summary."
+    },
+    foundation_gate_summary: {
+      status: "passed",
+      passed_count: 1,
+      failed_count: 0,
+      summary: "Gate summary only."
+    },
+    runtime_readiness_summary: {
+      status: "report_only",
+      production_ready: false,
+      real_model_runtime_ready: false,
+      remote_execution_ready: false,
+      mobile_sensor_ready: false,
+      plugin_or_native_build_ready: false
+    },
+    approval_summary: {
+      pending_count: 0,
+      approval_grants_created: false,
+      arbitrary_approval_ref_authority: false,
+      summary: "Read-only approval summary."
+    },
+    api_summary: {
+      route_count: 74,
+      control_center_route_count: 8,
+      operation_ids_unique: true,
+      execution_routes_present: false
+    },
+    remote_worker_summary: {
+      status: "dry_run_only",
+      execution_enabled: false,
+      dispatch_enabled: false
+    },
+    private_mesh_summary: {
+      status: "planned_disabled",
+      headscale_integrated: false,
+      tailscale_integrated: false,
+      wireguard_integrated: false
+    },
+    mobile_planning_summary: {
+      status: "planned_disabled",
+      sensor_access_enabled: false,
+      mobile_app_implemented: false
+    },
+    plugin_governance_summary: {
+      status: "planned_disabled",
+      plugin_enablement_allowed: false,
+      native_build_tools_enabled: false
+    },
+    warnings: [],
+    blockers: [],
+    next_recommended_action: "review_local_backend_status",
+    metadata: { read_only: true, preview_only: true }
+  },
+  status: {
+    status: "available",
+    read_only: true,
+    preview_only: true,
+    frontend_shell: true,
+    production_authority: false,
+    message: "Local backend status only."
+  },
+  routes: {
+    route_count: 8,
+    routes: [
+      {
+        path: "/control-center/dashboard",
+        methods: ["GET"],
+        operation_id: "get_control_center_dashboard",
+        tags: ["control-center"],
+        validation_only: true
+      }
+    ]
+  },
+  runtimeReadiness: {
+    report_id: "test_readiness",
+    baseline_version: "0.18.0",
+    status: "report_only",
+    production_ready: false,
+    real_model_runtime_ready: false,
+    remote_execution_ready: false,
+    mobile_sensor_ready: false,
+    plugin_or_native_build_ready: false,
+    capability_matrix_ref: "test_matrix",
+    warnings: [],
+    blockers: [],
+    metadata: { model_output_authoritative: false }
+  },
+  capabilityMatrix: {
+    matrix_id: "test_matrix",
+    baseline_version: "0.18.0",
+    metadata: { no_model_was_called: true },
+    entries: []
+  }
+};

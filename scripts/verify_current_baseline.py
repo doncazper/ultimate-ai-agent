@@ -547,6 +547,19 @@ def main():
         if not p.exists():
             fail(f"Required M13 file is missing: {rel_path}")
     ok("All M13 Web Control Center read-only shell files exist")
+
+    # 8.22 Check M14 Web Control Center local backend connection files existence
+    m14_files = [
+        "apps/control-center/src/api/baseUrl.ts",
+        "apps/control-center/src/api/baseUrl.test.ts",
+        "tests/test_m14_gate_integration.py",
+        "docs/control_center/LOCAL_BACKEND_CONNECTION.md",
+    ]
+    for rel_path in m14_files:
+        p = ROOT / rel_path
+        if not p.exists():
+            fail(f"Required M14 file is missing: {rel_path}")
+    ok("All M14 Web Control Center local backend connection files exist")
     
     # 9. Enforce scans by delegating to verify_all
     try:

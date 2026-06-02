@@ -1,6 +1,6 @@
 # Local Browser Smoke Reporting
 
-Status: Active for v0.17.5 roadmap projection; local browser smoke reporting was added in v0.17.4.
+Status: Active for v0.18.0; local browser smoke reporting was added in v0.17.4.
 
 This document defines the safe local browser smoke report format for the Web Control Center shell. A local browser smoke report is local-only, optional, non-authoritative, and never a substitute for tests, static verifiers, OpenAPI verification, or Foundation Gate.
 
@@ -47,6 +47,8 @@ mobile_planning_loaded: pass | fail
 plugin_governance_loaded: pass | fail
 action_preview_preview_only: pass | fail
 mock_fallback_marked_mock: pass | fail | not_applicable
+backend_connection_state_visible: pass | fail
+api_base_local_only: pass | fail
 forbidden_controls_absent: pass | fail
 no_action_was_executed_visible: pass | fail
 notes:

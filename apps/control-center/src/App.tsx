@@ -4,6 +4,7 @@ import { ErrorState, LoadingState } from "./components/DataState";
 import { SafeAlert } from "./components/SafeAlert";
 import { useControlCenterData } from "./hooks/useControlCenterData";
 import { renderRoute } from "./routes";
+import type { BackendConnectionSummary } from "./api/types";
 
 export function App() {
   const state = useControlCenterData();
@@ -27,21 +28,26 @@ export function App() {
 
   return (
     <AppShell activePath={activePath}>
-      {state.data.source === "mock" ? (
-        <SafeAlert
-          title="Mock fallback"
-          message="Backend data is unavailable, so this shell is showing non-authoritative mock data."
-          tone="warning"
-        />
-      ) : (
-        <SafeAlert
-          title="Connected"
-          message="Data came from local read-only/preview-only backend API routes."
-          tone="info"
-        />
-      )}
+      <ConnectionStatus connection={state.data.connection} />
       {renderRoute(activePath, state.data)}
     </AppShell>
+  );
+}
+
+function ConnectionStatus({ connection }: { connection: BackendConnectionSummary }) {
+  const titleByState: Record<BackendConnectionSummary["state"], string> = {
+    online: "Backend online",
+    degraded: "Backend degraded",
+    offline: "Backend offline",
+    mock_fallback: "Mock fallback active"
+  };
+  const warnings = connection.warnings.length > 0 ? ` Warnings: ${connection.warnings.join(", ")}.` : "";
+  return (
+    <SafeAlert
+      title={titleByState[connection.state]}
+      message={`${connection.safeMessage} API base: ${connection.apiBaseLabel}. Checked: ${connection.checkedAt}.${warnings}`}
+      tone={connection.state === "online" ? "info" : "warning"}
+    />
   );
 }
 

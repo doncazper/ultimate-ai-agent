@@ -1,4 +1,4 @@
-# 09 - Roadmap v0.17.5
+# 09 - Roadmap v0.18.0
 
 Status: Active foundation-first roadmap. This is the single roadmap source of truth.
 
@@ -25,26 +25,26 @@ The original foundation sequence established runtime hygiene, local runtime/cont
 
 ## Current accepted baseline
 
-The active accepted baseline is v0.17.5. It is a docs-only roadmap projection and milestone charter freeze on top of accepted v0.17.4.
+The active accepted baseline is v0.18.0. It implements M14 Web Control Center Local Backend Connection Stabilization on top of accepted v0.17.5.
 
-v0.17.5 adds:
+v0.18.0 adds:
 
-- `docs/roadmap/MILESTONE_CHARTERS.md`
-- `docs/roadmap/NEXT_SEQUENCE_v0_17_5.md`
-- conservative documentation integrity checks for the M14/M15 sequence.
-- a Foundation Gate documentation criterion for current milestone charters.
+- local-only Web Control Center API base URL policy.
+- visible backend online, degraded, offline-safe, and mock fallback states.
+- `docs/control_center/LOCAL_BACKEND_CONNECTION.md`.
+- M14 frontend tests, static verifier checks, and Foundation Gate criteria.
 
-v0.17.5 resolves the M14 ambiguity:
+v0.17.5 resolved the M14 ambiguity:
 
 - M14 is Web Control Center Local Backend Connection Stabilization.
 - Approval Queue + Receipt/Event Viewer UI moves to M15.
 - local browser smoke / UX polish was v0.17.4, not M14.
 
-v0.17.5 does not implement M14, add frontend features, add backend API paths, add runtime execution, call models/providers, call networks, dispatch remote workers, add mobile app or sensor code, enable plugins, add dependencies, change architecture, or create production Control Center authority.
+v0.18.0 implements M14 only. It does not add M15 Approval Queue + Receipt/Event Viewer UI, backend API paths, runtime execution, model/provider calls, remote dispatch, mobile app or sensor code, plugin enablement, dependencies, auth, credentials, cookies, analytics/SaaS SDKs, external API hosts, or production Control Center authority.
 
-## Accepted baseline through v0.17.5
+## Accepted baseline through v0.18.0
 
-The active accepted baseline includes foundation modules through M10.5 plus documentation integrity synchronization, Codex plugin/external tooling governance, M11 runtime readiness/report validation, M12 Control Center backend contract/API foundation, M13 Web Control Center read-only frontend shell with CI/static/browser-readiness hardening, and the v0.17.5 roadmap charter freeze. v0.17.4 polished local shell reviewability and browser smoke reporting only; it did not start M14, add backend API paths, add dependencies, add production Control Center authority, or add execution capability.
+The active accepted baseline includes foundation modules through M10.5 plus documentation integrity synchronization, Codex plugin/external tooling governance, M11 runtime readiness/report validation, M12 Control Center backend contract/API foundation, M13 Web Control Center read-only frontend shell with CI/static/browser-readiness hardening, the v0.17.5 roadmap charter freeze, and M14 local backend connection stabilization. v0.17.4 polished local shell reviewability and browser smoke reporting only; it did not start M14, add backend API paths, add dependencies, add production Control Center authority, or add execution capability.
 
 Recent accepted milestones:
 
@@ -65,6 +65,7 @@ v0.17.2 — M13 Web Control Center CI, static safety, and local browser smoke re
 v0.17.3 — documentation current-release label cleanup
 v0.17.4 — Web Control Center local browser smoke polish and safe reporting docs
 v0.17.5 — Roadmap Projection + M14-M20 Milestone Charter Freeze
+v0.18.0 — M14 Web Control Center Local Backend Connection Stabilization
 
 - adds local React/Vite/TypeScript app under `apps/control-center`.
 - consumes existing read-only/preview-only backend routes.
@@ -74,6 +75,7 @@ v0.17.5 — Roadmap Projection + M14-M20 Milestone Charter Freeze
 - v0.17.3 keeps current-release documentation labels aligned with the active baseline.
 - v0.17.4 improves route headings, accessible UI states, action preview risk metadata display, mock fallback reviewability, and local browser smoke reporting docs.
 - v0.17.5 freezes the M14-M20 roadmap sequence and does not add implementation capability.
+- v0.18.0 adds local-only backend connection policy and visible live/degraded/mock fallback states for M14.
 - keeps backend OpenAPI path count unchanged at `74`.
 - adds no runtime execution, model/provider calls, remote dispatch, mobile sensors, plugin enablement, native builds, Chrome/Computer Use automation, or production authority.
 ```
@@ -82,11 +84,11 @@ v0.17.5 — Roadmap Projection + M14-M20 Milestone Charter Freeze
 
 The detailed sequence is frozen in `docs/roadmap/NEXT_SEQUENCE_v0_17_5.md`. The milestone charter template is `docs/roadmap/MILESTONE_CHARTERS.md`. These files must be checked before writing future milestone prompts.
 
-Items after v0.17.5 are planned/provisional but canonical until superseded by a reviewed roadmap patch.
+v0.18.0 has implemented M14 from that sequence. Items after v0.18.0 remain planned/provisional until superseded by a reviewed roadmap patch.
 
 ```text
 v0.17.5 — Roadmap Projection + M14-M20 Milestone Charter Freeze, docs-only
-v0.18.0 / M14 — Web Control Center Local Backend Connection Stabilization
+v0.18.0 / M14 — Web Control Center Local Backend Connection Stabilization, implemented
 v0.18.1 — M14 Hardening: Control Center Backend Connection Safety
 v0.18.2 — Open Design System + UI Design Governance
 v0.19.0 / M15 — Approval Queue + Receipt/Event Viewer UI, read-only/preview-only

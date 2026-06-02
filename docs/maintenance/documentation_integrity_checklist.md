@@ -1,6 +1,6 @@
 # Documentation Integrity Checklist
 
-Status: Active maintenance checklist, v0.17.5
+Status: Active maintenance checklist, v0.18.0
 
 Run this checklist before every release that changes docs, roadmap, API metadata, runtime boundaries, or release status.
 

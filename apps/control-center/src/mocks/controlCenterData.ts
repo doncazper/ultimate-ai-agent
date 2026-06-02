@@ -2,9 +2,17 @@ import type { ControlCenterData } from "../api/types";
 
 export const mockControlCenterData: ControlCenterData = {
   source: "mock",
+  connection: {
+    state: "mock_fallback",
+    apiBaseLabel: "relative local API",
+    checkedAt: "2026-01-01T00:00:00Z",
+    safeMessage: "Backend unavailable; showing non-authoritative mock fallback data.",
+    usingMockData: true,
+    warnings: ["MOCK_DATA_ONLY", "NO_PRODUCTION_AUTHORITY"]
+  },
   manifest: {
-    manifest_id: "mock_control_center_manifest_m13",
-    version: "0.17.4",
+    manifest_id: "mock_control_center_manifest_m14",
+    version: "0.18.0",
     generated_at: "2026-01-01T00:00:00Z",
     declared_capabilities: ["control_center_read_only_dashboard", "control_center_action_preview"],
     blocked_capabilities: [
@@ -88,8 +96,8 @@ export const mockControlCenterData: ControlCenterData = {
     ]
   },
   dashboard: {
-    snapshot_id: "mock_control_center_dashboard_m13",
-    baseline_version: "0.17.4",
+    snapshot_id: "mock_control_center_dashboard_m14",
+    baseline_version: "0.18.0",
     generated_at: "2026-01-01T00:00:00Z",
     system_status: {
       label: "Control Center",
@@ -180,22 +188,22 @@ export const mockControlCenterData: ControlCenterData = {
     ]
   },
   runtimeReadiness: {
-    report_id: "mock_runtime_readiness_m13",
-    baseline_version: "0.17.4",
+    report_id: "mock_runtime_readiness_m14",
+    baseline_version: "0.18.0",
     status: "report_only",
     production_ready: false,
     real_model_runtime_ready: false,
     remote_execution_ready: false,
     mobile_sensor_ready: false,
     plugin_or_native_build_ready: false,
-    capability_matrix_ref: "mock_runtime_capability_matrix_m13",
+    capability_matrix_ref: "mock_runtime_capability_matrix_m14",
     warnings: ["MOCK_DATA_ONLY"],
     blockers: [],
     metadata: { mock: true, model_output_authoritative: false }
   },
   capabilityMatrix: {
-    matrix_id: "mock_runtime_capability_matrix_m13",
-    baseline_version: "0.17.4",
+    matrix_id: "mock_runtime_capability_matrix_m14",
+    baseline_version: "0.18.0",
     metadata: { mock: true, no_model_was_called: true },
     entries: [
       {

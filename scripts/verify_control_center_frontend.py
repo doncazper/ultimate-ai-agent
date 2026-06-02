@@ -10,6 +10,8 @@ ROOT = Path(__file__).resolve().parent.parent
 REQUIRED_FILES = [
     "package.json",
     "package-lock.json",
+    "vite.config.ts",
+    "src/api/baseUrl.ts",
     "src/api/client.ts",
     "src/api/endpoints.ts",
     "src/api/redaction.ts",
@@ -83,6 +85,8 @@ SECRET_ASSIGNMENT = re.compile(
     r"(?i)(api[_-]?key|auth[_-]?token|authorization|cookie|password|secret|token)\s*[:=]\s*['\"]?([a-z0-9_./:-]{8,})"
 )
 
+ABSOLUTE_API_URL = re.compile(r"https?://(?!localhost(?::|/|$)|127\.0\.0\.1(?::|/|$)|\[::1\](?::|/|$))[^'\"\s)]+")
+
 
 def verify(root: Path = ROOT) -> list[str]:
     failures: list[str] = []
@@ -111,6 +115,8 @@ def verify(root: Path = ROOT) -> list[str]:
         for fragment in NATIVE_OR_PLUGIN_FRAGMENTS:
             if fragment in lowered:
                 failures.append(f"forbidden native/plugin reference in {rel}: {fragment}")
+        for match in ABSOLUTE_API_URL.finditer(text):
+            failures.append(f"forbidden absolute external API URL in {rel}: {match.group(0)}")
         failures.extend(_button_label_failures(rel, text))
 
     mock_path = app_root / "src/mocks/controlCenterData.ts"
@@ -139,7 +145,9 @@ def verify(root: Path = ROOT) -> list[str]:
                 failures.append(f"mock fixture missing safety marker: {fragment}")
 
     endpoints = app_root / "src/api/endpoints.ts"
+    base_url = app_root / "src/api/baseUrl.ts"
     client = app_root / "src/api/client.ts"
+    vite_config = app_root / "vite.config.ts"
     if endpoints.exists():
         text = endpoints.read_text(encoding="utf-8")
         if 'actionPreview: "/control-center/actions/preview"' not in text:
@@ -154,6 +162,32 @@ def verify(root: Path = ROOT) -> list[str]:
             failures.append("frontend client must declare exactly one POST")
         if "API_ENDPOINTS.actionPreview" not in text:
             failures.append("frontend client must post only through API_ENDPOINTS.actionPreview")
+        if "resolveApiBaseUrl" not in text:
+            failures.append("frontend client must resolve API base through local backend policy")
+    if base_url.exists():
+        text = base_url.read_text(encoding="utf-8")
+        required_policy_fragments = [
+            "resolveApiBaseUrl",
+            "localhost",
+            "127.0.0.1",
+            "::1",
+            "EXTERNAL_API_BASE_URL_BLOCKED",
+            "SECRET_LIKE_API_BASE_URL_REJECTED",
+            "containsSecretLike",
+        ]
+        for fragment in required_policy_fragments:
+            if fragment not in text:
+                failures.append(f"local backend API base policy is missing: {fragment}")
+    else:
+        failures.append("local backend API base policy is missing")
+    if vite_config.exists():
+        text = vite_config.read_text(encoding="utf-8")
+        if 'target: "http://127.0.0.1:8000"' not in text:
+            failures.append("Vite dev proxy must target only http://127.0.0.1:8000")
+        if '"/control-center"' not in text or '"/runtime"' not in text:
+            failures.append("Vite dev proxy must cover local Control Center and runtime read routes")
+        if "changeOrigin: true" in text:
+            failures.append("Vite dev proxy must not rewrite origin for local backend checks")
 
     return failures
 

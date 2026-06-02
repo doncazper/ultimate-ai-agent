@@ -1,6 +1,6 @@
 # Ultimate AI Agent Workspace Standards
 
-Active baseline: v0.17.5.
+Active baseline: v0.18.0.
 
 This repository is the Ultimate AI Agent foundation workspace. Treat it as a contract-first Python core, not a production runtime integration layer.
 
@@ -30,13 +30,14 @@ This repository is the Ultimate AI Agent foundation workspace. Treat it as a con
 - v0.17.3 documentation current-release label cleanup keeps active docs, release notes, import docs, roadmap, and documentation integrity checks aligned. Do not use this docs-only patch to add runtime/model/provider/network/frontend/mobile/remote/plugin capability, dependency changes, or production Control Center authority.
 - v0.17.4 Web Control Center local browser smoke polish keeps the existing shell read-only/preview-only. It may improve route headings, accessible loading/empty states, mock fallback reviewability, action preview risk metadata display, frontend tests, and safe local browser smoke reporting docs only. Do not add backend API paths, dependencies, runtime/model/provider/network execution, remote dispatch, mobile/native/sensor code, plugin enablement, Chrome authenticated profile control, Computer Use automation, iOS/macOS build workflow, generated artifacts, or production Control Center authority.
 - v0.17.5 roadmap projection and milestone charter freeze is docs/canonical/verifier/gate-only. It resolves M14 as Web Control Center Local Backend Connection Stabilization, moves Approval Queue + Receipt/Event Viewer UI to M15, and records M14-M20 as planned/provisional but canonical until superseded by a reviewed roadmap patch. Do not use this patch to implement M14, add frontend features, backend API routes, runtime/model/provider/network execution, remote dispatch, mobile/native/sensor code, plugin enablement, dependencies, architecture changes, Chrome authenticated profile control, Computer Use automation, iOS/macOS build workflow, generated artifacts, or production Control Center authority.
+- v0.18.0 Web Control Center local backend connection stabilization implements M14 in the existing shell only. API base URL policy must allow only relative paths, localhost, 127.0.0.1, and loopback IPv6; external absolute API URLs and secret-like API base strings must be blocked or rejected. Mock fallback must be visibly mock and non-authoritative, and live/degraded/mock/offline-safe states must be clear. Do not add M15 Approval Queue + Receipt/Event Viewer UI, backend API routes, OpenAPI path count changes, runtime/model/provider calls, remote dispatch, mobile sensor access, plugin enablement, auth, credentials, cookies, Authorization headers, API keys, analytics/SaaS SDKs, external API hosts, dependencies, native build workflows, or production Control Center authority.
 - API validation errors must be sanitized and must never echo raw invalid input values or secret-like field values.
 
 ## Workspace
 
 - Keep milestone changes small and release-gated.
 - Prefer typed contracts, deterministic tests, and metadata-only verification before implementation work.
-- Before release, run `PYTHONPATH=src python -m pytest`, `python scripts/verify_current_baseline.py`, `python scripts/verify_documentation_integrity.py`, `python scripts/verify_skill_package_security_rule.py`, `python scripts/verify_all.py`, `python scripts/run_foundation_gate.py`, `python scripts/verify_openapi_contract.py`, and `python -m ruff check .`.
+- Before release, run `PYTHONPATH=src .venv/bin/python -m pytest`, `.venv/bin/python scripts/verify_current_baseline.py`, `.venv/bin/python scripts/verify_documentation_integrity.py`, `.venv/bin/python scripts/verify_skill_package_security_rule.py`, `.venv/bin/python scripts/verify_all.py`, `.venv/bin/python scripts/run_foundation_gate.py`, `.venv/bin/python scripts/verify_openapi_contract.py`, and `.venv/bin/python -m ruff check .`.
 - Update `scripts/verify_openapi_contract.py` and the Foundation Gate when the API boundary changes.
 - Keep generated OpenAPI JSON out of git unless a release explicitly asks for a versioned schema snapshot.
 - Never move existing release tags or force-push release history. Create the next release tag only after verification passes and the remote tag is confirmed absent.

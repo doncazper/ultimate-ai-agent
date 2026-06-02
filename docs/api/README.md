@@ -1,6 +1,6 @@
 # API Boundary
 
-The v0.17.5 API boundary is metadata-first, validation-first, approval-aware for local/dev policy checks, simulated/fallback-first for model runtime behavior, readiness/status-only for M11 runtime readiness, and read-only/preview-only for M12/M13 Control Center contracts. It publishes the current OpenAPI schema and `/api/manifest` route inventory without adding cloud model calls, provider SDK calls, web fetching, browser automation, tokenizers, billing APIs, production auth, OAuth, private mesh networking, mobile sensor access, plugin enablement, backend frontend-tool control routes, runtime execution, or production persistence.
+The v0.18.0 API boundary is metadata-first, validation-first, approval-aware for local/dev policy checks, simulated/fallback-first for model runtime behavior, readiness/status-only for M11 runtime readiness, read-only/preview-only for M12/M13 Control Center contracts, and unchanged for M14 local backend connection stabilization. It publishes the current OpenAPI schema and `/api/manifest` route inventory without adding cloud model calls, provider SDK calls, web fetching, browser automation, tokenizers, billing APIs, production auth, OAuth, private mesh networking, mobile sensor access, plugin enablement, backend frontend-tool control routes, runtime execution, or production persistence.
 
 Use:
 
@@ -31,6 +31,8 @@ v0.15.1 adds no API routes. It clarifies that `local_loopback_policy` is support
 
 v0.16.0 adds `/control-center/*` backend contract routes for manifest, dashboard, status, route inventory summary, approval summary, runtime-readiness summary, Foundation Gate summary, and action preview. These routes are read-only or preview-only. They do not execute actions, grant approvals, enable plugins, start runtimes, call models/providers, dispatch remote workers, access mobile sensors, run frontend tooling, or create a production Control Center.
 
-v0.17.0 adds a local Web Control Center frontend shell only. It adds no backend API route. v0.17.1 and v0.17.2 harden the frontend safety and verification path only. v0.17.3 cleans up release documentation labels. v0.17.4 polishes local browser smoke reviewability and reporting only. v0.17.5 freezes roadmap milestone charters only. OpenAPI path count remains `74`; only `info.version` changes to the active package version.
+v0.17.0 adds a local Web Control Center frontend shell only. It adds no backend API route. v0.17.1 and v0.17.2 harden the frontend safety and verification path only. v0.17.3 cleans up release documentation labels. v0.17.4 polishes local browser smoke reviewability and reporting only. v0.17.5 freezes roadmap milestone charters only.
+
+v0.18.0 implements M14 local backend connection stabilization in the frontend shell only. It adds local-only API base validation and visible live/degraded/mock fallback states. It adds no backend API route and no M15 approval queue, receipt, or event viewer route. OpenAPI path count remains `74`; only `info.version` changes to the active package version.
 
 API validation errors are sanitized before they are returned. FastAPI/Pydantic validation failures must not echo raw invalid input values or secret-like field values.

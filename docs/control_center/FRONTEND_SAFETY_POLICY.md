@@ -1,6 +1,6 @@
 # Frontend Safety Policy
 
-Status: Active for v0.17.5 roadmap projection; frontend safety behavior last changed in v0.17.4.
+Status: Active for v0.18.0 / M14 local backend connection stabilization.
 
 The Web Control Center shell is a display and preview surface. The Python Agent Core remains the brain and source of policy enforcement.
 
@@ -10,6 +10,9 @@ Frontend safety rules:
 - The only POST from the frontend is `/control-center/actions/preview`.
 - Action preview must never be treated as execution, approval, credential resolution, remote dispatch, model invocation, plugin enablement, or sensor access.
 - Mock fixtures must be visibly marked mock and non-authoritative.
+- API base URLs must be local-only: relative path, localhost, 127.0.0.1, or loopback IPv6.
+- External absolute API URLs and secret-like API base strings must be blocked or rejected.
+- Live, degraded, offline-safe, and mock fallback connection states must be visible and safe.
 - Secret-like user input and backend errors must be sanitized before display.
 - The frontend must not read cookies, local storage, session storage, credentials, keychains, files, mobile sensors, camera, microphone, location, browser profiles, or OS signing material.
 - The frontend must not use browser credential APIs, service workers, IndexedDB, CacheStorage, notification/push APIs, or clipboard writes.
@@ -39,7 +42,7 @@ Local browser smoke readiness:
 - no screenshots with secrets.
 - non-authoritative verification only.
 
-Off-limits in M13/v0.17.x:
+Off-limits in M14/v0.18.0:
 
 - Chrome authenticated profile control.
 - Computer Use automation.
@@ -47,17 +50,24 @@ Off-limits in M13/v0.17.x:
 - App Store Connect, signing identities, keychains, provisioning profiles, and entitlements.
 - MCP/A2A runtime delegation.
 - external network services.
+- external API hosts.
+- auth, credentials, cookies, Authorization headers, or API keys.
+- analytics/SaaS SDKs.
 - production persistence.
 
-## v0.17.5 Roadmap Projection
+## v0.18.0 M14 Connection Safety
 
-v0.17.5 freezes future Control Center sequencing without changing frontend behavior:
+v0.18.0 implements local backend connection stabilization only:
 
-- M14 is Web Control Center Local Backend Connection Stabilization.
-- M15 is Approval Queue + Receipt/Event Viewer UI, read-only/preview-only.
-- v0.17.4 remains local browser smoke / UX polish and is not M14.
+- relative API bases are allowed.
+- localhost, 127.0.0.1, and loopback IPv6 API bases are allowed.
+- external absolute API bases are unsupported.
+- secret-like query strings or credentials in an API base are rejected.
+- mock fallback remains non-authoritative.
+- partial backend failures show degraded state.
+- OpenAPI path count remains `74`.
 
-M14/M15 frontend prompts must preserve these safety boundaries unless a reviewed milestone explicitly changes them:
+M15 Approval Queue + Receipt/Event Viewer UI remains future work. Future frontend prompts must preserve these safety boundaries unless a reviewed milestone explicitly changes them:
 
 - no execution.
 - no approval authority bypass.
