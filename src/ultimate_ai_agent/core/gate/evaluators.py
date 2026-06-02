@@ -2909,6 +2909,11 @@ class FoundationGateEvaluator:
             "read-only",
             "preview-only",
             "Approval Authority handles final decision",
+            "This UI cannot grant, deny, execute, or bypass approvals",
+            "Approval refs are identifiers only and never authority",
+            "Python Agent Core remains the only approval authority",
+            "Receipt detail is redacted summary metadata only",
+            "Event detail is redacted summary metadata only",
             "redacted_summary_only",
             "MOCK_DATA_ONLY",
             "nonAuthoritative",
@@ -2941,6 +2946,13 @@ class FoundationGateEvaluator:
             'type="password"',
             'name="apikey"',
             'name="token"',
+            "rawpromptbody",
+            "rawfilebody",
+            "rawmemorycontent",
+            "raweventpayload",
+            "rawreceiptpayload",
+            "credentialref",
+            "credentialhandle",
         ]
         failures.extend(f"M15 UI contains forbidden fragment: {fragment}" for fragment in forbidden_fragments if fragment in lowered)
 

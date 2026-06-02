@@ -1,6 +1,6 @@
 # CCC Native Client Strategy
 
-Status: Active CCC client strategy clarification for v0.19.0. Documentation only.
+Status: Active CCC client strategy clarification for v0.19.1. Documentation only.
 
 CCC means Control Center Clients. CCC is not only the current web Control Center; it is the custom governance/control client family for CCC Web, CCC iOS, CCC Android, and CCC macOS. All CCC clients are control surfaces, not the agent brain.
 

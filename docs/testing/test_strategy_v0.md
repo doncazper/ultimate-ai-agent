@@ -143,6 +143,22 @@ v0.19.0 adds frontend, verifier, and Foundation Gate tests only for M15 UI:
 Backend OpenAPI path count remains unchanged at 74.
 ```
 
+## v0.19.1 M15 Approval Receipt UI Safety Hardening Tests
+
+v0.19.1 adds focused frontend, verifier, and Foundation Gate hardening tests only:
+
+```text
+Approval Queue route states that the UI cannot grant, deny, execute, or bypass approvals.
+Approval refs are identifiers only and never authority.
+Python Agent Core remains the only approval authority.
+Receipt detail views state that they are redacted summary metadata only.
+Event detail views state that they are redacted summary metadata only.
+Static frontend verifier rejects raw M15 review fields and credential-like review fields.
+Static frontend verifier requires approval authority-boundary copy.
+Foundation Gate rejects authority-bypass copy and raw sensitive fields.
+Backend OpenAPI path count remains unchanged at 74.
+```
+
 ## v0.18.3 OpenWebUI and CCC Strategy Tests
 
 v0.18.3 adds docs/verifier/gate tests only:

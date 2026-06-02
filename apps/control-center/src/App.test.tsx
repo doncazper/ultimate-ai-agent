@@ -126,6 +126,21 @@ describe("Web Control Center shell", () => {
     expect(screen.queryByRole("button", { name: /^deny$/i })).not.toBeInTheDocument();
   });
 
+  it("makes approval detail authority boundaries explicit without dark-pattern action language", async () => {
+    mockFetchWithFallback();
+    window.history.pushState({}, "", "/approvals");
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: /Approval Queue/i })).toBeInTheDocument();
+    expect(screen.getByText(/This UI cannot grant, deny, execute, or bypass approvals/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Approval refs are identifiers only and never authority/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Python Agent Core remains the only approval authority/i).length).toBeGreaterThan(0);
+
+    for (const label of [/^approve$/i, /^deny$/i, /^execute$/i, /^run$/i, /^send$/i, /^deploy$/i, /^enable$/i]) {
+      expect(screen.queryByRole("button", { name: label })).not.toBeInTheDocument();
+    }
+  });
+
   it("renders M15 receipt summaries and details without raw sensitive content", async () => {
     mockFetchWithFallback();
     window.history.pushState({}, "", "/receipts");
@@ -136,6 +151,7 @@ describe("Web Control Center shell", () => {
     expect(screen.getAllByText("mock_receipt_ref_001").length).toBeGreaterThan(0);
     expect(screen.getAllByText(/redacted_summary_only/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/No receipt mutation is available from this UI/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Receipt detail is redacted summary metadata only/i)).toBeInTheDocument();
     expect(screen.queryByText(/raw prompt/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/raw file/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/raw memory/i)).not.toBeInTheDocument();
@@ -152,6 +168,7 @@ describe("Web Control Center shell", () => {
     expect(screen.getAllByText("mock_event_ref_001").length).toBeGreaterThan(0);
     expect(screen.getAllByText(/source: CCC Web mock surface/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/No event action is available from this UI/i)).toBeInTheDocument();
+    expect(screen.getByText(/Event detail is redacted summary metadata only/i)).toBeInTheDocument();
     expect(screen.queryByText(/raw prompt/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/raw file/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/raw memory/i)).not.toBeInTheDocument();
@@ -340,21 +357,21 @@ function envelopeForReadEndpoint(url: string) {
   const data = {
     [API_ENDPOINTS.controlCenterManifest]: {
       ...mockApiData.manifest,
-      version: "0.19.0"
+      version: "0.19.1"
     },
     [API_ENDPOINTS.controlCenterDashboard]: {
       ...mockApiData.dashboard,
-      baseline_version: "0.19.0"
+      baseline_version: "0.19.1"
     },
     [API_ENDPOINTS.controlCenterStatus]: mockApiData.status,
     [API_ENDPOINTS.controlCenterRoutes]: mockApiData.routes,
     [API_ENDPOINTS.runtimeReadiness]: {
       ...mockApiData.runtimeReadiness,
-      baseline_version: "0.19.0"
+      baseline_version: "0.19.1"
     },
     [API_ENDPOINTS.runtimeCapabilityMatrix]: {
       ...mockApiData.capabilityMatrix,
-      baseline_version: "0.19.0"
+      baseline_version: "0.19.1"
     }
   };
   const endpoint = Object.keys(data).find((candidate) => url.endsWith(candidate));
@@ -364,7 +381,7 @@ function envelopeForReadEndpoint(url: string) {
 const mockApiData = {
   manifest: {
     manifest_id: "test_manifest",
-    version: "0.19.0",
+    version: "0.19.1",
     generated_at: "2026-01-01T00:00:00Z",
     declared_capabilities: ["control_center_read_only_dashboard"],
     blocked_capabilities: ["runtime_execution", "remote_dispatch", "mobile_sensor_access", "plugin_enablement"],
@@ -374,7 +391,7 @@ const mockApiData = {
   },
   dashboard: {
     snapshot_id: "test_dashboard",
-    baseline_version: "0.19.0",
+    baseline_version: "0.19.1",
     generated_at: "2026-01-01T00:00:00Z",
     system_status: {
       label: "Control Center",
@@ -455,7 +472,7 @@ const mockApiData = {
   },
   runtimeReadiness: {
     report_id: "test_readiness",
-    baseline_version: "0.19.0",
+    baseline_version: "0.19.1",
     status: "report_only",
     production_ready: false,
     real_model_runtime_ready: false,
@@ -469,7 +486,7 @@ const mockApiData = {
   },
   capabilityMatrix: {
     matrix_id: "test_matrix",
-    baseline_version: "0.19.0",
+    baseline_version: "0.19.1",
     metadata: { no_model_was_called: true },
     entries: []
   },

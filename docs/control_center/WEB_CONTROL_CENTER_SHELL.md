@@ -1,6 +1,6 @@
 # Web Control Center Shell
 
-Status: Active for v0.19.0 / M15 Approval Queue + Receipt/Event Viewer UI.
+Status: Active for v0.19.1 / M15 Approval Queue + Receipt/Event Viewer UI safety hardening.
 
 M13 adds a local TypeScript React/Vite shell under `apps/control-center/` for reading existing backend Control Center and runtime readiness APIs. It is the first web UI surface for the future Control Center, but it is not a production Control Center and it has no authority to execute actions.
 
@@ -89,3 +89,7 @@ v0.19.0 adds read-only/preview-only CCC Web inspection panels:
 - Event Viewer: redacted event summaries and selected details.
 
 The M15 panels use visibly mock, non-authoritative fallback data until a future reviewed backend contract adds safe live summaries. They add no backend routes and no authority to approve, reject, execute, send, write, run, deploy, enable, or mutate.
+
+## v0.19.1 M15 Approval Receipt UI Safety Hardening
+
+v0.19.1 hardens those M15 panels with explicit approval authority-boundary copy, approval-ref identifier-only copy, Python Agent Core approval authority copy, and redacted receipt/event detail copy. It adds no M16 timeline view, backend route, approval execution, approve/deny mutation, runtime execution, remote execution, plugin enablement, dependency, or production authority.

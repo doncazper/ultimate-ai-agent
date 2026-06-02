@@ -1,6 +1,6 @@
 # Documentation Index
 
-Current active baseline: **v0.19.0**
+Current active baseline: **v0.19.1**
 
 This index is the active entrypoint for documentation navigation. Historical release documents remain in the repository for audit history, but active truth starts with the current baseline files listed here.
 
@@ -9,8 +9,8 @@ This index is the active entrypoint for documentation navigation. Historical rel
 ```text
 README.md
 VERSION.md
-README_IMPORT_v0_19_0.md
-ultimate_ai_agent_master_plan_v0_19_0.md
+README_IMPORT_v0_19_1.md
+ultimate_ai_agent_master_plan_v0_19_1.md
 docs/canonical/CANONICAL_DOC_MAP.md
 docs/canonical/09_roadmap.md
 docs/roadmap/MILESTONE_CHARTERS.md
@@ -76,7 +76,7 @@ docs/control_center/RECEIPT_EVENT_VIEWER.md
 docs/control_center/APPROVAL_RECEIPT_UI_SAFETY.md
 ```
 
-M12 Control Center docs describe backend contracts, read-only dashboard snapshots, and action preview policy only. M13 adds a local Web Control Center shell that consumes those routes, renders safe mock fallback data, and submits only preview-only action requests. v0.17.4 polishes local shell reviewability and adds safe local browser smoke reporting documentation. v0.18.0 / M14 stabilizes local backend connection behavior with local-only API base URL policy and visible live/degraded/mock fallback states. v0.18.1 hardens M14 connection safety for public/private non-loopback hosts, URL credentials, secret-like query parameters, and unknown/checking states. v0.18.2 adds Open Design governance docs for Control Center and Mobile Companion UI work. v0.19.0 / M15 adds read-only/preview-only approval queue, receipt viewer, and event viewer UI surfaces with redacted summary-only data. The shell is not production authority and does not add execution capability.
+M12 Control Center docs describe backend contracts, read-only dashboard snapshots, and action preview policy only. M13 adds a local Web Control Center shell that consumes those routes, renders safe mock fallback data, and submits only preview-only action requests. v0.17.4 polishes local shell reviewability and adds safe local browser smoke reporting documentation. v0.18.0 / M14 stabilizes local backend connection behavior with local-only API base URL policy and visible live/degraded/mock fallback states. v0.18.1 hardens M14 connection safety for public/private non-loopback hosts, URL credentials, secret-like query parameters, and unknown/checking states. v0.18.2 adds Open Design governance docs for Control Center and Mobile Companion UI work. v0.19.0 / M15 adds read-only/preview-only approval queue, receipt viewer, and event viewer UI surfaces with redacted summary-only data. v0.19.1 hardens M15 approval authority and redacted-detail safety copy plus static verifier/Foundation Gate checks. The shell is not production authority and does not add execution capability.
 
 ## Active Design Governance Docs
 
@@ -95,7 +95,7 @@ docs/design/RESPONSIVE_LAYOUT_BASELINE.md
 
 v0.18.2 adds Open Design System and UI Design Governance documentation only. The design source of truth is repo-owned docs, reviewed components, and future repo-owned tokens. Design tools, design SaaS, UI generators, screenshot-to-code, and design-to-code systems are not enabled and are not authority.
 
-M15 Approval Queue + Receipt/Event Viewer UI is implemented in v0.19.0 as read-only/preview-only CCC Web summary views. It does not add approval execution, backend authority, raw data display, or backend API routes.
+M15 Approval Queue + Receipt/Event Viewer UI is implemented in v0.19.0 as read-only/preview-only CCC Web summary views. v0.19.1 hardens its authority-boundary and redacted-detail safety checks. It does not add approval execution, backend authority, raw data display, or backend API routes.
 
 ## Active UI Client Strategy Docs
 
@@ -208,7 +208,7 @@ The Codex plugin capability inventory and risk policy record available developme
 
 ## Release Notes Index
 
-Current release notes: `docs/release_notes/v0_19_0.md`
+Current release notes: `docs/release_notes/v0_19_1.md`
 
 Historical release notes remain under `docs/release_notes/`. Historical docs may mention old active baselines in historical context; they are not the current source of truth.
 

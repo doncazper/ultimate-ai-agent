@@ -1,6 +1,6 @@
 # Responsive Layout Baseline
 
-Status: Active design governance for v0.19.0. Documentation only.
+Status: Active design governance for v0.19.1. Documentation only.
 
 Responsive behavior must preserve safety language, status clarity, and read-only/preview-only boundaries.
 

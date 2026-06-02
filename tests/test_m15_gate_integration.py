@@ -6,6 +6,8 @@ def test_m15_approval_receipt_event_ui_criterion_exists_and_passes():
     criteria_by_id = {criterion.criterion_id: criterion for criterion in criteria}
 
     assert "m15_approval_receipt_event_ui_safe" in criteria_by_id
+    assert "authority-bypass" in criteria_by_id["m15_approval_receipt_event_ui_safe"].pass_condition
+    assert "raw sensitive fields" in criteria_by_id["m15_approval_receipt_event_ui_safe"].pass_condition
 
     report = FoundationGateEvaluator().evaluate([criteria_by_id["m15_approval_receipt_event_ui_safe"]])
 

@@ -1,6 +1,6 @@
 # Control Center Frontend Routes
 
-Status: Active for v0.19.0 / M15 Approval Queue + Receipt/Event Viewer UI.
+Status: Active for v0.19.1 / M15 Approval Queue + Receipt/Event Viewer UI safety hardening.
 
 The frontend shell is served by Vite during local development. It is not mounted by the Python API and does not add OpenAPI paths.
 
@@ -47,7 +47,7 @@ Forbidden frontend route/API targets:
 
 v0.17.4 keeps the frontend route set unchanged and adds local browser smoke UX polish plus safe reporting documentation. `scripts/verify_control_center_frontend.py` rejects forbidden execute, plugin enablement, runtime execution, remote dispatch, mobile sensor endpoint strings, analytics/SaaS SDK markers, sensitive browser APIs, and unsafe fixtures in frontend implementation files. `scripts/verify_control_center_browser_smoke_readiness.py` verifies that browser smoke readiness and reporting remain manual local-only documentation.
 
-OpenAPI remains a backend contract. v0.19.0 changes only `info.version` to `0.19.0`; backend path count remains `74` with unique operation IDs.
+OpenAPI remains a backend contract. v0.19.1 changes only `info.version` to `0.19.1`; backend path count remains `74` with unique operation IDs.
 
 ## v0.18.0 M14 Connection Stabilization
 
@@ -93,3 +93,5 @@ v0.19.0 adds three frontend routes and no backend API paths:
 - `/events`: Event Viewer list and selected detail panel.
 
 These routes use safe mock fallback data and selected item detail panels because the current route framework is a simple path switch. They do not add dynamic backend detail routes, execute approvals, grant/reject approvals, mutate receipts/events, expose raw event data, or change OpenAPI path count.
+
+v0.19.1 keeps the same frontend route set and hardens M15 authority/redaction safety checks. It adds no M16 timeline route, backend API path, approval execution route, approve/deny mutation route, receipt mutation route, event mutation route, runtime execution route, model/provider route, remote dispatch route, mobile sensor route, plugin enablement route, dependency, external API host, or production authority.

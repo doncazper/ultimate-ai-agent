@@ -1,6 +1,6 @@
 # Client Surface Roles
 
-Status: Active UI strategy clarification for v0.19.0. Documentation only.
+Status: Active UI strategy clarification for v0.19.1. Documentation only.
 
 ## Python Agent Core
 

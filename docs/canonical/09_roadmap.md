@@ -1,4 +1,4 @@
-# 09 - Roadmap v0.19.0
+# 09 - Roadmap v0.19.1
 
 Status: Active foundation-first roadmap. This is the single roadmap source of truth.
 
@@ -25,7 +25,7 @@ The original foundation sequence established runtime hygiene, local runtime/cont
 
 ## Current accepted baseline
 
-The active accepted baseline is v0.19.0. It implements M15 Approval Queue + Receipt/Event Viewer UI after accepted v0.18.4 post-M20 roadmap projection.
+The active accepted baseline is v0.19.1. It hardens M15 Approval Queue + Receipt/Event Viewer UI safety after accepted v0.19.0 M15 UI implementation.
 
 v0.18.4 adds:
 
@@ -64,9 +64,11 @@ v0.17.5 resolved the M14 ambiguity:
 
 v0.19.0 implements M15 Approval Queue + Receipt/Event Viewer UI as frontend-only CCC Web inspection panels. It does not add backend API paths, OpenWebUI integration, OpenWebUI deployment config, runtime execution, local model execution, model/provider calls, network calls, remote dispatch, native CCC implementation, Android app, iOS app, macOS app, mobile app or sensor code, Device Capability Broker implementation, MCP runtime support, Agent Skills runtime support, AGENTS.md runtime loading, sandbox execution, tool execution, browser automation, Computer Use, OS permission integration, signing, keystore, provisioning, App Store or Play Store workflow, plugin enablement, dependencies, auth, credentials, cookies, analytics/SaaS SDKs, design tool integration, external API hosts, or production Control Center authority.
 
-## Accepted baseline through v0.19.0
+v0.19.1 hardens M15 Approval/Receipt UI safety as frontend/static-verifier/Foundation Gate work only. It requires authority-boundary copy, approval-ref identifier-only copy, Python Agent Core approval authority copy, redacted receipt/event detail copy, raw M15 review field rejection, and credential-like review field rejection. It does not start M16, add backend API paths, approval execution, approve/deny mutation, runtime execution, model/provider calls, network calls, remote execution, mobile sensor access, plugin enablement, dependencies, native build workflow, or production Control Center authority.
 
-The active accepted baseline includes foundation modules through M10.5 plus documentation integrity synchronization, Codex plugin/external tooling governance, M11 runtime readiness/report validation, M12 Control Center backend contract/API foundation, M13 Web Control Center read-only frontend shell with CI/static/browser-readiness hardening, the v0.17.5 roadmap charter freeze, M14 local backend connection stabilization and safety hardening, v0.18.2 design governance, v0.18.3 OpenWebUI/CCC client strategy clarification, v0.18.4 post-M20 roadmap projection, and v0.19.0 M15 Approval Queue + Receipt/Event Viewer UI. v0.17.4 polished local shell reviewability and browser smoke reporting only; it did not start M14, add backend API paths, add dependencies, add production Control Center authority, or add execution capability.
+## Accepted baseline through v0.19.1
+
+The active accepted baseline includes foundation modules through M10.5 plus documentation integrity synchronization, Codex plugin/external tooling governance, M11 runtime readiness/report validation, M12 Control Center backend contract/API foundation, M13 Web Control Center read-only frontend shell with CI/static/browser-readiness hardening, the v0.17.5 roadmap charter freeze, M14 local backend connection stabilization and safety hardening, v0.18.2 design governance, v0.18.3 OpenWebUI/CCC client strategy clarification, v0.18.4 post-M20 roadmap projection, v0.19.0 M15 Approval Queue + Receipt/Event Viewer UI, and v0.19.1 M15 Approval/Receipt UI safety hardening. v0.17.4 polished local shell reviewability and browser smoke reporting only; it did not start M14, add backend API paths, add dependencies, add production Control Center authority, or add execution capability.
 
 Recent accepted milestones:
 
@@ -93,6 +95,7 @@ v0.18.2 — Open Design System + UI Design Governance
 v0.18.3 — OpenWebUI + CCC Client Strategy Clarification
 v0.18.4 — Post-M20 Roadmap Projection + M21-M40 Capability Layer Charters
 v0.19.0 — M15 Approval Queue + Receipt/Event Viewer UI
+v0.19.1 — M15 Approval/Receipt UI Safety Hardening
 
 - adds local React/Vite/TypeScript app under `apps/control-center`.
 - consumes existing read-only/preview-only backend routes.
@@ -108,6 +111,7 @@ v0.19.0 — M15 Approval Queue + Receipt/Event Viewer UI
 - v0.18.3 clarifies OpenWebUI and CCC Web/iOS/Android/macOS strategy before M15.
 - v0.18.4 adds post-M20 roadmap projection and M21-M40 planned/provisional capability-layer charters.
 - v0.19.0 adds read-only/preview-only approval queue, receipt viewer, and event viewer frontend routes.
+- v0.19.1 hardens M15 approval authority and redacted-detail safety checks.
 - keeps backend OpenAPI path count unchanged at `74`.
 - adds no runtime execution, model/provider calls, OpenWebUI integration, remote dispatch, mobile sensors, plugin enablement, native builds, Chrome/Computer Use automation, design tool enablement, native CCC implementation, M21-M40 implementation, or production authority.
 ```
@@ -116,7 +120,7 @@ v0.19.0 — M15 Approval Queue + Receipt/Event Viewer UI
 
 The detailed sequence is frozen in `docs/roadmap/NEXT_SEQUENCE_v0_17_5.md`. The milestone charter template is `docs/roadmap/MILESTONE_CHARTERS.md`. These files must be checked before writing future milestone prompts.
 
-v0.18.0 and v0.18.1 have implemented and hardened M14 from that sequence. v0.18.2 has implemented the Open Design governance milestone. v0.18.3 has implemented OpenWebUI and CCC Client Strategy clarification. v0.18.4 has implemented post-M20 roadmap projection docs. v0.19.0 has implemented M15 frontend-only Approval Queue + Receipt/Event Viewer UI. Items after v0.19.0 remain planned/provisional until superseded by a reviewed roadmap patch.
+v0.18.0 and v0.18.1 have implemented and hardened M14 from that sequence. v0.18.2 has implemented the Open Design governance milestone. v0.18.3 has implemented OpenWebUI and CCC Client Strategy clarification. v0.18.4 has implemented post-M20 roadmap projection docs. v0.19.0 has implemented M15 frontend-only Approval Queue + Receipt/Event Viewer UI. v0.19.1 has hardened M15 Approval/Receipt UI safety. Items after v0.19.1 remain planned/provisional until superseded by a reviewed roadmap patch.
 
 ```text
 v0.17.5 — Roadmap Projection + M14-M20 Milestone Charter Freeze, docs-only
@@ -126,7 +130,7 @@ v0.18.2 — Open Design System + UI Design Governance, implemented
 v0.18.3 — OpenWebUI + CCC Client Strategy Clarification, implemented
 v0.18.4 — Post-M20 Roadmap Projection + M21-M40 Capability Layer Charters, docs-only
 v0.19.0 / M15 — Approval Queue + Receipt/Event Viewer UI, implemented read-only/preview-only
-v0.19.1 — M15 Hardening: Approval/Receipt UI Safety
+v0.19.1 — M15 Hardening: Approval/Receipt UI Safety, implemented
 v0.20.0 / M16 — Event Timeline + Run/Receipt Trace Viewer
 v0.21.0 / M17 — Evidence/File/Memory Viewer, read-only
 v0.22.0 / M18 — Local Runtime Status + Manual Smoke Control Surface

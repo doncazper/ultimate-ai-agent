@@ -1,6 +1,6 @@
 # Accessibility Baseline
 
-Status: Active design governance for v0.19.0. Documentation only.
+Status: Active design governance for v0.19.1. Documentation only.
 
 The Control Center must be understandable by keyboard, screen reader, and visual inspection. Safety state must not depend on color alone.
 

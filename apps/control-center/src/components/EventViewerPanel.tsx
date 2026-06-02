@@ -103,6 +103,7 @@ function EventDetail({ item }: { item: EventSummaryItem }) {
       </dl>
       <TagList label="Reason codes" values={item.reasonCodes} />
       <TagList label="Related refs" values={item.relatedRefs} />
+      <p className="safe-copy">Event detail is redacted summary metadata only.</p>
       <p className="safe-copy">{item.safeMessage}</p>
     </article>
   );

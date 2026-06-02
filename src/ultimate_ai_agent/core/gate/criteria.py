@@ -975,7 +975,7 @@ def default_foundation_gate_criteria() -> List[FoundationGateCriterion]:
             "M15 Approval Receipt Event UI Safe",
             FoundationGateCategory.security,
             "FoundationGateEvaluator.check_m15_approval_receipt_event_ui_safe",
-            "Approval queue, receipt viewer, and event viewer UI files exist, remain read-only/preview-only, show redacted summaries, expose no approval execution controls, and pass the frontend safety verifier.",
+            "Approval queue, receipt viewer, and event viewer UI files exist, remain read-only/preview-only, show redacted summaries, expose no approval execution controls, reject authority-bypass copy and raw sensitive fields, and pass the frontend safety verifier.",
             "M15 approval, receipt, or event viewer UI is missing or violates the read-only/preview-only safety boundary.",
             "critical",
         ),

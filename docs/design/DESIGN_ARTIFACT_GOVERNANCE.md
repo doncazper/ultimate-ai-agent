@@ -1,6 +1,6 @@
 # Design Artifact Governance
 
-Status: Active design governance for v0.19.0. Documentation only.
+Status: Active design governance for v0.19.1. Documentation only.
 
 Design artifacts include screenshots, mockups, design exports, videos, visual test captures, browser smoke screenshots, visual regression outputs, and design notes.
 

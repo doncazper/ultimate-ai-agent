@@ -102,6 +102,17 @@ URL_CREDENTIALS = re.compile(r"https?://[^'\"\s/@]+:[^'\"\s/@]+@[^'\"\s]+", re.I
 SECRET_LIKE_API_BASE = re.compile(
     r"(?i)VITE_UAA_API_BASE_URL\s*=\s*[^#\n]*(api[_-]?key|auth|credential|key|password|secret|token)\s*[:=][^\s#]+"
 )
+RAW_M15_REVIEW_FIELD = re.compile(
+    r"\b(raw(?:Prompt|File|Memory|Event|Receipt|Credential|Provider|Secret)[A-Za-z0-9_]*|"
+    r"(?:prompt|file|memory|event|receipt|provider|secret)(?:Body|Payload|Content))\b"
+)
+CREDENTIAL_M15_REVIEW_FIELD = re.compile(r"\b(?:credentialRef|credentialHandle|apiKey|authToken|password|secretRef)\b")
+
+M15_AUTHORITY_BOUNDARY_MARKERS = [
+    "This UI cannot grant, deny, execute, or bypass approvals",
+    "Approval refs are identifiers only and never authority",
+    "Python Agent Core remains the only approval authority",
+]
 
 
 def verify(root: Path = ROOT) -> list[str]:
@@ -168,6 +179,14 @@ def verify(root: Path = ROOT) -> list[str]:
             normalized_fragment = fragment.lower().replace("_", "").replace(" ", "")
             if normalized_fragment not in normalized_mock and fragment not in mock_lowered:
                 failures.append(f"mock fixture missing safety marker: {fragment}")
+        failures.extend(_m15_review_field_failures(mock_path.relative_to(root), mock_text))
+
+    approval_panel = app_root / "src/components/ApprovalQueuePanel.tsx"
+    if approval_panel.exists():
+        text = approval_panel.read_text(encoding="utf-8")
+        for marker in M15_AUTHORITY_BOUNDARY_MARKERS:
+            if marker not in text:
+                failures.append(f"approval authority boundary copy missing in {approval_panel.relative_to(root)}: {marker}")
 
     endpoints = app_root / "src/api/endpoints.ts"
     base_url = app_root / "src/api/baseUrl.ts"
@@ -283,6 +302,19 @@ def _button_label_failures(rel: Path, text: str) -> list[str]:
         pattern = re.compile(rf"<button\b[^>]*>\s*{re.escape(label)}\s*</button>", re.IGNORECASE)
         if pattern.search(text):
             failures.append(f"dangerous action control label in {rel}: {label}")
+    return failures
+
+
+def _m15_review_field_failures(rel: Path, text: str) -> list[str]:
+    failures: list[str] = []
+    m15_index = text.lower().find("m15review")
+    if m15_index == -1:
+        return failures
+    m15_text = text[m15_index:]
+    for match in RAW_M15_REVIEW_FIELD.finditer(m15_text):
+        failures.append(f"raw M15 review field in {rel}: {match.group(0)}")
+    for match in CREDENTIAL_M15_REVIEW_FIELD.finditer(m15_text):
+        failures.append(f"credential-like M15 review field in {rel}: {match.group(0)}")
     return failures
 
 

@@ -120,6 +120,8 @@ M14 is about reliable local backend connection states, typed API-client hardenin
 
 M15 is the first approval queue plus receipt/event viewer UI milestone. It is implemented in v0.19.0 as read-only/preview-only CCC Web inspection panels. It adds no backend API route and remains read-only/preview-only unless a separate reviewed backend contract explicitly adds authority. The Control Center must not execute actions, approve actions, bypass Approval Authority, write files, mutate memory, resolve credentials, enable plugins, access mobile sensors, or dispatch remote workers.
 
+v0.19.1 hardens M15 Approval/Receipt UI safety. CCC Web must state that it cannot grant, deny, execute, or bypass approvals. Approval refs are identifiers only and never authority. Python Agent Core remains the only approval authority. Receipt and event detail views must state that they are redacted summary metadata only.
+
 ## v0.18.2 Open Design Governance
 
 v0.18.2 adds repo-owned Open Design System and UI Design Governance documentation before M15. Control Center UI work must follow:
@@ -178,3 +180,16 @@ v0.19.0 adds frontend-only CCC Web routes for approval, receipt, and event inspe
 - `/events`: Event Viewer summaries and selected details.
 
 The views show redacted summary-only data and visibly mock, non-authoritative fallback records. Approval Authority remains in Python Agent Core. M15 adds no backend route, approval execution, approve/reject mutation, receipt/event mutation, raw secret/prompt/file/memory display, runtime execution, model/provider call, remote dispatch, mobile sensor access, plugin enablement, native build workflow, or production Control Center authority.
+
+## v0.19.1 M15 Approval Receipt UI Safety Hardening
+
+v0.19.1 hardens the v0.19.0 M15 UI without changing authority or route scope:
+
+- approval refs are identifiers only and never approval authority.
+- Python Agent Core remains the only approval authority.
+- Approval Queue and detail surfaces must not imply grant, deny, execute, or bypass power.
+- receipt detail remains redacted summary metadata only.
+- event detail remains redacted summary metadata only.
+- static frontend verification and Foundation Gate checks reject active approve/deny/execute/send/write/run/deploy/enable controls, mutation endpoints, authority-bypass copy, raw M15 review fields, credential-like review fields, and raw sensitive payload display.
+
+v0.19.1 adds no M16 Event Timeline + Run/Receipt Trace Viewer, backend API route, approval execution, approve/deny mutation, runtime execution, model/provider call, remote execution, mobile sensor access, plugin enablement, dependency, native build workflow, or production Control Center authority.

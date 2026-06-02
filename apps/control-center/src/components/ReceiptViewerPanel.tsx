@@ -109,6 +109,7 @@ function ReceiptDetail({ item }: { item: ReceiptSummaryItem }) {
       </dl>
       <TagList label="Event refs" values={item.eventRefs} />
       <TagList label="Related refs" values={item.relatedRefs} />
+      <p className="safe-copy">Receipt detail is redacted summary metadata only.</p>
       <p className="safe-copy">No receipt mutation is available from this UI. {item.safeMessage}</p>
     </article>
   );

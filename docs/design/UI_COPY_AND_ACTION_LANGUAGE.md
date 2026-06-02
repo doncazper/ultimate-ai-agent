@@ -1,6 +1,6 @@
 # UI Copy And Action Language
 
-Status: Active design governance for v0.19.0. Documentation only.
+Status: Active design governance for v0.19.1. Documentation only.
 
 Control Center copy must distinguish display, preview, validation, simulation, approval, and execution. Copy must state when no action occurred.
 

@@ -1,6 +1,6 @@
 # Frontend Safety Policy
 
-Status: Active for v0.19.0 / M15 Approval Queue + Receipt/Event Viewer UI.
+Status: Active for v0.19.1 / M15 Approval Queue + Receipt/Event Viewer UI safety hardening.
 
 The Web Control Center shell is a display and preview surface. The Python Agent Core remains the brain and source of policy enforcement.
 
@@ -113,3 +113,7 @@ The frontend safety boundary is unchanged: no OpenWebUI integration, deployment 
 ## v0.19.0 M15 Approval Receipt Event Viewer Safety
 
 M15 adds frontend-only `/approvals`, `/receipts`, and `/events` routes. These routes are read-only and preview-only. `scripts/verify_control_center_frontend.py` rejects dangerous M15 mutation endpoints, active approval/action button labels, sensitive browser APIs, unsafe dependencies, secret-like fixtures, and generated artifacts. Foundation Gate criterion `m15_approval_receipt_event_ui_safe` verifies the same boundary.
+
+## v0.19.1 M15 Approval Receipt UI Safety Hardening
+
+v0.19.1 keeps M15 frontend-only and adds no backend API route or OpenAPI path count change. It hardens the same boundary by requiring approval authority copy, identifier-only approval-ref copy, Python Agent Core approval authority copy, redacted receipt detail copy, redacted event detail copy, raw M15 review field rejection, credential-like review field rejection, and Foundation Gate coverage for authority-bypass and raw-sensitive-field drift.
