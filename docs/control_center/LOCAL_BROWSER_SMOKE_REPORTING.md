@@ -1,6 +1,6 @@
 # Local Browser Smoke Reporting
 
-Status: Active for v0.17.4 / Web Control Center local browser smoke polish.
+Status: Active for v0.17.5 roadmap projection; local browser smoke reporting was added in v0.17.4.
 
 This document defines the safe local browser smoke report format for the Web Control Center shell. A local browser smoke report is local-only, optional, non-authoritative, and never a substitute for tests, static verifiers, OpenAPI verification, or Foundation Gate.
 

@@ -1,6 +1,6 @@
 # Canonical Document Map
 
-Current active baseline: **v0.17.4**
+Current active baseline: **v0.17.5**
 
 This map links major systems to their canonical documentation. If a system has both canonical docs and runtime/API docs, canonical docs define principles and sequencing while runtime/API docs define current implementation boundaries.
 
@@ -22,6 +22,7 @@ This map links major systems to their canonical documentation. If a system has b
 | Model Router | `docs/canonical/26_model_routing_strategy.md` |
 | Cost Governor | `docs/canonical/25_cost_and_resource_governor.md` |
 | API Boundary | `docs/api/README.md`, `docs/api/openapi_contract.md`, `docs/api/route_inventory.md` |
+| Roadmap Sequencing | `docs/canonical/09_roadmap.md`, `docs/roadmap/MILESTONE_CHARTERS.md`, `docs/roadmap/NEXT_SEQUENCE_v0_17_5.md` |
 | Control Center | `docs/canonical/20_user_control_center.md`, `docs/control_center/CONTROL_CENTER_CONTRACT.md`, `docs/control_center/DASHBOARD_SNAPSHOT.md`, `docs/control_center/ACTION_PREVIEW_POLICY.md`, `docs/control_center/WEB_CONTROL_CENTER_SHELL.md`, `docs/control_center/FRONTEND_SAFETY_POLICY.md`, `docs/control_center/CONTROL_CENTER_FRONTEND_ROUTES.md`, `docs/control_center/LOCAL_BROWSER_SMOKE.md`, `docs/control_center/LOCAL_BROWSER_SMOKE_REPORTING.md` |
 | Approval Authority | `docs/security/approval_authority.md`, `docs/canonical/42_autonomy_levels_and_standing_approvals.md` |
 | Model Runtime Adapter Harness | `docs/runtime/model_runtime_adapter_harness.md` |
@@ -33,7 +34,7 @@ This map links major systems to their canonical documentation. If a system has b
 | Mobile Companion | `docs/canonical/64_mobile_companion_and_device_capability_broker.md`, `docs/backlog/mobile_companion_backlog.md` |
 | Device Capability Broker | `docs/canonical/64_mobile_companion_and_device_capability_broker.md`, `docs/canonical/65_mobile_device_registry_and_sensor_permission_manifest.md`, `docs/backlog/device_capability_broker_backlog.md` |
 | Codex Plugin and External Tooling Governance | `docs/canonical/66_external_tooling_and_codex_plugin_governance.md`, `docs/tooling/CODEX_PLUGIN_CAPABILITY_INVENTORY.md`, `docs/tooling/CODEX_PLUGIN_RISK_POLICY.md`, `docs/backlog/codex_plugin_enablement_backlog.md` |
-| Foundation Gate | `docs/implementation/foundation_gate_implementation_plan_v0_17_4.md`, `docs/evals/foundation_gate_eval.md` |
+| Foundation Gate | `docs/implementation/foundation_gate_implementation_plan_v0_17_5.md`, `docs/evals/foundation_gate_eval.md` |
 | Testing Strategy | `docs/testing/test_strategy_v0.md`, `docs/testing/contract_test_matrix_v0_5_0.md`, `docs/testing/shadow_replay_plan_v0_5_0.md` |
 
 ## Source-of-Truth Hierarchy
@@ -48,3 +49,5 @@ This map links major systems to their canonical documentation. If a system has b
 ```
 
 Historical docs are audit records, not active implementation claims.
+
+Before writing future milestone prompts, check the roadmap sequencing docs. Parked local branches or tags are not accepted baseline and must not be merged automatically.

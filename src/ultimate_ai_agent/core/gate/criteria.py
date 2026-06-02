@@ -944,6 +944,15 @@ def default_foundation_gate_criteria() -> List[FoundationGateCriterion]:
             "critical",
         ),
         _criterion(
+            "roadmap_milestone_charters_current",
+            "Roadmap Milestone Charters Current",
+            FoundationGateCategory.documentation,
+            "FoundationGateEvaluator.check_roadmap_milestone_charters_current",
+            "Roadmap milestone charter docs exist and resolve M14/M15 sequencing without claiming M14 implementation.",
+            "Roadmap milestone charters are missing or ambiguous.",
+            "critical",
+        ),
+        _criterion(
             "documentation_integrity_current",
             "Documentation Integrity Current",
             FoundationGateCategory.documentation,

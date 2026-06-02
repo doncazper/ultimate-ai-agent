@@ -1,6 +1,6 @@
 # Frontend Safety Policy
 
-Status: Active for v0.17.4 / Web Control Center local browser smoke polish.
+Status: Active for v0.17.5 roadmap projection; frontend safety behavior last changed in v0.17.4.
 
 The Web Control Center shell is a display and preview surface. The Python Agent Core remains the brain and source of policy enforcement.
 
@@ -39,7 +39,7 @@ Local browser smoke readiness:
 - no screenshots with secrets.
 - non-authoritative verification only.
 
-Off-limits in M13/v0.17.4:
+Off-limits in M13/v0.17.x:
 
 - Chrome authenticated profile control.
 - Computer Use automation.
@@ -48,3 +48,21 @@ Off-limits in M13/v0.17.4:
 - MCP/A2A runtime delegation.
 - external network services.
 - production persistence.
+
+## v0.17.5 Roadmap Projection
+
+v0.17.5 freezes future Control Center sequencing without changing frontend behavior:
+
+- M14 is Web Control Center Local Backend Connection Stabilization.
+- M15 is Approval Queue + Receipt/Event Viewer UI, read-only/preview-only.
+- v0.17.4 remains local browser smoke / UX polish and is not M14.
+
+M14/M15 frontend prompts must preserve these safety boundaries unless a reviewed milestone explicitly changes them:
+
+- no execution.
+- no approval authority bypass.
+- no plugin enablement.
+- no mobile sensor control.
+- no remote dispatch.
+- no model/provider invocation.
+- no sensitive browser storage, cookies, credential APIs, camera, microphone, location, notification, push, service worker, IndexedDB, CacheStorage, or clipboard-write APIs.

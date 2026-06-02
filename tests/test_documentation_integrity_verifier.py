@@ -17,6 +17,38 @@ def test_documentation_integrity_verifier_flags_unsafe_active_claim(tmp_path: Pa
     assert any("remote execution is supported" in failure for failure in failures)
 
 
+def test_documentation_integrity_verifier_requires_milestone_charter_docs(tmp_path: Path):
+    _write_minimal_repo(tmp_path)
+    (tmp_path / "docs/roadmap/MILESTONE_CHARTERS.md").unlink()
+    (tmp_path / "docs/roadmap/NEXT_SEQUENCE_v0_17_5.md").unlink()
+
+    failures = verifier.verify(tmp_path)
+
+    assert any("MILESTONE_CHARTERS" in failure for failure in failures)
+    assert any("NEXT_SEQUENCE_v0_17_5" in failure for failure in failures)
+
+
+def test_documentation_integrity_verifier_flags_m14_browser_smoke_claim(tmp_path: Path):
+    _write_minimal_repo(tmp_path)
+    sequence = tmp_path / "docs/roadmap/NEXT_SEQUENCE_v0_17_5.md"
+    sequence.parent.mkdir(parents=True, exist_ok=True)
+    sequence.write_text(
+        "M14 - local browser smoke / UX polish\n"
+        "M15 - Approval Queue + Receipt/Event Viewer UI\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "docs/roadmap/MILESTONE_CHARTERS.md").write_text(
+        "version\nmilestone code\ntitle\nstatus\npurpose\nallowed scope\nmust not add\n"
+        "dependencies\nacceptance criteria\nreview prompt required\nhardening patch expectation\n"
+        "source-of-truth docs\nnotes\n",
+        encoding="utf-8",
+    )
+
+    failures = verifier.verify(tmp_path)
+
+    assert any("M14 must not be local browser smoke" in failure for failure in failures)
+
+
 def _write_minimal_repo(root: Path) -> None:
     version = "0.14.6"
     version_key = "0_14_6"
@@ -41,9 +73,22 @@ def _write_minimal_repo(root: Path) -> None:
         "Computer Use remains disabled.\n"
         "Chrome authenticated profile control remains disabled.\n"
         "Plugin/skill installers remain disabled.\n"
+        "v0.17.4 is Web Control Center local browser smoke polish.\n"
+        "M14 is Web Control Center Local Backend Connection Stabilization.\n"
+        "M15 is Approval Queue + Receipt/Event Viewer UI.\n"
     )
     for rel_path in [*verifier.REQUIRED_ACTIVE_DOCS, *verifier.ACTIVE_DOCS_TO_SCAN]:
         files.setdefault(rel_path, policy_placeholder)
+    files["docs/roadmap/MILESTONE_CHARTERS.md"] = (
+        "version\nmilestone code\ntitle\nstatus\npurpose\nallowed scope\nmust not add\n"
+        "dependencies\nacceptance criteria\nreview prompt required\nhardening patch expectation\n"
+        "source-of-truth docs\nnotes\n"
+    )
+    files["docs/roadmap/NEXT_SEQUENCE_v0_17_5.md"] = (
+        "v0.17.4 - local browser smoke / UX polish, not M14\n"
+        "M14 - Web Control Center Local Backend Connection Stabilization\n"
+        "M15 - Approval Queue + Receipt/Event Viewer UI\n"
+    )
     for rel_path, content in files.items():
         path = root / rel_path
         path.parent.mkdir(parents=True, exist_ok=True)

@@ -32,6 +32,8 @@ REQUIRED_ACTIVE_DOCS = [
     "docs/control_center/CONTROL_CENTER_FRONTEND_ROUTES.md",
     "docs/control_center/LOCAL_BROWSER_SMOKE.md",
     "docs/control_center/LOCAL_BROWSER_SMOKE_REPORTING.md",
+    "docs/roadmap/MILESTONE_CHARTERS.md",
+    "docs/roadmap/NEXT_SEQUENCE_v0_17_5.md",
 ]
 
 UNSAFE_IMPLEMENTATION_CLAIMS = [
@@ -65,6 +67,8 @@ ACTIVE_DOCS_TO_SCAN = [
     "docs/DOCUMENTATION_INDEX.md",
     "docs/canonical/CANONICAL_DOC_MAP.md",
     "docs/canonical/09_roadmap.md",
+    "docs/roadmap/MILESTONE_CHARTERS.md",
+    "docs/roadmap/NEXT_SEQUENCE_v0_17_5.md",
     "docs/api/README.md",
     "docs/api/openapi_contract.md",
     "docs/api/route_inventory.md",
@@ -163,6 +167,8 @@ def verify(root: Path = ROOT) -> list[str]:
             if phrase in lowered:
                 failures.append(f"unsafe implemented-capability claim in {rel_path}: {phrase}")
 
+    failures.extend(_verify_roadmap_milestone_charters(root))
+
     policy_text = "\n".join(
         _read(root / rel_path).lower()
         for rel_path in [
@@ -184,6 +190,76 @@ def verify(root: Path = ROOT) -> list[str]:
         if not all(fragment in policy_text for fragment in required_fragments):
             failures.append(f"missing Codex plugin governance policy: {label}")
 
+    return failures
+
+
+def _verify_roadmap_milestone_charters(root: Path) -> list[str]:
+    failures: list[str] = []
+    charter_path = root / "docs/roadmap/MILESTONE_CHARTERS.md"
+    sequence_path = root / "docs/roadmap/NEXT_SEQUENCE_v0_17_5.md"
+    if not charter_path.exists():
+        failures.append("missing roadmap milestone charter doc: docs/roadmap/MILESTONE_CHARTERS.md")
+    if not sequence_path.exists():
+        failures.append("missing roadmap next sequence doc: docs/roadmap/NEXT_SEQUENCE_v0_17_5.md")
+    if failures:
+        return failures
+
+    charter = _read(charter_path).lower()
+    sequence = _read(sequence_path).lower()
+    required_fields = [
+        "version",
+        "milestone code",
+        "title",
+        "status",
+        "purpose",
+        "allowed scope",
+        "must not add",
+        "dependencies",
+        "acceptance criteria",
+        "review prompt required",
+        "hardening patch expectation",
+        "source-of-truth docs",
+        "notes",
+    ]
+    for field in required_fields:
+        if field not in charter:
+            failures.append(f"milestone charter template missing field: {field}")
+
+    if "m14" not in sequence or "web control center local backend connection stabilization" not in sequence:
+        failures.append("roadmap sequence must define M14 as Web Control Center Local Backend Connection Stabilization")
+    if "m15" not in sequence or "approval queue + receipt/event viewer ui" not in sequence:
+        failures.append("roadmap sequence must define M15 as Approval Queue + Receipt/Event Viewer UI")
+    if "v0.17.4" not in sequence or "local browser smoke" not in sequence or "not m14" not in sequence:
+        failures.append("roadmap sequence must keep v0.17.4 as local browser smoke / UX polish, not M14")
+
+    forbidden_m14_smoke_patterns = [
+        "m14 - local browser smoke",
+        "m14 — local browser smoke",
+        "m14: local browser smoke",
+        "m14 - web control center local browser smoke",
+        "m14 — web control center local browser smoke",
+        "m14: web control center local browser smoke",
+        "m14 - ux polish",
+        "m14 — ux polish",
+        "m14: ux polish",
+    ]
+    if any(pattern in sequence for pattern in forbidden_m14_smoke_patterns):
+        failures.append("M14 must not be local browser smoke / UX polish")
+
+    implemented_m14_claims = [
+        "m14 is implemented",
+        "m14 has been implemented",
+        "implemented m14",
+        "m14 implementation complete",
+    ]
+    for rel_path in ACTIVE_DOCS_TO_SCAN:
+        path = root / rel_path
+        if not path.exists():
+            continue
+        lowered = _read(path).lower()
+        for claim in implemented_m14_claims:
+            if claim in lowered:
+                failures.append(f"active docs claim M14 is already implemented: {rel_path}")
     return failures
 
 

@@ -1,6 +1,6 @@
 # Documentation Index
 
-Current active baseline: **v0.17.4**
+Current active baseline: **v0.17.5**
 
 This index is the active entrypoint for documentation navigation. Historical release documents remain in the repository for audit history, but active truth starts with the current baseline files listed here.
 
@@ -9,10 +9,12 @@ This index is the active entrypoint for documentation navigation. Historical rel
 ```text
 README.md
 VERSION.md
-README_IMPORT_v0_17_4.md
-ultimate_ai_agent_master_plan_v0_17_4.md
+README_IMPORT_v0_17_5.md
+ultimate_ai_agent_master_plan_v0_17_5.md
 docs/canonical/CANONICAL_DOC_MAP.md
 docs/canonical/09_roadmap.md
+docs/roadmap/MILESTONE_CHARTERS.md
+docs/roadmap/NEXT_SEQUENCE_v0_17_5.md
 docs/maintenance/documentation_integrity_checklist.md
 docs/maintenance/codex_plugin_capability_inventory.md
 docs/tooling/CODEX_PLUGIN_CAPABILITY_INVENTORY.md
@@ -25,7 +27,7 @@ The active canonical docs live in `docs/canonical/`. Use `docs/canonical/CANONIC
 
 Key active canonical groups:
 
-- roadmap and sequencing: `docs/canonical/09_roadmap.md`
+- roadmap and sequencing: `docs/canonical/09_roadmap.md`, `docs/roadmap/MILESTONE_CHARTERS.md`, `docs/roadmap/NEXT_SEQUENCE_v0_17_5.md`
 - user control: `docs/canonical/20_user_control_center.md`
 - consent, tools, approvals, and authority: `docs/canonical/21_consent_and_permissions_ledger.md`, `docs/canonical/37_tool_broker.md`, `docs/canonical/42_autonomy_levels_and_standing_approvals.md`, `docs/canonical/48_actor_authority_and_identity.md`
 - truth, evidence, memory, and files: `docs/canonical/03_memory_system.md`, `docs/canonical/10_file_management.md`, `docs/canonical/59_truth_grounding_and_evidence_governance.md`, `docs/canonical/60_truth_source_router.md`, `docs/canonical/61_evidence_manifest_and_claim_verification.md`
@@ -58,6 +60,8 @@ docs/control_center/LOCAL_BROWSER_SMOKE_REPORTING.md
 ```
 
 M12 Control Center docs describe backend contracts, read-only dashboard snapshots, and action preview policy only. M13 adds a local Web Control Center shell that consumes those routes, renders safe mock fallback data, and submits only preview-only action requests. v0.17.4 polishes local shell reviewability and adds safe local browser smoke reporting documentation. The shell is not production authority and does not add execution capability.
+
+v0.17.5 freezes the next Control Center sequence: M14 is Web Control Center Local Backend Connection Stabilization, and M15 is Approval Queue + Receipt/Event Viewer UI. Both remain governed by read-only/preview-only Control Center boundaries until a reviewed milestone explicitly changes them.
 
 ## Active Runtime Docs
 
@@ -126,6 +130,10 @@ docs/backlog/codex_plugin_enablement_backlog.md
 
 Backlog files are not implementation claims.
 
+## Roadmap Guardrails
+
+Future prompts must check `docs/roadmap/MILESTONE_CHARTERS.md` and `docs/roadmap/NEXT_SEQUENCE_v0_17_5.md` before selecting milestone scope. Parked work, including local branches or tags, must not be merged, reactivated, or treated as accepted baseline without an explicit reintroduction prompt.
+
 ## Development Tooling Inventory
 
 ```text
@@ -140,7 +148,7 @@ The Codex plugin capability inventory and risk policy record available developme
 
 ## Release Notes Index
 
-Current release notes: `docs/release_notes/v0_17_4.md`
+Current release notes: `docs/release_notes/v0_17_5.md`
 
 Historical release notes remain under `docs/release_notes/`. Historical docs may mention old active baselines in historical context; they are not the current source of truth.
 

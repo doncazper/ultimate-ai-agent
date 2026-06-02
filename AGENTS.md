@@ -1,6 +1,6 @@
 # Ultimate AI Agent Workspace Standards
 
-Active baseline: v0.17.4.
+Active baseline: v0.17.5.
 
 This repository is the Ultimate AI Agent foundation workspace. Treat it as a contract-first Python core, not a production runtime integration layer.
 
@@ -29,6 +29,7 @@ This repository is the Ultimate AI Agent foundation workspace. Treat it as a con
 - v0.17.2 Web Control Center verification hardening keeps browser smoke readiness manual, local-only, unauthenticated-profile-free, and non-authoritative. CI may run npm install/typecheck/lint/test/build inside `apps/control-center`; it must not run browser automation, Chrome authenticated profile control, Computer Use, external smoke targets, deployment, native/iOS/macOS builds, plugin enablement, mobile sensor access, or runtime/model/provider execution.
 - v0.17.3 documentation current-release label cleanup keeps active docs, release notes, import docs, roadmap, and documentation integrity checks aligned. Do not use this docs-only patch to add runtime/model/provider/network/frontend/mobile/remote/plugin capability, dependency changes, or production Control Center authority.
 - v0.17.4 Web Control Center local browser smoke polish keeps the existing shell read-only/preview-only. It may improve route headings, accessible loading/empty states, mock fallback reviewability, action preview risk metadata display, frontend tests, and safe local browser smoke reporting docs only. Do not add backend API paths, dependencies, runtime/model/provider/network execution, remote dispatch, mobile/native/sensor code, plugin enablement, Chrome authenticated profile control, Computer Use automation, iOS/macOS build workflow, generated artifacts, or production Control Center authority.
+- v0.17.5 roadmap projection and milestone charter freeze is docs/canonical/verifier/gate-only. It resolves M14 as Web Control Center Local Backend Connection Stabilization, moves Approval Queue + Receipt/Event Viewer UI to M15, and records M14-M20 as planned/provisional but canonical until superseded by a reviewed roadmap patch. Do not use this patch to implement M14, add frontend features, backend API routes, runtime/model/provider/network execution, remote dispatch, mobile/native/sensor code, plugin enablement, dependencies, architecture changes, Chrome authenticated profile control, Computer Use automation, iOS/macOS build workflow, generated artifacts, or production Control Center authority.
 - API validation errors must be sanitized and must never echo raw invalid input values or secret-like field values.
 
 ## Workspace

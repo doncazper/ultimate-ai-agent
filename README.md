@@ -1,15 +1,17 @@
-# Ultimate AI Agent Canonical Bundle v0.17.4
+# Ultimate AI Agent Canonical Bundle v0.17.5
 
-This is the active project baseline after the v0.17.4 Web Control Center local browser smoke polish patch.
+This is the active project baseline after the v0.17.5 roadmap projection and M14-M20 milestone charter freeze patch.
 
 Start here:
 
 ```text
-README_IMPORT_v0_17_4.md
-ultimate_ai_agent_master_plan_v0_17_4.md
+README_IMPORT_v0_17_5.md
+ultimate_ai_agent_master_plan_v0_17_5.md
 docs/DOCUMENTATION_INDEX.md
 docs/canonical/09_roadmap.md
 docs/canonical/CANONICAL_DOC_MAP.md
+docs/roadmap/MILESTONE_CHARTERS.md
+docs/roadmap/NEXT_SEQUENCE_v0_17_5.md
 docs/canonical/21_consent_and_permissions_ledger.md
 docs/canonical/37_tool_broker.md
 docs/canonical/42_autonomy_levels_and_standing_approvals.md
@@ -35,7 +37,7 @@ docs/runtime/RUNTIME_READINESS.md
 docs/runtime/MANUAL_SMOKE_REPORTS.md
 docs/runtime/RUNTIME_CAPABILITY_MATRIX.md
 docs/security/approval_authority.md
-docs/implementation/foundation_gate_implementation_plan_v0_17_4.md
+docs/implementation/foundation_gate_implementation_plan_v0_17_5.md
 docs/maintenance/documentation_integrity_checklist.md
 docs/tooling/CODEX_PLUGIN_CAPABILITY_INVENTORY.md
 docs/tooling/CODEX_PLUGIN_RISK_POLICY.md
@@ -105,3 +107,7 @@ Documentation current-release label rule:
 Web Control Center local smoke polish rule:
 
 > v0.17.4 polishes the existing read-only Web Control Center shell and adds safe local browser smoke reporting documentation without starting M14. The shell keeps the same frontend route set and posts only to `/control-center/actions/preview`; OpenAPI path count remains `74`. Local Browser smoke may be run only against localhost, `127.0.0.1`, or `::1`, and reports are non-authoritative and must not include secrets or generated artifacts. This patch adds no backend API path, dependency, production Control Center authority, runtime/model/provider/network/remote/mobile/plugin execution, Chrome authenticated profile control, Computer Use automation, or iOS/macOS build workflow.
+
+Roadmap projection rule:
+
+> v0.17.5 freezes the next canonical sequence without starting M14. M14 is Web Control Center Local Backend Connection Stabilization. M15 is Approval Queue + Receipt/Event Viewer UI. Local browser smoke / UX polish was v0.17.4, not M14. This patch adds no frontend feature, backend API route, runtime/model/provider/network execution, remote dispatch, mobile/native/sensor code, plugin enablement, dependency, architecture change, Chrome authenticated profile control, Computer Use automation, iOS/macOS build workflow, generated artifact, or production Control Center authority.

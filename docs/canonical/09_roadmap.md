@@ -1,4 +1,4 @@
-# 09 — Roadmap v0.5.7
+# 09 - Roadmap v0.17.5
 
 Status: Active foundation-first roadmap. This is the single roadmap source of truth.
 
@@ -23,9 +23,28 @@ OpenWebUI is a window into the agent, not the agent brain.
 
 The original foundation sequence established runtime hygiene, local runtime/context survival, truth/grounding/evidence governance, observability standards mapping, and Minimum Lovable Kernel preparation. Current accepted work is tracked in the release baseline below.
 
-## Accepted baseline through v0.17.4
+## Current accepted baseline
 
-The active accepted baseline is v0.17.4. It includes foundation modules through M10.5 plus documentation integrity synchronization, Codex plugin/external tooling governance, M11 runtime readiness/report validation, M12 Control Center backend contract/API foundation, and M13 Web Control Center read-only frontend shell with CI/static/browser-readiness hardening. v0.17.4 polishes local shell reviewability and browser smoke reporting only; it does not start M14, add backend API paths, add dependencies, add production Control Center authority, or add execution capability.
+The active accepted baseline is v0.17.5. It is a docs-only roadmap projection and milestone charter freeze on top of accepted v0.17.4.
+
+v0.17.5 adds:
+
+- `docs/roadmap/MILESTONE_CHARTERS.md`
+- `docs/roadmap/NEXT_SEQUENCE_v0_17_5.md`
+- conservative documentation integrity checks for the M14/M15 sequence.
+- a Foundation Gate documentation criterion for current milestone charters.
+
+v0.17.5 resolves the M14 ambiguity:
+
+- M14 is Web Control Center Local Backend Connection Stabilization.
+- Approval Queue + Receipt/Event Viewer UI moves to M15.
+- local browser smoke / UX polish was v0.17.4, not M14.
+
+v0.17.5 does not implement M14, add frontend features, add backend API paths, add runtime execution, call models/providers, call networks, dispatch remote workers, add mobile app or sensor code, enable plugins, add dependencies, change architecture, or create production Control Center authority.
+
+## Accepted baseline through v0.17.5
+
+The active accepted baseline includes foundation modules through M10.5 plus documentation integrity synchronization, Codex plugin/external tooling governance, M11 runtime readiness/report validation, M12 Control Center backend contract/API foundation, M13 Web Control Center read-only frontend shell with CI/static/browser-readiness hardening, and the v0.17.5 roadmap charter freeze. v0.17.4 polished local shell reviewability and browser smoke reporting only; it did not start M14, add backend API paths, add dependencies, add production Control Center authority, or add execution capability.
 
 Recent accepted milestones:
 
@@ -45,6 +64,7 @@ v0.17.1 — M13 Web Control Center frontend safety polish
 v0.17.2 — M13 Web Control Center CI, static safety, and local browser smoke readiness hardening
 v0.17.3 — documentation current-release label cleanup
 v0.17.4 — Web Control Center local browser smoke polish and safe reporting docs
+v0.17.5 — Roadmap Projection + M14-M20 Milestone Charter Freeze
 
 - adds local React/Vite/TypeScript app under `apps/control-center`.
 - consumes existing read-only/preview-only backend routes.
@@ -53,9 +73,32 @@ v0.17.4 — Web Control Center local browser smoke polish and safe reporting doc
 - v0.17.1 and v0.17.2 harden frontend safety verification, CI coverage, and manual local browser smoke readiness.
 - v0.17.3 keeps current-release documentation labels aligned with the active baseline.
 - v0.17.4 improves route headings, accessible UI states, action preview risk metadata display, mock fallback reviewability, and local browser smoke reporting docs.
+- v0.17.5 freezes the M14-M20 roadmap sequence and does not add implementation capability.
 - keeps backend OpenAPI path count unchanged at `74`.
 - adds no runtime execution, model/provider calls, remote dispatch, mobile sensors, plugin enablement, native builds, Chrome/Computer Use automation, or production authority.
 ```
+
+## Next canonical sequence from v0.17.5
+
+The detailed sequence is frozen in `docs/roadmap/NEXT_SEQUENCE_v0_17_5.md`. The milestone charter template is `docs/roadmap/MILESTONE_CHARTERS.md`. These files must be checked before writing future milestone prompts.
+
+Items after v0.17.5 are planned/provisional but canonical until superseded by a reviewed roadmap patch.
+
+```text
+v0.17.5 — Roadmap Projection + M14-M20 Milestone Charter Freeze, docs-only
+v0.18.0 / M14 — Web Control Center Local Backend Connection Stabilization
+v0.18.1 — M14 Hardening: Control Center Backend Connection Safety
+v0.18.2 — Open Design System + UI Design Governance
+v0.19.0 / M15 — Approval Queue + Receipt/Event Viewer UI, read-only/preview-only
+v0.19.1 — M15 Hardening: Approval/Receipt UI Safety
+v0.20.0 / M16 — Event Timeline + Run/Receipt Trace Viewer
+v0.21.0 / M17 — Evidence/File/Memory Viewer, read-only
+v0.22.0 / M18 — Local Runtime Status + Manual Smoke Control Surface
+v0.23.0 / M19 — Mobile Companion Contract/API Planning
+v0.24.0 / M20 — Device Capability Broker Contract
+```
+
+M14 is not local browser smoke / UX polish. That work was v0.17.4. M15 is the first planned approval queue plus receipt/event viewer UI milestone, and it remains read-only/preview-only unless a future backend contract explicitly changes that boundary.
 
 ## Minimum Lovable Kernel
 

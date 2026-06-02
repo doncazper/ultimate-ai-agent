@@ -1,6 +1,6 @@
 # Documentation Integrity Checklist
 
-Status: Active maintenance checklist, v0.17.0
+Status: Active maintenance checklist, v0.17.5
 
 Run this checklist before every release that changes docs, roadmap, API metadata, runtime boundaries, or release status.
 
@@ -27,6 +27,7 @@ Run this checklist before every release that changes docs, roadmap, API metadata
 - active master plan matches current release purpose.
 - docs index and canonical map include newly added active docs.
 - active tooling governance docs are linked when Codex/plugin policy changes.
+- roadmap charter docs are linked when milestone sequencing changes.
 
 ## Active vs Historical Docs
 
@@ -54,7 +55,11 @@ Run this checklist before every release that changes docs, roadmap, API metadata
 
 - active roadmap names the accepted baseline.
 - future milestones remain sequenced.
+- future milestone prompts check `docs/roadmap/MILESTONE_CHARTERS.md`.
+- future milestone prompts check `docs/roadmap/NEXT_SEQUENCE_v0_17_5.md` until superseded by a reviewed roadmap patch.
+- M14/M15 sequencing remains explicit: M14 is local backend connection stabilization; M15 is approval queue plus receipt/event viewer UI.
 - parked work is not presented as accepted baseline.
+- parked branches and tags are not merged or reactivated automatically.
 - blocked capabilities remain blocked until their security lifecycle and gate criteria exist.
 
 ## Foundation Gate Doc-Check Requirements

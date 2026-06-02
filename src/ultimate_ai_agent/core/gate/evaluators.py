@@ -159,6 +159,7 @@ class FoundationGateEvaluator:
             "m13_frontend_ci_covers_local_checks": self.check_m13_frontend_ci_covers_local_checks,
             "m13_browser_smoke_readiness_manual_local_only": self.check_m13_browser_smoke_readiness_manual_local_only,
             "m13_browser_smoke_readiness_verifier_passes": self.check_m13_browser_smoke_readiness_verifier_passes,
+            "roadmap_milestone_charters_current": self.check_roadmap_milestone_charters_current,
             "documentation_integrity_current": self.check_documentation_integrity_current,
             "codex_plugin_governance_docs_present": self.check_codex_plugin_governance_docs_present,
         }
@@ -1836,6 +1837,8 @@ class FoundationGateEvaluator:
             "docs/runtime/RUNTIME_READINESS.md",
             "docs/runtime/MANUAL_SMOKE_REPORTS.md",
             "docs/runtime/RUNTIME_CAPABILITY_MATRIX.md",
+            "docs/roadmap/MILESTONE_CHARTERS.md",
+            "docs/roadmap/NEXT_SEQUENCE_v0_17_5.md",
         ]
         failures = [f"missing {path}" for path in required if not (self.root / path).exists()]
         readme = self._read(self.root / "README.md")
@@ -1870,6 +1873,8 @@ class FoundationGateEvaluator:
             "docs/DOCUMENTATION_INDEX.md",
             "docs/canonical/CANONICAL_DOC_MAP.md",
             "docs/canonical/09_roadmap.md",
+            "docs/roadmap/MILESTONE_CHARTERS.md",
+            "docs/roadmap/NEXT_SEQUENCE_v0_17_5.md",
             "docs/api/README.md",
             "docs/api/openapi_contract.md",
             "docs/api/route_inventory.md",
@@ -1900,6 +1905,64 @@ class FoundationGateEvaluator:
             for phrase in unsafe_claims:
                 if phrase in source:
                     failures.append(f"{rel_path} contains unsafe implementation claim: {phrase}")
+        return self._result(criterion, failures, required)
+
+    def check_roadmap_milestone_charters_current(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        required = [
+            "docs/roadmap/MILESTONE_CHARTERS.md",
+            "docs/roadmap/NEXT_SEQUENCE_v0_17_5.md",
+            "docs/canonical/09_roadmap.md",
+        ]
+        failures = [f"missing {path}" for path in required if not (self.root / path).exists()]
+        if failures:
+            return self._result(criterion, failures, required)
+
+        charter = self._read(self.root / "docs/roadmap/MILESTONE_CHARTERS.md").lower()
+        sequence = self._read(self.root / "docs/roadmap/NEXT_SEQUENCE_v0_17_5.md").lower()
+        roadmap = self._read(self.root / "docs/canonical/09_roadmap.md").lower()
+        for field in [
+            "version",
+            "milestone code",
+            "title",
+            "status",
+            "purpose",
+            "allowed scope",
+            "must not add",
+            "dependencies",
+            "acceptance criteria",
+            "review prompt required",
+            "hardening patch expectation",
+            "source-of-truth docs",
+            "notes",
+        ]:
+            if field not in charter:
+                failures.append(f"charter template missing {field}")
+        if "m14" not in sequence or "web control center local backend connection stabilization" not in sequence:
+            failures.append("M14 sequence is not local backend connection stabilization")
+        if "m15" not in sequence or "approval queue + receipt/event viewer ui" not in sequence:
+            failures.append("M15 sequence is not approval queue + receipt/event viewer UI")
+        if "v0.17.4" not in sequence or "local browser smoke" not in sequence or "not m14" not in sequence:
+            failures.append("v0.17.4 browser smoke boundary is not preserved")
+        if "m14 is web control center local backend connection stabilization" not in roadmap:
+            failures.append("canonical roadmap does not resolve M14")
+        if "approval queue + receipt/event viewer ui moves to m15" not in roadmap:
+            failures.append("canonical roadmap does not move approval/receipt UI to M15")
+        forbidden = [
+            "m14 - local browser smoke",
+            "m14 — local browser smoke",
+            "m14: local browser smoke",
+            "m14 - ux polish",
+            "m14 — ux polish",
+            "m14: ux polish",
+            "m14 is implemented",
+            "m14 has been implemented",
+            "implemented m14",
+            "m14 implementation complete",
+        ]
+        combined = "\n".join([sequence, roadmap])
+        for phrase in forbidden:
+            if phrase in combined:
+                failures.append(f"ambiguous or unsafe M14 claim: {phrase}")
         return self._result(criterion, failures, required)
 
     def check_codex_plugin_governance_docs_present(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
