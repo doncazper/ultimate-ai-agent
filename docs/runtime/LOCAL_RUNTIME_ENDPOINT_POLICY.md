@@ -24,4 +24,6 @@ Rejected descriptor shapes:
 
 No model was called. No runtime was activated. No endpoint was contacted.
 
-M22 adds no backend API route and keeps OpenAPI path count at `74`. M23 remains future for any reviewed local runtime call path.
+M22 adds no backend API route and keeps OpenAPI path count at `74`. M23 is
+implemented/released by v0.27.0 as a separate manual fixed-prompt local call
+path and does not authorize runtime activation or endpoint probes.

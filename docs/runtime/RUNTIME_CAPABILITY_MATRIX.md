@@ -11,6 +11,7 @@ Required M11 statuses:
 | simulated model runtime | simulated_only |
 | local loopback policy | supported validation-only contract; real smoke execution remains manual-only, approval-gated, fixed-prompt-only, and non-authoritative |
 | manual loopback smoke | manual_only |
+| M23 fixed-prompt local model call | manual_only, dry-run default, approval-gated, loopback-only, non-authoritative |
 | remote worker foundation | dry_run_only |
 | private mesh planned | planned_disabled |
 | tailnet planned | planned_disabled |
@@ -34,3 +35,8 @@ The matrix is not a runtime dispatcher and does not inspect live Codex tools, ke
 v0.15.1 keeps the `local_loopback_policy` status as `supported` because policy validation is implemented. That status must not be read as readiness for automated smoke execution, production runtime execution, provider calls, or evidence authority.
 
 v0.22.0 surfaces this matrix in `/runtime/local` as read-only metadata. It adds no backend route, no runtime execution, no model/provider calls, no manual smoke execution, and no production readiness claim. OpenAPI path count remains `74`.
+
+v0.27.0 adds M23 manual fixed-prompt local model call contracts and CLI-only
+execution gating. It does not change `/runtime/local`, add backend routes,
+activate runtimes, probe endpoints, enable arbitrary prompts, write memory or
+files, execute tools, or make model output authoritative.

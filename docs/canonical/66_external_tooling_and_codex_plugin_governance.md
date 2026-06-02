@@ -103,7 +103,7 @@ OpenWebUI deployment and integration tooling is future-only. OpenWebUI admin/con
 
 Any future OpenWebUI bridge must be treated like external tool integration and pass Tool Broker, Approval Authority, Event Ledger, Secret Broker, Redaction, and Foundation Gate gates. It must not bypass Python Agent Core, access credentials directly, expose a public chat shell without security review, or depend on an external hosted OpenWebUI service without a reviewed contract.
 
-v0.18.4 maps future OpenWebUI bridge work to M21 in `docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md`. v0.25.0 implements M21 as contract/planning/validation only and does not enable deployment, plugins, functions, pipelines, tools, Docker Compose, or external exposure. v0.26.0 implements M22 contract-only, and M23 remains planned/provisional.
+v0.18.4 maps future OpenWebUI bridge work to M21 in `docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md`. v0.25.0 implements M21 as contract/planning/validation only and does not enable deployment, plugins, functions, pipelines, tools, Docker Compose, or external exposure. v0.26.0 implements M22 contract-only. v0.27.0 implements M23 as manual fixed-prompt local call only and does not enable plugins, external exposure, or production authority.
 
 ## Mobile and Desktop Build Plugins
 

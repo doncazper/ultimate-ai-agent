@@ -40,3 +40,7 @@ v0.22.0 adds a validation-only CCC Web manual smoke report surface at `/runtime/
 The surface may display safe report refs, request refs, endpoint summaries, model ID summaries, fixed prompt hashes, response origin labels, reason codes, redaction status, and model-output-authority flags. It must show no raw smoke report, no raw prompts, no raw response bodies, no raw transcripts, no credentials, no endpoint secrets, and no provider payloads.
 
 The surface adds no backend route. OpenAPI path count remains `74`. It performs no manual smoke execution, no runtime execution, and no model/provider calls.
+
+M23 adds a separate manual fixed-prompt local model call CLI path. M23 results
+are still non-authoritative, receipt-backed, redacted summaries only, and not
+production readiness evidence.

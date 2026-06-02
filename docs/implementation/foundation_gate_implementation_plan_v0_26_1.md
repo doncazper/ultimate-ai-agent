@@ -1,6 +1,6 @@
 # Foundation Gate Implementation Plan v0.26.1
 
-Status: Current Foundation Gate plan for v0.26.1 / M22 safety hardening.
+Status: Historical Foundation Gate plan for v0.26.1 / M22 safety hardening.
 
 v0.26.1 keeps the `m22_local_model_runtime_activation_contract_safe` criterion
 and hardens its supporting checks.

@@ -59,4 +59,5 @@ tool execution, no memory write, no file access, no remote execution, no
 browser automation, no Computer Use, no mobile sensor access, no plugin
 enablement, no dependency, and no production authority. v0.26.0 implements
 M22 Local Model Runtime Activation Contract as contract/planning/validation
-only. M23 remains planned/provisional.
+only. M23 is implemented/released by v0.27.0 as manual fixed-prompt local call
+only and does not add OpenWebUI runtime integration or CCC execution authority.

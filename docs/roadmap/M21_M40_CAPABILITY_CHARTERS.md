@@ -1,8 +1,8 @@
 # M21-M40 Capability Charters
 
-Status: Active roadmap projection maintained through v0.26.1. M21 and M22 are implemented/released contract-only; M22 is safety-hardened; M23-M40 remain planned/provisional.
+Status: Active roadmap projection maintained through v0.27.0. M21 and M22 are implemented/released contract-only; M23 is implemented/released manual fixed-prompt local call only; M24-M40 remain planned/provisional.
 
-These charters define capability layers after M20. v0.25.0 implements M21 as contract/planning/validation only. v0.26.0 implements M22 as contract/planning/validation only, and v0.26.1 hardens M22 verifier precision plus metadata key secret hygiene only. M23-M40 are still future capability layers. Every milestone requires its own implementation prompt, review prompt, hardening expectation, and validation evidence before release.
+These charters define capability layers after M20. v0.25.0 implements M21 as contract/planning/validation only. v0.26.0 implements M22 as contract/planning/validation only, and v0.26.1 hardens M22 verifier precision plus metadata key secret hygiene only. v0.27.0 implements M23 as manual/CLI-only, loopback-only, fixed-prompt-only, non-tool, and non-authoritative. M24-M40 are still future capability layers. Every milestone requires its own implementation prompt, review prompt, hardening expectation, and validation evidence before release.
 
 ## Shared Rules
 
@@ -95,24 +95,27 @@ Hardening expectation: local endpoint, timeout, and secret handling hardening be
 
 Source-of-truth docs: `docs/runtime/LOCAL_MODEL_RUNTIME_ACTIVATION_CONTRACT.md`, `docs/runtime/LOCAL_RUNTIME_PROVIDER_PROFILES.md`, `docs/runtime/LOCAL_RUNTIME_ENDPOINT_POLICY.md`, `docs/runtime/LOCAL_RUNTIME_HEALTH_PROBE_PLAN.md`, `docs/runtime/LOCAL_RUNTIME_ACTIVATION_SECURITY_MODEL.md`, `docs/runtime/LOCAL_RUNTIME_ACTIVATION_NON_GOALS.md`, `docs/runtime/LOCAL_RUNTIME_M22_TO_M23_BOUNDARY.md`, `docs/runtime/RUNTIME_READINESS.md`, `docs/runtime/RUNTIME_CAPABILITY_MATRIX.md`, `docs/roadmap/CAPABILITY_LAYERING_STRATEGY.md`.
 
-Notes: Free/open-source/self-hosted local runtimes should be evaluated first where practical. M23 remains planned/provisional.
+Notes: Free/open-source/self-hosted local runtimes should be evaluated first where practical. M23 is implemented/released by v0.27.0 as separate manual fixed-prompt local call only.
 
 ## v0.27.0 / M23 - First Real Local LLM Call, Non-Tool, Non-Authoritative
 
-Status: planned/provisional.
+Status: implemented/released manual-only.
 
 Purpose: Allow the first tightly bounded local LLM inference path.
 
 Allowed scope:
 
-- explicit local-only model call.
+- manual/CLI-only local model call.
 - no tools.
 - no memory writes.
 - no external network.
 - no secrets.
-- fixed or sanitized prompt envelope.
+- fixed prompt `m23_fixed_local_model_smoke_v1`.
+- dry-run by default.
+- explicit execute flag.
+- local approval validation.
 - non-authoritative response.
-- Event Ledger receipt.
+- receipt summary.
 
 Must not add:
 
@@ -121,18 +124,22 @@ Must not add:
 - memory mutation.
 - provider/cloud calls.
 - freeform OpenWebUI bridge.
+- backend API route.
+- Control Center execution control.
+- arbitrary prompt input.
+- user-content model call.
 
 Dependencies: M22 local runtime activation contract and local-only guard.
 
-Acceptance criteria: first local LLM call is local-only, non-authoritative, receipt-backed, and cannot mutate state or execute tools.
+Acceptance criteria: first local LLM call is manual-only, loopback-only, fixed-prompt-only, approval-gated, non-authoritative, receipt-backed, and cannot mutate state or execute tools. Tests and Foundation Gate use fake transport only.
 
 Review prompt required: yes.
 
 Hardening expectation: v0.27.1 Local LLM Call Hardening is required before memory or tool expansion.
 
-Source-of-truth docs: `docs/runtime/local_loopback_model_runtime.md`, `docs/runtime/RUNTIME_READINESS.md`, `docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md`.
+Source-of-truth docs: `docs/runtime/FIRST_LOCAL_LLM_CALL_M23.md`, `docs/runtime/M23_LOCAL_MODEL_CALL_POLICY.md`, `docs/runtime/LOCAL_RUNTIME_M22_TO_M23_BOUNDARY.md`, `docs/runtime/local_loopback_model_runtime.md`, `docs/runtime/RUNTIME_READINESS.md`, `docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md`.
 
-Notes: Model output remains advisory and must be labeled non-authoritative.
+Notes: Model output remains advisory and must be labeled non-authoritative. v0.27.0 does not add runtime activation, endpoint probes, backend routes, arbitrary prompt input, user-content model calls, tool execution, memory writes, file writes, dependencies, or production authority.
 
 ## v0.27.1 - Local LLM Call Hardening
 
@@ -780,7 +787,8 @@ v0.23.0 / M19 is implemented as Mobile Companion Contract/API Planning only.
 M20 Device Capability Broker Contract is implemented/released as contract-only
 planning and validation. M21 is implemented/released by v0.25.0 as
 contract-only. M22 is implemented/released by v0.26.0 as contract-only and hardened by v0.26.1.
-M23-M40 remain planned/provisional. The M19 baseline
+M23 is implemented/released by v0.27.0 as manual fixed-prompt local call only.
+M24-M40 remain planned/provisional. The M19 baseline
 adds no mobile app, Android app, iOS app, macOS app, native build workflow, OS
 permission integration, mobile sensor access, mobile approval execution,
 runtime execution, model/provider calls, remote execution, plugin enablement,
@@ -792,5 +800,6 @@ v0.23.1 is a cleanup/hardening patch for M19 roadmap status and mobile contract
 safety tests only. v0.24.0 implements M20 Device Capability Broker Contract
 only. v0.25.0 implements M21 OpenWebUI Bridge + Chat Shell Integration
 Contract only. M22 Local Model Runtime Activation Contract is implemented by
-v0.26.0 as contract/planning/validation only and hardened by v0.26.1. M23-M40 remain
-planned/provisional until implemented by dedicated reviewed milestones.
+v0.26.0 as contract/planning/validation only and hardened by v0.26.1. M23 is
+implemented/released by v0.27.0 as manual fixed-prompt local call only. M24-M40
+remain planned/provisional until implemented by dedicated reviewed milestones.

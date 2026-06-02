@@ -17,4 +17,5 @@ The plan records that:
 
 The health probe plan is not readiness evidence. It does not inspect local runtimes, execute commands, call endpoints, parse runtime output, read user prompts, or load model metadata from a live service.
 
-M23 remains future.
+M23 is implemented/released by v0.27.0 as a separate manual fixed-prompt local
+call path and does not authorize health probes.

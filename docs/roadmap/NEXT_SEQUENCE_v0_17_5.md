@@ -14,7 +14,7 @@ No item in this sequence may add production Control Center authority, runtime ex
 
 v0.18.3 clarifies that OpenWebUI remains the preferred conversational web shell and CCC means Control Center Clients: CCC Web, CCC iOS, CCC Android, and CCC macOS. Open Design governs custom CCC surfaces and does not replace OpenWebUI.
 
-v0.19.0 implements M15 Approval Queue + Receipt/Event Viewer UI. v0.19.1 hardens M15 Approval/Receipt UI safety. v0.20.0 implements M16 Event Timeline + Run/Receipt Trace Viewer. v0.20.1 hardens M16 trace/redaction safety. v0.21.0 implements M17 Evidence/File/Memory Viewer. v0.21.1 hardens M17 viewer safety. v0.21.2 normalizes developer verification commands. v0.22.0 implements M18 Local Runtime Status + Manual Smoke Control Surface. v0.22.1 cleans up roadmap status labels only. v0.23.0 implements M19 Mobile Companion Contract/API Planning only. v0.23.1 hardens M19 roadmap status and mobile contract safety tests only. v0.24.0 implements M20 Device Capability Broker Contract as contract-only planning and validation. v0.24.1 hardens M20 Device Capability Broker Contract safety only. v0.25.0 implements M21 OpenWebUI Bridge + Chat Shell Integration Contract as contract/planning/validation only. v0.26.0 implements M22 Local Model Runtime Activation Contract as contract/planning/validation only. M23-M40 are planned/provisional capability-layer charters in `docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md` and do not authorize implementation.
+v0.19.0 implements M15 Approval Queue + Receipt/Event Viewer UI. v0.19.1 hardens M15 Approval/Receipt UI safety. v0.20.0 implements M16 Event Timeline + Run/Receipt Trace Viewer. v0.20.1 hardens M16 trace/redaction safety. v0.21.0 implements M17 Evidence/File/Memory Viewer. v0.21.1 hardens M17 viewer safety. v0.21.2 normalizes developer verification commands. v0.22.0 implements M18 Local Runtime Status + Manual Smoke Control Surface. v0.22.1 cleans up roadmap status labels only. v0.23.0 implements M19 Mobile Companion Contract/API Planning only. v0.23.1 hardens M19 roadmap status and mobile contract safety tests only. v0.24.0 implements M20 Device Capability Broker Contract as contract-only planning and validation. v0.24.1 hardens M20 Device Capability Broker Contract safety only. v0.25.0 implements M21 OpenWebUI Bridge + Chat Shell Integration Contract as contract/planning/validation only. v0.26.0 implements M22 Local Model Runtime Activation Contract as contract/planning/validation only. v0.27.0 implements M23 First Real Local LLM Call as manual fixed-prompt local call only. M24-M40 are planned/provisional capability-layer charters in `docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md` and do not authorize implementation.
 
 ## 1. v0.17.5 - Roadmap Projection + M14-M20 Milestone Charter Freeze
 
@@ -488,7 +488,7 @@ These are now expanded in v0.18.4 roadmap projection docs. They do not reorder M
 - `docs/roadmap/ECOSYSTEM_WATCHLIST.md`.
 - `docs/roadmap/STANDARDS_ALIGNMENT_WATCHLIST.md`.
 
-M21 is implemented/released by v0.25.0 as contract-only. M22 is implemented/released by v0.26.0 as contract-only. M23-M40 remain planned/provisional. Every milestone needs its own implementation prompt and review prompt.
+M21 is implemented/released by v0.25.0 as contract-only. M22 is implemented/released by v0.26.0 as contract-only. M23 is implemented/released by v0.27.0 as manual fixed-prompt local call only. M24-M40 remain planned/provisional. Every milestone needs its own implementation prompt and review prompt.
 
 ## 11. v0.24.0 / M20 - Device Capability Broker Contract
 
@@ -574,7 +574,7 @@ Acceptance criteria:
 - OpenWebUI is not the agent brain.
 - Python Agent Core remains authority.
 - OpenAPI path count remains `74`.
-- M22 is implemented/released contract-only by v0.26.0, and M23 remains planned/provisional.
+- M22 is implemented/released contract-only by v0.26.0, and M23 is implemented/released by v0.27.0 as manual fixed-prompt local call only.
 
 Review prompt required: yes.
 

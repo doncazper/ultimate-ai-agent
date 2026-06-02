@@ -9,6 +9,8 @@ The readiness report may say:
 - simulated runtime contracts exist.
 - local loopback policy validation exists as a supported validation-only contract.
 - manual local loopback smoke remains manual-only, fixed-prompt-only, approval-gated, and non-authoritative.
+- M23 fixed-prompt local model call remains manual/CLI-only, dry-run by default,
+  explicit-execute, approval-gated, loopback-only, and non-authoritative.
 - remote worker foundation remains validation/status/dry-run only.
 - private mesh, tailnet, Headscale, generic WireGuard, Tailscale, mobile companion, Device Capability Broker, and Codex plugin enablement remain planned-disabled or blocked.
 
@@ -21,6 +23,7 @@ The readiness report must not say:
 - mobile sensors are ready.
 - Codex plugins, native build tools, Computer Use, or Chrome authenticated profile control are enabled.
 - model output is truth authority.
+- M23 manual local call output is production readiness evidence.
 
 Public API surface:
 
@@ -43,6 +46,19 @@ v0.18.4 adds roadmap projection docs only. Future runtime work is planned/provis
 - v0.27.1 - Local LLM Call Hardening.
 
 These milestones require dedicated implementation and review prompts. v0.18.4 adds no local model execution, provider call, network call, OpenWebUI bridge, tool use, memory write, or production readiness claim.
+
+## v0.27.0 M23 Manual Local Call
+
+v0.27.0 adds a manual/CLI-only, loopback-only, fixed-prompt-only local model
+call path. It is dry-run by default, requires `--execute-local-call`, requires
+validated local approval, and records non-authoritative receipts. Tests and
+Foundation Gate use fake transport only. A real manual local call was not run
+for v0.27.0 release validation.
+
+M23 adds no backend API route, runtime activation, endpoint probe, arbitrary
+prompt input, user-content model call, OpenWebUI runtime bridge, Control Center
+execution control, tool execution, memory write, file write, dependency, or
+production readiness claim. OpenAPI path count remains `74`.
 
 ## v0.22.0 M18 Web Surface
 

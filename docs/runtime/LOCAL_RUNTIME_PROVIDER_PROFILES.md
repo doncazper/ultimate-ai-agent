@@ -16,4 +16,8 @@ Every profile is `planned_disabled`. Every profile keeps activation, real model 
 
 No model was called. No runtime was activated. No endpoint was contacted.
 
-Provider profiles are not authority. They do not select models, load weights, inspect local processes, import runtime packages, call local services, read secrets, or prove readiness. M23 remains future.
+Provider profiles are not authority. They do not select models, load weights,
+inspect local processes, import runtime packages, call local services, read
+secrets, or prove readiness. M23 is implemented/released by v0.27.0 as a
+separate manual fixed-prompt local call path and does not authorize runtime
+activation.

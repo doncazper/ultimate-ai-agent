@@ -180,6 +180,22 @@ M22_FORBIDDEN_BACKEND_ROUTES = (
     "/model-runtime/local/generate",
     "/model-runtime/execute",
 )
+EXPECTED_M23_OPENAPI_PATH_COUNT = 74
+M23_FORBIDDEN_BACKEND_ROUTES = (
+    "/runtime/local/call",
+    "/runtime/local/generate",
+    "/runtime/model-call",
+    "/runtime/execute",
+    "/model-runtime/local/call",
+    "/model-runtime/local/generate",
+    "/model-runtime/call",
+    "/model-runtime/execute",
+    "/local-model/call",
+    "/local-model/generate",
+    "/local-model/activate",
+    "/openwebui/bridge/run",
+    "/control-center/runtime/execute",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -349,6 +365,17 @@ def m22_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
     forbidden_present = sorted(path for path in M22_FORBIDDEN_BACKEND_ROUTES if path in path_set)
     if forbidden_present:
         failures.append(f"M22 forbidden backend route(s) present: {', '.join(forbidden_present)}")
+    return failures
+
+
+def m23_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M23_OPENAPI_PATH_COUNT) -> List[str]:
+    failures: List[str] = []
+    path_set = set(paths)
+    if len(path_set) != expected_path_count:
+        failures.append(f"M23 OpenAPI path count changed: expected {expected_path_count}, found {len(path_set)}")
+    forbidden_present = sorted(path for path in M23_FORBIDDEN_BACKEND_ROUTES if path in path_set)
+    if forbidden_present:
+        failures.append(f"M23 forbidden backend route(s) present: {', '.join(forbidden_present)}")
     return failures
 
 
@@ -555,6 +582,7 @@ class FoundationGateEvaluator:
             "m22_local_model_runtime_activation_contract_safe": (
                 self.check_m22_local_model_runtime_activation_contract_safe
             ),
+            "m23_first_local_llm_call_safe": self.check_m23_first_local_llm_call_safe,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -698,6 +726,7 @@ class FoundationGateEvaluator:
         failures = []
         allowed_manual_smoke_network_files = {
             "src/ultimate_ai_agent/core/model_runtime/manual_loopback_transport.py",
+            "src/ultimate_ai_agent/core/model_runtime/local_call_transport.py",
         }
         for path, line_no, stripped in self._runtime_lines():
             if self._is_static_scanner_text(stripped):
@@ -1739,7 +1768,9 @@ class FoundationGateEvaluator:
     def check_m10_stdlib_network_isolated(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
         allowed = {
             "src/ultimate_ai_agent/core/model_runtime/manual_loopback_transport.py",
+            "src/ultimate_ai_agent/core/model_runtime/local_call_transport.py",
             "scripts/local_loopback_smoke.py",
+            "scripts/manual_local_model_call.py",
         }
         forbidden = [
             "import " + "requests",
@@ -1755,7 +1786,11 @@ class FoundationGateEvaluator:
             "subprocess",
         ]
         failures = []
-        paths = [*list((self.root / "src/ultimate_ai_agent/core/model_runtime").rglob("*.py")), self.root / "scripts/local_loopback_smoke.py"]
+        paths = [
+            *list((self.root / "src/ultimate_ai_agent/core/model_runtime").rglob("*.py")),
+            self.root / "scripts/local_loopback_smoke.py",
+            self.root / "scripts/manual_local_model_call.py",
+        ]
         for path in paths:
             if not path.exists():
                 continue
@@ -4441,7 +4476,10 @@ class FoundationGateEvaluator:
                 failures.append("canonical roadmap must mark v0.26.0 / M22 implemented")
         elif "v0.26.0 / m22" not in roadmap_text or "planned/provisional" not in roadmap_text:
             failures.append("canonical roadmap must keep M22 planned/provisional")
-        if "v0.27.0 / m23" not in roadmap_text or "planned/provisional" not in roadmap_text:
+        if version_tuple >= (0, 27, 0):
+            if "v0.27.0 / m23" not in roadmap_text or "implemented" not in roadmap_text:
+                failures.append("canonical roadmap must mark v0.27.0 / M23 implemented")
+        elif "v0.27.0 / m23" not in roadmap_text or "planned/provisional" not in roadmap_text:
             failures.append("canonical roadmap must keep M23 planned/provisional")
 
         return self._result(criterion, failures, required_files)
@@ -4540,10 +4578,103 @@ class FoundationGateEvaluator:
         failures.extend(m22_local_runtime_forbidden_fragment_failures(self.root))
 
         roadmap_text = self._read(self.root / "docs/canonical/09_roadmap.md").lower()
+        active_version = self._active_version() or "0.0.0"
+        version_tuple = tuple(int(part) for part in active_version.split("."))
         if "v0.26.0 / m22" not in roadmap_text or "implemented" not in roadmap_text:
             failures.append("canonical roadmap must mark v0.26.0 / M22 implemented")
-        if "v0.27.0 / m23" not in roadmap_text or "planned/provisional" not in roadmap_text:
+        if version_tuple >= (0, 27, 0):
+            if "v0.27.0 / m23" not in roadmap_text or "implemented" not in roadmap_text:
+                failures.append("canonical roadmap must mark v0.27.0 / M23 implemented")
+        elif "v0.27.0 / m23" not in roadmap_text or "planned/provisional" not in roadmap_text:
             failures.append("canonical roadmap must keep M23 planned/provisional")
+
+        return self._result(criterion, failures, required_files)
+
+    def check_m23_first_local_llm_call_safe(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/model_runtime/local_call_contracts.py",
+            "src/ultimate_ai_agent/core/model_runtime/local_call_policy.py",
+            "src/ultimate_ai_agent/core/model_runtime/local_call_transport.py",
+            "src/ultimate_ai_agent/core/model_runtime/local_call.py",
+            "scripts/manual_local_model_call.py",
+            "tests/test_m23_local_model_call_contracts.py",
+            "tests/test_m23_local_model_endpoint_policy.py",
+            "tests/test_m23_local_model_fake_transport.py",
+            "tests/test_m23_manual_cli_dry_run.py",
+        ]
+        failures = [
+            f"missing M23 local model call file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+
+        try:
+            from ultimate_ai_agent.api.app import app
+            from ultimate_ai_agent.core.approvals import LocalApprovalAuthority
+            from ultimate_ai_agent.core.model_runtime import (
+                M23_FIXED_LOCAL_MODEL_PROMPT_ID,
+                FakeLocalModelCallTransport,
+                LocalModelCallRequest,
+                LocalModelRuntimeKind,
+                build_dry_run_local_model_call_result,
+                build_m23_fixed_prompt,
+                local_model_call_approval_request,
+                run_local_model_call,
+                validate_fixed_prompt,
+                validate_local_model_call_request,
+            )
+
+            prompt = validate_fixed_prompt(build_m23_fixed_prompt())
+            if prompt.prompt_id != M23_FIXED_LOCAL_MODEL_PROMPT_ID:
+                failures.append("M23 fixed prompt id is not allowlisted")
+            request = LocalModelCallRequest(
+                request_id="m23_gate_req",
+                run_id="run_m23_gate",
+                runtime_kind=LocalModelRuntimeKind.ollama_planned,
+                endpoint_url="".join(["http", "://127.0.0.1:11434"]),
+                safe_endpoint_label="loopback gate endpoint",
+                model_ref="local_gate_model",
+                fixed_prompt_id=prompt.prompt_id,
+                prompt_text=prompt.prompt_text,
+            )
+            validate_local_model_call_request(request)
+            dry_run = build_dry_run_local_model_call_result(request, transport=FakeLocalModelCallTransport())
+            if dry_run.transport_result.call_performed:
+                failures.append("M23 dry-run performed a local model call")
+            if dry_run.receipt.model_output_non_authoritative is not True:
+                failures.append("M23 dry-run receipt does not mark output non-authoritative")
+
+            executable = request.model_copy(
+                update={
+                    "dry_run": False,
+                    "execute_local_call": True,
+                    "approval_ref": "approval_m23_gate",
+                }
+            )
+            approval_request = local_model_call_approval_request(executable)
+            authority = LocalApprovalAuthority()
+            authority.create_request(approval_request)
+            grant = authority.grant(approval_request.approval_request_id, approved_by_actor_id="human_reviewer")
+            executable = executable.model_copy(update={"approval_ref": grant.approval_ref})
+            approval_request = local_model_call_approval_request(executable)
+            authority.create_request(approval_request)
+            decision = authority.validate_for_request(approval_request, grant.approval_ref)
+            result = run_local_model_call(
+                executable,
+                transport=FakeLocalModelCallTransport(),
+                approval_decision=decision,
+            )
+            if not result.transport_result.call_performed:
+                failures.append("M23 fake transport did not perform approved fake call")
+            if result.receipt.tools_executed:
+                failures.append("M23 receipt recorded tool execution")
+            if result.receipt.memory_written or result.receipt.files_written:
+                failures.append("M23 receipt recorded memory or file mutation")
+            if result.receipt.model_output_non_authoritative is not True:
+                failures.append("M23 receipt does not mark output non-authoritative")
+            failures.extend(m23_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M23 first local LLM call safety validation failed: {exc}")
 
         return self._result(criterion, failures, required_files)
 
@@ -4667,14 +4798,19 @@ class FoundationGateEvaluator:
                 failures.append(failure)
         active_version = self._active_version() or "0.0.0"
         version_tuple = tuple(int(part) for part in active_version.split("."))
-        implemented_claim_start = 23 if version_tuple >= (0, 26, 0) else 22
+        if version_tuple >= (0, 27, 0):
+            implemented_claim_start = 24
+        elif version_tuple >= (0, 26, 0):
+            implemented_claim_start = 23
+        else:
+            implemented_claim_start = 22
         implemented_claims = [f"m{number} is implemented" for number in range(implemented_claim_start, 41)] + [
             "m21-m40 are implemented",
             "m21 through m40 are implemented",
             "post-m20 capabilities are implemented",
         ]
         if any(claim in roadmap_text for claim in implemented_claims):
-            failures.append("post-M20 roadmap docs must not claim M22-M40 implementation")
+            failures.append("post-M20 roadmap docs must not claim future milestone implementation")
         return self._result(criterion, failures, required_docs)
 
     def _skipped(self, criterion: FoundationGateCriterion) -> FoundationGateResult:

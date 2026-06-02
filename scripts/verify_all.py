@@ -23,6 +23,7 @@ SCAN_SEQUENCE = [
     ("documentation integrity scan", "verify_documentation_integrity"),
     ("OpenWebUI bridge contract-only scan", "verify_no_openwebui_runtime_or_config_implementation"),
     ("local model runtime activation contract-only scan", "verify_no_local_runtime_activation_implementation"),
+    ("M23 first local LLM call boundary scan", "verify_m23_first_local_llm_call_boundary"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
     ("production truth integration scan", "verify_no_production_truth_integrations"),
     ("broad filesystem scan", "verify_no_broad_filesystem_scanning"),
@@ -276,6 +277,7 @@ def verify_no_forbidden_external_integrations():
     print("\n[Verifier] Running forbidden external integration scan...")
     allowed_stdlib_network_import_files = {
         "src/ultimate_ai_agent/core/model_runtime/manual_loopback_transport.py",
+        "src/ultimate_ai_agent/core/model_runtime/local_call_transport.py",
     }
     forbidden_imports = [
         "import requests",
@@ -322,6 +324,7 @@ def verify_no_real_model_runtime_execution():
         return
     allowed_stdlib_network_import_files = {
         "manual_loopback_transport.py",
+        "local_call_transport.py",
     }
     forbidden_fragments = [
         "import openai",
@@ -821,6 +824,122 @@ def verify_no_local_runtime_activation_implementation():
         sys.exit(1)
 
     print("OK: No M22 local runtime activation, endpoint probe, runtime client, dependency, or route implementation detected")
+
+def verify_m23_first_local_llm_call_boundary():
+    print("\n[Verifier] Running M23 first local LLM call boundary guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/model_runtime/local_call_contracts.py",
+        "src/ultimate_ai_agent/core/model_runtime/local_call_policy.py",
+        "src/ultimate_ai_agent/core/model_runtime/local_call_transport.py",
+        "src/ultimate_ai_agent/core/model_runtime/local_call.py",
+        "scripts/manual_local_model_call.py",
+        "tests/test_m23_local_model_call_contracts.py",
+        "tests/test_m23_local_model_endpoint_policy.py",
+        "tests/test_m23_local_model_fake_transport.py",
+        "tests/test_m23_manual_cli_dry_run.py",
+        "tests/test_m23_gate_integration.py",
+        "docs/runtime/FIRST_LOCAL_LLM_CALL_M23.md",
+        "docs/runtime/M23_LOCAL_MODEL_CALL_POLICY.md",
+        "docs/implementation/foundation_gate_implementation_plan_v0_27_0.md",
+        "docs/release_notes/v0_27_0.md",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M23 boundary file: {rel_path}")
+            sys.exit(1)
+
+    forbidden_dependencies = [
+        '"ollama"',
+        '"llama-cpp-python"',
+        '"mlx"',
+        '"vllm"',
+        '"lmstudio"',
+        "ollama==",
+        "llama-cpp-python==",
+        "mlx==",
+        "vllm==",
+        "lmstudio==",
+        '"openai"',
+        "openai==",
+        '"anthropic"',
+        "anthropic==",
+    ]
+    for rel_path in ["apps/control-center/package.json", "pyproject.toml"]:
+        text = (ROOT / rel_path).read_text(encoding="utf-8").lower()
+        for fragment in forbidden_dependencies:
+            if fragment in text:
+                print(f"FAIL: Forbidden M23 dependency fragment in {rel_path}: {fragment}")
+                sys.exit(1)
+
+    cli_text = (ROOT / "scripts/manual_local_model_call.py").read_text(encoding="utf-8").lower()
+    for forbidden_arg in ["--prompt", "--prompt-file", "--stdin", "--file", "--memory", "--openwebui"]:
+        if f'"{forbidden_arg}"' in cli_text or f"'{forbidden_arg}'" in cli_text:
+            print(f"FAIL: M23 manual CLI exposes forbidden arbitrary input argument: {forbidden_arg}")
+            sys.exit(1)
+    for required_fragment in [
+        "--execute-local-call",
+        "--fixed-prompt-id",
+        "m23_fixed_local_model_prompt_id",
+        "manualstdlibloopbacklocalmodelcalltransport",
+    ]:
+        if required_fragment not in cli_text:
+            print(f"FAIL: M23 manual CLI missing required boundary fragment: {required_fragment}")
+            sys.exit(1)
+
+    runtime_root = ROOT / "src" / "ultimate_ai_agent" / "core" / "model_runtime"
+    allowed_stdlib_loopback = {
+        "src/ultimate_ai_agent/core/model_runtime/manual_loopback_transport.py",
+        "src/ultimate_ai_agent/core/model_runtime/local_call_transport.py",
+    }
+    forbidden_runtime_fragments = [
+        "import requests",
+        "from requests import",
+        "import httpx",
+        "from httpx import",
+        "import openai",
+        "from openai import",
+        "import anthropic",
+        "from anthropic import",
+        "import ollama",
+        "from ollama import",
+        "import llama_cpp",
+        "from llama_cpp import",
+        "import mlx",
+        "from mlx import",
+        "import vllm",
+        "from vllm import",
+        "socket",
+        "subprocess",
+        "tokenizer",
+        "tiktoken",
+        "sentencepiece",
+        "/v1/chat/completions",
+    ]
+    for path in runtime_root.rglob("*.py"):
+        rel = path.relative_to(ROOT).as_posix()
+        text = path.read_text(encoding="utf-8").lower()
+        for fragment in forbidden_runtime_fragments:
+            if fragment in text:
+                print(f"FAIL: M23 forbidden runtime/provider fragment in {rel}: {fragment}")
+                sys.exit(1)
+        if "urlopen" in text and rel not in allowed_stdlib_loopback:
+            print(f"FAIL: M23 urlopen is only allowed in manual loopback transport: {rel}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.evaluators import m23_openapi_route_failures
+
+        failures = m23_openapi_route_failures(app.openapi().get("paths", {}))
+    except Exception as exc:
+        print(f"FAIL: M23 OpenAPI guard could not generate schema: {exc}")
+        sys.exit(1)
+    for failure in failures:
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    print("OK: M23 is manual/CLI-only, loopback-only, fixed-prompt-only, non-tool, non-authoritative, and route-free")
 
 def verify_no_shell_execution_in_runtime():
     print("\n[Verifier] Running runtime shell/subprocess execution scan...")
