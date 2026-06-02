@@ -1034,6 +1034,15 @@ def default_foundation_gate_criteria() -> List[FoundationGateCriterion]:
             "critical",
         ),
         _criterion(
+            "m21_openwebui_bridge_contract_safe",
+            "M21 OpenWebUI Bridge Contract Safe",
+            FoundationGateCategory.security,
+            "FoundationGateEvaluator.check_m21_openwebui_bridge_contract_safe",
+            "M21 OpenWebUI Bridge is contract-only, OpenWebUI is the preferred conversational web shell, OpenWebUI is not the agent brain, Agent Core remains authority, no direct tool execution, no direct memory write, no runtime execution, no provider call, no approval grant, no raw content, no OpenWebUI integration or deployment config, keeps OpenAPI path count at 74, and leaves M22 planned.",
+            "M21 OpenWebUI bridge contract is missing or violates the contract-only, no-OpenWebUI-runtime, no-execution, no-authority boundary.",
+            "critical",
+        ),
+        _criterion(
             "open_design_governance_docs_present",
             "Open Design Governance Docs Present",
             FoundationGateCategory.documentation,
@@ -1056,8 +1065,8 @@ def default_foundation_gate_criteria() -> List[FoundationGateCriterion]:
             "Post-M20 Roadmap Projection Present",
             FoundationGateCategory.documentation,
             "FoundationGateEvaluator.check_post_m20_roadmap_projection_present",
-            "Post-M20 roadmap projection docs exist, M21-M40 charters are planned/provisional, and docs do not claim implementation.",
-            "Post-M20 roadmap projection docs are missing, incomplete, or imply M21-M40 implementation.",
+            "Post-M20 roadmap projection docs exist, M21 is contract-only, M22-M40 charters are planned/provisional, and docs do not claim M22-M40 implementation.",
+            "Post-M20 roadmap projection docs are missing, incomplete, or imply M22-M40 implementation.",
             "critical",
         ),
         _criterion(

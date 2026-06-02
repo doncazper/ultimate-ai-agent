@@ -150,6 +150,20 @@ M20_FORBIDDEN_BACKEND_ROUTES = (
     "/mobile/pair",
     "/mobile/background-service",
 )
+EXPECTED_M21_OPENAPI_PATH_COUNT = 74
+M21_FORBIDDEN_BACKEND_ROUTES = (
+    "/openwebui",
+    "/openwebui/bridge",
+    "/openwebui/chat",
+    "/openwebui/execute",
+    "/openwebui/bridge/run",
+    "/openwebui/admin",
+    "/openwebui/config",
+    "/chat/execute",
+    "/chat/run",
+    "/runtime/execute",
+    "/model-runtime/execute",
+)
 
 
 def m16_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M16_OPENAPI_PATH_COUNT) -> List[str]:
@@ -204,6 +218,17 @@ def m20_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
     forbidden_present = sorted(path for path in M20_FORBIDDEN_BACKEND_ROUTES if path in path_set)
     if forbidden_present:
         failures.append(f"M20 forbidden backend route(s) present: {', '.join(forbidden_present)}")
+    return failures
+
+
+def m21_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M21_OPENAPI_PATH_COUNT) -> List[str]:
+    failures: List[str] = []
+    path_set = set(paths)
+    if len(path_set) != expected_path_count:
+        failures.append(f"M21 OpenAPI path count changed: expected {expected_path_count}, found {len(path_set)}")
+    forbidden_present = sorted(path for path in M21_FORBIDDEN_BACKEND_ROUTES if path in path_set)
+    if forbidden_present:
+        failures.append(f"M21 forbidden backend route(s) present: {', '.join(forbidden_present)}")
     return failures
 
 
@@ -326,6 +351,7 @@ class FoundationGateEvaluator:
             "m18_local_runtime_manual_smoke_surface_safe": self.check_m18_local_runtime_manual_smoke_surface_safe,
             "m19_mobile_companion_contract_planning_safe": self.check_m19_mobile_companion_contract_planning_safe,
             "m20_device_capability_broker_contract_safe": self.check_m20_device_capability_broker_contract_safe,
+            "m21_openwebui_bridge_contract_safe": self.check_m21_openwebui_bridge_contract_safe,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -4102,6 +4128,178 @@ class FoundationGateEvaluator:
 
         return self._result(criterion, failures, required_files)
 
+    def check_m21_openwebui_bridge_contract_safe(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.openwebui_bridge import (
+            OpenWebUIAuthorityBoundary,
+            OpenWebUIBridgeStatus,
+            build_default_openwebui_bridge_manifest,
+            build_default_openwebui_bridge_plan,
+        )
+        from ultimate_ai_agent.core.openwebui_bridge.validation import (
+            assert_agent_core_authority_boundary,
+            assert_no_approval_grant,
+            assert_no_memory_write,
+            assert_no_provider_call,
+            assert_no_raw_content,
+            assert_no_runtime_execution,
+            assert_no_tool_execution,
+            assert_openwebui_contract_only,
+        )
+
+        required_files = [
+            "src/ultimate_ai_agent/core/openwebui_bridge/__init__.py",
+            "src/ultimate_ai_agent/core/openwebui_bridge/enums.py",
+            "src/ultimate_ai_agent/core/openwebui_bridge/contracts.py",
+            "src/ultimate_ai_agent/core/openwebui_bridge/manifests.py",
+            "src/ultimate_ai_agent/core/openwebui_bridge/validation.py",
+            "src/ultimate_ai_agent/core/openwebui_bridge/policy.py",
+            "src/ultimate_ai_agent/core/openwebui_bridge/receipts.py",
+            "tests/test_openwebui_bridge_contracts.py",
+            "tests/test_openwebui_bridge_validation.py",
+            "tests/test_openwebui_bridge_no_authority.py",
+            "tests/test_openwebui_bridge_no_execution.py",
+            "tests/test_openwebui_bridge_no_raw_content.py",
+            "tests/test_m21_gate_integration.py",
+            "docs/openwebui/OPENWEBUI_BRIDGE_CONTRACT.md",
+            "docs/openwebui/CHAT_SHELL_INTEGRATION_CONTRACT.md",
+            "docs/openwebui/SESSION_TRANSCRIPT_REF_POLICY.md",
+            "docs/openwebui/OPENWEBUI_SECURITY_MODEL.md",
+            "docs/openwebui/OPENWEBUI_AUTHORITY_BOUNDARY.md",
+            "docs/openwebui/OPENWEBUI_NON_GOALS.md",
+            "docs/openwebui/OPENWEBUI_FUTURE_INTEGRATION_STAGES.md",
+            "docs/implementation/foundation_gate_implementation_plan_v0_25_0.md",
+            "docs/release_notes/v0_25_0.md",
+        ]
+        failures = [
+            f"missing M21 OpenWebUI bridge contract file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+
+        try:
+            manifest = build_default_openwebui_bridge_manifest()
+            plan = build_default_openwebui_bridge_plan()
+            assert_openwebui_contract_only(manifest)
+            assert_agent_core_authority_boundary(manifest)
+            assert_no_raw_content(manifest)
+            assert_no_tool_execution(manifest)
+            assert_no_memory_write(manifest)
+            assert_no_runtime_execution(manifest)
+            assert_no_provider_call(manifest)
+            assert_no_approval_grant(manifest)
+            if manifest.status != OpenWebUIBridgeStatus.contract_only:
+                failures.append("default OpenWebUI manifest is not contract-only")
+            if plan.status != OpenWebUIBridgeStatus.planned_disabled:
+                failures.append("default OpenWebUI bridge plan is not planned-disabled")
+            if not manifest.openwebui_is_preferred_conversational_shell:
+                failures.append("OpenWebUI must remain the preferred conversational shell")
+            if manifest.openwebui_is_agent_brain:
+                failures.append("OpenWebUI must not be the agent brain")
+            if not manifest.agent_core_remains_authority:
+                failures.append("Agent Core must remain authority")
+            for boundary in [
+                OpenWebUIAuthorityBoundary.agent_core_authority,
+                OpenWebUIAuthorityBoundary.no_direct_tool_execution,
+                OpenWebUIAuthorityBoundary.no_direct_memory_write,
+                OpenWebUIAuthorityBoundary.no_direct_runtime_execution,
+                OpenWebUIAuthorityBoundary.no_direct_provider_call,
+            ]:
+                if boundary not in manifest.authority_boundaries:
+                    failures.append(f"default OpenWebUI manifest missing boundary: {boundary.value}")
+            if "M22" not in plan.required_future_milestones:
+                failures.append("M22 must remain a future required milestone")
+            if "M23" not in plan.required_future_milestones:
+                failures.append("M23 must remain a future required milestone")
+        except Exception as exc:
+            failures.append(f"M21 OpenWebUI bridge default contract failed validation: {exc}")
+
+        try:
+            openapi_paths = app.openapi().get("paths", {})
+        except Exception as exc:
+            failures.append(f"M21 OpenAPI route guard could not generate schema: {exc}")
+        else:
+            failures.extend(m21_openapi_route_failures(openapi_paths))
+
+        forbidden_config_paths = [
+            "docker-compose.openwebui.yml",
+            "docker-compose.openwebui.yaml",
+            "openwebui.config.yml",
+            "openwebui.config.yaml",
+            "openwebui.config.json",
+            "openwebui",
+            "openwebui-config",
+            "openwebui_plugins",
+            "openwebui_pipelines",
+            "openwebui_functions",
+        ]
+        for rel_path in forbidden_config_paths:
+            path = self.root / rel_path
+            if path.exists() and not rel_path.startswith("docs/"):
+                failures.append(f"M21 forbidden OpenWebUI deployment/config path exists: {rel_path}")
+
+        scan_roots = ["src", "apps", "scripts"]
+        forbidden_fragments = [
+            "import openwebui",
+            "from openwebui import",
+            "openwebui_api_key",
+            "openwebui_admin_token",
+            "openwebui_cookie",
+            "openwebui_session",
+            "docker-compose",
+            "/openwebui/execute",
+            "/openwebui/bridge/run",
+            "/chat/execute",
+            "/chat/run",
+            "/model-runtime/execute",
+        ]
+        allowed_scan_files = {
+            "src/ultimate_ai_agent/core/gate/evaluators.py",
+            "scripts/verify_all.py",
+            "scripts/verify_control_center_frontend.py",
+        }
+        allowed_prefixes = (
+            "src/ultimate_ai_agent/core/openwebui_bridge/",
+        )
+        for rel_root in scan_roots:
+            root = self.root / rel_root
+            if not root.exists():
+                continue
+            candidate_files = []
+            if rel_root in {"src", "scripts"}:
+                candidate_files.extend(root.rglob("*.py"))
+            if rel_root == "apps":
+                candidate_files.extend(root.rglob("*.ts"))
+                candidate_files.extend(root.rglob("*.tsx"))
+                candidate_files.extend(root.rglob("*.js"))
+                candidate_files.extend(root.rglob("*.jsx"))
+            for path in candidate_files:
+                rel = path.relative_to(self.root).as_posix()
+                if (
+                    not path.is_file()
+                    or "__pycache__" in rel
+                    or "node_modules/" in rel
+                    or rel in allowed_scan_files
+                    or rel.startswith(allowed_prefixes)
+                ):
+                    continue
+                text = self._read(path).lower()
+                for fragment in forbidden_fragments:
+                    if fragment in text:
+                        failures.append(f"M21 forbidden OpenWebUI runtime/config fragment in {rel}: {fragment}")
+
+        roadmap_text = self._read(self.root / "docs/canonical/09_roadmap.md").lower()
+        if "v0.25.0 / m21" not in roadmap_text or "implemented" not in roadmap_text:
+            failures.append("canonical roadmap must mark v0.25.0 / M21 implemented")
+        if "v0.26.0 / m22" not in roadmap_text or "planned/provisional" not in roadmap_text:
+            failures.append("canonical roadmap must keep M22 planned/provisional")
+        if "v0.27.0 / m23" not in roadmap_text or "planned/provisional" not in roadmap_text:
+            failures.append("canonical roadmap must keep M23 planned/provisional")
+
+        return self._result(criterion, failures, required_files)
+
     def check_open_design_governance_docs_present(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
         required_docs = [
             "docs/design/OPEN_DESIGN_SYSTEM.md",
@@ -4220,13 +4418,13 @@ class FoundationGateEvaluator:
         for failure, fragment in expectations.items():
             if fragment not in roadmap_text:
                 failures.append(failure)
-        implemented_claims = [f"m{number} is implemented" for number in range(21, 41)] + [
+        implemented_claims = [f"m{number} is implemented" for number in range(22, 41)] + [
             "m21-m40 are implemented",
             "m21 through m40 are implemented",
             "post-m20 capabilities are implemented",
         ]
         if any(claim in roadmap_text for claim in implemented_claims):
-            failures.append("post-M20 roadmap docs must not claim M21-M40 implementation")
+            failures.append("post-M20 roadmap docs must not claim M22-M40 implementation")
         return self._result(criterion, failures, required_docs)
 
     def _skipped(self, criterion: FoundationGateCriterion) -> FoundationGateResult:

@@ -1,8 +1,8 @@
 # M21-M40 Capability Charters
 
-Status: Active roadmap projection maintained through v0.24.0. Planned/provisional documentation only.
+Status: Active roadmap projection maintained through v0.25.0. M21 is implemented/released contract-only; M22-M40 remain planned/provisional.
 
-These charters define future capability layers after M20. They are not implementation. Every milestone requires its own implementation prompt, review prompt, hardening expectation, and validation evidence before release.
+These charters define capability layers after M20. v0.25.0 implements M21 as contract/planning/validation only. M22-M40 are still future capability layers. Every milestone requires its own implementation prompt, review prompt, hardening expectation, and validation evidence before release.
 
 ## Shared Rules
 
@@ -17,7 +17,7 @@ These charters define future capability layers after M20. They are not implement
 
 ## v0.25.0 / M21 - OpenWebUI Bridge + Chat Shell Integration Contract
 
-Status: planned/provisional.
+Status: implemented/released contract-only.
 
 Purpose: Define how OpenWebUI will talk to the Python Agent Core without becoming the brain.
 
@@ -27,7 +27,7 @@ Allowed scope:
 - chat ingress/egress contracts.
 - session refs.
 - safe transcript refs.
-- validation-only API surfaces only if a future prompt explicitly allows them.
+- validation helpers and Foundation Gate coverage.
 
 Must not add:
 
@@ -47,6 +47,7 @@ Acceptance criteria:
 - OpenWebUI remains the preferred conversational shell.
 - Agent Core remains authority.
 - no bypass of Approval Authority, Consent Ledger, Tool Broker, Event Ledger, Secret Broker, or Foundation Gate.
+- no OpenWebUI integration, deployment config, backend route, frontend feature, runtime execution, model/provider call, tool execution, memory write, file access, dependency, or production authority.
 
 Review prompt required: yes.
 
@@ -54,7 +55,7 @@ Hardening expectation: M21 hardening patch before any actual OpenWebUI integrati
 
 Source-of-truth docs: `docs/ui/OPENWEBUI_AND_CCC_STRATEGY.md`, `docs/ui/OPENWEBUI_INTEGRATION_ROADMAP.md`, `docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md`.
 
-Notes: M21 is contract-only unless a future reviewed prompt explicitly narrows validation-only API work.
+Notes: M21 is contract-only. OpenWebUI integration remains not implemented until a later reviewed milestone explicitly authorizes it.
 
 ## v0.26.0 / M22 - Local Model Runtime Activation Contract
 
@@ -772,7 +773,8 @@ Notes: Evals are not proof of production safety by themselves; they are gates an
 
 v0.23.0 / M19 is implemented as Mobile Companion Contract/API Planning only.
 M20 Device Capability Broker Contract is implemented/released as contract-only
-planning and validation. M21-M40 remain planned/provisional. The M19 baseline
+planning and validation. M21 is implemented/released by v0.25.0 as
+contract-only. M22-M40 remain planned/provisional. The M19 baseline
 adds no mobile app, Android app, iOS app, macOS app, native build workflow, OS
 permission integration, mobile sensor access, mobile approval execution,
 runtime execution, model/provider calls, remote execution, plugin enablement,
@@ -782,5 +784,6 @@ contracts are required before sensors.
 
 v0.23.1 is a cleanup/hardening patch for M19 roadmap status and mobile contract
 safety tests only. v0.24.0 implements M20 Device Capability Broker Contract
-only. M21-M40 remain planned/provisional until implemented by dedicated
+only. v0.25.0 implements M21 OpenWebUI Bridge + Chat Shell Integration
+Contract only. M22-M40 remain planned/provisional until implemented by dedicated
 reviewed milestones.

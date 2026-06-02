@@ -45,7 +45,9 @@ mobile storage risk, compromised devices, and malicious app assumptions remain
 security concerns. Biometrics are not authority. Device output is not trusted
 control input by default. M20 adds no sensor access, OS permission integration,
 native clients, backend API route, dependency, runtime execution, or production
-authority. M21 remains planned/provisional.
+authority. v0.25.0 implements M21 OpenWebUI Bridge + Chat Shell Integration
+Contract as contract/planning/validation only. M22 and M23 remain
+planned/provisional.
 
 ## v0.24.1 M20 Hardening Note
 
@@ -55,4 +57,6 @@ Background services are blocked. Device pairing runtime remains future.
 Receipts are redacted and must not include raw payloads. Device output is not
 trusted control input by default. Mobile capture cannot approve actions,
 execute actions, bypass governance, silently become memory, or trigger external
-sends. M21 remains planned/provisional.
+sends. v0.25.0 implements M21 OpenWebUI Bridge + Chat Shell Integration
+Contract as contract/planning/validation only. M22 and M23 remain
+planned/provisional.

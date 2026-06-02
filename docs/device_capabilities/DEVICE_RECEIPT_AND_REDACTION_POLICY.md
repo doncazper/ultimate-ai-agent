@@ -22,4 +22,6 @@ v0.24.1 requires device receipt plans to remain redacted receipt contracts.
 Receipt plans must not mark receipt requirements as not applicable. Receipt
 plans must not allow raw storage. Safe summaries and metadata refs must reject
 secret-like values, raw device payload-like fields, geolocation coordinates,
-and private local paths. M21 remains planned/provisional.
+and private local paths. v0.25.0 implements M21 OpenWebUI Bridge + Chat Shell
+Integration Contract as contract/planning/validation only. M22 and M23 remain
+planned/provisional.

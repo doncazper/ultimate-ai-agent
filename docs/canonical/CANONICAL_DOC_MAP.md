@@ -1,6 +1,6 @@
 # Canonical Document Map
 
-Current active baseline: **v0.24.1**
+Current active baseline: **v0.25.0**
 
 This map links major systems to their canonical documentation. If a system has both canonical docs and runtime/API docs, canonical docs define principles and sequencing while runtime/API docs define current implementation boundaries.
 
@@ -26,6 +26,7 @@ This map links major systems to their canonical documentation. If a system has b
 | Control Center | `docs/canonical/20_user_control_center.md`, `docs/control_center/CONTROL_CENTER_CONTRACT.md`, `docs/control_center/DASHBOARD_SNAPSHOT.md`, `docs/control_center/ACTION_PREVIEW_POLICY.md`, `docs/control_center/WEB_CONTROL_CENTER_SHELL.md`, `docs/control_center/FRONTEND_SAFETY_POLICY.md`, `docs/control_center/CONTROL_CENTER_FRONTEND_ROUTES.md`, `docs/control_center/LOCAL_BACKEND_CONNECTION.md`, `docs/control_center/LOCAL_BROWSER_SMOKE.md`, `docs/control_center/LOCAL_BROWSER_SMOKE_REPORTING.md`, `docs/control_center/APPROVAL_QUEUE_UI.md`, `docs/control_center/RECEIPT_EVENT_VIEWER.md`, `docs/control_center/APPROVAL_RECEIPT_UI_SAFETY.md`, `docs/control_center/EVENT_TIMELINE_UI.md`, `docs/control_center/RUN_RECEIPT_TRACE_VIEWER.md`, `docs/control_center/TRACE_REDACTION_POLICY.md`, `docs/control_center/EVIDENCE_VIEWER.md`, `docs/control_center/FILE_REFERENCE_VIEWER.md`, `docs/control_center/MEMORY_VIEWER.md`, `docs/control_center/EVIDENCE_FILE_MEMORY_VIEWER_SAFETY.md`, `docs/control_center/LOCAL_RUNTIME_STATUS_UI.md`, `docs/control_center/MANUAL_SMOKE_CONTROL_SURFACE.md`, `docs/control_center/RUNTIME_SMOKE_UI_SAFETY.md` |
 | Open Design System and UI Governance | `docs/design/OPEN_DESIGN_SYSTEM.md`, `docs/design/CONTROL_CENTER_DESIGN_LANGUAGE.md`, `docs/design/STATUS_AND_RISK_VISUAL_LANGUAGE.md`, `docs/design/ACCESSIBILITY_BASELINE.md`, `docs/design/DESIGN_TOOLING_POLICY.md`, `docs/design/DESIGN_TOKEN_ROADMAP.md`, `docs/design/UI_COPY_AND_ACTION_LANGUAGE.md`, `docs/design/DESIGN_ARTIFACT_GOVERNANCE.md`, `docs/design/COMPONENT_TAXONOMY.md`, `docs/design/RESPONSIVE_LAYOUT_BASELINE.md`, `docs/backlog/open_design_system_backlog.md` |
 | OpenWebUI and CCC Client Strategy | `docs/ui/OPENWEBUI_AND_CCC_STRATEGY.md`, `docs/ui/CLIENT_SURFACE_ROLES.md`, `docs/ui/OPENWEBUI_INTEGRATION_ROADMAP.md`, `docs/ui/CCC_NATIVE_CLIENT_STRATEGY.md` |
+| OpenWebUI Bridge Contract | `docs/openwebui/OPENWEBUI_BRIDGE_CONTRACT.md`, `docs/openwebui/CHAT_SHELL_INTEGRATION_CONTRACT.md`, `docs/openwebui/SESSION_TRANSCRIPT_REF_POLICY.md`, `docs/openwebui/OPENWEBUI_SECURITY_MODEL.md`, `docs/openwebui/OPENWEBUI_AUTHORITY_BOUNDARY.md`, `docs/openwebui/OPENWEBUI_NON_GOALS.md`, `docs/openwebui/OPENWEBUI_FUTURE_INTEGRATION_STAGES.md` |
 | Approval Authority | `docs/security/approval_authority.md`, `docs/canonical/42_autonomy_levels_and_standing_approvals.md` |
 | Model Runtime Adapter Harness | `docs/runtime/model_runtime_adapter_harness.md` |
 | Local Loopback Runtime | `docs/runtime/local_loopback_model_runtime.md`, `docs/canonical/57_local_runtime_and_offline_agent_infrastructure.md` |

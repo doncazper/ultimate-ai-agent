@@ -55,6 +55,25 @@ def test_control_center_frontend_verifier_tracks_m20_device_drift_strings():
         assert dependency in verifier.FORBIDDEN_FRONTEND_DEPENDENCIES
 
 
+def test_control_center_frontend_verifier_tracks_m21_openwebui_drift_strings():
+    verifier = load_verifier()
+
+    for endpoint in [
+        "/openwebui",
+        "/openwebui/bridge",
+        "/openwebui/chat",
+        "/openwebui/execute",
+        "/openwebui/bridge/run",
+        "/chat/execute",
+        "/chat/run",
+        "/model-runtime/execute",
+    ]:
+        assert endpoint in verifier.FORBIDDEN_ENDPOINTS
+
+    for dependency in ['"openwebui"', '"open-webui"']:
+        assert dependency in verifier.FORBIDDEN_FRONTEND_DEPENDENCIES
+
+
 def test_control_center_frontend_verifier_blocks_tracked_build_and_log_artifacts(tmp_path, monkeypatch):
     verifier = load_verifier()
 

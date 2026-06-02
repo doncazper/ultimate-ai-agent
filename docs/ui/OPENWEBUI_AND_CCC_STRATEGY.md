@@ -51,4 +51,11 @@ API route, no native CCC implementation, no Android app, no iOS app, no macOS
 app, no native build workflow, no mobile sensor access, and no OS permission
 integration. Device Capability Broker is required before sensors. Capture
 cannot silently become memory. M20 is implemented as contract-only planning and
-validation. M21 remains planned/provisional.
+validation. v0.25.0 implements M21 OpenWebUI Bridge + Chat Shell Integration
+Contract as contract/planning/validation only. It adds no OpenWebUI
+integration, no OpenWebUI deployment config, no backend API route, no frontend
+feature, no runtime execution, no local LLM call, no model/provider call, no
+tool execution, no memory write, no file access, no remote execution, no
+browser automation, no Computer Use, no mobile sensor access, no plugin
+enablement, no dependency, and no production authority. M22 and M23 remain
+planned/provisional.

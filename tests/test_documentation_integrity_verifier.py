@@ -80,6 +80,28 @@ def test_documentation_integrity_verifier_requires_openwebui_ccc_strategy_docs(t
     assert any("docs/ui/OPENWEBUI_AND_CCC_STRATEGY.md" in failure for failure in failures)
 
 
+def test_documentation_integrity_verifier_requires_openwebui_bridge_contract_docs(tmp_path: Path):
+    _write_minimal_repo(tmp_path, version="0.25.0")
+    (tmp_path / "docs/openwebui/OPENWEBUI_BRIDGE_CONTRACT.md").unlink(missing_ok=True)
+
+    failures = verifier.verify(tmp_path)
+
+    assert any("docs/openwebui/OPENWEBUI_BRIDGE_CONTRACT.md" in failure for failure in failures)
+
+
+def test_documentation_integrity_verifier_blocks_openwebui_runtime_claims(tmp_path: Path):
+    _write_minimal_repo(tmp_path, version="0.25.0")
+    bridge = tmp_path / "docs/openwebui/OPENWEBUI_BRIDGE_CONTRACT.md"
+    bridge.write_text(
+        bridge.read_text(encoding="utf-8") + "\nOpenWebUI integration is implemented.\n",
+        encoding="utf-8",
+    )
+
+    failures = verifier.verify(tmp_path)
+
+    assert any("OpenWebUI integration" in failure or "openwebui integration" in failure for failure in failures)
+
+
 def test_documentation_integrity_verifier_requires_ccc_native_client_boundaries(tmp_path: Path):
     _write_minimal_repo(tmp_path)
     native_strategy = tmp_path / "docs/ui/CCC_NATIVE_CLIENT_STRATEGY.md"
@@ -199,6 +221,7 @@ def _write_minimal_repo(root: Path, version: str = "0.14.6") -> None:
             f"ultimate_ai_agent_master_plan_v{version_key}.md\n"
             "docs/DOCUMENTATION_INDEX.md\n"
             "docs/canonical/CANONICAL_DOC_MAP.md\n"
+            "docs/openwebui/OPENWEBUI_BRIDGE_CONTRACT.md\n"
         ),
         f"README_IMPORT_v{version_key}.md": "active import\n",
         f"ultimate_ai_agent_master_plan_v{version_key}.md": "active master\n",
@@ -255,10 +278,46 @@ def _write_minimal_repo(root: Path, version: str = "0.14.6") -> None:
             "no OS permission integration is added.\n"
             "no signing, keystore, provisioning, App Store, or Play Store workflow is added.\n",
         )
+    for rel_path in getattr(verifier, "REQUIRED_OPENWEBUI_BRIDGE_DOCS", []):
+        files.setdefault(
+            rel_path,
+            "M21 is contract-only.\n"
+            "OpenWebUI is the preferred conversational web shell.\n"
+            "OpenWebUI is not the agent brain.\n"
+            "Python Agent Core remains authority.\n"
+            "No OpenWebUI integration is implemented.\n"
+            "No deployment config is added.\n"
+            "No direct tool execution.\n"
+            "No direct memory write.\n"
+            "No runtime execution.\n"
+            "No provider call.\n"
+            "No backend API route.\n"
+            "Refs are identifiers only.\n"
+            "M22 remains planned/provisional.\n"
+            "M23 remains planned/provisional.\n",
+        )
+    version_tuple = tuple(int(part) for part in version.split("."))
+    post_m20_status = (
+        "M21 is implemented/released by v0.25.0 as contract-only.\n"
+        "M22-M40 remain planned/provisional.\n"
+        if version_tuple >= (0, 25, 0)
+        else "M21-M40 remain planned/provisional.\n"
+    )
+    m21_status = (
+        "M21 - OpenWebUI Bridge + Chat Shell Integration Contract, implemented/released contract-only.\n"
+        if version_tuple >= (0, 25, 0)
+        else "M21 - OpenWebUI Bridge + Chat Shell Integration Contract, planned/provisional.\n"
+    )
+    no_implementation_line = (
+        "M21 contract-only implementation is added; no OpenWebUI integration is added; no dependency is added.\n"
+        if version_tuple >= (0, 25, 0)
+        else "watchlist only; no integration is added; no dependency is added; no implementation is added.\n"
+    )
     for rel_path in getattr(verifier, "REQUIRED_POST_M20_ROADMAP_DOCS", []):
         files.setdefault(
             rel_path,
-            "M21 - OpenWebUI Bridge + Chat Shell Integration Contract, planned/provisional.\n"
+            m21_status
+            +
             "M22 - Local Model Runtime Activation Contract, planned/provisional.\n"
             "M23 - First Real Local LLM Call, Non-Tool, Non-Authoritative, planned/provisional.\n"
             "M24 - Memory Provider Abstraction + Local Memory Store, planned/provisional.\n"
@@ -278,7 +337,8 @@ def _write_minimal_repo(root: Path, version: str = "0.14.6") -> None:
             "M38 - Browser Automation Contract, No Execution, planned/provisional.\n"
             "M39 - Observability Export Adapters, planned/provisional.\n"
             "M40 - Agent Evaluation + Regression Harness, planned/provisional.\n"
-            "watchlist only; no integration is added; no dependency is added; no implementation is added.\n",
+            f"{post_m20_status}"
+            f"{no_implementation_line}",
         )
     files["docs/roadmap/MILESTONE_CHARTERS.md"] = (
         "version\nmilestone code\ntitle\nstatus\npurpose\nallowed scope\nmust not add\n"

@@ -1,0 +1,180 @@
+from datetime import datetime, timezone
+from typing import Any
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from ultimate_ai_agent.core.openwebui_bridge.enums import (
+    OpenWebUIAuthorityBoundary,
+    OpenWebUIBridgeDecisionStatus,
+    OpenWebUIBridgeStatus,
+    OpenWebUIContentMode,
+    OpenWebUIMessageDirection,
+    OpenWebUISurfaceRole,
+)
+
+
+class _OpenWebUIBridgeContractModel(BaseModel):
+    model_config = ConfigDict(use_enum_values=False, extra="forbid")
+
+
+class OpenWebUIBridgeManifest(_OpenWebUIBridgeContractModel):
+    manifest_id: str = "openwebui_bridge_manifest_m21"
+    baseline_version: str = "0.25.0"
+    generated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    status: OpenWebUIBridgeStatus = OpenWebUIBridgeStatus.contract_only
+    supported_surfaces: list[OpenWebUISurfaceRole] = Field(default_factory=list)
+    blocked_surfaces: list[OpenWebUISurfaceRole] = Field(default_factory=list)
+    allowed_content_modes: list[OpenWebUIContentMode] = Field(default_factory=list)
+    blocked_content_modes: list[OpenWebUIContentMode] = Field(default_factory=list)
+    authority_boundaries: list[OpenWebUIAuthorityBoundary] = Field(default_factory=list)
+    docs_refs: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    safe_summary: str = "M21 OpenWebUI bridge contract-only manifest."
+    agent_core_remains_authority: bool = True
+    openwebui_is_preferred_conversational_shell: bool = True
+    openwebui_is_agent_brain: bool = False
+    openwebui_integration_implemented: bool = False
+    deployment_config_added: bool = False
+    backend_routes_added: bool = False
+    openwebui_package_imported: bool = False
+    dependencies_added: bool = False
+    tool_execution_enabled: bool = False
+    memory_write_enabled: bool = False
+    runtime_execution_enabled: bool = False
+    provider_call_enabled: bool = False
+    approval_grant_enabled: bool = False
+    credential_access_enabled: bool = False
+    raw_content_allowed: bool = False
+    metadata_refs: list[str] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator(
+        "supported_surfaces",
+        "blocked_surfaces",
+        "allowed_content_modes",
+        "blocked_content_modes",
+        "authority_boundaries",
+        "docs_refs",
+        "warnings",
+    )
+    @classmethod
+    def _copy_collections(cls, value: list[Any]) -> list[Any]:
+        return list(value)
+
+
+class OpenWebUIChatSessionRef(_OpenWebUIBridgeContractModel):
+    session_ref: str = Field(..., min_length=1)
+    shell_ref: str = Field(..., min_length=1)
+    user_ref: str = Field(..., min_length=1)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    safe_label: str = Field(..., min_length=1)
+    authority_granted: bool = False
+    metadata_refs: list[str] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class OpenWebUITranscriptRef(_OpenWebUIBridgeContractModel):
+    transcript_ref: str = Field(..., min_length=1)
+    session_ref: str = Field(..., min_length=1)
+    redaction_status: str = "redacted_summary_only"
+    content_mode: OpenWebUIContentMode = OpenWebUIContentMode.summary_only
+    safe_summary: str = Field(..., min_length=1)
+    raw_content_stored: bool = False
+    event_refs: list[str] = Field(default_factory=list)
+    receipt_refs: list[str] = Field(default_factory=list)
+    metadata_refs: list[str] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class OpenWebUIMessageRef(_OpenWebUIBridgeContractModel):
+    message_ref: str = Field(..., min_length=1)
+    session_ref: str = Field(..., min_length=1)
+    direction: OpenWebUIMessageDirection
+    content_mode: OpenWebUIContentMode = OpenWebUIContentMode.summary_only
+    safe_summary: str = Field(..., min_length=1)
+    event_refs: list[str] = Field(default_factory=list)
+    receipt_refs: list[str] = Field(default_factory=list)
+    metadata_refs: list[str] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class OpenWebUIChatIngressEnvelope(_OpenWebUIBridgeContractModel):
+    envelope_id: str = Field(..., min_length=1)
+    session_ref: str = Field(..., min_length=1)
+    message_ref: str = Field(..., min_length=1)
+    direction: OpenWebUIMessageDirection
+    content_mode: OpenWebUIContentMode = OpenWebUIContentMode.summary_only
+    user_visible_summary: str = Field(..., min_length=1)
+    raw_content_present: bool = False
+    raw_content_allowed: bool = False
+    contains_user_content: bool = True
+    contains_secret_like_content: bool = False
+    requires_redaction: bool = True
+    requires_agent_core_processing: bool = True
+    tool_execution_requested: bool = False
+    memory_write_requested: bool = False
+    runtime_execution_requested: bool = False
+    provider_call_requested: bool = False
+    approval_ref: str | None = None
+    validation_status: OpenWebUIBridgeDecisionStatus = (
+        OpenWebUIBridgeDecisionStatus.requires_future_bridge
+    )
+    event_refs: list[str] = Field(default_factory=list)
+    metadata_refs: list[str] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class OpenWebUIChatEgressEnvelope(_OpenWebUIBridgeContractModel):
+    envelope_id: str = Field(..., min_length=1)
+    session_ref: str = Field(..., min_length=1)
+    message_ref: str = Field(..., min_length=1)
+    content_mode: OpenWebUIContentMode = OpenWebUIContentMode.summary_only
+    safe_response_summary: str = Field(..., min_length=1)
+    model_output_non_authoritative: bool = True
+    action_executed: bool = False
+    tool_executed: bool = False
+    memory_written: bool = False
+    provider_called: bool = False
+    runtime_called: bool = False
+    approval_granted: bool = False
+    event_refs: list[str] = Field(default_factory=list)
+    receipt_refs: list[str] = Field(default_factory=list)
+    metadata_refs: list[str] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class OpenWebUIBridgeValidationDecision(_OpenWebUIBridgeContractModel):
+    decision_id: str = Field(..., min_length=1)
+    subject_ref: str = Field(..., min_length=1)
+    allowed: bool = False
+    status: OpenWebUIBridgeDecisionStatus = OpenWebUIBridgeDecisionStatus.not_implemented
+    reason_codes: list[str] = Field(default_factory=list)
+    safe_message: str = Field(..., min_length=1)
+    required_next_action: str = "future_reviewed_bridge_milestone_required"
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    metadata_refs: list[str] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class OpenWebUIBridgePlan(_OpenWebUIBridgeContractModel):
+    plan_id: str = "openwebui_bridge_plan_m21"
+    status: OpenWebUIBridgeStatus = OpenWebUIBridgeStatus.planned_disabled
+    stage: str = "m21_contract_only"
+    purpose: str = "Define future OpenWebUI chat shell bridge contracts."
+    allowed_scope: list[str] = Field(default_factory=list)
+    blocked_scope: list[str] = Field(default_factory=list)
+    required_future_milestones: list[str] = Field(default_factory=list)
+    docs_refs: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    metadata_refs: list[str] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class OpenWebUIBridgeReceiptPlan(_OpenWebUIBridgeContractModel):
+    receipt_plan_id: str = Field(..., min_length=1)
+    session_ref: str = Field(..., min_length=1)
+    redaction_required: bool = True
+    raw_transcript_storage_allowed: bool = False
+    safe_summary: str = Field(..., min_length=1)
+    metadata_refs: list[str] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)

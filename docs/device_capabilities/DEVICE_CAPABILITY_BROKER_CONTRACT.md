@@ -11,7 +11,9 @@ M20 adds no sensor access, no OS permission integration, no native app, no
 backend API route, no runtime execution, no model/provider call, no remote
 execution, no plugin enablement, no dependency, and no production authority.
 M20 adds no backend API route and no Device Capability Broker runtime implementation.
-External sends are not allowed. M21 remains planned/provisional.
+External sends are not allowed. v0.25.0 implements M21 OpenWebUI Bridge + Chat
+Shell Integration Contract as contract/planning/validation only. M22 and M23
+remain planned/provisional.
 
 The broker contract requires every future device capability to declare purpose,
 risk classification, permission scope, consent boundary, retention rule,

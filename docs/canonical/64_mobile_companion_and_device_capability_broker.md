@@ -247,7 +247,9 @@ Android app, iOS app, macOS app, native build workflow, mobile sensor access,
 OS permission integration, background service, notification runtime, device
 pairing runtime, backend API route, dependency, runtime execution,
 model/provider call, remote execution, plugin enablement, OpenWebUI
-integration, or production authority. M21 remains planned/provisional.
+integration, or production authority. v0.25.0 implements M21 OpenWebUI Bridge
++ Chat Shell Integration Contract as contract/planning/validation only. M22
+and M23 remain planned/provisional.
 
 Device Capability Broker output is not trusted control input by default.
 Capture cannot silently become memory or trigger external sends.

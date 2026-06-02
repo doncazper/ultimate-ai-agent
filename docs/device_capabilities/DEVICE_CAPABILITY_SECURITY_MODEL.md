@@ -26,4 +26,6 @@ Notification runtime and push runtime are blocked. Background services are
 blocked. Permission runtime claims are blocked. Device pairing runtime is
 future. Raw payloads, raw coordinates, raw audio/image/contact/calendar/photo/
 biometric payload-like fields, private local paths, and secret-like metadata
-are blocked. M21 remains planned/provisional.
+are blocked. v0.25.0 implements M21 OpenWebUI Bridge + Chat Shell Integration
+Contract as contract/planning/validation only. M22 and M23 remain
+planned/provisional.

@@ -162,7 +162,9 @@ service, notification runtime, runtime execution, model/provider call, remote
 execution, plugin enablement, OpenWebUI integration, or production authority.
 
 Device Capability Broker output is not trusted control input by default.
-Capture cannot silently become memory. M21 remains planned/provisional.
+Capture cannot silently become memory. v0.25.0 implements M21 OpenWebUI Bridge
++ Chat Shell Integration Contract as contract/planning/validation only. M22
+and M23 remain planned/provisional.
 
 ## v0.24.1 M20 Hardening Note
 

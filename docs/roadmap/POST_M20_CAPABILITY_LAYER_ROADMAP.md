@@ -1,8 +1,8 @@
 # Post-M20 Capability Layer Roadmap
 
-Status: Active roadmap projection maintained through v0.24.0. Planned/provisional documentation only for M21-M40.
+Status: Active roadmap projection maintained through v0.25.0. M21 is implemented/released contract-only; M22-M40 remain planned/provisional.
 
-M14-M20 remain implemented/released through reviewed milestones. M21-M40 are provisional but canonical after v0.18.4 unless superseded by a reviewed roadmap patch.
+M14-M20 remain implemented/released through reviewed milestones. v0.25.0 / M21 is implemented/released as OpenWebUI Bridge + Chat Shell Integration Contract only. M22-M40 are provisional but canonical after v0.18.4 unless superseded by a reviewed roadmap patch.
 
 These milestones are high-level charters, not implementation. Every milestone needs its own implementation prompt and review prompt. Every risky surface gets a hardening patch before the next capability jump.
 
@@ -14,7 +14,7 @@ This roadmap adds no backend API routes, frontend behavior, runtime execution, l
 
 | Version | Milestone | Title | Status |
 | --- | --- | --- | --- |
-| v0.25.0 | M21 | OpenWebUI Bridge + Chat Shell Integration Contract | planned/provisional |
+| v0.25.0 | M21 | OpenWebUI Bridge + Chat Shell Integration Contract | implemented/released contract-only |
 | v0.26.0 | M22 | Local Model Runtime Activation Contract | planned/provisional |
 | v0.27.0 | M23 | First Real Local LLM Call, Non-Tool, Non-Authoritative | planned/provisional |
 | v0.27.1 | Hardening | Local LLM Call Hardening | planned/provisional |
@@ -39,7 +39,7 @@ This roadmap adds no backend API routes, frontend behavior, runtime execution, l
 
 ## Narrative
 
-M21 starts with OpenWebUI bridge contracts only, preserving Python Agent Core authority. M22 and M23 then define local runtime activation and the first bounded local LLM call without tools, memory writes, external network, or authority claims. The v0.27.1 hardening patch must label model output as non-authoritative and prevent secret echo or tool-call leakage.
+M21 starts with OpenWebUI bridge contracts only, preserving Python Agent Core authority. v0.25.0 implements that contract/planning/validation layer without OpenWebUI integration, deployment config, backend route, frontend feature, runtime execution, local LLM call, model/provider call, tool execution, memory write, file access, remote execution, browser automation, Computer Use, mobile sensor access, plugin enablement, dependency, or production authority. M22 and M23 then define local runtime activation and the first bounded local LLM call without tools, memory writes, external network, or authority claims. The v0.27.1 hardening patch must label model output as non-authoritative and prevent secret echo or tool-call leakage.
 
 M24 and M25 introduce memory and truth governance after provenance, delete/export, and claim evidence rules are explicit. Memory remains recall. Model claims remain inspectable and must not become source of truth.
 
@@ -59,7 +59,7 @@ Future implementation prompts after M20 must read:
 - `docs/roadmap/ECOSYSTEM_WATCHLIST.md`.
 - `docs/roadmap/STANDARDS_ALIGNMENT_WATCHLIST.md`.
 
-No M21-M40 milestone is implemented by this patch.
+M21 is implemented/released by v0.25.0 as contract-only. M22-M40 remain planned/provisional.
 ## M19 Baseline Note
 
 v0.23.0 / M19 is implemented as Mobile Companion Contract/API Planning only.
@@ -83,4 +83,5 @@ implementation, mobile app, Android app, iOS app, macOS app, native build
 workflow, mobile sensor access, OS permission integration, background service,
 notification runtime, backend API route, dependency, runtime execution,
 model/provider call, remote execution, plugin enablement, OpenWebUI
-integration, or production authority. M21-M40 remain planned/provisional.
+integration, or production authority. M21 is now implemented/released
+contract-only by v0.25.0. M22-M40 remain planned/provisional.

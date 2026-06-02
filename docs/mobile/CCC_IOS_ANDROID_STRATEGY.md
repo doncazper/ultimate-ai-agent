@@ -50,4 +50,5 @@ M20 adds no Android app, iOS app, native package, sensor access, OS permission
 integration, background service, notification runtime, pairing runtime,
 backend API route, dependency, native build workflow, signing, keystore,
 provisioning, App Store workflow, Play Store workflow, or production authority.
-M21 remains planned/provisional.
+v0.25.0 implements M21 OpenWebUI Bridge + Chat Shell Integration Contract as
+contract/planning/validation only. M22 and M23 remain planned/provisional.

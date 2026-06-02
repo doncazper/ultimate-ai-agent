@@ -46,4 +46,6 @@ redaction, revocation, and auditability are defined, but no sensor access, OS
 permission integration, native clients, pairing runtime, backend API route,
 background service, notification runtime, dependency, runtime execution,
 model/provider call, remote execution, plugin enablement, OpenWebUI
-integration, or production authority is added. M21 remains planned/provisional.
+integration, or production authority is added. v0.25.0 implements M21
+OpenWebUI Bridge + Chat Shell Integration Contract as contract/planning/
+validation only. M22 and M23 remain planned/provisional.

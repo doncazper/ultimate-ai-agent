@@ -23,4 +23,6 @@ only and cannot imply current capture execution. Silent capture, passive
 capture, background capture, continuous capture, automatic memory writes,
 external sends, raw payloads, geolocation coordinates, audio/image/contact/
 calendar/photo/biometric payload-like metadata, and private local paths are
-blocked. M21 remains planned/provisional.
+blocked. v0.25.0 implements M21 OpenWebUI Bridge + Chat Shell Integration
+Contract as contract/planning/validation only. M22 and M23 remain
+planned/provisional.

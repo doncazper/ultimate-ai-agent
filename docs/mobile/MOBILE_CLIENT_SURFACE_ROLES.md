@@ -41,4 +41,6 @@ web/PWA device capabilities. No client becomes authority. M20 adds no native
 client, sensor access, OS permission integration, pairing runtime, backend API
 route, dependency, runtime execution, model/provider call, remote execution,
 plugin enablement, or production authority. Device output is not trusted
-control input by default. M21 remains planned/provisional.
+control input by default. v0.25.0 implements M21 OpenWebUI Bridge + Chat Shell
+Integration Contract as contract/planning/validation only. M22 and M23 remain
+planned/provisional.

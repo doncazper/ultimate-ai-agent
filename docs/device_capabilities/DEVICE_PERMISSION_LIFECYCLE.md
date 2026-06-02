@@ -35,4 +35,5 @@ only. They do not imply implemented runtime permission access. User gesture is
 future contract metadata only and cannot imply current capture execution.
 OS permission runtime, notification push runtime, background service runtime,
 background capture, passive capture, and continuous capture remain blocked.
-M21 remains planned/provisional.
+v0.25.0 implements M21 OpenWebUI Bridge + Chat Shell Integration Contract as
+contract/planning/validation only. M22 and M23 remain planned/provisional.

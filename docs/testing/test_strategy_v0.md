@@ -123,8 +123,8 @@ M35 mentions Device Capability Broker Implementation, No Sensors.
 M38 is Browser Automation Contract, No Execution.
 M39 is Observability Export Adapters.
 M40 is Agent Evaluation + Regression Harness.
-M21-M40 remain planned/provisional.
-Docs do not claim M21-M40 implementation.
+M21-M40 remain planned/provisional in the v0.18.4 projection.
+Docs do not claim M21-M40 implementation before dedicated milestones.
 Foundation Gate includes post_m20_roadmap_projection_present.
 Backend OpenAPI path count remains unchanged at 74.
 
@@ -342,7 +342,7 @@ silent capture, background capture, passive capture, continuous capture, raw pay
 docs/device_capabilities files exist.
 Foundation Gate includes m20_device_capability_broker_contract_safe.
 OpenAPI path count remains unchanged at 74.
-M21 remains planned/provisional.
+M21 is implemented/released by v0.25.0 as OpenWebUI Bridge + Chat Shell Integration Contract only.
 ```
 
 ## v0.24.1 M20 Hardening Tests
@@ -359,6 +359,24 @@ revocation plans remain contract-only.
 raw payload-like metadata, geolocation coordinates, private local paths, and secret-like text are rejected.
 static frontend verifier rejects expanded device capability and mobile permission/background-service route drift.
 Foundation Gate rejects expanded device capability backend routes and keeps OpenAPI path count at 74.
-M21 remains planned/provisional.
+M21 is implemented/released by v0.25.0 as OpenWebUI Bridge + Chat Shell Integration Contract only.
 No Device Capability Broker runtime implementation, mobile app, native build workflow, sensor API, OS permission code, backend API route, dependency, runtime execution, model/provider call, remote execution, plugin enablement, or architecture behavior change is added.
+```
+
+## v0.25.0 M21 OpenWebUI Bridge Contract Tests
+
+v0.25.0 adds contract/planning/validation tests only:
+
+```text
+OpenWebUI bridge docs exist.
+OpenWebUI is the preferred conversational web shell.
+OpenWebUI is not the agent brain.
+Python Agent Core remains authority.
+chat ingress/egress contracts are summary/ref/redacted-metadata only.
+raw content, secret-like metadata, arbitrary approval authority, direct tool execution, direct memory writes, runtime calls, provider calls, action execution, and approval grants are rejected.
+static verifiers reject OpenWebUI runtime/config/dependency/route drift.
+Foundation Gate includes m21_openwebui_bridge_contract_safe.
+OpenAPI path count remains unchanged at 74.
+M22 and M23 remain planned/provisional.
+No OpenWebUI integration, deployment config, Docker config, backend API route, frontend feature, runtime execution, local LLM call, model/provider call, tool execution, memory write, file access, remote execution, browser automation, Computer Use, mobile sensor access, plugin enablement, dependency, or production authority is added.
 ```

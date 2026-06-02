@@ -102,6 +102,14 @@ FORBIDDEN_ENDPOINTS = [
     "/mobile/capture",
     "/mobile/pair",
     "/mobile/background-service",
+    "/openwebui",
+    "/openwebui/bridge",
+    "/openwebui/chat",
+    "/openwebui/execute",
+    "/openwebui/bridge/run",
+    "/chat/execute",
+    "/chat/run",
+    "/model-runtime/execute",
 ]
 
 DANGEROUS_BUTTON_LABELS = [
@@ -189,6 +197,8 @@ FORBIDDEN_FRONTEND_DEPENDENCIES = [
     '"electron"',
     '"playwright"',
     '"puppeteer"',
+    '"openwebui"',
+    '"open-webui"',
 ]
 
 SECRET_ASSIGNMENT = re.compile(

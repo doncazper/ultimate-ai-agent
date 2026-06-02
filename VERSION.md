@@ -1,16 +1,18 @@
 # Ultimate AI Agent Version
 
-Current active baseline: **v0.24.1**
+Current active baseline: **v0.25.0**
 
-v0.24.1 hardens M20 Device Capability Broker Contract safety. It strengthens
-contract validators, tests, documentation, static verification, and Foundation
-Gate coverage so every device capability remains contract-only/planned-disabled,
-enabled and implemented capability flags are rejected, raw payloads are
-blocked, silent/passive/background/continuous capture is rejected, OS permission
-integration and background services are blocked, device outputs remain
-untrusted control input, and M21 remains future. It adds no device capability
-runtime implementation, mobile app, Android app, iOS app, macOS app, native
-build workflow, OS permission runtime, sensor access, push notification
-runtime, background service runtime, device pairing runtime, backend API route,
-runtime execution, model/provider call, remote execution, plugin enablement,
-dependency, architecture behavior change, or production authority.
+v0.25.0 implements M21 OpenWebUI Bridge + Chat Shell Integration Contract as
+contract/planning/validation only. It adds Python contract models, validation
+helpers, safe manifest/plan builders, receipt planning, docs, tests, static
+verification, and Foundation Gate coverage so OpenWebUI is the preferred
+conversational web shell but never the agent brain. Python Agent Core remains
+authority. OpenAPI path count remains `74`.
+
+This release adds no OpenWebUI integration, deployment config, Docker config,
+OpenWebUI plugin/function/pipeline/tool/admin/auth/cookie/API key/admin token
+workflow, browser profile access, live OpenWebUI connection, backend API route,
+frontend feature, model/provider call, runtime execution, local LLM call, tool
+execution, memory write, file access, remote execution, browser automation,
+Computer Use, mobile sensor access, plugin enablement, dependency, or
+production authority. M22 and M23 remain planned/provisional.
