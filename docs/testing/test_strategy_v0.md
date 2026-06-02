@@ -212,6 +212,23 @@ Foundation Gate criterion m17_evidence_file_memory_viewer_safe exists and passes
 Backend OpenAPI path count remains unchanged at 74.
 ```
 
+## v0.21.1 M17 Evidence File Memory Viewer Safety Hardening Tests
+
+v0.21.1 adds focused frontend, verifier, and Foundation Gate hardening tests only:
+
+```text
+Alternate Evidence Viewer mock metadata can be selected and remains read-only.
+Alternate File Reference Viewer mock metadata can be selected and remains read-only.
+Alternate Memory Viewer mock metadata can be selected and remains recall-only.
+Selected summary cards expose accessible selected-state markers.
+All selected alternate metadata remains visibly mock, non-authoritative, and redacted summary-only.
+No file mutation, memory mutation, filesystem browsing, execute, run, reveal raw, or show raw controls appear.
+Static frontend verifier requires M17 hardening mock markers.
+Static frontend verifier requires M17 selected-state markers.
+Foundation Gate criterion m17_evidence_file_memory_viewer_hardening_safe exists and passes.
+Backend OpenAPI path count remains unchanged at 74.
+```
+
 ## v0.18.3 OpenWebUI and CCC Strategy Tests
 
 v0.18.3 adds docs/verifier/gate tests only:

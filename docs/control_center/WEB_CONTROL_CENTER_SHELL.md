@@ -1,6 +1,6 @@
 # Web Control Center Shell
 
-Status: Active for v0.21.0 / M17 Evidence/File/Memory Viewer.
+Status: Active for v0.21.1 / M17 Evidence/File/Memory Viewer.
 
 M13 adds a local TypeScript React/Vite shell under `apps/control-center/` for reading existing backend Control Center and runtime readiness APIs. It is the first web UI surface for the future Control Center, but it is not a production Control Center and it has no authority to execute actions.
 
@@ -118,3 +118,9 @@ v0.21.0 adds read-only CCC Web routes for `/evidence`, `/files`, and `/memory`.
 The M17 routes use visibly mock, non-authoritative fallback data until a future reviewed backend contract adds safe live summaries. They show safe refs, redacted summary metadata, data classification labels, provenance summaries, stale/conflict indicators, and relation refs only. Memory is recall, not authority; canonical files and governed source systems outrank memory.
 
 M17 adds no backend route, OpenAPI path count change, file mutation, memory mutation, filesystem browsing, raw prompt display, raw secret display, raw file display, raw memory display, raw evidence payload display, raw credential display, raw provider payload display, embeddings, vector DB, memory provider implementation, execution control, dependency, native build workflow, or production authority.
+
+## v0.21.1 M17 Evidence File Memory Viewer Safety Hardening
+
+v0.21.1 hardens the existing M17 routes with alternate safe mock refs, accessible selected-card reviewability, frontend tests, static verifier checks, docs, browser smoke reviewability, and Foundation Gate criteria.
+
+`/evidence`, `/files`, and `/memory` remain frontend-only, read-only, visibly mock, non-authoritative, and redacted summary-only. OpenAPI path count remains `74`, and no backend API route is added.

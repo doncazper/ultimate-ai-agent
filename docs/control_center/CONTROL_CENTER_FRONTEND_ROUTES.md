@@ -1,6 +1,6 @@
 # Control Center Frontend Routes
 
-Status: Active for v0.21.0 / M17 Evidence/File/Memory Viewer.
+Status: Active for v0.21.1 / M17 Evidence/File/Memory Viewer.
 
 The frontend shell is served by Vite during local development. It is not mounted by the Python API and does not add OpenAPI paths.
 
@@ -51,7 +51,7 @@ Forbidden frontend route/API targets:
 
 v0.17.4 keeps the frontend route set unchanged and adds local browser smoke UX polish plus safe reporting documentation. `scripts/verify_control_center_frontend.py` rejects forbidden execute, plugin enablement, runtime execution, remote dispatch, mobile sensor endpoint strings, analytics/SaaS SDK markers, sensitive browser APIs, and unsafe fixtures in frontend implementation files. `scripts/verify_control_center_browser_smoke_readiness.py` verifies that browser smoke readiness and reporting remain manual local-only documentation.
 
-OpenAPI remains a backend contract. v0.21.0 changes only `info.version` to `0.21.0`; backend path count remains `74` with unique operation IDs.
+OpenAPI remains a backend contract. v0.21.1 changes only `info.version` to `0.21.1`; backend path count remains `74` with unique operation IDs.
 
 ## v0.18.0 M14 Connection Stabilization
 
@@ -119,3 +119,13 @@ v0.21.0 adds three frontend routes and no backend API paths:
 - `/memory`: Memory Viewer with recall-only memory ref summaries.
 
 These routes use safe mock fallback data, safe refs, redacted summary-only copy, and visible non-authoritative markers. They do not add dynamic backend evidence, file, or memory detail routes; file mutation; memory mutation; filesystem browsing; raw prompt display; raw secret display; raw file display; raw memory display; raw evidence payload display; raw credential display; raw provider payload display; embeddings; vector DB; memory provider implementation; execution controls; or OpenAPI path count changes.
+
+## v0.21.1 M17 Evidence File Memory Viewer Safety Hardening
+
+v0.21.1 keeps the same frontend routes and no backend API paths:
+
+- `/evidence`
+- `/files`
+- `/memory`
+
+The hardening patch adds alternate safe mock refs, selected-card reviewability, tests, verifier checks, docs, and Foundation Gate criteria only.

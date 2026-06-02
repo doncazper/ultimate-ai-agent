@@ -1,6 +1,6 @@
 # Canonical Document Map
 
-Current active baseline: **v0.21.0**
+Current active baseline: **v0.21.1**
 
 This map links major systems to their canonical documentation. If a system has both canonical docs and runtime/API docs, canonical docs define principles and sequencing while runtime/API docs define current implementation boundaries.
 
@@ -36,7 +36,7 @@ This map links major systems to their canonical documentation. If a system has b
 | Mobile Companion | `docs/canonical/64_mobile_companion_and_device_capability_broker.md`, `docs/backlog/mobile_companion_backlog.md` |
 | Device Capability Broker | `docs/canonical/64_mobile_companion_and_device_capability_broker.md`, `docs/canonical/65_mobile_device_registry_and_sensor_permission_manifest.md`, `docs/backlog/device_capability_broker_backlog.md` |
 | Codex Plugin and External Tooling Governance | `docs/canonical/66_external_tooling_and_codex_plugin_governance.md`, `docs/tooling/CODEX_PLUGIN_CAPABILITY_INVENTORY.md`, `docs/tooling/CODEX_PLUGIN_RISK_POLICY.md`, `docs/backlog/codex_plugin_enablement_backlog.md` |
-| Foundation Gate | `docs/implementation/foundation_gate_implementation_plan_v0_21_0.md`, `docs/evals/foundation_gate_eval.md` |
+| Foundation Gate | `docs/implementation/foundation_gate_implementation_plan_v0_21_1.md`, `docs/evals/foundation_gate_eval.md` |
 | Testing Strategy | `docs/testing/test_strategy_v0.md`, `docs/testing/contract_test_matrix_v0_5_0.md`, `docs/testing/shadow_replay_plan_v0_5_0.md` |
 
 ## Source-of-Truth Hierarchy

@@ -217,6 +217,7 @@ class FoundationGateEvaluator:
             "m15_approval_receipt_event_ui_safe": self.check_m15_approval_receipt_event_ui_safe,
             "m16_event_timeline_trace_viewer_safe": self.check_m16_event_timeline_trace_viewer_safe,
             "m17_evidence_file_memory_viewer_safe": self.check_m17_evidence_file_memory_viewer_safe,
+            "m17_evidence_file_memory_viewer_hardening_safe": self.check_m17_evidence_file_memory_viewer_hardening_safe,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -3262,6 +3263,165 @@ class FoundationGateEvaluator:
             openapi_paths = app.openapi().get("paths", {})
         except Exception as exc:
             failures.append(f"M17 OpenAPI route guard could not generate schema: {exc}")
+        else:
+            failures.extend(m17_openapi_route_failures(openapi_paths))
+
+        script = self.root / "scripts/verify_control_center_frontend.py"
+        if script.exists():
+            spec = importlib.util.spec_from_file_location("verify_control_center_frontend", script)
+            if spec is None or spec.loader is None:
+                failures.append("could not load frontend safety verifier")
+            else:
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
+                failures.extend(module.verify(self.root))
+
+        return self._result(criterion, failures, required_files)
+
+    def check_m17_evidence_file_memory_viewer_hardening_safe(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        import importlib.util
+        from ultimate_ai_agent.api.app import app
+
+        required_files = [
+            "apps/control-center/src/App.test.tsx",
+            "apps/control-center/src/components/EvidenceFileMemoryViewerPanel.tsx",
+            "apps/control-center/src/mocks/controlCenterData.ts",
+            "scripts/verify_control_center_frontend.py",
+            "tests/test_control_center_frontend_safety_verifier.py",
+            "docs/control_center/EVIDENCE_FILE_MEMORY_VIEWER_SAFETY.md",
+            "docs/implementation/foundation_gate_implementation_plan_v0_21_1.md",
+            "docs/release_notes/v0_21_1.md",
+        ]
+        failures = [
+            f"missing M17 hardening file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        mock_text = self._read(self.root / "apps/control-center/src/mocks/controlCenterData.ts")
+        panel_text = self._read(self.root / "apps/control-center/src/components/EvidenceFileMemoryViewerPanel.tsx")
+        test_text = self._read(self.root / "apps/control-center/src/App.test.tsx")
+        verifier_text = self._read(self.root / "scripts/verify_control_center_frontend.py")
+        docs_text = "\n".join(
+            self._read(self.root / path)
+            for path in [
+                "docs/control_center/EVIDENCE_FILE_MEMORY_VIEWER_SAFETY.md",
+                "docs/control_center/LOCAL_BROWSER_SMOKE_REPORTING.md",
+                "docs/implementation/foundation_gate_implementation_plan_v0_21_1.md",
+                "docs/release_notes/v0_21_1.md",
+            ]
+        )
+
+        mock_fragments = [
+            "mock_evidence_ref_002",
+            "mock_file_ref_002",
+            "mock_memory_ref_002",
+            "memory_conflict_review_summary",
+            "redacted-evidence-summary.json",
+            "receipt_context",
+            "redacted_summary_only",
+            "MOCK_DATA_ONLY",
+            "NO_RAW_CONTENT",
+            "MEMORY_NOT_AUTHORITY",
+        ]
+        failures.extend(
+            f"M17 hardening mock fixture missing fragment: {fragment}"
+            for fragment in mock_fragments
+            if fragment not in mock_text
+        )
+
+        selected_state_fragments = [
+            "aria-current={selected ? \"true\" : undefined}",
+            "evidence summary",
+            "file ref summary",
+            "memory summary",
+        ]
+        failures.extend(
+            f"M17 hardening selected-state UI missing fragment: {fragment}"
+            for fragment in selected_state_fragments
+            if fragment not in panel_text
+        )
+
+        test_fragments = [
+            "keeps alternate M17 metadata selection read-only and redacted",
+            "mock_evidence_ref_002",
+            "mock_file_ref_002",
+            "mock_memory_ref_002",
+            "aria-current",
+            "redacted_summary_only",
+        ]
+        failures.extend(
+            f"M17 hardening frontend test missing fragment: {fragment}"
+            for fragment in test_fragments
+            if fragment not in test_text
+        )
+
+        verifier_fragments = [
+            "M17_HARDENING_MOCK_MARKERS",
+            "M17_HARDENING_SELECTED_STATE_MARKERS",
+            "M17 hardening mock marker missing",
+            "M17 hardening selected-state marker missing",
+        ]
+        failures.extend(
+            f"M17 hardening verifier missing fragment: {fragment}"
+            for fragment in verifier_fragments
+            if fragment not in verifier_text
+        )
+
+        doc_fragments = [
+            "v0.21.1",
+            "hardening",
+            "read-only",
+            "redacted summary-only",
+            "visibly mock",
+            "non-authoritative",
+            "OpenAPI path count remains `74`",
+            "no backend API route",
+            "no raw file",
+            "no raw memory",
+            "no raw evidence",
+            "no file mutation",
+            "no memory mutation",
+            "browser smoke",
+        ]
+        failures.extend(
+            f"M17 hardening docs missing fragment: {fragment}"
+            for fragment in doc_fragments
+            if fragment not in docs_text
+        )
+
+        forbidden_fragments = [
+            "/evidence/raw",
+            "/evidence/payload",
+            "/files/content",
+            "/files/write",
+            "/files/delete",
+            "/filesystem/browse",
+            "/memory/raw",
+            "/memory/content",
+            "/memory/write",
+            "/memory/delete",
+            "/memory/learn",
+            "/memory/forget",
+            "rawEvidencePayload",
+            "rawFileContent",
+            "rawMemoryContent",
+            "credentialRef",
+            "/Users/",
+            "/home/",
+        ]
+        combined = "\n".join([mock_text, panel_text])
+        failures.extend(
+            f"M17 hardening implementation contains forbidden fragment: {fragment}"
+            for fragment in forbidden_fragments
+            if fragment in combined
+        )
+
+        try:
+            openapi_paths = app.openapi().get("paths", {})
+        except Exception as exc:
+            failures.append(f"M17 hardening OpenAPI route guard could not generate schema: {exc}")
         else:
             failures.extend(m17_openapi_route_failures(openapi_paths))
 

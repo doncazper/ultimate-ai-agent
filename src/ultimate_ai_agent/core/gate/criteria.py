@@ -998,6 +998,15 @@ def default_foundation_gate_criteria() -> List[FoundationGateCriterion]:
             "critical",
         ),
         _criterion(
+            "m17_evidence_file_memory_viewer_hardening_safe",
+            "M17 Evidence File Memory Viewer Hardening Safe",
+            FoundationGateCategory.security,
+            "FoundationGateEvaluator.check_m17_evidence_file_memory_viewer_hardening_safe",
+            "M17 evidence, file ref, and memory viewers keep alternate mock refs visibly mock and redacted, expose accessible selected-card state, keep OpenAPI path count at 74, add no backend routes, and pass the frontend safety verifier.",
+            "M17 evidence/file/memory hardening is missing alternate safe refs, selected-state reviewability, frontend verifier coverage, or unchanged OpenAPI evidence.",
+            "critical",
+        ),
+        _criterion(
             "open_design_governance_docs_present",
             "Open Design Governance Docs Present",
             FoundationGateCategory.documentation,

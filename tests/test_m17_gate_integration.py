@@ -21,6 +21,22 @@ def test_m17_evidence_file_memory_viewer_criterion_exists_and_passes():
     assert report.passed_count == 1
 
 
+def test_m17_evidence_file_memory_viewer_hardening_criterion_exists_and_passes():
+    criteria = default_foundation_gate_criteria()
+    criteria_by_id = {criterion.criterion_id: criterion for criterion in criteria}
+
+    assert "m17_evidence_file_memory_viewer_hardening_safe" in criteria_by_id
+    criterion = criteria_by_id["m17_evidence_file_memory_viewer_hardening_safe"]
+    assert "alternate mock refs" in criterion.pass_condition
+    assert "selected-card state" in criterion.pass_condition
+    assert "OpenAPI path count at 74" in criterion.pass_condition
+
+    report = FoundationGateEvaluator().evaluate([criterion])
+
+    assert report.failed_count == 0
+    assert report.passed_count == 1
+
+
 def test_m17_openapi_route_guard_rejects_backend_knowledge_viewer_expansion():
     failures = m17_openapi_route_failures(
         {

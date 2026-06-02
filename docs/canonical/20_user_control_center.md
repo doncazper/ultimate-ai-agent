@@ -231,3 +231,11 @@ v0.21.0 adds frontend-only CCC Web routes for evidence, file ref, and memory ref
 The views show redacted summary-only data and visibly mock, non-authoritative fallback records. Memory is recall, not authority. Canonical files and governed source systems outrank memory.
 
 M17 adds no backend API route, OpenAPI path count change, file mutation, memory mutation, filesystem browsing, raw secret/prompt/file/memory/evidence/credential/provider payload display, embeddings, vector DB, memory provider implementation, runtime execution, model/provider call, remote dispatch, mobile sensor access, plugin enablement, dependency, native build workflow, or production Control Center authority.
+
+## v0.21.1 M17 Evidence File Memory Viewer Safety Hardening
+
+v0.21.1 hardens the existing frontend-only M17 surfaces. `/evidence`, `/files`, and `/memory` remain read-only, visibly mock, non-authoritative, and redacted summary-only.
+
+The patch adds alternate safe mock refs, accessible selected-card reviewability, frontend tests, static verifier checks, browser smoke reviewability, docs, and Foundation Gate criteria. OpenAPI path count remains `74`, and no backend API route is added.
+
+v0.21.1 adds no M18 local runtime smoke control surface, file mutation, memory mutation, filesystem browsing, raw secret/prompt/file/memory/evidence/credential/provider payload display, embeddings, vector DB, memory provider implementation, runtime execution, model/provider call, remote dispatch, mobile sensor access, plugin enablement, dependency, auth, cookies, analytics, SaaS SDK, native build workflow, or production Control Center authority.

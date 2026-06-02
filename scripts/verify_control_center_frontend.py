@@ -180,6 +180,22 @@ M17_KNOWLEDGE_BOUNDARY_MARKERS = [
     "No filesystem browsing is available",
 ]
 
+M17_HARDENING_MOCK_MARKERS = [
+    "mock_evidence_ref_002",
+    "mock_file_ref_002",
+    "mock_memory_ref_002",
+    "memory_conflict_review_summary",
+    "redacted-evidence-summary.json",
+    "receipt_context",
+]
+
+M17_HARDENING_SELECTED_STATE_MARKERS = [
+    "aria-current={selected ? \"true\" : undefined}",
+    "evidence summary",
+    "file ref summary",
+    "memory summary",
+]
+
 
 def verify(root: Path = ROOT) -> list[str]:
     failures: list[str] = []
@@ -254,6 +270,9 @@ def verify(root: Path = ROOT) -> list[str]:
         failures.extend(_m15_review_field_failures(mock_path.relative_to(root), mock_text))
         failures.extend(_m16_trace_field_failures(mock_path.relative_to(root), mock_text))
         failures.extend(_m17_knowledge_field_failures(mock_path.relative_to(root), mock_text))
+        for marker in M17_HARDENING_MOCK_MARKERS:
+            if marker.lower() not in mock_lowered:
+                failures.append(f"M17 hardening mock marker missing: {marker}")
 
     approval_panel = app_root / "src/components/ApprovalQueuePanel.tsx"
     if approval_panel.exists():
@@ -275,6 +294,9 @@ def verify(root: Path = ROOT) -> list[str]:
         for marker in M17_KNOWLEDGE_BOUNDARY_MARKERS:
             if marker not in text:
                 failures.append(f"M17 knowledge boundary copy missing in {knowledge_panel.relative_to(root)}: {marker}")
+        for marker in M17_HARDENING_SELECTED_STATE_MARKERS:
+            if marker not in text:
+                failures.append(f"M17 hardening selected-state marker missing in {knowledge_panel.relative_to(root)}: {marker}")
 
     endpoints = app_root / "src/api/endpoints.ts"
     base_url = app_root / "src/api/baseUrl.ts"

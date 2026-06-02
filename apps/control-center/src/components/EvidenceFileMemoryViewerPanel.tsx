@@ -163,7 +163,11 @@ function EvidenceRow({
   onSelect: (evidenceRef: string) => void;
 }) {
   return (
-    <article className={`review-card${selected ? " selected" : ""}`} aria-current={selected ? "true" : undefined}>
+    <article
+      className={`review-card${selected ? " selected" : ""}`}
+      aria-current={selected ? "true" : undefined}
+      aria-label={`${item.evidenceRef} evidence summary`}
+    >
       <div className="review-card-heading">
         <h3>{item.evidenceRef}</h3>
         <span>{item.confidenceStatus}</span>
@@ -189,7 +193,11 @@ function FileRefRow({
   onSelect: (fileRef: string) => void;
 }) {
   return (
-    <article className={`review-card${selected ? " selected" : ""}`} aria-current={selected ? "true" : undefined}>
+    <article
+      className={`review-card${selected ? " selected" : ""}`}
+      aria-current={selected ? "true" : undefined}
+      aria-label={`${item.fileRef} file ref summary`}
+    >
       <div className="review-card-heading">
         <h3>{item.fileRef}</h3>
         <span>{item.fileKind}</span>
@@ -215,7 +223,11 @@ function MemoryRow({
   onSelect: (memoryRef: string) => void;
 }) {
   return (
-    <article className={`review-card${selected ? " selected" : ""}`} aria-current={selected ? "true" : undefined}>
+    <article
+      className={`review-card${selected ? " selected" : ""}`}
+      aria-current={selected ? "true" : undefined}
+      aria-label={`${item.memoryRef} memory summary`}
+    >
       <div className="review-card-heading">
         <h3>{item.memoryRef}</h3>
         <span>{item.reviewStatus}</span>

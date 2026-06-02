@@ -1,6 +1,6 @@
 # Frontend Safety Policy
 
-Status: Active for v0.21.0 / M17 Evidence/File/Memory Viewer.
+Status: Active for v0.21.1 / M17 Evidence/File/Memory Viewer.
 
 The Web Control Center shell is a display and preview surface. The Python Agent Core remains the brain and source of policy enforcement.
 
@@ -138,3 +138,9 @@ M17 adds frontend-only `/evidence`, `/files`, and `/memory` routes. These routes
 They must not show raw prompts, raw secrets, raw file contents, raw memory contents, raw evidence payloads, raw credentials, raw provider payloads, or unreviewed tool arguments. They must not add file mutation, memory mutation, filesystem browsing, execution controls, approval execution, tool execution, backend routes, embeddings, vector DB, memory provider implementation, or production Control Center authority.
 
 Memory is recall, not authority. Canonical files and governed source systems outrank memory.
+
+## v0.21.1 M17 Evidence File Memory Viewer Safety Hardening
+
+v0.21.1 hardens M17 only. Alternate mock evidence, file ref, and memory ref entries must remain visibly mock, non-authoritative, redacted summary-only, and safe-ref based. Selected cards must expose accessible selected-state reviewability for browser smoke and tests.
+
+This patch adds no M18 surface, backend API route, OpenAPI path count change, file mutation, memory mutation, filesystem browsing, raw secret/prompt/file/memory/evidence/credential/provider payload display, embeddings, vector DB, memory provider implementation, runtime execution, model/provider calls, remote execution, mobile sensor access, plugin enablement, dependencies, auth, cookies, analytics, SaaS SDKs, native build workflow, or production Control Center authority.

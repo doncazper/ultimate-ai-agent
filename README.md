@@ -1,12 +1,12 @@
-# Ultimate AI Agent Canonical Bundle v0.21.0
+# Ultimate AI Agent Canonical Bundle v0.21.1
 
-This is the active project baseline after M17 Evidence/File/Memory Viewer.
+This is the active project baseline after v0.21.1 M17 Evidence/File/Memory Viewer safety hardening.
 
 Start here:
 
 ```text
-README_IMPORT_v0_21_0.md
-ultimate_ai_agent_master_plan_v0_21_0.md
+README_IMPORT_v0_21_1.md
+ultimate_ai_agent_master_plan_v0_21_1.md
 docs/DOCUMENTATION_INDEX.md
 docs/canonical/09_roadmap.md
 docs/canonical/CANONICAL_DOC_MAP.md
@@ -67,7 +67,7 @@ docs/runtime/RUNTIME_READINESS.md
 docs/runtime/MANUAL_SMOKE_REPORTS.md
 docs/runtime/RUNTIME_CAPABILITY_MATRIX.md
 docs/security/approval_authority.md
-docs/implementation/foundation_gate_implementation_plan_v0_21_0.md
+docs/implementation/foundation_gate_implementation_plan_v0_21_1.md
 docs/maintenance/documentation_integrity_checklist.md
 docs/tooling/CODEX_PLUGIN_CAPABILITY_INVENTORY.md
 docs/tooling/CODEX_PLUGIN_RISK_POLICY.md
@@ -181,3 +181,7 @@ Event timeline trace safety hardening rule:
 M17 Evidence/File/Memory Viewer rule:
 
 > v0.21.0 implements M17 Evidence/File/Memory Viewer in CCC Web only. It adds `/evidence`, `/files`, and `/memory` frontend routes with read-only, summary-only, redacted mock evidence refs, file refs, and memory refs. Memory is recall, not authority; canonical files and governed source systems outrank memory. This release adds no backend API route, OpenAPI path count change, file mutation, memory mutation, filesystem browsing, runtime execution, model/provider call, remote execution, mobile sensor access, plugin enablement, raw secret/prompt/file/memory/evidence/credential/provider payload display, dependency, native build workflow, or production Control Center authority.
+
+M17 Evidence/File/Memory Viewer safety hardening rule:
+
+> v0.21.1 hardens the existing M17 Evidence/File/Memory Viewer only. `/evidence`, `/files`, and `/memory` remain frontend-only, read-only, summary-only, visibly mock, non-authoritative, and redacted. This patch adds alternate safe mock refs, accessible selected-card reviewability, stronger frontend tests, static verifier checks, docs, and Foundation Gate criteria. OpenAPI path count remains `74`. This patch adds no M18 Local Runtime Status + Manual Smoke Control Surface, backend API route, file mutation, memory mutation, filesystem browsing, raw secret/prompt/file/memory/evidence/credential/provider payload display, embedding/vector DB/memory provider implementation, runtime execution, model/provider call, remote execution, mobile sensor access, plugin enablement, dependency, native build workflow, auth, cookies, analytics, SaaS SDK, or production Control Center authority.

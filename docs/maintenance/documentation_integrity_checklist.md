@@ -1,6 +1,6 @@
 # Documentation Integrity Checklist
 
-Status: Active maintenance checklist, v0.21.0
+Status: Active maintenance checklist, v0.21.1
 
 Run this checklist before every release that changes docs, roadmap, API metadata, runtime boundaries, or release status.
 
@@ -72,6 +72,7 @@ Run this checklist before every release that changes docs, roadmap, API metadata
 - v0.20.0 M16 Event Timeline + Run/Receipt Trace Viewer is frontend-only, read-only, redacted summary-only, uses safe refs/evidence summaries, keeps OpenAPI path count unchanged, and adds no execution, backend route, raw payload display, external telemetry export, dependency, or production authority.
 - v0.20.1 M16 trace/redaction safety hardening is frontend/test/verifier/Foundation Gate/docs only, keeps OpenAPI path count unchanged, documents generated build-output hygiene, and adds no M17 viewer, execution, backend route, raw payload display, telemetry export, dependency, or production authority.
 - v0.21.0 M17 Evidence/File/Memory Viewer is frontend-only, read-only, redacted summary-only, uses safe refs and memory recall-only summaries, keeps OpenAPI path count unchanged, and adds no file mutation, memory mutation, filesystem browsing, backend route, raw payload display, embedding/vector DB/memory provider implementation, dependency, or production authority.
+- v0.21.1 M17 Evidence/File/Memory Viewer safety hardening is frontend/test/verifier/Foundation Gate/docs only, keeps OpenAPI path count unchanged at 74, and adds no M18 surface, backend route, raw payload display, file mutation, memory mutation, filesystem browsing, embedding/vector DB/memory provider implementation, dependency, auth, cookies, analytics, SaaS SDK, or production authority.
 - future post-M20 milestone prompts check `docs/roadmap/CAPABILITY_LAYERING_STRATEGY.md`.
 - future post-M20 milestone prompts check `docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md`.
 - future post-M20 milestone prompts check `docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md`.

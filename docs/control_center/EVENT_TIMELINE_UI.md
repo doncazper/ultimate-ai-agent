@@ -1,6 +1,6 @@
 # Event Timeline UI
 
-Status: Active for v0.21.0; M16 Event Timeline remains read-only.
+Status: Active for v0.21.1; M16 Event Timeline remains read-only.
 
 The Event Timeline UI is a CCC Web read-only page at `/events/timeline`. It displays redacted timeline summaries for events, runs, receipts, and Foundation Gate evidence refs.
 

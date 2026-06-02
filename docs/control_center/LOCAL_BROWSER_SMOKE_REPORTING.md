@@ -1,8 +1,10 @@
 # Local Browser Smoke Reporting
 
-Status: Active for v0.21.0; local browser smoke reporting was added in v0.17.4.
+Status: Active for v0.21.1; local browser smoke reporting was added in v0.17.4.
 
 This document defines the safe local browser smoke report format for the Web Control Center shell. A local browser smoke report is local-only, optional, non-authoritative, and never a substitute for tests, static verifiers, OpenAPI verification, or Foundation Gate.
+
+v0.21.1 browser smoke reviewability includes `/evidence`, `/files`, and `/memory`: each route should show visibly mock, non-authoritative, redacted summary-only data, allow selecting alternate safe metadata cards, expose selected-card state, and show no mutation, raw-content, filesystem browsing, execution, auth, cookie, analytics, or production authority controls.
 
 Allowed report scope:
 

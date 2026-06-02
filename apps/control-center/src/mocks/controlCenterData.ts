@@ -12,7 +12,7 @@ export const mockControlCenterData: ControlCenterData = {
   },
   manifest: {
     manifest_id: "mock_control_center_manifest_m17",
-    version: "0.21.0",
+    version: "0.21.1",
     generated_at: "2026-01-01T00:00:00Z",
     declared_capabilities: [
       "control_center_read_only_dashboard",
@@ -141,7 +141,7 @@ export const mockControlCenterData: ControlCenterData = {
   },
   dashboard: {
     snapshot_id: "mock_control_center_dashboard_m17",
-    baseline_version: "0.21.0",
+    baseline_version: "0.21.1",
     generated_at: "2026-01-01T00:00:00Z",
     system_status: {
       label: "Control Center",
@@ -233,7 +233,7 @@ export const mockControlCenterData: ControlCenterData = {
   },
   runtimeReadiness: {
     report_id: "mock_runtime_readiness_m17",
-    baseline_version: "0.21.0",
+    baseline_version: "0.21.1",
     status: "report_only",
     production_ready: false,
     real_model_runtime_ready: false,
@@ -247,7 +247,7 @@ export const mockControlCenterData: ControlCenterData = {
   },
   capabilityMatrix: {
     matrix_id: "mock_runtime_capability_matrix_m17",
-    baseline_version: "0.21.0",
+    baseline_version: "0.21.1",
     metadata: { mock: true, no_model_was_called: true },
     entries: [
       {
@@ -522,6 +522,28 @@ export const mockControlCenterData: ControlCenterData = {
         previewOnly: true,
         readOnly: true,
         mock: true
+      },
+      {
+        evidenceRef: "mock_evidence_ref_002",
+        evidenceType: "memory_conflict_review_summary",
+        sourceType: "receipt_event_summary",
+        sourceRef: "mock_source_ref_receipt_002",
+        claimRefs: ["mock_claim_ref_002"],
+        eventRefs: ["mock_event_ref_002"],
+        receiptRefs: ["mock_receipt_ref_002"],
+        fileRefs: ["mock_file_ref_002"],
+        memoryRefs: ["mock_memory_ref_002"],
+        confidenceStatus: "conflict_review",
+        redactionStatus: "redacted_summary_only",
+        dataClassification: "internal",
+        safeSummary:
+          "Redacted evidence summary flags a memory conflict for review without exposing source material.",
+        provenanceSummary:
+          "Receipt and event refs provide review context while governed source records remain the decision boundary.",
+        timestamp: "2026-01-01T00:25:00Z",
+        previewOnly: true,
+        readOnly: true,
+        mock: true
       }
     ],
     fileRefs: [
@@ -538,6 +560,24 @@ export const mockControlCenterData: ControlCenterData = {
         redactionStatus: "redacted_summary_only",
         safeMetadataSummary:
           "File ref summary shows a safe label, size summary, and related refs without file body text.",
+        pathDisclosure: "redacted_safe_label_only",
+        previewOnly: true,
+        readOnly: true,
+        mock: true
+      },
+      {
+        fileRef: "mock_file_ref_002",
+        fileKind: "evidence_manifest",
+        safeFilename: "redacted-evidence-summary.json",
+        sizeSummary: "8 KB redacted metadata",
+        dataClassification: "internal",
+        sourceSurface: "CCC Web mock surface",
+        eventRefs: ["mock_event_ref_002"],
+        receiptRefs: ["mock_receipt_ref_002"],
+        evidenceRefs: ["mock_evidence_ref_002"],
+        redactionStatus: "redacted_summary_only",
+        safeMetadataSummary:
+          "Alternate file ref summary shows safe metadata and related refs without path or body disclosure.",
         pathDisclosure: "redacted_safe_label_only",
         previewOnly: true,
         readOnly: true,
@@ -562,6 +602,27 @@ export const mockControlCenterData: ControlCenterData = {
         relatedEvidenceRefs: ["mock_evidence_ref_001"],
         authorityNotice:
           "Memory summary remains recall-only. Governed source refs outrank it.",
+        previewOnly: true,
+        readOnly: true,
+        mock: true
+      },
+      {
+        memoryRef: "mock_memory_ref_002",
+        memoryType: "receipt_context",
+        sourceRefs: ["mock_evidence_ref_002", "mock_file_ref_002"],
+        confidenceStatus: "low_confidence",
+        reviewStatus: "conflict_review",
+        staleStatus: "Review freshness",
+        conflictStatus: "Conflict indicator: event receipt refs outrank memory",
+        dataClassification: "internal",
+        redactionStatus: "redacted_summary_only",
+        safeSummary:
+          "Alternate redacted memory summary records recall context without exposing stored memory text.",
+        relatedEventRefs: ["mock_event_ref_002"],
+        relatedReceiptRefs: ["mock_receipt_ref_002"],
+        relatedEvidenceRefs: ["mock_evidence_ref_002"],
+        authorityNotice:
+          "Memory summary remains recall-only. Governed event and receipt refs outrank it.",
         previewOnly: true,
         readOnly: true,
         mock: true

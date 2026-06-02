@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 import { API_ENDPOINTS, isAllowedReadEndpoint, isPreviewEndpoint, READ_ENDPOINTS } from "./api/endpoints";
@@ -300,6 +300,54 @@ describe("Web Control Center shell", () => {
     }
     expect(screen.queryByText(/raw memory content/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/authoritative truth/i)).not.toBeInTheDocument();
+  });
+
+  it("keeps alternate M17 metadata selection read-only and redacted", async () => {
+    for (const route of ["/evidence", "/files", "/memory"]) {
+      cleanup();
+      mockFetchWithFallback();
+      window.history.pushState({}, "", route);
+      render(<App />);
+
+      await waitFor(() => {
+        expect(screen.getAllByRole("button", { name: /view metadata/i }).length).toBeGreaterThan(1);
+      });
+      const metadataButtons = screen.getAllByRole("button", { name: /view metadata/i });
+      fireEvent.click(metadataButtons[1]);
+
+      const expectedRef =
+        route === "/evidence"
+          ? "mock_evidence_ref_002"
+          : route === "/files"
+            ? "mock_file_ref_002"
+            : "mock_memory_ref_002";
+      expect(screen.getAllByRole("heading", { name: expectedRef }).length).toBeGreaterThan(0);
+      expect(screen.getByRole("article", { name: new RegExp(expectedRef, "i") })).toHaveAttribute(
+        "aria-current",
+        "true"
+      );
+      expect(screen.getAllByText(/redacted_summary_only/i).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(/MOCK_DATA_ONLY/i).length).toBeGreaterThan(0);
+
+      for (const label of [
+        /^execute$/i,
+        /^run$/i,
+        /write file/i,
+        /delete file/i,
+        /browse filesystem/i,
+        /edit memory/i,
+        /delete memory/i,
+        /reveal raw/i,
+        /show raw/i
+      ]) {
+        expect(screen.queryByRole("button", { name: label })).not.toBeInTheDocument();
+      }
+      expect(screen.queryByText(/raw evidence payload/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/raw file content/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/raw memory content/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(new RegExp("/Users/", "i"))).not.toBeInTheDocument();
+      expect(screen.queryByText(/\/home\//i)).not.toBeInTheDocument();
+    }
   });
 
   it("submits action preview only to the preview endpoint", async () => {

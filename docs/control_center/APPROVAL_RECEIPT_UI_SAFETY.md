@@ -1,6 +1,6 @@
 # Approval Receipt UI Safety
 
-Status: Active for v0.21.0; M15 Approval Queue + Receipt/Event Viewer UI remains read-only and M16/M17 surfaces are separate.
+Status: Active for v0.21.1; M15 Approval Queue + Receipt/Event Viewer UI remains read-only and M16/M17 surfaces are separate.
 
 M15 safety boundary:
 

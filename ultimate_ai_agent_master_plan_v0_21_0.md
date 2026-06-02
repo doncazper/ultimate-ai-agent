@@ -1,6 +1,6 @@
 # Ultimate AI Agent Master Plan v0.21.0
 
-Status: Current master plan for v0.21.0.
+Status: Historical master plan for v0.21.0.
 
 v0.21.0 implements M17 Evidence/File/Memory Viewer as a frontend-only CCC Web milestone.
 
