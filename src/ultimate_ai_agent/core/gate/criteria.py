@@ -980,6 +980,15 @@ def default_foundation_gate_criteria() -> List[FoundationGateCriterion]:
             "critical",
         ),
         _criterion(
+            "m16_event_timeline_trace_viewer_safe",
+            "M16 Event Timeline Trace Viewer Safe",
+            FoundationGateCategory.security,
+            "FoundationGateEvaluator.check_m16_event_timeline_trace_viewer_safe",
+            "Event timeline and run/receipt trace viewer files exist, remain read-only/preview-only, show a redacted timeline with safe refs and Foundation Gate evidence summaries, expose no execution or export controls, reject raw payloads and credential-like fields, and pass the frontend safety verifier.",
+            "M16 event timeline or run/receipt trace viewer is missing or violates the read-only redaction safety boundary.",
+            "critical",
+        ),
+        _criterion(
             "open_design_governance_docs_present",
             "Open Design Governance Docs Present",
             FoundationGateCategory.documentation,

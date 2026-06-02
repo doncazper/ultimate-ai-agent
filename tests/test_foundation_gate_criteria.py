@@ -34,6 +34,7 @@ def test_default_foundation_gate_criteria_cover_m6_acceptance_surface():
         "openwebui_ccc_strategy_docs_present",
         "post_m20_roadmap_projection_present",
         "m15_approval_receipt_event_ui_safe",
+        "m16_event_timeline_trace_viewer_safe",
         "roadmap_milestone_charters_current",
         "documentation_integrity_current",
         "codex_plugin_governance_docs_present",

@@ -11,13 +11,14 @@ export const mockControlCenterData: ControlCenterData = {
     warnings: ["MOCK_DATA_ONLY", "NO_PRODUCTION_AUTHORITY"]
   },
   manifest: {
-    manifest_id: "mock_control_center_manifest_m15",
-    version: "0.19.1",
+    manifest_id: "mock_control_center_manifest_m16",
+    version: "0.20.0",
     generated_at: "2026-01-01T00:00:00Z",
     declared_capabilities: [
       "control_center_read_only_dashboard",
       "control_center_action_preview",
-      "control_center_m15_review_preview"
+      "control_center_m15_review_preview",
+      "control_center_m16_timeline_trace_preview"
     ],
     blocked_capabilities: [
       "runtime_execution",
@@ -76,6 +77,17 @@ export const mockControlCenterData: ControlCenterData = {
         metadata: { mock: true, redacted_summary_only: true }
       },
       {
+        surface: "event_timeline_trace_viewer",
+        status: "preview_only",
+        description: "Mock event timeline and run/receipt trace summaries for M16.",
+        route_refs: [],
+        execution_allowed: false,
+        mutation_allowed: false,
+        credential_resolution_allowed: false,
+        approval_grant_allowed: false,
+        metadata: { mock: true, redacted_summary_only: true, external_export_allowed: false }
+      },
+      {
         surface: "remote_workers",
         status: "dry_run_only",
         description: "Remote worker controls remain dry-run-only.",
@@ -111,8 +123,8 @@ export const mockControlCenterData: ControlCenterData = {
     ]
   },
   dashboard: {
-    snapshot_id: "mock_control_center_dashboard_m15",
-    baseline_version: "0.19.1",
+    snapshot_id: "mock_control_center_dashboard_m16",
+    baseline_version: "0.20.0",
     generated_at: "2026-01-01T00:00:00Z",
     system_status: {
       label: "Control Center",
@@ -203,22 +215,22 @@ export const mockControlCenterData: ControlCenterData = {
     ]
   },
   runtimeReadiness: {
-    report_id: "mock_runtime_readiness_m15",
-    baseline_version: "0.19.1",
+    report_id: "mock_runtime_readiness_m16",
+    baseline_version: "0.20.0",
     status: "report_only",
     production_ready: false,
     real_model_runtime_ready: false,
     remote_execution_ready: false,
     mobile_sensor_ready: false,
     plugin_or_native_build_ready: false,
-    capability_matrix_ref: "mock_runtime_capability_matrix_m15",
+    capability_matrix_ref: "mock_runtime_capability_matrix_m16",
     warnings: ["MOCK_DATA_ONLY"],
     blockers: [],
     metadata: { mock: true, model_output_authoritative: false }
   },
   capabilityMatrix: {
-    matrix_id: "mock_runtime_capability_matrix_m15",
-    baseline_version: "0.19.1",
+    matrix_id: "mock_runtime_capability_matrix_m16",
+    baseline_version: "0.20.0",
     metadata: { mock: true, no_model_was_called: true },
     entries: [
       {
@@ -367,6 +379,92 @@ export const mockControlCenterData: ControlCenterData = {
         previewOnly: true,
         readOnly: true,
         mock: true
+      }
+    ]
+  },
+  m16Trace: {
+    status: "mock_preview_only",
+    readOnly: true,
+    previewOnly: true,
+    mock: true,
+    nonAuthoritative: true,
+    boundarySummary:
+      "Trace summaries use refs and safe messages only; Python Agent Core and Event Ledger remain source of truth.",
+    warningCodes: ["MOCK_DATA_ONLY", "NO_PRODUCTION_AUTHORITY", "REDACTED_SUMMARY_ONLY", "NO_EXTERNAL_EXPORT"],
+    timelineEvents: [
+      {
+        eventRef: "mock_event_ref_001",
+        eventType: "approval_review_preview",
+        sourceSurface: "CCC Web mock surface",
+        actorSummary: "Local developer session summary",
+        timestamp: "2026-01-01T00:02:00Z",
+        status: "summary_recorded",
+        runRef: "mock_run_ref_001",
+        correlationRef: "mock_correlation_ref_001",
+        childEventRefs: ["mock_event_ref_002"],
+        receiptRefs: ["mock_receipt_ref_001"],
+        evidenceRefs: ["mock_evidence_ref_gate_001"],
+        redactionStatus: "redacted_summary_only",
+        safeMessage: "Timeline event is summary metadata only; no execution path is available.",
+        previewOnly: true,
+        readOnly: true,
+        mock: true
+      },
+      {
+        eventRef: "mock_event_ref_002",
+        eventType: "receipt_summary_view",
+        sourceSurface: "CCC Web mock surface",
+        actorSummary: "Control Center mock reviewer",
+        timestamp: "2026-01-01T00:12:00Z",
+        status: "summary_only",
+        runRef: "mock_run_ref_001",
+        correlationRef: "mock_correlation_ref_001",
+        parentEventRef: "mock_event_ref_001",
+        childEventRefs: [],
+        receiptRefs: ["mock_receipt_ref_002"],
+        evidenceRefs: ["mock_evidence_ref_gate_001"],
+        redactionStatus: "redacted_summary_only",
+        safeMessage: "Trace relation is safe display metadata only.",
+        previewOnly: true,
+        readOnly: true,
+        mock: true
+      }
+    ],
+    traceRelations: [
+      {
+        relationRef: "mock_relation_ref_001",
+        relationType: "child",
+        fromRef: "mock_event_ref_001",
+        toRef: "mock_event_ref_002",
+        safeSummary: "Event summary review followed the approval review preview.",
+        redactionStatus: "redacted_summary_only"
+      },
+      {
+        relationRef: "mock_relation_ref_002",
+        relationType: "receipt",
+        fromRef: "mock_event_ref_001",
+        toRef: "mock_receipt_ref_001",
+        safeSummary: "Receipt summary is linked by ref only.",
+        redactionStatus: "redacted_summary_only"
+      },
+      {
+        relationRef: "mock_relation_ref_003",
+        relationType: "evidence",
+        fromRef: "mock_event_ref_001",
+        toRef: "mock_evidence_ref_gate_001",
+        safeSummary: "Foundation Gate evidence summary is linked by ref only.",
+        redactionStatus: "redacted_summary_only"
+      }
+    ],
+    foundationGateEvidence: [
+      {
+        evidenceRef: "mock_evidence_ref_gate_001",
+        criterionRef: "m16_event_timeline_trace_viewer_safe",
+        status: "mock_passed",
+        receiptRefs: ["mock_receipt_ref_001"],
+        eventRefs: ["mock_event_ref_001", "mock_event_ref_002"],
+        safeSummary: "Mock Foundation Gate evidence confirms timeline trace summaries stay read-only and redacted.",
+        redactionStatus: "redacted_summary_only"
       }
     ]
   }

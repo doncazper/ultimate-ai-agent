@@ -1,6 +1,6 @@
 # Approval Queue UI
 
-Status: Active for v0.19.1 / M15 Approval Queue + Receipt/Event Viewer UI safety hardening.
+Status: Active for v0.20.0; M15 Approval Queue + Receipt/Event Viewer UI remains read-only and M16 timeline/trace is separate.
 
 The Approval Queue UI is a read-only and preview-only CCC Web surface under `apps/control-center`. It helps a user inspect approval request summaries and selected approval details without becoming approval authority.
 

@@ -163,6 +163,7 @@ class FoundationGateEvaluator:
             "m14_connection_states_visible_and_safe": self.check_m14_connection_states_visible_and_safe,
             "m14_backend_api_contract_unchanged": self.check_m14_backend_api_contract_unchanged,
             "m15_approval_receipt_event_ui_safe": self.check_m15_approval_receipt_event_ui_safe,
+            "m16_event_timeline_trace_viewer_safe": self.check_m16_event_timeline_trace_viewer_safe,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -2955,6 +2956,112 @@ class FoundationGateEvaluator:
             "credentialhandle",
         ]
         failures.extend(f"M15 UI contains forbidden fragment: {fragment}" for fragment in forbidden_fragments if fragment in lowered)
+
+        script = self.root / "scripts/verify_control_center_frontend.py"
+        if script.exists():
+            spec = importlib.util.spec_from_file_location("verify_control_center_frontend", script)
+            if spec is None or spec.loader is None:
+                failures.append("could not load frontend safety verifier")
+            else:
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
+                failures.extend(module.verify(self.root))
+
+        return self._result(criterion, failures, required_files)
+
+    def check_m16_event_timeline_trace_viewer_safe(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        import importlib.util
+
+        required_files = [
+            "apps/control-center/src/components/EventTimelineTracePanel.tsx",
+            "apps/control-center/src/routes.tsx",
+            "apps/control-center/src/api/types.ts",
+            "apps/control-center/src/mocks/controlCenterData.ts",
+            "scripts/verify_control_center_frontend.py",
+            "docs/control_center/EVENT_TIMELINE_UI.md",
+            "docs/control_center/RUN_RECEIPT_TRACE_VIEWER.md",
+            "docs/control_center/TRACE_REDACTION_POLICY.md",
+        ]
+        implementation_files = [
+            "apps/control-center/src/components/EventTimelineTracePanel.tsx",
+            "apps/control-center/src/routes.tsx",
+            "apps/control-center/src/api/types.ts",
+            "apps/control-center/src/mocks/controlCenterData.ts",
+        ]
+        failures = [f"missing M16 timeline trace file: {path}" for path in required_files if not (self.root / path).exists()]
+        components = "\n".join(self._read(self.root / path) for path in implementation_files if (self.root / path).exists())
+        lowered = components.lower().replace(" ", "")
+
+        required_fragments = [
+            "EventTimelineTracePanel",
+            'path: "/events/timeline"',
+            "Event Timeline",
+            "M16 trace surface",
+            "Timeline and trace views are read-only",
+            "Trace detail is redacted summary metadata only",
+            "No trace export or external telemetry is available",
+            "mock_run_ref_001",
+            "mock_correlation_ref_001",
+            "mock_event_ref_001",
+            "mock_receipt_ref_001",
+            "mock_evidence_ref_gate_001",
+            "redacted_summary_only",
+            "m16Trace",
+            "traceRelations",
+            "foundationGateEvidence",
+            "NO_EXTERNAL_EXPORT",
+            "external_export_allowed: false",
+        ]
+        failures.extend(f"M16 UI missing required fragment: {fragment}" for fragment in required_fragments if fragment not in components)
+
+        forbidden_fragments = [
+            "/events/timeline/raw",
+            "/events/timeline/export",
+            "/traces/raw",
+            "/traces/export",
+            "/runs/execute",
+            "/control-center/traces/raw",
+            "/control-center/traces/export",
+            "<button>approve</button>",
+            "<button>deny</button>",
+            "<button>execute</button>",
+            "<button>run</button>",
+            "<button>send</button>",
+            "<button>deploy</button>",
+            "<button>enable</button>",
+            "localstorage",
+            "sessionstorage",
+            "document.cookie",
+            'type="password"',
+            'name="apikey"',
+            'name="token"',
+            "rawpromptbody",
+            "rawfilecontent",
+            "rawmemorycontent",
+            "raweventpayload",
+            "rawreceiptpayload",
+            "rawproviderpayload",
+            "credentialref",
+            "credentialhandle",
+        ]
+        failures.extend(f"M16 UI contains forbidden fragment: {fragment}" for fragment in forbidden_fragments if fragment in lowered)
+
+        docs_text = "\n".join(self._read(self.root / path) for path in required_files if path.startswith("docs/"))
+        doc_fragments = [
+            "read-only",
+            "summary-only",
+            "safe refs",
+            "No backend route is added",
+            "no raw prompts",
+            "no raw secrets",
+            "no raw file contents",
+            "no raw memory contents",
+            "no raw credentials",
+            "no raw provider payloads",
+            "no execution controls",
+            "no external telemetry export",
+        ]
+        failures.extend(f"M16 docs missing required fragment: {fragment}" for fragment in doc_fragments if fragment not in docs_text)
 
         script = self.root / "scripts/verify_control_center_frontend.py"
         if script.exists():

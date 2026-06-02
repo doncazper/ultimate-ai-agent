@@ -19,6 +19,7 @@ REQUIRED_FILES = [
     "src/components/ApprovalQueuePanel.tsx",
     "src/components/ReceiptViewerPanel.tsx",
     "src/components/EventViewerPanel.tsx",
+    "src/components/EventTimelineTracePanel.tsx",
     "src/mocks/controlCenterData.ts",
     "src/App.test.tsx",
 ]
@@ -41,6 +42,13 @@ FORBIDDEN_ENDPOINTS = [
     "/control-center/remote-workers/dispatch",
     "/mobile/sensors",
     "/control-center/mobile/sensors",
+    "/events/timeline/raw",
+    "/events/timeline/export",
+    "/traces/raw",
+    "/traces/export",
+    "/runs/execute",
+    "/control-center/traces/raw",
+    "/control-center/traces/export",
 ]
 
 DANGEROUS_BUTTON_LABELS = ["Approve", "Deny", "Execute", "Run", "Send", "Deploy", "Enable", "Install", "Publish"]
@@ -107,11 +115,22 @@ RAW_M15_REVIEW_FIELD = re.compile(
     r"(?:prompt|file|memory|event|receipt|provider|secret)(?:Body|Payload|Content))\b"
 )
 CREDENTIAL_M15_REVIEW_FIELD = re.compile(r"\b(?:credentialRef|credentialHandle|apiKey|authToken|password|secretRef)\b")
+RAW_M16_TRACE_FIELD = re.compile(
+    r"\b(raw(?:Prompt|File|Memory|Event|Receipt|Credential|Provider|Secret)[A-Za-z0-9_]*|"
+    r"(?:prompt|file|memory|event|receipt|provider|secret|trace)(?:Body|Payload|Content))\b"
+)
+CREDENTIAL_M16_TRACE_FIELD = re.compile(r"\b(?:credentialRef|credentialHandle|apiKey|authToken|password|secretRef)\b")
 
 M15_AUTHORITY_BOUNDARY_MARKERS = [
     "This UI cannot grant, deny, execute, or bypass approvals",
     "Approval refs are identifiers only and never authority",
     "Python Agent Core remains the only approval authority",
+]
+
+M16_TRACE_BOUNDARY_MARKERS = [
+    "Timeline and trace views are read-only",
+    "Trace detail is redacted summary metadata only",
+    "No trace export or external telemetry is available",
 ]
 
 
@@ -170,9 +189,12 @@ def verify(root: Path = ROOT) -> list[str]:
             "plugin_enablement_allowed: false",
             "model_output_authoritative: false",
             "m15review",
+            "m16trace",
             "non-authoritative",
             "redacted_summary_only",
             "approvalgrantallowed: false",
+            "external_export_allowed: false",
+            "no_external_export",
         ]
         normalized_mock = mock_lowered.replace("_", "").replace(" ", "")
         for fragment in required_mock_safety:
@@ -180,6 +202,7 @@ def verify(root: Path = ROOT) -> list[str]:
             if normalized_fragment not in normalized_mock and fragment not in mock_lowered:
                 failures.append(f"mock fixture missing safety marker: {fragment}")
         failures.extend(_m15_review_field_failures(mock_path.relative_to(root), mock_text))
+        failures.extend(_m16_trace_field_failures(mock_path.relative_to(root), mock_text))
 
     approval_panel = app_root / "src/components/ApprovalQueuePanel.tsx"
     if approval_panel.exists():
@@ -187,6 +210,13 @@ def verify(root: Path = ROOT) -> list[str]:
         for marker in M15_AUTHORITY_BOUNDARY_MARKERS:
             if marker not in text:
                 failures.append(f"approval authority boundary copy missing in {approval_panel.relative_to(root)}: {marker}")
+
+    timeline_panel = app_root / "src/components/EventTimelineTracePanel.tsx"
+    if timeline_panel.exists():
+        text = timeline_panel.read_text(encoding="utf-8")
+        for marker in M16_TRACE_BOUNDARY_MARKERS:
+            if marker not in text:
+                failures.append(f"M16 trace boundary copy missing in {timeline_panel.relative_to(root)}: {marker}")
 
     endpoints = app_root / "src/api/endpoints.ts"
     base_url = app_root / "src/api/baseUrl.ts"
@@ -315,6 +345,19 @@ def _m15_review_field_failures(rel: Path, text: str) -> list[str]:
         failures.append(f"raw M15 review field in {rel}: {match.group(0)}")
     for match in CREDENTIAL_M15_REVIEW_FIELD.finditer(m15_text):
         failures.append(f"credential-like M15 review field in {rel}: {match.group(0)}")
+    return failures
+
+
+def _m16_trace_field_failures(rel: Path, text: str) -> list[str]:
+    failures: list[str] = []
+    m16_index = text.lower().find("m16trace")
+    if m16_index == -1:
+        return failures
+    m16_text = text[m16_index:]
+    for match in RAW_M16_TRACE_FIELD.finditer(m16_text):
+        failures.append(f"raw M16 trace field in {rel}: {match.group(0)}")
+    for match in CREDENTIAL_M16_TRACE_FIELD.finditer(m16_text):
+        failures.append(f"credential-like M16 trace field in {rel}: {match.group(0)}")
     return failures
 
 

@@ -1,6 +1,6 @@
 # Approval Receipt UI Safety
 
-Status: Active for v0.19.1 / M15 Approval Queue + Receipt/Event Viewer UI safety hardening.
+Status: Active for v0.20.0; M15 Approval Queue + Receipt/Event Viewer UI remains read-only and M16 timeline/trace is separate.
 
 M15 safety boundary:
 

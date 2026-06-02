@@ -292,6 +292,58 @@ export interface M15ReviewData {
   events: EventSummaryItem[];
 }
 
+export interface TimelineEventSummaryItem {
+  eventRef: string;
+  eventType: string;
+  sourceSurface: string;
+  actorSummary: string;
+  timestamp: string;
+  status: string;
+  runRef: string;
+  correlationRef: string;
+  parentEventRef?: string;
+  childEventRefs: string[];
+  receiptRefs: string[];
+  evidenceRefs: string[];
+  redactionStatus: "redacted_summary_only";
+  safeMessage: string;
+  previewOnly: boolean;
+  readOnly: boolean;
+  mock: boolean;
+}
+
+export interface TraceRelationSummaryItem {
+  relationRef: string;
+  relationType: "parent" | "child" | "receipt" | "evidence" | "correlation";
+  fromRef: string;
+  toRef: string;
+  safeSummary: string;
+  redactionStatus: "redacted_summary_only";
+}
+
+export interface FoundationGateEvidenceSummaryItem {
+  evidenceRef: string;
+  criterionRef: string;
+  status: string;
+  receiptRefs: string[];
+  eventRefs: string[];
+  safeSummary: string;
+  redactionStatus: "redacted_summary_only";
+}
+
+export interface M16TraceData {
+  status: "mock_preview_only" | "summary_only";
+  readOnly: boolean;
+  previewOnly: boolean;
+  mock: boolean;
+  nonAuthoritative: boolean;
+  boundarySummary: string;
+  warningCodes: string[];
+  timelineEvents: TimelineEventSummaryItem[];
+  traceRelations: TraceRelationSummaryItem[];
+  foundationGateEvidence: FoundationGateEvidenceSummaryItem[];
+}
+
 export interface ControlCenterData {
   manifest: ControlCenterManifest;
   dashboard: ControlCenterDashboardSnapshot;
@@ -300,6 +352,7 @@ export interface ControlCenterData {
   runtimeReadiness: RuntimeReadinessReport;
   capabilityMatrix: RuntimeCapabilityMatrix;
   m15Review: M15ReviewData;
+  m16Trace: M16TraceData;
   source: "api" | "mock";
   connection: BackendConnectionSummary;
 }

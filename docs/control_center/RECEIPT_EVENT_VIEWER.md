@@ -1,6 +1,6 @@
 # Receipt And Event Viewer
 
-Status: Active for v0.19.1 / M15 Approval Queue + Receipt/Event Viewer UI safety hardening.
+Status: Active for v0.20.0 / M15 Receipt/Event Viewer plus M16 timeline adjacency.
 
 The Receipt Viewer and Event Viewer are read-only and preview-only CCC Web surfaces. They show redacted summary-only records for inspection and review. They are not the Event Ledger, not receipt authority, and not execution authority.
 
@@ -36,4 +36,4 @@ v0.19.1 hardening requires selected receipt detail panels to state that receipt 
 
 M15 uses visibly mock, non-authoritative frontend fallback summaries for receipt and event detail panels. This patch adds no receipt mutation route, no event mutation route, no raw event route, and no OpenAPI path.
 
-M16 Event Timeline + Run/Receipt Trace Viewer remains future work. M15 adds only summary list and selected-detail inspection panels.
+M16 Event Timeline + Run/Receipt Trace Viewer is implemented separately in v0.20.0 at `/events/timeline`. M15 remains summary list and selected-detail inspection panels; M16 adds redacted timeline and trace summaries with safe refs only. Neither surface adds backend routes, execution controls, raw payload display, or production authority.

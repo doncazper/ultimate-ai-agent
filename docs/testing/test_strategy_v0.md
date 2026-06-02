@@ -159,6 +159,22 @@ Foundation Gate rejects authority-bypass copy and raw sensitive fields.
 Backend OpenAPI path count remains unchanged at 74.
 ```
 
+## v0.20.0 M16 Event Timeline Trace Viewer Tests
+
+v0.20.0 adds focused frontend, verifier, and Foundation Gate tests only:
+
+```text
+Event Timeline route renders read-only redacted timeline summaries.
+Run/receipt trace panel renders selected summary metadata only.
+Event relation/ref panel renders parent/child and receipt/evidence relationship summaries.
+Foundation Gate evidence summary panel renders safe evidence refs and statuses.
+Static frontend verifier rejects raw M16 trace fields and credential-like trace fields.
+Static frontend verifier rejects trace raw/export endpoints and dangerous controls.
+Static frontend verifier requires M16 read-only, summary-only, no-export boundary copy.
+Foundation Gate criterion m16_event_timeline_trace_viewer_safe exists and passes.
+Backend OpenAPI path count remains unchanged at 74.
+```
+
 ## v0.18.3 OpenWebUI and CCC Strategy Tests
 
 v0.18.3 adds docs/verifier/gate tests only:

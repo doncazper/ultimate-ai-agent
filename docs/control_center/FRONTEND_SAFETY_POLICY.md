@@ -1,6 +1,6 @@
 # Frontend Safety Policy
 
-Status: Active for v0.19.1 / M15 Approval Queue + Receipt/Event Viewer UI safety hardening.
+Status: Active for v0.20.0 / M16 Event Timeline + Run/Receipt Trace Viewer.
 
 The Web Control Center shell is a display and preview surface. The Python Agent Core remains the brain and source of policy enforcement.
 
@@ -11,6 +11,7 @@ Frontend safety rules:
 - Action preview must never be treated as execution, approval, credential resolution, remote dispatch, model invocation, plugin enablement, or sensor access.
 - Mock fixtures must be visibly marked mock and non-authoritative.
 - Approval, receipt, and event viewer fixtures must be redacted summary-only and must not show raw secrets, prompt bodies, file bodies, memory contents, or provider payloads.
+- Event timeline and run/receipt trace fixtures must be redacted summary-only and must show safe refs and safe messages only.
 - API base URLs must be local-only: relative path, localhost, 127.0.0.1, or loopback IPv6.
 - External absolute API URLs, public/private non-loopback hosts, URL credentials, and secret-like API base strings must be blocked or rejected.
 - Unknown/checking, live, degraded, offline-safe, and mock fallback connection states must be visible and safe.
@@ -117,3 +118,9 @@ M15 adds frontend-only `/approvals`, `/receipts`, and `/events` routes. These ro
 ## v0.19.1 M15 Approval Receipt UI Safety Hardening
 
 v0.19.1 keeps M15 frontend-only and adds no backend API route or OpenAPI path count change. It hardens the same boundary by requiring approval authority copy, identifier-only approval-ref copy, Python Agent Core approval authority copy, redacted receipt detail copy, redacted event detail copy, raw M15 review field rejection, credential-like review field rejection, and Foundation Gate coverage for authority-bypass and raw-sensitive-field drift.
+
+## v0.20.0 M16 Event Timeline Trace Viewer Safety
+
+M16 adds frontend-only `/events/timeline`. The route is read-only and summary-only. It may show event refs, run refs, correlation refs, receipt refs, evidence refs, relation refs, status, timestamps, actor summaries, source summaries, redaction status, and safe messages.
+
+It must not show raw prompts, raw secrets, raw file contents, raw memory contents, raw credentials, raw provider payloads, raw event payload dumps, raw receipt payload dumps, or unreviewed tool arguments. It must not add execution controls, approval execution, tool execution, trace export, production telemetry export, external observability integration, OpenTelemetry export, cloud traces, backend routes, or production Control Center authority.

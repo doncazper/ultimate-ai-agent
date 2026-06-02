@@ -238,6 +238,148 @@ def test_control_center_frontend_verifier_requires_approval_authority_boundary_c
     assert any("approval authority boundary copy" in failure for failure in failures)
 
 
+def test_control_center_frontend_verifier_blocks_raw_m16_trace_fields(tmp_path):
+    app_root = tmp_path / "apps/control-center"
+    (app_root / "src/api").mkdir(parents=True)
+    (app_root / "src/mocks").mkdir(parents=True)
+    (app_root / "src/components").mkdir(parents=True)
+    (app_root / "package.json").write_text('{"dependencies":{"react":"1.0.0"}}', encoding="utf-8")
+    (app_root / "package-lock.json").write_text("{}", encoding="utf-8")
+    (app_root / "vite.config.ts").write_text(
+        'export default { server: { proxy: { "/control-center": { target: "http://127.0.0.1:8000" }, '
+        '"/runtime": { target: "http://127.0.0.1:8000" } } } };\n',
+        encoding="utf-8",
+    )
+    (app_root / "src/api/baseUrl.ts").write_text(
+        "export function resolveApiBaseUrl() { return true; }\n"
+        "const policy = ['localhost', '127.0.0.1', '::1', 'EXTERNAL_API_BASE_URL_BLOCKED', "
+        "'SECRET_LIKE_API_BASE_URL_REJECTED', 'containsSecretLike'];\n",
+        encoding="utf-8",
+    )
+    (app_root / "src/api/client.ts").write_text(
+        'import { resolveApiBaseUrl } from "./baseUrl";\n'
+        'fetch(API_ENDPOINTS.actionPreview, { method: "POST" });\n',
+        encoding="utf-8",
+    )
+    (app_root / "src/api/endpoints.ts").write_text(
+        'export const API_ENDPOINTS = { actionPreview: "/control-center/actions/preview" } as const;\n'
+        "export function isAllowedReadEndpoint() { return true; }\n"
+        "export function isPreviewEndpoint() { return true; }\n",
+        encoding="utf-8",
+    )
+    (app_root / "src/api/redaction.ts").write_text("export const redact = true;\n", encoding="utf-8")
+    (app_root / "src/App.test.tsx").write_text("export const testFile = true;\n", encoding="utf-8")
+    (app_root / "src/components/ActionPreviewForm.tsx").write_text(
+        "export function ActionPreviewForm() { return null; }\n",
+        encoding="utf-8",
+    )
+    (app_root / "src/components/ApprovalQueuePanel.tsx").write_text(
+        "export function ApprovalQueuePanel() { return null; }\n",
+        encoding="utf-8",
+    )
+    (app_root / "src/components/ReceiptViewerPanel.tsx").write_text(
+        "export function ReceiptViewerPanel() { return null; }\n",
+        encoding="utf-8",
+    )
+    (app_root / "src/components/EventViewerPanel.tsx").write_text(
+        "export function EventViewerPanel() { return null; }\n",
+        encoding="utf-8",
+    )
+    (app_root / "src/components/EventTimelineTracePanel.tsx").write_text(
+        "export function EventTimelineTracePanel() { return null; }\n",
+        encoding="utf-8",
+    )
+    (app_root / "src/mocks/controlCenterData.ts").write_text(
+        "export const mockControlCenterData = { mock: true, production_ready: false, "
+        "real_model_runtime_ready: false, remote_execution_ready: false, mobile_sensor_ready: false, "
+        "plugin_or_native_build_ready: false, execution_enabled: false, dispatch_enabled: false, "
+        "sensor_access_enabled: false, plugin_enablement_allowed: false, model_output_authoritative: false, "
+        "m15Review: { nonAuthoritative: true, redactionStatus: 'redacted_summary_only', "
+        "approvalGrantAllowed: false }, "
+        "m16Trace: { nonAuthoritative: true, redactionStatus: 'redacted_summary_only', "
+        "rawPromptBody: 'prompt text', rawFileContent: 'file text', rawMemoryContent: 'memory text', "
+        "rawProviderPayload: 'provider payload', credentialRef: 'cred_live_value_123456' } };\n",
+        encoding="utf-8",
+    )
+
+    verifier = load_verifier()
+    failures = verifier.verify(tmp_path)
+
+    assert any("raw M16 trace field" in failure and "rawPromptBody" in failure for failure in failures)
+    assert any("raw M16 trace field" in failure and "rawFileContent" in failure for failure in failures)
+    assert any("raw M16 trace field" in failure and "rawMemoryContent" in failure for failure in failures)
+    assert any("raw M16 trace field" in failure and "rawProviderPayload" in failure for failure in failures)
+    assert any("credential-like M16 trace field" in failure and "credentialRef" in failure for failure in failures)
+
+
+def test_control_center_frontend_verifier_requires_m16_trace_boundary_copy(tmp_path):
+    app_root = tmp_path / "apps/control-center"
+    (app_root / "src/api").mkdir(parents=True)
+    (app_root / "src/mocks").mkdir(parents=True)
+    (app_root / "src/components").mkdir(parents=True)
+    (app_root / "package.json").write_text('{"dependencies":{"react":"1.0.0"}}', encoding="utf-8")
+    (app_root / "package-lock.json").write_text("{}", encoding="utf-8")
+    (app_root / "vite.config.ts").write_text(
+        'export default { server: { proxy: { "/control-center": { target: "http://127.0.0.1:8000" }, '
+        '"/runtime": { target: "http://127.0.0.1:8000" } } } };\n',
+        encoding="utf-8",
+    )
+    (app_root / "src/api/baseUrl.ts").write_text(
+        "export function resolveApiBaseUrl() { return true; }\n"
+        "const policy = ['localhost', '127.0.0.1', '::1', 'EXTERNAL_API_BASE_URL_BLOCKED', "
+        "'SECRET_LIKE_API_BASE_URL_REJECTED', 'containsSecretLike'];\n",
+        encoding="utf-8",
+    )
+    (app_root / "src/api/client.ts").write_text(
+        'import { resolveApiBaseUrl } from "./baseUrl";\n'
+        'fetch(API_ENDPOINTS.actionPreview, { method: "POST" });\n',
+        encoding="utf-8",
+    )
+    (app_root / "src/api/endpoints.ts").write_text(
+        'export const API_ENDPOINTS = { actionPreview: "/control-center/actions/preview" } as const;\n'
+        "export function isAllowedReadEndpoint() { return true; }\n"
+        "export function isPreviewEndpoint() { return true; }\n",
+        encoding="utf-8",
+    )
+    (app_root / "src/api/redaction.ts").write_text("export const redact = true;\n", encoding="utf-8")
+    (app_root / "src/App.test.tsx").write_text("export const testFile = true;\n", encoding="utf-8")
+    (app_root / "src/components/ActionPreviewForm.tsx").write_text(
+        "export function ActionPreviewForm() { return null; }\n",
+        encoding="utf-8",
+    )
+    (app_root / "src/components/ApprovalQueuePanel.tsx").write_text(
+        "export function ApprovalQueuePanel() { return null; }\n",
+        encoding="utf-8",
+    )
+    (app_root / "src/components/ReceiptViewerPanel.tsx").write_text(
+        "export function ReceiptViewerPanel() { return null; }\n",
+        encoding="utf-8",
+    )
+    (app_root / "src/components/EventViewerPanel.tsx").write_text(
+        "export function EventViewerPanel() { return null; }\n",
+        encoding="utf-8",
+    )
+    (app_root / "src/components/EventTimelineTracePanel.tsx").write_text(
+        "export function EventTimelineTracePanel() { return <p>Event timeline</p>; }\n",
+        encoding="utf-8",
+    )
+    (app_root / "src/mocks/controlCenterData.ts").write_text(
+        "export const mockControlCenterData = { mock: true, production_ready: false, "
+        "real_model_runtime_ready: false, remote_execution_ready: false, mobile_sensor_ready: false, "
+        "plugin_or_native_build_ready: false, execution_enabled: false, dispatch_enabled: false, "
+        "sensor_access_enabled: false, plugin_enablement_allowed: false, model_output_authoritative: false, "
+        "m15Review: { nonAuthoritative: true, redactionStatus: 'redacted_summary_only', "
+        "approvalGrantAllowed: false }, "
+        "m16Trace: { nonAuthoritative: true, redactionStatus: 'redacted_summary_only' } };\n",
+        encoding="utf-8",
+    )
+
+    verifier = load_verifier()
+    failures = verifier.verify(tmp_path)
+
+    assert any("M16 trace boundary copy" in failure for failure in failures)
+
+
 def test_control_center_frontend_verifier_blocks_sensitive_browser_and_sdk_markers(tmp_path):
     app_root = tmp_path / "apps/control-center"
     (app_root / "src/api").mkdir(parents=True)

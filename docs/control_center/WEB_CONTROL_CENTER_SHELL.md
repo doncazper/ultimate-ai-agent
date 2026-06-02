@@ -1,12 +1,12 @@
 # Web Control Center Shell
 
-Status: Active for v0.19.1 / M15 Approval Queue + Receipt/Event Viewer UI safety hardening.
+Status: Active for v0.20.0 / M16 Event Timeline + Run/Receipt Trace Viewer.
 
 M13 adds a local TypeScript React/Vite shell under `apps/control-center/` for reading existing backend Control Center and runtime readiness APIs. It is the first web UI surface for the future Control Center, but it is not a production Control Center and it has no authority to execute actions.
 
 Implemented shell behavior:
 
-- renders read-only dashboard, runtime readiness, Foundation Gate, API route, approval queue, receipt viewer, event viewer, remote worker, private mesh, mobile planning, and plugin governance summaries.
+- renders read-only dashboard, runtime readiness, Foundation Gate, API route, approval queue, receipt viewer, event viewer, event timeline trace viewer, remote worker, private mesh, mobile planning, and plugin governance summaries.
 - submits exactly one preview-only request type to `/control-center/actions/preview`.
 - labels action preview as preview-only and displays blocked decisions as non-executed safety results.
 - exposes the action preview risk level as policy metadata only.
@@ -93,3 +93,14 @@ The M15 panels use visibly mock, non-authoritative fallback data until a future 
 ## v0.19.1 M15 Approval Receipt UI Safety Hardening
 
 v0.19.1 hardens those M15 panels with explicit approval authority-boundary copy, approval-ref identifier-only copy, Python Agent Core approval authority copy, and redacted receipt/event detail copy. It adds no M16 timeline view, backend route, approval execution, approve/deny mutation, runtime execution, remote execution, plugin enablement, dependency, or production authority.
+
+## v0.20.0 M16 Event Timeline Trace Viewer
+
+v0.20.0 adds a read-only `/events/timeline` CCC Web route:
+
+- Event Timeline: redacted event summaries with safe event, run, correlation, receipt, and evidence refs.
+- Trace detail: selected run/receipt trace summary metadata only.
+- Relation refs: parent/child and receipt/evidence relationship summaries.
+- Foundation Gate evidence summary: safe criterion/evidence refs and statuses.
+
+The M16 route uses visibly mock, non-authoritative fallback data until a future reviewed backend contract adds safe live summaries. It adds no backend route, no execution control, no approval mutation, no trace export, no external telemetry, no raw payload display, and no production authority.

@@ -1,12 +1,12 @@
-# Ultimate AI Agent Canonical Bundle v0.19.1
+# Ultimate AI Agent Canonical Bundle v0.20.0
 
-This is the active project baseline after M15 Approval Queue + Receipt/Event Viewer UI safety hardening.
+This is the active project baseline after M16 Event Timeline + Run/Receipt Trace Viewer.
 
 Start here:
 
 ```text
-README_IMPORT_v0_19_1.md
-ultimate_ai_agent_master_plan_v0_19_1.md
+README_IMPORT_v0_20_0.md
+ultimate_ai_agent_master_plan_v0_20_0.md
 docs/DOCUMENTATION_INDEX.md
 docs/canonical/09_roadmap.md
 docs/canonical/CANONICAL_DOC_MAP.md
@@ -40,6 +40,9 @@ docs/control_center/LOCAL_BROWSER_SMOKE_REPORTING.md
 docs/control_center/APPROVAL_QUEUE_UI.md
 docs/control_center/RECEIPT_EVENT_VIEWER.md
 docs/control_center/APPROVAL_RECEIPT_UI_SAFETY.md
+docs/control_center/EVENT_TIMELINE_UI.md
+docs/control_center/RUN_RECEIPT_TRACE_VIEWER.md
+docs/control_center/TRACE_REDACTION_POLICY.md
 docs/design/OPEN_DESIGN_SYSTEM.md
 docs/design/CONTROL_CENTER_DESIGN_LANGUAGE.md
 docs/design/STATUS_AND_RISK_VISUAL_LANGUAGE.md
@@ -60,7 +63,7 @@ docs/runtime/RUNTIME_READINESS.md
 docs/runtime/MANUAL_SMOKE_REPORTS.md
 docs/runtime/RUNTIME_CAPABILITY_MATRIX.md
 docs/security/approval_authority.md
-docs/implementation/foundation_gate_implementation_plan_v0_19_1.md
+docs/implementation/foundation_gate_implementation_plan_v0_20_0.md
 docs/maintenance/documentation_integrity_checklist.md
 docs/tooling/CODEX_PLUGIN_CAPABILITY_INVENTORY.md
 docs/tooling/CODEX_PLUGIN_RISK_POLICY.md
@@ -162,3 +165,7 @@ Approval queue receipt event viewer rule:
 Approval receipt UI safety hardening rule:
 
 > v0.19.1 hardens M15 Approval Queue + Receipt/Event Viewer UI safety only. The UI now states that it cannot grant, deny, execute, or bypass approvals; approval refs are identifiers only and never authority; Python Agent Core remains the only approval authority; and receipt/event detail views are redacted summary metadata only. Static frontend verification and Foundation Gate checks reject active approve/deny/execute/send/write/run/deploy/enable controls, mutation endpoints, authority-bypass copy, raw M15 review fields, credential-like review fields, and raw secret/prompt/file/memory/event/receipt/provider payload display. This patch adds no M16 Event Timeline + Run/Receipt Trace Viewer, approval execution, approve/deny mutation, backend API route, OpenAPI path count change, runtime execution, model/provider call, remote execution, mobile sensor access, plugin enablement, dependency, native build workflow, or production Control Center authority.
+
+Event timeline trace viewer rule:
+
+> v0.20.0 implements M16 Event Timeline + Run/Receipt Trace Viewer in CCC Web only. The UI adds `/events/timeline` with read-only redacted timeline summaries, selected run/receipt trace summaries, relation refs, and Foundation Gate evidence summaries. It uses safe refs and visibly mock non-authoritative fallback data. This release adds no backend API route, OpenAPI path count change, approval execution, tool execution, model/provider call, remote execution, mobile sensor access, plugin enablement, raw secret/prompt/file/memory/credential/provider payload display, raw event payload dump, production telemetry export, external observability integration, OpenTelemetry export, cloud traces, dependency, native build workflow, or production Control Center authority.

@@ -70,6 +70,7 @@ describe("Web Control Center shell", () => {
       ["/approvals", /Approval Queue/i],
       ["/receipts", /Receipt Viewer/i],
       ["/events", /Event Viewer/i],
+      ["/events/timeline", /Event Timeline/i],
       ["/remote-workers", /Remote worker boundary/i],
       ["/mobile-planning", /Mobile planning/i],
       ["/plugin-governance", /Plugin governance/i],
@@ -173,6 +174,35 @@ describe("Web Control Center shell", () => {
     expect(screen.queryByText(/raw file/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/raw memory/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/credential/i)).not.toBeInTheDocument();
+  });
+
+  it("renders M16 event timeline and run receipt trace summaries without raw payloads", async () => {
+    mockFetchWithFallback();
+    window.history.pushState({}, "", "/events/timeline");
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: /Event Timeline/i })).toBeInTheDocument();
+    expect(screen.getByText(/M16 trace surface/i)).toBeInTheDocument();
+    expect(screen.getByText(/Timeline and trace views are read-only/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/redacted summary-only/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("mock_run_ref_001").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("mock_correlation_ref_001").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("mock_event_ref_001").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("mock_receipt_ref_001").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("mock_evidence_ref_gate_001").length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Foundation Gate evidence summary/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/No trace export or external telemetry is available/i)).toBeInTheDocument();
+    expect(screen.getByText(/Trace detail is redacted summary metadata only/i)).toBeInTheDocument();
+
+    for (const label of [/^execute$/i, /^run$/i, /^export$/i, /^send$/i, /^deploy$/i, /^enable$/i]) {
+      expect(screen.queryByRole("button", { name: label })).not.toBeInTheDocument();
+    }
+    expect(screen.queryByText(/raw prompt/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/raw secret/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/raw file/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/raw memory/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/raw credential/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/provider payload/i)).not.toBeInTheDocument();
   });
 
   it("submits action preview only to the preview endpoint", async () => {
@@ -357,21 +387,21 @@ function envelopeForReadEndpoint(url: string) {
   const data = {
     [API_ENDPOINTS.controlCenterManifest]: {
       ...mockApiData.manifest,
-      version: "0.19.1"
+      version: "0.20.0"
     },
     [API_ENDPOINTS.controlCenterDashboard]: {
       ...mockApiData.dashboard,
-      baseline_version: "0.19.1"
+      baseline_version: "0.20.0"
     },
     [API_ENDPOINTS.controlCenterStatus]: mockApiData.status,
     [API_ENDPOINTS.controlCenterRoutes]: mockApiData.routes,
     [API_ENDPOINTS.runtimeReadiness]: {
       ...mockApiData.runtimeReadiness,
-      baseline_version: "0.19.1"
+      baseline_version: "0.20.0"
     },
     [API_ENDPOINTS.runtimeCapabilityMatrix]: {
       ...mockApiData.capabilityMatrix,
-      baseline_version: "0.19.1"
+      baseline_version: "0.20.0"
     }
   };
   const endpoint = Object.keys(data).find((candidate) => url.endsWith(candidate));
@@ -381,7 +411,7 @@ function envelopeForReadEndpoint(url: string) {
 const mockApiData = {
   manifest: {
     manifest_id: "test_manifest",
-    version: "0.19.1",
+    version: "0.20.0",
     generated_at: "2026-01-01T00:00:00Z",
     declared_capabilities: ["control_center_read_only_dashboard"],
     blocked_capabilities: ["runtime_execution", "remote_dispatch", "mobile_sensor_access", "plugin_enablement"],
@@ -391,7 +421,7 @@ const mockApiData = {
   },
   dashboard: {
     snapshot_id: "test_dashboard",
-    baseline_version: "0.19.1",
+    baseline_version: "0.20.0",
     generated_at: "2026-01-01T00:00:00Z",
     system_status: {
       label: "Control Center",
@@ -472,7 +502,7 @@ const mockApiData = {
   },
   runtimeReadiness: {
     report_id: "test_readiness",
-    baseline_version: "0.19.1",
+    baseline_version: "0.20.0",
     status: "report_only",
     production_ready: false,
     real_model_runtime_ready: false,
@@ -486,7 +516,7 @@ const mockApiData = {
   },
   capabilityMatrix: {
     matrix_id: "test_matrix",
-    baseline_version: "0.19.1",
+    baseline_version: "0.20.0",
     metadata: { no_model_was_called: true },
     entries: []
   },

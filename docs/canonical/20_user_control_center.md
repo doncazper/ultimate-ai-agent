@@ -122,6 +122,8 @@ M15 is the first approval queue plus receipt/event viewer UI milestone. It is im
 
 v0.19.1 hardens M15 Approval/Receipt UI safety. CCC Web must state that it cannot grant, deny, execute, or bypass approvals. Approval refs are identifiers only and never authority. Python Agent Core remains the only approval authority. Receipt and event detail views must state that they are redacted summary metadata only.
 
+v0.20.0 implements M16 Event Timeline + Run/Receipt Trace Viewer. CCC Web may show redacted timeline summaries, safe event refs, run refs, correlation refs, receipt refs, relation refs, and Foundation Gate evidence summaries. It must not show raw prompts, secrets, file contents, memory contents, credentials, provider payloads, event payload dumps, receipt payload dumps, or unreviewed tool arguments.
+
 ## v0.18.2 Open Design Governance
 
 v0.18.2 adds repo-owned Open Design System and UI Design Governance documentation before M15. Control Center UI work must follow:
@@ -193,3 +195,14 @@ v0.19.1 hardens the v0.19.0 M15 UI without changing authority or route scope:
 - static frontend verification and Foundation Gate checks reject active approve/deny/execute/send/write/run/deploy/enable controls, mutation endpoints, authority-bypass copy, raw M15 review fields, credential-like review fields, and raw sensitive payload display.
 
 v0.19.1 adds no M16 Event Timeline + Run/Receipt Trace Viewer, backend API route, approval execution, approve/deny mutation, runtime execution, model/provider call, remote execution, mobile sensor access, plugin enablement, dependency, native build workflow, or production Control Center authority.
+
+## v0.20.0 M16 Event Timeline Trace Viewer
+
+v0.20.0 adds frontend-only CCC Web route `/events/timeline`:
+
+- Event Timeline: redacted event summaries with safe refs.
+- Run/Receipt Trace Viewer: selected trace detail as summary metadata only.
+- Relation refs: parent/child event refs and receipt/evidence relationship summaries.
+- Foundation Gate evidence summary: safe evidence refs and criterion/status summaries.
+
+M16 remains read-only. It adds no backend API route, OpenAPI path count change, approval execution, tool execution, runtime execution, model/provider call, remote execution, mobile sensor access, plugin enablement, dependency, native build workflow, external telemetry export, OpenTelemetry export, cloud traces, raw payload display, or production Control Center authority.

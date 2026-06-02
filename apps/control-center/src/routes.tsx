@@ -4,6 +4,7 @@ import { ApprovalQueuePanel } from "./components/ApprovalQueuePanel";
 import { ApiRouteInventoryPanel } from "./components/ApiRouteInventoryPanel";
 import { DashboardSummary } from "./components/DashboardSummary";
 import { EventViewerPanel } from "./components/EventViewerPanel";
+import { EventTimelineTracePanel } from "./components/EventTimelineTracePanel";
 import { FoundationGatePanel } from "./components/FoundationGatePanel";
 import { ReceiptViewerPanel } from "./components/ReceiptViewerPanel";
 import { RuntimeReadinessPanel } from "./components/RuntimeReadinessPanel";
@@ -22,6 +23,7 @@ export const navItems = [
   { path: "/approvals", label: "Approvals" },
   { path: "/receipts", label: "Receipts" },
   { path: "/events", label: "Events" },
+  { path: "/events/timeline", label: "Timeline" },
   { path: "/remote-workers", label: "Remote Workers" },
   { path: "/mobile-planning", label: "Mobile Planning" },
   { path: "/plugin-governance", label: "Plugin Governance" },
@@ -42,6 +44,8 @@ export function renderRoute(path: string, data: ControlCenterData) {
       return <ReceiptViewerPanel review={data.m15Review} />;
     case "/events":
       return <EventViewerPanel review={data.m15Review} />;
+    case "/events/timeline":
+      return <EventTimelineTracePanel trace={data.m16Trace} />;
     case "/remote-workers":
       return (
         <RemoteWorkerSummaryPanel

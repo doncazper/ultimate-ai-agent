@@ -14,7 +14,7 @@ Each route declares:
 - `requires_auth_future`
 - `blocked_from_production`
 
-Allowed side-effect classes in v0.19.1 are:
+Allowed side-effect classes in v0.20.0 are:
 
 - `none`
 - `validation_only`
@@ -96,6 +96,8 @@ v0.19.0 M15 Approval Queue + Receipt/Event Viewer UI adds no backend route. The 
 
 v0.19.1 M15 Approval/Receipt UI safety hardening adds no backend route. It hardens frontend copy, static verification, tests, and Foundation Gate only. OpenAPI path count remains `74`.
 
+v0.20.0 M16 Event Timeline + Run/Receipt Trace Viewer adds no backend route. The new `/events/timeline` route is a frontend route inside CCC Web only. It adds redacted timeline and trace summaries, safe refs, and Foundation Gate evidence summaries. OpenAPI path count remains `74`.
+
 M12 Control Center route group:
 
 - `/control-center/manifest`
@@ -141,3 +143,4 @@ v0.17.3 documentation cleanup, v0.17.4 local browser smoke polish, v0.17.5 roadm
 - v0.18.3 adds OpenWebUI/CCC strategy docs, with no new backend route, OpenWebUI bridge route, native CCC route, dependency, execution path, mobile sensor route, OS permission route, external API host, or authority.
 - v0.19.0 adds frontend-only M15 approval queue, receipt viewer, and event viewer routes, with no new backend route, OpenAPI path count change, execution path, mutation path, raw data route, dependency, external API host, or authority.
 - v0.19.1 hardens frontend-only M15 approval/receipt UI safety, with no new backend route, OpenAPI path count change, execution path, mutation path, M16 timeline route, raw data route, dependency, external API host, or authority.
+- v0.20.0 adds frontend-only M16 event timeline and run/receipt trace viewer UI, with no new backend route, OpenAPI path count change, execution path, mutation path, raw payload route, observability export route, dependency, external API host, or authority.

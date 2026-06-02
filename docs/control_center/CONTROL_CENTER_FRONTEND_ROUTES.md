@@ -1,6 +1,6 @@
 # Control Center Frontend Routes
 
-Status: Active for v0.19.1 / M15 Approval Queue + Receipt/Event Viewer UI safety hardening.
+Status: Active for v0.20.0 / M16 Event Timeline + Run/Receipt Trace Viewer.
 
 The frontend shell is served by Vite during local development. It is not mounted by the Python API and does not add OpenAPI paths.
 
@@ -14,6 +14,7 @@ Implemented frontend pages:
 - `/approvals`
 - `/receipts`
 - `/events`
+- `/events/timeline`
 - `/remote-workers`
 - `/mobile-planning`
 - `/plugin-governance`
@@ -47,7 +48,7 @@ Forbidden frontend route/API targets:
 
 v0.17.4 keeps the frontend route set unchanged and adds local browser smoke UX polish plus safe reporting documentation. `scripts/verify_control_center_frontend.py` rejects forbidden execute, plugin enablement, runtime execution, remote dispatch, mobile sensor endpoint strings, analytics/SaaS SDK markers, sensitive browser APIs, and unsafe fixtures in frontend implementation files. `scripts/verify_control_center_browser_smoke_readiness.py` verifies that browser smoke readiness and reporting remain manual local-only documentation.
 
-OpenAPI remains a backend contract. v0.19.1 changes only `info.version` to `0.19.1`; backend path count remains `74` with unique operation IDs.
+OpenAPI remains a backend contract. v0.20.0 changes only `info.version` to `0.20.0`; backend path count remains `74` with unique operation IDs.
 
 ## v0.18.0 M14 Connection Stabilization
 
@@ -95,3 +96,11 @@ v0.19.0 adds three frontend routes and no backend API paths:
 These routes use safe mock fallback data and selected item detail panels because the current route framework is a simple path switch. They do not add dynamic backend detail routes, execute approvals, grant/reject approvals, mutate receipts/events, expose raw event data, or change OpenAPI path count.
 
 v0.19.1 keeps the same frontend route set and hardens M15 authority/redaction safety checks. It adds no M16 timeline route, backend API path, approval execution route, approve/deny mutation route, receipt mutation route, event mutation route, runtime execution route, model/provider route, remote dispatch route, mobile sensor route, plugin enablement route, dependency, external API host, or production authority.
+
+## v0.20.0 M16 Event Timeline Trace Viewer
+
+v0.20.0 adds one frontend route and no backend API paths:
+
+- `/events/timeline`: Event Timeline + Run/Receipt Trace Viewer with redacted event summaries, selected trace detail, event relation refs, and Foundation Gate evidence summaries.
+
+This route uses safe mock fallback data, safe refs, and redacted summary-only copy. It does not add dynamic backend trace routes, approval execution, tool execution, trace export, external telemetry, OpenTelemetry export, cloud traces, raw prompt display, raw secret display, raw file display, raw memory display, raw credential display, raw provider payload display, raw event payload dumps, or OpenAPI path count changes.

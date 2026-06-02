@@ -82,6 +82,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeReadiness: runtimeReadiness ?? mockControlCenterData.runtimeReadiness,
     capabilityMatrix: capabilityMatrix ?? mockControlCenterData.capabilityMatrix,
     m15Review: mockControlCenterData.m15Review,
+    m16Trace: mockControlCenterData.m16Trace,
     source: "api",
     connection: mockControlCenterData.connection
   };
