@@ -141,3 +141,15 @@ signing or provisioning workflow
 ```
 
 Build iOS Apps / XcodeBuildMCP may be evaluated only in a future Mobile Companion implementation milestone with explicit approval.
+
+## Future Mobile Design Governance
+
+v0.18.2 adds Open Design System and UI Design Governance docs for future Control Center and Mobile Companion UI. Future Mobile Companion UI should inherit:
+
+- repo-owned design source of truth.
+- textual status and risk labels, not color-only meaning.
+- accessible loading, empty, error, approval, receipt, and capture states.
+- secret-free design artifacts and screenshots.
+- no design tool, design SaaS, UI generator, screenshot-to-code, or design-to-code authority.
+
+These docs add no mobile app, sensor API, native package, design tool integration, or mobile runtime capability.

@@ -1,6 +1,6 @@
 # Documentation Index
 
-Current active baseline: **v0.18.1**
+Current active baseline: **v0.18.2**
 
 This index is the active entrypoint for documentation navigation. Historical release documents remain in the repository for audit history, but active truth starts with the current baseline files listed here.
 
@@ -9,8 +9,8 @@ This index is the active entrypoint for documentation navigation. Historical rel
 ```text
 README.md
 VERSION.md
-README_IMPORT_v0_18_1.md
-ultimate_ai_agent_master_plan_v0_18_1.md
+README_IMPORT_v0_18_2.md
+ultimate_ai_agent_master_plan_v0_18_2.md
 docs/canonical/CANONICAL_DOC_MAP.md
 docs/canonical/09_roadmap.md
 docs/roadmap/MILESTONE_CHARTERS.md
@@ -60,7 +60,24 @@ docs/control_center/LOCAL_BROWSER_SMOKE.md
 docs/control_center/LOCAL_BROWSER_SMOKE_REPORTING.md
 ```
 
-M12 Control Center docs describe backend contracts, read-only dashboard snapshots, and action preview policy only. M13 adds a local Web Control Center shell that consumes those routes, renders safe mock fallback data, and submits only preview-only action requests. v0.17.4 polishes local shell reviewability and adds safe local browser smoke reporting documentation. v0.18.0 / M14 stabilizes local backend connection behavior with local-only API base URL policy and visible live/degraded/mock fallback states. v0.18.1 hardens M14 connection safety for public/private non-loopback hosts, URL credentials, secret-like query parameters, and unknown/checking states. The shell is not production authority and does not add execution capability.
+M12 Control Center docs describe backend contracts, read-only dashboard snapshots, and action preview policy only. M13 adds a local Web Control Center shell that consumes those routes, renders safe mock fallback data, and submits only preview-only action requests. v0.17.4 polishes local shell reviewability and adds safe local browser smoke reporting documentation. v0.18.0 / M14 stabilizes local backend connection behavior with local-only API base URL policy and visible live/degraded/mock fallback states. v0.18.1 hardens M14 connection safety for public/private non-loopback hosts, URL credentials, secret-like query parameters, and unknown/checking states. v0.18.2 adds Open Design governance docs for future Control Center and Mobile Companion UI work. The shell is not production authority and does not add execution capability.
+
+## Active Design Governance Docs
+
+```text
+docs/design/OPEN_DESIGN_SYSTEM.md
+docs/design/CONTROL_CENTER_DESIGN_LANGUAGE.md
+docs/design/STATUS_AND_RISK_VISUAL_LANGUAGE.md
+docs/design/ACCESSIBILITY_BASELINE.md
+docs/design/DESIGN_TOOLING_POLICY.md
+docs/design/DESIGN_TOKEN_ROADMAP.md
+docs/design/UI_COPY_AND_ACTION_LANGUAGE.md
+docs/design/DESIGN_ARTIFACT_GOVERNANCE.md
+docs/design/COMPONENT_TAXONOMY.md
+docs/design/RESPONSIVE_LAYOUT_BASELINE.md
+```
+
+v0.18.2 adds Open Design System and UI Design Governance documentation only. The design source of truth is repo-owned docs, reviewed components, and future repo-owned tokens. Design tools, design SaaS, UI generators, screenshot-to-code, and design-to-code systems are not enabled and are not authority.
 
 M15 is Approval Queue + Receipt/Event Viewer UI and remains future work governed by read-only/preview-only Control Center boundaries until a reviewed milestone explicitly changes them.
 
@@ -127,6 +144,7 @@ docs/backlog/external_agent_tooling_watchlist.md
 docs/backlog/mobile_companion_backlog.md
 docs/backlog/device_capability_broker_backlog.md
 docs/backlog/codex_plugin_enablement_backlog.md
+docs/backlog/open_design_system_backlog.md
 ```
 
 Backlog files are not implementation claims.
@@ -149,7 +167,7 @@ The Codex plugin capability inventory and risk policy record available developme
 
 ## Release Notes Index
 
-Current release notes: `docs/release_notes/v0_18_1.md`
+Current release notes: `docs/release_notes/v0_18_2.md`
 
 Historical release notes remain under `docs/release_notes/`. Historical docs may mention old active baselines in historical context; they are not the current source of truth.
 
@@ -164,4 +182,4 @@ python scripts/verify_all.py
 python scripts/run_foundation_gate.py
 ```
 
-The documentation integrity verifier checks active version alignment, active release docs, active index/map/checklist docs, mobile/private mesh doc presence, and obvious unsafe implementation claims.
+The documentation integrity verifier checks active version alignment, active release docs, active index/map/checklist docs, design governance docs, mobile/private mesh doc presence, and obvious unsafe implementation claims.

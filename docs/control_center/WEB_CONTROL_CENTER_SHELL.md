@@ -1,6 +1,6 @@
 # Web Control Center Shell
 
-Status: Active for v0.18.1 / M14 local backend connection safety hardening.
+Status: Active for v0.18.2 / Open Design System and UI Design Governance.
 
 M13 adds a local TypeScript React/Vite shell under `apps/control-center/` for reading existing backend Control Center and runtime readiness APIs. It is the first web UI surface for the future Control Center, but it is not a production Control Center and it has no authority to execute actions.
 
@@ -59,3 +59,17 @@ v0.18.1 hardens M14 without changing the route set or backend API contract:
 - broad secret-like query parameter names are rejected and not displayed.
 - unknown/checking connection states are explicit in frontend types and loading copy.
 - static verification rejects unsafe Vite proxy targets and secret-like API base env examples.
+
+## v0.18.2 Design Governance
+
+v0.18.2 adds design governance documentation only. Future Control Center UI work, including M15 approval, receipt, and event surfaces, must read:
+
+- `docs/design/OPEN_DESIGN_SYSTEM.md`
+- `docs/design/CONTROL_CENTER_DESIGN_LANGUAGE.md`
+- `docs/design/STATUS_AND_RISK_VISUAL_LANGUAGE.md`
+- `docs/design/ACCESSIBILITY_BASELINE.md`
+- `docs/design/UI_COPY_AND_ACTION_LANGUAGE.md`
+- `docs/design/COMPONENT_TAXONOMY.md`
+- `docs/design/RESPONSIVE_LAYOUT_BASELINE.md`
+
+The design docs do not enable design tools, design SaaS, design-to-code, screenshot-to-code, new frontend behavior, new dependencies, backend routes, M15 UI, or production Control Center authority.

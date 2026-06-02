@@ -22,3 +22,7 @@ POST /control-center/actions/preview
 ```
 
 No `/control-center/actions/execute`, `/control-center/plugins/enable`, `/control-center/runtime/execute`, `/control-center/remote-workers/dispatch`, `/control-center/mobile/sensors`, or `/control-center/frontend` route exists.
+
+## v0.18.2 Design Governance
+
+Open Design System and UI Design Governance docs apply to future Control Center UI work, including M15 approval, receipt, and event viewer surfaces. They add no backend route and no frontend behavior. Design tools are not enabled and are not authority.

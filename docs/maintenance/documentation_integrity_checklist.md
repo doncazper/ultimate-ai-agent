@@ -1,6 +1,6 @@
 # Documentation Integrity Checklist
 
-Status: Active maintenance checklist, v0.18.0
+Status: Active maintenance checklist, v0.18.2
 
 Run this checklist before every release that changes docs, roadmap, API metadata, runtime boundaries, or release status.
 
@@ -27,6 +27,7 @@ Run this checklist before every release that changes docs, roadmap, API metadata
 - active master plan matches current release purpose.
 - docs index and canonical map include newly added active docs.
 - active tooling governance docs are linked when Codex/plugin policy changes.
+- active design governance docs are linked when UI/design policy changes.
 - roadmap charter docs are linked when milestone sequencing changes.
 
 ## Active vs Historical Docs
@@ -44,6 +45,7 @@ Run this checklist before every release that changes docs, roadmap, API metadata
 - docs do not claim Codex plugins, plugin installers, native build tools, Xcode workflows, simulators, Chrome authenticated profile control, Computer Use automation, cloud jobs/uploads/training, or deployment workflows are enabled unless explicitly implemented and gated.
 - docs do not claim runtime readiness reports, capability matrix entries, or manual smoke reports prove production readiness or authorize execution.
 - docs do not claim Control Center production authority, plugin enablement, runtime execution, remote dispatch, model/provider invocation, mobile sensor access, native build control, or production Control Center exists unless implemented and gated.
+- docs do not claim design tools, design SaaS sync, UI generators, screenshot-to-code, design-to-code, or automatic design commits are enabled unless implemented and gated.
 
 ## Release Note Requirements
 
@@ -58,6 +60,7 @@ Run this checklist before every release that changes docs, roadmap, API metadata
 - future milestone prompts check `docs/roadmap/MILESTONE_CHARTERS.md`.
 - future milestone prompts check `docs/roadmap/NEXT_SEQUENCE_v0_17_5.md` until superseded by a reviewed roadmap patch.
 - M14/M15 sequencing remains explicit: M14 is local backend connection stabilization; M15 is approval queue plus receipt/event viewer UI.
+- v0.18.2 design governance remains before M15 and does not implement M15 UI.
 - parked work is not presented as accepted baseline.
 - parked branches and tags are not merged or reactivated automatically.
 - blocked capabilities remain blocked until their security lifecycle and gate criteria exist.

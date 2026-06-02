@@ -133,3 +133,17 @@ Frontend safety verifier requires the local backend base policy and rejects exte
 Foundation Gate includes M14 local backend connection criteria.
 Backend OpenAPI path count remains unchanged at 74.
 ```
+
+## v0.18.2 Open Design Governance Tests
+
+v0.18.2 adds docs/verifier/gate tests only:
+
+```text
+Required docs/design files exist.
+Design docs say no design tools are enabled.
+Design docs say the design source of truth is repo-owned.
+Design docs say screenshots and design artifacts must not contain secrets.
+Control Center docs link design governance docs.
+Foundation Gate includes open_design_governance_docs_present.
+Backend OpenAPI path count remains unchanged at 74.
+```

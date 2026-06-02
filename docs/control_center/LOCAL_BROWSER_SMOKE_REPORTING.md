@@ -1,6 +1,6 @@
 # Local Browser Smoke Reporting
 
-Status: Active for v0.18.1; local browser smoke reporting was added in v0.17.4.
+Status: Active for v0.18.2; local browser smoke reporting was added in v0.17.4.
 
 This document defines the safe local browser smoke report format for the Web Control Center shell. A local browser smoke report is local-only, optional, non-authoritative, and never a substitute for tests, static verifiers, OpenAPI verification, or Foundation Gate.
 
@@ -63,3 +63,14 @@ Forbidden report claims:
 - do not claim remote dispatch, mesh connection, mobile sensor access, plugin enablement, native build capability, Chrome authenticated profile control, or Computer Use automation.
 
 If a local browser smoke run finds a failure, the report should describe the visible symptom and route only. It must not include raw secret-like input, raw backend validation payloads, user prompt content, file content, memory content, local filesystem paths outside this repository, credential refs, cookies, or screenshots with secrets.
+
+Design governance references:
+
+- `docs/design/OPEN_DESIGN_SYSTEM.md`
+- `docs/design/CONTROL_CENTER_DESIGN_LANGUAGE.md`
+- `docs/design/STATUS_AND_RISK_VISUAL_LANGUAGE.md`
+- `docs/design/ACCESSIBILITY_BASELINE.md`
+- `docs/design/UI_COPY_AND_ACTION_LANGUAGE.md`
+- `docs/design/COMPONENT_TAXONOMY.md`
+- `docs/design/RESPONSIVE_LAYOUT_BASELINE.md`
+- `docs/design/DESIGN_ARTIFACT_GOVERNANCE.md`

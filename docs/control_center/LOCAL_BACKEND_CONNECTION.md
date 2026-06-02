@@ -1,6 +1,6 @@
 # Local Backend Connection
 
-Status: Active for v0.18.1 / M14 Web Control Center Local Backend Connection Safety.
+Status: Active for v0.18.2 / Open Design System and UI Design Governance.
 
 The Web Control Center may connect only to the local backend API boundary. The connection layer is frontend-only and does not add backend routes or backend authority.
 
@@ -44,3 +44,13 @@ Safety requirements:
 - Vite proxy configuration and env examples must not include external targets, URL credentials, or secret-like API base strings.
 
 M14 is not M15. Approval Queue + Receipt/Event Viewer UI remains future work and must not be added by local backend connection stabilization.
+
+Design governance references for connection-state UI:
+
+- `docs/design/OPEN_DESIGN_SYSTEM.md`
+- `docs/design/CONTROL_CENTER_DESIGN_LANGUAGE.md`
+- `docs/design/STATUS_AND_RISK_VISUAL_LANGUAGE.md`
+- `docs/design/ACCESSIBILITY_BASELINE.md`
+- `docs/design/UI_COPY_AND_ACTION_LANGUAGE.md`
+- `docs/design/COMPONENT_TAXONOMY.md`
+- `docs/design/RESPONSIVE_LAYOUT_BASELINE.md`

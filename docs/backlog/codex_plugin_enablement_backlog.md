@@ -23,6 +23,7 @@ Future Web Control Center:
 - Browser + Build Web Apps may be used with approval.
 - Chrome authenticated profile control remains disabled unless separately approved.
 - deployment and credential-bearing integrations remain out of scope unless explicitly approved.
+- design tools such as Figma, Stitch, Framer, screenshot-to-code, design-to-code, and AI UI generators remain future-only and disabled unless explicitly approved.
 
 Future OpenAPI client generation:
 
@@ -62,3 +63,4 @@ Release/security audits:
 - Define external review/data-sharing policy.
 - Define cloud job, upload, and cost-control policy.
 - Define plugin/skill installer provenance, sandbox, revocation, and disable policy.
+- Define design tooling approval, import/export, artifact review, and no automatic design sync policy.

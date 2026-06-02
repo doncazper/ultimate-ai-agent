@@ -1,6 +1,6 @@
 # Local Browser Smoke Readiness
 
-Status: Active for v0.18.1; local browser smoke guidance was added/polished in v0.17.4.
+Status: Active for v0.18.2; local browser smoke guidance was added/polished in v0.17.4.
 
 This document defines manual local browser smoke readiness for the Web Control Center shell. It is local-only, optional, non-authoritative, and never part of CI or Foundation Gate browser execution.
 
@@ -48,3 +48,14 @@ Manual local browser smoke checklist:
 Use `docs/control_center/LOCAL_BROWSER_SMOKE_REPORTING.md` for the safe local browser smoke report format. Reports must be local-only, non-authoritative, and free of secrets, raw prompts, file content, memory content, credentials, cookies, screenshots with secrets, browser traces, and generated artifacts.
 
 The browser smoke procedure may use Browser plus Build Web Apps only when a future release prompt explicitly asks for local UI verification. Chrome authenticated profile control, Computer Use automation, iOS/macOS build plugins, external SaaS browser services, hosted preview services, production deployments, and screenshots containing secrets remain off-limits.
+
+Design governance references for future visual QA:
+
+- `docs/design/OPEN_DESIGN_SYSTEM.md`
+- `docs/design/CONTROL_CENTER_DESIGN_LANGUAGE.md`
+- `docs/design/STATUS_AND_RISK_VISUAL_LANGUAGE.md`
+- `docs/design/ACCESSIBILITY_BASELINE.md`
+- `docs/design/UI_COPY_AND_ACTION_LANGUAGE.md`
+- `docs/design/COMPONENT_TAXONOMY.md`
+- `docs/design/RESPONSIVE_LAYOUT_BASELINE.md`
+- `docs/design/DESIGN_ARTIFACT_GOVERNANCE.md`

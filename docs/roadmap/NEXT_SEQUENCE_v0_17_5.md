@@ -143,7 +143,7 @@ Source-of-truth docs:
 
 ## 4. v0.18.2 - Open Design System + UI Design Governance
 
-Status: planned/provisional.
+Status: implemented.
 
 Purpose: define open design-system and UI governance before larger Control Center UI expansion.
 
@@ -174,7 +174,16 @@ Hardening patch expectation: may be paired with the next UI milestone review.
 
 Source-of-truth docs:
 
-- future `docs/design/*` files if created by the milestone.
+- `docs/design/OPEN_DESIGN_SYSTEM.md`
+- `docs/design/CONTROL_CENTER_DESIGN_LANGUAGE.md`
+- `docs/design/STATUS_AND_RISK_VISUAL_LANGUAGE.md`
+- `docs/design/ACCESSIBILITY_BASELINE.md`
+- `docs/design/DESIGN_TOOLING_POLICY.md`
+- `docs/design/DESIGN_TOKEN_ROADMAP.md`
+- `docs/design/UI_COPY_AND_ACTION_LANGUAGE.md`
+- `docs/design/DESIGN_ARTIFACT_GOVERNANCE.md`
+- `docs/design/COMPONENT_TAXONOMY.md`
+- `docs/design/RESPONSIVE_LAYOUT_BASELINE.md`
 
 ## 5. v0.19.0 / M15 - Approval Queue + Receipt/Event Viewer UI
 

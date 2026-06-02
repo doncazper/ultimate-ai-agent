@@ -49,6 +49,28 @@ def test_documentation_integrity_verifier_flags_m14_browser_smoke_claim(tmp_path
     assert any("M14 must not be local browser smoke" in failure for failure in failures)
 
 
+def test_documentation_integrity_verifier_requires_open_design_governance_docs(tmp_path: Path):
+    _write_minimal_repo(tmp_path)
+    design_doc = tmp_path / "docs/design/OPEN_DESIGN_SYSTEM.md"
+    design_doc.unlink(missing_ok=True)
+
+    failures = verifier.verify(tmp_path)
+
+    assert any("docs/design/OPEN_DESIGN_SYSTEM.md" in failure for failure in failures)
+
+
+def test_documentation_integrity_verifier_requires_design_tooling_safety_language(tmp_path: Path):
+    _write_minimal_repo(tmp_path)
+    tooling_policy = tmp_path / "docs/design/DESIGN_TOOLING_POLICY.md"
+    tooling_policy.parent.mkdir(parents=True, exist_ok=True)
+    tooling_policy.write_text("Design tools are available for automatic design sync.\n", encoding="utf-8")
+
+    failures = verifier.verify(tmp_path)
+
+    assert any("design docs must say no design tools are enabled" in failure for failure in failures)
+    assert any("design docs must say no automatic design sync" in failure for failure in failures)
+
+
 def _write_minimal_repo(root: Path) -> None:
     version = "0.14.6"
     version_key = "0_14_6"
@@ -79,6 +101,18 @@ def _write_minimal_repo(root: Path) -> None:
     )
     for rel_path in [*verifier.REQUIRED_ACTIVE_DOCS, *verifier.ACTIVE_DOCS_TO_SCAN]:
         files.setdefault(rel_path, policy_placeholder)
+    for rel_path in getattr(verifier, "REQUIRED_DESIGN_DOCS", []):
+        files.setdefault(
+            rel_path,
+            "repo-owned source of truth\n"
+            "no design tools are enabled\n"
+            "no design SaaS is authority\n"
+            "no automatic design-to-code\n"
+            "no automatic design sync\n"
+            "screenshots and design artifacts must not contain secrets\n"
+            "Control Center design governance\n"
+            "Mobile Companion design governance\n",
+        )
     files["docs/roadmap/MILESTONE_CHARTERS.md"] = (
         "version\nmilestone code\ntitle\nstatus\npurpose\nallowed scope\nmust not add\n"
         "dependencies\nacceptance criteria\nreview prompt required\nhardening patch expectation\n"

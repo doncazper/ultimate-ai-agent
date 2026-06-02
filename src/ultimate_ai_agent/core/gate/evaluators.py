@@ -162,6 +162,7 @@ class FoundationGateEvaluator:
             "m14_local_backend_api_base_policy": self.check_m14_local_backend_api_base_policy,
             "m14_connection_states_visible_and_safe": self.check_m14_connection_states_visible_and_safe,
             "m14_backend_api_contract_unchanged": self.check_m14_backend_api_contract_unchanged,
+            "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "roadmap_milestone_charters_current": self.check_roadmap_milestone_charters_current,
             "documentation_integrity_current": self.check_documentation_integrity_current,
             "codex_plugin_governance_docs_present": self.check_codex_plugin_governance_docs_present,
@@ -2860,6 +2861,60 @@ class FoundationGateEvaluator:
             failures,
             ["src/ultimate_ai_agent/api/app.py", "src/ultimate_ai_agent/api/manifest.py"],
         )
+
+    def check_open_design_governance_docs_present(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        required_docs = [
+            "docs/design/OPEN_DESIGN_SYSTEM.md",
+            "docs/design/CONTROL_CENTER_DESIGN_LANGUAGE.md",
+            "docs/design/STATUS_AND_RISK_VISUAL_LANGUAGE.md",
+            "docs/design/ACCESSIBILITY_BASELINE.md",
+            "docs/design/DESIGN_TOOLING_POLICY.md",
+            "docs/design/DESIGN_TOKEN_ROADMAP.md",
+            "docs/design/UI_COPY_AND_ACTION_LANGUAGE.md",
+            "docs/design/DESIGN_ARTIFACT_GOVERNANCE.md",
+            "docs/design/COMPONENT_TAXONOMY.md",
+            "docs/design/RESPONSIVE_LAYOUT_BASELINE.md",
+        ]
+        failures = [f"missing design governance doc: {path}" for path in required_docs if not (self.root / path).exists()]
+        design_text = "\n".join(self._read(self.root / path).lower() for path in required_docs)
+        expectations = {
+            "design docs missing no-tool-enable boundary": "no design tools are enabled",
+            "design docs missing repo-owned source-of-truth boundary": "repo-owned source of truth",
+            "design docs missing secret-free visual artifact boundary": (
+                "screenshots and design artifacts must not contain secrets"
+            ),
+            "design docs missing no automatic design-to-code boundary": "no automatic design-to-code",
+            "design docs missing no automatic design sync boundary": "no automatic design sync",
+            "design docs missing no design SaaS authority boundary": "no design saas is authority",
+        }
+        for failure, fragment in expectations.items():
+            if fragment not in design_text:
+                failures.append(failure)
+
+        control_center_docs = [
+            "docs/control_center/WEB_CONTROL_CENTER_SHELL.md",
+            "docs/control_center/FRONTEND_SAFETY_POLICY.md",
+            "docs/control_center/CONTROL_CENTER_FRONTEND_ROUTES.md",
+            "docs/control_center/LOCAL_BROWSER_SMOKE.md",
+            "docs/control_center/LOCAL_BROWSER_SMOKE_REPORTING.md",
+            "docs/control_center/LOCAL_BACKEND_CONNECTION.md",
+        ]
+        control_center_text = "\n".join(self._read(self.root / path) for path in control_center_docs)
+        linked_docs = [
+            "docs/design/OPEN_DESIGN_SYSTEM.md",
+            "docs/design/CONTROL_CENTER_DESIGN_LANGUAGE.md",
+            "docs/design/STATUS_AND_RISK_VISUAL_LANGUAGE.md",
+            "docs/design/ACCESSIBILITY_BASELINE.md",
+            "docs/design/UI_COPY_AND_ACTION_LANGUAGE.md",
+            "docs/design/COMPONENT_TAXONOMY.md",
+            "docs/design/RESPONSIVE_LAYOUT_BASELINE.md",
+        ]
+        failures.extend(
+            f"Control Center docs missing design governance link: {path}"
+            for path in linked_docs
+            if path not in control_center_text
+        )
+        return self._result(criterion, failures, [*required_docs, *control_center_docs])
 
     def _skipped(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
         return FoundationGateResult(

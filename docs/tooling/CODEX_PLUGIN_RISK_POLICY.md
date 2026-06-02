@@ -28,6 +28,7 @@ High:
 - dependency or package installation,
 - database/payment-provider workflows,
 - plugin or skill installation.
+- design SaaS sync, screenshot-to-code, design-to-code, or AI UI generator workflows that can create code or artifacts.
 
 Critical:
 
@@ -66,6 +67,7 @@ Shell commands are allowed narrowly for local verifier, test, grep, git, and scr
 - Chrome authenticated profile control.
 - Hugging Face Jobs, uploads, training, or Spaces deployment.
 - Plugin/skill installers.
+- Figma, Stitch, Framer, design-to-code, screenshot-to-code, AI UI generator tools, and design plugin enablement.
 - Stripe/Supabase credential workflows.
 - Any signing, keychain, provisioning profile, App Store Connect, browser-cookie, SSH-key, `.env`, token, or credential-store flow.
 
@@ -89,3 +91,7 @@ expiration or revocation condition
 ```
 
 No approval exists merely because a plugin appears available in Codex.
+
+## Design Tooling Policy
+
+v0.18.2 adds design governance docs only. Design tools are not enabled. Future design-tool use requires explicit milestone approval and must preserve repo-owned source of truth, secret-free artifacts, no external design sync, no automatic design-to-code commits, and code review for any generated output. Browser remains limited to local UI verification under existing policy; Chrome authenticated profile control and Computer Use remain disabled.

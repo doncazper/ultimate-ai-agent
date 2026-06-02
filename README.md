@@ -1,12 +1,12 @@
-# Ultimate AI Agent Canonical Bundle v0.18.1
+# Ultimate AI Agent Canonical Bundle v0.18.2
 
-This is the active project baseline after M14 Web Control Center Local Backend Connection Safety hardening.
+This is the active project baseline after Open Design System and UI Design Governance documentation.
 
 Start here:
 
 ```text
-README_IMPORT_v0_18_1.md
-ultimate_ai_agent_master_plan_v0_18_1.md
+README_IMPORT_v0_18_2.md
+ultimate_ai_agent_master_plan_v0_18_2.md
 docs/DOCUMENTATION_INDEX.md
 docs/canonical/09_roadmap.md
 docs/canonical/CANONICAL_DOC_MAP.md
@@ -32,13 +32,23 @@ docs/control_center/CONTROL_CENTER_FRONTEND_ROUTES.md
 docs/control_center/LOCAL_BACKEND_CONNECTION.md
 docs/control_center/LOCAL_BROWSER_SMOKE.md
 docs/control_center/LOCAL_BROWSER_SMOKE_REPORTING.md
+docs/design/OPEN_DESIGN_SYSTEM.md
+docs/design/CONTROL_CENTER_DESIGN_LANGUAGE.md
+docs/design/STATUS_AND_RISK_VISUAL_LANGUAGE.md
+docs/design/ACCESSIBILITY_BASELINE.md
+docs/design/DESIGN_TOOLING_POLICY.md
+docs/design/DESIGN_TOKEN_ROADMAP.md
+docs/design/UI_COPY_AND_ACTION_LANGUAGE.md
+docs/design/DESIGN_ARTIFACT_GOVERNANCE.md
+docs/design/COMPONENT_TAXONOMY.md
+docs/design/RESPONSIVE_LAYOUT_BASELINE.md
 docs/runtime/model_runtime_adapter_harness.md
 docs/runtime/local_loopback_model_runtime.md
 docs/runtime/RUNTIME_READINESS.md
 docs/runtime/MANUAL_SMOKE_REPORTS.md
 docs/runtime/RUNTIME_CAPABILITY_MATRIX.md
 docs/security/approval_authority.md
-docs/implementation/foundation_gate_implementation_plan_v0_18_1.md
+docs/implementation/foundation_gate_implementation_plan_v0_18_2.md
 docs/maintenance/documentation_integrity_checklist.md
 docs/tooling/CODEX_PLUGIN_CAPABILITY_INVENTORY.md
 docs/tooling/CODEX_PLUGIN_RISK_POLICY.md
@@ -120,3 +130,7 @@ Web Control Center local backend connection rule:
 Web Control Center local backend connection hardening rule:
 
 > v0.18.1 hardens M14 local backend connection safety in the existing Web Control Center shell only. API base URLs remain local-only: relative path, localhost, 127.0.0.1, and loopback IPv6 are allowed; public IPs, private LAN IPs, non-loopback hostnames, URL credentials, external absolute API URLs, and broad secret-like query parameters are blocked or rejected. The shell makes unknown/checking, backend online, degraded, offline-safe, and mock fallback states explicit, and any mock fallback remains visibly non-authoritative. OpenAPI path count remains `74`. This release adds no M15 approval queue, receipt/event viewer UI, backend API route, runtime/model/provider call, remote dispatch, mobile sensor access, plugin enablement, auth, credentials, cookies, Authorization headers, API keys, analytics/SaaS SDK, dependency, native build workflow, external API host, or production Control Center authority.
+
+Open Design System and UI Design Governance rule:
+
+> v0.18.2 adds repo-owned Open Design System and Control Center UI Design Governance documentation before M15. Design docs, reviewed components, and future repo-owned tokens are the design source of truth; design tools, design SaaS, UI generators, screenshot-to-code, and design-to-code systems are not authority and are not enabled. M15 Approval Queue + Receipt/Event Viewer UI remains future work and must read the design governance docs before implementation. This release adds no frontend behavior, backend API route, runtime/model/provider call, remote dispatch, mobile sensor access, plugin enablement, dependency, design tool integration, Chrome authenticated profile control, Computer Use automation, iOS/macOS build workflow, analytics/SaaS SDK, automatic design sync, automatic design-to-code, or production Control Center authority.

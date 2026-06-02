@@ -971,6 +971,15 @@ def default_foundation_gate_criteria() -> List[FoundationGateCriterion]:
             "critical",
         ),
         _criterion(
+            "open_design_governance_docs_present",
+            "Open Design Governance Docs Present",
+            FoundationGateCategory.documentation,
+            "FoundationGateEvaluator.check_open_design_governance_docs_present",
+            "Open Design System and Control Center UI governance docs exist, keep design tooling disabled, define repo-owned source of truth, and protect visual artifacts from secrets.",
+            "Open Design governance docs are missing or imply design tool enablement, design SaaS authority, unsafe visual artifacts, or missing Control Center design links.",
+            "critical",
+        ),
+        _criterion(
             "roadmap_milestone_charters_current",
             "Roadmap Milestone Charters Current",
             FoundationGateCategory.documentation,

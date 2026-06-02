@@ -22,6 +22,7 @@ browser authenticated profile control
 computer use
 cloud compute/training
 plugin/skill installation
+design tooling
 ```
 
 ## Enablement Requirements
@@ -76,7 +77,21 @@ Foundation Gate
 - Computer Use remains disabled except explicit last-resort manual QA approval.
 - Hugging Face Jobs, uploads, training, and Spaces deployment remain disabled.
 - Plugin/skill installers remain disabled until Skill lifecycle security exists.
+- Design tooling, including Figma, Stitch, Framer, screenshot-to-code, design-to-code, and AI UI generators, remains disabled unless a future milestone explicitly approves optional import/export use.
 - Shell/exec commands are allowed narrowly for local verifier, test, grep, git, and script workflows only.
+
+## Design Tooling
+
+Design tools are development aids and are not authority. v0.18.2 records design governance in repo docs only:
+
+- no design tools are enabled.
+- no design SaaS is authority.
+- no external design sync is enabled.
+- no automatic design-to-code commit is allowed.
+- design-to-code output must be reviewed like code.
+- screenshots and design artifacts must be secret-free and treated as sensitive until reviewed.
+- Browser may be used only for local UI verification under existing local browser smoke policy.
+- Chrome authenticated profile control and Computer Use remain disabled.
 
 ## Mobile and Desktop Build Plugins
 

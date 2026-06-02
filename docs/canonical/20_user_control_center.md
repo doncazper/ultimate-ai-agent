@@ -119,3 +119,20 @@ M15 — Approval Queue + Receipt/Event Viewer UI, future read-only/preview-only 
 M14 is about reliable local backend connection states, typed API-client hardening, backend unavailable states, mock-to-live clarity, local-only API base policy, and safe error handling. M14 adds no backend route, execution, new authority, model/provider call, remote dispatch, mobile sensor control, plugin enablement, auth, credentials, cookies, analytics/SaaS SDK, external API host, or approval/receipt UI expansion beyond already-existing read-only summaries.
 
 M15 is the first planned approval queue plus receipt/event viewer UI milestone. It remains read-only/preview-only unless a separate reviewed backend contract explicitly adds authority. The Control Center must not execute actions, approve actions, bypass Approval Authority, write files, mutate memory, resolve credentials, enable plugins, access mobile sensors, or dispatch remote workers.
+
+## v0.18.2 Open Design Governance
+
+v0.18.2 adds repo-owned Open Design System and UI Design Governance documentation before M15. Control Center UI work must follow:
+
+- `docs/design/OPEN_DESIGN_SYSTEM.md`
+- `docs/design/CONTROL_CENTER_DESIGN_LANGUAGE.md`
+- `docs/design/STATUS_AND_RISK_VISUAL_LANGUAGE.md`
+- `docs/design/ACCESSIBILITY_BASELINE.md`
+- `docs/design/UI_COPY_AND_ACTION_LANGUAGE.md`
+- `docs/design/DESIGN_ARTIFACT_GOVERNANCE.md`
+- `docs/design/COMPONENT_TAXONOMY.md`
+- `docs/design/RESPONSIVE_LAYOUT_BASELINE.md`
+
+Design docs, reviewed components, and future repo-owned tokens are the design source of truth. Design tools, design SaaS, UI generators, screenshot-to-code, and design-to-code tools are not authority and are not enabled by v0.18.2.
+
+M15 approval, receipt, and event viewer UI must read the design governance docs before implementation. Future Mobile Companion UI should inherit these principles while remaining a control, approval, capture, receipt, and status surface, not the agent brain.

@@ -1,6 +1,6 @@
 # Frontend Safety Policy
 
-Status: Active for v0.18.1 / M14 local backend connection safety hardening.
+Status: Active for v0.18.2 / Open Design System and UI Design Governance.
 
 The Web Control Center shell is a display and preview surface. The Python Agent Core remains the brain and source of policy enforcement.
 
@@ -86,3 +86,17 @@ M15 Approval Queue + Receipt/Event Viewer UI remains future work. Future fronten
 - no remote dispatch.
 - no model/provider invocation.
 - no sensitive browser storage, cookies, credential APIs, camera, microphone, location, notification, push, service worker, IndexedDB, CacheStorage, or clipboard-write APIs.
+
+## v0.18.2 Design Governance Boundary
+
+Control Center UI changes must follow:
+
+- `docs/design/OPEN_DESIGN_SYSTEM.md`
+- `docs/design/CONTROL_CENTER_DESIGN_LANGUAGE.md`
+- `docs/design/STATUS_AND_RISK_VISUAL_LANGUAGE.md`
+- `docs/design/ACCESSIBILITY_BASELINE.md`
+- `docs/design/UI_COPY_AND_ACTION_LANGUAGE.md`
+- `docs/design/COMPONENT_TAXONOMY.md`
+- `docs/design/RESPONSIVE_LAYOUT_BASELINE.md`
+
+Design governance does not add frontend behavior, dependencies, Tailwind, shadcn, design system packages, icon packs, analytics, auth, payment SDKs, design tool integration, Chrome authenticated profile control, Computer Use, plugin enablement, mobile sensor access, remote dispatch, model/provider calls, or production authority.

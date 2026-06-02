@@ -1,6 +1,6 @@
 # Control Center Frontend Routes
 
-Status: Active for v0.18.1 / M14 local backend connection safety hardening. The frontend route set is unchanged.
+Status: Active for v0.18.2 / Open Design System and UI Design Governance. The frontend route set is unchanged.
 
 The frontend shell is served by Vite during local development. It is not mounted by the Python API and does not add OpenAPI paths.
 
@@ -45,7 +45,7 @@ Forbidden frontend route/API targets:
 
 v0.17.4 keeps the frontend route set unchanged and adds local browser smoke UX polish plus safe reporting documentation. `scripts/verify_control_center_frontend.py` rejects forbidden execute, plugin enablement, runtime execution, remote dispatch, mobile sensor endpoint strings, analytics/SaaS SDK markers, sensitive browser APIs, and unsafe fixtures in frontend implementation files. `scripts/verify_control_center_browser_smoke_readiness.py` verifies that browser smoke readiness and reporting remain manual local-only documentation.
 
-OpenAPI remains a backend contract. v0.18.1 changes only `info.version` to `0.18.1`; backend path count remains `74` with unique operation IDs.
+OpenAPI remains a backend contract. v0.18.2 changes only `info.version` to `0.18.2`; backend path count remains `74` with unique operation IDs.
 
 ## v0.18.0 M14 Connection Stabilization
 
@@ -61,3 +61,17 @@ M14 clarifies local backend connection states and mock-to-live transitions, but 
 ## v0.18.1 M14 Connection Safety Hardening
 
 v0.18.1 adds no frontend routes and no backend API paths. It hardens the existing M14 route behavior by rejecting unsafe API base forms and making unknown/checking connection states explicit.
+
+## v0.18.2 Design Governance
+
+v0.18.2 adds no frontend routes and no backend API paths. It documents the design rules future route implementations must follow:
+
+- `docs/design/OPEN_DESIGN_SYSTEM.md`
+- `docs/design/CONTROL_CENTER_DESIGN_LANGUAGE.md`
+- `docs/design/STATUS_AND_RISK_VISUAL_LANGUAGE.md`
+- `docs/design/ACCESSIBILITY_BASELINE.md`
+- `docs/design/UI_COPY_AND_ACTION_LANGUAGE.md`
+- `docs/design/COMPONENT_TAXONOMY.md`
+- `docs/design/RESPONSIVE_LAYOUT_BASELINE.md`
+
+M15 remains future work and must preserve read-only/preview-only Control Center boundaries.

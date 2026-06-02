@@ -29,6 +29,7 @@ High-risk plugins require milestone-specific approval before use. External tools
 | apply_patch | Direct repository file editing. | Yes. | Use only for requested edits. | Medium to high. | Approved docs/code changes. | Allowed only inside task scope. |
 | web.run | Internet lookup and retrieval. | Yes. | Use when current external facts are required. | Low to medium. | Standards/docs research. | Allowed only when relevant. |
 | image_gen | Bitmap image generation. | Yes. | Use only when requested for visual artifacts. | Low to medium. | UI mockups or docs visuals. | Future-only with request. |
+| Design tools | Figma, Stitch, Framer, screenshot-to-code, design-to-code, and AI UI generator workflows. | Not enabled. | Keep disabled until explicit design-tool milestone approval. | High. | Future optional design import/export evaluation. | Disabled/future-only. |
 | Plugin/skill install tools | Discover, create, or install Codex plugins and skills. | Visible. | Keep disabled due to supply-chain risk. | High. | Tooling administration only after security lifecycle exists. | Disabled by default. |
 
 ## Inventory Rules
@@ -48,5 +49,6 @@ High-risk plugins require milestone-specific approval before use. External tools
 - GitHub write, release, push, tag, or PR actions require explicit approval or direct-push rules.
 - Computer Use remains disabled except explicit last-resort manual QA approval.
 - Hugging Face Jobs, uploads, training, and Spaces deployment remain disabled.
+- Design tools, design SaaS sync, screenshot-to-code, design-to-code, and AI UI generators remain disabled unless a future milestone explicitly approves optional import/export use.
 - Plugin/skill installers remain disabled due to supply-chain risk.
 - Shell/exec commands are allowed narrowly for test, verifier, git, and explicitly scoped implementation workflows only.

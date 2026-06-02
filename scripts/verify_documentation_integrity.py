@@ -33,8 +33,31 @@ REQUIRED_ACTIVE_DOCS = [
     "docs/control_center/LOCAL_BACKEND_CONNECTION.md",
     "docs/control_center/LOCAL_BROWSER_SMOKE.md",
     "docs/control_center/LOCAL_BROWSER_SMOKE_REPORTING.md",
+    "docs/design/OPEN_DESIGN_SYSTEM.md",
+    "docs/design/CONTROL_CENTER_DESIGN_LANGUAGE.md",
+    "docs/design/STATUS_AND_RISK_VISUAL_LANGUAGE.md",
+    "docs/design/ACCESSIBILITY_BASELINE.md",
+    "docs/design/DESIGN_TOOLING_POLICY.md",
+    "docs/design/DESIGN_TOKEN_ROADMAP.md",
+    "docs/design/UI_COPY_AND_ACTION_LANGUAGE.md",
+    "docs/design/DESIGN_ARTIFACT_GOVERNANCE.md",
+    "docs/design/COMPONENT_TAXONOMY.md",
+    "docs/design/RESPONSIVE_LAYOUT_BASELINE.md",
     "docs/roadmap/MILESTONE_CHARTERS.md",
     "docs/roadmap/NEXT_SEQUENCE_v0_17_5.md",
+]
+
+REQUIRED_DESIGN_DOCS = [
+    "docs/design/OPEN_DESIGN_SYSTEM.md",
+    "docs/design/CONTROL_CENTER_DESIGN_LANGUAGE.md",
+    "docs/design/STATUS_AND_RISK_VISUAL_LANGUAGE.md",
+    "docs/design/ACCESSIBILITY_BASELINE.md",
+    "docs/design/DESIGN_TOOLING_POLICY.md",
+    "docs/design/DESIGN_TOKEN_ROADMAP.md",
+    "docs/design/UI_COPY_AND_ACTION_LANGUAGE.md",
+    "docs/design/DESIGN_ARTIFACT_GOVERNANCE.md",
+    "docs/design/COMPONENT_TAXONOMY.md",
+    "docs/design/RESPONSIVE_LAYOUT_BASELINE.md",
 ]
 
 UNSAFE_IMPLEMENTATION_CLAIMS = [
@@ -87,6 +110,7 @@ ACTIVE_DOCS_TO_SCAN = [
     "docs/control_center/LOCAL_BACKEND_CONNECTION.md",
     "docs/control_center/LOCAL_BROWSER_SMOKE.md",
     "docs/control_center/LOCAL_BROWSER_SMOKE_REPORTING.md",
+    *REQUIRED_DESIGN_DOCS,
     "docs/remote/REMOTE_WORKER_FOUNDATION.md",
     "docs/remote/REMOTE_NODE_SECURITY_MODEL.md",
     "docs/remote/REMOTE_JOB_ENVELOPE.md",
@@ -170,6 +194,7 @@ def verify(root: Path = ROOT) -> list[str]:
                 failures.append(f"unsafe implemented-capability claim in {rel_path}: {phrase}")
 
     failures.extend(_verify_roadmap_milestone_charters(root))
+    failures.extend(_verify_open_design_governance(root))
 
     policy_text = "\n".join(
         _read(root / rel_path).lower()
@@ -191,6 +216,63 @@ def verify(root: Path = ROOT) -> list[str]:
     for label, required_fragments in policy_expectations.items():
         if not all(fragment in policy_text for fragment in required_fragments):
             failures.append(f"missing Codex plugin governance policy: {label}")
+
+    return failures
+
+
+def _verify_open_design_governance(root: Path) -> list[str]:
+    failures: list[str] = []
+    for rel_path in REQUIRED_DESIGN_DOCS:
+        if not (root / rel_path).exists():
+            failures.append(f"missing active documentation file: {rel_path}")
+
+    design_text = "\n".join(
+        _read(root / rel_path).lower() for rel_path in REQUIRED_DESIGN_DOCS if (root / rel_path).exists()
+    )
+    expectations = {
+        "design docs must say no design tools are enabled": "no design tools are enabled",
+        "design docs must say design source of truth is repo-owned": "repo-owned source of truth",
+        "design docs must say screenshots/design artifacts must not contain secrets": (
+            "screenshots and design artifacts must not contain secrets"
+        ),
+        "design docs must say no automatic design-to-code": "no automatic design-to-code",
+        "design docs must say no automatic design sync": "no automatic design sync",
+        "design docs must say design SaaS is not authority": "no design saas is authority",
+    }
+    for failure, fragment in expectations.items():
+        if fragment not in design_text:
+            failures.append(failure)
+
+    control_center_text = "\n".join(
+        _read(root / rel_path)
+        for rel_path in [
+            "docs/control_center/WEB_CONTROL_CENTER_SHELL.md",
+            "docs/control_center/FRONTEND_SAFETY_POLICY.md",
+            "docs/control_center/CONTROL_CENTER_FRONTEND_ROUTES.md",
+            "docs/control_center/LOCAL_BROWSER_SMOKE.md",
+            "docs/control_center/LOCAL_BROWSER_SMOKE_REPORTING.md",
+            "docs/control_center/LOCAL_BACKEND_CONNECTION.md",
+        ]
+        if (root / rel_path).exists()
+    )
+    for rel_path in [
+        "docs/design/OPEN_DESIGN_SYSTEM.md",
+        "docs/design/CONTROL_CENTER_DESIGN_LANGUAGE.md",
+        "docs/design/STATUS_AND_RISK_VISUAL_LANGUAGE.md",
+        "docs/design/ACCESSIBILITY_BASELINE.md",
+        "docs/design/UI_COPY_AND_ACTION_LANGUAGE.md",
+        "docs/design/COMPONENT_TAXONOMY.md",
+        "docs/design/RESPONSIVE_LAYOUT_BASELINE.md",
+    ]:
+        if rel_path not in control_center_text:
+            failures.append(f"Control Center docs missing design doc link: {rel_path}")
+
+    roadmap_text = ""
+    roadmap_path = root / "docs/canonical/09_roadmap.md"
+    if roadmap_path.exists():
+        roadmap_text = _read(roadmap_path).lower()
+    if "v0.18.2" not in roadmap_text or "open design system" not in roadmap_text:
+        failures.append("roadmap must mention v0.18.2 Open Design implementation")
 
     return failures
 

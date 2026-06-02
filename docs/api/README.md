@@ -1,6 +1,6 @@
 # API Boundary
 
-The v0.18.1 API boundary is metadata-first, validation-first, approval-aware for local/dev policy checks, simulated/fallback-first for model runtime behavior, readiness/status-only for M11 runtime readiness, read-only/preview-only for M12/M13 Control Center contracts, and unchanged for M14 local backend connection stabilization and safety hardening. It publishes the current OpenAPI schema and `/api/manifest` route inventory without adding cloud model calls, provider SDK calls, web fetching, browser automation, tokenizers, billing APIs, production auth, OAuth, private mesh networking, mobile sensor access, plugin enablement, backend frontend-tool control routes, runtime execution, or production persistence.
+The v0.18.2 API boundary is metadata-first, validation-first, approval-aware for local/dev policy checks, simulated/fallback-first for model runtime behavior, readiness/status-only for M11 runtime readiness, read-only/preview-only for M12/M13 Control Center contracts, unchanged for M14 local backend connection stabilization and safety hardening, and unchanged for v0.18.2 design governance. It publishes the current OpenAPI schema and `/api/manifest` route inventory without adding cloud model calls, provider SDK calls, web fetching, browser automation, tokenizers, billing APIs, production auth, OAuth, private mesh networking, mobile sensor access, plugin enablement, backend frontend-tool control routes, runtime execution, design-tool integration, or production persistence.
 
 Use:
 
@@ -34,5 +34,7 @@ v0.16.0 adds `/control-center/*` backend contract routes for manifest, dashboard
 v0.17.0 adds a local Web Control Center frontend shell only. It adds no backend API route. v0.17.1 and v0.17.2 harden the frontend safety and verification path only. v0.17.3 cleans up release documentation labels. v0.17.4 polishes local browser smoke reviewability and reporting only. v0.17.5 freezes roadmap milestone charters only.
 
 v0.18.1 hardens M14 local backend connection safety in the frontend shell only. It keeps local-only API base validation, visible live/degraded/mock fallback states, and explicit unknown/checking state copy. It adds no backend API route and no M15 approval queue, receipt, or event viewer route. OpenAPI path count remains `74`; only `info.version` changes to the active package version.
+
+v0.18.2 adds Open Design System and UI Design Governance documentation only. It adds no backend API route and no M15 approval queue, receipt, or event viewer route. OpenAPI path count remains `74`; only `info.version` changes to the active package version.
 
 API validation errors are sanitized before they are returned. FastAPI/Pydantic validation failures must not echo raw invalid input values or secret-like field values.
