@@ -36,6 +36,8 @@ export function App() {
 
 function ConnectionStatus({ connection }: { connection: BackendConnectionSummary }) {
   const titleByState: Record<BackendConnectionSummary["state"], string> = {
+    unknown: "Backend state unknown",
+    checking: "Checking backend connection",
     online: "Backend online",
     degraded: "Backend degraded",
     offline: "Backend offline",

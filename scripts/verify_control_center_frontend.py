@@ -86,6 +86,10 @@ SECRET_ASSIGNMENT = re.compile(
 )
 
 ABSOLUTE_API_URL = re.compile(r"https?://(?!localhost(?::|/|$)|127\.0\.0\.1(?::|/|$)|\[::1\](?::|/|$))[^'\"\s)]+")
+URL_CREDENTIALS = re.compile(r"https?://[^'\"\s/@]+:[^'\"\s/@]+@[^'\"\s]+", re.IGNORECASE)
+SECRET_LIKE_API_BASE = re.compile(
+    r"(?i)VITE_UAA_API_BASE_URL\s*=\s*[^#\n]*(api[_-]?key|auth|credential|key|password|secret|token)\s*[:=][^\s#]+"
+)
 
 
 def verify(root: Path = ROOT) -> list[str]:
@@ -100,6 +104,7 @@ def verify(root: Path = ROOT) -> list[str]:
 
     failures.extend(_tracked_artifact_failures(root))
     failures.extend(_package_failures(app_root))
+    failures.extend(_env_example_failures(app_root, root))
 
     implementation_files = _implementation_files(app_root)
     for path in implementation_files:
@@ -117,6 +122,8 @@ def verify(root: Path = ROOT) -> list[str]:
                 failures.append(f"forbidden native/plugin reference in {rel}: {fragment}")
         for match in ABSOLUTE_API_URL.finditer(text):
             failures.append(f"forbidden absolute external API URL in {rel}: {match.group(0)}")
+        for match in URL_CREDENTIALS.finditer(text):
+            failures.append(f"forbidden URL credentials in {rel}: {match.group(0)}")
         failures.extend(_button_label_failures(rel, text))
 
     mock_path = app_root / "src/mocks/controlCenterData.ts"
@@ -188,6 +195,10 @@ def verify(root: Path = ROOT) -> list[str]:
             failures.append("Vite dev proxy must cover local Control Center and runtime read routes")
         if "changeOrigin: true" in text:
             failures.append("Vite dev proxy must not rewrite origin for local backend checks")
+        for match in ABSOLUTE_API_URL.finditer(text):
+            failures.append(f"forbidden absolute external API URL in {vite_config.relative_to(root)}: {match.group(0)}")
+        for match in URL_CREDENTIALS.finditer(text):
+            failures.append(f"forbidden URL credentials in {vite_config.relative_to(root)}: {match.group(0)}")
 
     return failures
 
@@ -215,6 +226,23 @@ def _package_failures(app_root: Path) -> list[str]:
         return []
     text = package.read_text(encoding="utf-8").lower()
     return [f"forbidden frontend dependency marker: {fragment}" for fragment in FORBIDDEN_FRONTEND_DEPENDENCIES if fragment in text]
+
+
+def _env_example_failures(app_root: Path, root: Path) -> list[str]:
+    failures: list[str] = []
+    for name in [".env.example", "env.example"]:
+        path = app_root / name
+        if not path.exists():
+            continue
+        text = path.read_text(encoding="utf-8")
+        rel = path.relative_to(root)
+        if SECRET_LIKE_API_BASE.search(text):
+            failures.append(f"secret-like API base env example in {rel}")
+        for match in ABSOLUTE_API_URL.finditer(text):
+            failures.append(f"forbidden absolute external API URL in {rel}: {match.group(0)}")
+        for match in URL_CREDENTIALS.finditer(text):
+            failures.append(f"forbidden URL credentials in {rel}: {match.group(0)}")
+    return failures
 
 
 def _implementation_files(app_root: Path) -> list[Path]:

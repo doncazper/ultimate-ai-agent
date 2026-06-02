@@ -2,7 +2,7 @@ export function LoadingState() {
   return (
     <div className="data-state" role="status">
       <strong>Loading local Control Center</strong>
-      <span>Fetching read-only contract data and preview-only summaries.</span>
+      <span>Checking local backend connection state for read-only contract data and preview-only summaries.</span>
     </div>
   );
 }

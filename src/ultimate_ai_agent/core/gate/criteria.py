@@ -957,7 +957,7 @@ def default_foundation_gate_criteria() -> List[FoundationGateCriterion]:
             "M14 Connection States Visible And Safe",
             FoundationGateCategory.security,
             "FoundationGateEvaluator.check_m14_connection_states_visible_and_safe",
-            "Web Control Center shows live, degraded, mock fallback, and offline-safe connection states with mock data marked non-authoritative.",
+            "Web Control Center shows unknown, checking, live, degraded, mock fallback, and offline-safe connection states with mock data marked non-authoritative.",
             "M14 connection states are missing, unclear, or imply production authority.",
             "critical",
         ),

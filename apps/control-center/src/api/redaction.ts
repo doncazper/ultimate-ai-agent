@@ -1,4 +1,5 @@
 const SECRET_PATTERNS = [
+  /(?:^|[?&\s])(?:auth|credential|key)\s*[:=]\s*[\w./:-]{8,}/gi,
   /api[_-]?key\s*[:=]\s*[\w./:-]{8,}/gi,
   /token\s*[:=]\s*[\w./:-]{8,}/gi,
   /password\s*[:=]\s*\S{6,}/gi,

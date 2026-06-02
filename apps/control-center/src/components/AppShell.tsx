@@ -33,7 +33,7 @@ export function AppShell({ children, activePath }: AppShellProps) {
       <div className="workspace">
         <header className="topbar">
           <div>
-            <p className="eyebrow">v0.18.0 local backend connection</p>
+            <p className="eyebrow">v0.18.1 local backend connection safety</p>
             <h1>Read-only dashboard and preview API</h1>
           </div>
           <div className="topbar-actions" aria-label="Control Center safety status">

@@ -10,7 +10,7 @@ export type CapabilityStatus =
 
 export type ControlCenterActionStatus = "allowed_preview" | "approval_required" | "blocked";
 
-export type BackendConnectionState = "online" | "offline" | "degraded" | "mock_fallback";
+export type BackendConnectionState = "unknown" | "checking" | "online" | "offline" | "degraded" | "mock_fallback";
 
 export interface BackendConnectionSummary {
   state: BackendConnectionState;

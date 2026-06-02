@@ -1,6 +1,6 @@
 # Web Control Center Shell
 
-Status: Active for v0.18.0 / M14 local backend connection stabilization.
+Status: Active for v0.18.1 / M14 local backend connection safety hardening.
 
 M13 adds a local TypeScript React/Vite shell under `apps/control-center/` for reading existing backend Control Center and runtime readiness APIs. It is the first web UI surface for the future Control Center, but it is not a production Control Center and it has no authority to execute actions.
 
@@ -12,12 +12,12 @@ Implemented shell behavior:
 - exposes the action preview risk level as policy metadata only.
 - provides route-level headings and accessible loading, empty, error, and mock fallback states for local browser smoke review.
 - falls back to clearly marked mock data when the local backend is unavailable.
-- displays backend online, degraded, offline-safe, and mock fallback connection states.
+- displays unknown/checking, backend online, degraded, offline-safe, and mock fallback connection states.
 - sanitizes secret-like frontend errors before display.
 - uses relative API URLs by default.
 - may use `VITE_UAA_API_BASE_URL` for local development with a local backend only.
 - allows only relative, localhost, 127.0.0.1, and loopback IPv6 API bases.
-- blocks external absolute API bases and rejects secret-like API base strings.
+- blocks external absolute API bases, public/private non-loopback hosts, non-loopback hostnames, URL credentials, and secret-like API base strings.
 
 Non-goals:
 
@@ -49,3 +49,13 @@ v0.18.0 implements M14 local backend connection stabilization:
 - OpenAPI path count remains `74`; no backend route is added.
 
 M15 Approval Queue + Receipt/Event Viewer UI remains future work. M14 must keep the shell read-only/preview-only and must not add execution, approval authority, plugin enablement, remote dispatch, mobile sensor control, model/provider calls, auth, credentials, cookies, analytics/SaaS SDKs, production persistence, external API hosts, dependencies, or production Control Center authority.
+
+## v0.18.1 M14 Connection Safety Hardening
+
+v0.18.1 hardens M14 without changing the route set or backend API contract:
+
+- public IPs, private LAN IPs, and non-loopback hostnames remain unsupported API bases.
+- URL credentials in API bases are rejected.
+- broad secret-like query parameter names are rejected and not displayed.
+- unknown/checking connection states are explicit in frontend types and loading copy.
+- static verification rejects unsafe Vite proxy targets and secret-like API base env examples.

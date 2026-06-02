@@ -1,6 +1,6 @@
 # Documentation Index
 
-Current active baseline: **v0.18.0**
+Current active baseline: **v0.18.1**
 
 This index is the active entrypoint for documentation navigation. Historical release documents remain in the repository for audit history, but active truth starts with the current baseline files listed here.
 
@@ -9,8 +9,8 @@ This index is the active entrypoint for documentation navigation. Historical rel
 ```text
 README.md
 VERSION.md
-README_IMPORT_v0_18_0.md
-ultimate_ai_agent_master_plan_v0_18_0.md
+README_IMPORT_v0_18_1.md
+ultimate_ai_agent_master_plan_v0_18_1.md
 docs/canonical/CANONICAL_DOC_MAP.md
 docs/canonical/09_roadmap.md
 docs/roadmap/MILESTONE_CHARTERS.md
@@ -60,7 +60,7 @@ docs/control_center/LOCAL_BROWSER_SMOKE.md
 docs/control_center/LOCAL_BROWSER_SMOKE_REPORTING.md
 ```
 
-M12 Control Center docs describe backend contracts, read-only dashboard snapshots, and action preview policy only. M13 adds a local Web Control Center shell that consumes those routes, renders safe mock fallback data, and submits only preview-only action requests. v0.17.4 polishes local shell reviewability and adds safe local browser smoke reporting documentation. v0.18.0 / M14 stabilizes local backend connection behavior with local-only API base URL policy and visible live/degraded/mock fallback states. The shell is not production authority and does not add execution capability.
+M12 Control Center docs describe backend contracts, read-only dashboard snapshots, and action preview policy only. M13 adds a local Web Control Center shell that consumes those routes, renders safe mock fallback data, and submits only preview-only action requests. v0.17.4 polishes local shell reviewability and adds safe local browser smoke reporting documentation. v0.18.0 / M14 stabilizes local backend connection behavior with local-only API base URL policy and visible live/degraded/mock fallback states. v0.18.1 hardens M14 connection safety for public/private non-loopback hosts, URL credentials, secret-like query parameters, and unknown/checking states. The shell is not production authority and does not add execution capability.
 
 M15 is Approval Queue + Receipt/Event Viewer UI and remains future work governed by read-only/preview-only Control Center boundaries until a reviewed milestone explicitly changes them.
 
@@ -149,7 +149,7 @@ The Codex plugin capability inventory and risk policy record available developme
 
 ## Release Notes Index
 
-Current release notes: `docs/release_notes/v0_18_0.md`
+Current release notes: `docs/release_notes/v0_18_1.md`
 
 Historical release notes remain under `docs/release_notes/`. Historical docs may mention old active baselines in historical context; they are not the current source of truth.
 

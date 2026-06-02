@@ -87,11 +87,22 @@ describe("Web Control Center shell", () => {
   it("renders loading and empty states with safe operational copy", () => {
     const { rerender } = render(<LoadingState />);
     expect(screen.getByRole("status")).toHaveTextContent(/loading local control center/i);
+    expect(screen.getByText(/checking local backend connection state/i)).toBeInTheDocument();
     expect(screen.getByText(/read-only/i)).toBeInTheDocument();
 
     rerender(<EmptyState title="No routes listed" message="No API routes were returned by the local mock." />);
     expect(screen.getByRole("status")).toHaveTextContent(/No routes listed/i);
     expect(screen.getByText(/No API routes were returned/i)).toBeInTheDocument();
+  });
+
+  it("keeps backend checking state informational while reads are pending", () => {
+    vi.stubGlobal("fetch", vi.fn(() => new Promise(() => undefined)));
+    window.history.pushState({}, "", "/dashboard");
+    render(<App />);
+
+    expect(screen.getByRole("status")).toHaveTextContent(/checking local backend connection state/i);
+    expect(screen.queryByRole("button", { name: /execute/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /approve/i })).not.toBeInTheDocument();
   });
 
   it("submits action preview only to the preview endpoint", async () => {
@@ -276,21 +287,21 @@ function envelopeForReadEndpoint(url: string) {
   const data = {
     [API_ENDPOINTS.controlCenterManifest]: {
       ...mockApiData.manifest,
-      version: "0.18.0"
+      version: "0.18.1"
     },
     [API_ENDPOINTS.controlCenterDashboard]: {
       ...mockApiData.dashboard,
-      baseline_version: "0.18.0"
+      baseline_version: "0.18.1"
     },
     [API_ENDPOINTS.controlCenterStatus]: mockApiData.status,
     [API_ENDPOINTS.controlCenterRoutes]: mockApiData.routes,
     [API_ENDPOINTS.runtimeReadiness]: {
       ...mockApiData.runtimeReadiness,
-      baseline_version: "0.18.0"
+      baseline_version: "0.18.1"
     },
     [API_ENDPOINTS.runtimeCapabilityMatrix]: {
       ...mockApiData.capabilityMatrix,
-      baseline_version: "0.18.0"
+      baseline_version: "0.18.1"
     }
   };
   const endpoint = Object.keys(data).find((candidate) => url.endsWith(candidate));
@@ -300,7 +311,7 @@ function envelopeForReadEndpoint(url: string) {
 const mockApiData = {
   manifest: {
     manifest_id: "test_manifest",
-    version: "0.18.0",
+    version: "0.18.1",
     generated_at: "2026-01-01T00:00:00Z",
     declared_capabilities: ["control_center_read_only_dashboard"],
     blocked_capabilities: ["runtime_execution", "remote_dispatch", "mobile_sensor_access", "plugin_enablement"],
@@ -310,7 +321,7 @@ const mockApiData = {
   },
   dashboard: {
     snapshot_id: "test_dashboard",
-    baseline_version: "0.18.0",
+    baseline_version: "0.18.1",
     generated_at: "2026-01-01T00:00:00Z",
     system_status: {
       label: "Control Center",
@@ -391,7 +402,7 @@ const mockApiData = {
   },
   runtimeReadiness: {
     report_id: "test_readiness",
-    baseline_version: "0.18.0",
+    baseline_version: "0.18.1",
     status: "report_only",
     production_ready: false,
     real_model_runtime_ready: false,
@@ -405,7 +416,7 @@ const mockApiData = {
   },
   capabilityMatrix: {
     matrix_id: "test_matrix",
-    baseline_version: "0.18.0",
+    baseline_version: "0.18.1",
     metadata: { no_model_was_called: true },
     entries: []
   }

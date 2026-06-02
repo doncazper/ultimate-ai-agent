@@ -1,6 +1,6 @@
 # Frontend Safety Policy
 
-Status: Active for v0.18.0 / M14 local backend connection stabilization.
+Status: Active for v0.18.1 / M14 local backend connection safety hardening.
 
 The Web Control Center shell is a display and preview surface. The Python Agent Core remains the brain and source of policy enforcement.
 
@@ -11,8 +11,8 @@ Frontend safety rules:
 - Action preview must never be treated as execution, approval, credential resolution, remote dispatch, model invocation, plugin enablement, or sensor access.
 - Mock fixtures must be visibly marked mock and non-authoritative.
 - API base URLs must be local-only: relative path, localhost, 127.0.0.1, or loopback IPv6.
-- External absolute API URLs and secret-like API base strings must be blocked or rejected.
-- Live, degraded, offline-safe, and mock fallback connection states must be visible and safe.
+- External absolute API URLs, public/private non-loopback hosts, URL credentials, and secret-like API base strings must be blocked or rejected.
+- Unknown/checking, live, degraded, offline-safe, and mock fallback connection states must be visible and safe.
 - Secret-like user input and backend errors must be sanitized before display.
 - The frontend must not read cookies, local storage, session storage, credentials, keychains, files, mobile sensors, camera, microphone, location, browser profiles, or OS signing material.
 - The frontend must not use browser credential APIs, service workers, IndexedDB, CacheStorage, notification/push APIs, or clipboard writes.
@@ -42,7 +42,7 @@ Local browser smoke readiness:
 - no screenshots with secrets.
 - non-authoritative verification only.
 
-Off-limits in M14/v0.18.0:
+Off-limits in M14/v0.18.1:
 
 - Chrome authenticated profile control.
 - Computer Use automation.
@@ -66,6 +66,16 @@ v0.18.0 implements local backend connection stabilization only:
 - mock fallback remains non-authoritative.
 - partial backend failures show degraded state.
 - OpenAPI path count remains `74`.
+
+## v0.18.1 M14 Connection Safety Hardening
+
+v0.18.1 strengthens the same M14 boundary:
+
+- public IPs, private LAN IPs, and non-loopback hostnames are blocked as API bases.
+- URL credentials in API bases are rejected.
+- broad secret-like query parameter names are rejected.
+- Vite proxy targets and env examples are statically checked for unsafe API base values.
+- unknown/checking connection states are explicit.
 
 M15 Approval Queue + Receipt/Event Viewer UI remains future work. Future frontend prompts must preserve these safety boundaries unless a reviewed milestone explicitly changes them:
 

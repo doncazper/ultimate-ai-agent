@@ -1,12 +1,12 @@
-# Ultimate AI Agent Canonical Bundle v0.18.0
+# Ultimate AI Agent Canonical Bundle v0.18.1
 
-This is the active project baseline after M14 Web Control Center Local Backend Connection Stabilization.
+This is the active project baseline after M14 Web Control Center Local Backend Connection Safety hardening.
 
 Start here:
 
 ```text
-README_IMPORT_v0_18_0.md
-ultimate_ai_agent_master_plan_v0_18_0.md
+README_IMPORT_v0_18_1.md
+ultimate_ai_agent_master_plan_v0_18_1.md
 docs/DOCUMENTATION_INDEX.md
 docs/canonical/09_roadmap.md
 docs/canonical/CANONICAL_DOC_MAP.md
@@ -38,7 +38,7 @@ docs/runtime/RUNTIME_READINESS.md
 docs/runtime/MANUAL_SMOKE_REPORTS.md
 docs/runtime/RUNTIME_CAPABILITY_MATRIX.md
 docs/security/approval_authority.md
-docs/implementation/foundation_gate_implementation_plan_v0_18_0.md
+docs/implementation/foundation_gate_implementation_plan_v0_18_1.md
 docs/maintenance/documentation_integrity_checklist.md
 docs/tooling/CODEX_PLUGIN_CAPABILITY_INVENTORY.md
 docs/tooling/CODEX_PLUGIN_RISK_POLICY.md
@@ -116,3 +116,7 @@ Roadmap projection rule:
 Web Control Center local backend connection rule:
 
 > v0.18.0 implements M14 local backend connection stabilization in the existing Web Control Center shell only. API base URLs are local-only: relative path, localhost, 127.0.0.1, and loopback IPv6 are allowed; external absolute API URLs and secret-like query strings are blocked or rejected. The shell displays backend online, degraded, offline-safe, and mock fallback states, and any mock fallback remains visibly non-authoritative. OpenAPI path count remains `74`. This release adds no M15 approval queue, receipt/event viewer UI, backend API route, runtime/model/provider call, remote dispatch, mobile sensor access, plugin enablement, auth, credentials, cookies, Authorization headers, API keys, analytics/SaaS SDK, dependency, native build workflow, external API host, or production Control Center authority.
+
+Web Control Center local backend connection hardening rule:
+
+> v0.18.1 hardens M14 local backend connection safety in the existing Web Control Center shell only. API base URLs remain local-only: relative path, localhost, 127.0.0.1, and loopback IPv6 are allowed; public IPs, private LAN IPs, non-loopback hostnames, URL credentials, external absolute API URLs, and broad secret-like query parameters are blocked or rejected. The shell makes unknown/checking, backend online, degraded, offline-safe, and mock fallback states explicit, and any mock fallback remains visibly non-authoritative. OpenAPI path count remains `74`. This release adds no M15 approval queue, receipt/event viewer UI, backend API route, runtime/model/provider call, remote dispatch, mobile sensor access, plugin enablement, auth, credentials, cookies, Authorization headers, API keys, analytics/SaaS SDK, dependency, native build workflow, external API host, or production Control Center authority.

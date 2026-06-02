@@ -2737,7 +2737,17 @@ class FoundationGateEvaluator:
             if fragment not in base_url:
                 failures.append(f"API base policy missing fragment: {fragment}")
         external_fixture = "https" + "://api.example.com"
-        for fragment in [external_fixture, "supersecretvalue123", '"tok" + "en"']:
+        for fragment in [
+            external_fixture,
+            "http://8.8.8.8:8000",
+            "http://10.0.0.5:8000",
+            "http://172.16.0.2:8000",
+            "http://192.168.1.10:8000",
+            "supersecretvalue123",
+            '"tok" + "en"',
+            "api_key",
+            "credential",
+        ]:
             if fragment not in tests:
                 failures.append(f"API base policy tests missing unsafe case: {fragment}")
         if "resolveApiBaseUrl" not in client:
@@ -2776,19 +2786,25 @@ class FoundationGateEvaluator:
         app = self._read(self.root / "apps/control-center/src/App.tsx")
         types = self._read(self.root / "apps/control-center/src/api/types.ts")
         client = self._read(self.root / "apps/control-center/src/api/client.ts")
+        data_state = self._read(self.root / "apps/control-center/src/components/DataState.tsx")
         mock = self._read(self.root / "apps/control-center/src/mocks/controlCenterData.ts")
         tests = self._read(self.root / "apps/control-center/src/App.test.tsx")
-        combined = "\n".join([app, types, client, mock, tests])
+        combined = "\n".join([app, types, client, data_state, mock, tests])
         failures = []
         required_fragments = [
             "BackendConnectionSummary",
+            "unknown",
+            "checking",
             "online",
             "degraded",
             "offline",
             "mock_fallback",
+            "Backend state unknown",
+            "Checking backend connection",
             "Backend online",
             "Backend degraded",
             "Mock fallback active",
+            "Checking local backend connection state",
             "non-authoritative mock fallback",
             "API base:",
             "usingMockData",
@@ -2818,6 +2834,7 @@ class FoundationGateEvaluator:
                 "apps/control-center/src/App.tsx",
                 "apps/control-center/src/api/client.ts",
                 "apps/control-center/src/api/types.ts",
+                "apps/control-center/src/components/DataState.tsx",
                 "apps/control-center/src/mocks/controlCenterData.ts",
             ],
         )
