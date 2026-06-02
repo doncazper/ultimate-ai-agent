@@ -1,6 +1,6 @@
 # Design Tooling Policy
 
-Status: Active design governance for v0.18.3. Documentation only.
+Status: Active design governance for v0.18.4. Documentation only.
 
 Design tools are development aids, not authority. Figma, Stitch, Framer, design-to-code tools, screenshot-to-code tools, and AI UI generator tools are not enabled by this milestone.
 

@@ -103,9 +103,13 @@ OpenWebUI deployment and integration tooling is future-only. OpenWebUI admin/con
 
 Any future OpenWebUI bridge must be treated like external tool integration and pass Tool Broker, Approval Authority, Event Ledger, Secret Broker, Redaction, and Foundation Gate gates. It must not bypass Python Agent Core, access credentials directly, expose a public chat shell without security review, or depend on an external hosted OpenWebUI service without a reviewed contract.
 
+v0.18.4 maps future OpenWebUI bridge work to M21 in `docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md`. M21 remains planned/provisional and does not enable deployment, plugins, functions, pipelines, tools, Docker Compose, or external exposure.
+
 ## Mobile and Desktop Build Plugins
 
 iOS, Android, and macOS build plugins are future-only. They may involve Xcode, Gradle, Android Studio, native build systems, signing identities, provisioning profiles, keystores, keychains, simulator/device access, app entitlements, camera/microphone/location permissions, push notification credentials, App Store Connect credentials, and Play Store workflows. They must remain disabled until dedicated milestones define the approval and safety boundary.
+
+v0.18.4 maps future native client contracts to M31 and future browser automation contracts to M38. These milestones remain planned/provisional. No native build plugin, browser automation plugin, sandbox provider, MCP runtime, Agent Skills runtime, or AGENTS.md runtime loading is enabled by v0.18.4.
 
 ## Source-of-Truth Boundary
 

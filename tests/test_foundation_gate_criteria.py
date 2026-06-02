@@ -32,6 +32,7 @@ def test_default_foundation_gate_criteria_cover_m6_acceptance_surface():
         "m7_cost_warnings_visible_in_route_decision",
         "open_design_governance_docs_present",
         "openwebui_ccc_strategy_docs_present",
+        "post_m20_roadmap_projection_present",
         "roadmap_milestone_charters_current",
         "documentation_integrity_current",
         "codex_plugin_governance_docs_present",

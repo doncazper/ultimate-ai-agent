@@ -1,6 +1,6 @@
 # Local Browser Smoke Readiness
 
-Status: Active for v0.18.3; local browser smoke guidance was added/polished in v0.17.4.
+Status: Active for v0.18.4; local browser smoke guidance was added/polished in v0.17.4.
 
 This document defines manual local browser smoke readiness for the Web Control Center shell. It is local-only, optional, non-authoritative, and never part of CI or Foundation Gate browser execution.
 

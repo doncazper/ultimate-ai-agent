@@ -154,3 +154,17 @@ v0.18.3 clarifies the long-term UI/client split:
 All CCC clients must respect Approval Authority, Consent Ledger, Tool Broker, Event Ledger, Secret Broker, Redaction, and Foundation Gate. All CCC clients must use stable API/OpenAPI contracts, avoid secrets in local/browser/mobile storage, remain auditable and receipt-backed, and must not bypass approvals or execute actions locally.
 
 v0.18.3 adds no M15 Approval Queue + Receipt/Event Viewer UI, OpenWebUI integration, OpenWebUI deployment config, frontend feature, backend API route, native CCC implementation, Android app, iOS app, macOS app, native build workflow, mobile sensor access, OS permission integration, signing, keystore, provisioning, App Store workflow, Play Store workflow, dependency, plugin enablement, runtime execution, model/provider call, network call, remote execution, or production authority.
+
+## v0.18.4 Post-M20 CCC Roadmap Projection
+
+v0.18.4 points future client work to `docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md` and `docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md`.
+
+Relevant future milestones:
+
+- M21 - OpenWebUI Bridge + Chat Shell Integration Contract.
+- M31 - CCC Native Client Contract: iOS / Android / macOS.
+- M32 - Device Pairing + Trust Handshake Contract.
+- M33 - Mobile Approval Surface Prototype, No Sensors.
+- M34 - macOS Local Companion Contract / Prototype.
+
+These are planned/provisional only. v0.18.4 adds no OpenWebUI integration, M15 UI, native CCC implementation, device pairing, mobile app, macOS app, sensor access, browser automation, or production Control Center authority.

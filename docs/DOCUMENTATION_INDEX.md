@@ -1,6 +1,6 @@
 # Documentation Index
 
-Current active baseline: **v0.18.3**
+Current active baseline: **v0.18.4**
 
 This index is the active entrypoint for documentation navigation. Historical release documents remain in the repository for audit history, but active truth starts with the current baseline files listed here.
 
@@ -9,12 +9,17 @@ This index is the active entrypoint for documentation navigation. Historical rel
 ```text
 README.md
 VERSION.md
-README_IMPORT_v0_18_3.md
-ultimate_ai_agent_master_plan_v0_18_3.md
+README_IMPORT_v0_18_4.md
+ultimate_ai_agent_master_plan_v0_18_4.md
 docs/canonical/CANONICAL_DOC_MAP.md
 docs/canonical/09_roadmap.md
 docs/roadmap/MILESTONE_CHARTERS.md
 docs/roadmap/NEXT_SEQUENCE_v0_17_5.md
+docs/roadmap/CAPABILITY_LAYERING_STRATEGY.md
+docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md
+docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md
+docs/roadmap/ECOSYSTEM_WATCHLIST.md
+docs/roadmap/STANDARDS_ALIGNMENT_WATCHLIST.md
 docs/maintenance/documentation_integrity_checklist.md
 docs/maintenance/codex_plugin_capability_inventory.md
 docs/tooling/CODEX_PLUGIN_CAPABILITY_INVENTORY.md
@@ -31,7 +36,7 @@ The active canonical docs live in `docs/canonical/`. Use `docs/canonical/CANONIC
 
 Key active canonical groups:
 
-- roadmap and sequencing: `docs/canonical/09_roadmap.md`, `docs/roadmap/MILESTONE_CHARTERS.md`, `docs/roadmap/NEXT_SEQUENCE_v0_17_5.md`
+- roadmap and sequencing: `docs/canonical/09_roadmap.md`, `docs/roadmap/MILESTONE_CHARTERS.md`, `docs/roadmap/NEXT_SEQUENCE_v0_17_5.md`, `docs/roadmap/CAPABILITY_LAYERING_STRATEGY.md`, `docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md`, `docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md`
 - user control: `docs/canonical/20_user_control_center.md`
 - consent, tools, approvals, and authority: `docs/canonical/21_consent_and_permissions_ledger.md`, `docs/canonical/37_tool_broker.md`, `docs/canonical/42_autonomy_levels_and_standing_approvals.md`, `docs/canonical/48_actor_authority_and_identity.md`
 - truth, evidence, memory, and files: `docs/canonical/03_memory_system.md`, `docs/canonical/10_file_management.md`, `docs/canonical/59_truth_grounding_and_evidence_governance.md`, `docs/canonical/60_truth_source_router.md`, `docs/canonical/61_evidence_manifest_and_claim_verification.md`
@@ -96,6 +101,18 @@ docs/ui/CCC_NATIVE_CLIENT_STRATEGY.md
 ```
 
 v0.18.3 clarifies that OpenWebUI is the preferred conversational web shell, CCC means Control Center Clients, and CCC covers CCC Web, CCC iOS, CCC Android, and CCC macOS. Open Design governs custom CCC surfaces and does not replace OpenWebUI. These docs add no OpenWebUI integration, deployment config, frontend feature, backend API route, native app, native build workflow, mobile sensor access, OS permission integration, signing, keystore, provisioning, App Store, or Play Store workflow.
+
+## Active Post-M20 Roadmap Projection Docs
+
+```text
+docs/roadmap/CAPABILITY_LAYERING_STRATEGY.md
+docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md
+docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md
+docs/roadmap/ECOSYSTEM_WATCHLIST.md
+docs/roadmap/STANDARDS_ALIGNMENT_WATCHLIST.md
+```
+
+v0.18.4 adds post-M20 roadmap projection and M21-M40 capability-layer charters only. M14-M20 remain frozen and unchanged. M21-M40 are planned/provisional and require dedicated future implementation and review prompts. The ecosystem and standards watchlists are watchlist-only and add no integration, plugin enablement, external network, dependency, or parity claim.
 
 ## Active Runtime Docs
 
@@ -169,6 +186,8 @@ Backlog files are not implementation claims.
 
 Future prompts must check `docs/roadmap/MILESTONE_CHARTERS.md` and `docs/roadmap/NEXT_SEQUENCE_v0_17_5.md` before selecting milestone scope. Parked work, including local branches or tags, must not be merged, reactivated, or treated as accepted baseline without an explicit reintroduction prompt.
 
+Future prompts after M20 must also read `docs/roadmap/CAPABILITY_LAYERING_STRATEGY.md`, `docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md`, and `docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md` before implementation.
+
 ## Development Tooling Inventory
 
 ```text
@@ -183,7 +202,7 @@ The Codex plugin capability inventory and risk policy record available developme
 
 ## Release Notes Index
 
-Current release notes: `docs/release_notes/v0_18_3.md`
+Current release notes: `docs/release_notes/v0_18_4.md`
 
 Historical release notes remain under `docs/release_notes/`. Historical docs may mention old active baselines in historical context; they are not the current source of truth.
 
@@ -198,4 +217,4 @@ python scripts/verify_all.py
 python scripts/run_foundation_gate.py
 ```
 
-The documentation integrity verifier checks active version alignment, active release docs, active index/map/checklist docs, design governance docs, OpenWebUI/CCC strategy docs, mobile/private mesh doc presence, and obvious unsafe implementation claims.
+The documentation integrity verifier checks active version alignment, active release docs, active index/map/checklist docs, design governance docs, OpenWebUI/CCC strategy docs, post-M20 roadmap projection docs, mobile/private mesh doc presence, and obvious unsafe implementation claims.

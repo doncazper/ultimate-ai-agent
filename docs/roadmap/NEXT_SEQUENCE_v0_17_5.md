@@ -1,6 +1,6 @@
 # Next Sequence v0.17.5
 
-Status: Active roadmap projection and M14-M20 milestone charter freeze, updated through v0.18.3 strategy clarification.
+Status: Active roadmap projection and M14-M20 milestone charter freeze, updated through v0.18.4 post-M20 roadmap projection.
 
 v0.17.5 freezes the next canonical sequence after the v0.17.x Web Control Center shell hardening work. Items after v0.17.5 are planned/provisional but canonical until superseded by a reviewed roadmap patch.
 
@@ -13,6 +13,8 @@ This document resolves the M14 ambiguity:
 No item in this sequence may add production Control Center authority, runtime execution, model/provider calls, network calls, remote execution, mobile sensor access, plugin enablement, native build workflows, production persistence, or external actions unless a future reviewed milestone explicitly changes the boundary.
 
 v0.18.3 clarifies that OpenWebUI remains the preferred conversational web shell and CCC means Control Center Clients: CCC Web, CCC iOS, CCC Android, and CCC macOS. Open Design governs custom CCC surfaces and does not replace OpenWebUI.
+
+v0.18.4 adds post-M20 roadmap projection docs. M14-M20 remain frozen and unchanged. M21-M40 are planned/provisional capability-layer charters in `docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md` and do not authorize implementation.
 
 ## 1. v0.17.5 - Roadmap Projection + M14-M20 Milestone Charter Freeze
 
@@ -470,12 +472,15 @@ Source-of-truth docs:
 
 ## Post-M20 Placeholders
 
-These are placeholders only. They do not reorder M14-M20 and do not authorize implementation.
+These are now expanded in v0.18.4 roadmap projection docs. They do not reorder M14-M20 and do not authorize implementation.
 
-- OpenWebUI Bridge / Chat Shell Integration Contract.
-- CCC Native Client Contract: iOS/Android/macOS Planning.
-- OpenWebUI local LLM runtime bridge, validation-only.
-- Mobile/desktop companion implementations only after contracts.
+- `docs/roadmap/CAPABILITY_LAYERING_STRATEGY.md`.
+- `docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md`.
+- `docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md`.
+- `docs/roadmap/ECOSYSTEM_WATCHLIST.md`.
+- `docs/roadmap/STANDARDS_ALIGNMENT_WATCHLIST.md`.
+
+M21-M40 remain planned/provisional. Every milestone needs its own implementation prompt and review prompt.
 
 ## 11. v0.24.0 / M20 - Device Capability Broker Contract
 

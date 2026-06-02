@@ -1,17 +1,22 @@
-# Ultimate AI Agent Canonical Bundle v0.18.3
+# Ultimate AI Agent Canonical Bundle v0.18.4
 
-This is the active project baseline after OpenWebUI and CCC Client Strategy clarification.
+This is the active project baseline after post-M20 roadmap projection and M21-M40 capability-layer charters.
 
 Start here:
 
 ```text
-README_IMPORT_v0_18_3.md
-ultimate_ai_agent_master_plan_v0_18_3.md
+README_IMPORT_v0_18_4.md
+ultimate_ai_agent_master_plan_v0_18_4.md
 docs/DOCUMENTATION_INDEX.md
 docs/canonical/09_roadmap.md
 docs/canonical/CANONICAL_DOC_MAP.md
 docs/roadmap/MILESTONE_CHARTERS.md
 docs/roadmap/NEXT_SEQUENCE_v0_17_5.md
+docs/roadmap/CAPABILITY_LAYERING_STRATEGY.md
+docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md
+docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md
+docs/roadmap/ECOSYSTEM_WATCHLIST.md
+docs/roadmap/STANDARDS_ALIGNMENT_WATCHLIST.md
 docs/canonical/21_consent_and_permissions_ledger.md
 docs/canonical/37_tool_broker.md
 docs/canonical/42_autonomy_levels_and_standing_approvals.md
@@ -52,7 +57,7 @@ docs/runtime/RUNTIME_READINESS.md
 docs/runtime/MANUAL_SMOKE_REPORTS.md
 docs/runtime/RUNTIME_CAPABILITY_MATRIX.md
 docs/security/approval_authority.md
-docs/implementation/foundation_gate_implementation_plan_v0_18_3.md
+docs/implementation/foundation_gate_implementation_plan_v0_18_4.md
 docs/maintenance/documentation_integrity_checklist.md
 docs/tooling/CODEX_PLUGIN_CAPABILITY_INVENTORY.md
 docs/tooling/CODEX_PLUGIN_RISK_POLICY.md
@@ -142,3 +147,7 @@ Open Design System and UI Design Governance rule:
 OpenWebUI and CCC Client Strategy rule:
 
 > v0.18.3 clarifies OpenWebUI and CCC Client Strategy before M15. OpenWebUI is the preferred conversational web shell and is not the agent brain. CCC means Control Center Clients: CCC Web, CCC iOS, CCC Android, and CCC macOS. CCC Web is the current TypeScript web Control Center; CCC iOS, CCC Android, and CCC macOS are future native clients only. Open Design governs custom CCC surfaces and does not replace OpenWebUI. This release adds no OpenWebUI integration, OpenWebUI deployment config, backend API route, frontend feature, native CCC implementation, Android app, iOS app, macOS app, native build workflow, mobile sensor access, OS permission integration, signing, keystore, provisioning, App Store workflow, Play Store workflow, dependency, plugin enablement, runtime execution, model/provider call, network call, remote execution, or production authority.
+
+Post-M20 roadmap projection rule:
+
+> v0.18.4 adds post-M20 roadmap projection and M21-M40 capability-layer charters only. M14-M20 remain frozen and unchanged. M21-M40 are planned/provisional charters for OpenWebUI bridge contracts, local model runtime activation, first bounded local LLM calls, memory provider abstraction, truth/evidence governance, sandbox/tool lifecycle, MCP/Agent Skills/AGENTS.md trust registry, CCC native client contracts for iOS/Android/macOS, device pairing, Device Capability Broker implementation, selected mobile capture, one governed sensor capability, browser automation contracts, observability exports, and agent evaluation/regression harnesses. This release adds no implementation of those capabilities, backend API route, frontend behavior, runtime execution, model/provider call, network call, remote execution, mobile sensor access, plugin enablement, dependency, native build workflow, or external action.

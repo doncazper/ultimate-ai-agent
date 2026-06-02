@@ -1,6 +1,6 @@
 # Milestone Charters
 
-Status: Active roadmap governance template for v0.18.3.
+Status: Active roadmap governance template for v0.18.4.
 
 This document defines the required charter shape for every future milestone prompt. A milestone charter is planning authority only. It does not implement runtime behavior, frontend behavior, backend API routes, provider calls, network calls, remote execution, mobile sensor access, plugin enablement, native build workflows, production persistence, or external actions.
 
@@ -66,6 +66,9 @@ Notes:
 - Mobile sensor output is not trusted control input by default.
 - Parked work must not become active without an explicit reintroduction prompt.
 - No milestone may skip review gates.
+- M14-M20 remain frozen and unchanged unless a reviewed roadmap patch supersedes them.
+- M21-M40 are planned/provisional in `docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md`.
+- Future prompts after M20 must read `docs/roadmap/CAPABILITY_LAYERING_STRATEGY.md`, `docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md`, and `docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md`.
 
 ## Review And Hardening Rule
 

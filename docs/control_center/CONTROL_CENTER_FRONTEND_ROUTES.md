@@ -1,6 +1,6 @@
 # Control Center Frontend Routes
 
-Status: Active for v0.18.3 / OpenWebUI and CCC Client Strategy clarification. The frontend route set is unchanged.
+Status: Active for v0.18.4 / post-M20 roadmap projection. The frontend route set is unchanged.
 
 The frontend shell is served by Vite during local development. It is not mounted by the Python API and does not add OpenAPI paths.
 

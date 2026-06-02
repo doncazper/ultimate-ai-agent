@@ -1,6 +1,6 @@
 # OpenAPI Contract
 
-v0.18.3 preserves the FastAPI OpenAPI boundary and documents the current route contract without adding public real execution routes.
+v0.18.4 preserves the FastAPI OpenAPI boundary and documents the current route contract without adding public real execution routes.
 
 Contract rules:
 
@@ -18,7 +18,7 @@ Contract rules:
 - v0.15.0 runtime readiness adds three status/validation routes only and no execute, run, connect, dispatch, provider-call, plugin-enable, native-build, or smoke-execute route.
 - v0.15.1 adds no route and only clarifies runtime readiness taxonomy.
 - v0.16.0 Control Center routes are read-only/preview-only and no `/control-center/actions/execute`, `/control-center/plugins/enable`, `/control-center/runtime/execute`, `/control-center/remote-workers/dispatch`, `/control-center/mobile/sensors`, or `/control-center/frontend` route exists.
-- v0.17.0 adds a local Web Control Center frontend shell only. v0.17.1 and v0.17.2 add frontend verification hardening only. v0.17.3 cleans up release documentation labels. v0.17.4 adds local browser smoke UX polish and reporting docs only. v0.17.5 freezes roadmap milestone charters only. v0.18.0 adds M14 frontend-only local backend connection stabilization. v0.18.1 hardens that frontend-only connection safety. v0.18.2 adds design governance docs only. v0.18.3 adds OpenWebUI/CCC strategy docs only. Backend path count remains `74`; only `info.version` changes to the active package version.
+- v0.17.0 adds a local Web Control Center frontend shell only. v0.17.1 and v0.17.2 add frontend verification hardening only. v0.17.3 cleans up release documentation labels. v0.17.4 adds local browser smoke UX polish and reporting docs only. v0.17.5 freezes roadmap milestone charters only. v0.18.0 adds M14 frontend-only local backend connection stabilization. v0.18.1 hardens that frontend-only connection safety. v0.18.2 adds design governance docs only. v0.18.3 adds OpenWebUI/CCC strategy docs only. v0.18.4 adds post-M20 roadmap projection docs only. Backend path count remains `74`; only `info.version` changes to the active package version.
 
 Verification:
 
@@ -30,7 +30,7 @@ Export:
 
 ```bash
 python scripts/export_openapi.py
-python scripts/export_openapi.py --output docs/api/openapi_v0_18_3.json
+python scripts/export_openapi.py --output docs/api/openapi_v0_18_4.json
 ```
 
 The second command is only for intentional versioned snapshots.

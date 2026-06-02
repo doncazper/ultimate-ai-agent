@@ -1,6 +1,6 @@
 # Frontend Safety Policy
 
-Status: Active for v0.18.3 / OpenWebUI and CCC Client Strategy clarification.
+Status: Active for v0.18.4 / post-M20 roadmap projection. Frontend safety policy is unchanged.
 
 The Web Control Center shell is a display and preview surface. The Python Agent Core remains the brain and source of policy enforcement.
 

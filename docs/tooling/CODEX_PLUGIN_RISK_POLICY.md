@@ -106,3 +106,5 @@ v0.18.2 adds design governance docs only. Design tools are not enabled. Future d
 ## OpenWebUI and Native CCC Tooling Policy
 
 v0.18.3 adds OpenWebUI and CCC strategy docs only. OpenWebUI deployment/integration tooling is future-only. OpenWebUI plugins, functions, pipelines, tools, admin/config workflows, and bridges are high-risk until governed. Native CCC iOS, Android, and macOS build workflows are critical until dedicated milestones define permissions, signing, keystore/keychain, store, background-service, notification, sensor, and receipt-backed policies.
+
+v0.18.4 adds post-M20 roadmap projection docs only. Future watchlist entries for MCP, Agent Skills, AGENTS.md, sandboxes, browser automation, observability, OpenWebUI, CCC native clients, and eval tooling are not plugin enablement, dependency approval, runtime execution, or parity claims.

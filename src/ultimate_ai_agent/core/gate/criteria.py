@@ -989,6 +989,15 @@ def default_foundation_gate_criteria() -> List[FoundationGateCriterion]:
             "critical",
         ),
         _criterion(
+            "post_m20_roadmap_projection_present",
+            "Post-M20 Roadmap Projection Present",
+            FoundationGateCategory.documentation,
+            "FoundationGateEvaluator.check_post_m20_roadmap_projection_present",
+            "Post-M20 roadmap projection docs exist, M21-M40 charters are planned/provisional, and docs do not claim implementation.",
+            "Post-M20 roadmap projection docs are missing, incomplete, or imply M21-M40 implementation.",
+            "critical",
+        ),
+        _criterion(
             "roadmap_milestone_charters_current",
             "Roadmap Milestone Charters Current",
             FoundationGateCategory.documentation,

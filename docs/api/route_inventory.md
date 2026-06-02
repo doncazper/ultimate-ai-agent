@@ -14,7 +14,7 @@ Each route declares:
 - `requires_auth_future`
 - `blocked_from_production`
 
-Allowed side-effect classes in v0.18.3 are:
+Allowed side-effect classes in v0.18.4 are:
 
 - `none`
 - `validation_only`
@@ -89,6 +89,8 @@ M11 runtime readiness route group:
 These routes expose readiness metadata, capability matrix metadata, and manual smoke report validation only. They do not execute runtimes, run manual smoke, connect to a mesh, dispatch workers, enable plugins, launch native builds, inspect live Codex tools, or claim production readiness.
 
 v0.14.5 documentation integrity adds no route. v0.14.6 Codex plugin governance adds no route and no plugin enablement endpoint. v0.15.0 adds exactly the three M11 runtime readiness status/validation routes. v0.15.1 adds no route and only clarifies runtime readiness taxonomy.
+
+v0.18.4 post-M20 roadmap projection adds no route. M21-M40 remain planned/provisional and do not add OpenWebUI bridge, local model execution, memory provider, truth/evidence expansion, sandbox/tool execution, MCP/Agent Skills/AGENTS.md runtime, CCC native, device pairing, Device Capability Broker, mobile capture, sensor, browser automation, observability export, eval harness, or M15 approval queue/receipt/event viewer routes.
 
 M12 Control Center route group:
 

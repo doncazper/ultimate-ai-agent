@@ -47,6 +47,11 @@ REQUIRED_ACTIVE_DOCS = [
     "docs/ui/CLIENT_SURFACE_ROLES.md",
     "docs/ui/OPENWEBUI_INTEGRATION_ROADMAP.md",
     "docs/ui/CCC_NATIVE_CLIENT_STRATEGY.md",
+    "docs/roadmap/CAPABILITY_LAYERING_STRATEGY.md",
+    "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+    "docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md",
+    "docs/roadmap/ECOSYSTEM_WATCHLIST.md",
+    "docs/roadmap/STANDARDS_ALIGNMENT_WATCHLIST.md",
     "docs/roadmap/MILESTONE_CHARTERS.md",
     "docs/roadmap/NEXT_SEQUENCE_v0_17_5.md",
 ]
@@ -69,6 +74,14 @@ REQUIRED_UI_STRATEGY_DOCS = [
     "docs/ui/CLIENT_SURFACE_ROLES.md",
     "docs/ui/OPENWEBUI_INTEGRATION_ROADMAP.md",
     "docs/ui/CCC_NATIVE_CLIENT_STRATEGY.md",
+]
+
+REQUIRED_POST_M20_ROADMAP_DOCS = [
+    "docs/roadmap/CAPABILITY_LAYERING_STRATEGY.md",
+    "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+    "docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md",
+    "docs/roadmap/ECOSYSTEM_WATCHLIST.md",
+    "docs/roadmap/STANDARDS_ALIGNMENT_WATCHLIST.md",
 ]
 
 UNSAFE_IMPLEMENTATION_CLAIMS = [
@@ -104,6 +117,7 @@ ACTIVE_DOCS_TO_SCAN = [
     "docs/canonical/09_roadmap.md",
     "docs/roadmap/MILESTONE_CHARTERS.md",
     "docs/roadmap/NEXT_SEQUENCE_v0_17_5.md",
+    *REQUIRED_POST_M20_ROADMAP_DOCS,
     "docs/api/README.md",
     "docs/api/openapi_contract.md",
     "docs/api/route_inventory.md",
@@ -208,6 +222,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_roadmap_milestone_charters(root))
     failures.extend(_verify_open_design_governance(root))
     failures.extend(_verify_openwebui_ccc_strategy(root))
+    failures.extend(_verify_post_m20_roadmap_projection(root))
 
     policy_text = "\n".join(
         _read(root / rel_path).lower()
@@ -344,6 +359,73 @@ def _verify_openwebui_ccc_strategy(root: Path) -> list[str]:
     for failure, fragment in expectations.items():
         if fragment not in ui_text:
             failures.append(failure)
+
+    return failures
+
+
+def _verify_post_m20_roadmap_projection(root: Path) -> list[str]:
+    failures: list[str] = []
+    for rel_path in REQUIRED_POST_M20_ROADMAP_DOCS:
+        if not (root / rel_path).exists():
+            failures.append(f"missing active documentation file: {rel_path}")
+
+    roadmap_text = "\n".join(
+        _read(root / rel_path).lower() for rel_path in REQUIRED_POST_M20_ROADMAP_DOCS if (root / rel_path).exists()
+    )
+    expectations = {
+        "Post-M20 roadmap docs must mention M21": "m21",
+        "Post-M20 roadmap docs must mention M22": "m22",
+        "Post-M20 roadmap docs must mention M23": "m23",
+        "Post-M20 roadmap docs must mention M24": "m24",
+        "Post-M20 roadmap docs must mention M25": "m25",
+        "Post-M20 roadmap docs must mention M26": "m26",
+        "Post-M20 roadmap docs must mention M27": "m27",
+        "Post-M20 roadmap docs must mention M28": "m28",
+        "Post-M20 roadmap docs must mention M29": "m29",
+        "Post-M20 roadmap docs must mention M30": "m30",
+        "Post-M20 roadmap docs must mention M31": "m31",
+        "Post-M20 roadmap docs must mention M32": "m32",
+        "Post-M20 roadmap docs must mention M33": "m33",
+        "Post-M20 roadmap docs must mention M34": "m34",
+        "Post-M20 roadmap docs must mention M35": "m35",
+        "Post-M20 roadmap docs must mention M36": "m36",
+        "Post-M20 roadmap docs must mention M37": "m37",
+        "Post-M20 roadmap docs must mention M38": "m38",
+        "Post-M20 roadmap docs must mention M39": "m39",
+        "Post-M20 roadmap docs must mention M40": "m40",
+        "M21 must be OpenWebUI Bridge + Chat Shell Integration Contract": (
+            "openwebui bridge + chat shell integration contract"
+        ),
+        "M22 must be Local Model Runtime Activation Contract": "local model runtime activation contract",
+        "M23 must be First Real Local LLM Call": "first real local llm call",
+        "M24 must be Memory Provider Abstraction": "memory provider abstraction",
+        "M26 must be Tool Execution Sandbox Contract": "tool execution sandbox contract",
+        "M27 must mention MCP / Agent Skills / AGENTS.md": "mcp / agent skills / agents.md",
+        "M31 must mention iOS / Android / macOS": "ios / android / macos",
+        "M35 must mention Device Capability Broker Implementation, No Sensors": (
+            "device capability broker implementation, no sensors"
+        ),
+        "M38 must be Browser Automation Contract, No Execution": "browser automation contract, no execution",
+        "M39 must be Observability Export Adapters": "observability export adapters",
+        "M40 must be Agent Evaluation + Regression Harness": "agent evaluation + regression harness",
+        "Post-M20 roadmap docs must say planned/provisional": "planned/provisional",
+        "Post-M20 roadmap docs must say no integration is added": "no integration",
+        "Post-M20 roadmap docs must say no dependency is added": "no dependency",
+        "Post-M20 roadmap docs must say no implementation is added": "no implementation",
+    }
+    for failure, fragment in expectations.items():
+        if fragment not in roadmap_text:
+            failures.append(failure)
+
+    implemented_claims = [
+        f"m{number} is implemented" for number in range(21, 41)
+    ] + [
+        "m21-m40 are implemented",
+        "m21 through m40 are implemented",
+        "post-m20 capabilities are implemented",
+    ]
+    if any(claim in roadmap_text for claim in implemented_claims):
+        failures.append("M21-M40 docs must not claim implementation")
 
     return failures
 

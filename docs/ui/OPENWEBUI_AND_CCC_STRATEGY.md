@@ -1,6 +1,6 @@
 # OpenWebUI and CCC Strategy
 
-Status: Active UI strategy clarification for v0.18.3. Documentation only.
+Status: Active UI strategy clarification for v0.18.4. Documentation only.
 
 OpenWebUI is the preferred conversational web shell for local LLM chat. It is a chat surface, not the agent brain, and it must not bypass Python Agent Core.
 

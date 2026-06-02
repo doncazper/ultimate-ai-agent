@@ -1,6 +1,6 @@
 # Web Control Center Shell
 
-Status: Active for v0.18.3 / OpenWebUI and CCC Client Strategy clarification.
+Status: Active for v0.18.4 / post-M20 roadmap projection. Web Control Center behavior is unchanged.
 
 M13 adds a local TypeScript React/Vite shell under `apps/control-center/` for reading existing backend Control Center and runtime readiness APIs. It is the first web UI surface for the future Control Center, but it is not a production Control Center and it has no authority to execute actions.
 

@@ -1,4 +1,4 @@
-# 09 - Roadmap v0.18.3
+# 09 - Roadmap v0.18.4
 
 Status: Active foundation-first roadmap. This is the single roadmap source of truth.
 
@@ -25,7 +25,18 @@ The original foundation sequence established runtime hygiene, local runtime/cont
 
 ## Current accepted baseline
 
-The active accepted baseline is v0.18.3. It clarifies OpenWebUI and CCC Client Strategy after accepted v0.18.2 Open Design governance.
+The active accepted baseline is v0.18.4. It adds post-M20 roadmap projection and M21-M40 capability-layer charters after accepted v0.18.3 OpenWebUI and CCC Client Strategy clarification.
+
+v0.18.4 adds:
+
+- `docs/roadmap/CAPABILITY_LAYERING_STRATEGY.md`.
+- `docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md`.
+- `docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md`.
+- `docs/roadmap/ECOSYSTEM_WATCHLIST.md`.
+- `docs/roadmap/STANDARDS_ALIGNMENT_WATCHLIST.md`.
+- M21-M40 planned/provisional capability-layer charters after the frozen M14-M20 sequence.
+- conservative documentation verifier and Foundation Gate checks for post-M20 roadmap projection.
+- no implementation of M21-M40 capabilities, backend route, frontend behavior, runtime execution, model/provider call, network call, remote execution, mobile sensor access, plugin enablement, dependency, native build workflow, or external action.
 
 v0.18.3 adds:
 
@@ -51,11 +62,11 @@ v0.17.5 resolved the M14 ambiguity:
 - Approval Queue + Receipt/Event Viewer UI moves to M15.
 - local browser smoke / UX polish was v0.17.4, not M14.
 
-v0.18.3 implements strategy clarification only. It does not add M15 Approval Queue + Receipt/Event Viewer UI, frontend behavior, backend API paths, OpenWebUI integration, OpenWebUI deployment config, runtime execution, model/provider calls, network calls, remote dispatch, native CCC implementation, Android app, iOS app, macOS app, mobile app or sensor code, OS permission integration, signing, keystore, provisioning, App Store or Play Store workflow, plugin enablement, dependencies, auth, credentials, cookies, analytics/SaaS SDKs, design tool integration, external API hosts, or production Control Center authority.
+v0.18.4 implements roadmap projection only. It does not add M15 Approval Queue + Receipt/Event Viewer UI, frontend behavior, backend API paths, OpenWebUI integration, OpenWebUI deployment config, runtime execution, local model execution, model/provider calls, network calls, remote dispatch, native CCC implementation, Android app, iOS app, macOS app, mobile app or sensor code, Device Capability Broker implementation, MCP runtime support, Agent Skills runtime support, AGENTS.md runtime loading, sandbox execution, tool execution, browser automation, Computer Use, OS permission integration, signing, keystore, provisioning, App Store or Play Store workflow, plugin enablement, dependencies, auth, credentials, cookies, analytics/SaaS SDKs, design tool integration, external API hosts, or production Control Center authority.
 
-## Accepted baseline through v0.18.3
+## Accepted baseline through v0.18.4
 
-The active accepted baseline includes foundation modules through M10.5 plus documentation integrity synchronization, Codex plugin/external tooling governance, M11 runtime readiness/report validation, M12 Control Center backend contract/API foundation, M13 Web Control Center read-only frontend shell with CI/static/browser-readiness hardening, the v0.17.5 roadmap charter freeze, M14 local backend connection stabilization and safety hardening, v0.18.2 design governance, and v0.18.3 OpenWebUI/CCC client strategy clarification. v0.17.4 polished local shell reviewability and browser smoke reporting only; it did not start M14, add backend API paths, add dependencies, add production Control Center authority, or add execution capability.
+The active accepted baseline includes foundation modules through M10.5 plus documentation integrity synchronization, Codex plugin/external tooling governance, M11 runtime readiness/report validation, M12 Control Center backend contract/API foundation, M13 Web Control Center read-only frontend shell with CI/static/browser-readiness hardening, the v0.17.5 roadmap charter freeze, M14 local backend connection stabilization and safety hardening, v0.18.2 design governance, v0.18.3 OpenWebUI/CCC client strategy clarification, and v0.18.4 post-M20 roadmap projection. v0.17.4 polished local shell reviewability and browser smoke reporting only; it did not start M14, add backend API paths, add dependencies, add production Control Center authority, or add execution capability.
 
 Recent accepted milestones:
 
@@ -80,6 +91,7 @@ v0.18.0 — M14 Web Control Center Local Backend Connection Stabilization
 v0.18.1 — M14 Hardening: Control Center Backend Connection Safety
 v0.18.2 — Open Design System + UI Design Governance
 v0.18.3 — OpenWebUI + CCC Client Strategy Clarification
+v0.18.4 — Post-M20 Roadmap Projection + M21-M40 Capability Layer Charters
 
 - adds local React/Vite/TypeScript app under `apps/control-center`.
 - consumes existing read-only/preview-only backend routes.
@@ -93,15 +105,16 @@ v0.18.3 — OpenWebUI + CCC Client Strategy Clarification
 - v0.18.1 hardens M14 local backend connection safety.
 - v0.18.2 adds repo-owned Open Design System and UI Design Governance docs before M15.
 - v0.18.3 clarifies OpenWebUI and CCC Web/iOS/Android/macOS strategy before M15.
+- v0.18.4 adds post-M20 roadmap projection and M21-M40 planned/provisional capability-layer charters.
 - keeps backend OpenAPI path count unchanged at `74`.
-- adds no runtime execution, model/provider calls, OpenWebUI integration, remote dispatch, mobile sensors, plugin enablement, native builds, Chrome/Computer Use automation, design tool enablement, native CCC implementation, or production authority.
+- adds no runtime execution, model/provider calls, OpenWebUI integration, remote dispatch, mobile sensors, plugin enablement, native builds, Chrome/Computer Use automation, design tool enablement, native CCC implementation, M21-M40 implementation, or production authority.
 ```
 
 ## Next canonical sequence from v0.17.5
 
 The detailed sequence is frozen in `docs/roadmap/NEXT_SEQUENCE_v0_17_5.md`. The milestone charter template is `docs/roadmap/MILESTONE_CHARTERS.md`. These files must be checked before writing future milestone prompts.
 
-v0.18.0 and v0.18.1 have implemented and hardened M14 from that sequence. v0.18.2 has implemented the Open Design governance milestone. v0.18.3 has implemented OpenWebUI and CCC Client Strategy clarification. Items after v0.18.3 remain planned/provisional until superseded by a reviewed roadmap patch.
+v0.18.0 and v0.18.1 have implemented and hardened M14 from that sequence. v0.18.2 has implemented the Open Design governance milestone. v0.18.3 has implemented OpenWebUI and CCC Client Strategy clarification. v0.18.4 has implemented post-M20 roadmap projection docs. Items after v0.18.4 remain planned/provisional until superseded by a reviewed roadmap patch.
 
 ```text
 v0.17.5 — Roadmap Projection + M14-M20 Milestone Charter Freeze, docs-only
@@ -109,6 +122,7 @@ v0.18.0 / M14 — Web Control Center Local Backend Connection Stabilization, imp
 v0.18.1 — M14 Hardening: Control Center Backend Connection Safety, implemented
 v0.18.2 — Open Design System + UI Design Governance, implemented
 v0.18.3 — OpenWebUI + CCC Client Strategy Clarification, implemented
+v0.18.4 — Post-M20 Roadmap Projection + M21-M40 Capability Layer Charters, docs-only
 v0.19.0 / M15 — Approval Queue + Receipt/Event Viewer UI, read-only/preview-only
 v0.19.1 — M15 Hardening: Approval/Receipt UI Safety
 v0.20.0 / M16 — Event Timeline + Run/Receipt Trace Viewer
@@ -116,13 +130,37 @@ v0.21.0 / M17 — Evidence/File/Memory Viewer, read-only
 v0.22.0 / M18 — Local Runtime Status + Manual Smoke Control Surface
 v0.23.0 / M19 — Mobile Companion Contract/API Planning
 v0.24.0 / M20 — Device Capability Broker Contract
-Post-M20 — OpenWebUI Bridge / Chat Shell Integration Contract
-Post-M20 — CCC Native Client Contract: iOS/Android/macOS Planning
-Post-M20 — OpenWebUI local LLM runtime bridge, validation-only
-Post-M20 — Mobile/desktop companion implementations only after contracts
+v0.25.0 / M21 — OpenWebUI Bridge + Chat Shell Integration Contract, planned/provisional
+v0.26.0 / M22 — Local Model Runtime Activation Contract, planned/provisional
+v0.27.0 / M23 — First Real Local LLM Call, Non-Tool, Non-Authoritative, planned/provisional
+v0.28.0 / M24 — Memory Provider Abstraction + Local Memory Store, planned/provisional
+v0.29.0 / M25 — Truth Source Router + Evidence Claim Checker, planned/provisional
+v0.30.0 / M26 — Tool Execution Sandbox Contract, Dry-Run Only, planned/provisional
+v0.31.0 / M27 — MCP / Agent Skills / AGENTS.md Trust Registry, Quarantine-Only, planned/provisional
+v0.32.0 / M28 — Local Sandbox Backend Abstraction, planned/provisional
+v0.33.0 / M29 — First Low-Risk Tool Dry-Run + Approval Preview, planned/provisional
+v0.34.0 / M30 — First Approved Low-Risk Local Tool Execution, planned/provisional
+v0.35.0 / M31 — CCC Native Client Contract: iOS / Android / macOS, planned/provisional
+v0.36.0 / M32 — Device Pairing + Trust Handshake Contract, planned/provisional
+v0.37.0 / M33 — Mobile Approval Surface Prototype, No Sensors, planned/provisional
+v0.38.0 / M34 — macOS Local Companion Contract / Prototype, planned/provisional
+v0.39.0 / M35 — Device Capability Broker Implementation, No Sensors Yet, planned/provisional
+v0.40.0 / M36 — Mobile Capture Inbox, Selected Input Only, planned/provisional
+v0.41.0 / M37 — One Governed Sensor Capability, planned/provisional
+v0.42.0 / M38 — Browser Automation Contract, No Execution, planned/provisional
+v0.43.0 / M39 — Observability Export Adapters, planned/provisional
+v0.44.0 / M40 — Agent Evaluation + Regression Harness, planned/provisional
 ```
 
 M14 is not local browser smoke / UX polish. That work was v0.17.4. M15 is the first planned approval queue plus receipt/event viewer UI milestone, and it remains read-only/preview-only unless a future backend contract explicitly changes that boundary.
+
+Post-M20 source-of-truth docs:
+
+- `docs/roadmap/CAPABILITY_LAYERING_STRATEGY.md`.
+- `docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md`.
+- `docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md`.
+- `docs/roadmap/ECOSYSTEM_WATCHLIST.md`.
+- `docs/roadmap/STANDARDS_ALIGNMENT_WATCHLIST.md`.
 
 ## Minimum Lovable Kernel
 

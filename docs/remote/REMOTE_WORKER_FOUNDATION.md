@@ -14,3 +14,7 @@ v0.14.2 hardens the M10.5 policy contract: `remote_tailnet_enabled=true` and `re
 v0.14.3 adds open-source-first private mesh taxonomy only. Planned Headscale, generic WireGuard, Tailscale, private mesh, tailnet, and LAN metadata remains disabled, planned-only, and no-network. Headscale is a future self-hosted/open-source option to evaluate first; it is not installed, called, configured, or integrated. Tailscale and WireGuard are also not installed, called, configured, or integrated.
 
 v0.14.5 documentation integrity does not change remote worker behavior. Remote workers remain validation/status/dry-run only and cannot dispatch jobs, execute remotely, approve actions, access personal data, or perform write/send actions.
+
+## v0.18.4 Post-M20 Remote Boundary
+
+v0.18.4 adds post-M20 roadmap projection docs only. M21-M40 do not authorize remote worker dispatch or remote execution. Future sandbox, browser, tool, or observability milestones must still keep remote worker output untrusted unless a dedicated reviewed milestone changes the contract.

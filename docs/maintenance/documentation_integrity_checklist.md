@@ -1,6 +1,6 @@
 # Documentation Integrity Checklist
 
-Status: Active maintenance checklist, v0.18.3
+Status: Active maintenance checklist, v0.18.4
 
 Run this checklist before every release that changes docs, roadmap, API metadata, runtime boundaries, or release status.
 
@@ -29,6 +29,7 @@ Run this checklist before every release that changes docs, roadmap, API metadata
 - active tooling governance docs are linked when Codex/plugin policy changes.
 - active design governance docs are linked when UI/design policy changes.
 - active UI strategy docs are linked when OpenWebUI or CCC client strategy changes.
+- active post-M20 roadmap projection docs are linked when long-range sequencing changes.
 - roadmap charter docs are linked when milestone sequencing changes.
 
 ## Active vs Historical Docs
@@ -48,6 +49,7 @@ Run this checklist before every release that changes docs, roadmap, API metadata
 - docs do not claim Control Center production authority, plugin enablement, runtime execution, remote dispatch, model/provider invocation, mobile sensor access, native build control, or production Control Center exists unless implemented and gated.
 - docs do not claim design tools, design SaaS sync, UI generators, screenshot-to-code, design-to-code, or automatic design commits are enabled unless implemented and gated.
 - docs do not claim OpenWebUI integration, deployment config, plugin/function/tool bridge, native CCC implementation, Android app, iOS app, macOS app, OS permission integration, signing, keystore, App Store workflow, or Play Store workflow exists unless implemented and gated.
+- docs do not claim M21-M40 capabilities are implemented unless a dedicated future milestone implements and gates them.
 
 ## Release Note Requirements
 
@@ -64,6 +66,10 @@ Run this checklist before every release that changes docs, roadmap, API metadata
 - M14/M15 sequencing remains explicit: M14 is local backend connection stabilization; M15 is approval queue plus receipt/event viewer UI.
 - v0.18.2 design governance remains before M15 and does not implement M15 UI.
 - v0.18.3 OpenWebUI/CCC strategy remains before M15 and does not implement M15 UI, OpenWebUI integration, or native clients.
+- v0.18.4 post-M20 roadmap projection keeps M21-M40 planned/provisional and does not implement those capabilities.
+- future post-M20 milestone prompts check `docs/roadmap/CAPABILITY_LAYERING_STRATEGY.md`.
+- future post-M20 milestone prompts check `docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md`.
+- future post-M20 milestone prompts check `docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md`.
 - parked work is not presented as accepted baseline.
 - parked branches and tags are not merged or reactivated automatically.
 - blocked capabilities remain blocked until their security lifecycle and gate criteria exist.

@@ -33,3 +33,13 @@ POST /runtime/smoke-reports/validate
 These routes are status/validation only. No route executes, connects, dispatches, runs a provider call, enables a plugin, launches a native build, or performs a manual smoke call.
 
 v0.15.1 clarifies that local loopback policy support does not imply automated smoke execution or production runtime readiness. Manual smoke remains manual-only, approval-gated, fixed-prompt-only, and non-authoritative. `fake_manual_loopback_smoke` remains a fake/test report origin only.
+
+## v0.18.4 Post-M20 Runtime Projection
+
+v0.18.4 adds roadmap projection docs only. Future runtime work is planned/provisional in:
+
+- M22 - Local Model Runtime Activation Contract.
+- M23 - First Real Local LLM Call, Non-Tool, Non-Authoritative.
+- v0.27.1 - Local LLM Call Hardening.
+
+These milestones require dedicated implementation and review prompts. v0.18.4 adds no local model execution, provider call, network call, OpenWebUI bridge, tool use, memory write, or production readiness claim.

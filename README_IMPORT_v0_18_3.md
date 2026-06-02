@@ -1,6 +1,6 @@
 # README Import v0.18.3
 
-Status: Active baseline after OpenWebUI and CCC Client Strategy clarification.
+Status: Historical baseline after OpenWebUI and CCC Client Strategy clarification.
 
 Import these files first:
 

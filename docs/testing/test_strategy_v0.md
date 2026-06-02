@@ -105,6 +105,30 @@ Foundation Gate includes frontend CI and browser smoke readiness criteria.
 Backend OpenAPI path count remains unchanged at 74.
 ```
 
+## v0.18.4 Post-M20 Roadmap Projection Tests
+
+v0.18.4 adds docs/verifier/gate tests only:
+
+```text
+Post-M20 roadmap projection docs exist.
+M21 through M40 are mentioned.
+M21 is OpenWebUI Bridge + Chat Shell Integration Contract.
+M22 is Local Model Runtime Activation Contract.
+M23 is First Real Local LLM Call.
+M24 is Memory Provider Abstraction.
+M26 is Tool Execution Sandbox Contract.
+M27 mentions MCP / Agent Skills / AGENTS.md.
+M31 mentions iOS / Android / macOS.
+M35 mentions Device Capability Broker Implementation, No Sensors.
+M38 is Browser Automation Contract, No Execution.
+M39 is Observability Export Adapters.
+M40 is Agent Evaluation + Regression Harness.
+M21-M40 remain planned/provisional.
+Docs do not claim M21-M40 implementation.
+Foundation Gate includes post_m20_roadmap_projection_present.
+Backend OpenAPI path count remains unchanged at 74.
+```
+
 ## v0.18.3 OpenWebUI and CCC Strategy Tests
 
 v0.18.3 adds docs/verifier/gate tests only:

@@ -97,6 +97,35 @@ def test_documentation_integrity_verifier_requires_ccc_native_client_boundaries(
     assert any("CCC native strategy must say no native build workflow is added" in failure for failure in failures)
 
 
+def test_documentation_integrity_verifier_requires_post_m20_roadmap_docs(tmp_path: Path):
+    _write_minimal_repo(tmp_path)
+    (tmp_path / "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md").unlink(missing_ok=True)
+    (tmp_path / "docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md").unlink(missing_ok=True)
+    (tmp_path / "docs/roadmap/CAPABILITY_LAYERING_STRATEGY.md").unlink(missing_ok=True)
+
+    failures = verifier.verify(tmp_path)
+
+    assert any("docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md" in failure for failure in failures)
+    assert any("docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md" in failure for failure in failures)
+    assert any("docs/roadmap/CAPABILITY_LAYERING_STRATEGY.md" in failure for failure in failures)
+
+
+def test_documentation_integrity_verifier_rejects_implemented_post_m20_claims(tmp_path: Path):
+    _write_minimal_repo(tmp_path)
+    roadmap = tmp_path / "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md"
+    roadmap.parent.mkdir(parents=True, exist_ok=True)
+    roadmap.write_text(
+        "M21 is implemented.\n"
+        "M22 is planned/provisional.\n"
+        "M23 is planned/provisional.\n",
+        encoding="utf-8",
+    )
+
+    failures = verifier.verify(tmp_path)
+
+    assert any("M21-M40 docs must not claim implementation" in failure for failure in failures)
+
+
 def _write_minimal_repo(root: Path) -> None:
     version = "0.14.6"
     version_key = "0_14_6"
@@ -164,6 +193,31 @@ def _write_minimal_repo(root: Path) -> None:
             "no mobile sensor access is added.\n"
             "no OS permission integration is added.\n"
             "no signing, keystore, provisioning, App Store, or Play Store workflow is added.\n",
+        )
+    for rel_path in getattr(verifier, "REQUIRED_POST_M20_ROADMAP_DOCS", []):
+        files.setdefault(
+            rel_path,
+            "M21 - OpenWebUI Bridge + Chat Shell Integration Contract, planned/provisional.\n"
+            "M22 - Local Model Runtime Activation Contract, planned/provisional.\n"
+            "M23 - First Real Local LLM Call, Non-Tool, Non-Authoritative, planned/provisional.\n"
+            "M24 - Memory Provider Abstraction + Local Memory Store, planned/provisional.\n"
+            "M25 - Truth Source Router + Evidence Claim Checker, planned/provisional.\n"
+            "M26 - Tool Execution Sandbox Contract, Dry-Run Only, planned/provisional.\n"
+            "M27 - MCP / Agent Skills / AGENTS.md Trust Registry, Quarantine-Only, planned/provisional.\n"
+            "M28 - Local Sandbox Backend Abstraction, planned/provisional.\n"
+            "M29 - First Low-Risk Tool Dry-Run + Approval Preview, planned/provisional.\n"
+            "M30 - First Approved Low-Risk Local Tool Execution, planned/provisional.\n"
+            "M31 - CCC Native Client Contract: iOS / Android / macOS, planned/provisional.\n"
+            "M32 - Device Pairing + Trust Handshake Contract, planned/provisional.\n"
+            "M33 - Mobile Approval Surface Prototype, No Sensors, planned/provisional.\n"
+            "M34 - macOS Local Companion Contract / Prototype, planned/provisional.\n"
+            "M35 - Device Capability Broker Implementation, No Sensors Yet, planned/provisional.\n"
+            "M36 - Mobile Capture Inbox, Selected Input Only, planned/provisional.\n"
+            "M37 - One Governed Sensor Capability, planned/provisional.\n"
+            "M38 - Browser Automation Contract, No Execution, planned/provisional.\n"
+            "M39 - Observability Export Adapters, planned/provisional.\n"
+            "M40 - Agent Evaluation + Regression Harness, planned/provisional.\n"
+            "watchlist only; no integration is added; no dependency is added; no implementation is added.\n",
         )
     files["docs/roadmap/MILESTONE_CHARTERS.md"] = (
         "version\nmilestone code\ntitle\nstatus\npurpose\nallowed scope\nmust not add\n"

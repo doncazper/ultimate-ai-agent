@@ -1,6 +1,6 @@
 # Canonical Document Map
 
-Current active baseline: **v0.18.3**
+Current active baseline: **v0.18.4**
 
 This map links major systems to their canonical documentation. If a system has both canonical docs and runtime/API docs, canonical docs define principles and sequencing while runtime/API docs define current implementation boundaries.
 
@@ -22,7 +22,7 @@ This map links major systems to their canonical documentation. If a system has b
 | Model Router | `docs/canonical/26_model_routing_strategy.md` |
 | Cost Governor | `docs/canonical/25_cost_and_resource_governor.md` |
 | API Boundary | `docs/api/README.md`, `docs/api/openapi_contract.md`, `docs/api/route_inventory.md` |
-| Roadmap Sequencing | `docs/canonical/09_roadmap.md`, `docs/roadmap/MILESTONE_CHARTERS.md`, `docs/roadmap/NEXT_SEQUENCE_v0_17_5.md` |
+| Roadmap Sequencing | `docs/canonical/09_roadmap.md`, `docs/roadmap/MILESTONE_CHARTERS.md`, `docs/roadmap/NEXT_SEQUENCE_v0_17_5.md`, `docs/roadmap/CAPABILITY_LAYERING_STRATEGY.md`, `docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md`, `docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md`, `docs/roadmap/ECOSYSTEM_WATCHLIST.md`, `docs/roadmap/STANDARDS_ALIGNMENT_WATCHLIST.md` |
 | Control Center | `docs/canonical/20_user_control_center.md`, `docs/control_center/CONTROL_CENTER_CONTRACT.md`, `docs/control_center/DASHBOARD_SNAPSHOT.md`, `docs/control_center/ACTION_PREVIEW_POLICY.md`, `docs/control_center/WEB_CONTROL_CENTER_SHELL.md`, `docs/control_center/FRONTEND_SAFETY_POLICY.md`, `docs/control_center/CONTROL_CENTER_FRONTEND_ROUTES.md`, `docs/control_center/LOCAL_BACKEND_CONNECTION.md`, `docs/control_center/LOCAL_BROWSER_SMOKE.md`, `docs/control_center/LOCAL_BROWSER_SMOKE_REPORTING.md` |
 | Open Design System and UI Governance | `docs/design/OPEN_DESIGN_SYSTEM.md`, `docs/design/CONTROL_CENTER_DESIGN_LANGUAGE.md`, `docs/design/STATUS_AND_RISK_VISUAL_LANGUAGE.md`, `docs/design/ACCESSIBILITY_BASELINE.md`, `docs/design/DESIGN_TOOLING_POLICY.md`, `docs/design/DESIGN_TOKEN_ROADMAP.md`, `docs/design/UI_COPY_AND_ACTION_LANGUAGE.md`, `docs/design/DESIGN_ARTIFACT_GOVERNANCE.md`, `docs/design/COMPONENT_TAXONOMY.md`, `docs/design/RESPONSIVE_LAYOUT_BASELINE.md`, `docs/backlog/open_design_system_backlog.md` |
 | OpenWebUI and CCC Client Strategy | `docs/ui/OPENWEBUI_AND_CCC_STRATEGY.md`, `docs/ui/CLIENT_SURFACE_ROLES.md`, `docs/ui/OPENWEBUI_INTEGRATION_ROADMAP.md`, `docs/ui/CCC_NATIVE_CLIENT_STRATEGY.md` |
@@ -36,7 +36,7 @@ This map links major systems to their canonical documentation. If a system has b
 | Mobile Companion | `docs/canonical/64_mobile_companion_and_device_capability_broker.md`, `docs/backlog/mobile_companion_backlog.md` |
 | Device Capability Broker | `docs/canonical/64_mobile_companion_and_device_capability_broker.md`, `docs/canonical/65_mobile_device_registry_and_sensor_permission_manifest.md`, `docs/backlog/device_capability_broker_backlog.md` |
 | Codex Plugin and External Tooling Governance | `docs/canonical/66_external_tooling_and_codex_plugin_governance.md`, `docs/tooling/CODEX_PLUGIN_CAPABILITY_INVENTORY.md`, `docs/tooling/CODEX_PLUGIN_RISK_POLICY.md`, `docs/backlog/codex_plugin_enablement_backlog.md` |
-| Foundation Gate | `docs/implementation/foundation_gate_implementation_plan_v0_18_3.md`, `docs/evals/foundation_gate_eval.md` |
+| Foundation Gate | `docs/implementation/foundation_gate_implementation_plan_v0_18_4.md`, `docs/evals/foundation_gate_eval.md` |
 | Testing Strategy | `docs/testing/test_strategy_v0.md`, `docs/testing/contract_test_matrix_v0_5_0.md`, `docs/testing/shadow_replay_plan_v0_5_0.md` |
 
 ## Source-of-Truth Hierarchy

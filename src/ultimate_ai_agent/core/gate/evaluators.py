@@ -164,6 +164,7 @@ class FoundationGateEvaluator:
             "m14_backend_api_contract_unchanged": self.check_m14_backend_api_contract_unchanged,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
+            "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
             "roadmap_milestone_charters_current": self.check_roadmap_milestone_charters_current,
             "documentation_integrity_current": self.check_documentation_integrity_current,
             "codex_plugin_governance_docs_present": self.check_codex_plugin_governance_docs_present,
@@ -2946,6 +2947,48 @@ class FoundationGateEvaluator:
         for failure, fragment in expectations.items():
             if fragment not in ui_text:
                 failures.append(failure)
+        return self._result(criterion, failures, required_docs)
+
+    def check_post_m20_roadmap_projection_present(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        required_docs = [
+            "docs/roadmap/CAPABILITY_LAYERING_STRATEGY.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+            "docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md",
+            "docs/roadmap/ECOSYSTEM_WATCHLIST.md",
+            "docs/roadmap/STANDARDS_ALIGNMENT_WATCHLIST.md",
+        ]
+        failures = [f"missing post-M20 roadmap doc: {path}" for path in required_docs if not (self.root / path).exists()]
+        roadmap_text = "\n".join(self._read(self.root / path).lower() for path in required_docs if (self.root / path).exists())
+        expectations = {
+            "post-M20 docs missing M21": "m21",
+            "post-M20 docs missing M40": "m40",
+            "post-M20 docs missing planned/provisional boundary": "planned/provisional",
+            "post-M20 docs missing OpenWebUI bridge charter": "openwebui bridge + chat shell integration contract",
+            "post-M20 docs missing local model runtime charter": "local model runtime activation contract",
+            "post-M20 docs missing first local LLM charter": "first real local llm call",
+            "post-M20 docs missing memory charter": "memory provider abstraction",
+            "post-M20 docs missing sandbox charter": "tool execution sandbox contract",
+            "post-M20 docs missing trust registry charter": "mcp / agent skills / agents.md",
+            "post-M20 docs missing native CCC charter": "ios / android / macos",
+            "post-M20 docs missing Device Capability Broker charter": (
+                "device capability broker implementation, no sensors"
+            ),
+            "post-M20 docs missing browser automation no-execution charter": (
+                "browser automation contract, no execution"
+            ),
+            "post-M20 docs missing observability charter": "observability export adapters",
+            "post-M20 docs missing eval harness charter": "agent evaluation + regression harness",
+        }
+        for failure, fragment in expectations.items():
+            if fragment not in roadmap_text:
+                failures.append(failure)
+        implemented_claims = [f"m{number} is implemented" for number in range(21, 41)] + [
+            "m21-m40 are implemented",
+            "m21 through m40 are implemented",
+            "post-m20 capabilities are implemented",
+        ]
+        if any(claim in roadmap_text for claim in implemented_claims):
+            failures.append("post-M20 roadmap docs must not claim M21-M40 implementation")
         return self._result(criterion, failures, required_docs)
 
     def _skipped(self, criterion: FoundationGateCriterion) -> FoundationGateResult:

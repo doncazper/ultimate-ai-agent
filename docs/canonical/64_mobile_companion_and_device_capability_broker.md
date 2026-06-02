@@ -186,3 +186,16 @@ iOS planning constraints:
 macOS planning constraints:
 
 - no keychain, menu bar, background agent, signing, entitlement, or notarization workflow until a dedicated release milestone.
+
+## v0.18.4 Post-M20 Mobile/Device Projection
+
+v0.18.4 adds post-M20 roadmap projection docs only. Mobile and device work remains planned/provisional in:
+
+- M31 - CCC Native Client Contract: iOS / Android / macOS.
+- M32 - Device Pairing + Trust Handshake Contract.
+- M33 - Mobile Approval Surface Prototype, No Sensors.
+- M35 - Device Capability Broker Implementation, No Sensors Yet.
+- M36 - Mobile Capture Inbox, Selected Input Only.
+- M37 - One Governed Sensor Capability.
+
+These milestones require dedicated implementation prompts and review prompts. v0.18.4 adds no mobile app, Android app, iOS app, macOS app, Device Capability Broker implementation, mobile capture, sensor access, OS permission integration, native build workflow, signing, keystore, provisioning, App Store workflow, or Play Store workflow.
