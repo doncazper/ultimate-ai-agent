@@ -164,6 +164,54 @@ M21_FORBIDDEN_BACKEND_ROUTES = (
     "/runtime/execute",
     "/model-runtime/execute",
 )
+M21_FORBIDDEN_OPENWEBUI_CONFIG_PATH_FRAGMENTS = (
+    "docker-compose.openwebui",
+    "openwebui.config",
+    "openwebui-config",
+    "openwebui_plugins",
+    "openwebui_pipelines",
+    "openwebui_functions",
+    "openwebui_tools",
+    "apps/openwebui/",
+    "openwebui/",
+)
+M21_FORBIDDEN_OPENWEBUI_RUNTIME_FRAGMENTS = (
+    "openwebui_api_key",
+    "openwebui_admin_token",
+    "openwebui_cookie",
+    "openwebui_session",
+    "openwebui_base_url",
+    "openwebui_plugin",
+    "openwebui_function",
+    "openwebui_pipeline",
+    "openwebui_tool",
+    "docker-compose",
+    "/openwebui/execute",
+    "/openwebui/bridge/run",
+    "/chat/execute",
+    "/chat/run",
+    "/model-runtime/execute",
+)
+M21_FORBIDDEN_OPENWEBUI_RUNTIME_PATTERNS = (
+    re.compile(r"(?m)^\s*import\s+openwebui\b"),
+    re.compile(r"(?m)^\s*from\s+openwebui\b\s+import\b"),
+)
+M21_OPENWEBUI_SCAN_EXCLUDED_DIRS = {
+    ".git",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".venv",
+    "__pycache__",
+    "build",
+    "dist",
+    "node_modules",
+}
+M21_OPENWEBUI_ALLOWED_FRAGMENT_SCAN_FILES = {
+    "src/ultimate_ai_agent/core/gate/evaluators.py",
+    "scripts/verify_all.py",
+    "scripts/verify_control_center_frontend.py",
+}
 
 
 def m16_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M16_OPENAPI_PATH_COUNT) -> List[str]:
@@ -229,6 +277,68 @@ def m21_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
     forbidden_present = sorted(path for path in M21_FORBIDDEN_BACKEND_ROUTES if path in path_set)
     if forbidden_present:
         failures.append(f"M21 forbidden backend route(s) present: {', '.join(forbidden_present)}")
+    return failures
+
+
+def _is_doc_path(rel_path: str) -> bool:
+    return rel_path == "docs" or rel_path.startswith("docs/")
+
+
+def _iter_m21_openwebui_non_doc_paths(root: Path) -> Iterable[Path]:
+    pending = [root]
+    while pending:
+        current = pending.pop()
+        try:
+            children = list(current.iterdir())
+        except OSError:
+            continue
+        for path in children:
+            rel = path.relative_to(root).as_posix()
+            if path.name in M21_OPENWEBUI_SCAN_EXCLUDED_DIRS or _is_doc_path(rel):
+                continue
+            yield path
+            if path.is_dir():
+                pending.append(path)
+
+
+def m21_forbidden_openwebui_config_path_matches(root: Path) -> List[str]:
+    matches: set[str] = set()
+    for path in _iter_m21_openwebui_non_doc_paths(root):
+        rel = path.relative_to(root).as_posix()
+        lowered = rel.lower()
+        if any(fragment in lowered for fragment in M21_FORBIDDEN_OPENWEBUI_CONFIG_PATH_FRAGMENTS):
+            matches.add(rel)
+    return sorted(matches)
+
+
+def m21_forbidden_openwebui_runtime_fragment_failures(root: Path) -> List[str]:
+    failures: List[str] = []
+    implementation_roots = [root / "src", root / "apps", root / "scripts"]
+    for implementation_root in implementation_roots:
+        if not implementation_root.exists():
+            continue
+        candidate_files: list[Path] = []
+        if implementation_root.name in {"src", "scripts"}:
+            candidate_files.extend(implementation_root.rglob("*.py"))
+        else:
+            candidate_files.extend(implementation_root.rglob("*.ts"))
+            candidate_files.extend(implementation_root.rglob("*.tsx"))
+            candidate_files.extend(implementation_root.rglob("*.js"))
+            candidate_files.extend(implementation_root.rglob("*.jsx"))
+            candidate_files.extend(implementation_root.rglob("*.json"))
+        for path in candidate_files:
+            rel = path.relative_to(root).as_posix()
+            if not path.is_file() or any(part in M21_OPENWEBUI_SCAN_EXCLUDED_DIRS for part in path.parts):
+                continue
+            if rel in M21_OPENWEBUI_ALLOWED_FRAGMENT_SCAN_FILES:
+                continue
+            text = path.read_text(encoding="utf-8").lower()
+            for pattern in M21_FORBIDDEN_OPENWEBUI_RUNTIME_PATTERNS:
+                if pattern.search(text):
+                    failures.append(f"M21 forbidden OpenWebUI runtime/config import in {rel}: {pattern.pattern}")
+            for fragment in M21_FORBIDDEN_OPENWEBUI_RUNTIME_FRAGMENTS:
+                if fragment in text:
+                    failures.append(f"M21 forbidden OpenWebUI runtime/config fragment in {rel}: {fragment}")
     return failures
 
 
@@ -4223,72 +4333,10 @@ class FoundationGateEvaluator:
         else:
             failures.extend(m21_openapi_route_failures(openapi_paths))
 
-        forbidden_config_paths = [
-            "docker-compose.openwebui.yml",
-            "docker-compose.openwebui.yaml",
-            "openwebui.config.yml",
-            "openwebui.config.yaml",
-            "openwebui.config.json",
-            "openwebui",
-            "openwebui-config",
-            "openwebui_plugins",
-            "openwebui_pipelines",
-            "openwebui_functions",
-        ]
-        for rel_path in forbidden_config_paths:
-            path = self.root / rel_path
-            if path.exists() and not rel_path.startswith("docs/"):
-                failures.append(f"M21 forbidden OpenWebUI deployment/config path exists: {rel_path}")
+        for rel_path in m21_forbidden_openwebui_config_path_matches(self.root):
+            failures.append(f"M21 forbidden OpenWebUI deployment/config path exists: {rel_path}")
 
-        scan_roots = ["src", "apps", "scripts"]
-        forbidden_fragments = [
-            "import openwebui",
-            "from openwebui import",
-            "openwebui_api_key",
-            "openwebui_admin_token",
-            "openwebui_cookie",
-            "openwebui_session",
-            "docker-compose",
-            "/openwebui/execute",
-            "/openwebui/bridge/run",
-            "/chat/execute",
-            "/chat/run",
-            "/model-runtime/execute",
-        ]
-        allowed_scan_files = {
-            "src/ultimate_ai_agent/core/gate/evaluators.py",
-            "scripts/verify_all.py",
-            "scripts/verify_control_center_frontend.py",
-        }
-        allowed_prefixes = (
-            "src/ultimate_ai_agent/core/openwebui_bridge/",
-        )
-        for rel_root in scan_roots:
-            root = self.root / rel_root
-            if not root.exists():
-                continue
-            candidate_files = []
-            if rel_root in {"src", "scripts"}:
-                candidate_files.extend(root.rglob("*.py"))
-            if rel_root == "apps":
-                candidate_files.extend(root.rglob("*.ts"))
-                candidate_files.extend(root.rglob("*.tsx"))
-                candidate_files.extend(root.rglob("*.js"))
-                candidate_files.extend(root.rglob("*.jsx"))
-            for path in candidate_files:
-                rel = path.relative_to(self.root).as_posix()
-                if (
-                    not path.is_file()
-                    or "__pycache__" in rel
-                    or "node_modules/" in rel
-                    or rel in allowed_scan_files
-                    or rel.startswith(allowed_prefixes)
-                ):
-                    continue
-                text = self._read(path).lower()
-                for fragment in forbidden_fragments:
-                    if fragment in text:
-                        failures.append(f"M21 forbidden OpenWebUI runtime/config fragment in {rel}: {fragment}")
+        failures.extend(m21_forbidden_openwebui_runtime_fragment_failures(self.root))
 
         roadmap_text = self._read(self.root / "docs/canonical/09_roadmap.md").lower()
         if "v0.25.0 / m21" not in roadmap_text or "implemented" not in roadmap_text:

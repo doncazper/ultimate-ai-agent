@@ -2,6 +2,7 @@
 import sys
 import subprocess
 import re
+import os
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -26,6 +27,53 @@ SCAN_SEQUENCE = [
     ("broad filesystem scan", "verify_no_broad_filesystem_scanning"),
     ("mobile/device capability contract-only scan", "verify_no_mobile_native_or_sensor_implementation"),
 ]
+OPENWEBUI_FORBIDDEN_CONFIG_PATH_FRAGMENTS = (
+    "docker-compose.openwebui",
+    "openwebui.config",
+    "openwebui-config",
+    "openwebui_plugins",
+    "openwebui_pipelines",
+    "openwebui_functions",
+    "openwebui_tools",
+    "apps/openwebui/",
+    "openwebui/",
+)
+OPENWEBUI_FORBIDDEN_RUNTIME_FRAGMENTS = (
+    "openwebui_api_key",
+    "openwebui_api",
+    "openwebui_base_url",
+    "openwebui_admin",
+    "openwebui_token",
+    "openwebui_cookie",
+    "openwebui_session",
+    "openwebui_plugin",
+    "openwebui_function",
+    "openwebui_pipeline",
+    "openwebui_tool",
+    "/openwebui/execute",
+    "/openwebui/bridge/run",
+    "/chat/execute",
+    "/chat/run",
+    "docker compose",
+    "docker-compose",
+)
+OPENWEBUI_SCAN_EXCLUDED_DIRS = {
+    ".git",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".venv",
+    "__pycache__",
+    "build",
+    "dist",
+    "node_modules",
+}
+OPENWEBUI_ALLOWED_FRAGMENT_SCAN_FILES = {
+    "scripts/verify_all.py",
+    "scripts/verify_control_center_frontend.py",
+    "scripts/verify_documentation_integrity.py",
+    "src/ultimate_ai_agent/core/gate/evaluators.py",
+}
 
 
 def run_cmd(args, cwd=ROOT, env=None):
@@ -35,6 +83,55 @@ def run_cmd(args, cwd=ROOT, env=None):
         print(f"FAIL: Command failed with exit code {result.returncode}")
         sys.exit(1)
     print("SUCCESS")
+
+def _is_doc_path(rel_path):
+    return rel_path == "docs" or rel_path.startswith("docs/")
+
+def find_openwebui_forbidden_config_path_matches(root=ROOT):
+    matches = set()
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = [name for name in dirnames if name not in OPENWEBUI_SCAN_EXCLUDED_DIRS]
+        current = Path(dirpath)
+        rel_dir = current.relative_to(root).as_posix() if current != root else ""
+        if rel_dir and _is_doc_path(rel_dir):
+            dirnames[:] = []
+            continue
+        for name in [*dirnames, *filenames]:
+            path = current / name
+            rel = path.relative_to(root).as_posix()
+            if _is_doc_path(rel):
+                continue
+            lowered = rel.lower()
+            if any(fragment in lowered for fragment in OPENWEBUI_FORBIDDEN_CONFIG_PATH_FRAGMENTS):
+                matches.add(rel)
+    return sorted(matches)
+
+def find_openwebui_forbidden_runtime_fragment_failures(root=ROOT):
+    failures = []
+    implementation_roots = [root / "src", root / "apps", root / "scripts"]
+    for implementation_root in implementation_roots:
+        if not implementation_root.exists():
+            continue
+        candidate_files = []
+        if implementation_root.name in {"src", "scripts"}:
+            candidate_files.extend(implementation_root.rglob("*.py"))
+        else:
+            candidate_files.extend(implementation_root.rglob("*.ts"))
+            candidate_files.extend(implementation_root.rglob("*.tsx"))
+            candidate_files.extend(implementation_root.rglob("*.js"))
+            candidate_files.extend(implementation_root.rglob("*.jsx"))
+            candidate_files.extend(implementation_root.rglob("*.json"))
+        for path in candidate_files:
+            rel = path.relative_to(root).as_posix()
+            if not path.is_file() or any(part in OPENWEBUI_SCAN_EXCLUDED_DIRS for part in path.parts):
+                continue
+            if rel in OPENWEBUI_ALLOWED_FRAGMENT_SCAN_FILES:
+                continue
+            text = path.read_text(encoding="utf-8").lower()
+            for fragment in OPENWEBUI_FORBIDDEN_RUNTIME_FRAGMENTS:
+                if fragment in text:
+                    failures.append(f"Forbidden OpenWebUI runtime/config fragment in {rel}: {fragment}")
+    return failures
 
 def verify_no_generated_artifacts():
     print("\n[Verifier] Running generated-artifact scan...")
@@ -602,58 +699,13 @@ def verify_no_openwebui_runtime_or_config_implementation():
                 print(f"FAIL: Forbidden OpenWebUI dependency fragment in {rel_path}: {fragment}")
                 sys.exit(1)
 
-    implementation_roots = [ROOT / "src", ROOT / "apps", ROOT / "scripts"]
-    allowed_files = {
-        "scripts/verify_all.py",
-        "scripts/verify_control_center_frontend.py",
-        "scripts/verify_documentation_integrity.py",
-        "src/ultimate_ai_agent/core/gate/evaluators.py",
-    }
-    allowed_prefixes = {
-        "src/ultimate_ai_agent/core/openwebui_bridge/",
-    }
-    forbidden_fragments = [
-        "openwebui_api_key",
-        "openwebui_api",
-        "openwebui_base_url",
-        "openwebui_admin",
-        "openwebui_token",
-        "openwebui_cookie",
-        "openwebui_session",
-        "openwebui plugin",
-        "openwebui function",
-        "openwebui pipeline",
-        "openwebui tool",
-        "/openwebui/execute",
-        "/openwebui/bridge/run",
-        "/chat/execute",
-        "/chat/run",
-        "docker compose",
-        "docker-compose",
-    ]
-    for root in implementation_roots:
-        if not root.exists():
-            continue
-        candidate_files = []
-        if root.name in {"src", "scripts"}:
-            candidate_files.extend(root.rglob("*.py"))
-        else:
-            candidate_files.extend(root.rglob("*.ts"))
-            candidate_files.extend(root.rglob("*.tsx"))
-            candidate_files.extend(root.rglob("*.js"))
-            candidate_files.extend(root.rglob("*.jsx"))
-            candidate_files.extend(root.rglob("*.json"))
-        for path in candidate_files:
-            rel = path.relative_to(ROOT).as_posix()
-            if not path.is_file() or "__pycache__" in rel or "node_modules/" in rel:
-                continue
-            if rel in allowed_files or any(rel.startswith(prefix) for prefix in allowed_prefixes):
-                continue
-            text = path.read_text(encoding="utf-8").lower()
-            for fragment in forbidden_fragments:
-                if fragment in text:
-                    print(f"FAIL: Forbidden OpenWebUI runtime/config fragment in {rel}: {fragment}")
-                    sys.exit(1)
+    for rel_path in find_openwebui_forbidden_config_path_matches(ROOT):
+        print(f"FAIL: Forbidden OpenWebUI runtime/config path outside docs: {rel_path}")
+        sys.exit(1)
+
+    for failure in find_openwebui_forbidden_runtime_fragment_failures(ROOT):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
 
     print("OK: No OpenWebUI runtime, deployment config, dependency, or execution route implementation detected")
 

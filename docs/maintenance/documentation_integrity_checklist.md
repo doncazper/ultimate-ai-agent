@@ -1,6 +1,6 @@
 # Documentation Integrity Checklist
 
-Status: Active maintenance checklist, v0.24.0
+Status: Active maintenance checklist, v0.25.1
 
 Run this checklist before every release that changes docs, roadmap, API metadata, runtime boundaries, or release status.
 
@@ -76,6 +76,8 @@ Run this checklist before every release that changes docs, roadmap, API metadata
 - v0.21.1 M17 Evidence/File/Memory Viewer safety hardening is frontend/test/verifier/Foundation Gate/docs only, keeps OpenAPI path count unchanged at 74, and adds no M18 surface, backend route, raw payload display, file mutation, memory mutation, filesystem browsing, embedding/vector DB/memory provider implementation, dependency, auth, cookies, analytics, SaaS SDK, or production authority.
 - v0.21.2 Developer Environment Command Normalization is dev tooling/docs only, standardizes repo verification on `.venv/bin/python` or Makefile targets, requires no global Python alias, and adds no M18 surface, runtime behavior, frontend behavior, backend route, dependency, network call, model/provider call, mobile/native/browser/computer-use functionality, plugin enablement, or production capability.
 - v0.24.0 M20 Device Capability Broker Contract is contract-only planning and validation, keeps OpenAPI path count unchanged at 74, and adds no runtime broker implementation, sensor access, OS permission integration, native clients, pairing runtime, backend API route, dependency, runtime execution, model/provider call, remote execution, plugin enablement, OpenWebUI integration, or production authority.
+- v0.25.0 M21 OpenWebUI Bridge + Chat Shell Integration Contract is contract/planning/validation only, keeps OpenAPI path count unchanged at 74, and adds no OpenWebUI integration, deployment config, Docker config, OpenWebUI plugin/function/pipeline/tool/admin/auth/cookie/API key/admin token workflow, browser profile access, live OpenWebUI connection, backend API route, frontend feature, runtime execution, local LLM call, model/provider call, tool execution, memory write, file access, remote execution, browser automation, Computer Use, mobile sensor access, plugin enablement, dependency, or production authority.
+- v0.25.1 M21 OpenWebUI Bridge Contract Safety Hardening is tests/verifier/Foundation Gate/docs/version only, keeps OpenAPI path count unchanged at 74, scans the OpenWebUI bridge package for forbidden runtime/config fragments, and adds no M22 implementation, OpenWebUI integration, deployment config, Docker config, backend API route, frontend feature, runtime execution, local LLM call, model/provider call, tool execution, memory write, file access, remote execution, browser automation, Computer Use, mobile sensor access, plugin enablement, dependency, or production authority.
 - future post-M20 milestone prompts check `docs/roadmap/CAPABILITY_LAYERING_STRATEGY.md`.
 - future post-M20 milestone prompts check `docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md`.
 - future post-M20 milestone prompts check `docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md`.

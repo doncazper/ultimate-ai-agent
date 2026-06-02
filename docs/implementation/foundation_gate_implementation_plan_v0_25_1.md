@@ -1,8 +1,8 @@
-# Foundation Gate Implementation Plan v0.25.0
+# Foundation Gate Implementation Plan v0.25.1
 
-Status: Historical Foundation Gate implementation plan for v0.25.0.
+Status: Current Foundation Gate implementation plan for v0.25.1.
 
-v0.25.0 adds the M21 criterion:
+v0.25.1 keeps the M21 criterion:
 
 - `m21_openwebui_bridge_contract_safe`
 
@@ -14,7 +14,15 @@ The evaluator and verification suite verify:
 - OpenWebUI is the preferred conversational web shell.
 - OpenWebUI is not the agent brain.
 - Python Agent Core remains authority.
+- safe negated authority-boundary text is allowed.
+- positive OpenWebUI authority claims are rejected.
+- `summary_only`, `ref_only`, and `redacted_preview` are valid content modes.
+- `raw_content_blocked` and `future_requires_contract` are blocked modes and
+  are not valid ref/envelope modes.
 - no OpenWebUI integration, deployment config, or runtime config is present.
+- the OpenWebUI bridge package is scanned for forbidden runtime/config
+  fragments.
+- forbidden OpenWebUI config/path names are recursively rejected outside docs.
 - no OpenWebUI plugin/function/pipeline/tool/admin/auth workflow is enabled.
 - no backend OpenWebUI routes are added.
 - OpenAPI path count remains `74`.
@@ -49,7 +57,7 @@ Safety boundary:
 
 ## Skill Package Security Rule
 
-v0.25.0 does not change the Skill Package Security Rule. It adds no plugin
+v0.25.1 does not change the Skill Package Security Rule. It adds no plugin
 enablement, tool installation, native build workflow, Computer Use automation,
 Chrome authenticated profile control, or external action.
 

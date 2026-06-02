@@ -15,7 +15,7 @@ from ultimate_ai_agent.core.openwebui_bridge.validation import (
 def test_default_openwebui_bridge_manifest_is_contract_only():
     manifest = build_default_openwebui_bridge_manifest()
 
-    assert manifest.baseline_version == "0.25.0"
+    assert manifest.baseline_version == "0.25.1"
     assert manifest.status == OpenWebUIBridgeStatus.contract_only
     assert manifest.openwebui_integration_implemented is False
     assert manifest.deployment_config_added is False

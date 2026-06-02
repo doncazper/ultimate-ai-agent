@@ -1,12 +1,12 @@
-# Ultimate AI Agent Canonical Bundle v0.25.0
+# Ultimate AI Agent Canonical Bundle v0.25.1
 
-This is the active project baseline after v0.25.0 / M21 OpenWebUI Bridge + Chat Shell Integration Contract.
+This is the active project baseline after v0.25.1 / M21 OpenWebUI Bridge Contract Safety Hardening.
 
 Start here:
 
 ```text
-README_IMPORT_v0_25_0.md
-ultimate_ai_agent_master_plan_v0_25_0.md
+README_IMPORT_v0_25_1.md
+ultimate_ai_agent_master_plan_v0_25_1.md
 docs/DOCUMENTATION_INDEX.md
 docs/canonical/09_roadmap.md
 docs/canonical/CANONICAL_DOC_MAP.md
@@ -96,7 +96,7 @@ docs/runtime/RUNTIME_READINESS.md
 docs/runtime/MANUAL_SMOKE_REPORTS.md
 docs/runtime/RUNTIME_CAPABILITY_MATRIX.md
 docs/security/approval_authority.md
-docs/implementation/foundation_gate_implementation_plan_v0_25_0.md
+docs/implementation/foundation_gate_implementation_plan_v0_25_1.md
 docs/maintenance/documentation_integrity_checklist.md
 docs/tooling/CODEX_PLUGIN_CAPABILITY_INVENTORY.md
 docs/tooling/CODEX_PLUGIN_RISK_POLICY.md
@@ -144,7 +144,7 @@ Device Capability Broker contract rule:
 
 OpenWebUI bridge contract rule:
 
-> v0.25.0 implements M21 OpenWebUI Bridge + Chat Shell Integration Contract as contract/planning/validation only. OpenWebUI is the preferred conversational web shell and is not the agent brain. Python Agent Core remains authority. OpenWebUI refs are identifiers only and never authority. Chat ingress/egress contracts are summary/ref/redacted-metadata only and reject raw content, secret-like metadata, direct tool execution, memory writes, runtime calls, provider calls, action execution, and approval grants. OpenAPI path count remains `74`. M22 Local Model Runtime Activation Contract and M23 First Real Local LLM Call remain planned/provisional. This release adds no OpenWebUI integration, deployment config, Docker config, OpenWebUI plugin/function/pipeline/tool/admin/auth/cookie/API key/admin token workflow, browser profile access, live OpenWebUI connection, backend API route, frontend feature, runtime execution, local LLM call, model/provider call, tool execution, memory write, file access, remote execution, browser automation, Computer Use, mobile sensor access, plugin enablement, dependency, or production authority.
+> v0.25.1 hardens M21 OpenWebUI Bridge + Chat Shell Integration Contract safety while keeping M21 contract/planning/validation only. OpenWebUI is the preferred conversational web shell and is not the agent brain. Python Agent Core remains authority. OpenWebUI refs are identifiers only and never authority. Chat ingress/egress contracts allow only summary/ref/redacted-preview content modes and reject raw content, secret-like metadata, direct tool execution, memory writes, runtime calls, provider calls, action execution, and approval grants. Static verifier and Foundation Gate scans include the OpenWebUI bridge package and recursively reject forbidden OpenWebUI config/path names outside docs. OpenAPI path count remains `74`. M22 Local Model Runtime Activation Contract and M23 First Real Local LLM Call remain planned/provisional. This release adds no OpenWebUI integration, deployment config, Docker config, OpenWebUI plugin/function/pipeline/tool/admin/auth/cookie/API key/admin token workflow, browser profile access, live OpenWebUI connection, backend API route, frontend feature, runtime execution, local LLM call, model/provider call, tool execution, memory write, file access, remote execution, browser automation, Computer Use, mobile sensor access, plugin enablement, dependency, or production authority.
 
 Roadmap status label cleanup rule:
 

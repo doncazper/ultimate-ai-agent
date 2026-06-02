@@ -1,13 +1,14 @@
 # Ultimate AI Agent Version
 
-Current active baseline: **v0.25.0**
+Current active baseline: **v0.25.1**
 
-v0.25.0 implements M21 OpenWebUI Bridge + Chat Shell Integration Contract as
-contract/planning/validation only. It adds Python contract models, validation
-helpers, safe manifest/plan builders, receipt planning, docs, tests, static
-verification, and Foundation Gate coverage so OpenWebUI is the preferred
-conversational web shell but never the agent brain. Python Agent Core remains
-authority. OpenAPI path count remains `74`.
+v0.25.1 hardens M21 OpenWebUI Bridge + Chat Shell Integration Contract safety
+while keeping M21 contract/planning/validation only. It clarifies blocked raw
+content modes, allows safe negated authority-boundary text, rejects positive
+OpenWebUI authority claims, and strengthens static verifier/Foundation Gate
+coverage so the OpenWebUI bridge package is not exempt from forbidden
+runtime/config scans. Python Agent Core remains authority. OpenAPI path count
+remains `74`.
 
 This release adds no OpenWebUI integration, deployment config, Docker config,
 OpenWebUI plugin/function/pipeline/tool/admin/auth/cookie/API key/admin token

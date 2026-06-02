@@ -1,6 +1,6 @@
 # Chat Shell Integration Contract
 
-Status: Active M21 contract documentation for v0.25.0. Contract-only.
+Status: Active M21 contract documentation for v0.25.1. Contract-only.
 
 OpenWebUI is the preferred conversational web shell. Future chat shell integration must use Python Agent Core as the authority layer and must never make OpenWebUI the agent brain.
 

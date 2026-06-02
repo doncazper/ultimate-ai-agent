@@ -1,6 +1,6 @@
 # OpenWebUI Security Model
 
-Status: Active M21 contract documentation for v0.25.0. Contract-only.
+Status: Active M21 contract documentation for v0.25.1. Contract-only.
 
 OpenWebUI is the preferred conversational web shell, not the agent brain. Python Agent Core remains authority.
 

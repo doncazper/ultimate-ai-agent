@@ -33,7 +33,7 @@ def test_manifest_rejects_execution_capability_flags(field, helper, message):
 def test_openwebui_dependencies_or_config_are_not_required():
     manifest = OpenWebUIBridgeManifest(
         manifest_id="owui_manifest_no_deps",
-        baseline_version="0.25.0",
+        baseline_version="0.25.1",
         status=OpenWebUIBridgeStatus.contract_only,
         safe_summary="OpenWebUI bridge contract-only manifest",
     )

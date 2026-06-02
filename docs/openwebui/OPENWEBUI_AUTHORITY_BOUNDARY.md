@@ -1,10 +1,15 @@
 # OpenWebUI Authority Boundary
 
-Status: Active M21 contract documentation for v0.25.0. Contract-only.
+Status: Active M21 contract documentation for v0.25.1. Contract-only.
 
 OpenWebUI cannot approve actions. OpenWebUI cannot execute actions. OpenWebUI cannot bypass Tool Broker. OpenWebUI cannot write memory. OpenWebUI cannot call provider or model runtime APIs. OpenWebUI cannot access credentials. OpenWebUI cannot bypass Python Agent Core.
 
 Python Agent Core controls authority. Approval Authority, Consent Ledger, Tool Broker, Event Ledger, Secret Broker, Redaction, and Foundation Gate remain mandatory for future bridge work.
+
+v0.25.1 hardens authority text validation. Safe negated statements that deny
+OpenWebUI authority are allowed. Positive claims that OpenWebUI is the agent
+brain, is the authority, can approve actions, or can execute actions are
+rejected.
 
 OpenWebUI refs are not authority:
 

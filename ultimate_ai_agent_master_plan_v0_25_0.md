@@ -1,6 +1,6 @@
 # Ultimate AI Agent Master Plan v0.25.0
 
-Status: Current master plan for v0.25.0 / M21.
+Status: Historical master plan for v0.25.0 / M21.
 
 v0.25.0 implements M21 OpenWebUI Bridge + Chat Shell Integration Contract as
 contract/planning/validation only.

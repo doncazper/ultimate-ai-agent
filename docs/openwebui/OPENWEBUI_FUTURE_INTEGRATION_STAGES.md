@@ -1,6 +1,6 @@
 # OpenWebUI Future Integration Stages
 
-Status: Active M21 contract documentation for v0.25.0. Contract-only.
+Status: Active M21 contract documentation for v0.25.1. Contract-only.
 
 OpenWebUI is the preferred conversational web shell. Python Agent Core remains authority. Every future stage requires a dedicated milestone and review.
 

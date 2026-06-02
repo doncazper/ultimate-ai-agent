@@ -27,9 +27,31 @@ SECRET_KEY = re.compile(
 SECRET_ASSIGNMENT = re.compile(
     r"(?i)(api[_-]?key|admin[_-]?token|auth[_-]?token|authorization|cookie|credential|password|secret|session[_-]?token|token)\s*[:=]"
 )
-AUTHORITY_CLAIM = re.compile(
-    r"(?i)(openwebui.*agent brain|agent brain.*openwebui|openwebui\s+(?:is|as|remains)\s+(?:the\s+)?authority|openwebui.*approve|openwebui.*execute)"
+NEGATED_OPENWEBUI_AUTHORITY_TEXT = re.compile(
+    r"(?i)\bopenwebui\b.{0,80}\b(?:is\s+not|isn't|must\s+not|cannot|can't|does\s+not|doesn't|never)\b.{0,80}\b(?:agent\s+brain|authority|approve|approves|execute|executes|bypass|bypasses|call|calls|write|writes)\b"
 )
+POSITIVE_OPENWEBUI_AUTHORITY_CLAIMS = (
+    re.compile(
+        r"(?i)\bopenwebui\b.{0,80}\b(?:is|remains|becomes)\b.{0,30}\b(?:the\s+)?(?:agent\s+brain|authority)\b"
+    ),
+    re.compile(
+        r"(?i)\bopenwebui\b.{0,20}\bas\b.{0,20}\b(?:the\s+)?(?:agent\s+brain|authority)\b"
+    ),
+    re.compile(
+        r"(?i)\b(?:agent\s+brain|authority)\b.{0,80}\bopenwebui\b"
+    ),
+    re.compile(
+        r"(?i)\bopenwebui\b.{0,80}\b(?:can|may|will|does|is\s+allowed\s+to|is\s+authorized\s+to)\b.{0,40}\b(?:approve|execute|bypass|call|write)\b"
+    ),
+    re.compile(
+        r"(?i)\bopenwebui\b.{0,80}\b(?:approves|executes|bypasses|calls|writes)\b"
+    ),
+)
+ALLOWED_OPENWEBUI_CONTENT_MODES = {
+    OpenWebUIContentMode.summary_only,
+    OpenWebUIContentMode.ref_only,
+    OpenWebUIContentMode.redacted_preview,
+}
 
 
 def validate_openwebui_bridge_manifest(
@@ -89,10 +111,9 @@ def validate_openwebui_transcript_ref(
     _assert_metadata_refs_only(transcript.receipt_refs)
     _assert_metadata_refs_only(transcript.metadata_refs)
     _assert_safe_metadata(transcript.metadata)
+    _assert_allowed_content_mode(transcript.content_mode)
     if transcript.raw_content_stored:
         raise ValueError("raw content is not stored by M21 OpenWebUI transcript refs")
-    if transcript.content_mode == OpenWebUIContentMode.raw_content_blocked:
-        raise ValueError("raw content mode is blocked in M21")
     return transcript
 
 
@@ -104,8 +125,7 @@ def validate_openwebui_message_ref(message: OpenWebUIMessageRef) -> OpenWebUIMes
     _assert_metadata_refs_only(message.receipt_refs)
     _assert_metadata_refs_only(message.metadata_refs)
     _assert_safe_metadata(message.metadata)
-    if message.content_mode == OpenWebUIContentMode.raw_content_blocked:
-        raise ValueError("raw content mode is blocked in M21")
+    _assert_allowed_content_mode(message.content_mode)
     return message
 
 
@@ -119,6 +139,7 @@ def validate_openwebui_chat_ingress_envelope(
     _assert_metadata_refs_only(envelope.event_refs)
     _assert_metadata_refs_only(envelope.metadata_refs)
     _assert_safe_metadata(envelope.metadata)
+    _assert_allowed_content_mode(envelope.content_mode)
     if envelope.raw_content_allowed or envelope.raw_content_present:
         raise ValueError("raw content is not allowed in M21 OpenWebUI ingress")
     if envelope.contains_secret_like_content:
@@ -149,6 +170,7 @@ def validate_openwebui_chat_egress_envelope(
     _assert_metadata_refs_only(envelope.receipt_refs)
     _assert_metadata_refs_only(envelope.metadata_refs)
     _assert_safe_metadata(envelope.metadata)
+    _assert_allowed_content_mode(envelope.content_mode)
     if not envelope.model_output_non_authoritative:
         raise ValueError("OpenWebUI bridge output must remain non-authoritative")
     if envelope.action_executed:
@@ -282,7 +304,7 @@ def _assert_policy_text(values: list[str]) -> None:
     for value in values:
         if SECRET_ASSIGNMENT.search(value):
             raise ValueError("secret-like OpenWebUI bridge metadata is not allowed")
-        if AUTHORITY_CLAIM.search(value):
+        if _contains_positive_openwebui_authority_claim(value):
             raise ValueError("OpenWebUI bridge text must not claim authority or agent-brain status")
 
 
@@ -301,5 +323,16 @@ def _assert_safe_metadata(metadata: Mapping[str, Any]) -> None:
 def _assert_safe_text(value: str) -> None:
     if SECRET_KEY.search(value) or SECRET_ASSIGNMENT.search(value):
         raise ValueError("secret-like OpenWebUI bridge metadata is not allowed")
-    if AUTHORITY_CLAIM.search(value):
+    if _contains_positive_openwebui_authority_claim(value):
         raise ValueError("OpenWebUI bridge text must not claim authority or agent-brain status")
+
+
+def _assert_allowed_content_mode(content_mode: OpenWebUIContentMode) -> None:
+    if content_mode not in ALLOWED_OPENWEBUI_CONTENT_MODES:
+        raise ValueError("raw content mode is not allowed for M21 OpenWebUI refs or envelopes")
+
+
+def _contains_positive_openwebui_authority_claim(value: str) -> bool:
+    if NEGATED_OPENWEBUI_AUTHORITY_TEXT.search(value):
+        return False
+    return any(pattern.search(value) for pattern in POSITIVE_OPENWEBUI_AUTHORITY_CLAIMS)

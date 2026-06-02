@@ -27,7 +27,7 @@ M21_OPENWEBUI_DOCS = [
 
 
 def build_default_openwebui_bridge_manifest(
-    baseline_version: str = "0.25.0",
+    baseline_version: str = "0.25.1",
 ) -> OpenWebUIBridgeManifest:
     manifest = OpenWebUIBridgeManifest(
         baseline_version=baseline_version,

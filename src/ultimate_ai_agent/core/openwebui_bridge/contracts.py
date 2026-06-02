@@ -14,12 +14,12 @@ from ultimate_ai_agent.core.openwebui_bridge.enums import (
 
 
 class _OpenWebUIBridgeContractModel(BaseModel):
-    model_config = ConfigDict(use_enum_values=False, extra="forbid")
+    model_config = ConfigDict(use_enum_values=False, extra="forbid", protected_namespaces=())
 
 
 class OpenWebUIBridgeManifest(_OpenWebUIBridgeContractModel):
     manifest_id: str = "openwebui_bridge_manifest_m21"
-    baseline_version: str = "0.25.0"
+    baseline_version: str = "0.25.1"
     generated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     status: OpenWebUIBridgeStatus = OpenWebUIBridgeStatus.contract_only
     supported_surfaces: list[OpenWebUISurfaceRole] = Field(default_factory=list)

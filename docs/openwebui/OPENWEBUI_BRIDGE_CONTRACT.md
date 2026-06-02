@@ -1,6 +1,6 @@
 # OpenWebUI Bridge Contract
 
-Status: Active M21 contract documentation for v0.25.0. Contract-only.
+Status: Active M21 contract documentation for v0.25.1. Contract-only.
 
 OpenWebUI is the preferred conversational web shell for the Ultimate AI Agent. OpenWebUI is not the agent brain. Python Agent Core remains the authority layer for policy, approvals, consent, tool authorization, event logging, secrets, redaction, memory governance, runtime boundaries, and Foundation Gate evidence.
 
@@ -24,6 +24,15 @@ M21 adds contract-only Python models for:
 - future bridge plans.
 - redacted receipt planning.
 
-Content is summary-only, ref-only, or redacted-preview metadata. Raw content is blocked. Raw prompt bodies, raw transcript bodies, raw files, raw memory contents, raw credentials, cookies, API keys, admin tokens, and browser profile data are not represented by M21 contracts.
+Content is summary-only, ref-only, or redacted-preview metadata. These are the
+only valid M21 ref/envelope content modes. `raw_content_blocked` and
+`future_requires_contract` are blocked sentinel values, not valid ref/envelope
+content modes. Raw prompt bodies, raw transcript bodies, raw files, raw memory
+contents, raw credentials, cookies, API keys, admin tokens, and browser profile
+data are not represented by M21 contracts.
+
+v0.25.1 hardens validation so safe negated boundary text such as "OpenWebUI is
+not the agent brain" is allowed, while positive OpenWebUI authority claims are
+rejected.
 
 This patch adds no backend API route, OpenAPI path, runtime execution, model/provider call, local model runtime activation, memory write, file write, tool execution, remote execution, browser automation, Computer Use, mobile app code, mobile sensor API, plugin enablement, dependency, or production authority.

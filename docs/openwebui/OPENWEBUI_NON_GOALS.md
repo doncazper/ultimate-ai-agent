@@ -1,6 +1,6 @@
 # OpenWebUI Non-Goals
 
-Status: Active M21 contract documentation for v0.25.0. Contract-only.
+Status: Active M21 contract documentation for v0.25.1. Contract-only.
 
 M21 does not implement OpenWebUI integration.
 
