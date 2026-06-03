@@ -350,7 +350,7 @@ def _write_minimal_repo(root: Path, version: str = "0.14.6") -> None:
             + "M23 - First Real Local LLM Call, Non-Tool, Non-Authoritative, planned/provisional.\n"
             "M24 - Memory Provider Abstraction + Local Memory Store, planned/provisional.\n"
             "M25 - Truth Source Router + Evidence Claim Checker, planned/provisional.\n"
-            "M26 - Tool Execution Sandbox Contract, Dry-Run Only, planned/provisional.\n"
+            "M26 - Grounded Recall Router + Evidence-Linked Context Pack Builder, planned/provisional.\n"
             "M27 - MCP / Agent Skills / AGENTS.md Trust Registry, Quarantine-Only, planned/provisional.\n"
             "M28 - Local Sandbox Backend Abstraction, planned/provisional.\n"
             "M29 - First Low-Risk Tool Dry-Run + Approval Preview, planned/provisional.\n"

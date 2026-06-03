@@ -1,12 +1,17 @@
 # Ultimate AI Agent Version
 
-Current active baseline: **v0.28.2**
+Current active baseline: **v0.29.0**
 
-v0.28.2 is a docs-only cleanup after the stable v0.28.1 M24 baseline. It
-removes the duplicate/conflicting planned/provisional v0.28.1 roadmap row from
-the Post-M20 capability roadmap while keeping the correct implemented v0.28.1
-M24 hardening row.
+v0.29.0 implements M25 Truth Source Router + Evidence Claim Checker. It adds
+deterministic truth source contracts, source priority ordering,
+claim/evidence/verification models, evidence chain validation,
+conflict/staleness/revocation handling, documentation, documentation-integrity
+checks, static safety verification, and Foundation Gate coverage.
 
-It changes no code behavior, tests, dependencies, backend routes, OpenAPI path
-count, runtime/model/provider behavior, memory authority, or M25 scope. OpenAPI
-path count remains `74`.
+It enforces that memory is recall rather than authority, model/runtime/OpenWebUI
+output cannot verify truth, arbitrary refs cannot self-authorize claims, and
+verified status requires primary/source-backed evidence. It adds no web search,
+external verification, model/provider calls, retrieval/RAG/vector/embedding
+functionality, source crawling, memory writes, evidence mutation, backend
+mutation routes, dependencies, or production authority. OpenAPI path count
+remains `74`. M26 remains future.

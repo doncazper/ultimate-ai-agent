@@ -25,4 +25,8 @@ Blocked in M24:
 - no context injection.
 - no production persistence claim.
 
-M25 remains future and separate as the Truth Source Router + Evidence Claim Checker milestone.
+M25 is now implemented/released separately as the Truth Source Router + Evidence
+Claim Checker milestone. It keeps memory below governed truth sources and adds
+no memory authority, automatic memory write, context injection, vector DB,
+embedding, web search, model/provider call, backend mutation route, or
+production authority.

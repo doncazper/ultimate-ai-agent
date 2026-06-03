@@ -212,6 +212,15 @@ M24_FORBIDDEN_BACKEND_ROUTES = (
     "/control-center/memory/write",
     "/control-center/memory/delete",
 )
+EXPECTED_M25_OPENAPI_PATH_COUNT = 74
+M25_FORBIDDEN_BACKEND_ROUTES = (
+    "/truth/verify",
+    "/claims/verify",
+    "/evidence/verify",
+    "/truth/search",
+    "/truth/web-search",
+    "/truth/model-verify",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -403,6 +412,17 @@ def m24_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
     forbidden_present = sorted(path for path in M24_FORBIDDEN_BACKEND_ROUTES if path in path_set)
     if forbidden_present:
         failures.append(f"M24 forbidden backend route(s) present: {', '.join(forbidden_present)}")
+    return failures
+
+
+def m25_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M25_OPENAPI_PATH_COUNT) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+    for route in M25_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(f"M25 forbidden backend route present: {route}")
     return failures
 
 
@@ -611,6 +631,9 @@ class FoundationGateEvaluator:
             ),
             "m23_first_local_llm_call_safe": self.check_m23_first_local_llm_call_safe,
             "m24_memory_provider_local_store_safe": self.check_m24_memory_provider_local_store_safe,
+            "m25_truth_source_router_contracts_valid": self.check_m25_truth_source_router_contracts_valid,
+            "m25_truth_openapi_routes_unchanged": self.check_m25_truth_openapi_routes_unchanged,
+            "m25_m26_remains_future": self.check_m25_m26_remains_future,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -4882,6 +4905,217 @@ class FoundationGateEvaluator:
 
         return self._result(criterion, failures, required_files)
 
+    def check_m25_truth_source_router_contracts_valid(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/truth/enums.py",
+            "src/ultimate_ai_agent/core/truth/sources.py",
+            "src/ultimate_ai_agent/core/truth/claims.py",
+            "src/ultimate_ai_agent/core/truth/evidence.py",
+            "src/ultimate_ai_agent/core/truth/verification.py",
+            "src/ultimate_ai_agent/core/truth/manifests.py",
+            "tests/test_truth_source_contracts.py",
+            "tests/test_claim_verification_decisions.py",
+            "tests/test_truth_no_memory_authority.py",
+            "tests/test_truth_no_model_output_authority.py",
+        ]
+        failures = [f"missing M25 truth/evidence file: {path}" for path in required_files if not (self.root / path).exists()]
+
+        try:
+            from ultimate_ai_agent.core.truth import (
+                Claim,
+                ClaimRiskLevel,
+                ClaimStatus,
+                EvidenceChain,
+                EvidenceRef,
+                EvidenceStrength,
+                TruthSourceKind,
+                VerificationDecisionStatus,
+                VerificationRequest,
+                assert_memory_not_truth,
+                assert_model_output_not_truth,
+                build_truth_router_manifest,
+                verify_claim_against_evidence_chain,
+            )
+
+            manifest = build_truth_router_manifest("0.29.0")
+            if manifest.external_verification_enabled:
+                failures.append("M25 manifest enables external verification")
+            if manifest.web_search_enabled:
+                failures.append("M25 manifest enables web search")
+            if manifest.model_verification_enabled:
+                failures.append("M25 manifest enables model verification")
+            if manifest.memory_as_authority_enabled:
+                failures.append("M25 manifest enables memory authority")
+            if manifest.automatic_claim_verification_enabled:
+                failures.append("M25 manifest enables automatic claim verification")
+
+            claim = Claim(
+                claim_id="claim:m25-gate",
+                safe_claim_summary="M25 safe gate claim.",
+                claim_text_hash="sha256:m25",
+                claim_status=ClaimStatus.unverified,
+                claim_risk=ClaimRiskLevel.low,
+                data_classification="public",
+            )
+            safe_chain = EvidenceChain(
+                chain_id="chain:m25-gate",
+                claim_ref="claim:m25-gate",
+                source_refs=["canonical:m25"],
+                evidence_refs=["evidence:m25"],
+                evidence_strength=EvidenceStrength.evidence_supported,
+                source_priority_summary="canonical source",
+                safe_summary="Safe canonical evidence summary.",
+            )
+            safe_request = VerificationRequest(
+                request_id="verify:m25-gate",
+                claim=claim,
+                evidence_chain=safe_chain,
+                evidence_refs=[
+                    EvidenceRef(
+                        evidence_ref="evidence:m25",
+                        source_ref="canonical:m25",
+                        source_kind=TruthSourceKind.canonical_document,
+                        evidence_strength=EvidenceStrength.evidence_supported,
+                        data_classification="public",
+                        redaction_status="redacted",
+                        safe_summary="Safe canonical evidence summary.",
+                    )
+                ],
+                requested_status=ClaimStatus.verified_by_primary_source,
+            )
+            safe_decision = verify_claim_against_evidence_chain(safe_request)
+            if not safe_decision.allowed or safe_decision.status != VerificationDecisionStatus.allowed:
+                failures.append("M25 primary-source-backed evidence was not allowed")
+
+            memory_chain = safe_chain.model_copy(
+                update={
+                    "chain_id": "chain:m25-memory",
+                    "source_refs": ["memory:m25"],
+                    "evidence_refs": ["evidence:m25-memory"],
+                    "memory_refs": ["memory:m25"],
+                    "source_priority_summary": "memory only",
+                }
+            )
+            memory_request = safe_request.model_copy(
+                update={
+                    "request_id": "verify:m25-memory",
+                    "evidence_chain": memory_chain,
+                    "evidence_refs": [
+                        EvidenceRef(
+                            evidence_ref="evidence:m25-memory",
+                            source_ref="memory:m25",
+                            source_kind=TruthSourceKind.reviewed_memory,
+                            evidence_strength=EvidenceStrength.source_linked,
+                            data_classification="public",
+                            redaction_status="redacted",
+                            safe_summary="Safe memory summary.",
+                        )
+                    ],
+                }
+            )
+            memory_decision = verify_claim_against_evidence_chain(memory_request)
+            if memory_decision.allowed:
+                failures.append("M25 allowed memory-only verification")
+            assert_memory_not_truth(memory_chain)
+
+            model_chain = safe_chain.model_copy(
+                update={
+                    "chain_id": "chain:m25-model",
+                    "source_refs": ["model:m25"],
+                    "evidence_refs": ["evidence:m25-model"],
+                    "evidence_strength": EvidenceStrength.blocked,
+                    "source_priority_summary": "blocked model output",
+                }
+            )
+            model_request = safe_request.model_copy(
+                update={
+                    "request_id": "verify:m25-model",
+                    "evidence_chain": model_chain,
+                    "evidence_refs": [
+                        EvidenceRef(
+                            evidence_ref="evidence:m25-model",
+                            source_ref="model:m25",
+                            source_kind=TruthSourceKind.model_output,
+                            evidence_strength=EvidenceStrength.blocked,
+                            data_classification="public",
+                            redaction_status="redacted",
+                            safe_summary="Blocked model output summary.",
+                        )
+                    ],
+                }
+            )
+            model_decision = verify_claim_against_evidence_chain(model_request)
+            if model_decision.allowed:
+                failures.append("M25 allowed model-output verification")
+            assert_model_output_not_truth(model_chain)
+
+            truth_source = "\n".join(
+                self._read(path)
+                for path in (self.root / "src" / "ultimate_ai_agent" / "core" / "truth").glob("*.py")
+            )
+            forbidden_fragments = (
+                "requests.get(",
+                "requests.post(",
+                "httpx.get(",
+                "httpx.post(",
+                "urllib.request.urlopen(",
+                "openai.",
+                "anthropic.",
+                "ollama.",
+                "write_memory(",
+                ".write_memory(",
+                "put_record(",
+                ".put_record(",
+            )
+            failures.extend(
+                f"M25 truth module contains forbidden fragment: {fragment}"
+                for fragment in forbidden_fragments
+                if fragment in truth_source
+            )
+        except Exception as exc:
+            failures.append(f"M25 truth/evidence contract validation failed: {exc}")
+
+        return self._result(criterion, failures, required_files)
+
+    def check_m25_truth_openapi_routes_unchanged(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m25_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M25 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m25_m26_remains_future(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        required_docs = [
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+            "docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md",
+            "docs/canonical/09_roadmap.md",
+        ]
+        failures = [f"missing M25 roadmap doc: {path}" for path in required_docs if not (self.root / path).exists()]
+        text = "\n".join(self._read(self.root / path).lower() for path in required_docs if (self.root / path).exists())
+        if "v0.29.0" in text and "truth source router + evidence claim checker" in text:
+            if "implemented/released" not in text:
+                failures.append("M25 docs do not mark v0.29.0 implemented/released")
+        else:
+            failures.append("M25 docs do not mention v0.29.0 Truth Source Router + Evidence Claim Checker")
+        if "v0.30.0 | m26" in text and "planned/provisional" not in text:
+            failures.append("M26 roadmap row is not planned/provisional")
+        if "m26 is implemented" in text or "v0.30.0 implements m26" in text:
+            failures.append("M26 is incorrectly marked implemented")
+        forbidden_m26_fragments = (
+            "context injection implementation",
+            "context-pack builder implemented",
+            "grounded recall router implemented",
+        )
+        failures.extend(
+            f"M25 docs imply M26 implementation: {fragment}"
+            for fragment in forbidden_m26_fragments
+            if fragment in text
+        )
+        return self._result(criterion, failures, required_docs)
+
     def check_open_design_governance_docs_present(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
         required_docs = [
             "docs/design/OPEN_DESIGN_SYSTEM.md",
@@ -4985,7 +5219,7 @@ class FoundationGateEvaluator:
             "post-M20 docs missing local model runtime charter": "local model runtime activation contract",
             "post-M20 docs missing first local LLM charter": "first real local llm call",
             "post-M20 docs missing memory charter": "memory provider abstraction",
-            "post-M20 docs missing sandbox charter": "tool execution sandbox contract",
+            "post-M20 docs missing grounded recall charter": "grounded recall router + evidence-linked context pack builder",
             "post-M20 docs missing trust registry charter": "mcp / agent skills / agents.md",
             "post-M20 docs missing native CCC charter": "ios / android / macos",
             "post-M20 docs missing Device Capability Broker charter": (
@@ -5002,7 +5236,9 @@ class FoundationGateEvaluator:
                 failures.append(failure)
         active_version = self._active_version() or "0.0.0"
         version_tuple = tuple(int(part) for part in active_version.split("."))
-        if version_tuple >= (0, 28, 0):
+        if version_tuple >= (0, 29, 0):
+            implemented_claim_start = 26
+        elif version_tuple >= (0, 28, 0):
             implemented_claim_start = 25
         elif version_tuple >= (0, 27, 0):
             implemented_claim_start = 24

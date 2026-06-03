@@ -81,3 +81,16 @@ outrank memory. M24 adds no automatic writes, model-output writes, local LLM
 output writes, OpenWebUI chat memory writes, mobile capture writes, tool output
 writes, vector DB, embeddings, cloud memory, raw session history, or context
 injection.
+
+## M25 Truth/Evidence Classification
+
+M25 claim, evidence, source, receipt, and verification refs use classification
+metadata for safe review only. The Truth Source Router and Evidence Claim
+Checker may classify refs, safe summaries, status, staleness, revocation,
+conflict, and decision metadata, but they must not expose raw prompts, raw
+files, raw memory contents, raw provider payloads, raw credentials, or raw
+session history.
+
+M25 adds no web search, external verification, source fetching, model/provider
+calls, memory writes, evidence mutation, backend routes, vector DB, embeddings,
+context injection, or production authority.

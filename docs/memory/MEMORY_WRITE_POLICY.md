@@ -17,4 +17,6 @@ Denied in M24:
 
 Memory is recall, not authority. Memory is not ground truth. Canonical files, evidence manifests, receipts, Event Ledger records, and user-reviewed sources outrank memory.
 
-Future writes from model, chat, mobile, or tool outputs require later reviewed milestones. M25 remains future.
+Future writes from model, chat, mobile, or tool outputs require later reviewed
+milestones. M25 implements truth/evidence checking only and adds no memory
+write path.

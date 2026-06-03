@@ -36,6 +36,19 @@ REQUIRED_M24_MEMORY_DOCS = [
 ]
 
 
+REQUIRED_M25_TRUTH_DOCS = [
+    "docs/truth/TRUTH_SOURCE_ROUTER.md",
+    "docs/truth/EVIDENCE_CLAIM_CHECKER.md",
+    "docs/truth/TRUTH_SOURCE_PRIORITY.md",
+    "docs/truth/CLAIM_EVIDENCE_CHAIN.md",
+    "docs/truth/CLAIM_VERIFICATION_POLICY.md",
+    "docs/truth/CLAIM_CONFLICT_AND_STALENESS.md",
+    "docs/truth/MEMORY_TRUTH_BOUNDARY.md",
+    "docs/truth/TRUTH_NON_GOALS.md",
+    "docs/truth/M25_TO_M26_BOUNDARY.md",
+]
+
+
 REQUIRED_ACTIVE_DOCS = [
     "docs/DOCUMENTATION_INDEX.md",
     "docs/canonical/CANONICAL_DOC_MAP.md",
@@ -63,6 +76,7 @@ REQUIRED_ACTIVE_DOCS = [
     "docs/runtime/LOCAL_RUNTIME_M22_TO_M23_BOUNDARY.md",
     *REQUIRED_M23_LOCAL_CALL_DOCS,
     *REQUIRED_M24_MEMORY_DOCS,
+    *REQUIRED_M25_TRUTH_DOCS,
     "docs/control_center/CONTROL_CENTER_CONTRACT.md",
     "docs/control_center/DASHBOARD_SNAPSHOT.md",
     "docs/control_center/ACTION_PREVIEW_POLICY.md",
@@ -251,6 +265,7 @@ ACTIVE_DOCS_TO_SCAN = [
     "docs/runtime/RUNTIME_CAPABILITY_MATRIX.md",
     *REQUIRED_LOCAL_RUNTIME_ACTIVATION_DOCS,
     *REQUIRED_M23_LOCAL_CALL_DOCS,
+    *REQUIRED_M25_TRUTH_DOCS,
     "docs/control_center/CONTROL_CENTER_CONTRACT.md",
     "docs/control_center/DASHBOARD_SNAPSHOT.md",
     "docs/control_center/ACTION_PREVIEW_POLICY.md",
@@ -374,6 +389,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_local_runtime_activation_docs(root, version))
     failures.extend(_verify_m23_local_model_call_docs(root, version))
     failures.extend(_verify_m24_memory_docs(root, version))
+    failures.extend(_verify_m25_truth_docs(root, version))
     failures.extend(_verify_mobile_companion_contract_docs(root, version))
     failures.extend(_verify_m20_device_capability_docs(root, version))
     failures.extend(_verify_post_m20_roadmap_projection(root))
@@ -529,14 +545,28 @@ def _verify_m19_roadmap_currentness(root: Path, version: str | None) -> list[str
             )
             if not m24_current:
                 failures.append("active roadmap docs must mark M24/v0.28.0 as implemented/released")
-            m25_implemented_lines = [
-                line
-                for line in active_roadmaps.splitlines()
-                if re.search(r"(v0\.29\.0[^\n]*m25|m25[^\n]*v0\.29\.0|m25)[^\n]*(implemented|released)", line)
-                and "planned/provisional" not in line
-            ]
-            if m25_implemented_lines:
-                failures.append("active roadmap docs must keep M25/v0.29.0 planned/provisional")
+            if _version_tuple(version) >= (0, 29, 0):
+                m25_current = re.search(
+                    r"(v0\.29\.0[^\n]*m25|m25[^\n]*v0\.29\.0|m25)[^\n]*(implemented|released)",
+                    active_roadmaps,
+                )
+                m26_planned = re.search(
+                    r"(v0\.30\.0[^\n]*m26|m26[^\n]*v0\.30\.0|m26)[^\n]*planned/provisional",
+                    active_roadmaps,
+                )
+                if not m25_current:
+                    failures.append("active roadmap docs must mark M25/v0.29.0 as implemented/released")
+                if not m26_planned:
+                    failures.append("active roadmap docs must keep M26/v0.30.0 planned/provisional")
+            else:
+                m25_implemented_lines = [
+                    line
+                    for line in active_roadmaps.splitlines()
+                    if re.search(r"(v0\.29\.0[^\n]*m25|m25[^\n]*v0\.29\.0|m25)[^\n]*(implemented|released)", line)
+                    and "planned/provisional" not in line
+                ]
+                if m25_implemented_lines:
+                    failures.append("active roadmap docs must keep M25/v0.29.0 planned/provisional")
 
     forbidden_claims = [
         "mobile app is implemented",
@@ -558,7 +588,10 @@ def _verify_m19_roadmap_currentness(root: Path, version: str | None) -> list[str
         if claim in active_roadmaps:
             failures.append(f"active roadmap docs must not claim future mobile capability implementation: {claim}")
 
-    if _version_tuple(version) >= (0, 28, 0):
+    if _version_tuple(version) >= (0, 29, 0):
+        if "m26-m40 remain planned/provisional" not in active_roadmaps:
+            failures.append("post-M20 roadmap docs must keep M26-M40 planned/provisional")
+    elif _version_tuple(version) >= (0, 28, 0):
         if "m25-m40 remain planned/provisional" not in active_roadmaps:
             failures.append("post-M20 roadmap docs must keep M25-M40 planned/provisional")
     elif _version_tuple(version) >= (0, 27, 0):
@@ -940,14 +973,106 @@ def _verify_m24_memory_docs(root: Path, version: str | None) -> list[str]:
         "M24 docs must say no raw session history": "no raw session history",
         "M24 docs must say no context injection": "no context injection",
         "M24 docs must say no backend memory mutation API": "no backend memory mutation api",
-        "M24 docs must say M25 remains future": "m25 remains future",
+    }
+    if _version_tuple(version) < (0, 29, 0):
+        expectations["M24 docs must say M25 remains future"] = "m25 remains future"
+    else:
+        expectations["M24 docs must say M25 is now separate"] = "m25 is now implemented/released"
+        expectations["M24 docs must say M26 remains future"] = "m26 remains future"
+    for failure, fragment in expectations.items():
+        if fragment not in docs_text:
+            failures.append(failure)
+
+    if _version_tuple(version) < (0, 29, 0) and ("m25 is implemented" in docs_text or "m25 implemented" in docs_text):
+        failures.append("M24 docs must not claim M25 implemented")
+    return failures
+
+
+def _verify_m25_truth_docs(root: Path, version: str | None) -> list[str]:
+    failures: list[str] = []
+    if _version_tuple(version) < (0, 29, 0):
+        return failures
+
+    for rel_path in REQUIRED_M25_TRUTH_DOCS:
+        if not (root / rel_path).exists():
+            failures.append(f"missing active documentation file: {rel_path}")
+
+    docs_text = "\n".join(
+        _read(root / rel_path).lower()
+        for rel_path in REQUIRED_M25_TRUTH_DOCS
+        if (root / rel_path).exists()
+    )
+    expectations = {
+        "M25 docs must say deterministic/local": "deterministic",
+        "M25 docs must say no external verification": "no external verification",
+        "M25 docs must say no web search": "no web search",
+        "M25 docs must say no source fetching": "no source fetching",
+        "M25 docs must say no model calls": "no model calls",
+        "M25 docs must say no provider calls": "no provider calls",
+        "M25 docs must say no retrieval/RAG": "retrieval/rag",
+        "M25 docs must say no vector DB": "vector db",
+        "M25 docs must say no embeddings": "embeddings",
+        "M25 docs must say no memory writes": "no memory writes",
+        "M25 docs must say no evidence mutation": "no evidence mutation",
+        "M25 docs must say no backend route": "no backend route",
+        "M25 docs must say memory is recall, not authority": "memory is recall, not authority",
+        "M25 docs must say memory is not ground truth": "memory is not ground truth",
+        "M25 docs must say model output cannot verify truth": "model output",
+        "M25 docs must say arbitrary refs are not authority": "arbitrary refs are not authority",
+        "M25 docs must say M26 remains future": "m26 remains future",
+        "M25 docs must say OpenAPI path count remains 74": "openapi path count",
     }
     for failure, fragment in expectations.items():
         if fragment not in docs_text:
             failures.append(failure)
 
-    if "m25 is implemented" in docs_text or "m25 implemented" in docs_text:
-        failures.append("M24 docs must not claim M25 implemented")
+    active_docs = "\n".join(
+        _read(root / rel_path).lower()
+        for rel_path in [
+            "README.md",
+            "VERSION.md",
+            "AGENTS.md",
+            "docs/DOCUMENTATION_INDEX.md",
+            "docs/canonical/CANONICAL_DOC_MAP.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/roadmap/NEXT_SEQUENCE_v0_17_5.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+            "docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md",
+            "docs/roadmap/MILESTONE_CHARTERS.md",
+            "docs/api/README.md",
+            "docs/api/openapi_contract.md",
+            "docs/api/route_inventory.md",
+            "docs/testing/test_strategy_v0.md",
+        ]
+        if (root / rel_path).exists()
+    )
+    active_expectations = {
+        "active docs must mark M25/v0.29.0 as implemented/released": "m25 is implemented/released",
+        "active docs must keep M26-M40 planned/provisional": "m26-m40 remain planned/provisional",
+        "active docs must link M25 truth docs": "docs/truth/truth_source_router.md",
+        "active docs must say M26 grounded recall remains future": "grounded recall router",
+        "active docs must say M25 has no backend route": "no backend route",
+        "active docs must say M25 has no web search": "no web search",
+        "active docs must say M25 has no model/provider calls": "model/provider",
+    }
+    for failure, fragment in active_expectations.items():
+        if fragment not in active_docs:
+            failures.append(failure)
+
+    forbidden_active_claims = [
+        "m26 is implemented",
+        "m26 has implemented",
+        "grounded recall router is implemented",
+        "context pack builder is implemented",
+        "web search is implemented",
+        "external verification is implemented",
+        "truth verification route is implemented",
+        "claim verification route is implemented",
+    ]
+    for claim in forbidden_active_claims:
+        if claim in active_docs:
+            failures.append(f"active docs must not claim future/runtime truth capability: {claim}")
+
     return failures
 
 
@@ -1230,7 +1355,9 @@ def _verify_post_m20_roadmap_projection(root: Path) -> list[str]:
         "M22 must be Local Model Runtime Activation Contract": "local model runtime activation contract",
         "M23 must be First Real Local LLM Call": "first real local llm call",
         "M24 must be Memory Provider Abstraction": "memory provider abstraction",
-        "M26 must be Tool Execution Sandbox Contract": "tool execution sandbox contract",
+        "M26 must be Grounded Recall Router + Evidence-Linked Context Pack Builder": (
+            "grounded recall router + evidence-linked context pack builder"
+        ),
         "M27 must mention MCP / Agent Skills / AGENTS.md": "mcp / agent skills / agents.md",
         "M31 must mention iOS / Android / macOS": "ios / android / macos",
         "M35 must mention Device Capability Broker Implementation, No Sensors": (
@@ -1244,7 +1371,14 @@ def _verify_post_m20_roadmap_projection(root: Path) -> list[str]:
         "Post-M20 roadmap docs must say no dependency is added": "no dependency",
     }
     active_version_tuple = _version_tuple(_active_version(root))
-    if active_version_tuple >= (0, 28, 0):
+    if active_version_tuple >= (0, 29, 0):
+        expectations["Post-M20 roadmap docs must keep M26-M40 planned/provisional"] = (
+            "m26-m40 remain planned/provisional"
+        )
+        expectations["Post-M20 roadmap docs must say M25 is implemented/released"] = (
+            "m25 is implemented/released"
+        )
+    elif active_version_tuple >= (0, 28, 0):
         expectations["Post-M20 roadmap docs must keep M25-M40 planned/provisional"] = (
             "m25-m40 remain planned/provisional"
         )
@@ -1278,7 +1412,9 @@ def _verify_post_m20_roadmap_projection(root: Path) -> list[str]:
         if fragment not in roadmap_text:
             failures.append(failure)
 
-    if active_version_tuple >= (0, 28, 0):
+    if active_version_tuple >= (0, 29, 0):
+        implemented_claim_start = 26
+    elif active_version_tuple >= (0, 28, 0):
         implemented_claim_start = 25
     elif active_version_tuple >= (0, 27, 0):
         implemented_claim_start = 24
@@ -1422,7 +1558,10 @@ def _verify_post_m18_roadmap_status_labels(root: Path) -> list[str]:
             continue
         if f"status: {expected_status}" not in section:
             failures.append(f"roadmap sequence must mark {milestone.upper()} {expected_status}")
-    if active >= (0, 28, 0):
+    if active >= (0, 29, 0):
+        if "m26-m40" not in sequence or "planned/provisional" not in sequence:
+            failures.append("roadmap sequence must keep M26-M40 planned/provisional")
+    elif active >= (0, 28, 0):
         if "m25-m40" not in sequence or "planned/provisional" not in sequence:
             failures.append("roadmap sequence must keep M25-M40 planned/provisional")
     elif active >= (0, 27, 0):

@@ -6,7 +6,14 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from ultimate_ai_agent.core.truth.claims import ClaimEvidence
 from ultimate_ai_agent.core.truth.conflicts import SourceConflictReport
-from ultimate_ai_agent.core.truth.enums import SourceFreshnessStatus, TruthSourceType
+from ultimate_ai_agent.core.truth.enums import (
+    EvidenceStrength,
+    SourceFreshnessStatus,
+    SourceRevocation,
+    SourceStaleness,
+    TruthSourceKind,
+    TruthSourceType,
+)
 
 
 class EvidenceItem(BaseModel):
@@ -53,3 +60,66 @@ class EvidenceManifest(BaseModel):
     event_ref: Optional[str] = None
 
     model_config = ConfigDict(extra="forbid")
+
+
+class EvidenceRef(BaseModel):
+    evidence_ref: str = Field(..., min_length=1)
+    source_ref: str = Field(..., min_length=1)
+    source_kind: TruthSourceKind
+    evidence_strength: EvidenceStrength
+    data_classification: str = "public"
+    redaction_status: str = "redacted"
+    safe_summary: str = Field(..., min_length=1)
+    event_refs: List[str] = Field(default_factory=list)
+    receipt_refs: List[str] = Field(default_factory=list)
+    file_refs: List[str] = Field(default_factory=list)
+    memory_refs: List[str] = Field(default_factory=list)
+    metadata_refs: List[str] = Field(default_factory=list)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_m25_evidence_ref(self):
+        from ultimate_ai_agent.core.truth.validation import (
+            assert_no_raw_truth_content,
+            validate_structured_truth_ref,
+        )
+
+        validate_structured_truth_ref(self.evidence_ref, "evidence_ref")
+        validate_structured_truth_ref(self.source_ref, "source_ref")
+        assert_no_raw_truth_content(self.safe_summary)
+        assert_no_raw_truth_content(self.metadata)
+        return self
+
+
+class EvidenceChain(BaseModel):
+    chain_id: str = Field(..., min_length=1)
+    claim_ref: str = Field(..., min_length=1)
+    source_refs: List[str] = Field(default_factory=list)
+    evidence_refs: List[str] = Field(default_factory=list)
+    event_refs: List[str] = Field(default_factory=list)
+    receipt_refs: List[str] = Field(default_factory=list)
+    memory_refs: List[str] = Field(default_factory=list)
+    evidence_strength: EvidenceStrength = EvidenceStrength.none
+    source_priority_summary: str = Field(..., min_length=1)
+    conflict_refs: List[str] = Field(default_factory=list)
+    stale_refs: List[str] = Field(default_factory=list)
+    revoked_refs: List[str] = Field(default_factory=list)
+    source_staleness: SourceStaleness = SourceStaleness.current
+    source_revocation: SourceRevocation = SourceRevocation.active
+    safe_summary: str = Field(..., min_length=1)
+    metadata_refs: List[str] = Field(default_factory=list)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_m25_evidence_chain(self):
+        from ultimate_ai_agent.core.truth.validation import assert_claim_not_self_verified, assert_no_raw_truth_content
+
+        assert_claim_not_self_verified(self)
+        assert_no_raw_truth_content(self.safe_summary)
+        assert_no_raw_truth_content(self.source_priority_summary)
+        assert_no_raw_truth_content(self.metadata)
+        return self

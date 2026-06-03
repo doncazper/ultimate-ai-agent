@@ -4,7 +4,13 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from ultimate_ai_agent.core.truth.enums import TruthAuthorityLevel, TruthSourceType
+from ultimate_ai_agent.core.truth.enums import (
+    TruthAuthorityLevel,
+    TruthSourceKind,
+    TruthSourcePriority,
+    TruthSourceStatus,
+    TruthSourceType,
+)
 
 
 AUTHORITY_RANK = {
@@ -30,6 +36,19 @@ SOURCE_TYPE_BASE_RANK = {
     TruthSourceType.api: 5,
     TruthSourceType.database: 5,
     TruthSourceType.canonical_file: 6,
+}
+
+SOURCE_PRIORITY_RANK = {
+    TruthSourcePriority.canonical: 0,
+    TruthSourcePriority.evidence: 1,
+    TruthSourcePriority.receipt: 2,
+    TruthSourcePriority.event: 3,
+    TruthSourcePriority.user_reviewed: 4,
+    TruthSourcePriority.source_linked_memory: 5,
+    TruthSourcePriority.reviewed_memory: 6,
+    TruthSourcePriority.unreviewed_memory: 7,
+    TruthSourcePriority.model_output_blocked: 98,
+    TruthSourcePriority.blocked: 99,
 }
 
 
@@ -77,3 +96,52 @@ def is_source_selectable(source: TruthSourceManifest, consent_refs: List[str]) -
     if source.access_requires_consent:
         return bool(source.consent_ref and source.consent_ref in consent_refs)
     return True
+
+
+class TruthSourceRef(BaseModel):
+    source_ref: str = Field(..., min_length=1)
+    source_kind: TruthSourceKind
+    source_priority: TruthSourcePriority
+    source_status: TruthSourceStatus
+    safe_label: str = Field(..., min_length=1)
+    evidence_refs: List[str] = Field(default_factory=list)
+    event_refs: List[str] = Field(default_factory=list)
+    receipt_refs: List[str] = Field(default_factory=list)
+    memory_refs: List[str] = Field(default_factory=list)
+    user_review_ref: Optional[str] = None
+    canonical_refs: List[str] = Field(default_factory=list)
+    authority_level: str = "non_authoritative"
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: Optional[datetime] = None
+    metadata_refs: List[str] = Field(default_factory=list)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_m25_source_ref(self):
+        from ultimate_ai_agent.core.truth.validation import (
+            assert_no_raw_truth_content,
+            validate_structured_truth_ref,
+        )
+
+        validate_structured_truth_ref(self.source_ref, "source_ref")
+        assert_no_raw_truth_content(self.safe_label)
+        assert_no_raw_truth_content(self.metadata)
+        if self.source_kind in {
+            TruthSourceKind.source_linked_memory,
+            TruthSourceKind.reviewed_memory,
+            TruthSourceKind.unreviewed_memory,
+        } and self.authority_level in {"authoritative", "authority"}:
+            raise ValueError("Memory cannot be authoritative; it is recall only.")
+        return self
+
+
+def rank_truth_sources(sources: List[TruthSourceRef]) -> List[TruthSourceRef]:
+    return sorted(
+        sources,
+        key=lambda source: (
+            SOURCE_PRIORITY_RANK.get(source.source_priority, 100),
+            source.source_ref,
+        ),
+    )

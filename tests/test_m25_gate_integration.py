@@ -1,0 +1,43 @@
+from ultimate_ai_agent.api.app import app
+from ultimate_ai_agent.core.gate.criteria import default_foundation_gate_criteria
+from ultimate_ai_agent.core.gate.evaluators import (
+    EXPECTED_M25_OPENAPI_PATH_COUNT,
+    FoundationGateEvaluator,
+    m25_openapi_route_failures,
+)
+from ultimate_ai_agent.core.gate.enums import FoundationGateStatus
+
+
+def test_m25_foundation_gate_criteria_are_registered():
+    criteria = default_foundation_gate_criteria()
+    criterion_ids = {criterion.criterion_id for criterion in criteria}
+
+    assert "m25_truth_source_router_contracts_valid" in criterion_ids
+    assert "m25_truth_openapi_routes_unchanged" in criterion_ids
+    assert "m25_m26_remains_future" in criterion_ids
+
+
+def test_m25_openapi_route_guard_rejects_truth_execution_routes():
+    failures = m25_openapi_route_failures(
+        {
+            "/truth/verify": {},
+            "/claims/verify": {},
+            "/evidence/verify": {},
+            "/truth/web-search": {},
+        }
+    )
+
+    assert any("/truth/verify" in failure for failure in failures)
+    assert any("OpenAPI path count" in failure for failure in failures)
+    assert EXPECTED_M25_OPENAPI_PATH_COUNT == 74
+    assert m25_openapi_route_failures(app.openapi().get("paths", {})) == []
+
+
+def test_m25_foundation_gate_evaluator_passes_current_contracts():
+    evaluator = FoundationGateEvaluator()
+    criteria = [criterion for criterion in default_foundation_gate_criteria() if criterion.criterion_id.startswith("m25_")]
+
+    report = evaluator.evaluate(criteria)
+
+    for result in report.results:
+        assert result.status == FoundationGateStatus.passed

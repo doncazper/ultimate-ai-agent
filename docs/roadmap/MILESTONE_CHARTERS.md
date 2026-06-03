@@ -1,6 +1,6 @@
 # Milestone Charters
 
-Status: Active roadmap governance template maintained through v0.28.2.
+Status: Active roadmap governance template maintained through v0.29.0.
 
 This document defines the required charter shape for every future milestone prompt. A milestone charter is planning authority only. It does not implement runtime behavior, frontend behavior, backend API routes, provider calls, network calls, remote execution, mobile sensor access, plugin enablement, native build workflows, production persistence, or external actions.
 
@@ -68,7 +68,7 @@ Notes:
 - No milestone may skip review gates.
 - M14-M20 are frozen and implemented through v0.24.0, with v0.24.1 M20 safety hardening accepted, unless a reviewed roadmap patch supersedes them.
 - M21 is implemented/released by v0.25.0 as OpenWebUI Bridge + Chat Shell Integration Contract only.
-- M22 is implemented/released by v0.26.0 as contract-only and hardened by v0.26.1; M23 is implemented/released by v0.27.0 as manual fixed-prompt local call only and hardened by v0.27.1; M24 is implemented/released by v0.28.0 as governed local memory provider/store foundation, hardened by v0.28.1, and docs-cleaned by v0.28.2; M25-M40 are planned/provisional in `docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md`.
+- M22 is implemented/released by v0.26.0 as contract-only and hardened by v0.26.1; M23 is implemented/released by v0.27.0 as manual fixed-prompt local call only and hardened by v0.27.1; M24 is implemented/released by v0.28.0 as governed local memory provider/store foundation, hardened by v0.28.1, and docs-cleaned by v0.28.2; M25 is implemented/released by v0.29.0 as deterministic local truth/evidence contracts; M26-M40 are planned/provisional in `docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md`.
 - Future prompts after M20 must read `docs/roadmap/CAPABILITY_LAYERING_STRATEGY.md`, `docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md`, and `docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md`.
 
 ## M19 Current Status
@@ -113,7 +113,8 @@ enablement, dependency, or production authority. M22 is implemented/released
 contract-only by v0.26.0, hardened by v0.26.1, and M23 is implemented/released
 by v0.27.0 as manual fixed-prompt local call only and hardened by v0.27.1.
 M24 is implemented/released by v0.28.0 as governed local memory provider/store
-foundation. M25-M40 remain planned/provisional.
+foundation. M25 is implemented/released by v0.29.0 as deterministic local
+truth/evidence contracts. M26-M40 remain planned/provisional.
 
 ## Review And Hardening Rule
 

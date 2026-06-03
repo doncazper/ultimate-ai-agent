@@ -22,4 +22,4 @@ M23 output is non-authoritative and cannot become memory authority. Responses
 are capped and redacted, raw responses are not stored, and tests and Foundation
 Gate use fake transport.
 
-M24 memory is recall, not authority. M24 adds no model-output writes, local LLM output writes, automatic writes, context injection, vector DB, embeddings, cloud memory provider, backend mutation route, or production persistence. M25 remains future.
+M24 memory is recall, not authority. M24 adds no model-output writes, local LLM output writes, automatic writes, context injection, vector DB, embeddings, cloud memory provider, backend mutation route, or production persistence. M25 is now implemented separately as deterministic local truth/evidence contracts and still does not make memory authority.

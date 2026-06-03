@@ -6,4 +6,6 @@ Memory does not overwrite canonical truth. Memory does not bypass evidence, rece
 
 Memory is recall, not authority. Memory is not ground truth. Canonical files, evidence manifests, receipts, Event Ledger records, and user-reviewed sources outrank memory.
 
-M25 remains future for claim checking.
+M25 implements deterministic claim checking over provided evidence/source refs,
+but memory conflicts remain advisory recall metadata and never become truth
+authority.

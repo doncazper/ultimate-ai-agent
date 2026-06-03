@@ -15,4 +15,6 @@ Priority order:
 
 Trust score and confidence score are advisory metadata only. They do not grant authority. Memory is recall, not authority. Canonical files, evidence manifests, receipts, Event Ledger records, and user-reviewed sources outrank memory.
 
-M25 remains future for truth source routing and evidence claim checking.
+M25 is now implemented/released for deterministic truth source routing and
+evidence claim checking over provided refs only. It keeps memory as recall, not
+authority, and does not turn memory into verified truth.

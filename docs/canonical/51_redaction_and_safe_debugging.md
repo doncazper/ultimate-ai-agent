@@ -107,3 +107,16 @@ evidence manifests, receipts, Event Ledger records, and user-reviewed sources
 outrank memory. M24 adds no automatic writes, model-output writes, local LLM
 output writes, OpenWebUI chat memory writes, mobile capture writes, tool output
 writes, vector DB, embeddings, cloud memory, or context injection.
+
+## M25 Truth/Evidence Redaction
+
+M25 truth/evidence decisions are redacted summary-only. Safe output may include
+claim refs, evidence refs, source refs, receipt refs, status, confidence,
+staleness, revocation, conflict, redaction status, and safe messages. Safe
+output must not include raw prompts, raw file contents, raw memory contents,
+raw credentials, raw provider payloads, raw OpenWebUI transcripts, or raw
+model/runtime output.
+
+M25 adds no raw evidence payload dumps, web search, external verification,
+source fetching, model/provider calls, memory writes, evidence mutation, backend
+routes, vector DB, embeddings, context injection, or production authority.

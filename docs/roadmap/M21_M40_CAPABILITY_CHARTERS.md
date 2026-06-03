@@ -1,8 +1,8 @@
 # M21-M40 Capability Charters
 
-Status: Active roadmap projection maintained through v0.28.2. M21 and M22 are implemented/released contract-only; M23 is implemented/released manual fixed-prompt local call only and hardened by v0.27.1; M24 is implemented/released as governed memory provider/local store, hardened by v0.28.1, and docs-cleaned by v0.28.2; M25-M40 remain planned/provisional.
+Status: Active roadmap projection maintained through v0.29.0. M21 and M22 are implemented/released contract-only; M23 is implemented/released manual fixed-prompt local call only and hardened by v0.27.1; M24 is implemented/released as governed memory provider/local store, hardened by v0.28.1, and docs-cleaned by v0.28.2; M25 is implemented/released contract-only; M26-M40 remain planned/provisional.
 
-These charters define capability layers after M20. v0.25.0 implements M21 as contract/planning/validation only. v0.26.0 implements M22 as contract/planning/validation only, and v0.26.1 hardens M22 verifier precision plus metadata key secret hygiene only. v0.27.0 implements M23 as manual/CLI-only, loopback-only, fixed-prompt-only, non-tool, and non-authoritative. v0.27.1 hardens M23 local call safety without adding new runtime authority. v0.28.0 implements M24 as governed, reviewed-write-only local memory provider/store foundation, v0.28.1 repairs/hardens the M24 memory contract without adding new authority, and v0.28.2 removes a duplicate roadmap row only. M25-M40 are still future capability layers. Every milestone requires its own implementation prompt, review prompt, hardening expectation, and validation evidence before release.
+These charters define capability layers after M20. v0.25.0 implements M21 as contract/planning/validation only. v0.26.0 implements M22 as contract/planning/validation only, and v0.26.1 hardens M22 verifier precision plus metadata key secret hygiene only. v0.27.0 implements M23 as manual/CLI-only, loopback-only, fixed-prompt-only, non-tool, and non-authoritative. v0.27.1 hardens M23 local call safety without adding new runtime authority. v0.28.0 implements M24 as governed, reviewed-write-only local memory provider/store foundation, v0.28.1 repairs/hardens the M24 memory contract without adding new authority, and v0.28.2 removes a duplicate roadmap row only. v0.29.0 implements M25 as deterministic local truth/evidence contracts over provided refs only. M26-M40 are still future capability layers. Every milestone requires its own implementation prompt, review prompt, hardening expectation, and validation evidence before release.
 
 ## Shared Rules
 
@@ -223,11 +223,11 @@ Hardening expectation: v0.28.1 Memory Safety Hardening before truth/evidence exp
 
 Source-of-truth docs: `docs/memory/MEMORY_PROVIDER_ABSTRACTION.md`, `docs/memory/LOCAL_MEMORY_STORE.md`, `docs/memory/MEMORY_RECORD_SCHEMA.md`, `docs/memory/MEMORY_WRITE_POLICY.md`, `docs/memory/MEMORY_SECURITY_MODEL.md`, `docs/memory/M24_TO_M25_BOUNDARY.md`, `docs/roadmap/CAPABILITY_LAYERING_STRATEGY.md`, `src/ultimate_ai_agent/core/memory/`.
 
-Notes: Memory is recall, not authority. Memory is not ground truth. Canonical files, evidence manifests, receipts, Event Ledger records, and user-reviewed sources outrank memory. M25 remains future.
+Notes: Memory is recall, not authority. Memory is not ground truth. Canonical files, evidence manifests, receipts, Event Ledger records, and user-reviewed sources outrank memory. M25 is implemented/released by v0.29.0 and keeps memory below governed truth sources.
 
 ## v0.28.1 - Memory Safety Hardening
 
-Status: planned/provisional.
+Status: implemented/released contract-only.
 
 Purpose: Harden memory provenance, deletion, and conflict behavior.
 
@@ -291,38 +291,40 @@ Source-of-truth docs: `docs/canonical/09_roadmap.md`, `src/ultimate_ai_agent/cor
 
 Notes: Evidence supports review; it does not become autonomous authority.
 
-## v0.30.0 / M26 - Tool Execution Sandbox Contract, Dry-Run Only
+## v0.30.0 / M26 - Grounded Recall Router + Evidence-Linked Context Pack Builder
 
 Status: planned/provisional.
 
-Purpose: Define tool execution sandbox contracts before any execution.
+Purpose: Define grounded recall and evidence-linked context pack contracts before any context injection.
 
 Allowed scope:
 
-- sandbox policy contracts.
-- filesystem/network/credential scopes.
-- dry-run tool envelopes.
-- artifact manifests.
-- approval requirements.
+- grounded recall request contracts.
+- evidence-linked context pack summaries.
+- claim/evidence/source refs.
+- redaction and omission metadata.
+- context-pack preview manifests.
 
 Must not add:
 
-- real shell execution.
-- real browser automation.
-- real file writes.
-- real external actions.
+- raw memory injection.
+- raw file injection.
+- model/provider calls.
+- web search or source fetching.
+- automatic context injection.
+- memory writes or evidence mutation.
 
-Dependencies: M25 claim/evidence governance and Tool Broker policy.
+Dependencies: M25 claim/evidence governance and M24 memory boundaries.
 
-Acceptance criteria: tool requests can be described, scoped, risk-rated, and previewed without executing.
+Acceptance criteria: grounded recall can describe redacted, evidence-linked context pack plans without injecting context or treating memory as authority.
 
 Review prompt required: yes.
 
-Hardening expectation: sandbox policy hardening before MCP/skills trust registry.
+Hardening expectation: context-pack safety hardening before any broader recall or tool-related milestone.
 
-Source-of-truth docs: `docs/roadmap/CAPABILITY_LAYERING_STRATEGY.md`, `src/ultimate_ai_agent/core/tools/`.
+Source-of-truth docs: `docs/truth/M25_TO_M26_BOUNDARY.md`, `docs/memory/MEMORY_RECALL_PLANNING.md`, `src/ultimate_ai_agent/core/truth/`, `src/ultimate_ai_agent/core/memory/`.
 
-Notes: M26 is dry-run only.
+Notes: M26 remains future. It is not implemented by M25.
 
 ## v0.31.0 / M27 - MCP / Agent Skills / AGENTS.md Trust Registry, Quarantine-Only
 
@@ -804,7 +806,7 @@ planning and validation. M21 is implemented/released by v0.25.0 as
 contract-only. M22 is implemented/released by v0.26.0 as contract-only and hardened by v0.26.1.
 M23 is implemented/released by v0.27.0 as manual fixed-prompt local call only.
 M24 is implemented/released by v0.28.0 as governed local memory provider/store foundation, hardened by v0.28.1, and docs-cleaned by v0.28.2.
-M25-M40 remain planned/provisional. The M19 baseline
+M25 is implemented/released by v0.29.0 as deterministic local truth/evidence contracts. M26-M40 remain planned/provisional. The M19 baseline
 adds no mobile app, Android app, iOS app, macOS app, native build workflow, OS
 permission integration, mobile sensor access, mobile approval execution,
 runtime execution, model/provider calls, remote execution, plugin enablement,
@@ -818,5 +820,5 @@ only. v0.25.0 implements M21 OpenWebUI Bridge + Chat Shell Integration
 Contract only. M22 Local Model Runtime Activation Contract is implemented by
 v0.26.0 as contract/planning/validation only and hardened by v0.26.1. M23 is
 implemented/released by v0.27.0 as manual fixed-prompt local call only. M24 is
-implemented/released by v0.28.0 as governed local memory provider/store foundation, hardened by v0.28.1, and docs-cleaned by v0.28.2. M25-M40
+implemented/released by v0.28.0 as governed local memory provider/store foundation, hardened by v0.28.1, and docs-cleaned by v0.28.2. M25 is implemented/released by v0.29.0 as deterministic local truth/evidence contracts. M26-M40
 remain planned/provisional until implemented by dedicated reviewed milestones.

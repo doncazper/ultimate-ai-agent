@@ -44,4 +44,4 @@ cannot trigger external sends.
 
 ## v0.28.0 M24 Memory Boundary
 
-M24 adds governed local memory provider/store contracts only. Mobile capture is not a memory write source in M24. There is no mobile capture ingestion, no mobile sensor access, no OS permission integration, no mobile app, no automatic memory write, and no context injection. Memory is recall, not authority, and M25 remains future.
+M24 adds governed local memory provider/store contracts only. Mobile capture is not a memory write source in M24. There is no mobile capture ingestion, no mobile sensor access, no OS permission integration, no mobile app, no automatic memory write, and no context injection. Memory is recall, not authority. M25 is now implemented as deterministic local truth/evidence contracts and adds no mobile capture authority.

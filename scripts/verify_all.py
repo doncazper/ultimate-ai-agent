@@ -25,6 +25,7 @@ SCAN_SEQUENCE = [
     ("local model runtime activation contract-only scan", "verify_no_local_runtime_activation_implementation"),
     ("M23 first local LLM call boundary scan", "verify_m23_first_local_llm_call_boundary"),
     ("M24 memory provider local store safety scan", "verify_m24_memory_provider_local_store_safety"),
+    ("M25 truth source evidence checker safety scan", "verify_m25_truth_source_evidence_checker_safety"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
     ("production truth integration scan", "verify_no_production_truth_integrations"),
     ("broad filesystem scan", "verify_no_broad_filesystem_scanning"),
@@ -1101,6 +1102,160 @@ def verify_m24_memory_provider_local_store_safety():
             sys.exit(1)
 
     print("OK: M24 memory provider is local-only, reviewed-write-only, route-free, vector-free, and non-authoritative")
+
+
+def verify_m25_truth_source_evidence_checker_safety():
+    print("\n[Verifier] Running M25 truth source/evidence checker safety guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/truth/sources.py",
+        "src/ultimate_ai_agent/core/truth/claims.py",
+        "src/ultimate_ai_agent/core/truth/evidence.py",
+        "src/ultimate_ai_agent/core/truth/verification.py",
+        "src/ultimate_ai_agent/core/truth/manifests.py",
+        "tests/test_truth_source_contracts.py",
+        "tests/test_truth_source_priority.py",
+        "tests/test_claim_evidence_contracts.py",
+        "tests/test_claim_verification_decisions.py",
+        "tests/test_claim_conflict_handling.py",
+        "tests/test_truth_no_memory_authority.py",
+        "tests/test_truth_no_model_output_authority.py",
+        "tests/test_truth_no_external_verification.py",
+        "tests/test_m25_gate_integration.py",
+        "docs/truth/TRUTH_SOURCE_ROUTER.md",
+        "docs/truth/EVIDENCE_CLAIM_CHECKER.md",
+        "docs/truth/TRUTH_SOURCE_PRIORITY.md",
+        "docs/truth/CLAIM_EVIDENCE_CHAIN.md",
+        "docs/truth/CLAIM_VERIFICATION_POLICY.md",
+        "docs/truth/CLAIM_CONFLICT_AND_STALENESS.md",
+        "docs/truth/MEMORY_TRUTH_BOUNDARY.md",
+        "docs/truth/TRUTH_NON_GOALS.md",
+        "docs/truth/M25_TO_M26_BOUNDARY.md",
+        "docs/release_notes/v0_29_0.md",
+        "docs/implementation/foundation_gate_implementation_plan_v0_29_0.md",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M25 truth/evidence file: {rel_path}")
+            sys.exit(1)
+
+    forbidden_dependencies = [
+        '"chromadb"',
+        '"qdrant"',
+        '"weaviate"',
+        '"pinecone"',
+        '"faiss"',
+        '"milvus"',
+        '"lancedb"',
+        '"sentence-transformers"',
+        '"transformers"',
+        '"openai"',
+        '"anthropic"',
+        '"ollama"',
+        '"llama-cpp-python"',
+        '"pgvector"',
+        "chromadb==",
+        "qdrant==",
+        "weaviate==",
+        "pinecone==",
+        "faiss==",
+        "milvus==",
+        "lancedb==",
+        "sentence-transformers==",
+        "transformers==",
+        "openai==",
+        "anthropic==",
+        "ollama==",
+        "llama-cpp-python==",
+        "pgvector==",
+    ]
+    for rel_path in ["apps/control-center/package.json", "pyproject.toml"]:
+        text = (ROOT / rel_path).read_text(encoding="utf-8").lower()
+        for fragment in forbidden_dependencies:
+            if fragment in text:
+                print(f"FAIL: Forbidden M25 truth dependency fragment in {rel_path}: {fragment}")
+                sys.exit(1)
+
+    truth_root = ROOT / "src" / "ultimate_ai_agent" / "core" / "truth"
+    forbidden_source_fragments = [
+        "import requests",
+        "from requests import",
+        "import httpx",
+        "from httpx import",
+        "urllib.request",
+        "urlopen(",
+        "socket.",
+        "subprocess",
+        "import openai",
+        "from openai import",
+        "import anthropic",
+        "from anthropic import",
+        "import ollama",
+        "from ollama import",
+        "import chromadb",
+        "import faiss",
+        "import pgvector",
+        "sentence_transformers",
+        "embedding",
+        "vector_search",
+        "web_search_enabled=True",
+        "external_verification_enabled=True",
+        "model_verification_enabled=True",
+        "memory_as_authority_enabled=True",
+        "automatic_claim_verification_enabled=True",
+        "write_memory(",
+        "memory.write(",
+        "append_evidence(",
+        "mutate_evidence(",
+    ]
+    for path in truth_root.rglob("*.py"):
+        rel = path.relative_to(ROOT).as_posix()
+        if "__pycache__" in path.parts:
+            continue
+        text = path.read_text(encoding="utf-8").lower().replace(" ", "")
+        for fragment in forbidden_source_fragments:
+            if fragment.replace(" ", "") in text:
+                print(f"FAIL: M25 forbidden truth/evidence source fragment in {rel}: {fragment}")
+                sys.exit(1)
+
+    forbidden_route_fragments = [
+        "/truth/verify",
+        "/claims/verify",
+        "/evidence/verify",
+        "/truth/search",
+        "/truth/web-search",
+        "/truth/model-verify",
+    ]
+    for implementation_root in [ROOT / "src", ROOT / "apps"]:
+        if not implementation_root.exists():
+            continue
+        for path in implementation_root.rglob("*"):
+            if not path.is_file() or "__pycache__" in path.parts or "node_modules" in path.parts:
+                continue
+            if path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx"}:
+                continue
+            rel = path.relative_to(ROOT).as_posix()
+            if rel == "src/ultimate_ai_agent/core/gate/evaluators.py":
+                continue
+            text = path.read_text(encoding="utf-8").lower()
+            for fragment in forbidden_route_fragments:
+                if fragment in text:
+                    print(f"FAIL: M25 forbidden truth/claim/evidence route fragment in {rel}: {fragment}")
+                    sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.evaluators import m25_openapi_route_failures
+
+        failures = m25_openapi_route_failures(app.openapi().get("paths", {}))
+    except Exception as exc:
+        print(f"FAIL: M25 OpenAPI guard could not generate schema: {exc}")
+        sys.exit(1)
+    for failure in failures:
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    print("OK: M25 truth source/evidence checker remains deterministic, local, route-free, and non-authoritative")
 
 
 def verify_no_shell_execution_in_runtime():

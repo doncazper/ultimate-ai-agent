@@ -1,46 +1,102 @@
-from ultimate_ai_agent.core.truth.claims import ClaimEvidence
+from ultimate_ai_agent.core.truth.claims import Claim, ClaimEvidence, ClaimRef
 from ultimate_ai_agent.core.truth.conflicts import SourceConflictReport, resolve_source_conflict
 from ultimate_ai_agent.core.truth.enums import (
     ClaimVerificationStatus,
+    ClaimRiskLevel,
+    ClaimStatus,
+    EvidenceStrength,
     GroundingMode,
+    SourceRevocation,
     SourceConflictSeverity,
     SourceFreshnessStatus,
+    SourceStaleness,
     TruthAuthorityLevel,
+    TruthSourceKind,
+    TruthSourcePriority,
+    TruthSourceStatus,
     TruthSourceType,
     TruthTaskClass,
+    VerificationDecisionStatus,
 )
-from ultimate_ai_agent.core.truth.evidence import EvidenceItem, EvidenceManifest
+from ultimate_ai_agent.core.truth.evidence import EvidenceChain, EvidenceItem, EvidenceManifest, EvidenceRef
 from ultimate_ai_agent.core.truth.freshness import FreshnessPolicy, classify_freshness, enforce_freshness_policy, is_source_stale
 from ultimate_ai_agent.core.truth.grounding import GroundingPolicy
+from ultimate_ai_agent.core.truth.manifests import TruthRouterManifest, build_truth_router_manifest
 from ultimate_ai_agent.core.truth.retrieval_log import RetrievalLogEntry
 from ultimate_ai_agent.core.truth.router import TruthRouteDecision, TruthRouteRequest, TruthSourceRouter
-from ultimate_ai_agent.core.truth.sources import TruthSourceManifest, is_source_selectable
-from ultimate_ai_agent.core.truth.validation import validate_evidence_manifest, validate_truth_source_manifest
+from ultimate_ai_agent.core.truth.sources import TruthSourceManifest, TruthSourceRef, is_source_selectable, rank_truth_sources
+from ultimate_ai_agent.core.truth.validation import (
+    assert_claim_not_self_verified,
+    assert_memory_not_truth,
+    assert_model_output_not_truth,
+    assert_no_external_verification,
+    assert_no_raw_truth_content,
+    validate_evidence_chain,
+    validate_evidence_manifest,
+    validate_evidence_ref,
+    validate_truth_source_manifest,
+    validate_truth_source_ref,
+    validate_verification_request,
+)
+from ultimate_ai_agent.core.truth.verification import (
+    VerificationDecision,
+    VerificationRequest,
+    verify_claim_against_evidence_chain,
+)
 
 __all__ = [
+    "Claim",
     "ClaimEvidence",
+    "ClaimRef",
+    "ClaimRiskLevel",
+    "ClaimStatus",
     "ClaimVerificationStatus",
+    "EvidenceChain",
+    "EvidenceStrength",
     "EvidenceItem",
     "EvidenceManifest",
+    "EvidenceRef",
     "FreshnessPolicy",
     "GroundingMode",
     "GroundingPolicy",
     "RetrievalLogEntry",
+    "SourceRevocation",
     "SourceConflictReport",
     "SourceConflictSeverity",
     "SourceFreshnessStatus",
+    "SourceStaleness",
     "TruthAuthorityLevel",
     "TruthRouteDecision",
     "TruthRouteRequest",
+    "TruthRouterManifest",
+    "TruthSourceKind",
     "TruthSourceManifest",
+    "TruthSourcePriority",
+    "TruthSourceRef",
     "TruthSourceRouter",
+    "TruthSourceStatus",
     "TruthSourceType",
     "TruthTaskClass",
+    "VerificationDecision",
+    "VerificationDecisionStatus",
+    "VerificationRequest",
+    "assert_claim_not_self_verified",
+    "assert_memory_not_truth",
+    "assert_model_output_not_truth",
+    "assert_no_external_verification",
+    "assert_no_raw_truth_content",
+    "build_truth_router_manifest",
     "classify_freshness",
     "enforce_freshness_policy",
     "is_source_selectable",
     "is_source_stale",
+    "rank_truth_sources",
     "resolve_source_conflict",
+    "validate_evidence_chain",
+    "validate_evidence_ref",
     "validate_evidence_manifest",
     "validate_truth_source_manifest",
+    "validate_truth_source_ref",
+    "validate_verification_request",
+    "verify_claim_against_evidence_chain",
 ]
