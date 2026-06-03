@@ -1074,7 +1074,7 @@ def default_foundation_gate_criteria() -> List[FoundationGateCriterion]:
             "M25 Truth Source Router Contracts Valid",
             FoundationGateCategory.truth,
             "FoundationGateEvaluator.check_m25_truth_source_router_contracts_valid",
-            "M25 Truth Source Router and Evidence Claim Checker are contract-only, validate provided refs only, disable external verification, web search, model verification, memory-as-authority, and automatic claim verification, reject raw/secret content, deny memory-only verification, deny model/runtime/OpenWebUI output, reject arbitrary/self-verifying refs, and allow primary-source-backed evidence only.",
+            "M25 Truth Source Router and Evidence Claim Checker are contract-only, validate provided refs only, disable external verification, web search, model verification, memory-as-authority, and automatic claim verification, reject raw/secret content, deny memory-only verification, deny model/runtime/OpenWebUI output, reject arbitrary/unknown/self-verifying refs, and allow primary-source-backed evidence only.",
             "M25 truth/evidence contracts are missing or violate the local contract-only truth boundary.",
             "critical",
         ),

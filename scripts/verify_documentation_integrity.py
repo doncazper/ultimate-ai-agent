@@ -1019,6 +1019,9 @@ def _verify_m25_truth_docs(root: Path, version: str | None) -> list[str]:
         "M25 docs must say memory is not ground truth": "memory is not ground truth",
         "M25 docs must say model output cannot verify truth": "model output",
         "M25 docs must say arbitrary refs are not authority": "arbitrary refs are not authority",
+        "M25 docs must say unknown refs are denied": "unknown",
+        "M25 docs must say explicit unknown source kind is denied": "truthsourcekind.unknown",
+        "M25 docs must say evidence-supported requires recognized refs": "evidence-supported status requires recognized",
         "M25 docs must say M26 remains future": "m26 remains future",
         "M25 docs must say OpenAPI path count remains 74": "openapi path count",
     }

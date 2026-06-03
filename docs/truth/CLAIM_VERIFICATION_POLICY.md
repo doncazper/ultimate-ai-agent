@@ -1,9 +1,13 @@
 # Claim Verification Policy
 
-Status: Active for v0.29.0 / M25.
+Status: Active for v0.29.1 / M25.
 
 Verified status requires primary or source-backed evidence from canonical docs,
 evidence manifests, receipts, Event Ledger records, or user-reviewed sources.
+Evidence-supported status requires recognized structured evidence/source refs.
+Arbitrary refs cannot verify truth. Inferred unknown source kinds are denied.
+Explicit `TruthSourceKind.unknown` evidence is denied. Claims cannot
+self-verify.
 
 Memory-only evidence cannot verify truth. Unreviewed memory cannot verify
 truth. Model output cannot verify truth. Runtime output cannot verify truth.

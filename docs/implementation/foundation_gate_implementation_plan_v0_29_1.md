@@ -1,11 +1,11 @@
-# Foundation Gate Implementation Plan v0.29.0
+# Foundation Gate Implementation Plan v0.29.1
 
-Status: Historical for v0.29.0 / M25.
+Status: Active for v0.29.1 / M25 hardening.
 
 ## Scope
 
-v0.29.0 adds Foundation Gate criteria for M25 Truth Source Router + Evidence
-Claim Checker.
+v0.29.1 hardens Foundation Gate coverage for M25 Truth Source Router +
+Evidence Claim Checker unknown/arbitrary ref denial.
 
 ## Gate Criteria
 
@@ -15,7 +15,10 @@ Claim Checker.
 - Source priority ordering is deterministic.
 - Memory-only verification is denied.
 - Model/runtime/OpenWebUI output verification is denied.
-- Arbitrary refs and claim self-verification are rejected.
+- Arbitrary, unknown, and claim self-verifying refs are rejected.
+- Explicit `TruthSourceKind.unknown` evidence cannot support
+  `evidence_supported` or `verified_by_primary_source`.
+- Inferred unknown refs such as unrecognized prefixes cannot verify truth.
 - Stale, conflicted, revoked, deleted, or superseded sources are denied for
   verified status.
 - Primary-source-backed evidence can support verified status.

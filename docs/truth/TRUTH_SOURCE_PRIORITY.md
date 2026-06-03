@@ -1,6 +1,6 @@
 # Truth Source Priority
 
-Status: Active for v0.29.0 / M25.
+Status: Active for v0.29.1 / M25.
 
 M25 source priority is deterministic:
 
@@ -20,3 +20,7 @@ Canonical files, evidence manifests, receipts, Event Ledger records, and
 user-reviewed sources outrank memory. Memory is recall, not authority. Source
 linked memory may support recall and context, but memory-only evidence cannot
 verify truth. Model output is not evidence and cannot verify truth.
+
+Unknown source kinds are not ranked as authority. Arbitrary or unrecognized ref
+prefixes are denied before source priority can support `source_linked`,
+`evidence_supported`, or `verified_by_primary_source`.

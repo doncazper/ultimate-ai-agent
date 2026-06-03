@@ -123,8 +123,8 @@ M35 mentions Device Capability Broker Implementation, No Sensors.
 M38 is Browser Automation Contract, No Execution.
 M39 is Observability Export Adapters.
 M40 is Agent Evaluation + Regression Harness.
-M21-M40 remain planned/provisional in the v0.18.4 projection; by v0.29.0,
-M25 is implemented/released and M26-M40 remain planned/provisional.
+M21-M40 remain planned/provisional in the v0.18.4 projection; by v0.29.1,
+M25 is implemented/released and hardened, and M26-M40 remain planned/provisional.
 Docs do not claim future milestone implementation before dedicated milestones.
 Foundation Gate includes post_m20_roadmap_projection_present.
 Backend OpenAPI path count remains unchanged at 74.
@@ -142,6 +142,22 @@ Claim decisions require primary/source-backed evidence for verified status.
 Memory-only and model-output-only evidence cannot verify truth.
 Conflicted, stale, revoked, or missing evidence produces safe review/deny decisions.
 External verification, web search, source fetching, model/provider calls, retrieval/RAG, vector DB, embeddings, memory writes, and evidence mutation remain blocked.
+M25 adds no backend API route and OpenAPI path count remains unchanged at 74.
+M26 remains future as Grounded Recall Router + Evidence-Linked Context Pack Builder.
+```
+
+## v0.29.1 M25 Reject Unknown Truth Refs Tests
+
+v0.29.1 adds focused regression, verifier, and Foundation Gate tests only for
+M25 hardening:
+
+```text
+Inferred unknown refs such as random:source cannot produce evidence_supported.
+Explicit TruthSourceKind.unknown evidence cannot produce evidence_supported.
+Unknown refs cannot produce verified_by_primary_source.
+Unknown refs cannot produce allowed source_linked status.
+Claim self-verification remains denied.
+Valid recognized canonical primary-source evidence still succeeds.
 M25 adds no backend API route and OpenAPI path count remains unchanged at 74.
 M26 remains future as Grounded Recall Router + Evidence-Linked Context Pack Builder.
 ```
@@ -290,8 +306,8 @@ v0.23.1 adds cleanup/hardening tests only:
 ```text
 Roadmap currentness marks v0.23.0 / M19 implemented/released.
 Roadmap currentness marks v0.24.0 / M20 implemented/released as contract-only.
-M21-M40 were planned/provisional at M19 cleanup time. By v0.29.0, M25 is
-implemented/released and M26-M40 remain planned/provisional.
+M21-M40 were planned/provisional at M19 cleanup time. By v0.29.1, M25 is
+implemented/released and hardened, and M26-M40 remain planned/provisional.
 Contacts and calendar capability plans cannot be enabled.
 Contacts and calendar capability plans require a future Device Capability Broker.
 Contacts and calendar cannot be represented as implemented.

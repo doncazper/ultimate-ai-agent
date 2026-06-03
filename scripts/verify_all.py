@@ -1130,8 +1130,8 @@ def verify_m25_truth_source_evidence_checker_safety():
         "docs/truth/MEMORY_TRUTH_BOUNDARY.md",
         "docs/truth/TRUTH_NON_GOALS.md",
         "docs/truth/M25_TO_M26_BOUNDARY.md",
-        "docs/release_notes/v0_29_0.md",
-        "docs/implementation/foundation_gate_implementation_plan_v0_29_0.md",
+        "docs/release_notes/v0_29_1.md",
+        "docs/implementation/foundation_gate_implementation_plan_v0_29_1.md",
     ]
     for rel_path in required_files:
         if not (ROOT / rel_path).exists():
@@ -1246,13 +1246,84 @@ def verify_m25_truth_source_evidence_checker_safety():
         sys.path.insert(0, str(ROOT / "src"))
         from ultimate_ai_agent.api.app import app
         from ultimate_ai_agent.core.gate.evaluators import m25_openapi_route_failures
+        from ultimate_ai_agent.core.truth import (
+            Claim,
+            ClaimRiskLevel,
+            ClaimStatus,
+            EvidenceChain,
+            EvidenceRef,
+            EvidenceStrength,
+            TruthSourceKind,
+            VerificationRequest,
+            verify_claim_against_evidence_chain,
+        )
 
         failures = m25_openapi_route_failures(app.openapi().get("paths", {}))
     except Exception as exc:
-        print(f"FAIL: M25 OpenAPI guard could not generate schema: {exc}")
+        print(f"FAIL: M25 OpenAPI or truth contract guard could not run: {exc}")
         sys.exit(1)
     for failure in failures:
         print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    claim = Claim(
+        claim_id="claim:m25-verifier",
+        safe_claim_summary="M25 verifier claim.",
+        claim_text_hash="sha256:m25-verifier",
+        claim_status=ClaimStatus.unverified,
+        claim_risk=ClaimRiskLevel.low,
+        data_classification="public",
+    )
+    unknown_chain = EvidenceChain(
+        chain_id="chain:m25-verifier-unknown",
+        claim_ref="claim:m25-verifier",
+        source_refs=["random:m25-verifier"],
+        evidence_refs=["evidence:m25-verifier-unknown"],
+        evidence_strength=EvidenceStrength.evidence_supported,
+        source_priority_summary="unknown source",
+        safe_summary="Unknown source ref.",
+    )
+    unknown_decision = verify_claim_against_evidence_chain(
+        VerificationRequest(
+            request_id="verify:m25-verifier-unknown",
+            claim=claim,
+            evidence_chain=unknown_chain,
+            requested_status=ClaimStatus.evidence_supported,
+        )
+    )
+    if unknown_decision.allowed or "ARBITRARY_SOURCE_REF_DENIED" not in unknown_decision.reason_codes:
+        print("FAIL: M25 verifier allowed an inferred unknown/arbitrary truth source ref")
+        sys.exit(1)
+
+    explicit_unknown_decision = verify_claim_against_evidence_chain(
+        VerificationRequest(
+            request_id="verify:m25-verifier-explicit-unknown",
+            claim=claim,
+            evidence_chain=EvidenceChain(
+                chain_id="chain:m25-verifier-explicit-unknown",
+                claim_ref="claim:m25-verifier",
+                source_refs=["unknown:m25-verifier"],
+                evidence_refs=["evidence:m25-verifier-explicit-unknown"],
+                evidence_strength=EvidenceStrength.evidence_supported,
+                source_priority_summary="unknown source kind",
+                safe_summary="Explicit unknown source kind.",
+            ),
+            evidence_refs=[
+                EvidenceRef(
+                    evidence_ref="evidence:m25-verifier-explicit-unknown",
+                    source_ref="unknown:m25-verifier",
+                    source_kind=TruthSourceKind.unknown,
+                    evidence_strength=EvidenceStrength.evidence_supported,
+                    data_classification="public",
+                    redaction_status="redacted",
+                    safe_summary="Explicit unknown source kind.",
+                )
+            ],
+            requested_status=ClaimStatus.evidence_supported,
+        )
+    )
+    if explicit_unknown_decision.allowed or "UNKNOWN_SOURCE_KIND_DENIED" not in explicit_unknown_decision.reason_codes:
+        print("FAIL: M25 verifier allowed explicit TruthSourceKind.unknown evidence")
         sys.exit(1)
 
     print("OK: M25 truth source/evidence checker remains deterministic, local, route-free, and non-authoritative")

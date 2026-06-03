@@ -1,4 +1,4 @@
-# 09 - Roadmap v0.29.0
+# 09 - Roadmap v0.29.1
 
 Status: Active foundation-first roadmap. This is the single roadmap source of truth.
 
@@ -25,7 +25,7 @@ The original foundation sequence established runtime hygiene, local runtime/cont
 
 ## Current accepted baseline
 
-The active accepted baseline is v0.29.0. It implements M25 Truth Source Router + Evidence Claim Checker as deterministic local truth/evidence contracts over explicitly provided refs. v0.28.0 remains the M24 implementation release, v0.28.1 repairs its public memory request contract and safety/docs boundary, and v0.28.2 removes a duplicate/conflicting planned/provisional v0.28.1 roadmap row only. v0.27.0 remains the M23 implementation release, and v0.27.1 remains its safety hardening patch. v0.26.0 remains the M22 contract/planning/validation release, and v0.26.1 remains its safety hardening patch. v0.25.0 / M21 remains implemented/released as OpenWebUI Bridge + Chat Shell Integration Contract only, and v0.25.1 remains its safety hardening patch. v0.24.0 / M20 remains implemented/released as Device Capability Broker Contract only, and v0.24.1 remains its safety hardening patch. v0.23.0 / M19 is implemented/released as contract/API planning only. M26-M40 remain planned/provisional.
+The active accepted baseline is v0.29.1. It hardens M25 Truth Source Router + Evidence Claim Checker unknown/arbitrary truth ref denial while keeping deterministic local truth/evidence contracts over explicitly provided refs. v0.29.0 remains the M25 implementation release. v0.28.0 remains the M24 implementation release, v0.28.1 repairs its public memory request contract and safety/docs boundary, and v0.28.2 removes a duplicate/conflicting planned/provisional v0.28.1 roadmap row only. v0.27.0 remains the M23 implementation release, and v0.27.1 remains its safety hardening patch. v0.26.0 remains the M22 contract/planning/validation release, and v0.26.1 remains its safety hardening patch. v0.25.0 / M21 remains implemented/released as OpenWebUI Bridge + Chat Shell Integration Contract only, and v0.25.1 remains its safety hardening patch. v0.24.0 / M20 remains implemented/released as Device Capability Broker Contract only, and v0.24.1 remains its safety hardening patch. v0.23.0 / M19 is implemented/released as contract/API planning only. M26-M40 remain planned/provisional.
 
 v0.25.0 adds:
 
@@ -51,6 +51,8 @@ v0.28.1 hardens M24 by repairing the package-root `MemoryWriteRequest` export to
 v0.28.2 removes a duplicate/conflicting v0.28.1 planned/provisional roadmap row only. It adds no code behavior change, test change, dependency, backend route, OpenAPI path count change, runtime/model/provider behavior, memory authority expansion, or M25 work. OpenAPI path count remains `74`.
 
 v0.29.0 implements M25 Truth Source Router + Evidence Claim Checker. It adds deterministic truth source contracts, source priority ordering, claim/evidence/verification models, evidence chain validation, conflict/staleness/revocation handling, docs, tests, static verifier coverage, and Foundation Gate criteria. M25 operates locally over explicitly provided refs only. Memory is recall, not authority. Model/runtime/OpenWebUI/Control Center output cannot verify truth. Arbitrary refs cannot self-authorize claims. Verified status requires primary/source-backed evidence. v0.29.0 adds no web search, external verification, source fetching, model/provider calls, local LLM calls, retrieval/RAG/vector/embedding behavior, source crawling, memory writes, evidence mutation, backend routes, dependencies, context injection, or production authority. OpenAPI path count remains `74`. M26 remains future.
+
+v0.29.1 hardens M25 by denying unknown and arbitrary truth source refs for all verification-success statuses. Inferred unknown source kinds, unrecognized ref prefixes, and explicit `TruthSourceKind.unknown` evidence cannot produce `source_linked`, `evidence_supported`, or `verified_by_primary_source`. Claims cannot self-verify. Recognized primary/source-backed evidence still supports verified status. v0.29.1 adds regression tests, static verifier checks, docs, and Foundation Gate coverage for those denial paths. It adds no web search, external verification, source fetching, model/provider calls, local LLM calls, retrieval/RAG/vector/embedding behavior, source crawling, memory writes, evidence mutation, backend routes, dependencies, M26 context-pack builder, context injection, or production authority. OpenAPI path count remains `74`. M26 remains future.
 
 v0.24.1 adds:
 
@@ -123,9 +125,9 @@ v0.21.1 hardens M17 Evidence/File/Memory Viewer as frontend/test/verifier/Founda
 
 v0.21.2 normalizes developer environment commands as dev tooling/docs work only. It adds repo-local Makefile targets and `scripts/verify_dev_environment.py` so Codex and local shells use `.venv/bin/python` rather than relying on a bare `python` binary on PATH. It adds no M18 Local Runtime Status + Manual Smoke Control Surface, runtime feature, frontend feature, backend API path, OpenAPI path count change, dependency, global tool install, application behavior change, runtime/model/provider call, network call, mobile/native/browser/computer-use functionality, plugin enablement, or production capability.
 
-## Accepted baseline through v0.29.0
+## Accepted baseline through v0.29.1
 
-The active accepted baseline includes foundation modules through M10.5 plus documentation integrity synchronization, Codex plugin/external tooling governance, M11 runtime readiness/report validation, M12 Control Center backend contract/API foundation, M13 Web Control Center read-only frontend shell with CI/static/browser-readiness hardening, the v0.17.5 roadmap charter freeze, M14 local backend connection stabilization and safety hardening, v0.18.2 design governance, v0.18.3 OpenWebUI/CCC client strategy clarification, v0.18.4 post-M20 roadmap projection, v0.19.0 M15 Approval Queue + Receipt/Event Viewer UI, v0.19.1 M15 Approval/Receipt UI safety hardening, v0.20.0 M16 Event Timeline + Run/Receipt Trace Viewer, v0.20.1 M16 trace/redaction safety hardening, v0.21.0 M17 Evidence/File/Memory Viewer, v0.21.1 M17 safety hardening, v0.21.2 developer environment command normalization, v0.22.0 M18 Local Runtime Status + Manual Smoke Control Surface, v0.22.1 roadmap status label cleanup, v0.23.0 M19 Mobile Companion Contract/API Planning, v0.23.1 M19 roadmap/mobile-contract safety cleanup, v0.24.0 M20 Device Capability Broker Contract, v0.24.1 M20 safety hardening, v0.25.0 M21 OpenWebUI Bridge + Chat Shell Integration Contract, v0.25.1 M21 OpenWebUI bridge contract safety hardening, v0.26.0 M22 Local Model Runtime Activation Contract, v0.26.1 M22 safety hardening, v0.27.0 M23 First Real Local LLM Call, v0.27.1 M23 local call safety hardening, v0.28.0 M24 Memory Provider Abstraction + Local Memory Store, v0.28.1 M24 contract repair and memory safety hardening, v0.28.2 roadmap row cleanup, and v0.29.0 M25 Truth Source Router + Evidence Claim Checker. v0.17.4 polished local shell reviewability and browser smoke reporting only; it did not start M14, add backend API paths, add dependencies, add production Control Center authority, or add execution capability.
+The active accepted baseline includes foundation modules through M10.5 plus documentation integrity synchronization, Codex plugin/external tooling governance, M11 runtime readiness/report validation, M12 Control Center backend contract/API foundation, M13 Web Control Center read-only frontend shell with CI/static/browser-readiness hardening, the v0.17.5 roadmap charter freeze, M14 local backend connection stabilization and safety hardening, v0.18.2 design governance, v0.18.3 OpenWebUI/CCC client strategy clarification, v0.18.4 post-M20 roadmap projection, v0.19.0 M15 Approval Queue + Receipt/Event Viewer UI, v0.19.1 M15 Approval/Receipt UI safety hardening, v0.20.0 M16 Event Timeline + Run/Receipt Trace Viewer, v0.20.1 M16 trace/redaction safety hardening, v0.21.0 M17 Evidence/File/Memory Viewer, v0.21.1 M17 safety hardening, v0.21.2 developer environment command normalization, v0.22.0 M18 Local Runtime Status + Manual Smoke Control Surface, v0.22.1 roadmap status label cleanup, v0.23.0 M19 Mobile Companion Contract/API Planning, v0.23.1 M19 roadmap/mobile-contract safety cleanup, v0.24.0 M20 Device Capability Broker Contract, v0.24.1 M20 safety hardening, v0.25.0 M21 OpenWebUI Bridge + Chat Shell Integration Contract, v0.25.1 M21 OpenWebUI bridge contract safety hardening, v0.26.0 M22 Local Model Runtime Activation Contract, v0.26.1 M22 safety hardening, v0.27.0 M23 First Real Local LLM Call, v0.27.1 M23 local call safety hardening, v0.28.0 M24 Memory Provider Abstraction + Local Memory Store, v0.28.1 M24 contract repair and memory safety hardening, v0.28.2 roadmap row cleanup, v0.29.0 M25 Truth Source Router + Evidence Claim Checker, and v0.29.1 M25 unknown/arbitrary truth ref denial hardening. v0.17.4 polished local shell reviewability and browser smoke reporting only; it did not start M14, add backend API paths, add dependencies, add production Control Center authority, or add execution capability.
 
 Recent accepted milestones:
 
@@ -174,6 +176,7 @@ v0.28.0 — M24 Memory Provider Abstraction + Local Memory Store
 v0.28.1 — M24 Contract Repair + Memory Safety Hardening
 v0.28.2 — M24 Duplicate Roadmap Row Cleanup
 v0.29.0 — M25 Truth Source Router + Evidence Claim Checker
+v0.29.1 — M25 Reject Unknown Truth Refs Hardening
 
 - adds local React/Vite/TypeScript app under `apps/control-center`.
 - consumes existing read-only/preview-only backend routes.
@@ -235,6 +238,7 @@ v0.27.0 / M23 — First Real Local LLM Call, Non-Tool, Non-Authoritative, implem
 v0.27.1 / M23 hardening — Local LLM Call Safety Hardening, implemented/released
 v0.28.0 / M24 — Memory Provider Abstraction + Local Memory Store, implemented/released
 v0.29.0 / M25 — Truth Source Router + Evidence Claim Checker, implemented/released contract-only
+v0.29.1 / M25 hardening — Reject Unknown Truth Refs, implemented/released
 v0.30.0 / M26 — Grounded Recall Router + Evidence-Linked Context Pack Builder, planned/provisional
 v0.31.0 / M27 — MCP / Agent Skills / AGENTS.md Trust Registry, Quarantine-Only, planned/provisional
 v0.32.0 / M28 — Local Sandbox Backend Abstraction, planned/provisional

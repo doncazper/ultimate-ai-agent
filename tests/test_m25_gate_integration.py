@@ -16,6 +16,13 @@ def test_m25_foundation_gate_criteria_are_registered():
     assert "m25_truth_openapi_routes_unchanged" in criterion_ids
     assert "m25_m26_remains_future" in criterion_ids
 
+    truth_criterion = next(
+        criterion for criterion in criteria if criterion.criterion_id == "m25_truth_source_router_contracts_valid"
+    )
+    assert "arbitrary" in truth_criterion.pass_condition
+    assert "unknown" in truth_criterion.pass_condition
+    assert "self-verifying" in truth_criterion.pass_condition
+
 
 def test_m25_openapi_route_guard_rejects_truth_execution_routes():
     failures = m25_openapi_route_failures(

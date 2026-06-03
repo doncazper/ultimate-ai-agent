@@ -1,6 +1,6 @@
 # Truth Non Goals
 
-Status: Active for v0.29.0 / M25.
+Status: Active for v0.29.1 / M25.
 
 M25 does not add:
 
@@ -23,3 +23,6 @@ M25 does not add:
 - Control Center mutation controls.
 - backend mutation routes.
 - production truth service.
+
+M25 also does not treat arbitrary refs, inferred unknown source kinds, or
+explicit `TruthSourceKind.unknown` evidence as verification authority.

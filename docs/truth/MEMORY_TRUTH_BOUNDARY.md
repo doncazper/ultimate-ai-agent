@@ -1,6 +1,6 @@
 # Memory Truth Boundary
 
-Status: Active for v0.29.0 / M25.
+Status: Active for v0.29.1 / M25.
 
 Memory is recall, not authority. Memory is not ground truth.
 
@@ -12,3 +12,7 @@ memory auditable, but they do not make memory authoritative.
 Canonical files, evidence manifests, receipts, Event Ledger records, and
 user-reviewed sources outrank memory. Source-linked memory may support recall,
 but memory-only evidence cannot verify truth.
+
+Memory refs also cannot be used to mask arbitrary or unknown truth refs.
+Evidence-supported and verified outcomes require recognized structured
+source/evidence refs outside memory-only recall.

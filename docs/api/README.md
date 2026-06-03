@@ -1,6 +1,6 @@
 # API Boundary
 
-The v0.29.0 API boundary is metadata-first, validation-first, approval-aware for local/dev policy checks, simulated/fallback-first for model runtime behavior, readiness/status-only for M11 runtime readiness, read-only/preview-only for M12/M13 Control Center contracts, and unchanged in backend path count through M25 Truth Source Router + Evidence Claim Checker. It publishes the current OpenAPI schema and `/api/manifest` route inventory without adding cloud model calls, provider SDK calls, web fetching, source fetching, browser automation, tokenizers, billing APIs, production auth, OAuth, private mesh networking, mobile sensor access, plugin enablement, backend frontend-tool control routes, runtime execution, manual smoke execution, OpenWebUI integration, native CCC routes, design-tool integration, post-M20 execution routes, approval execution routes, receipt/event mutation routes, timeline backend routes, trace backend routes, evidence raw routes, truth verification routes, claim verification routes, file content/write/delete routes, memory raw/write/delete/learn/forget/import/ingest/vector-search/embed/inject routes, filesystem browse routes, observability export routes, context injection, vector DB, embeddings, cloud memory providers, or production persistence.
+The v0.29.1 API boundary is metadata-first, validation-first, approval-aware for local/dev policy checks, simulated/fallback-first for model runtime behavior, readiness/status-only for M11 runtime readiness, read-only/preview-only for M12/M13 Control Center contracts, and unchanged in backend path count through M25 Truth Source Router + Evidence Claim Checker hardening. It publishes the current OpenAPI schema and `/api/manifest` route inventory without adding cloud model calls, provider SDK calls, web fetching, source fetching, browser automation, tokenizers, billing APIs, production auth, OAuth, private mesh networking, mobile sensor access, plugin enablement, backend frontend-tool control routes, runtime execution, manual smoke execution, OpenWebUI integration, native CCC routes, design-tool integration, post-M20 execution routes, approval execution routes, receipt/event mutation routes, timeline backend routes, trace backend routes, evidence raw routes, truth verification routes, claim verification routes, file content/write/delete routes, memory raw/write/delete/learn/forget/import/ingest/vector-search/embed/inject routes, filesystem browse routes, observability export routes, context injection, vector DB, embeddings, cloud memory providers, or production persistence.
 
 Use:
 
@@ -79,5 +79,14 @@ route, runtime execution route, model/provider route, memory write route,
 evidence mutation route, dependency, production persistence, or production
 authority. OpenAPI path count remains `74`; only `info.version` changes to the
 active package version.
+
+v0.29.1 hardens M25 unknown/arbitrary truth ref denial in contracts, tests,
+verifiers, docs, and Foundation Gate only. It adds no backend API route, truth
+verification route, claim verification route, evidence verification route,
+web-search route, source-fetching route, model verification route, runtime
+execution route, model/provider route, memory write route, evidence mutation
+route, dependency, M26 context-pack route, production persistence, or
+production authority. OpenAPI path count remains `74`; only `info.version`
+changes to the active package version.
 
 API validation errors are sanitized before they are returned. FastAPI/Pydantic validation failures must not echo raw invalid input values or secret-like field values.

@@ -5049,6 +5049,72 @@ class FoundationGateEvaluator:
                 failures.append("M25 allowed model-output verification")
             assert_model_output_not_truth(model_chain)
 
+            unknown_chain = safe_chain.model_copy(
+                update={
+                    "chain_id": "chain:m25-unknown",
+                    "source_refs": ["random:m25"],
+                    "evidence_refs": ["evidence:m25-unknown"],
+                    "source_priority_summary": "unknown source",
+                }
+            )
+            unknown_request = safe_request.model_copy(
+                update={
+                    "request_id": "verify:m25-unknown",
+                    "evidence_chain": unknown_chain,
+                    "evidence_refs": [],
+                    "requested_status": ClaimStatus.evidence_supported,
+                }
+            )
+            unknown_decision = verify_claim_against_evidence_chain(unknown_request)
+            if unknown_decision.allowed or "ARBITRARY_SOURCE_REF_DENIED" not in unknown_decision.reason_codes:
+                failures.append("M25 allowed inferred unknown/arbitrary truth refs")
+
+            explicit_unknown_request = safe_request.model_copy(
+                update={
+                    "request_id": "verify:m25-explicit-unknown",
+                    "evidence_chain": unknown_chain,
+                    "evidence_refs": [
+                        EvidenceRef(
+                            evidence_ref="evidence:m25-unknown",
+                            source_ref="unknown:m25",
+                            source_kind=TruthSourceKind.unknown,
+                            evidence_strength=EvidenceStrength.evidence_supported,
+                            data_classification="public",
+                            redaction_status="redacted",
+                            safe_summary="Unknown source kind summary.",
+                        )
+                    ],
+                    "requested_status": ClaimStatus.evidence_supported,
+                }
+            )
+            explicit_unknown_decision = verify_claim_against_evidence_chain(explicit_unknown_request)
+            if explicit_unknown_decision.allowed or "UNKNOWN_SOURCE_KIND_DENIED" not in explicit_unknown_decision.reason_codes:
+                failures.append("M25 allowed explicit unknown truth source kind")
+
+            unknown_primary_request = unknown_request.model_copy(
+                update={
+                    "request_id": "verify:m25-unknown-primary",
+                    "requested_status": ClaimStatus.verified_by_primary_source,
+                }
+            )
+            unknown_primary_decision = verify_claim_against_evidence_chain(unknown_primary_request)
+            if unknown_primary_decision.allowed or "PRIMARY_SOURCE_EVIDENCE_REQUIRED" not in unknown_primary_decision.reason_codes:
+                failures.append("M25 allowed unknown refs to verify primary-source truth")
+
+            try:
+                EvidenceChain(
+                    chain_id="chain:m25-self",
+                    claim_ref="claim:m25-gate",
+                    source_refs=["claim:m25-gate"],
+                    evidence_refs=["evidence:m25-self"],
+                    evidence_strength=EvidenceStrength.evidence_supported,
+                    source_priority_summary="self source",
+                    safe_summary="Self-verifying source.",
+                )
+                failures.append("M25 allowed claim self-verification")
+            except (ValueError, ValidationError):
+                pass
+
             truth_source = "\n".join(
                 self._read(path)
                 for path in (self.root / "src" / "ultimate_ai_agent" / "core" / "truth").glob("*.py")

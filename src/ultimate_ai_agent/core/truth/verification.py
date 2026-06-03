@@ -40,6 +40,28 @@ BLOCKED_OUTPUT_KINDS = {
     TruthSourceKind.openwebui_output,
 }
 
+RECOGNIZED_SOURCE_REF_PREFIXES = {
+    "canonical": TruthSourceKind.canonical_document,
+    "canonical_document": TruthSourceKind.canonical_document,
+    "evidence": TruthSourceKind.evidence_manifest,
+    "evidence_manifest": TruthSourceKind.evidence_manifest,
+    "receipt": TruthSourceKind.receipt,
+    "event": TruthSourceKind.event_ledger,
+    "event_ledger": TruthSourceKind.event_ledger,
+    "user-review": TruthSourceKind.user_reviewed_source,
+    "user_reviewed_source": TruthSourceKind.user_reviewed_source,
+    "memory": TruthSourceKind.reviewed_memory,
+    "source_linked_memory": TruthSourceKind.source_linked_memory,
+    "reviewed_memory": TruthSourceKind.reviewed_memory,
+    "unreviewed_memory": TruthSourceKind.unreviewed_memory,
+    "model": TruthSourceKind.model_output,
+    "model_output": TruthSourceKind.model_output,
+    "runtime": TruthSourceKind.runtime_output,
+    "runtime_output": TruthSourceKind.runtime_output,
+    "openwebui": TruthSourceKind.openwebui_output,
+    "openwebui_output": TruthSourceKind.openwebui_output,
+}
+
 
 class VerificationRequest(BaseModel):
     request_id: str = Field(..., min_length=1)
@@ -102,6 +124,7 @@ def verify_claim_against_evidence_chain(request: VerificationRequest) -> Verific
         source_kinds = _infer_source_kinds_from_refs(chain.source_refs)
 
     _append_blocking_source_reasons(source_kinds, reasons, warnings)
+    _append_unknown_source_reasons(request, source_kinds, reasons)
     _append_chain_state_reasons(request, reasons, warnings)
 
     if not chain.evidence_refs:
@@ -121,12 +144,11 @@ def verify_claim_against_evidence_chain(request: VerificationRequest) -> Verific
     if TruthSourceKind.unreviewed_memory in source_kinds and not request.allow_unreviewed_memory:
         reasons.append("UNREVIEWED_MEMORY_CANNOT_VERIFY_TRUTH")
 
+    if request.requested_status == ClaimStatus.verified_by_primary_source and not source_kinds.intersection(PRIMARY_SOURCE_KINDS):
+        reasons.append("PRIMARY_SOURCE_EVIDENCE_REQUIRED")
+
     if reasons:
         return _decision(request, False, _status_for_reasons(reasons), _claim_status_for_reasons(reasons), reasons, warnings)
-
-    if request.requested_status == ClaimStatus.verified_by_primary_source and not source_kinds.intersection(PRIMARY_SOURCE_KINDS):
-        reasons.append("PRIMARY_SOURCE_REQUIRED")
-        return _decision(request, False, VerificationDecisionStatus.requires_evidence, ClaimStatus.source_linked, reasons, warnings)
 
     allowed_status = (
         ClaimStatus.verified_by_primary_source
@@ -151,6 +173,20 @@ def _append_blocking_source_reasons(
         warnings.append("Unreviewed memory was present and cannot verify truth.")
 
 
+def _append_unknown_source_reasons(
+    request: VerificationRequest,
+    source_kinds: set[TruthSourceKind],
+    reasons: List[str],
+) -> None:
+    if TruthSourceKind.unknown in source_kinds:
+        reasons.append("UNKNOWN_SOURCE_KIND_DENIED")
+
+    source_refs = list(request.evidence_chain.source_refs)
+    source_refs.extend(evidence.source_ref for evidence in request.evidence_refs)
+    if any(_source_ref_prefix_kind(ref) is TruthSourceKind.unknown for ref in source_refs):
+        reasons.append("ARBITRARY_SOURCE_REF_DENIED")
+
+
 def _append_chain_state_reasons(request: VerificationRequest, reasons: List[str], warnings: List[str]) -> None:
     chain = request.evidence_chain
     if (chain.stale_refs or chain.source_staleness in {SourceStaleness.stale, SourceStaleness.expired}) and not request.allow_stale_sources:
@@ -169,21 +205,13 @@ def _append_chain_state_reasons(request: VerificationRequest, reasons: List[str]
 def _infer_source_kinds_from_refs(source_refs: List[str]) -> set[TruthSourceKind]:
     inferred: set[TruthSourceKind] = set()
     for ref in source_refs:
-        prefix = ref.split(":", 1)[0]
-        inferred.add(
-            {
-                "canonical": TruthSourceKind.canonical_document,
-                "evidence": TruthSourceKind.evidence_manifest,
-                "receipt": TruthSourceKind.receipt,
-                "event": TruthSourceKind.event_ledger,
-                "user-review": TruthSourceKind.user_reviewed_source,
-                "memory": TruthSourceKind.reviewed_memory,
-                "model": TruthSourceKind.model_output,
-                "runtime": TruthSourceKind.runtime_output,
-                "openwebui": TruthSourceKind.openwebui_output,
-            }.get(prefix, TruthSourceKind.unknown)
-        )
+        inferred.add(_source_ref_prefix_kind(ref))
     return inferred
+
+
+def _source_ref_prefix_kind(ref: str) -> TruthSourceKind:
+    prefix = ref.split(":", 1)[0]
+    return RECOGNIZED_SOURCE_REF_PREFIXES.get(prefix, TruthSourceKind.unknown)
 
 
 def _status_for_reasons(reasons: List[str]) -> VerificationDecisionStatus:

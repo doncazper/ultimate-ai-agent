@@ -84,3 +84,102 @@ def test_memory_only_evidence_is_denied_for_verified_status():
     assert decision.allowed is False
     assert decision.status == VerificationDecisionStatus.denied
     assert "MEMORY_ONLY_CANNOT_VERIFY_TRUTH" in decision.reason_codes
+
+
+def test_inferred_unknown_ref_is_denied_for_evidence_supported():
+    chain = EvidenceChain(
+        chain_id="chain:random",
+        claim_ref="claim:release",
+        source_refs=["random:source"],
+        evidence_refs=["evidence:random:source"],
+        evidence_strength=EvidenceStrength.evidence_supported,
+        source_priority_summary="unknown source",
+        safe_summary="Unknown source support.",
+    )
+    request = VerificationRequest(
+        request_id="verify:random",
+        claim=claim(),
+        evidence_chain=chain,
+        requested_status=ClaimStatus.evidence_supported,
+    )
+
+    decision = verify_claim_against_evidence_chain(request)
+
+    assert decision.allowed is False
+    assert decision.claim_status != ClaimStatus.evidence_supported
+    assert "UNKNOWN_SOURCE_KIND_DENIED" in decision.reason_codes
+    assert "ARBITRARY_SOURCE_REF_DENIED" in decision.reason_codes
+
+
+def test_explicit_unknown_source_kind_is_denied_for_evidence_supported():
+    chain = EvidenceChain(
+        chain_id="chain:unknown",
+        claim_ref="claim:release",
+        source_refs=["unknown:source"],
+        evidence_refs=["evidence:unknown:source"],
+        evidence_strength=EvidenceStrength.evidence_supported,
+        source_priority_summary="unknown source kind",
+        safe_summary="Unknown source kind support.",
+    )
+    request = VerificationRequest(
+        request_id="verify:unknown-kind",
+        claim=claim(),
+        evidence_chain=chain,
+        evidence_refs=[evidence("unknown:source", TruthSourceKind.unknown, EvidenceStrength.evidence_supported)],
+        requested_status=ClaimStatus.evidence_supported,
+    )
+
+    decision = verify_claim_against_evidence_chain(request)
+
+    assert decision.allowed is False
+    assert decision.claim_status != ClaimStatus.evidence_supported
+    assert "UNKNOWN_SOURCE_KIND_DENIED" in decision.reason_codes
+
+
+def test_unknown_ref_is_denied_for_verified_by_primary_source():
+    chain = EvidenceChain(
+        chain_id="chain:random-primary",
+        claim_ref="claim:release",
+        source_refs=["madeup:thing"],
+        evidence_refs=["evidence:madeup:thing"],
+        evidence_strength=EvidenceStrength.evidence_supported,
+        source_priority_summary="made up source",
+        safe_summary="Made up source support.",
+    )
+    request = VerificationRequest(
+        request_id="verify:random-primary",
+        claim=claim(),
+        evidence_chain=chain,
+        requested_status=ClaimStatus.verified_by_primary_source,
+    )
+
+    decision = verify_claim_against_evidence_chain(request)
+
+    assert decision.allowed is False
+    assert decision.claim_status != ClaimStatus.verified_by_primary_source
+    assert "PRIMARY_SOURCE_EVIDENCE_REQUIRED" in decision.reason_codes
+    assert "ARBITRARY_SOURCE_REF_DENIED" in decision.reason_codes
+
+
+def test_unknown_ref_is_denied_for_source_linked_status():
+    chain = EvidenceChain(
+        chain_id="chain:random-source-linked",
+        claim_ref="claim:release",
+        source_refs=["random:source-linked"],
+        evidence_refs=["evidence:random:source-linked"],
+        evidence_strength=EvidenceStrength.source_linked,
+        source_priority_summary="random source-linked",
+        safe_summary="Random source-linked support.",
+    )
+    request = VerificationRequest(
+        request_id="verify:random-source-linked",
+        claim=claim(),
+        evidence_chain=chain,
+        requested_status=ClaimStatus.source_linked,
+    )
+
+    decision = verify_claim_against_evidence_chain(request)
+
+    assert decision.allowed is False
+    assert decision.claim_status != ClaimStatus.source_linked
+    assert "ARBITRARY_SOURCE_REF_DENIED" in decision.reason_codes
