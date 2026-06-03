@@ -49,6 +49,17 @@ REQUIRED_M25_TRUTH_DOCS = [
 ]
 
 
+REQUIRED_M26_RECALL_DOCS = [
+    "docs/recall/GROUNDED_RECALL_ROUTER.md",
+    "docs/recall/CONTEXT_PACK_BUILDER.md",
+    "docs/recall/RECALL_SOURCE_PRIORITY.md",
+    "docs/recall/RECALL_CANDIDATE_POLICY.md",
+    "docs/recall/CONTEXT_PACK_SAFETY.md",
+    "docs/recall/RECALL_NON_GOALS.md",
+    "docs/recall/M26_TO_M27_BOUNDARY.md",
+]
+
+
 REQUIRED_ACTIVE_DOCS = [
     "docs/README.md",
     "docs/DOCUMENTATION_INDEX.md",
@@ -85,6 +96,7 @@ REQUIRED_ACTIVE_DOCS = [
     *REQUIRED_M23_LOCAL_CALL_DOCS,
     *REQUIRED_M24_MEMORY_DOCS,
     *REQUIRED_M25_TRUTH_DOCS,
+    *REQUIRED_M26_RECALL_DOCS,
     "docs/control_center/CONTROL_CENTER_CONTRACT.md",
     "docs/control_center/DASHBOARD_SNAPSHOT.md",
     "docs/control_center/ACTION_PREVIEW_POLICY.md",
@@ -568,9 +580,16 @@ def _verify_m19_roadmap_currentness(root: Path, version: str | None) -> list[str
                     r"(v0\.30\.0[^\n]*m26|m26[^\n]*v0\.30\.0|m26)[^\n]*planned/provisional",
                     active_roadmaps,
                 )
+                m26_current = re.search(
+                    r"(v0\.30\.0[^\n]*m26|m26[^\n]*v0\.30\.0|m26)[^\n]*(implemented|released)",
+                    active_roadmaps,
+                )
                 if not m25_current:
                     failures.append("active roadmap docs must mark M25/v0.29.0 as implemented/released")
-                if not m26_planned:
+                if _version_tuple(version) >= (0, 30, 0):
+                    if not m26_current:
+                        failures.append("active roadmap docs must mark M26/v0.30.0 as implemented/released")
+                elif not m26_planned:
                     failures.append("active roadmap docs must keep M26/v0.30.0 planned/provisional")
             else:
                 m25_implemented_lines = [
@@ -602,7 +621,10 @@ def _verify_m19_roadmap_currentness(root: Path, version: str | None) -> list[str
         if claim in active_roadmaps:
             failures.append(f"active roadmap docs must not claim future mobile capability implementation: {claim}")
 
-    if _version_tuple(version) >= (0, 29, 0):
+    if _version_tuple(version) >= (0, 30, 0):
+        if "m27-m40 remain planned/provisional" not in active_roadmaps:
+            failures.append("post-M20 roadmap docs must keep M27-M40 planned/provisional")
+    elif _version_tuple(version) >= (0, 29, 0):
         if "m26-m40 remain planned/provisional" not in active_roadmaps:
             failures.append("post-M20 roadmap docs must keep M26-M40 planned/provisional")
     elif _version_tuple(version) >= (0, 28, 0):
@@ -1038,9 +1060,10 @@ def _verify_m25_truth_docs(root: Path, version: str | None) -> list[str]:
         "M25 docs must say unknown refs are denied": "unknown",
         "M25 docs must say explicit unknown source kind is denied": "truthsourcekind.unknown",
         "M25 docs must say evidence-supported requires recognized refs": "evidence-supported status requires recognized",
-        "M25 docs must say M26 remains future": "m26 remains future",
         "M25 docs must say OpenAPI path count remains 74": "openapi path count",
     }
+    if _version_tuple(version) < (0, 30, 0):
+        expectations["M25 docs must say M26 remains future"] = "m26 remains future"
     for failure, fragment in expectations.items():
         if fragment not in docs_text:
             failures.append(failure)
@@ -1073,13 +1096,24 @@ def _verify_m25_truth_docs(root: Path, version: str | None) -> list[str]:
     )
     active_expectations = {
         "active docs must mark M25/v0.29.0 as implemented/released": "m25 is implemented/released",
-        "active docs must keep M26-M40 planned/provisional": "m26-m40 remain planned/provisional",
         "active docs must link M25 truth docs": "docs/truth/truth_source_router.md",
         "active docs must say M26 grounded recall remains future": "grounded recall router",
         "active docs must say M25 has no backend route": "no backend route",
         "active docs must say M25 has no web search": "no web search",
         "active docs must say M25 has no model/provider calls": "model/provider",
     }
+    if _version_tuple(version) >= (0, 30, 0):
+        active_expectations["active docs must mark M26/v0.30.0 as implemented/released"] = (
+            "m26 is implemented/released"
+        )
+        active_expectations["active docs must keep M27-M40 planned/provisional"] = (
+            "m27-m40 remain planned/provisional"
+        )
+        active_expectations["active docs must link M26 recall docs"] = "docs/recall/grounded_recall_router.md"
+    else:
+        active_expectations["active docs must keep M26-M40 planned/provisional"] = (
+            "m26-m40 remain planned/provisional"
+        )
     for failure, fragment in active_expectations.items():
         if fragment not in active_docs:
             failures.append(failure)
@@ -1101,9 +1135,12 @@ def _verify_m25_truth_docs(root: Path, version: str | None) -> list[str]:
             "active docs must say v0.29.3 reorganizes documentation": "reorganizes documentation",
             "active docs must include docs archive entrypoints": "docs/archive",
             "active docs must say historical release packets are archived": "docs/archive/releases",
-            "active docs must say M26 remains planned/provisional": "m26 remains planned/provisional",
             "active docs must say v0.29.3 adds no runtime behavior": "no runtime behavior",
         }
+        if _version_tuple(version) < (0, 30, 0):
+            v0293_expectations["active docs must say M26 remains planned/provisional"] = (
+                "m26 remains planned/provisional"
+            )
         for failure, fragment in v0293_expectations.items():
             if fragment not in active_docs:
                 failures.append(failure)
@@ -1131,8 +1168,9 @@ def _verify_m25_truth_docs(root: Path, version: str | None) -> list[str]:
             "active docs must say historical verifiers are not current gates": "legacy historical verifiers are not current release gates",
             "active docs must say stale Ruff excludes were removed": "stale ruff excludes",
             "active docs must point to current archive release packet": f"docs/archive/releases/v{version_key}/readme_import.md",
-            "active docs must say M26 remains future": "m26 remains future",
         }
+        if _version_tuple(version) < (0, 30, 0):
+            v0294_expectations["active docs must say M26 remains future"] = "m26 remains future"
         for failure, fragment in v0294_expectations.items():
             if fragment not in active_docs:
                 failures.append(failure)
@@ -1144,6 +1182,34 @@ def _verify_m25_truth_docs(root: Path, version: str | None) -> list[str]:
         }
         for failure, fragment in v0295_expectations.items():
             if fragment not in active_docs:
+                failures.append(failure)
+
+    if _version_tuple(version) >= (0, 30, 0):
+        for rel_path in REQUIRED_M26_RECALL_DOCS:
+            if not (root / rel_path).exists():
+                failures.append(f"missing active documentation file: {rel_path}")
+        recall_docs = "\n".join(
+            _read(root / rel_path).lower()
+            for rel_path in REQUIRED_M26_RECALL_DOCS
+            if (root / rel_path).exists()
+        )
+        m26_expectations = {
+            "M26 docs must say deterministic/local": "deterministic",
+            "M26 docs must say provided candidates only": "provided candidate",
+            "M26 docs must say no context injection": "no context injection",
+            "M26 docs must say no vector search": "no vector search",
+            "M26 docs must say no embeddings": "no embeddings",
+            "M26 docs must say no external retrieval": "no external retrieval",
+            "M26 docs must say no web search": "no web search",
+            "M26 docs must say no model/provider calls": "model/provider",
+            "M26 docs must say no memory writes": "no memory write",
+            "M26 docs must say no backend route": "no backend",
+            "M26 docs must say safe summaries only": "safe summaries",
+            "M26 docs must say memory is recall context only": "memory as recall context only",
+            "M26 docs must say M27 remains planned/provisional": "m27 remains planned/provisional",
+        }
+        for failure, fragment in m26_expectations.items():
+            if fragment not in recall_docs:
                 failures.append(failure)
 
     if _version_tuple(version) >= (0, 29, 4):
@@ -1208,15 +1274,20 @@ def _verify_m25_truth_docs(root: Path, version: str | None) -> list[str]:
                 failures.append(f"active verifier scripts must not depend on root v0.5.4 artifact: {root_artifact}")
 
     forbidden_active_claims = [
-        "m26 is implemented",
-        "m26 has implemented",
-        "grounded recall router is implemented",
-        "context pack builder is implemented",
         "web search is implemented",
         "external verification is implemented",
         "truth verification route is implemented",
         "claim verification route is implemented",
     ]
+    if _version_tuple(version) < (0, 30, 0):
+        forbidden_active_claims.extend(
+            [
+                "m26 is implemented",
+                "m26 has implemented",
+                "grounded recall router is implemented",
+                "context pack builder is implemented",
+            ]
+        )
     for claim in forbidden_active_claims:
         if claim in active_docs:
             failures.append(f"active docs must not claim future/runtime truth capability: {claim}")
@@ -1519,7 +1590,14 @@ def _verify_post_m20_roadmap_projection(root: Path) -> list[str]:
         "Post-M20 roadmap docs must say no dependency is added": "no dependency",
     }
     active_version_tuple = _version_tuple(_active_version(root))
-    if active_version_tuple >= (0, 29, 0):
+    if active_version_tuple >= (0, 30, 0):
+        expectations["Post-M20 roadmap docs must keep M27-M40 planned/provisional"] = (
+            "m27-m40 remain planned/provisional"
+        )
+        expectations["Post-M20 roadmap docs must say M26 is implemented/released"] = (
+            "m26 is implemented/released"
+        )
+    elif active_version_tuple >= (0, 29, 0):
         expectations["Post-M20 roadmap docs must keep M26-M40 planned/provisional"] = (
             "m26-m40 remain planned/provisional"
         )
@@ -1560,7 +1638,9 @@ def _verify_post_m20_roadmap_projection(root: Path) -> list[str]:
         if fragment not in roadmap_text:
             failures.append(failure)
 
-    if active_version_tuple >= (0, 29, 0):
+    if active_version_tuple >= (0, 30, 0):
+        implemented_claim_start = 27
+    elif active_version_tuple >= (0, 29, 0):
         implemented_claim_start = 26
     elif active_version_tuple >= (0, 28, 0):
         implemented_claim_start = 25
@@ -1706,7 +1786,12 @@ def _verify_post_m18_roadmap_status_labels(root: Path) -> list[str]:
             continue
         if f"status: {expected_status}" not in section:
             failures.append(f"roadmap sequence must mark {milestone.upper()} {expected_status}")
-    if active >= (0, 29, 0):
+    if active >= (0, 30, 0):
+        if "m26" not in sequence or "status: implemented" not in sequence:
+            failures.append("roadmap sequence must mark M26/v0.30.0 implemented")
+        if "m27-m40" not in sequence or "planned/provisional" not in sequence:
+            failures.append("roadmap sequence must keep M27-M40 planned/provisional")
+    elif active >= (0, 29, 0):
         if "m26-m40" not in sequence or "planned/provisional" not in sequence:
             failures.append("roadmap sequence must keep M26-M40 planned/provisional")
     elif active >= (0, 28, 0):

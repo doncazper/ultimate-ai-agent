@@ -1,7 +1,7 @@
 # README Import v0.29.5
 
-Status: active release packet
-Current through: v0.29.5
+Status: historical release packet
+Captured at: v0.29.5
 Purpose: Import checklist for the v0.29.5 documentation organization policy polish baseline.
 
 Read first:

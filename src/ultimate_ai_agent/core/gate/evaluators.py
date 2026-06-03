@@ -222,6 +222,22 @@ M25_FORBIDDEN_BACKEND_ROUTES = (
     "/truth/web-search",
     "/truth/model-verify",
 )
+EXPECTED_M26_OPENAPI_PATH_COUNT = 74
+M26_FORBIDDEN_BACKEND_ROUTES = (
+    "/recall/run",
+    "/recall/search",
+    "/recall/inject",
+    "/recall/vector-search",
+    "/recall/embed",
+    "/recall/external-retrieve",
+    "/context-pack/inject",
+    "/context-pack/build-and-inject",
+    "/memory/vector-search",
+    "/memory/embed",
+    "/memory/context-pack/inject",
+    "/control-center/recall/run",
+    "/control-center/context-pack/inject",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -424,6 +440,17 @@ def m25_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
     for route in M25_FORBIDDEN_BACKEND_ROUTES:
         if route in path_set:
             failures.append(f"M25 forbidden backend route present: {route}")
+    return failures
+
+
+def m26_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M26_OPENAPI_PATH_COUNT) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+    for route in M26_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(f"M26 forbidden backend route present: {route}")
     return failures
 
 
@@ -638,6 +665,9 @@ class FoundationGateEvaluator:
                 self.check_v0292_local_dev_api_authority_and_preview_safe
             ),
             "m25_m26_remains_future": self.check_m25_m26_remains_future,
+            "m26_grounded_recall_context_pack_safe": self.check_m26_grounded_recall_context_pack_safe,
+            "m26_recall_openapi_routes_unchanged": self.check_m26_recall_openapi_routes_unchanged,
+            "m26_m27_remains_future": self.check_m26_m27_remains_future,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -5167,6 +5197,225 @@ class FoundationGateEvaluator:
             failures.append(f"M25 OpenAPI route validation failed: {exc}")
         return self._result(criterion, failures, [])
 
+    def check_m26_grounded_recall_context_pack_safe(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/recall/__init__.py",
+            "src/ultimate_ai_agent/core/recall/enums.py",
+            "src/ultimate_ai_agent/core/recall/candidates.py",
+            "src/ultimate_ai_agent/core/recall/router.py",
+            "src/ultimate_ai_agent/core/recall/context_pack.py",
+            "src/ultimate_ai_agent/core/recall/manifests.py",
+            "src/ultimate_ai_agent/core/recall/policy.py",
+            "src/ultimate_ai_agent/core/recall/validation.py",
+            "tests/test_grounded_recall_contracts.py",
+            "tests/test_grounded_recall_router.py",
+            "tests/test_context_pack_builder.py",
+            "tests/test_context_pack_no_injection.py",
+            "tests/test_recall_source_priority.py",
+            "tests/test_recall_no_raw_content.py",
+            "tests/test_recall_no_vector_embeddings.py",
+            "tests/test_recall_no_memory_writes.py",
+            "tests/test_m26_gate_integration.py",
+            "docs/recall/GROUNDED_RECALL_ROUTER.md",
+            "docs/recall/CONTEXT_PACK_BUILDER.md",
+            "docs/recall/RECALL_SOURCE_PRIORITY.md",
+            "docs/recall/RECALL_CANDIDATE_POLICY.md",
+            "docs/recall/CONTEXT_PACK_SAFETY.md",
+            "docs/recall/RECALL_NON_GOALS.md",
+            "docs/recall/M26_TO_M27_BOUNDARY.md",
+        ]
+        failures = [f"missing M26 recall/context-pack file: {path}" for path in required_files if not (self.root / path).exists()]
+        try:
+            from ultimate_ai_agent.core.recall import (
+                ContextPackBuildRequest,
+                GroundedRecallManifest,
+                GroundedRecallRequest,
+                RecallCandidate,
+                RecallCandidateStatus,
+                RecallDecisionStatus,
+                RecallSourceKind,
+                build_evidence_linked_context_pack,
+                recall_source_priority_rank,
+                route_grounded_recall,
+            )
+
+            manifest = GroundedRecallManifest(baseline_version="0.30.0")
+            if manifest.context_injection_enabled:
+                failures.append("M26 manifest enables context injection")
+            if manifest.vector_search_enabled or manifest.embeddings_enabled or manifest.semantic_search_enabled:
+                failures.append("M26 manifest enables vector, embedding, or semantic search")
+            if manifest.external_retrieval_enabled or manifest.web_search_enabled or manifest.source_crawling_enabled:
+                failures.append("M26 manifest enables external retrieval, web search, or source crawling")
+            if manifest.automatic_memory_write_enabled:
+                failures.append("M26 manifest enables automatic memory writes")
+            if manifest.backend_routes_added:
+                failures.append("M26 manifest adds backend routes")
+            if manifest.model_provider_calls_enabled or manifest.tool_execution_enabled:
+                failures.append("M26 manifest enables model/provider calls or tool execution")
+
+            request = GroundedRecallRequest(
+                request_id="recall:req:m26-gate",
+                query_summary="Need safe M26 context.",
+                candidates=[
+                    RecallCandidate(
+                        candidate_ref="recall:candidate:memory",
+                        source_ref="memory:m26",
+                        source_kind=RecallSourceKind.reviewed_memory,
+                        safe_summary="Reviewed memory reminder.",
+                        memory_refs=["memory:m26"],
+                        token_estimate=6,
+                    ),
+                    RecallCandidate(
+                        candidate_ref="recall:candidate:canonical",
+                        source_ref="canonical:m26",
+                        source_kind=RecallSourceKind.canonical_document,
+                        safe_summary="Canonical M26 summary.",
+                        evidence_refs=["evidence:m26"],
+                        token_estimate=5,
+                    ),
+                    RecallCandidate(
+                        candidate_ref="recall:candidate:random",
+                        source_ref="random:m26",
+                        source_kind=RecallSourceKind.unknown,
+                        safe_summary="Unknown source summary.",
+                    ),
+                    RecallCandidate(
+                        candidate_ref="recall:candidate:model",
+                        source_ref="model:m26",
+                        source_kind=RecallSourceKind.model_output,
+                        safe_summary="Blocked model output summary.",
+                    ),
+                    RecallCandidate(
+                        candidate_ref="recall:candidate:stale",
+                        source_ref="canonical:stale",
+                        source_kind=RecallSourceKind.canonical_document,
+                        safe_summary="Stale source summary.",
+                        status=RecallCandidateStatus.stale,
+                    ),
+                ],
+                max_context_tokens=100,
+            )
+            decision = route_grounded_recall(request)
+            if decision.status != RecallDecisionStatus.allowed:
+                failures.append("M26 grounded recall did not allow safe selected candidates")
+            if [item.candidate_ref for item in decision.selected] != [
+                "recall:candidate:canonical",
+                "recall:candidate:memory",
+            ]:
+                failures.append("M26 grounded recall did not preserve source priority over memory")
+            excluded_reasons = {reason for item in decision.excluded for reason in item.reason_codes}
+            for reason in [
+                "UNKNOWN_SOURCE_KIND_DENIED",
+                "ARBITRARY_SOURCE_REF_DENIED",
+                "MODEL_OUTPUT_EXCLUDED",
+                "STALE_SOURCE_EXCLUDED",
+            ]:
+                if reason not in excluded_reasons:
+                    failures.append(f"M26 grounded recall missing exclusion reason: {reason}")
+            if not decision.no_memory_write_performed:
+                failures.append("M26 grounded recall performed a memory write")
+            if not decision.no_external_retrieval_performed:
+                failures.append("M26 grounded recall performed external retrieval")
+            if not decision.no_vector_search_performed:
+                failures.append("M26 grounded recall performed vector search")
+            if not decision.no_context_injection_performed:
+                failures.append("M26 grounded recall performed context injection")
+
+            pack = build_evidence_linked_context_pack(
+                ContextPackBuildRequest(
+                    pack_id="ctxpack:m26-gate",
+                    request_id="ctxpack:req:m26-gate",
+                    recall_decision=decision,
+                    max_context_tokens=100,
+                )
+            )
+            if not pack.items or pack.context_injection_performed or pack.raw_content_included:
+                failures.append("M26 context pack is empty or includes forbidden runtime/raw behavior")
+            if pack.memory_write_performed or pack.external_retrieval_performed:
+                failures.append("M26 context pack performed memory write or external retrieval")
+            if recall_source_priority_rank(RecallSourceKind.canonical_document) >= recall_source_priority_rank(
+                RecallSourceKind.reviewed_memory
+            ):
+                failures.append("M26 source priority lets memory outrank canonical sources")
+
+            recall_source = "\n".join(
+                self._read(path)
+                for path in (self.root / "src" / "ultimate_ai_agent" / "core" / "recall").glob("*.py")
+            ).lower()
+            forbidden_fragments = (
+                "import chromadb",
+                "import faiss",
+                "import pgvector",
+                "import qdrant",
+                "import weaviate",
+                "import pinecone",
+                "import tokenizers",
+                "import tiktoken",
+                "requests.get(",
+                "requests.post(",
+                "httpx.get(",
+                "httpx.post(",
+                "urllib.request.urlopen(",
+                "import " + "openai",
+                "import " + "anthropic",
+                "import " + "ollama",
+                "write_memory(",
+                ".write_memory(",
+                "put_record(",
+                ".put_record(",
+                "localmemorystore",
+                "memorywriterequest",
+            )
+            failures.extend(
+                f"M26 recall module contains forbidden fragment: {fragment}"
+                for fragment in forbidden_fragments
+                if fragment in recall_source
+            )
+        except Exception as exc:
+            failures.append(f"M26 grounded recall/context-pack validation failed: {exc}")
+
+        return self._result(criterion, failures, required_files)
+
+    def check_m26_recall_openapi_routes_unchanged(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m26_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M26 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m26_m27_remains_future(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        required_docs = [
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+            "docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md",
+            "docs/canonical/09_roadmap.md",
+        ]
+        failures = [f"missing M26 roadmap doc: {path}" for path in required_docs if not (self.root / path).exists()]
+        text = "\n".join(self._read(self.root / path).lower() for path in required_docs if (self.root / path).exists())
+        if "v0.30.0" in text and "grounded recall router + evidence-linked context pack builder" in text:
+            if "implemented/released" not in text:
+                failures.append("M26 docs do not mark v0.30.0 implemented/released")
+        else:
+            failures.append("M26 docs do not mention v0.30.0 Grounded Recall Router + Evidence-Linked Context Pack Builder")
+        if "v0.31.0 | m27" in text and "planned/provisional" not in text:
+            failures.append("M27 roadmap row is not planned/provisional")
+        forbidden_m27_fragments = (
+            "m27 is implemented",
+            "v0.31.0 implements m27",
+            "mcp runtime is implemented",
+            "agent skills runtime is implemented",
+            "agents.md runtime loading is implemented",
+            "plugin enablement is implemented",
+        )
+        failures.extend(
+            f"M26 docs imply M27 implementation: {fragment}"
+            for fragment in forbidden_m27_fragments
+            if fragment in text
+        )
+        return self._result(criterion, failures, required_docs)
+
     def check_v0292_local_dev_api_authority_and_preview_safe(
         self, criterion: FoundationGateCriterion
     ) -> FoundationGateResult:
@@ -5307,20 +5556,28 @@ class FoundationGateEvaluator:
                 failures.append("M25 docs do not mark v0.29.0 implemented/released")
         else:
             failures.append("M25 docs do not mention v0.29.0 Truth Source Router + Evidence Claim Checker")
-        if "v0.30.0 | m26" in text and "planned/provisional" not in text:
-            failures.append("M26 roadmap row is not planned/provisional")
-        if "m26 is implemented" in text or "v0.30.0 implements m26" in text:
-            failures.append("M26 is incorrectly marked implemented")
-        forbidden_m26_fragments = (
-            "context injection implementation",
-            "context-pack builder implemented",
-            "grounded recall router implemented",
-        )
-        failures.extend(
-            f"M25 docs imply M26 implementation: {fragment}"
-            for fragment in forbidden_m26_fragments
-            if fragment in text
-        )
+        active_version = self._active_version() or "0.0.0"
+        version_tuple = tuple(int(part) for part in active_version.split("."))
+        if version_tuple >= (0, 30, 0):
+            if "m26 is implemented/released" not in text and "v0.30.0 implements m26" not in text:
+                failures.append("M26 docs must mark v0.30.0 implemented/released after M26")
+            if "m27-m40 remain planned/provisional" not in text:
+                failures.append("M27-M40 must remain planned/provisional after M26")
+        else:
+            if "v0.30.0 | m26" in text and "planned/provisional" not in text:
+                failures.append("M26 roadmap row is not planned/provisional")
+            if "m26 is implemented" in text or "v0.30.0 implements m26" in text:
+                failures.append("M26 is incorrectly marked implemented")
+            forbidden_m26_fragments = (
+                "context injection implementation",
+                "context-pack builder implemented",
+                "grounded recall router implemented",
+            )
+            failures.extend(
+                f"M25 docs imply M26 implementation: {fragment}"
+                for fragment in forbidden_m26_fragments
+                if fragment in text
+            )
         return self._result(criterion, failures, required_docs)
 
     def check_open_design_governance_docs_present(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
@@ -5443,7 +5700,9 @@ class FoundationGateEvaluator:
                 failures.append(failure)
         active_version = self._active_version() or "0.0.0"
         version_tuple = tuple(int(part) for part in active_version.split("."))
-        if version_tuple >= (0, 29, 0):
+        if version_tuple >= (0, 30, 0):
+            implemented_claim_start = 27
+        elif version_tuple >= (0, 29, 0):
             implemented_claim_start = 26
         elif version_tuple >= (0, 28, 0):
             implemented_claim_start = 25

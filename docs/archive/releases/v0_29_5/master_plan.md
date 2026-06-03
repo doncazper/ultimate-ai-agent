@@ -1,7 +1,7 @@
 # Ultimate AI Agent Master Plan v0.29.5
 
-Status: active release packet
-Current through: v0.29.5
+Status: historical release packet
+Captured at: v0.29.5
 Purpose: Master-plan summary for documentation organization policy polish before M26.
 
 ## Scope

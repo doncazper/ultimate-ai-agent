@@ -123,8 +123,9 @@ M35 mentions Device Capability Broker Implementation, No Sensors.
 M38 is Browser Automation Contract, No Execution.
 M39 is Observability Export Adapters.
 M40 is Agent Evaluation + Regression Harness.
-M21-M40 remain planned/provisional in the v0.18.4 projection; by v0.29.5,
-M25 is implemented/released and hardened, and M26-M40 remain planned/provisional.
+M21-M40 remain planned/provisional in the v0.18.4 projection; by v0.30.0,
+M26 is implemented/released as a contract-only grounded recall/context-pack foundation,
+and M27-M40 remain planned/provisional.
 Docs do not claim future milestone implementation before dedicated milestones.
 Foundation Gate includes post_m20_roadmap_projection_present.
 Backend OpenAPI path count remains unchanged at 74.
@@ -143,7 +144,7 @@ Memory-only and model-output-only evidence cannot verify truth.
 Conflicted, stale, revoked, or missing evidence produces safe review/deny decisions.
 External verification, web search, source fetching, model/provider calls, retrieval/RAG, vector DB, embeddings, memory writes, and evidence mutation remain blocked.
 M25 adds no backend API route and OpenAPI path count remains unchanged at 74.
-M26 remains future as Grounded Recall Router + Evidence-Linked Context Pack Builder.
+M26 is implemented/released by v0.30.0 as Grounded Recall Router + Evidence-Linked Context Pack Builder.
 ```
 
 ## v0.29.3 Documentation Archive Structure Tests
@@ -157,7 +158,7 @@ Root historical release packets are no longer active start files.
 Historical roadmap snapshots are marked historical or archived.
 Active docs identify v0.29.3 as docs organization only.
 M25 remains implemented/hardened.
-M26 remains planned/provisional.
+At v0.29.3 release time, M26 remained planned/provisional.
 OpenAPI path count remains unchanged at 74.
 ```
 
@@ -172,17 +173,23 @@ Current release packets live under docs/archive/releases/v0_29_4/.
 docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md is indexed.
 Stale Ruff excludes for retired historical verifier paths are absent.
 Active docs identify v0.29.4 as documentation archive reference repair only.
+```
 
-## v0.29.5 Documentation Organization Policy Polish Tests
+## v0.30.0 M26 Grounded Recall Router + Evidence-Linked Context Pack Builder Tests
 
-v0.29.5 adds release/version documentation only:
+v0.30.0 adds contract, verifier, and Foundation Gate tests only for M26:
 
-- active baseline points to v0.29.5.
-- current release packets live under docs/archive/releases/v0_29_5/.
-- v0.29.4 archive reference repair remains intact.
-- M26 remains planned/provisional and future.
-M25 remains implemented/hardened.
-M26 remains planned/provisional.
+```text
+Grounded Recall Router selects from provided candidates only.
+Source priority ranks canonical/evidence/receipt/Event Ledger/user-reviewed refs above memory.
+Memory may provide recall context only and cannot become truth authority.
+Unknown, arbitrary, stale, conflicted, revoked, deleted, superseded, model-output, runtime-output, and OpenWebUI-output candidates are excluded.
+Evidence-linked context packs contain refs, safe summaries, provenance, and redaction status only.
+Raw prompts, raw model output, raw files, raw memory, raw transcripts, credentials, and secret-like metadata are rejected.
+Context-pack building does not inject context into a model, runtime, OpenWebUI, tool, or agent loop.
+Vector search, embeddings, semantic search, RAG ingestion, external retrieval, web search, source crawling, model/provider calls, memory writes, evidence mutation, and Event Ledger mutation remain blocked.
+M26 adds no backend API route and OpenAPI path count remains unchanged at 74.
+M27 remains planned/provisional.
 OpenAPI path count remains unchanged at 74.
 ```
 
@@ -199,7 +206,7 @@ Unknown refs cannot produce allowed source_linked status.
 Claim self-verification remains denied.
 Valid recognized canonical primary-source evidence still succeeds.
 M25 adds no backend API route and OpenAPI path count remains unchanged at 74.
-M26 remains future as Grounded Recall Router + Evidence-Linked Context Pack Builder.
+M26 is implemented/released by v0.30.0; M27 remains future.
 ```
 
 ## v0.29.2 M25 Local Dev API Authority And Raw Preview Tests
@@ -216,7 +223,7 @@ Secret-like file preview refs are rejected without echoing hostile paths or valu
 API handlers do not use raw exception strings as safe messages or details.
 Direct truth memory/model authority helpers fail closed for unsafe refs.
 M25 adds no backend API route and OpenAPI path count remains unchanged at 74.
-M26 remains future as Grounded Recall Router + Evidence-Linked Context Pack Builder.
+At v0.29.2 release time, M26 remained future as Grounded Recall Router + Evidence-Linked Context Pack Builder.
 ```
 
 ## v0.19.0 M15 Approval Receipt Event Viewer Tests
@@ -363,8 +370,9 @@ v0.23.1 adds cleanup/hardening tests only:
 ```text
 Roadmap currentness marks v0.23.0 / M19 implemented/released.
 Roadmap currentness marks v0.24.0 / M20 implemented/released as contract-only.
-M21-M40 were planned/provisional at M19 cleanup time. By v0.29.5, M25 is
-implemented/released and hardened, and M26-M40 remain planned/provisional.
+M21-M40 were planned/provisional at M19 cleanup time. By v0.30.0, M26 is
+implemented/released as a contract-only grounded recall/context-pack foundation,
+and M27-M40 remain planned/provisional.
 Contacts and calendar capability plans cannot be enabled.
 Contacts and calendar capability plans require a future Device Capability Broker.
 Contacts and calendar cannot be represented as implemented.

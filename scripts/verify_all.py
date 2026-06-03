@@ -27,6 +27,7 @@ SCAN_SEQUENCE = [
     ("M23 first local LLM call boundary scan", "verify_m23_first_local_llm_call_boundary"),
     ("M24 memory provider local store safety scan", "verify_m24_memory_provider_local_store_safety"),
     ("M25 truth source evidence checker safety scan", "verify_m25_truth_source_evidence_checker_safety"),
+    ("M26 grounded recall context-pack safety scan", "verify_m26_grounded_recall_context_pack_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
     ("production truth integration scan", "verify_no_production_truth_integrations"),
@@ -1329,6 +1330,273 @@ def verify_m25_truth_source_evidence_checker_safety():
         sys.exit(1)
 
     print("OK: M25 truth source/evidence checker remains deterministic, local, route-free, and non-authoritative")
+
+
+def verify_m26_grounded_recall_context_pack_safety():
+    print("\n[Verifier] Running M26 grounded recall/context-pack safety guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/recall/__init__.py",
+        "src/ultimate_ai_agent/core/recall/candidates.py",
+        "src/ultimate_ai_agent/core/recall/context_pack.py",
+        "src/ultimate_ai_agent/core/recall/manifests.py",
+        "src/ultimate_ai_agent/core/recall/policy.py",
+        "src/ultimate_ai_agent/core/recall/router.py",
+        "src/ultimate_ai_agent/core/recall/validation.py",
+        "tests/test_grounded_recall_contracts.py",
+        "tests/test_grounded_recall_router.py",
+        "tests/test_context_pack_builder.py",
+        "tests/test_context_pack_no_injection.py",
+        "tests/test_recall_source_priority.py",
+        "tests/test_recall_no_raw_content.py",
+        "tests/test_recall_no_vector_embeddings.py",
+        "tests/test_recall_no_memory_writes.py",
+        "tests/test_m26_gate_integration.py",
+        "docs/recall/GROUNDED_RECALL_ROUTER.md",
+        "docs/recall/CONTEXT_PACK_BUILDER.md",
+        "docs/recall/RECALL_SOURCE_PRIORITY.md",
+        "docs/recall/RECALL_CANDIDATE_POLICY.md",
+        "docs/recall/CONTEXT_PACK_SAFETY.md",
+        "docs/recall/RECALL_NON_GOALS.md",
+        "docs/recall/M26_TO_M27_BOUNDARY.md",
+        "docs/release_notes/v0_30_0.md",
+        "docs/implementation/foundation_gate_implementation_plan_v0_30_0.md",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M26 recall/context-pack file: {rel_path}")
+            sys.exit(1)
+
+    forbidden_dependencies = [
+        '"chromadb"',
+        '"qdrant"',
+        '"weaviate"',
+        '"pinecone"',
+        '"faiss"',
+        '"milvus"',
+        '"lancedb"',
+        '"sentence-transformers"',
+        '"transformers"',
+        '"tokenizers"',
+        '"tiktoken"',
+        '"openai"',
+        '"anthropic"',
+        '"ollama"',
+        '"llama-cpp-python"',
+        '"pgvector"',
+        "chromadb==",
+        "qdrant==",
+        "weaviate==",
+        "pinecone==",
+        "faiss==",
+        "milvus==",
+        "lancedb==",
+        "sentence-transformers==",
+        "transformers==",
+        "tokenizers==",
+        "tiktoken==",
+        "openai==",
+        "anthropic==",
+        "ollama==",
+        "llama-cpp-python==",
+        "pgvector==",
+    ]
+    for rel_path in ["apps/control-center/package.json", "pyproject.toml"]:
+        text = (ROOT / rel_path).read_text(encoding="utf-8").lower()
+        for fragment in forbidden_dependencies:
+            if fragment in text:
+                print(f"FAIL: Forbidden M26 recall/context-pack dependency fragment in {rel_path}: {fragment}")
+                sys.exit(1)
+
+    recall_root = ROOT / "src" / "ultimate_ai_agent" / "core" / "recall"
+    forbidden_source_fragments = [
+        "import requests",
+        "from requests import",
+        "import httpx",
+        "from httpx import",
+        "urllib.request",
+        "urlopen(",
+        "socket.",
+        "subprocess",
+        "import openai",
+        "from openai import",
+        "import anthropic",
+        "from anthropic import",
+        "import ollama",
+        "from ollama import",
+        "import chromadb",
+        "import faiss",
+        "import pgvector",
+        "import tokenizers",
+        "import tiktoken",
+        "sentence_transformers",
+        "vector_search_enabled=True",
+        "embeddings_enabled=True",
+        "semantic_search_enabled=True",
+        "rag_ingestion_enabled=True",
+        "external_retrieval_enabled=True",
+        "web_search_enabled=True",
+        "source_crawling_enabled=True",
+        "automatic_memory_write_enabled=True",
+        "context_injection_enabled=True",
+        "backend_routes_enabled=True",
+        "model_provider_calls_enabled=True",
+        "tool_execution_enabled=True",
+        "write_memory(",
+        "memory.write(",
+        "put_record(",
+        "append_evidence(",
+        "mutate_evidence(",
+        "append_event(",
+        "mutate_event(",
+    ]
+    for path in recall_root.rglob("*.py"):
+        rel = path.relative_to(ROOT).as_posix()
+        if "__pycache__" in path.parts:
+            continue
+        text = path.read_text(encoding="utf-8").lower().replace(" ", "")
+        for fragment in forbidden_source_fragments:
+            if fragment.replace(" ", "") in text:
+                print(f"FAIL: M26 forbidden recall/context-pack source fragment in {rel}: {fragment}")
+                sys.exit(1)
+
+    forbidden_route_fragments = [
+        "/recall/run",
+        "/recall/search",
+        "/recall/inject",
+        "/recall/vector-search",
+        "/recall/embed",
+        "/recall/external-retrieve",
+        "/context-pack/inject",
+        "/context-pack/build-and-inject",
+        "/memory/vector-search",
+        "/memory/embed",
+        "/memory/context-pack/inject",
+    ]
+    for implementation_root in [ROOT / "src", ROOT / "apps"]:
+        if not implementation_root.exists():
+            continue
+        for path in implementation_root.rglob("*"):
+            if not path.is_file() or "__pycache__" in path.parts or "node_modules" in path.parts:
+                continue
+            if path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx"}:
+                continue
+            rel = path.relative_to(ROOT).as_posix()
+            if rel == "src/ultimate_ai_agent/core/gate/evaluators.py":
+                continue
+            text = path.read_text(encoding="utf-8").lower()
+            for fragment in forbidden_route_fragments:
+                if fragment in text:
+                    print(f"FAIL: M26 forbidden recall/context-pack route fragment in {rel}: {fragment}")
+                    sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.evaluators import m26_openapi_route_failures
+        from ultimate_ai_agent.core.recall import (
+            ContextPackBuildRequest,
+            GroundedRecallManifest,
+            GroundedRecallRequest,
+            RecallCandidate,
+            RecallSourceKind,
+            build_evidence_linked_context_pack,
+            route_grounded_recall,
+        )
+
+        failures = m26_openapi_route_failures(app.openapi().get("paths", {}))
+    except Exception as exc:
+        print(f"FAIL: M26 OpenAPI or recall contract guard could not run: {exc}")
+        sys.exit(1)
+    for failure in failures:
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    manifest = GroundedRecallManifest(baseline_version="0.30.0")
+    unsafe_flags = [
+        manifest.context_injection_enabled,
+        manifest.vector_search_enabled,
+        manifest.embeddings_enabled,
+        manifest.semantic_search_enabled,
+        manifest.rag_ingestion_enabled,
+        manifest.external_retrieval_enabled,
+        manifest.web_search_enabled,
+        manifest.source_crawling_enabled,
+        manifest.automatic_memory_write_enabled,
+        manifest.backend_routes_added,
+        manifest.model_provider_calls_enabled,
+        manifest.tool_execution_enabled,
+        manifest.production_authority_enabled,
+    ]
+    if any(unsafe_flags):
+        print("FAIL: M26 default manifest enables forbidden recall/context-pack runtime authority")
+        sys.exit(1)
+
+    decision = route_grounded_recall(
+        GroundedRecallRequest(
+            request_id="recall:verify-m26",
+            query_summary="Verify M26 recall contract.",
+            candidates=[
+                RecallCandidate(
+                    candidate_ref="memory:verify-m26",
+                    source_kind=RecallSourceKind.reviewed_memory,
+                    source_ref="memory:verify-m26",
+                    safe_summary="Reviewed memory context.",
+                ),
+                RecallCandidate(
+                    candidate_ref="canonical:verify-m26",
+                    source_kind=RecallSourceKind.canonical_document,
+                    source_ref="canonical:verify-m26",
+                    safe_summary="Canonical guidance.",
+                ),
+                RecallCandidate(
+                    candidate_ref="random:verify-m26",
+                    source_kind=RecallSourceKind.unknown,
+                    source_ref="random:verify-m26",
+                    safe_summary="Unknown source.",
+                ),
+                RecallCandidate(
+                    candidate_ref="model:verify-m26",
+                    source_kind=RecallSourceKind.model_output,
+                    source_ref="model:verify-m26",
+                    safe_summary="Model output.",
+                ),
+            ],
+        )
+    )
+    refs = [selection.candidate_ref for selection in decision.selected]
+    if refs[:2] != ["canonical:verify-m26", "memory:verify-m26"]:
+        print("FAIL: M26 recall source priority did not keep canonical above memory")
+        sys.exit(1)
+    if "random:verify-m26" in refs or "model:verify-m26" in refs:
+        print("FAIL: M26 recall selected unknown or model-output candidate")
+        sys.exit(1)
+    if (
+        not decision.no_memory_write_performed
+        or not decision.no_external_retrieval_performed
+        or not decision.no_vector_search_performed
+        or not decision.no_context_injection_performed
+    ):
+        print("FAIL: M26 recall decision reports forbidden side effects")
+        sys.exit(1)
+
+    pack = build_evidence_linked_context_pack(
+        ContextPackBuildRequest(
+            pack_id="context-pack:verify-m26",
+            request_id="context-pack:verify-m26",
+            recall_decision=decision,
+        )
+    )
+    if (
+        pack.context_injection_performed
+        or pack.model_output_included
+        or pack.memory_write_performed
+        or pack.external_retrieval_performed
+        or pack.raw_content_included
+    ):
+        print("FAIL: M26 context pack reports forbidden side effects")
+        sys.exit(1)
+
+    print("OK: M26 grounded recall/context-pack contracts remain deterministic, local, route-free, and non-authoritative")
 
 
 def verify_v0292_local_dev_api_hardening():
