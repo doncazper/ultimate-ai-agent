@@ -1,11 +1,7 @@
-Status: historical archive
-Do not use as current roadmap or current baseline.
-Current roadmap: docs/canonical/09_roadmap.md
-
 # Archived Release Packets
 
 Status: active archive index
-Current through: v0.29.3
+Current through: v0.29.4
 Purpose: Locate historical release import and master-plan packets.
 
 Historical release import and master-plan packets live under versioned folders:
@@ -27,3 +23,8 @@ for release packets, and keep the root limited to current entrypoints such as
 Root stubs are temporary compatibility aids only. Historical docs must not claim
 to be the current active baseline unless they are clearly marked as historical.
 Only active docs may claim current status.
+
+Future release packets and review prompts must follow
+`docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md`. Historical version
+verifiers belong in the matching release archive and are not current release
+gates.

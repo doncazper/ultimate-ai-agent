@@ -210,6 +210,24 @@ def test_documentation_integrity_verifier_requires_m20_device_capability_docs(tm
     assert any("M21/v0.25.0 planned/provisional" in failure for failure in failures)
 
 
+def test_documentation_integrity_verifier_rejects_active_historical_verifiers(tmp_path: Path):
+    _write_minimal_repo(tmp_path, version="0.29.4")
+    (tmp_path / "verify_ultimate_ai_agent_v0_5_4.py").write_text(
+        "REQ = ['README_IMPORT_v0_5_4.md']\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "scripts").mkdir()
+    (tmp_path / "scripts/verify_ultimate_ai_agent_v0_5_5.py").write_text(
+        "REQ = ['README_IMPORT_v0_5_5.md']\n",
+        encoding="utf-8",
+    )
+
+    failures = verifier.verify(tmp_path)
+
+    assert any("root historical verifier must be archived" in failure for failure in failures)
+    assert any("scripts historical verifier must be archived" in failure for failure in failures)
+
+
 def _write_minimal_repo(root: Path, version: str = "0.14.6") -> None:
     version_key = version.replace(".", "_")
     files = {
@@ -368,6 +386,38 @@ def _write_minimal_repo(root: Path, version: str = "0.14.6") -> None:
             f"{post_m20_status}"
             f"{no_implementation_line}",
         )
+    if version_tuple >= (0, 29, 4):
+        files["docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md"] = (
+            "Root directory policy.\n"
+            "Historical verifiers belong in docs/archive/releases/vX_Y_Z/.\n"
+            "Legacy historical verifiers are not current release gates.\n"
+            "Legacy verifiers are not current release gates.\n"
+            "Use docs/archive/releases/vX_Y_Z/README_IMPORT.md.\n"
+            "Update scripts/verify_documentation_integrity.py when docs move.\n"
+        )
+        policy_ref = "docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md\n"
+        files["docs/README.md"] = (
+            policy_ref
+            + f"docs/archive/releases/v{version_key}/README_IMPORT.md\n"
+            + f"docs/archive/releases/v{version_key}/master_plan.md\n"
+            + "v0.29.4 repairs documentation archive references.\n"
+            + "Legacy historical verifiers are not current release gates.\n"
+            + "Stale Ruff excludes were removed.\n"
+            + "M26 remains future.\n"
+        )
+        files["docs/DOCUMENTATION_INDEX.md"] = (
+            policy_ref
+            + f"docs/archive/releases/v{version_key}/README_IMPORT.md\n"
+            + f"docs/archive/releases/v{version_key}/master_plan.md\n"
+            + "v0.29.4 repairs documentation archive references.\n"
+            + "Legacy historical verifiers are not current release gates.\n"
+            + "Stale Ruff excludes were removed.\n"
+            + "M26 remains future.\n"
+        )
+        for legacy_key in ["v0_5_4", "v0_5_5", "v0_5_6", "v0_5_8"]:
+            files[f"docs/archive/releases/{legacy_key}/legacy_verifier_{legacy_key}.py"] = (
+                '"""Historical verifier; not part of current validation."""\n'
+            )
     files["docs/roadmap/MILESTONE_CHARTERS.md"] = (
         "version\nmilestone code\ntitle\nstatus\npurpose\nallowed scope\nmust not add\n"
         "dependencies\nacceptance criteria\nreview prompt required\nhardening patch expectation\n"

@@ -25,7 +25,7 @@ It adds:
 ## Active documents
 
 ```text
-ultimate_ai_agent_master_plan_v0_5_4.md
+docs/archive/releases/v0_5_4/master_plan.md
 docs/canonical/09_roadmap.md
 docs/canonical/39_verified_task_completion_framework.md
 docs/canonical/40_credentials_secret_broker_and_provider_registry.md

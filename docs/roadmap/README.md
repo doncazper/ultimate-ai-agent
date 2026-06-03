@@ -1,7 +1,7 @@
 # Roadmap Docs
 
 Status: active
-Current through: v0.29.3
+Current through: v0.29.4
 Purpose: Entry point for active roadmap docs and historical roadmap references.
 
 Current roadmap source of truth:
@@ -30,3 +30,6 @@ active verifier and Foundation Gate checks, but it is a historical roadmap
 projection and not the current roadmap source of truth.
 
 M25 is implemented/hardened. M26 remains planned/provisional.
+
+Documentation organization and historical-roadmap handling rules live in
+`docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md`.

@@ -26,7 +26,8 @@ Long-running session survival evals
 
 1. Confirm the repo is clean.
 2. Apply the v0.5.5 snapshot or patch.
-3. Run `python3 scripts/verify_ultimate_ai_agent_v0_5_5.py`.
+3. Historical verifier path after v0.29.4 archive repair:
+   `python3 docs/archive/releases/v0_5_5/legacy_verifier_v0_5_5.py`.
 4. Commit with `docs: add local runtime and context survival foundation v0.5.5`.
 5. Tag `v0.5.5`.
 

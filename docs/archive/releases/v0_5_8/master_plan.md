@@ -35,7 +35,7 @@ docs/implementation/foundation_gate_implementation_plan_v0_5_8.md
 docs/implementation/pre_coding_readiness_v0_5_8.md
 docs/registry/capability_registry_v0_5_8.json
 docs/release_notes/v0_5_8.md
-scripts/verify_ultimate_ai_agent_v0_5_8.py
+docs/archive/releases/v0_5_8/legacy_verifier_v0_5_8.py
 ```
 
 ## Rule

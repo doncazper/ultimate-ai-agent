@@ -60,6 +60,7 @@ REQUIRED_ACTIVE_DOCS = [
     "docs/roadmap/README.md",
     "docs/roadmap/archive/README.md",
     "docs/maintenance/documentation_integrity_checklist.md",
+    "docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md",
     "docs/canonical/64_mobile_companion_and_device_capability_broker.md",
     "docs/canonical/65_mobile_device_registry_and_sensor_permission_manifest.md",
     "docs/canonical/66_external_tooling_and_codex_plugin_governance.md",
@@ -1122,6 +1123,78 @@ def _verify_m25_truth_docs(root: Path, version: str | None) -> list[str]:
             lowered = _read(artifact).lower()
             if "status: historical stub" not in lowered:
                 failures.append(f"root release artifact must be archived or a historical stub: {artifact.name}")
+
+    if _version_tuple(version) >= (0, 29, 4):
+        v0294_expectations = {
+            "active docs must say v0.29.4 repairs archive references": "repairs documentation archive references",
+            "active docs must say historical verifiers are not current gates": "legacy historical verifiers are not current release gates",
+            "active docs must say stale Ruff excludes were removed": "stale ruff excludes",
+            "active docs must point to v0.29.4 release packet": "docs/archive/releases/v0_29_4/readme_import.md",
+            "active docs must say M26 remains future": "m26 remains future",
+        }
+        for failure, fragment in v0294_expectations.items():
+            if fragment not in active_docs:
+                failures.append(failure)
+
+        policy_path = root / "docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md"
+        if not policy_path.exists():
+            failures.append("missing documentation organization policy: docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md")
+        else:
+            policy = _read(policy_path).lower()
+            for fragment in [
+                "root directory policy",
+                "historical verifiers",
+                "legacy verifiers are not current release gates",
+                "docs/archive/releases/vx_y_z/readme_import.md",
+                "scripts/verify_documentation_integrity.py",
+            ]:
+                if fragment not in policy:
+                    failures.append(f"documentation organization policy missing fragment: {fragment}")
+
+        docs_readme = _read(root / "docs/README.md")
+        docs_index = _read(root / "docs/DOCUMENTATION_INDEX.md")
+        policy_ref = "docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md"
+        if policy_ref not in docs_readme:
+            failures.append("docs/README.md must reference documentation organization policy")
+        if policy_ref not in docs_index:
+            failures.append("docs/DOCUMENTATION_INDEX.md must reference documentation organization policy")
+
+        for verifier_path in sorted(root.glob("verify_ultimate_ai_agent_v0_*.py")):
+            failures.append(f"root historical verifier must be archived: {verifier_path.name}")
+        scripts_dir = root / "scripts"
+        for verifier_path in sorted(scripts_dir.glob("verify_ultimate_ai_agent_v0_*.py")):
+            failures.append(f"scripts historical verifier must be archived: scripts/{verifier_path.name}")
+
+        pyproject_text = _read(root / "pyproject.toml")
+        for stale_fragment in [
+            "verify_ultimate_ai_agent_v0_5_4.py",
+            "scripts/verify_ultimate_ai_agent_v0_5_6.py",
+            "scripts/verify_ultimate_ai_agent_v0_5_8.py",
+        ]:
+            if stale_fragment in pyproject_text:
+                failures.append(f"pyproject.toml has stale historical verifier exclude: {stale_fragment}")
+
+        for version_key in ["v0_5_4", "v0_5_5", "v0_5_6", "v0_5_8"]:
+            archived = root / f"docs/archive/releases/{version_key}/legacy_verifier_{version_key}.py"
+            if not archived.exists():
+                failures.append(f"missing archived historical verifier: {archived.relative_to(root).as_posix()}")
+            else:
+                archived_text = _read(archived).lower()
+                if "historical verifier" not in archived_text or "not part of current validation" not in archived_text:
+                    failures.append(f"archived historical verifier must be clearly marked historical: {archived.relative_to(root).as_posix()}")
+
+        active_script_text = "\n".join(
+            _read(path)
+            for path in root.glob("scripts/*.py")
+            if not path.name.startswith("verify_ultimate_ai_agent_v0_")
+            and path.name != "verify_documentation_integrity.py"
+        )
+        for root_artifact in [
+            "README_IMPORT_v0_5_4.md",
+            "ultimate_ai_agent_master_plan_v0_5_4.md",
+        ]:
+            if root_artifact in active_script_text:
+                failures.append(f"active verifier scripts must not depend on root v0.5.4 artifact: {root_artifact}")
 
     forbidden_active_claims = [
         "m26 is implemented",

@@ -1,7 +1,7 @@
 # Documentation Archive
 
 Status: active archive index
-Current through: v0.29.3
+Current through: v0.29.4
 Purpose: Explain where historical docs live and how to interpret them.
 
 Historical docs live here. Archive docs are not the current source of truth and
@@ -27,3 +27,6 @@ docs/archive/releases/
 docs/archive/roadmap_snapshots/
 docs/archive/retired_plans/
 ```
+
+Documentation organization rules for future milestones and review prompts live
+in `docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md`.
