@@ -1,8 +1,8 @@
 # Post-M20 Capability Layer Roadmap
 
-Status: Active roadmap projection maintained through v0.28.1. M21 and M22 are implemented/released contract-only; M23 is implemented/released manual fixed-prompt local call only and hardened by v0.27.1; M24 is implemented/released as governed memory provider/local store and hardened by v0.28.1; M25-M40 remain planned/provisional.
+Status: Active roadmap projection maintained through v0.28.2. M21 and M22 are implemented/released contract-only; M23 is implemented/released manual fixed-prompt local call only and hardened by v0.27.1; M24 is implemented/released as governed memory provider/local store, hardened by v0.28.1, and docs-cleaned by v0.28.2; M25-M40 remain planned/provisional.
 
-M14-M20 remain implemented/released through reviewed milestones. v0.25.0 / M21 is implemented/released as OpenWebUI Bridge + Chat Shell Integration Contract only. v0.26.0 / M22 is implemented/released as Local Model Runtime Activation Contract only, and v0.26.1 hardens M22 verifier precision and metadata key secret hygiene only. v0.27.0 / M23 is implemented/released as manual/CLI-only, loopback-only, fixed-prompt-only, non-tool, and non-authoritative. v0.27.1 hardens M23 endpoint-label safety, approval evidence checks, response redaction/caps, CLI guardrails, policy docs, static verification, Foundation Gate criteria, and Foundation Gate report atomic write/replace safety. v0.28.0 / M24 is implemented/released as governed, reviewed-write-only local memory provider/store foundation. v0.28.1 repairs and hardens the M24 memory contract without expanding authority. M25-M40 are provisional but canonical after v0.18.4 unless superseded by a reviewed roadmap patch.
+M14-M20 remain implemented/released through reviewed milestones. v0.25.0 / M21 is implemented/released as OpenWebUI Bridge + Chat Shell Integration Contract only. v0.26.0 / M22 is implemented/released as Local Model Runtime Activation Contract only, and v0.26.1 hardens M22 verifier precision and metadata key secret hygiene only. v0.27.0 / M23 is implemented/released as manual/CLI-only, loopback-only, fixed-prompt-only, non-tool, and non-authoritative. v0.27.1 hardens M23 endpoint-label safety, approval evidence checks, response redaction/caps, CLI guardrails, policy docs, static verification, Foundation Gate criteria, and Foundation Gate report atomic write/replace safety. v0.28.0 / M24 is implemented/released as governed, reviewed-write-only local memory provider/store foundation. v0.28.1 repairs and hardens the M24 memory contract without expanding authority. v0.28.2 removes a duplicate roadmap status row only and adds no capability. M25-M40 are provisional but canonical after v0.18.4 unless superseded by a reviewed roadmap patch.
 
 These milestones are high-level charters, not implementation. Every milestone needs its own implementation prompt and review prompt. Every risky surface gets a hardening patch before the next capability jump.
 
@@ -20,7 +20,7 @@ This roadmap adds no backend API routes, frontend behavior, runtime execution, l
 | v0.27.1 | Hardening | Local LLM Call Hardening | implemented/released hardening-only |
 | v0.28.0 | M24 | Memory Provider Abstraction + Local Memory Store | implemented/released |
 | v0.28.1 | M24 hardening | Contract Repair + Memory Safety Hardening | implemented/released |
-| v0.28.1 | Hardening | Memory Safety Hardening | planned/provisional |
+| v0.28.2 | Docs cleanup | Duplicate roadmap row cleanup | implemented/released docs-only |
 | v0.29.0 | M25 | Truth Source Router + Evidence Claim Checker | planned/provisional |
 | v0.30.0 | M26 | Tool Execution Sandbox Contract, Dry-Run Only | planned/provisional |
 | v0.31.0 | M27 | MCP / Agent Skills / AGENTS.md Trust Registry, Quarantine-Only | planned/provisional |
@@ -60,7 +60,7 @@ Future implementation prompts after M20 must read:
 - `docs/roadmap/ECOSYSTEM_WATCHLIST.md`.
 - `docs/roadmap/STANDARDS_ALIGNMENT_WATCHLIST.md`.
 
-M21 is implemented/released by v0.25.0 as contract-only. M22 is implemented/released by v0.26.0 as contract-only and hardened by v0.26.1. M23 is implemented/released by v0.27.0 as manual fixed-prompt local call only and hardened by v0.27.1. M24 is implemented/released by v0.28.0 as governed local memory provider/store foundation and hardened by v0.28.1. M25-M40 remain planned/provisional.
+M21 is implemented/released by v0.25.0 as contract-only. M22 is implemented/released by v0.26.0 as contract-only and hardened by v0.26.1. M23 is implemented/released by v0.27.0 as manual fixed-prompt local call only and hardened by v0.27.1. M24 is implemented/released by v0.28.0 as governed local memory provider/store foundation, hardened by v0.28.1, and docs-cleaned by v0.28.2. M25-M40 remain planned/provisional.
 ## M19 Baseline Note
 
 v0.23.0 / M19 is implemented as Mobile Companion Contract/API Planning only.
@@ -87,4 +87,4 @@ model/provider call, remote execution, plugin enablement, OpenWebUI
 integration, or production authority. M21 is implemented/released
 contract-only by v0.25.0. M22 is implemented/released contract-only by
 v0.26.1. M23 is implemented/released by v0.27.0 as manual fixed-prompt local
-call only and hardened by v0.27.1. M24 is implemented/released by v0.28.0 as governed local memory provider/store foundation and hardened by v0.28.1. M25-M40 remain planned/provisional.
+call only and hardened by v0.27.1. M24 is implemented/released by v0.28.0 as governed local memory provider/store foundation, hardened by v0.28.1, and docs-cleaned by v0.28.2. M25-M40 remain planned/provisional.

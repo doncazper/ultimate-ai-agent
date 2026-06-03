@@ -1,14 +1,12 @@
 # Ultimate AI Agent Version
 
-Current active baseline: **v0.28.1**
+Current active baseline: **v0.28.2**
 
-v0.28.1 repairs the M24 public memory request contract by making package-root
-MemoryWriteRequest exports align with the provider/store write path, updates
-route inventory docs through v0.28.1, hardens M24 Foundation Gate guard-field
-tests, clarifies M24 source_refs write-validation messaging, returns defensive
-copies from the in-memory local store, and applies minor memory docs/code
-polish.
+v0.28.2 is a docs-only cleanup after the stable v0.28.1 M24 baseline. It
+removes the duplicate/conflicting planned/provisional v0.28.1 roadmap row from
+the Post-M20 capability roadmap while keeping the correct implemented v0.28.1
+M24 hardening row.
 
-It adds no automatic memory writes, model/local-LLM/OpenWebUI/mobile/tool memory
-writes, backend mutation routes, vector DB, embeddings, cloud memory, context
-injection, dependencies, or M25 work. OpenAPI path count remains `74`.
+It changes no code behavior, tests, dependencies, backend routes, OpenAPI path
+count, runtime/model/provider behavior, memory authority, or M25 scope. OpenAPI
+path count remains `74`.

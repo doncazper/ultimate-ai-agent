@@ -1,12 +1,12 @@
-# Ultimate AI Agent Canonical Bundle v0.28.1
+# Ultimate AI Agent Canonical Bundle v0.28.2
 
-This is the active project baseline after v0.28.1 / M24 Contract Repair + Memory Safety Hardening.
+This is the active project baseline after v0.28.2 / M24 Roadmap Row Cleanup.
 
 Start here:
 
 ```text
-README_IMPORT_v0_28_1.md
-ultimate_ai_agent_master_plan_v0_28_1.md
+README_IMPORT_v0_28_2.md
+ultimate_ai_agent_master_plan_v0_28_2.md
 docs/DOCUMENTATION_INDEX.md
 docs/canonical/09_roadmap.md
 docs/canonical/CANONICAL_DOC_MAP.md
@@ -126,7 +126,7 @@ docs/memory/MEMORY_NON_GOALS.md
 docs/memory/MEMORYOS_REVIEW_INCORPORATION.md
 docs/memory/M24_TO_M25_BOUNDARY.md
 docs/security/approval_authority.md
-docs/implementation/foundation_gate_implementation_plan_v0_28_1.md
+docs/implementation/foundation_gate_implementation_plan_v0_28_2.md
 docs/maintenance/documentation_integrity_checklist.md
 docs/tooling/CODEX_PLUGIN_CAPABILITY_INVENTORY.md
 docs/tooling/CODEX_PLUGIN_RISK_POLICY.md
@@ -178,7 +178,7 @@ OpenWebUI bridge contract rule:
 
 Local model runtime activation contract rule:
 
-> v0.26.0 implements M22 Local Model Runtime Activation Contract as contract/planning/validation only. v0.26.1 hardens M22 verifier precision and metadata key secret hygiene. v0.27.0 implements M23 First Real Local LLM Call as manual/CLI-only, loopback-only, fixed-prompt-only, approval-gated, non-tool, and non-authoritative. v0.27.1 hardens M23 endpoint-label safety, approval evidence checks, response redaction/caps, CLI guardrails, policy docs, static verification, Foundation Gate criteria, and Foundation Gate report atomic write/replace safety. v0.28.0 implements M24 Memory Provider Abstraction + Local Memory Store as governed reviewed-write-only local memory foundation. v0.28.1 repairs the public M24 memory request contract and hardens M24 memory safety checks. Memory is recall, not authority. Memory is not ground truth. OpenAPI path count remains `74`. This release adds no backend mutation route, runtime activation, endpoint probe, user-content model call, arbitrary prompt input, provider SDK, runtime package, tokenizer, billing API, OpenWebUI memory write, Control Center memory mutation, tool output write, mobile capture write, automatic memory write, vector DB, embeddings, cloud memory, context injection, dependency, production persistence, M25 claim verification, or production authority. M25-M40 remain planned/provisional.
+> v0.26.0 implements M22 Local Model Runtime Activation Contract as contract/planning/validation only. v0.26.1 hardens M22 verifier precision and metadata key secret hygiene. v0.27.0 implements M23 First Real Local LLM Call as manual/CLI-only, loopback-only, fixed-prompt-only, approval-gated, non-tool, and non-authoritative. v0.27.1 hardens M23 endpoint-label safety, approval evidence checks, response redaction/caps, CLI guardrails, policy docs, static verification, Foundation Gate criteria, and Foundation Gate report atomic write/replace safety. v0.28.0 implements M24 Memory Provider Abstraction + Local Memory Store as governed reviewed-write-only local memory foundation. v0.28.1 repairs the public M24 memory request contract and hardens M24 memory safety checks. v0.28.2 removes a duplicate/conflicting v0.28.1 roadmap status row only. Memory is recall, not authority. Memory is not ground truth. OpenAPI path count remains `74`. This release adds no backend mutation route, runtime activation, endpoint probe, user-content model call, arbitrary prompt input, provider SDK, runtime package, tokenizer, billing API, OpenWebUI memory write, Control Center memory mutation, tool output write, mobile capture write, automatic memory write, vector DB, embeddings, cloud memory, context injection, dependency, production persistence, M25 claim verification, or production authority. M25-M40 remain planned/provisional.
 
 Roadmap status label cleanup rule:
 
