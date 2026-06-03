@@ -50,8 +50,15 @@ REQUIRED_M25_TRUTH_DOCS = [
 
 
 REQUIRED_ACTIVE_DOCS = [
+    "docs/README.md",
     "docs/DOCUMENTATION_INDEX.md",
     "docs/canonical/CANONICAL_DOC_MAP.md",
+    "docs/archive/README.md",
+    "docs/archive/releases/README.md",
+    "docs/archive/roadmap_snapshots/README.md",
+    "docs/archive/retired_plans/README.md",
+    "docs/roadmap/README.md",
+    "docs/roadmap/archive/README.md",
     "docs/maintenance/documentation_integrity_checklist.md",
     "docs/canonical/64_mobile_companion_and_device_capability_broker.md",
     "docs/canonical/65_mobile_device_registry_and_sensor_permission_manifest.md",
@@ -325,6 +332,13 @@ def _version_tuple(version: str | None) -> tuple[int, int, int]:
     return (int(parts[0]), int(parts[1]), int(parts[2]))
 
 
+def _release_packet_paths(version_key: str) -> tuple[str, str]:
+    return (
+        f"docs/archive/releases/v{version_key}/README_IMPORT.md",
+        f"docs/archive/releases/v{version_key}/master_plan.md",
+    )
+
+
 def verify(root: Path = ROOT) -> list[str]:
     failures: list[str] = []
     version = _active_version(root)
@@ -341,8 +355,7 @@ def verify(root: Path = ROOT) -> list[str]:
     if f'__version__ = "{version}"' not in init:
         failures.append("package __version__ does not match VERSION.md")
 
-    active_import = f"README_IMPORT_v{version_key}.md"
-    active_master = f"ultimate_ai_agent_master_plan_v{version_key}.md"
+    active_import, active_master = _release_packet_paths(version_key)
     active_release_notes = f"docs/release_notes/v{version_key}.md"
     active_gate_plan = f"docs/implementation/foundation_gate_implementation_plan_v{version_key}.md"
     for rel_path in [active_import, active_master, active_release_notes, active_gate_plan, *REQUIRED_ACTIVE_DOCS]:
@@ -350,9 +363,9 @@ def verify(root: Path = ROOT) -> list[str]:
             failures.append(f"missing active documentation file: {rel_path}")
 
     if active_import not in readme:
-        failures.append("README.md does not point to active README_IMPORT")
+        failures.append("README.md does not point to active archived README_IMPORT")
     if active_master not in readme:
-        failures.append("README.md does not point to active master plan")
+        failures.append("README.md does not point to active archived master plan")
     if "docs/DOCUMENTATION_INDEX.md" not in readme:
         failures.append("README.md does not point to documentation index")
     if "docs/canonical/CANONICAL_DOC_MAP.md" not in readme:
@@ -847,6 +860,8 @@ def _verify_local_runtime_activation_docs(root: Path, version: str | None) -> li
         if fragment not in runtime_text:
             failures.append(failure)
 
+    version_key = version.replace(".", "_") if version else ""
+    active_import, active_master = _release_packet_paths(version_key) if version_key else ("", "")
     active_docs = "\n".join(
         _read(root / rel_path).lower()
         for rel_path in [
@@ -1029,6 +1044,8 @@ def _verify_m25_truth_docs(root: Path, version: str | None) -> list[str]:
         if fragment not in docs_text:
             failures.append(failure)
 
+    version_key = version.replace(".", "_") if version else ""
+    active_import, active_master = _release_packet_paths(version_key) if version_key else ("", "")
     active_docs = "\n".join(
         _read(root / rel_path).lower()
         for rel_path in [
@@ -1046,8 +1063,8 @@ def _verify_m25_truth_docs(root: Path, version: str | None) -> list[str]:
             "docs/api/openapi_contract.md",
             "docs/api/route_inventory.md",
             "docs/testing/test_strategy_v0.md",
-            f"README_IMPORT_v{version.replace('.', '_')}.md" if version else "",
-            f"ultimate_ai_agent_master_plan_v{version.replace('.', '_')}.md" if version else "",
+            active_import,
+            active_master,
             f"docs/release_notes/v{version.replace('.', '_')}.md" if version else "",
             f"docs/implementation/foundation_gate_implementation_plan_v{version.replace('.', '_')}.md" if version else "",
         ]
@@ -1077,6 +1094,34 @@ def _verify_m25_truth_docs(root: Path, version: str | None) -> list[str]:
         for failure, fragment in v0292_expectations.items():
             if fragment not in active_docs:
                 failures.append(failure)
+
+    if _version_tuple(version) >= (0, 29, 3):
+        v0293_expectations = {
+            "active docs must say v0.29.3 reorganizes documentation": "reorganizes documentation",
+            "active docs must include docs archive entrypoints": "docs/archive",
+            "active docs must say historical release packets are archived": "docs/archive/releases",
+            "active docs must say M26 remains planned/provisional": "m26 remains planned/provisional",
+            "active docs must say v0.29.3 adds no runtime behavior": "no runtime behavior",
+        }
+        for failure, fragment in v0293_expectations.items():
+            if fragment not in active_docs:
+                failures.append(failure)
+
+        sequence_path = root / "docs/roadmap/NEXT_SEQUENCE_v0_17_5.md"
+        sequence = _read(sequence_path).lower() if sequence_path.exists() else ""
+        if "status: historical roadmap projection" not in sequence:
+            failures.append("docs/roadmap/NEXT_SEQUENCE_v0_17_5.md must have historical roadmap banner")
+        if "current roadmap: docs/canonical/09_roadmap.md" not in sequence:
+            failures.append("historical roadmap snapshot must point to current roadmap")
+
+        root_release_artifacts = [
+            *root.glob("README_IMPORT_v*.md"),
+            *root.glob("ultimate_ai_agent_master_plan_v*.md"),
+        ]
+        for artifact in root_release_artifacts:
+            lowered = _read(artifact).lower()
+            if "status: historical stub" not in lowered:
+                failures.append(f"root release artifact must be archived or a historical stub: {artifact.name}")
 
     forbidden_active_claims = [
         "m26 is implemented",

@@ -665,24 +665,26 @@ class FoundationGateEvaluator:
             )
             readme = self._read(self.root / "README.md")
             expected_underscored = version.replace(".", "_")
+            expected_import = f"docs/archive/releases/v{expected_underscored}/README_IMPORT.md"
+            expected_master = f"docs/archive/releases/v{expected_underscored}/master_plan.md"
             if pyproject_version != version:
                 failures.append("pyproject.toml version mismatch")
             if init_version != version:
                 failures.append("package __version__ mismatch")
             if f"v{version}" not in readme:
                 failures.append("README.md missing active version")
-            if f"README_IMPORT_v{expected_underscored}.md" not in readme:
-                failures.append("README.md missing active import README")
-            if f"ultimate_ai_agent_master_plan_v{expected_underscored}.md" not in readme:
-                failures.append("README.md missing active master plan")
+            if expected_import not in readme:
+                failures.append("README.md missing active archived import README")
+            if expected_master not in readme:
+                failures.append("README.md missing active archived master plan")
         return self._result(criterion, failures, ["VERSION.md", "pyproject.toml", "README.md"])
 
     def check_release_docs_present(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
         version = self._active_version()
         version_key = (version or "0.0.0").replace(".", "_")
         required = [
-            f"README_IMPORT_v{version_key}.md",
-            f"ultimate_ai_agent_master_plan_v{version_key}.md",
+            f"docs/archive/releases/v{version_key}/README_IMPORT.md",
+            f"docs/archive/releases/v{version_key}/master_plan.md",
             f"docs/release_notes/v{version_key}.md",
             f"docs/implementation/foundation_gate_implementation_plan_v{version_key}.md",
         ]
@@ -2315,8 +2317,8 @@ class FoundationGateEvaluator:
             "docs/tooling/CODEX_PLUGIN_RISK_POLICY.md",
             "docs/canonical/66_external_tooling_and_codex_plugin_governance.md",
             "docs/backlog/codex_plugin_enablement_backlog.md",
-            f"README_IMPORT_v{version_key}.md",
-            f"ultimate_ai_agent_master_plan_v{version_key}.md",
+            f"docs/archive/releases/v{version_key}/README_IMPORT.md",
+            f"docs/archive/releases/v{version_key}/master_plan.md",
             f"docs/release_notes/v{version_key}.md",
             f"docs/implementation/foundation_gate_implementation_plan_v{version_key}.md",
             "docs/canonical/64_mobile_companion_and_device_capability_broker.md",
@@ -2331,10 +2333,10 @@ class FoundationGateEvaluator:
         ]
         failures = [f"missing {path}" for path in required if not (self.root / path).exists()]
         readme = self._read(self.root / "README.md")
-        if version and f"README_IMPORT_v{version_key}.md" not in readme:
-            failures.append("README.md missing active import README")
-        if version and f"ultimate_ai_agent_master_plan_v{version_key}.md" not in readme:
-            failures.append("README.md missing active master plan")
+        if version and f"docs/archive/releases/v{version_key}/README_IMPORT.md" not in readme:
+            failures.append("README.md missing active archived import README")
+        if version and f"docs/archive/releases/v{version_key}/master_plan.md" not in readme:
+            failures.append("README.md missing active archived master plan")
         if "docs/DOCUMENTATION_INDEX.md" not in readme:
             failures.append("README.md missing documentation index")
         if "docs/canonical/CANONICAL_DOC_MAP.md" not in readme:

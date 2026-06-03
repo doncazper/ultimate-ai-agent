@@ -1,6 +1,13 @@
 # Next Sequence v0.17.5
 
-Status: Active roadmap projection and M14-M20 milestone charter freeze, maintained through v0.26.0 / M22.
+Status: historical roadmap projection
+Captured at: v0.17.5
+Do not use as current roadmap or current baseline.
+Current roadmap: docs/canonical/09_roadmap.md
+
+Compatibility note: this file remains at its original path because active
+documentation verifiers and Foundation Gate checks still read it. It is not the
+current roadmap source of truth.
 
 v0.17.5 freezes the next canonical sequence after the v0.17.x Web Control Center shell hardening work. Items after v0.17.5 are planned/provisional but canonical until superseded by a reviewed roadmap patch.
 

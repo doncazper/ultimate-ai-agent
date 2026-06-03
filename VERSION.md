@@ -1,16 +1,16 @@
 # Ultimate AI Agent Version
 
-Current active baseline: **v0.29.2**
+Current active baseline: **v0.29.3**
 
-v0.29.2 hardens local-dev API authority and raw preview safety before M26. It
-removes test-prefixed approval-ref fallback authority from Tool Broker/kernel
-mutation paths, keeps public `/kernel/tasks/run` local-dev mutation requests
-dry-run-only, returns metadata-only file read previews by default, prevents
-raw exception-message echo from API handlers, and makes truth memory/model
-authority helpers fail closed when unsafe refs are passed directly.
+v0.29.3 reorganizes documentation structure and GitHub-facing repository
+hygiene after v0.29.2. It adds docs archive entrypoints, classifies active
+versus historical docs, marks or preserves historical roadmap snapshots,
+stages historical release/import/master-plan artifacts under
+`docs/archive/releases/`, updates documentation indexes and canonical maps, and
+strengthens documentation-integrity checks so only active docs can claim current
+baseline status.
 
-It adds no web search, external verification, model/provider calls,
-retrieval/RAG/vector/embedding functionality, memory writes, backend truth
-verification routes, dependencies, M26 context-pack builder, backend route
-expansion, or production authority. OpenAPI path count remains `74`. M26
-remains future.
+It adds no M26 Grounded Recall Router, Context Pack Builder, backend routes,
+frontend features, runtime/model/provider calls, memory writes, tool execution,
+dependencies, security architecture changes, or production authority. OpenAPI
+path count remains `74`. M26 remains future.

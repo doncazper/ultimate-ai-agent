@@ -123,7 +123,7 @@ M35 mentions Device Capability Broker Implementation, No Sensors.
 M38 is Browser Automation Contract, No Execution.
 M39 is Observability Export Adapters.
 M40 is Agent Evaluation + Regression Harness.
-M21-M40 remain planned/provisional in the v0.18.4 projection; by v0.29.2,
+M21-M40 remain planned/provisional in the v0.18.4 projection; by v0.29.3,
 M25 is implemented/released and hardened, and M26-M40 remain planned/provisional.
 Docs do not claim future milestone implementation before dedicated milestones.
 Foundation Gate includes post_m20_roadmap_projection_present.
@@ -144,6 +144,21 @@ Conflicted, stale, revoked, or missing evidence produces safe review/deny decisi
 External verification, web search, source fetching, model/provider calls, retrieval/RAG, vector DB, embeddings, memory writes, and evidence mutation remain blocked.
 M25 adds no backend API route and OpenAPI path count remains unchanged at 74.
 M26 remains future as Grounded Recall Router + Evidence-Linked Context Pack Builder.
+```
+
+## v0.29.3 Documentation Archive Structure Tests
+
+v0.29.3 adds documentation-integrity tests and verifier checks only:
+
+```text
+docs/README.md and docs archive entrypoints exist.
+Current release packets live under docs/archive/releases/v0_29_3/.
+Root historical release packets are no longer active start files.
+Historical roadmap snapshots are marked historical or archived.
+Active docs identify v0.29.3 as docs organization only.
+M25 remains implemented/hardened.
+M26 remains planned/provisional.
+OpenAPI path count remains unchanged at 74.
 ```
 
 ## v0.29.1 M25 Reject Unknown Truth Refs Tests
@@ -323,7 +338,7 @@ v0.23.1 adds cleanup/hardening tests only:
 ```text
 Roadmap currentness marks v0.23.0 / M19 implemented/released.
 Roadmap currentness marks v0.24.0 / M20 implemented/released as contract-only.
-M21-M40 were planned/provisional at M19 cleanup time. By v0.29.2, M25 is
+M21-M40 were planned/provisional at M19 cleanup time. By v0.29.3, M25 is
 implemented/released and hardened, and M26-M40 remain planned/provisional.
 Contacts and calendar capability plans cannot be enabled.
 Contacts and calendar capability plans require a future Device Capability Broker.

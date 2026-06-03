@@ -48,7 +48,7 @@ def default_foundation_gate_criteria() -> List[FoundationGateCriterion]:
             "Versioning Consistency",
             FoundationGateCategory.versioning,
             "FoundationGateEvaluator.check_versioning_consistent",
-            "VERSION.md, pyproject.toml, package __version__, README start refs, and release docs agree.",
+            "VERSION.md, pyproject.toml, package __version__, README active docs refs, and archived release-packet refs agree.",
             "Versioned baseline files are inconsistent.",
         ),
         _criterion(
@@ -56,8 +56,8 @@ def default_foundation_gate_criteria() -> List[FoundationGateCriterion]:
             "Release Documentation Present",
             FoundationGateCategory.documentation,
             "FoundationGateEvaluator.check_release_docs_present",
-            "M6 import README, master plan, release notes, and implementation plan are present.",
-            "M6 release documentation is missing.",
+            "Active archived import README, master plan, release notes, and implementation plan are present.",
+            "Active release documentation is missing.",
         ),
         _criterion(
             "foundation_modules_present",
@@ -1146,7 +1146,7 @@ def default_foundation_gate_criteria() -> List[FoundationGateCriterion]:
             "Documentation Integrity Current",
             FoundationGateCategory.documentation,
             "FoundationGateEvaluator.check_documentation_integrity_current",
-            "Documentation index, canonical map, active release docs, private mesh docs, mobile planning docs, and active version references are present without unsafe implementation claims.",
+            "Documentation index, canonical map, archive entrypoints, active release docs, private mesh docs, mobile planning docs, and active version references are present without unsafe implementation claims.",
             "Active documentation is missing or claims planned/disabled capabilities are implemented.",
             "critical",
         ),

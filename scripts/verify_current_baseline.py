@@ -12,6 +12,13 @@ def fail(msg):
 def ok(msg):
     print(f"OK: {msg}")
 
+
+def release_packet_paths(version_key):
+    return (
+        f"docs/archive/releases/v{version_key}/README_IMPORT.md",
+        f"docs/archive/releases/v{version_key}/master_plan.md",
+    )
+
 def main():
     print("=== Ultimate AI Agent Baseline Consistency Verification ===")
     
@@ -68,23 +75,18 @@ def main():
     if f"v{version}" not in readme_content:
         fail(f"README.md does not mention the active baseline v{version}")
         
-    # Generic check for README_IMPORT and master plan references
-    import_matches = re.findall(r"README_IMPORT_v(\d+_\d+_\d+)\.md", readme_content)
-    for m in import_matches:
-        if m != version_with_underscores:
-            fail(f"README.md contains legacy start file reference: README_IMPORT_v{m}.md")
-            
-    plan_matches = re.findall(r"ultimate_ai_agent_master_plan_v(\d+_\d+_\d+)\.md", readme_content)
-    for m in plan_matches:
-        if m != version_with_underscores:
-            fail(f"README.md contains legacy start file reference: ultimate_ai_agent_master_plan_v{m}.md")
-            
-    # Check that current start files are listed
-    if f"README_IMPORT_v{version_with_underscores}.md" not in readme_content:
-        fail(f"README.md is missing active start file README_IMPORT_v{version_with_underscores}.md")
-    if f"ultimate_ai_agent_master_plan_v{version_with_underscores}.md" not in readme_content:
-        fail(f"README.md is missing active start file ultimate_ai_agent_master_plan_v{version_with_underscores}.md")
-    ok("README.md active baseline references are consistent (generic check)")
+    # Generic check for active archive release-packet references.
+    import_packet, master_packet = release_packet_paths(version_with_underscores)
+    legacy_import_matches = re.findall(r"README_IMPORT_v(\d+_\d+_\d+)\.md", readme_content)
+    legacy_plan_matches = re.findall(r"ultimate_ai_agent_master_plan_v(\d+_\d+_\d+)\.md", readme_content)
+    if legacy_import_matches or legacy_plan_matches:
+        fail("README.md must use docs/archive/releases release-packet paths, not root release artifacts")
+
+    if import_packet not in readme_content:
+        fail(f"README.md is missing active release packet {import_packet}")
+    if master_packet not in readme_content:
+        fail(f"README.md is missing active release packet {master_packet}")
+    ok("README.md active baseline references are consistent (archive release packets)")
     
     # 5. Check release notes existence
     rel_notes_file = ROOT / "docs" / "release_notes" / f"v{version_with_underscores}.md"
@@ -93,14 +95,14 @@ def main():
     ok(f"Release notes for active version exist: {rel_notes_file.relative_to(ROOT)}")
     
     # 6. Check README_IMPORT and master plan existence on disk
-    import_readme_file = ROOT / f"README_IMPORT_v{version_with_underscores}.md"
-    master_plan_file = ROOT / f"ultimate_ai_agent_master_plan_v{version_with_underscores}.md"
+    import_readme_file = ROOT / import_packet
+    master_plan_file = ROOT / master_packet
     
     if not import_readme_file.exists():
-        fail(f"README_IMPORT_v{version_with_underscores}.md does not exist")
+        fail(f"{import_packet} does not exist")
     if not master_plan_file.exists():
-        fail(f"ultimate_ai_agent_master_plan_v{version_with_underscores}.md does not exist")
-    ok("README_IMPORT and master plan exist for the current version")
+        fail(f"{master_packet} does not exist")
+    ok("README_IMPORT and master plan archive packets exist for the current version")
     
     # 7. Check M1 contract files existence
     m1_files = [
@@ -616,8 +618,8 @@ def main():
         "docs/device_capabilities/DEVICE_CAPABILITY_SECURITY_MODEL.md",
         "docs/device_capabilities/DEVICE_CAPABILITY_BROKER_NON_GOALS.md",
         "docs/release_notes/v0_24_0.md",
-        "README_IMPORT_v0_24_0.md",
-        "ultimate_ai_agent_master_plan_v0_24_0.md",
+        "docs/archive/releases/v0_24_0/README_IMPORT.md",
+        "docs/archive/releases/v0_24_0/master_plan.md",
         "docs/implementation/foundation_gate_implementation_plan_v0_24_0.md",
     ]
     for rel_path in m20_files:

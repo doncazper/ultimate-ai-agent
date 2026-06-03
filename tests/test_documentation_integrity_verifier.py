@@ -217,14 +217,14 @@ def _write_minimal_repo(root: Path, version: str = "0.14.6") -> None:
         "pyproject.toml": f'[project]\nversion = "{version}"\n',
         "src/ultimate_ai_agent/__init__.py": f'__version__ = "{version}"\n',
         "README.md": (
-            f"README_IMPORT_v{version_key}.md\n"
-            f"ultimate_ai_agent_master_plan_v{version_key}.md\n"
+            f"docs/archive/releases/v{version_key}/README_IMPORT.md\n"
+            f"docs/archive/releases/v{version_key}/master_plan.md\n"
             "docs/DOCUMENTATION_INDEX.md\n"
             "docs/canonical/CANONICAL_DOC_MAP.md\n"
             "docs/openwebui/OPENWEBUI_BRIDGE_CONTRACT.md\n"
         ),
-        f"README_IMPORT_v{version_key}.md": "active import\n",
-        f"ultimate_ai_agent_master_plan_v{version_key}.md": "active master\n",
+        f"docs/archive/releases/v{version_key}/README_IMPORT.md": "active import\n",
+        f"docs/archive/releases/v{version_key}/master_plan.md": "active master\n",
         f"docs/release_notes/v{version_key}.md": "active release notes\n",
         f"docs/implementation/foundation_gate_implementation_plan_v{version_key}.md": "active gate plan\n",
     }
@@ -374,6 +374,8 @@ def _write_minimal_repo(root: Path, version: str = "0.14.6") -> None:
         "source-of-truth docs\nnotes\n"
     )
     files["docs/roadmap/NEXT_SEQUENCE_v0_17_5.md"] = (
+        "Status: historical roadmap projection\n"
+        "Current roadmap: docs/canonical/09_roadmap.md\n"
         "v0.17.4 - local browser smoke / UX polish, not M14\n"
         "M14 - Web Control Center Local Backend Connection Stabilization\n"
         "M15 - Approval Queue + Receipt/Event Viewer UI\n"

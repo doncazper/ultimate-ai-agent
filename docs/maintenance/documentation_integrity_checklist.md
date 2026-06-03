@@ -1,6 +1,6 @@
 # Documentation Integrity Checklist
 
-Status: Active maintenance checklist, v0.28.2
+Status: Active maintenance checklist, v0.29.3
 
 Run this checklist before every release that changes docs, roadmap, API metadata, runtime boundaries, or release status.
 
@@ -8,14 +8,14 @@ Run this checklist before every release that changes docs, roadmap, API metadata
 
 - `VERSION.md` active baseline matches `pyproject.toml`.
 - `VERSION.md` active baseline matches `src/ultimate_ai_agent/__init__.py`.
-- `README.md` points to the active `README_IMPORT_vX_Y_Z.md`.
-- `README.md` points to the active `ultimate_ai_agent_master_plan_vX_Y_Z.md`.
+- `README.md` points to active docs and the archived current release packet.
+- current release packet exists under `docs/archive/releases/vX_Y_Z/`.
 - active release notes exist.
 - active Foundation Gate implementation plan exists.
 
 ## Source-of-Truth Hierarchy
 
-- active README/import/master docs identify the current baseline.
+- active README.md, docs/README.md, and archived release-packet docs identify the current baseline.
 - canonical docs are treated as current principle/source-of-truth docs.
 - historical release docs remain historical and are not presented as active truth.
 - backlog docs are clearly future/not implemented.
@@ -103,7 +103,7 @@ Run this checklist before every release that changes docs, roadmap, API metadata
 - Developer environment docs say to use `.venv/bin/python`, not bare `python`, because shell aliases are not reliable for Codex/non-interactive shells and no global Python alias is required.
 ## M19 Documentation Integrity Checks
 
-- active baseline points to v0.28.2.
+- active baseline points to v0.29.3.
 - M19 is implemented as Mobile Companion Contract/API Planning only.
 - M20 is implemented/released as Device Capability Broker Contract only.
 - v0.23.0 / M19 is marked implemented/released in active roadmap docs.
@@ -121,7 +121,7 @@ Run this checklist before every release that changes docs, roadmap, API metadata
 
 ## M20 Documentation Integrity Checks
 
-- active baseline points to v0.28.2.
+- active baseline points to v0.29.3.
 - M20 is implemented/released as Device Capability Broker Contract only.
 - M20 is contract-only.
 - M20 docs say no sensors are implemented.
@@ -130,11 +130,11 @@ Run this checklist before every release that changes docs, roadmap, API metadata
 - M20 docs say capture cannot silently become memory.
 - M20 docs say Device Capability Broker output is not trusted control input by default.
 - M21 is implemented/released as OpenWebUI Bridge + Chat Shell Integration Contract only.
-- M22 is implemented/released contract-only by v0.26.0 and hardened by v0.26.1. M23 is implemented/released by v0.27.0 as manual fixed-prompt local call only and hardened by v0.27.1. M24 is implemented/released by v0.28.0 as governed local memory provider/store foundation, hardened by v0.28.1, and docs-cleaned by v0.28.2. M25 is implemented/released by v0.29.0 as deterministic local truth/evidence contracts and hardened by v0.29.1 for unknown/arbitrary truth ref denial and v0.29.2 for local-dev API authority/raw preview safety. M26-M40 remain planned/provisional.
+- M22 is implemented/released contract-only by v0.26.0 and hardened by v0.26.1. M23 is implemented/released by v0.27.0 as manual fixed-prompt local call only and hardened by v0.27.1. M24 is implemented/released by v0.28.0 as governed local memory provider/store foundation, hardened by v0.28.1, and docs-cleaned by v0.28.2. M25 is implemented/released by v0.29.0 as deterministic local truth/evidence contracts and hardened by v0.29.1 for unknown/arbitrary truth ref denial and v0.29.2 for local-dev API authority/raw preview safety. v0.29.3 reorganizes documentation archives only. M26-M40 remain planned/provisional.
 
 ## M21 Documentation Integrity Checks
 
-- active baseline points to v0.29.2.
+- active baseline points to v0.29.3.
 - M21 is contract/planning/validation only.
 - OpenWebUI is the preferred conversational web shell.
 - OpenWebUI is not the agent brain.
