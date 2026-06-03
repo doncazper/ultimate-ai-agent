@@ -12,14 +12,16 @@ allowed to become operational authority.
 
 | Field | Current state |
 |---|---|
-| Current active baseline | **v0.31.0** |
+| Current active baseline | **v0.31.1** |
 | Current milestone | **M27 - Tool Broker v2 + Safe Tool Intent Contracts** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **74** OpenAPI paths |
 | Production readiness | Not claimed |
 
-M27 is implemented/released as validation-only and preview-only contract logic.
+v0.31.1 is a docs-only normalization release for the GitHub README polish
+commit. M27 remains implemented/released as validation-only and preview-only
+contract logic.
 Tool Broker v2 can review structured tool intents and return safe decisions, but
 it does not execute tools. M26 is implemented/released as grounded recall and
 context-pack planning over provided safe refs only. M28-M40 remain
@@ -39,9 +41,9 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [Control Center frontend safety policy](docs/control_center/FRONTEND_SAFETY_POLICY.md)
 - [M27 Tool Broker v2](docs/tools/TOOL_BROKER_V2.md)
 - [M26 Grounded Recall Router](docs/recall/GROUNDED_RECALL_ROUTER.md)
-- [v0.31.0 release notes](docs/release_notes/v0_31_0.md)
-- [v0.31.0 release packet](docs/archive/releases/v0_31_0/README_IMPORT.md)
-- [v0.31.0 master plan](docs/archive/releases/v0_31_0/master_plan.md)
+- [v0.31.1 release notes](docs/release_notes/v0_31_1.md)
+- [v0.31.1 release packet](docs/archive/releases/v0_31_1/README_IMPORT.md)
+- [v0.31.1 master plan](docs/archive/releases/v0_31_1/master_plan.md)
 
 ## What This Project Is
 
@@ -218,6 +220,7 @@ The canonical roadmap source of truth is
 |---|---|---|
 | v0.30.1 | M26 hardening - Recall Source Ref / Source Kind Consistency | Implemented/released |
 | v0.31.0 | M27 - Tool Broker v2 + Safe Tool Intent Contracts | Implemented/released |
+| v0.31.1 | GitHub README Polish Baseline Normalization | Implemented/released docs-only |
 | v0.32.0 | M28 - Local Sandbox Backend Abstraction | Planned/provisional |
 
 The roadmap intentionally separates contract planning, validation, preview,

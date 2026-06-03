@@ -1,7 +1,7 @@
 # Recall Source Priority
 
 Status: active
-Current through: v0.31.0
+Current through: v0.31.1
 Purpose: Define deterministic M26 recall source ordering.
 
 M26 source priority is:

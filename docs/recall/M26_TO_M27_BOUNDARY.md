@@ -1,7 +1,7 @@
 # M26 To M27 Boundary
 
 Status: active
-Current through: v0.31.0
+Current through: v0.31.1
 Purpose: Record the handoff from M26 recall planning to M27 safe tool intent contracts.
 
 M26 implements and hardens Grounded Recall Router + Evidence-Linked Context Pack

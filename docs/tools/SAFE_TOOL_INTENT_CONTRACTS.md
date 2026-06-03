@@ -1,7 +1,7 @@
 # Safe Tool Intent Contracts
 
 Status: active
-Current through: v0.31.0
+Current through: v0.31.1
 Purpose: Define safe M27 tool intent, target, input, and catalog contracts.
 
 Safe tool intents are structured metadata contracts. They use refs and safe

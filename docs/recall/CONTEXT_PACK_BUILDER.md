@@ -1,7 +1,7 @@
 # Evidence-Linked Context Pack Builder
 
 Status: active
-Current through: v0.31.0
+Current through: v0.31.1
 Purpose: Define the M26 safe context-pack builder contract.
 
 The M26 Context Pack Builder converts a Grounded Recall decision into an

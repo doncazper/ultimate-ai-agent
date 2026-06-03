@@ -1679,8 +1679,8 @@ def verify_m27_tool_broker_v2_safety():
         "docs/tools/TOOL_AUTHORITY_BOUNDARY.md",
         "docs/tools/TOOL_INTENT_RECEIPT_PLAN.md",
         "docs/tools/M27_TO_M28_BOUNDARY.md",
-        "docs/release_notes/v0_31_0.md",
-        "docs/implementation/foundation_gate_implementation_plan_v0_31_0.md",
+        "docs/release_notes/v0_31_1.md",
+        "docs/implementation/foundation_gate_implementation_plan_v0_31_1.md",
     ]
     for rel_path in required_files:
         if not (ROOT / rel_path).exists():
@@ -1783,7 +1783,7 @@ def verify_m27_tool_broker_v2_safety():
         print(f"FAIL: {failure}")
         sys.exit(1)
 
-    manifest = ToolBrokerV2Manifest(baseline_version="0.31.0")
+    manifest = ToolBrokerV2Manifest(baseline_version="0.31.1")
     unsafe_flags = [
         manifest.tool_execution_enabled,
         manifest.backend_execution_routes_added,

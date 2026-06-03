@@ -1,7 +1,7 @@
 # M27 to M28 Boundary
 
 Status: active
-Current through: v0.31.0
+Current through: v0.31.1
 Purpose: Keep M27 Tool Broker v2 separate from future sandbox/runtime work.
 
 v0.31.0 / M27 implements Tool Broker v2 + Safe Tool Intent Contracts as

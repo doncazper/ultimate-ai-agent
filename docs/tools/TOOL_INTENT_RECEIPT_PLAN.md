@@ -1,7 +1,7 @@
 # Tool Intent Receipt Plan
 
 Status: active
-Current through: v0.31.0
+Current through: v0.31.1
 Purpose: Define non-executing receipt plans for M27 tool intent previews.
 
 M27 receipt plans are planning artifacts emitted with safe preview decisions.

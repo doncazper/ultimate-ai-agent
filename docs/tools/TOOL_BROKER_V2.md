@@ -1,7 +1,7 @@
 # Tool Broker v2
 
 Status: active
-Current through: v0.31.0
+Current through: v0.31.1
 Purpose: Define the M27 validation-only Tool Broker v2 contract.
 
 M27 implements Tool Broker v2 as deterministic local contract logic for safe

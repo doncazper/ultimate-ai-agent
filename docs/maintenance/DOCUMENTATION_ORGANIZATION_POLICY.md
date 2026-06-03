@@ -1,7 +1,7 @@
 # Documentation Organization Policy
 
 Status: active
-Current through: v0.29.5
+Current through: v0.31.1
 Purpose: Keep active documentation current while preserving historical release artifacts safely.
 
 ## Root Directory Policy

@@ -1,7 +1,7 @@
 # Roadmap Docs
 
 Status: active
-Current through: v0.31.0
+Current through: v0.31.1
 Purpose: Entry point for active roadmap docs and historical roadmap references.
 
 Current roadmap source of truth:
@@ -29,7 +29,7 @@ original paths.
 active verifier and Foundation Gate checks, but it is a historical roadmap
 projection and not the current roadmap source of truth.
 
-M25 is implemented/hardened. M26 is implemented/released by v0.30.0 as deterministic local grounded recall/context-pack contracts and hardened by v0.30.1 for source_ref/source_kind consistency. M27 is implemented/released by v0.31.0 as validation-only Tool Broker v2 contracts. M28-M40 remain planned/provisional.
+M25 is implemented/hardened. M26 is implemented/released by v0.30.0 as deterministic local grounded recall/context-pack contracts and hardened by v0.30.1 for source_ref/source_kind consistency. M27 is implemented/released by v0.31.0 as validation-only Tool Broker v2 contracts. v0.31.1 is docs-only README polish baseline normalization. M28-M40 remain planned/provisional.
 
 Documentation organization and historical-roadmap handling rules live in
 `docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md`.

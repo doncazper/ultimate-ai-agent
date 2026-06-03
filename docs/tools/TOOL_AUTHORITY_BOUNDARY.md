@@ -1,7 +1,7 @@
 # Tool Authority Boundary
 
 Status: active
-Current through: v0.31.0
+Current through: v0.31.1
 Purpose: State what Tool Broker v2 can and cannot authorize in M27.
 
 Tool Broker v2 output is a validation decision, not an action approval and not
