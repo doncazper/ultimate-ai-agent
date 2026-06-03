@@ -62,7 +62,7 @@ def assert_claim_not_self_verified(evidence_chain) -> bool:
 def assert_memory_not_truth(evidence_chain) -> bool:
     refs = set(evidence_chain.source_refs + evidence_chain.evidence_refs + evidence_chain.memory_refs)
     if any(ref.startswith("memory:") or ":memory:" in ref for ref in refs):
-        return True
+        raise ValueError("Memory refs cannot verify truth.")
     return True
 
 
@@ -70,7 +70,7 @@ def assert_model_output_not_truth(evidence_chain) -> bool:
     refs = set(evidence_chain.source_refs + evidence_chain.evidence_refs)
     blocked_prefixes = ("model:", "runtime:", "openwebui:", "model_output:", "runtime_output:", "openwebui_output:")
     if any(ref.startswith(blocked_prefixes) for ref in refs):
-        return True
+        raise ValueError("Model/runtime/OpenWebUI output refs cannot verify truth.")
     return True
 
 

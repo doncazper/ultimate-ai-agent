@@ -12,12 +12,7 @@ from ultimate_ai_agent.core.truth.enums import (
     VerificationDecisionStatus,
 )
 from ultimate_ai_agent.core.truth.evidence import EvidenceChain, EvidenceRef
-from ultimate_ai_agent.core.truth.validation import (
-    assert_memory_not_truth,
-    assert_model_output_not_truth,
-    assert_no_external_verification,
-    assert_no_raw_truth_content,
-)
+from ultimate_ai_agent.core.truth.validation import assert_no_external_verification, assert_no_raw_truth_content
 
 
 PRIMARY_SOURCE_KINDS = {
@@ -132,11 +127,9 @@ def verify_claim_against_evidence_chain(request: VerificationRequest) -> Verific
         return _decision(request, False, VerificationDecisionStatus.requires_evidence, ClaimStatus.unverified, reasons, warnings)
 
     if any(kind in BLOCKED_OUTPUT_KINDS for kind in source_kinds):
-        assert_model_output_not_truth(chain)
         return _decision(request, False, VerificationDecisionStatus.blocked, ClaimStatus.blocked, reasons, warnings)
 
     if source_kinds and source_kinds.issubset(MEMORY_SOURCE_KINDS):
-        assert_memory_not_truth(chain)
         if request.requested_status == ClaimStatus.verified_by_primary_source:
             reasons.append("MEMORY_ONLY_CANNOT_VERIFY_TRUTH")
         return _decision(request, False, VerificationDecisionStatus.denied, ClaimStatus.source_linked, reasons, warnings)

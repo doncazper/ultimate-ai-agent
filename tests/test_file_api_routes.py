@@ -30,7 +30,7 @@ def test_file_ref_validate_endpoint_blocks_env_file():
     assert response.json()["success"] is False
 
 
-def test_file_read_preview_endpoint_requires_explicit_workspace(tmp_path: Path):
+def test_file_read_preview_endpoint_returns_metadata_only(tmp_path: Path):
     (tmp_path / "note.txt").write_text("hello", encoding="utf-8")
     response = client.post(
         "/files/read/preview",
@@ -50,7 +50,34 @@ def test_file_read_preview_endpoint_requires_explicit_workspace(tmp_path: Path):
     data = response.json()
     assert response.status_code == 200
     assert data["success"] is True
-    assert data["data"]["text_preview"] == "hello"
+    assert data["data"]["text_preview"] == ""
+    assert data["data"]["size_bytes"] == 5
+    assert data["data"]["content_hash"]
+    assert "raw_content_omitted" in data["data"]["redactions_applied"]
+    assert "hello" not in response.text
+
+
+def test_file_read_preview_endpoint_does_not_echo_hostile_path_or_secret(tmp_path: Path):
+    hostile_path = "notes/api_key=supersecretvalue123.txt"
+    response = client.post(
+        "/files/read/preview",
+        json={
+            "workspace_root": str(tmp_path),
+            "request": {
+                "request_id": "frr_hostile",
+                "run_id": "run_123",
+                "actor_context": actor_payload(),
+                "path": hostile_path,
+                "purpose": "preview",
+                "max_bytes": 100,
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["success"] is False
+    assert "supersecretvalue123" not in response.text
+    assert hostile_path not in response.text
 
 
 def test_file_write_propose_and_diff_preview_endpoints_are_safe(tmp_path: Path):

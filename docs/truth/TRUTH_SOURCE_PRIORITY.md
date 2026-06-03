@@ -1,6 +1,6 @@
 # Truth Source Priority
 
-Status: Active for v0.29.1 / M25.
+Status: Active for v0.29.2 / M25.
 
 M25 source priority is deterministic:
 

@@ -1,3 +1,5 @@
+import pytest
+
 from ultimate_ai_agent.core.truth import (
     Claim,
     ClaimRiskLevel,
@@ -56,4 +58,5 @@ def test_memory_kinds_cannot_verify_truth_alone():
     ]:
         decision = verify_claim_against_evidence_chain(memory_request(kind))
         assert decision.allowed is False
-        assert_memory_not_truth(memory_request(kind).evidence_chain)
+        with pytest.raises(ValueError, match="Memory refs cannot verify truth"):
+            assert_memory_not_truth(memory_request(kind).evidence_chain)

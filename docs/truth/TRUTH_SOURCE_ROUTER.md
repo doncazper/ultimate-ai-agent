@@ -1,6 +1,6 @@
 # Truth Source Router
 
-Status: Active for v0.29.1 / M25.
+Status: Active for v0.29.2 / M25.
 
 M25 adds a deterministic local Truth Source Router over explicitly provided
 source refs and evidence refs. It answers why a claim may be believed by ranking

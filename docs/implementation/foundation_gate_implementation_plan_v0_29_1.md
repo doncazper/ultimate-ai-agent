@@ -1,6 +1,6 @@
 # Foundation Gate Implementation Plan v0.29.1
 
-Status: Active for v0.29.1 / M25 hardening.
+Status: Historical for v0.29.1 / M25 hardening.
 
 ## Scope
 

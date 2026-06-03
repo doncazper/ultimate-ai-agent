@@ -23,3 +23,14 @@ def test_kernel_rejects_arbitrary_approval_ref(tmp_path):
     assert result.status == KernelTaskStatus.approval_required
     assert "APPROVAL_REF_UNVALIDATED" in result.errors
     assert not (tmp_path / "notes/m5.md").exists()
+
+
+def test_kernel_rejects_test_prefixed_approval_without_authority(tmp_path):
+    kernel_request = request(tmp_path).model_copy(update={"approval_ref": "approval_test_create"})
+
+    result = MinimumKernelRunner().run_task(kernel_request)
+
+    assert result.success is False
+    assert result.status == KernelTaskStatus.approval_required
+    assert "APPROVAL_REF_UNVALIDATED" in result.errors
+    assert not (tmp_path / "notes/m5.md").exists()

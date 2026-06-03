@@ -1,13 +1,13 @@
-# Ultimate AI Agent Canonical Bundle v0.29.1
+# Ultimate AI Agent Canonical Bundle v0.29.2
 
-This is the active project baseline after v0.29.1 / M25 Truth Source Router +
-Evidence Claim Checker safety hardening.
+This is the active project baseline after v0.29.2 / M25 local-dev API
+authority and raw preview safety hardening.
 
 Start here:
 
 ```text
-README_IMPORT_v0_29_1.md
-ultimate_ai_agent_master_plan_v0_29_1.md
+README_IMPORT_v0_29_2.md
+ultimate_ai_agent_master_plan_v0_29_2.md
 docs/DOCUMENTATION_INDEX.md
 docs/canonical/09_roadmap.md
 docs/canonical/CANONICAL_DOC_MAP.md
@@ -136,7 +136,7 @@ docs/truth/MEMORY_TRUTH_BOUNDARY.md
 docs/truth/TRUTH_NON_GOALS.md
 docs/truth/M25_TO_M26_BOUNDARY.md
 docs/security/approval_authority.md
-docs/implementation/foundation_gate_implementation_plan_v0_29_1.md
+docs/implementation/foundation_gate_implementation_plan_v0_29_2.md
 docs/maintenance/documentation_integrity_checklist.md
 docs/tooling/CODEX_PLUGIN_CAPABILITY_INVENTORY.md
 docs/tooling/CODEX_PLUGIN_RISK_POLICY.md
@@ -155,9 +155,9 @@ Truth-source rule:
 
 > The model is never the source of truth. Governed source systems, canonical files, approved APIs, databases, source documents, Event Ledger records, World State snapshots, and evidence manifests define truth. Memory helps recall; it does not outrank canonical truth.
 
-M25 truth/evidence rule:
+M25 truth/evidence and local-dev API hardening rule:
 
-> v0.29.1 hardens M25 as deterministic, local, contract-only truth source routing and evidence claim checking over explicitly provided refs. Unknown and arbitrary refs cannot verify claims, explicit `TruthSourceKind.unknown` is denied, claims cannot self-verify, and evidence-supported or verified status requires recognized structured source/evidence refs. It adds no web search, external verification, source fetching, model/provider calls, local LLM calls, retrieval/RAG/vector/embedding behavior, memory writes, evidence mutation, backend routes, dependencies, M26 context-pack builder, or production authority. Memory is recall, not authority. Model/runtime/OpenWebUI/Control Center output cannot verify truth. M26 remains future.
+> v0.29.2 keeps M25 deterministic, local, contract-only truth source routing and evidence claim checking over explicitly provided refs while hardening local-dev API authority and raw preview safety. Unknown and arbitrary refs cannot verify claims, explicit `TruthSourceKind.unknown` is denied, claims cannot self-verify, and evidence-supported or verified status requires recognized structured source/evidence refs. Test-prefixed `approval_test_*` refs are not fallback authority in Tool Broker/kernel mutation paths, public `/kernel/tasks/run` local-dev mutation requests are dry-run-only, file read previews are metadata-only by default, and API safe messages must not echo raw exception strings or hostile invalid input. It adds no web search, external verification, source fetching, model/provider calls, local LLM calls, retrieval/RAG/vector/embedding behavior, memory writes, evidence mutation, backend routes, dependencies, M26 context-pack builder, or production authority. Memory is recall, not authority. Model/runtime/OpenWebUI/Control Center output cannot verify truth. M26 remains future.
 
 Observability standards rule:
 
@@ -192,7 +192,7 @@ OpenWebUI bridge contract rule:
 
 Local model runtime activation contract rule:
 
-> v0.26.0 implements M22 Local Model Runtime Activation Contract as contract/planning/validation only. v0.26.1 hardens M22 verifier precision and metadata key secret hygiene. v0.27.0 implements M23 First Real Local LLM Call as manual/CLI-only, loopback-only, fixed-prompt-only, approval-gated, non-tool, and non-authoritative. v0.27.1 hardens M23 endpoint-label safety, approval evidence checks, response redaction/caps, CLI guardrails, policy docs, static verification, Foundation Gate criteria, and Foundation Gate report atomic write/replace safety. v0.28.0 implements M24 Memory Provider Abstraction + Local Memory Store as governed reviewed-write-only local memory foundation. v0.28.1 repairs the public M24 memory request contract and hardens M24 memory safety checks. v0.28.2 removes a duplicate/conflicting v0.28.1 roadmap status row only. v0.29.0 implements M25 Truth Source Router + Evidence Claim Checker as deterministic local contracts over provided refs only. v0.29.1 hardens M25 unknown/arbitrary truth ref denial. Memory is recall, not authority. Memory is not ground truth. OpenAPI path count remains `74`. This release adds no backend route, truth verification route, web search, external verification, source fetching, runtime activation, endpoint probe, user-content model call, arbitrary prompt input, provider SDK, runtime package, tokenizer, billing API, OpenWebUI memory write, Control Center memory mutation, tool output write, mobile capture write, automatic memory write, vector DB, embeddings, cloud memory, context injection, dependency, production persistence, or production authority. M26-M40 remain planned/provisional.
+> v0.26.0 implements M22 Local Model Runtime Activation Contract as contract/planning/validation only. v0.26.1 hardens M22 verifier precision and metadata key secret hygiene. v0.27.0 implements M23 First Real Local LLM Call as manual/CLI-only, loopback-only, fixed-prompt-only, approval-gated, non-tool, and non-authoritative. v0.27.1 hardens M23 endpoint-label safety, approval evidence checks, response redaction/caps, CLI guardrails, policy docs, static verification, Foundation Gate criteria, and Foundation Gate report atomic write/replace safety. v0.28.0 implements M24 Memory Provider Abstraction + Local Memory Store as governed reviewed-write-only local memory foundation. v0.28.1 repairs the public M24 memory request contract and hardens M24 memory safety checks. v0.28.2 removes a duplicate/conflicting v0.28.1 roadmap status row only. v0.29.0 implements M25 Truth Source Router + Evidence Claim Checker as deterministic local contracts over provided refs only. v0.29.1 hardens M25 unknown/arbitrary truth ref denial. v0.29.2 hardens local-dev API authority and raw preview safety without adding routes. Memory is recall, not authority. Memory is not ground truth. OpenAPI path count remains `74`. This release adds no backend route, truth verification route, web search, external verification, source fetching, runtime activation, endpoint probe, user-content model call, arbitrary prompt input, provider SDK, runtime package, tokenizer, billing API, OpenWebUI memory write, Control Center memory mutation, tool output write, mobile capture write, automatic memory write, vector DB, embeddings, cloud memory, context injection, dependency, production persistence, or production authority. M26-M40 remain planned/provisional.
 
 Roadmap status label cleanup rule:
 

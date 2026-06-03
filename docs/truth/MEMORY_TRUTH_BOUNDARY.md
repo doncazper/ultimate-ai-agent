@@ -1,6 +1,6 @@
 # Memory Truth Boundary
 
-Status: Active for v0.29.1 / M25.
+Status: Active for v0.29.2 / M25.
 
 Memory is recall, not authority. Memory is not ground truth.
 

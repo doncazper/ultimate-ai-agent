@@ -1,5 +1,7 @@
 from pathlib import Path
+from types import SimpleNamespace
 
+from ultimate_ai_agent.core.approvals import ApprovalRiskLevel, ApprovalSubjectType, LocalApprovalAuthority
 from ultimate_ai_agent.core.consent import ConsentGrant
 from ultimate_ai_agent.core.consent.enums import ConsentScopeType, ConsentSubjectType, DataBoundary, PermissionAction
 from ultimate_ai_agent.core.hygiene.actor_context import ActorContext, ActorType, AuthoritySource
@@ -51,11 +53,36 @@ def request(tmp_path: Path) -> KernelTaskRequest:
     )
 
 
+def grant_for_kernel_request(authority: LocalApprovalAuthority, kernel_request: KernelTaskRequest):
+    approval_request = authority.create_request(
+        LocalApprovalAuthority.request_for_tool_request(
+            SimpleNamespace(
+                request_id=f"tr_{kernel_request.request_id}",
+                run_id=kernel_request.run_id,
+                tool_id="file.write.local_dev",
+                actor_context=kernel_request.actor_context,
+                requested_action="create",
+                purpose=kernel_request.purpose,
+                data_classification=kernel_request.data_classification,
+                consent_refs=[grant.consent_id for grant in kernel_request.consent_grants],
+            ),
+            subject_type=ApprovalSubjectType.tool_request,
+            subject_id=f"tr_{kernel_request.request_id}",
+            resource_refs=["file.write.local_dev"],
+            risk_level=ApprovalRiskLevel.high,
+        )
+    )
+    return authority.grant(approval_request.approval_request_id, approved_by_actor_id="human_reviewer")
+
+
 def test_minimum_lovable_kernel_happy_path_writes_receipts_and_memory(tmp_path):
     memory_store = MemoryStore()
-    runner = MinimumKernelRunner(memory_store=memory_store)
+    kernel_request = request(tmp_path).model_copy(update={"run_id": "run_kernel_happy", "approval_ref": None})
+    authority = LocalApprovalAuthority()
+    grant = grant_for_kernel_request(authority, kernel_request)
+    runner = MinimumKernelRunner(memory_store=memory_store, approval_authority=authority)
 
-    result = runner.run_task(request(tmp_path))
+    result = runner.run_task(kernel_request.model_copy(update={"approval_ref": grant.approval_ref}))
 
     assert result.success is True
     assert result.status == KernelTaskStatus.completed

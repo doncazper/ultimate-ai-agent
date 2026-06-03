@@ -1,6 +1,6 @@
 {
   "name": "@ultimate-ai-agent/control-center",
-  "version": "0.29.1",
+  "version": "0.29.2",
   "private": true,
   "type": "module",
   "scripts": {

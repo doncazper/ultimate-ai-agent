@@ -1,6 +1,6 @@
 # M25 To M26 Boundary
 
-Status: Active for v0.29.1 / M25.
+Status: Active for v0.29.2 / M25.
 
 M25 validates claim and evidence refs. M25 does not build context packs. M25
 does not add recall routing. M25 does not add context injection. M25 does not

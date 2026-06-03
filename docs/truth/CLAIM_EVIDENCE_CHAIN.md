@@ -1,6 +1,6 @@
 # Claim Evidence Chain
 
-Status: Active for v0.29.1 / M25.
+Status: Active for v0.29.2 / M25.
 
 An M25 evidence chain links claim refs, evidence refs, source refs, event refs,
 receipt refs, memory refs, conflict refs, stale refs, and revocation refs.

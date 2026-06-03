@@ -231,14 +231,15 @@ def test_high_risk_tool_with_unvalidated_approval_ref_stays_approval_required(ac
     assert "APPROVAL_REF_UNVALIDATED" in decision.reason_codes
 
 
-def test_high_risk_tool_with_test_approval_ref_can_pass_in_mock_mode(actor_context):
+def test_high_risk_tool_with_test_approval_ref_stays_approval_required(actor_context):
     decision = evaluate_with_tool(
         make_request(actor_context, approval_ref="approval_test_123"),
         make_tool(risk_level=ToolRiskLevel.high, execution_mode=ToolExecutionMode.mock),
     )
 
-    assert decision.status == ToolDecisionStatus.allowed
-    assert decision.reason_codes == ["AUTHORIZED"]
+    assert decision.status == ToolDecisionStatus.approval_required
+    assert decision.approval_required is True
+    assert "APPROVAL_REF_UNVALIDATED" in decision.reason_codes
 
 
 def test_external_action_without_valid_approval_is_approval_required(actor_context):

@@ -123,7 +123,7 @@ M35 mentions Device Capability Broker Implementation, No Sensors.
 M38 is Browser Automation Contract, No Execution.
 M39 is Observability Export Adapters.
 M40 is Agent Evaluation + Regression Harness.
-M21-M40 remain planned/provisional in the v0.18.4 projection; by v0.29.1,
+M21-M40 remain planned/provisional in the v0.18.4 projection; by v0.29.2,
 M25 is implemented/released and hardened, and M26-M40 remain planned/provisional.
 Docs do not claim future milestone implementation before dedicated milestones.
 Foundation Gate includes post_m20_roadmap_projection_present.
@@ -158,6 +158,23 @@ Unknown refs cannot produce verified_by_primary_source.
 Unknown refs cannot produce allowed source_linked status.
 Claim self-verification remains denied.
 Valid recognized canonical primary-source evidence still succeeds.
+M25 adds no backend API route and OpenAPI path count remains unchanged at 74.
+M26 remains future as Grounded Recall Router + Evidence-Linked Context Pack Builder.
+```
+
+## v0.29.2 M25 Local Dev API Authority And Raw Preview Tests
+
+v0.29.2 adds focused regression, verifier, and Foundation Gate tests only for
+M25 hardening:
+
+```text
+Tool Broker no longer treats approval_test_* refs as fallback authority.
+MinimumKernelRunner rejects test-prefixed approval refs without explicit LocalApprovalAuthority.
+Public /kernel/tasks/run local-dev mutation requests are dry-run-only and do not write files.
+Public file read preview responses are metadata-only by default and mark raw_content_omitted.
+Secret-like file preview refs are rejected without echoing hostile paths or values.
+API handlers do not use raw exception strings as safe messages or details.
+Direct truth memory/model authority helpers fail closed for unsafe refs.
 M25 adds no backend API route and OpenAPI path count remains unchanged at 74.
 M26 remains future as Grounded Recall Router + Evidence-Linked Context Pack Builder.
 ```
@@ -306,7 +323,7 @@ v0.23.1 adds cleanup/hardening tests only:
 ```text
 Roadmap currentness marks v0.23.0 / M19 implemented/released.
 Roadmap currentness marks v0.24.0 / M20 implemented/released as contract-only.
-M21-M40 were planned/provisional at M19 cleanup time. By v0.29.1, M25 is
+M21-M40 were planned/provisional at M19 cleanup time. By v0.29.2, M25 is
 implemented/released and hardened, and M26-M40 remain planned/provisional.
 Contacts and calendar capability plans cannot be enabled.
 Contacts and calendar capability plans require a future Device Capability Broker.

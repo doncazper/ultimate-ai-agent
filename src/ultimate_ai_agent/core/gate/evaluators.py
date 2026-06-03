@@ -1,6 +1,7 @@
 from pathlib import Path
 import json
 import re
+import tempfile
 from typing import Callable, Dict, Iterable, List, Optional
 
 from pydantic import ValidationError
@@ -633,6 +634,9 @@ class FoundationGateEvaluator:
             "m24_memory_provider_local_store_safe": self.check_m24_memory_provider_local_store_safe,
             "m25_truth_source_router_contracts_valid": self.check_m25_truth_source_router_contracts_valid,
             "m25_truth_openapi_routes_unchanged": self.check_m25_truth_openapi_routes_unchanged,
+            "v0292_local_dev_api_authority_and_preview_safe": (
+                self.check_v0292_local_dev_api_authority_and_preview_safe
+            ),
             "m25_m26_remains_future": self.check_m25_m26_remains_future,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
@@ -5016,7 +5020,11 @@ class FoundationGateEvaluator:
             memory_decision = verify_claim_against_evidence_chain(memory_request)
             if memory_decision.allowed:
                 failures.append("M25 allowed memory-only verification")
-            assert_memory_not_truth(memory_chain)
+            try:
+                assert_memory_not_truth(memory_chain)
+                failures.append("M25 memory assertion helper did not reject memory refs")
+            except ValueError:
+                pass
 
             model_chain = safe_chain.model_copy(
                 update={
@@ -5047,7 +5055,11 @@ class FoundationGateEvaluator:
             model_decision = verify_claim_against_evidence_chain(model_request)
             if model_decision.allowed:
                 failures.append("M25 allowed model-output verification")
-            assert_model_output_not_truth(model_chain)
+            try:
+                assert_model_output_not_truth(model_chain)
+                failures.append("M25 model-output assertion helper did not reject model refs")
+            except ValueError:
+                pass
 
             unknown_chain = safe_chain.model_copy(
                 update={
@@ -5152,6 +5164,133 @@ class FoundationGateEvaluator:
         except Exception as exc:
             failures.append(f"M25 OpenAPI route validation failed: {exc}")
         return self._result(criterion, failures, [])
+
+    def check_v0292_local_dev_api_authority_and_preview_safe(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/api/app.py",
+            "src/ultimate_ai_agent/core/tools/broker.py",
+            "src/ultimate_ai_agent/core/truth/validation.py",
+            "tests/test_kernel_api_routes.py",
+            "tests/test_file_api_routes.py",
+            "tests/test_api_safe_exception_messages.py",
+        ]
+        failures = [f"missing v0.29.2 hardening file: {path}" for path in required_files if not (self.root / path).exists()]
+        try:
+            from fastapi.testclient import TestClient
+
+            from ultimate_ai_agent.api.app import app
+            from ultimate_ai_agent.core.kernel import KernelTaskStatus, MinimumKernelRunner
+
+            client = TestClient(app)
+            def kernel_payload(workspace_root: Path, approval_ref: str):
+                return {
+                    "request_id": "ktr_gate_v0292",
+                    "run_id": "run_gate_v0292",
+                    "actor_context": {
+                        "actor_type": "human_user",
+                        "actor_id": "gate_user",
+                        "authority_source": "explicit_user_request",
+                    },
+                    "user_id": "gate_user",
+                    "workspace_root": str(workspace_root),
+                    "task_type": "create_dev_file",
+                    "user_request": "Create a local dev note.",
+                    "target_path": "notes/m5.md",
+                    "new_content": "# Gate\n",
+                    "purpose": "create_dev_note",
+                    "consent_grants": [
+                        {
+                            "consent_id": "consent_gate_v0292",
+                            "subject_type": "user",
+                            "subject_id": "gate_user",
+                            "granted_to_actor": "gate_user",
+                            "on_behalf_of_user_id": "gate_user",
+                            "scope_type": "workspace",
+                            "scope_id": "workspace_gate_v0292",
+                            "allowed_actions": ["create", "update", "write"],
+                            "allowed_resources": ["file.write.local_dev"],
+                            "allowed_data_boundaries": ["project_private"],
+                            "allowed_purposes": ["create_dev_note"],
+                            "source": "foundation_gate",
+                        }
+                    ],
+                    "approval_ref": approval_ref,
+                    "idempotency_key": "idem_gate_v0292",
+                    "data_classification": "project_private",
+                    "tags": ["foundation_gate", "v0292"],
+                }
+
+            with tempfile.TemporaryDirectory(prefix="uaa-gate-v0292-kernel-") as probe_dir:
+                probe_root = Path(probe_dir)
+                payload = kernel_payload(probe_root, "approval_test_gate")
+                response = client.post("/kernel/tasks/run", json=payload)
+                if response.status_code != 200:
+                    failures.append(f"kernel API dry-run probe returned HTTP {response.status_code}")
+                else:
+                    body = response.json()
+                    data = body.get("data") or {}
+                    if body.get("success") is not True or data.get("status") != KernelTaskStatus.dry_run:
+                        failures.append("kernel API did not force local-dev mutation requests into dry-run")
+                    if (probe_root / "notes" / "m5.md").exists():
+                        failures.append("kernel API dry-run probe created a file")
+
+                direct_result = MinimumKernelRunner().run_payload(kernel_payload(probe_root, "approval_test_gate"))
+                if direct_result.success or "APPROVAL_REF_UNVALIDATED" not in direct_result.errors:
+                    failures.append("kernel runner accepted a test-prefixed approval without authority")
+
+            with tempfile.TemporaryDirectory(prefix="uaa-gate-v0292-preview-") as preview_dir:
+                preview_root = Path(preview_dir)
+                preview_file = preview_root / "note.txt"
+                preview_file.write_text("hello", encoding="utf-8")
+                preview_response = client.post(
+                    "/files/read/preview",
+                    json={
+                        "workspace_root": str(preview_root),
+                        "request": {
+                            "request_id": "frr_gate_v0292",
+                            "run_id": "run_gate_v0292",
+                            "actor_context": {
+                                "actor_type": "human_user",
+                                "actor_id": "gate_user",
+                                "authority_source": "explicit_user_request",
+                            },
+                            "path": "note.txt",
+                            "purpose": "preview",
+                            "max_bytes": 100,
+                        },
+                    },
+                )
+                if preview_response.status_code != 200:
+                    failures.append(f"file preview probe returned HTTP {preview_response.status_code}")
+                else:
+                    preview_body = preview_response.json()
+                    preview_data = preview_body.get("data") or {}
+                    if preview_body.get("success") is not True:
+                        failures.append("file preview metadata probe failed")
+                    if preview_data.get("text_preview") != "":
+                        failures.append("file preview API returned raw text content")
+                    if "hello" in preview_response.text:
+                        failures.append("file preview API echoed raw file content")
+                    if "raw_content_omitted" not in preview_data.get("redactions_applied", []):
+                        failures.append("file preview API did not mark raw content omitted")
+
+            app_source = (self.root / "src" / "ultimate_ai_agent" / "api" / "app.py").read_text(encoding="utf-8")
+            forbidden_exception_echo = (
+                "safe_message=str(e)",
+                "safe_message = str(e)",
+                "detail=str(e)",
+                "detail = str(e)",
+            )
+            failures.extend(
+                f"API handler contains raw exception echo fragment: {fragment}"
+                for fragment in forbidden_exception_echo
+                if fragment in app_source
+            )
+        except Exception as exc:
+            failures.append(f"v0.29.2 local-dev API hardening validation failed: {exc}")
+        return self._result(criterion, failures, required_files)
 
     def check_m25_m26_remains_future(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
         required_docs = [

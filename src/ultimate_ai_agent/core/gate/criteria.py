@@ -1088,6 +1088,15 @@ def default_foundation_gate_criteria() -> List[FoundationGateCriterion]:
             "critical",
         ),
         _criterion(
+            "v0292_local_dev_api_authority_and_preview_safe",
+            "v0.29.2 Local Dev API Authority And Preview Safe",
+            FoundationGateCategory.security,
+            "FoundationGateEvaluator.check_v0292_local_dev_api_authority_and_preview_safe",
+            "v0.29.2 keeps public local-dev kernel APIs dry-run-only without explicit authority, rejects test-prefixed approval refs in core Tool Broker/kernel paths, returns metadata-only file read previews by default, and avoids raw exception-message echo.",
+            "v0.29.2 local-dev API authority or raw preview hardening regressed.",
+            "critical",
+        ),
+        _criterion(
             "m25_m26_remains_future",
             "M25 Keeps M26 Future",
             FoundationGateCategory.documentation,

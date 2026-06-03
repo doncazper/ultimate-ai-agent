@@ -3,6 +3,7 @@ import sys
 import subprocess
 import re
 import os
+import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -26,6 +27,7 @@ SCAN_SEQUENCE = [
     ("M23 first local LLM call boundary scan", "verify_m23_first_local_llm_call_boundary"),
     ("M24 memory provider local store safety scan", "verify_m24_memory_provider_local_store_safety"),
     ("M25 truth source evidence checker safety scan", "verify_m25_truth_source_evidence_checker_safety"),
+    ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
     ("production truth integration scan", "verify_no_production_truth_integrations"),
     ("broad filesystem scan", "verify_no_broad_filesystem_scanning"),
@@ -1130,8 +1132,8 @@ def verify_m25_truth_source_evidence_checker_safety():
         "docs/truth/MEMORY_TRUTH_BOUNDARY.md",
         "docs/truth/TRUTH_NON_GOALS.md",
         "docs/truth/M25_TO_M26_BOUNDARY.md",
-        "docs/release_notes/v0_29_1.md",
-        "docs/implementation/foundation_gate_implementation_plan_v0_29_1.md",
+        "docs/release_notes/v0_29_2.md",
+        "docs/implementation/foundation_gate_implementation_plan_v0_29_2.md",
     ]
     for rel_path in required_files:
         if not (ROOT / rel_path).exists():
@@ -1327,6 +1329,133 @@ def verify_m25_truth_source_evidence_checker_safety():
         sys.exit(1)
 
     print("OK: M25 truth source/evidence checker remains deterministic, local, route-free, and non-authoritative")
+
+
+def verify_v0292_local_dev_api_hardening():
+    print("\n[Verifier] Running v0.29.2 local dev API authority/raw preview hardening guard...")
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from fastapi.testclient import TestClient
+
+        from tests.test_kernel_minimum_lovable_happy_path import request as kernel_request
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.kernel import KernelTaskStatus, MinimumKernelRunner
+
+        client = TestClient(app)
+        with tempfile.TemporaryDirectory(prefix="uaa-verify-v0292-kernel-") as probe_dir:
+            probe_root = Path(probe_dir)
+            payload = kernel_request(probe_root).model_dump(mode="json")
+            payload["approval_ref"] = "approval_test_verify"
+            response = client.post("/kernel/tasks/run", json=payload)
+            if response.status_code != 200:
+                print(f"FAIL: kernel task API probe returned HTTP {response.status_code}")
+                sys.exit(1)
+            body = response.json()
+            data = body.get("data") or {}
+            if body.get("success") is not True or data.get("status") != KernelTaskStatus.dry_run:
+                print("FAIL: kernel task API did not force local-dev mutation into dry-run")
+                sys.exit(1)
+            if (probe_root / "notes" / "m5.md").exists():
+                print("FAIL: kernel task API dry-run probe created a file")
+                sys.exit(1)
+
+            direct_result = MinimumKernelRunner().run_task(
+                kernel_request(probe_root).model_copy(update={"approval_ref": "approval_test_verify"})
+            )
+            if direct_result.success or "APPROVAL_REF_UNVALIDATED" not in direct_result.errors:
+                print("FAIL: kernel runner accepted test-prefixed approval without explicit authority")
+                sys.exit(1)
+
+        with tempfile.TemporaryDirectory(prefix="uaa-verify-v0292-preview-") as preview_dir:
+            preview_root = Path(preview_dir)
+            (preview_root / "note.txt").write_text("hello", encoding="utf-8")
+            response = client.post(
+                "/files/read/preview",
+                json={
+                    "workspace_root": str(preview_root),
+                    "request": {
+                        "request_id": "frr_verify_v0292",
+                        "run_id": "run_verify_v0292",
+                        "actor_context": {
+                            "actor_type": "human_user",
+                            "actor_id": "verify_user",
+                            "authority_source": "explicit_user_request",
+                        },
+                        "path": "note.txt",
+                        "purpose": "preview",
+                        "max_bytes": 100,
+                    },
+                },
+            )
+            if response.status_code != 200:
+                print(f"FAIL: file preview API probe returned HTTP {response.status_code}")
+                sys.exit(1)
+            body = response.json()
+            data = body.get("data") or {}
+            if body.get("success") is not True:
+                print("FAIL: file preview API metadata probe failed")
+                sys.exit(1)
+            if data.get("text_preview") != "":
+                print("FAIL: file preview API returned raw text preview")
+                sys.exit(1)
+            if "hello" in response.text:
+                print("FAIL: file preview API echoed raw file content")
+                sys.exit(1)
+            if "raw_content_omitted" not in data.get("redactions_applied", []):
+                print("FAIL: file preview API did not report raw_content_omitted")
+                sys.exit(1)
+
+            secret = "supersecretvalue123"
+            hostile_path = f"notes/api_key={secret}.txt"
+            hostile_response = client.post(
+                "/files/read/preview",
+                json={
+                    "workspace_root": str(preview_root),
+                    "request": {
+                        "request_id": "frr_verify_v0292_hostile",
+                        "run_id": "run_verify_v0292",
+                        "actor_context": {
+                            "actor_type": "human_user",
+                            "actor_id": "verify_user",
+                            "authority_source": "explicit_user_request",
+                        },
+                        "path": hostile_path,
+                        "purpose": "preview",
+                        "max_bytes": 100,
+                    },
+                },
+            )
+            if hostile_response.status_code != 200 or hostile_response.json().get("success") is not False:
+                print("FAIL: file preview API did not safely reject hostile secret-like path")
+                sys.exit(1)
+            if secret in hostile_response.text or hostile_path in hostile_response.text:
+                print("FAIL: file preview API echoed a hostile path or secret-like path value")
+                sys.exit(1)
+
+        broker_source = (ROOT / "src" / "ultimate_ai_agent" / "core" / "tools" / "broker.py").read_text(
+            encoding="utf-8"
+        )
+        if "approval_test_" in broker_source:
+            print("FAIL: ToolBroker contains test-prefixed approval compatibility fallback")
+            sys.exit(1)
+
+        api_source = (ROOT / "src" / "ultimate_ai_agent" / "api" / "app.py").read_text(encoding="utf-8")
+        forbidden_exception_echo = (
+            "safe_message=str(e)",
+            "safe_message = str(e)",
+            "detail=str(e)",
+            "detail = str(e)",
+        )
+        for fragment in forbidden_exception_echo:
+            if fragment in api_source:
+                print(f"FAIL: API handler contains raw exception echo fragment: {fragment}")
+                sys.exit(1)
+    except Exception as exc:
+        print(f"FAIL: v0.29.2 local dev API hardening guard could not run: {exc}")
+        sys.exit(1)
+
+    print("OK: v0.29.2 local dev APIs remain dry-run/metadata-only with sanitized errors")
 
 
 def verify_no_shell_execution_in_runtime():

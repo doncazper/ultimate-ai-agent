@@ -130,11 +130,11 @@ Run this checklist before every release that changes docs, roadmap, API metadata
 - M20 docs say capture cannot silently become memory.
 - M20 docs say Device Capability Broker output is not trusted control input by default.
 - M21 is implemented/released as OpenWebUI Bridge + Chat Shell Integration Contract only.
-- M22 is implemented/released contract-only by v0.26.0 and hardened by v0.26.1. M23 is implemented/released by v0.27.0 as manual fixed-prompt local call only and hardened by v0.27.1. M24 is implemented/released by v0.28.0 as governed local memory provider/store foundation, hardened by v0.28.1, and docs-cleaned by v0.28.2. M25 is implemented/released by v0.29.0 as deterministic local truth/evidence contracts and hardened by v0.29.1 for unknown/arbitrary truth ref denial. M26-M40 remain planned/provisional.
+- M22 is implemented/released contract-only by v0.26.0 and hardened by v0.26.1. M23 is implemented/released by v0.27.0 as manual fixed-prompt local call only and hardened by v0.27.1. M24 is implemented/released by v0.28.0 as governed local memory provider/store foundation, hardened by v0.28.1, and docs-cleaned by v0.28.2. M25 is implemented/released by v0.29.0 as deterministic local truth/evidence contracts and hardened by v0.29.1 for unknown/arbitrary truth ref denial and v0.29.2 for local-dev API authority/raw preview safety. M26-M40 remain planned/provisional.
 
 ## M21 Documentation Integrity Checks
 
-- active baseline points to v0.28.2.
+- active baseline points to v0.29.2.
 - M21 is contract/planning/validation only.
 - OpenWebUI is the preferred conversational web shell.
 - OpenWebUI is not the agent brain.
@@ -142,4 +142,4 @@ Run this checklist before every release that changes docs, roadmap, API metadata
 - OpenWebUI refs are identifiers only and never authority.
 - no OpenWebUI integration, deployment config, Docker config, plugin/function/pipeline/tool/admin/auth/cookie/API key/admin token workflow, browser profile access, or live OpenWebUI connection is implemented.
 - no backend API route, frontend feature, runtime execution, local LLM call, model/provider call, tool execution, memory write, file access, remote execution, browser automation, Computer Use, mobile sensor access, plugin enablement, dependency, or production authority is added.
-- M22 is implemented/released contract-only by v0.26.0 and hardened by v0.26.1. M23 is implemented/released by v0.27.0 as manual fixed-prompt local call only and hardened by v0.27.1. M24 is implemented/released by v0.28.0 as governed local memory provider/store foundation, hardened by v0.28.1, and docs-cleaned by v0.28.2. M25 remains planned/provisional.
+- At M21 release time, M22-M40 were planned/provisional; current active docs now mark M25 implemented/released and M26-M40 planned/provisional.

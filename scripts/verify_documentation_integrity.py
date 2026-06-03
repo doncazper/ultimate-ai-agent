@@ -1046,8 +1046,12 @@ def _verify_m25_truth_docs(root: Path, version: str | None) -> list[str]:
             "docs/api/openapi_contract.md",
             "docs/api/route_inventory.md",
             "docs/testing/test_strategy_v0.md",
+            f"README_IMPORT_v{version.replace('.', '_')}.md" if version else "",
+            f"ultimate_ai_agent_master_plan_v{version.replace('.', '_')}.md" if version else "",
+            f"docs/release_notes/v{version.replace('.', '_')}.md" if version else "",
+            f"docs/implementation/foundation_gate_implementation_plan_v{version.replace('.', '_')}.md" if version else "",
         ]
-        if (root / rel_path).exists()
+        if rel_path and (root / rel_path).exists()
     )
     active_expectations = {
         "active docs must mark M25/v0.29.0 as implemented/released": "m25 is implemented/released",
@@ -1061,6 +1065,18 @@ def _verify_m25_truth_docs(root: Path, version: str | None) -> list[str]:
     for failure, fragment in active_expectations.items():
         if fragment not in active_docs:
             failures.append(failure)
+
+    if _version_tuple(version) >= (0, 29, 2):
+        v0292_expectations = {
+            "active docs must say v0.29.2 hardens local-dev API authority": "local-dev api authority",
+            "active docs must say kernel task API is dry-run-only": "dry-run-only",
+            "active docs must say file read preview is metadata-only": "metadata-only",
+            "active docs must say raw exception echo is blocked": "raw exception",
+            "active docs must say test-prefixed approval refs are not fallback authority": "approval_test",
+        }
+        for failure, fragment in v0292_expectations.items():
+            if fragment not in active_docs:
+                failures.append(failure)
 
     forbidden_active_claims = [
         "m26 is implemented",

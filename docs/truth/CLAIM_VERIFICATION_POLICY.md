@@ -1,6 +1,6 @@
 # Claim Verification Policy
 
-Status: Active for v0.29.1 / M25.
+Status: Active for v0.29.2 / M25.
 
 Verified status requires primary or source-backed evidence from canonical docs,
 evidence manifests, receipts, Event Ledger records, or user-reviewed sources.

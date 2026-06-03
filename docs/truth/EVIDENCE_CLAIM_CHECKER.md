@@ -1,6 +1,6 @@
 # Evidence Claim Checker
 
-Status: Active for v0.29.1 / M25.
+Status: Active for v0.29.2 / M25.
 
 The Evidence Claim Checker validates a claim against a provided evidence chain.
 It does not discover evidence, crawl files, read arbitrary files, call tools,

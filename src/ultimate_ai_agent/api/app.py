@@ -253,6 +253,11 @@ def _sanitize_validation_location(part: object) -> str:
         return "[redacted]"
     return text
 
+
+def safe_exception_message(code: str) -> str:
+    return f"{code} failed safely; details are redacted."
+
+
 def safe_request_validation_error_response(request: Request, exc: RequestValidationError) -> JSONResponse:
     envelope = ResultEnvelope(
         success=False,
@@ -345,11 +350,11 @@ def post_validate_transition(req: TransitionRequest):
             trace_id=req.run_id,
             data={"run_id": req.run_id, "status": "valid", "new_state": req.next_state}
         )
-    except InvalidStateTransitionError as e:
+    except InvalidStateTransitionError:
         err = ErrorEnvelope(
             code="INVALID_STATE_TRANSITION",
             category=ErrorCategory.validation_error,
-            safe_message=str(e),
+            safe_message=safe_exception_message("REQUEST_PROCESSING_FAILED"),
             severity=Severity.medium,
             retryable=False,
             details_redacted=False,
@@ -374,11 +379,11 @@ def post_preview_receipt(req: ReceiptPreviewRequest):
             trace_id=req.run_id,
             data=receipt.model_dump()
         )
-    except Exception as e:
+    except Exception:
         err = ErrorEnvelope(
             code="RECEIPT_COMPILATION_FAILED",
             category=ErrorCategory.validation_error,
-            safe_message=str(e),
+            safe_message=safe_exception_message("REQUEST_PROCESSING_FAILED"),
             severity=Severity.medium,
             retryable=False,
             details_redacted=False,
@@ -440,11 +445,11 @@ def post_validate_budget(budget: ContextBudget):
             trace_id="system",
             data={"status": "validated", "available_history_tokens": budget.available_history_tokens}
         )
-    except Exception as e:
+    except Exception:
         err = ErrorEnvelope(
             code="CONTEXT_BUDGET_INVALID",
             category=ErrorCategory.validation_error,
-            safe_message=str(e),
+            safe_message=safe_exception_message("REQUEST_PROCESSING_FAILED"),
             severity=Severity.medium,
             retryable=False,
             details_redacted=False,
@@ -470,11 +475,11 @@ def post_validate_local_runtime(req: RuntimeValidateRequest):
             trace_id="system",
             data={"runtime_id": req.manifest.runtime_id, "status": "validated"}
         )
-    except Exception as e:
+    except Exception:
         err = ErrorEnvelope(
             code="LOCAL_RUNTIME_UNSAFE",
             category=ErrorCategory.validation_error,
-            safe_message=str(e),
+            safe_message=safe_exception_message("REQUEST_PROCESSING_FAILED"),
             severity=Severity.medium,
             retryable=False,
             details_redacted=False,
@@ -499,11 +504,11 @@ def post_validate_adapter_manifest(req: AdapterValidateRequest):
             trace_id="system",
             data={"adapter_id": req.manifest.adapter_id, "status": "validated"}
         )
-    except Exception as e:
+    except Exception:
         err = ErrorEnvelope(
             code="ADAPTER_POLICY_VIOLATION",
             category=ErrorCategory.validation_error,
-            safe_message=str(e),
+            safe_message=safe_exception_message("REQUEST_PROCESSING_FAILED"),
             severity=Severity.critical,
             retryable=False,
             details_redacted=False,
@@ -528,7 +533,7 @@ def post_validate_model_profile(profile: ModelCapabilityProfile):
             trace_id=profile.model_profile_id,
             data={"model_profile_id": profile.model_profile_id, "status": "validated"},
         )
-    except Exception as e:
+    except Exception:
         return ResultEnvelope(
             success=False,
             operation="validate_model_profile",
@@ -537,7 +542,7 @@ def post_validate_model_profile(profile: ModelCapabilityProfile):
             error=ErrorEnvelope(
                 code="MODEL_PROFILE_INVALID",
                 category=ErrorCategory.validation_error,
-                safe_message=str(e),
+                safe_message=safe_exception_message("REQUEST_PROCESSING_FAILED"),
                 severity=Severity.medium,
                 retryable=False,
                 details_redacted=True,
@@ -1106,7 +1111,7 @@ def post_validate_cost_budget(budget: CostBudget):
             trace_id=budget.budget_id,
             data={"budget_id": budget.budget_id, "status": "validated"},
         )
-    except Exception as e:
+    except Exception:
         return ResultEnvelope(
             success=False,
             operation="validate_cost_budget",
@@ -1115,7 +1120,7 @@ def post_validate_cost_budget(budget: CostBudget):
             error=ErrorEnvelope(
                 code="COST_BUDGET_INVALID",
                 category=ErrorCategory.validation_error,
-                safe_message=str(e),
+                safe_message=safe_exception_message("REQUEST_PROCESSING_FAILED"),
                 severity=Severity.medium,
                 retryable=False,
                 details_redacted=True,
@@ -1213,11 +1218,11 @@ def post_validate_consent_grant(grant: ConsentGrant):
             trace_id="system",
             data={"consent_id": grant.consent_id, "status": "validated"}
         )
-    except Exception as e:
+    except Exception:
         err = ErrorEnvelope(
             code="CONSENT_GRANT_INVALID",
             category=ErrorCategory.validation_error,
-            safe_message=str(e),
+            safe_message=safe_exception_message("REQUEST_PROCESSING_FAILED"),
             severity=Severity.medium,
             retryable=False,
             details_redacted=False,
@@ -1245,11 +1250,11 @@ def post_evaluate_consent(req: ConsentEvaluateRequest):
             trace_id=req.query.audit_ref.trace_id if req.query.audit_ref else "system",
             data=decision.model_dump()
         )
-    except Exception as e:
+    except Exception:
         err = ErrorEnvelope(
             code="CONSENT_EVALUATION_FAILED",
             category=ErrorCategory.validation_error,
-            safe_message=str(e),
+            safe_message=safe_exception_message("REQUEST_PROCESSING_FAILED"),
             severity=Severity.medium,
             retryable=False,
             details_redacted=False,
@@ -1274,11 +1279,11 @@ def post_validate_tool_manifest(manifest: ToolManifest):
             trace_id="system",
             data={"tool_id": manifest.tool_id, "status": "validated"}
         )
-    except Exception as e:
+    except Exception:
         err = ErrorEnvelope(
             code="TOOL_MANIFEST_INVALID",
             category=ErrorCategory.validation_error,
-            safe_message=str(e),
+            safe_message=safe_exception_message("REQUEST_PROCESSING_FAILED"),
             severity=Severity.medium,
             retryable=False,
             details_redacted=False,
@@ -1318,11 +1323,11 @@ def post_evaluate_tool_request(req: ToolEvaluateRequest):
             trace_id=req.request.run_id,
             data=decision.model_dump()
         )
-    except Exception as e:
+    except Exception:
         err = ErrorEnvelope(
             code="TOOL_EVALUATION_FAILED",
             category=ErrorCategory.validation_error,
-            safe_message=str(e),
+            safe_message=safe_exception_message("REQUEST_PROCESSING_FAILED"),
             severity=Severity.medium,
             retryable=False,
             details_redacted=False,
@@ -1351,11 +1356,11 @@ def post_tool_dry_run(req: ToolDryRunRequest):
             trace_id=req.request.run_id,
             data=plan.model_dump()
         )
-    except Exception as e:
+    except Exception:
         err = ErrorEnvelope(
             code="TOOL_DRY_RUN_FAILED",
             category=ErrorCategory.validation_error,
-            safe_message=str(e),
+            safe_message=safe_exception_message("REQUEST_PROCESSING_FAILED"),
             severity=Severity.medium,
             retryable=False,
             details_redacted=False,
@@ -1380,11 +1385,11 @@ def post_validate_credential_reference(reference: CredentialReference):
             trace_id="system",
             data={"credential_ref": reference.credential_ref, "status": "validated"}
         )
-    except Exception as e:
+    except Exception:
         err = ErrorEnvelope(
             code="CREDENTIAL_REFERENCE_INVALID",
             category=ErrorCategory.validation_error,
-            safe_message=str(e),
+            safe_message=safe_exception_message("REQUEST_PROCESSING_FAILED"),
             severity=Severity.medium,
             retryable=False,
             details_redacted=True,
@@ -1422,11 +1427,11 @@ def post_validate_provider_manifest(manifest: ProviderManifest):
             trace_id="system",
             data={"provider_id": manifest.provider_id, "status": "validated"}
         )
-    except Exception as e:
+    except Exception:
         err = ErrorEnvelope(
             code="PROVIDER_MANIFEST_INVALID",
             category=ErrorCategory.validation_error,
-            safe_message=str(e),
+            safe_message=safe_exception_message("REQUEST_PROCESSING_FAILED"),
             severity=Severity.medium,
             retryable=False,
             details_redacted=True,
@@ -1497,11 +1502,11 @@ def post_validate_memory_record(record: MemoryRecord):
             trace_id=record.event_ref or "system",
             data={"memory_id": record.memory_id, "status": "validated"},
         )
-    except Exception as e:
+    except Exception:
         err = ErrorEnvelope(
             code="MEMORY_RECORD_INVALID",
             category=ErrorCategory.validation_error,
-            safe_message=str(e),
+            safe_message=safe_exception_message("REQUEST_PROCESSING_FAILED"),
             severity=Severity.medium,
             retryable=False,
             details_redacted=True,
@@ -1555,11 +1560,11 @@ def post_validate_file_ref(req: FileRefValidateRequest):
             trace_id="system",
             data={"file_ref": file_ref.file_ref, "status": "validated"},
         )
-    except Exception as e:
+    except Exception:
         err = ErrorEnvelope(
             code="FILE_REF_INVALID",
             category=ErrorCategory.validation_error,
-            safe_message=str(e),
+            safe_message=safe_exception_message("REQUEST_PROCESSING_FAILED"),
             severity=Severity.medium,
             retryable=False,
             details_redacted=True,
@@ -1576,7 +1581,12 @@ def post_validate_file_ref(req: FileRefValidateRequest):
 @app.post("/files/read/preview", response_model=ResultEnvelope)
 def post_preview_file_read(req: FileReadPreviewAPIRequest):
     try:
+        requested_ref = req.request.path or req.request.file_ref or ""
+        if contains_secret_like(requested_ref):
+            raise ValueError("FILE_PREVIEW_REF_UNSAFE")
         preview = LocalFileManager(req.workspace_root).read_preview(req.request)
+        redactions = list(dict.fromkeys([*preview.redactions_applied, "raw_content_omitted"]))
+        preview = preview.model_copy(update={"text_preview": "", "redactions_applied": redactions, "truncated": False})
         return ResultEnvelope(
             success=True,
             operation="preview_file_read",
@@ -1584,11 +1594,11 @@ def post_preview_file_read(req: FileReadPreviewAPIRequest):
             trace_id=req.request.run_id,
             data=preview.model_dump(),
         )
-    except Exception as e:
+    except Exception:
         err = ErrorEnvelope(
             code="FILE_READ_PREVIEW_FAILED",
             category=ErrorCategory.validation_error,
-            safe_message=str(e),
+            safe_message=safe_exception_message("REQUEST_PROCESSING_FAILED"),
             severity=Severity.medium,
             retryable=False,
             details_redacted=True,
@@ -1624,11 +1634,11 @@ def post_preview_file_diff(req: FileWriteAPIRequest):
             trace_id=req.proposal.run_id,
             data={"diff": diff},
         )
-    except Exception as e:
+    except Exception:
         err = ErrorEnvelope(
             code="FILE_DIFF_PREVIEW_FAILED",
             category=ErrorCategory.validation_error,
-            safe_message=str(e),
+            safe_message=safe_exception_message("REQUEST_PROCESSING_FAILED"),
             severity=Severity.medium,
             retryable=False,
             details_redacted=True,
@@ -1653,11 +1663,11 @@ def post_validate_truth_source(source: TruthSourceManifest):
             trace_id=source.event_ref or "system",
             data={"source_id": source.source_id, "status": "validated"},
         )
-    except Exception as e:
+    except Exception:
         err = ErrorEnvelope(
             code="TRUTH_SOURCE_INVALID",
             category=ErrorCategory.validation_error,
-            safe_message=str(e),
+            safe_message=safe_exception_message("REQUEST_PROCESSING_FAILED"),
             severity=Severity.medium,
             retryable=False,
             details_redacted=True,
@@ -1693,11 +1703,11 @@ def post_validate_evidence_manifest(manifest: EvidenceManifest):
             trace_id=manifest.trace_id or manifest.run_id,
             data={"manifest_id": manifest.manifest_id, "status": "validated"},
         )
-    except Exception as e:
+    except Exception:
         err = ErrorEnvelope(
             code="EVIDENCE_MANIFEST_INVALID",
             category=ErrorCategory.validation_error,
-            safe_message=str(e),
+            safe_message=safe_exception_message("REQUEST_PROCESSING_FAILED"),
             severity=Severity.medium,
             retryable=False,
             details_redacted=True,
@@ -1753,7 +1763,26 @@ def post_validate_source_conflict(conflict: SourceConflictReport):
 
 @app.post("/kernel/tasks/run", response_model=ResultEnvelope)
 def post_run_kernel_task(payload: dict):
-    result = MinimumKernelRunner().run_payload(payload)
+    safe_payload = dict(payload)
+    if safe_payload.get("task_type") in {"create_dev_file", "update_dev_file"}:
+        safe_payload["dry_run"] = True
+    if safe_payload.get("task_type") == "rollback_dev_file":
+        return ResultEnvelope(
+            success=False,
+            operation="run_kernel_task",
+            service="MinimumKernelAPI",
+            trace_id=str(safe_payload.get("run_id") or "system"),
+            error=ErrorEnvelope(
+                code="KERNEL_API_MUTATION_BLOCKED",
+                category=ErrorCategory.security_blocked,
+                safe_message="Kernel API mutation is blocked; use an explicitly reviewed authority path.",
+                severity=Severity.high,
+                retryable=False,
+                details_redacted=True,
+                source="MinimumKernelAPI",
+            ),
+        )
+    result = MinimumKernelRunner().run_payload(safe_payload)
     if result.success:
         return ResultEnvelope(
             success=True,

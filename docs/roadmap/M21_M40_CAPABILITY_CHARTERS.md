@@ -1,8 +1,8 @@
 # M21-M40 Capability Charters
 
-Status: Active roadmap projection maintained through v0.29.1. M21 and M22 are implemented/released contract-only; M23 is implemented/released manual fixed-prompt local call only and hardened by v0.27.1; M24 is implemented/released as governed memory provider/local store, hardened by v0.28.1, and docs-cleaned by v0.28.2; M25 is implemented/released contract-only and hardened by v0.29.1; M26-M40 remain planned/provisional.
+Status: Active roadmap projection maintained through v0.29.2. M21 and M22 are implemented/released contract-only; M23 is implemented/released manual fixed-prompt local call only and hardened by v0.27.1; M24 is implemented/released as governed memory provider/local store, hardened by v0.28.1, and docs-cleaned by v0.28.2; M25 is implemented/released contract-only and hardened by v0.29.1 and v0.29.2; M26-M40 remain planned/provisional.
 
-These charters define capability layers after M20. v0.25.0 implements M21 as contract/planning/validation only. v0.26.0 implements M22 as contract/planning/validation only, and v0.26.1 hardens M22 verifier precision plus metadata key secret hygiene only. v0.27.0 implements M23 as manual/CLI-only, loopback-only, fixed-prompt-only, non-tool, and non-authoritative. v0.27.1 hardens M23 local call safety without adding new runtime authority. v0.28.0 implements M24 as governed, reviewed-write-only local memory provider/store foundation, v0.28.1 repairs/hardens the M24 memory contract without adding new authority, and v0.28.2 removes a duplicate roadmap row only. v0.29.0 implements M25 as deterministic local truth/evidence contracts over provided refs only, and v0.29.1 hardens unknown/arbitrary truth ref denial. M26-M40 are still future capability layers. Every milestone requires its own implementation prompt, review prompt, hardening expectation, and validation evidence before release.
+These charters define capability layers after M20. v0.25.0 implements M21 as contract/planning/validation only. v0.26.0 implements M22 as contract/planning/validation only, and v0.26.1 hardens M22 verifier precision plus metadata key secret hygiene only. v0.27.0 implements M23 as manual/CLI-only, loopback-only, fixed-prompt-only, non-tool, and non-authoritative. v0.27.1 hardens M23 local call safety without adding new runtime authority. v0.28.0 implements M24 as governed, reviewed-write-only local memory provider/store foundation, v0.28.1 repairs/hardens the M24 memory contract without adding new authority, and v0.28.2 removes a duplicate roadmap row only. v0.29.0 implements M25 as deterministic local truth/evidence contracts over provided refs only, v0.29.1 hardens unknown/arbitrary truth ref denial, and v0.29.2 hardens local-dev API authority/raw preview safety. M26-M40 are still future capability layers. Every milestone requires its own implementation prompt, review prompt, hardening expectation, and validation evidence before release.
 
 ## Shared Rules
 
@@ -261,7 +261,7 @@ Notes: Conflicts must be visible and reviewable.
 
 ## v0.29.0 / M25 - Truth Source Router + Evidence Claim Checker
 
-Status: implemented/released contract-only; hardened by v0.29.1.
+Status: implemented/released contract-only; hardened by v0.29.1 and v0.29.2.
 
 Purpose: Make model claims inspectable.
 

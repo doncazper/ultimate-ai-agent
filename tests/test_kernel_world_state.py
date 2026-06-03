@@ -1,10 +1,16 @@
-from tests.test_kernel_minimum_lovable_happy_path import request
+from tests.test_kernel_minimum_lovable_happy_path import grant_for_kernel_request, request
 
+from ultimate_ai_agent.core.approvals import LocalApprovalAuthority
 from ultimate_ai_agent.core.kernel import MinimumKernelRunner
 
 
 def test_kernel_world_state_tracks_artifact_events_and_rollback(tmp_path):
-    result = MinimumKernelRunner().run_task(request(tmp_path))
+    authority = LocalApprovalAuthority()
+    kernel_request = request(tmp_path).model_copy(update={"run_id": "run_kernel_world", "approval_ref": None})
+    grant = grant_for_kernel_request(authority, kernel_request)
+    result = MinimumKernelRunner(approval_authority=authority).run_task(
+        kernel_request.model_copy(update={"approval_ref": grant.approval_ref})
+    )
 
     world_state = result.world_state
     assert world_state is not None

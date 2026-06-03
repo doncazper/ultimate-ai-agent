@@ -216,12 +216,6 @@ class ToolBroker:
                 approval_decision = self.approval_authority.validate_for_request(approval_request, request.approval_ref)
                 approval_valid = approval_decision.allowed
                 approval_denial_codes = approval_decision.reason_codes
-            else:
-                approval_valid = (
-                    request.approval_ref is not None
-                    and request.approval_ref.startswith("approval_test_")
-                    and manifest.execution_mode in [ToolExecutionMode.mock, ToolExecutionMode.local_dev]
-                )
             if not approval_valid:
                 reason_codes = list(approval_reasons)
                 if approval_denial_codes:

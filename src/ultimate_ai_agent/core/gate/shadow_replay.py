@@ -1,9 +1,11 @@
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from types import SimpleNamespace
 from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from ultimate_ai_agent.core.approvals import ApprovalRiskLevel, ApprovalSubjectType, LocalApprovalAuthority
 from ultimate_ai_agent.core.consent import ConsentGrant
 from ultimate_ai_agent.core.consent.enums import ConsentScopeType, ConsentSubjectType, DataBoundary, PermissionAction
 from ultimate_ai_agent.core.hygiene.actor_context import ActorContext, ActorType, AuthoritySource
@@ -124,6 +126,28 @@ def _rollback_request(workspace_root: Path, rollback_ref: str) -> KernelTaskRequ
     )
 
 
+def _grant_for_request(authority: LocalApprovalAuthority, request: KernelTaskRequest):
+    approval_request = authority.create_request(
+        LocalApprovalAuthority.request_for_tool_request(
+            SimpleNamespace(
+                request_id=f"tr_{request.request_id}",
+                run_id=request.run_id,
+                tool_id="file.write.local_dev",
+                actor_context=request.actor_context,
+                requested_action="create",
+                purpose=request.purpose,
+                data_classification=request.data_classification,
+                consent_refs=[grant.consent_id for grant in request.consent_grants],
+            ),
+            subject_type=ApprovalSubjectType.tool_request,
+            subject_id=f"tr_{request.request_id}",
+            resource_refs=["file.write.local_dev"],
+            risk_level=ApprovalRiskLevel.high,
+        )
+    )
+    return authority.grant(approval_request.approval_request_id, approved_by_actor_id="foundation_gate")
+
+
 def run_m5_shadow_replay(
     scenario: Optional[ShadowReplayScenario] = None,
     *,
@@ -147,13 +171,20 @@ def _run_m5_shadow_replay_at(
     target = workspace_root / "notes/m5.md"
     failures: List[str] = []
     memory_store = MemoryStore()
-    runner = MinimumKernelRunner(memory_store=memory_store)
+    approval_authority = LocalApprovalAuthority()
+    runner = MinimumKernelRunner(memory_store=memory_store, approval_authority=approval_authority)
 
     if not denial_path:
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text("before\n", encoding="utf-8")
 
-    result = runner.run_task(_request(workspace_root, with_consent=not denial_path))
+    shadow_request = _request(workspace_root, with_consent=not denial_path).model_copy(
+        update={"run_id": "run_shadow_m5", "approval_ref": None}
+    )
+    if not denial_path:
+        grant = _grant_for_request(approval_authority, shadow_request)
+        shadow_request = shadow_request.model_copy(update={"approval_ref": grant.approval_ref})
+    result = runner.run_task(shadow_request)
     events = runner.event_ledger.list_events(result.run_id)
     event_names = [str(event.event_name) for event in events]
     event_ids = [event.event_id for event in events]
