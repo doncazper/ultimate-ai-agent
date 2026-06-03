@@ -1,6 +1,6 @@
 # Documentation Integrity Checklist
 
-Status: Active maintenance checklist, v0.30.1
+Status: Active maintenance checklist, v0.31.0
 
 Run this checklist before every release that changes docs, roadmap, API metadata, runtime boundaries, or release status.
 
@@ -49,7 +49,7 @@ Run this checklist before every release that changes docs, roadmap, API metadata
 - docs do not claim Control Center production authority, plugin enablement, runtime execution, remote dispatch, model/provider invocation, mobile sensor access, native build control, or production Control Center exists unless implemented and gated.
 - docs do not claim design tools, design SaaS sync, UI generators, screenshot-to-code, design-to-code, or automatic design commits are enabled unless implemented and gated.
 - docs do not claim OpenWebUI integration, deployment config, plugin/function/tool bridge, native CCC implementation, Android app, iOS app, macOS app, OS permission integration, signing, keystore, App Store workflow, or Play Store workflow exists unless implemented and gated.
-- docs do not claim M27-M40 capabilities are implemented unless a dedicated future milestone implements and gates them.
+- docs do not claim M28-M40 capabilities are implemented unless a dedicated future milestone implements and gates them.
 - docs do not claim Device Capability Broker runtime implementation, sensor access, device pairing runtime, mobile storage runtime, backend device routes, or device-client authority exists unless implemented and gated.
 - docs do not claim memory provider/local store output is authority, ground truth, automatically written, model-written, OpenWebUI-written, mobile-capture-written, tool-output-written, raw-content-bearing, vector-backed, embedding-backed, cloud-backed, context-injected, production-persistent, or claim-verifying unless a dedicated future milestone implements and gates that behavior.
 
@@ -68,7 +68,7 @@ Run this checklist before every release that changes docs, roadmap, API metadata
 - M14/M15 sequencing remains explicit: M14 is local backend connection stabilization; M15 is approval queue plus receipt/event viewer UI.
 - v0.18.2 design governance remains before M15 and does not implement M15 UI.
 - v0.18.3 OpenWebUI/CCC strategy remains before M15 and does not implement M15 UI, OpenWebUI integration, or native clients.
-- v0.18.4 post-M20 roadmap projection kept M21-M40 planned/provisional at the time; active docs now mark M26 implemented/released and keep M27-M40 planned/provisional.
+- v0.18.4 post-M20 roadmap projection kept M21-M40 planned/provisional at the time; active docs now mark M27 implemented/released and keep M28-M40 planned/provisional.
 - v0.19.0 M15 Approval Queue + Receipt/Event Viewer UI is frontend-only, read-only/preview-only, redacted summary-only, and adds no backend route or production authority.
 - v0.19.1 M15 Approval/Receipt UI safety hardening is frontend/verifier/Foundation Gate only, keeps OpenAPI path count unchanged, treats approval refs as identifiers only, keeps Python Agent Core as approval authority, and adds no approval execution, approve/deny mutation, M16 timeline, backend route, dependency, or production authority.
 - v0.20.0 M16 Event Timeline + Run/Receipt Trace Viewer is frontend-only, read-only, redacted summary-only, uses safe refs/evidence summaries, keeps OpenAPI path count unchanged, and adds no execution, backend route, raw payload display, external telemetry export, dependency, or production authority.
@@ -103,7 +103,7 @@ Run this checklist before every release that changes docs, roadmap, API metadata
 - Developer environment docs say to use `.venv/bin/python`, not bare `python`, because shell aliases are not reliable for Codex/non-interactive shells and no global Python alias is required.
 ## M19 Documentation Integrity Checks
 
-- active baseline points to v0.30.1.
+- active baseline points to v0.31.0.
 - M19 is implemented as Mobile Companion Contract/API Planning only.
 - M20 is implemented/released as Device Capability Broker Contract only.
 - v0.23.0 / M19 is marked implemented/released in active roadmap docs.
@@ -121,7 +121,7 @@ Run this checklist before every release that changes docs, roadmap, API metadata
 
 ## M20 Documentation Integrity Checks
 
-- active baseline points to v0.30.1.
+- active baseline points to v0.31.0.
 - M20 is implemented/released as Device Capability Broker Contract only.
 - M20 is contract-only.
 - M20 docs say no sensors are implemented.
@@ -130,12 +130,12 @@ Run this checklist before every release that changes docs, roadmap, API metadata
 - M20 docs say capture cannot silently become memory.
 - M20 docs say Device Capability Broker output is not trusted control input by default.
 - M21 is implemented/released as OpenWebUI Bridge + Chat Shell Integration Contract only.
-- M22 is implemented/released contract-only by v0.26.0 and hardened by v0.26.1. M23 is implemented/released by v0.27.0 as manual fixed-prompt local call only and hardened by v0.27.1. M24 is implemented/released by v0.28.0 as governed local memory provider/store foundation, hardened by v0.28.1, and docs-cleaned by v0.28.2. M25 is implemented/released by v0.29.0 as deterministic local truth/evidence contracts and hardened by v0.29.1 for unknown/arbitrary truth ref denial and v0.29.2 for local-dev API authority/raw preview safety. v0.29.3 reorganized documentation archives, v0.29.4 repairs archive references plus self-maintaining docs policy coverage, v0.29.5 polishes duplicated policy wording, and v0.30.0 implements M26 deterministic local grounded recall/context-pack contracts, while v0.30.1 hardens recall source identity consistency. M27-M40 remain planned/provisional.
+- M22 is implemented/released contract-only by v0.26.0 and hardened by v0.26.1. M23 is implemented/released by v0.27.0 as manual fixed-prompt local call only and hardened by v0.27.1. M24 is implemented/released by v0.28.0 as governed local memory provider/store foundation, hardened by v0.28.1, and docs-cleaned by v0.28.2. M25 is implemented/released by v0.29.0 as deterministic local truth/evidence contracts and hardened by v0.29.1 for unknown/arbitrary truth ref denial and v0.29.2 for local-dev API authority/raw preview safety. v0.29.3 reorganized documentation archives, v0.29.4 repairs archive references plus self-maintaining docs policy coverage, v0.29.5 polishes duplicated policy wording, v0.30.0 implements M26 deterministic local grounded recall/context-pack contracts, v0.30.1 hardens recall source identity consistency, and v0.31.0 implements M27 validation-only Tool Broker v2 contracts. M28-M40 remain planned/provisional.
 - Future release/review prompts include `docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md` and do not add active-looking historical verifiers to root or active `scripts/`.
 
 ## M21 Documentation Integrity Checks
 
-- active baseline points to v0.30.1.
+- active baseline points to v0.31.0.
 - M21 is contract/planning/validation only.
 - OpenWebUI is the preferred conversational web shell.
 - OpenWebUI is not the agent brain.
@@ -143,4 +143,4 @@ Run this checklist before every release that changes docs, roadmap, API metadata
 - OpenWebUI refs are identifiers only and never authority.
 - no OpenWebUI integration, deployment config, Docker config, plugin/function/pipeline/tool/admin/auth/cookie/API key/admin token workflow, browser profile access, or live OpenWebUI connection is implemented.
 - no backend API route, frontend feature, runtime execution, local LLM call, model/provider call, tool execution, memory write, file access, remote execution, browser automation, Computer Use, mobile sensor access, plugin enablement, dependency, or production authority is added.
-- At M21 release time, M22-M40 were planned/provisional; current active docs now mark M26 implemented/released and M27-M40 planned/provisional.
+- At M21 release time, M22-M40 were planned/provisional; current active docs now mark M27 implemented/released and M28-M40 planned/provisional.

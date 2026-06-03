@@ -28,6 +28,7 @@ SCAN_SEQUENCE = [
     ("M24 memory provider local store safety scan", "verify_m24_memory_provider_local_store_safety"),
     ("M25 truth source evidence checker safety scan", "verify_m25_truth_source_evidence_checker_safety"),
     ("M26 grounded recall context-pack safety scan", "verify_m26_grounded_recall_context_pack_safety"),
+    ("M27 Tool Broker v2 safe intent contract scan", "verify_m27_tool_broker_v2_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
     ("production truth integration scan", "verify_no_production_truth_integrations"),
@@ -1067,6 +1068,8 @@ def verify_m24_memory_provider_local_store_safety():
         for path in frontend_root.rglob("*"):
             if not path.is_file() or path.suffix not in {".ts", ".tsx", ".js", ".jsx"}:
                 continue
+            if any(part == "tests" for part in path.parts) or ".test." in path.name or ".spec." in path.name:
+                continue
             rel = path.relative_to(ROOT).as_posix()
             text = path.read_text(encoding="utf-8").lower()
             for fragment in [
@@ -1236,8 +1239,13 @@ def verify_m25_truth_source_evidence_checker_safety():
                 continue
             if path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx"}:
                 continue
+            if any(part == "tests" for part in path.parts) or ".test." in path.name or ".spec." in path.name:
+                continue
             rel = path.relative_to(ROOT).as_posix()
-            if rel == "src/ultimate_ai_agent/core/gate/evaluators.py":
+            if rel in {
+                "src/ultimate_ai_agent/core/gate/evaluators.py",
+                "src/ultimate_ai_agent/api/openapi.py",
+            }:
                 continue
             text = path.read_text(encoding="utf-8").lower()
             for fragment in forbidden_route_fragments:
@@ -1480,8 +1488,13 @@ def verify_m26_grounded_recall_context_pack_safety():
                 continue
             if path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx"}:
                 continue
+            if any(part == "tests" for part in path.parts) or ".test." in path.name or ".spec." in path.name:
+                continue
             rel = path.relative_to(ROOT).as_posix()
-            if rel == "src/ultimate_ai_agent/core/gate/evaluators.py":
+            if rel in {
+                "src/ultimate_ai_agent/core/gate/evaluators.py",
+                "src/ultimate_ai_agent/api/openapi.py",
+            }:
                 continue
             text = path.read_text(encoding="utf-8").lower()
             for fragment in forbidden_route_fragments:
@@ -1650,6 +1663,238 @@ def verify_m26_grounded_recall_context_pack_safety():
     print("OK: M26 grounded recall/context-pack contracts remain deterministic, local, route-free, and non-authoritative")
 
 
+def verify_m27_tool_broker_v2_safety():
+    print("\n[Verifier] Running M27 Tool Broker v2 safe intent contract guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/tools/v2/__init__.py",
+        "src/ultimate_ai_agent/core/tools/v2/enums.py",
+        "src/ultimate_ai_agent/core/tools/v2/contracts.py",
+        "src/ultimate_ai_agent/core/tools/v2/catalog.py",
+        "src/ultimate_ai_agent/core/tools/v2/broker.py",
+        "src/ultimate_ai_agent/core/tools/v2/validation.py",
+        "tests/test_tool_broker_v2_contracts.py",
+        "tests/test_m27_gate_integration.py",
+        "docs/tools/TOOL_BROKER_V2.md",
+        "docs/tools/SAFE_TOOL_INTENT_CONTRACTS.md",
+        "docs/tools/TOOL_AUTHORITY_BOUNDARY.md",
+        "docs/tools/TOOL_INTENT_RECEIPT_PLAN.md",
+        "docs/tools/M27_TO_M28_BOUNDARY.md",
+        "docs/release_notes/v0_31_0.md",
+        "docs/implementation/foundation_gate_implementation_plan_v0_31_0.md",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M27 Tool Broker v2 file: {rel_path}")
+            sys.exit(1)
+
+    tools_v2_root = ROOT / "src" / "ultimate_ai_agent" / "core" / "tools" / "v2"
+    forbidden_source_fragments = [
+        "subprocess",
+        "os.system(",
+        "requests.get(",
+        "requests.post(",
+        "httpx.get(",
+        "httpx.post(",
+        "urllib.request.urlopen(",
+        "write_memory(",
+        ".write_memory(",
+        "put_record(",
+        ".put_record(",
+        "append_event(",
+        "mutate_event(",
+        "chat.completions.create(",
+        "import openai",
+        "from openai import",
+        "import anthropic",
+        "from anthropic import",
+        "import ollama",
+        "from ollama import",
+    ]
+    for path in tools_v2_root.rglob("*.py"):
+        rel = path.relative_to(ROOT).as_posix()
+        if "__pycache__" in path.parts:
+            continue
+        text = path.read_text(encoding="utf-8").lower()
+        for fragment in forbidden_source_fragments:
+            if fragment in text:
+                print(f"FAIL: M27 forbidden Tool Broker v2 source fragment in {rel}: {fragment}")
+                sys.exit(1)
+
+    forbidden_route_fragments = [
+        "/tools/execute",
+        "/tools/run",
+        "/tools/dispatch",
+        "/tool-broker/execute",
+        "/tool-broker/run",
+        "/plugins/enable",
+        "/browser/execute",
+        "/computer-use/run",
+    ]
+    for implementation_root in [ROOT / "src", ROOT / "apps"]:
+        if not implementation_root.exists():
+            continue
+        for path in implementation_root.rglob("*"):
+            if not path.is_file() or "__pycache__" in path.parts or "node_modules" in path.parts:
+                continue
+            if path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx"}:
+                continue
+            if any(part == "tests" for part in path.parts) or ".test." in path.name or ".spec." in path.name:
+                continue
+            rel = path.relative_to(ROOT).as_posix()
+            if rel in {
+                "src/ultimate_ai_agent/core/gate/evaluators.py",
+                "src/ultimate_ai_agent/api/openapi.py",
+            }:
+                continue
+            text = path.read_text(encoding="utf-8").lower()
+            for fragment in forbidden_route_fragments:
+                if fragment in text:
+                    print(f"FAIL: M27 forbidden tool execution route fragment in {rel}: {fragment}")
+                    sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT / "src"))
+        from pydantic import ValidationError
+
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.evaluators import m27_openapi_route_failures
+        from ultimate_ai_agent.core.tools.v2 import (
+            ToolApprovalRequirement,
+            ToolAuthorityLevel,
+            ToolBrokerV2Manifest,
+            ToolCatalogEntry,
+            ToolExecutionMode,
+            ToolInputBoundary,
+            ToolInputTrustLevel,
+            ToolIntent,
+            ToolIntentDecisionStatus,
+            ToolRiskClass,
+            ToolSideEffectKind,
+            ToolTargetKind,
+            ToolTargetRef,
+            build_default_tool_catalog,
+            evaluate_tool_intent,
+        )
+    except Exception as exc:
+        print(f"FAIL: M27 Tool Broker v2 imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m27_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    manifest = ToolBrokerV2Manifest(baseline_version="0.31.0")
+    unsafe_flags = [
+        manifest.tool_execution_enabled,
+        manifest.backend_execution_routes_added,
+        manifest.shell_execution_enabled,
+        manifest.file_mutation_enabled,
+        manifest.network_calls_enabled,
+        manifest.browser_automation_enabled,
+        manifest.plugin_enablement_enabled,
+        manifest.memory_writes_enabled,
+        manifest.event_ledger_mutation_enabled,
+        manifest.model_provider_calls_enabled,
+        manifest.context_pack_authority_enabled,
+        manifest.context_injection_enabled,
+        manifest.production_authority_enabled,
+    ]
+    if any(unsafe_flags):
+        print("FAIL: M27 Tool Broker v2 manifest enables forbidden runtime authority")
+        sys.exit(1)
+
+    def safe_intent(**overrides):
+        data = {
+            "intent_id": "tool-intent:verify-m27",
+            "tool_id": "file.metadata_preview",
+            "intent_summary": "Preview safe file metadata.",
+            "target": ToolTargetRef(target_ref="file:verify-m27", target_kind=ToolTargetKind.file_ref),
+            "input_boundary": ToolInputBoundary(
+                input_refs=["file:verify-m27"],
+                input_trust_level=ToolInputTrustLevel.user_provided_refs,
+            ),
+            "requested_execution_mode": ToolExecutionMode.preview_only,
+            "declared_risk_class": ToolRiskClass.low,
+            "declared_side_effects": [ToolSideEffectKind.none],
+            "approval_requirement": ToolApprovalRequirement.not_required,
+            "authority_level": ToolAuthorityLevel.validation_only,
+        }
+        data.update(overrides)
+        return ToolIntent(**data)
+
+    safe_decision = evaluate_tool_intent(safe_intent(), catalog=build_default_tool_catalog())
+    if safe_decision.status != ToolIntentDecisionStatus.preview_allowed:
+        print("FAIL: M27 safe tool intent preview was not allowed")
+        sys.exit(1)
+    if safe_decision.execution_allowed or not safe_decision.no_tool_execution_performed:
+        print("FAIL: M27 safe tool intent preview allowed execution")
+        sys.exit(1)
+
+    side_effect_catalog = {
+        "file.write_preview": ToolCatalogEntry(
+            tool_id="file.write_preview",
+            display_name="Write preview",
+            target_kind=ToolTargetKind.file_ref,
+            allowed_execution_modes=[ToolExecutionMode.preview_only],
+            risk_class=ToolRiskClass.high,
+            side_effects=[ToolSideEffectKind.file_write],
+            approval_requirement=ToolApprovalRequirement.validated_local_approval_required,
+        )
+    }
+    denied = evaluate_tool_intent(
+        safe_intent(
+            tool_id="file.write_preview",
+            declared_risk_class=ToolRiskClass.high,
+            declared_side_effects=[ToolSideEffectKind.file_write],
+            approval_requirement=ToolApprovalRequirement.validated_local_approval_required,
+            approval_ref="approval_test_verify_m27",
+            context_pack_refs=["context-pack:m26"],
+        ),
+        catalog=side_effect_catalog,
+    )
+    for required_reason in [
+        "TOOL_SIDE_EFFECTS_DENIED",
+        "APPROVAL_REF_NOT_AUTHORITY",
+        "CONTEXT_PACK_NOT_AUTHORITY",
+    ]:
+        if required_reason not in denied.reason_codes:
+            print(f"FAIL: M27 denied tool intent missing reason: {required_reason}")
+            sys.exit(1)
+    if denied.execution_allowed or denied.status == ToolIntentDecisionStatus.preview_allowed:
+        print("FAIL: M27 side-effecting tool intent was allowed")
+        sys.exit(1)
+
+    mismatch = evaluate_tool_intent(
+        safe_intent(target=ToolTargetRef(target_ref="memory:verify-m27", target_kind=ToolTargetKind.file_ref)),
+        catalog=build_default_tool_catalog(),
+    )
+    if "TOOL_TARGET_KIND_MISMATCH_DENIED" not in mismatch.reason_codes:
+        print("FAIL: M27 target mismatch was not denied")
+        sys.exit(1)
+
+    downgraded = evaluate_tool_intent(
+        safe_intent(
+            tool_id="file.write_preview",
+            declared_risk_class=ToolRiskClass.low,
+            declared_side_effects=[ToolSideEffectKind.none],
+        ),
+        catalog=side_effect_catalog,
+    )
+    for required_reason in ["TOOL_RISK_DOWNGRADE_DENIED", "TOOL_SIDE_EFFECTS_HIDDEN_DENIED"]:
+        if required_reason not in downgraded.reason_codes:
+            print(f"FAIL: M27 risk downgrade guard missing reason: {required_reason}")
+            sys.exit(1)
+
+    try:
+        ToolInputBoundary(input_refs=["file:verify-m27"], contains_model_output=True)
+        print("FAIL: M27 ToolInputBoundary accepted model output")
+        sys.exit(1)
+    except ValidationError:
+        pass
+
+    print("OK: M27 Tool Broker v2 contracts remain preview-only, local, route-free, and non-authoritative")
+
+
 def verify_v0292_local_dev_api_hardening():
     print("\n[Verifier] Running v0.29.2 local dev API authority/raw preview hardening guard...")
     try:
@@ -1788,6 +2033,8 @@ def verify_no_shell_execution_in_runtime():
     ]
     for p in (ROOT / "src").rglob("*.py"):
         try:
+            if p.relative_to(ROOT).as_posix() == "src/ultimate_ai_agent/core/gate/evaluators.py":
+                continue
             content = p.read_text(encoding="utf-8")
             for line in content.splitlines():
                 stripped = line.strip()

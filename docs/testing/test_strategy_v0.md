@@ -117,7 +117,7 @@ M22 is Local Model Runtime Activation Contract.
 M23 is First Real Local LLM Call.
 M24 is Memory Provider Abstraction.
 M26 is Grounded Recall Router + Evidence-Linked Context Pack Builder.
-M27 mentions MCP / Agent Skills / AGENTS.md.
+M27 is Tool Broker v2 + Safe Tool Intent Contracts.
 M31 mentions iOS / Android / macOS.
 M35 mentions Device Capability Broker Implementation, No Sensors.
 M38 is Browser Automation Contract, No Execution.
@@ -125,7 +125,7 @@ M39 is Observability Export Adapters.
 M40 is Agent Evaluation + Regression Harness.
 M21-M40 remain planned/provisional in the v0.18.4 projection; by v0.30.0,
 M26 is implemented/released as a contract-only grounded recall/context-pack foundation,
-and M27-M40 remain planned/provisional.
+M27 is implemented/released by v0.31.0 as validation-only Tool Broker v2 contracts, and M28-M40 remain planned/provisional.
 Docs do not claim future milestone implementation before dedicated milestones.
 Foundation Gate includes post_m20_roadmap_projection_present.
 Backend OpenAPI path count remains unchanged at 74.
@@ -189,7 +189,7 @@ Raw prompts, raw model output, raw files, raw memory, raw transcripts, credentia
 Context-pack building does not inject context into a model, runtime, OpenWebUI, tool, or agent loop.
 Vector search, embeddings, semantic search, RAG ingestion, external retrieval, web search, source crawling, model/provider calls, memory writes, evidence mutation, and Event Ledger mutation remain blocked.
 M26 adds no backend API route and OpenAPI path count remains unchanged at 74.
-M27 remains planned/provisional.
+M27 is implemented/released by v0.31.0 as validation-only Tool Broker v2 contracts.
 OpenAPI path count remains unchanged at 74.
 ```
 
@@ -205,7 +205,7 @@ model, runtime, and OpenWebUI refs are denied regardless of declared source_kind
 unknown prefixes remain denied.
 context packs reject mismatched selected items.
 Foundation Gate and verify_all.py probe the same mismatch bypass.
-M27 remains planned/provisional.
+M27 is implemented/released by v0.31.0 as validation-only Tool Broker v2 contracts, and M28-M40 remain planned/provisional.
 OpenAPI path count remains unchanged at 74.
 ```
 
@@ -222,7 +222,7 @@ Unknown refs cannot produce allowed source_linked status.
 Claim self-verification remains denied.
 Valid recognized canonical primary-source evidence still succeeds.
 M25 adds no backend API route and OpenAPI path count remains unchanged at 74.
-M26 is implemented/released by v0.30.0; M27 remains future.
+M26 is implemented/released by v0.30.0; M27 is implemented/released by v0.31.0 as validation-only Tool Broker v2 contracts.
 ```
 
 ## v0.29.2 M25 Local Dev API Authority And Raw Preview Tests
@@ -388,7 +388,7 @@ Roadmap currentness marks v0.23.0 / M19 implemented/released.
 Roadmap currentness marks v0.24.0 / M20 implemented/released as contract-only.
 M21-M40 were planned/provisional at M19 cleanup time. By v0.30.0, M26 is
 implemented/released as a contract-only grounded recall/context-pack foundation,
-and M27-M40 remain planned/provisional.
+M27 is implemented/released by v0.31.0 as validation-only Tool Broker v2 contracts, and M28-M40 remain planned/provisional.
 Contacts and calendar capability plans cannot be enabled.
 Contacts and calendar capability plans require a future Device Capability Broker.
 Contacts and calendar cannot be represented as implemented.

@@ -238,6 +238,22 @@ M26_FORBIDDEN_BACKEND_ROUTES = (
     "/control-center/recall/run",
     "/control-center/context-pack/inject",
 )
+EXPECTED_M27_OPENAPI_PATH_COUNT = 74
+M27_FORBIDDEN_BACKEND_ROUTES = (
+    "/tools/execute",
+    "/tools/run",
+    "/tools/dispatch",
+    "/tool-broker/execute",
+    "/tool-broker/run",
+    "/plugins/enable",
+    "/browser/execute",
+    "/computer-use/run",
+    "/context-pack/inject",
+    "/context-pack/build-and-inject",
+    "/memory/write",
+    "/memory/inject",
+    "/remote/execute",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -451,6 +467,17 @@ def m26_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
     for route in M26_FORBIDDEN_BACKEND_ROUTES:
         if route in path_set:
             failures.append(f"M26 forbidden backend route present: {route}")
+    return failures
+
+
+def m27_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M27_OPENAPI_PATH_COUNT) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+    for route in M27_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(f"M27 forbidden backend route present: {route}")
     return failures
 
 
@@ -668,6 +695,9 @@ class FoundationGateEvaluator:
             "m26_grounded_recall_context_pack_safe": self.check_m26_grounded_recall_context_pack_safe,
             "m26_recall_openapi_routes_unchanged": self.check_m26_recall_openapi_routes_unchanged,
             "m26_m27_remains_future": self.check_m26_m27_remains_future,
+            "m27_tool_broker_v2_contract_safe": self.check_m27_tool_broker_v2_contract_safe,
+            "m27_tool_broker_v2_openapi_routes_unchanged": self.check_m27_tool_broker_v2_openapi_routes_unchanged,
+            "m27_m28_remains_future": self.check_m27_m28_remains_future,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -5449,19 +5479,244 @@ class FoundationGateEvaluator:
                 failures.append("M26 docs do not mark v0.30.0 implemented/released")
         else:
             failures.append("M26 docs do not mention v0.30.0 Grounded Recall Router + Evidence-Linked Context Pack Builder")
-        if "v0.31.0 | m27" in text and "planned/provisional" not in text:
-            failures.append("M27 roadmap row is not planned/provisional")
-        forbidden_m27_fragments = (
-            "m27 is implemented",
-            "v0.31.0 implements m27",
-            "mcp runtime is implemented",
-            "agent skills runtime is implemented",
-            "agents.md runtime loading is implemented",
-            "plugin enablement is implemented",
+        active_version = self._active_version() or "0.0.0"
+        version_tuple = tuple(int(part) for part in active_version.split("."))
+        if version_tuple >= (0, 31, 0):
+            if "v0.31.0" in text and "tool broker v2 + safe tool intent contracts" in text:
+                if "implemented/released" not in text:
+                    failures.append("M27 docs must mark v0.31.0 implemented/released after M27")
+            else:
+                failures.append("M27 docs do not mention v0.31.0 Tool Broker v2 + Safe Tool Intent Contracts")
+        else:
+            if "v0.31.0 | m27" in text and "planned/provisional" not in text:
+                failures.append("M27 roadmap row is not planned/provisional")
+            forbidden_m27_fragments = (
+                "m27 is implemented",
+                "v0.31.0 implements m27",
+                "mcp runtime is implemented",
+                "agent skills runtime is implemented",
+                "agents.md runtime loading is implemented",
+                "plugin enablement is implemented",
+            )
+            failures.extend(
+                f"M26 docs imply M27 implementation: {fragment}"
+                for fragment in forbidden_m27_fragments
+                if fragment in text
+            )
+        return self._result(criterion, failures, required_docs)
+
+    def check_m27_tool_broker_v2_contract_safe(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/tools/v2/__init__.py",
+            "src/ultimate_ai_agent/core/tools/v2/enums.py",
+            "src/ultimate_ai_agent/core/tools/v2/contracts.py",
+            "src/ultimate_ai_agent/core/tools/v2/catalog.py",
+            "src/ultimate_ai_agent/core/tools/v2/broker.py",
+            "src/ultimate_ai_agent/core/tools/v2/validation.py",
+            "tests/test_tool_broker_v2_contracts.py",
+            "tests/test_m27_gate_integration.py",
+            "docs/tools/TOOL_BROKER_V2.md",
+            "docs/tools/SAFE_TOOL_INTENT_CONTRACTS.md",
+            "docs/tools/TOOL_AUTHORITY_BOUNDARY.md",
+            "docs/tools/TOOL_INTENT_RECEIPT_PLAN.md",
+            "docs/tools/M27_TO_M28_BOUNDARY.md",
+        ]
+        failures = [f"missing M27 Tool Broker v2 file: {path}" for path in required_files if not (self.root / path).exists()]
+        try:
+            from pydantic import ValidationError
+
+            from ultimate_ai_agent.core.tools.v2 import (
+                ToolApprovalRequirement,
+                ToolAuthorityLevel,
+                ToolBrokerV2Manifest,
+                ToolCatalogEntry,
+                ToolExecutionMode,
+                ToolInputBoundary,
+                ToolInputTrustLevel,
+                ToolIntent,
+                ToolIntentDecisionStatus,
+                ToolRiskClass,
+                ToolSideEffectKind,
+                ToolTargetKind,
+                ToolTargetRef,
+                build_default_tool_catalog,
+                evaluate_tool_intent,
+            )
+
+            manifest = ToolBrokerV2Manifest(baseline_version="0.31.0")
+            if manifest.tool_execution_enabled or manifest.backend_execution_routes_added:
+                failures.append("M27 manifest enables tool execution or backend routes")
+            if manifest.shell_execution_enabled or manifest.network_calls_enabled or manifest.browser_automation_enabled:
+                failures.append("M27 manifest enables shell, network, or browser automation")
+            if manifest.plugin_enablement_enabled or manifest.memory_writes_enabled or manifest.event_ledger_mutation_enabled:
+                failures.append("M27 manifest enables plugin, memory, or Event Ledger mutation")
+            if manifest.model_provider_calls_enabled or manifest.context_pack_authority_enabled:
+                failures.append("M27 manifest enables model calls or context-pack authority")
+
+            def safe_intent(**overrides):
+                data = {
+                    "intent_id": "tool-intent:m27-gate",
+                    "tool_id": "file.metadata_preview",
+                    "intent_summary": "Preview safe file metadata.",
+                    "target": ToolTargetRef(target_ref="file:m27", target_kind=ToolTargetKind.file_ref),
+                    "input_boundary": ToolInputBoundary(
+                        input_refs=["file:m27"],
+                        input_trust_level=ToolInputTrustLevel.user_provided_refs,
+                    ),
+                    "requested_execution_mode": ToolExecutionMode.preview_only,
+                    "declared_risk_class": ToolRiskClass.low,
+                    "declared_side_effects": [ToolSideEffectKind.none],
+                    "approval_requirement": ToolApprovalRequirement.not_required,
+                    "authority_level": ToolAuthorityLevel.validation_only,
+                }
+                data.update(overrides)
+                return ToolIntent(**data)
+
+            safe_decision = evaluate_tool_intent(safe_intent(), catalog=build_default_tool_catalog())
+            if safe_decision.status != ToolIntentDecisionStatus.preview_allowed:
+                failures.append("M27 safe metadata preview intent was not allowed for preview")
+            if safe_decision.execution_allowed or not safe_decision.no_tool_execution_performed:
+                failures.append("M27 safe preview decision allowed or performed execution")
+            if not safe_decision.receipt_plan or safe_decision.receipt_plan.execution_performed:
+                failures.append("M27 safe preview receipt plan is missing or executable")
+
+            side_effect_catalog = {
+                "file.write_preview": ToolCatalogEntry(
+                    tool_id="file.write_preview",
+                    display_name="Write preview",
+                    target_kind=ToolTargetKind.file_ref,
+                    allowed_execution_modes=[ToolExecutionMode.preview_only],
+                    risk_class=ToolRiskClass.high,
+                    side_effects=[ToolSideEffectKind.file_write],
+                    approval_requirement=ToolApprovalRequirement.validated_local_approval_required,
+                )
+            }
+            side_effect_decision = evaluate_tool_intent(
+                safe_intent(
+                    tool_id="file.write_preview",
+                    declared_risk_class=ToolRiskClass.high,
+                    declared_side_effects=[ToolSideEffectKind.file_write],
+                    approval_requirement=ToolApprovalRequirement.validated_local_approval_required,
+                    approval_ref="approval_test_m27",
+                ),
+                catalog=side_effect_catalog,
+            )
+            for reason in ["TOOL_SIDE_EFFECTS_DENIED", "APPROVAL_REF_NOT_AUTHORITY"]:
+                if reason not in side_effect_decision.reason_codes:
+                    failures.append(f"M27 side-effect probe missing reason: {reason}")
+            if side_effect_decision.execution_allowed or side_effect_decision.status == ToolIntentDecisionStatus.preview_allowed:
+                failures.append("M27 side-effecting tool intent was allowed")
+
+            context_pack_decision = evaluate_tool_intent(
+                safe_intent(
+                    tool_id="file.write_preview",
+                    declared_risk_class=ToolRiskClass.high,
+                    declared_side_effects=[ToolSideEffectKind.file_write],
+                    context_pack_refs=["context-pack:m26"],
+                ),
+                catalog=side_effect_catalog,
+            )
+            if "CONTEXT_PACK_NOT_AUTHORITY" not in context_pack_decision.reason_codes:
+                failures.append("M27 context-pack authority probe did not deny context pack refs as authority")
+
+            mismatch_decision = evaluate_tool_intent(
+                safe_intent(target=ToolTargetRef(target_ref="memory:m27", target_kind=ToolTargetKind.file_ref)),
+                catalog=build_default_tool_catalog(),
+            )
+            if "TOOL_TARGET_KIND_MISMATCH_DENIED" not in mismatch_decision.reason_codes:
+                failures.append("M27 target mismatch probe did not deny mismatched target ref/kind")
+
+            unknown_decision = evaluate_tool_intent(
+                safe_intent(target=ToolTargetRef(target_ref="random:m27", target_kind=ToolTargetKind.unknown)),
+                catalog=build_default_tool_catalog(),
+            )
+            if "UNKNOWN_TOOL_TARGET_DENIED" not in unknown_decision.reason_codes:
+                failures.append("M27 unknown target probe did not deny unknown target")
+
+            risk_decision = evaluate_tool_intent(
+                safe_intent(
+                    tool_id="file.write_preview",
+                    declared_risk_class=ToolRiskClass.low,
+                    declared_side_effects=[ToolSideEffectKind.none],
+                ),
+                catalog=side_effect_catalog,
+            )
+            for reason in ["TOOL_RISK_DOWNGRADE_DENIED", "TOOL_SIDE_EFFECTS_HIDDEN_DENIED"]:
+                if reason not in risk_decision.reason_codes:
+                    failures.append(f"M27 risk/side-effect downgrade probe missing reason: {reason}")
+
+            try:
+                ToolInputBoundary(input_refs=["file:m27"], contains_model_output=True)
+                failures.append("M27 input boundary allowed model output")
+            except ValidationError:
+                pass
+
+            v2_source = "\n".join(
+                self._read(path)
+                for path in (self.root / "src" / "ultimate_ai_agent" / "core" / "tools" / "v2").glob("*.py")
+            ).lower()
+            forbidden_fragments = (
+                "subprocess",
+                "os.system(",
+                "requests.get(",
+                "requests.post(",
+                "httpx.get(",
+                "httpx.post(",
+                "urllib.request.urlopen(",
+                "write_memory(",
+                ".write_memory(",
+                "put_record(",
+                ".put_record(",
+                "chat.completions.create(",
+                "import " + "openai",
+                "import " + "anthropic",
+                "import " + "ollama",
+            )
+            failures.extend(
+                f"M27 Tool Broker v2 module contains forbidden fragment: {fragment}"
+                for fragment in forbidden_fragments
+                if fragment in v2_source
+            )
+        except Exception as exc:
+            failures.append(f"M27 Tool Broker v2 validation failed: {exc}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m27_tool_broker_v2_openapi_routes_unchanged(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m27_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M27 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m27_m28_remains_future(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        required_docs = [
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+            "docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/tools/M27_TO_M28_BOUNDARY.md",
+        ]
+        failures = [f"missing M27 roadmap doc: {path}" for path in required_docs if not (self.root / path).exists()]
+        text = "\n".join(self._read(self.root / path).lower() for path in required_docs if (self.root / path).exists())
+        if "v0.31.0" in text and "tool broker v2 + safe tool intent contracts" in text:
+            if "implemented/released" not in text:
+                failures.append("M27 docs do not mark v0.31.0 implemented/released")
+        else:
+            failures.append("M27 docs do not mention v0.31.0 Tool Broker v2 + Safe Tool Intent Contracts")
+        if "m28-m40 remain planned/provisional" not in text:
+            failures.append("M28-M40 must remain planned/provisional after M27")
+        forbidden_m28_fragments = (
+            "m28 is implemented",
+            "v0.32.0 implements m28",
+            "real tool execution is implemented",
+            "durable action registry runtime is implemented",
+            "production tool authority is implemented",
         )
         failures.extend(
-            f"M26 docs imply M27 implementation: {fragment}"
-            for fragment in forbidden_m27_fragments
+            f"M27 docs imply M28 implementation: {fragment}"
+            for fragment in forbidden_m28_fragments
             if fragment in text
         )
         return self._result(criterion, failures, required_docs)
@@ -5608,7 +5863,15 @@ class FoundationGateEvaluator:
             failures.append("M25 docs do not mention v0.29.0 Truth Source Router + Evidence Claim Checker")
         active_version = self._active_version() or "0.0.0"
         version_tuple = tuple(int(part) for part in active_version.split("."))
-        if version_tuple >= (0, 30, 0):
+        if version_tuple >= (0, 31, 0):
+            if "v0.31.0" in text and "tool broker v2 + safe tool intent contracts" in text:
+                if "implemented/released" not in text:
+                    failures.append("M27 docs must mark v0.31.0 implemented/released after M27")
+            else:
+                failures.append("M27 docs do not mention v0.31.0 Tool Broker v2 + Safe Tool Intent Contracts")
+            if "m28-m40 remain planned/provisional" not in text:
+                failures.append("M28-M40 must remain planned/provisional after M27")
+        elif version_tuple >= (0, 30, 0):
             if "m26 is implemented/released" not in text and "v0.30.0 implements m26" not in text:
                 failures.append("M26 docs must mark v0.30.0 implemented/released after M26")
             if "m27-m40 remain planned/provisional" not in text:
@@ -5734,7 +5997,7 @@ class FoundationGateEvaluator:
             "post-M20 docs missing first local LLM charter": "first real local llm call",
             "post-M20 docs missing memory charter": "memory provider abstraction",
             "post-M20 docs missing grounded recall charter": "grounded recall router + evidence-linked context pack builder",
-            "post-M20 docs missing trust registry charter": "mcp / agent skills / agents.md",
+            "post-M20 docs missing Tool Broker v2 charter": "tool broker v2 + safe tool intent contracts",
             "post-M20 docs missing native CCC charter": "ios / android / macos",
             "post-M20 docs missing Device Capability Broker charter": (
                 "device capability broker implementation, no sensors"
@@ -5750,7 +6013,9 @@ class FoundationGateEvaluator:
                 failures.append(failure)
         active_version = self._active_version() or "0.0.0"
         version_tuple = tuple(int(part) for part in active_version.split("."))
-        if version_tuple >= (0, 30, 0):
+        if version_tuple >= (0, 31, 0):
+            implemented_claim_start = 28
+        elif version_tuple >= (0, 30, 0):
             implemented_claim_start = 27
         elif version_tuple >= (0, 29, 0):
             implemented_claim_start = 26

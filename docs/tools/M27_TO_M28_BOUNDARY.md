@@ -1,0 +1,39 @@
+# M27 to M28 Boundary
+
+Status: active
+Current through: v0.31.0
+Purpose: Keep M27 Tool Broker v2 separate from future sandbox/runtime work.
+
+v0.31.0 / M27 implements Tool Broker v2 + Safe Tool Intent Contracts as
+validation-only and preview-only contract logic.
+
+M27 adds:
+
+- safe tool intent contracts.
+- target ref/kind consistency checks.
+- input-boundary checks.
+- catalog-backed risk and side-effect checks.
+- approval_ref-not-authority denial.
+- context-pack-not-authority denial.
+- non-executing receipt plans.
+- Foundation Gate and static verifier coverage.
+
+M27 does not add:
+
+- real tool execution.
+- local sandbox backend runtime.
+- shell execution.
+- file mutation.
+- memory writes.
+- Event Ledger mutation.
+- network calls.
+- browser automation.
+- plugin enablement.
+- model/provider calls.
+- backend tool execution routes.
+- Control Center execute controls.
+- production authority.
+
+M28-M40 remain planned/provisional. Any future local sandbox, dry-run,
+approval-gated execution, plugin runtime, browser automation, or production tool
+authority must arrive through its own reviewed milestone.
