@@ -1,7 +1,7 @@
 # Recall Non-Goals
 
 Status: active
-Current through: v0.30.0
+Current through: v0.30.1
 Purpose: State what M26 does not implement.
 
 M26 does not add:
@@ -28,4 +28,6 @@ M26 does not add:
 - production authority.
 
 The Grounded Recall Router and Context Pack Builder are deterministic local
-contract logic over provided refs only.
+contract logic over provided refs only. They do not let caller-declared
+source_kind upgrade memory/model/runtime/OpenWebUI refs or bypass source_ref
+identity checks.

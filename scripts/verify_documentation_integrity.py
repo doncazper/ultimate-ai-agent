@@ -1110,6 +1110,10 @@ def _verify_m25_truth_docs(root: Path, version: str | None) -> list[str]:
             "m27-m40 remain planned/provisional"
         )
         active_expectations["active docs must link M26 recall docs"] = "docs/recall/grounded_recall_router.md"
+        if _version_tuple(version) >= (0, 30, 1):
+            active_expectations["active docs must mention M26 source identity hardening"] = (
+                "source_ref/source_kind"
+            )
     else:
         active_expectations["active docs must keep M26-M40 planned/provisional"] = (
             "m26-m40 remain planned/provisional"
@@ -1206,6 +1210,8 @@ def _verify_m25_truth_docs(root: Path, version: str | None) -> list[str]:
             "M26 docs must say no backend route": "no backend",
             "M26 docs must say safe summaries only": "safe summaries",
             "M26 docs must say memory is recall context only": "memory as recall context only",
+            "M26 docs must say source_ref/source_kind consistency": "source_ref/source_kind",
+            "M26 docs must say caller-declared source_kind cannot upgrade priority": "cannot upgrade",
             "M26 docs must say M27 remains planned/provisional": "m27 remains planned/provisional",
         }
         for failure, fragment in m26_expectations.items():

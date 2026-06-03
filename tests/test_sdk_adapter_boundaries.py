@@ -9,7 +9,7 @@ def test_sdk_adapter_policy_validation():
     manifest = AgentRuntimeAdapterManifest(
         adapter_id="aider_adapter",
         adapter_type="aider",
-        version="0.30.0"
+        version="0.30.1"
     )
     policy = SDKAdapterBoundaryPolicy(
         policy_id="strict_boundary_1"

@@ -1,17 +1,15 @@
 # Ultimate AI Agent Version
 
-Current active baseline: **v0.30.0**
+Current active baseline: **v0.30.1**
 
-v0.30.0 implements M26: Grounded Recall Router + Evidence-Linked Context Pack
-Builder. It adds deterministic local recall/context-pack contracts over
-provided safe candidates, source priority that keeps source-backed refs above
-memory, exclusion of unknown/arbitrary/stale/conflicted/revoked/deleted/model/
-runtime/OpenWebUI/raw/secret candidates, safe summary-only context packs, tests,
-docs, static verifier coverage, and Foundation Gate criteria.
+v0.30.1 hardens M26 Grounded Recall Router + Evidence-Linked Context Pack
+Builder safety. It enforces consistency between source_ref prefixes and declared
+source_kind, denies mismatched memory/model/runtime/OpenWebUI refs, prevents
+caller-declared source_kind from upgrading source priority, adds regression
+tests and Foundation Gate coverage for mismatch bypasses, and preserves safe
+canonical/evidence/receipt/event source selection.
 
-It adds no backend routes, frontend features, vector search, embeddings,
-semantic search, RAG ingestion, web search, external retrieval, source crawling,
-arbitrary file reads, model/provider calls, local LLM calls, memory writes,
-evidence mutation, Event Ledger mutation, context injection runtime, OpenWebUI
-runtime bridge, dependencies, tool execution, or production authority. OpenAPI
-path count remains `74`. M27 remains planned/provisional.
+It adds no vector search, embeddings, RAG, external retrieval, model/provider
+calls, memory writes, backend recall/search/injection routes, dependencies,
+context injection runtime, or M27 work. OpenAPI path count remains `74`. M27
+remains planned/provisional.

@@ -1,6 +1,6 @@
 # README Import v0.30.0
 
-Status: active release packet
+Status: historical release packet
 Current through: v0.30.0
 Purpose: Import checklist for the M26 Grounded Recall Router release.
 

@@ -4,7 +4,7 @@ from ultimate_ai_agent.core.recall import GroundedRecallManifest
 
 
 def test_recall_manifest_disables_vector_embedding_and_external_retrieval():
-    manifest = GroundedRecallManifest(baseline_version="0.30.0")
+    manifest = GroundedRecallManifest(baseline_version="0.30.1")
 
     assert manifest.vector_search_enabled is False
     assert manifest.embeddings_enabled is False

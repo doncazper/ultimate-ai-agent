@@ -21,6 +21,7 @@ def test_m26_foundation_gate_criteria_are_registered():
     )
     assert "Grounded Recall Router" in recall_criterion.pass_condition
     assert "Context Pack Builder" in recall_criterion.pass_condition
+    assert "source_ref/source_kind consistency" in recall_criterion.pass_condition
     assert "no vector" in recall_criterion.pass_condition
     assert "no context injection" in recall_criterion.pass_condition
 

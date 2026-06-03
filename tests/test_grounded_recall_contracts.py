@@ -44,7 +44,7 @@ def test_grounded_recall_models_are_contract_only_and_forbid_extra_fields():
 
 
 def test_grounded_recall_manifest_defaults_disable_runtime_behaviors():
-    manifest = GroundedRecallManifest(baseline_version="0.30.0")
+    manifest = GroundedRecallManifest(baseline_version="0.30.1")
 
     assert manifest.recall_router_enabled is True
     assert manifest.context_pack_builder_enabled is True

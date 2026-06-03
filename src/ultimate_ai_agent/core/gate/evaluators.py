@@ -5239,7 +5239,7 @@ class FoundationGateEvaluator:
                 route_grounded_recall,
             )
 
-            manifest = GroundedRecallManifest(baseline_version="0.30.0")
+            manifest = GroundedRecallManifest(baseline_version="0.30.1")
             if manifest.context_injection_enabled:
                 failures.append("M26 manifest enables context injection")
             if manifest.vector_search_enabled or manifest.embeddings_enabled or manifest.semantic_search_enabled:
@@ -5286,6 +5286,36 @@ class FoundationGateEvaluator:
                         safe_summary="Blocked model output summary.",
                     ),
                     RecallCandidate(
+                        candidate_ref="recall:candidate:memory-as-canonical",
+                        source_ref="memory:m26",
+                        source_kind=RecallSourceKind.canonical_document,
+                        safe_summary="Memory source priority upgrade attempt.",
+                    ),
+                    RecallCandidate(
+                        candidate_ref="recall:candidate:model-as-canonical",
+                        source_ref="model:m26",
+                        source_kind=RecallSourceKind.canonical_document,
+                        safe_summary="Model output source priority upgrade attempt.",
+                    ),
+                    RecallCandidate(
+                        candidate_ref="recall:candidate:runtime-as-canonical",
+                        source_ref="runtime:m26",
+                        source_kind=RecallSourceKind.canonical_document,
+                        safe_summary="Runtime output source priority upgrade attempt.",
+                    ),
+                    RecallCandidate(
+                        candidate_ref="recall:candidate:openwebui-as-canonical",
+                        source_ref="openwebui:m26",
+                        source_kind=RecallSourceKind.canonical_document,
+                        safe_summary="OpenWebUI output source priority upgrade attempt.",
+                    ),
+                    RecallCandidate(
+                        candidate_ref="recall:candidate:memory-as-evidence",
+                        source_ref="memory:m26",
+                        source_kind=RecallSourceKind.evidence_manifest,
+                        safe_summary="Memory evidence priority upgrade attempt.",
+                    ),
+                    RecallCandidate(
                         candidate_ref="recall:candidate:stale",
                         source_ref="canonical:stale",
                         source_kind=RecallSourceKind.canonical_document,
@@ -5307,11 +5337,28 @@ class FoundationGateEvaluator:
             for reason in [
                 "UNKNOWN_SOURCE_KIND_DENIED",
                 "ARBITRARY_SOURCE_REF_DENIED",
+                "SOURCE_REF_KIND_MISMATCH_DENIED",
+                "MEMORY_SOURCE_PRIORITY_UPGRADE_DENIED",
+                "MODEL_OUTPUT_RECALL_DENIED",
+                "RUNTIME_OUTPUT_RECALL_DENIED",
+                "OPENWEBUI_OUTPUT_RECALL_DENIED",
                 "MODEL_OUTPUT_EXCLUDED",
+                "RUNTIME_OUTPUT_EXCLUDED",
+                "OPENWEBUI_OUTPUT_EXCLUDED",
                 "STALE_SOURCE_EXCLUDED",
             ]:
                 if reason not in excluded_reasons:
                     failures.append(f"M26 grounded recall missing exclusion reason: {reason}")
+            excluded_refs = {item.candidate_ref for item in decision.excluded}
+            for candidate_ref in [
+                "recall:candidate:memory-as-canonical",
+                "recall:candidate:model-as-canonical",
+                "recall:candidate:runtime-as-canonical",
+                "recall:candidate:openwebui-as-canonical",
+                "recall:candidate:memory-as-evidence",
+            ]:
+                if candidate_ref not in excluded_refs:
+                    failures.append(f"M26 grounded recall selected mismatched source identity: {candidate_ref}")
             if not decision.no_memory_write_performed:
                 failures.append("M26 grounded recall performed a memory write")
             if not decision.no_external_retrieval_performed:
@@ -5331,6 +5378,9 @@ class FoundationGateEvaluator:
             )
             if not pack.items or pack.context_injection_performed or pack.raw_content_included:
                 failures.append("M26 context pack is empty or includes forbidden runtime/raw behavior")
+            pack_refs = {item.candidate_ref for item in pack.items}
+            if any(ref.endswith("as-canonical") or ref.endswith("as-evidence") for ref in pack_refs):
+                failures.append("M26 context pack included mismatched source identity")
             if pack.memory_write_performed or pack.external_retrieval_performed:
                 failures.append("M26 context pack performed memory write or external retrieval")
             if recall_source_priority_rank(RecallSourceKind.canonical_document) >= recall_source_priority_rank(

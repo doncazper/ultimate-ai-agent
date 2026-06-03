@@ -1358,8 +1358,8 @@ def verify_m26_grounded_recall_context_pack_safety():
         "docs/recall/CONTEXT_PACK_SAFETY.md",
         "docs/recall/RECALL_NON_GOALS.md",
         "docs/recall/M26_TO_M27_BOUNDARY.md",
-        "docs/release_notes/v0_30_0.md",
-        "docs/implementation/foundation_gate_implementation_plan_v0_30_0.md",
+        "docs/release_notes/v0_30_1.md",
+        "docs/implementation/foundation_gate_implementation_plan_v0_30_1.md",
     ]
     for rel_path in required_files:
         if not (ROOT / rel_path).exists():
@@ -1511,7 +1511,7 @@ def verify_m26_grounded_recall_context_pack_safety():
         print(f"FAIL: {failure}")
         sys.exit(1)
 
-    manifest = GroundedRecallManifest(baseline_version="0.30.0")
+    manifest = GroundedRecallManifest(baseline_version="0.30.1")
     unsafe_flags = [
         manifest.context_injection_enabled,
         manifest.vector_search_enabled,
@@ -1560,6 +1560,36 @@ def verify_m26_grounded_recall_context_pack_safety():
                     source_ref="model:verify-m26",
                     safe_summary="Model output.",
                 ),
+                RecallCandidate(
+                    candidate_ref="memory-as-canonical:verify-m26",
+                    source_kind=RecallSourceKind.canonical_document,
+                    source_ref="memory:verify-m26",
+                    safe_summary="Memory source priority upgrade attempt.",
+                ),
+                RecallCandidate(
+                    candidate_ref="model-as-canonical:verify-m26",
+                    source_kind=RecallSourceKind.canonical_document,
+                    source_ref="model:verify-m26",
+                    safe_summary="Model source priority upgrade attempt.",
+                ),
+                RecallCandidate(
+                    candidate_ref="runtime-as-canonical:verify-m26",
+                    source_kind=RecallSourceKind.canonical_document,
+                    source_ref="runtime:verify-m26",
+                    safe_summary="Runtime source priority upgrade attempt.",
+                ),
+                RecallCandidate(
+                    candidate_ref="openwebui-as-canonical:verify-m26",
+                    source_kind=RecallSourceKind.canonical_document,
+                    source_ref="openwebui:verify-m26",
+                    safe_summary="OpenWebUI source priority upgrade attempt.",
+                ),
+                RecallCandidate(
+                    candidate_ref="memory-as-evidence:verify-m26",
+                    source_kind=RecallSourceKind.evidence_manifest,
+                    source_ref="memory:verify-m26",
+                    safe_summary="Memory evidence priority upgrade attempt.",
+                ),
             ],
         )
     )
@@ -1570,6 +1600,27 @@ def verify_m26_grounded_recall_context_pack_safety():
     if "random:verify-m26" in refs or "model:verify-m26" in refs:
         print("FAIL: M26 recall selected unknown or model-output candidate")
         sys.exit(1)
+    for hostile_ref in [
+        "memory-as-canonical:verify-m26",
+        "model-as-canonical:verify-m26",
+        "runtime-as-canonical:verify-m26",
+        "openwebui-as-canonical:verify-m26",
+        "memory-as-evidence:verify-m26",
+    ]:
+        if hostile_ref in refs:
+            print(f"FAIL: M26 recall selected mismatched source identity candidate: {hostile_ref}")
+            sys.exit(1)
+    excluded_reasons = {reason for item in decision.excluded for reason in item.reason_codes}
+    for required_reason in [
+        "SOURCE_REF_KIND_MISMATCH_DENIED",
+        "MEMORY_SOURCE_PRIORITY_UPGRADE_DENIED",
+        "MODEL_OUTPUT_RECALL_DENIED",
+        "RUNTIME_OUTPUT_RECALL_DENIED",
+        "OPENWEBUI_OUTPUT_RECALL_DENIED",
+    ]:
+        if required_reason not in excluded_reasons:
+            print(f"FAIL: M26 recall missing mismatch exclusion reason: {required_reason}")
+            sys.exit(1)
     if (
         not decision.no_memory_write_performed
         or not decision.no_external_retrieval_performed

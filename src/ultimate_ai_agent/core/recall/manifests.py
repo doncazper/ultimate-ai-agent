@@ -24,5 +24,5 @@ class GroundedRecallManifest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
-def build_grounded_recall_manifest(baseline_version: str = "0.30.0") -> GroundedRecallManifest:
+def build_grounded_recall_manifest(baseline_version: str = "0.30.1") -> GroundedRecallManifest:
     return GroundedRecallManifest(baseline_version=baseline_version)

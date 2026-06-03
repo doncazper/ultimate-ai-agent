@@ -4,14 +4,13 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from ultimate_ai_agent.core.recall.candidates import RecallCandidate
 from ultimate_ai_agent.core.recall.enums import RecallCandidateStatus, RecallDecisionStatus, RecallSourceKind
-from ultimate_ai_agent.core.recall.policy import infer_recall_source_kind, recall_source_priority_rank
+from ultimate_ai_agent.core.recall.policy import (
+    BLOCKED_RECALL_OUTPUT_KINDS,
+    infer_recall_source_kind,
+    recall_source_priority_rank,
+    trusted_recall_source_kind,
+)
 from ultimate_ai_agent.core.recall.validation import validate_safe_recall_payload, validate_safe_recall_text
-
-BLOCKED_OUTPUT_KINDS = {
-    RecallSourceKind.model_output,
-    RecallSourceKind.runtime_output,
-    RecallSourceKind.openwebui_output,
-}
 
 
 class GroundedRecallRequest(BaseModel):
@@ -154,15 +153,14 @@ def route_grounded_recall(request: GroundedRecallRequest) -> GroundedRecallDecis
 
 
 def _candidate_exclusion_reasons(candidate: RecallCandidate, request: GroundedRecallRequest) -> List[str]:
-    reasons: List[str] = []
+    reasons: List[str] = candidate.source_identity_reason_codes()
     inferred_kind = infer_recall_source_kind(candidate.source_ref)
-    if candidate.source_kind == RecallSourceKind.unknown:
-        reasons.append("UNKNOWN_SOURCE_KIND_DENIED")
-    if inferred_kind == RecallSourceKind.unknown:
-        reasons.append("ARBITRARY_SOURCE_REF_DENIED")
-    if candidate.source_kind in BLOCKED_OUTPUT_KINDS:
+    effective_kind = trusted_recall_source_kind(candidate.source_ref, candidate.source_kind)
+    if candidate.source_kind in BLOCKED_RECALL_OUTPUT_KINDS:
         reasons.append(f"{candidate.source_kind.value.upper()}_EXCLUDED")
-    if candidate.source_kind == RecallSourceKind.unreviewed_memory and not request.include_unreviewed_memory:
+    if inferred_kind in BLOCKED_RECALL_OUTPUT_KINDS:
+        reasons.append(f"{inferred_kind.value.upper()}_EXCLUDED")
+    if effective_kind == RecallSourceKind.unreviewed_memory and not request.include_unreviewed_memory:
         reasons.append("UNREVIEWED_MEMORY_EXCLUDED")
     if candidate.status == RecallCandidateStatus.stale and not request.include_stale_sources:
         reasons.append("STALE_SOURCE_EXCLUDED")
@@ -180,11 +178,12 @@ def _candidate_exclusion_reasons(candidate: RecallCandidate, request: GroundedRe
 
 
 def _selection_from_candidate(candidate: RecallCandidate, reason_codes: Optional[List[str]] = None) -> RecallSelection:
-    rank = recall_source_priority_rank(candidate.source_kind)
+    source_kind = trusted_recall_source_kind(candidate.source_ref, candidate.source_kind)
+    rank = recall_source_priority_rank(source_kind)
     return RecallSelection(
         candidate_ref=candidate.candidate_ref,
         source_ref=candidate.source_ref,
-        source_kind=candidate.source_kind,
+        source_kind=source_kind,
         safe_summary=candidate.safe_summary,
         priority_rank=rank,
         token_estimate=candidate.token_estimate or _estimate_tokens(candidate.safe_summary),
@@ -194,7 +193,7 @@ def _selection_from_candidate(candidate: RecallCandidate, reason_codes: Optional
         receipt_refs=candidate.receipt_refs,
         memory_refs=candidate.memory_refs,
         file_refs=candidate.file_refs,
-        source_priority_summary=f"{candidate.source_kind.value} priority rank {rank}",
+        source_priority_summary=f"{source_kind.value} priority rank {rank}",
         metadata_refs=candidate.metadata_refs,
         metadata=candidate.metadata,
     )

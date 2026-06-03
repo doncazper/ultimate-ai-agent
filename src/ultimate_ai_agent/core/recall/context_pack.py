@@ -3,6 +3,7 @@ from typing import Dict, List
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from ultimate_ai_agent.core.recall.enums import ContextPackBuildStatus
+from ultimate_ai_agent.core.recall.policy import recall_source_identity_reason_codes
 from ultimate_ai_agent.core.recall.router import GroundedRecallDecision, RecallSelection
 from ultimate_ai_agent.core.recall.validation import validate_safe_recall_payload, validate_safe_recall_text
 
@@ -29,6 +30,8 @@ class ContextPackBuildRequest(BaseModel):
         if self.include_model_output:
             raise ValueError("include_model_output must be False in M26")
         for item in self.recall_decision.selected:
+            if recall_source_identity_reason_codes(item.source_ref, item.source_kind):
+                raise ValueError("source_ref/source_kind consistency is required for context packs")
             validate_safe_recall_payload(item.metadata, "recall_decision metadata")
             validate_safe_recall_text(item.safe_summary, "safe_summary")
         validate_safe_recall_payload(self.metadata_refs, "metadata_refs")

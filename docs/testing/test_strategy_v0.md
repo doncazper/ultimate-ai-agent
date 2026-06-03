@@ -193,6 +193,22 @@ M27 remains planned/provisional.
 OpenAPI path count remains unchanged at 74.
 ```
 
+## v0.30.1 M26 Recall Source Identity Hardening Tests
+
+v0.30.1 adds focused regression, verifier, and Foundation Gate tests only for
+M26 hardening:
+
+```text
+source_ref/source_kind consistency is enforced before recall selection.
+memory refs cannot be upgraded to canonical/evidence/receipt/event/user-reviewed priority by caller-declared source_kind.
+model, runtime, and OpenWebUI refs are denied regardless of declared source_kind.
+unknown prefixes remain denied.
+context packs reject mismatched selected items.
+Foundation Gate and verify_all.py probe the same mismatch bypass.
+M27 remains planned/provisional.
+OpenAPI path count remains unchanged at 74.
+```
+
 ## v0.29.1 M25 Reject Unknown Truth Refs Tests
 
 v0.29.1 adds focused regression, verifier, and Foundation Gate tests only for

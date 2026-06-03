@@ -1,7 +1,7 @@
 # Grounded Recall Router
 
 Status: active
-Current through: v0.30.0
+Current through: v0.30.1
 Purpose: Define the M26 deterministic recall router contract.
 
 M26 adds a local Grounded Recall Router over caller-provided candidate refs only.
@@ -12,6 +12,9 @@ The router:
 
 - ranks canonical documents, evidence manifests, receipts, Event Ledger records,
   and user-reviewed sources above memory.
+- enforces source_ref/source_kind consistency before ranking or selection.
+- rejects caller-declared source_kind upgrades for memory, model, runtime, and
+  OpenWebUI refs.
 - treats memory as recall context only, not truth authority.
 - excludes unknown, arbitrary, unstructured, stale, conflicted, revoked, deleted,
   superseded, model-output, runtime-output, OpenWebUI-output, raw, or

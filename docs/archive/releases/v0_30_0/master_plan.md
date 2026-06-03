@@ -1,6 +1,6 @@
 # Ultimate AI Agent Master Plan v0.30.0
 
-Status: active release packet
+Status: historical release packet
 Current through: v0.30.0
 Purpose: Master-plan summary for M26 Grounded Recall Router + Evidence-Linked Context Pack Builder.
 

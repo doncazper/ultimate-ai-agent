@@ -1,8 +1,8 @@
-# Foundation Gate Implementation Plan v0.30.0
+# Foundation Gate Implementation Plan v0.30.1
 
-Status: historical implementation plan
-Current through: v0.30.0
-Purpose: M26 Foundation Gate criteria and verifier plan.
+Status: active
+Current through: v0.30.1
+Purpose: M26 recall source identity hardening Foundation Gate criteria and verifier plan.
 
 ## M26 Criteria
 
@@ -15,6 +15,8 @@ Foundation Gate must verify:
   memory writes, backend routes, model/provider calls, tool execution, and
   production authority.
 - source priority keeps source-backed refs above memory.
+- source_ref/source_kind consistency is enforced.
+- caller-declared source_kind cannot upgrade memory/model/runtime/OpenWebUI refs.
 - unknown/arbitrary refs are excluded.
 - stale/conflicted/revoked/deleted/superseded candidates are excluded by
   default.

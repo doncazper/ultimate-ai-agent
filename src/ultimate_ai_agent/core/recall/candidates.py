@@ -3,6 +3,7 @@ from typing import Any, Dict, List
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from ultimate_ai_agent.core.recall.enums import RecallCandidateStatus, RecallSourceKind
+from ultimate_ai_agent.core.recall.policy import recall_source_identity_reason_codes
 from ultimate_ai_agent.core.recall.validation import (
     validate_recall_ref,
     validate_safe_recall_payload,
@@ -40,3 +41,6 @@ class RecallCandidate(BaseModel):
         for field_name in ["evidence_refs", "event_refs", "receipt_refs", "memory_refs", "file_refs"]:
             validate_safe_recall_payload(getattr(self, field_name), field_name)
         return self
+
+    def source_identity_reason_codes(self) -> List[str]:
+        return recall_source_identity_reason_codes(self.source_ref, self.source_kind)

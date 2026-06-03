@@ -24,7 +24,9 @@ RECOGNIZED_RECALL_SOURCE_REF_PREFIXES: dict[str, RecallSourceKind] = {
     "receipt": RecallSourceKind.receipt,
     "event": RecallSourceKind.event_ledger,
     "event_ledger": RecallSourceKind.event_ledger,
+    "user": RecallSourceKind.user_reviewed_source,
     "user-review": RecallSourceKind.user_reviewed_source,
+    "user_reviewed": RecallSourceKind.user_reviewed_source,
     "user_reviewed_source": RecallSourceKind.user_reviewed_source,
     "memory": RecallSourceKind.reviewed_memory,
     "source_linked_memory": RecallSourceKind.source_linked_memory,
@@ -38,6 +40,18 @@ RECOGNIZED_RECALL_SOURCE_REF_PREFIXES: dict[str, RecallSourceKind] = {
     "openwebui_output": RecallSourceKind.openwebui_output,
 }
 
+BLOCKED_RECALL_OUTPUT_KINDS = {
+    RecallSourceKind.model_output,
+    RecallSourceKind.runtime_output,
+    RecallSourceKind.openwebui_output,
+}
+
+MEMORY_RECALL_SOURCE_KINDS = {
+    RecallSourceKind.source_linked_memory,
+    RecallSourceKind.reviewed_memory,
+    RecallSourceKind.unreviewed_memory,
+}
+
 
 def recall_source_priority_rank(source_kind: RecallSourceKind) -> int:
     return RECALL_SOURCE_PRIORITY[source_kind]
@@ -46,3 +60,37 @@ def recall_source_priority_rank(source_kind: RecallSourceKind) -> int:
 def infer_recall_source_kind(source_ref: str) -> RecallSourceKind:
     prefix = source_ref.split(":", 1)[0]
     return RECOGNIZED_RECALL_SOURCE_REF_PREFIXES.get(prefix, RecallSourceKind.unknown)
+
+
+def trusted_recall_source_kind(source_ref: str, declared_kind: RecallSourceKind) -> RecallSourceKind:
+    inferred_kind = infer_recall_source_kind(source_ref)
+    return inferred_kind if inferred_kind != RecallSourceKind.unknown else declared_kind
+
+
+def recall_source_identity_reason_codes(source_ref: str, declared_kind: RecallSourceKind) -> list[str]:
+    inferred_kind = infer_recall_source_kind(source_ref)
+    reasons: list[str] = []
+
+    if declared_kind == RecallSourceKind.unknown:
+        reasons.append("UNKNOWN_SOURCE_KIND_DENIED")
+    if inferred_kind == RecallSourceKind.unknown:
+        reasons.append("ARBITRARY_SOURCE_REF_DENIED")
+        if declared_kind != RecallSourceKind.unknown:
+            reasons.append("SOURCE_REF_KIND_MISMATCH_DENIED")
+        return list(dict.fromkeys(reasons))
+
+    if inferred_kind != declared_kind:
+        reasons.append("SOURCE_REF_KIND_MISMATCH_DENIED")
+        if inferred_kind in MEMORY_RECALL_SOURCE_KINDS and declared_kind not in MEMORY_RECALL_SOURCE_KINDS:
+            reasons.append("MEMORY_SOURCE_PRIORITY_UPGRADE_DENIED")
+        elif recall_source_priority_rank(declared_kind) < recall_source_priority_rank(inferred_kind):
+            reasons.append("SOURCE_PRIORITY_UPGRADE_DENIED")
+
+    if inferred_kind == RecallSourceKind.model_output:
+        reasons.append("MODEL_OUTPUT_RECALL_DENIED")
+    if inferred_kind == RecallSourceKind.runtime_output:
+        reasons.append("RUNTIME_OUTPUT_RECALL_DENIED")
+    if inferred_kind == RecallSourceKind.openwebui_output:
+        reasons.append("OPENWEBUI_OUTPUT_RECALL_DENIED")
+
+    return list(dict.fromkeys(reasons))

@@ -1110,7 +1110,7 @@ def default_foundation_gate_criteria() -> List[FoundationGateCriterion]:
             "M26 Grounded Recall Context Pack Safe",
             FoundationGateCategory.memory,
             "FoundationGateEvaluator.check_m26_grounded_recall_context_pack_safe",
-            "M26 Grounded Recall Router and Evidence-Linked Context Pack Builder are deterministic, local contract logic over provided candidates only, rank source-backed refs above memory, exclude stale/conflicted/revoked/deleted/model/runtime/OpenWebUI/raw/secret candidates, perform no vector search, no embeddings, no external retrieval, no source crawling, no memory write, no model/provider call, no tool execution, and no context injection.",
+            "M26 Grounded Recall Router and Evidence-Linked Context Pack Builder are deterministic, local contract logic over provided candidates only, enforce source_ref/source_kind consistency, rank source-backed refs above memory, exclude stale/conflicted/revoked/deleted/model/runtime/OpenWebUI/raw/secret candidates, perform no vector search, no embeddings, no external retrieval, no source crawling, no memory write, no model/provider call, no tool execution, and no context injection.",
             "M26 grounded recall or context-pack contracts are missing or violate the safe local contract boundary.",
             "critical",
         ),

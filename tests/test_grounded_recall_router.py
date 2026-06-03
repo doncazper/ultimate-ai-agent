@@ -1,3 +1,5 @@
+import pytest
+
 from ultimate_ai_agent.core.recall import (
     GroundedRecallRequest,
     RecallCandidate,
@@ -99,6 +101,81 @@ def test_grounded_recall_router_excludes_unknown_and_arbitrary_refs():
     unknown = next(item for item in decision.excluded if item.candidate_ref == "recall:candidate:random")
     assert "UNKNOWN_SOURCE_KIND_DENIED" in unknown.reason_codes
     assert "ARBITRARY_SOURCE_REF_DENIED" in unknown.reason_codes
+
+
+@pytest.mark.parametrize(
+    ("source_ref", "declared_kind", "expected_reason"),
+    [
+        ("memory:m26", RecallSourceKind.canonical_document, "MEMORY_SOURCE_PRIORITY_UPGRADE_DENIED"),
+        ("memory:m26", RecallSourceKind.evidence_manifest, "MEMORY_SOURCE_PRIORITY_UPGRADE_DENIED"),
+        ("memory:m26", RecallSourceKind.receipt, "MEMORY_SOURCE_PRIORITY_UPGRADE_DENIED"),
+        ("memory:m26", RecallSourceKind.event_ledger, "MEMORY_SOURCE_PRIORITY_UPGRADE_DENIED"),
+        ("memory:m26", RecallSourceKind.user_reviewed_source, "MEMORY_SOURCE_PRIORITY_UPGRADE_DENIED"),
+        ("model:m26", RecallSourceKind.canonical_document, "MODEL_OUTPUT_RECALL_DENIED"),
+        ("runtime:m26", RecallSourceKind.canonical_document, "RUNTIME_OUTPUT_RECALL_DENIED"),
+        ("openwebui:m26", RecallSourceKind.canonical_document, "OPENWEBUI_OUTPUT_RECALL_DENIED"),
+        ("random:m26", RecallSourceKind.canonical_document, "ARBITRARY_SOURCE_REF_DENIED"),
+    ],
+)
+def test_grounded_recall_router_denies_source_ref_kind_mismatches(
+    source_ref: str,
+    declared_kind: RecallSourceKind,
+    expected_reason: str,
+):
+    request = GroundedRecallRequest(
+        request_id="recall:req:source-identity",
+        query_summary="Need M26 context.",
+        candidates=[
+            _candidate(
+                "recall:candidate:hostile",
+                source_ref,
+                declared_kind,
+                "Hostile source identity summary.",
+            )
+        ],
+    )
+
+    decision = route_grounded_recall(request)
+
+    assert decision.status == RecallDecisionStatus.blocked
+    assert not decision.selected
+    assert [item.candidate_ref for item in decision.excluded] == ["recall:candidate:hostile"]
+    reason_codes = set(decision.excluded[0].reason_codes)
+    assert expected_reason in reason_codes
+    if source_ref != "random:m26":
+        assert "SOURCE_REF_KIND_MISMATCH_DENIED" in reason_codes
+
+
+def test_grounded_recall_router_preserves_valid_primary_source_refs():
+    request = GroundedRecallRequest(
+        request_id="recall:req:valid-primary",
+        query_summary="Need M26 context.",
+        candidates=[
+            _candidate("recall:candidate:receipt", "receipt:m26", RecallSourceKind.receipt, "Receipt summary."),
+            _candidate("recall:candidate:evidence", "evidence:m26", RecallSourceKind.evidence_manifest, "Evidence summary."),
+            _candidate("recall:candidate:canonical", "canonical:m26", RecallSourceKind.canonical_document, "Canonical summary."),
+            _candidate("recall:candidate:event", "event:m26", RecallSourceKind.event_ledger, "Event summary."),
+            _candidate(
+                "recall:candidate:user-reviewed",
+                "user-review:m26",
+                RecallSourceKind.user_reviewed_source,
+                "User reviewed summary.",
+            ),
+        ],
+        max_candidates=5,
+    )
+
+    decision = route_grounded_recall(request)
+
+    assert decision.status == RecallDecisionStatus.allowed
+    assert [item.candidate_ref for item in decision.selected] == [
+        "recall:candidate:canonical",
+        "recall:candidate:evidence",
+        "recall:candidate:receipt",
+        "recall:candidate:event",
+        "recall:candidate:user-reviewed",
+    ]
+    assert not decision.excluded
 
 
 def test_grounded_recall_router_excludes_model_runtime_and_openwebui_outputs():

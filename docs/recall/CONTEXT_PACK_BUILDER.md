@@ -1,7 +1,7 @@
 # Evidence-Linked Context Pack Builder
 
 Status: active
-Current through: v0.30.0
+Current through: v0.30.1
 Purpose: Define the M26 safe context-pack builder contract.
 
 The M26 Context Pack Builder converts a Grounded Recall decision into an
@@ -15,6 +15,10 @@ Context packs may include:
 - source priority summaries.
 - redaction status.
 - token estimate and budget summaries.
+
+Selected items must already have validated source_ref/source_kind consistency.
+The builder rejects mismatched selected items rather than turning caller-declared
+source_kind into context-pack authority.
 
 Context packs must not include:
 

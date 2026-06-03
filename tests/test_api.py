@@ -236,7 +236,7 @@ def test_validate_adapter_manifest_endpoint():
         "manifest": {
             "adapter_id": "aider",
             "adapter_type": "aider",
-            "version": "0.30.0"
+            "version": "0.30.1"
         },
         "policy": {
             "policy_id": "p1"

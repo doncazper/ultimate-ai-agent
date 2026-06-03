@@ -495,7 +495,7 @@ These are now expanded in v0.18.4 roadmap projection docs. They do not reorder M
 - `docs/roadmap/ECOSYSTEM_WATCHLIST.md`.
 - `docs/roadmap/STANDARDS_ALIGNMENT_WATCHLIST.md`.
 
-M21 is implemented/released by v0.25.0 as contract-only. M22 is implemented/released by v0.26.0 as contract-only. M23 is implemented/released by v0.27.0 as manual fixed-prompt local call only. M24 is implemented/released by v0.28.0 as governed local memory provider/store foundation. M25 is implemented/released by v0.29.0 as deterministic local truth/evidence contracts. M26 is implemented/released by v0.30.0 as deterministic local grounded recall/context-pack contracts. M27-M40 remain planned/provisional. Every milestone needs its own implementation prompt and review prompt.
+M21 is implemented/released by v0.25.0 as contract-only. M22 is implemented/released by v0.26.0 as contract-only. M23 is implemented/released by v0.27.0 as manual fixed-prompt local call only. M24 is implemented/released by v0.28.0 as governed local memory provider/store foundation. M25 is implemented/released by v0.29.0 as deterministic local truth/evidence contracts. M26 is implemented/released by v0.30.0 as deterministic local grounded recall/context-pack contracts and hardened by v0.30.1. M27-M40 remain planned/provisional. Every milestone needs its own implementation prompt and review prompt.
 
 ## 11. v0.24.0 / M20 - Device Capability Broker Contract
 

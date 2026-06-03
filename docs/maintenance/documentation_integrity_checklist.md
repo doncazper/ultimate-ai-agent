@@ -1,6 +1,6 @@
 # Documentation Integrity Checklist
 
-Status: Active maintenance checklist, v0.30.0
+Status: Active maintenance checklist, v0.30.1
 
 Run this checklist before every release that changes docs, roadmap, API metadata, runtime boundaries, or release status.
 
@@ -103,7 +103,7 @@ Run this checklist before every release that changes docs, roadmap, API metadata
 - Developer environment docs say to use `.venv/bin/python`, not bare `python`, because shell aliases are not reliable for Codex/non-interactive shells and no global Python alias is required.
 ## M19 Documentation Integrity Checks
 
-- active baseline points to v0.30.0.
+- active baseline points to v0.30.1.
 - M19 is implemented as Mobile Companion Contract/API Planning only.
 - M20 is implemented/released as Device Capability Broker Contract only.
 - v0.23.0 / M19 is marked implemented/released in active roadmap docs.
@@ -121,7 +121,7 @@ Run this checklist before every release that changes docs, roadmap, API metadata
 
 ## M20 Documentation Integrity Checks
 
-- active baseline points to v0.30.0.
+- active baseline points to v0.30.1.
 - M20 is implemented/released as Device Capability Broker Contract only.
 - M20 is contract-only.
 - M20 docs say no sensors are implemented.
@@ -130,12 +130,12 @@ Run this checklist before every release that changes docs, roadmap, API metadata
 - M20 docs say capture cannot silently become memory.
 - M20 docs say Device Capability Broker output is not trusted control input by default.
 - M21 is implemented/released as OpenWebUI Bridge + Chat Shell Integration Contract only.
-- M22 is implemented/released contract-only by v0.26.0 and hardened by v0.26.1. M23 is implemented/released by v0.27.0 as manual fixed-prompt local call only and hardened by v0.27.1. M24 is implemented/released by v0.28.0 as governed local memory provider/store foundation, hardened by v0.28.1, and docs-cleaned by v0.28.2. M25 is implemented/released by v0.29.0 as deterministic local truth/evidence contracts and hardened by v0.29.1 for unknown/arbitrary truth ref denial and v0.29.2 for local-dev API authority/raw preview safety. v0.29.3 reorganized documentation archives, v0.29.4 repairs archive references plus self-maintaining docs policy coverage, v0.29.5 polishes duplicated policy wording, and v0.30.0 implements M26 deterministic local grounded recall/context-pack contracts. M27-M40 remain planned/provisional.
+- M22 is implemented/released contract-only by v0.26.0 and hardened by v0.26.1. M23 is implemented/released by v0.27.0 as manual fixed-prompt local call only and hardened by v0.27.1. M24 is implemented/released by v0.28.0 as governed local memory provider/store foundation, hardened by v0.28.1, and docs-cleaned by v0.28.2. M25 is implemented/released by v0.29.0 as deterministic local truth/evidence contracts and hardened by v0.29.1 for unknown/arbitrary truth ref denial and v0.29.2 for local-dev API authority/raw preview safety. v0.29.3 reorganized documentation archives, v0.29.4 repairs archive references plus self-maintaining docs policy coverage, v0.29.5 polishes duplicated policy wording, and v0.30.0 implements M26 deterministic local grounded recall/context-pack contracts, while v0.30.1 hardens recall source identity consistency. M27-M40 remain planned/provisional.
 - Future release/review prompts include `docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md` and do not add active-looking historical verifiers to root or active `scripts/`.
 
 ## M21 Documentation Integrity Checks
 
-- active baseline points to v0.30.0.
+- active baseline points to v0.30.1.
 - M21 is contract/planning/validation only.
 - OpenWebUI is the preferred conversational web shell.
 - OpenWebUI is not the agent brain.
