@@ -1,8 +1,8 @@
 # M21-M40 Capability Charters
 
-Status: Active roadmap projection maintained through v0.27.0. M21 and M22 are implemented/released contract-only; M23 is implemented/released manual fixed-prompt local call only; M24-M40 remain planned/provisional.
+Status: Active roadmap projection maintained through v0.27.1. M21 and M22 are implemented/released contract-only; M23 is implemented/released manual fixed-prompt local call only and hardened by v0.27.1; M24-M40 remain planned/provisional.
 
-These charters define capability layers after M20. v0.25.0 implements M21 as contract/planning/validation only. v0.26.0 implements M22 as contract/planning/validation only, and v0.26.1 hardens M22 verifier precision plus metadata key secret hygiene only. v0.27.0 implements M23 as manual/CLI-only, loopback-only, fixed-prompt-only, non-tool, and non-authoritative. M24-M40 are still future capability layers. Every milestone requires its own implementation prompt, review prompt, hardening expectation, and validation evidence before release.
+These charters define capability layers after M20. v0.25.0 implements M21 as contract/planning/validation only. v0.26.0 implements M22 as contract/planning/validation only, and v0.26.1 hardens M22 verifier precision plus metadata key secret hygiene only. v0.27.0 implements M23 as manual/CLI-only, loopback-only, fixed-prompt-only, non-tool, and non-authoritative. v0.27.1 hardens M23 local call safety without adding new runtime authority. M24-M40 are still future capability layers. Every milestone requires its own implementation prompt, review prompt, hardening expectation, and validation evidence before release.
 
 ## Shared Rules
 
@@ -135,26 +135,28 @@ Acceptance criteria: first local LLM call is manual-only, loopback-only, fixed-p
 
 Review prompt required: yes.
 
-Hardening expectation: v0.27.1 Local LLM Call Hardening is required before memory or tool expansion.
+Hardening expectation: v0.27.1 Local LLM Call Hardening is implemented/released and required before memory or tool expansion.
 
-Source-of-truth docs: `docs/runtime/FIRST_LOCAL_LLM_CALL_M23.md`, `docs/runtime/M23_LOCAL_MODEL_CALL_POLICY.md`, `docs/runtime/LOCAL_RUNTIME_M22_TO_M23_BOUNDARY.md`, `docs/runtime/local_loopback_model_runtime.md`, `docs/runtime/RUNTIME_READINESS.md`, `docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md`.
+Source-of-truth docs: `docs/runtime/FIRST_LOCAL_LLM_CALL_M23.md`, `docs/runtime/FIRST_LOCAL_LLM_CALL.md`, `docs/runtime/M23_FIXED_PROMPT_POLICY.md`, `docs/runtime/M23_LOCAL_MODEL_CALL_POLICY.md`, `docs/runtime/M23_LOCAL_MODEL_CALL_SAFETY.md`, `docs/runtime/M23_LOCAL_MODEL_CALL_RECEIPTS.md`, `docs/runtime/M23_NON_AUTHORITATIVE_OUTPUT_POLICY.md`, `docs/runtime/M23_MANUAL_CLI_USAGE.md`, `docs/runtime/M23_TO_M24_BOUNDARY.md`, `docs/runtime/LOCAL_RUNTIME_M22_TO_M23_BOUNDARY.md`, `docs/runtime/local_loopback_model_runtime.md`, `docs/runtime/RUNTIME_READINESS.md`, `docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md`.
 
 Notes: Model output remains advisory and must be labeled non-authoritative. v0.27.0 does not add runtime activation, endpoint probes, backend routes, arbitrary prompt input, user-content model calls, tool execution, memory writes, file writes, dependencies, or production authority.
 
 ## v0.27.1 - Local LLM Call Hardening
 
-Status: planned/provisional.
+Status: implemented/released hardening-only.
 
 Purpose: Harden the first bounded local LLM path before the next capability jump.
 
 Allowed scope:
 
-- prompt redaction.
-- response labeling.
-- timeout/error handling.
+- endpoint-label safety checks.
+- fixed prompt and CLI guardrails.
+- approval validation evidence checks.
+- response redaction and caps.
 - non-authoritative output checks.
 - no secret echo.
 - no tool-call leakage.
+- Foundation Gate report atomic write/replace safety.
 
 Must not add:
 
@@ -163,18 +165,21 @@ Must not add:
 - cloud providers.
 - OpenWebUI freeform bridge.
 - autonomous actions.
+- backend API routes.
+- dependencies.
+- runtime behavior expansion.
 
 Dependencies: M23.
 
-Acceptance criteria: local LLM responses are redacted, labeled, timeout-safe, non-authoritative, and cannot leak tool-call authority.
+Acceptance criteria: local LLM responses are redacted, capped, labeled, timeout-safe, non-authoritative, cannot leak tool-call authority, and cannot be authorized by forged approval-looking data. Foundation Gate latest reports are written through atomic temp-write plus replace so repeated/concurrent-style tooling runs leave valid JSON.
 
 Review prompt required: yes.
 
 Hardening expectation: this is the hardening patch for M23.
 
-Source-of-truth docs: `docs/runtime/RUNTIME_READINESS.md`, `docs/testing/test_strategy_v0.md`.
+Source-of-truth docs: `docs/runtime/FIRST_LOCAL_LLM_CALL.md`, `docs/runtime/FIRST_LOCAL_LLM_CALL_M23.md`, `docs/runtime/M23_FIXED_PROMPT_POLICY.md`, `docs/runtime/M23_LOCAL_MODEL_CALL_POLICY.md`, `docs/runtime/M23_LOCAL_MODEL_CALL_SAFETY.md`, `docs/runtime/M23_LOCAL_MODEL_CALL_RECEIPTS.md`, `docs/runtime/M23_NON_AUTHORITATIVE_OUTPUT_POLICY.md`, `docs/runtime/M23_MANUAL_CLI_USAGE.md`, `docs/runtime/M23_TO_M24_BOUNDARY.md`, `docs/runtime/RUNTIME_READINESS.md`, `docs/testing/test_strategy_v0.md`.
 
-Notes: This patch must remain focused on hardening.
+Notes: This patch remains focused on hardening. It adds no runtime behavior, backend route, dependency, memory/tool expansion, or M24 work.
 
 ## v0.28.0 / M24 - Memory Provider Abstraction + Local Memory Store
 

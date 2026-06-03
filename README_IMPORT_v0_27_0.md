@@ -1,7 +1,7 @@
 # README Import v0.27.0
 
-Status: Current import README for v0.27.0 / M23 First Real Local LLM Call,
-Non-Tool, Non-Authoritative.
+Status: Historical import README for v0.27.0 / M23 First Real Local LLM Call,
+Non-Tool, Non-Authoritative. Superseded by v0.27.1.
 
 Start with:
 

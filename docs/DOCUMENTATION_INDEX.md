@@ -1,6 +1,6 @@
 # Documentation Index
 
-Current active baseline: **v0.27.0**
+Current active baseline: **v0.27.1**
 
 This index is the active entrypoint for documentation navigation. Historical release documents remain in the repository for audit history, but active truth starts with the current baseline files listed here.
 
@@ -9,8 +9,8 @@ This index is the active entrypoint for documentation navigation. Historical rel
 ```text
 README.md
 VERSION.md
-README_IMPORT_v0_27_0.md
-ultimate_ai_agent_master_plan_v0_27_0.md
+README_IMPORT_v0_27_1.md
+ultimate_ai_agent_master_plan_v0_27_1.md
 docs/canonical/CANONICAL_DOC_MAP.md
 docs/canonical/09_roadmap.md
 docs/roadmap/MILESTONE_CHARTERS.md
@@ -42,8 +42,15 @@ docs/runtime/LOCAL_RUNTIME_HEALTH_PROBE_PLAN.md
 docs/runtime/LOCAL_RUNTIME_ACTIVATION_SECURITY_MODEL.md
 docs/runtime/LOCAL_RUNTIME_ACTIVATION_NON_GOALS.md
 docs/runtime/LOCAL_RUNTIME_M22_TO_M23_BOUNDARY.md
+docs/runtime/FIRST_LOCAL_LLM_CALL.md
 docs/runtime/FIRST_LOCAL_LLM_CALL_M23.md
+docs/runtime/M23_FIXED_PROMPT_POLICY.md
 docs/runtime/M23_LOCAL_MODEL_CALL_POLICY.md
+docs/runtime/M23_LOCAL_MODEL_CALL_SAFETY.md
+docs/runtime/M23_LOCAL_MODEL_CALL_RECEIPTS.md
+docs/runtime/M23_NON_AUTHORITATIVE_OUTPUT_POLICY.md
+docs/runtime/M23_MANUAL_CLI_USAGE.md
+docs/runtime/M23_TO_M24_BOUNDARY.md
 docs/device_capabilities/DEVICE_CAPABILITY_BROKER_CONTRACT.md
 docs/device_capabilities/CAPABILITY_MANIFEST_SCHEMA.md
 docs/device_capabilities/DEVICE_PERMISSION_LIFECYCLE.md
@@ -199,7 +206,7 @@ Model runtime docs distinguish simulated runtime behavior, dev/manual loopback r
 
 M11 runtime readiness docs describe status/report validation only. They do not describe production runtime execution. v0.15.1 clarifies local loopback policy as supported validation-only and `fake_manual_loopback_smoke` as a fake/test report origin only.
 
-v0.26.0 / M22 adds Local Model Runtime Activation Contract docs as contract/planning/validation only. v0.26.1 hardens M22 verifier precision, metadata key secret hygiene, route-count test ownership, and duplicate docs wording. v0.27.0 / M23 adds the first bounded manual local model call path. It is CLI-only, dry-run by default, requires `--execute-local-call`, requires local approval validation, uses fixed prompt `m23_fixed_local_model_smoke_v1`, is loopback-only, and records non-authoritative receipts. Tests and Foundation Gate use fake transport only. M23 adds no backend API route, OpenAPI path count change, runtime activation, endpoint probe, arbitrary prompt input, user-content model call, provider SDK, runtime package, tool execution, memory write, file write, OpenWebUI runtime behavior, dependency, or production authority. M24-M40 remain planned/provisional.
+v0.26.0 / M22 adds Local Model Runtime Activation Contract docs as contract/planning/validation only. v0.26.1 hardens M22 verifier precision, metadata key secret hygiene, route-count test ownership, and duplicate docs wording. v0.27.0 / M23 adds the first bounded manual local model call path. v0.27.1 hardens M23 endpoint-label safety, approval evidence checks, response redaction/caps, CLI guardrails, policy docs, static verification, Foundation Gate criteria, and Foundation Gate report atomic write/replace safety. M23 is CLI-only, dry-run by default, requires `--execute-local-call`, requires validated local approval, uses fixed prompt `m23_fixed_local_model_smoke_v1`, is loopback-only, and records non-authoritative receipts. Tests and Foundation Gate use fake transport only. M23 adds no backend API route, OpenAPI path count change, runtime activation, endpoint probe, arbitrary prompt input, user-content model call, provider SDK, runtime package, tool execution, memory write, file write, OpenWebUI runtime behavior, dependency, or production authority. M24-M40 remain planned/provisional.
 
 ## Active Remote Worker and Private Mesh Docs
 
@@ -275,7 +282,7 @@ The Codex plugin capability inventory and risk policy record available developme
 
 ## Release Notes Index
 
-Current release notes: `docs/release_notes/v0_27_0.md`
+Current release notes: `docs/release_notes/v0_27_1.md`
 
 Historical release notes remain under `docs/release_notes/`. Historical docs may mention old active baselines in historical context; they are not the current source of truth.
 

@@ -86,6 +86,7 @@ def validate_local_model_endpoint(endpoint_url: str) -> str:
 
 def validate_local_model_call_request(request: LocalModelCallRequest) -> LocalModelCallRequest:
     validate_local_model_endpoint(request.endpoint_url)
+    _assert_safe_endpoint_label(request.safe_endpoint_label)
     validate_fixed_prompt(
         LocalModelFixedPrompt(
             prompt_id=request.fixed_prompt_id,
@@ -237,6 +238,8 @@ def approval_reasons(
         return approval_decision.reason_codes or ["APPROVAL_NOT_APPROVED"]
     if approval_decision.matched_grant_ref != request.approval_ref:
         return ["APPROVAL_MATCHED_GRANT_REQUIRED"]
+    if approval_decision.safe_message != "Approval grant validated for the requested scope.":
+        return ["APPROVAL_EVIDENCE_REQUIRED"]
     if "APPROVAL_VALIDATED" not in approval_decision.reason_codes:
         return ["APPROVAL_VALIDATION_EVIDENCE_REQUIRED"]
     return []
@@ -257,6 +260,23 @@ def _is_secret_query_key(key: str) -> bool:
     return any(fragment in lowered for fragment in M23_SECRET_QUERY_KEYS)
 
 
+def _assert_safe_endpoint_label(label: str) -> None:
+    lowered = label.lower()
+    forbidden_fragments = [
+        "://",
+        "?",
+        "&",
+        "=",
+        "@",
+        "/api/",
+        "localhost:",
+        "127.0.0.1:",
+        "[::1]:",
+    ]
+    if any(fragment in lowered for fragment in forbidden_fragments):
+        raise ValueError("M23 safe endpoint label must not echo raw endpoint URL details.")
+
+
 def _assert_safe_metadata_refs(values: list[str], field_name: str) -> None:
     for value in values:
         assert_secret_clean(value, field_name)
@@ -275,4 +295,3 @@ def _assert_safe_metadata(metadata: dict[str, Any], field_name: str) -> None:
                 assert_secret_clean(str(item), field_name)
         else:
             assert_secret_clean(str(value), field_name)
-

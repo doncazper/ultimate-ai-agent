@@ -126,6 +126,28 @@ def test_m23_transport_result_receipt_and_decision_remain_non_authoritative():
     assert receipt.files_written is False
 
 
+def test_m23_transport_result_rejects_secret_like_summary_and_raw_storage():
+    with pytest.raises(ValueError, match="raw responses"):
+        validate_local_model_transport_result(
+            LocalModelCallTransportResult(
+                transport_result_id="m23_transport_raw",
+                request_id="m23_req_1",
+                transport_kind="fake",
+                raw_response_stored=True,
+            )
+        )
+
+    with pytest.raises(ValueError, match="secret-like"):
+        validate_local_model_transport_result(
+            LocalModelCallTransportResult(
+                transport_result_id="m23_transport_secret_summary",
+                request_id="m23_req_1",
+                transport_kind="fake",
+                safe_response_summary="api_key='abcdefghijklmnop'",
+            )
+        )
+
+
 def test_m23_receipt_rejects_authoritative_or_mutating_claims():
     with pytest.raises(ValueError, match="non-authoritative"):
         validate_local_model_call_receipt(
@@ -154,4 +176,3 @@ def test_m23_receipt_rejects_authoritative_or_mutating_claims():
                 response_summary="unsafe",
             )
         )
-

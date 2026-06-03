@@ -1,6 +1,6 @@
 # M23 Local Model Call Policy
 
-Status: Active M23 policy documentation for v0.27.0.
+Status: Active M23 policy documentation for v0.27.1.
 
 M23 permits one narrow local model call path.
 
@@ -22,6 +22,8 @@ Denied endpoints:
 - secret-like query strings such as token, key, password, credential, auth,
   authorization, access token, refresh token, admin token, session token, API
   key, or client secret.
+- secret-like query values.
+- safe endpoint labels that echo raw URL details.
 
 ## Prompt Policy
 
@@ -40,6 +42,8 @@ Actual execution requires:
 - a local approval ref.
 - validation against the existing local approval authority.
 - an approved decision with matched grant evidence.
+- local approval validation evidence from the existing local approval
+  authority.
 
 Arbitrary approval strings are identifiers only and are not authority.
 
@@ -47,7 +51,8 @@ Arbitrary approval strings are identifiers only and are not authority.
 
 Responses are capped, redacted, and treated as non-authoritative. Secret-like
 responses are blocked. Raw responses are not stored. A response may be displayed
-only as safe text/summary from the M23 contract.
+only as safe text/summary from the M23 contract. Safe response text and safe
+response summary must not contain secret-like content.
 
 ## Receipt Policy
 
@@ -73,3 +78,8 @@ M23 does not authorize runtime activation, endpoint probes, production runtime
 execution, OpenWebUI runtime behavior, Control Center execution controls, tool
 execution, memory writes, file writes, remote execution, dependency changes, or
 production authority.
+
+v0.27.1 hardens this policy with stronger endpoint-label checks, forged
+approval decision rejection, CLI argument guardrails, granular policy docs, and
+Foundation Gate report atomic write/replace safety. The report-write hardening
+is tooling/test hardening only and was not a v0.27.0 release blocker.

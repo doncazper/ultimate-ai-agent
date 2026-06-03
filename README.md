@@ -1,12 +1,12 @@
-# Ultimate AI Agent Canonical Bundle v0.27.0
+# Ultimate AI Agent Canonical Bundle v0.27.1
 
-This is the active project baseline after v0.27.0 / M23 First Real Local LLM Call, Non-Tool, Non-Authoritative.
+This is the active project baseline after v0.27.1 / M23 Local LLM Call Safety Hardening.
 
 Start here:
 
 ```text
-README_IMPORT_v0_27_0.md
-ultimate_ai_agent_master_plan_v0_27_0.md
+README_IMPORT_v0_27_1.md
+ultimate_ai_agent_master_plan_v0_27_1.md
 docs/DOCUMENTATION_INDEX.md
 docs/canonical/09_roadmap.md
 docs/canonical/CANONICAL_DOC_MAP.md
@@ -102,10 +102,17 @@ docs/runtime/LOCAL_RUNTIME_HEALTH_PROBE_PLAN.md
 docs/runtime/LOCAL_RUNTIME_ACTIVATION_SECURITY_MODEL.md
 docs/runtime/LOCAL_RUNTIME_ACTIVATION_NON_GOALS.md
 docs/runtime/LOCAL_RUNTIME_M22_TO_M23_BOUNDARY.md
+docs/runtime/FIRST_LOCAL_LLM_CALL.md
 docs/runtime/FIRST_LOCAL_LLM_CALL_M23.md
+docs/runtime/M23_FIXED_PROMPT_POLICY.md
 docs/runtime/M23_LOCAL_MODEL_CALL_POLICY.md
+docs/runtime/M23_LOCAL_MODEL_CALL_SAFETY.md
+docs/runtime/M23_LOCAL_MODEL_CALL_RECEIPTS.md
+docs/runtime/M23_NON_AUTHORITATIVE_OUTPUT_POLICY.md
+docs/runtime/M23_MANUAL_CLI_USAGE.md
+docs/runtime/M23_TO_M24_BOUNDARY.md
 docs/security/approval_authority.md
-docs/implementation/foundation_gate_implementation_plan_v0_27_0.md
+docs/implementation/foundation_gate_implementation_plan_v0_27_1.md
 docs/maintenance/documentation_integrity_checklist.md
 docs/tooling/CODEX_PLUGIN_CAPABILITY_INVENTORY.md
 docs/tooling/CODEX_PLUGIN_RISK_POLICY.md
@@ -157,7 +164,7 @@ OpenWebUI bridge contract rule:
 
 Local model runtime activation contract rule:
 
-> v0.26.0 implements M22 Local Model Runtime Activation Contract as contract/planning/validation only. v0.26.1 hardens M22 verifier precision and metadata key secret hygiene. v0.27.0 implements M23 First Real Local LLM Call as manual/CLI-only, loopback-only, fixed-prompt-only, approval-gated, non-tool, and non-authoritative. The M23 path is dry-run by default and requires `--execute-local-call`; tests and Foundation Gate use fake transport only. OpenAPI path count remains `74`. This release adds no backend API route, runtime activation, endpoint probe, user-content model call, arbitrary prompt input, provider SDK, runtime package, tokenizer, billing API, OpenWebUI runtime bridge, Control Center execution control, tool execution, memory write, file write, dependency, or production authority. M24-M40 remain planned/provisional.
+> v0.26.0 implements M22 Local Model Runtime Activation Contract as contract/planning/validation only. v0.26.1 hardens M22 verifier precision and metadata key secret hygiene. v0.27.0 implements M23 First Real Local LLM Call as manual/CLI-only, loopback-only, fixed-prompt-only, approval-gated, non-tool, and non-authoritative. v0.27.1 hardens M23 endpoint-label safety, approval evidence checks, response redaction/caps, CLI guardrails, policy docs, static verification, Foundation Gate criteria, and Foundation Gate report atomic write/replace safety. The M23 path is dry-run by default and requires `--execute-local-call`; tests and Foundation Gate use fake transport only. OpenAPI path count remains `74`. This release adds no backend API route, runtime activation, endpoint probe, user-content model call, arbitrary prompt input, provider SDK, runtime package, tokenizer, billing API, OpenWebUI runtime bridge, Control Center execution control, tool execution, memory write, file write, dependency, or production authority. M24-M40 remain planned/provisional.
 
 Roadmap status label cleanup rule:
 

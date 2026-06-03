@@ -1056,7 +1056,7 @@ def default_foundation_gate_criteria() -> List[FoundationGateCriterion]:
             "M23 First Local LLM Call Safe",
             FoundationGateCategory.security,
             "FoundationGateEvaluator.check_m23_first_local_llm_call_safe",
-            "M23 first local LLM call path is manual/CLI-only, loopback-only, fixed-prompt-only, approval-gated for execution, fake-transport-only in tests/gates, non-tool, non-authoritative, no memory writes, no file writes, no OpenWebUI runtime bridge, no Control Center execution, no dependency, no backend execution route, and keeps OpenAPI path count at 74.",
+            "M23 first local LLM call path is manual/CLI-only, loopback-only, fixed-prompt-only, approval-gated for execution, forged-approval-resistant, fake-transport-only in tests/gates, capped/redacted, non-tool, non-authoritative, no memory writes, no file writes, no OpenWebUI runtime bridge, no Control Center execution, no dependency, no backend execution route, and keeps OpenAPI path count at 74.",
             "M23 first local LLM call boundary is unsafe or expanded beyond the approved scope.",
             "critical",
         ),

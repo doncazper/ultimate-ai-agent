@@ -46,8 +46,21 @@ def test_m23_cli_rejects_execute_without_valid_approval(capsys):
     assert "APPROVAL_DECISION_REQUIRED" in payload["decision"]["reason_codes"]
 
 
-def test_m23_cli_does_not_accept_arbitrary_prompt_argument():
+def test_m23_cli_does_not_accept_arbitrary_prompt_or_auth_arguments():
     parser_help = manual_local_model_call.build_parser().format_help()
 
-    assert "--prompt" not in parser_help
-    assert "--prompt-file" not in parser_help
+    for forbidden_arg in [
+        "--prompt",
+        "--prompt-file",
+        "--stdin",
+        "--file",
+        "--memory",
+        "--openwebui",
+        "--api-key",
+        "--auth",
+        "--authorization",
+        "--cookie",
+        "--output",
+        "--output-file",
+    ]:
+        assert forbidden_arg not in parser_help

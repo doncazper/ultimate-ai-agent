@@ -6,6 +6,19 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 
 
+REQUIRED_M23_LOCAL_CALL_DOCS = [
+    "docs/runtime/FIRST_LOCAL_LLM_CALL_M23.md",
+    "docs/runtime/FIRST_LOCAL_LLM_CALL.md",
+    "docs/runtime/M23_FIXED_PROMPT_POLICY.md",
+    "docs/runtime/M23_LOCAL_MODEL_CALL_POLICY.md",
+    "docs/runtime/M23_LOCAL_MODEL_CALL_SAFETY.md",
+    "docs/runtime/M23_LOCAL_MODEL_CALL_RECEIPTS.md",
+    "docs/runtime/M23_NON_AUTHORITATIVE_OUTPUT_POLICY.md",
+    "docs/runtime/M23_MANUAL_CLI_USAGE.md",
+    "docs/runtime/M23_TO_M24_BOUNDARY.md",
+]
+
+
 REQUIRED_ACTIVE_DOCS = [
     "docs/DOCUMENTATION_INDEX.md",
     "docs/canonical/CANONICAL_DOC_MAP.md",
@@ -31,8 +44,7 @@ REQUIRED_ACTIVE_DOCS = [
     "docs/runtime/LOCAL_RUNTIME_ACTIVATION_SECURITY_MODEL.md",
     "docs/runtime/LOCAL_RUNTIME_ACTIVATION_NON_GOALS.md",
     "docs/runtime/LOCAL_RUNTIME_M22_TO_M23_BOUNDARY.md",
-    "docs/runtime/FIRST_LOCAL_LLM_CALL_M23.md",
-    "docs/runtime/M23_LOCAL_MODEL_CALL_POLICY.md",
+    *REQUIRED_M23_LOCAL_CALL_DOCS,
     "docs/control_center/CONTROL_CENTER_CONTRACT.md",
     "docs/control_center/DASHBOARD_SNAPSHOT.md",
     "docs/control_center/ACTION_PREVIEW_POLICY.md",
@@ -220,6 +232,7 @@ ACTIVE_DOCS_TO_SCAN = [
     "docs/runtime/MANUAL_SMOKE_REPORTS.md",
     "docs/runtime/RUNTIME_CAPABILITY_MATRIX.md",
     *REQUIRED_LOCAL_RUNTIME_ACTIVATION_DOCS,
+    *REQUIRED_M23_LOCAL_CALL_DOCS,
     "docs/control_center/CONTROL_CENTER_CONTRACT.md",
     "docs/control_center/DASHBOARD_SNAPSHOT.md",
     "docs/control_center/ACTION_PREVIEW_POLICY.md",
@@ -341,6 +354,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_openwebui_ccc_strategy(root))
     failures.extend(_verify_openwebui_bridge_contract_docs(root, version))
     failures.extend(_verify_local_runtime_activation_docs(root, version))
+    failures.extend(_verify_m23_local_model_call_docs(root, version))
     failures.extend(_verify_mobile_companion_contract_docs(root, version))
     failures.extend(_verify_m20_device_capability_docs(root, version))
     failures.extend(_verify_post_m20_roadmap_projection(root))
@@ -811,6 +825,48 @@ def _verify_local_runtime_activation_docs(root: Path, version: str | None) -> li
         if re.search(rf"(?<!no ){re.escape(claim)}", active_docs):
             failures.append(f"active docs must not claim M23+ runtime implementation: {claim}")
 
+    return failures
+
+
+def _verify_m23_local_model_call_docs(root: Path, version: str | None) -> list[str]:
+    failures: list[str] = []
+    if _version_tuple(version) < (0, 27, 1):
+        return failures
+
+    for rel_path in REQUIRED_M23_LOCAL_CALL_DOCS:
+        if not (root / rel_path).exists():
+            failures.append(f"missing active documentation file: {rel_path}")
+
+    docs_text = "\n".join(
+        _read(root / rel_path).lower()
+        for rel_path in REQUIRED_M23_LOCAL_CALL_DOCS
+        if (root / rel_path).exists()
+    )
+    expectations = {
+        "M23 docs must say fixed-prompt-only": "fixed-prompt-only",
+        "M23 docs must name the fixed prompt id": "m23_fixed_local_model_smoke_v1",
+        "M23 docs must say no arbitrary prompts": "no arbitrary prompt",
+        "M23 docs must say CLI defaults dry-run": "dry-run by default",
+        "M23 docs must say execution requires explicit flag": "--execute-local-call",
+        "M23 docs must say execution requires approval": "validated local approval",
+        "M23 docs must say no user content": "no user content",
+        "M23 docs must say no memory writes": "no memory write",
+        "M23 docs must say no tool execution": "no tool execution",
+        "M23 docs must say raw responses are not stored": "raw responses are not stored",
+        "M23 docs must say output non-authoritative": "non-authoritative",
+        "M23 docs must say response capped/redacted": "capped",
+        "M23 docs must say tests use fake transport": "fake transport",
+        "M23 docs must say no backend execute route": "no backend api route",
+        "M23 docs must say no UI execute": "no control center execution",
+        "M23 docs must say no OpenWebUI runtime bridge": "no openwebui runtime bridge",
+        "M23 docs must say M24 remains future": "m24 remains future",
+    }
+    for failure, fragment in expectations.items():
+        if fragment not in docs_text:
+            failures.append(failure)
+
+    if "m24 is implemented" in docs_text or "m24 implemented" in docs_text:
+        failures.append("M23 docs must not claim M24 implemented")
     return failures
 
 

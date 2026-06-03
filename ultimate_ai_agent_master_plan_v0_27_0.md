@@ -1,7 +1,7 @@
 # Ultimate AI Agent Master Plan v0.27.0
 
-Status: Current master plan for v0.27.0 / M23 First Real Local LLM Call,
-Non-Tool, Non-Authoritative.
+Status: Historical master plan for v0.27.0 / M23 First Real Local LLM Call,
+Non-Tool, Non-Authoritative. Superseded by v0.27.1.
 
 Implemented:
 

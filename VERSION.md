@@ -1,19 +1,17 @@
 # Ultimate AI Agent Version
 
-Current active baseline: **v0.27.0**
+Current active baseline: **v0.27.1**
 
-v0.27.0 implements M23 First Real Local LLM Call, Non-Tool,
-Non-Authoritative. It adds a manual/CLI-only, loopback-only, fixed-prompt-only
-local model call path with dry-run default, explicit `--execute-local-call`,
-local approval validation, fake-transport test/gate coverage, response
-redaction, non-authoritative receipts, docs, verifier coverage, and Foundation
-Gate criteria.
+v0.27.1 hardens M23 First Real Local LLM Call safety. It strengthens
+fixed-prompt enforcement, loopback endpoint policy, approval gating, CLI dry-run
+defaults, fake/manual transport separation, response size caps, response
+redaction, non-authoritative output guarantees, documentation, static safety
+verification, Foundation Gate coverage, and Foundation Gate report atomic
+write/replace safety.
 
-It adds no backend API route, OpenAPI path count change, runtime activation,
-endpoint probe, user-content model call, arbitrary prompt input, provider SDK,
-local runtime client package, tokenizer, billing API, OpenWebUI runtime bridge,
-Control Center execution control, tool execution, memory write, file write,
-remote execution, dependency, or production authority. Tests and Foundation
-Gate use fake transport only. A real manual local call was not run for release
-validation. OpenAPI path count remains `74`. M24-M40 remain
-planned/provisional.
+It adds no arbitrary user prompts, cloud provider calls, provider SDKs,
+tokenizer or billing APIs, backend execute routes, Control Center execute
+controls, OpenWebUI runtime bridge, tool execution, memory writes, file writes,
+remote execution, dependencies, runtime behavior expansion, or production
+authority. OpenAPI path count remains `74`. M24 remains the future Memory
+Provider Abstraction milestone.

@@ -4,6 +4,7 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -107,7 +108,36 @@ def write_markdown(report_path: Path, markdown_path: Path) -> None:
     ]
     for result in payload["results"]:
         lines.append(f"- `{result['criterion_id']}`: `{result['status']}` - {result['safe_message']}")
-    markdown_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    write_text_atomic(markdown_path, "\n".join(lines) + "\n")
+
+
+def write_text_atomic(path: Path, payload: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            "w",
+            encoding="utf-8",
+            dir=path.parent,
+            prefix=f".{path.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as handle:
+            temp_path = Path(handle.name)
+            handle.write(payload)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temp_path, path)
+    finally:
+        if temp_path is not None and temp_path.exists():
+            temp_path.unlink()
+
+
+def write_json_atomic(path: Path, payload: str) -> None:
+    json.loads(payload)
+    if not payload.strip():
+        raise ValueError("Foundation Gate JSON report payload must not be empty.")
+    write_text_atomic(path, payload)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -134,7 +164,8 @@ def main(argv: list[str] | None = None) -> int:
     output_dir.mkdir(parents=True, exist_ok=True)
     report_path = output_dir / "latest_foundation_gate_report.json"
     markdown_path = output_dir / "latest_foundation_gate_report.md"
-    report_path.write_text(report.model_dump_json(indent=2), encoding="utf-8")
+    report_payload = report.model_dump_json(indent=2)
+    write_json_atomic(report_path, report_payload)
     write_markdown(report_path, markdown_path)
     requested_output_path = None
     if args.output:
@@ -142,7 +173,7 @@ def main(argv: list[str] | None = None) -> int:
         if not requested_output_path.is_absolute():
             requested_output_path = ROOT / requested_output_path
         requested_output_path.parent.mkdir(parents=True, exist_ok=True)
-        requested_output_path.write_text(report.model_dump_json(indent=2), encoding="utf-8")
+        write_json_atomic(requested_output_path, report_payload)
 
     print("\n=== Foundation Gate Summary ===")
     print(f"Report: {report_path.relative_to(ROOT)}")

@@ -1,8 +1,8 @@
 # Post-M20 Capability Layer Roadmap
 
-Status: Active roadmap projection maintained through v0.27.0. M21 and M22 are implemented/released contract-only; M23 is implemented/released manual fixed-prompt local call only; M24-M40 remain planned/provisional.
+Status: Active roadmap projection maintained through v0.27.1. M21 and M22 are implemented/released contract-only; M23 is implemented/released manual fixed-prompt local call only and hardened by v0.27.1; M24-M40 remain planned/provisional.
 
-M14-M20 remain implemented/released through reviewed milestones. v0.25.0 / M21 is implemented/released as OpenWebUI Bridge + Chat Shell Integration Contract only. v0.26.0 / M22 is implemented/released as Local Model Runtime Activation Contract only, and v0.26.1 hardens M22 verifier precision and metadata key secret hygiene only. v0.27.0 / M23 is implemented/released as manual/CLI-only, loopback-only, fixed-prompt-only, non-tool, and non-authoritative. M24-M40 are provisional but canonical after v0.18.4 unless superseded by a reviewed roadmap patch.
+M14-M20 remain implemented/released through reviewed milestones. v0.25.0 / M21 is implemented/released as OpenWebUI Bridge + Chat Shell Integration Contract only. v0.26.0 / M22 is implemented/released as Local Model Runtime Activation Contract only, and v0.26.1 hardens M22 verifier precision and metadata key secret hygiene only. v0.27.0 / M23 is implemented/released as manual/CLI-only, loopback-only, fixed-prompt-only, non-tool, and non-authoritative. v0.27.1 hardens M23 endpoint-label safety, approval evidence checks, response redaction/caps, CLI guardrails, policy docs, static verification, Foundation Gate criteria, and Foundation Gate report atomic write/replace safety. M24-M40 are provisional but canonical after v0.18.4 unless superseded by a reviewed roadmap patch.
 
 These milestones are high-level charters, not implementation. Every milestone needs its own implementation prompt and review prompt. Every risky surface gets a hardening patch before the next capability jump.
 
@@ -17,7 +17,7 @@ This roadmap adds no backend API routes, frontend behavior, runtime execution, l
 | v0.25.0 | M21 | OpenWebUI Bridge + Chat Shell Integration Contract | implemented/released contract-only |
 | v0.26.0 | M22 | Local Model Runtime Activation Contract | implemented/released contract-only; hardened by v0.26.1 |
 | v0.27.0 | M23 | First Real Local LLM Call, Non-Tool, Non-Authoritative | implemented/released manual-only |
-| v0.27.1 | Hardening | Local LLM Call Hardening | planned/provisional |
+| v0.27.1 | Hardening | Local LLM Call Hardening | implemented/released hardening-only |
 | v0.28.0 | M24 | Memory Provider Abstraction + Local Memory Store | planned/provisional |
 | v0.28.1 | Hardening | Memory Safety Hardening | planned/provisional |
 | v0.29.0 | M25 | Truth Source Router + Evidence Claim Checker | planned/provisional |
@@ -39,7 +39,7 @@ This roadmap adds no backend API routes, frontend behavior, runtime execution, l
 
 ## Narrative
 
-M21 starts with OpenWebUI bridge contracts only, preserving Python Agent Core authority. v0.25.0 implements that contract/planning/validation layer without OpenWebUI integration, deployment config, backend route, frontend feature, runtime execution, user-content local LLM call, model/provider call, tool execution, memory write, file access, remote execution, browser automation, Computer Use, mobile sensor access, plugin enablement, dependency, or production authority. v0.26.0 implements M22 local runtime activation contracts as metadata-only validation, and v0.26.1 hardens M22 verifier precision plus metadata key secret hygiene. v0.27.0 implements M23 as a manual fixed-prompt local model call path with local approval validation, fake-transport tests/gates, no tools, no memory writes, no backend route, no OpenWebUI runtime bridge, no Control Center execution control, and non-authoritative output. The v0.27.1 hardening patch must further harden secret echo and tool-call leakage checks.
+M21 starts with OpenWebUI bridge contracts only, preserving Python Agent Core authority. v0.25.0 implements that contract/planning/validation layer without OpenWebUI integration, deployment config, backend route, frontend feature, runtime execution, user-content local LLM call, model/provider call, tool execution, memory write, file access, remote execution, browser automation, Computer Use, mobile sensor access, plugin enablement, dependency, or production authority. v0.26.0 implements M22 local runtime activation contracts as metadata-only validation, and v0.26.1 hardens M22 verifier precision plus metadata key secret hygiene. v0.27.0 implements M23 as a manual fixed-prompt local model call path with local approval validation, fake-transport tests/gates, no tools, no memory writes, no backend route, no OpenWebUI runtime bridge, no Control Center execution control, and non-authoritative output. v0.27.1 hardens secret echo checks, endpoint-label safety, forged approval resistance, response caps/redaction, CLI guardrails, policy docs, verifier/Gate coverage, and Foundation Gate report atomic write/replace safety without changing runtime behavior.
 
 M24 and M25 introduce memory and truth governance after provenance, delete/export, and claim evidence rules are explicit. Memory remains recall. Model claims remain inspectable and must not become source of truth.
 
@@ -59,7 +59,7 @@ Future implementation prompts after M20 must read:
 - `docs/roadmap/ECOSYSTEM_WATCHLIST.md`.
 - `docs/roadmap/STANDARDS_ALIGNMENT_WATCHLIST.md`.
 
-M21 is implemented/released by v0.25.0 as contract-only. M22 is implemented/released by v0.26.0 as contract-only and hardened by v0.26.1. M23 is implemented/released by v0.27.0 as manual fixed-prompt local call only. M24-M40 remain planned/provisional.
+M21 is implemented/released by v0.25.0 as contract-only. M22 is implemented/released by v0.26.0 as contract-only and hardened by v0.26.1. M23 is implemented/released by v0.27.0 as manual fixed-prompt local call only and hardened by v0.27.1. M24-M40 remain planned/provisional.
 ## M19 Baseline Note
 
 v0.23.0 / M19 is implemented as Mobile Companion Contract/API Planning only.
@@ -86,4 +86,4 @@ model/provider call, remote execution, plugin enablement, OpenWebUI
 integration, or production authority. M21 is implemented/released
 contract-only by v0.25.0. M22 is implemented/released contract-only by
 v0.26.1. M23 is implemented/released by v0.27.0 as manual fixed-prompt local
-call only. M24-M40 remain planned/provisional.
+call only and hardened by v0.27.1. M24-M40 remain planned/provisional.

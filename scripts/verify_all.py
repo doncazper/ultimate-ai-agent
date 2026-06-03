@@ -839,9 +839,16 @@ def verify_m23_first_local_llm_call_boundary():
         "tests/test_m23_manual_cli_dry_run.py",
         "tests/test_m23_gate_integration.py",
         "docs/runtime/FIRST_LOCAL_LLM_CALL_M23.md",
+        "docs/runtime/FIRST_LOCAL_LLM_CALL.md",
+        "docs/runtime/M23_FIXED_PROMPT_POLICY.md",
         "docs/runtime/M23_LOCAL_MODEL_CALL_POLICY.md",
-        "docs/implementation/foundation_gate_implementation_plan_v0_27_0.md",
-        "docs/release_notes/v0_27_0.md",
+        "docs/runtime/M23_LOCAL_MODEL_CALL_SAFETY.md",
+        "docs/runtime/M23_LOCAL_MODEL_CALL_RECEIPTS.md",
+        "docs/runtime/M23_NON_AUTHORITATIVE_OUTPUT_POLICY.md",
+        "docs/runtime/M23_MANUAL_CLI_USAGE.md",
+        "docs/runtime/M23_TO_M24_BOUNDARY.md",
+        "docs/implementation/foundation_gate_implementation_plan_v0_27_1.md",
+        "docs/release_notes/v0_27_1.md",
     ]
     for rel_path in required_files:
         if not (ROOT / rel_path).exists():
@@ -872,7 +879,20 @@ def verify_m23_first_local_llm_call_boundary():
                 sys.exit(1)
 
     cli_text = (ROOT / "scripts/manual_local_model_call.py").read_text(encoding="utf-8").lower()
-    for forbidden_arg in ["--prompt", "--prompt-file", "--stdin", "--file", "--memory", "--openwebui"]:
+    for forbidden_arg in [
+        "--prompt",
+        "--prompt-file",
+        "--stdin",
+        "--file",
+        "--memory",
+        "--openwebui",
+        "--api-key",
+        "--auth",
+        "--authorization",
+        "--cookie",
+        "--output",
+        "--output-file",
+    ]:
         if f'"{forbidden_arg}"' in cli_text or f"'{forbidden_arg}'" in cli_text:
             print(f"FAIL: M23 manual CLI exposes forbidden arbitrary input argument: {forbidden_arg}")
             sys.exit(1)

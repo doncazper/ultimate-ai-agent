@@ -1,6 +1,6 @@
 # First Local LLM Call M23
 
-Status: Active M23 documentation for v0.27.0. Manual/CLI-only,
+Status: Active M23 documentation for v0.27.1. Manual/CLI-only,
 loopback-only, fixed-prompt-only, non-tool, and non-authoritative.
 
 M23 adds the first bounded local model call path. It is not a general runtime
@@ -51,5 +51,10 @@ authority, and never trusted control input.
 Release validation does not require a real endpoint call. Tests and Foundation
 Gate use fake transport only. A real manual local call was not run for v0.27.0
 release validation.
+
+v0.27.1 hardens this boundary with stronger endpoint-label checks, forged
+approval decision rejection, CLI argument guardrails, granular policy docs, and
+Foundation Gate report atomic write/replace safety. The report-write hardening
+is tooling/test hardening only and was not a v0.27.0 release blocker.
 
 OpenAPI path count remains `74`.

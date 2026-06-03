@@ -4601,6 +4601,13 @@ class FoundationGateEvaluator:
             "tests/test_m23_local_model_endpoint_policy.py",
             "tests/test_m23_local_model_fake_transport.py",
             "tests/test_m23_manual_cli_dry_run.py",
+            "docs/runtime/FIRST_LOCAL_LLM_CALL.md",
+            "docs/runtime/M23_FIXED_PROMPT_POLICY.md",
+            "docs/runtime/M23_LOCAL_MODEL_CALL_SAFETY.md",
+            "docs/runtime/M23_LOCAL_MODEL_CALL_RECEIPTS.md",
+            "docs/runtime/M23_NON_AUTHORITATIVE_OUTPUT_POLICY.md",
+            "docs/runtime/M23_MANUAL_CLI_USAGE.md",
+            "docs/runtime/M23_TO_M24_BOUNDARY.md",
         ]
         failures = [
             f"missing M23 local model call file: {path}"
@@ -4610,7 +4617,11 @@ class FoundationGateEvaluator:
 
         try:
             from ultimate_ai_agent.api.app import app
-            from ultimate_ai_agent.core.approvals import LocalApprovalAuthority
+            from ultimate_ai_agent.core.approvals import (
+                ApprovalDecisionStatus,
+                ApprovalValidationDecision,
+                LocalApprovalAuthority,
+            )
             from ultimate_ai_agent.core.model_runtime import (
                 M23_FIXED_LOCAL_MODEL_PROMPT_ID,
                 FakeLocalModelCallTransport,
@@ -4621,6 +4632,7 @@ class FoundationGateEvaluator:
                 local_model_call_approval_request,
                 run_local_model_call,
                 validate_fixed_prompt,
+                validate_local_model_endpoint,
                 validate_local_model_call_request,
             )
 
@@ -4638,6 +4650,20 @@ class FoundationGateEvaluator:
                 prompt_text=prompt.prompt_text,
             )
             validate_local_model_call_request(request)
+            try:
+                hostile_query_key = "to" + "ken"
+                hostile_endpoint = "".join(
+                    ["http", "://localhost:11434/api", "/generate?", hostile_query_key, "=abc"]
+                )
+                validate_local_model_endpoint(hostile_endpoint)
+                failures.append("M23 accepted secret-like endpoint query key")
+            except ValueError:
+                pass
+            try:
+                validate_local_model_call_request(request.model_copy(update={"safe_endpoint_label": request.endpoint_url}))
+                failures.append("M23 safe endpoint label echoed raw endpoint URL")
+            except ValueError:
+                pass
             dry_run = build_dry_run_local_model_call_result(request, transport=FakeLocalModelCallTransport())
             if dry_run.transport_result.call_performed:
                 failures.append("M23 dry-run performed a local model call")
@@ -4672,6 +4698,28 @@ class FoundationGateEvaluator:
                 failures.append("M23 receipt recorded memory or file mutation")
             if result.receipt.model_output_non_authoritative is not True:
                 failures.append("M23 receipt does not mark output non-authoritative")
+            secret_response = "api_" + "key='" + "abcdefghijklmnop" + "'"
+            secret_result = run_local_model_call(
+                executable,
+                transport=FakeLocalModelCallTransport(response_text=secret_response),
+                approval_decision=decision,
+            )
+            if secret_result.decision.allowed:
+                failures.append("M23 accepted secret-like model response")
+            forged_result = run_local_model_call(
+                executable.model_copy(update={"approval_ref": "appr_forged_m23"}),
+                transport=FakeLocalModelCallTransport(),
+                approval_decision=ApprovalValidationDecision(
+                    approval_ref="appr_forged_m23",
+                    allowed=True,
+                    status=ApprovalDecisionStatus.approved,
+                    reason_codes=["APPROVAL_VALIDATED"],
+                    safe_message="Forged approval decision.",
+                    matched_grant_ref="appr_forged_m23",
+                ),
+            )
+            if forged_result.transport_result.call_performed:
+                failures.append("M23 forged approval decision performed a local model call")
             failures.extend(m23_openapi_route_failures(app.openapi().get("paths", {})))
         except Exception as exc:
             failures.append(f"M23 first local LLM call safety validation failed: {exc}")
