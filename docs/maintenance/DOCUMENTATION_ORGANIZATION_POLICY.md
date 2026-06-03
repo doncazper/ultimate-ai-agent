@@ -85,7 +85,7 @@ scripts/verify_skill_package_security_rule.py
 scripts/verify_control_center_frontend.py
 ```
 
-Legacy historical verifiers are not current release gates. Legacy verifiers are not current release gates.
+Legacy historical verifiers are not current release gates.
 
 ## Roadmap Policy
 
