@@ -1,6 +1,6 @@
 # Documentation Index
 
-Current active baseline: **v0.27.1**
+Current active baseline: **v0.28.0**
 
 This index is the active entrypoint for documentation navigation. Historical release documents remain in the repository for audit history, but active truth starts with the current baseline files listed here.
 
@@ -9,8 +9,8 @@ This index is the active entrypoint for documentation navigation. Historical rel
 ```text
 README.md
 VERSION.md
-README_IMPORT_v0_27_1.md
-ultimate_ai_agent_master_plan_v0_27_1.md
+README_IMPORT_v0_28_0.md
+ultimate_ai_agent_master_plan_v0_28_0.md
 docs/canonical/CANONICAL_DOC_MAP.md
 docs/canonical/09_roadmap.md
 docs/roadmap/MILESTONE_CHARTERS.md
@@ -51,6 +51,20 @@ docs/runtime/M23_LOCAL_MODEL_CALL_RECEIPTS.md
 docs/runtime/M23_NON_AUTHORITATIVE_OUTPUT_POLICY.md
 docs/runtime/M23_MANUAL_CLI_USAGE.md
 docs/runtime/M23_TO_M24_BOUNDARY.md
+docs/memory/MEMORY_PROVIDER_ABSTRACTION.md
+docs/memory/LOCAL_MEMORY_STORE.md
+docs/memory/MEMORY_RECORD_SCHEMA.md
+docs/memory/MEMORY_WRITE_POLICY.md
+docs/memory/MEMORY_REVIEW_AND_PROVENANCE.md
+docs/memory/MEMORY_SOURCE_PRIORITY.md
+docs/memory/MEMORY_RECALL_PLANNING.md
+docs/memory/MEMORY_RETENTION_DELETE_EXPORT.md
+docs/memory/MEMORY_CONFLICT_AND_STALENESS.md
+docs/memory/MEMORY_DEDUP_DECAY_ARCHIVE.md
+docs/memory/MEMORY_SECURITY_MODEL.md
+docs/memory/MEMORY_NON_GOALS.md
+docs/memory/MEMORYOS_REVIEW_INCORPORATION.md
+docs/memory/M24_TO_M25_BOUNDARY.md
 docs/device_capabilities/DEVICE_CAPABILITY_BROKER_CONTRACT.md
 docs/device_capabilities/CAPABILITY_MANIFEST_SCHEMA.md
 docs/device_capabilities/DEVICE_PERMISSION_LIFECYCLE.md
@@ -101,6 +115,7 @@ Key active canonical groups:
 - external tooling and Codex plugin governance: `docs/canonical/66_external_tooling_and_codex_plugin_governance.md`
 - UI/client strategy: `docs/ui/OPENWEBUI_AND_CCC_STRATEGY.md`, `docs/ui/CLIENT_SURFACE_ROLES.md`, `docs/ui/OPENWEBUI_INTEGRATION_ROADMAP.md`, `docs/ui/CCC_NATIVE_CLIENT_STRATEGY.md`
 - OpenWebUI bridge contract: `docs/openwebui/OPENWEBUI_BRIDGE_CONTRACT.md`, `docs/openwebui/CHAT_SHELL_INTEGRATION_CONTRACT.md`, `docs/openwebui/SESSION_TRANSCRIPT_REF_POLICY.md`, `docs/openwebui/OPENWEBUI_SECURITY_MODEL.md`, `docs/openwebui/OPENWEBUI_AUTHORITY_BOUNDARY.md`, `docs/openwebui/OPENWEBUI_NON_GOALS.md`, `docs/openwebui/OPENWEBUI_FUTURE_INTEGRATION_STAGES.md`
+- memory provider and local store: `docs/memory/MEMORY_PROVIDER_ABSTRACTION.md`, `docs/memory/LOCAL_MEMORY_STORE.md`, `docs/memory/MEMORY_WRITE_POLICY.md`, `docs/memory/MEMORY_SECURITY_MODEL.md`, `docs/memory/M24_TO_M25_BOUNDARY.md`
 
 ## Active API Docs
 
@@ -206,7 +221,7 @@ Model runtime docs distinguish simulated runtime behavior, dev/manual loopback r
 
 M11 runtime readiness docs describe status/report validation only. They do not describe production runtime execution. v0.15.1 clarifies local loopback policy as supported validation-only and `fake_manual_loopback_smoke` as a fake/test report origin only.
 
-v0.26.0 / M22 adds Local Model Runtime Activation Contract docs as contract/planning/validation only. v0.26.1 hardens M22 verifier precision, metadata key secret hygiene, route-count test ownership, and duplicate docs wording. v0.27.0 / M23 adds the first bounded manual local model call path. v0.27.1 hardens M23 endpoint-label safety, approval evidence checks, response redaction/caps, CLI guardrails, policy docs, static verification, Foundation Gate criteria, and Foundation Gate report atomic write/replace safety. M23 is CLI-only, dry-run by default, requires `--execute-local-call`, requires validated local approval, uses fixed prompt `m23_fixed_local_model_smoke_v1`, is loopback-only, and records non-authoritative receipts. Tests and Foundation Gate use fake transport only. M23 adds no backend API route, OpenAPI path count change, runtime activation, endpoint probe, arbitrary prompt input, user-content model call, provider SDK, runtime package, tool execution, memory write, file write, OpenWebUI runtime behavior, dependency, or production authority. M24-M40 remain planned/provisional.
+v0.26.0 / M22 adds Local Model Runtime Activation Contract docs as contract/planning/validation only. v0.26.1 hardens M22 verifier precision, metadata key secret hygiene, route-count test ownership, and duplicate docs wording. v0.27.0 / M23 adds the first bounded manual local model call path. v0.27.1 hardens M23 endpoint-label safety, approval evidence checks, response redaction/caps, CLI guardrails, policy docs, static verification, Foundation Gate criteria, and Foundation Gate report atomic write/replace safety. v0.28.0 / M24 adds Memory Provider Abstraction + Local Memory Store as governed reviewed-write-only local memory foundation. Memory is recall, not authority. Memory is not ground truth. M24 adds no backend mutation route, automatic memory write, model-output write, local LLM output write, OpenWebUI chat memory write, Control Center memory mutation, mobile capture write, tool output write, vector DB, embeddings, cloud memory, raw session history, context injection, dependency, production persistence, M25 claim verification, or production authority. OpenAPI path count remains `74`. M25-M40 remain planned/provisional.
 
 ## Active Remote Worker and Private Mesh Docs
 
@@ -282,7 +297,7 @@ The Codex plugin capability inventory and risk policy record available developme
 
 ## Release Notes Index
 
-Current release notes: `docs/release_notes/v0_27_1.md`
+Current release notes: `docs/release_notes/v0_28_0.md`
 
 Historical release notes remain under `docs/release_notes/`. Historical docs may mention old active baselines in historical context; they are not the current source of truth.
 

@@ -40,3 +40,5 @@ Forbidden display and capability:
 - no plugin enablement
 
 Memory is recall, not authority. Canonical files and governed source systems outrank memory. Evidence and file refs are safe inspection metadata only, not authority to bypass approvals or execute actions locally.
+
+memory is recall, not authority. canonical files and governed source systems outrank memory.

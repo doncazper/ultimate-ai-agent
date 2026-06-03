@@ -1,12 +1,15 @@
 # Memory Viewer
 
-Status: Active M17 viewer, still enforced under v0.22.0.
+Status: Active M17 viewer, still enforced under v0.28.0.
 
 The Memory Viewer is a Web Control Center read-only and summary-only surface for memory record refs. It shows safe refs, memory type, source refs, confidence status, review status, staleness, conflict indicators, data classification, redaction status, and related evidence/event/receipt refs.
 
 No backend route is added for M17. The current Web Control Center memory view uses frontend mock summaries only and cannot write, learn, forget, edit, or delete memory.
 
-memory is recall, not authority. canonical files and governed source systems outrank memory.
+Memory is recall, not authority. Memory is not ground truth. Canonical files, evidence manifests, receipts, Event Ledger records, and user-reviewed sources outrank memory.
+Canonical files and governed source systems outrank memory.
+
+M24 adds governed local memory provider/store contracts, but the Control Center Memory Viewer remains read-only and summary-only. It cannot create, write, learn, forget, edit, delete, export raw content, or mutate memory.
 
 Safety boundary:
 - no raw prompts

@@ -24,6 +24,7 @@ SCAN_SEQUENCE = [
     ("OpenWebUI bridge contract-only scan", "verify_no_openwebui_runtime_or_config_implementation"),
     ("local model runtime activation contract-only scan", "verify_no_local_runtime_activation_implementation"),
     ("M23 first local LLM call boundary scan", "verify_m23_first_local_llm_call_boundary"),
+    ("M24 memory provider local store safety scan", "verify_m24_memory_provider_local_store_safety"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
     ("production truth integration scan", "verify_no_production_truth_integrations"),
     ("broad filesystem scan", "verify_no_broad_filesystem_scanning"),
@@ -960,6 +961,147 @@ def verify_m23_first_local_llm_call_boundary():
         sys.exit(1)
 
     print("OK: M23 is manual/CLI-only, loopback-only, fixed-prompt-only, non-tool, non-authoritative, and route-free")
+
+
+def verify_m24_memory_provider_local_store_safety():
+    print("\n[Verifier] Running M24 memory provider/local store safety guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/memory/provider.py",
+        "src/ultimate_ai_agent/core/memory/local_store.py",
+        "src/ultimate_ai_agent/core/memory/manifests.py",
+        "src/ultimate_ai_agent/core/memory/policy.py",
+        "src/ultimate_ai_agent/core/memory/recall.py",
+        "tests/test_m24_memory_provider_contracts.py",
+        "tests/test_m24_memory_write_validation.py",
+        "tests/test_m24_local_memory_store.py",
+        "tests/test_m24_gate_integration.py",
+        "docs/memory/MEMORY_PROVIDER_ABSTRACTION.md",
+        "docs/memory/LOCAL_MEMORY_STORE.md",
+        "docs/memory/MEMORY_RECORD_SCHEMA.md",
+        "docs/memory/MEMORY_WRITE_POLICY.md",
+        "docs/memory/M24_TO_M25_BOUNDARY.md",
+        "docs/release_notes/v0_28_0.md",
+        "docs/implementation/foundation_gate_implementation_plan_v0_28_0.md",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M24 memory file: {rel_path}")
+            sys.exit(1)
+
+    forbidden_dependencies = [
+        '"chromadb"',
+        '"qdrant"',
+        '"weaviate"',
+        '"pinecone"',
+        '"faiss"',
+        '"milvus"',
+        '"lancedb"',
+        '"sentence-transformers"',
+        '"transformers"',
+        '"redis"',
+        '"arq"',
+        '"pgvector"',
+        "chromadb==",
+        "qdrant==",
+        "weaviate==",
+        "pinecone==",
+        "faiss==",
+        "milvus==",
+        "lancedb==",
+        "sentence-transformers==",
+        "transformers==",
+        "redis==",
+        "arq==",
+        "pgvector==",
+    ]
+    for rel_path in ["apps/control-center/package.json", "pyproject.toml"]:
+        text = (ROOT / rel_path).read_text(encoding="utf-8").lower()
+        for fragment in forbidden_dependencies:
+            if fragment in text:
+                print(f"FAIL: Forbidden M24 memory dependency fragment in {rel_path}: {fragment}")
+                sys.exit(1)
+
+    memory_root = ROOT / "src" / "ultimate_ai_agent" / "core" / "memory"
+    forbidden_source_fragments = [
+        "import chromadb",
+        "import qdrant",
+        "import redis",
+        "import arq",
+        "import requests",
+        "import httpx",
+        "from requests import",
+        "from httpx import",
+        "path.home(",
+        "expanduser(",
+        "os.walk(",
+        ".rglob(\"*\"",
+        ".glob(\"*\"",
+        "automatic_write=True",
+        "model_output_source=True",
+        "local_llm_output_source=True",
+        "openwebui_source=True",
+        "mobile_capture_source=True",
+        "tool_output_source=True",
+        "contains_raw_prompt=True",
+        "contains_raw_model_output=True",
+        "contains_raw_file_content=True",
+        "contains_raw_transcript=True",
+        "recall_injection_enabled=True",
+        "context_pack_injection_enabled=True",
+        "background_workers_enabled=True",
+    ]
+    for path in memory_root.rglob("*.py"):
+        rel = path.relative_to(ROOT).as_posix()
+        text = path.read_text(encoding="utf-8").lower().replace(" ", "")
+        for fragment in forbidden_source_fragments:
+            if fragment.replace(" ", "") in text:
+                print(f"FAIL: M24 forbidden memory source fragment in {rel}: {fragment}")
+                sys.exit(1)
+
+    frontend_root = ROOT / "apps" / "control-center" / "src"
+    if frontend_root.exists():
+        for path in frontend_root.rglob("*"):
+            if not path.is_file() or path.suffix not in {".ts", ".tsx", ".js", ".jsx"}:
+                continue
+            rel = path.relative_to(ROOT).as_posix()
+            text = path.read_text(encoding="utf-8").lower()
+            for fragment in [
+                "/memory/write",
+                "/memory/delete",
+                "/memory/learn",
+                "/memory/forget",
+                "/memory/import",
+                "/memory/ingest",
+                "/memory/vector-search",
+                "/memory/embed",
+                "/memory/inject",
+            ]:
+                if fragment in text:
+                    print(f"FAIL: M24 forbidden Control Center memory mutation fragment in {rel}: {fragment}")
+                    sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.evaluators import m24_openapi_route_failures
+
+        failures = m24_openapi_route_failures(app.openapi().get("paths", {}))
+    except Exception as exc:
+        print(f"FAIL: M24 OpenAPI guard could not generate schema: {exc}")
+        sys.exit(1)
+    for failure in failures:
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    tracked = subprocess.run(["git", "ls-files"], cwd=ROOT, check=True, capture_output=True, text=True).stdout.splitlines()
+    forbidden_tracked_suffixes = (".db", ".sqlite", ".sqlite3")
+    for rel_path in tracked:
+        if rel_path.endswith(forbidden_tracked_suffixes):
+            print(f"FAIL: M24 tracked local memory database artifact: {rel_path}")
+            sys.exit(1)
+
+    print("OK: M24 memory provider is local-only, reviewed-write-only, route-free, vector-free, and non-authoritative")
+
 
 def verify_no_shell_execution_in_runtime():
     print("\n[Verifier] Running runtime shell/subprocess execution scan...")

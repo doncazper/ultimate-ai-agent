@@ -1,6 +1,6 @@
 # Documentation Integrity Checklist
 
-Status: Active maintenance checklist, v0.27.1
+Status: Active maintenance checklist, v0.28.0
 
 Run this checklist before every release that changes docs, roadmap, API metadata, runtime boundaries, or release status.
 
@@ -51,6 +51,7 @@ Run this checklist before every release that changes docs, roadmap, API metadata
 - docs do not claim OpenWebUI integration, deployment config, plugin/function/tool bridge, native CCC implementation, Android app, iOS app, macOS app, OS permission integration, signing, keystore, App Store workflow, or Play Store workflow exists unless implemented and gated.
 - docs do not claim M21-M40 capabilities are implemented unless a dedicated future milestone implements and gates them.
 - docs do not claim Device Capability Broker runtime implementation, sensor access, device pairing runtime, mobile storage runtime, backend device routes, or device-client authority exists unless implemented and gated.
+- docs do not claim memory provider/local store output is authority, ground truth, automatically written, model-written, OpenWebUI-written, mobile-capture-written, tool-output-written, raw-content-bearing, vector-backed, embedding-backed, cloud-backed, context-injected, production-persistent, or claim-verifying unless a dedicated future milestone implements and gates that behavior.
 
 ## Release Note Requirements
 
@@ -82,6 +83,7 @@ Run this checklist before every release that changes docs, roadmap, API metadata
 - v0.26.1 M22 Safety Hardening tightens verifier fragments, validates metadata keys as well as values in activation policy/request/decision contracts, removes brittle local route-count unit-test ownership, and cleans duplicate M22 docs wording. It keeps OpenAPI path count unchanged at 74 and adds no backend route, runtime execution, local LLM call, model/provider call, endpoint probe, user prompt processing, tool execution, memory write, file write, OpenWebUI runtime behavior, dependency, or production authority.
 - v0.27.0 M23 First Real Local LLM Call is manual/CLI-only, loopback-only, fixed-prompt-only, dry-run by default, explicitly execution-flagged, local-approval-gated, non-tool, and non-authoritative. It keeps OpenAPI path count unchanged at 74 and adds no backend route, runtime activation, endpoint probe, arbitrary prompt input, user-content model call, provider SDK, runtime package, OpenWebUI runtime bridge, Control Center execution control, tool execution, memory write, file write, dependency, or production authority. M24-M40 remain planned/provisional.
 - v0.27.1 M23 Local LLM Call Safety Hardening tightens endpoint-label safety, secret-like endpoint/query rejection, forged approval resistance, response redaction/caps, CLI guardrails, policy docs, static verifier coverage, Foundation Gate criteria, and Foundation Gate report atomic write/replace safety. It keeps OpenAPI path count unchanged at 74 and adds no backend route, runtime activation, endpoint probe, arbitrary prompt input, user-content model call, provider SDK, runtime package, OpenWebUI runtime bridge, Control Center execution control, tool execution, memory write, file write, dependency, runtime behavior expansion, M24 work, or production authority. The Foundation Gate report-write fix is tooling/test hardening only and was not a v0.27.0 release blocker.
+- v0.28.0 M24 Memory Provider Abstraction + Local Memory Store is governed, reviewed-write-only, local/dev-only, redacted-summary-only, source-linked, recall-oriented, and non-authoritative. It keeps OpenAPI path count unchanged at 74 and adds no backend route, automatic memory write, model-output write, local LLM output write, OpenWebUI memory write, Control Center memory mutation, mobile capture write, tool output write, raw session history store, vector DB, embeddings, cloud memory provider, context injection, dependency, production persistence, M25 claim verification, or production authority.
 - future post-M20 milestone prompts check `docs/roadmap/CAPABILITY_LAYERING_STRATEGY.md`.
 - future post-M20 milestone prompts check `docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md`.
 - future post-M20 milestone prompts check `docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md`.
@@ -99,7 +101,7 @@ Run this checklist before every release that changes docs, roadmap, API metadata
 - Developer environment docs say to use `.venv/bin/python`, not bare `python`, because shell aliases are not reliable for Codex/non-interactive shells and no global Python alias is required.
 ## M19 Documentation Integrity Checks
 
-- active baseline points to v0.25.0.
+- active baseline points to v0.28.0.
 - M19 is implemented as Mobile Companion Contract/API Planning only.
 - M20 is implemented/released as Device Capability Broker Contract only.
 - v0.23.0 / M19 is marked implemented/released in active roadmap docs.
@@ -117,7 +119,7 @@ Run this checklist before every release that changes docs, roadmap, API metadata
 
 ## M20 Documentation Integrity Checks
 
-- active baseline points to v0.25.0.
+- active baseline points to v0.28.0.
 - M20 is implemented/released as Device Capability Broker Contract only.
 - M20 is contract-only.
 - M20 docs say no sensors are implemented.
@@ -126,11 +128,11 @@ Run this checklist before every release that changes docs, roadmap, API metadata
 - M20 docs say capture cannot silently become memory.
 - M20 docs say Device Capability Broker output is not trusted control input by default.
 - M21 is implemented/released as OpenWebUI Bridge + Chat Shell Integration Contract only.
-- M22 is implemented/released contract-only by v0.26.0 and hardened by v0.26.1. M23 is implemented/released by v0.27.0 as manual fixed-prompt local call only and hardened by v0.27.1; M24-M40 remain planned/provisional.
+- M22 is implemented/released contract-only by v0.26.0 and hardened by v0.26.1. M23 is implemented/released by v0.27.0 as manual fixed-prompt local call only and hardened by v0.27.1. M24 is implemented/released by v0.28.0 as governed local memory provider/store foundation. M25-M40 remain planned/provisional.
 
 ## M21 Documentation Integrity Checks
 
-- active baseline points to v0.25.0.
+- active baseline points to v0.28.0.
 - M21 is contract/planning/validation only.
 - OpenWebUI is the preferred conversational web shell.
 - OpenWebUI is not the agent brain.
@@ -138,4 +140,4 @@ Run this checklist before every release that changes docs, roadmap, API metadata
 - OpenWebUI refs are identifiers only and never authority.
 - no OpenWebUI integration, deployment config, Docker config, plugin/function/pipeline/tool/admin/auth/cookie/API key/admin token workflow, browser profile access, or live OpenWebUI connection is implemented.
 - no backend API route, frontend feature, runtime execution, local LLM call, model/provider call, tool execution, memory write, file access, remote execution, browser automation, Computer Use, mobile sensor access, plugin enablement, dependency, or production authority is added.
-- M22 is implemented/released contract-only by v0.26.0 and hardened by v0.26.1. M23 is implemented/released by v0.27.0 as manual fixed-prompt local call only and hardened by v0.27.1; M24 remains planned/provisional.
+- M22 is implemented/released contract-only by v0.26.0 and hardened by v0.26.1. M23 is implemented/released by v0.27.0 as manual fixed-prompt local call only and hardened by v0.27.1. M24 is implemented/released by v0.28.0 as governed local memory provider/store foundation. M25 remains planned/provisional.

@@ -1,6 +1,6 @@
 # 03 — Memory System
 
-Status: Foundation specification, v0.4.9
+Status: Foundation specification, updated for v0.28.0 / M24
 Owner: Memory Service / Memory Curator
 Layer: Layer 1 Truth, Memory, and Data Ownership
 Blocking: Required before companion learning, proactive intelligence, scanners, Skill Factory, and self-improving code can store durable learning.
@@ -22,31 +22,33 @@ supersedable
 deletable
 ```
 
-Memory is not the source of truth when canonical files disagree.
+Memory is recall, not authority. Memory is not ground truth. Canonical files, evidence manifests, receipts, Event Ledger records, and user-reviewed sources outrank memory.
 
 ## Core rule
 
-> Memory helps the agent recall and personalize; canonical files define official project truth.
+> Memory helps the agent recall and personalize; canonical files, evidence manifests, receipts, Event Ledger records, and user-reviewed sources define stronger project truth than memory.
 
 ## Source of truth
 
-Use Postgres as the canonical memory database for MVP, with optional pgvector/full-text indexing. Do not start with multiple SQL databases.
+M24 adds a governed `MemoryProvider` abstraction and local-only memory store foundation. M24 uses in-memory/dev storage and optional explicit-path Python stdlib SQLite only. It does not add production persistence, cloud memory providers, vector DB, embeddings, semantic search, RAG ingestion, context injection, broad filesystem scanning, backend mutation routes, or dependencies.
 
 ## Memory lifecycle
 
 ```text
 Retain
-  extract candidate memories from events, files, tool results, user statements
+  accept explicit reviewed memory record contracts only
 
 Recall
-  retrieve relevant, scoped, permissioned memories into Context Packs
+  return redacted summary-only recall records
 
 Reflect
-  consolidate duplicates, update summaries, resolve conflicts, supersede stale memories
+  future review metadata only in M24
 
 Review/Delete
   let user inspect, edit, export, pause, or delete memory
 ```
+
+M24 has no automatic writes, model-output writes, local LLM output writes, OpenWebUI chat memory writes, Control Center memory mutation, mobile capture writes, tool output writes, raw session history storage, post-LLM learning, session-end learning, automatic extraction, auto-curated wiki, cron job, or background worker.
 
 ## Memory types
 
@@ -68,6 +70,8 @@ notification_preference
 ```
 
 Inferences must be clearly marked and lower-confidence than explicit user-confirmed memory.
+
+In M24, model output, local LLM output, OpenWebUI chat content, mobile capture, and tool output are not valid memory write sources. Future support requires dedicated reviewed milestones.
 
 ## Required memory fields
 
@@ -258,4 +262,3 @@ Defer advanced graph memory, local cache, trust decay, and complex reflection un
 Memory V1 uses Postgres as the canonical memory store with pgvector-ready semantic indexing, Postgres full-text search, structured filters, source-linked records, and reranking. The detailed retrieval policy is now defined in `docs/canonical/41_memory_retrieval_v1.md`.
 
 Memory retrieval must apply scope, consent, sensitivity, supersession, freshness, source authority, and poisoning checks before memories enter a Context Pack.
-

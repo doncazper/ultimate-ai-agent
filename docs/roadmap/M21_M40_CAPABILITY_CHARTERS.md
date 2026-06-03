@@ -1,8 +1,8 @@
 # M21-M40 Capability Charters
 
-Status: Active roadmap projection maintained through v0.27.1. M21 and M22 are implemented/released contract-only; M23 is implemented/released manual fixed-prompt local call only and hardened by v0.27.1; M24-M40 remain planned/provisional.
+Status: Active roadmap projection maintained through v0.28.0. M21 and M22 are implemented/released contract-only; M23 is implemented/released manual fixed-prompt local call only and hardened by v0.27.1; M24 is implemented/released as governed memory provider/local store; M25-M40 remain planned/provisional.
 
-These charters define capability layers after M20. v0.25.0 implements M21 as contract/planning/validation only. v0.26.0 implements M22 as contract/planning/validation only, and v0.26.1 hardens M22 verifier precision plus metadata key secret hygiene only. v0.27.0 implements M23 as manual/CLI-only, loopback-only, fixed-prompt-only, non-tool, and non-authoritative. v0.27.1 hardens M23 local call safety without adding new runtime authority. M24-M40 are still future capability layers. Every milestone requires its own implementation prompt, review prompt, hardening expectation, and validation evidence before release.
+These charters define capability layers after M20. v0.25.0 implements M21 as contract/planning/validation only. v0.26.0 implements M22 as contract/planning/validation only, and v0.26.1 hardens M22 verifier precision plus metadata key secret hygiene only. v0.27.0 implements M23 as manual/CLI-only, loopback-only, fixed-prompt-only, non-tool, and non-authoritative. v0.27.1 hardens M23 local call safety without adding new runtime authority. v0.28.0 implements M24 as governed, reviewed-write-only local memory provider/store foundation. M25-M40 are still future capability layers. Every milestone requires its own implementation prompt, review prompt, hardening expectation, and validation evidence before release.
 
 ## Shared Rules
 
@@ -183,37 +183,47 @@ Notes: This patch remains focused on hardening. It adds no runtime behavior, bac
 
 ## v0.28.0 / M24 - Memory Provider Abstraction + Local Memory Store
 
-Status: planned/provisional.
+Status: implemented/released.
 
-Purpose: Introduce real memory storage carefully.
+Purpose: Introduce governed local memory storage carefully.
 
 Allowed scope:
 
-- MemoryProvider interface.
-- local SQLite/dev memory store.
+- MemoryProvider abstraction.
+- local in-memory/dev memory store.
+- explicit-path stdlib SQLite local store.
 - memory record lifecycle.
 - memory review states.
 - user-reviewed writes.
 - delete/export contracts.
+- source priority, provenance, evidence/event/receipt refs.
+- trust/confidence metadata.
+- dedup/decay/archive planning metadata.
+- recall-planning metadata.
 
 Must not add:
 
 - automatic memory writes.
 - unreviewed personal profiling.
 - cloud memory providers.
-- vector DB dependency unless explicitly approved.
+- vector DB.
+- embeddings.
+- raw session history.
+- context injection.
+- backend memory mutation API.
+- production persistence.
 
 Dependencies: M23 hardening, memory policy, truth/evidence boundaries.
 
-Acceptance criteria: memory writes require review, provenance, delete/export paths, and no secret storage.
+Acceptance criteria: memory writes require review, provenance, delete/export paths, source refs, redacted summary-only storage, no secret storage, no automatic/model/local-LLM/OpenWebUI/mobile/tool writes, no vector DB, no embeddings, no cloud memory, no context injection, no backend mutation route, and OpenAPI path count remains `74`.
 
 Review prompt required: yes.
 
 Hardening expectation: v0.28.1 Memory Safety Hardening before truth/evidence expansion.
 
-Source-of-truth docs: `docs/roadmap/CAPABILITY_LAYERING_STRATEGY.md`, `src/ultimate_ai_agent/core/memory/`.
+Source-of-truth docs: `docs/memory/MEMORY_PROVIDER_ABSTRACTION.md`, `docs/memory/LOCAL_MEMORY_STORE.md`, `docs/memory/MEMORY_RECORD_SCHEMA.md`, `docs/memory/MEMORY_WRITE_POLICY.md`, `docs/memory/MEMORY_SECURITY_MODEL.md`, `docs/memory/M24_TO_M25_BOUNDARY.md`, `docs/roadmap/CAPABILITY_LAYERING_STRATEGY.md`, `src/ultimate_ai_agent/core/memory/`.
 
-Notes: Memory is recall, not authority.
+Notes: Memory is recall, not authority. Memory is not ground truth. Canonical files, evidence manifests, receipts, Event Ledger records, and user-reviewed sources outrank memory. M25 remains future.
 
 ## v0.28.1 - Memory Safety Hardening
 
@@ -793,7 +803,8 @@ M20 Device Capability Broker Contract is implemented/released as contract-only
 planning and validation. M21 is implemented/released by v0.25.0 as
 contract-only. M22 is implemented/released by v0.26.0 as contract-only and hardened by v0.26.1.
 M23 is implemented/released by v0.27.0 as manual fixed-prompt local call only.
-M24-M40 remain planned/provisional. The M19 baseline
+M24 is implemented/released by v0.28.0 as governed local memory provider/store foundation.
+M25-M40 remain planned/provisional. The M19 baseline
 adds no mobile app, Android app, iOS app, macOS app, native build workflow, OS
 permission integration, mobile sensor access, mobile approval execution,
 runtime execution, model/provider calls, remote execution, plugin enablement,
@@ -806,5 +817,6 @@ safety tests only. v0.24.0 implements M20 Device Capability Broker Contract
 only. v0.25.0 implements M21 OpenWebUI Bridge + Chat Shell Integration
 Contract only. M22 Local Model Runtime Activation Contract is implemented by
 v0.26.0 as contract/planning/validation only and hardened by v0.26.1. M23 is
-implemented/released by v0.27.0 as manual fixed-prompt local call only. M24-M40
+implemented/released by v0.27.0 as manual fixed-prompt local call only. M24 is
+implemented/released by v0.28.0 as governed local memory provider/store foundation. M25-M40
 remain planned/provisional until implemented by dedicated reviewed milestones.

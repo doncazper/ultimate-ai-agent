@@ -1061,6 +1061,15 @@ def default_foundation_gate_criteria() -> List[FoundationGateCriterion]:
             "critical",
         ),
         _criterion(
+            "m24_memory_provider_local_store_safe",
+            "M24 Memory Provider Local Store Safe",
+            FoundationGateCategory.memory,
+            "FoundationGateEvaluator.check_m24_memory_provider_local_store_safe",
+            "M24 MemoryProvider abstraction and local memory store are reviewed-write-only, local/dev-only, redacted-summary-only, source-linked, recall, not authority, no automatic writes, no model/local-LLM/OpenWebUI/mobile/tool writes, no vector DB, no embeddings, no cloud provider, no context injection runtime, no production persistence claim, no backend mutation route, M25 remains future, and keeps OpenAPI path count at 74.",
+            "M24 memory provider/local store boundary is unsafe or expanded beyond the approved scope.",
+            "critical",
+        ),
+        _criterion(
             "open_design_governance_docs_present",
             "Open Design Governance Docs Present",
             FoundationGateCategory.documentation,

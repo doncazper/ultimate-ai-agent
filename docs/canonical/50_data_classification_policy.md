@@ -68,3 +68,16 @@ device identifiers: sensitive by default
 ```
 
 Future mobile capture must classify before storage, memory write, provider routing, or external send.
+
+## M24 Memory Classification
+
+M24 memory records use local `public`, `internal`, `personal`, `sensitive`,
+`regulated`, and `forbidden` classification values. `forbidden` memory is
+rejected. Credential-like or secret-like content is rejected before storage.
+
+Memory is recall, not authority. Memory is not ground truth. Canonical files,
+evidence manifests, receipts, Event Ledger records, and user-reviewed sources
+outrank memory. M24 adds no automatic writes, model-output writes, local LLM
+output writes, OpenWebUI chat memory writes, mobile capture writes, tool output
+writes, vector DB, embeddings, cloud memory, raw session history, or context
+injection.

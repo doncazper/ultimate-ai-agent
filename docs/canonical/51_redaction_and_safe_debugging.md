@@ -94,3 +94,16 @@ full prompt context containing sensitive data
 Future mobile capture logs and validation errors must never expose raw location, microphone audio, camera media, contacts, calendar data, photos, health-adjacent data, device identifiers, credentials, tokens, or secrets.
 
 Debug output should use safe summaries, evidence refs, redaction markers, and receipt IDs. Sensor data is untrusted evidence until verified and must not be copied into prompts, memory, logs, receipts, provider envelopes, or user-visible output without redaction and user review.
+
+## M24 Memory Redaction
+
+M24 memory stores redacted safe summaries only. Raw prompts, raw model outputs,
+raw file contents, raw transcripts, raw memory contents, raw credentials,
+provider payloads, and raw session history are blocked. Redacted memory export
+is allowed; raw memory export is blocked.
+
+Memory is recall, not authority. Memory is not ground truth. Canonical files,
+evidence manifests, receipts, Event Ledger records, and user-reviewed sources
+outrank memory. M24 adds no automatic writes, model-output writes, local LLM
+output writes, OpenWebUI chat memory writes, mobile capture writes, tool output
+writes, vector DB, embeddings, cloud memory, or context injection.

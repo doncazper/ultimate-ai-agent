@@ -196,6 +196,22 @@ M23_FORBIDDEN_BACKEND_ROUTES = (
     "/openwebui/bridge/run",
     "/control-center/runtime/execute",
 )
+EXPECTED_M24_OPENAPI_PATH_COUNT = 74
+M24_FORBIDDEN_BACKEND_ROUTES = (
+    "/memory/write",
+    "/memory/delete",
+    "/memory/learn",
+    "/memory/forget",
+    "/memory/raw",
+    "/memory/import",
+    "/memory/ingest",
+    "/memory/vector-search",
+    "/memory/embed",
+    "/memory/inject",
+    "/memory/context-pack/inject",
+    "/control-center/memory/write",
+    "/control-center/memory/delete",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -376,6 +392,17 @@ def m23_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
     forbidden_present = sorted(path for path in M23_FORBIDDEN_BACKEND_ROUTES if path in path_set)
     if forbidden_present:
         failures.append(f"M23 forbidden backend route(s) present: {', '.join(forbidden_present)}")
+    return failures
+
+
+def m24_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M24_OPENAPI_PATH_COUNT) -> List[str]:
+    failures: List[str] = []
+    path_set = set(paths)
+    if len(path_set) != expected_path_count:
+        failures.append(f"M24 OpenAPI path count changed: expected {expected_path_count}, found {len(path_set)}")
+    forbidden_present = sorted(path for path in M24_FORBIDDEN_BACKEND_ROUTES if path in path_set)
+    if forbidden_present:
+        failures.append(f"M24 forbidden backend route(s) present: {', '.join(forbidden_present)}")
     return failures
 
 
@@ -583,6 +610,7 @@ class FoundationGateEvaluator:
                 self.check_m22_local_model_runtime_activation_contract_safe
             ),
             "m23_first_local_llm_call_safe": self.check_m23_first_local_llm_call_safe,
+            "m24_memory_provider_local_store_safe": self.check_m24_memory_provider_local_store_safe,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -4726,6 +4754,131 @@ class FoundationGateEvaluator:
 
         return self._result(criterion, failures, required_files)
 
+    def check_m24_memory_provider_local_store_safe(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/memory/provider.py",
+            "src/ultimate_ai_agent/core/memory/local_store.py",
+            "src/ultimate_ai_agent/core/memory/manifests.py",
+            "src/ultimate_ai_agent/core/memory/policy.py",
+            "src/ultimate_ai_agent/core/memory/recall.py",
+            "tests/test_m24_memory_provider_contracts.py",
+            "tests/test_m24_memory_write_validation.py",
+            "tests/test_m24_local_memory_store.py",
+            "tests/test_m24_gate_integration.py",
+            "docs/memory/MEMORY_PROVIDER_ABSTRACTION.md",
+            "docs/memory/LOCAL_MEMORY_STORE.md",
+            "docs/memory/MEMORY_RECORD_SCHEMA.md",
+            "docs/memory/MEMORY_WRITE_POLICY.md",
+            "docs/memory/MEMORY_REVIEW_AND_PROVENANCE.md",
+            "docs/memory/MEMORY_SOURCE_PRIORITY.md",
+            "docs/memory/MEMORY_RECALL_PLANNING.md",
+            "docs/memory/MEMORY_RETENTION_DELETE_EXPORT.md",
+            "docs/memory/MEMORY_CONFLICT_AND_STALENESS.md",
+            "docs/memory/MEMORY_DEDUP_DECAY_ARCHIVE.md",
+            "docs/memory/MEMORY_SECURITY_MODEL.md",
+            "docs/memory/MEMORY_NON_GOALS.md",
+            "docs/memory/MEMORYOS_REVIEW_INCORPORATION.md",
+            "docs/memory/M24_TO_M25_BOUNDARY.md",
+        ]
+        failures = [
+            f"missing M24 memory provider file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+
+        try:
+            from ultimate_ai_agent.api.app import app
+            from ultimate_ai_agent.core.memory import (
+                LocalMemoryStore,
+                MemoryAuthorityLevel,
+                MemoryDataClassification,
+                MemoryLayer,
+                MemoryProviderKind,
+                MemoryRecordKind,
+                MemoryWriteDecisionStatus,
+            )
+            from ultimate_ai_agent.core.memory.manifests import build_default_memory_provider_manifest
+            from ultimate_ai_agent.core.memory.provider import MemoryExportRequest, MemoryWriteRequest
+            from ultimate_ai_agent.core.memory.validation import (
+                assert_no_background_memory_workers,
+                assert_no_context_injection_runtime,
+                assert_no_vector_or_embedding_memory,
+                validate_memory_provider_manifest,
+                validate_memory_write_request,
+            )
+
+            manifest = build_default_memory_provider_manifest(baseline_version="0.28.0")
+            validate_memory_provider_manifest(manifest)
+            assert_no_vector_or_embedding_memory(manifest)
+            assert_no_context_injection_runtime(manifest)
+            assert_no_background_memory_workers(manifest)
+            if manifest.cloud_providers_enabled:
+                failures.append("M24 manifest enabled cloud memory providers")
+            if manifest.automatic_writes_enabled:
+                failures.append("M24 manifest enabled automatic memory writes")
+
+            safe = MemoryWriteRequest(
+                request_id="m24_gate_safe",
+                provider_ref="local_dev_memory",
+                memory_kind=MemoryRecordKind.structured_fact,
+                memory_layer=MemoryLayer.record,
+                provider_kind=MemoryProviderKind.local_in_memory,
+                safe_summary="Reviewed M24 gate memory summary.",
+                source_refs=["source:m24:gate"],
+                event_refs=["event:m24:gate"],
+                receipt_refs=["receipt:m24:gate"],
+                user_reviewed=True,
+                data_classification=MemoryDataClassification.internal,
+            )
+            safe_decision = validate_memory_write_request(safe)
+            if safe_decision.status != MemoryWriteDecisionStatus.allowed_for_local_store:
+                failures.append("M24 reviewed safe write was not allowed for local store")
+
+            blocked_checks = [
+                ("automatic_write", "automatic memory write"),
+                ("model_output_source", "model-output memory write"),
+                ("local_llm_output_source", "local LLM output memory write"),
+                ("openwebui_source", "OpenWebUI memory write"),
+                ("mobile_capture_source", "mobile capture memory write"),
+                ("tool_output_source", "tool output memory write"),
+                ("contains_raw_prompt", "raw prompt memory write"),
+                ("contains_raw_model_output", "raw model output memory write"),
+                ("contains_raw_file_content", "raw file content memory write"),
+                ("contains_raw_transcript", "raw transcript memory write"),
+            ]
+            for field, label in blocked_checks:
+                decision = validate_memory_write_request(safe.model_copy(update={field: True}))
+                if decision.allowed:
+                    failures.append(f"M24 allowed blocked {label}")
+
+            store = LocalMemoryStore()
+            write = store.put_record(safe)
+            if not write.allowed or not write.memory_id:
+                failures.append("M24 local store did not retain reviewed safe memory")
+            else:
+                record = store.get_record(write.memory_id)
+                if record is None:
+                    failures.append("M24 local store could not read retained memory")
+                elif record.authority_level != MemoryAuthorityLevel.recall_only:
+                    failures.append("M24 memory record was not recall-only")
+
+            raw_export = store.export_records(
+                MemoryExportRequest(
+                    request_id="m24_gate_export_raw",
+                    provider_ref="local_dev_memory",
+                    include_raw_content=True,
+                    redacted_only=False,
+                )
+            )
+            if raw_export.allowed:
+                failures.append("M24 allowed raw memory export")
+
+            failures.extend(m24_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M24 memory provider local store validation failed: {exc}")
+
+        return self._result(criterion, failures, required_files)
+
     def check_open_design_governance_docs_present(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
         required_docs = [
             "docs/design/OPEN_DESIGN_SYSTEM.md",
@@ -4846,7 +4999,9 @@ class FoundationGateEvaluator:
                 failures.append(failure)
         active_version = self._active_version() or "0.0.0"
         version_tuple = tuple(int(part) for part in active_version.split("."))
-        if version_tuple >= (0, 27, 0):
+        if version_tuple >= (0, 28, 0):
+            implemented_claim_start = 25
+        elif version_tuple >= (0, 27, 0):
             implemented_claim_start = 24
         elif version_tuple >= (0, 26, 0):
             implemented_claim_start = 23

@@ -23,3 +23,5 @@ OpenWebUI refs are not authority:
 CCC remains the governance/control client family. CCC Web is the current Control Center. CCC iOS, CCC Android, and CCC macOS remain future. Open Design governs custom CCC surfaces and does not replace OpenWebUI.
 
 M21 adds no OpenWebUI integration, no direct tool execution, no direct memory write, no direct runtime execution, no direct provider call, no approval grant, no credential access, no backend API route, no OpenAPI path, and no production authority.
+
+M24 keeps OpenWebUI outside memory writes. OpenWebUI chat content is not memory, OpenWebUI cannot write memory, and OpenWebUI cannot trigger automatic memory writes. Memory is recall, not authority, and M25 remains future.
