@@ -1,3 +1,4 @@
+import copy
 import json
 from pathlib import Path
 import sqlite3
@@ -21,7 +22,7 @@ from ultimate_ai_agent.core.memory.provider import (
     MemoryDeleteRequest,
     MemoryExportRequest,
     MemoryProvider,
-    MemoryWriteRequest,
+    MemoryProviderWriteRequest,
     build_memory_export_decision,
     build_memory_write_decision,
 )
@@ -56,7 +57,9 @@ class LocalMemoryStore(MemoryProvider):
             )
             self._conn.commit()
 
-    def put_record(self, request: MemoryWriteRequest):
+    def put_record(self, request: MemoryProviderWriteRequest):
+        if not isinstance(request, MemoryProviderWriteRequest):
+            raise TypeError("LocalMemoryStore.put_record requires the M24 provider/store MemoryWriteRequest.")
         decision = validate_memory_write_request(request)
         if not decision.allowed:
             return decision
@@ -126,7 +129,8 @@ class LocalMemoryStore(MemoryProvider):
 
     def get_record(self, memory_id: str) -> Optional[MemoryRecord]:
         if self._conn is None:
-            return self._records.get(memory_id)
+            record = self._records.get(memory_id)
+            return copy.deepcopy(record) if record is not None else None
         row = self._conn.execute("SELECT payload_json FROM memory_records WHERE memory_id = ?", (memory_id,)).fetchone()
         if row is None:
             return None
@@ -134,7 +138,7 @@ class LocalMemoryStore(MemoryProvider):
 
     def list_records(self) -> List[MemoryRecord]:
         if self._conn is None:
-            return list(self._records.values())
+            return [copy.deepcopy(record) for record in self._records.values()]
         rows = self._conn.execute("SELECT payload_json FROM memory_records ORDER BY memory_id").fetchall()
         return [MemoryRecord(**json.loads(row[0])) for row in rows]
 

@@ -135,7 +135,7 @@ def validate_memory_write_request(request: MemoryWriteRequest):
     if not request.user_reviewed:
         return _deny_write(request, MemoryWriteDecisionStatus.requires_user_review, "USER_REVIEW_REQUIRED", "Reviewed memory record contract is required.")
     if not request.source_refs:
-        return _deny_write(request, MemoryWriteDecisionStatus.requires_evidence, "SOURCE_REF_REQUIRED", "Source, evidence, event, or receipt refs are required.")
+        return _deny_write(request, MemoryWriteDecisionStatus.requires_evidence, "SOURCE_REF_REQUIRED", "M24 source_refs are required; evidence, event, and receipt refs are supplemental provenance.")
     return build_memory_write_decision(
         request_id=request.request_id,
         allowed=True,

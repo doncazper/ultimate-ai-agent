@@ -60,10 +60,10 @@ from ultimate_ai_agent.core.providers import (
     validate_provider_result_envelope,
 )
 from ultimate_ai_agent.core.memory import (
+    LegacyMemoryWriteRequest as MemoryWriteRequest,
     MemoryReadRequest,
     MemoryRecord,
     MemoryStore,
-    MemoryWriteRequest,
     validate_memory_record,
 )
 from ultimate_ai_agent.core.files import (

@@ -1,8 +1,8 @@
 # M21-M40 Capability Charters
 
-Status: Active roadmap projection maintained through v0.28.0. M21 and M22 are implemented/released contract-only; M23 is implemented/released manual fixed-prompt local call only and hardened by v0.27.1; M24 is implemented/released as governed memory provider/local store; M25-M40 remain planned/provisional.
+Status: Active roadmap projection maintained through v0.28.1. M21 and M22 are implemented/released contract-only; M23 is implemented/released manual fixed-prompt local call only and hardened by v0.27.1; M24 is implemented/released as governed memory provider/local store and hardened by v0.28.1; M25-M40 remain planned/provisional.
 
-These charters define capability layers after M20. v0.25.0 implements M21 as contract/planning/validation only. v0.26.0 implements M22 as contract/planning/validation only, and v0.26.1 hardens M22 verifier precision plus metadata key secret hygiene only. v0.27.0 implements M23 as manual/CLI-only, loopback-only, fixed-prompt-only, non-tool, and non-authoritative. v0.27.1 hardens M23 local call safety without adding new runtime authority. v0.28.0 implements M24 as governed, reviewed-write-only local memory provider/store foundation. M25-M40 are still future capability layers. Every milestone requires its own implementation prompt, review prompt, hardening expectation, and validation evidence before release.
+These charters define capability layers after M20. v0.25.0 implements M21 as contract/planning/validation only. v0.26.0 implements M22 as contract/planning/validation only, and v0.26.1 hardens M22 verifier precision plus metadata key secret hygiene only. v0.27.0 implements M23 as manual/CLI-only, loopback-only, fixed-prompt-only, non-tool, and non-authoritative. v0.27.1 hardens M23 local call safety without adding new runtime authority. v0.28.0 implements M24 as governed, reviewed-write-only local memory provider/store foundation, and v0.28.1 repairs/hardens the M24 memory contract without adding new authority. M25-M40 are still future capability layers. Every milestone requires its own implementation prompt, review prompt, hardening expectation, and validation evidence before release.
 
 ## Shared Rules
 
@@ -803,7 +803,7 @@ M20 Device Capability Broker Contract is implemented/released as contract-only
 planning and validation. M21 is implemented/released by v0.25.0 as
 contract-only. M22 is implemented/released by v0.26.0 as contract-only and hardened by v0.26.1.
 M23 is implemented/released by v0.27.0 as manual fixed-prompt local call only.
-M24 is implemented/released by v0.28.0 as governed local memory provider/store foundation.
+M24 is implemented/released by v0.28.0 as governed local memory provider/store foundation and hardened by v0.28.1.
 M25-M40 remain planned/provisional. The M19 baseline
 adds no mobile app, Android app, iOS app, macOS app, native build workflow, OS
 permission integration, mobile sensor access, mobile approval execution,
@@ -818,5 +818,5 @@ only. v0.25.0 implements M21 OpenWebUI Bridge + Chat Shell Integration
 Contract only. M22 Local Model Runtime Activation Contract is implemented by
 v0.26.0 as contract/planning/validation only and hardened by v0.26.1. M23 is
 implemented/released by v0.27.0 as manual fixed-prompt local call only. M24 is
-implemented/released by v0.28.0 as governed local memory provider/store foundation. M25-M40
+implemented/released by v0.28.0 as governed local memory provider/store foundation and hardened by v0.28.1. M25-M40
 remain planned/provisional until implemented by dedicated reviewed milestones.

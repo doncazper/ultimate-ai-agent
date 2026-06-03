@@ -1,6 +1,6 @@
 # Memory Review And Provenance
 
-M24 memory records carry provenance metadata: source refs, evidence refs, event refs, receipt refs, file refs, user review refs, review state, source priority, and metadata refs. These references make memory auditable without making memory authoritative.
+M24 memory records carry provenance metadata: required source refs, supplemental evidence refs, event refs, receipt refs, file refs, user review refs, review state, source priority, and metadata refs. Evidence, event, and receipt refs add audit context, but they do not replace required `source_refs` for local-store writes. These references make memory auditable without making memory authoritative.
 
 Review states include draft, user review required, user reviewed, stale, conflicted, superseded, revoked, deleted, and blocked. Memory can be wrong, stale, conflicting, superseded, revoked, or deleted.
 

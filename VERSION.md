@@ -1,22 +1,14 @@
 # Ultimate AI Agent Version
 
-Current active baseline: **v0.28.0**
+Current active baseline: **v0.28.1**
 
-v0.28.0 implements M24 Memory Provider Abstraction + Local Memory Store. It adds
-a governed MemoryProvider abstraction, local-only memory record contracts,
-local dev/in-memory and explicit-path stdlib SQLite store support, reviewed-write
-validation, source hierarchy, provenance/source/evidence/event/receipt refs,
-structured memory kinds, trust/confidence metadata, dedup/decay/archive planning
-metadata, future recall-planning metadata, retention/delete/export contracts,
-conflict/staleness/supersession metadata, documentation, documentation-integrity
-checks, static safety verification, and Foundation Gate coverage.
+v0.28.1 repairs the M24 public memory request contract by making package-root
+MemoryWriteRequest exports align with the provider/store write path, updates
+route inventory docs through v0.28.1, hardens M24 Foundation Gate guard-field
+tests, clarifies M24 source_refs write-validation messaging, returns defensive
+copies from the in-memory local store, and applies minor memory docs/code
+polish.
 
-It incorporates safe MemoryOS-inspired concepts as metadata only while keeping
-memory as high-salience recall rather than authority. It blocks automatic memory
-writes, model-output writes, local-LLM-output writes, OpenWebUI writes,
-mobile-capture writes, tool-output writes, raw prompt/model/file/transcript
-content, secrets, cloud memory providers, vector DB, embeddings, Qdrant, Redis,
-Docker, ARQ, cron/background workers, context injection, broad filesystem
-scanning, production persistence, backend mutation routes, dependencies, and
-production authority. M25 remains the future Truth Source Router + Evidence
-Claim Checker milestone. OpenAPI path count remains `74`.
+It adds no automatic memory writes, model/local-LLM/OpenWebUI/mobile/tool memory
+writes, backend mutation routes, vector DB, embeddings, cloud memory, context
+injection, dependencies, or M25 work. OpenAPI path count remains `74`.

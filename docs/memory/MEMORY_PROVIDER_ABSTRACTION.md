@@ -7,7 +7,7 @@ Allowed in M24:
 - local in-memory provider for tests and dev review.
 - optional explicit-path stdlib SQLite local store.
 - redacted summary-only memory records.
-- source, evidence, event, receipt, and file refs.
+- required `source_refs`, plus supplemental evidence, event, receipt, and file refs.
 - trust and confidence metadata as advisory metadata only.
 
 Blocked in M24:

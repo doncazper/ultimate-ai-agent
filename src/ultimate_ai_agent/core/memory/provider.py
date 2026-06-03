@@ -17,7 +17,7 @@ from ultimate_ai_agent.core.memory.enums import (
 from ultimate_ai_agent.core.time import utc_now
 
 
-class MemoryWriteRequest(BaseModel):
+class MemoryProviderWriteRequest(BaseModel):
     request_id: str = Field(..., min_length=1)
     provider_ref: str = Field(..., min_length=1)
     memory_kind: MemoryRecordKind
@@ -53,6 +53,9 @@ class MemoryWriteRequest(BaseModel):
     created_at: datetime = Field(default_factory=utc_now)
 
     model_config = ConfigDict(use_enum_values=True, extra="forbid")
+
+
+MemoryWriteRequest = MemoryProviderWriteRequest
 
 
 class MemoryDeleteRequest(BaseModel):

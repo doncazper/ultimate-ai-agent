@@ -1,6 +1,6 @@
 # Memory Write Policy
 
-M24 allows only explicit reviewed memory record contracts. A write must be user-reviewed, source-linked, redacted summary-only, local-only, and non-authoritative.
+M24 allows only explicit reviewed memory record contracts. A write must be user-reviewed, source-linked, redacted summary-only, local-only, and non-authoritative. `source_refs` are required for M24 local-store writes; evidence, event, and receipt refs are supplemental provenance and do not replace `source_refs`.
 
 Denied in M24:
 

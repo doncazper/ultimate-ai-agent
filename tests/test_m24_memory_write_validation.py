@@ -89,6 +89,40 @@ def test_m24_unreviewed_missing_source_or_forbidden_classification_denied():
     assert "SECRET_LIKE_TAG_BLOCKED" in secret_tag.reason_codes
 
 
+def test_m24_source_refs_are_required_even_with_supplemental_refs():
+    decision = validate_memory_write_request(
+        _safe_request(
+            source_refs=[],
+            evidence_refs=["evidence:m24:supplemental"],
+            event_refs=["event:m24:supplemental"],
+            receipt_refs=["receipt:m24:supplemental"],
+        )
+    )
+
+    assert decision.allowed is False
+    assert decision.status == MemoryWriteDecisionStatus.requires_evidence
+    assert "SOURCE_REF_REQUIRED" in decision.reason_codes
+    assert "source_refs are required" in decision.safe_message
+    assert "evidence, event, or receipt refs are required" not in decision.safe_message.lower()
+
+
+def test_m24_required_write_guard_fields_exist_before_mutation_checks():
+    required_guard_fields = {
+        "automatic_write",
+        "model_output_source",
+        "local_llm_output_source",
+        "openwebui_source",
+        "mobile_capture_source",
+        "tool_output_source",
+        "contains_raw_prompt",
+        "contains_raw_model_output",
+        "contains_raw_file_content",
+        "contains_raw_transcript",
+    }
+
+    assert required_guard_fields <= set(MemoryWriteRequest.model_fields)
+
+
 def test_m24_export_raw_content_is_rejected():
     decision = validate_memory_export_request(
         {

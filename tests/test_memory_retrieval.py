@@ -8,7 +8,7 @@ from ultimate_ai_agent.core.memory import (
     MemorySensitivity,
     MemoryStore,
     MemoryType,
-    MemoryWriteRequest,
+    LegacyMemoryWriteRequest as MemoryWriteRequest,
 )
 
 

@@ -5,13 +5,16 @@ from ultimate_ai_agent.core.memory.enums import (
     MemoryRecordKind,
     MemoryRetentionState,
 )
-from ultimate_ai_agent.core.memory.local_store import LocalMemoryStore
+from ultimate_ai_agent.core import memory as memory_package
+from ultimate_ai_agent.core.memory import LocalMemoryStore, MemoryWriteRequest as PublicMemoryWriteRequest
 from ultimate_ai_agent.core.memory.manifests import build_default_memory_provider_manifest
-from ultimate_ai_agent.core.memory.provider import MemoryDeleteRequest, MemoryExportRequest, MemoryWriteRequest
+from ultimate_ai_agent.core.memory import provider as provider_module
+from ultimate_ai_agent.core.memory.provider import MemoryDeleteRequest, MemoryExportRequest
+from ultimate_ai_agent.core.hygiene.actor_context import ActorContext
 
 
 def _request(request_id="mwr_m24_store", summary="Reviewed local memory summary."):
-    return MemoryWriteRequest(
+    return PublicMemoryWriteRequest(
         request_id=request_id,
         provider_ref="local_dev_memory",
         memory_kind=MemoryRecordKind.project_fact,
@@ -30,6 +33,65 @@ def _request(request_id="mwr_m24_store", summary="Reviewed local memory summary.
         context_pack_eligible=True,
         injection_priority=1,
     )
+
+
+def test_m24_public_memory_write_request_is_provider_store_request():
+    assert hasattr(provider_module, "MemoryProviderWriteRequest")
+    MemoryProviderWriteRequest = provider_module.MemoryProviderWriteRequest
+    assert PublicMemoryWriteRequest is MemoryProviderWriteRequest
+    assert "safe_summary" in PublicMemoryWriteRequest.model_fields
+    assert "provider_ref" in PublicMemoryWriteRequest.model_fields
+    assert "content" not in PublicMemoryWriteRequest.model_fields
+
+
+def test_m24_local_memory_store_accepts_package_root_write_request():
+    store = LocalMemoryStore()
+
+    write = store.put_record(
+        PublicMemoryWriteRequest(
+            request_id="mwr_m24_public_store",
+            provider_ref="local_dev_memory",
+            memory_kind=MemoryRecordKind.project_fact,
+            safe_summary="Reviewed public import memory summary.",
+            source_refs=["source:user-reviewed:public-import"],
+            evidence_refs=["evidence:public-import"],
+            event_refs=["event:public-import"],
+            receipt_refs=["receipt:public-import"],
+            user_reviewed=True,
+            data_classification=MemoryDataClassification.internal,
+        )
+    )
+
+    assert write.allowed is True
+    assert write.memory_id is not None
+
+
+def test_m24_local_memory_store_rejects_legacy_content_bearing_write_request():
+    assert hasattr(memory_package, "LegacyMemoryWriteRequest")
+    LegacyMemoryWriteRequest = memory_package.LegacyMemoryWriteRequest
+    store = LocalMemoryStore()
+    legacy = LegacyMemoryWriteRequest(
+        request_id="legacy_mwr_m24_store",
+        run_id="run_m24_legacy",
+        actor_context=ActorContext(
+            actor_type="human_user",
+            actor_id="actor_m24_legacy",
+            authority_source="explicit_user_request",
+        ),
+        memory_type="semantic",
+        scope="project",
+        content="Legacy raw content must not enter the M24 local provider store.",
+        authority="user_provided",
+        sensitivity="project_private",
+    )
+
+    try:
+        store.put_record(legacy)  # type: ignore[arg-type]
+    except TypeError as exc:
+        assert "MemoryWriteRequest" in str(exc)
+        assert "LocalMemoryStore" in str(exc)
+    else:
+        raise AssertionError("legacy content-bearing MemoryWriteRequest was accepted by LocalMemoryStore")
 
 
 def test_m24_default_manifest_is_local_only_and_non_operational():
@@ -89,6 +151,22 @@ def test_m24_local_memory_store_put_get_list_delete_export_in_memory():
     )
     assert deleted.retention_state == MemoryRetentionState.deleted
     assert store.get_record(write.memory_id).retention_state == "deleted"
+
+
+def test_m24_local_memory_store_get_record_returns_defensive_copy_in_memory():
+    store = LocalMemoryStore()
+    write = store.put_record(_request(request_id="mwr_m24_copy", summary="Original reviewed summary."))
+    assert write.allowed is True
+
+    first = store.get_record(write.memory_id)
+    assert first is not None
+    first.safe_summary = "Mutated outside the store."
+    first.metadata["outside_mutation"] = True
+
+    second = store.get_record(write.memory_id)
+    assert second is not None
+    assert second.safe_summary == "Original reviewed summary."
+    assert "outside_mutation" not in second.metadata
 
 
 def test_m24_local_sqlite_store_uses_explicit_tmp_path_and_reopens(tmp_path):

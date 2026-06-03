@@ -1,4 +1,4 @@
-# Memory Non Goals
+# Memory Non-Goals
 
 M24 does not implement:
 

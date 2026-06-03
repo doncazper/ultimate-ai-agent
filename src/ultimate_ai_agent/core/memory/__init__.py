@@ -31,6 +31,7 @@ from ultimate_ai_agent.core.memory.policies import MemoryRetrievalPolicy
 from ultimate_ai_agent.core.memory.provider import (
     MemoryDeleteRequest,
     MemoryExportRequest,
+    MemoryProviderWriteRequest,
     MemoryProvider,
 )
 from ultimate_ai_agent.core.memory.records import (
@@ -41,9 +42,11 @@ from ultimate_ai_agent.core.memory.records import (
     MemorySourceRef,
 )
 from ultimate_ai_agent.core.memory.redaction import memory_contains_secret, redact_memory_content
-from ultimate_ai_agent.core.memory.requests import MemoryReadRequest, MemoryWriteRequest
+from ultimate_ai_agent.core.memory.requests import MemoryReadRequest, MemoryWriteRequest as LegacyMemoryWriteRequest
 from ultimate_ai_agent.core.memory.store import MemoryStore
 from ultimate_ai_agent.core.memory.validation import validate_memory_record
+
+MemoryWriteRequest = MemoryProviderWriteRequest
 
 __all__ = [
     "MemoryAuthority",
@@ -57,6 +60,7 @@ __all__ = [
     "MemoryLayer",
     "MemoryLifecycleMetadata",
     "MemoryProvider",
+    "MemoryProviderWriteRequest",
     "MemoryProviderKind",
     "MemoryProviderManifest",
     "MemoryProviderProfile",
@@ -84,6 +88,7 @@ __all__ = [
     "MemoryWriteDecisionStatus",
     "MemoryWriteDisposition",
     "MemoryWriteRequest",
+    "LegacyMemoryWriteRequest",
     "LocalMemoryStore",
     "build_default_memory_provider_manifest",
     "memory_contains_secret",

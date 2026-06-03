@@ -980,8 +980,8 @@ def verify_m24_memory_provider_local_store_safety():
         "docs/memory/MEMORY_RECORD_SCHEMA.md",
         "docs/memory/MEMORY_WRITE_POLICY.md",
         "docs/memory/M24_TO_M25_BOUNDARY.md",
-        "docs/release_notes/v0_28_0.md",
-        "docs/implementation/foundation_gate_implementation_plan_v0_28_0.md",
+        "docs/release_notes/v0_28_1.md",
+        "docs/implementation/foundation_gate_implementation_plan_v0_28_1.md",
     ]
     for rel_path in required_files:
         if not (ROOT / rel_path).exists():

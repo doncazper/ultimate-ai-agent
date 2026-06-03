@@ -4847,6 +4847,9 @@ class FoundationGateEvaluator:
                 ("contains_raw_transcript", "raw transcript memory write"),
             ]
             for field, label in blocked_checks:
+                if field not in MemoryWriteRequest.model_fields:
+                    failures.append(f"M24 missing required guard field for {label}: {field}")
+                    continue
                 decision = validate_memory_write_request(safe.model_copy(update={field: True}))
                 if decision.allowed:
                     failures.append(f"M24 allowed blocked {label}")
