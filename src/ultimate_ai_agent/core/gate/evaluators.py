@@ -254,6 +254,28 @@ M27_FORBIDDEN_BACKEND_ROUTES = (
     "/memory/inject",
     "/remote/execute",
 )
+EXPECTED_M28_OPENAPI_PATH_COUNT = 74
+M28_FORBIDDEN_BACKEND_ROUTES = (
+    "/actions/execute",
+    "/actions/run",
+    "/approval/execute",
+    "/approval/run",
+    "/approvals/execute",
+    "/approvals/run",
+    "/action-policy/execute",
+    "/action-policy/run",
+    "/tools/execute",
+    "/tools/run",
+    "/tool-broker/execute",
+    "/tool-broker/run",
+    "/plugins/enable",
+    "/shell/execute",
+    "/model/execute",
+    "/network/execute",
+    "/browser/execute",
+    "/mobile/execute",
+    "/remote/execute",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -481,6 +503,17 @@ def m27_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
     return failures
 
 
+def m28_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M28_OPENAPI_PATH_COUNT) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+    for route in M28_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(f"M28 forbidden backend route present: {route}")
+    return failures
+
+
 def m22_local_runtime_forbidden_fragment_failures(root: Path) -> List[str]:
     failures: List[str] = []
     runtime_root = root / "src" / "ultimate_ai_agent" / "core" / "model_runtime"
@@ -698,6 +731,9 @@ class FoundationGateEvaluator:
             "m27_tool_broker_v2_contract_safe": self.check_m27_tool_broker_v2_contract_safe,
             "m27_tool_broker_v2_openapi_routes_unchanged": self.check_m27_tool_broker_v2_openapi_routes_unchanged,
             "m27_m28_remains_future": self.check_m27_m28_remains_future,
+            "m28_approval_authority_v2_action_policy_safe": self.check_m28_approval_authority_v2_action_policy_safe,
+            "m28_action_policy_openapi_routes_unchanged": self.check_m28_action_policy_openapi_routes_unchanged,
+            "m28_m29_remains_future": self.check_m28_m29_remains_future,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -5481,7 +5517,15 @@ class FoundationGateEvaluator:
             failures.append("M26 docs do not mention v0.30.0 Grounded Recall Router + Evidence-Linked Context Pack Builder")
         active_version = self._active_version() or "0.0.0"
         version_tuple = tuple(int(part) for part in active_version.split("."))
-        if version_tuple >= (0, 31, 0):
+        if version_tuple >= (0, 32, 0):
+            if "v0.32.0" in text and "approval authority v2 + action policy expansion" in text:
+                if "implemented/released" not in text:
+                    failures.append("M28 docs must mark v0.32.0 implemented/released after M28")
+            else:
+                failures.append("M28 docs do not mention v0.32.0 Approval Authority v2 + Action Policy Expansion")
+            if "m29-m40 remain planned/provisional" not in text:
+                failures.append("M29-M40 must remain planned/provisional after M28")
+        elif version_tuple >= (0, 31, 0):
             if "v0.31.0" in text and "tool broker v2 + safe tool intent contracts" in text:
                 if "implemented/released" not in text:
                     failures.append("M27 docs must mark v0.31.0 implemented/released after M27")
@@ -5705,18 +5749,404 @@ class FoundationGateEvaluator:
                 failures.append("M27 docs do not mark v0.31.0 implemented/released")
         else:
             failures.append("M27 docs do not mention v0.31.0 Tool Broker v2 + Safe Tool Intent Contracts")
-        if "m28-m40 remain planned/provisional" not in text:
-            failures.append("M28-M40 must remain planned/provisional after M27")
-        forbidden_m28_fragments = (
-            "m28 is implemented",
-            "v0.32.0 implements m28",
-            "real tool execution is implemented",
-            "durable action registry runtime is implemented",
-            "production tool authority is implemented",
+        active_version = self._active_version() or "0.0.0"
+        version_tuple = tuple(int(part) for part in active_version.split("."))
+        if version_tuple >= (0, 32, 0):
+            if "approval authority v2 + action policy expansion" not in text:
+                failures.append("M27 docs do not describe the M28 Approval Authority v2 handoff")
+            if "m29-m40 remain planned/provisional" not in text:
+                failures.append("M29-M40 must remain planned/provisional after M28")
+        else:
+            if "m28-m40 remain planned/provisional" not in text:
+                failures.append("M28-M40 must remain planned/provisional after M27")
+            forbidden_m28_fragments = (
+                "m28 is implemented",
+                "v0.32.0 implements m28",
+                "real tool execution is implemented",
+                "durable action registry runtime is implemented",
+                "production tool authority is implemented",
+            )
+            failures.extend(
+                f"M27 docs imply M28 implementation: {fragment}"
+                for fragment in forbidden_m28_fragments
+                if fragment in text
+            )
+        return self._result(criterion, failures, required_docs)
+
+    def check_m28_approval_authority_v2_action_policy_safe(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/approvals/v2/__init__.py",
+            "src/ultimate_ai_agent/core/approvals/v2/enums.py",
+            "src/ultimate_ai_agent/core/approvals/v2/contracts.py",
+            "src/ultimate_ai_agent/core/approvals/v2/policies.py",
+            "src/ultimate_ai_agent/core/approvals/v2/validation.py",
+            "tests/test_approval_authority_v2_contracts.py",
+            "tests/test_m28_gate_integration.py",
+            "docs/approvals/APPROVAL_AUTHORITY_V2.md",
+            "docs/approvals/ACTION_POLICY.md",
+            "docs/approvals/APPROVAL_GRANT_BINDING.md",
+            "docs/approvals/APPROVAL_EXPIRY_REVOCATION_REPLAY.md",
+            "docs/approvals/ACTION_RISK_AND_SIDE_EFFECT_POLICY.md",
+            "docs/approvals/APPROVAL_REF_NOT_AUTHORITY.md",
+            "docs/approvals/ACTION_POLICY_DECISION_ENVELOPE.md",
+            "docs/approvals/APPROVAL_RECEIPT_PLAN.md",
+            "docs/approvals/APPROVAL_AUTHORITY_V2_NON_GOALS.md",
+            "docs/approvals/M28_TO_M29_BOUNDARY.md",
+        ]
+        failures = [
+            f"missing M28 Approval Authority v2 file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            from datetime import timedelta
+
+            from ultimate_ai_agent.core.approvals.v2 import (
+                ActionIntent,
+                ActionKind,
+                ActionRef,
+                ActionRiskLevel,
+                ActionSideEffectClass,
+                ActorRef,
+                ActorTrustLevel,
+                ApprovalAuthorityV2Manifest,
+                ApprovalDecisionStatus,
+                ApprovalGrant,
+                ApprovalGrantStatus,
+                ApprovalScope,
+                ApprovalScopeKind,
+                ResourceRef,
+                ResourceRefKind,
+                build_approval_authority_v2_manifest,
+                evaluate_action_policy,
+            )
+            from ultimate_ai_agent.core.time import utc_now
+
+            manifest = build_approval_authority_v2_manifest(baseline_version="0.32.0")
+            if not isinstance(manifest, ApprovalAuthorityV2Manifest):
+                failures.append("M28 manifest builder did not return ApprovalAuthorityV2Manifest")
+            manifest_flags = [
+                manifest.action_execution_enabled,
+                manifest.execution_authorized,
+                manifest.execution_performed,
+                manifest.tool_execution_enabled,
+                manifest.filesystem_mutation_enabled,
+                manifest.memory_write_enabled,
+                manifest.network_action_enabled,
+                manifest.browser_action_enabled,
+                manifest.mobile_action_enabled,
+                manifest.remote_execution_enabled,
+                manifest.plugin_enable_enabled,
+                manifest.model_action_enabled,
+                manifest.wildcard_approval_enabled,
+                manifest.approval_test_refs_enabled,
+                manifest.backend_execution_routes_added,
+                manifest.control_center_execute_controls_enabled,
+                manifest.production_authority_enabled,
+            ]
+            if any(manifest_flags):
+                failures.append("M28 manifest enables forbidden runtime/action authority")
+
+            actor = ActorRef(actor_ref="actor:gate-m28", trust_level=ActorTrustLevel.user)
+            action = ActionRef(
+                action_ref="action:gate-m28-read-metadata",
+                action_kind=ActionKind.read_metadata,
+                risk_level=ActionRiskLevel.low,
+                side_effect_class=ActionSideEffectClass.read_only_metadata,
+                safe_summary="Read metadata only.",
+            )
+            resource = ResourceRef(
+                resource_ref="file_ref:gate-m28",
+                resource_kind=ResourceRefKind.file_ref,
+                safe_label="Gate metadata ref.",
+            )
+            expires_at = utc_now() + timedelta(minutes=15)
+            scope = ApprovalScope(
+                scope_ref="scope:gate-m28",
+                scope_kind=ApprovalScopeKind.single_action,
+                actor_ref=actor.actor_ref,
+                action_ref=action.action_ref,
+                resource_ref=resource.resource_ref,
+                expires_at=expires_at,
+                replay_nonce="nonce:gate-m28",
+            )
+            intent = ActionIntent(
+                intent_id="action-intent:gate-m28",
+                actor=actor,
+                action=action,
+                resource=resource,
+                safe_summary="Evaluate a safe read-metadata action.",
+                input_refs=["file_ref:gate-m28"],
+            )
+            grant = ApprovalGrant(
+                grant_ref="approval:gate-m28",
+                actor_ref=actor.actor_ref,
+                action_ref=action.action_ref,
+                resource_ref=resource.resource_ref,
+                scope=scope,
+                expires_at=expires_at,
+                replay_nonce="nonce:gate-m28",
+            )
+            safe_decision = evaluate_action_policy(intent, grant=grant, replay_nonce="nonce:gate-m28")
+            if safe_decision.status != ApprovalDecisionStatus.allowed_for_policy:
+                failures.append("M28 safe read-metadata action was not allowed for policy")
+            if not safe_decision.allowed_for_policy:
+                failures.append("M28 safe read-metadata action did not return allowed_for_policy")
+            if safe_decision.execution_authorized or safe_decision.execution_performed:
+                failures.append("M28 safe decision authorized or performed execution")
+            if not safe_decision.receipt_plan or safe_decision.receipt_plan.execution_performed:
+                failures.append("M28 safe decision receipt plan is missing or executable")
+
+            def require_denial(decision, required_reason: str, label: str) -> None:
+                if decision.allowed_for_policy or decision.execution_authorized or decision.execution_performed:
+                    failures.append(f"M28 denied probe was allowed: {label}")
+                if required_reason not in decision.reason_codes:
+                    failures.append(f"M28 denied probe missing {required_reason}: {label}")
+
+            require_denial(
+                evaluate_action_policy(intent.model_copy(update={"approval_ref": "approval:arbitrary"})),
+                "APPROVAL_REF_NOT_AUTHORITY",
+                "approval_ref alone",
+            )
+            require_denial(
+                evaluate_action_policy(intent.model_copy(update={"approval_ref": "approval_test_gate_m28"})),
+                "APPROVAL_TEST_REF_DENIED",
+                "approval_test_ ref",
+            )
+            require_denial(
+                evaluate_action_policy(intent.model_copy(update={"consent_ref": "consent:gate-m28"})),
+                "CONSENT_REF_NOT_AUTHORITY",
+                "consent_ref alone",
+            )
+
+            wildcard_scope = scope.model_copy(
+                update={"scope_kind": ApprovalScopeKind.blocked_wildcard, "action_ref": "*"}
+            )
+            wildcard_grant = grant.model_copy(update={"scope": wildcard_scope, "action_ref": "*"})
+            require_denial(
+                evaluate_action_policy(intent, grant=wildcard_grant, replay_nonce="nonce:gate-m28"),
+                "WILDCARD_SCOPE_DENIED",
+                "wildcard scope",
+            )
+            require_denial(
+                evaluate_action_policy(
+                    intent,
+                    grant=grant.model_copy(update={"expires_at": utc_now() - timedelta(minutes=1)}),
+                    replay_nonce="nonce:gate-m28",
+                ),
+                "APPROVAL_GRANT_EXPIRED",
+                "expired grant",
+            )
+            require_denial(
+                evaluate_action_policy(
+                    intent,
+                    grant=grant.model_copy(update={"status": ApprovalGrantStatus.revoked}),
+                    replay_nonce="nonce:gate-m28",
+                ),
+                "APPROVAL_GRANT_REVOKED",
+                "revoked grant",
+            )
+            require_denial(
+                evaluate_action_policy(
+                    intent,
+                    grant=grant.model_copy(update={"used_replay_nonces": ["nonce:gate-m28"]}),
+                    replay_nonce="nonce:gate-m28",
+                ),
+                "APPROVAL_REPLAY_DETECTED",
+                "replayed grant",
+            )
+            require_denial(
+                evaluate_action_policy(
+                    intent,
+                    grant=grant.model_copy(update={"actor_ref": "actor:gate-mismatch"}),
+                    replay_nonce="nonce:gate-m28",
+                ),
+                "APPROVAL_ACTOR_MISMATCH",
+                "actor mismatch",
+            )
+            require_denial(
+                evaluate_action_policy(
+                    intent.model_copy(
+                        update={
+                            "resource": ResourceRef(
+                                resource_ref="memory:gate-m28",
+                                resource_kind=ResourceRefKind.memory_ref,
+                                safe_label="Memory recall ref.",
+                            )
+                        }
+                    ),
+                    grant=grant,
+                    replay_nonce="nonce:gate-m28",
+                ),
+                "MEMORY_REF_NOT_AUTHORITY",
+                "memory ref authority",
+            )
+            require_denial(
+                evaluate_action_policy(
+                    intent.model_copy(
+                        update={
+                            "resource": ResourceRef(
+                                resource_ref="model:gate-m28",
+                                resource_kind=ResourceRefKind.model_output_ref,
+                                safe_label="Model output ref.",
+                            )
+                        }
+                    ),
+                    grant=grant,
+                    replay_nonce="nonce:gate-m28",
+                ),
+                "MODEL_OUTPUT_NOT_AUTHORITY",
+                "model output ref authority",
+            )
+            require_denial(
+                evaluate_action_policy(
+                    intent.model_copy(
+                        update={
+                            "resource": ResourceRef(
+                                resource_ref="context-pack:gate-m28",
+                                resource_kind=ResourceRefKind.context_pack_ref,
+                                safe_label="Context pack ref.",
+                            )
+                        }
+                    ),
+                    grant=grant,
+                    replay_nonce="nonce:gate-m28",
+                ),
+                "CONTEXT_PACK_NOT_AUTHORITY",
+                "context pack ref authority",
+            )
+            require_denial(
+                evaluate_action_policy(
+                    intent.model_copy(
+                        update={
+                            "resource": ResourceRef(
+                                resource_ref="tool-intent:gate-m27",
+                                resource_kind=ResourceRefKind.tool_intent_ref,
+                                safe_label="Tool intent ref.",
+                            )
+                        }
+                    ),
+                    grant=grant,
+                    replay_nonce="nonce:gate-m28",
+                ),
+                "TOOL_INTENT_NOT_AUTHORITY",
+                "tool intent ref authority",
+            )
+            write_action = ActionRef(
+                action_ref="action:gate-m28-file-write",
+                action_kind=ActionKind.file_write_planned,
+                risk_level=ActionRiskLevel.high,
+                side_effect_class=ActionSideEffectClass.local_mutation_blocked,
+                safe_summary="Blocked file write plan.",
+            )
+            require_denial(
+                evaluate_action_policy(
+                    intent.model_copy(update={"action": write_action}),
+                    grant=grant.model_copy(update={"action_ref": write_action.action_ref}),
+                    replay_nonce="nonce:gate-m28",
+                ),
+                "ACTION_KIND_DENIED",
+                "effectful action",
+            )
+            try:
+                ActionIntent(
+                    intent_id="action-intent:gate-m28-raw",
+                    actor=actor,
+                    action=action,
+                    resource=resource,
+                    safe_summary="Raw action input probe.",
+                    contains_raw_prompt=True,
+                )
+                failures.append("M28 action intent allowed raw prompt content")
+            except ValidationError:
+                pass
+            try:
+                ActionIntent(
+                    intent_id="action-intent:gate-m28-secret",
+                    actor=actor,
+                    action=action,
+                    resource=resource,
+                    safe_summary="Secret input probe.",
+                    metadata={"token": "abc123"},
+                )
+                failures.append("M28 action intent allowed secret-like metadata")
+            except ValidationError:
+                pass
+
+            v2_source = "\n".join(
+                self._read(path)
+                for path in (self.root / "src" / "ultimate_ai_agent" / "core" / "approvals" / "v2").glob("*.py")
+            ).lower()
+            forbidden_fragments = (
+                "subprocess",
+                "os.system(",
+                "popen(",
+                "shell=true",
+                "requests.get(",
+                "requests.post(",
+                "httpx.get(",
+                "httpx.post(",
+                "urllib.request.urlopen(",
+                "write_memory(",
+                ".write_memory(",
+                "put_record(",
+                ".put_record(",
+                "append_event(",
+                "mutate_event(",
+                "chat.completions.create(",
+                "import " + "openai",
+                "import " + "anthropic",
+                "import " + "ollama",
+            )
+            failures.extend(
+                f"M28 Approval Authority v2 module contains forbidden fragment: {fragment}"
+                for fragment in forbidden_fragments
+                if fragment in v2_source
+            )
+        except Exception as exc:
+            failures.append(f"M28 Approval Authority v2 validation failed: {exc}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m28_action_policy_openapi_routes_unchanged(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m28_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M28 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m28_m29_remains_future(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        required_docs = [
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+            "docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/approvals/M28_TO_M29_BOUNDARY.md",
+        ]
+        failures = [f"missing M28 roadmap doc: {path}" for path in required_docs if not (self.root / path).exists()]
+        text = "\n".join(self._read(self.root / path).lower() for path in required_docs if (self.root / path).exists())
+        if "v0.32.0" in text and "approval authority v2 + action policy expansion" in text:
+            if "implemented/released" not in text:
+                failures.append("M28 docs do not mark v0.32.0 implemented/released")
+        else:
+            failures.append("M28 docs do not mention v0.32.0 Approval Authority v2 + Action Policy Expansion")
+        if "m29-m40 remain planned/provisional" not in text:
+            failures.append("M29-M40 must remain planned/provisional after M28")
+        forbidden_m29_fragments = (
+            "m29 is implemented",
+            "v0.33.0 implements m29",
+            "action execution is implemented",
+            "tool execution is implemented",
+            "production approval authority is implemented",
         )
         failures.extend(
-            f"M27 docs imply M28 implementation: {fragment}"
-            for fragment in forbidden_m28_fragments
+            f"M28 docs imply M29 implementation: {fragment}"
+            for fragment in forbidden_m29_fragments
             if fragment in text
         )
         return self._result(criterion, failures, required_docs)
@@ -5863,7 +6293,15 @@ class FoundationGateEvaluator:
             failures.append("M25 docs do not mention v0.29.0 Truth Source Router + Evidence Claim Checker")
         active_version = self._active_version() or "0.0.0"
         version_tuple = tuple(int(part) for part in active_version.split("."))
-        if version_tuple >= (0, 31, 0):
+        if version_tuple >= (0, 32, 0):
+            if "v0.32.0" in text and "approval authority v2 + action policy expansion" in text:
+                if "implemented/released" not in text:
+                    failures.append("M28 docs must mark v0.32.0 implemented/released after M28")
+            else:
+                failures.append("M28 docs do not mention v0.32.0 Approval Authority v2 + Action Policy Expansion")
+            if "m29-m40 remain planned/provisional" not in text:
+                failures.append("M29-M40 must remain planned/provisional after M28")
+        elif version_tuple >= (0, 31, 0):
             if "v0.31.0" in text and "tool broker v2 + safe tool intent contracts" in text:
                 if "implemented/released" not in text:
                     failures.append("M27 docs must mark v0.31.0 implemented/released after M27")
@@ -6013,7 +6451,9 @@ class FoundationGateEvaluator:
                 failures.append(failure)
         active_version = self._active_version() or "0.0.0"
         version_tuple = tuple(int(part) for part in active_version.split("."))
-        if version_tuple >= (0, 31, 0):
+        if version_tuple >= (0, 32, 0):
+            implemented_claim_start = 29
+        elif version_tuple >= (0, 31, 0):
             implemented_claim_start = 28
         elif version_tuple >= (0, 30, 0):
             implemented_claim_start = 27

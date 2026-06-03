@@ -1,7 +1,7 @@
 # Archived Roadmap Snapshots
 
 Status: active archive index
-Current through: v0.31.1
+Current through: v0.32.0
 Purpose: Describe frozen roadmap projections that are not current roadmap authority.
 
 Frozen historical roadmap projections belong here when they are no longer read

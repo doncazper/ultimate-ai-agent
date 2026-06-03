@@ -125,7 +125,7 @@ M39 is Observability Export Adapters.
 M40 is Agent Evaluation + Regression Harness.
 M21-M40 remain planned/provisional in the v0.18.4 projection; by v0.30.0,
 M26 is implemented/released as a contract-only grounded recall/context-pack foundation,
-M27 is implemented/released by v0.31.0 as validation-only Tool Broker v2 contracts. v0.31.1 is docs-only README polish baseline normalization, and M28-M40 remain planned/provisional.
+M27 is implemented/released by v0.31.0 as validation-only Tool Broker v2 contracts. v0.31.1 is docs-only README polish baseline normalization, M28 is implemented/released by v0.32.0 as Approval Authority v2 + Action Policy Expansion, and M29-M40 remain planned/provisional.
 Docs do not claim future milestone implementation before dedicated milestones.
 Foundation Gate includes post_m20_roadmap_projection_present.
 Backend OpenAPI path count remains unchanged at 74.
@@ -205,7 +205,27 @@ model, runtime, and OpenWebUI refs are denied regardless of declared source_kind
 unknown prefixes remain denied.
 context packs reject mismatched selected items.
 Foundation Gate and verify_all.py probe the same mismatch bypass.
-M27 is implemented/released by v0.31.0 as validation-only Tool Broker v2 contracts. v0.31.1 is docs-only README polish baseline normalization, and M28-M40 remain planned/provisional.
+M27 is implemented/released by v0.31.0 as validation-only Tool Broker v2 contracts. v0.31.1 is docs-only README polish baseline normalization, M28 is implemented/released by v0.32.0 as Approval Authority v2 + Action Policy Expansion, and M29-M40 remain planned/provisional.
+OpenAPI path count remains unchanged at 74.
+```
+
+## v0.32.0 M28 Approval Authority v2 + Action Policy Expansion Tests
+
+v0.32.0 adds contract, verifier, and Foundation Gate tests only for M28:
+
+```text
+Approval Authority v2 manifest disables action execution, tool execution, file mutation, memory writes, network actions, browser/mobile/remote/plugin/model actions, wildcard approvals, approval_test refs, backend execution routes, and production authority.
+Action Policy can allow safe no-effect/read-metadata policy decisions only with execution_authorized=False and execution_performed=False.
+approval_ref alone is denied.
+approval_test_ refs are denied as runtime authority.
+consent_ref alone is denied.
+wildcard approval scope is denied.
+expired, revoked, replayed, and actor/action/resource/scope-mismatched grants are denied.
+model, memory, context-pack, and tool-intent refs cannot authorize action policy decisions.
+raw prompt/model/file/transcript content and secret-like metadata are rejected.
+receipt plans are non-authoritative and store no raw content.
+Foundation Gate and verify_all.py probe the same approval/action-policy boundary.
+M29-M40 remain planned/provisional.
 OpenAPI path count remains unchanged at 74.
 ```
 
@@ -388,7 +408,7 @@ Roadmap currentness marks v0.23.0 / M19 implemented/released.
 Roadmap currentness marks v0.24.0 / M20 implemented/released as contract-only.
 M21-M40 were planned/provisional at M19 cleanup time. By v0.30.0, M26 is
 implemented/released as a contract-only grounded recall/context-pack foundation,
-M27 is implemented/released by v0.31.0 as validation-only Tool Broker v2 contracts. v0.31.1 is docs-only README polish baseline normalization, and M28-M40 remain planned/provisional.
+M27 is implemented/released by v0.31.0 as validation-only Tool Broker v2 contracts. v0.31.1 is docs-only README polish baseline normalization, M28 is implemented/released by v0.32.0 as Approval Authority v2 + Action Policy Expansion, and M29-M40 remain planned/provisional.
 Contacts and calendar capability plans cannot be enabled.
 Contacts and calendar capability plans require a future Device Capability Broker.
 Contacts and calendar cannot be represented as implemented.

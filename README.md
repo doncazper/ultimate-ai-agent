@@ -12,20 +12,20 @@ allowed to become operational authority.
 
 | Field | Current state |
 |---|---|
-| Current active baseline | **v0.31.1** |
-| Current milestone | **M27 - Tool Broker v2 + Safe Tool Intent Contracts** |
+| Current active baseline | **v0.32.0** |
+| Current milestone | **M28 - Approval Authority v2 + Action Policy Expansion** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **74** OpenAPI paths |
 | Production readiness | Not claimed |
 
-v0.31.1 is a docs-only normalization release for the GitHub README polish
-commit. M27 remains implemented/released as validation-only and preview-only
-contract logic.
-Tool Broker v2 can review structured tool intents and return safe decisions, but
-it does not execute tools. M26 is implemented/released as grounded recall and
-context-pack planning over provided safe refs only. M28-M40 remain
-planned/provisional.
+v0.32.0 implements M28 Approval Authority v2 + Action Policy Expansion as a
+non-executing policy/decision contract layer. It can evaluate structured action
+intents, grant bindings, replay/expiry/revocation state, and risk boundaries,
+but it does not execute actions. M27 remains implemented/released as
+validation-only Tool Broker v2 contracts, and M26 remains implemented/released
+as grounded recall and context-pack planning over provided safe refs only.
+M29-M40 remain planned/provisional.
 
 v0.29.5 is documentation policy polish. It remains the documentation
 organization cleanup baseline before the M26 and M27 implementation releases.
@@ -39,11 +39,13 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [API route inventory](docs/api/route_inventory.md)
 - [Documentation organization policy](docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md)
 - [Control Center frontend safety policy](docs/control_center/FRONTEND_SAFETY_POLICY.md)
+- [M28 Approval Authority v2](docs/approvals/APPROVAL_AUTHORITY_V2.md)
+- [M28 Action Policy](docs/approvals/ACTION_POLICY.md)
 - [M27 Tool Broker v2](docs/tools/TOOL_BROKER_V2.md)
 - [M26 Grounded Recall Router](docs/recall/GROUNDED_RECALL_ROUTER.md)
-- [v0.31.1 release notes](docs/release_notes/v0_31_1.md)
-- [v0.31.1 release packet](docs/archive/releases/v0_31_1/README_IMPORT.md)
-- [v0.31.1 master plan](docs/archive/releases/v0_31_1/master_plan.md)
+- [v0.32.0 release notes](docs/release_notes/v0_32_0.md)
+- [v0.32.0 release packet](docs/archive/releases/v0_32_0/README_IMPORT.md)
+- [v0.32.0 master plan](docs/archive/releases/v0_32_0/master_plan.md)
 
 ## What This Project Is
 
@@ -67,6 +69,9 @@ Core themes:
 - **Tool intents are contracts, not execution.** M27 validates tool intent
   metadata and can allow metadata-only preview decisions with
   `execution_performed=False`.
+- **Approval decisions are policy decisions, not action execution.** M28
+  validates action intent, grant, risk, and scope boundaries with
+  `execution_authorized=False` and `execution_performed=False`.
 
 ## What This Project Is Not
 
@@ -122,6 +127,7 @@ boundary.
 | Truth/evidence | Implemented M25 contracts | Deterministic validation over provided refs; no external lookup |
 | Recall/context packs | Implemented M26 contracts | Safe summaries and refs only; source_ref/source_kind consistency enforced |
 | Tool Broker v2 | Implemented M27 contracts | Safe intent validation and metadata preview only; no execution |
+| Approval Authority v2 | Implemented M28 contracts | Action policy decisions only; no execution authority |
 | Mobile/device clients | Planned/contract-only | Future CCC clients and device capability contracts; no native apps or sensors |
 | Foundation Gate | Implemented | Release safety gate covering docs, OpenAPI, frontend, and capability boundaries |
 
@@ -134,6 +140,7 @@ The safety posture is not a side note; it is the product architecture.
 - Memory is recall, not authority.
 - Context packs are planning artifacts, not prompt injection.
 - Tool intents are not tool execution.
+- Approval decisions are not action execution.
 - Approval refs are identifiers, not authority.
 - `approval_test_*` refs are test-only and not runtime authority.
 - Local/dev mode is not a security bypass.
@@ -221,7 +228,8 @@ The canonical roadmap source of truth is
 | v0.30.1 | M26 hardening - Recall Source Ref / Source Kind Consistency | Implemented/released |
 | v0.31.0 | M27 - Tool Broker v2 + Safe Tool Intent Contracts | Implemented/released |
 | v0.31.1 | GitHub README Polish Baseline Normalization | Implemented/released docs-only |
-| v0.32.0 | M28 - Local Sandbox Backend Abstraction | Planned/provisional |
+| v0.32.0 | M28 - Approval Authority v2 + Action Policy Expansion | Implemented/released |
+| v0.33.0 | M29 | Planned/provisional |
 
 The roadmap intentionally separates contract planning, validation, preview,
 manual local execution, and future operational authority.

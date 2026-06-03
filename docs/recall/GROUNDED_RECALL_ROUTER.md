@@ -1,7 +1,7 @@
 # Grounded Recall Router
 
 Status: active
-Current through: v0.31.1
+Current through: v0.32.0
 Purpose: Define the M26 deterministic recall router contract.
 
 M26 adds a local Grounded Recall Router over caller-provided candidate refs only.

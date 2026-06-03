@@ -1,6 +1,6 @@
 # Canonical Document Map
 
-Current active baseline: **v0.31.1**
+Current active baseline: **v0.32.0**
 
 This map links major systems to their canonical documentation. If a system has both canonical docs and runtime/API docs, canonical docs define principles and sequencing while runtime/API docs define current implementation boundaries.
 
@@ -28,7 +28,7 @@ This map links major systems to their canonical documentation. If a system has b
 | Open Design System and UI Governance | `docs/design/OPEN_DESIGN_SYSTEM.md`, `docs/design/CONTROL_CENTER_DESIGN_LANGUAGE.md`, `docs/design/STATUS_AND_RISK_VISUAL_LANGUAGE.md`, `docs/design/ACCESSIBILITY_BASELINE.md`, `docs/design/DESIGN_TOOLING_POLICY.md`, `docs/design/DESIGN_TOKEN_ROADMAP.md`, `docs/design/UI_COPY_AND_ACTION_LANGUAGE.md`, `docs/design/DESIGN_ARTIFACT_GOVERNANCE.md`, `docs/design/COMPONENT_TAXONOMY.md`, `docs/design/RESPONSIVE_LAYOUT_BASELINE.md`, `docs/backlog/open_design_system_backlog.md` |
 | OpenWebUI and CCC Client Strategy | `docs/ui/OPENWEBUI_AND_CCC_STRATEGY.md`, `docs/ui/CLIENT_SURFACE_ROLES.md`, `docs/ui/OPENWEBUI_INTEGRATION_ROADMAP.md`, `docs/ui/CCC_NATIVE_CLIENT_STRATEGY.md` |
 | OpenWebUI Bridge Contract | `docs/openwebui/OPENWEBUI_BRIDGE_CONTRACT.md`, `docs/openwebui/CHAT_SHELL_INTEGRATION_CONTRACT.md`, `docs/openwebui/SESSION_TRANSCRIPT_REF_POLICY.md`, `docs/openwebui/OPENWEBUI_SECURITY_MODEL.md`, `docs/openwebui/OPENWEBUI_AUTHORITY_BOUNDARY.md`, `docs/openwebui/OPENWEBUI_NON_GOALS.md`, `docs/openwebui/OPENWEBUI_FUTURE_INTEGRATION_STAGES.md` |
-| Approval Authority | `docs/security/approval_authority.md`, `docs/canonical/42_autonomy_levels_and_standing_approvals.md` |
+| Approval Authority | `docs/security/approval_authority.md`, `docs/approvals/APPROVAL_AUTHORITY_V2.md`, `docs/approvals/ACTION_POLICY.md`, `docs/approvals/APPROVAL_GRANT_BINDING.md`, `docs/approvals/APPROVAL_EXPIRY_REVOCATION_REPLAY.md`, `docs/approvals/ACTION_RISK_AND_SIDE_EFFECT_POLICY.md`, `docs/approvals/APPROVAL_REF_NOT_AUTHORITY.md`, `docs/approvals/ACTION_POLICY_DECISION_ENVELOPE.md`, `docs/approvals/APPROVAL_RECEIPT_PLAN.md`, `docs/approvals/APPROVAL_AUTHORITY_V2_NON_GOALS.md`, `docs/approvals/M28_TO_M29_BOUNDARY.md`, `docs/canonical/42_autonomy_levels_and_standing_approvals.md` |
 | Model Runtime Adapter Harness | `docs/runtime/model_runtime_adapter_harness.md` |
 | Local Loopback Runtime | `docs/runtime/local_loopback_model_runtime.md`, `docs/canonical/57_local_runtime_and_offline_agent_infrastructure.md` |
 | Manual Smoke Harness | `docs/runtime/local_loopback_model_runtime.md` |

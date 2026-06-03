@@ -29,6 +29,7 @@ SCAN_SEQUENCE = [
     ("M25 truth source evidence checker safety scan", "verify_m25_truth_source_evidence_checker_safety"),
     ("M26 grounded recall context-pack safety scan", "verify_m26_grounded_recall_context_pack_safety"),
     ("M27 Tool Broker v2 safe intent contract scan", "verify_m27_tool_broker_v2_safety"),
+    ("M28 Approval Authority v2 action policy safety scan", "verify_m28_approval_authority_v2_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
     ("production truth integration scan", "verify_no_production_truth_integrations"),
@@ -1893,6 +1894,359 @@ def verify_m27_tool_broker_v2_safety():
         pass
 
     print("OK: M27 Tool Broker v2 contracts remain preview-only, local, route-free, and non-authoritative")
+
+
+def verify_m28_approval_authority_v2_safety():
+    print("\n[Verifier] Running M28 Approval Authority v2 action policy guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/approvals/v2/__init__.py",
+        "src/ultimate_ai_agent/core/approvals/v2/enums.py",
+        "src/ultimate_ai_agent/core/approvals/v2/contracts.py",
+        "src/ultimate_ai_agent/core/approvals/v2/policies.py",
+        "src/ultimate_ai_agent/core/approvals/v2/validation.py",
+        "tests/test_approval_authority_v2_contracts.py",
+        "tests/test_m28_gate_integration.py",
+        "docs/approvals/APPROVAL_AUTHORITY_V2.md",
+        "docs/approvals/ACTION_POLICY.md",
+        "docs/approvals/APPROVAL_GRANT_BINDING.md",
+        "docs/approvals/APPROVAL_EXPIRY_REVOCATION_REPLAY.md",
+        "docs/approvals/ACTION_RISK_AND_SIDE_EFFECT_POLICY.md",
+        "docs/approvals/APPROVAL_REF_NOT_AUTHORITY.md",
+        "docs/approvals/ACTION_POLICY_DECISION_ENVELOPE.md",
+        "docs/approvals/APPROVAL_RECEIPT_PLAN.md",
+        "docs/approvals/APPROVAL_AUTHORITY_V2_NON_GOALS.md",
+        "docs/approvals/M28_TO_M29_BOUNDARY.md",
+        "docs/release_notes/v0_32_0.md",
+        "docs/archive/releases/v0_32_0/README_IMPORT.md",
+        "docs/archive/releases/v0_32_0/master_plan.md",
+        "docs/implementation/foundation_gate_implementation_plan_v0_32_0.md",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M28 Approval Authority v2 file: {rel_path}")
+            sys.exit(1)
+
+    approvals_v2_root = ROOT / "src" / "ultimate_ai_agent" / "core" / "approvals" / "v2"
+    forbidden_source_fragments = [
+        "subprocess",
+        "os.system(",
+        "popen(",
+        "shell=true",
+        "requests.get(",
+        "requests.post(",
+        "httpx.get(",
+        "httpx.post(",
+        "urllib.request.urlopen(",
+        "write_memory(",
+        ".write_memory(",
+        "put_record(",
+        ".put_record(",
+        "append_event(",
+        "mutate_event(",
+        "chat.completions.create(",
+        "import openai",
+        "from openai import",
+        "import anthropic",
+        "from anthropic import",
+        "import ollama",
+        "from ollama import",
+    ]
+    for path in approvals_v2_root.rglob("*.py"):
+        rel = path.relative_to(ROOT).as_posix()
+        if "__pycache__" in path.parts:
+            continue
+        text = path.read_text(encoding="utf-8").lower()
+        for fragment in forbidden_source_fragments:
+            if fragment in text:
+                print(f"FAIL: M28 forbidden Approval Authority v2 source fragment in {rel}: {fragment}")
+                sys.exit(1)
+
+    forbidden_route_fragments = [
+        "/actions/execute",
+        "/actions/run",
+        "/approval/execute",
+        "/approvals/execute",
+        "/action-policy/execute",
+        "/tools/execute",
+        "/plugins/enable",
+    ]
+    for implementation_root in [ROOT / "src", ROOT / "apps"]:
+        if not implementation_root.exists():
+            continue
+        for path in implementation_root.rglob("*"):
+            if not path.is_file() or "__pycache__" in path.parts or "node_modules" in path.parts:
+                continue
+            if path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx"}:
+                continue
+            if any(part == "tests" for part in path.parts) or ".test." in path.name or ".spec." in path.name:
+                continue
+            rel = path.relative_to(ROOT).as_posix()
+            if rel in {
+                "src/ultimate_ai_agent/core/gate/evaluators.py",
+                "src/ultimate_ai_agent/api/openapi.py",
+            }:
+                continue
+            text = path.read_text(encoding="utf-8").lower()
+            for fragment in forbidden_route_fragments:
+                if fragment in text:
+                    print(f"FAIL: M28 forbidden action/tool execution route fragment in {rel}: {fragment}")
+                    sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT / "src"))
+        from datetime import timedelta
+
+        from pydantic import ValidationError
+
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.approvals.v2 import (
+            ActionIntent,
+            ActionKind,
+            ActionRef,
+            ActionRiskLevel,
+            ActionSideEffectClass,
+            ActorRef,
+            ActorTrustLevel,
+            ApprovalDecisionStatus,
+            ApprovalGrant,
+            ApprovalGrantStatus,
+            ApprovalScope,
+            ApprovalScopeKind,
+            ResourceRef,
+            ResourceRefKind,
+            build_approval_authority_v2_manifest,
+            evaluate_action_policy,
+        )
+        from ultimate_ai_agent.core.gate.evaluators import m28_openapi_route_failures
+        from ultimate_ai_agent.core.time import utc_now
+    except Exception as exc:
+        print(f"FAIL: M28 Approval Authority v2 imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m28_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    manifest = build_approval_authority_v2_manifest(baseline_version="0.32.0")
+    unsafe_flags = [
+        manifest.action_execution_enabled,
+        manifest.execution_authorized,
+        manifest.execution_performed,
+        manifest.tool_execution_enabled,
+        manifest.filesystem_mutation_enabled,
+        manifest.memory_write_enabled,
+        manifest.network_action_enabled,
+        manifest.browser_action_enabled,
+        manifest.mobile_action_enabled,
+        manifest.remote_execution_enabled,
+        manifest.plugin_enable_enabled,
+        manifest.model_action_enabled,
+        manifest.wildcard_approval_enabled,
+        manifest.approval_test_refs_enabled,
+        manifest.backend_execution_routes_added,
+        manifest.control_center_execute_controls_enabled,
+        manifest.production_authority_enabled,
+    ]
+    if any(unsafe_flags):
+        print("FAIL: M28 manifest enables forbidden runtime/action authority")
+        sys.exit(1)
+
+    actor = ActorRef(actor_ref="actor:verify-m28", trust_level=ActorTrustLevel.user)
+    action = ActionRef(
+        action_ref="action:verify-m28-read-metadata",
+        action_kind=ActionKind.read_metadata,
+        risk_level=ActionRiskLevel.low,
+        side_effect_class=ActionSideEffectClass.read_only_metadata,
+        safe_summary="Read metadata only.",
+    )
+    resource = ResourceRef(
+        resource_ref="file_ref:verify-m28",
+        resource_kind=ResourceRefKind.file_ref,
+        safe_label="Verify metadata ref.",
+    )
+    expires_at = utc_now() + timedelta(minutes=15)
+    scope = ApprovalScope(
+        scope_ref="scope:verify-m28",
+        scope_kind=ApprovalScopeKind.single_action,
+        actor_ref=actor.actor_ref,
+        action_ref=action.action_ref,
+        resource_ref=resource.resource_ref,
+        expires_at=expires_at,
+        replay_nonce="nonce:verify-m28",
+    )
+    intent = ActionIntent(
+        intent_id="action-intent:verify-m28",
+        actor=actor,
+        action=action,
+        resource=resource,
+        safe_summary="Evaluate a safe read-metadata action.",
+        input_refs=["file_ref:verify-m28"],
+    )
+    grant = ApprovalGrant(
+        grant_ref="approval:verify-m28",
+        actor_ref=actor.actor_ref,
+        action_ref=action.action_ref,
+        resource_ref=resource.resource_ref,
+        scope=scope,
+        expires_at=expires_at,
+        replay_nonce="nonce:verify-m28",
+    )
+
+    safe = evaluate_action_policy(intent, grant=grant, replay_nonce="nonce:verify-m28")
+    if safe.status != ApprovalDecisionStatus.allowed_for_policy or not safe.allowed_for_policy:
+        print("FAIL: M28 safe read-metadata policy decision was not allowed")
+        sys.exit(1)
+    if safe.execution_authorized or safe.execution_performed:
+        print("FAIL: M28 safe read-metadata policy decision authorized or performed execution")
+        sys.exit(1)
+    if not safe.receipt_plan or safe.receipt_plan.execution_performed:
+        print("FAIL: M28 safe policy decision receipt plan is missing or executable")
+        sys.exit(1)
+
+    def require_denial(decision, required_reason: str, label: str) -> None:
+        if decision.allowed_for_policy or decision.execution_authorized or decision.execution_performed:
+            print(f"FAIL: M28 denied probe was allowed: {label}")
+            sys.exit(1)
+        if required_reason not in decision.reason_codes:
+            print(f"FAIL: M28 denied probe missing {required_reason}: {label}")
+            sys.exit(1)
+
+    require_denial(
+        evaluate_action_policy(intent.model_copy(update={"approval_ref": "approval:any"})),
+        "APPROVAL_REF_NOT_AUTHORITY",
+        "approval_ref alone",
+    )
+    require_denial(
+        evaluate_action_policy(intent.model_copy(update={"approval_ref": "approval_test_verify_m28"})),
+        "APPROVAL_TEST_REF_DENIED",
+        "approval_test_ ref",
+    )
+    require_denial(
+        evaluate_action_policy(intent.model_copy(update={"consent_ref": "consent:verify-m28"})),
+        "CONSENT_REF_NOT_AUTHORITY",
+        "consent_ref alone",
+    )
+    wildcard_scope = scope.model_copy(update={"scope_kind": ApprovalScopeKind.blocked_wildcard, "action_ref": "*"})
+    wildcard_grant = grant.model_copy(update={"scope": wildcard_scope, "action_ref": "*"})
+    require_denial(
+        evaluate_action_policy(intent, grant=wildcard_grant, replay_nonce="nonce:verify-m28"),
+        "WILDCARD_SCOPE_DENIED",
+        "wildcard scope",
+    )
+    require_denial(
+        evaluate_action_policy(
+            intent,
+            grant=grant.model_copy(update={"expires_at": utc_now() - timedelta(minutes=1)}),
+            replay_nonce="nonce:verify-m28",
+        ),
+        "APPROVAL_GRANT_EXPIRED",
+        "expired grant",
+    )
+    require_denial(
+        evaluate_action_policy(
+            intent,
+            grant=grant.model_copy(update={"status": ApprovalGrantStatus.revoked}),
+            replay_nonce="nonce:verify-m28",
+        ),
+        "APPROVAL_GRANT_REVOKED",
+        "revoked grant",
+    )
+    require_denial(
+        evaluate_action_policy(
+            intent,
+            grant=grant.model_copy(update={"used_replay_nonces": ["nonce:verify-m28"]}),
+            replay_nonce="nonce:verify-m28",
+        ),
+        "APPROVAL_REPLAY_DETECTED",
+        "replayed grant",
+    )
+    require_denial(
+        evaluate_action_policy(
+            intent,
+            grant=grant.model_copy(update={"actor_ref": "actor:mismatch"}),
+            replay_nonce="nonce:verify-m28",
+        ),
+        "APPROVAL_ACTOR_MISMATCH",
+        "actor mismatch",
+    )
+    require_denial(
+        evaluate_action_policy(
+            intent.model_copy(
+                update={
+                    "resource": ResourceRef(
+                        resource_ref="memory:verify-m28",
+                        resource_kind=ResourceRefKind.memory_ref,
+                        safe_label="Memory ref.",
+                    )
+                }
+            ),
+            grant=grant,
+            replay_nonce="nonce:verify-m28",
+        ),
+        "MEMORY_REF_NOT_AUTHORITY",
+        "memory ref authority",
+    )
+    require_denial(
+        evaluate_action_policy(
+            intent.model_copy(
+                update={
+                    "resource": ResourceRef(
+                        resource_ref="model:verify-m28",
+                        resource_kind=ResourceRefKind.model_output_ref,
+                        safe_label="Model output ref.",
+                    )
+                }
+            ),
+            grant=grant,
+            replay_nonce="nonce:verify-m28",
+        ),
+        "MODEL_OUTPUT_NOT_AUTHORITY",
+        "model output ref authority",
+    )
+    write_action = ActionRef(
+        action_ref="action:verify-m28-file-write",
+        action_kind=ActionKind.file_write_planned,
+        risk_level=ActionRiskLevel.high,
+        side_effect_class=ActionSideEffectClass.local_mutation_blocked,
+        safe_summary="Blocked file write plan.",
+    )
+    require_denial(
+        evaluate_action_policy(
+            intent.model_copy(update={"action": write_action}),
+            grant=grant.model_copy(update={"action_ref": write_action.action_ref}),
+            replay_nonce="nonce:verify-m28",
+        ),
+        "ACTION_KIND_DENIED",
+        "effectful action",
+    )
+    try:
+        ActionIntent(
+            intent_id="action-intent:verify-m28-raw",
+            actor=actor,
+            action=action,
+            resource=resource,
+            safe_summary="Raw action input probe.",
+            contains_raw_prompt=True,
+        )
+        print("FAIL: M28 ActionIntent accepted raw prompt content")
+        sys.exit(1)
+    except ValidationError:
+        pass
+    try:
+        ActionIntent(
+            intent_id="action-intent:verify-m28-secret",
+            actor=actor,
+            action=action,
+            resource=resource,
+            safe_summary="Secret input probe.",
+            metadata={"token": "abc123"},
+        )
+        print("FAIL: M28 ActionIntent accepted secret-like metadata")
+        sys.exit(1)
+    except ValidationError:
+        pass
+
+    print("OK: M28 Approval Authority v2 contracts remain policy-only, route-free, and non-executing")
 
 
 def verify_v0292_local_dev_api_hardening():

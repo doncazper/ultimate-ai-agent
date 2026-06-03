@@ -1,7 +1,7 @@
 # Context Pack Safety
 
 Status: active
-Current through: v0.31.1
+Current through: v0.32.0
 Purpose: Define M26 context-pack safety boundaries.
 
 M26 context packs are evidence-linked planning artifacts containing safe

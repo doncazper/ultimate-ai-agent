@@ -333,7 +333,64 @@ def _write_minimal_repo(root: Path, version: str = "0.14.6") -> None:
             "M23 remains future.\n",
         )
     version_tuple = tuple(int(part) for part in version.split("."))
-    if version_tuple >= (0, 26, 0):
+    if version_tuple >= (0, 32, 0):
+        post_m20_status = (
+            "M21 is implemented/released by v0.25.0 as contract-only.\n"
+            "M22 is implemented/released by v0.26.0 as contract-only.\n"
+            "M23 is implemented/released by v0.27.0 as manual fixed-prompt local call only.\n"
+            "M24 is implemented/released by v0.28.0 as Memory Provider Abstraction.\n"
+            "M25 is implemented/released by v0.29.0 as deterministic truth/evidence contracts.\n"
+            "M26 is implemented/released by v0.30.0 as deterministic grounded recall/context-pack contracts.\n"
+            "M27 is implemented/released by v0.31.0 as validation-only Tool Broker v2 contracts.\n"
+            "M28 is implemented/released by v0.32.0 as Approval Authority v2 + Action Policy Expansion.\n"
+            "M29-M40 remain planned/provisional.\n"
+        )
+    elif version_tuple >= (0, 31, 0):
+        post_m20_status = (
+            "M21 is implemented/released by v0.25.0 as contract-only.\n"
+            "M22 is implemented/released by v0.26.0 as contract-only.\n"
+            "M23 is implemented/released by v0.27.0 as manual fixed-prompt local call only.\n"
+            "M24 is implemented/released by v0.28.0 as Memory Provider Abstraction.\n"
+            "M25 is implemented/released by v0.29.0 as deterministic truth/evidence contracts.\n"
+            "M26 is implemented/released by v0.30.0 as deterministic grounded recall/context-pack contracts.\n"
+            "M27 is implemented/released by v0.31.0 as validation-only Tool Broker v2 contracts.\n"
+            "M28-M40 remain planned/provisional.\n"
+        )
+    elif version_tuple >= (0, 30, 0):
+        post_m20_status = (
+            "M21 is implemented/released by v0.25.0 as contract-only.\n"
+            "M22 is implemented/released by v0.26.0 as contract-only.\n"
+            "M23 is implemented/released by v0.27.0 as manual fixed-prompt local call only.\n"
+            "M24 is implemented/released by v0.28.0 as Memory Provider Abstraction.\n"
+            "M25 is implemented/released by v0.29.0 as deterministic truth/evidence contracts.\n"
+            "M26 is implemented/released by v0.30.0 as deterministic grounded recall/context-pack contracts.\n"
+            "M27-M40 remain planned/provisional.\n"
+        )
+    elif version_tuple >= (0, 29, 0):
+        post_m20_status = (
+            "M21 is implemented/released by v0.25.0 as contract-only.\n"
+            "M22 is implemented/released by v0.26.0 as contract-only.\n"
+            "M23 is implemented/released by v0.27.0 as manual fixed-prompt local call only.\n"
+            "M24 is implemented/released by v0.28.0 as Memory Provider Abstraction.\n"
+            "M25 is implemented/released by v0.29.0 as deterministic truth/evidence contracts.\n"
+            "M26-M40 remain planned/provisional.\n"
+        )
+    elif version_tuple >= (0, 28, 0):
+        post_m20_status = (
+            "M21 is implemented/released by v0.25.0 as contract-only.\n"
+            "M22 is implemented/released by v0.26.0 as contract-only.\n"
+            "M23 is implemented/released by v0.27.0 as manual fixed-prompt local call only.\n"
+            "M24 is implemented/released by v0.28.0 as Memory Provider Abstraction.\n"
+            "M25-M40 remain planned/provisional.\n"
+        )
+    elif version_tuple >= (0, 27, 0):
+        post_m20_status = (
+            "M21 is implemented/released by v0.25.0 as contract-only.\n"
+            "M22 is implemented/released by v0.26.0 as contract-only.\n"
+            "M23 is implemented/released by v0.27.0 as manual fixed-prompt local call only.\n"
+            "M24-M40 remain planned/provisional.\n"
+        )
+    elif version_tuple >= (0, 26, 0):
         post_m20_status = (
             "M21 is implemented/released by v0.25.0 as contract-only.\n"
             "M22 is implemented/released by v0.26.0 as contract-only.\n"
@@ -365,13 +422,37 @@ def _write_minimal_repo(root: Path, version: str = "0.14.6") -> None:
                 if version_tuple >= (0, 26, 0)
                 else "M22 - Local Model Runtime Activation Contract, planned/provisional.\n"
             )
-            + "M23 - First Real Local LLM Call, Non-Tool, Non-Authoritative, planned/provisional.\n"
-            "M24 - Memory Provider Abstraction + Local Memory Store, planned/provisional.\n"
-            "M25 - Truth Source Router + Evidence Claim Checker, planned/provisional.\n"
-            "M26 - Grounded Recall Router + Evidence-Linked Context Pack Builder, planned/provisional.\n"
-            "M27 - MCP / Agent Skills / AGENTS.md Trust Registry, Quarantine-Only, planned/provisional.\n"
-            "M28 - Local Sandbox Backend Abstraction, planned/provisional.\n"
-            "M29 - First Low-Risk Tool Dry-Run + Approval Preview, planned/provisional.\n"
+            + (
+                "M23 - First Real Local LLM Call, Non-Tool, Non-Authoritative, implemented/released.\n"
+                if version_tuple >= (0, 27, 0)
+                else "M23 - First Real Local LLM Call, Non-Tool, Non-Authoritative, planned/provisional.\n"
+            )
+            + (
+                "M24 - Memory Provider Abstraction + Local Memory Store, implemented/released.\n"
+                if version_tuple >= (0, 28, 0)
+                else "M24 - Memory Provider Abstraction + Local Memory Store, planned/provisional.\n"
+            )
+            + (
+                "M25 - Truth Source Router + Evidence Claim Checker, implemented/released.\n"
+                if version_tuple >= (0, 29, 0)
+                else "M25 - Truth Source Router + Evidence Claim Checker, planned/provisional.\n"
+            )
+            + (
+                "M26 - Grounded Recall Router + Evidence-Linked Context Pack Builder, implemented/released.\n"
+                if version_tuple >= (0, 30, 0)
+                else "M26 - Grounded Recall Router + Evidence-Linked Context Pack Builder, planned/provisional.\n"
+            )
+            + (
+                "M27 - Tool Broker v2 + Safe Tool Intent Contracts, implemented/released.\n"
+                if version_tuple >= (0, 31, 0)
+                else "M27 - Tool Broker v2 + Safe Tool Intent Contracts, planned/provisional.\n"
+            )
+            + (
+                "M28 - Approval Authority v2 + Action Policy Expansion, implemented/released.\n"
+                if version_tuple >= (0, 32, 0)
+                else "M28 - Approval Authority v2 + Action Policy Expansion, planned/provisional.\n"
+            )
+            + "M29 - First Low-Risk Tool Dry-Run + Approval Preview, planned/provisional.\n"
             "M30 - First Approved Low-Risk Local Tool Execution, planned/provisional.\n"
             "M31 - CCC Native Client Contract: iOS / Android / macOS, planned/provisional.\n"
             "M32 - Device Pairing + Trust Handshake Contract, planned/provisional.\n"

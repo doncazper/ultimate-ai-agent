@@ -69,6 +69,20 @@ REQUIRED_M27_TOOL_DOCS = [
 ]
 
 
+REQUIRED_M28_APPROVAL_DOCS = [
+    "docs/approvals/APPROVAL_AUTHORITY_V2.md",
+    "docs/approvals/ACTION_POLICY.md",
+    "docs/approvals/APPROVAL_GRANT_BINDING.md",
+    "docs/approvals/APPROVAL_EXPIRY_REVOCATION_REPLAY.md",
+    "docs/approvals/ACTION_RISK_AND_SIDE_EFFECT_POLICY.md",
+    "docs/approvals/APPROVAL_REF_NOT_AUTHORITY.md",
+    "docs/approvals/ACTION_POLICY_DECISION_ENVELOPE.md",
+    "docs/approvals/APPROVAL_RECEIPT_PLAN.md",
+    "docs/approvals/APPROVAL_AUTHORITY_V2_NON_GOALS.md",
+    "docs/approvals/M28_TO_M29_BOUNDARY.md",
+]
+
+
 REQUIRED_ACTIVE_DOCS = [
     "docs/README.md",
     "docs/DOCUMENTATION_INDEX.md",
@@ -107,6 +121,7 @@ REQUIRED_ACTIVE_DOCS = [
     *REQUIRED_M25_TRUTH_DOCS,
     *REQUIRED_M26_RECALL_DOCS,
     *REQUIRED_M27_TOOL_DOCS,
+    *REQUIRED_M28_APPROVAL_DOCS,
     "docs/control_center/CONTROL_CENTER_CONTRACT.md",
     "docs/control_center/DASHBOARD_SNAPSHOT.md",
     "docs/control_center/ACTION_PREVIEW_POLICY.md",
@@ -631,7 +646,10 @@ def _verify_m19_roadmap_currentness(root: Path, version: str | None) -> list[str
         if claim in active_roadmaps:
             failures.append(f"active roadmap docs must not claim future mobile capability implementation: {claim}")
 
-    if _version_tuple(version) >= (0, 31, 0):
+    if _version_tuple(version) >= (0, 32, 0):
+        if "m29-m40 remain planned/provisional" not in active_roadmaps:
+            failures.append("post-M20 roadmap docs must keep M29-M40 planned/provisional")
+    elif _version_tuple(version) >= (0, 31, 0):
         if "m28-m40 remain planned/provisional" not in active_roadmaps:
             failures.append("post-M20 roadmap docs must keep M28-M40 planned/provisional")
     elif _version_tuple(version) >= (0, 30, 0):
@@ -1128,11 +1146,22 @@ def _verify_m25_truth_docs(root: Path, version: str | None) -> list[str]:
             active_expectations["active docs must mark M27/v0.31.0 as implemented/released"] = (
                 "m27 is implemented/released"
             )
-            active_expectations["active docs must keep M28-M40 planned/provisional"] = (
-                "m28-m40 remain planned/provisional"
-            )
             active_expectations["active docs must link M27 tool docs"] = "docs/tools/tool_broker_v2.md"
             active_expectations["active docs must mention Tool Broker v2"] = "tool broker v2"
+            if _version_tuple(version) >= (0, 32, 0):
+                active_expectations["active docs must mark M28/v0.32.0 as implemented/released"] = (
+                    "m28 is implemented/released"
+                )
+                active_expectations["active docs must keep M29-M40 planned/provisional"] = (
+                    "m29-m40 remain planned/provisional"
+                )
+                active_expectations["active docs must link M28 approval docs"] = (
+                    "docs/approvals/approval_authority_v2.md"
+                )
+            else:
+                active_expectations["active docs must keep M28-M40 planned/provisional"] = (
+                    "m28-m40 remain planned/provisional"
+                )
         else:
             active_expectations["active docs must keep M27-M40 planned/provisional"] = (
                 "m27-m40 remain planned/provisional"
@@ -1236,7 +1265,13 @@ def _verify_m25_truth_docs(root: Path, version: str | None) -> list[str]:
             "M26 docs must say source_ref/source_kind consistency": "source_ref/source_kind",
             "M26 docs must say caller-declared source_kind cannot upgrade priority": "cannot upgrade",
         }
-        if _version_tuple(version) >= (0, 31, 0):
+        if _version_tuple(version) >= (0, 32, 0):
+            m26_expectations["M26 docs must say M27 is implemented/released"] = "m27 tool broker v2"
+            m26_expectations["M26 docs must say M28 is implemented/released"] = "m28 approval authority v2"
+            m26_expectations["M26 docs must keep M29-M40 planned/provisional"] = (
+                "m29-m40 remain planned/provisional"
+            )
+        elif _version_tuple(version) >= (0, 31, 0):
             m26_expectations["M26 docs must say M27 is implemented/released"] = "m27 tool broker v2"
             m26_expectations["M26 docs must keep M28-M40 planned/provisional"] = (
                 "m28-m40 remain planned/provisional"
@@ -1272,10 +1307,55 @@ def _verify_m25_truth_docs(root: Path, version: str | None) -> list[str]:
             "M27 docs must say no browser automation": "no browser automation",
             "M27 docs must say no plugin enablement": "no plugin enablement",
             "M27 docs must say no context injection": "no context injection",
-            "M27 docs must keep M28-M40 planned/provisional": "m28-m40 remain planned/provisional",
         }
+        if _version_tuple(version) >= (0, 32, 0):
+            m27_expectations["M27 docs must say M28 is implemented/released"] = (
+                "m28 implements approval authority v2"
+            )
+            m27_expectations["M27 docs must keep M29-M40 planned/provisional"] = (
+                "m29-m40 remain planned/provisional"
+            )
+        else:
+            m27_expectations["M27 docs must keep M28-M40 planned/provisional"] = (
+                "m28-m40 remain planned/provisional"
+            )
         for failure, fragment in m27_expectations.items():
             if fragment not in tool_docs:
+                failures.append(failure)
+
+    if _version_tuple(version) >= (0, 32, 0):
+        for rel_path in REQUIRED_M28_APPROVAL_DOCS:
+            if not (root / rel_path).exists():
+                failures.append(f"missing active documentation file: {rel_path}")
+        approval_docs = "\n".join(
+            _read(root / rel_path).lower()
+            for rel_path in REQUIRED_M28_APPROVAL_DOCS
+            if (root / rel_path).exists()
+        )
+        m28_expectations = {
+            "M28 docs must say policy-only": "policy-only",
+            "M28 docs must say decision-only": "decision-only",
+            "M28 docs must say no action execution": "no action execution",
+            "M28 docs must say no tool execution": "no tool execution",
+            "M28 docs must say no memory writes": "no memory write",
+            "M28 docs must say no network calls": "network calls",
+            "M28 docs must say no model/provider calls": "model/provider",
+            "M28 docs must say no shell execution": "shell execution",
+            "M28 docs must say no backend execution routes": "backend execution route",
+            "M28 docs must say approval_ref is not authority": "approval_ref",
+            "M28 docs must say approval_test_ is denied/not authority": "approval_test_",
+            "M28 docs must say consent_ref alone is not authority": "consent_ref",
+            "M28 docs must say wildcard approvals are denied": "wildcard",
+            "M28 docs must say expired grants are denied": "expired",
+            "M28 docs must say revoked grants are denied": "revoked",
+            "M28 docs must say replayed grants are denied": "replayed",
+            "M28 docs must say actor/action/resource/scope binding": "actor/action/resource/scope",
+            "M28 docs must say raw inputs are rejected": "raw",
+            "M28 docs must say receipt plans are non-authoritative": "non-authoritative",
+            "M28 docs must keep M29-M40 planned/provisional": "m29-m40 remain planned/provisional",
+        }
+        for failure, fragment in m28_expectations.items():
+            if fragment not in approval_docs:
                 failures.append(failure)
 
     if _version_tuple(version) >= (0, 29, 4):
@@ -1646,6 +1726,9 @@ def _verify_post_m20_roadmap_projection(root: Path) -> list[str]:
         "M27 must be Tool Broker v2 + Safe Tool Intent Contracts": (
             "tool broker v2 + safe tool intent contracts"
         ),
+        "M28 must be Approval Authority v2 + Action Policy Expansion": (
+            "approval authority v2 + action policy expansion"
+        ),
         "M31 must mention iOS / Android / macOS": "ios / android / macos",
         "M35 must mention Device Capability Broker Implementation, No Sensors": (
             "device capability broker implementation, no sensors"
@@ -1658,7 +1741,14 @@ def _verify_post_m20_roadmap_projection(root: Path) -> list[str]:
         "Post-M20 roadmap docs must say no dependency is added": "no dependency",
     }
     active_version_tuple = _version_tuple(_active_version(root))
-    if active_version_tuple >= (0, 31, 0):
+    if active_version_tuple >= (0, 32, 0):
+        expectations["Post-M20 roadmap docs must keep M29-M40 planned/provisional"] = (
+            "m29-m40 remain planned/provisional"
+        )
+        expectations["Post-M20 roadmap docs must say M28 is implemented/released"] = (
+            "m28 is implemented/released"
+        )
+    elif active_version_tuple >= (0, 31, 0):
         expectations["Post-M20 roadmap docs must keep M28-M40 planned/provisional"] = (
             "m28-m40 remain planned/provisional"
         )
@@ -1713,7 +1803,9 @@ def _verify_post_m20_roadmap_projection(root: Path) -> list[str]:
         if fragment not in roadmap_text:
             failures.append(failure)
 
-    if active_version_tuple >= (0, 31, 0):
+    if active_version_tuple >= (0, 32, 0):
+        implemented_claim_start = 29
+    elif active_version_tuple >= (0, 31, 0):
         implemented_claim_start = 28
     elif active_version_tuple >= (0, 30, 0):
         implemented_claim_start = 27
@@ -1863,7 +1955,12 @@ def _verify_post_m18_roadmap_status_labels(root: Path) -> list[str]:
             continue
         if f"status: {expected_status}" not in section:
             failures.append(f"roadmap sequence must mark {milestone.upper()} {expected_status}")
-    if active >= (0, 31, 0):
+    if active >= (0, 32, 0):
+        if "m28" not in sequence or "status: implemented" not in sequence:
+            failures.append("roadmap sequence must mark M28/v0.32.0 implemented")
+        if "m29-m40" not in sequence or "planned/provisional" not in sequence:
+            failures.append("roadmap sequence must keep M29-M40 planned/provisional")
+    elif active >= (0, 31, 0):
         if "m27" not in sequence or "status: implemented" not in sequence:
             failures.append("roadmap sequence must mark M27/v0.31.0 implemented")
         if "m28-m40" not in sequence or "planned/provisional" not in sequence:
