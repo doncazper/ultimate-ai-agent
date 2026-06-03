@@ -1125,17 +1125,28 @@ def _verify_m25_truth_docs(root: Path, version: str | None) -> list[str]:
                 failures.append(f"root release artifact must be archived or a historical stub: {artifact.name}")
 
     if _version_tuple(version) >= (0, 29, 4):
+        version_key = version.replace(".", "_")
         v0294_expectations = {
             "active docs must say v0.29.4 repairs archive references": "repairs documentation archive references",
             "active docs must say historical verifiers are not current gates": "legacy historical verifiers are not current release gates",
             "active docs must say stale Ruff excludes were removed": "stale ruff excludes",
-            "active docs must point to v0.29.4 release packet": "docs/archive/releases/v0_29_4/readme_import.md",
+            "active docs must point to current archive release packet": f"docs/archive/releases/v{version_key}/readme_import.md",
             "active docs must say M26 remains future": "m26 remains future",
         }
         for failure, fragment in v0294_expectations.items():
             if fragment not in active_docs:
                 failures.append(failure)
 
+    if _version_tuple(version) >= (0, 29, 5):
+        v0295_expectations = {
+            "active docs must say v0.29.5 polishes duplicated policy wording": "duplicated policy wording",
+            "active docs must say v0.29.5 is documentation policy polish": "documentation policy polish",
+        }
+        for failure, fragment in v0295_expectations.items():
+            if fragment not in active_docs:
+                failures.append(failure)
+
+    if _version_tuple(version) >= (0, 29, 4):
         policy_path = root / "docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md"
         if not policy_path.exists():
             failures.append("missing documentation organization policy: docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md")

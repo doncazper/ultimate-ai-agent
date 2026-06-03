@@ -1,7 +1,7 @@
 # Documentation Archive
 
 Status: active archive index
-Current through: v0.29.4
+Current through: v0.29.5
 Purpose: Explain where historical docs live and how to interpret them.
 
 Historical docs live here. Archive docs are not the current source of truth and

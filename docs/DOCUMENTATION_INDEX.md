@@ -1,6 +1,6 @@
 # Documentation Index
 
-Current active baseline: **v0.29.4**
+Current active baseline: **v0.29.5**
 
 This index is the active entrypoint for documentation navigation. Historical release documents remain in the repository for audit history, but active truth starts with the current baseline files listed here.
 
@@ -14,8 +14,8 @@ docs/canonical/CANONICAL_DOC_MAP.md
 docs/canonical/09_roadmap.md
 docs/roadmap/README.md
 docs/archive/README.md
-docs/archive/releases/v0_29_4/README_IMPORT.md
-docs/archive/releases/v0_29_4/master_plan.md
+docs/archive/releases/v0_29_5/README_IMPORT.md
+docs/archive/releases/v0_29_5/master_plan.md
 docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md
 docs/roadmap/MILESTONE_CHARTERS.md
 docs/roadmap/NEXT_SEQUENCE_v0_17_5.md
@@ -235,7 +235,7 @@ Model runtime docs distinguish simulated runtime behavior, dev/manual loopback r
 
 M11 runtime readiness docs describe status/report validation only. They do not describe production runtime execution. v0.15.1 clarifies local loopback policy as supported validation-only and `fake_manual_loopback_smoke` as a fake/test report origin only.
 
-v0.26.0 / M22 adds Local Model Runtime Activation Contract docs as contract/planning/validation only. v0.26.1 hardens M22 verifier precision, metadata key secret hygiene, route-count test ownership, and duplicate docs wording. v0.27.0 / M23 adds the first bounded manual local model call path. v0.27.1 hardens M23 endpoint-label safety, approval evidence checks, response redaction/caps, CLI guardrails, policy docs, static verification, Foundation Gate criteria, and Foundation Gate report atomic write/replace safety. v0.28.0 / M24 adds Memory Provider Abstraction + Local Memory Store as governed reviewed-write-only local memory foundation. v0.28.1 repairs the public M24 memory request contract and hardens M24 memory safety checks. v0.28.2 removes the duplicate/conflicting v0.28.1 planned/provisional roadmap row only. v0.29.0 / M25 adds Truth Source Router + Evidence Claim Checker as deterministic local contracts over provided refs only. v0.29.1 hardens M25 unknown/arbitrary truth ref denial. v0.29.2 hardens local-dev API authority and raw preview safety without adding routes. v0.29.3 reorganizes documentation archives and active/historical classification only, then v0.29.4 repairs legacy archive references and self-maintaining docs policy coverage. Memory is recall, not authority. Memory is not ground truth. M25 adds no backend route, web search, external verification, source fetching, model/provider call, local LLM call, memory write, evidence mutation, vector DB, embeddings, cloud memory, raw session history, context injection, dependency, production persistence, or production authority. OpenAPI path count remains `74`. M26-M40 remain planned/provisional.
+v0.26.0 / M22 adds Local Model Runtime Activation Contract docs as contract/planning/validation only. v0.26.1 hardens M22 verifier precision, metadata key secret hygiene, route-count test ownership, and duplicate docs wording. v0.27.0 / M23 adds the first bounded manual local model call path. v0.27.1 hardens M23 endpoint-label safety, approval evidence checks, response redaction/caps, CLI guardrails, policy docs, static verification, Foundation Gate criteria, and Foundation Gate report atomic write/replace safety. v0.28.0 / M24 adds Memory Provider Abstraction + Local Memory Store as governed reviewed-write-only local memory foundation. v0.28.1 repairs the public M24 memory request contract and hardens M24 memory safety checks. v0.28.2 removes the duplicate/conflicting v0.28.1 planned/provisional roadmap row only. v0.29.0 / M25 adds Truth Source Router + Evidence Claim Checker as deterministic local contracts over provided refs only. v0.29.1 hardens M25 unknown/arbitrary truth ref denial. v0.29.2 hardens local-dev API authority and raw preview safety without adding routes. v0.29.3 reorganizes documentation archives and active/historical classification only, v0.29.4 repairs legacy archive references and self-maintaining docs policy coverage, and v0.29.5 polishes duplicated policy wording. Memory is recall, not authority. Memory is not ground truth. M25 adds no backend route, web search, external verification, source fetching, model/provider call, local LLM call, memory write, evidence mutation, vector DB, embeddings, cloud memory, raw session history, context injection, dependency, production persistence, or production authority. OpenAPI path count remains `74`. M26-M40 remain planned/provisional.
 
 ## Active Remote Worker and Private Mesh Docs
 
@@ -311,7 +311,7 @@ The Codex plugin capability inventory and risk policy record available developme
 
 ## Release Notes Index
 
-Current release notes: `docs/release_notes/v0_29_4.md`
+Current release notes: `docs/release_notes/v0_29_5.md`
 
 Historical release notes remain under `docs/release_notes/`. Historical docs may mention old active baselines in historical context; they are not the current source of truth.
 

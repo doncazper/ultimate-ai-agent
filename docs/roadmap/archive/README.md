@@ -1,7 +1,7 @@
 # Roadmap Archive
 
 Status: active archive index
-Current through: v0.29.4
+Current through: v0.29.5
 Purpose: Record where frozen roadmap docs should live after active references move.
 
 Frozen roadmap docs are historical references. Do not use them for the current

@@ -5,7 +5,7 @@ Current roadmap: docs/canonical/09_roadmap.md
 # Retired Plans
 
 Status: active archive index
-Current through: v0.29.4
+Current through: v0.29.5
 Purpose: Preserve superseded planning and review packets outside the repository root.
 
 Retired or superseded planning docs live here. They are historical references,
