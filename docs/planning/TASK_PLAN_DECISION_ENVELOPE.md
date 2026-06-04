@@ -1,6 +1,6 @@
 # Task Plan Decision Envelope
 
-Status: active M29 contract. Current active baseline: **v0.33.0**.
+Status: active M29 contract. Current active baseline: **v0.33.1**.
 
 The M29 evaluator returns a decision envelope with stable reason codes and safe messages.
 
@@ -29,7 +29,13 @@ Denied conditions include:
 - `DEPENDENCY_CYCLE_DENIED`
 - `TASK_STEP_EXECUTION_DENIED`
 - `TASK_RISK_DOWNGRADE_DENIED`
+- `TASK_HIDDEN_SIDE_EFFECT_DENIED`
+- `UNKNOWN_INPUT_REF_DENIED`
 
 Safe messages must not echo raw prompts, secrets, invalid raw values, or private local paths.
+
+Decision envelopes include trusted derived plan risk. They remain
+non-authoritative review metadata and always keep `execution_authorized=False`,
+`execution_performed=False`, and scheduler/background behavior disabled.
 
 M30-M40 remain planned/provisional.

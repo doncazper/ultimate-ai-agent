@@ -6295,6 +6295,7 @@ class FoundationGateEvaluator:
                 manifest.task_execution_enabled,
                 manifest.auto_run_enabled,
                 manifest.scheduler_enabled,
+                manifest.background_worker_enabled,
                 manifest.tool_execution_enabled,
                 manifest.action_execution_enabled,
                 manifest.file_mutation_enabled,
@@ -6335,8 +6336,12 @@ class FoundationGateEvaluator:
                 failures.append("M29 safe task plan authorized or performed execution")
             if safe_decision.scheduler_registered:
                 failures.append("M29 safe task plan registered a scheduler")
+            if safe_decision.derived_plan_risk_level != TaskRiskLevel.low:
+                failures.append("M29 safe task plan did not report trusted derived risk")
             if not safe_decision.receipt_plan or safe_decision.receipt_plan.execution_performed:
                 failures.append("M29 safe task plan receipt plan is missing or executable")
+            elif safe_decision.receipt_plan.derived_plan_risk_level != safe_decision.derived_plan_risk_level:
+                failures.append("M29 receipt plan did not preserve derived plan risk")
 
             def require_denial(decision, required_reason: str, label: str) -> None:
                 if decision.valid_for_review or decision.execution_authorized or decision.execution_performed:
@@ -6393,6 +6398,9 @@ class FoundationGateEvaluator:
                 ("memory:gate-m29", PlanInputTrustLevel.memory_ref, "MEMORY_REF_NOT_PLAN_AUTHORITY"),
                 ("context-pack:gate-m29", PlanInputTrustLevel.context_pack_ref, "CONTEXT_PACK_NOT_PLAN_AUTHORITY"),
                 ("tool-intent:gate-m27", PlanInputTrustLevel.tool_intent_ref, "TOOL_INTENT_NOT_PLAN_AUTHORITY"),
+                ("approval:gate-m28", PlanInputTrustLevel.approval_ref, "APPROVAL_REF_NOT_TASK_AUTHORITY"),
+                ("openwebui:gate-m29", PlanInputTrustLevel.openwebui_output_blocked, "OPENWEBUI_OUTPUT_NOT_PLAN_AUTHORITY"),
+                ("control-center:gate-m29", PlanInputTrustLevel.unknown_blocked, "UNKNOWN_INPUT_REF_DENIED"),
             ]:
                 blocked_boundary = TaskStepInputBoundary(input_refs=[input_ref], input_trust_level=trust_level)
                 require_denial(
@@ -6422,6 +6430,17 @@ class FoundationGateEvaluator:
                 "TASK_RISK_DOWNGRADE_DENIED",
                 "risk downgrade",
             )
+            hidden_side_effect_step = safe_step.model_copy(update={"metadata": {"side_effect": "file_write"}})
+            hidden_side_effect_decision = evaluate_task_plan(
+                safe_plan.model_copy(update={"steps": [hidden_side_effect_step]})
+            )
+            require_denial(
+                hidden_side_effect_decision,
+                "TASK_HIDDEN_SIDE_EFFECT_DENIED",
+                "hidden side effect metadata",
+            )
+            if "TASK_RISK_DOWNGRADE_DENIED" not in hidden_side_effect_decision.reason_codes:
+                failures.append("M29 hidden side effect metadata did not deny risk downgrade")
             duplicate_step = safe_step.model_copy(update={"safe_summary": "Duplicate step ref."})
             require_denial(
                 evaluate_task_plan(safe_plan.model_copy(update={"steps": [safe_step, duplicate_step]})),
@@ -6440,6 +6459,20 @@ class FoundationGateEvaluator:
                 evaluate_task_plan(safe_plan.model_copy(update={"steps": [step_a, step_b]})),
                 "DEPENDENCY_CYCLE_DENIED",
                 "dependency cycle",
+            )
+            self_dep_step = safe_step.model_copy(update={"depends_on": [safe_step.step_id]})
+            require_denial(
+                evaluate_task_plan(safe_plan.model_copy(update={"steps": [self_dep_step]})),
+                "DEPENDENCY_CYCLE_DENIED",
+                "self dependency cycle",
+            )
+            step_c = safe_step.model_copy(update={"step_id": "step:gate-m29-c", "depends_on": ["step:gate-m29-b"]})
+            indirect_a = step_a.model_copy(update={"depends_on": ["step:gate-m29-c"]})
+            indirect_b = step_b.model_copy(update={"depends_on": ["step:gate-m29-a"]})
+            require_denial(
+                evaluate_task_plan(safe_plan.model_copy(update={"steps": [indirect_a, indirect_b, step_c]})),
+                "DEPENDENCY_CYCLE_DENIED",
+                "indirect dependency cycle",
             )
             dependency_decision = evaluate_task_plan(
                 safe_plan.model_copy(

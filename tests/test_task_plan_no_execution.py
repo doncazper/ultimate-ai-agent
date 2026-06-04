@@ -99,3 +99,11 @@ def test_receipt_plan_cannot_claim_execution_or_raw_storage():
     raw_receipt = decision.receipt_plan.model_copy(update={"raw_content_stored": True})
     with pytest.raises(ValueError):
         raw_receipt.model_validate(raw_receipt.model_dump())
+
+
+def test_manifest_explicitly_disables_background_workers():
+    from ultimate_ai_agent.core.planning import build_task_planning_manifest
+
+    manifest = build_task_planning_manifest(baseline_version="0.33.1")
+
+    assert manifest.background_worker_enabled is False

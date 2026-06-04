@@ -69,6 +69,8 @@ def test_model_copy_mutated_input_boundary_is_revalidated(update, reason):
         ("context-pack:m29", PlanInputTrustLevel.context_pack_ref, "CONTEXT_PACK_NOT_PLAN_AUTHORITY"),
         ("tool-intent:m27", PlanInputTrustLevel.tool_intent_ref, "TOOL_INTENT_NOT_PLAN_AUTHORITY"),
         ("approval:m28", PlanInputTrustLevel.approval_ref, "APPROVAL_REF_NOT_TASK_AUTHORITY"),
+        ("openwebui:m29", PlanInputTrustLevel.openwebui_output_blocked, "OPENWEBUI_OUTPUT_NOT_PLAN_AUTHORITY"),
+        ("control-center:m29", PlanInputTrustLevel.unknown_blocked, "UNKNOWN_INPUT_REF_DENIED"),
     ],
 )
 def test_non_authoritative_refs_cannot_authorize_plans(input_ref, trust_level, reason):
@@ -88,3 +90,28 @@ def test_approval_ref_alone_and_test_refs_are_denied():
     assert "APPROVAL_REF_NOT_TASK_AUTHORITY" in arbitrary.reason_codes
     assert test_ref.valid_for_review is False
     assert "APPROVAL_TEST_REF_DENIED" in test_ref.reason_codes
+
+
+def test_hidden_side_effect_metadata_is_denied_for_safe_step_kind():
+    step = _step(
+        step_kind=TaskStepKind.review_metadata,
+        declared_risk_level=TaskRiskLevel.low,
+        metadata={"side_effect": "file_write"},
+    )
+
+    decision = evaluate_task_plan(_plan(steps=[step]))
+
+    assert decision.valid_for_review is False
+    assert "TASK_HIDDEN_SIDE_EFFECT_DENIED" in decision.reason_codes
+    assert "TASK_RISK_DOWNGRADE_DENIED" in decision.reason_codes
+
+
+def test_safe_plan_reports_derived_plan_risk_from_steps():
+    low = _step(step_id="step:m29-low", declared_risk_level=TaskRiskLevel.low)
+    medium = _step(step_id="step:m29-medium", declared_risk_level=TaskRiskLevel.medium)
+
+    decision = evaluate_task_plan(_plan(steps=[low, medium]))
+
+    assert decision.valid_for_review is True
+    assert decision.derived_plan_risk_level == TaskRiskLevel.medium
+    assert decision.receipt_plan.derived_plan_risk_level == TaskRiskLevel.medium

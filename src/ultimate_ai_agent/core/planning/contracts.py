@@ -173,6 +173,7 @@ class TaskPlanReceiptPlan(BaseModel):
     network_call_performed: bool = False
     tool_execution_performed: bool = False
     action_execution_performed: bool = False
+    derived_plan_risk_level: TaskRiskLevel = TaskRiskLevel.low
     safe_summary: str = "Non-authoritative task planning receipt plan."
     metadata_refs: List[str] = Field(default_factory=list)
 
@@ -218,6 +219,7 @@ class TaskPlanDecision(BaseModel):
     reason_codes: List[str] = Field(default_factory=list)
     safe_message: str = Field(..., min_length=1)
     receipt_plan: Optional[TaskPlanReceiptPlan] = None
+    derived_plan_risk_level: TaskRiskLevel = TaskRiskLevel.low
     no_tool_execution_performed: bool = True
     no_action_execution_performed: bool = True
     no_memory_write_performed: bool = True
@@ -263,6 +265,7 @@ class TaskPlanningManifest(BaseModel):
     task_execution_enabled: bool = False
     auto_run_enabled: bool = False
     scheduler_enabled: bool = False
+    background_worker_enabled: bool = False
     tool_execution_enabled: bool = False
     action_execution_enabled: bool = False
     file_mutation_enabled: bool = False
@@ -286,6 +289,7 @@ class TaskPlanningManifest(BaseModel):
             "task_execution_enabled",
             "auto_run_enabled",
             "scheduler_enabled",
+            "background_worker_enabled",
             "tool_execution_enabled",
             "action_execution_enabled",
             "file_mutation_enabled",

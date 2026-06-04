@@ -2396,6 +2396,7 @@ def verify_m29_task_planning_engine_safety():
         manifest.task_execution_enabled,
         manifest.auto_run_enabled,
         manifest.scheduler_enabled,
+        manifest.background_worker_enabled,
         manifest.tool_execution_enabled,
         manifest.action_execution_enabled,
         manifest.file_mutation_enabled,
@@ -2435,8 +2436,14 @@ def verify_m29_task_planning_engine_safety():
     if safe.execution_authorized or safe.execution_performed or safe.scheduler_registered:
         print("FAIL: M29 safe task plan authorized execution, performed execution, or registered scheduler")
         sys.exit(1)
+    if safe.derived_plan_risk_level != TaskRiskLevel.low:
+        print("FAIL: M29 safe task plan did not report trusted derived risk")
+        sys.exit(1)
     if not safe.receipt_plan or safe.receipt_plan.execution_performed:
         print("FAIL: M29 safe task plan receipt plan is missing or executable")
+        sys.exit(1)
+    if safe.receipt_plan.derived_plan_risk_level != safe.derived_plan_risk_level:
+        print("FAIL: M29 receipt plan did not preserve derived plan risk")
         sys.exit(1)
 
     def require_denial(decision, required_reason: str, label: str) -> None:
@@ -2495,6 +2502,23 @@ def verify_m29_task_planning_engine_safety():
         "MEMORY_REF_NOT_PLAN_AUTHORITY",
         "memory authority",
     )
+    for input_ref, trust_level, reason in [
+        ("context-pack:verify-m29", PlanInputTrustLevel.context_pack_ref, "CONTEXT_PACK_NOT_PLAN_AUTHORITY"),
+        ("tool-intent:verify-m29", PlanInputTrustLevel.tool_intent_ref, "TOOL_INTENT_NOT_PLAN_AUTHORITY"),
+        ("approval:verify-m29", PlanInputTrustLevel.approval_ref, "APPROVAL_REF_NOT_TASK_AUTHORITY"),
+        ("openwebui:verify-m29", PlanInputTrustLevel.openwebui_output_blocked, "OPENWEBUI_OUTPUT_NOT_PLAN_AUTHORITY"),
+        ("control-center:verify-m29", PlanInputTrustLevel.unknown_blocked, "UNKNOWN_INPUT_REF_DENIED"),
+    ]:
+        blocked_ref_boundary = TaskStepInputBoundary(input_refs=[input_ref], input_trust_level=trust_level)
+        require_denial(
+            evaluate_task_plan(
+                safe_plan.model_copy(
+                    update={"steps": [safe_step.model_copy(update={"input_boundary": blocked_ref_boundary})]}
+                )
+            ),
+            reason,
+            f"non-authoritative ref {input_ref}",
+        )
     effectful_step = safe_step.model_copy(
         update={"step_kind": TaskStepKind.tool_execution_planned, "declared_risk_level": TaskRiskLevel.high}
     )
@@ -2511,6 +2535,16 @@ def verify_m29_task_planning_engine_safety():
         "TASK_RISK_DOWNGRADE_DENIED",
         "risk downgrade",
     )
+    hidden_side_effect_step = safe_step.model_copy(update={"metadata": {"side_effect": "file_write"}})
+    hidden_side_effect_decision = evaluate_task_plan(safe_plan.model_copy(update={"steps": [hidden_side_effect_step]}))
+    require_denial(
+        hidden_side_effect_decision,
+        "TASK_HIDDEN_SIDE_EFFECT_DENIED",
+        "hidden side effect metadata",
+    )
+    if "TASK_RISK_DOWNGRADE_DENIED" not in hidden_side_effect_decision.reason_codes:
+        print("FAIL: M29 hidden side effect metadata did not deny risk downgrade")
+        sys.exit(1)
     require_denial(
         evaluate_task_plan(safe_plan.model_copy(update={"steps": [safe_step, safe_step.model_copy(update={"safe_summary": "Duplicate."})]})),
         "DUPLICATE_STEP_ID_DENIED",
@@ -2528,6 +2562,20 @@ def verify_m29_task_planning_engine_safety():
         evaluate_task_plan(safe_plan.model_copy(update={"steps": [step_a, step_b]})),
         "DEPENDENCY_CYCLE_DENIED",
         "dependency cycle",
+    )
+    self_dep_step = safe_step.model_copy(update={"depends_on": [safe_step.step_id]})
+    require_denial(
+        evaluate_task_plan(safe_plan.model_copy(update={"steps": [self_dep_step]})),
+        "DEPENDENCY_CYCLE_DENIED",
+        "self dependency cycle",
+    )
+    step_c = safe_step.model_copy(update={"step_id": "step:verify-m29-c", "depends_on": ["step:verify-m29-b"]})
+    indirect_a = step_a.model_copy(update={"depends_on": ["step:verify-m29-c"]})
+    indirect_b = step_b.model_copy(update={"depends_on": ["step:verify-m29-a"]})
+    require_denial(
+        evaluate_task_plan(safe_plan.model_copy(update={"steps": [indirect_a, indirect_b, step_c]})),
+        "DEPENDENCY_CYCLE_DENIED",
+        "indirect dependency cycle",
     )
 
     print("OK: M29 Agent Task Planning Engine contracts remain review-only, route-free, and non-executing")

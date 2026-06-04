@@ -1,6 +1,6 @@
 # Agent Task Planning Engine
 
-Status: active M29 contract. Current active baseline: **v0.33.0**.
+Status: active M29 contract. Current active baseline: **v0.33.1**.
 
 The Agent Task Planning Engine defines deterministic task plans for human review. It accepts explicit task goals, steps, dependencies, constraints, and safe references, then returns a non-authoritative decision envelope.
 
@@ -8,6 +8,7 @@ M29 is planning only:
 
 - no task execution
 - no scheduler runtime
+- no background worker
 - no tool execution
 - no action execution
 - no file mutation
@@ -19,5 +20,7 @@ M29 is planning only:
 - no production authority
 
 Safe plans may be marked `valid_for_review`. That status means the plan structure is reviewable; it does not authorize execution, scheduling, approvals, tools, actions, or writes.
+
+v0.33.1 hardens the evaluator boundary. The evaluator revalidates safety-critical fields before any `valid_for_review` decision, denies model_copy-mutated raw or secret fields, denies hidden side effects in metadata, derives trusted step and plan risk from current step content, and keeps every decision non-authoritative with `execution_performed=False`.
 
 M30-M40 remain planned/provisional.

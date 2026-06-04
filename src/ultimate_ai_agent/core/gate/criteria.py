@@ -1191,7 +1191,7 @@ def default_foundation_gate_criteria() -> List[FoundationGateCriterion]:
             "M29 Agent Task Planning Engine Contract Safe",
             FoundationGateCategory.contracts,
             "FoundationGateEvaluator.check_m29_task_planning_engine_contract_safe",
-            "M29 Task Planning Engine contracts are deterministic, local, non-authoritative, and review-only: task goals, steps, plans, dependency graph validation, risk boundaries, input authority boundaries, and receipt plans are enforced with no task execution, scheduler, tool/action execution, file mutation, memory write, network call, model/provider call, browser/mobile/remote/plugin/shell execution, context injection, or production authority.",
+            "M29 Task Planning Engine contracts are deterministic, local, non-authoritative, and review-only: task goals, steps, plans, acyclic dependency graph validation, trusted derived risk boundaries, hidden side-effect denial, input authority boundaries, evaluator revalidation, and receipt plans are enforced with no task execution, auto-run, scheduler, background worker, tool/action execution, file mutation, memory write, network call, model/provider call, browser/mobile/remote/plugin/shell execution, context injection, or production authority.",
             "M29 Task Planning Engine contracts are missing or violate review-only no-execution safety.",
             "critical",
         ),

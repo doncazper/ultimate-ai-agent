@@ -1432,6 +1432,7 @@ def _verify_m25_truth_docs(root: Path, version: str | None) -> list[str]:
             "M29 docs must say review-only": "review-only",
             "M29 docs must say no task execution": "no task execution",
             "M29 docs must say no scheduler runtime": "no scheduler runtime",
+            "M29 docs must say no background worker": "no background worker",
             "M29 docs must say no tool execution": "no tool execution",
             "M29 docs must say no action execution": "no action execution",
             "M29 docs must say no file mutation": "no file mutation",
@@ -1444,6 +1445,24 @@ def _verify_m25_truth_docs(root: Path, version: str | None) -> list[str]:
             "M29 docs must say receipt plans are non-authoritative": "non-authoritative",
             "M29 docs must keep M30-M40 planned/provisional": "m30-m40 remain planned/provisional",
         }
+        if _version_tuple(version) >= (0, 33, 1):
+            m29_expectations.update(
+                {
+                    "M29 docs must say dependency graph must be acyclic": "acyclic",
+                    "M29 docs must say duplicate step IDs are denied": "duplicate",
+                    "M29 docs must say missing step IDs are denied": "missing",
+                    "M29 docs must say self dependencies are denied": "self-dependencies",
+                    "M29 docs must say indirect cycles are denied": "indirect dependency cycles",
+                    "M29 docs must say risk downgrade is denied": "risk downgrade",
+                    "M29 docs must say derived risk wins": "derived risk wins",
+                    "M29 docs must say side effects cannot be hidden": "side effects cannot be hidden",
+                    "M29 docs must say hidden side effects are denied": "hidden side effects",
+                    "M29 docs must say authority refs cannot authorize execution": "cannot authorize execution",
+                    "M29 docs must say evaluator revalidation exists": "evaluator revalidates",
+                    "M29 docs must say model_copy mutations remain denied": "model_copy",
+                    "M29 docs must say execution_performed remains false": "execution_performed=false",
+                }
+            )
         for failure, fragment in m29_expectations.items():
             if fragment not in planning_docs:
                 failures.append(failure)

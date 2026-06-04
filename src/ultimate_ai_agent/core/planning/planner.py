@@ -13,6 +13,8 @@ from ultimate_ai_agent.core.planning.contracts import (
 )
 from ultimate_ai_agent.core.planning.enums import TaskPlanAuthorityLevel
 from ultimate_ai_agent.core.planning.validation import (
+    hidden_side_effect_reasons,
+    plan_derived_risk_level,
     step_kind_reasons,
     validate_safe_task_payload,
     validate_safe_task_text,
@@ -33,13 +35,20 @@ def _validation_reason(exc: Exception, fallback: str = "TASK_PLAN_REVALIDATION_F
     return [fallback]
 
 
-def _safe_decision(plan_id: str, status: TaskPlanDecisionStatus, reasons: list[str], safe_message: str) -> TaskPlanDecision:
+def _safe_decision(
+    plan_id: str,
+    status: TaskPlanDecisionStatus,
+    reasons: list[str],
+    safe_message: str,
+    derived_plan_risk_level,
+) -> TaskPlanDecision:
     decision_id = f"task-plan-decision:{plan_id.split(':', 1)[-1]}"
     receipt_plan = TaskPlanReceiptPlan(
         receipt_plan_ref=f"task-plan-receipt:{plan_id.split(':', 1)[-1]}",
         plan_id=plan_id,
         decision_id=decision_id,
         authority_level=TaskPlanAuthorityLevel.non_authoritative,
+        derived_plan_risk_level=derived_plan_risk_level,
         safe_summary="Non-authoritative task planning receipt plan.",
     )
     return TaskPlanDecision(
@@ -53,6 +62,7 @@ def _safe_decision(plan_id: str, status: TaskPlanDecisionStatus, reasons: list[s
         reason_codes=_dedupe(reasons),
         safe_message=safe_message,
         receipt_plan=receipt_plan,
+        derived_plan_risk_level=derived_plan_risk_level,
     )
 
 
@@ -127,6 +137,7 @@ def _step_reasons(plan: TaskPlan) -> list[str]:
                 getattr(step, "declared_risk_level", None),
             )
         )
+        reasons.extend(hidden_side_effect_reasons(step))
         reasons.extend(boundary_reason_codes(getattr(step, "input_boundary", None)))
     return reasons
 
@@ -184,6 +195,7 @@ def evaluate_task_plan(value: TaskPlan | TaskPlanningRequest) -> TaskPlanDecisio
     reasons.extend(_step_reasons(plan))
     reasons.extend(_dependency_reasons(plan))
     reasons = _dedupe(reasons)
+    derived_risk = plan_derived_risk_level(list(getattr(plan, "steps", [])))
 
     if reasons:
         return _safe_decision(
@@ -191,10 +203,12 @@ def evaluate_task_plan(value: TaskPlan | TaskPlanningRequest) -> TaskPlanDecisio
             TaskPlanDecisionStatus.denied,
             reasons,
             "Task plan denied for review-only safety policy.",
+            derived_risk,
         )
     return _safe_decision(
         plan_id,
         TaskPlanDecisionStatus.valid_for_review,
         ["TASK_PLAN_VALID_FOR_REVIEW"],
         "Task plan is valid for non-authoritative human review.",
+        derived_risk,
     )

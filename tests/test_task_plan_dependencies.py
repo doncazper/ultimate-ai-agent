@@ -60,6 +60,28 @@ def test_dependency_cycle_is_denied():
     assert "DEPENDENCY_CYCLE_DENIED" in decision.reason_codes
 
 
+def test_self_dependency_is_denied():
+    decision = evaluate_task_plan(_plan([_step("step:m29-a", depends_on=["step:m29-a"])]))
+
+    assert decision.valid_for_review is False
+    assert "DEPENDENCY_CYCLE_DENIED" in decision.reason_codes
+
+
+def test_indirect_dependency_cycle_is_denied():
+    decision = evaluate_task_plan(
+        _plan(
+            [
+                _step("step:m29-a", depends_on=["step:m29-c"]),
+                _step("step:m29-b", depends_on=["step:m29-a"]),
+                _step("step:m29-c", depends_on=["step:m29-b"]),
+            ]
+        )
+    )
+
+    assert decision.valid_for_review is False
+    assert "DEPENDENCY_CYCLE_DENIED" in decision.reason_codes
+
+
 def test_explicit_dependency_edges_are_validated():
     decision = evaluate_task_plan(
         _plan(

@@ -18,6 +18,9 @@ def test_m29_foundation_gate_criteria_are_registered():
     assert "Task Planning Engine" in criterion.pass_condition
     assert "no task execution" in criterion.pass_condition
     assert "dependency graph" in criterion.pass_condition
+    assert "hidden side-effect denial" in criterion.pass_condition
+    assert "background worker" in criterion.pass_condition
+    assert "evaluator revalidation" in criterion.pass_condition
 
 
 def test_m29_openapi_route_guard_rejects_task_execution_routes():

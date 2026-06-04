@@ -1,7 +1,7 @@
 # Ultimate AI Agent Docs
 
 Status: active
-Current through: v0.33.0
+Current through: v0.33.1
 Purpose: Human-facing entrypoint for active documentation and historical archive navigation.
 
 Active docs are few, indexed, and current. Historical docs are preserved under
@@ -22,10 +22,10 @@ docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md
 Current release packet:
 
 ```text
-docs/archive/releases/v0_33_0/README_IMPORT.md
-docs/archive/releases/v0_33_0/master_plan.md
-docs/release_notes/v0_33_0.md
-docs/implementation/foundation_gate_implementation_plan_v0_33_0.md
+docs/archive/releases/v0_33_1/README_IMPORT.md
+docs/archive/releases/v0_33_1/master_plan.md
+docs/release_notes/v0_33_1.md
+docs/implementation/foundation_gate_implementation_plan_v0_33_1.md
 docs/planning/TASK_PLANNING_ENGINE.md
 docs/planning/TASK_GOAL_STEP_PLAN_CONTRACTS.md
 docs/planning/TASK_DEPENDENCY_GRAPH.md
@@ -58,10 +58,14 @@ historical snapshots.
 v0.29.5 is documentation policy polish only. It accepts the pushed duplicate
 wording cleanup from `374bb1e` and remains the cleanup baseline before M26.
 
-v0.33.0 implements M29 Agent Task Planning Engine as deterministic, local,
-non-executing, review-only planning contracts. v0.33.0 adds no backend
-execution routes, frontend features, task execution, scheduler runtime, action
-execution, tool execution, file mutation, memory writes, network calls,
-model/provider calls, plugin enablement, browser automation, mobile/device
-access, remote execution, shell execution, dependencies, context injection, M30
-work, or production authority. M30-M40 remain planned/provisional.
+v0.33.1 hardens M29 Agent Task Planning Engine as deterministic, local,
+non-executing, review-only planning contracts. It strengthens dependency graph
+validation, duplicate/missing step denial, self/indirect cycle detection,
+derived risk checks, hidden side-effect denial, authority-boundary checks,
+evaluator revalidation, static verification, and Foundation Gate coverage.
+v0.33.1 adds no backend execution routes, frontend features, task execution,
+scheduler/background worker, action execution, tool execution, file mutation,
+memory writes, network calls, model/provider calls, plugin enablement, browser
+automation, mobile/device access, remote execution, shell execution,
+dependencies, context injection, M30 work, or production authority. M30-M40
+remain planned/provisional.

@@ -1,8 +1,8 @@
 # Foundation Gate Implementation Plan v0.33.0
 
-Status: active implementation plan.
+Status: historical implementation plan.
 
-Current active baseline: **v0.33.0**
+Release baseline: **v0.33.0**
 
 v0.33.0 adds M29 Foundation Gate coverage for Agent Task Planning Engine contracts.
 

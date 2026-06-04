@@ -1,6 +1,6 @@
 # Task Goal, Step, and Plan Contracts
 
-Status: active M29 contract. Current active baseline: **v0.33.0**.
+Status: active M29 contract. Current active baseline: **v0.33.1**.
 
 M29 adds typed contracts for:
 
@@ -12,5 +12,10 @@ M29 adds typed contracts for:
 All summaries and metadata must be safe. Raw prompts, raw model output, raw file content, raw transcripts, secret-like metadata, and private local paths are denied.
 
 Task plans are non-authoritative. They do not override the approval authority, Tool Broker, memory source priority, truth/evidence contracts, or Foundation Gate.
+
+The evaluator revalidates current goal, step, and plan fields before allowing
+review. Constructor validation alone is not trusted for raw-content,
+secret-like metadata, execution flag, risk, side-effect, dependency, or
+authority-boundary decisions.
 
 M30-M40 remain planned/provisional.

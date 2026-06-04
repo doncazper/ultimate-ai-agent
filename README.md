@@ -12,20 +12,20 @@ allowed to become operational authority.
 
 | Field | Current state |
 |---|---|
-| Current active baseline | **v0.33.0** |
-| Current milestone | **M29 - Agent Task Planning Engine** |
+| Current active baseline | **v0.33.1** |
+| Current milestone | **M29 hardening - Task Plan Dependency, Risk, and No-Execution Safety** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **74** OpenAPI paths |
 | Production readiness | Not claimed |
 
-v0.33.0 implements M29 Agent Task Planning Engine as deterministic, local,
-non-executing planning contracts. It can validate task goals, task steps,
-dependency graphs, input boundaries, risk/authority boundaries, decision
-envelopes, and receipt plans, and it can mark safe plans valid for review only.
-It does not execute tasks, tools, actions, schedulers, files, memory writes,
-network calls, model/provider calls, or context injection. M30-M40 remain
-planned/provisional.
+v0.33.1 hardens M29 Agent Task Planning Engine as deterministic, local,
+non-executing planning contracts. It strengthens dependency graph validation,
+duplicate/missing step denial, self and indirect cycle detection, derived risk
+checks, hidden side-effect denial, authority-boundary checks, evaluator
+revalidation, and no-execution invariants. It does not execute tasks, tools,
+actions, schedulers, background workers, files, memory writes, network calls,
+model/provider calls, or context injection. M30-M40 remain planned/provisional.
 
 v0.29.5 is documentation policy polish. It remains the documentation
 organization cleanup baseline before the M26 and M27 implementation releases.
@@ -44,9 +44,9 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M28 Action Policy](docs/approvals/ACTION_POLICY.md)
 - [M27 Tool Broker v2](docs/tools/TOOL_BROKER_V2.md)
 - [M26 Grounded Recall Router](docs/recall/GROUNDED_RECALL_ROUTER.md)
-- [v0.33.0 release notes](docs/release_notes/v0_33_0.md)
-- [v0.33.0 release packet](docs/archive/releases/v0_33_0/README_IMPORT.md)
-- [v0.33.0 master plan](docs/archive/releases/v0_33_0/master_plan.md)
+- [v0.33.1 release notes](docs/release_notes/v0_33_1.md)
+- [v0.33.1 release packet](docs/archive/releases/v0_33_1/README_IMPORT.md)
+- [v0.33.1 master plan](docs/archive/releases/v0_33_1/master_plan.md)
 
 ## What This Project Is
 
@@ -232,6 +232,7 @@ The canonical roadmap source of truth is
 | v0.32.0 | M28 - Approval Authority v2 + Action Policy Expansion | Implemented/released |
 | v0.32.1 | M28 hardening - Evaluator Revalidation for Raw/Secret Action Inputs | Implemented/released |
 | v0.33.0 | M29 - Agent Task Planning Engine | Implemented/released |
+| v0.33.1 | M29 hardening - Task Plan Dependency, Risk, and No-Execution Safety | Implemented/released |
 | v0.34.0 | M30 | Planned/provisional |
 
 The roadmap intentionally separates contract planning, validation, preview,
