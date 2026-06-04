@@ -12,22 +12,21 @@ allowed to become operational authority.
 
 | Field | Current state |
 |---|---|
-| Current active baseline | **v0.35.1** |
-| Current milestone | **M31 - Real Tool Runtime Adapter, Single Safe No-Op Tool** |
+| Current active baseline | **v0.36.0** |
+| Current milestone | **M32 - Safe Local Filesystem Metadata Tool** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **74** OpenAPI paths |
 | Production readiness | Not claimed |
 
-v0.35.1 hardens M31 Real Tool Runtime Adapter, Single Safe No-Op Tool. It keeps
-the runtime adapter limited to exactly one deterministic no-op tool,
-`tool:no_op.v1`, and strengthens tool allowlist checks, tool_ref/tool_name
-consistency, dynamic dispatch denial, hidden side-effect denial, evaluator
-revalidation, replay protection, and safe result handling. It does not add
-arbitrary tool execution, side-effecting tools, shell execution, file mutation,
-memory writes, network calls, model/provider calls, backend execute routes,
-Control Center execute controls, dependencies, M32 work, or production
-authority. M32-M40 remain planned/provisional.
+v0.36.0 implements M32 Safe Tool Runtime Expansion as one safe local filesystem
+metadata tool. The governed runtime allowlist now contains the deterministic
+no-op tool and `tool:filesystem_metadata.v1` only. The metadata tool operates
+under server-owned safe roots and returns metadata-only fields such as safe
+path refs, existence, kind, size, extension, and modified time. It does not
+read file contents, preview text, hash content, list directories, recurse,
+follow symlinks, mutate files, add backend execute routes, add dependencies,
+or claim production authority. M33-M40 remain planned/provisional.
 
 v0.29.5 is documentation policy polish. It remains the documentation
 organization cleanup baseline before the M26 and M27 implementation releases.
@@ -43,15 +42,17 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [Control Center frontend safety policy](docs/control_center/FRONTEND_SAFETY_POLICY.md)
 - [M31 Tool Runtime Adapter](docs/tools/TOOL_RUNTIME_ADAPTER.md)
 - [M31 No-Op Tool Runtime](docs/tools/NOOP_TOOL_RUNTIME.md)
+- [M32 Filesystem Metadata Tool](docs/tools/FILESYSTEM_METADATA_TOOL.md)
+- [M32 Filesystem Metadata Path Policy](docs/tools/FILESYSTEM_METADATA_PATH_POLICY.md)
 - [M30 Multi-Step Execution Framework](docs/execution/MULTI_STEP_EXECUTION_FRAMEWORK.md)
 - [M29 Agent Task Planning Engine](docs/planning/TASK_PLANNING_ENGINE.md)
 - [M28 Approval Authority v2](docs/approvals/APPROVAL_AUTHORITY_V2.md)
 - [M28 Action Policy](docs/approvals/ACTION_POLICY.md)
 - [M27 Tool Broker v2](docs/tools/TOOL_BROKER_V2.md)
 - [M26 Grounded Recall Router](docs/recall/GROUNDED_RECALL_ROUTER.md)
-- [v0.35.1 release notes](docs/release_notes/v0_35_1.md)
-- [v0.35.1 release packet](docs/archive/releases/v0_35_1/README_IMPORT.md)
-- [v0.35.1 master plan](docs/archive/releases/v0_35_1/master_plan.md)
+- [v0.36.0 release notes](docs/release_notes/v0_36_0.md)
+- [v0.36.0 release packet](docs/archive/releases/v0_36_0/README_IMPORT.md)
+- [v0.36.0 master plan](docs/archive/releases/v0_36_0/master_plan.md)
 
 ## What This Project Is
 
@@ -78,9 +79,9 @@ Core themes:
 - **Approval decisions are policy decisions, not action execution.** M28
   validates action intent, grant, risk, and scope boundaries with
   `execution_authorized=False` and `execution_performed=False`.
-- **Tool runtime is no-op-only.** M31 can complete exactly one deterministic
-  no-op tool invocation through a governed adapter; it cannot run arbitrary or
-  side-effecting tools.
+- **Tool runtime is allowlist-only.** M32 permits exactly two governed runtime
+  tools: deterministic no-op and safe local filesystem metadata. The metadata
+  tool returns metadata only; it cannot read content or mutate files.
 
 ## What This Project Is Not
 
@@ -111,7 +112,7 @@ Ultimate AI Agent
     Truth/Evidence: validation over provided refs
     Recall/Context Packs: safe plans, not injection
     Tool Intent Contracts: preview/validation, not execution
-    Tool Runtime Adapter: one no-op tool only
+    Tool Runtime Adapter: no-op plus metadata-only filesystem lookup
   Control Center / CCC Web
     Local governance and preview surfaces
   OpenWebUI Strategy
@@ -138,7 +139,7 @@ boundary.
 | Recall/context packs | Implemented M26 contracts | Safe summaries and refs only; source_ref/source_kind consistency enforced |
 | Tool Broker v2 | Implemented M27 contracts | Safe intent validation and metadata preview only; no execution |
 | Approval Authority v2 | Implemented M28 contracts | Action policy decisions only; no execution authority |
-| Tool Runtime Adapter | Implemented M31 no-op only | `tool:no_op.v1` can complete deterministically; arbitrary/effectful tools blocked |
+| Tool Runtime Adapter | Implemented M32 allowlist-only | `tool:no_op.v1` and `tool:filesystem_metadata.v1` only; arbitrary/effectful tools blocked |
 | Mobile/device clients | Planned/contract-only | Future CCC clients and device capability contracts; no native apps or sensors |
 | Foundation Gate | Implemented | Release safety gate covering docs, OpenAPI, frontend, and capability boundaries |
 
@@ -151,7 +152,8 @@ The safety posture is not a side note; it is the product architecture.
 - Memory is recall, not authority.
 - Context packs are planning artifacts, not prompt injection.
 - Tool intents are not tool execution.
-- M31 tool runtime is limited to the deterministic no-op tool.
+- M32 tool runtime is limited to deterministic no-op plus safe local
+  filesystem metadata under server-owned safe roots.
 - Approval decisions are not action execution.
 - Approval refs are identifiers, not authority.
 - `approval_test_*` refs are test-only and not runtime authority.
@@ -248,7 +250,8 @@ The canonical roadmap source of truth is
 | v0.34.1 | M30 hardening - Execution State Machine, Replay, and No-Side-Effect Safety | Implemented/released |
 | v0.35.0 | M31 - Real Tool Runtime Adapter, Single Safe No-Op Tool | Implemented/released |
 | v0.35.1 | M31 hardening - No-Op Tool Runtime Adapter Safety | Implemented/released |
-| v0.36.0 | M32 - Safe Tool Runtime Expansion | Planned/provisional |
+| v0.36.0 | M32 - Safe Local Filesystem Metadata Tool | Implemented/released |
+| v0.37.0 | M33 - Mobile Approval Surface Prototype, No Sensors | Planned/provisional |
 
 The roadmap intentionally separates contract planning, validation, preview,
 manual local execution, and future operational authority.

@@ -6,6 +6,12 @@ from pydantic import ValidationError
 
 NOOP_TOOL_REF = "tool:no_op.v1"
 NOOP_TOOL_NAME = "noop"
+FILESYSTEM_METADATA_TOOL_REF = "tool:filesystem_metadata.v1"
+FILESYSTEM_METADATA_TOOL_NAME = "filesystem_metadata"
+ALLOWLISTED_TOOL_NAMES = {
+    NOOP_TOOL_REF: NOOP_TOOL_NAME,
+    FILESYSTEM_METADATA_TOOL_REF: FILESYSTEM_METADATA_TOOL_NAME,
+}
 SAFE_REF_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9_.-]*:[a-zA-Z0-9][a-zA-Z0-9_.:/@-]*$")
 SECRET_LIKE_RE = re.compile(
     r"(?i)(api[_-]?key|authorization|bearer\s+|cookie|password|private\s+key|secret|token\b|client[_-]?secret)"
@@ -128,13 +134,14 @@ def runtime_request_boundary_reason_codes(value: Any, allowed_fields: set[str]) 
 
 def tool_allowlist_reason_codes(tool_ref: str, tool_name: str) -> list[str]:
     reasons: list[str] = []
-    if tool_ref != NOOP_TOOL_REF:
+    expected_tool_name = ALLOWLISTED_TOOL_NAMES.get(tool_ref)
+    if expected_tool_name is None:
         reasons.append("TOOL_NOT_ALLOWLISTED_DENIED")
-    if tool_name != NOOP_TOOL_NAME:
+    if expected_tool_name is None or tool_name != expected_tool_name:
         reasons.append("TOOL_NAME_MISMATCH_DENIED")
-    if EFFECTFUL_TOOL_RE.search(tool_ref) and tool_ref != NOOP_TOOL_REF:
+    if EFFECTFUL_TOOL_RE.search(tool_ref) and tool_ref not in ALLOWLISTED_TOOL_NAMES:
         reasons.append("EFFECTFUL_TOOL_BLOCKED")
-    if EFFECTFUL_TOOL_RE.search(tool_name) and tool_name != NOOP_TOOL_NAME:
+    if EFFECTFUL_TOOL_RE.search(tool_name) and tool_name != expected_tool_name:
         reasons.append("DYNAMIC_DISPATCH_DENIED")
     return list(dict.fromkeys(reasons))
 
@@ -151,6 +158,17 @@ def authority_reason_codes(approval_ref: str | None, authority_refs: list[str]) 
             reasons.append("APPROVAL_TEST_REF_DENIED")
         if ref.startswith("approval_test_"):
             reasons.append("APPROVAL_TEST_REF_DENIED")
-        if prefix in {"task-plan", "plan", "context-pack", "memory", "tool-intent", "approval", "model", "runtime", "openwebui"}:
+        if prefix in {
+            "task-plan",
+            "plan",
+            "context-pack",
+            "memory",
+            "tool-intent",
+            "approval",
+            "model",
+            "runtime",
+            "openwebui",
+            "control-center",
+        }:
             reasons.append("AUTHORITY_REF_NOT_TOOL_RUNTIME_AUTHORITY")
     return list(dict.fromkeys(reasons))

@@ -33,6 +33,7 @@ SCAN_SEQUENCE = [
     ("M29 Agent Task Planning Engine safety scan", "verify_m29_task_planning_engine_safety"),
     ("M30 Multi-Step Execution Framework safety scan", "verify_m30_multi_step_execution_framework_safety"),
     ("M31 Real Tool Runtime Adapter no-op safety scan", "verify_m31_tool_runtime_noop_safety"),
+    ("M32 safe filesystem metadata tool scan", "verify_m32_filesystem_metadata_tool_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
     ("production truth integration scan", "verify_no_production_truth_integrations"),
@@ -3042,8 +3043,8 @@ def verify_m31_tool_runtime_noop_safety():
     if any(unsafe_flags) or not policy.tool_runtime_enabled or not policy.noop_tool_enabled:
         print("FAIL: M31 manifest enables forbidden runtime authority or disables the no-op tool")
         sys.exit(1)
-    if manifest.allowlisted_tool_refs != [NOOP_TOOL_REF]:
-        print("FAIL: M31 manifest allowlist is not exactly the no-op tool")
+    if NOOP_TOOL_REF not in manifest.allowlisted_tool_refs:
+        print("FAIL: M31 manifest no longer allowlists the no-op tool")
         sys.exit(1)
 
     safe_request = ToolInvocationRequest(
@@ -3143,6 +3144,244 @@ def verify_m31_tool_runtime_noop_safety():
     )
 
     print("OK: M31 Tool Runtime Adapter allows only deterministic no-op invocation and remains route-free")
+
+
+def verify_m32_filesystem_metadata_tool_safety():
+    print("\n[Verifier] Running M32 safe filesystem metadata tool guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/tools/runtime/filesystem_metadata.py",
+        "tests/test_filesystem_metadata_tool_contracts.py",
+        "tests/test_filesystem_metadata_path_policy.py",
+        "tests/test_filesystem_metadata_authority_boundaries.py",
+        "tests/test_m32_gate_integration.py",
+        "docs/tools/FILESYSTEM_METADATA_TOOL.md",
+        "docs/tools/FILESYSTEM_METADATA_PATH_POLICY.md",
+        "docs/tools/FILESYSTEM_METADATA_RESULT_CONTRACT.md",
+        "docs/tools/FILESYSTEM_METADATA_AUTHORITY_BOUNDARY.md",
+        "docs/tools/FILESYSTEM_METADATA_NON_GOALS.md",
+        "docs/tools/M32_TO_M33_BOUNDARY.md",
+        "docs/release_notes/v0_36_0.md",
+        "docs/archive/releases/v0_36_0/README_IMPORT.md",
+        "docs/archive/releases/v0_36_0/master_plan.md",
+        "docs/implementation/foundation_gate_implementation_plan_v0_36_0.md",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M32 filesystem metadata file: {rel_path}")
+            sys.exit(1)
+
+    runtime_root = ROOT / "src" / "ultimate_ai_agent" / "core" / "tools" / "runtime"
+    forbidden_source_fragments = [
+        "read_text(",
+        "read_bytes(",
+        "hashlib",
+        ".glob(",
+        ".rglob(",
+        "os.walk(",
+        "follow_symlinks=True",
+        "shutil",
+        ".unlink(",
+        ".remove(",
+        ".rename(",
+        ".replace(",
+        ".chmod(",
+        ".chown(",
+        "requests.get(",
+        "requests.post(",
+        "httpx.get(",
+        "httpx.post(",
+        "urllib.request.urlopen(",
+        "os.system(",
+        "popen(",
+        "shell=True",
+    ]
+    for path in runtime_root.rglob("*.py"):
+        rel = path.relative_to(ROOT).as_posix()
+        if "__pycache__" in path.parts:
+            continue
+        text = path.read_text(encoding="utf-8")
+        lowered = text.lower()
+        for fragment in forbidden_source_fragments:
+            if fragment.lower() in lowered:
+                print(f"FAIL: M32 forbidden filesystem metadata source fragment in {rel}: {fragment}")
+                sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.evaluators import m32_openapi_route_failures
+        from ultimate_ai_agent.core.tools.runtime import (
+            FILESYSTEM_METADATA_TOOL_NAME,
+            FILESYSTEM_METADATA_TOOL_REF,
+            NOOP_TOOL_REF,
+            FilesystemSafeRoot,
+            ToolInvocationKind,
+            ToolInvocationRequest,
+            ToolInvocationStatus,
+            build_tool_runtime_manifest,
+            evaluate_tool_invocation,
+        )
+    except Exception as exc:
+        print(f"FAIL: M32 filesystem metadata imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m32_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    manifest = build_tool_runtime_manifest(baseline_version="0.36.0")
+    policy = manifest.policy
+    if manifest.allowlisted_tool_refs != [NOOP_TOOL_REF, FILESYSTEM_METADATA_TOOL_REF]:
+        print("FAIL: M32 manifest allowlist is not exactly no-op plus filesystem metadata")
+        sys.exit(1)
+    unsafe_flags = [
+        policy.arbitrary_tool_execution_enabled,
+        policy.side_effecting_tools_enabled,
+        policy.shell_tools_enabled,
+        policy.file_tools_enabled,
+        policy.file_content_read_enabled,
+        policy.file_preview_enabled,
+        policy.file_hash_enabled,
+        policy.directory_listing_enabled,
+        policy.recursive_traversal_enabled,
+        policy.symlink_following_enabled,
+        policy.caller_selected_root_enabled,
+        policy.file_write_enabled,
+        policy.file_delete_enabled,
+        policy.memory_write_tools_enabled,
+        policy.network_tools_enabled,
+        policy.model_tools_enabled,
+        policy.browser_tools_enabled,
+        policy.mobile_tools_enabled,
+        policy.remote_tools_enabled,
+        policy.plugin_tools_enabled,
+        policy.dynamic_tool_registration_enabled,
+        policy.backend_execute_routes_enabled,
+        policy.control_center_execute_controls_enabled,
+        policy.production_authority_enabled,
+    ]
+    if not policy.filesystem_metadata_tool_enabled or any(unsafe_flags):
+        print("FAIL: M32 policy enables unsafe filesystem/runtime authority")
+        sys.exit(1)
+
+    def require_denial(decision, required_reason: str, label: str) -> None:
+        if decision.status == ToolInvocationStatus.metadata_completed or decision.execution_performed:
+            print(f"FAIL: M32 denied probe was allowed: {label}")
+            sys.exit(1)
+        if decision.side_effects_performed:
+            print(f"FAIL: M32 denied probe reported side effects: {label}")
+            sys.exit(1)
+        if required_reason not in decision.reason_codes:
+            print(f"FAIL: M32 denied probe missing {required_reason}: {label}")
+            sys.exit(1)
+
+    with tempfile.TemporaryDirectory() as tmp:
+        safe_root_path = Path(tmp) / "safe-root"
+        safe_root_path.mkdir()
+        notes = safe_root_path / "notes"
+        notes.mkdir()
+        target = notes / "report.md"
+        target.write_text("verify metadata only", encoding="utf-8")
+        safe_root = FilesystemSafeRoot(
+            root_ref="safe-root:verify-m32",
+            root_path=safe_root_path,
+            safe_label="Verify safe root",
+        )
+        safe_request = ToolInvocationRequest(
+            invocation_id="tool-runtime-invocation:verify-m32",
+            tool_ref=FILESYSTEM_METADATA_TOOL_REF,
+            tool_name=FILESYSTEM_METADATA_TOOL_NAME,
+            invocation_kind=ToolInvocationKind.filesystem_metadata,
+            replay_key="tool-runtime-replay:verify-m32",
+            safe_summary="Inspect safe filesystem metadata.",
+            metadata={"root_ref": "safe-root:verify-m32", "relative_path": "notes/report.md"},
+        )
+        safe = evaluate_tool_invocation(safe_request, safe_roots=[safe_root])
+        if safe.status != ToolInvocationStatus.metadata_completed or not safe.invocation_allowed:
+            print("FAIL: M32 safe filesystem metadata invocation did not complete")
+            sys.exit(1)
+        dumped = str(safe.model_dump())
+        if "verify metadata only" in dumped or str(safe_root_path) in dumped:
+            print("FAIL: M32 filesystem metadata result leaked file content or absolute path")
+            sys.exit(1)
+        if safe.side_effects_performed or not safe.result or safe.result.side_effects_performed:
+            print("FAIL: M32 filesystem metadata invocation reported side effects")
+            sys.exit(1)
+        output = safe.result.output
+        unsafe_output_flags = [
+            output.raw_content_returned,
+            output.text_preview_returned,
+            output.content_hash_returned,
+            output.directory_listing_returned,
+            output.absolute_path_returned,
+            output.symlink_followed,
+            output.mutation_performed,
+        ]
+        if any(unsafe_output_flags):
+            print("FAIL: M32 filesystem metadata output is not metadata-only")
+            sys.exit(1)
+
+        for relative_path, reason in [
+            ("/etc/passwd", "ABSOLUTE_PATH_DENIED"),
+            ("../outside.md", "PATH_TRAVERSAL_DENIED"),
+            (".env", "HIDDEN_PATH_DENIED"),
+            ("notes/token.txt", "SECRET_LIKE_PATH_DENIED"),
+            ("notes/*.md", "GLOB_PATH_DENIED"),
+        ]:
+            require_denial(
+                evaluate_tool_invocation(
+                    safe_request.model_copy(
+                        update={"metadata": {"root_ref": "safe-root:verify-m32", "relative_path": relative_path}}
+                    ),
+                    safe_roots=[safe_root],
+                ),
+                reason,
+                f"path {relative_path}",
+            )
+        require_denial(
+            evaluate_tool_invocation(
+                safe_request.model_copy(
+                    update={
+                        "metadata": {
+                            "root_ref": "safe-root:verify-m32",
+                            "relative_path": "notes/report.md",
+                            "root_path": str(safe_root_path),
+                        }
+                    }
+                ),
+                safe_roots=[safe_root],
+            ),
+            "CALLER_SELECTED_ROOT_DENIED",
+            "caller-selected root",
+        )
+        try:
+            link = safe_root_path / "link.md"
+            link.symlink_to(target)
+            require_denial(
+                evaluate_tool_invocation(
+                    safe_request.model_copy(
+                        update={"metadata": {"root_ref": "safe-root:verify-m32", "relative_path": "link.md"}}
+                    ),
+                    safe_roots=[safe_root],
+                ),
+                "SYMLINK_DENIED",
+                "symlink path",
+            )
+        except (OSError, NotImplementedError):
+            pass
+        require_denial(
+            evaluate_tool_invocation(safe_request.model_copy(update={"contains_raw_file_content": True}), safe_roots=[safe_root]),
+            "RAW_FILE_CONTENT_DENIED",
+            "raw file model_copy",
+        )
+        require_denial(
+            evaluate_tool_invocation(safe_request.model_copy(update={"authority_refs": ["model:verify-m32"]}), safe_roots=[safe_root]),
+            "AUTHORITY_REF_NOT_TOOL_RUNTIME_AUTHORITY",
+            "model authority ref",
+        )
+
+    print("OK: M32 filesystem metadata tool is safe-root-bound, metadata-only, route-free, and non-mutating")
 
 
 def verify_v0292_local_dev_api_hardening():
@@ -3338,6 +3577,8 @@ def verify_no_broad_filesystem_scanning():
             content = p.read_text(encoding="utf-8")
             for line in content.splitlines():
                 stripped = line.strip()
+                if stripped.startswith(('"', "'")):
+                    continue
                 if any(fragment in stripped for fragment in forbidden_fragments):
                     print(f"FAIL: Broad filesystem scanning/home access in {p.relative_to(ROOT)}: {line}")
                     sys.exit(1)

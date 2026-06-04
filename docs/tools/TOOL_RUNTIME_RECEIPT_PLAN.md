@@ -1,18 +1,25 @@
 # Tool Runtime Receipt Plan
 
-Status: active M31 documentation.
-Current active baseline: **v0.35.1**
+Status: active M32 documentation.
+Current active baseline: **v0.36.0**
 
-M31 receipt plans are non-authoritative summaries for the no-op runtime
-invocation. They record the invocation ref, the no-op tool ref, and safe status
-metadata only.
+M32 receipt plans are non-authoritative summaries for allowlisted runtime
+invocations.
 
-Receipt plans must not store raw input or raw output. They must not write
-memory, mutate the Event Ledger, perform network/model/provider calls, execute
-shell commands, mutate files, enable plugins, or authorize future execution.
+Receipt plans may record:
 
-For the no-op invocation, `execution_performed=True` means only that the
-deterministic no-op adapter path completed. `side_effects_performed=[]` is
-required.
+- invocation ref.
+- tool ref.
+- safe status.
+- `side_effects_performed=[]`.
 
-M32-M40 remain planned/provisional.
+Receipt plans must not store raw input, raw output, raw file content, text
+previews, content hashes, directory listings, absolute local paths, symlink
+targets, memory writes, Event Ledger mutations, shell output, network/model
+payloads, or production authority.
+
+For no-op and filesystem metadata invocations, `execution_performed=True` means
+only that the deterministic governed adapter path completed. It does not mean
+action execution or filesystem mutation happened.
+
+M33-M40 remain planned/provisional.

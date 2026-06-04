@@ -1,7 +1,12 @@
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from ultimate_ai_agent.core.tools.runtime.filesystem_metadata import (
+    FILESYSTEM_METADATA_TOOL_NAME,
+    FILESYSTEM_METADATA_TOOL_REF,
+    FilesystemMetadataOutput,
+)
 from ultimate_ai_agent.core.tools.runtime.enums import (
     ToolInvocationKind,
     ToolInvocationStatus,
@@ -21,12 +26,12 @@ from ultimate_ai_agent.core.tools.runtime.validation import (
 
 
 class ToolRuntimeAdapterDescriptor(BaseModel):
-    adapter_ref: str = "tool-runtime-adapter:noop.v1"
-    status: ToolRuntimeAdapterStatus = ToolRuntimeAdapterStatus.noop_only
-    mode: ToolRuntimeMode = ToolRuntimeMode.noop_only
+    adapter_ref: str = "tool-runtime-adapter:safe_metadata.v1"
+    status: ToolRuntimeAdapterStatus = ToolRuntimeAdapterStatus.safe_metadata_only
+    mode: ToolRuntimeMode = ToolRuntimeMode.safe_metadata_only
     tool_ref: str = NOOP_TOOL_REF
     tool_name: str = NOOP_TOOL_NAME
-    safe_description: str = "Deterministic no-op runtime adapter."
+    safe_description: str = "Deterministic no-op and filesystem metadata runtime adapter."
 
     model_config = ConfigDict(extra="forbid")
 
@@ -36,19 +41,33 @@ class ToolRuntimeAdapterDescriptor(BaseModel):
         validate_tool_runtime_ref(self.tool_ref, "tool_ref")
         validate_safe_tool_runtime_text(self.tool_name, "tool_name")
         validate_safe_tool_runtime_text(self.safe_description, "safe_description")
-        if self.tool_ref != NOOP_TOOL_REF or self.tool_name != NOOP_TOOL_NAME:
-            raise ValueError("M31 runtime adapter may describe only the no-op tool")
+        if self.tool_ref not in {NOOP_TOOL_REF, FILESYSTEM_METADATA_TOOL_REF}:
+            raise ValueError("M32 runtime adapter may describe only allowlisted safe tools")
+        if self.tool_ref == NOOP_TOOL_REF and self.tool_name != NOOP_TOOL_NAME:
+            raise ValueError("M32 runtime adapter no-op descriptor has mismatched tool name")
+        if self.tool_ref == FILESYSTEM_METADATA_TOOL_REF and self.tool_name != FILESYSTEM_METADATA_TOOL_NAME:
+            raise ValueError("M32 runtime adapter filesystem metadata descriptor has mismatched tool name")
         return self
 
 
 class ToolRuntimePolicy(BaseModel):
     tool_runtime_enabled: bool = True
     noop_tool_enabled: bool = True
+    filesystem_metadata_tool_enabled: bool = True
     replay_protection_required: bool = True
     arbitrary_tool_execution_enabled: bool = False
     side_effecting_tools_enabled: bool = False
     shell_tools_enabled: bool = False
     file_tools_enabled: bool = False
+    file_content_read_enabled: bool = False
+    file_preview_enabled: bool = False
+    file_hash_enabled: bool = False
+    directory_listing_enabled: bool = False
+    recursive_traversal_enabled: bool = False
+    symlink_following_enabled: bool = False
+    caller_selected_root_enabled: bool = False
+    file_write_enabled: bool = False
+    file_delete_enabled: bool = False
     memory_write_tools_enabled: bool = False
     network_tools_enabled: bool = False
     model_tools_enabled: bool = False
@@ -66,14 +85,25 @@ class ToolRuntimePolicy(BaseModel):
     @model_validator(mode="after")
     def validate_policy(self):
         if not self.tool_runtime_enabled:
-            raise ValueError("M31 tool runtime adapter must be enabled for no-op only")
+            raise ValueError("M32 tool runtime adapter must be enabled for allowlisted safe tools")
         if not self.noop_tool_enabled:
-            raise ValueError("M31 no-op tool must be enabled")
+            raise ValueError("M32 no-op tool must be enabled")
+        if not self.filesystem_metadata_tool_enabled:
+            raise ValueError("M32 filesystem metadata tool must be enabled")
         blocked_fields = [
             "arbitrary_tool_execution_enabled",
             "side_effecting_tools_enabled",
             "shell_tools_enabled",
             "file_tools_enabled",
+            "file_content_read_enabled",
+            "file_preview_enabled",
+            "file_hash_enabled",
+            "directory_listing_enabled",
+            "recursive_traversal_enabled",
+            "symlink_following_enabled",
+            "caller_selected_root_enabled",
+            "file_write_enabled",
+            "file_delete_enabled",
             "memory_write_tools_enabled",
             "network_tools_enabled",
             "model_tools_enabled",
@@ -88,21 +118,22 @@ class ToolRuntimePolicy(BaseModel):
         ]
         for field_name in blocked_fields:
             if self.__dict__[field_name]:
-                raise ValueError(f"{field_name} must be False in M31")
+                raise ValueError(f"{field_name} must be False in M32")
         return self
 
 
 class ToolRuntimeManifest(BaseModel):
-    baseline_version: str = "0.35.1"
-    contract_version: str = "m31-tool-runtime-noop"
+    baseline_version: str = "0.36.0"
+    contract_version: str = "m32-tool-runtime-filesystem-metadata"
     adapter: ToolRuntimeAdapterDescriptor = Field(default_factory=ToolRuntimeAdapterDescriptor)
     policy: ToolRuntimePolicy = Field(default_factory=ToolRuntimePolicy)
     capabilities: List[ToolRuntimeCapability] = Field(
         default_factory=lambda: [
             ToolRuntimeCapability.noop,
+            ToolRuntimeCapability.filesystem_metadata,
             ToolRuntimeCapability.deterministic_result,
             ToolRuntimeCapability.no_effect,
-            ToolRuntimeCapability.no_filesystem,
+            ToolRuntimeCapability.metadata_only_filesystem,
             ToolRuntimeCapability.no_memory_write,
             ToolRuntimeCapability.no_network,
             ToolRuntimeCapability.no_model_call,
@@ -113,14 +144,14 @@ class ToolRuntimeManifest(BaseModel):
             ToolRuntimeCapability.no_plugin,
         ]
     )
-    allowlisted_tool_refs: List[str] = Field(default_factory=lambda: [NOOP_TOOL_REF])
+    allowlisted_tool_refs: List[str] = Field(default_factory=lambda: [NOOP_TOOL_REF, FILESYSTEM_METADATA_TOOL_REF])
 
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
     def validate_manifest(self):
-        if self.allowlisted_tool_refs != [NOOP_TOOL_REF]:
-            raise ValueError("M31 manifest allowlist must contain only the no-op tool")
+        if self.allowlisted_tool_refs != [NOOP_TOOL_REF, FILESYSTEM_METADATA_TOOL_REF]:
+            raise ValueError("M32 manifest allowlist must contain only no-op and filesystem metadata tools")
         return self
 
 
@@ -157,7 +188,8 @@ class ToolInvocationRequest(BaseModel):
             validate_tool_runtime_ref(ref, "metadata_ref")
         for reason in raw_input_reason_codes(self):
             raise ValueError(reason)
-        validate_safe_tool_runtime_payload(self.metadata, "metadata")
+        if self.tool_ref != FILESYSTEM_METADATA_TOOL_REF:
+            validate_safe_tool_runtime_payload(self.metadata, "metadata")
         return self
 
 
@@ -215,14 +247,14 @@ class ToolInvocationReceiptPlan(BaseModel):
     def validate_receipt(self):
         for ref in [self.receipt_plan_ref, self.invocation_id, self.tool_ref, *self.metadata_refs]:
             validate_tool_runtime_ref(ref, "metadata_ref")
-        if self.tool_ref != NOOP_TOOL_REF:
-            raise ValueError("M31 receipt plans may reference only the no-op tool")
+        if self.tool_ref not in {NOOP_TOOL_REF, FILESYSTEM_METADATA_TOOL_REF}:
+            raise ValueError("M32 receipt plans may reference only allowlisted safe tools")
         if not self.execution_performed:
-            raise ValueError("M31 no-op receipt records only deterministic no-op invocation")
+            raise ValueError("M32 receipt records only deterministic allowlisted invocation")
         if self.side_effects_performed or self.raw_input_stored or self.raw_output_stored:
-            raise ValueError("M31 no-op receipt must not store raw content or side effects")
+            raise ValueError("M32 receipt must not store raw content or side effects")
         if self.memory_write_performed or self.event_ledger_mutation_performed:
-            raise ValueError("M31 no-op receipt must not mutate memory or Event Ledger")
+            raise ValueError("M32 receipt must not mutate memory or Event Ledger")
         validate_safe_tool_runtime_text(self.safe_summary, "safe_summary")
         return self
 
@@ -232,7 +264,7 @@ class ToolInvocationResult(BaseModel):
     invocation_id: str
     tool_ref: str = NOOP_TOOL_REF
     status: ToolInvocationStatus = ToolInvocationStatus.noop_completed
-    output: NoOpToolOutput
+    output: Union[NoOpToolOutput, FilesystemMetadataOutput]
     execution_performed: bool = True
     side_effects_performed: List[str] = Field(default_factory=list)
     raw_input_echoed: bool = False
@@ -249,10 +281,14 @@ class ToolInvocationResult(BaseModel):
     def validate_result(self):
         for ref in [self.result_id, self.invocation_id, self.tool_ref]:
             validate_tool_runtime_ref(ref, "metadata_ref")
-        if self.tool_ref != NOOP_TOOL_REF or self.status != ToolInvocationStatus.noop_completed:
-            raise ValueError("M31 results are only for completed no-op invocations")
+        expected_status_by_tool = {
+            NOOP_TOOL_REF: ToolInvocationStatus.noop_completed,
+            FILESYSTEM_METADATA_TOOL_REF: ToolInvocationStatus.metadata_completed,
+        }
+        if self.tool_ref not in expected_status_by_tool or self.status != expected_status_by_tool[self.tool_ref]:
+            raise ValueError("M32 results are only for completed allowlisted safe invocations")
         if not self.execution_performed:
-            raise ValueError("M31 no-op runtime result must record deterministic no-op invocation")
+            raise ValueError("M32 runtime result must record deterministic allowlisted invocation")
         unsafe_flags = [
             self.side_effects_performed,
             self.raw_input_echoed,
@@ -263,7 +299,7 @@ class ToolInvocationResult(BaseModel):
             self.shell_execution_performed,
         ]
         if any(unsafe_flags):
-            raise ValueError("M31 no-op runtime result must not report side effects")
+            raise ValueError("M32 runtime result must not report side effects")
         return self
 
 
@@ -294,10 +330,13 @@ class ToolInvocationDecision(BaseModel):
         for ref in [self.decision_id, self.invocation_id, self.tool_ref]:
             validate_tool_runtime_ref(ref, "metadata_ref")
         validate_safe_tool_runtime_text(self.safe_message, "safe_message")
-        if self.tool_ref != NOOP_TOOL_REF:
-            raise ValueError("M31 decisions may reference only the no-op tool")
-        if self.execution_performed and self.status != ToolInvocationStatus.noop_completed:
-            raise ValueError("M31 execution_performed is true only for completed no-op invocation")
+        if self.tool_ref not in {NOOP_TOOL_REF, FILESYSTEM_METADATA_TOOL_REF}:
+            raise ValueError("M32 decisions may reference only allowlisted safe tools")
+        if self.execution_performed and self.status not in {
+            ToolInvocationStatus.noop_completed,
+            ToolInvocationStatus.metadata_completed,
+        }:
+            raise ValueError("M32 execution_performed is true only for completed allowlisted invocation")
         unsafe_flags = [
             self.side_effects_performed,
             self.raw_input_echoed,
@@ -308,5 +347,5 @@ class ToolInvocationDecision(BaseModel):
             self.shell_execution_performed,
         ]
         if any(unsafe_flags):
-            raise ValueError("M31 tool runtime decisions must not report side effects")
+            raise ValueError("M32 tool runtime decisions must not report side effects")
         return self

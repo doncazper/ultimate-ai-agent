@@ -1,7 +1,7 @@
 # Ultimate AI Agent Docs
 
 Status: active
-Current through: v0.35.1
+Current through: v0.36.0
 Purpose: Human-facing entrypoint for active documentation and historical archive navigation.
 
 Active docs are few, indexed, and current. Historical docs are preserved under
@@ -22,10 +22,16 @@ docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md
 Current release packet:
 
 ```text
-docs/archive/releases/v0_35_1/README_IMPORT.md
-docs/archive/releases/v0_35_1/master_plan.md
-docs/release_notes/v0_35_1.md
-docs/implementation/foundation_gate_implementation_plan_v0_35_1.md
+docs/archive/releases/v0_36_0/README_IMPORT.md
+docs/archive/releases/v0_36_0/master_plan.md
+docs/release_notes/v0_36_0.md
+docs/implementation/foundation_gate_implementation_plan_v0_36_0.md
+docs/tools/FILESYSTEM_METADATA_TOOL.md
+docs/tools/FILESYSTEM_METADATA_PATH_POLICY.md
+docs/tools/FILESYSTEM_METADATA_RESULT_CONTRACT.md
+docs/tools/FILESYSTEM_METADATA_AUTHORITY_BOUNDARY.md
+docs/tools/FILESYSTEM_METADATA_NON_GOALS.md
+docs/tools/M32_TO_M33_BOUNDARY.md
 docs/tools/TOOL_RUNTIME_ADAPTER.md
 docs/tools/NOOP_TOOL_RUNTIME.md
 docs/tools/TOOL_RUNTIME_INVOCATION_CONTRACT.md
@@ -74,6 +80,12 @@ historical snapshots.
 
 v0.29.5 is documentation policy polish only. It accepts the pushed duplicate
 wording cleanup from `374bb1e` and remains the cleanup baseline before M26.
+
+v0.36.0 implements M32 as one safe local filesystem metadata tool under
+server-owned safe roots. It returns metadata only and denies raw content, text
+preview, content hash, directory listing, recursive traversal, symlink
+following, caller-selected roots, file mutation, backend execution routes,
+dependencies, M33 work, and production authority.
 
 v0.35.1 hardens M31 Real Tool Runtime Adapter, Single Safe No-Op Tool. It
 strengthens allowlist validation, tool_ref/tool_name consistency, dynamic

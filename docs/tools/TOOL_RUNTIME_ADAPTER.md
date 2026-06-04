@@ -1,45 +1,30 @@
 # Tool Runtime Adapter
 
-Status: active M31 documentation.
-Current active baseline: **v0.35.1**
+Status: active M32 documentation.
+Current active baseline: **v0.36.0**
 
-M31 implements the first governed Tool Runtime Adapter path. The adapter is
-real in the narrow sense that the Python Agent Core can evaluate and complete
-one deterministic no-op invocation through a runtime adapter and receive a
-typed result envelope.
+M31 introduced the first governed Tool Runtime Adapter path. M32 extends that
+path with exactly one safe local filesystem metadata tool.
 
-M31 is no-op-only. It is not arbitrary tool execution.
+Allowed runtime tools in M32:
 
-Allowed in M31:
+- `tool:no_op.v1` with `tool_name="noop"`.
+- `tool:filesystem_metadata.v1` with `tool_name="filesystem_metadata"`.
 
-- `tool:no_op.v1` with `tool_name=“noop”`.
-- deterministic no-op invocation.
-- no-op result envelope.
-- no-op receipt plan.
-- replay-key protection.
-- evaluator revalidation of safety-critical fields.
-- hidden model_copy and metadata boundary revalidation.
-- static verifier and Foundation Gate coverage.
+The adapter remains allowlist-only. It does not dispatch arbitrary tools,
+load caller-selected modules or callables, run shell/subprocess commands, call
+networks or models, mutate files, write memory, use browser/mobile/remote/plugin
+actions, add backend execute routes, or create production authority.
 
-Blocked in M31:
-
-- arbitrary tool execution.
-- dynamic dispatch or user-selected callables.
-- hidden module/callable/function/registry dispatch fields.
-- hidden or metadata-backed side-effect requests.
-- plugins.
-- shell/subprocess execution.
-- file tools or file mutation.
-- memory-write tools.
-- network tools.
-- model/provider tools.
-- browser, mobile, remote, or plugin tools.
-- backend public execute routes.
-- Control Center execute controls.
-- production authority.
+M32 filesystem metadata lookup is metadata-only and safe-root-bound. It may
+return safe path refs, existence, kind, size, extension, and modified-time
+metadata. It must not return raw content, text previews, content hashes,
+directory listings, recursive traversal results, symlink targets, or absolute
+local paths.
 
 Approval refs, approval decisions, tool intents, task plans, execution state
-transitions, context packs, memory refs, model output, runtime output, and
-arbitrary strings are not authority for arbitrary tools.
+transitions, context packs, memory refs, model output, runtime output,
+OpenWebUI output, Control Center refs, and arbitrary strings are not authority
+for filesystem metadata access or arbitrary tools.
 
-M32-M40 remain planned/provisional.
+M33-M40 remain planned/provisional.

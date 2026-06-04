@@ -121,6 +121,16 @@ REQUIRED_M31_TOOL_RUNTIME_DOCS = [
 ]
 
 
+REQUIRED_M32_FILESYSTEM_METADATA_DOCS = [
+    "docs/tools/FILESYSTEM_METADATA_TOOL.md",
+    "docs/tools/FILESYSTEM_METADATA_PATH_POLICY.md",
+    "docs/tools/FILESYSTEM_METADATA_RESULT_CONTRACT.md",
+    "docs/tools/FILESYSTEM_METADATA_AUTHORITY_BOUNDARY.md",
+    "docs/tools/FILESYSTEM_METADATA_NON_GOALS.md",
+    "docs/tools/M32_TO_M33_BOUNDARY.md",
+]
+
+
 REQUIRED_ACTIVE_DOCS = [
     "docs/README.md",
     "docs/DOCUMENTATION_INDEX.md",
@@ -163,6 +173,7 @@ REQUIRED_ACTIVE_DOCS = [
     *REQUIRED_M29_PLANNING_DOCS,
     *REQUIRED_M30_EXECUTION_DOCS,
     *REQUIRED_M31_TOOL_RUNTIME_DOCS,
+    *REQUIRED_M32_FILESYSTEM_METADATA_DOCS,
     "docs/control_center/CONTROL_CENTER_CONTRACT.md",
     "docs/control_center/DASHBOARD_SNAPSHOT.md",
     "docs/control_center/ACTION_PREVIEW_POLICY.md",
@@ -1673,12 +1684,11 @@ def _verify_m25_truth_docs(root: Path, version: str | None) -> list[str]:
         )
         m31_expectations = {
             "M31 docs must say first real tool runtime adapter": "first governed tool runtime adapter",
-            "M31 docs must say only no-op tool is enabled": "only the deterministic no-op tool",
-            "M31 docs must say no arbitrary tool execution": "no arbitrary tool execution",
-            "M31 docs must say no dynamic dispatch": "no dynamic dispatch",
-            "M31 docs must say no plugins": "no plugins",
+            "M31 docs must say no arbitrary tool execution": "arbitrary tool execution",
+            "M31 docs must say no dynamic dispatch": "dynamic dispatch",
+            "M31 docs must say no plugins": "plugins",
             "M31 docs must say no shell/subprocess execution": "shell/subprocess",
-            "M31 docs must say no file/memory/network/model/browser/mobile/remote tools": "file/memory/network/model/browser/mobile/remote/plugin",
+            "M31 docs must say no memory/network/model/browser/mobile/remote tools": "network, model, browser, mobile, remote, or plugin",
             "M31 docs must say no backend execute route": "no backend execute route",
             "M31 docs must say no Control Center execute controls": "no control center execute control",
             "M31 docs must say approval refs cannot authorize": "approval refs",
@@ -1687,10 +1697,47 @@ def _verify_m25_truth_docs(root: Path, version: str | None) -> list[str]:
             "M31 docs must say evaluator revalidation exists": "evaluator revalidation",
             "M31 docs must say replay protection exists": "replay-key protection",
             "M31 docs must say side effects are empty": "side_effects_performed=[]",
-            "M31 docs must keep M32-M40 planned/provisional": "m32-m40 remain planned/provisional",
         }
+        if _version_tuple(version) < (0, 36, 0):
+            m31_expectations["M31 docs must say only no-op tool is enabled"] = "only the deterministic no-op tool"
+            m31_expectations["M31 docs must keep M32-M40 planned/provisional"] = "m32-m40 remain planned/provisional"
+        else:
+            m31_expectations["M31 docs must say no-op remains enabled"] = "tool:no_op.v1"
+            m31_expectations["M31 docs must acknowledge M32 filesystem metadata"] = "tool:filesystem_metadata.v1"
+            m31_expectations["M31 docs must keep M33-M40 planned/provisional"] = "m33-m40 remain planned/provisional"
         for failure, fragment in m31_expectations.items():
             if fragment not in runtime_docs:
+                failures.append(failure)
+
+    if _version_tuple(version) >= (0, 36, 0):
+        for rel_path in REQUIRED_M32_FILESYSTEM_METADATA_DOCS:
+            if not (root / rel_path).exists():
+                failures.append(f"missing active documentation file: {rel_path}")
+        m32_docs = "\n".join(
+            _read(root / rel_path).lower()
+            for rel_path in REQUIRED_M32_FILESYSTEM_METADATA_DOCS
+            if (root / rel_path).exists()
+        )
+        m32_expectations = {
+            "M32 docs must say safe local filesystem metadata": "safe local filesystem metadata",
+            "M32 docs must name filesystem metadata tool ref": "tool:filesystem_metadata.v1",
+            "M32 docs must say metadata-only": "metadata-only",
+            "M32 docs must say server-owned safe roots": "server-owned safe roots",
+            "M32 docs must deny raw file content": "raw file content",
+            "M32 docs must deny text previews": "text previews",
+            "M32 docs must deny content hashes": "content hashes",
+            "M32 docs must deny directory listing": "directory listing",
+            "M32 docs must deny recursive traversal": "recursive traversal",
+            "M32 docs must deny symlink following": "symlink following",
+            "M32 docs must deny caller-selected roots": "caller-selected",
+            "M32 docs must deny file mutation": "file mutation",
+            "M32 docs must say no backend execute route": "backend execute route",
+            "M32 docs must say no Control Center execute controls": "control center execute controls",
+            "M32 docs must say authority refs cannot authorize": "cannot authorize",
+            "M32 docs must keep M33-M40 planned/provisional": "m33-m40 remain planned/provisional",
+        }
+        for failure, fragment in m32_expectations.items():
+            if fragment not in m32_docs:
                 failures.append(failure)
 
     if _version_tuple(version) >= (0, 29, 4):
@@ -2067,6 +2114,9 @@ def _verify_post_m20_roadmap_projection(root: Path) -> list[str]:
         "M31 must be Real Tool Runtime Adapter, Single Safe No-Op Tool": (
             "real tool runtime adapter, single safe no-op tool"
         ),
+        "M32 must be Safe Local Filesystem Metadata Tool": (
+            "safe local filesystem metadata tool"
+        ),
         "M35 must mention Device Capability Broker Implementation, No Sensors": (
             "device capability broker implementation, no sensors"
         ),
@@ -2078,7 +2128,23 @@ def _verify_post_m20_roadmap_projection(root: Path) -> list[str]:
         "Post-M20 roadmap docs must say no dependency is added": "no dependency",
     }
     active_version_tuple = _version_tuple(_active_version(root))
-    if active_version_tuple >= (0, 35, 0):
+    if active_version_tuple >= (0, 36, 0):
+        expectations["Post-M20 roadmap docs must say M31 is implemented/released"] = (
+            "m31 is implemented/released"
+        )
+        expectations["Post-M20 roadmap docs must say M32 is implemented/released"] = (
+            "m32 is implemented/released"
+        )
+        expectations["Post-M20 roadmap docs must keep M33-M40 planned/provisional"] = (
+            "m33-m40 remain planned/provisional"
+        )
+        expectations["Post-M20 roadmap docs must say M29 is implemented/released"] = (
+            "m29 is implemented/released"
+        )
+        expectations["Post-M20 roadmap docs must say M30 is implemented/released"] = (
+            "m30 is implemented/released"
+        )
+    elif active_version_tuple >= (0, 35, 0):
         expectations["Post-M20 roadmap docs must say M31 is implemented/released"] = (
             "m31 is implemented/released"
         )
@@ -2171,7 +2237,9 @@ def _verify_post_m20_roadmap_projection(root: Path) -> list[str]:
         if fragment not in roadmap_text:
             failures.append(failure)
 
-    if active_version_tuple >= (0, 35, 0):
+    if active_version_tuple >= (0, 36, 0):
+        implemented_claim_start = 33
+    elif active_version_tuple >= (0, 35, 0):
         implemented_claim_start = 32
     elif active_version_tuple >= (0, 34, 0):
         implemented_claim_start = 31

@@ -4,6 +4,7 @@ from enum import Enum
 class ToolRuntimeAdapterStatus(str, Enum):
     contract_only = "contract_only"
     noop_only = "noop_only"
+    safe_metadata_only = "safe_metadata_only"
     validation_only = "validation_only"
     blocked = "blocked"
     future_tool_runtime_required = "future_tool_runtime_required"
@@ -11,6 +12,7 @@ class ToolRuntimeAdapterStatus(str, Enum):
 
 class ToolRuntimeMode(str, Enum):
     noop_only = "noop_only"
+    safe_metadata_only = "safe_metadata_only"
     dry_run_only = "dry_run_only"
     validation_only = "validation_only"
     blocked = "blocked"
@@ -22,6 +24,7 @@ class ToolInvocationStatus(str, Enum):
     denied = "denied"
     blocked = "blocked"
     noop_completed = "noop_completed"
+    metadata_completed = "metadata_completed"
     failed_validation = "failed_validation"
     replay_detected = "replay_detected"
     future_tool_required = "future_tool_required"
@@ -29,6 +32,7 @@ class ToolInvocationStatus(str, Enum):
 
 class ToolInvocationKind(str, Enum):
     noop = "noop"
+    filesystem_metadata = "filesystem_metadata"
     validation_only = "validation_only"
     blocked_unknown = "blocked_unknown"
     blocked_effectful = "blocked_effectful"
@@ -45,9 +49,10 @@ class ToolInvocationKind(str, Enum):
 
 class ToolRuntimeCapability(str, Enum):
     noop = "noop"
+    filesystem_metadata = "filesystem_metadata"
     deterministic_result = "deterministic_result"
     no_effect = "no_effect"
-    no_filesystem = "no_filesystem"
+    metadata_only_filesystem = "metadata_only_filesystem"
     no_memory_write = "no_memory_write"
     no_network = "no_network"
     no_model_call = "no_model_call"
@@ -76,4 +81,5 @@ class ToolRuntimeBlockReason(str, Enum):
 class ToolRuntimeAuthorityLevel(str, Enum):
     non_authoritative = "non_authoritative"
     noop_runtime_only = "noop_runtime_only"
+    metadata_runtime_only = "metadata_runtime_only"
     blocked_authority = "blocked_authority"

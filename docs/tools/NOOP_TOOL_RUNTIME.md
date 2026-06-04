@@ -1,9 +1,9 @@
 # No-Op Tool Runtime
 
-Status: active M31 documentation.
-Current active baseline: **v0.35.1**
+Status: active M32 documentation.
+Current active baseline: **v0.36.0**
 
-The only runtime tool enabled in M31 is the deterministic no-op tool:
+The deterministic no-op tool remains enabled in M32:
 
 ```text
 tool_ref: tool:no_op.v1
@@ -21,14 +21,8 @@ call network endpoints, call models/providers, run shell commands, automate a
 browser, access mobile/device APIs, execute remotely, enable plugins, or inject
 context.
 
-v0.35.1 ensures the no-op result cannot be obtained by mutating a pre-built
-request with hidden dynamic dispatch fields or hidden side-effect fields.
-Metadata is revalidated as part of the evaluator boundary, so caller-declared
-module paths, callable names, alternate tool refs, side-effect lists, file-write
-requests, environment reads, or secret lookups are denied before the no-op
-adapter can complete.
+M32 also enables one safe local filesystem metadata tool. The no-op tool does
+not authorize that tool, and the metadata tool does not authorize any broader
+tool execution.
 
-`execution_performed=True` may appear only to indicate that this deterministic
-no-op invocation completed. `side_effects_performed=[]` is required.
-
-M32-M40 remain planned/provisional.
+M33-M40 remain planned/provisional.

@@ -340,6 +340,22 @@ M31_FORBIDDEN_BACKEND_ROUTES = (
     "/mobile/execute",
     "/remote/execute",
 )
+EXPECTED_M32_OPENAPI_PATH_COUNT = 74
+M32_FORBIDDEN_BACKEND_ROUTES = (
+    "/files/read",
+    "/files/read/raw",
+    "/files/read/content",
+    "/files/write",
+    "/files/delete",
+    "/filesystem/read",
+    "/filesystem/write",
+    "/filesystem/delete",
+    "/tools/execute",
+    "/tools/run",
+    "/tool-runtime/execute",
+    "/tool-runtime/run",
+    "/plugins/enable",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -611,6 +627,17 @@ def m31_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
     return failures
 
 
+def m32_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M32_OPENAPI_PATH_COUNT) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+    for route in M32_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(f"M32 forbidden backend route present: {route}")
+    return failures
+
+
 def m22_local_runtime_forbidden_fragment_failures(root: Path) -> List[str]:
     failures: List[str] = []
     runtime_root = root / "src" / "ultimate_ai_agent" / "core" / "model_runtime"
@@ -840,6 +867,9 @@ class FoundationGateEvaluator:
             "m31_tool_runtime_noop_contract_safe": self.check_m31_tool_runtime_noop_contract_safe,
             "m31_tool_runtime_openapi_routes_unchanged": self.check_m31_tool_runtime_openapi_routes_unchanged,
             "m31_m32_remains_future": self.check_m31_m32_remains_future,
+            "m32_filesystem_metadata_tool_safe": self.check_m32_filesystem_metadata_tool_safe,
+            "m32_filesystem_metadata_openapi_routes_unchanged": self.check_m32_filesystem_metadata_openapi_routes_unchanged,
+            "m32_m33_remains_future": self.check_m32_m33_remains_future,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -7075,8 +7105,8 @@ class FoundationGateEvaluator:
             ]
             if not policy.tool_runtime_enabled or not policy.noop_tool_enabled or any(forbidden_flags):
                 failures.append("M31 manifest enables forbidden runtime tool authority")
-            if manifest.allowlisted_tool_refs != [NOOP_TOOL_REF]:
-                failures.append("M31 manifest allowlist is not exactly the no-op tool")
+            if NOOP_TOOL_REF not in manifest.allowlisted_tool_refs:
+                failures.append("M31 manifest no longer allowlists the no-op tool")
 
             safe_request = ToolInvocationRequest(
                 invocation_id="tool-runtime-invocation:gate-m31",
@@ -7234,19 +7264,284 @@ class FoundationGateEvaluator:
             failures.append("M31 docs do not mark v0.35.0 Real Tool Runtime Adapter implemented/released")
         if "v0.35.1" not in text or "hardens m31" not in text:
             failures.append("M31 docs do not mark v0.35.1 no-op tool runtime hardening")
-        if "m32-m40 remain planned/provisional" not in text:
-            failures.append("M32-M40 must remain planned/provisional after M31")
-        forbidden_m32_fragments = (
-            "m32 is implemented",
-            "v0.36.0 implements m32",
-            "file tools are implemented",
-            "network tools are implemented",
-            "model tools are implemented",
-            "arbitrary tool execution is implemented",
+        active_version = self._active_version() or "0.0.0"
+        version_tuple = tuple(int(part) for part in active_version.split("."))
+        if version_tuple >= (0, 36, 0):
+            if "m32 is implemented/released" not in text and "m32 safe local filesystem metadata tool" not in text:
+                failures.append("M31/M32 docs do not acknowledge implemented M32")
+            if "m33-m40 remain planned/provisional" not in text:
+                failures.append("M33-M40 must remain planned/provisional after M32")
+        else:
+            if "m32-m40 remain planned/provisional" not in text:
+                failures.append("M32-M40 must remain planned/provisional after M31")
+            forbidden_m32_fragments = (
+                "m32 is implemented",
+                "v0.36.0 implements m32",
+                "file tools are implemented",
+                "network tools are implemented",
+                "model tools are implemented",
+                "arbitrary tool execution is implemented",
+            )
+            failures.extend(
+                f"M31 docs imply M32 implementation: {fragment}"
+                for fragment in forbidden_m32_fragments
+                if fragment in text
+            )
+        return self._result(criterion, failures, required_docs)
+
+    def check_m32_filesystem_metadata_tool_safe(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/tools/runtime/filesystem_metadata.py",
+            "tests/test_filesystem_metadata_tool_contracts.py",
+            "tests/test_filesystem_metadata_path_policy.py",
+            "tests/test_filesystem_metadata_authority_boundaries.py",
+            "tests/test_m32_gate_integration.py",
+            "docs/tools/FILESYSTEM_METADATA_TOOL.md",
+            "docs/tools/FILESYSTEM_METADATA_PATH_POLICY.md",
+            "docs/tools/FILESYSTEM_METADATA_RESULT_CONTRACT.md",
+            "docs/tools/FILESYSTEM_METADATA_AUTHORITY_BOUNDARY.md",
+            "docs/tools/FILESYSTEM_METADATA_NON_GOALS.md",
+            "docs/tools/M32_TO_M33_BOUNDARY.md",
+        ]
+        failures = [f"missing M32 filesystem metadata file: {path}" for path in required_files if not (self.root / path).exists()]
+        try:
+            from ultimate_ai_agent.core.tools.runtime import (
+                FILESYSTEM_METADATA_TOOL_NAME,
+                FILESYSTEM_METADATA_TOOL_REF,
+                NOOP_TOOL_REF,
+                FilesystemSafeRoot,
+                ToolInvocationKind,
+                ToolInvocationRequest,
+                ToolInvocationStatus,
+                build_tool_runtime_manifest,
+                evaluate_tool_invocation,
+            )
+
+            manifest = build_tool_runtime_manifest(baseline_version="0.36.0")
+            policy = manifest.policy
+            forbidden_flags = [
+                policy.arbitrary_tool_execution_enabled,
+                policy.side_effecting_tools_enabled,
+                policy.shell_tools_enabled,
+                policy.file_tools_enabled,
+                policy.file_content_read_enabled,
+                policy.file_preview_enabled,
+                policy.file_hash_enabled,
+                policy.directory_listing_enabled,
+                policy.recursive_traversal_enabled,
+                policy.symlink_following_enabled,
+                policy.caller_selected_root_enabled,
+                policy.file_write_enabled,
+                policy.file_delete_enabled,
+                policy.memory_write_tools_enabled,
+                policy.network_tools_enabled,
+                policy.model_tools_enabled,
+                policy.browser_tools_enabled,
+                policy.mobile_tools_enabled,
+                policy.remote_tools_enabled,
+                policy.plugin_tools_enabled,
+                policy.dynamic_tool_registration_enabled,
+                policy.backend_execute_routes_enabled,
+                policy.control_center_execute_controls_enabled,
+                policy.production_authority_enabled,
+            ]
+            if manifest.allowlisted_tool_refs != [NOOP_TOOL_REF, FILESYSTEM_METADATA_TOOL_REF]:
+                failures.append("M32 manifest allowlist is not exactly no-op plus filesystem metadata")
+            if not policy.filesystem_metadata_tool_enabled or any(forbidden_flags):
+                failures.append("M32 policy enables forbidden filesystem/content/mutation/runtime authority")
+
+            with tempfile.TemporaryDirectory() as tmp:
+                safe_root_path = Path(tmp) / "safe-root"
+                safe_root_path.mkdir()
+                notes = safe_root_path / "notes"
+                notes.mkdir()
+                target = notes / "report.md"
+                target.write_text("gate metadata only", encoding="utf-8")
+                safe_root = FilesystemSafeRoot(
+                    root_ref="safe-root:gate-m32",
+                    root_path=safe_root_path,
+                    safe_label="Gate safe root",
+                )
+                safe_request = ToolInvocationRequest(
+                    invocation_id="tool-runtime-invocation:gate-m32",
+                    tool_ref=FILESYSTEM_METADATA_TOOL_REF,
+                    tool_name=FILESYSTEM_METADATA_TOOL_NAME,
+                    invocation_kind=ToolInvocationKind.filesystem_metadata,
+                    replay_key="tool-runtime-replay:gate-m32",
+                    safe_summary="Inspect safe filesystem metadata.",
+                    metadata={"root_ref": "safe-root:gate-m32", "relative_path": "notes/report.md"},
+                )
+                safe_decision = evaluate_tool_invocation(safe_request, safe_roots=[safe_root])
+                if safe_decision.status != ToolInvocationStatus.metadata_completed or not safe_decision.invocation_allowed:
+                    failures.append("M32 safe filesystem metadata request did not complete")
+                if safe_decision.side_effects_performed or not safe_decision.result:
+                    failures.append("M32 safe filesystem metadata request reported side effects or no result")
+                if safe_decision.result:
+                    dumped = safe_decision.model_dump()
+                    output = safe_decision.result.output
+                    if getattr(output, "raw_content_returned", True) or getattr(output, "text_preview_returned", True):
+                        failures.append("M32 filesystem metadata output returned raw content or text preview")
+                    if getattr(output, "content_hash_returned", True) or getattr(output, "directory_listing_returned", True):
+                        failures.append("M32 filesystem metadata output returned content hash or directory listing")
+                    if getattr(output, "absolute_path_returned", True) or str(safe_root_path) in str(dumped):
+                        failures.append("M32 filesystem metadata output leaked an absolute safe-root path")
+                    if "gate metadata only" in str(dumped):
+                        failures.append("M32 filesystem metadata output leaked file content")
+
+                def require_denial(decision, required_reason: str, label: str) -> None:
+                    if decision.status == ToolInvocationStatus.metadata_completed or decision.execution_performed:
+                        failures.append(f"M32 denied probe was allowed: {label}")
+                    if decision.side_effects_performed:
+                        failures.append(f"M32 denied probe reported side effects: {label}")
+                    if required_reason not in decision.reason_codes:
+                        failures.append(f"M32 denied probe missing {required_reason}: {label}")
+
+                for relative_path, reason in [
+                    ("../outside.md", "PATH_TRAVERSAL_DENIED"),
+                    (".env", "HIDDEN_PATH_DENIED"),
+                    ("notes/token.txt", "SECRET_LIKE_PATH_DENIED"),
+                    ("notes/*.md", "GLOB_PATH_DENIED"),
+                ]:
+                    require_denial(
+                        evaluate_tool_invocation(
+                            safe_request.model_copy(
+                                update={
+                                    "metadata": {
+                                        "root_ref": "safe-root:gate-m32",
+                                        "relative_path": relative_path,
+                                    }
+                                }
+                            ),
+                            safe_roots=[safe_root],
+                        ),
+                        reason,
+                        f"path {relative_path}",
+                    )
+                require_denial(
+                    evaluate_tool_invocation(
+                        safe_request.model_copy(
+                            update={
+                                "metadata": {
+                                    "root_ref": "safe-root:gate-m32",
+                                    "relative_path": "notes/report.md",
+                                    "root_path": str(safe_root_path),
+                                }
+                            }
+                        ),
+                        safe_roots=[safe_root],
+                    ),
+                    "CALLER_SELECTED_ROOT_DENIED",
+                    "caller-selected root",
+                )
+                require_denial(
+                    evaluate_tool_invocation(
+                        safe_request.model_copy(update={"contains_raw_file_content": True}),
+                        safe_roots=[safe_root],
+                    ),
+                    "RAW_FILE_CONTENT_DENIED",
+                    "raw file model_copy revalidation",
+                )
+                require_denial(
+                    evaluate_tool_invocation(
+                        safe_request.model_copy(update={"authority_refs": ["model:gate-m32"]}),
+                        safe_roots=[safe_root],
+                    ),
+                    "AUTHORITY_REF_NOT_TOOL_RUNTIME_AUTHORITY",
+                    "model authority ref",
+                )
+                try:
+                    link = safe_root_path / "link.md"
+                    link.symlink_to(target)
+                    require_denial(
+                        evaluate_tool_invocation(
+                            safe_request.model_copy(
+                                update={
+                                    "metadata": {
+                                        "root_ref": "safe-root:gate-m32",
+                                        "relative_path": "link.md",
+                                    }
+                                }
+                            ),
+                            safe_roots=[safe_root],
+                        ),
+                        "SYMLINK_DENIED",
+                        "symlink path",
+                    )
+                except (OSError, NotImplementedError):
+                    pass
+
+            runtime_source = "\n".join(
+                self._read(path)
+                for path in (self.root / "src" / "ultimate_ai_agent" / "core" / "tools" / "runtime").glob("*.py")
+            ).lower()
+            forbidden_fragments = (
+                "read_text(",
+                "read_bytes(",
+                "hashlib",
+                ".glob(",
+                ".rglob(",
+                "os.walk(",
+                "follow_symlinks=true",
+                "shutil",
+                ".unlink(",
+                ".remove(",
+                ".rename(",
+                ".replace(",
+                ".chmod(",
+                ".chown(",
+                "requests.get(",
+                "requests.post(",
+                "httpx.get(",
+                "httpx.post(",
+                "urllib.request.urlopen(",
+                "os.system(",
+                "popen(",
+            )
+            failures.extend(
+                f"M32 filesystem metadata module contains forbidden fragment: {fragment}"
+                for fragment in forbidden_fragments
+                if fragment in runtime_source
+            )
+        except Exception as exc:
+            failures.append(f"M32 filesystem metadata validation failed: {exc}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m32_filesystem_metadata_openapi_routes_unchanged(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m32_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M32 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m32_m33_remains_future(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        required_docs = [
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+            "docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/tools/M32_TO_M33_BOUNDARY.md",
+        ]
+        failures = [f"missing M32 roadmap doc: {path}" for path in required_docs if not (self.root / path).exists()]
+        text = "\n".join(self._read(self.root / path).lower() for path in required_docs if (self.root / path).exists())
+        if "v0.36.0" not in text or "safe local filesystem metadata" not in text or "implemented/released" not in text:
+            failures.append("M32 docs do not mark safe local filesystem metadata implemented/released")
+        if "m33-m40 remain planned/provisional" not in text:
+            failures.append("M33-M40 must remain planned/provisional after M32")
+        forbidden_m33_fragments = (
+            "m33 is implemented",
+            "v0.37.0 implements m33",
+            "mobile approval surface is implemented",
+            "mobile sensors are implemented",
         )
         failures.extend(
-            f"M31 docs imply M32 implementation: {fragment}"
-            for fragment in forbidden_m32_fragments
+            f"M32 docs imply M33 implementation: {fragment}"
+            for fragment in forbidden_m33_fragments
             if fragment in text
         )
         return self._result(criterion, failures, required_docs)
@@ -7553,7 +7848,9 @@ class FoundationGateEvaluator:
                 failures.append(failure)
         active_version = self._active_version() or "0.0.0"
         version_tuple = tuple(int(part) for part in active_version.split("."))
-        if version_tuple >= (0, 35, 0):
+        if version_tuple >= (0, 36, 0):
+            implemented_claim_start = 33
+        elif version_tuple >= (0, 35, 0):
             implemented_claim_start = 32
         elif version_tuple >= (0, 34, 0):
             implemented_claim_start = 31
