@@ -32,5 +32,5 @@ routes; no Control Center execute controls; and no production authority.
 M33 redacted file preview proposals are not authority and are not context
 injection. Approval refs, `approval_test_*`, task plans, tool intents, context
 packs, memory, model/runtime/OpenWebUI output, Control Center refs, and
-arbitrary strings cannot authorize arbitrary filesystem access. M34-M40 remain
-planned/provisional.
+arbitrary strings cannot authorize arbitrary filesystem access. v0.37.4
+supersedes the future roadmap and M34-M60 remain planned/provisional.

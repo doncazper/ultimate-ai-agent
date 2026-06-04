@@ -26,5 +26,5 @@ not authorize that tool, and the metadata tool does not authorize any broader
 tool execution.
 
 M33 also enables one bounded redacted file preview proposal tool. The no-op
-tool remains deterministic and side-effect-free. M34-M40 remain
-planned/provisional.
+tool remains deterministic and side-effect-free. v0.37.4 supersedes the future
+roadmap and M34-M60 remain planned/provisional.

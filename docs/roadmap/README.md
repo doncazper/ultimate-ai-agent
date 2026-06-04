@@ -1,7 +1,7 @@
 # Roadmap Docs
 
 Status: active
-Current through: v0.32.1
+Current through: v0.37.4
 Purpose: Entry point for active roadmap docs and historical roadmap references.
 
 Current roadmap source of truth:
@@ -16,6 +16,7 @@ Active roadmap support docs:
 docs/roadmap/MILESTONE_CHARTERS.md
 docs/roadmap/CAPABILITY_LAYERING_STRATEGY.md
 docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md
+docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md
 docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md
 docs/roadmap/ECOSYSTEM_WATCHLIST.md
 docs/roadmap/STANDARDS_ALIGNMENT_WATCHLIST.md
@@ -29,7 +30,7 @@ original paths.
 active verifier and Foundation Gate checks, but it is a historical roadmap
 projection and not the current roadmap source of truth.
 
-M25 is implemented/hardened. M26 is implemented/released by v0.30.0 as deterministic local grounded recall/context-pack contracts and hardened by v0.30.1 for source_ref/source_kind consistency. M27 is implemented/released by v0.31.0 as validation-only Tool Broker v2 contracts. v0.31.1 is docs-only README polish baseline normalization. M28 is implemented/released by v0.32.0 as Approval Authority v2 + Action Policy Expansion policy-only contracts. M29 is implemented/released by v0.33.0 as Agent Task Planning Engine. M30-M40 remain planned/provisional.
+M25 is implemented/hardened. M26 is implemented/released by v0.30.0 as deterministic local grounded recall/context-pack contracts and hardened by v0.30.1 for source_ref/source_kind consistency. M27 is implemented/released by v0.31.0 as validation-only Tool Broker v2 contracts. v0.31.1 is docs-only README polish baseline normalization. M28 is implemented/released by v0.32.0 as Approval Authority v2 + Action Policy Expansion policy-only contracts. M29 is implemented/released by v0.33.0 as Agent Task Planning Engine. M30-M33 are implemented/released. v0.37.4 supersedes the old active post-M33 projection and defines M34-M60 as planned/provisional.
 
 Documentation organization and historical-roadmap handling rules live in
 `docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md`.

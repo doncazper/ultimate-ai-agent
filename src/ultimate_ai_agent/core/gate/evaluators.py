@@ -5692,7 +5692,10 @@ class FoundationGateEvaluator:
                     failures.append("M28 docs must mark v0.32.0 implemented/released after M28")
             else:
                 failures.append("M28 docs do not mention v0.32.0 Approval Authority v2 + Action Policy Expansion")
-            if "m29-m40 remain planned/provisional" not in text:
+            if version_tuple >= (0, 37, 4):
+                if "m34-m60 remain planned/provisional" not in text:
+                    failures.append("M34-M60 must remain planned/provisional after v0.37.4")
+            elif "m29-m40 remain planned/provisional" not in text:
                 failures.append("M29-M40 must remain planned/provisional after M28")
         elif version_tuple >= (0, 31, 0):
             if "v0.31.0" in text and "tool broker v2 + safe tool intent contracts" in text:
@@ -5923,7 +5926,10 @@ class FoundationGateEvaluator:
         if version_tuple >= (0, 32, 0):
             if "approval authority v2 + action policy expansion" not in text:
                 failures.append("M27 docs do not describe the M28 Approval Authority v2 handoff")
-            if "m29-m40 remain planned/provisional" not in text:
+            if version_tuple >= (0, 37, 4):
+                if "m34-m60 remain planned/provisional" not in text:
+                    failures.append("M34-M60 must remain planned/provisional after v0.37.4")
+            elif "m29-m40 remain planned/provisional" not in text:
                 failures.append("M29-M40 must remain planned/provisional after M28")
         else:
             if "m28-m40 remain planned/provisional" not in text:
@@ -6360,7 +6366,10 @@ class FoundationGateEvaluator:
                 failures.append("M28 docs do not acknowledge implemented v0.34.0 / M30")
             if "m31" not in text or "real tool runtime adapter" not in text or "implemented/released" not in text:
                 failures.append("M28 docs do not acknowledge implemented v0.35.0 / M31")
-            if "m32-m40 remain planned/provisional" not in text:
+            if version_tuple >= (0, 37, 4):
+                if "m34-m60 remain planned/provisional" not in text:
+                    failures.append("M34-M60 must remain planned/provisional after v0.37.4")
+            elif "m32-m40 remain planned/provisional" not in text:
                 failures.append("M32-M40 must remain planned/provisional after M31")
         elif version_tuple >= (0, 34, 0):
             if "m29 agent task planning engine" not in text:
@@ -6375,7 +6384,10 @@ class FoundationGateEvaluator:
             if "m30-m40 remain planned/provisional" not in text:
                 failures.append("M30-M40 must remain planned/provisional after M29")
         else:
-            if "m29-m40 remain planned/provisional" not in text:
+            if version_tuple >= (0, 37, 4):
+                if "m34-m60 remain planned/provisional" not in text:
+                    failures.append("M34-M60 must remain planned/provisional after v0.37.4")
+            elif "m29-m40 remain planned/provisional" not in text:
                 failures.append("M29-M40 must remain planned/provisional after M28")
             forbidden_m29_fragments = (
                 "m29 is implemented",
@@ -6708,7 +6720,10 @@ class FoundationGateEvaluator:
                 failures.append("M29 boundary docs must acknowledge implemented v0.34.0 / M30")
             if "m31" not in text or "real tool runtime adapter" not in text or "implemented/released" not in text:
                 failures.append("M29 boundary docs must acknowledge implemented v0.35.0 / M31")
-            if "m32-m40 remain planned/provisional" not in text:
+            if version_tuple >= (0, 37, 4):
+                if "m34-m60 remain planned/provisional" not in text:
+                    failures.append("M34-M60 must remain planned/provisional after v0.37.4")
+            elif "m32-m40 remain planned/provisional" not in text:
                 failures.append("M32-M40 must remain planned/provisional after M31")
         elif version_tuple >= (0, 34, 0):
             if "m30" not in text or "multi-step execution framework" not in text or "implemented/released" not in text:
@@ -7055,7 +7070,10 @@ class FoundationGateEvaluator:
         if version_tuple >= (0, 35, 0):
             if "m31" not in text or "real tool runtime adapter" not in text or "implemented/released" not in text:
                 failures.append("M30 docs do not acknowledge implemented v0.35.0 / M31")
-            if "m32-m40 remain planned/provisional" not in text:
+            if version_tuple >= (0, 37, 4):
+                if "m34-m60 remain planned/provisional" not in text:
+                    failures.append("M34-M60 must remain planned/provisional after v0.37.4")
+            elif "m32-m40 remain planned/provisional" not in text:
                 failures.append("M32-M40 must remain planned/provisional after M31")
         else:
             if "m31-m40 remain planned/provisional" not in text:
@@ -7302,7 +7320,10 @@ class FoundationGateEvaluator:
         if version_tuple >= (0, 36, 0):
             if "m32 is implemented/released" not in text and "m32 safe local filesystem metadata tool" not in text:
                 failures.append("M31/M32 docs do not acknowledge implemented M32")
-            if "m33-m40 remain planned/provisional" not in text:
+            if version_tuple >= (0, 37, 4):
+                if "m34-m60 remain planned/provisional" not in text:
+                    failures.append("M34-M60 must remain planned/provisional after v0.37.4")
+            elif "m33-m40 remain planned/provisional" not in text:
                 failures.append("M33-M40 must remain planned/provisional after M32")
         else:
             if "m32-m40 remain planned/provisional" not in text:
@@ -7637,6 +7658,9 @@ class FoundationGateEvaluator:
         if version_tuple >= (0, 37, 0):
             if "m33" not in text or "redacted preview" not in text or "implemented/released" not in text:
                 failures.append("M32/M33 docs do not acknowledge implemented M33 redacted preview")
+            if version_tuple >= (0, 37, 4):
+                if "m34-m60 remain planned/provisional" not in text:
+                    failures.append("M34-M60 must remain planned/provisional after v0.37.4")
         else:
             if "m33-m40 remain planned/provisional" not in text:
                 failures.append("M33-M40 must remain planned/provisional after M32")
@@ -8175,7 +8199,10 @@ class FoundationGateEvaluator:
                     failures.append("M28 docs must mark v0.32.0 implemented/released after M28")
             else:
                 failures.append("M28 docs do not mention v0.32.0 Approval Authority v2 + Action Policy Expansion")
-            if "m29-m40 remain planned/provisional" not in text:
+            if version_tuple >= (0, 37, 4):
+                if "m34-m60 remain planned/provisional" not in text:
+                    failures.append("M34-M60 must remain planned/provisional after v0.37.4")
+            elif "m29-m40 remain planned/provisional" not in text:
                 failures.append("M29-M40 must remain planned/provisional after M28")
         elif version_tuple >= (0, 31, 0):
             if "v0.31.0" in text and "tool broker v2 + safe tool intent contracts" in text:
@@ -8296,12 +8323,15 @@ class FoundationGateEvaluator:
         required_docs = [
             "docs/roadmap/CAPABILITY_LAYERING_STRATEGY.md",
             "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+            "docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md",
             "docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md",
             "docs/roadmap/ECOSYSTEM_WATCHLIST.md",
             "docs/roadmap/STANDARDS_ALIGNMENT_WATCHLIST.md",
         ]
         failures = [f"missing post-M20 roadmap doc: {path}" for path in required_docs if not (self.root / path).exists()]
         roadmap_text = "\n".join(self._read(self.root / path).lower() for path in required_docs if (self.root / path).exists())
+        active_version = self._active_version() or "0.0.0"
+        version_tuple = tuple(int(part) for part in active_version.split("."))
         expectations = {
             "post-M20 docs missing M21": "m21",
             "post-M20 docs missing M40": "m40",
@@ -8315,20 +8345,43 @@ class FoundationGateEvaluator:
             "post-M20 docs missing M31 tool runtime charter": (
                 "real tool runtime adapter, single safe no-op tool"
             ),
-            "post-M20 docs missing Device Capability Broker charter": (
-                "device capability broker implementation, no sensors"
-            ),
-            "post-M20 docs missing browser automation no-execution charter": (
-                "browser automation contract, no execution"
-            ),
-            "post-M20 docs missing observability charter": "observability export adapters",
-            "post-M20 docs missing eval harness charter": "agent evaluation + regression harness",
         }
+        if version_tuple >= (0, 37, 4):
+            expectations.update(
+                {
+                    "post-M20 docs missing M35 safe file review charter": (
+                        "safe file review workflow contracts"
+                    ),
+                    "post-M20 docs missing M38 context proposal charter": (
+                        "safe context proposal from approved review"
+                    ),
+                    "post-M20 docs missing M39 CCC context proposal charter": (
+                        "ccc context proposal surface"
+                    ),
+                    "post-M20 docs missing M40 no-injection handoff charter": (
+                        "context handoff approval, no injection"
+                    ),
+                    "post-M20 docs missing M60 beta freeze charter": (
+                        "local developer beta freeze"
+                    ),
+                }
+            )
+        else:
+            expectations.update(
+                {
+                    "post-M20 docs missing Device Capability Broker charter": (
+                        "device capability broker implementation, no sensors"
+                    ),
+                    "post-M20 docs missing browser automation no-execution charter": (
+                        "browser automation contract, no execution"
+                    ),
+                    "post-M20 docs missing observability charter": "observability export adapters",
+                    "post-M20 docs missing eval harness charter": "agent evaluation + regression harness",
+                }
+            )
         for failure, fragment in expectations.items():
             if fragment not in roadmap_text:
                 failures.append(failure)
-        active_version = self._active_version() or "0.0.0"
-        version_tuple = tuple(int(part) for part in active_version.split("."))
         if version_tuple >= (0, 37, 0):
             implemented_claim_start = 34
         elif version_tuple >= (0, 36, 0):

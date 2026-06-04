@@ -1,7 +1,7 @@
 # Ultimate AI Agent Docs
 
 Status: active
-Current through: v0.37.3
+Current through: v0.37.4
 Purpose: Human-facing entrypoint for active documentation and historical archive navigation.
 
 Active docs are few, indexed, and current. Historical docs are preserved under
@@ -14,6 +14,7 @@ Start with:
 docs/DOCUMENTATION_INDEX.md
 docs/canonical/09_roadmap.md
 docs/canonical/CANONICAL_DOC_MAP.md
+docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md
 docs/roadmap/README.md
 docs/archive/README.md
 docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md
@@ -22,10 +23,11 @@ docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md
 Current release packet:
 
 ```text
-docs/archive/releases/v0_37_3/README_IMPORT.md
-docs/archive/releases/v0_37_3/master_plan.md
-docs/release_notes/v0_37_3.md
-docs/implementation/foundation_gate_implementation_plan_v0_37_3.md
+docs/archive/releases/v0_37_4/README_IMPORT.md
+docs/archive/releases/v0_37_4/master_plan.md
+docs/release_notes/v0_37_4.md
+docs/implementation/foundation_gate_implementation_plan_v0_37_4.md
+docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md
 docs/developer/LOCAL_LAUNCHER.md
 scripts/dev/README.md
 docs/tools/REDACTED_FILE_PREVIEW_TOOL.md
@@ -91,11 +93,13 @@ historical snapshots.
 v0.29.5 is documentation policy polish only. It accepts the pushed duplicate
 wording cleanup from `374bb1e` and remains the cleanup baseline before M26.
 
-v0.37.3 repairs active roadmap label alignment after v0.37.2. It keeps
-v0.38.0 / M34 as Broader File Capability Review, planned/provisional, across
-active roadmap sources and strengthens documentation-integrity checks for this
-next-milestone label. It adds no M34 implementation, backend routes, frontend
-features, runtime behavior, dependencies, or production authority.
+v0.37.4 supersedes the old active M35-M40 roadmap projection and defines the
+active M34-M60 sequence. It keeps v0.38.0 / M34 as Broader File Capability
+Review, marks M34 as planning/docs/verifier only, and strengthens
+documentation-integrity checks for the active supersession labels. It adds no
+M34 implementation, backend routes, frontend features, file-review workflow,
+approval capture, context proposal, runtime behavior, dependencies, mobile or
+TestFlight implementation, or production authority.
 
 v0.37.1 hardens M33 First Safe Local File Read Proposal, Redacted Preview Only.
 It keeps the governed tool runtime adapter entry
@@ -125,4 +129,5 @@ memory writes, network calls, model/provider calls, plugin enablement, browser
 automation, mobile/device access, remote execution, shell execution,
 dependencies, context injection, or production authority.
 
-M34-M40 remain planned/provisional.
+M34-M60 remain planned/provisional under
+`docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md`.

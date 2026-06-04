@@ -21,4 +21,4 @@ following, caller-selected roots, file mutation, shell/subprocess execution,
 memory writes, network/model/provider calls, backend execution routes, Control
 Center execute controls, dependencies, or production authority.
 
-M33-M40 remain planned/provisional.
+v0.37.4 supersedes the future roadmap and M34-M60 remain planned/provisional.

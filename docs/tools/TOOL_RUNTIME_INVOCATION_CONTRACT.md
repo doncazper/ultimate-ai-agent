@@ -25,4 +25,4 @@ No backend execute route is added in M32.
 M33 adds `tool:filesystem.redacted_preview.v1` as bounded redacted preview
 only. It remains safe-root-bound, redaction-before-return, no raw content
 return/storage, no full-file output, no content hash, no directory listing, no
-mutation, and no context injection. M34-M40 remain planned/provisional.
+mutation, and no context injection. v0.37.4 supersedes the future roadmap and M34-M60 remain planned/provisional.

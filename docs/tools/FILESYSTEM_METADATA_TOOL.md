@@ -38,4 +38,4 @@ All other runtime tools remain denied.
 M33 is implemented/released as First Safe Local File Read Proposal, Redacted
 Preview Only. The filesystem metadata tool remains metadata-only and does not
 return raw content, text previews, full-file output, content hashes, directory
-listing, or mutation. M34-M40 remain planned/provisional.
+listing, or mutation. v0.37.4 supersedes the future roadmap and M34-M60 remain planned/provisional.

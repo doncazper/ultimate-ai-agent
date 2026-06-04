@@ -191,13 +191,13 @@ macOS planning constraints:
 
 v0.18.4 adds post-M20 roadmap projection docs only. v0.35.0 supersedes the
 old M31 native-client slot with M31 Real Tool Runtime Adapter, Single Safe No-Op
-Tool. Mobile and device work remains planned/provisional in future reviewed
-roadmap slots. The original M33 mobile approval surface slot was superseded by
-v0.37.0 M33 First Safe Local File Read Proposal, Redacted Preview Only:
-
-- M35 - Device Capability Broker Implementation, No Sensors Yet.
-- M36 - Mobile Capture Inbox, Selected Input Only.
-- M37 - One Governed Sensor Capability.
+Tool. The original M33 mobile approval surface slot was superseded by v0.37.0
+M33 First Safe Local File Read Proposal, Redacted Preview Only. v0.37.4 then
+supersedes the older active mobile/device projection with the M34-M60 roadmap:
+M42 is Mobile Companion Product Contract Refresh, M44 is CCC iOS Skeleton, No
+Authority, M47 is TestFlight Pipeline, Internal Only, M48 is First Internal
+TestFlight Build, and M49-M50 cover Mobile Review Approval Capture and Mobile
+Approval Audit Hardening.
 
 These milestones require dedicated implementation prompts and review prompts. v0.18.4 adds no mobile app, Android app, iOS app, macOS app, Device Capability Broker implementation, mobile capture, sensor access, OS permission integration, native build workflow, signing, keystore, provisioning, App Store workflow, or Play Store workflow.
 ## M19 Update

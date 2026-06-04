@@ -176,6 +176,46 @@ def test_documentation_integrity_verifier_rejects_active_m34_label_mismatch(tmp_
     )
 
 
+def test_documentation_integrity_verifier_requires_m34_m60_supersession_labels(tmp_path: Path):
+    _write_minimal_repo(tmp_path, version="0.37.4")
+    _write_m34_m60_active_docs(tmp_path)
+    roadmap = tmp_path / "docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md"
+    roadmap.write_text(
+        roadmap.read_text(encoding="utf-8").replace(
+            "v0.64.0 / M60 - Local Developer Beta Freeze",
+            "v0.64.0 / M60 - Wrong Future Label",
+        ),
+        encoding="utf-8",
+    )
+
+    failures = verifier.verify(tmp_path)
+
+    assert any(
+        "docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md" in failure
+        and "expected v0.64.0 / M60 - Local Developer Beta Freeze" in failure
+        for failure in failures
+    )
+
+
+def test_documentation_integrity_verifier_rejects_stale_m35_m40_projection(tmp_path: Path):
+    _write_minimal_repo(tmp_path, version="0.37.4")
+    _write_m34_m60_active_docs(tmp_path)
+    roadmap = tmp_path / "docs/canonical/09_roadmap.md"
+    roadmap.write_text(
+        roadmap.read_text(encoding="utf-8")
+        + "\nv0.39.0 / M35 - Device Capability Broker Implementation, No Sensors Yet\n",
+        encoding="utf-8",
+    )
+
+    failures = verifier.verify(tmp_path)
+
+    assert any(
+        "superseded active M35-M40 roadmap label still present" in failure
+        and "device capability broker implementation" in failure
+        for failure in failures
+    )
+
+
 def test_documentation_integrity_verifier_rejects_implemented_post_m20_claims(tmp_path: Path):
     _write_minimal_repo(tmp_path)
     roadmap = tmp_path / "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md"
@@ -272,6 +312,81 @@ def test_documentation_integrity_verifier_rejects_active_historical_verifiers(tm
     assert any("scripts historical verifier must be archived" in failure for failure in failures)
 
 
+def _write_m34_m60_active_docs(root: Path) -> None:
+    labels = "\n".join(
+        f"{version} / {milestone} - {title}, planned/provisional"
+        for version, milestone, title in verifier.EXPECTED_M34_M60_LABELS
+    )
+    body = (
+        "M21 is implemented/released by v0.25.0 as OpenWebUI Bridge + Chat Shell Integration Contract.\n"
+        "M22 is implemented/released by v0.26.0 as Local Model Runtime Activation Contract.\n"
+        "M23 is implemented/released by v0.27.0 as First Real Local LLM Call.\n"
+        "M24 is implemented/released by v0.28.0 as Memory Provider Abstraction.\n"
+        "M25 is implemented/released by v0.29.0 as Truth Source Router + Evidence Claim Checker.\n"
+        "M26 is implemented/released by v0.30.0 as Grounded Recall Router + Evidence-Linked Context Pack Builder.\n"
+        "M27 is implemented/released by v0.31.0 as Tool Broker v2 + Safe Tool Intent Contracts.\n"
+        "M28 is implemented/released by v0.32.0 as Approval Authority v2 + Action Policy Expansion.\n"
+        "M29 is implemented/released by v0.33.0 as Agent Task Planning Engine.\n"
+        "M30 is implemented/released by v0.34.0 as Multi-Step Execution Framework.\n"
+        "M31 is implemented/released by v0.35.0 as Real Tool Runtime Adapter, Single Safe No-Op Tool.\n"
+        "M32 is implemented/released by v0.36.0 as Safe Local Filesystem Metadata Tool.\n"
+        "M33 is implemented/released by v0.37.0 as First Safe Local File Read Proposal, Redacted Preview Only.\n"
+        "M34 is planning/docs/verifier only.\n"
+        "M35 is the first implementation after supersession.\n"
+        "M42 is mobile planning refresh. M44 is the first iOS skeleton.\n"
+        "M47 is the TestFlight-capable pipeline. M48 is the first internal TestFlight build.\n"
+        "M49-M50 are mobile approval capture and audit work.\n"
+        "M34-M60 remain planned/provisional.\n"
+        "Archive docs are not the active source of truth.\n"
+        "No integration is added. No dependency is added.\n"
+        f"{labels}\n"
+    )
+    boundary_text = (
+        body
+        + "arbitrary raw file browsing\n"
+        "arbitrary caller-selected filesystem roots\n"
+        "raw file export\n"
+        "full-file reads\n"
+        "arbitrary shell/subprocess\n"
+        "unrestricted network tools\n"
+        "provider/model calls as authority\n"
+        "background workers\n"
+        "mobile sensors\n"
+        "plugin enablement\n"
+        "production authority\n"
+        "unreviewed memory writes\n"
+        "automatic context injection\n"
+        "raw prompt/provider payload exposure\n"
+        "external SaaS/analytics SDKs\n"
+        "credentials/cookie handling\n"
+        "remote execution\n"
+        "browser automation execution\n"
+        "approval refs as authority\n"
+        "Media Color Pipeline is not core before M60 except for M54.\n"
+        "OCIO deterministic transform preview belongs after M60.\n"
+        "AI gamut expansion is much later and never truth recovery.\n"
+    )
+    for rel_path in {
+        "README.md",
+        "docs/canonical/09_roadmap.md",
+        "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+        "docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md",
+        *getattr(verifier, "REQUIRED_POST_M20_ROADMAP_DOCS", []),
+    }:
+        path = root / rel_path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(boundary_text, encoding="utf-8")
+    readme = root / "README.md"
+    readme.write_text(
+        readme.read_text(encoding="utf-8")
+        + "\ndocs/archive/releases/v0_37_4/README_IMPORT.md\n"
+        "docs/archive/releases/v0_37_4/master_plan.md\n"
+        "docs/DOCUMENTATION_INDEX.md\n"
+        "docs/canonical/CANONICAL_DOC_MAP.md\n",
+        encoding="utf-8",
+    )
+
+
 def _write_minimal_repo(root: Path, version: str = "0.14.6") -> None:
     version_key = version.replace(".", "_")
     files = {
@@ -300,6 +415,20 @@ def _write_minimal_repo(root: Path, version: str = "0.14.6") -> None:
         "M14 is Web Control Center Local Backend Connection Stabilization.\n"
         "M15 is Approval Queue + Receipt/Event Viewer UI.\n"
     )
+    version_tuple = tuple(int(part) for part in version.split("."))
+    if version_tuple >= (0, 37, 2):
+        launcher_placeholder = (
+            "local developer launcher localhost-only not a production installer "
+            "execution authority uaa stop .uaa/dev backend routes M34\n"
+        )
+        files.update(
+            {
+                "scripts/dev/README.md": launcher_placeholder,
+                "docs/release_notes/v0_37_2.md": launcher_placeholder,
+                "docs/archive/releases/v0_37_2/README_IMPORT.md": launcher_placeholder,
+                "docs/archive/releases/v0_37_2/master_plan.md": launcher_placeholder,
+            }
+        )
     for rel_path in [*verifier.REQUIRED_ACTIVE_DOCS, *verifier.ACTIVE_DOCS_TO_SCAN]:
         files.setdefault(rel_path, policy_placeholder)
     for rel_path in getattr(verifier, "REQUIRED_DESIGN_DOCS", []):
@@ -376,7 +505,6 @@ def _write_minimal_repo(root: Path, version: str = "0.14.6") -> None:
             "No dependency.\n"
             "M23 remains future.\n",
         )
-    version_tuple = tuple(int(part) for part in version.split("."))
     if version_tuple >= (0, 32, 0):
         post_m20_status = (
             "M21 is implemented/released by v0.25.0 as contract-only.\n"

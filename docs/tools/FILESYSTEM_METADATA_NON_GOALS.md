@@ -28,4 +28,4 @@ M32 intentionally does not implement:
 M33 is implemented/released as bounded redacted file preview proposal only.
 Raw file output, full-file reads, content hashes, directory listing, mutation,
 backend raw-file/execute routes, Control Center raw-preview/execute controls,
-and production authority remain non-goals. M34-M40 remain planned/provisional.
+and production authority remain non-goals. v0.37.4 supersedes the future roadmap and M34-M60 remain planned/provisional.

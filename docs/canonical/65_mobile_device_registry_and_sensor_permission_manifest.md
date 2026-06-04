@@ -120,11 +120,12 @@ v0.18.3 adds CCC Android terminology for future native client planning only. No 
 
 v0.18.4 originally linked future device registry and permission work to the
 post-M20 roadmap projection. v0.35.0 supersedes the old M31 native-client slot
-with M31 Real Tool Runtime Adapter, Single Safe No-Op Tool. Device registry and
-permission work remains future planned/provisional roadmap material; M35 is the
-first planned/provisional Device Capability Broker Implementation, No Sensors
-Yet milestone, and M37 is the first planned/provisional one-governed-sensor
-milestone.
+with M31 Real Tool Runtime Adapter, Single Safe No-Op Tool. v0.37.4 supersedes
+the older active device/sensor projection with the M34-M60 roadmap. Device
+registry, permission, sensor, and native mobile work remains future
+planned/provisional roadmap material; current mobile sequencing resumes with
+M42 planning, M44 first iOS skeleton, M47 TestFlight-capable pipeline, M48 first
+internal TestFlight build, and M49-M50 mobile review approval/audit work.
 
 This patch adds no registry runtime, OS permission integration, Android/iOS app, background service, notification channel, sensor access, signing, keystore, provisioning, App Store workflow, Play Store workflow, or native build workflow.
 ## M19 Update

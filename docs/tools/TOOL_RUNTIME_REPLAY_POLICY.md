@@ -14,4 +14,4 @@ production runtime authority.
 Replay-denied decisions keep `execution_performed=False` and
 `side_effects_performed=[]`.
 
-M34-M40 remain planned/provisional.
+v0.37.4 supersedes the future roadmap and M34-M60 remain planned/provisional.

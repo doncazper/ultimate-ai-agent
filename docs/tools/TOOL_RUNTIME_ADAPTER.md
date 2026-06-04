@@ -36,4 +36,4 @@ transitions, context packs, memory refs, model output, runtime output,
 OpenWebUI output, Control Center refs, and arbitrary strings are not authority
 for filesystem metadata access, redacted preview access, or arbitrary tools.
 
-M34-M40 remain planned/provisional.
+v0.37.4 supersedes the future roadmap and M34-M60 remain planned/provisional.

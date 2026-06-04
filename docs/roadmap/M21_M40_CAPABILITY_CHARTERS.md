@@ -1,8 +1,8 @@
 # M21-M40 Capability Charters
 
-Status: Active roadmap projection maintained through v0.37.3. M21 and M22 are implemented/released contract-only; M23 is implemented/released manual fixed-prompt local call only and hardened by v0.27.1; M24 is implemented/released as governed memory provider/local store, hardened by v0.28.1, and docs-cleaned by v0.28.2; M25 is implemented/released contract-only and hardened by v0.29.1 and v0.29.2; M26 is implemented/released as deterministic grounded recall/context-pack contracts and hardened by v0.30.1; M27 is implemented/released as validation-only Tool Broker v2 contracts; v0.31.1 is docs-only baseline normalization; M28 is implemented/released as Approval Authority v2 + Action Policy Expansion and hardened by v0.32.1; M29 is implemented/released as Agent Task Planning Engine; M30 is implemented/released as Multi-Step Execution Framework state-machine-only contracts and hardened by v0.34.1; M31 is implemented/released as Real Tool Runtime Adapter, Single Safe No-Op Tool and hardened by v0.35.1 for no-op runtime adapter safety; M32 is implemented/released as Safe Local Filesystem Metadata Tool and hardened by v0.36.1; M33 is implemented/released as First Safe Local File Read Proposal, Redacted Preview Only and hardened by v0.37.1; v0.37.2 adds local developer launcher tooling only; v0.37.3 repairs active M34 roadmap label alignment and documentation-integrity coverage only; M34-M40 remain planned/provisional.
+Status: Active compatibility roadmap projection maintained through v0.37.4. M21 and M22 are implemented/released contract-only; M23 is implemented/released manual fixed-prompt local call only and hardened by v0.27.1; M24 is implemented/released as governed memory provider/local store, hardened by v0.28.1, and docs-cleaned by v0.28.2; M25 is implemented/released contract-only and hardened by v0.29.1 and v0.29.2; M26 is implemented/released as deterministic grounded recall/context-pack contracts and hardened by v0.30.1; M27 is implemented/released as validation-only Tool Broker v2 contracts; v0.31.1 is docs-only baseline normalization; M28 is implemented/released as Approval Authority v2 + Action Policy Expansion and hardened by v0.32.1; M29 is implemented/released as Agent Task Planning Engine; M30 is implemented/released as Multi-Step Execution Framework state-machine-only contracts and hardened by v0.34.1; M31 is implemented/released as Real Tool Runtime Adapter, Single Safe No-Op Tool and hardened by v0.35.1 for no-op runtime adapter safety; M32 is implemented/released as Safe Local Filesystem Metadata Tool and hardened by v0.36.1; M33 is implemented/released as First Safe Local File Read Proposal, Redacted Preview Only and hardened by v0.37.1; v0.37.2 adds local developer launcher tooling only; v0.37.3 repairs active M34 roadmap label alignment; v0.37.4 supersedes the old active post-M33 projection and defines M34-M60 in `docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md`; M34-M60 remain planned/provisional.
 
-These charters define capability layers after M20. v0.25.0 implements M21 as contract/planning/validation only. v0.26.0 implements M22 as contract/planning/validation only, and v0.26.1 hardens M22 verifier precision plus metadata key secret hygiene only. v0.27.0 implements M23 as manual/CLI-only, loopback-only, fixed-prompt-only, non-tool, and non-authoritative. v0.27.1 hardens M23 local call safety without adding new runtime authority. v0.28.0 implements M24 as governed, reviewed-write-only local memory provider/store foundation, v0.28.1 repairs/hardens the M24 memory contract without adding new authority, and v0.28.2 removes a duplicate roadmap row only. v0.29.0 implements M25 as deterministic local truth/evidence contracts over provided refs only, v0.29.1 hardens unknown/arbitrary truth ref denial, and v0.29.2 hardens local-dev API authority/raw preview safety. v0.30.0 implements M26 as deterministic local grounded recall/context-pack contracts, v0.30.1 hardens source_ref/source_kind consistency, v0.31.0 implements M27 Tool Broker v2 + Safe Tool Intent Contracts as validation-only and preview-only contract logic, v0.31.1 normalizes the GitHub README polish commit into a clean docs-only baseline, v0.32.0 implements M28 Approval Authority v2 + Action Policy Expansion as policy-only contracts, v0.32.1 hardens evaluator revalidation for raw/secret action inputs, v0.33.0 implements M29 Agent Task Planning Engine as deterministic, local, non-executing, review-only planning contracts, v0.34.0 implements M30 Multi-Step Execution Framework as deterministic, local, side-effect-safe, state-machine-only contracts, v0.34.1 hardens M30 state transitions, replay protection, dependency gating, hidden side-effect denial, evaluator revalidation, and no-side-effect invariants, v0.35.0 implements M31 Real Tool Runtime Adapter, Single Safe No-Op Tool as a governed no-op-only runtime adapter, v0.35.1 hardens M31 no-op runtime adapter safety, v0.36.0 implements M32 Safe Local Filesystem Metadata Tool, v0.36.1 hardens M32 filesystem metadata path safety, v0.37.0 implements M33 First Safe Local File Read Proposal, Redacted Preview Only, v0.37.1 hardens M33 redacted file preview safety, v0.37.2 adds local developer launcher tooling only, and v0.37.3 repairs active M34 roadmap label alignment plus documentation-integrity coverage only. M34-M40 remain future capability layers. Every milestone requires its own implementation prompt, review prompt, hardening expectation, and validation evidence before release.
+These charters define capability layers after M20. v0.25.0 implements M21 as contract/planning/validation only. v0.26.0 implements M22 as contract/planning/validation only, and v0.26.1 hardens M22 verifier precision plus metadata key secret hygiene only. v0.27.0 implements M23 as manual/CLI-only, loopback-only, fixed-prompt-only, non-tool, and non-authoritative. v0.27.1 hardens M23 local call safety without adding new runtime authority. v0.28.0 implements M24 as governed, reviewed-write-only local memory provider/store foundation, v0.28.1 repairs/hardens the M24 memory contract without adding new authority, and v0.28.2 removes a duplicate roadmap row only. v0.29.0 implements M25 as deterministic local truth/evidence contracts over provided refs only, v0.29.1 hardens unknown/arbitrary truth ref denial, and v0.29.2 hardens local-dev API authority/raw preview safety. v0.30.0 implements M26 as deterministic local grounded recall/context-pack contracts, v0.30.1 hardens source_ref/source_kind consistency, v0.31.0 implements M27 Tool Broker v2 + Safe Tool Intent Contracts as validation-only and preview-only contract logic, v0.31.1 normalizes the GitHub README polish commit into a clean docs-only baseline, v0.32.0 implements M28 Approval Authority v2 + Action Policy Expansion as policy-only contracts, v0.32.1 hardens evaluator revalidation for raw/secret action inputs, v0.33.0 implements M29 Agent Task Planning Engine as deterministic, local, non-executing, review-only planning contracts, v0.34.0 implements M30 Multi-Step Execution Framework as deterministic, local, side-effect-safe, state-machine-only contracts, v0.34.1 hardens M30 state transitions, replay protection, dependency gating, hidden side-effect denial, evaluator revalidation, and no-side-effect invariants, v0.35.0 implements M31 Real Tool Runtime Adapter, Single Safe No-Op Tool as a governed no-op-only runtime adapter, v0.35.1 hardens M31 no-op runtime adapter safety, v0.36.0 implements M32 Safe Local Filesystem Metadata Tool, v0.36.1 hardens M32 filesystem metadata path safety, v0.37.0 implements M33 First Safe Local File Read Proposal, Redacted Preview Only, v0.37.1 hardens M33 redacted file preview safety, v0.37.2 adds local developer launcher tooling only, v0.37.3 repairs active M34 roadmap label alignment, and v0.37.4 supersedes the active post-M33 projection through M60. M34-M60 remain future capability layers. Every milestone requires its own implementation prompt, review prompt, hardening expectation, and validation evidence before release.
 
 ## Shared Rules
 
@@ -807,6 +807,27 @@ Source-of-truth docs: `docs/release_notes/v0_37_3.md`,
 `docs/archive/releases/v0_37_3/README_IMPORT.md`,
 `docs/archive/releases/v0_37_3/master_plan.md`.
 
+### v0.37.4 / Roadmap Supersession Through M60 + Documentation Integrity Guard
+
+Status: implemented/released docs/verifier-only.
+
+Purpose: Supersede the old active post-M33 projection and define the active
+M34-M60 sequence without starting M34 implementation.
+
+Acceptance criteria: active roadmap/current docs consistently use the M34-M60
+sequence from `docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md`; M34 is
+planning/docs/verifier only; M35 is the first implementation after
+supersession; M42 resumes mobile planning; M44 is the first iOS skeleton; M47
+is the TestFlight-capable pipeline; M48 is the first internal TestFlight build;
+M49-M50 are mobile review approval capture and audit work; no M34
+implementation, route, dependency, runtime behavior, mobile/TestFlight
+implementation, or production authority is added.
+
+Source-of-truth docs: `docs/release_notes/v0_37_4.md`,
+`docs/archive/releases/v0_37_4/README_IMPORT.md`,
+`docs/archive/releases/v0_37_4/master_plan.md`,
+`docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md`.
+
 ## v0.38.0 / M34 - Broader File Capability Review
 
 Status: planned/provisional.
@@ -836,7 +857,7 @@ Dependencies: M33 redacted file preview proposal and active file/tool authority
 boundaries.
 
 Acceptance criteria: M34 remains planned/provisional until a dedicated reviewed
-implementation prompt; no M34 implementation is included in v0.37.3.
+implementation prompt; no M34 implementation is included in v0.37.4.
 
 Review prompt required: yes.
 
@@ -850,202 +871,182 @@ Source-of-truth docs: `docs/canonical/09_roadmap.md`,
 
 Notes: macOS companion is not a runtime execution path.
 
-## v0.39.0 / M35 - Device Capability Broker Implementation, No Sensors Yet
+## v0.39.0 / M35 - Safe File Review Workflow Contracts
 
 Status: planned/provisional.
 
-Purpose: Implement Device Capability Broker governance without sensor providers.
+Purpose: Add the first implementation after the v0.37.4 supersession: safe file
+review workflow contracts that preserve redacted-only review and no-authority
+approval boundaries.
 
 Allowed scope:
 
-- capability manifests.
-- permission lifecycle.
-- risk classification.
-- receipt logging.
-- revocation.
-- no-op/mock providers.
+- review packet contracts over redacted previews.
+- redaction verification contracts.
+- exact review packet binding plans.
+- no-authority decision and receipt plans.
 
 Must not add:
 
-- camera/mic/GPS access.
-- background mobile services.
-- real OS permission integration.
-
-Dependencies: future reviewed companion planning and trust-boundary contracts.
-
-Acceptance criteria: Device Capability Broker Implementation, No Sensors Yet creates no-op/mock governance for device capabilities without real sensors or OS permissions.
+- raw file output or storage.
+- full-file reads.
+- context injection.
+- memory writes.
+- export.
+- execution.
+- backend raw-file/review-approval/execute routes.
 
 Review prompt required: yes.
 
-Hardening expectation: broker authorization, revocation, and receipt hardening before selected capture.
+Hardening expectation: mandatory M35 hardening for exact packet binding,
+redaction verification, approval_ref denial, and evaluator revalidation.
 
-Source-of-truth docs: `docs/canonical/64_mobile_companion_and_device_capability_broker.md`, `docs/canonical/65_mobile_device_registry_and_sensor_permission_manifest.md`.
+Source-of-truth docs: `docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md`.
 
-Notes: M35 is the first Device Capability Broker implementation milestone, but still no sensors.
-
-## v0.40.0 / M36 - Mobile Capture Inbox, Selected Input Only
+## v0.40.0 / M36 - CCC File Review Surface, Review-Only
 
 Status: planned/provisional.
 
-Purpose: Allow user-selected capture input into an inbox for review.
+Purpose: Add a read-only/review-only CCC file review surface after M35
+contracts exist.
 
 Allowed scope:
 
-- selected text/image/file import contract.
-- user-reviewed capture.
-- no automatic memory write.
+- redacted review packet display.
+- review-only status and receipt summaries.
+- local browser smoke review.
 
 Must not add:
 
-- background scanning.
-- contacts/calendar/photos bulk access.
-- camera stream.
-- mic stream.
-- location tracking.
-
-Dependencies: M35 Device Capability Broker implementation and capture policy.
-
-Acceptance criteria: selected capture is user-initiated, inboxed for review, and cannot automatically write memory or scan device data.
+- raw-preview controls.
+- execute controls.
+- approval mutation authority.
+- context injection.
+- memory writes.
+- backend route drift.
 
 Review prompt required: yes.
 
-Hardening expectation: capture provenance, redaction, and deletion hardening before one governed sensor.
+Hardening expectation: mandatory M36 hardening for browser-smoke reviewability,
+redacted display, and no execute/raw-preview controls.
 
-Source-of-truth docs: `docs/canonical/64_mobile_companion_and_device_capability_broker.md`, `docs/canonical/65_mobile_device_registry_and_sensor_permission_manifest.md`.
+Source-of-truth docs: `docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md`.
 
-Notes: Selected capture is not background sensor access.
-
-## v0.41.0 / M37 - One Governed Sensor Capability
+## v0.41.0 / M37 - Review Approval Capture, Review-Only Persistence
 
 Status: planned/provisional.
 
-Purpose: Add exactly one governed sensor capability after the Device Capability Broker is ready.
+Purpose: Capture review approvals with audit-only persistence while preserving
+review-only and non-authoritative boundaries.
 
 Allowed scope:
 
-- exactly one capability: camera document scan, or push-to-talk voice clip.
-- Device Capability Broker enforcement.
-- explicit user gesture.
-- no automatic memory write.
+- review approval capture contracts.
+- review-only persistence/audit metadata.
+- exact packet binding and revocation/replay plans.
 
 Must not add:
 
-- both camera and mic at once.
-- always-on mic.
-- background location.
-- silent photos.
-- automatic memory write.
-- external send.
-
-Dependencies: M36 selected capture inbox and Device Capability Broker hardening.
-
-Acceptance criteria: exactly one sensor capability is governed by explicit user gesture, broker policy, receipts, and no automatic memory write.
+- raw access authority.
+- context injection authority.
+- memory write authority.
+- export or execution authority.
 
 Review prompt required: yes.
 
-Hardening expectation: sensor permission, redaction, and receipt hardening before browser automation contracts.
+Hardening expectation: extra-hard review and mandatory hardening for approval
+binding, replay, revocation, and no-authority guarantees.
 
-Source-of-truth docs: `docs/canonical/65_mobile_device_registry_and_sensor_permission_manifest.md`, `docs/testing/test_strategy_v0.md`.
+Source-of-truth docs: `docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md`.
 
-Notes: Sensor output is not trusted control input by default.
-
-## v0.42.0 / M38 - Browser Automation Contract, No Execution
+## v0.42.0 / M38 - Safe Context Proposal From Approved Review
 
 Status: planned/provisional.
 
-Purpose: Define browser automation contracts without executing browser actions.
+Purpose: Create safe context proposal contracts from approved review packets
+without automatic context injection.
 
 Allowed scope:
 
-- browser action envelope.
-- browser-use/stagehand/skyvern watchlist.
-- policy docs.
-- dry-run plan.
+- context proposal contracts.
+- redacted summary and source-ref plans.
+- proposal decision envelopes.
 
 Must not add:
 
-- Playwright execution.
-- browser profile access.
-- logged-in session use.
-- real web actions.
-- Computer Use.
-
-Dependencies: M37 sensor hardening, approval/sandbox contracts, browser tooling policy.
-
-Acceptance criteria: Browser Automation Contract, No Execution defines dry-run browser action envelopes without real browser automation or profile access.
+- automatic context injection.
+- prompt/provider payload exposure.
+- model authority.
+- memory writes.
+- execution.
 
 Review prompt required: yes.
 
-Hardening expectation: browser policy and profile-isolation hardening before any browser-only automation.
+Hardening expectation: extra-hard review and mandatory hardening for proposal
+authority boundaries and no-injection guarantees.
 
-Source-of-truth docs: `docs/tooling/CODEX_PLUGIN_RISK_POLICY.md`, `docs/roadmap/ECOSYSTEM_WATCHLIST.md`.
+Source-of-truth docs: `docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md`.
 
-Notes: M38 is no-execution.
-
-## v0.43.0 / M39 - Observability Export Adapters
+## v0.43.0 / M39 - CCC Context Proposal Surface
 
 Status: planned/provisional.
 
-Purpose: Define observability export adapters before higher autonomy.
+Purpose: Add a review-only CCC surface for context proposals after M38
+contracts exist.
 
 Allowed scope:
 
-- Langfuse/Phoenix/Opik planned adapters.
-- OpenTelemetry export contract.
-- local export files.
-- redaction and opt-in policies.
+- proposal summary display.
+- source-ref and receipt summary display.
+- browser smoke review.
 
 Must not add:
 
-- cloud export by default.
-- sensitive prompt export.
-- secret export.
-- production telemetry without opt-in.
-
-Dependencies: M38 browser contract and Event Ledger/redaction policy.
-
-Acceptance criteria: Observability Export Adapters are opt-in, redacted, local-first, and cannot export secrets or sensitive prompts by default.
+- prompt injection controls.
+- model/provider calls.
+- memory writes.
+- execute controls.
 
 Review prompt required: yes.
 
-Hardening expectation: telemetry redaction and opt-in hardening before eval/regression harnesses.
+Hardening expectation: mandatory M39 hardening for browser-smoke reviewability
+and no-injection UI boundaries.
 
-Source-of-truth docs: `docs/roadmap/STANDARDS_ALIGNMENT_WATCHLIST.md`, `docs/roadmap/ECOSYSTEM_WATCHLIST.md`.
+Source-of-truth docs: `docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md`.
 
-Notes: Observability is evidence support, not authority.
-
-## v0.44.0 / M40 - Agent Evaluation + Regression Harness
+## v0.44.0 / M40 - Context Handoff Approval, No Injection
 
 Status: planned/provisional.
 
-Purpose: Add agent eval and regression harnesses before broader autonomy claims.
+Purpose: Add an approval boundary for context handoff decisions without
+automatic context injection.
 
 Allowed scope:
 
-- agent regression suites.
-- promptfoo-style evals.
-- security evals.
-- parity evals.
-- memory evals.
-- tool-injection evals.
+- handoff approval contracts.
+- exact proposal binding.
+- no-injection decision envelopes.
 
 Must not add:
 
-- autonomous execution.
-- red-team actions against real systems.
-- external API calls without opt-in.
-
-Dependencies: M39 observability export adapters and security test strategy.
-
-Acceptance criteria: Agent Evaluation + Regression Harness covers regressions, security, memory, and tool-injection scenarios without autonomous actions or external API calls by default.
+- automatic context injection.
+- provider/model authority.
+- execution.
+- unreviewed memory writes.
 
 Review prompt required: yes.
 
-Hardening expectation: eval data hygiene, determinism, and false-authority hardening before any autonomy expansion.
+Hardening expectation: extra-hard review and mandatory hardening for proposal
+binding, approval refs, and no-injection guarantees.
 
-Source-of-truth docs: `docs/testing/test_strategy_v0.md`, `docs/roadmap/CAPABILITY_LAYERING_STRATEGY.md`.
+Source-of-truth docs: `docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md`.
 
-Notes: Evals are not proof of production safety by themselves; they are gates and evidence.
+## M41-M60 Active Supersession Pointer
+
+M41-M60 are planned/provisional in
+`docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md`. This compatibility document
+keeps the M21-M40 filename for existing verifier and documentation links, but
+the active post-M33 sequence through M60 is defined by the supersession page.
 ## M19 Baseline Note
 
 v0.23.0 / M19 is implemented as Mobile Companion Contract/API Planning only.
@@ -1054,7 +1055,7 @@ planning and validation. M21 is implemented/released by v0.25.0 as
 contract-only. M22 is implemented/released by v0.26.0 as contract-only and hardened by v0.26.1.
 M23 is implemented/released by v0.27.0 as manual fixed-prompt local call only.
 M24 is implemented/released by v0.28.0 as governed local memory provider/store foundation, hardened by v0.28.1, and docs-cleaned by v0.28.2.
-M25 is implemented/released by v0.29.0 as deterministic local truth/evidence contracts. M26 is implemented/released by v0.30.0 as deterministic local grounded recall/context-pack contracts and hardened by v0.30.1. M27 is implemented/released by v0.31.0 as validation-only Tool Broker v2 contracts. v0.31.1 is docs-only README polish baseline normalization. M28 is implemented/released by v0.32.0 as Approval Authority v2 + Action Policy Expansion. M29 is implemented/released by v0.33.0 as Agent Task Planning Engine and hardened by v0.33.1 for dependency graph, derived risk, hidden side-effect, authority-boundary, evaluator revalidation, and no-execution coverage. M30 is implemented/released by v0.34.0 as Multi-Step Execution Framework state-machine-only contracts and hardened by v0.34.1. M31 is implemented/released by v0.35.0 as Real Tool Runtime Adapter, Single Safe No-Op Tool. M32 is implemented/released by v0.36.0 and hardened by v0.36.1. M33 is implemented/released by v0.37.0 as First Safe Local File Read Proposal, Redacted Preview Only and hardened by v0.37.1 for redacted preview safety. M34-M40 remain planned/provisional. The M19 baseline
+M25 is implemented/released by v0.29.0 as deterministic local truth/evidence contracts. M26 is implemented/released by v0.30.0 as deterministic local grounded recall/context-pack contracts and hardened by v0.30.1. M27 is implemented/released by v0.31.0 as validation-only Tool Broker v2 contracts. v0.31.1 is docs-only README polish baseline normalization. M28 is implemented/released by v0.32.0 as Approval Authority v2 + Action Policy Expansion. M29 is implemented/released by v0.33.0 as Agent Task Planning Engine and hardened by v0.33.1 for dependency graph, derived risk, hidden side-effect, authority-boundary, evaluator revalidation, and no-execution coverage. M30 is implemented/released by v0.34.0 as Multi-Step Execution Framework state-machine-only contracts and hardened by v0.34.1. M31 is implemented/released by v0.35.0 as Real Tool Runtime Adapter, Single Safe No-Op Tool. M32 is implemented/released by v0.36.0 and hardened by v0.36.1. M33 is implemented/released by v0.37.0 as First Safe Local File Read Proposal, Redacted Preview Only and hardened by v0.37.1 for redacted preview safety. M34-M60 remain planned/provisional. The M19 baseline
 adds no mobile app, Android app, iOS app, macOS app, native build workflow, OS
 permission integration, mobile sensor access, mobile approval execution,
 runtime execution, model/provider calls, remote execution, plugin enablement,
@@ -1068,5 +1069,5 @@ only. v0.25.0 implements M21 OpenWebUI Bridge + Chat Shell Integration
 Contract only. M22 Local Model Runtime Activation Contract is implemented by
 v0.26.0 as contract/planning/validation only and hardened by v0.26.1. M23 is
 implemented/released by v0.27.0 as manual fixed-prompt local call only. M24 is
-implemented/released by v0.28.0 as governed local memory provider/store foundation, hardened by v0.28.1, and docs-cleaned by v0.28.2. M25 is implemented/released by v0.29.0 as deterministic local truth/evidence contracts. M26 is implemented/released by v0.30.0 as deterministic local grounded recall/context-pack contracts and hardened by v0.30.1. M27 is implemented/released by v0.31.0 as validation-only Tool Broker v2 contracts. M28 is implemented/released by v0.32.0 as Approval Authority v2 + Action Policy Expansion. M29 is implemented/released by v0.33.0 as Agent Task Planning Engine and hardened by v0.33.1. M30 is implemented/released by v0.34.0 as Multi-Step Execution Framework and hardened by v0.34.1. M31 is implemented/released by v0.35.0 as Real Tool Runtime Adapter, Single Safe No-Op Tool. M32 is implemented/released by v0.36.0 and hardened by v0.36.1. M33 is implemented/released by v0.37.0 as First Safe Local File Read Proposal, Redacted Preview Only and hardened by v0.37.1 for redacted preview safety. M34-M40
+implemented/released by v0.28.0 as governed local memory provider/store foundation, hardened by v0.28.1, and docs-cleaned by v0.28.2. M25 is implemented/released by v0.29.0 as deterministic local truth/evidence contracts. M26 is implemented/released by v0.30.0 as deterministic local grounded recall/context-pack contracts and hardened by v0.30.1. M27 is implemented/released by v0.31.0 as validation-only Tool Broker v2 contracts. M28 is implemented/released by v0.32.0 as Approval Authority v2 + Action Policy Expansion. M29 is implemented/released by v0.33.0 as Agent Task Planning Engine and hardened by v0.33.1. M30 is implemented/released by v0.34.0 as Multi-Step Execution Framework and hardened by v0.34.1. M31 is implemented/released by v0.35.0 as Real Tool Runtime Adapter, Single Safe No-Op Tool. M32 is implemented/released by v0.36.0 and hardened by v0.36.1. M33 is implemented/released by v0.37.0 as First Safe Local File Read Proposal, Redacted Preview Only and hardened by v0.37.1 for redacted preview safety. M34-M60
 remain planned/provisional until implemented by dedicated reviewed milestones.

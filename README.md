@@ -12,20 +12,20 @@ allowed to become operational authority.
 
 | Field | Current state |
 |---|---|
-| Current active baseline | **v0.37.3** |
+| Current active baseline | **v0.37.4** |
 | Current milestone | **M33 - First Safe Local File Read Proposal, Redacted Preview Only** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **74** OpenAPI paths |
 | Production readiness | Not claimed |
 
-v0.37.3 is a docs/verifier-only repair after the v0.37.2 developer-only local
-developer launcher baseline. It aligns the planned v0.38.0 / M34 label across
-active roadmap sources as **Broader File Capability Review** and strengthens
-documentation-integrity checks for next-milestone label consistency. It adds no
-M34 implementation, backend routes, frontend features, raw file reads, context
-injection, memory writes, execution, dependency changes, or production
-authority. M34-M40 remain planned/provisional.
+v0.37.4 is a roadmap/docs/verifier-only supersession patch. It defines the
+active M34-M60 sequence, keeps v0.38.0 / M34 as **Broader File Capability
+Review**, and marks M34 as planning/docs/verifier only. It adds no M34
+implementation, backend routes, frontend features, raw file reads, file review
+workflow, approval capture, context proposal, context injection, memory writes,
+execution, dependency changes, mobile/TestFlight implementation, or production
+authority. M34-M60 remain planned/provisional.
 
 v0.29.5 is documentation policy polish. It remains the documentation
 organization cleanup baseline before the M26 and M27 implementation releases.
@@ -36,6 +36,7 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [Documentation index](docs/DOCUMENTATION_INDEX.md)
 - [Canonical document map](docs/canonical/CANONICAL_DOC_MAP.md)
 - [Current roadmap](docs/canonical/09_roadmap.md)
+- [M34-M60 roadmap supersession](docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md)
 - [API route inventory](docs/api/route_inventory.md)
 - [Documentation organization policy](docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md)
 - [Control Center frontend safety policy](docs/control_center/FRONTEND_SAFETY_POLICY.md)
@@ -52,9 +53,9 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M28 Action Policy](docs/approvals/ACTION_POLICY.md)
 - [M27 Tool Broker v2](docs/tools/TOOL_BROKER_V2.md)
 - [M26 Grounded Recall Router](docs/recall/GROUNDED_RECALL_ROUTER.md)
-- [v0.37.3 release notes](docs/release_notes/v0_37_3.md)
-- [v0.37.3 release packet](docs/archive/releases/v0_37_3/README_IMPORT.md)
-- [v0.37.3 master plan](docs/archive/releases/v0_37_3/master_plan.md)
+- [v0.37.4 release notes](docs/release_notes/v0_37_4.md)
+- [v0.37.4 release packet](docs/archive/releases/v0_37_4/README_IMPORT.md)
+- [v0.37.4 master plan](docs/archive/releases/v0_37_4/master_plan.md)
 
 ## What This Project Is
 
@@ -275,7 +276,9 @@ Read more:
 ## Roadmap Snapshot
 
 The canonical roadmap source of truth is
-[docs/canonical/09_roadmap.md](docs/canonical/09_roadmap.md).
+[docs/canonical/09_roadmap.md](docs/canonical/09_roadmap.md). The active
+post-M33 supersession is
+[docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md](docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md).
 
 | Version | Milestone | Status |
 |---|---|---|
@@ -296,7 +299,34 @@ The canonical roadmap source of truth is
 | v0.37.1 | M33 hardening - Redacted File Preview Safety | Implemented/released |
 | v0.37.2 | Local Developer Launcher + Desktop Shortcut | Implemented/released tooling-only |
 | v0.37.3 | Roadmap Label Alignment + Documentation Integrity Guard | Implemented/released docs/verifier-only |
+| v0.37.4 | Roadmap Supersession Through M60 + Documentation Integrity Guard | Implemented/released docs/verifier-only |
 | v0.38.0 | M34 - Broader File Capability Review | Planned/provisional |
+| v0.39.0 | M35 - Safe File Review Workflow Contracts | Planned/provisional |
+| v0.40.0 | M36 - CCC File Review Surface, Review-Only | Planned/provisional |
+| v0.41.0 | M37 - Review Approval Capture, Review-Only Persistence | Planned/provisional |
+| v0.42.0 | M38 - Safe Context Proposal From Approved Review | Planned/provisional |
+| v0.43.0 | M39 - CCC Context Proposal Surface | Planned/provisional |
+| v0.44.0 | M40 - Context Handoff Approval, No Injection | Planned/provisional |
+| v0.45.0 | M41 - Local Prototype Safety Freeze | Planned/provisional |
+| v0.46.0 | M42 - Mobile Companion Product Contract Refresh | Planned/provisional |
+| v0.47.0 | M43 - Mobile API Boundary, Read-Only | Planned/provisional |
+| v0.48.0 | M44 - CCC iOS Skeleton, No Authority | Planned/provisional |
+| v0.49.0 | M45 - CCC iOS Local Read-Only Connection | Planned/provisional |
+| v0.50.0 | M46 - iOS Review/Receipt Read-Only Surfaces | Planned/provisional |
+| v0.51.0 | M47 - TestFlight Pipeline, Internal Only | Planned/provisional |
+| v0.52.0 | M48 - First Internal TestFlight Build | Planned/provisional |
+| v0.53.0 | M49 - Mobile Review Approval Capture | Planned/provisional |
+| v0.54.0 | M50 - Mobile Approval Audit Hardening | Planned/provisional |
+| v0.55.0 | M51 - OpenWebUI Bridge Adapter Pilot | Planned/provisional |
+| v0.56.0 | M52 - OpenWebUI Safe Conversation Surface | Planned/provisional |
+| v0.57.0 | M53 - Controlled Tool Expansion Review | Planned/provisional |
+| v0.58.0 | M54 - Safe Media Metadata Inspector | Planned/provisional |
+| v0.59.0 | M55 - Redacted Observability Export | Planned/provisional |
+| v0.60.0 | M56 - Agent Eval Regression Harness | Planned/provisional |
+| v0.61.0 | M57 - Runtime Sandbox Architecture Review | Planned/provisional |
+| v0.62.0 | M58 - Dry-Run Execution Audit Harness | Planned/provisional |
+| v0.63.0 | M59 - Public GitHub Readiness | Planned/provisional |
+| v0.64.0 | M60 - Local Developer Beta Freeze | Planned/provisional |
 
 The roadmap intentionally separates contract planning, validation, preview,
 manual local execution, and future operational authority.

@@ -24,4 +24,4 @@ action execution or filesystem mutation happened.
 
 M33 redacted preview receipt plans are non-authoritative and store no raw file
 content, no raw prompt, no raw model output, no raw transcript, no secret-like
-values, and no raw absolute paths. M34-M40 remain planned/provisional.
+values, and no raw absolute paths. v0.37.4 supersedes the future roadmap and M34-M60 remain planned/provisional.

@@ -38,4 +38,4 @@ M33 adds only bounded redacted file preview proposals. Raw file output,
 full-file reads, content hashes, directory listing, symlink following, file
 mutation, context injection, arbitrary filesystem tools, backend raw-file or
 execute routes, and Control Center raw-preview/execute controls remain
-non-goals. M34-M40 remain planned/provisional.
+non-goals. v0.37.4 supersedes the future roadmap and M34-M60 remain planned/provisional.
