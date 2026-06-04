@@ -2710,6 +2710,7 @@ def verify_m30_multi_step_execution_framework_safety():
     safe_step = ExecutionStep(
         step_id="execution-step:verify-m30",
         safe_summary="Advance a no-effect execution step for review.",
+        status=ExecutionStepStatus.ready,
         input_boundary=ExecutionStepInputBoundary(input_refs=["canonical:verify-m30"]),
     )
     safe_run = ExecutionRun(
@@ -2721,6 +2722,7 @@ def verify_m30_multi_step_execution_framework_safety():
     safe_request = ExecutionTransitionRequest(
         run_id=safe_run.run_id,
         target_step_id=safe_step.step_id,
+        transition_id="execution-transition:verify-m30",
         transition_kind=ExecutionTransitionKind.complete_no_effect_step,
         replay_key="replay:verify-m30",
         safe_summary="Complete no-effect step.",
@@ -2793,8 +2795,21 @@ def verify_m30_multi_step_execution_framework_safety():
     )
     require_denial(
         evaluate_execution_transition(
+            safe_run.model_copy(update={"transition_ids_seen": ["execution-transition:verify-m30"]}),
+            safe_request,
+        ),
+        "EXECUTION_TRANSITION_REPLAY_DENIED",
+        "transition id reuse",
+    )
+    require_denial(
+        evaluate_execution_transition(
             safe_run.model_copy(update={"approval_ref": "approval_test_verify_m30"}),
-            safe_request.model_copy(update={"replay_key": "replay:approval-m30"}),
+            safe_request.model_copy(
+                update={
+                    "replay_key": "replay:approval-m30",
+                    "transition_id": "execution-transition:approval-m30",
+                }
+            ),
         ),
         "APPROVAL_TEST_REF_DENIED",
         "approval_test ref",
@@ -2845,10 +2860,64 @@ def verify_m30_multi_step_execution_framework_safety():
     )
     dependent_step = safe_step.model_copy(update={"depends_on": [completed_dependency.step_id]})
     dependent_run = safe_run.model_copy(update={"steps": [completed_dependency, dependent_step]})
-    dependent_decision = evaluate_execution_transition(dependent_run, safe_request)
+    dependent_decision = evaluate_execution_transition(
+        dependent_run,
+        safe_request.model_copy(
+            update={
+                "target_step_id": dependent_step.step_id,
+                "replay_key": "replay:verify-m30-dependent",
+                "transition_id": "execution-transition:verify-m30-dependent",
+            }
+        ),
+    )
     if dependent_decision.status != ExecutionTransitionStatus.approved_no_effect_transition:
         print("FAIL: M30 completed dependency did not allow no-effect progression")
         sys.exit(1)
+
+    final_run = safe_run.model_copy(
+        update={"steps": [safe_step.model_copy(update={"status": ExecutionStepStatus.completed_no_effect})]}
+    )
+    final_request = safe_request.model_copy(
+        update={
+            "target_step_id": None,
+            "replay_key": "replay:verify-m30-finalize",
+            "transition_id": "execution-transition:verify-m30-finalize",
+            "transition_kind": ExecutionTransitionKind.finalize_no_effect_run,
+        }
+    )
+    final_decision = evaluate_execution_transition(final_run, final_request)
+    if final_decision.status != ExecutionTransitionStatus.approved_no_effect_transition:
+        print("FAIL: M30 completed run did not finalize without side effects")
+        sys.exit(1)
+    require_denial(
+        evaluate_execution_transition(
+            safe_run,
+            safe_request.model_copy(
+                update={
+                    "target_step_id": None,
+                    "replay_key": "replay:verify-m30-finalize-blocked",
+                    "transition_id": "execution-transition:verify-m30-finalize-blocked",
+                    "transition_kind": ExecutionTransitionKind.finalize_no_effect_run,
+                }
+            ),
+        ),
+        "EXECUTION_RUN_FINALIZE_INCOMPLETE_DENIED",
+        "finalize incomplete run",
+    )
+    require_denial(
+        evaluate_execution_transition(
+            safe_run,
+            safe_request.model_copy(
+                update={
+                    "side_effect_execution_enabled": True,
+                    "replay_key": "replay:verify-m30-side-effect",
+                    "transition_id": "execution-transition:verify-m30-side-effect",
+                }
+            ),
+        ),
+        "SIDE_EFFECT_EXECUTION_DENIED",
+        "side-effect execution flag",
+    )
 
     print("OK: M30 Multi-Step Execution Framework remains state-machine-only, route-free, and non-executing")
 

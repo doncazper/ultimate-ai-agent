@@ -13,6 +13,9 @@ Rules:
 - a dependent step cannot advance until all dependency steps are
   `completed_no_effect`.
 - ready-step ordering is deterministic by step ID after dependency filtering.
+- out-of-order completion is denied when a step is not `ready`.
+- optional dependency metadata cannot hide required dependencies or authority
+  dependencies.
 
 Dependency validation authorizes no execution. It only determines whether a
 no-effect state transition may be represented as safe state-machine progress.

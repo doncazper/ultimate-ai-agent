@@ -6,6 +6,7 @@ from ultimate_ai_agent.core.execution import (
     ExecutionStep,
     ExecutionStepInputBoundary,
     ExecutionStepMode,
+    ExecutionStepStatus,
     ExecutionTransitionKind,
     ExecutionTransitionRequest,
     evaluate_execution_transition,
@@ -21,6 +22,7 @@ def test_receipt_plan_is_non_authoritative_and_summary_only():
                 step_id="execution-step:m30-receipt",
                 safe_summary="Validate receipt only.",
                 mode=ExecutionStepMode.no_effect,
+                status=ExecutionStepStatus.ready,
                 input_boundary=ExecutionStepInputBoundary(input_refs=["canonical:m30"]),
             )
         ],
@@ -29,6 +31,7 @@ def test_receipt_plan_is_non_authoritative_and_summary_only():
     request = ExecutionTransitionRequest(
         run_id="execution-run:m30-receipt",
         target_step_id="execution-step:m30-receipt",
+        transition_id="execution-transition:m30-receipt",
         transition_kind=ExecutionTransitionKind.complete_no_effect_step,
         replay_key="replay:m30-receipt",
         safe_summary="Complete receipt step.",

@@ -18,6 +18,7 @@ def _step(step_id: str = "execution-step:m30-a", **overrides) -> ExecutionStep:
         "step_id": step_id,
         "safe_summary": "Validate safe metadata only.",
         "mode": ExecutionStepMode.no_effect,
+        "status": ExecutionStepStatus.ready,
         "input_boundary": ExecutionStepInputBoundary(input_refs=["canonical:m30"]),
     }
     data.update(overrides)
@@ -43,6 +44,7 @@ def _request(
     data = {
         "run_id": "execution-run:m30-safe",
         "target_step_id": target_step_id,
+        "transition_id": f"execution-transition:{replay_key.split(':', 1)[-1]}",
         "transition_kind": ExecutionTransitionKind.complete_no_effect_step,
         "replay_key": replay_key,
         "safe_summary": "Complete a no-effect validation step.",
@@ -83,7 +85,7 @@ def test_safe_no_effect_step_can_advance_without_execution():
 
 def test_dependencies_must_be_completed_before_step_advances():
     first = _step("execution-step:m30-a")
-    second = _step("execution-step:m30-b", depends_on=["execution-step:m30-a"])
+    second = _step("execution-step:m30-b", status=ExecutionStepStatus.pending, depends_on=["execution-step:m30-a"])
     decision = evaluate_execution_transition(_run(first, second), _request(target_step_id="execution-step:m30-b"))
 
     assert decision.status == ExecutionTransitionStatus.denied
@@ -112,3 +114,56 @@ def test_replay_key_reuse_is_denied():
     assert decision.status == ExecutionTransitionStatus.denied
     assert decision.execution_performed is False
     assert "EXECUTION_REPLAY_DENIED" in decision.reason_codes
+
+
+def test_transition_id_reuse_is_denied():
+    run = _run(transition_ids_seen=["execution-transition:m30-a"])
+
+    decision = evaluate_execution_transition(run, _request())
+
+    assert decision.status == ExecutionTransitionStatus.denied
+    assert decision.execution_performed is False
+    assert "EXECUTION_TRANSITION_REPLAY_DENIED" in decision.reason_codes
+
+
+def test_complete_requires_ready_step_status():
+    pending_step = _step(status=ExecutionStepStatus.pending)
+
+    decision = evaluate_execution_transition(_run(pending_step), _request())
+
+    assert decision.status == ExecutionTransitionStatus.denied
+    assert decision.execution_performed is False
+    assert "EXECUTION_STEP_NOT_READY_DENIED" in decision.reason_codes
+
+
+def test_run_cannot_finalize_until_all_steps_complete():
+    decision = evaluate_execution_transition(
+        _run(),
+        _request(
+            target_step_id=None,
+            replay_key="replay:m30-finalize-blocked",
+            transition_id="execution-transition:m30-finalize-blocked",
+            transition_kind=ExecutionTransitionKind.finalize_no_effect_run,
+        ),
+    )
+
+    assert decision.status == ExecutionTransitionStatus.denied
+    assert decision.execution_performed is False
+    assert "EXECUTION_RUN_FINALIZE_INCOMPLETE_DENIED" in decision.reason_codes
+
+
+def test_run_can_finalize_after_all_steps_complete_without_execution():
+    decision = evaluate_execution_transition(
+        _run(_step(status=ExecutionStepStatus.completed_no_effect)),
+        _request(
+            target_step_id=None,
+            replay_key="replay:m30-finalize",
+            transition_id="execution-transition:m30-finalize",
+            transition_kind=ExecutionTransitionKind.finalize_no_effect_run,
+        ),
+    )
+
+    assert decision.status == ExecutionTransitionStatus.approved_no_effect_transition
+    assert decision.run_status == ExecutionRunStatus.completed_no_effect
+    assert decision.execution_performed is False
+    assert "EXECUTION_RUN_FINALIZED_NO_EFFECT" in decision.reason_codes

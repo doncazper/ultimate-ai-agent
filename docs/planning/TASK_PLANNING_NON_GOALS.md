@@ -1,6 +1,6 @@
 # Task Planning Non-Goals
 
-Status: active M29 contract. Current active baseline: **v0.34.0**.
+Status: active M29 contract. Current active baseline: **v0.34.1**.
 
 M29 does not add:
 

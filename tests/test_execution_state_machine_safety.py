@@ -6,6 +6,7 @@ from ultimate_ai_agent.core.execution import (
     ExecutionStep,
     ExecutionStepInputBoundary,
     ExecutionStepMode,
+    ExecutionStepStatus,
     ExecutionTransitionKind,
     ExecutionTransitionRequest,
     ExecutionTransitionStatus,
@@ -18,6 +19,7 @@ def _step(**overrides) -> ExecutionStep:
         "step_id": "execution-step:m30-safety",
         "safe_summary": "Validate safe metadata only.",
         "mode": ExecutionStepMode.no_effect,
+        "status": ExecutionStepStatus.ready,
         "input_boundary": ExecutionStepInputBoundary(input_refs=["canonical:m30"]),
     }
     data.update(overrides)
@@ -37,6 +39,7 @@ def _request(**overrides) -> ExecutionTransitionRequest:
     data = {
         "run_id": "execution-run:m30-safety",
         "target_step_id": "execution-step:m30-safety",
+        "transition_id": "execution-transition:m30-safety",
         "transition_kind": ExecutionTransitionKind.complete_no_effect_step,
         "replay_key": "replay:m30-safety",
         "safe_summary": "Complete no-effect step.",
@@ -119,6 +122,7 @@ def test_transition_request_execution_flags_are_denied_after_model_copy():
             "auto_run_requested": True,
             "schedule_requested": True,
             "background_worker_requested": True,
+            "side_effect_execution_enabled": True,
         }
     )
 
@@ -130,3 +134,34 @@ def test_transition_request_execution_flags_are_denied_after_model_copy():
     assert "AUTO_RUN_DENIED" in decision.reason_codes
     assert "SCHEDULE_DENIED" in decision.reason_codes
     assert "BACKGROUND_WORKER_DENIED" in decision.reason_codes
+    assert "SIDE_EFFECT_EXECUTION_DENIED" in decision.reason_codes
+
+
+def test_hidden_side_effect_metadata_is_denied_after_model_copy():
+    step = _step().model_copy(update={"metadata": {"declared_effect": "file_write"}})
+
+    decision = evaluate_execution_transition(_run(step), _request())
+
+    assert decision.status == ExecutionTransitionStatus.denied
+    assert decision.execution_performed is False
+    assert "HIDDEN_SIDE_EFFECT_DENIED" in decision.reason_codes
+
+
+def test_blocked_step_cannot_complete_without_safe_transition():
+    blocked_step = _step(status=ExecutionStepStatus.blocked)
+
+    decision = evaluate_execution_transition(_run(blocked_step), _request())
+
+    assert decision.status == ExecutionTransitionStatus.denied
+    assert decision.execution_performed is False
+    assert "EXECUTION_STEP_BLOCKED_DENIED" in decision.reason_codes
+
+
+def test_completed_step_cannot_complete_twice():
+    completed_step = _step(status=ExecutionStepStatus.completed_no_effect)
+
+    decision = evaluate_execution_transition(_run(completed_step), _request())
+
+    assert decision.status == ExecutionTransitionStatus.denied
+    assert decision.execution_performed is False
+    assert "EXECUTION_STEP_ALREADY_COMPLETED_DENIED" in decision.reason_codes

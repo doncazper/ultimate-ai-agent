@@ -16,6 +16,7 @@ def _step(step_id, depends_on=None, **overrides):
         "step_id": step_id,
         "safe_summary": f"Validate {step_id}.",
         "mode": ExecutionStepMode.no_effect,
+        "status": ExecutionStepStatus.ready,
         "input_boundary": ExecutionStepInputBoundary(input_refs=["canonical:m30"]),
         "depends_on": depends_on or [],
     }
@@ -38,6 +39,7 @@ def _request(target_step_id="execution-step:m30-a"):
     return ExecutionTransitionRequest(
         run_id="execution-run:m30-deps",
         target_step_id=target_step_id,
+        transition_id=f"execution-transition:{target_step_id.split(':', 1)[-1]}",
         transition_kind=ExecutionTransitionKind.complete_no_effect_step,
         replay_key=f"replay:{target_step_id}",
         safe_summary="Advance dependency-safe step.",

@@ -1,10 +1,11 @@
-# Foundation Gate Implementation Plan v0.34.0
+# Foundation Gate Implementation Plan v0.34.1
 
-Status: historical implementation plan.
+Status: active implementation plan.
 
-Release baseline: **v0.34.0**
+Current active baseline: **v0.34.1**
 
-v0.34.0 adds Foundation Gate coverage for M30 Multi-Step Execution Framework.
+v0.34.1 adds Foundation Gate hardening coverage for M30 Multi-Step Execution
+Framework.
 
 Gate coverage requires:
 
@@ -15,10 +16,16 @@ Gate coverage requires:
   model/provider calls, browser/mobile/remote/plugin/shell execution,
   scheduler/background worker, autonomous loops, context injection, backend
   execution routes, Control Center execute controls, and production authority.
-- safe no-effect transition succeeds with `execution_performed=False`.
-- replay-key reuse is denied.
+- safe ready no-effect transition succeeds with `execution_performed=False`.
+- pending steps cannot complete directly.
+- blocked and already-completed steps cannot complete.
+- incomplete runs cannot finalize.
+- completed no-effect runs can finalize without side effects.
+- replay-key reuse and transition-id reuse are denied.
 - dependency cycles and missing dependencies are denied.
+- hidden side-effect metadata is denied.
 - raw/secret input model_copy mutations are denied.
+- side-effect execution flags are denied.
 - non-authoritative refs cannot authorize execution.
 - receipt plans remain non-authoritative and summary/ref-only.
 - OpenAPI path count remains `74`.

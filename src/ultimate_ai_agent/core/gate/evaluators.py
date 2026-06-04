@@ -6700,6 +6700,7 @@ class FoundationGateEvaluator:
                 step_id="execution-step:gate-m30-review",
                 safe_summary="Validate safe metadata only.",
                 mode=ExecutionStepMode.no_effect,
+                status=ExecutionStepStatus.ready,
                 input_boundary=ExecutionStepInputBoundary(input_refs=["canonical:gate-m30"]),
             )
             safe_run = ExecutionRun(
@@ -6711,6 +6712,7 @@ class FoundationGateEvaluator:
             safe_request = ExecutionTransitionRequest(
                 run_id=safe_run.run_id,
                 target_step_id=safe_step.step_id,
+                transition_id="execution-transition:gate-m30",
                 transition_kind=ExecutionTransitionKind.complete_no_effect_step,
                 replay_key="replay:gate-m30",
                 safe_summary="Complete a no-effect step.",
@@ -6751,6 +6753,14 @@ class FoundationGateEvaluator:
                 "EXECUTION_REPLAY_DENIED",
                 "replay key reuse",
             )
+            require_denial(
+                evaluate_execution_transition(
+                    safe_run.model_copy(update={"transition_ids_seen": ["execution-transition:gate-m30"]}),
+                    safe_request,
+                ),
+                "EXECUTION_TRANSITION_REPLAY_DENIED",
+                "transition id reuse",
+            )
             raw_boundary = safe_step.input_boundary.model_copy(update={"contains_raw_prompt": True})
             require_denial(
                 evaluate_execution_transition(
@@ -6774,6 +6784,12 @@ class FoundationGateEvaluator:
                 evaluate_execution_transition(safe_run.model_copy(update={"steps": [effectful_step]}), safe_request),
                 "TOOL_EXECUTION_DENIED",
                 "tool execution step mode",
+            )
+            hidden_effect_step = safe_step.model_copy(update={"metadata": {"derived_effect": "file_write"}})
+            require_denial(
+                evaluate_execution_transition(safe_run.model_copy(update={"steps": [hidden_effect_step]}), safe_request),
+                "HIDDEN_SIDE_EFFECT_DENIED",
+                "hidden side effect metadata",
             )
             for input_ref, trust_level, reason in [
                 ("model:gate-m30", ExecutionInputTrustLevel.model_output_blocked, "MODEL_OUTPUT_NOT_EXECUTION_AUTHORITY"),
@@ -6815,7 +6831,11 @@ class FoundationGateEvaluator:
             completed_step = step_a.model_copy(update={"status": ExecutionStepStatus.completed_no_effect, "depends_on": []})
             dependent_step = step_b.model_copy(update={"depends_on": [completed_step.step_id]})
             dependent_request = safe_request.model_copy(
-                update={"target_step_id": dependent_step.step_id, "replay_key": "replay:gate-m30-dependent"}
+                update={
+                    "target_step_id": dependent_step.step_id,
+                    "replay_key": "replay:gate-m30-dependent",
+                    "transition_id": "execution-transition:gate-m30-dependent",
+                }
             )
             dependent_decision = evaluate_execution_transition(
                 safe_run.model_copy(update={"steps": [completed_step, dependent_step]}),
@@ -6823,6 +6843,42 @@ class FoundationGateEvaluator:
             )
             if dependent_decision.status != ExecutionTransitionStatus.approved_no_effect_transition:
                 failures.append("M30 completed dependency did not allow no-effect dependent step")
+
+            final_request = safe_request.model_copy(
+                update={
+                    "target_step_id": None,
+                    "replay_key": "replay:gate-m30-finalize",
+                    "transition_id": "execution-transition:gate-m30-finalize",
+                    "transition_kind": ExecutionTransitionKind.finalize_no_effect_run,
+                }
+            )
+            final_decision = evaluate_execution_transition(
+                safe_run.model_copy(
+                    update={"steps": [safe_step.model_copy(update={"status": ExecutionStepStatus.completed_no_effect})]}
+                ),
+                final_request,
+            )
+            if final_decision.status != ExecutionTransitionStatus.approved_no_effect_transition:
+                failures.append("M30 completed run did not finalize without side effects")
+            require_denial(
+                evaluate_execution_transition(safe_run, final_request),
+                "EXECUTION_RUN_FINALIZE_INCOMPLETE_DENIED",
+                "finalize incomplete run",
+            )
+            require_denial(
+                evaluate_execution_transition(
+                    safe_run,
+                    safe_request.model_copy(
+                        update={
+                            "side_effect_execution_enabled": True,
+                            "replay_key": "replay:gate-m30-side-effect",
+                            "transition_id": "execution-transition:gate-m30-side-effect",
+                        }
+                    ),
+                ),
+                "SIDE_EFFECT_EXECUTION_DENIED",
+                "side-effect execution flag",
+            )
 
             execution_source = "\n".join(
                 self._read(path)

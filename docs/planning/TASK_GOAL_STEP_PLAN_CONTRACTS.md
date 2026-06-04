@@ -1,6 +1,6 @@
 # Task Goal, Step, and Plan Contracts
 
-Status: active M29 contract. Current active baseline: **v0.34.0**.
+Status: active M29 contract. Current active baseline: **v0.34.1**.
 
 M29 adds typed contracts for:
 

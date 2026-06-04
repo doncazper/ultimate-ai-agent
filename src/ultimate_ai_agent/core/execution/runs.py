@@ -17,6 +17,7 @@ class ExecutionRun(BaseModel):
     steps: List[ExecutionStep] = Field(..., min_length=1)
     status: ExecutionRunStatus = ExecutionRunStatus.planned
     replay_keys_seen: List[str] = Field(default_factory=list)
+    transition_ids_seen: List[str] = Field(default_factory=list)
     safe_summary: str = Field(..., min_length=1)
     approval_ref: Optional[str] = None
     metadata_refs: List[str] = Field(default_factory=list)
@@ -31,7 +32,7 @@ class ExecutionRun(BaseModel):
         validate_safe_execution_text(self.safe_summary, "safe_summary")
         if self.approval_ref:
             validate_safe_execution_text(self.approval_ref, "approval_ref")
-        for ref in [*self.replay_keys_seen, *self.metadata_refs]:
+        for ref in [*self.replay_keys_seen, *self.transition_ids_seen, *self.metadata_refs]:
             validate_execution_ref(ref, "metadata_ref")
         validate_safe_execution_payload(self.metadata, "metadata")
         return self
@@ -60,4 +61,3 @@ class ExecutionRun(BaseModel):
             ],
             key=lambda step: step.step_id,
         )
-

@@ -1,6 +1,6 @@
 # Task Risk and Authority Policy
 
-Status: active M29 contract. Current active baseline: **v0.34.0**.
+Status: active M29 contract. Current active baseline: **v0.34.1**.
 
 M29 task plans are review-only. The evaluator denies caller attempts to downgrade risk or hide side effects for:
 

@@ -10,9 +10,16 @@ The evaluator denies:
 - `auto_run_requested=True`.
 - `schedule_requested=True`.
 - `background_worker_requested=True`.
+- `side_effect_execution_enabled=True`.
 - replay key reuse.
+- transition ID reuse.
+- missing transition IDs.
 - target step mismatch or unknown target step.
 - unmet dependencies.
+- completing a step before it is `ready`.
+- completing blocked, paused, denied, skipped, or already-completed steps.
+- finalizing a run while pending, blocked, or future-real-execution steps remain.
+- hidden side-effect metadata.
 - raw prompt/model/file/transcript flags.
 - secret-like metadata or summaries.
 - non-authoritative refs that attempt to authorize execution.

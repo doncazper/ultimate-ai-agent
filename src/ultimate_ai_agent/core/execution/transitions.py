@@ -20,6 +20,7 @@ from ultimate_ai_agent.core.execution.validation import (
 class ExecutionTransitionRequest(BaseModel):
     run_id: str = Field(..., min_length=1)
     target_step_id: Optional[str] = None
+    transition_id: Optional[str] = None
     transition_kind: ExecutionTransitionKind
     replay_key: str = Field(..., min_length=1)
     safe_summary: str = Field(..., min_length=1)
@@ -28,6 +29,7 @@ class ExecutionTransitionRequest(BaseModel):
     auto_run_requested: bool = False
     schedule_requested: bool = False
     background_worker_requested: bool = False
+    side_effect_execution_enabled: bool = False
     contains_raw_prompt: bool = False
     contains_raw_model_output: bool = False
     contains_raw_file_content: bool = False
@@ -43,6 +45,8 @@ class ExecutionTransitionRequest(BaseModel):
         validate_execution_ref(self.run_id, "run_id")
         if self.target_step_id:
             validate_execution_ref(self.target_step_id, "target_step_id")
+        if self.transition_id:
+            validate_execution_ref(self.transition_id, "transition_id")
         validate_execution_ref(self.replay_key, "replay_key")
         validate_safe_execution_text(self.safe_summary, "safe_summary")
         if self.approval_ref:
@@ -112,4 +116,3 @@ class ExecutionTransitionDecision(BaseModel):
             validate_execution_ref(self.target_step_id, "target_step_id")
         validate_safe_execution_text(self.safe_message, "safe_message")
         return self
-

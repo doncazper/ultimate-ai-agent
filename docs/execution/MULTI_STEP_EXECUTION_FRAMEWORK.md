@@ -1,11 +1,15 @@
 # Multi-Step Execution Framework
 
-Status: active M30 source-of-truth documentation. Current active baseline: **v0.34.0**.
+Status: active M30 source-of-truth documentation. Current active baseline: **v0.34.1**.
 
 v0.34.0 / M30 implements the Multi-Step Execution Framework as deterministic,
 local, state-machine-only contract logic. It models execution runs, execution
 steps, transition requests, transition decisions, and receipt plans for
 side-effect-safe state advancement.
+
+v0.34.1 hardens M30 with ready-only no-effect step completion, incomplete
+finalize denial, replay-key and transition-id replay protection, hidden
+side-effect denial, evaluator revalidation, and no-side-effect invariants.
 
 M30 is no real task execution and is not real execution. A valid transition may advance a no-effect step to
 `completed_no_effect`, pause, block, or wait on dependencies. Every decision
@@ -18,7 +22,7 @@ M30 adds:
 - execution step contracts.
 - transition request and decision contracts.
 - dependency-aware progression.
-- replay protection through deterministic replay keys.
+- replay protection through deterministic replay keys and transition IDs.
 - evaluator-side revalidation of safety-critical fields.
 - non-authoritative receipt plans.
 - static verifier and Foundation Gate coverage.

@@ -1,12 +1,16 @@
 # M30 to M31 Boundary
 
-Status: active M30 boundary. Current active baseline: **v0.34.0**.
+Status: active M30 boundary. Current active baseline: **v0.34.1**.
 
 v0.34.0 / M30 implements Multi-Step Execution Framework as deterministic,
 local, side-effect-safe, state-machine-only contracts. It may validate
 execution runs, execution steps, transition requests, dependency-aware no-effect
 progression, replay protection, evaluator revalidation, non-authoritative
 decisions, and receipt plans.
+
+v0.34.1 hardens that boundary with ready-only step completion, incomplete run
+finalization denial, transition-id replay protection, hidden side-effect
+metadata denial, and evaluator revalidation for no-side-effect decisions.
 
 M30 must not perform real task execution, action execution, tool execution,
 file mutation, memory writes, Event Ledger mutation, network calls,

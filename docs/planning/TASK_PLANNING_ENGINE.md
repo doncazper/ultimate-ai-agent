@@ -1,6 +1,6 @@
 # Agent Task Planning Engine
 
-Status: active M29 contract. Current active baseline: **v0.34.0**.
+Status: active M29 contract. Current active baseline: **v0.34.1**.
 
 The Agent Task Planning Engine defines deterministic task plans for human review. It accepts explicit task goals, steps, dependencies, constraints, and safe references, then returns a non-authoritative decision envelope.
 

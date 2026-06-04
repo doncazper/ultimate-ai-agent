@@ -12,6 +12,7 @@ from ultimate_ai_agent.core.execution.transitions import ExecutionTransitionDeci
 from ultimate_ai_agent.core.execution.validation import (
     boundary_reason_codes,
     dedupe_reasons,
+    hidden_side_effect_reasons,
     step_mode_reason,
     validate_safe_execution_payload,
     validation_reason,
@@ -85,6 +86,10 @@ def _revalidate_request(request: ExecutionTransitionRequest) -> list[str]:
         reasons.append("SCHEDULE_DENIED")
     if bool(getattr(request, "background_worker_requested", False)):
         reasons.append("BACKGROUND_WORKER_DENIED")
+    if bool(getattr(request, "side_effect_execution_enabled", False)):
+        reasons.append("SIDE_EFFECT_EXECUTION_DENIED")
+    if not getattr(request, "transition_id", None):
+        reasons.append("EXECUTION_TRANSITION_ID_REQUIRED")
     return reasons
 
 
@@ -100,6 +105,8 @@ def _step_reason_codes(run: ExecutionRun) -> list[str]:
         if reason:
             reasons.append(reason)
         reasons.extend(boundary_reason_codes(step.input_boundary))
+        reasons.extend(hidden_side_effect_reasons(getattr(step, "metadata", {})))
+        reasons.extend(hidden_side_effect_reasons(getattr(step.input_boundary, "metadata", {})))
     return reasons
 
 
@@ -113,9 +120,62 @@ def _target_step_reason_codes(run: ExecutionRun, request: ExecutionTransitionReq
     unmet = [dependency_id for dependency_id in step.depends_on if dependency_id not in completed]
     if unmet:
         return ["EXECUTION_DEPENDENCY_UNMET_DENIED"], ExecutionStepStatus.waiting_for_dependency
+    if step.status == ExecutionStepStatus.blocked:
+        return ["EXECUTION_STEP_BLOCKED_DENIED"], step.status
+    if step.status in {
+        ExecutionStepStatus.denied,
+        ExecutionStepStatus.paused,
+        ExecutionStepStatus.waiting_for_dependency,
+        ExecutionStepStatus.skipped,
+    }:
+        return ["INVALID_EXECUTION_STEP_STATUS_DENIED"], step.status
     if step.status == ExecutionStepStatus.completed_no_effect:
         return ["EXECUTION_STEP_ALREADY_COMPLETED_DENIED"], step.status
-    return [], ExecutionStepStatus.completed_no_effect
+    if request.transition_kind == ExecutionTransitionKind.mark_step_ready:
+        if step.status == ExecutionStepStatus.ready:
+            return [], ExecutionStepStatus.ready
+        if step.status != ExecutionStepStatus.pending:
+            return ["INVALID_EXECUTION_STEP_STATUS_DENIED"], step.status
+        return [], ExecutionStepStatus.ready
+    if request.transition_kind == ExecutionTransitionKind.complete_no_effect_step:
+        if step.status != ExecutionStepStatus.ready:
+            return ["EXECUTION_STEP_NOT_READY_DENIED"], step.status
+        return [], ExecutionStepStatus.completed_no_effect
+    if request.transition_kind == ExecutionTransitionKind.wait_for_dependency:
+        return [], ExecutionStepStatus.ready if step.status == ExecutionStepStatus.pending else step.status
+    return [], step.status
+
+
+def _run_status_reason(run: ExecutionRun, request: ExecutionTransitionRequest) -> str | None:
+    terminal_statuses = {
+        ExecutionRunStatus.blocked,
+        ExecutionRunStatus.completed_no_effect,
+        ExecutionRunStatus.denied,
+    }
+    advancing_kinds = {
+        ExecutionTransitionKind.mark_step_ready,
+        ExecutionTransitionKind.complete_no_effect_step,
+        ExecutionTransitionKind.wait_for_dependency,
+        ExecutionTransitionKind.finalize_no_effect_run,
+    }
+    if run.status in terminal_statuses:
+        return "INVALID_EXECUTION_RUN_STATUS_DENIED"
+    if run.status == ExecutionRunStatus.paused and request.transition_kind in advancing_kinds:
+        return "INVALID_EXECUTION_RUN_STATUS_DENIED"
+    return None
+
+
+def _finalize_reason_codes(run: ExecutionRun) -> list[str]:
+    reasons: list[str] = []
+    for step in run.steps:
+        if step.status == ExecutionStepStatus.blocked:
+            reasons.append("EXECUTION_RUN_FINALIZE_BLOCKED_DENIED")
+        elif step.status not in {
+            ExecutionStepStatus.completed_no_effect,
+            ExecutionStepStatus.skipped,
+        }:
+            reasons.append("EXECUTION_RUN_FINALIZE_INCOMPLETE_DENIED")
+    return dedupe_reasons(reasons)
 
 
 def _receipt(run_id: str, request: ExecutionTransitionRequest) -> ExecutionReceiptPlan:
@@ -124,7 +184,7 @@ def _receipt(run_id: str, request: ExecutionTransitionRequest) -> ExecutionRecei
     return ExecutionReceiptPlan(
         receipt_plan_ref=f"execution-receipt:{suffix}",
         run_id=run_id,
-        transition_id=f"execution-transition:{suffix}",
+        transition_id=request.transition_id or f"execution-transition:{suffix}",
         target_step_id=target,
         safe_summary="Non-authoritative execution-state-machine receipt plan.",
     )
@@ -165,6 +225,11 @@ def evaluate_execution_transition(run: ExecutionRun, request: ExecutionTransitio
         reasons.append("EXECUTION_RUN_REF_MISMATCH_DENIED")
     if request.replay_key in run.replay_keys_seen:
         reasons.append("EXECUTION_REPLAY_DENIED")
+    if getattr(request, "transition_id", None) and request.transition_id in run.transition_ids_seen:
+        reasons.append("EXECUTION_TRANSITION_REPLAY_DENIED")
+    run_status_reason = _run_status_reason(run, request)
+    if run_status_reason:
+        reasons.append(run_status_reason)
 
     target_reasons: list[str] = []
     target_step_status: ExecutionStepStatus | None = None
@@ -175,6 +240,8 @@ def evaluate_execution_transition(run: ExecutionRun, request: ExecutionTransitio
     }:
         target_reasons, target_step_status = _target_step_reason_codes(run, request)
         reasons.extend(target_reasons)
+    if request.transition_kind == ExecutionTransitionKind.finalize_no_effect_run:
+        reasons.extend(_finalize_reason_codes(run))
 
     reasons = dedupe_reasons(reasons)
     if reasons:
@@ -207,6 +274,15 @@ def evaluate_execution_transition(run: ExecutionRun, request: ExecutionTransitio
             "Execution-state-machine run blocked without side effects.",
             run_status=ExecutionRunStatus.blocked,
         )
+    if request.transition_kind == ExecutionTransitionKind.finalize_no_effect_run:
+        return _decision(
+            run,
+            request,
+            ExecutionTransitionStatus.approved_no_effect_transition,
+            ["EXECUTION_RUN_FINALIZED_NO_EFFECT"],
+            "Execution-state-machine run finalized without side effects.",
+            run_status=ExecutionRunStatus.completed_no_effect,
+        )
     return _decision(
         run,
         request,
@@ -215,4 +291,3 @@ def evaluate_execution_transition(run: ExecutionRun, request: ExecutionTransitio
         "Execution-state-machine transition allowed for no-effect state advancement only.",
         step_status=target_step_status,
     )
-

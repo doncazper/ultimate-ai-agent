@@ -1,7 +1,7 @@
 # Ultimate AI Agent Docs
 
 Status: active
-Current through: v0.34.0
+Current through: v0.34.1
 Purpose: Human-facing entrypoint for active documentation and historical archive navigation.
 
 Active docs are few, indexed, and current. Historical docs are preserved under
@@ -22,10 +22,10 @@ docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md
 Current release packet:
 
 ```text
-docs/archive/releases/v0_34_0/README_IMPORT.md
-docs/archive/releases/v0_34_0/master_plan.md
-docs/release_notes/v0_34_0.md
-docs/implementation/foundation_gate_implementation_plan_v0_34_0.md
+docs/archive/releases/v0_34_1/README_IMPORT.md
+docs/archive/releases/v0_34_1/master_plan.md
+docs/release_notes/v0_34_1.md
+docs/implementation/foundation_gate_implementation_plan_v0_34_1.md
 docs/execution/MULTI_STEP_EXECUTION_FRAMEWORK.md
 docs/execution/EXECUTION_STATE_MACHINE.md
 docs/execution/EXECUTION_STEP_CONTRACTS.md
@@ -67,10 +67,13 @@ historical snapshots.
 v0.29.5 is documentation policy polish only. It accepts the pushed duplicate
 wording cleanup from `374bb1e` and remains the cleanup baseline before M26.
 
-v0.34.0 implements M30 Multi-Step Execution Framework as deterministic, local,
-side-effect-safe, state-machine-only contracts. It adds no real task execution,
-action execution, tool execution, backend execution routes, Control Center
-execute controls, dependencies, production authority, or M31 work.
+v0.34.1 hardens M30 Multi-Step Execution Framework as deterministic, local,
+side-effect-safe, state-machine-only contracts. It strengthens ready-only
+no-effect completion, finalize gating, replay-key and transition-id protection,
+hidden side-effect denial, evaluator revalidation, static verification, and
+Foundation Gate coverage. It adds no real task execution, action execution,
+tool execution, backend execution routes, Control Center execute controls,
+dependencies, production authority, or M31 work.
 
 v0.33.1 hardens M29 Agent Task Planning Engine as deterministic, local,
 non-executing, review-only planning contracts. It strengthens dependency graph

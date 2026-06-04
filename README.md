@@ -12,21 +12,21 @@ allowed to become operational authority.
 
 | Field | Current state |
 |---|---|
-| Current active baseline | **v0.34.0** |
+| Current active baseline | **v0.34.1** |
 | Current milestone | **M30 - Multi-Step Execution Framework** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **74** OpenAPI paths |
 | Production readiness | Not claimed |
 
-v0.34.0 implements M30 Multi-Step Execution Framework as deterministic, local,
-side-effect-safe execution-state-machine contracts. It adds no-effect run/step
-advancement, dependency-aware progression, replay protection, evaluator
-revalidation, transition decisions, and non-authoritative receipt plans. It
-does not perform real task execution, tool execution, action execution,
-scheduler/background worker behavior, file mutation, memory writes, network
-calls, model/provider calls, or context injection. M31-M40 remain
-planned/provisional.
+v0.34.1 hardens M30 Multi-Step Execution Framework as deterministic, local,
+side-effect-safe execution-state-machine contracts. It requires ready-only
+no-effect step completion, blocks incomplete run finalization, denies replay-key
+and transition-id reuse, rejects hidden side-effect metadata, and preserves
+evaluator revalidation with non-authoritative receipt plans. It does not perform
+real task execution, tool execution, action execution, scheduler/background
+worker behavior, file mutation, memory writes, network calls, model/provider
+calls, or context injection. M31-M40 remain planned/provisional.
 
 v0.29.5 is documentation policy polish. It remains the documentation
 organization cleanup baseline before the M26 and M27 implementation releases.
@@ -46,9 +46,9 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M28 Action Policy](docs/approvals/ACTION_POLICY.md)
 - [M27 Tool Broker v2](docs/tools/TOOL_BROKER_V2.md)
 - [M26 Grounded Recall Router](docs/recall/GROUNDED_RECALL_ROUTER.md)
-- [v0.34.0 release notes](docs/release_notes/v0_34_0.md)
-- [v0.34.0 release packet](docs/archive/releases/v0_34_0/README_IMPORT.md)
-- [v0.34.0 master plan](docs/archive/releases/v0_34_0/master_plan.md)
+- [v0.34.1 release notes](docs/release_notes/v0_34_1.md)
+- [v0.34.1 release packet](docs/archive/releases/v0_34_1/README_IMPORT.md)
+- [v0.34.1 master plan](docs/archive/releases/v0_34_1/master_plan.md)
 
 ## What This Project Is
 
@@ -236,6 +236,7 @@ The canonical roadmap source of truth is
 | v0.33.0 | M29 - Agent Task Planning Engine | Implemented/released |
 | v0.33.1 | M29 hardening - Task Plan Dependency, Risk, and No-Execution Safety | Implemented/released |
 | v0.34.0 | M30 - Multi-Step Execution Framework | Implemented/released |
+| v0.34.1 | M30 hardening - Execution State Machine, Replay, and No-Side-Effect Safety | Implemented/released |
 | v0.35.0 | M31 | Planned/provisional |
 
 The roadmap intentionally separates contract planning, validation, preview,

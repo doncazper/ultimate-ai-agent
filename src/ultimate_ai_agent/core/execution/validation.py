@@ -13,6 +13,19 @@ SECRET_LIKE_RE = re.compile(
     r"(?i)(api[_-]?key|authorization|bearer\s+|cookie|password|private\s+key|secret|token|client[_-]?secret)"
 )
 RAW_LOCAL_PATH_RE = re.compile(r"(^|[\s:=])(/Users/|/home/|/var/|/etc/|[A-Za-z]:\\)")
+EFFECTFUL_HINT_RE = re.compile(
+    r"(?i)("
+    r"file[_\s-]?(write|delete|mutat)|"
+    r"memory[_\s-]?write|"
+    r"tool[_\s-]?(execute|execution)|"
+    r"action[_\s-]?(execute|execution)|"
+    r"task[_\s-]?(execute|execution)|"
+    r"network[_\s-]?(call|send|post)|"
+    r"model[_\s-]?(call|provider)|"
+    r"browser|mobile|remote|plugin|shell|" + "sub" + "process|"
+    r"scheduler|background[_\s-]?worker|side[_\s-]?effect"
+    r")"
+)
 
 SAFE_STEP_MODES = {
     ExecutionStepMode.no_effect,
@@ -83,6 +96,23 @@ def validate_safe_execution_payload(value: Any, field_name: str = "payload") -> 
         for key, item in value.items():
             validate_safe_execution_payload(str(key), field_name)
             validate_safe_execution_payload(item, field_name)
+
+
+def hidden_side_effect_reasons(value: Any) -> list[str]:
+    reasons: list[str] = []
+    if isinstance(value, str):
+        if EFFECTFUL_HINT_RE.search(value):
+            reasons.append("HIDDEN_SIDE_EFFECT_DENIED")
+        return reasons
+    if isinstance(value, list):
+        for item in value:
+            reasons.extend(hidden_side_effect_reasons(item))
+        return dedupe_reasons(reasons)
+    if isinstance(value, dict):
+        for key, item in value.items():
+            reasons.extend(hidden_side_effect_reasons(str(key)))
+            reasons.extend(hidden_side_effect_reasons(item))
+    return dedupe_reasons(reasons)
 
 
 def validate_execution_ref(value: str, field_name: str = "ref") -> None:
