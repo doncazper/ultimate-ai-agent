@@ -9,7 +9,21 @@ from ultimate_ai_agent.core.file_review.contracts import (
     FileReviewWorkflowPolicy,
     UserFileReviewApproval,
 )
-from ultimate_ai_agent.core.file_review.enums import FileReviewDecisionStatus, FileReviewPacketStatus
+from ultimate_ai_agent.core.file_review.approval_capture import (
+    FileReviewApprovalCaptureDecision,
+    FileReviewApprovalCaptureReceiptPlan,
+    FileReviewApprovalCaptureRequest,
+    FileReviewApprovalRecord,
+    FileReviewApprovalStore,
+    capture_file_review_approval,
+    capture_file_review_approval_request,
+)
+from ultimate_ai_agent.core.file_review.enums import (
+    FileReviewApprovalCaptureDecisionStatus,
+    FileReviewApprovalDecisionKind,
+    FileReviewDecisionStatus,
+    FileReviewPacketStatus,
+)
 from ultimate_ai_agent.core.file_review.workflow import (
     build_file_review_packet,
     build_file_review_receipt_plan,
@@ -20,6 +34,13 @@ from ultimate_ai_agent.core.file_review.workflow import (
 __all__ = [
     "FileReviewDecision",
     "FileReviewDecisionStatus",
+    "FileReviewApprovalCaptureDecision",
+    "FileReviewApprovalCaptureDecisionStatus",
+    "FileReviewApprovalCaptureReceiptPlan",
+    "FileReviewApprovalCaptureRequest",
+    "FileReviewApprovalDecisionKind",
+    "FileReviewApprovalRecord",
+    "FileReviewApprovalStore",
     "FileReviewGate",
     "FileReviewPacket",
     "FileReviewPacketSource",
@@ -31,6 +52,8 @@ __all__ = [
     "UserFileReviewApproval",
     "build_file_review_packet",
     "build_file_review_receipt_plan",
+    "capture_file_review_approval",
+    "capture_file_review_approval_request",
     "evaluate_file_review_gate",
     "evaluate_file_review_packet",
 ]

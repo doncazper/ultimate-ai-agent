@@ -143,12 +143,19 @@ from ultimate_ai_agent.core.control_center import (
     build_control_center_manifest,
     preview_control_center_action,
 )
+from ultimate_ai_agent.core.file_review import (
+    FileReviewApprovalCaptureRequest,
+    FileReviewApprovalStore,
+    capture_file_review_approval_request,
+)
 
 app = FastAPI(
     title="Ultimate AI Agent API Boundary",
     version=__version__,
     description="The secure control boundary for the Ultimate AI Agent"
 )
+
+_file_review_approval_store = FileReviewApprovalStore()
 
 class HealthResponse(BaseModel):
     status: str
@@ -1577,6 +1584,38 @@ def post_validate_file_ref(req: FileRefValidateRequest):
             trace_id="system",
             error=err,
         )
+
+@app.post("/files/review/approvals/capture", response_model=ResultEnvelope)
+def post_files_review_approvals_capture(request: FileReviewApprovalCaptureRequest):
+    decision = capture_file_review_approval_request(request, store=_file_review_approval_store)
+    if decision.status.value == "rejected":
+        err = ErrorEnvelope(
+            code="FILE_REVIEW_APPROVAL_CAPTURE_REJECTED",
+            category=ErrorCategory.policy_denied,
+            safe_message=decision.safe_message,
+            severity=Severity.medium,
+            retryable=False,
+            details_redacted=True,
+            source="FileReviewAPI",
+            metadata={"reason_codes": decision.reason_codes},
+        )
+        return ResultEnvelope(
+            success=False,
+            operation="capture_file_review_approval",
+            service="FileReviewAPI",
+            trace_id=request.review_packet_ref,
+            data=decision.model_dump(mode="json"),
+            error=err,
+            redactions_applied=["raw_content_omitted", "safe_refs_only"],
+        )
+    return ResultEnvelope(
+        success=True,
+        operation="capture_file_review_approval",
+        service="FileReviewAPI",
+        trace_id=request.review_packet_ref,
+        data=decision.model_dump(mode="json"),
+        redactions_applied=["raw_content_omitted", "safe_refs_only"],
+    )
 
 @app.post("/files/read/preview", response_model=ResultEnvelope)
 def post_preview_file_read(req: FileReadPreviewAPIRequest):

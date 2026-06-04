@@ -285,13 +285,13 @@ describe("Web Control Center shell", () => {
     expect(screen.queryByText(/\/home\//i)).not.toBeInTheDocument();
   });
 
-  it("renders M36 file review packets as review-only redacted previews", async () => {
+  it("renders M37 file review packets with review-only approval capture controls", async () => {
     mockFetchWithFallback();
     window.history.pushState({}, "", "/files/review");
     render(<App />);
 
     expect(await screen.findByRole("heading", { name: /File Review Surface/i })).toBeInTheDocument();
-    expect(screen.getAllByText(/M36 file review surface/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/M37 review approval capture/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/mock and non-authoritative/i)).toBeInTheDocument();
     expect(screen.getAllByText(/MOCK_DATA_ONLY/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/NO_PRODUCTION_AUTHORITY/i).length).toBeGreaterThan(0);
@@ -310,9 +310,17 @@ describe("Web Control Center shell", () => {
     expect(screen.getByText(/exact_binding_ready/i)).toBeInTheDocument();
     expect(screen.getByText(/Receipt plan metadata/i)).toBeInTheDocument();
     expect(screen.getByText(/raw content stored: no/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /approve review-only/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /deny review-only/i })).toBeInTheDocument();
+    expect(screen.getByText(/captures a review-only approval record bound to this exact redacted packet/i)).toBeInTheDocument();
+    expect(
+      screen.getAllByText(
+        /does not grant raw file access, context proposal, context injection, memory writes, export, or execution/i
+      ).length
+    ).toBeGreaterThan(0);
   });
 
-  it("keeps M36 file review packet selection read-only without raw or mutation controls", async () => {
+  it("keeps M37 approval capture review-only without raw or authority controls", async () => {
     mockFetchWithFallback();
     window.history.pushState({}, "", "/files/review");
     render(<App />);
@@ -329,11 +337,11 @@ describe("Web Control Center shell", () => {
     );
     expect(screen.getByText("file-ref:mock_review_002")).toBeInTheDocument();
     expect(screen.getByText("filesystem-preview-path:safe-root_m36/docs/alternate-review.md")).toBeInTheDocument();
-    expect(screen.getByText(/Review decisions are display-only and cannot capture approval/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Review approval capture is review-only persistence/i).length).toBeGreaterThan(0);
 
     for (const label of [
-      /^approve$/i,
-      /^deny$/i,
+      /^approve raw/i,
+      /^deny raw/i,
       /^submit$/i,
       /^save$/i,
       /mark reviewed/i,
@@ -356,6 +364,8 @@ describe("Web Control Center shell", () => {
     ]) {
       expect(screen.queryByRole("button", { name: label })).not.toBeInTheDocument();
     }
+    expect(screen.getByRole("button", { name: /approve review-only/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /deny review-only/i })).toBeInTheDocument();
     expect(screen.queryByText(/raw_content/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/full_file_content/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/unredacted_preview/i)).not.toBeInTheDocument();
@@ -364,7 +374,24 @@ describe("Web Control Center shell", () => {
     expect(screen.queryByText(/supersecretvalue123/i)).not.toBeInTheDocument();
   });
 
-  it("keeps M36 binding refs safe and free of private path shapes", async () => {
+  it("captures a mock M37 review-only decision without authority", async () => {
+    mockFetchWithFallback();
+    window.history.pushState({}, "", "/files/review");
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: /File Review Surface/i })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /approve review-only/i }));
+
+    expect(screen.getByText(/approved_for_review_only/i)).toBeInTheDocument();
+    expect(screen.getByText(/capture persisted: yes/i)).toBeInTheDocument();
+    expect(screen.getByText(/raw access authorized: no/i)).toBeInTheDocument();
+    expect(screen.getByText(/context proposal authorized: no/i)).toBeInTheDocument();
+    expect(screen.getByText(/memory write authorized: no/i)).toBeInTheDocument();
+    expect(screen.getByText(/export authorized: no/i)).toBeInTheDocument();
+    expect(screen.getByText(/execution authorized: no/i)).toBeInTheDocument();
+  });
+
+  it("keeps M37 binding refs safe and free of private path shapes", async () => {
     mockFetchWithFallback();
     window.history.pushState({}, "", "/files/review");
     render(<App />);
@@ -394,8 +421,10 @@ describe("Web Control Center shell", () => {
       expect(documentText.toLowerCase()).not.toContain(unsafeFragment.toLowerCase());
     }
 
-    expect(screen.getByText(/safe refs only/i)).toBeInTheDocument();
-    expect(screen.getByText(/No mutating request is made/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/safe refs only/i).length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(/Only the review approval capture route may persist safe refs/i).length
+    ).toBeGreaterThan(0);
   });
 
   it("renders M17 memory summaries as recall and never authority", async () => {

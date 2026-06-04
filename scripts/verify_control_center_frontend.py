@@ -7,6 +7,17 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 
+
+def _current_version(root: Path = ROOT) -> str:
+    version_file = root / "VERSION.md"
+    if not version_file.exists():
+        return "v0.0.0"
+    for line in version_file.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if stripped.startswith("Current active baseline:") and "**" in stripped:
+            return stripped.split("**", 2)[1]
+    return "v0.0.0"
+
 REQUIRED_FILES = [
     "package.json",
     "package-lock.json",
@@ -61,7 +72,6 @@ FORBIDDEN_ENDPOINTS = [
     "/files/read/full",
     "/files/review/approve",
     "/files/review/submit",
-    "/files/review/approvals/capture",
     "/files/write",
     "/files/delete",
     "/filesystem/browse",
@@ -336,16 +346,18 @@ M18_RUNTIME_MOCK_MARKERS = [
 ]
 
 M36_FILE_REVIEW_BOUNDARY_MARKERS = [
-    "M36 file review surface",
+    "M37 review approval capture",
     "Review-only surface",
     "Redacted preview",
     "Redaction summary",
     "Exact binding refs",
     "Safe refs only",
-    "No mutating request is made",
+    "Only the review approval capture route may persist safe refs",
     "Approval gate contract status",
     "Receipt plan metadata",
-    "Review decisions are display-only and cannot capture approval",
+    "Approve review-only",
+    "Deny review-only",
+    "does not grant raw file access",
 ]
 
 M36_FILE_REVIEW_MOCK_MARKERS = [
@@ -355,14 +367,19 @@ M36_FILE_REVIEW_MOCK_MARKERS = [
     "file-review-redaction-summary:mock_001",
     "file-ref:mock_review_001",
     "filesystem-preview-path:safe-root_m36/docs/review-summary.md",
-    "NO_APPROVAL_CAPTURE",
-    "NO_APPROVAL_PERSISTENCE",
+    "REVIEW_ONLY_APPROVAL_CAPTURE",
+    "SAFE_REF_PERSISTENCE_ONLY",
     "NO_RAW_FILE_DISPLAY",
     "SAFE_REFS_ONLY",
-    "NO_MUTATING_REQUESTS",
+    "NO_AUTHORITY_GRANTED",
     "rawContentStored: false",
     "approvalCaptured: false",
     "approvalPersisted: false",
+    "rawFileAccessAuthorized: false",
+    "contextProposalAuthorized: false",
+    "memoryWriteAuthorized: false",
+    "exportAuthorized: false",
+    "executionAuthorized: false",
     "contextProposalCreated: false",
     "contextInjectionPerformed: false",
     "memoryWritePerformed: false",
@@ -440,10 +457,14 @@ def verify(root: Path = ROOT) -> list[str]:
             "validation_only",
             "no_runtime_execution",
             "modeloutputauthoritative: false",
-            "no_approval_capture",
-            "no_approval_persistence",
             "no_raw_file_display",
         ]
+        if _current_version(root) < "v0.41.0":
+            required_mock_safety.extend(["no_approval_capture", "no_approval_persistence"])
+        else:
+            required_mock_safety.extend(
+                ["review_only_approval_capture", "safe_ref_persistence_only", "no_authority_granted"]
+            )
         normalized_mock = mock_lowered.replace("_", "").replace(" ", "")
         for fragment in required_mock_safety:
             normalized_fragment = fragment.lower().replace("_", "").replace(" ", "")
@@ -646,7 +667,8 @@ def _m15_review_field_failures(rel: Path, text: str) -> list[str]:
     m15_index = text.lower().find("m15review")
     if m15_index == -1:
         return failures
-    m15_text = text[m15_index:]
+    m16_index = text.lower().find("m16trace", m15_index)
+    m15_text = text[m15_index:m16_index] if m16_index != -1 else text[m15_index:]
     for match in RAW_M15_REVIEW_FIELD.finditer(m15_text):
         failures.append(f"raw M15 review field in {rel}: {match.group(0)}")
     for match in CREDENTIAL_M15_REVIEW_FIELD.finditer(m15_text):
@@ -659,7 +681,8 @@ def _m16_trace_field_failures(rel: Path, text: str) -> list[str]:
     m16_index = text.lower().find("m16trace")
     if m16_index == -1:
         return failures
-    m16_text = text[m16_index:]
+    m17_index = text.lower().find("m17knowledge", m16_index)
+    m16_text = text[m16_index:m17_index] if m17_index != -1 else text[m16_index:]
     for match in RAW_M16_TRACE_FIELD.finditer(m16_text):
         failures.append(f"raw M16 trace field in {rel}: {match.group(0)}")
     for match in CREDENTIAL_M16_TRACE_FIELD.finditer(m16_text):

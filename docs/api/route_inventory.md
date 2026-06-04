@@ -118,6 +118,19 @@ v0.40.1 M36 CCC File Review Surface Read-Only Safety hardening adds no backend
 route. It strengthens frontend-only safe-ref and no-mutating-request checks.
 OpenAPI path count remains `74`.
 
+v0.41.0 M37 Review Approval Capture, Review-Only Persistence adds exactly one
+narrow backend mutation route:
+
+- `POST /files/review/approvals/capture`
+
+This route captures review-only approve/deny records for exact redacted review
+packets. It stores safe refs only, requires exact review packet, preview
+result, redaction summary, file, path, actor, and idempotency bindings, and
+grants no raw file access, context proposal, context injection, memory write,
+export, execution, tool use, or production authority. OpenAPI path count is
+`75`. No raw-file, full-file, file write/delete, context, memory, export, tool
+execution, or arbitrary filesystem route is added.
+
 M12 Control Center route group:
 
 - `/control-center/manifest`
@@ -213,3 +226,6 @@ v0.17.3 documentation cleanup, v0.17.4 local browser smoke polish, v0.17.5 roadm
 - v0.38.2 repairs active M34 current-baseline labels and documentation-integrity coverage only, with no new backend route, OpenAPI path count change, raw file route, file-review route, review-approval route, context proposal route, context injection route, memory write route, export route, tool execution route, dependency, M35 implementation, frontend runtime feature, or production authority. OpenAPI path count remains `74`.
 - v0.39.0 implements M35 Safe File Review Workflow Contracts as contract-only, review-only core logic, with no new backend route, OpenAPI path count change, raw file route, full-file route, file-review approval capture route, file-review persistence route, context proposal route, context injection route, memory write route, export route, tool execution route, dependency, M36 implementation, frontend runtime feature, or production authority. OpenAPI path count remains `74`.
 - v0.39.1 hardens M35 exact file/path binding only, with no new backend route, OpenAPI path count change, raw file route, full-file route, file-review approval capture route, file-review persistence route, context proposal route, context injection route, memory write route, export route, tool execution route, dependency, M36 implementation, frontend runtime feature, or production authority. OpenAPI path count remains `74`.
+- v0.40.0 implements M36 CCC File Review Surface, Review-Only as frontend-only display, with no backend route, OpenAPI path count change, approval capture route, approval persistence route, raw file route, context proposal route, context injection route, memory write route, export route, tool execution route, dependency, M37 implementation, or production authority. OpenAPI path count remains `74`.
+- v0.40.1 hardens M36 CCC File Review Surface Read-Only Safety only, with no backend route, OpenAPI path count change, approval capture route, approval persistence route, raw file route, context proposal route, context injection route, memory write route, export route, tool execution route, dependency, M37 implementation, or production authority. OpenAPI path count remains `74`.
+- v0.41.0 implements M37 Review Approval Capture, Review-Only Persistence with exactly one backend route, `POST /files/review/approvals/capture`, for safe-ref-only review approval/denial capture bound to exact redacted review packets. It adds no raw-file route, full-file route, file write/delete route, context proposal route, context injection route, memory write route, export route, tool execution route, arbitrary filesystem route, dependency, M38 work, or production authority. OpenAPI path count is `75`.

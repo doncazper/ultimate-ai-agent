@@ -1,7 +1,7 @@
 # Ultimate AI Agent Docs
 
 Status: active
-Current through: v0.38.2
+Current through: v0.41.0
 Purpose: Human-facing entrypoint for active documentation and historical archive navigation.
 
 Active docs are few, indexed, and current. Historical docs are preserved under
@@ -23,11 +23,16 @@ docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md
 Current release packet:
 
 ```text
-docs/archive/releases/v0_38_2/README_IMPORT.md
-docs/archive/releases/v0_38_2/master_plan.md
-docs/release_notes/v0_38_2.md
-docs/implementation/foundation_gate_implementation_plan_v0_38_2.md
+docs/archive/releases/v0_41_0/README_IMPORT.md
+docs/archive/releases/v0_41_0/master_plan.md
+docs/release_notes/v0_41_0.md
+docs/implementation/foundation_gate_implementation_plan_v0_41_0.md
 docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md
+docs/files/FILE_REVIEW_APPROVAL_CAPTURE.md
+docs/files/FILE_REVIEW_APPROVAL_PERSISTENCE.md
+docs/files/FILE_REVIEW_APPROVAL_AUTHORITY_BOUNDARY.md
+docs/files/FILE_REVIEW_APPROVAL_API.md
+docs/files/M37_TO_M38_BOUNDARY.md
 docs/files/BROADER_FILE_CAPABILITY_REVIEW.md
 docs/files/FILE_CAPABILITY_BOUNDARY_MATRIX.md
 docs/files/FILE_CAPABILITY_RISK_REGISTER.md
@@ -118,6 +123,17 @@ runtime file capability, backend route, frontend feature, raw file read,
 context injection, memory write, export, execution, dependency, M35 work, or
 production authority.
 
+v0.41.0 implements M37 Review Approval Capture, Review-Only Persistence. It
+adds safe review-only approval and denial capture for exact redacted review
+packets, safe-ref-only persistence, idempotency/replay protection, one backend
+capture route at `/files/review/approvals/capture`, Control Center
+review-only capture controls, tests, static verification, documentation
+integrity checks, and Foundation Gate coverage. It adds no raw file reads, raw
+file display, raw file storage, full-file reads, unredacted preview,
+context proposal, context injection, memory writes, export, execution/tool
+controls, arbitrary filesystem tools, dependencies, M38 work, or production
+authority.
+
 v0.37.1 hardens M33 First Safe Local File Read Proposal, Redacted Preview Only.
 It keeps the governed tool runtime adapter entry
 `tool:filesystem.redacted_preview.v1` bounded to redacted preview proposals
@@ -146,5 +162,5 @@ memory writes, network calls, model/provider calls, plugin enablement, browser
 automation, mobile/device access, remote execution, shell execution,
 dependencies, context injection, or production authority.
 
-M35-M60 remain planned/provisional under
+M38-M60 remain planned/provisional under
 `docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md`.

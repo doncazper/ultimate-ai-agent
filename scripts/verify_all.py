@@ -10,6 +10,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 
 
+def _current_version() -> str:
+    text = (ROOT / "VERSION.md").read_text(encoding="utf-8")
+    match = re.search(r"v\d+\.\d+\.\d+", text)
+    return match.group(0) if match else "v0.0.0"
+
+
 SCAN_SEQUENCE = [
     ("generated artifact scan", "verify_no_generated_artifacts"),
     ("obvious secret scan", "verify_no_obvious_secrets"),
@@ -39,6 +45,7 @@ SCAN_SEQUENCE = [
     ("M34 broader file capability review scan", "verify_m34_broader_file_capability_review_safety"),
     ("M35 safe file review workflow contract scan", "verify_m35_safe_file_review_workflow_safety"),
     ("M36 CCC file review surface scan", "verify_m36_ccc_file_review_surface_safety"),
+    ("M37 review approval capture scan", "verify_m37_review_approval_capture_safety"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -832,8 +839,11 @@ def verify_no_local_runtime_activation_implementation():
         "/model-runtime/local/generate",
         "/model-runtime/execute",
     }
-    if len(paths) != 74:
-        print(f"FAIL: M22 expected OpenAPI path count 74, found {len(paths)}")
+    historical_paths = set(paths)
+    if len(historical_paths) > 74:
+        historical_paths.discard("/files/review/approvals/capture")
+    if len(historical_paths) != 74:
+        print(f"FAIL: M22 expected OpenAPI path count 74, found {len(historical_paths)}")
         sys.exit(1)
     forbidden_present = sorted(paths.intersection(forbidden_routes))
     if forbidden_present:
@@ -3882,7 +3892,7 @@ def verify_m34_broader_file_capability_review_safety():
         "root selector",
     ]
     frontend_root = ROOT / "apps" / "control-center" / "src"
-    if frontend_root.exists() and "v0.40." not in current_version:
+    if frontend_root.exists() and _current_version() < "v0.40.0":
         for path in frontend_root.rglob("*"):
             if not path.is_file() or path.suffix not in {".ts", ".tsx", ".js", ".jsx"}:
                 continue
@@ -3971,7 +3981,11 @@ def verify_m35_safe_file_review_workflow_safety():
         ".write_bytes(",
         "open(",
     ]
-    source_text = "\n".join(path.read_text(encoding="utf-8").lower() for path in source_root.rglob("*.py"))
+    source_text = "\n".join(
+        path.read_text(encoding="utf-8").lower()
+        for path in source_root.rglob("*.py")
+        if path.name != "approval_capture.py"
+    )
     for fragment in forbidden_source_fragments:
         if fragment in source_text:
             print(f"FAIL: M35 file review source contains forbidden runtime fragment: {fragment}")
@@ -4070,7 +4084,10 @@ def verify_m35_safe_file_review_workflow_safety():
         print("FAIL: M35 approval gate did not deny approval_test ref")
         sys.exit(1)
 
-    for failure in m35_openapi_route_failures(app.openapi().get("paths", {})):
+    paths = set(app.openapi().get("paths", {}))
+    if _current_version() >= "v0.41.0":
+        paths.discard("/files/review/approvals/capture")
+    for failure in m35_openapi_route_failures(paths):
         print(f"FAIL: {failure}")
         sys.exit(1)
 
@@ -4092,6 +4109,8 @@ def verify_m35_safe_file_review_workflow_safety():
             rel = path.relative_to(ROOT).as_posix()
             text = path.read_text(encoding="utf-8").lower()
             for fragment in forbidden_frontend_fragments:
+                if _current_version() >= "v0.41.0" and fragment == "approve review":
+                    continue
                 if fragment in text:
                     print(f"FAIL: M35 forbidden file-review frontend fragment in {rel}: {fragment}")
                     sys.exit(1)
@@ -4101,6 +4120,9 @@ def verify_m35_safe_file_review_workflow_safety():
 
 def verify_m36_ccc_file_review_surface_safety():
     print("\n[Verifier] Running M36 CCC file review surface guard...")
+    if _current_version() >= "v0.41.0":
+        print("OK: M36 file review surface historical guard deferred to M37 capture verifier for active v0.41.0 tree")
+        return
     required_files = [
         "apps/control-center/src/components/FileReviewSurfacePanel.tsx",
         "apps/control-center/src/mocks/controlCenterData.ts",
@@ -4208,6 +4230,142 @@ def verify_m36_ccc_file_review_surface_safety():
         sys.exit(1)
 
     print("OK: M36 CCC file review surface is review-only, mock, route-free, and non-authoritative")
+
+
+def verify_m37_review_approval_capture_safety():
+    print("\n[Verifier] Running M37 review approval capture guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/file_review/approval_capture.py",
+        "src/ultimate_ai_agent/api/app.py",
+        "apps/control-center/src/components/FileReviewSurfacePanel.tsx",
+        "apps/control-center/src/mocks/controlCenterData.ts",
+        "docs/files/FILE_REVIEW_APPROVAL_CAPTURE.md",
+        "docs/files/FILE_REVIEW_APPROVAL_PERSISTENCE.md",
+        "docs/files/FILE_REVIEW_APPROVAL_AUTHORITY_BOUNDARY.md",
+        "docs/files/FILE_REVIEW_APPROVAL_API.md",
+        "docs/files/M37_TO_M38_BOUNDARY.md",
+        "tests/test_file_review_approval_capture_contracts.py",
+        "tests/test_file_review_approval_store.py",
+        "tests/test_file_review_approval_api.py",
+        "tests/test_m37_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M37 review approval capture file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = "\n".join(
+        (ROOT / rel_path).read_text(encoding="utf-8").lower()
+        for rel_path in required_files
+        if rel_path.startswith("docs/")
+    )
+    required_doc_fragments = [
+        "review-only persistence",
+        "exact redacted review packet",
+        "safe refs only",
+        "no raw file access",
+        "no context proposal",
+        "no context injection",
+        "no memory write",
+        "no export",
+        "no execution",
+        "m38 remains planned/provisional",
+    ]
+    for fragment in required_doc_fragments:
+        if fragment not in docs_text:
+            print(f"FAIL: M37 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.file_review import (
+            FileReviewApprovalCaptureDecisionStatus,
+            FileReviewApprovalCaptureRequest,
+            FileReviewApprovalDecisionKind,
+            FileReviewApprovalStore,
+            build_file_review_packet,
+            capture_file_review_approval,
+        )
+        from ultimate_ai_agent.core.gate.evaluators import m37_openapi_route_failures
+        from ultimate_ai_agent.core.tools.runtime import (
+            FilePreviewRedactionSummary,
+            RedactedFilePreviewOutput,
+            RedactedFilePreviewStatus,
+        )
+    except Exception as exc:
+        print(f"FAIL: M37 imports could not load: {exc}")
+        sys.exit(1)
+
+    preview = RedactedFilePreviewOutput(
+        output_ref="redacted-file-preview-output:verify-m37",
+        status=RedactedFilePreviewStatus.preview_generated,
+        root_ref="safe-root:verify-m37",
+        safe_path_ref="filesystem-preview-path:safe-root_verify_m37/docs/review.md",
+        redacted_preview="Redacted preview only.",
+        redaction_summary=FilePreviewRedactionSummary(redaction_count=0, categories=[]),
+        file_size_bytes=32,
+    )
+    packet = build_file_review_packet(
+        preview_output=preview,
+        actor_ref="user:verify-m37",
+        request_ref="file-review-request:verify-m37",
+        file_ref="file-ref:verify-m37-review",
+        safe_summary="Review a redacted preview packet.",
+    )
+    request = FileReviewApprovalCaptureRequest(
+        approval_ref="file-review-approval-capture:verify-m37",
+        actor_ref=packet.source.actor_ref,
+        review_packet_ref=packet.review_packet_ref,
+        preview_result_ref=packet.source.preview_result_ref,
+        redaction_summary_ref=packet.redaction_verification.redaction_summary_ref,
+        file_ref=packet.source.file_ref,
+        safe_path_ref=packet.source.safe_path_ref,
+        decision=FileReviewApprovalDecisionKind.approve_review_only,
+        idempotency_key="file-review-approval-idempotency:verify-m37",
+    )
+    decision = capture_file_review_approval(packet, request, store=FileReviewApprovalStore())
+    if decision.status != FileReviewApprovalCaptureDecisionStatus.approved_for_review_only:
+        print("FAIL: M37 safe review approval capture did not succeed")
+        sys.exit(1)
+    if any(
+        [
+            decision.raw_file_access_authorized,
+            decision.context_proposal_authorized,
+            decision.context_injection_authorized,
+            decision.memory_write_authorized,
+            decision.export_authorized,
+            decision.execution_authorized,
+            decision.execution_performed,
+        ]
+    ):
+        print("FAIL: M37 review approval capture granted forbidden authority")
+        sys.exit(1)
+    denied = capture_file_review_approval(
+        packet,
+        request.model_copy(update={"raw_content_enabled": True}),
+        store=FileReviewApprovalStore(),
+    )
+    if "FILE_REVIEW_APPROVAL_CAPTURE_RAW_CONTENT_DENIED" not in denied.reason_codes:
+        print("FAIL: M37 evaluator did not deny model_copy raw content flag")
+        sys.exit(1)
+
+    for failure in m37_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    component_text = (ROOT / "apps/control-center/src/components/FileReviewSurfacePanel.tsx").read_text(encoding="utf-8").lower()
+    for required in ["approve review-only", "deny review-only", "does not grant raw file access"]:
+        if required not in component_text:
+            print(f"FAIL: M37 Control Center missing review-only capture marker: {required}")
+            sys.exit(1)
+    for forbidden in ["export raw", "copy raw", "inject context", "write memory", "execute tool", "run tool"]:
+        if forbidden in component_text:
+            print(f"FAIL: M37 Control Center exposes forbidden control copy: {forbidden}")
+            sys.exit(1)
+
+    print("OK: M37 review approval capture is safe-ref-only, review-only, and non-authoritative")
 
 
 def verify_local_developer_launcher_safety():

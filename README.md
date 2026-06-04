@@ -12,21 +12,21 @@ allowed to become operational authority.
 
 | Field | Current state |
 |---|---|
-| Current active baseline | **v0.40.1** |
-| Current milestone | **M36 - CCC File Review Surface, Review-Only** |
+| Current active baseline | **v0.41.0** |
+| Current milestone | **M37 - Review Approval Capture, Review-Only Persistence** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
-| API boundary | FastAPI route contract with **74** OpenAPI paths |
+| API boundary | FastAPI route contract with **75** OpenAPI paths |
 | Production readiness | Not claimed |
 
-v0.40.1 hardens M36 CCC File Review Surface, Review-Only. It strengthens
-safe-ref-only display boundaries, private/raw path drift checks, local
-read-only packet selection/expansion guarantees, no-mutating-request checks,
-frontend tests, static verification, documentation-integrity checks, and
-Foundation Gate coverage. It adds no approval capture, approval persistence,
-backend review routes, raw file display, context proposal, context injection,
-memory writes, export, execution controls, dependencies, M37 work, or
-production authority.
+v0.41.0 implements M37 Review Approval Capture, Review-Only Persistence. It
+adds safe review-only approval and denial capture for exact redacted file
+review packets, safe-ref-only persistence, idempotency/replay protection, one
+backend capture route, Control Center review-only capture controls, tests,
+static verification, documentation-integrity checks, and Foundation Gate
+coverage. It adds no raw file reads, raw file output/storage, full-file reads,
+unredacted preview, context proposal, context injection, memory writes, export,
+execution controls, dependencies, M38 work, or production authority.
 
 v0.29.5 is documentation policy polish. It remains the documentation
 organization cleanup baseline before the M26 and M27 implementation releases.
@@ -50,6 +50,10 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M36 File Review Review-Only Policy](docs/control_center/FILE_REVIEW_REVIEW_ONLY_POLICY.md)
 - [M36 File Review Mock Data Policy](docs/control_center/FILE_REVIEW_MOCK_DATA_POLICY.md)
 - [M36 File Review Binding Display Policy](docs/control_center/FILE_REVIEW_BINDING_DISPLAY_POLICY.md)
+- [M37 File Review Approval Capture](docs/files/FILE_REVIEW_APPROVAL_CAPTURE.md)
+- [M37 File Review Approval Persistence](docs/files/FILE_REVIEW_APPROVAL_PERSISTENCE.md)
+- [M37 File Review Approval Authority Boundary](docs/files/FILE_REVIEW_APPROVAL_AUTHORITY_BOUNDARY.md)
+- [M37 File Review Approval API](docs/files/FILE_REVIEW_APPROVAL_API.md)
 - [API route inventory](docs/api/route_inventory.md)
 - [Documentation organization policy](docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md)
 - [Control Center frontend safety policy](docs/control_center/FRONTEND_SAFETY_POLICY.md)
@@ -66,9 +70,9 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M28 Action Policy](docs/approvals/ACTION_POLICY.md)
 - [M27 Tool Broker v2](docs/tools/TOOL_BROKER_V2.md)
 - [M26 Grounded Recall Router](docs/recall/GROUNDED_RECALL_ROUTER.md)
-- [v0.40.1 release notes](docs/release_notes/v0_40_1.md)
-- [v0.40.1 release packet](docs/archive/releases/v0_40_1/README_IMPORT.md)
-- [v0.40.1 master plan](docs/archive/releases/v0_40_1/master_plan.md)
+- [v0.41.0 release notes](docs/release_notes/v0_41_0.md)
+- [v0.41.0 release packet](docs/archive/releases/v0_41_0/README_IMPORT.md)
+- [v0.41.0 master plan](docs/archive/releases/v0_41_0/master_plan.md)
 
 ## What This Project Is
 
@@ -320,7 +324,7 @@ post-M33 supersession is
 | v0.39.1 | M35 hardening - File Review Exact File/Path Binding | Implemented/released hardening |
 | v0.40.0 | M36 - CCC File Review Surface, Review-Only | Implemented/released frontend-only |
 | v0.40.1 | M36 hardening - CCC File Review Surface Read-Only Safety | Implemented/released hardening |
-| v0.41.0 | M37 - Review Approval Capture, Review-Only Persistence | Planned/provisional |
+| v0.41.0 | M37 - Review Approval Capture, Review-Only Persistence | Implemented/released |
 | v0.42.0 | M38 - Safe Context Proposal From Approved Review | Planned/provisional |
 | v0.43.0 | M39 - CCC Context Proposal Surface | Planned/provisional |
 | v0.44.0 | M40 - Context Handoff Approval, No Injection | Planned/provisional |

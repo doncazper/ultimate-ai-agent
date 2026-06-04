@@ -126,7 +126,7 @@ export const mockControlCenterData: ControlCenterData = {
       {
         surface: "file_review_surface",
         status: "preview_only",
-        description: "Mock review-only redacted file review packet surface for M36.",
+        description: "Mock review-only redacted file review packet surface with M37 approval capture.",
         route_refs: [],
         execution_allowed: false,
         mutation_allowed: false,
@@ -753,15 +753,17 @@ export const mockControlCenterData: ControlCenterData = {
     nonAuthoritative: true,
     boundarySummary:
       "This surface is mock and non-authoritative. It displays redacted review packets and exact safe binding refs only.",
+    captureBoundarySummary:
+      "Review approval capture is review-only persistence. It captures a review-only approval record bound to this exact redacted packet and does not grant raw file access, context proposal, context injection, memory writes, export, or execution.",
     warningCodes: [
       "MOCK_DATA_ONLY",
       "NO_PRODUCTION_AUTHORITY",
       "REDACTED_SUMMARY_ONLY",
-      "NO_APPROVAL_CAPTURE",
-      "NO_APPROVAL_PERSISTENCE",
+      "REVIEW_ONLY_APPROVAL_CAPTURE",
+      "SAFE_REF_PERSISTENCE_ONLY",
       "NO_RAW_FILE_DISPLAY",
       "SAFE_REFS_ONLY",
-      "NO_MUTATING_REQUESTS"
+      "NO_AUTHORITY_GRANTED"
     ],
     packets: [
       {
@@ -797,9 +799,23 @@ export const mockControlCenterData: ControlCenterData = {
           safeSummary:
             "Receipt plan stores refs, redaction status, and decision metadata only."
         },
-        reasonCodes: ["M36_REVIEW_ONLY_SURFACE", "EXACT_BINDING_REFS_DISPLAYED", "SAFE_REFS_ONLY"],
+        approvalCapture: {
+          status: "not_captured",
+          captured: false,
+          persisted: false,
+          reviewOnly: true,
+          rawFileAccessAuthorized: false,
+          contextProposalAuthorized: false,
+          contextInjectionAuthorized: false,
+          memoryWriteAuthorized: false,
+          exportAuthorized: false,
+          executionAuthorized: false,
+          executionPerformed: false,
+          safeMessage: "No review-only approval capture has been recorded for this mock packet."
+        },
+        reasonCodes: ["M37_REVIEW_ONLY_CAPTURE_SURFACE", "EXACT_BINDING_REFS_DISPLAYED", "SAFE_REFS_ONLY"],
         authorityWarnings: [
-          "Decision status is display-only and cannot capture approval.",
+          "Review approval capture records safe refs only and grants no authority.",
           "Approval gate refs are shown for review; they are not authority.",
           "No raw file access, context proposal, memory write, export, or execution is available."
         ],
@@ -842,10 +858,24 @@ export const mockControlCenterData: ControlCenterData = {
           safeSummary:
             "Alternate receipt plan confirms no raw data or mutation authority is stored."
         },
-        reasonCodes: ["M36_REVIEW_ONLY_SURFACE", "NO_MUTATION_CONTROLS", "NO_MUTATING_REQUESTS"],
+        approvalCapture: {
+          status: "not_captured",
+          captured: false,
+          persisted: false,
+          reviewOnly: true,
+          rawFileAccessAuthorized: false,
+          contextProposalAuthorized: false,
+          contextInjectionAuthorized: false,
+          memoryWriteAuthorized: false,
+          exportAuthorized: false,
+          executionAuthorized: false,
+          executionPerformed: false,
+          safeMessage: "No review-only approval capture has been recorded for this mock packet."
+        },
+        reasonCodes: ["M37_REVIEW_ONLY_CAPTURE_SURFACE", "SAFE_REF_PERSISTENCE_ONLY", "NO_AUTHORITY_GRANTED"],
         authorityWarnings: [
-          "Decision status is display-only and cannot capture approval.",
-          "M37 approval capture remains future.",
+          "Review approval capture records safe refs only and grants no authority.",
+          "M38 context proposal remains future.",
           "Context proposal and injection remain unavailable."
         ],
         redactionStatus: "redacted_summary_only",

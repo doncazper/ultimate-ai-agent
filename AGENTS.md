@@ -1,6 +1,6 @@
 # Ultimate AI Agent Workspace Standards
 
-Active baseline: v0.40.1.
+Active baseline: v0.41.0.
 
 This repository is the Ultimate AI Agent foundation workspace. Treat it as a contract-first Python core, not a production runtime integration layer.
 
@@ -84,6 +84,7 @@ This repository is the Ultimate AI Agent foundation workspace. Treat it as a con
 - v0.39.0 M35 Safe File Review Workflow Contracts adds review-only, contract-only file review workflow models over already-redacted preview results. It may package redacted previews into review packets, verify redaction metadata, evaluate exact user approval binding, produce review-only decision envelopes, and create no-raw receipt plans. Do not use v0.39.0 to add Control Center file review UI, approval capture, approval persistence, context proposal, context injection, memory writes, export, execution, raw file access, full-file reads, unredacted previews, file mutation, backend routes, dependencies, M36 work, M37 work, M38 work, or production authority. M36-M60 remain planned/provisional.
 - v0.39.1 M35 File Review Exact File/Path Binding hardening requires review approvals to bind to the exact actor, review packet, preview result, redaction summary, file_ref, and safe_path_ref. It denies model_copy-mutated packet file/path refs at evaluator boundaries and adds tests, static verification, documentation-integrity checks, and Foundation Gate coverage. Do not use v0.39.1 to add Control Center file review UI, approval capture, approval persistence, context proposal, context injection, memory writes, export, execution, raw file access, full-file reads, unredacted previews, file mutation, backend routes, dependencies, M36 work, M37 work, M38 work, or production authority. M36-M60 remain planned/provisional.
 - v0.40.0 M36 CCC File Review Surface, Review-Only adds a frontend-only Control Center `/files/review` surface for redacted review packets. It may display redacted previews, redaction summaries, exact binding refs, review-only decision status, approval gate contract status, receipt plan metadata, and visibly mock non-authoritative fallback data. Do not use v0.40.0 to add approval capture, approval persistence, backend review routes, raw file reads, raw file display/storage, full-file reads, file picker/browser/upload/root selector, export/download/copy-raw controls, context proposal, context injection, memory writes, execution/tool controls, file mutation, dependencies, M37 work, M38 work, or production authority. M37-M60 remain planned/provisional.
+- v0.41.0 M37 Review Approval Capture, Review-Only Persistence adds review-only approval and denial capture for exact redacted review packets. It may use exactly one backend route, `POST /files/review/approvals/capture`, and safe-ref-only local review approval persistence. It does not grant raw file access, context proposal, context injection, memory writes, export, execution, tool authority, arbitrary filesystem access, dependencies, M38 work, or production authority.
 - API validation errors must be sanitized and must never echo raw invalid input values or secret-like field values.
 
 ## Workspace

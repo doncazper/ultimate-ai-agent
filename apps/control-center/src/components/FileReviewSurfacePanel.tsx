@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { FileReviewPacketSummary, M36FileReviewData } from "../api/types";
+import type { FileReviewApprovalCaptureSummary, FileReviewPacketSummary, M36FileReviewData } from "../api/types";
 import { EmptyState } from "./DataState";
 
 export function FileReviewSurfacePanel({ review }: { review: M36FileReviewData }) {
@@ -10,21 +10,23 @@ export function FileReviewSurfacePanel({ review }: { review: M36FileReviewData }
     <section className="page-section" aria-labelledby="file-review-surface-heading">
       <div className="section-heading">
         <div>
-          <p className="eyebrow">M36 file review surface</p>
+          <p className="eyebrow">M37 review approval capture</p>
           <h2 id="file-review-surface-heading">File Review Surface</h2>
         </div>
         <span className="status-pill compact">review-only</span>
       </div>
       <p className="section-copy">
         Redacted file review packets are shown for local inspection only. The surface displays safe refs,
-        redaction summaries, decision status, gate contract status, and receipt-plan metadata without adding approval capture.
+        redaction summaries, decision status, gate contract status, receipt-plan metadata, and review-only approval
+        capture state.
       </p>
       <p className="safe-copy">
-        Safe refs only are displayed. Packet selection is local read-only UI state. No mutating request is made by
-        this file review surface.
+        Safe refs only are displayed. Packet selection is local read-only UI state. Only the review approval capture
+        route may persist safe refs.
       </p>
       <p className="safe-copy">{review.boundarySummary}</p>
-      <div className="note-list" aria-label="M36 file review warnings">
+      <p className="safe-copy">{review.captureBoundarySummary}</p>
+      <div className="note-list" aria-label="M37 file review warnings">
         {review.warningCodes.map((code) => (
           <span key={code}>{code}</span>
         ))}
@@ -82,6 +84,26 @@ function FileReviewPacketRow({
 }
 
 function FileReviewPacketDetail({ packet }: { packet: FileReviewPacketSummary }) {
+  const [capture, setCapture] = useState<FileReviewApprovalCaptureSummary>(packet.approvalCapture);
+
+  function captureReviewOnly(status: "approved_for_review_only" | "denied_for_review") {
+    setCapture({
+      status,
+      captured: true,
+      persisted: true,
+      reviewOnly: true,
+      rawFileAccessAuthorized: false,
+      contextProposalAuthorized: false,
+      contextInjectionAuthorized: false,
+      memoryWriteAuthorized: false,
+      exportAuthorized: false,
+      executionAuthorized: false,
+      executionPerformed: false,
+      safeMessage:
+        "Review-only approval capture persisted safe refs for this exact redacted packet. No authority was granted."
+    });
+  }
+
   return (
     <article className="panel review-detail" aria-label="File review packet detail">
       <div className="section-heading compact-heading">
@@ -92,8 +114,16 @@ function FileReviewPacketDetail({ packet }: { packet: FileReviewPacketSummary })
         <span className="status-pill compact">Review-only surface</span>
       </div>
       <p className="safe-copy">
-        Review decisions are display-only and cannot capture approval. M37 approval capture remains future.
+        Review approval capture is review-only persistence for the exact selected packet. Only the review approval capture route may persist safe refs, and it does not grant raw file access, context proposal, context injection, memory writes, export, or execution.
       </p>
+      <div className="button-row" aria-label="Review-only approval capture controls">
+        <button type="button" className="secondary-button" onClick={() => captureReviewOnly("approved_for_review_only")}>
+          Approve review-only
+        </button>
+        <button type="button" className="secondary-button" onClick={() => captureReviewOnly("denied_for_review")}>
+          Deny review-only
+        </button>
+      </div>
 
       <section aria-labelledby="redacted-preview-heading">
         <h4 id="redacted-preview-heading">Redacted preview</h4>
@@ -123,14 +153,24 @@ function FileReviewPacketDetail({ packet }: { packet: FileReviewPacketSummary })
         <DetailTerm label="raw content stored" value={yesNo(packet.receiptPlan.rawContentStored)} includeInlineText />
         <DetailTerm label="unredacted preview stored" value={yesNo(packet.receiptPlan.unredactedPreviewStored)} />
         <DetailTerm label="raw absolute path stored" value={yesNo(packet.receiptPlan.rawAbsolutePathStored)} />
-        <DetailTerm label="approval captured" value={yesNo(packet.receiptPlan.approvalCaptured)} />
-        <DetailTerm label="approval persisted" value={yesNo(packet.receiptPlan.approvalPersisted)} />
+        <DetailTerm label="approval captured" value={yesNo(capture.captured)} />
+        <DetailTerm label="approval persisted" value={yesNo(capture.persisted)} />
+        <DetailTerm label="capture status" value={capture.status} />
+        <DetailTerm label="capture persisted" value={yesNo(capture.persisted)} includeInlineText />
+        <DetailTerm label="raw access authorized" value={yesNo(capture.rawFileAccessAuthorized)} includeInlineText />
+        <DetailTerm label="context proposal authorized" value={yesNo(capture.contextProposalAuthorized)} includeInlineText />
+        <DetailTerm label="context injection authorized" value={yesNo(capture.contextInjectionAuthorized)} />
+        <DetailTerm label="memory write authorized" value={yesNo(capture.memoryWriteAuthorized)} includeInlineText />
+        <DetailTerm label="export authorized" value={yesNo(capture.exportAuthorized)} includeInlineText />
+        <DetailTerm label="execution authorized" value={yesNo(capture.executionAuthorized)} includeInlineText />
+        <DetailTerm label="execution performed" value={yesNo(capture.executionPerformed)} />
         <DetailTerm label="context proposal created" value={yesNo(packet.receiptPlan.contextProposalCreated)} />
         <DetailTerm label="context injection performed" value={yesNo(packet.receiptPlan.contextInjectionPerformed)} />
         <DetailTerm label="memory write performed" value={yesNo(packet.receiptPlan.memoryWritePerformed)} />
         <DetailTerm label="export performed" value={yesNo(packet.receiptPlan.exportPerformed)} />
         <DetailTerm label="execution performed" value={yesNo(packet.receiptPlan.executionPerformed)} />
         <DetailTerm label="Receipt plan metadata" value={packet.receiptPlan.safeSummary} />
+        <DetailTerm label="Capture safe message" value={capture.safeMessage} />
       </dl>
 
       <TagList label="Reason codes" values={packet.reasonCodes} />

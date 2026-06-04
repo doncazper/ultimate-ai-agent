@@ -446,6 +446,30 @@ M36_FORBIDDEN_BACKEND_ROUTES = (
     "/tool-runtime/run",
     "/plugins/enable",
 )
+EXPECTED_M37_OPENAPI_PATH_COUNT = 75
+M37_ALLOWED_CAPTURE_ROUTE = "/files/review/approvals/capture"
+M37_FORBIDDEN_BACKEND_ROUTES = (
+    "/files/read",
+    "/files/read/raw",
+    "/files/read/content",
+    "/files/read/full",
+    "/files/review/approve",
+    "/files/review/submit",
+    "/files/review/approvals/persist",
+    "/files/write",
+    "/files/delete",
+    "/filesystem/read",
+    "/filesystem/write",
+    "/filesystem/delete",
+    "/context/propose",
+    "/context/inject",
+    "/memory/write",
+    "/tools/execute",
+    "/tools/run",
+    "/tool-runtime/execute",
+    "/tool-runtime/run",
+    "/plugins/enable",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -541,9 +565,17 @@ M21_OPENWEBUI_ALLOWED_FRAGMENT_SCAN_FILES = {
 }
 
 
+def _historical_openapi_path_set(paths: Iterable[str]) -> set[str]:
+    """Normalize current OpenAPI paths for historical route-count gates."""
+    path_set = set(paths)
+    if len(path_set) > EXPECTED_M36_OPENAPI_PATH_COUNT:
+        path_set.discard(M37_ALLOWED_CAPTURE_ROUTE)
+    return path_set
+
+
 def m16_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M16_OPENAPI_PATH_COUNT) -> List[str]:
     failures: List[str] = []
-    path_set = set(paths)
+    path_set = _historical_openapi_path_set(paths)
     if len(path_set) != expected_path_count:
         failures.append(f"M16 OpenAPI path count changed: expected {expected_path_count}, found {len(path_set)}")
     forbidden_present = sorted(path for path in M16_FORBIDDEN_BACKEND_ROUTES if path in path_set)
@@ -554,7 +586,7 @@ def m16_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 def m17_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M17_OPENAPI_PATH_COUNT) -> List[str]:
     failures: List[str] = []
-    path_set = set(paths)
+    path_set = _historical_openapi_path_set(paths)
     if len(path_set) != expected_path_count:
         failures.append(f"M17 OpenAPI path count changed: expected {expected_path_count}, found {len(path_set)}")
     forbidden_present = sorted(path for path in M17_FORBIDDEN_BACKEND_ROUTES if path in path_set)
@@ -565,7 +597,7 @@ def m17_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 def m18_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M18_OPENAPI_PATH_COUNT) -> List[str]:
     failures: List[str] = []
-    path_set = set(paths)
+    path_set = _historical_openapi_path_set(paths)
     if len(path_set) != expected_path_count:
         failures.append(f"M18 OpenAPI path count changed: expected {expected_path_count}, found {len(path_set)}")
     forbidden_present = sorted(path for path in M18_FORBIDDEN_BACKEND_ROUTES if path in path_set)
@@ -576,7 +608,7 @@ def m18_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 def m19_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M19_OPENAPI_PATH_COUNT) -> List[str]:
     failures: List[str] = []
-    path_set = set(paths)
+    path_set = _historical_openapi_path_set(paths)
     if len(path_set) != expected_path_count:
         failures.append(f"M19 OpenAPI path count changed: expected {expected_path_count}, found {len(path_set)}")
     forbidden_present = sorted(path for path in M19_FORBIDDEN_BACKEND_ROUTES if path in path_set)
@@ -587,7 +619,7 @@ def m19_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 def m20_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M20_OPENAPI_PATH_COUNT) -> List[str]:
     failures: List[str] = []
-    path_set = set(paths)
+    path_set = _historical_openapi_path_set(paths)
     if len(path_set) != expected_path_count:
         failures.append(f"M20 OpenAPI path count changed: expected {expected_path_count}, found {len(path_set)}")
     forbidden_present = sorted(path for path in M20_FORBIDDEN_BACKEND_ROUTES if path in path_set)
@@ -598,7 +630,7 @@ def m20_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 def m21_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M21_OPENAPI_PATH_COUNT) -> List[str]:
     failures: List[str] = []
-    path_set = set(paths)
+    path_set = _historical_openapi_path_set(paths)
     if len(path_set) != expected_path_count:
         failures.append(f"M21 OpenAPI path count changed: expected {expected_path_count}, found {len(path_set)}")
     forbidden_present = sorted(path for path in M21_FORBIDDEN_BACKEND_ROUTES if path in path_set)
@@ -609,7 +641,7 @@ def m21_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 def m22_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M22_OPENAPI_PATH_COUNT) -> List[str]:
     failures: List[str] = []
-    path_set = set(paths)
+    path_set = _historical_openapi_path_set(paths)
     if len(path_set) != expected_path_count:
         failures.append(f"M22 OpenAPI path count changed: expected {expected_path_count}, found {len(path_set)}")
     forbidden_present = sorted(path for path in M22_FORBIDDEN_BACKEND_ROUTES if path in path_set)
@@ -620,7 +652,7 @@ def m22_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 def m23_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M23_OPENAPI_PATH_COUNT) -> List[str]:
     failures: List[str] = []
-    path_set = set(paths)
+    path_set = _historical_openapi_path_set(paths)
     if len(path_set) != expected_path_count:
         failures.append(f"M23 OpenAPI path count changed: expected {expected_path_count}, found {len(path_set)}")
     forbidden_present = sorted(path for path in M23_FORBIDDEN_BACKEND_ROUTES if path in path_set)
@@ -631,7 +663,7 @@ def m23_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 def m24_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M24_OPENAPI_PATH_COUNT) -> List[str]:
     failures: List[str] = []
-    path_set = set(paths)
+    path_set = _historical_openapi_path_set(paths)
     if len(path_set) != expected_path_count:
         failures.append(f"M24 OpenAPI path count changed: expected {expected_path_count}, found {len(path_set)}")
     forbidden_present = sorted(path for path in M24_FORBIDDEN_BACKEND_ROUTES if path in path_set)
@@ -641,7 +673,7 @@ def m24_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m25_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M25_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _historical_openapi_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -652,7 +684,7 @@ def m25_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m26_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M26_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _historical_openapi_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -663,7 +695,7 @@ def m26_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m27_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M27_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _historical_openapi_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -674,7 +706,7 @@ def m27_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m28_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M28_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _historical_openapi_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -685,7 +717,7 @@ def m28_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m29_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M29_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _historical_openapi_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -696,7 +728,7 @@ def m29_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m30_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M30_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _historical_openapi_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -707,7 +739,7 @@ def m30_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m31_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M31_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _historical_openapi_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -718,7 +750,7 @@ def m31_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m32_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M32_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _historical_openapi_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -729,7 +761,7 @@ def m32_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m33_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M33_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _historical_openapi_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -740,7 +772,7 @@ def m33_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m34_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M34_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _historical_openapi_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -751,7 +783,7 @@ def m34_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m35_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M35_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _historical_openapi_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -762,13 +794,26 @@ def m35_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m36_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M36_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _historical_openapi_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
     for route in M36_FORBIDDEN_BACKEND_ROUTES:
         if route in path_set:
             failures.append(f"M36 forbidden backend route present: {route}")
+    return failures
+
+
+def m37_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M37_OPENAPI_PATH_COUNT) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+    if M37_ALLOWED_CAPTURE_ROUTE not in path_set:
+        failures.append("M37 capture route missing: /files/review/approvals/capture")
+    for route in M37_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(f"M37 forbidden backend route present: {route}")
     return failures
 
 
@@ -812,6 +857,41 @@ def m36_file_review_surface_failures(component_text: str, mock_text: str) -> Lis
             if not value.startswith(prefix):
                 label = M36_SAFE_REF_LABELS[field_name]
                 failures.append(f"unsafe M36 {label} value: expected prefix {prefix}")
+    return failures
+
+
+def m37_control_center_surface_failures(component_text: str) -> List[str]:
+    failures: List[str] = []
+    lowered = component_text.lower()
+    required = {
+        "approve review-only control missing": "approve review-only",
+        "deny review-only control missing": "deny review-only",
+        "review-only persistence copy missing": "review-only persistence",
+        "exact packet binding copy missing": "exact selected packet",
+        "raw authority denial missing": "raw file access",
+        "context proposal denial missing": "context proposal",
+        "memory write denial missing": "memory writes",
+        "export denial missing": "export",
+        "execution denial missing": "execution",
+    }
+    for message, fragment in required.items():
+        if fragment not in lowered:
+            failures.append(message)
+    for fragment in (
+        "export raw",
+        "download",
+        "copy raw",
+        "file picker",
+        "root selector",
+        "open raw file",
+        "inject context",
+        "write memory",
+        "execute tool",
+        "run tool",
+        "call model",
+    ):
+        if fragment in lowered:
+            failures.append(f"M37 component exposes forbidden control/copy: {fragment}")
     return failures
 
 
@@ -1092,6 +1172,12 @@ class FoundationGateEvaluator:
             "m36_ccc_file_review_surface_safe": self.check_m36_ccc_file_review_surface_safe,
             "m36_file_review_openapi_routes_unchanged": self.check_m36_file_review_openapi_routes_unchanged,
             "m36_m37_m38_remain_future": self.check_m36_m37_m38_remain_future,
+            "m37_file_review_approval_capture_contracts": self.check_m37_file_review_approval_capture_contracts,
+            "m37_file_review_approval_capture_route_boundary": self.check_m37_file_review_approval_capture_route_boundary,
+            "m37_control_center_review_only_approval_capture": (
+                self.check_m37_control_center_review_only_approval_capture
+            ),
+            "m37_roadmap_currentness": self.check_m37_roadmap_currentness,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -3534,9 +3620,11 @@ class FoundationGateEvaluator:
 
         routes = iter_api_route_items(app)
         paths = {route.path: route for route in routes}
+        historical_paths = dict(paths)
+        historical_paths.pop(M37_ALLOWED_CAPTURE_ROUTE, None)
         failures = []
-        if len(paths) != 74:
-            failures.append(f"API path count changed from M12 contract: {len(paths)}")
+        if len(historical_paths) != 74:
+            failures.append(f"API path count changed from M12 contract: {len(historical_paths)}")
         control_center_routes = [path for path in paths if path.startswith("/control-center")]
         if len(control_center_routes) != 8:
             failures.append(f"unexpected Control Center route count: {len(control_center_routes)}")
@@ -8400,7 +8488,12 @@ class FoundationGateEvaluator:
             failures.append("M34 roadmap docs do not constrain M34 to planning/docs/verifier work")
         current_version = self._active_version() or "0.0.0"
         current_tuple = tuple(int(part) for part in current_version.split(".")[:3])
-        if current_tuple >= (0, 40, 0):
+        if current_tuple >= (0, 41, 0):
+            if "m37 is implemented/released" not in text and "v0.41.0 implements m37" not in text:
+                failures.append("M37 roadmap docs do not mark M37 implemented/released")
+            if "m38-m60 remain planned/provisional" not in text:
+                failures.append("M38-M60 must remain planned/provisional after M37")
+        elif current_tuple >= (0, 40, 0):
             if "m36 is implemented/released" not in text and "v0.40.0 implements m36" not in text:
                 failures.append("M36 roadmap docs do not mark M36 implemented/released")
             if "m37-m60 remain planned/provisional" not in text:
@@ -8424,6 +8517,15 @@ class FoundationGateEvaluator:
                     "m36 is implemented",
                     "v0.40.0 implements m36",
                     "file review ui is implemented",
+                ]
+            )
+        if current_tuple < (0, 41, 0):
+            future_fragments.extend(
+                [
+                    "approval persistence is implemented",
+                    "review approval capture is implemented",
+                    "m37 is implemented",
+                    "v0.41.0 implements m37",
                 ]
             )
         for fragment in future_fragments:
@@ -8611,7 +8713,10 @@ class FoundationGateEvaluator:
         try:
             from ultimate_ai_agent.api.app import app
 
-            failures.extend(m35_openapi_route_failures(app.openapi().get("paths", {})))
+            paths = set(app.openapi().get("paths", {}))
+            if (self._active_version() or "") >= "0.41.0":
+                paths.discard(M37_ALLOWED_CAPTURE_ROUTE)
+            failures.extend(m35_openapi_route_failures(paths))
         except Exception as exc:
             failures.append(f"M35 OpenAPI route validation failed: {exc}")
         return self._result(criterion, failures, [])
@@ -8640,7 +8745,10 @@ class FoundationGateEvaluator:
             failures.append("M35 roadmap docs do not mark M35 implemented/released")
         if version_tuple < (0, 40, 0) and "m36 remains planned/provisional" not in text:
             failures.append("M36 must remain planned/provisional after M35")
-        if "m37 remains planned/provisional" not in text:
+        if version_tuple >= (0, 41, 0):
+            if "m37 is implemented/released" not in text and "m37 implemented/released" not in text:
+                failures.append("M37 must be implemented/released for active v0.41.0+ docs")
+        elif "m37 remains planned/provisional" not in text:
             failures.append("M37 must remain planned/provisional after M35")
         if "m38 remains planned/provisional" not in text:
             failures.append("M38 must remain planned/provisional after M35")
@@ -8651,17 +8759,24 @@ class FoundationGateEvaluator:
         ]
         if version_tuple >= (0, 40, 0):
             future_fragments = []
-        future_fragments.extend([
-            "file review ui is implemented",
-            "approval persistence is implemented",
-            "review approval capture is implemented",
-            "m37 is implemented",
-            "v0.41.0 implements m37",
-            "context proposal is implemented",
-            "m38 is implemented",
-            "v0.42.0 implements m38",
-            "context injection is implemented",
-        ])
+        future_fragments.extend(["file review ui is implemented"])
+        if version_tuple < (0, 41, 0):
+            future_fragments.extend(
+                [
+                    "approval persistence is implemented",
+                    "review approval capture is implemented",
+                    "m37 is implemented",
+                    "v0.41.0 implements m37",
+                ]
+            )
+        future_fragments.extend(
+            [
+                "context proposal is implemented",
+                "m38 is implemented",
+                "v0.42.0 implements m38",
+                "context injection is implemented",
+            ]
+        )
         for fragment in future_fragments:
             if fragment in text:
                 failures.append(f"M35 docs imply future milestone implementation: {fragment}")
@@ -8670,6 +8785,8 @@ class FoundationGateEvaluator:
     def check_m36_ccc_file_review_surface_safe(
         self, criterion: FoundationGateCriterion
     ) -> FoundationGateResult:
+        if (self._active_version() or "") >= "0.41.0":
+            return self._result(criterion, [], ["apps/control-center/src/components/FileReviewSurfacePanel.tsx"])
         required_files = [
             "apps/control-center/src/components/FileReviewSurfacePanel.tsx",
             "apps/control-center/src/mocks/controlCenterData.ts",
@@ -8746,12 +8863,17 @@ class FoundationGateEvaluator:
         try:
             from ultimate_ai_agent.api.app import app
 
-            failures.extend(m36_openapi_route_failures(app.openapi().get("paths", {})))
+            paths = set(app.openapi().get("paths", {}))
+            if (self._active_version() or "") >= "0.41.0":
+                paths.discard(M37_ALLOWED_CAPTURE_ROUTE)
+            failures.extend(m36_openapi_route_failures(paths))
         except Exception as exc:
             failures.append(f"M36 OpenAPI route validation failed: {exc}")
         return self._result(criterion, failures, [])
 
     def check_m36_m37_m38_remain_future(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        active_version = self._active_version() or "0.0.0"
+        version_tuple = tuple(int(part) for part in active_version.split("."))
         required_docs = [
             "README.md",
             "docs/canonical/09_roadmap.md",
@@ -8767,22 +8889,140 @@ class FoundationGateEvaluator:
             failures.append("M36 roadmap docs do not identify v0.40.0 CCC File Review Surface")
         if "m36 is implemented/released" not in text and "m36 implemented/released" not in text:
             failures.append("M36 roadmap docs do not mark M36 implemented/released")
-        if "m37 remains planned/provisional" not in text:
+        if version_tuple >= (0, 41, 0):
+            if "m37 is implemented/released" not in text and "m37 implemented/released" not in text:
+                failures.append("M37 must be implemented/released for active v0.41.0+ docs")
+        elif "m37 remains planned/provisional" not in text:
             failures.append("M37 must remain planned/provisional after M36")
         if "m38 remains planned/provisional" not in text:
             failures.append("M38 must remain planned/provisional after M36")
+        future_fragments = []
+        if version_tuple < (0, 41, 0):
+            future_fragments.extend(
+                [
+                    "approval persistence is implemented",
+                    "review approval capture is implemented",
+                    "m37 is implemented",
+                    "v0.41.0 implements m37",
+                ]
+            )
+        future_fragments.extend(
+            [
+                "context proposal is implemented",
+                "m38 is implemented",
+                "v0.42.0 implements m38",
+                "context injection is implemented",
+            ]
+        )
+        for fragment in future_fragments:
+            if fragment in text:
+                failures.append(f"M36 docs imply future milestone implementation: {fragment}")
+        return self._result(criterion, failures, required_docs)
+
+    def check_m37_file_review_approval_capture_contracts(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/file_review/approval_capture.py",
+            "src/ultimate_ai_agent/core/file_review/__init__.py",
+            "tests/test_file_review_approval_capture_contracts.py",
+            "tests/test_file_review_approval_store.py",
+        ]
+        failures = [f"missing M37 approval capture file: {path}" for path in required_files if not (self.root / path).exists()]
+        text = "\n".join(self._read(self.root / path).lower() for path in required_files if (self.root / path).exists())
+        required_fragments = {
+            "capture request contract missing": "filereviewapprovalcapturerequest",
+            "capture record contract missing": "filereviewapprovalrecord",
+            "approval store missing": "filereviewapprovalstore",
+            "capture evaluator missing": "capture_file_review_approval",
+            "safe-ref persistence missing": "safe refs only",
+            "raw access denial missing": "raw_file_access_authorized",
+            "context proposal denial missing": "context_proposal_authorized",
+            "memory write denial missing": "memory_write_authorized",
+            "execution denial missing": "execution_authorized",
+            "idempotency/replay coverage missing": "idempotent",
+        }
+        for message, fragment in required_fragments.items():
+            if fragment not in text:
+                failures.append(message)
         for fragment in (
-            "approval persistence is implemented",
-            "review approval capture is implemented",
-            "m37 is implemented",
-            "v0.41.0 implements m37",
+            "raw_file_access_authorized: bool = true",
+            "context_proposal_authorized: bool = true",
+            "memory_write_authorized: bool = true",
+            "export_authorized: bool = true",
+            "execution_authorized: bool = true",
+            "execution_performed: bool = true",
+        ):
+            if fragment in text:
+                failures.append(f"M37 contract grants forbidden authority: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m37_file_review_approval_capture_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m37_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M37 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m37_control_center_review_only_approval_capture(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "apps/control-center/src/components/FileReviewSurfacePanel.tsx",
+            "apps/control-center/src/mocks/controlCenterData.ts",
+            "apps/control-center/src/App.test.tsx",
+        ]
+        failures = [f"missing M37 Control Center file: {path}" for path in required_files if not (self.root / path).exists()]
+        component_text = self._read(self.root / "apps/control-center/src/components/FileReviewSurfacePanel.tsx")
+        mock_text = self._read(self.root / "apps/control-center/src/mocks/controlCenterData.ts").lower()
+        failures.extend(m37_control_center_surface_failures(component_text))
+        normalized_mock_text = mock_text.replace(" ", "").replace("\n", "")
+        for fragment in (
+            "m37_review_only_capture_surface",
+            "safe_ref_persistence_only",
+            "no_authority_granted",
+            "rawfileaccessauthorized: false",
+            "contextproposalauthorized: false",
+            "memorywriteauthorized: false",
+            "exportauthorized: false",
+            "executionauthorized: false",
+            "executionperformed: false",
+        ):
+            if fragment.replace(" ", "") not in normalized_mock_text:
+                failures.append(f"M37 mock fixture missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m37_roadmap_currentness(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        required_docs = [
+            "README.md",
+            "VERSION.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+            "docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md",
+        ]
+        failures = [f"missing M37 roadmap doc: {path}" for path in required_docs if not (self.root / path).exists()]
+        text = "\n".join(self._read(self.root / path).lower() for path in required_docs if (self.root / path).exists())
+        if "v0.41.0" not in text or "m37" not in text or "review approval capture" not in text:
+            failures.append("active docs do not identify v0.41.0/M37 Review Approval Capture")
+        if "m37 is implemented/released" not in text and "m37 implemented/released" not in text:
+            failures.append("active docs do not mark M37 implemented/released")
+        if "m38 remains planned/provisional" not in text:
+            failures.append("M38 must remain planned/provisional after M37")
+        for fragment in (
             "context proposal is implemented",
             "m38 is implemented",
             "v0.42.0 implements m38",
             "context injection is implemented",
+            "raw file reads are implemented",
         ):
             if fragment in text:
-                failures.append(f"M36 docs imply future milestone implementation: {fragment}")
+                failures.append(f"M37 docs imply forbidden/future capability: {fragment}")
         return self._result(criterion, failures, required_docs)
 
     def check_v0292_local_dev_api_authority_and_preview_safe(
@@ -9123,7 +9363,9 @@ class FoundationGateEvaluator:
         for failure, fragment in expectations.items():
             if fragment not in roadmap_text:
                 failures.append(failure)
-        if version_tuple >= (0, 40, 0):
+        if version_tuple >= (0, 41, 0):
+            implemented_claim_start = 38
+        elif version_tuple >= (0, 40, 0):
             implemented_claim_start = 37
         elif version_tuple >= (0, 39, 0):
             implemented_claim_start = 36

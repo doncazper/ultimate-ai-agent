@@ -1,4 +1,4 @@
-# 09 - Roadmap v0.40.1
+# 09 - Roadmap v0.41.0
 
 Status: Active foundation-first roadmap. This is the single roadmap source of truth.
 
@@ -25,7 +25,7 @@ The original foundation sequence established runtime hygiene, local runtime/cont
 
 ## Current accepted baseline
 
-The active accepted baseline is v0.40.1. v0.40.1 hardens M36 CCC File Review Surface, Review-Only as a frontend-only Control Center display surface for already-redacted review packets. It strengthens safe-ref-only display boundaries, private/raw path drift checks, local read-only packet selection/expansion guarantees, no-mutating-request checks, frontend tests, static verification, documentation-integrity checks, and Foundation Gate coverage. It adds no approval capture, approval persistence, backend review routes, raw file reads, raw file display, raw file storage, full-file reads, file picker/browser/upload/root selector, export/download/copy-raw controls, context proposal, context injection, memory writes, execution/tool controls, file mutation, dependencies, M37 work, M38 work, or production authority. v0.40.0 implements M36 CCC File Review Surface, Review-Only. v0.39.1 hardens M35 Safe File Review Workflow Contracts exact file/path binding. v0.39.0 implements M35 as contract-only, review-only logic over already-redacted preview results. v0.38.0 implements M34 Broader File Capability Review as planning, architecture review, documentation, verifier, and Foundation Gate work only. M37-M60 remain planned/provisional.
+The active accepted baseline is v0.41.0. v0.41.0 implements M37 Review Approval Capture, Review-Only Persistence as safe approval and denial capture for exact redacted review packets. It adds safe-ref-only persistence, idempotency/replay protection, one backend capture route, Control Center review-only capture controls, tests, static verification, documentation-integrity checks, and Foundation Gate coverage. It adds no raw file reads, raw file display, raw file storage, full-file reads, unredacted preview, file picker/browser/upload/root selector, export/download/copy-raw controls, context proposal, context injection, memory writes, execution/tool controls, file mutation outside the review approval store, dependencies, M38 work, or production authority. v0.40.1 hardens M36 CCC File Review Surface, Review-Only. v0.40.0 implements M36 CCC File Review Surface, Review-Only. v0.39.1 hardens M35 Safe File Review Workflow Contracts exact file/path binding. v0.39.0 implements M35 as contract-only, review-only logic over already-redacted preview results. v0.38.0 implements M34 Broader File Capability Review as planning, architecture review, documentation, verifier, and Foundation Gate work only. M38-M60 remain planned/provisional.
 
 v0.25.0 adds:
 
@@ -301,7 +301,7 @@ v0.39.0 / M35 — Safe File Review Workflow Contracts, implemented/released cont
 v0.39.1 / M35 hardening — File Review Exact File/Path Binding, implemented/released
 v0.40.0 / M36 — CCC File Review Surface, Review-Only, implemented/released frontend-only
 v0.40.1 / M36 hardening — CCC File Review Surface Read-Only Safety, implemented/released hardening
-v0.41.0 / M37 — Review Approval Capture, Review-Only Persistence, planned/provisional
+v0.41.0 / M37 — Review Approval Capture, Review-Only Persistence, implemented/released
 v0.42.0 / M38 — Safe Context Proposal From Approved Review, planned/provisional
 v0.43.0 / M39 — CCC Context Proposal Surface, planned/provisional
 v0.44.0 / M40 — Context Handoff Approval, No Injection, planned/provisional

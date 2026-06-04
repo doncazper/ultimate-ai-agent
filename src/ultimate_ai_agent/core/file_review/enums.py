@@ -13,3 +13,14 @@ class FileReviewDecisionStatus(str, Enum):
     expired = "expired"
     revoked = "revoked"
     replay_detected = "replay_detected"
+
+
+class FileReviewApprovalDecisionKind(str, Enum):
+    approve_review_only = "approve_review_only"
+    deny_review_only = "deny_review_only"
+
+
+class FileReviewApprovalCaptureDecisionStatus(str, Enum):
+    approved_for_review_only = "approved_for_review_only"
+    denied_for_review = "denied_for_review"
+    rejected = "rejected"

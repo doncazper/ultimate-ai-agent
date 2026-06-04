@@ -481,6 +481,23 @@ export interface FileReviewReceiptPlanSummary {
   safeSummary: string;
 }
 
+export type FileReviewApprovalCaptureStatus = "approved_for_review_only" | "denied_for_review" | "not_captured";
+
+export interface FileReviewApprovalCaptureSummary {
+  status: FileReviewApprovalCaptureStatus;
+  captured: boolean;
+  persisted: boolean;
+  reviewOnly: boolean;
+  rawFileAccessAuthorized: boolean;
+  contextProposalAuthorized: boolean;
+  contextInjectionAuthorized: boolean;
+  memoryWriteAuthorized: boolean;
+  exportAuthorized: boolean;
+  executionAuthorized: boolean;
+  executionPerformed: boolean;
+  safeMessage: string;
+}
+
 export interface FileReviewPacketSummary {
   reviewPacketRef: string;
   status: "ready_for_review" | "review_only" | "blocked";
@@ -492,6 +509,7 @@ export interface FileReviewPacketSummary {
   reviewDecisionStatus: string;
   approvalGateContractStatus: string;
   receiptPlan: FileReviewReceiptPlanSummary;
+  approvalCapture: FileReviewApprovalCaptureSummary;
   reasonCodes: string[];
   authorityWarnings: string[];
   redactionStatus: "redacted_summary_only";
@@ -508,6 +526,7 @@ export interface M36FileReviewData {
   mock: boolean;
   nonAuthoritative: boolean;
   boundarySummary: string;
+  captureBoundarySummary: string;
   warningCodes: string[];
   packets: FileReviewPacketSummary[];
 }
