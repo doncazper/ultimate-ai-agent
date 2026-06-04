@@ -1,8 +1,8 @@
 # README Import v0.35.0
 
-Status: historical release packet for the current active baseline.
+Status: historical release packet. Do not use as current baseline.
 
-Current active baseline: **v0.35.0**
+Historical baseline: **v0.35.0**
 
 v0.35.0 implements M31 Real Tool Runtime Adapter, Single Safe No-Op Tool. It
 adds a governed no-op-only runtime adapter, one deterministic no-op tool,

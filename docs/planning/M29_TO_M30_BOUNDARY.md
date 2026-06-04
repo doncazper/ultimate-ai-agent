@@ -1,6 +1,6 @@
 # M29 to M30 Boundary
 
-Status: active M29-to-M30 historical boundary. Current active baseline: **v0.35.0**.
+Status: active M29-to-M30 historical boundary. Current active baseline: **v0.35.1**.
 
 v0.33.0 / M29 implements the Agent Task Planning Engine as deterministic, local, non-executing, review-only planning contracts. v0.33.1 hardens M29 dependency graph, risk, side-effect, authority-boundary, evaluator revalidation, and no-execution checks.
 

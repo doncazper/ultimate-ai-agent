@@ -12,21 +12,22 @@ allowed to become operational authority.
 
 | Field | Current state |
 |---|---|
-| Current active baseline | **v0.35.0** |
+| Current active baseline | **v0.35.1** |
 | Current milestone | **M31 - Real Tool Runtime Adapter, Single Safe No-Op Tool** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **74** OpenAPI paths |
 | Production readiness | Not claimed |
 
-v0.35.0 implements M31 Real Tool Runtime Adapter, Single Safe No-Op Tool. It
-adds a governed runtime adapter path for exactly one deterministic no-op tool,
-`tool:no_op.v1`, with replay protection, evaluator revalidation, safe result
-envelopes, and non-authoritative receipt plans. It does not add arbitrary tool
-execution, dynamic dispatch, side-effecting tools, shell execution, file
-mutation, memory writes, network calls, model/provider calls, backend execute
-routes, Control Center execute controls, dependencies, or production authority.
-M32-M40 remain planned/provisional.
+v0.35.1 hardens M31 Real Tool Runtime Adapter, Single Safe No-Op Tool. It keeps
+the runtime adapter limited to exactly one deterministic no-op tool,
+`tool:no_op.v1`, and strengthens tool allowlist checks, tool_ref/tool_name
+consistency, dynamic dispatch denial, hidden side-effect denial, evaluator
+revalidation, replay protection, and safe result handling. It does not add
+arbitrary tool execution, side-effecting tools, shell execution, file mutation,
+memory writes, network calls, model/provider calls, backend execute routes,
+Control Center execute controls, dependencies, M32 work, or production
+authority. M32-M40 remain planned/provisional.
 
 v0.29.5 is documentation policy polish. It remains the documentation
 organization cleanup baseline before the M26 and M27 implementation releases.
@@ -48,9 +49,9 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M28 Action Policy](docs/approvals/ACTION_POLICY.md)
 - [M27 Tool Broker v2](docs/tools/TOOL_BROKER_V2.md)
 - [M26 Grounded Recall Router](docs/recall/GROUNDED_RECALL_ROUTER.md)
-- [v0.35.0 release notes](docs/release_notes/v0_35_0.md)
-- [v0.35.0 release packet](docs/archive/releases/v0_35_0/README_IMPORT.md)
-- [v0.35.0 master plan](docs/archive/releases/v0_35_0/master_plan.md)
+- [v0.35.1 release notes](docs/release_notes/v0_35_1.md)
+- [v0.35.1 release packet](docs/archive/releases/v0_35_1/README_IMPORT.md)
+- [v0.35.1 master plan](docs/archive/releases/v0_35_1/master_plan.md)
 
 ## What This Project Is
 
@@ -246,6 +247,7 @@ The canonical roadmap source of truth is
 | v0.34.0 | M30 - Multi-Step Execution Framework | Implemented/released |
 | v0.34.1 | M30 hardening - Execution State Machine, Replay, and No-Side-Effect Safety | Implemented/released |
 | v0.35.0 | M31 - Real Tool Runtime Adapter, Single Safe No-Op Tool | Implemented/released |
+| v0.35.1 | M31 hardening - No-Op Tool Runtime Adapter Safety | Implemented/released |
 | v0.36.0 | M32 - Safe Tool Runtime Expansion | Planned/provisional |
 
 The roadmap intentionally separates contract planning, validation, preview,

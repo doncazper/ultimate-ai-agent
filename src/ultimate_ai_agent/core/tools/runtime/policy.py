@@ -4,6 +4,7 @@ from ultimate_ai_agent.core.tools.runtime.contracts import ToolInvocationRequest
 from ultimate_ai_agent.core.tools.runtime.validation import (
     authority_reason_codes,
     raw_input_reason_codes,
+    runtime_request_boundary_reason_codes,
     safe_validation_reasons,
     tool_allowlist_reason_codes,
     validate_safe_tool_runtime_payload,
@@ -17,6 +18,7 @@ def validate_tool_invocation_request(request: ToolInvocationRequest) -> list[str
         ToolInvocationRequest.model_validate(request.model_dump())
     except (ValidationError, ValueError) as exc:
         reasons.extend(safe_validation_reasons(exc, fallback="TOOL_RUNTIME_REQUEST_REVALIDATION_FAILED"))
+    reasons.extend(runtime_request_boundary_reason_codes(request, set(ToolInvocationRequest.model_fields)))
     reasons.extend(raw_input_reason_codes(request))
     reasons.extend(tool_allowlist_reason_codes(request.tool_ref, request.tool_name))
     reasons.extend(authority_reason_codes(request.approval_ref, request.authority_refs))

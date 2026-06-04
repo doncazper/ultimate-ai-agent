@@ -1221,6 +1221,16 @@ def _verify_m25_truth_docs(root: Path, version: str | None) -> list[str]:
                             active_expectations["active docs must keep M32-M40 planned/provisional"] = (
                                 "m32-m40 remain planned/provisional"
                             )
+                            if _version_tuple(version) >= (0, 35, 1):
+                                active_expectations["active docs must mention M31/v0.35.1 no-op runtime hardening"] = (
+                                    "v0.35.1 hardens m31"
+                                )
+                                active_expectations["active docs must mention hidden dynamic dispatch denial"] = (
+                                    "hidden dynamic dispatch"
+                                )
+                                active_expectations["active docs must mention hidden side-effect denial"] = (
+                                    "hidden side-effect"
+                                )
                         else:
                             active_expectations["active docs must keep M31-M40 planned/provisional"] = (
                                 "m31-m40 remain planned/provisional"

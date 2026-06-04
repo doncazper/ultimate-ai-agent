@@ -1,6 +1,6 @@
 # Task Plan Receipt Plan
 
-Status: active M29 contract. Current active baseline: **v0.35.0**.
+Status: active M29 contract. Current active baseline: **v0.35.1**.
 
 M29 receipt plans are non-authoritative metadata plans. They may summarize the planning decision but must not store raw content or claim performed side effects.
 

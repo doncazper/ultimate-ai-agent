@@ -225,7 +225,7 @@ model, memory, context-pack, and tool-intent refs cannot authorize action policy
 raw prompt/model/file/transcript content and secret-like metadata are rejected.
 receipt plans are non-authoritative and store no raw content.
 Foundation Gate and verify_all.py probe the same approval/action-policy boundary.
-M31 is implemented/released by v0.35.0 as Real Tool Runtime Adapter, Single Safe No-Op Tool. M32-M40 remain planned/provisional.
+M31 is implemented/released by v0.35.0 as Real Tool Runtime Adapter, Single Safe No-Op Tool and hardened by v0.35.1 for hidden dynamic dispatch denial, hidden side-effect denial, evaluator revalidation, static verification, and Foundation Gate coverage. M32-M40 remain planned/provisional.
 OpenAPI path count remains unchanged at 74.
 ```
 

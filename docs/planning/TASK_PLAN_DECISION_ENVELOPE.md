@@ -1,6 +1,6 @@
 # Task Plan Decision Envelope
 
-Status: active M29 contract. Current active baseline: **v0.35.0**.
+Status: active M29 contract. Current active baseline: **v0.35.1**.
 
 The M29 evaluator returns a decision envelope with stable reason codes and safe messages.
 

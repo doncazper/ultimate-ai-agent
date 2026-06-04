@@ -1,7 +1,7 @@
 # Tool Runtime Replay Policy
 
 Status: active M31 documentation.
-Current active baseline: **v0.35.0**
+Current active baseline: **v0.35.1**
 
 M31 no-op runtime invocations require replay-key protection. The evaluator
 revalidates the current request object and denies replay-key reuse before

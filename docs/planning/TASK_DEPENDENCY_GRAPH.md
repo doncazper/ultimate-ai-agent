@@ -1,6 +1,6 @@
 # Task Dependency Graph
 
-Status: active M29 contract. Current active baseline: **v0.35.0**.
+Status: active M29 contract. Current active baseline: **v0.35.1**.
 
 M29 validates task dependencies before a plan can be marked valid for review.
 

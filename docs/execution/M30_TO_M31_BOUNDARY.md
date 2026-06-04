@@ -1,6 +1,6 @@
 # M30 to M31 Boundary
 
-Status: active M30-to-M31 boundary. Current active baseline: **v0.35.0**.
+Status: active M30-to-M31 boundary. Current active baseline: **v0.35.1**.
 
 v0.34.0 / M30 implements Multi-Step Execution Framework as deterministic,
 local, side-effect-safe, state-machine-only contracts. It may validate

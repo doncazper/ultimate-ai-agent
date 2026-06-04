@@ -14,6 +14,15 @@ RAW_LOCAL_PATH_RE = re.compile(r"(^|[\s:=])(/Users/|/home/|/var/|/etc/|[A-Za-z]:
 EFFECTFUL_TOOL_RE = re.compile(
     r"(?i)(file|memory|network|model|browser|mobile|remote|plugin|shell|tool[_\s-]?execute|dynamic|callable|module)"
 )
+DYNAMIC_DISPATCH_FIELD_RE = re.compile(
+    r"(?i)(module|module_path|callable|callable_name|function|function_name|handler|dispatch|registry|plugin_registry|tool_ref|tool_name)"
+)
+SIDE_EFFECT_FIELD_RE = re.compile(
+    r"(?i)(side_effect|file_(read|write|delete)|memory_write|network_call|model_call|browser_action|mobile_action|remote_action|plugin_action|shell_command|environment_read|secret_lookup)"
+)
+SIDE_EFFECT_VALUE_RE = re.compile(
+    r"(?i)(file[_:.-]?(read|write|delete)|memory[_:.-]?write|network[_:.-]?call|model[_:.-]?call|browser[_:.-]?action|mobile[_:.-]?action|remote[_:.-]?action|plugin[_:.-]?(action|enable)|shell[_:.-]?command|side[_:.-]?effect)"
+)
 
 
 def validate_safe_tool_runtime_text(value: str, field_name: str = "text") -> None:
@@ -78,6 +87,42 @@ def safe_validation_reasons(exc: Exception, fallback: str = "TOOL_RUNTIME_VALIDA
         reasons.append("APPROVAL_TEST_REF_DENIED")
     if not reasons:
         reasons.append(fallback)
+    return list(dict.fromkeys(reasons))
+
+
+def _payload_boundary_reason_codes(value: Any) -> list[str]:
+    reasons: list[str] = []
+    if isinstance(value, dict):
+        for key, item in value.items():
+            key_text = str(key)
+            if DYNAMIC_DISPATCH_FIELD_RE.search(key_text):
+                reasons.append("DYNAMIC_DISPATCH_DENIED")
+            if SIDE_EFFECT_FIELD_RE.search(key_text):
+                reasons.append("SIDE_EFFECT_ATTEMPT_DENIED")
+            reasons.extend(_payload_boundary_reason_codes(item))
+        return reasons
+    if isinstance(value, list):
+        for item in value:
+            reasons.extend(_payload_boundary_reason_codes(item))
+        return reasons
+    if isinstance(value, str):
+        if DYNAMIC_DISPATCH_FIELD_RE.search(value):
+            reasons.append("DYNAMIC_DISPATCH_DENIED")
+        if SIDE_EFFECT_VALUE_RE.search(value):
+            reasons.append("SIDE_EFFECT_ATTEMPT_DENIED")
+    return reasons
+
+
+def runtime_request_boundary_reason_codes(value: Any, allowed_fields: set[str]) -> list[str]:
+    reasons: list[str] = []
+    for field_name, field_value in value.__dict__.items():
+        if field_name not in allowed_fields:
+            if DYNAMIC_DISPATCH_FIELD_RE.search(field_name):
+                reasons.append("DYNAMIC_DISPATCH_DENIED")
+            if SIDE_EFFECT_FIELD_RE.search(field_name):
+                reasons.append("SIDE_EFFECT_ATTEMPT_DENIED")
+            reasons.extend(_payload_boundary_reason_codes(field_value))
+    reasons.extend(_payload_boundary_reason_codes(value.__dict__.get("metadata", {})))
     return list(dict.fromkeys(reasons))
 
 

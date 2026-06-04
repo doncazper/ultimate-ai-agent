@@ -2951,10 +2951,10 @@ def verify_m31_tool_runtime_noop_safety():
         "docs/tools/TOOL_RUNTIME_RECEIPT_PLAN.md",
         "docs/tools/TOOL_RUNTIME_NON_GOALS.md",
         "docs/tools/M31_TO_M32_BOUNDARY.md",
-        "docs/release_notes/v0_35_0.md",
-        "docs/archive/releases/v0_35_0/README_IMPORT.md",
-        "docs/archive/releases/v0_35_0/master_plan.md",
-        "docs/implementation/foundation_gate_implementation_plan_v0_35_0.md",
+        "docs/release_notes/v0_35_1.md",
+        "docs/archive/releases/v0_35_1/README_IMPORT.md",
+        "docs/archive/releases/v0_35_1/master_plan.md",
+        "docs/implementation/foundation_gate_implementation_plan_v0_35_1.md",
     ]
     for rel_path in required_files:
         if not (ROOT / rel_path).exists():
@@ -3020,7 +3020,7 @@ def verify_m31_tool_runtime_noop_safety():
         print(f"FAIL: {failure}")
         sys.exit(1)
 
-    manifest = build_tool_runtime_manifest(baseline_version="0.35.0")
+    manifest = build_tool_runtime_manifest(baseline_version="0.35.1")
     policy = manifest.policy
     unsafe_flags = [
         policy.arbitrary_tool_execution_enabled,
@@ -3090,6 +3090,26 @@ def verify_m31_tool_runtime_noop_safety():
         evaluate_tool_invocation(safe_request.model_copy(update={"tool_name": "module.callable"})),
         "DYNAMIC_DISPATCH_DENIED",
         "dynamic dispatch tool name",
+    )
+    require_denial(
+        evaluate_tool_invocation(safe_request.model_copy(update={"module_path": "tool_plugins.file_writer"})),
+        "DYNAMIC_DISPATCH_DENIED",
+        "model_copy module path",
+    )
+    require_denial(
+        evaluate_tool_invocation(safe_request.model_copy(update={"metadata": {"callable_name": "run_noop"}})),
+        "DYNAMIC_DISPATCH_DENIED",
+        "metadata callable name",
+    )
+    require_denial(
+        evaluate_tool_invocation(safe_request.model_copy(update={"side_effects_performed": ["file:write"]})),
+        "SIDE_EFFECT_ATTEMPT_DENIED",
+        "model_copy side effect field",
+    )
+    require_denial(
+        evaluate_tool_invocation(safe_request.model_copy(update={"metadata": {"file_write_requested": True}})),
+        "SIDE_EFFECT_ATTEMPT_DENIED",
+        "metadata side effect field",
     )
     require_denial(
         evaluate_tool_invocation(safe_request.model_copy(update={"approval_ref": "approval:verify-m31"})),

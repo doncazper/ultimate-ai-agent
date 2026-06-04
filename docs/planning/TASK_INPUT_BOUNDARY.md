@@ -1,6 +1,6 @@
 # Task Input Boundary
 
-Status: active M29 contract. Current active baseline: **v0.35.0**.
+Status: active M29 contract. Current active baseline: **v0.35.1**.
 
 Task plans may reference safe reviewed refs. They must not carry raw user prompts, raw model output, raw file content, raw transcripts, secrets, credentials, private local paths, or unreviewed payloads.
 

@@ -1,8 +1,8 @@
 # Master Plan v0.35.0
 
-Status: historical release packet for the current active baseline.
+Status: historical release packet. Do not use as current baseline.
 
-Current active baseline: **v0.35.0**
+Historical baseline: **v0.35.0**
 
 M31 proves that the Python Agent Core can route one governed runtime adapter
 invocation and receive a deterministic, redacted, side-effect-free no-op result

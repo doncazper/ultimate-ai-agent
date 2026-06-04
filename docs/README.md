@@ -1,7 +1,7 @@
 # Ultimate AI Agent Docs
 
 Status: active
-Current through: v0.35.0
+Current through: v0.35.1
 Purpose: Human-facing entrypoint for active documentation and historical archive navigation.
 
 Active docs are few, indexed, and current. Historical docs are preserved under
@@ -22,10 +22,10 @@ docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md
 Current release packet:
 
 ```text
-docs/archive/releases/v0_35_0/README_IMPORT.md
-docs/archive/releases/v0_35_0/master_plan.md
-docs/release_notes/v0_35_0.md
-docs/implementation/foundation_gate_implementation_plan_v0_35_0.md
+docs/archive/releases/v0_35_1/README_IMPORT.md
+docs/archive/releases/v0_35_1/master_plan.md
+docs/release_notes/v0_35_1.md
+docs/implementation/foundation_gate_implementation_plan_v0_35_1.md
 docs/tools/TOOL_RUNTIME_ADAPTER.md
 docs/tools/NOOP_TOOL_RUNTIME.md
 docs/tools/TOOL_RUNTIME_INVOCATION_CONTRACT.md
@@ -75,14 +75,14 @@ historical snapshots.
 v0.29.5 is documentation policy polish only. It accepts the pushed duplicate
 wording cleanup from `374bb1e` and remains the cleanup baseline before M26.
 
-v0.35.0 implements M31 Real Tool Runtime Adapter, Single Safe No-Op Tool. It
-adds a governed runtime adapter path for exactly one deterministic no-op tool,
-safe invocation contracts, replay-key protection, no-op result envelopes,
-receipt plans, static verification, and Foundation Gate coverage. It adds no
-arbitrary tool execution, dynamic dispatch, side-effecting tools, shell
-execution, file mutation, memory writes, network/model/provider calls, backend
-execute routes, Control Center execute controls, dependencies, production
-authority, or M32 work.
+v0.35.1 hardens M31 Real Tool Runtime Adapter, Single Safe No-Op Tool. It
+strengthens allowlist validation, tool_ref/tool_name consistency, dynamic
+dispatch denial, hidden side-effect denial, authority-boundary checks,
+evaluator revalidation, replay protection, safe no-op result handling, static
+verification, documentation, and Foundation Gate coverage. It adds no arbitrary
+tool execution, side-effecting tools, shell execution, file mutation, memory
+writes, network/model/provider calls, backend execute routes, Control Center
+execute controls, dependencies, production authority, or M32 work.
 
 v0.34.1 hardens M30 Multi-Step Execution Framework as deterministic, local,
 side-effect-safe, state-machine-only contracts.

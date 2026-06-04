@@ -1,6 +1,6 @@
 # Multi-Step Execution Framework
 
-Status: active M30 source-of-truth documentation. Current active baseline: **v0.35.0**.
+Status: active M30 source-of-truth documentation. Current active baseline: **v0.35.1**.
 
 v0.34.0 / M30 implements the Multi-Step Execution Framework as deterministic,
 local, state-machine-only contract logic. It models execution runs, execution

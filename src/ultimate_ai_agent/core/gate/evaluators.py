@@ -7054,7 +7054,7 @@ class FoundationGateEvaluator:
                 evaluate_tool_invocation,
             )
 
-            manifest = build_tool_runtime_manifest(baseline_version="0.35.0")
+            manifest = build_tool_runtime_manifest(baseline_version="0.35.1")
             policy = manifest.policy
             forbidden_flags = [
                 policy.arbitrary_tool_execution_enabled,
@@ -7115,6 +7115,26 @@ class FoundationGateEvaluator:
                 evaluate_tool_invocation(safe_request.model_copy(update={"tool_name": "module.callable"})),
                 "DYNAMIC_DISPATCH_DENIED",
                 "dynamic dispatch tool name",
+            )
+            require_denial(
+                evaluate_tool_invocation(safe_request.model_copy(update={"module_path": "tool_plugins.file_writer"})),
+                "DYNAMIC_DISPATCH_DENIED",
+                "model_copy module path",
+            )
+            require_denial(
+                evaluate_tool_invocation(safe_request.model_copy(update={"metadata": {"callable_name": "run_noop"}})),
+                "DYNAMIC_DISPATCH_DENIED",
+                "metadata callable name",
+            )
+            require_denial(
+                evaluate_tool_invocation(safe_request.model_copy(update={"side_effects_performed": ["file:write"]})),
+                "SIDE_EFFECT_ATTEMPT_DENIED",
+                "model_copy side effect field",
+            )
+            require_denial(
+                evaluate_tool_invocation(safe_request.model_copy(update={"metadata": {"file_write_requested": True}})),
+                "SIDE_EFFECT_ATTEMPT_DENIED",
+                "metadata side effect field",
             )
             require_denial(
                 evaluate_tool_invocation(safe_request.model_copy(update={"approval_ref": "approval:gate-m31"})),
@@ -7212,6 +7232,8 @@ class FoundationGateEvaluator:
         text = "\n".join(self._read(self.root / path).lower() for path in required_docs if (self.root / path).exists())
         if "v0.35.0" not in text or "real tool runtime adapter" not in text or "implemented/released" not in text:
             failures.append("M31 docs do not mark v0.35.0 Real Tool Runtime Adapter implemented/released")
+        if "v0.35.1" not in text or "hardens m31" not in text:
+            failures.append("M31 docs do not mark v0.35.1 no-op tool runtime hardening")
         if "m32-m40 remain planned/provisional" not in text:
             failures.append("M32-M40 must remain planned/provisional after M31")
         forbidden_m32_fragments = (

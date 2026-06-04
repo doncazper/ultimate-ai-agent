@@ -1,7 +1,7 @@
 # Tool Runtime Adapter
 
 Status: active M31 documentation.
-Current active baseline: **v0.35.0**
+Current active baseline: **v0.35.1**
 
 M31 implements the first governed Tool Runtime Adapter path. The adapter is
 real in the narrow sense that the Python Agent Core can evaluate and complete
@@ -18,12 +18,15 @@ Allowed in M31:
 - no-op receipt plan.
 - replay-key protection.
 - evaluator revalidation of safety-critical fields.
+- hidden model_copy and metadata boundary revalidation.
 - static verifier and Foundation Gate coverage.
 
 Blocked in M31:
 
 - arbitrary tool execution.
 - dynamic dispatch or user-selected callables.
+- hidden module/callable/function/registry dispatch fields.
+- hidden or metadata-backed side-effect requests.
 - plugins.
 - shell/subprocess execution.
 - file tools or file mutation.

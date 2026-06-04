@@ -93,7 +93,7 @@ class ToolRuntimePolicy(BaseModel):
 
 
 class ToolRuntimeManifest(BaseModel):
-    baseline_version: str = "0.35.0"
+    baseline_version: str = "0.35.1"
     contract_version: str = "m31-tool-runtime-noop"
     adapter: ToolRuntimeAdapterDescriptor = Field(default_factory=ToolRuntimeAdapterDescriptor)
     policy: ToolRuntimePolicy = Field(default_factory=ToolRuntimePolicy)

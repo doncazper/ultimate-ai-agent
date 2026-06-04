@@ -37,6 +37,52 @@ def test_model_copy_mutated_raw_or_secret_fields_are_revalidated(update, reason)
     assert reason in decision.reason_codes
 
 
+@pytest.mark.parametrize(
+    "update",
+    [
+        {"module_path": "tool_plugins.file_writer"},
+        {"callable_name": "run_file_writer"},
+        {"function_name": "execute_tool"},
+        {"metadata": {"module_path": "tool_plugins.noop"}},
+        {"metadata": {"callable_name": "run_noop"}},
+        {"metadata": {"tool_ref": "tool:file_write.v1"}},
+    ],
+)
+def test_model_copy_mutated_dynamic_dispatch_fields_are_revalidated(update):
+    request = _request().model_copy(update=update)
+
+    decision = evaluate_tool_invocation(request)
+
+    assert decision.status == ToolInvocationStatus.denied
+    assert decision.execution_performed is False
+    assert "DYNAMIC_DISPATCH_DENIED" in decision.reason_codes
+
+
+@pytest.mark.parametrize(
+    "update",
+    [
+        {"side_effects_performed": ["file:write"]},
+        {"file_write_requested": True},
+        {"memory_write_requested": True},
+        {"network_call_requested": True},
+        {"model_call_requested": True},
+        {"shell_command_requested": True},
+        {"environment_read_requested": True},
+        {"secret_lookup_requested": True},
+        {"metadata": {"side_effects_performed": ["file:write"]}},
+        {"metadata": {"file_write_requested": True}},
+    ],
+)
+def test_model_copy_mutated_side_effect_fields_are_revalidated(update):
+    request = _request().model_copy(update=update)
+
+    decision = evaluate_tool_invocation(request)
+
+    assert decision.status == ToolInvocationStatus.denied
+    assert decision.execution_performed is False
+    assert "SIDE_EFFECT_ATTEMPT_DENIED" in decision.reason_codes
+
+
 def test_model_copy_mutated_tool_ref_to_effectful_tool_is_denied():
     request = _request().model_copy(update={"tool_ref": "tool:file_write.v1"})
 
@@ -46,3 +92,13 @@ def test_model_copy_mutated_tool_ref_to_effectful_tool_is_denied():
     assert decision.execution_performed is False
     assert "TOOL_NOT_ALLOWLISTED_DENIED" in decision.reason_codes
     assert "EFFECTFUL_TOOL_BLOCKED" in decision.reason_codes
+
+
+def test_model_copy_mutated_tool_name_mismatch_is_revalidated():
+    request = _request().model_copy(update={"tool_name": "not_noop"})
+
+    decision = evaluate_tool_invocation(request)
+
+    assert decision.status == ToolInvocationStatus.denied
+    assert decision.execution_performed is False
+    assert "TOOL_NAME_MISMATCH_DENIED" in decision.reason_codes

@@ -1,7 +1,7 @@
 # Tool Runtime Non-Goals
 
 Status: active M31 documentation.
-Current active baseline: **v0.35.0**
+Current active baseline: **v0.35.1**
 
 M31 intentionally does not implement:
 

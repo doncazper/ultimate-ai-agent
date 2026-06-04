@@ -1,7 +1,7 @@
 # Tool Runtime Receipt Plan
 
 Status: active M31 documentation.
-Current active baseline: **v0.35.0**
+Current active baseline: **v0.35.1**
 
 M31 receipt plans are non-authoritative summaries for the no-op runtime
 invocation. They record the invocation ref, the no-op tool ref, and safe status
