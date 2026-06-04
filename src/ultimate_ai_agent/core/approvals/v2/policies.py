@@ -14,15 +14,19 @@ from ultimate_ai_agent.core.approvals.v2.enums import ApprovalGrantStatus
 from ultimate_ai_agent.core.approvals.v2.validation import (
     action_kind_reason,
     assert_approval_ref_not_authority,
+    assert_no_raw_action_content,
     assert_no_model_memory_context_authority,
     assert_no_replay,
     assert_no_wildcard_approval,
     expiry_reason,
     grant_status_reason,
+    validate_action_ref as validate_structured_action_ref,
+    validate_safe_action_payload,
+    validate_safe_action_text,
 )
 
 
-def build_approval_authority_v2_manifest(baseline_version: str = "0.32.0") -> ApprovalAuthorityV2Manifest:
+def build_approval_authority_v2_manifest(baseline_version: str = "0.32.1") -> ApprovalAuthorityV2Manifest:
     return ApprovalAuthorityV2Manifest(baseline_version=baseline_version)
 
 
@@ -70,6 +74,285 @@ def validate_action_policy_decision(decision: ActionPolicyDecision) -> bool:
     return validate_approval_decision(decision)
 
 
+def _dedupe_reasons(reasons: list[str]) -> list[str]:
+    return list(dict.fromkeys(reasons))
+
+
+def _validation_reason(error: ValueError, *, secret_reason: str, fallback_reason: str) -> list[str]:
+    message = str(error).lower()
+    if "unsafe content" in message or "secret" in message:
+        return [secret_reason, fallback_reason]
+    return [fallback_reason]
+
+
+def _validate_safe_text_reason(value: str | None, field_name: str, *, secret_reason: str, fallback_reason: str) -> list[str]:
+    if value is None:
+        return []
+    try:
+        validate_safe_action_text(value, field_name)
+    except ValueError as exc:
+        return _validation_reason(exc, secret_reason=secret_reason, fallback_reason=fallback_reason)
+    return []
+
+
+def _validate_ref_reason(
+    value: str | None,
+    field_name: str,
+    *,
+    secret_reason: str,
+    fallback_reason: str,
+    allow_wildcard: bool = False,
+) -> list[str]:
+    if value is None:
+        return []
+    try:
+        validate_structured_action_ref(value, field_name, allow_wildcard=allow_wildcard)
+    except ValueError as exc:
+        return _validation_reason(exc, secret_reason=secret_reason, fallback_reason=fallback_reason)
+    return []
+
+
+def _validate_payload_reason(value, field_name: str, *, fallback_reason: str) -> list[str]:
+    try:
+        validate_safe_action_payload(value, field_name)
+    except ValueError:
+        return ["SECRET_METADATA_DENIED", fallback_reason]
+    return []
+
+
+def _extra_value(model, field_name: str, default=None):
+    return getattr(model, field_name, default)
+
+
+def _revalidate_actor_for_evaluation(intent: ActionIntent) -> list[str]:
+    reasons: list[str] = []
+    reasons.extend(
+        _validate_ref_reason(
+            getattr(intent.actor, "actor_ref", None),
+            "actor_ref",
+            secret_reason="ACTION_INTENT_SECRET_CONTENT_DENIED",
+            fallback_reason="ACTION_INTENT_REVALIDATION_FAILED",
+        )
+    )
+    if getattr(intent.actor, "safe_label", ""):
+        reasons.extend(
+            _validate_safe_text_reason(
+                getattr(intent.actor, "safe_label", ""),
+                "safe_label",
+                secret_reason="ACTION_INTENT_SECRET_CONTENT_DENIED",
+                fallback_reason="ACTION_INTENT_REVALIDATION_FAILED",
+            )
+        )
+    return reasons
+
+
+def _revalidate_action_for_evaluation(intent: ActionIntent) -> list[str]:
+    reasons: list[str] = []
+    reasons.extend(
+        _validate_ref_reason(
+            getattr(intent.action, "action_ref", None),
+            "action_ref",
+            secret_reason="ACTION_INTENT_SECRET_CONTENT_DENIED",
+            fallback_reason="ACTION_INTENT_REVALIDATION_FAILED",
+        )
+    )
+    reasons.extend(
+        _validate_safe_text_reason(
+            getattr(intent.action, "safe_summary", ""),
+            "safe_summary",
+            secret_reason="ACTION_INTENT_SECRET_CONTENT_DENIED",
+            fallback_reason="ACTION_INTENT_REVALIDATION_FAILED",
+        )
+    )
+    return reasons
+
+
+def _revalidate_resource_for_evaluation(intent: ActionIntent) -> list[str]:
+    reasons: list[str] = []
+    reasons.extend(
+        _validate_ref_reason(
+            getattr(intent.resource, "resource_ref", None),
+            "resource_ref",
+            secret_reason="ACTION_INTENT_SECRET_CONTENT_DENIED",
+            fallback_reason="ACTION_INTENT_REVALIDATION_FAILED",
+        )
+    )
+    if getattr(intent.resource, "safe_label", ""):
+        reasons.extend(
+            _validate_safe_text_reason(
+                getattr(intent.resource, "safe_label", ""),
+                "safe_label",
+                secret_reason="ACTION_INTENT_SECRET_CONTENT_DENIED",
+                fallback_reason="ACTION_INTENT_REVALIDATION_FAILED",
+            )
+        )
+    return reasons
+
+
+def _revalidate_action_intent_for_evaluation(intent: ActionIntent) -> list[str]:
+    reasons: list[str] = []
+    raw_flags = (
+        ("contains_raw_prompt", "RAW_PROMPT_DENIED"),
+        ("contains_raw_model_output", "RAW_MODEL_OUTPUT_DENIED"),
+        ("contains_raw_file_content", "RAW_FILE_CONTENT_DENIED"),
+        ("contains_raw_transcript", "RAW_TRANSCRIPT_DENIED"),
+    )
+    for field_name, reason in raw_flags:
+        if bool(_extra_value(intent, field_name, False)):
+            reasons.extend([reason, "ACTION_INTENT_RAW_CONTENT_DENIED"])
+    try:
+        assert_no_raw_action_content(*(bool(_extra_value(intent, field_name, False)) for field_name, _ in raw_flags))
+    except ValueError:
+        if "ACTION_INTENT_RAW_CONTENT_DENIED" not in reasons:
+            reasons.append("ACTION_INTENT_RAW_CONTENT_DENIED")
+    if bool(_extra_value(intent, "contains_secret_like_content", False)):
+        reasons.append("ACTION_INTENT_SECRET_CONTENT_DENIED")
+
+    reasons.extend(
+        _validate_ref_reason(
+            getattr(intent, "intent_id", None),
+            "intent_id",
+            secret_reason="ACTION_INTENT_SECRET_CONTENT_DENIED",
+            fallback_reason="ACTION_INTENT_REVALIDATION_FAILED",
+        )
+    )
+    reasons.extend(
+        _validate_safe_text_reason(
+            getattr(intent, "safe_summary", None),
+            "safe_summary",
+            secret_reason="ACTION_INTENT_SECRET_CONTENT_DENIED",
+            fallback_reason="ACTION_INTENT_REVALIDATION_FAILED",
+        )
+    )
+    reasons.extend(
+        _validate_safe_text_reason(
+            getattr(intent, "approval_ref", None),
+            "approval_ref",
+            secret_reason="ACTION_INTENT_SECRET_CONTENT_DENIED",
+            fallback_reason="ACTION_INTENT_REVALIDATION_FAILED",
+        )
+    )
+    reasons.extend(
+        _validate_ref_reason(
+            getattr(intent, "consent_ref", None),
+            "consent_ref",
+            secret_reason="ACTION_INTENT_SECRET_CONTENT_DENIED",
+            fallback_reason="ACTION_INTENT_REVALIDATION_FAILED",
+        )
+    )
+    for ref in list(getattr(intent, "input_refs", [])):
+        reasons.extend(
+            _validate_ref_reason(
+                ref,
+                "input_ref",
+                secret_reason="ACTION_INTENT_SECRET_CONTENT_DENIED",
+                fallback_reason="ACTION_INTENT_REVALIDATION_FAILED",
+            )
+        )
+    for ref in list(_extra_value(intent, "metadata_refs", [])):
+        reasons.extend(
+            _validate_ref_reason(
+                ref,
+                "metadata_ref",
+                secret_reason="SECRET_METADATA_DENIED",
+                fallback_reason="ACTION_INTENT_REVALIDATION_FAILED",
+            )
+        )
+    reasons.extend(_validate_payload_reason(getattr(intent, "metadata", {}), "metadata", fallback_reason="ACTION_INTENT_REVALIDATION_FAILED"))
+    reasons.extend(_revalidate_actor_for_evaluation(intent))
+    reasons.extend(_revalidate_action_for_evaluation(intent))
+    reasons.extend(_revalidate_resource_for_evaluation(intent))
+    return _dedupe_reasons(reasons)
+
+
+def _revalidate_policy_for_evaluation(policy: ActionPolicy) -> list[str]:
+    reasons: list[str] = []
+    reasons.extend(
+        _validate_ref_reason(
+            getattr(policy, "policy_ref", None),
+            "policy_ref",
+            secret_reason="ACTION_POLICY_SECRET_CONTENT_DENIED",
+            fallback_reason="ACTION_POLICY_REVALIDATION_FAILED",
+        )
+    )
+    reasons.extend(
+        _validate_safe_text_reason(
+            getattr(policy, "safe_summary", None),
+            "safe_summary",
+            secret_reason="ACTION_POLICY_SECRET_CONTENT_DENIED",
+            fallback_reason="ACTION_POLICY_REVALIDATION_FAILED",
+        )
+    )
+    return _dedupe_reasons(reasons)
+
+
+def _revalidate_approval_scope_for_evaluation(grant: ApprovalGrant) -> list[str]:
+    reasons: list[str] = []
+    scope = grant.scope
+    allow_wildcard = getattr(scope, "scope_kind", None) == "blocked_wildcard"
+    for value, field_name in [
+        (getattr(scope, "scope_ref", None), "scope_ref"),
+        (getattr(scope, "actor_ref", None), "actor_ref"),
+        (getattr(scope, "action_ref", None), "action_ref"),
+        (getattr(scope, "resource_ref", None), "resource_ref"),
+        (getattr(scope, "replay_nonce", None), "replay_nonce"),
+    ]:
+        reasons.extend(
+            _validate_ref_reason(
+                value,
+                field_name,
+                secret_reason="SECRET_METADATA_DENIED",
+                fallback_reason="APPROVAL_GRANT_REVALIDATION_FAILED",
+                allow_wildcard=allow_wildcard,
+            )
+        )
+    return reasons
+
+
+def _revalidate_approval_grant_for_evaluation(grant: ApprovalGrant) -> list[str]:
+    reasons: list[str] = []
+    allow_wildcard = getattr(grant.scope, "scope_kind", None) == "blocked_wildcard"
+    for value, field_name in [
+        (getattr(grant, "grant_ref", None), "grant_ref"),
+        (getattr(grant, "actor_ref", None), "actor_ref"),
+        (getattr(grant, "action_ref", None), "action_ref"),
+        (getattr(grant, "resource_ref", None), "resource_ref"),
+        (getattr(grant, "replay_nonce", None), "replay_nonce"),
+    ]:
+        if isinstance(value, str) and value.startswith("approval_test_"):
+            reasons.append("APPROVAL_TEST_REF_DENIED")
+        reasons.extend(
+            _validate_ref_reason(
+                value,
+                field_name,
+                secret_reason="SECRET_METADATA_DENIED",
+                fallback_reason="APPROVAL_GRANT_REVALIDATION_FAILED",
+                allow_wildcard=allow_wildcard,
+            )
+        )
+    for nonce in list(getattr(grant, "used_replay_nonces", [])):
+        reasons.extend(
+            _validate_ref_reason(
+                nonce,
+                "used_replay_nonce",
+                secret_reason="SECRET_METADATA_DENIED",
+                fallback_reason="APPROVAL_GRANT_REVALIDATION_FAILED",
+            )
+        )
+    for ref in list(_extra_value(grant, "metadata_refs", [])):
+        reasons.extend(
+            _validate_ref_reason(
+                ref,
+                "metadata_ref",
+                secret_reason="SECRET_METADATA_DENIED",
+                fallback_reason="APPROVAL_GRANT_REVALIDATION_FAILED",
+            )
+        )
+    reasons.extend(_validate_payload_reason(getattr(grant, "metadata", {}), "metadata", fallback_reason="APPROVAL_GRANT_REVALIDATION_FAILED"))
+    reasons.extend(_revalidate_approval_scope_for_evaluation(grant))
+    return _dedupe_reasons(reasons)
+
+
 def evaluate_approval_grant(
     intent: ActionIntent,
     grant: ApprovalGrant,
@@ -77,7 +360,7 @@ def evaluate_approval_grant(
     current_time: datetime | None = None,
     replay_nonce: str | None = None,
 ) -> list[str]:
-    reasons: list[str] = []
+    reasons: list[str] = _revalidate_approval_grant_for_evaluation(grant)
     reasons.extend(grant_status_reason(grant.status))
     reasons.extend(expiry_reason(grant.expires_at or grant.scope.expires_at, current_time))
     reasons.extend(assert_no_wildcard_approval(grant.scope.scope_kind, grant.actor_ref, grant.action_ref, grant.resource_ref))
@@ -101,8 +384,10 @@ def evaluate_action_policy(
     current_time: datetime | None = None,
     replay_nonce: str | None = None,
 ) -> ActionPolicyDecision:
-    _ = policy or ActionPolicy()
+    active_policy = policy or ActionPolicy()
     reasons: list[str] = []
+    reasons.extend(_revalidate_action_intent_for_evaluation(intent))
+    reasons.extend(_revalidate_policy_for_evaluation(active_policy))
     reasons.extend(assert_approval_ref_not_authority(intent.approval_ref))
     if intent.consent_ref:
         reasons.append("CONSENT_REF_NOT_AUTHORITY")

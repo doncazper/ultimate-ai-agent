@@ -1,7 +1,7 @@
 # Approval Authority
 
 Status: active
-Current through: v0.32.0
+Current through: v0.32.1
 Purpose: Summarize approval authority boundaries across local/dev and M28 policy contracts.
 
 M8.5 introduces a local/dev approval authority bridge. It is a contract and policy boundary, not production user authentication.
@@ -13,6 +13,10 @@ model/provider calls, browser/mobile/remote/plugin execution, shell execution,
 backend execution routes, Control Center execute controls, or production
 authority.
 
+v0.32.1 hardens M28 by adding evaluator-side revalidation for raw/secret action
+inputs, secret-like metadata, `approval_test_` grant refs, and mutated grant
+state before any policy-only allow decision.
+
 ## Guarantees
 
 - Approval requests, grants, validation decisions, and receipts are typed Pydantic contracts.
@@ -22,6 +26,8 @@ authority.
 - Approval receipts are safe to show and must not contain raw secrets.
 - M28 action policy decisions keep `execution_authorized=False` and `execution_performed=False`.
 - M28 wildcard, expired, revoked, replayed, and mismatched grants are denied.
+- M28 evaluators revalidate mutated action intent, approval grant, and action
+  policy objects before allowing policy-only decisions.
 
 ## Compatibility
 

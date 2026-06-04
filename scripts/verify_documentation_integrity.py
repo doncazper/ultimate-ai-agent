@@ -1354,6 +1354,13 @@ def _verify_m25_truth_docs(root: Path, version: str | None) -> list[str]:
             "M28 docs must say receipt plans are non-authoritative": "non-authoritative",
             "M28 docs must keep M29-M40 planned/provisional": "m29-m40 remain planned/provisional",
         }
+        if _version_tuple(version) >= (0, 32, 1):
+            m28_expectations["M28 docs must say evaluator revalidation is enforced"] = (
+                "evaluator-side revalidation"
+            )
+            m28_expectations["M28 docs must say model_copy mutation bypasses are denied"] = (
+                "model_copy"
+            )
         for failure, fragment in m28_expectations.items():
             if fragment not in approval_docs:
                 failures.append(failure)

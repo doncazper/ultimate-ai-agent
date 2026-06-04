@@ -1,8 +1,8 @@
 # M21-M40 Capability Charters
 
-Status: Active roadmap projection maintained through v0.32.0. M21 and M22 are implemented/released contract-only; M23 is implemented/released manual fixed-prompt local call only and hardened by v0.27.1; M24 is implemented/released as governed memory provider/local store, hardened by v0.28.1, and docs-cleaned by v0.28.2; M25 is implemented/released contract-only and hardened by v0.29.1 and v0.29.2; M26 is implemented/released as deterministic grounded recall/context-pack contracts and hardened by v0.30.1; M27 is implemented/released as validation-only Tool Broker v2 contracts; v0.31.1 is docs-only baseline normalization; M28 is implemented/released as Approval Authority v2 + Action Policy Expansion; M29-M40 remain planned/provisional.
+Status: Active roadmap projection maintained through v0.32.1. M21 and M22 are implemented/released contract-only; M23 is implemented/released manual fixed-prompt local call only and hardened by v0.27.1; M24 is implemented/released as governed memory provider/local store, hardened by v0.28.1, and docs-cleaned by v0.28.2; M25 is implemented/released contract-only and hardened by v0.29.1 and v0.29.2; M26 is implemented/released as deterministic grounded recall/context-pack contracts and hardened by v0.30.1; M27 is implemented/released as validation-only Tool Broker v2 contracts; v0.31.1 is docs-only baseline normalization; M28 is implemented/released as Approval Authority v2 + Action Policy Expansion and hardened by v0.32.1; M29-M40 remain planned/provisional.
 
-These charters define capability layers after M20. v0.25.0 implements M21 as contract/planning/validation only. v0.26.0 implements M22 as contract/planning/validation only, and v0.26.1 hardens M22 verifier precision plus metadata key secret hygiene only. v0.27.0 implements M23 as manual/CLI-only, loopback-only, fixed-prompt-only, non-tool, and non-authoritative. v0.27.1 hardens M23 local call safety without adding new runtime authority. v0.28.0 implements M24 as governed, reviewed-write-only local memory provider/store foundation, v0.28.1 repairs/hardens the M24 memory contract without adding new authority, and v0.28.2 removes a duplicate roadmap row only. v0.29.0 implements M25 as deterministic local truth/evidence contracts over provided refs only, v0.29.1 hardens unknown/arbitrary truth ref denial, and v0.29.2 hardens local-dev API authority/raw preview safety. v0.30.0 implements M26 as deterministic local grounded recall/context-pack contracts, v0.30.1 hardens source_ref/source_kind consistency, v0.31.0 implements M27 Tool Broker v2 + Safe Tool Intent Contracts as validation-only and preview-only contract logic, v0.31.1 normalizes the GitHub README polish commit into a clean docs-only baseline, and v0.32.0 implements M28 Approval Authority v2 + Action Policy Expansion as policy-only contracts. M29-M40 remain future capability layers. Every milestone requires its own implementation prompt, review prompt, hardening expectation, and validation evidence before release.
+These charters define capability layers after M20. v0.25.0 implements M21 as contract/planning/validation only. v0.26.0 implements M22 as contract/planning/validation only, and v0.26.1 hardens M22 verifier precision plus metadata key secret hygiene only. v0.27.0 implements M23 as manual/CLI-only, loopback-only, fixed-prompt-only, non-tool, and non-authoritative. v0.27.1 hardens M23 local call safety without adding new runtime authority. v0.28.0 implements M24 as governed, reviewed-write-only local memory provider/store foundation, v0.28.1 repairs/hardens the M24 memory contract without adding new authority, and v0.28.2 removes a duplicate roadmap row only. v0.29.0 implements M25 as deterministic local truth/evidence contracts over provided refs only, v0.29.1 hardens unknown/arbitrary truth ref denial, and v0.29.2 hardens local-dev API authority/raw preview safety. v0.30.0 implements M26 as deterministic local grounded recall/context-pack contracts, v0.30.1 hardens source_ref/source_kind consistency, v0.31.0 implements M27 Tool Broker v2 + Safe Tool Intent Contracts as validation-only and preview-only contract logic, v0.31.1 normalizes the GitHub README polish commit into a clean docs-only baseline, and v0.32.0 implements M28 Approval Authority v2 + Action Policy Expansion as policy-only contracts, and v0.32.1 hardens evaluator revalidation for raw/secret action inputs. M29-M40 remain future capability layers. Every milestone requires its own implementation prompt, review prompt, hardening expectation, and validation evidence before release.
 
 ## Shared Rules
 
@@ -417,6 +417,35 @@ Hardening expectation: grant binding, replay resistance, and action policy bound
 Source-of-truth docs: `docs/approvals/APPROVAL_AUTHORITY_V2.md`, `docs/approvals/ACTION_POLICY.md`, `docs/approvals/APPROVAL_GRANT_BINDING.md`, `docs/approvals/APPROVAL_EXPIRY_REVOCATION_REPLAY.md`, `docs/approvals/ACTION_RISK_AND_SIDE_EFFECT_POLICY.md`, `docs/approvals/APPROVAL_REF_NOT_AUTHORITY.md`, `docs/approvals/ACTION_POLICY_DECISION_ENVELOPE.md`, `docs/approvals/APPROVAL_RECEIPT_PLAN.md`, `docs/approvals/M28_TO_M29_BOUNDARY.md`, `src/ultimate_ai_agent/core/approvals/v2/`.
 
 Notes: Approval decisions are policy decisions, not action execution.
+
+## v0.32.1 / M28 hardening - Evaluator Revalidation for Raw/Secret Action Inputs
+
+Status: implemented/released hardening-only.
+
+Purpose: Ensure M28 action policy evaluators revalidate current action intent,
+approval grant, and action policy state before any policy-only allow decision.
+
+Allowed scope:
+
+- evaluator-side revalidation for raw/secret action inputs.
+- `model_copy(update=...)` regression tests.
+- Foundation Gate and static verifier probes.
+- release notes and archived release packet.
+
+Must not add:
+
+- action execution.
+- tool execution.
+- backend execution routes.
+- file mutation.
+- memory writes.
+- network, model/provider, browser, mobile, remote, plugin, or shell execution.
+- dependencies.
+- production authority.
+- M29 implementation.
+
+Notes: v0.32.1 preserves safe no-effect/read-metadata policy decisions with
+`execution_authorized=False` and `execution_performed=False`.
 
 ## v0.33.0 / M29 - First Low-Risk Tool Dry-Run + Approval Preview
 

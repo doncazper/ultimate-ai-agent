@@ -1,7 +1,7 @@
 # Action Risk and Side-Effect Policy
 
 Status: active
-Current through: v0.32.0
+Current through: v0.32.1
 Purpose: Define which action intents are safe for M28 policy decisions.
 
 M28 permits only no-effect and read-metadata policy decisions. Action risk and

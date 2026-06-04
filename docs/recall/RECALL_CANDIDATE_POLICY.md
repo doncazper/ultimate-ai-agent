@@ -1,7 +1,7 @@
 # Recall Candidate Policy
 
 Status: active
-Current through: v0.32.0
+Current through: v0.32.1
 Purpose: Define safe M26 recall candidate eligibility.
 
 Recall candidates must be structured refs with safe summaries. M26 accepts only

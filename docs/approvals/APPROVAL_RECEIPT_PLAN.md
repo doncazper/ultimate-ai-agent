@@ -1,7 +1,7 @@
 # Approval Receipt Plan
 
 Status: active
-Current through: v0.32.0
+Current through: v0.32.1
 Purpose: Define non-authoritative M28 approval receipt planning.
 
 M28 approval receipt plans are safe summaries and refs only. They are not proof

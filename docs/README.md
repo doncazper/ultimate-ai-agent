@@ -1,7 +1,7 @@
 # Ultimate AI Agent Docs
 
 Status: active
-Current through: v0.32.0
+Current through: v0.32.1
 Purpose: Human-facing entrypoint for active documentation and historical archive navigation.
 
 Active docs are few, indexed, and current. Historical docs are preserved under
@@ -22,10 +22,10 @@ docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md
 Current release packet:
 
 ```text
-docs/archive/releases/v0_32_0/README_IMPORT.md
-docs/archive/releases/v0_32_0/master_plan.md
-docs/release_notes/v0_32_0.md
-docs/implementation/foundation_gate_implementation_plan_v0_32_0.md
+docs/archive/releases/v0_32_1/README_IMPORT.md
+docs/archive/releases/v0_32_1/master_plan.md
+docs/release_notes/v0_32_1.md
+docs/implementation/foundation_gate_implementation_plan_v0_32_1.md
 docs/approvals/APPROVAL_AUTHORITY_V2.md
 docs/approvals/ACTION_POLICY.md
 docs/approvals/APPROVAL_GRANT_BINDING.md
@@ -49,10 +49,10 @@ historical snapshots.
 v0.29.5 is documentation policy polish only. It accepts the pushed duplicate
 wording cleanup from `374bb1e` and remains the cleanup baseline before M26.
 
-v0.32.0 implements M28 Approval Authority v2 + Action Policy Expansion as a
-policy-only, decision-only contract layer. v0.32.0 adds no backend execution
-routes, frontend features, action execution, tool execution, file mutation,
-memory writes, network calls, model/provider calls, plugin enablement, browser
-automation, mobile/device access, remote execution, shell execution,
-dependencies, M29 work, or production authority. M29-M40 remain
-planned/provisional.
+v0.32.1 hardens M28 Approval Authority v2 + Action Policy Expansion by adding
+evaluator-side revalidation for mutated action intents, approval grants, and
+action policies. v0.32.1 adds no backend execution routes, frontend features,
+action execution, tool execution, file mutation, memory writes, network calls,
+model/provider calls, plugin enablement, browser automation, mobile/device
+access, remote execution, shell execution, dependencies, M29 work, or production
+authority. M29-M40 remain planned/provisional.

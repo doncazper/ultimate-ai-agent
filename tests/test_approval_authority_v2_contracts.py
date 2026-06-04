@@ -262,3 +262,80 @@ def test_effectful_or_executing_action_kinds_are_denied(action_kind):
 def test_raw_or_secret_like_action_inputs_are_rejected(field_update):
     with pytest.raises(ValidationError):
         _intent(**field_update)
+
+
+@pytest.mark.parametrize(
+    ("field_update", "reason"),
+    [
+        ({"contains_raw_prompt": True}, "RAW_PROMPT_DENIED"),
+        ({"contains_raw_model_output": True}, "RAW_MODEL_OUTPUT_DENIED"),
+        ({"contains_raw_file_content": True}, "RAW_FILE_CONTENT_DENIED"),
+        ({"contains_raw_transcript": True}, "RAW_TRANSCRIPT_DENIED"),
+        ({"contains_secret_like_content": True}, "ACTION_INTENT_SECRET_CONTENT_DENIED"),
+        ({"metadata": {"token": "abc123"}}, "SECRET_METADATA_DENIED"),
+        ({"metadata": {"api_key": "safe-looking"}}, "SECRET_METADATA_DENIED"),
+        ({"metadata_refs": ["secret:m28"]}, "SECRET_METADATA_DENIED"),
+        ({"safe_summary": "contains api_key=abc123"}, "ACTION_INTENT_SECRET_CONTENT_DENIED"),
+    ],
+)
+def test_action_policy_revalidates_model_copy_mutated_action_intents(field_update, reason):
+    from ultimate_ai_agent.core.approvals.v2 import evaluate_action_policy
+
+    decision = evaluate_action_policy(
+        _intent().model_copy(update=field_update),
+        grant=_grant(),
+        replay_nonce="nonce:m28-safe",
+    )
+
+    assert decision.allowed_for_policy is False
+    assert decision.execution_authorized is False
+    assert decision.execution_performed is False
+    assert reason in decision.reason_codes
+
+
+@pytest.mark.parametrize(
+    ("grant_update", "reason"),
+    [
+        ({"grant_ref": "approval_test_m28"}, "APPROVAL_TEST_REF_DENIED"),
+        ({"expires_at": utc_now() - timedelta(minutes=1)}, "APPROVAL_GRANT_EXPIRED"),
+        ({"status": "revoked"}, "APPROVAL_GRANT_REVOKED"),
+        ({"metadata": {"token": "abc123"}}, "SECRET_METADATA_DENIED"),
+        ({"metadata_refs": ["secret:m28"]}, "SECRET_METADATA_DENIED"),
+    ],
+)
+def test_approval_grant_revalidation_blocks_model_copy_mutations(grant_update, reason):
+    from ultimate_ai_agent.core.approvals.v2 import evaluate_action_policy
+
+    decision = evaluate_action_policy(
+        _intent(),
+        grant=_grant().model_copy(update=grant_update),
+        replay_nonce="nonce:m28-safe",
+    )
+
+    assert decision.allowed_for_policy is False
+    assert decision.execution_authorized is False
+    assert decision.execution_performed is False
+    assert reason in decision.reason_codes
+
+
+@pytest.mark.parametrize(
+    ("policy_update", "reason"),
+    [
+        ({"safe_summary": "contains token=abc123"}, "ACTION_POLICY_SECRET_CONTENT_DENIED"),
+        ({"policy_ref": "invalid-policy-ref"}, "ACTION_POLICY_REVALIDATION_FAILED"),
+    ],
+)
+def test_action_policy_revalidation_blocks_model_copy_mutations(policy_update, reason):
+    from ultimate_ai_agent.core.approvals.v2 import ActionPolicy, evaluate_action_policy
+
+    decision = evaluate_action_policy(
+        _intent(),
+        grant=_grant(),
+        policy=ActionPolicy().model_copy(update=policy_update),
+        replay_nonce="nonce:m28-safe",
+    )
+
+    assert decision.allowed_for_policy is False
+    assert decision.execution_authorized is False
+    assert decision.execution_performed is False
+    assert reason in decision.reason_codes

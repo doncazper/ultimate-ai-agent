@@ -1,7 +1,7 @@
 # Recall Non-Goals
 
 Status: active
-Current through: v0.32.0
+Current through: v0.32.1
 Purpose: State what M26 does not implement.
 
 M26 does not add:

@@ -1,6 +1,6 @@
 # Ultimate AI Agent Workspace Standards
 
-Active baseline: v0.32.0.
+Active baseline: v0.32.1.
 
 This repository is the Ultimate AI Agent foundation workspace. Treat it as a contract-first Python core, not a production runtime integration layer.
 
@@ -66,6 +66,7 @@ This repository is the Ultimate AI Agent foundation workspace. Treat it as a con
 - v0.31.0 M27 Tool Broker v2 + Safe Tool Intent Contracts adds validation-only and preview-only typed tool intent, catalog, target, input-boundary, decision, manifest, and non-executing receipt-plan contracts. Approval refs are identifiers only and not authority; context packs are not authority; decisions cannot execute tools, perform side effects, write memory, mutate the Event Ledger, call models/providers, make network calls, control browsers, enable plugins, inject context, add backend execution routes, add dependencies, or create production authority.
 - v0.31.1 GitHub README Polish Baseline Normalization is docs/version/release-metadata only. Do not use it to add Approval Authority v2 implementation, action execution, backend routes, dependencies, or production authority.
 - v0.32.0 M28 Approval Authority v2 + Action Policy Expansion adds contract/policy/decision-only approval authority and action policy contracts. Approval decisions are not action execution; approval_ref, approval_test_ refs, and consent_ref alone are not authority; wildcard, expired, revoked, replayed, and actor/action/resource/scope mismatched grants are denied. Do not use v0.32.0 to add action execution, tool execution, shell/subprocess execution, file mutation, memory writes, network calls, model/provider calls, browser/mobile/remote/plugin execution, backend action/tool execution routes, dependencies, M29 work, or production authority. M29-M40 remain planned/provisional.
+- v0.32.1 M28 Evaluator Revalidation Hardening revalidates ActionIntent, ApprovalGrant, and ActionPolicy objects before policy-only allow decisions so model_copy mutations cannot smuggle raw prompt/model/file/transcript flags, secret-like summaries or metadata, metadata refs, approval_test_ grant refs, expired/revoked/replayed grants, wildcard scope, or mismatched bindings into allowed decisions. Do not use v0.32.1 to add action execution, tool execution, shell/subprocess execution, file mutation, memory writes, network calls, model/provider calls, browser/mobile/remote/plugin execution, backend action/tool execution routes, dependencies, M29 work, or production authority. M29-M40 remain planned/provisional.
 - API validation errors must be sanitized and must never echo raw invalid input values or secret-like field values.
 
 ## Workspace

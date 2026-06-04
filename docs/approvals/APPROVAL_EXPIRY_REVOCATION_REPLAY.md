@@ -1,7 +1,7 @@
 # Approval Expiry, Revocation, and Replay
 
 Status: active
-Current through: v0.32.0
+Current through: v0.32.1
 Purpose: Define M28 approval grant lifetime and replay protection.
 
 Approval Authority v2 denies grants that are expired, revoked, replayed,

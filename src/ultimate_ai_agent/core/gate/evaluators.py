@@ -5819,12 +5819,13 @@ class FoundationGateEvaluator:
                 ApprovalScopeKind,
                 ResourceRef,
                 ResourceRefKind,
+                ActionPolicy,
                 build_approval_authority_v2_manifest,
                 evaluate_action_policy,
             )
             from ultimate_ai_agent.core.time import utc_now
 
-            manifest = build_approval_authority_v2_manifest(baseline_version="0.32.0")
+            manifest = build_approval_authority_v2_manifest(baseline_version="0.32.1")
             if not isinstance(manifest, ApprovalAuthorityV2Manifest):
                 failures.append("M28 manifest builder did not return ApprovalAuthorityV2Manifest")
             manifest_flags = [
@@ -5919,6 +5920,52 @@ class FoundationGateEvaluator:
                 evaluate_action_policy(intent.model_copy(update={"consent_ref": "consent:gate-m28"})),
                 "CONSENT_REF_NOT_AUTHORITY",
                 "consent_ref alone",
+            )
+            require_denial(
+                evaluate_action_policy(
+                    intent.model_copy(update={"contains_raw_prompt": True}),
+                    grant=grant,
+                    replay_nonce="nonce:gate-m28",
+                ),
+                "RAW_PROMPT_DENIED",
+                "model_copy raw prompt revalidation",
+            )
+            require_denial(
+                evaluate_action_policy(
+                    intent.model_copy(update={"contains_raw_model_output": True}),
+                    grant=grant,
+                    replay_nonce="nonce:gate-m28",
+                ),
+                "RAW_MODEL_OUTPUT_DENIED",
+                "model_copy raw model output revalidation",
+            )
+            require_denial(
+                evaluate_action_policy(
+                    intent.model_copy(update={"metadata": {"token": "abc123"}}),
+                    grant=grant,
+                    replay_nonce="nonce:gate-m28",
+                ),
+                "SECRET_METADATA_DENIED",
+                "model_copy secret metadata revalidation",
+            )
+            require_denial(
+                evaluate_action_policy(
+                    intent,
+                    grant=grant.model_copy(update={"grant_ref": "approval_test_gate_m28"}),
+                    replay_nonce="nonce:gate-m28",
+                ),
+                "APPROVAL_TEST_REF_DENIED",
+                "model_copy approval_test grant revalidation",
+            )
+            require_denial(
+                evaluate_action_policy(
+                    intent,
+                    grant=grant,
+                    policy=ActionPolicy().model_copy(update={"safe_summary": "contains token=abc123"}),
+                    replay_nonce="nonce:gate-m28",
+                ),
+                "ACTION_POLICY_SECRET_CONTENT_DENIED",
+                "model_copy action policy revalidation",
             )
 
             wildcard_scope = scope.model_copy(

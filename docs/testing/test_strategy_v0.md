@@ -229,6 +229,22 @@ M29-M40 remain planned/provisional.
 OpenAPI path count remains unchanged at 74.
 ```
 
+## v0.32.1 M28 Evaluator Revalidation Tests
+
+v0.32.1 adds focused regression, verifier, and Foundation Gate tests only for
+M28 hardening:
+
+```text
+ActionPolicy evaluator revalidates ActionIntent, ApprovalGrant, and ActionPolicy objects before allowing policy-only decisions.
+ActionIntent.model_copy(update=...) cannot smuggle raw prompt/model/file/transcript flags into an allowed decision.
+ActionIntent.model_copy(update=...) cannot smuggle secret-like summaries, metadata, or metadata refs into an allowed decision.
+ApprovalGrant.model_copy(update=...) cannot smuggle approval_test_ grant refs, secret metadata, expired/revoked state, replayed nonces, wildcard scope, or mismatched actor/action/resource/scope bindings into an allowed decision.
+Safe no-effect/read-metadata decisions remain policy-only with execution_authorized=False and execution_performed=False.
+Foundation Gate and verify_all.py probe the same mutated-object revalidation boundary.
+M29-M40 remain planned/provisional.
+OpenAPI path count remains unchanged at 74.
+```
+
 ## v0.29.1 M25 Reject Unknown Truth Refs Tests
 
 v0.29.1 adds focused regression, verifier, and Foundation Gate tests only for

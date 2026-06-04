@@ -1,7 +1,7 @@
 # Approval Grant Binding
 
 Status: active
-Current through: v0.32.0
+Current through: v0.32.1
 Purpose: Record actor/action/resource/scope binding rules for M28.
 
 An M28 approval grant is valid for policy only when it binds the same actor,

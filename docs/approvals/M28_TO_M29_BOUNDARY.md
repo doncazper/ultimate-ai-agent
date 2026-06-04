@@ -1,7 +1,7 @@
 # M28 to M29 Boundary
 
 Status: active
-Current through: v0.32.0
+Current through: v0.32.1
 Purpose: Keep M28 approval policy separate from future milestones.
 
 v0.32.0 / M28 implements Approval Authority v2 + Action Policy Expansion as

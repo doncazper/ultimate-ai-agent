@@ -1,11 +1,13 @@
 # Approval Authority v2
 
 Status: active
-Current through: v0.32.0
+Current through: v0.32.1
 Purpose: Define the M28 approval authority contract boundary.
 
 v0.32.0 / M28 implements Approval Authority v2 + Action Policy Expansion as
 contract/policy/decision only. Approval decisions are not action execution.
+v0.32.1 hardens M28 with evaluator-side revalidation for raw/secret action
+inputs and mutated approval grants before any policy-only allow decision.
 
 Approval Authority v2 provides typed contracts for:
 
@@ -28,6 +30,7 @@ authority. `approval_test_` refs are test-only and are not runtime authority.
 `consent_ref` alone is not authority.
 
 Wildcard approvals are denied. Expired, revoked, replayed, and mismatched grants
-are denied. Raw action inputs and secret-like summaries or metadata are rejected.
+are denied. Raw action inputs, secret-like summaries, metadata, and metadata
+refs are rejected at construction time and revalidated at evaluator time.
 
 M29-M40 remain planned/provisional.

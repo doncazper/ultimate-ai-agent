@@ -1,7 +1,7 @@
 # Action Preview Policy
 
 Status: active
-Current through: v0.32.0
+Current through: v0.32.1
 Purpose: Define Control Center action preview as non-executing UI policy.
 
 Control Center action preview is not execution. It returns a safe decision object describing whether a future UI may display a preview. It does not mutate state, grant approval, resolve credentials, call tools, write files, dispatch remote workers, start runtimes, call providers, enable plugins, access sensors, or perform external actions.

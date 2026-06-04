@@ -1,7 +1,7 @@
 # Approval Authority v2 Non-Goals
 
 Status: active
-Current through: v0.32.0
+Current through: v0.32.1
 Purpose: Define what M28 intentionally does not implement.
 
 M28 does not add:

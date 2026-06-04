@@ -1,7 +1,7 @@
 # Approval Ref Is Not Authority
 
 Status: active
-Current through: v0.32.0
+Current through: v0.32.1
 Purpose: Preserve the approval authority boundary in M28.
 
 `approval_ref` is an identifier, not authority. A caller-provided approval ref
@@ -13,6 +13,7 @@ M28 denies:
 
 - `approval_ref` alone.
 - `approval_test_` refs as runtime authority.
+- `approval_test_` grant refs introduced by object mutation before evaluation.
 - `consent_ref` alone.
 - model output refs as authorization.
 - memory refs as authorization.
