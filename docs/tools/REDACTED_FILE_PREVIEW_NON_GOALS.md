@@ -1,7 +1,7 @@
 # Redacted File Preview Non-Goals
 
 Status: active M33 documentation.
-Current active baseline: **v0.38.2**
+Current active baseline: **v0.39.0**
 
 M33 intentionally does not implement:
 
@@ -36,5 +36,5 @@ M33 intentionally does not implement:
 - dependencies or production authority.
 
 v0.38.0 implemented M34 Broader File Capability Review as
-planning/docs/verifier work only. M35 remains planned/provisional for Safe File
-Review Workflow Contracts.
+planning/docs/verifier work only. v0.39.0 implements M35 Safe File Review
+Workflow Contracts. M36-M60 remain planned/provisional.

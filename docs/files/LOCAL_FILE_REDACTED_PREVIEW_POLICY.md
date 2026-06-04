@@ -1,7 +1,7 @@
 # Local File Redacted Preview Policy
 
 Status: active M33 documentation.
-Current active baseline: **v0.38.2**
+Current active baseline: **v0.39.0**
 
 M33 local file preview is a governed proposal path, not arbitrary local file
 access. It may inspect one safe relative text path under a server-owned safe
@@ -20,5 +20,5 @@ so raw secrets cannot be carried by direct result construction or a
 model_copy-mutated output.
 
 v0.38.0 implemented M34 Broader File Capability Review as
-planning/docs/verifier work only. M35 remains planned/provisional for Safe File
-Review Workflow Contracts. v0.38.2 repairs active current-baseline labels only.
+planning/docs/verifier work only. v0.39.0 implements M35 Safe File Review
+Workflow Contracts. M36-M60 remain planned/provisional.

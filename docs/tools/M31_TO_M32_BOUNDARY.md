@@ -4,7 +4,7 @@ Status: active M32 documentation.
 Current active baseline: **v0.36.1**
 
 M31 is implemented/released as Real Tool Runtime Adapter, Single Safe No-Op
-Tool. v0.35.1 hardens that boundary with allowlist validation, tool_ref/tool_name
+Tool. v0.35.1 hardens M31 with allowlist validation, tool_ref/tool_name
 consistency, dynamic dispatch denial, hidden side-effect denial, authority
 boundary checks, evaluator revalidation, and replay protection.
 

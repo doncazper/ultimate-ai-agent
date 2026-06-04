@@ -1,17 +1,21 @@
 # M35 Safe File Review Workflow Readiness
 
-Status: active M34 readiness documentation.
-Current through: **v0.38.2**.
+Status: historical M34 readiness documentation, superseded by active M35 contract docs.
+Current through: **v0.39.0**.
 
-M35 is the first implementation milestone after M34. It must implement Safe File
-Review Workflow Contracts only.
-
-M35 remains planned/provisional until a dedicated reviewed v0.39.0 / M35
-release implements those contracts.
+M35 was the first implementation milestone after M34. v0.39.0 implements Safe
+File Review Workflow Contracts only. Active M35 contract docs are
+`docs/files/SAFE_FILE_REVIEW_WORKFLOW.md`,
+`docs/files/FILE_REVIEW_PACKET_CONTRACT.md`,
+`docs/files/FILE_REVIEW_USER_APPROVAL_GATE.md`,
+`docs/files/FILE_REVIEW_AUTHORITY_BOUNDARY.md`,
+`docs/files/FILE_REVIEW_RECEIPT_PLAN.md`,
+`docs/files/FILE_REVIEW_NON_GOALS.md`, and
+`docs/files/M35_TO_M36_BOUNDARY.md`.
 
 ## Exact M35 Scope
 
-M35 may add:
+M35 added:
 
 - review workflow contract models.
 - review packet contracts derived from existing redacted preview results.
@@ -53,6 +57,8 @@ checks for:
 - no backend routes.
 - no dependencies.
 - M36 remains planned/provisional.
+- M37 remains planned/provisional.
+- M38 remains planned/provisional.
 
 ## Strict Non-Goals
 

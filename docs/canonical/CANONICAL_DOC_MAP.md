@@ -1,6 +1,6 @@
 # Canonical Document Map
 
-Current active baseline: **v0.38.2**
+Current active baseline: **v0.39.0**
 
 This map links major systems to their canonical documentation. If a system has both canonical docs and runtime/API docs, canonical docs define principles and sequencing while runtime/API docs define current implementation boundaries.
 
@@ -17,7 +17,7 @@ This map links major systems to their canonical documentation. If a system has b
 | Secret Broker | `docs/canonical/40_credentials_secret_broker_and_provider_registry.md` |
 | Provider Registry | `docs/canonical/40_credentials_secret_broker_and_provider_registry.md` |
 | Memory Service | `docs/canonical/03_memory_system.md`, `docs/canonical/41_memory_retrieval_v1.md`, `docs/memory/MEMORY_PROVIDER_ABSTRACTION.md`, `docs/memory/LOCAL_MEMORY_STORE.md`, `docs/memory/MEMORY_RECORD_SCHEMA.md`, `docs/memory/MEMORY_WRITE_POLICY.md`, `docs/memory/MEMORY_REVIEW_AND_PROVENANCE.md`, `docs/memory/MEMORY_SOURCE_PRIORITY.md`, `docs/memory/MEMORY_RECALL_PLANNING.md`, `docs/memory/MEMORY_RETENTION_DELETE_EXPORT.md`, `docs/memory/MEMORY_CONFLICT_AND_STALENESS.md`, `docs/memory/MEMORY_DEDUP_DECAY_ARCHIVE.md`, `docs/memory/MEMORY_SECURITY_MODEL.md`, `docs/memory/MEMORY_NON_GOALS.md`, `docs/memory/MEMORYOS_REVIEW_INCORPORATION.md`, `docs/memory/M24_TO_M25_BOUNDARY.md` |
-| File Manager | `docs/canonical/10_file_management.md`, `docs/files/BROADER_FILE_CAPABILITY_REVIEW.md`, `docs/files/FILE_CAPABILITY_BOUNDARY_MATRIX.md`, `docs/files/FILE_CAPABILITY_RISK_REGISTER.md`, `docs/files/FILE_CAPABILITY_DECISION_RECORD.md`, `docs/files/M35_SAFE_FILE_REVIEW_WORKFLOW_READINESS.md`, `docs/files/M34_TO_M35_BOUNDARY.md` |
+| File Manager | `docs/canonical/10_file_management.md`, `docs/files/BROADER_FILE_CAPABILITY_REVIEW.md`, `docs/files/FILE_CAPABILITY_BOUNDARY_MATRIX.md`, `docs/files/FILE_CAPABILITY_RISK_REGISTER.md`, `docs/files/FILE_CAPABILITY_DECISION_RECORD.md`, `docs/files/M35_SAFE_FILE_REVIEW_WORKFLOW_READINESS.md`, `docs/files/M34_TO_M35_BOUNDARY.md`, `docs/files/SAFE_FILE_REVIEW_WORKFLOW.md`, `docs/files/FILE_REVIEW_PACKET_CONTRACT.md`, `docs/files/FILE_REVIEW_USER_APPROVAL_GATE.md`, `docs/files/FILE_REVIEW_AUTHORITY_BOUNDARY.md`, `docs/files/FILE_REVIEW_RECEIPT_PLAN.md`, `docs/files/FILE_REVIEW_NON_GOALS.md`, `docs/files/M35_TO_M36_BOUNDARY.md` |
 | Truth Source Router | `docs/canonical/60_truth_source_router.md`, `docs/truth/TRUTH_SOURCE_ROUTER.md`, `docs/truth/TRUTH_SOURCE_PRIORITY.md`, `docs/truth/CLAIM_VERIFICATION_POLICY.md`, `docs/truth/TRUTH_NON_GOALS.md`, `docs/truth/M25_TO_M26_BOUNDARY.md` |
 | Evidence Manifest | `docs/canonical/59_truth_grounding_and_evidence_governance.md`, `docs/canonical/61_evidence_manifest_and_claim_verification.md`, `docs/truth/EVIDENCE_CLAIM_CHECKER.md`, `docs/truth/CLAIM_EVIDENCE_CHAIN.md`, `docs/truth/CLAIM_CONFLICT_AND_STALENESS.md`, `docs/truth/MEMORY_TRUTH_BOUNDARY.md` |
 | Grounded Recall Router and Context Pack Builder | `docs/canonical/36_context_pack.md`, `docs/canonical/41_memory_retrieval_v1.md`, `docs/recall/GROUNDED_RECALL_ROUTER.md`, `docs/recall/CONTEXT_PACK_BUILDER.md`, `docs/recall/RECALL_SOURCE_PRIORITY.md`, `docs/recall/RECALL_CANDIDATE_POLICY.md`, `docs/recall/CONTEXT_PACK_SAFETY.md`, `docs/recall/RECALL_NON_GOALS.md`, `docs/recall/M26_TO_M27_BOUNDARY.md` |

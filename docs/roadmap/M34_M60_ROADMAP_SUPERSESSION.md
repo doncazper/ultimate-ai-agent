@@ -1,6 +1,6 @@
 # M34-M60 Roadmap Supersession
 
-Status: Active roadmap source of truth through v0.38.2.
+Status: Active roadmap source of truth through v0.39.0.
 
 v0.38.0 implements M34 Broader File Capability Review as planning,
 architecture review, documentation, verifier, and Foundation Gate work only.
@@ -10,7 +10,9 @@ route, frontend runtime feature, dependency, file-review workflow implementation
 approval capture, context proposal, context injection, memory write, export,
 mobile app, TestFlight pipeline, execution authority, or production authority.
 v0.38.2 repairs active current-baseline labels and documentation-integrity
-coverage after the v0.38.1 Yellow review. It adds no implementation capability.
+coverage after the v0.38.1 Yellow review. v0.39.0 implements M35 Safe File
+Review Workflow Contracts as contract-only, review-only logic over
+already-redacted preview results.
 
 ## Supersession Rule
 
@@ -20,8 +22,9 @@ active source of truth. If another document disagrees with this page, this page
 and the canonical roadmap win until a later reviewed roadmap patch supersedes
 them.
 
-M34 is implemented/released as planning/docs/verifier only. M35 is the first
-implementation milestone after this supersession and review. M42 resumes mobile planning. M44 is the first iOS
+M34 is implemented/released as planning/docs/verifier only. M35 is
+implemented/released as contract-only Safe File Review Workflow Contracts.
+M36-M60 remain planned/provisional. M42 resumes mobile planning. M44 is the first iOS
 skeleton milestone. M47 is the TestFlight-capable pipeline milestone. M48 is the
 first internal TestFlight build milestone. M49 and M50 are the first meaningful
 mobile approval capture and audit milestones.
@@ -31,7 +34,7 @@ mobile approval capture and audit milestones.
 | Version | Milestone | Title | Status | Scope |
 | --- | --- | --- | --- | --- |
 | v0.38.0 | M34 | Broader File Capability Review | implemented/released planning/docs/verifier only | Planning, docs, verifier, Foundation Gate, boundary matrix, risk register, decision record, and M35 readiness only |
-| v0.39.0 | M35 | Safe File Review Workflow Contracts | planned/provisional | Contract-only file review workflow, review packet, and no-authority approval boundary |
+| v0.39.0 | M35 | Safe File Review Workflow Contracts | implemented/released contract-only | Contract-only file review workflow, review packet, and no-authority approval boundary |
 | v0.40.0 | M36 | CCC File Review Surface, Review-Only | planned/provisional | Read-only/review-only CCC surface for redacted review packets |
 | v0.41.0 | M37 | Review Approval Capture, Review-Only Persistence | planned/provisional | Governed review approval capture with audit-only persistence |
 | v0.42.0 | M38 | Safe Context Proposal From Approved Review | planned/provisional | Proposal contracts only; no automatic context injection |
@@ -60,15 +63,15 @@ mobile approval capture and audit milestones.
 
 ## Prompt-Pack Strategy
 
-Recommended next prompt after v0.38.2:
+Recommended next prompt after v0.39.0:
 
 ```text
-v0.39.0 / M35 - Safe File Review Workflow Contracts
+v0.39.1 / M35 hardening only if desired, otherwise v0.40.0 / M36 - CCC File Review Surface, Review-Only
 ```
 
 The first three prompt packs after this patch are:
 
-1. M35 Safe File Review Workflow implementation/review/hardening.
+1. M35 Safe File Review Workflow hardening if desired.
 2. M36 CCC File Review Surface implementation/browser-smoke review/hardening.
 3. M37 Review Approval Capture review-only persistence.
 

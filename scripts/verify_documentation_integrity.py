@@ -153,6 +153,17 @@ REQUIRED_M34_FILE_CAPABILITY_REVIEW_DOCS = [
 ]
 
 
+REQUIRED_M35_FILE_REVIEW_DOCS = [
+    "docs/files/SAFE_FILE_REVIEW_WORKFLOW.md",
+    "docs/files/FILE_REVIEW_PACKET_CONTRACT.md",
+    "docs/files/FILE_REVIEW_USER_APPROVAL_GATE.md",
+    "docs/files/FILE_REVIEW_AUTHORITY_BOUNDARY.md",
+    "docs/files/FILE_REVIEW_RECEIPT_PLAN.md",
+    "docs/files/FILE_REVIEW_NON_GOALS.md",
+    "docs/files/M35_TO_M36_BOUNDARY.md",
+]
+
+
 REQUIRED_ACTIVE_DOCS = [
     "docs/README.md",
     "docs/DOCUMENTATION_INDEX.md",
@@ -197,6 +208,8 @@ REQUIRED_ACTIVE_DOCS = [
     *REQUIRED_M31_TOOL_RUNTIME_DOCS,
     *REQUIRED_M32_FILESYSTEM_METADATA_DOCS,
     *REQUIRED_M33_REDACTED_FILE_PREVIEW_DOCS,
+    *REQUIRED_M34_FILE_CAPABILITY_REVIEW_DOCS,
+    *REQUIRED_M35_FILE_REVIEW_DOCS,
     "docs/developer/LOCAL_LAUNCHER.md",
     "docs/control_center/CONTROL_CENTER_CONTRACT.md",
     "docs/control_center/DASHBOARD_SNAPSHOT.md",
@@ -638,6 +651,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_m34_m60_roadmap_supersession(root, version))
     failures.extend(_verify_m34_file_capability_review_docs(root, version))
     failures.extend(_verify_m34_active_currentness(root, version))
+    failures.extend(_verify_m35_file_review_workflow_docs(root, version))
     failures.extend(_verify_m19_roadmap_currentness(root, version))
     failures.extend(_verify_post_m18_roadmap_status_labels(root))
 
@@ -724,9 +738,6 @@ def _verify_m34_m60_roadmap_supersession(root: Path, version: str | None) -> lis
             failures.append(f"superseded active M35-M40 roadmap label still present: {stale_title}")
 
     required_fragments = {
-        "M35 must be first implementation after supersession": (
-            "m35 is the first implementation after"
-        ),
         "M42 must be mobile planning refresh": "m42",
         "M44 must be first iOS skeleton": "first ios skeleton",
         "M47 must be TestFlight-capable pipeline": "testflight-capable pipeline",
@@ -734,13 +745,28 @@ def _verify_m34_m60_roadmap_supersession(root: Path, version: str | None) -> lis
         "M49-M50 must be mobile approval capture/audit": "m49-m50",
         "Archive docs must not be active source of truth": "not the active source of truth",
     }
-    if _version_tuple(version) >= (0, 38, 0):
+    if _version_tuple(version) >= (0, 39, 0):
         required_fragments.update(
             {
                 "M34 must be released as planning/docs/verifier only": (
                     "m34 is implemented/released as planning/docs/verifier only"
                 ),
-                "M35-M60 must remain planned/provisional": "m35-m60 remain planned/provisional",
+                "M35 must be released as Safe File Review Workflow Contracts": (
+                    "m35 is implemented/released"
+                ),
+                "M36-M60 must remain planned/provisional": "m36-m60 remain planned/provisional",
+            }
+        )
+    elif _version_tuple(version) >= (0, 38, 0):
+        required_fragments.update(
+            {
+                "M35 must be first implementation after supersession": (
+                    "m35 is the first implementation after"
+                ),
+                "M34 must be released as planning/docs/verifier only": (
+                    "m34 is implemented/released as planning/docs/verifier only"
+                ),
+                "M36-M60 must remain planned/provisional": "m36-m60 remain planned/provisional",
             }
         )
     else:
@@ -818,9 +844,12 @@ def _verify_m34_file_capability_review_docs(root: Path, version: str | None) -> 
         "M34 docs must say no memory writes": "no memory writes",
         "M34 docs must say no export": "no export",
         "M34 docs must say no execution": "no execution",
-        "M34 docs must keep M35 planned/provisional": "m35 remains planned/provisional",
         "M34 docs must keep M36 planned/provisional": "m36 remains planned/provisional",
     }
+    if _version_tuple(version) < (0, 39, 0):
+        required_fragments["M34 docs must keep M35 planned/provisional"] = "m35 remains planned/provisional"
+    else:
+        required_fragments["M34 docs must acknowledge M35 implementation"] = "v0.39.0 implements m35"
     for failure, fragment in required_fragments.items():
         if fragment not in combined:
             failures.append(failure)
@@ -882,6 +911,70 @@ def _verify_m34_active_currentness(root: Path, version: str | None) -> list[str]
             "active M33 docs must not say M34 remains planned/provisional after v0.38.0: "
             + ", ".join(stale_active_m33_docs)
         )
+
+    return failures
+
+
+def _verify_m35_file_review_workflow_docs(root: Path, version: str | None) -> list[str]:
+    if _version_tuple(version) < (0, 39, 0):
+        return []
+
+    failures: list[str] = []
+    existing_docs: list[str] = []
+    for rel_path in REQUIRED_M35_FILE_REVIEW_DOCS:
+        path = root / rel_path
+        if not path.exists():
+            failures.append(f"missing active M35 file review workflow doc: {rel_path}")
+            continue
+        existing_docs.append(_normalize_milestone_label_text(_read(path)))
+
+    combined = "\n".join(existing_docs)
+    required_fragments = {
+        "M35 docs must say redacted review packets only": "redacted review packets only",
+        "M35 docs must say exact approval binding": "exact approval binding",
+        "M35 docs must say review-only": "review-only",
+        "M35 docs must say no raw file access": "no raw file access",
+        "M35 docs must say no raw content": "no raw content",
+        "M35 docs must say no approval capture": "no approval capture",
+        "M35 docs must say no approval persistence": "no approval persistence",
+        "M35 docs must say no context proposal": "no context proposal",
+        "M35 docs must say no context injection": "no context injection",
+        "M35 docs must say no memory writes": "no memory writes",
+        "M35 docs must say no export": "no export",
+        "M35 docs must say no execution": "no execution",
+        "M35 docs must keep M36 planned/provisional": "m36 remains planned/provisional",
+        "M35 docs must keep M37 planned/provisional": "m37 remains planned/provisional",
+        "M35 docs must keep M38 planned/provisional": "m38 remains planned/provisional",
+    }
+    for failure, fragment in required_fragments.items():
+        if fragment not in combined:
+            failures.append(failure)
+
+    forbidden_fragments = {
+        "M35 docs must not claim file review UI implementation": [
+            "file review ui is implemented",
+            "ccc file review surface is implemented",
+        ],
+        "M35 docs must not claim approval persistence implementation": [
+            "approval persistence is implemented",
+            "review approval capture is implemented",
+        ],
+        "M35 docs must not claim context proposal implementation": [
+            "context proposal is implemented",
+            "safe context proposal is implemented",
+        ],
+        "M35 docs must not claim context injection": [
+            "context injection is implemented",
+            "automatic context injection is implemented",
+        ],
+        "M35 docs must not claim raw/export/execution implementation": [
+            "raw file export is implemented",
+            "execution is implemented",
+        ],
+    }
+    for failure, fragments in forbidden_fragments.items():
+        if any(fragment in combined for fragment in fragments):
+            failures.append(failure)
 
     return failures
 
@@ -1062,8 +1155,8 @@ def _verify_m19_roadmap_currentness(root: Path, version: str | None) -> list[str
             failures.append(f"active roadmap docs must not claim future mobile capability implementation: {claim}")
 
     if _version_tuple(version) >= (0, 38, 0):
-        if "m35-m60 remain planned/provisional" not in active_roadmaps:
-            failures.append("post-M20 roadmap docs must keep M35-M60 planned/provisional")
+        if "m36-m60 remain planned/provisional" not in active_roadmaps:
+            failures.append("post-M20 roadmap docs must keep M36-M60 planned/provisional")
     elif _version_tuple(version) >= (0, 37, 4):
         if "m34-m60 remain planned/provisional" not in active_roadmaps:
             failures.append("post-M20 roadmap docs must keep M34-M60 planned/provisional")
@@ -1608,8 +1701,8 @@ def _verify_m25_truth_docs(root: Path, version: str | None) -> list[str]:
                                     active_expectations["active docs must mark M34/v0.38.0 as implemented/released"] = (
                                         "m34 is implemented/released"
                                     )
-                                    active_expectations["active docs must keep M35-M60 planned/provisional"] = (
-                                        "m35-m60 remain planned/provisional"
+                                    active_expectations["active docs must keep M36-M60 planned/provisional"] = (
+                                        "m36-m60 remain planned/provisional"
                                     )
                                 elif _version_tuple(version) >= (0, 37, 4):
                                     active_expectations["active docs must keep M34-M60 planned/provisional"] = (
@@ -2160,8 +2253,8 @@ def _verify_m25_truth_docs(root: Path, version: str | None) -> list[str]:
             m32_expectations["M32 docs must acknowledge M34 broader file capability review"] = (
                 "broader file capability review"
             )
-            m32_expectations["M32 docs must keep M35-M60 planned/provisional"] = (
-                "m35-m60 remain planned/provisional"
+            m32_expectations["M32 docs must keep M36-M60 planned/provisional"] = (
+                "m36-m60 remain planned/provisional"
             )
         elif _version_tuple(version) >= (0, 37, 4):
             m32_expectations["M32 docs must acknowledge M33 redacted preview"] = "redacted preview"
@@ -2216,7 +2309,11 @@ def _verify_m25_truth_docs(root: Path, version: str | None) -> list[str]:
             "M33 docs must say no file writes/deletes": "file writes",
             "M33 docs must say result is not context injection": "context injection",
         }
-        if _version_tuple(version) >= (0, 38, 0):
+        if _version_tuple(version) >= (0, 39, 0):
+            m33_expectations["M33 docs must acknowledge M35 file review release"] = (
+                "safe file review workflow contracts"
+            )
+        elif _version_tuple(version) >= (0, 38, 0):
             m33_expectations["M33 docs must acknowledge M34 broader review release"] = (
                 "broader file capability review"
             )
@@ -2658,8 +2755,8 @@ def _verify_post_m20_roadmap_projection(root: Path) -> list[str]:
             expectations["Post-M20 roadmap docs must say M34 is implemented/released"] = (
                 "m34 is implemented/released"
             )
-            expectations["Post-M20 roadmap docs must keep M35-M60 planned/provisional"] = (
-                "m35-m60 remain planned/provisional"
+            expectations["Post-M20 roadmap docs must keep M36-M60 planned/provisional"] = (
+                "m36-m60 remain planned/provisional"
             )
         else:
             expectations["Post-M20 roadmap docs must keep M34-M60 planned/provisional"] = (
@@ -2821,7 +2918,9 @@ def _verify_post_m20_roadmap_projection(root: Path) -> list[str]:
         if fragment not in roadmap_text:
             failures.append(failure)
 
-    if active_version_tuple >= (0, 38, 0):
+    if active_version_tuple >= (0, 39, 0):
+        implemented_claim_start = 36
+    elif active_version_tuple >= (0, 38, 0):
         implemented_claim_start = 35
     elif active_version_tuple >= (0, 37, 0):
         implemented_claim_start = 34
@@ -3002,11 +3101,16 @@ def _verify_post_m18_roadmap_status_labels(root: Path) -> list[str]:
             or "redacted preview" not in active_capability_charters
         ):
             failures.append("roadmap sequence must define M33 as redacted file preview")
-        if active >= (0, 38, 0):
+        if active >= (0, 39, 0):
+            if "v0.39.0 / m35" not in active_capability_charters or "status: implemented" not in active_capability_charters:
+                failures.append("roadmap sequence must mark M35/v0.39.0 implemented")
+            if "m36-m60" not in active_capability_charters or "planned/provisional" not in active_capability_charters:
+                failures.append("roadmap sequence must keep M36-M60 planned/provisional")
+        elif active >= (0, 38, 0):
             if "v0.38.0 / m34" not in active_capability_charters or "status: implemented" not in active_capability_charters:
                 failures.append("roadmap sequence must mark M34/v0.38.0 implemented")
             if "m35-m60" not in active_capability_charters or "planned/provisional" not in active_capability_charters:
-                failures.append("roadmap sequence must keep M35-M60 planned/provisional")
+                failures.append("roadmap sequence must keep M36-M60 planned/provisional")
         elif active >= (0, 37, 4):
             if "m34-m60" not in active_capability_charters or "planned/provisional" not in active_capability_charters:
                 failures.append("roadmap sequence must keep M34-M60 planned/provisional")

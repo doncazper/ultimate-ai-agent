@@ -397,6 +397,32 @@ M34_FORBIDDEN_BACKEND_ROUTES = (
     "/tool-runtime/run",
     "/plugins/enable",
 )
+EXPECTED_M35_OPENAPI_PATH_COUNT = 74
+M35_FORBIDDEN_BACKEND_ROUTES = (
+    "/files/read",
+    "/files/read/raw",
+    "/files/read/content",
+    "/files/read/full",
+    "/files/review",
+    "/files/review/approve",
+    "/files/review/submit",
+    "/files/review/persist",
+    "/files/review/approvals/capture",
+    "/files/write",
+    "/files/delete",
+    "/files/export",
+    "/filesystem/read",
+    "/filesystem/write",
+    "/filesystem/delete",
+    "/context/propose",
+    "/context/inject",
+    "/memory/write",
+    "/tools/execute",
+    "/tools/run",
+    "/tool-runtime/execute",
+    "/tool-runtime/run",
+    "/plugins/enable",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -701,6 +727,17 @@ def m34_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
     return failures
 
 
+def m35_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M35_OPENAPI_PATH_COUNT) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+    for route in M35_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(f"M35 forbidden backend route present: {route}")
+    return failures
+
+
 def _normalize_m34_active_text(text: str) -> str:
     return re.sub(r"\s+", " ", text.replace("|", " | ").lower()).strip()
 
@@ -970,6 +1007,11 @@ class FoundationGateEvaluator:
                 self.check_m34_file_capability_openapi_routes_unchanged
             ),
             "m34_m35_m36_remain_future": self.check_m34_m35_m36_remain_future,
+            "m35_safe_file_review_workflow_contract_safe": (
+                self.check_m35_safe_file_review_workflow_contract_safe
+            ),
+            "m35_file_review_openapi_routes_unchanged": self.check_m35_file_review_openapi_routes_unchanged,
+            "m35_m36_m37_m38_remain_future": self.check_m35_m36_m37_m38_remain_future,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -5760,8 +5802,8 @@ class FoundationGateEvaluator:
             else:
                 failures.append("M28 docs do not mention v0.32.0 Approval Authority v2 + Action Policy Expansion")
             if version_tuple >= (0, 38, 0):
-                if "m35-m60 remain planned/provisional" not in text:
-                    failures.append("M35-M60 must remain planned/provisional after M34")
+                if "m36-m60 remain planned/provisional" not in text:
+                    failures.append("M36-M60 must remain planned/provisional after M34")
             elif version_tuple >= (0, 37, 4):
                 if "m34-m60 remain planned/provisional" not in text:
                     failures.append("M34-M60 must remain planned/provisional after v0.37.4")
@@ -5997,8 +6039,8 @@ class FoundationGateEvaluator:
             if "approval authority v2 + action policy expansion" not in text:
                 failures.append("M27 docs do not describe the M28 Approval Authority v2 handoff")
             if version_tuple >= (0, 38, 0):
-                if "m35-m60 remain planned/provisional" not in text:
-                    failures.append("M35-M60 must remain planned/provisional after M34")
+                if "m36-m60 remain planned/provisional" not in text:
+                    failures.append("M36-M60 must remain planned/provisional after M34")
             elif version_tuple >= (0, 37, 4):
                 if "m34-m60 remain planned/provisional" not in text:
                     failures.append("M34-M60 must remain planned/provisional after v0.37.4")
@@ -6440,8 +6482,8 @@ class FoundationGateEvaluator:
             if "m31" not in text or "real tool runtime adapter" not in text or "implemented/released" not in text:
                 failures.append("M28 docs do not acknowledge implemented v0.35.0 / M31")
             if version_tuple >= (0, 38, 0):
-                if "m35-m60 remain planned/provisional" not in text:
-                    failures.append("M35-M60 must remain planned/provisional after M34")
+                if "m36-m60 remain planned/provisional" not in text:
+                    failures.append("M36-M60 must remain planned/provisional after M34")
             elif version_tuple >= (0, 37, 4):
                 if "m34-m60 remain planned/provisional" not in text:
                     failures.append("M34-M60 must remain planned/provisional after v0.37.4")
@@ -6461,8 +6503,8 @@ class FoundationGateEvaluator:
                 failures.append("M30-M40 must remain planned/provisional after M29")
         else:
             if version_tuple >= (0, 38, 0):
-                if "m35-m60 remain planned/provisional" not in text:
-                    failures.append("M35-M60 must remain planned/provisional after M34")
+                if "m36-m60 remain planned/provisional" not in text:
+                    failures.append("M36-M60 must remain planned/provisional after M34")
             elif version_tuple >= (0, 37, 4):
                 if "m34-m60 remain planned/provisional" not in text:
                     failures.append("M34-M60 must remain planned/provisional after v0.37.4")
@@ -6800,8 +6842,8 @@ class FoundationGateEvaluator:
             if "m31" not in text or "real tool runtime adapter" not in text or "implemented/released" not in text:
                 failures.append("M29 boundary docs must acknowledge implemented v0.35.0 / M31")
             if version_tuple >= (0, 38, 0):
-                if "m35-m60 remain planned/provisional" not in text:
-                    failures.append("M35-M60 must remain planned/provisional after M34")
+                if "m36-m60 remain planned/provisional" not in text:
+                    failures.append("M36-M60 must remain planned/provisional after M34")
             elif version_tuple >= (0, 37, 4):
                 if "m34-m60 remain planned/provisional" not in text:
                     failures.append("M34-M60 must remain planned/provisional after v0.37.4")
@@ -7153,8 +7195,8 @@ class FoundationGateEvaluator:
             if "m31" not in text or "real tool runtime adapter" not in text or "implemented/released" not in text:
                 failures.append("M30 docs do not acknowledge implemented v0.35.0 / M31")
             if version_tuple >= (0, 38, 0):
-                if "m35-m60 remain planned/provisional" not in text:
-                    failures.append("M35-M60 must remain planned/provisional after M34")
+                if "m36-m60 remain planned/provisional" not in text:
+                    failures.append("M36-M60 must remain planned/provisional after M34")
             elif version_tuple >= (0, 37, 4):
                 if "m34-m60 remain planned/provisional" not in text:
                     failures.append("M34-M60 must remain planned/provisional after v0.37.4")
@@ -7406,8 +7448,8 @@ class FoundationGateEvaluator:
             if "m32 is implemented/released" not in text and "m32 safe local filesystem metadata tool" not in text:
                 failures.append("M31/M32 docs do not acknowledge implemented M32")
             if version_tuple >= (0, 38, 0):
-                if "m35-m60 remain planned/provisional" not in text:
-                    failures.append("M35-M60 must remain planned/provisional after M34")
+                if "m36-m60 remain planned/provisional" not in text:
+                    failures.append("M36-M60 must remain planned/provisional after M34")
             elif version_tuple >= (0, 37, 4):
                 if "m34-m60 remain planned/provisional" not in text:
                     failures.append("M34-M60 must remain planned/provisional after v0.37.4")
@@ -7749,8 +7791,8 @@ class FoundationGateEvaluator:
             if version_tuple >= (0, 38, 0):
                 if "m34" not in text or "broader file capability review" not in text or "implemented/released" not in text:
                     failures.append("M32/M34 docs do not acknowledge implemented M34 broader file capability review")
-                if "m35-m60 remain planned/provisional" not in text:
-                    failures.append("M35-M60 must remain planned/provisional after M34")
+                if "m36-m60 remain planned/provisional" not in text:
+                    failures.append("M36-M60 must remain planned/provisional after M34")
             elif version_tuple >= (0, 37, 4):
                 if "m34-m60 remain planned/provisional" not in text:
                     failures.append("M34-M60 must remain planned/provisional after v0.37.4")
@@ -8141,8 +8183,8 @@ class FoundationGateEvaluator:
         if version_tuple >= (0, 38, 0):
             if "m34" not in text or "broader file capability review" not in text or "implemented/released" not in text:
                 failures.append("M34 broader file capability review must be implemented/released at v0.38.0+")
-            if "m35-m60 remain planned/provisional" not in text:
-                failures.append("M35-M60 must remain planned/provisional after M34")
+            if "m36-m60 remain planned/provisional" not in text:
+                failures.append("M36-M60 must remain planned/provisional after M34")
             active_currentness_docs = {
                 path: self._read(self.root / path)
                 for path in ["README.md", *required_docs]
@@ -8186,6 +8228,7 @@ class FoundationGateEvaluator:
         ]
         failures = [f"missing M34 broader file capability review file: {path}" for path in required_docs if not (self.root / path).exists()]
         text = "\n".join(self._read(self.root / path).lower() for path in required_docs if (self.root / path).exists())
+        current_version = self._active_version() or "0.0.0"
         required_fragments = {
             "M34 docs must say planning/review only": "planning/review only",
             "M34 docs must say no runtime file capability": "no runtime file capability",
@@ -8198,14 +8241,16 @@ class FoundationGateEvaluator:
             "M34 docs must say no export": "no export",
             "M34 docs must say no execution": "no execution",
             "M34 docs must say no backend routes": "no backend routes",
-            "M35 must remain planned/provisional": "m35 remains planned/provisional",
             "M36 must remain planned/provisional": "m36 remains planned/provisional",
         }
+        if tuple(int(part) for part in current_version.split(".")[:3]) >= (0, 39, 0):
+            required_fragments["M34 docs must acknowledge M35 implementation"] = "v0.39.0 implements m35"
+        else:
+            required_fragments["M35 must remain planned/provisional"] = "m35 remains planned/provisional"
         for failure, fragment in required_fragments.items():
             if fragment not in text:
                 failures.append(failure)
         forbidden_fragments = (
-            "safe file review workflow is implemented",
             "m34 implements safe file review workflow contracts",
             "file review ui is implemented",
             "ccc file review surface is implemented",
@@ -8223,6 +8268,12 @@ class FoundationGateEvaluator:
             for fragment in forbidden_fragments
             if fragment in text
         )
+        if tuple(int(part) for part in current_version.split(".")[:3]) < (0, 39, 0):
+            failures.extend(
+                f"M34 docs imply forbidden implementation: {fragment}"
+                for fragment in ("safe file review workflow is implemented",)
+                if fragment in text
+            )
         return self._result(criterion, failures, required_docs)
 
     def check_m34_file_capability_openapi_routes_unchanged(
@@ -8262,12 +8313,16 @@ class FoundationGateEvaluator:
             failures.append("M34 roadmap docs do not mark M34 implemented/released")
         if "planning/docs/verifier" not in text and "planning, architecture review" not in text:
             failures.append("M34 roadmap docs do not constrain M34 to planning/docs/verifier work")
-        if "m35-m60 remain planned/provisional" not in text:
-            failures.append("M35-M60 must remain planned/provisional after M34")
+        current_version = self._active_version() or "0.0.0"
+        current_tuple = tuple(int(part) for part in current_version.split(".")[:3])
+        if current_tuple >= (0, 39, 0):
+            if "m35 is implemented/released" not in text and "v0.39.0 implements m35" not in text:
+                failures.append("M35 roadmap docs do not mark M35 implemented/released")
+            if "m36-m60 remain planned/provisional" not in text:
+                failures.append("M36-M60 must remain planned/provisional after M35")
+        elif "m36-m60 remain planned/provisional" not in text:
+            failures.append("M36-M60 must remain planned/provisional after M34")
         for fragment in (
-            "safe file review workflow is implemented",
-            "m35 is implemented",
-            "v0.39.0 implements m35",
             "ccc file review surface is implemented",
             "m36 is implemented",
             "v0.40.0 implements m36",
@@ -8278,11 +8333,213 @@ class FoundationGateEvaluator:
         ):
             if fragment in text:
                 failures.append(f"M34 docs imply future milestone implementation: {fragment}")
+        if current_tuple < (0, 39, 0):
+            for fragment in (
+                "safe file review workflow is implemented",
+                "m35 is implemented",
+                "v0.39.0 implements m35",
+            ):
+                if fragment in text:
+                    failures.append(f"M34 docs imply future milestone implementation: {fragment}")
         failures.extend(
             m34_active_currentness_failures(
                 {path: self._read(self.root / path) for path in required_docs if (self.root / path).exists()}
             )
         )
+        return self._result(criterion, failures, required_docs)
+
+    def check_m35_safe_file_review_workflow_contract_safe(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/file_review/__init__.py",
+            "src/ultimate_ai_agent/core/file_review/contracts.py",
+            "src/ultimate_ai_agent/core/file_review/enums.py",
+            "src/ultimate_ai_agent/core/file_review/workflow.py",
+            "docs/files/SAFE_FILE_REVIEW_WORKFLOW.md",
+            "docs/files/FILE_REVIEW_PACKET_CONTRACT.md",
+            "docs/files/FILE_REVIEW_USER_APPROVAL_GATE.md",
+            "docs/files/FILE_REVIEW_AUTHORITY_BOUNDARY.md",
+            "docs/files/FILE_REVIEW_RECEIPT_PLAN.md",
+            "docs/files/FILE_REVIEW_NON_GOALS.md",
+            "docs/files/M35_TO_M36_BOUNDARY.md",
+            "docs/release_notes/v0_39_0.md",
+            "docs/archive/releases/v0_39_0/README_IMPORT.md",
+            "docs/archive/releases/v0_39_0/master_plan.md",
+            "docs/implementation/foundation_gate_implementation_plan_v0_39_0.md",
+            "tests/test_file_review_workflow_contracts.py",
+            "tests/test_file_review_packet_validation.py",
+            "tests/test_file_review_approval_gate.py",
+            "tests/test_file_review_authority_boundaries.py",
+            "tests/test_file_review_receipt_plan.py",
+            "tests/test_m35_gate_integration.py",
+        ]
+        failures = [f"missing M35 file review workflow file: {path}" for path in required_files if not (self.root / path).exists()]
+        docs_text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_files
+            if path.startswith("docs/") and (self.root / path).exists()
+        )
+        required_fragments = {
+            "M35 docs must say redacted review packets only": "redacted review packets only",
+            "M35 docs must say exact approval binding": "exact approval binding",
+            "M35 docs must say review-only": "review-only",
+            "M35 docs must say no raw file access": "no raw file access",
+            "M35 docs must say no raw content": "no raw content",
+            "M35 docs must say no approval capture": "no approval capture",
+            "M35 docs must say no approval persistence": "no approval persistence",
+            "M35 docs must say no context proposal": "no context proposal",
+            "M35 docs must say no context injection": "no context injection",
+            "M35 docs must say no memory writes": "no memory writes",
+            "M35 docs must say no export": "no export",
+            "M35 docs must say no execution": "no execution",
+            "M35 docs must say no backend routes": "no backend routes",
+            "M36 must remain planned/provisional": "m36 remains planned/provisional",
+            "M37 must remain planned/provisional": "m37 remains planned/provisional",
+            "M38 must remain planned/provisional": "m38 remains planned/provisional",
+        }
+        for failure, fragment in required_fragments.items():
+            if fragment not in docs_text:
+                failures.append(failure)
+
+        try:
+            from datetime import timedelta
+
+            from ultimate_ai_agent.core.file_review import (
+                FileReviewDecisionStatus,
+                UserFileReviewApproval,
+                build_file_review_packet,
+                evaluate_file_review_gate,
+                evaluate_file_review_packet,
+            )
+            from ultimate_ai_agent.core.time import utc_now
+            from ultimate_ai_agent.core.tools.runtime import (
+                FilePreviewRedactionSummary,
+                RedactedFilePreviewOutput,
+                RedactedFilePreviewStatus,
+            )
+
+            preview = RedactedFilePreviewOutput(
+                output_ref="redacted-file-preview-output:gate",
+                status=RedactedFilePreviewStatus.preview_generated,
+                root_ref="safe-root:gate",
+                safe_path_ref="filesystem-preview-path:safe-root_gate/docs/review.md",
+                redacted_preview="Redacted preview only.",
+                redaction_summary=FilePreviewRedactionSummary(redaction_count=0, categories=[]),
+                file_size_bytes=32,
+            )
+            packet = build_file_review_packet(
+                preview_output=preview,
+                actor_ref="user:gate",
+                request_ref="file-review-request:gate",
+                safe_summary="Review a redacted preview packet.",
+            )
+            packet_decision = evaluate_file_review_packet(packet)
+            if packet_decision.status != FileReviewDecisionStatus.packet_valid_for_review:
+                failures.append("M35 safe redacted packet was not valid for review")
+            if packet_decision.execution_authorized or packet_decision.execution_performed:
+                failures.append("M35 packet decision authorized or performed execution")
+            raw_packet_decision = evaluate_file_review_packet(packet.model_copy(update={"raw_content": "raw secret"}))
+            if "FILE_REVIEW_RAW_CONTENT_DENIED" not in raw_packet_decision.reason_codes:
+                failures.append("M35 packet evaluator did not deny model_copy raw_content")
+            context_packet_decision = evaluate_file_review_packet(packet.model_copy(update={"context_injection_enabled": True}))
+            if "FILE_REVIEW_CONTEXT_INJECTION_DENIED" not in context_packet_decision.reason_codes:
+                failures.append("M35 packet evaluator did not deny model_copy context injection flag")
+
+            approval = UserFileReviewApproval(
+                approval_ref="file-review-approval:gate",
+                actor_ref="user:gate",
+                review_packet_ref=packet.review_packet_ref,
+                preview_result_ref=packet.source.preview_result_ref,
+                redaction_summary_ref=packet.redaction_verification.redaction_summary_ref,
+                issued_at=utc_now(),
+                expires_at=utc_now() + timedelta(minutes=5),
+            )
+            allowed_decision = evaluate_file_review_gate(packet, approval=approval, current_time=utc_now())
+            if allowed_decision.status != FileReviewDecisionStatus.review_allowed:
+                failures.append("M35 exact approval binding did not allow review-only decision")
+            if (
+                allowed_decision.raw_file_access_authorized
+                or allowed_decision.context_injection_authorized
+                or allowed_decision.memory_write_authorized
+                or allowed_decision.export_authorized
+                or allowed_decision.execution_authorized
+                or allowed_decision.execution_performed
+            ):
+                failures.append("M35 exact approval binding granted forbidden authority")
+            mismatch_decision = evaluate_file_review_gate(
+                packet,
+                approval=approval.model_copy(update={"review_packet_ref": "file-review-packet:other"}),
+                current_time=utc_now(),
+            )
+            if "FILE_REVIEW_APPROVAL_PACKET_MISMATCH" not in mismatch_decision.reason_codes:
+                failures.append("M35 approval gate did not deny mismatched packet")
+            test_ref_decision = evaluate_file_review_gate(
+                packet,
+                approval=approval.model_copy(update={"approval_ref": "approval_test_gate"}),
+                current_time=utc_now(),
+            )
+            if "FILE_REVIEW_APPROVAL_TEST_REF_DENIED" not in test_ref_decision.reason_codes:
+                failures.append("M35 approval gate did not deny approval_test ref")
+        except Exception as exc:
+            failures.append(f"M35 file review workflow contract probe failed: {exc}")
+
+        return self._result(criterion, failures, required_files)
+
+    def check_m35_file_review_openapi_routes_unchanged(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m35_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M35 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m35_m36_m37_m38_remain_future(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        required_docs = [
+            "README.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+            "docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md",
+            "docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md",
+            "docs/files/SAFE_FILE_REVIEW_WORKFLOW.md",
+            "docs/files/FILE_REVIEW_PACKET_CONTRACT.md",
+            "docs/files/FILE_REVIEW_USER_APPROVAL_GATE.md",
+            "docs/files/FILE_REVIEW_AUTHORITY_BOUNDARY.md",
+            "docs/files/FILE_REVIEW_NON_GOALS.md",
+            "docs/files/M35_TO_M36_BOUNDARY.md",
+        ]
+        failures = [f"missing M35/M36 roadmap doc: {path}" for path in required_docs if not (self.root / path).exists()]
+        text = "\n".join(self._read(self.root / path).lower() for path in required_docs if (self.root / path).exists())
+        if "v0.39.0" not in text or "m35" not in text or "safe file review workflow contracts" not in text:
+            failures.append("M35 roadmap docs do not identify v0.39.0 Safe File Review Workflow Contracts")
+        if "m35 is implemented/released" not in text and "m35 implemented/released" not in text:
+            failures.append("M35 roadmap docs do not mark M35 implemented/released")
+        if "m36 remains planned/provisional" not in text:
+            failures.append("M36 must remain planned/provisional after M35")
+        if "m37 remains planned/provisional" not in text:
+            failures.append("M37 must remain planned/provisional after M35")
+        if "m38 remains planned/provisional" not in text:
+            failures.append("M38 must remain planned/provisional after M35")
+        for fragment in (
+            "ccc file review surface is implemented",
+            "m36 is implemented",
+            "v0.40.0 implements m36",
+            "file review ui is implemented",
+            "approval persistence is implemented",
+            "review approval capture is implemented",
+            "m37 is implemented",
+            "v0.41.0 implements m37",
+            "context proposal is implemented",
+            "m38 is implemented",
+            "v0.42.0 implements m38",
+            "context injection is implemented",
+        ):
+            if fragment in text:
+                failures.append(f"M35 docs imply future milestone implementation: {fragment}")
         return self._result(criterion, failures, required_docs)
 
     def check_v0292_local_dev_api_authority_and_preview_safe(
@@ -8434,8 +8691,8 @@ class FoundationGateEvaluator:
             else:
                 failures.append("M28 docs do not mention v0.32.0 Approval Authority v2 + Action Policy Expansion")
             if version_tuple >= (0, 38, 0):
-                if "m35-m60 remain planned/provisional" not in text:
-                    failures.append("M35-M60 must remain planned/provisional after M34")
+                if "m36-m60 remain planned/provisional" not in text:
+                    failures.append("M36-M60 must remain planned/provisional after M34")
             elif version_tuple >= (0, 37, 4):
                 if "m34-m60 remain planned/provisional" not in text:
                     failures.append("M34-M60 must remain planned/provisional after v0.37.4")
@@ -8623,7 +8880,9 @@ class FoundationGateEvaluator:
         for failure, fragment in expectations.items():
             if fragment not in roadmap_text:
                 failures.append(failure)
-        if version_tuple >= (0, 38, 0):
+        if version_tuple >= (0, 39, 0):
+            implemented_claim_start = 36
+        elif version_tuple >= (0, 38, 0):
             implemented_claim_start = 35
         elif version_tuple >= (0, 37, 0):
             implemented_claim_start = 34

@@ -37,6 +37,7 @@ SCAN_SEQUENCE = [
     ("M32 safe filesystem metadata tool scan", "verify_m32_filesystem_metadata_tool_safety"),
     ("M33 redacted file preview tool scan", "verify_m33_redacted_file_preview_tool_safety"),
     ("M34 broader file capability review scan", "verify_m34_broader_file_capability_review_safety"),
+    ("M35 safe file review workflow contract scan", "verify_m35_safe_file_review_workflow_safety"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -3795,9 +3796,13 @@ def verify_m34_broader_file_capability_review_safety():
         "no export": "M34 docs do not deny export",
         "no execution": "M34 docs do not deny execution",
         "no backend routes": "M34 docs do not deny backend routes",
-        "m35 remains planned/provisional": "M34 docs do not keep M35 planned/provisional",
         "m36 remains planned/provisional": "M34 docs do not keep M36 planned/provisional",
     }
+    current_version = (ROOT / "VERSION.md").read_text(encoding="utf-8")
+    if "v0.39.0" in current_version:
+        required_fragments["v0.39.0 implements m35"] = "M34 docs do not acknowledge implemented M35"
+    else:
+        required_fragments["m35 remains planned/provisional"] = "M34 docs do not keep M35 planned/provisional"
     for fragment, message in required_fragments.items():
         if fragment not in docs_text:
             print(f"FAIL: {message}")
@@ -3831,7 +3836,6 @@ def verify_m34_broader_file_capability_review_safety():
 
     forbidden_doc_fragments = [
         "m34 implements safe file review workflow contracts",
-        "safe file review workflow is implemented",
         "file review ui is implemented",
         "ccc file review surface is implemented",
         "approval persistence is implemented",
@@ -3841,6 +3845,8 @@ def verify_m34_broader_file_capability_review_safety():
         "raw file export is implemented",
         "backend file route is implemented",
     ]
+    if "v0.39.0" not in current_version:
+        forbidden_doc_fragments.append("safe file review workflow is implemented")
     for fragment in forbidden_doc_fragments:
         if fragment in docs_text:
             print(f"FAIL: M34 docs imply future implementation: {fragment}")
@@ -3881,7 +3887,189 @@ def verify_m34_broader_file_capability_review_safety():
                     print(f"FAIL: M34 forbidden file-review frontend fragment in {rel}: {fragment}")
                     sys.exit(1)
 
-    print("OK: M34 broader file capability review is docs/verifier-only, route-free, and keeps M35/M36 future")
+    if "v0.39.0" in current_version:
+        print("OK: M34 broader file capability review is docs/verifier-only, route-free, acknowledges M35, and keeps M36 future")
+    else:
+        print("OK: M34 broader file capability review is docs/verifier-only, route-free, and keeps M35/M36 future")
+
+
+def verify_m35_safe_file_review_workflow_safety():
+    print("\n[Verifier] Running M35 safe file review workflow guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/file_review/__init__.py",
+        "src/ultimate_ai_agent/core/file_review/contracts.py",
+        "src/ultimate_ai_agent/core/file_review/enums.py",
+        "src/ultimate_ai_agent/core/file_review/workflow.py",
+        "docs/files/SAFE_FILE_REVIEW_WORKFLOW.md",
+        "docs/files/FILE_REVIEW_PACKET_CONTRACT.md",
+        "docs/files/FILE_REVIEW_USER_APPROVAL_GATE.md",
+        "docs/files/FILE_REVIEW_AUTHORITY_BOUNDARY.md",
+        "docs/files/FILE_REVIEW_RECEIPT_PLAN.md",
+        "docs/files/FILE_REVIEW_NON_GOALS.md",
+        "docs/files/M35_TO_M36_BOUNDARY.md",
+        "tests/test_file_review_workflow_contracts.py",
+        "tests/test_file_review_packet_validation.py",
+        "tests/test_file_review_approval_gate.py",
+        "tests/test_file_review_authority_boundaries.py",
+        "tests/test_file_review_receipt_plan.py",
+        "tests/test_m35_gate_integration.py",
+        "docs/release_notes/v0_39_0.md",
+        "docs/archive/releases/v0_39_0/README_IMPORT.md",
+        "docs/archive/releases/v0_39_0/master_plan.md",
+        "docs/implementation/foundation_gate_implementation_plan_v0_39_0.md",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M35 safe file review workflow file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = "\n".join(
+        (ROOT / rel_path).read_text(encoding="utf-8").lower()
+        for rel_path in required_files
+        if rel_path.startswith("docs/")
+    )
+    required_fragments = {
+        "redacted review packets only": "M35 docs do not require redacted review packets only",
+        "exact approval binding": "M35 docs do not require exact approval binding",
+        "review-only": "M35 docs do not require review-only decisions",
+        "no raw file access": "M35 docs do not deny raw file access",
+        "no raw content": "M35 docs do not deny raw content",
+        "no approval capture": "M35 docs do not deny approval capture",
+        "no approval persistence": "M35 docs do not deny approval persistence",
+        "no context proposal": "M35 docs do not deny context proposal",
+        "no context injection": "M35 docs do not deny context injection",
+        "no memory writes": "M35 docs do not deny memory writes",
+        "no export": "M35 docs do not deny export",
+        "no execution": "M35 docs do not deny execution",
+        "no backend routes": "M35 docs do not deny backend routes",
+        "m36 remains planned/provisional": "M35 docs do not keep M36 planned/provisional",
+        "m37 remains planned/provisional": "M35 docs do not keep M37 planned/provisional",
+        "m38 remains planned/provisional": "M35 docs do not keep M38 planned/provisional",
+    }
+    for fragment, message in required_fragments.items():
+        if fragment not in docs_text:
+            print(f"FAIL: {message}")
+            sys.exit(1)
+
+    source_root = ROOT / "src" / "ultimate_ai_agent" / "core" / "file_review"
+    forbidden_source_fragments = [
+        "subprocess",
+        "os.system",
+        "shell=true",
+        "requests.",
+        "httpx.",
+        "urllib.request.urlopen",
+        ".write_text(",
+        ".write_bytes(",
+        "open(",
+    ]
+    source_text = "\n".join(path.read_text(encoding="utf-8").lower() for path in source_root.rglob("*.py"))
+    for fragment in forbidden_source_fragments:
+        if fragment in source_text:
+            print(f"FAIL: M35 file review source contains forbidden runtime fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from datetime import timedelta
+
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.file_review import (
+            FileReviewDecisionStatus,
+            UserFileReviewApproval,
+            build_file_review_packet,
+            evaluate_file_review_gate,
+            evaluate_file_review_packet,
+        )
+        from ultimate_ai_agent.core.gate.evaluators import m35_openapi_route_failures
+        from ultimate_ai_agent.core.time import utc_now
+        from ultimate_ai_agent.core.tools.runtime import (
+            FilePreviewRedactionSummary,
+            RedactedFilePreviewOutput,
+            RedactedFilePreviewStatus,
+        )
+    except Exception as exc:
+        print(f"FAIL: M35 imports could not load: {exc}")
+        sys.exit(1)
+
+    preview = RedactedFilePreviewOutput(
+        output_ref="redacted-file-preview-output:verify",
+        status=RedactedFilePreviewStatus.preview_generated,
+        root_ref="safe-root:verify",
+        safe_path_ref="filesystem-preview-path:safe-root_verify/docs/review.md",
+        redacted_preview="Redacted preview only.",
+        redaction_summary=FilePreviewRedactionSummary(redaction_count=0, categories=[]),
+        file_size_bytes=32,
+    )
+    packet = build_file_review_packet(
+        preview_output=preview,
+        actor_ref="user:verify",
+        request_ref="file-review-request:verify",
+        safe_summary="Review a redacted preview packet.",
+    )
+    if evaluate_file_review_packet(packet).status != FileReviewDecisionStatus.packet_valid_for_review:
+        print("FAIL: M35 safe review packet did not validate for review")
+        sys.exit(1)
+    if "FILE_REVIEW_RAW_CONTENT_DENIED" not in evaluate_file_review_packet(
+        packet.model_copy(update={"raw_content": "raw secret"})
+    ).reason_codes:
+        print("FAIL: M35 evaluator did not deny model_copy raw_content")
+        sys.exit(1)
+    approval = UserFileReviewApproval(
+        approval_ref="file-review-approval:verify",
+        actor_ref="user:verify",
+        review_packet_ref=packet.review_packet_ref,
+        preview_result_ref=packet.source.preview_result_ref,
+        redaction_summary_ref=packet.redaction_verification.redaction_summary_ref,
+        expires_at=utc_now() + timedelta(minutes=5),
+    )
+    allowed = evaluate_file_review_gate(packet, approval=approval, current_time=utc_now())
+    if allowed.status != FileReviewDecisionStatus.review_allowed or allowed.execution_authorized or allowed.execution_performed:
+        print("FAIL: M35 exact approval binding did not remain review-only")
+        sys.exit(1)
+    if "FILE_REVIEW_APPROVAL_PACKET_MISMATCH" not in evaluate_file_review_gate(
+        packet,
+        approval=approval.model_copy(update={"review_packet_ref": "file-review-packet:other"}),
+        current_time=utc_now(),
+    ).reason_codes:
+        print("FAIL: M35 approval gate did not deny mismatched packet ref")
+        sys.exit(1)
+    if "FILE_REVIEW_APPROVAL_TEST_REF_DENIED" not in evaluate_file_review_gate(
+        packet,
+        approval=approval.model_copy(update={"approval_ref": "approval_test_verify"}),
+        current_time=utc_now(),
+    ).reason_codes:
+        print("FAIL: M35 approval gate did not deny approval_test ref")
+        sys.exit(1)
+
+    for failure in m35_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    forbidden_frontend_fragments = [
+        "/files/review/approve",
+        "/files/review/persist",
+        "/context/propose",
+        "/context/inject",
+        "/memory/write",
+        "/files/export",
+        "raw preview",
+        "approve review",
+    ]
+    frontend_root = ROOT / "apps" / "control-center" / "src"
+    if frontend_root.exists():
+        for path in frontend_root.rglob("*"):
+            if not path.is_file() or path.suffix not in {".ts", ".tsx", ".js", ".jsx"}:
+                continue
+            rel = path.relative_to(ROOT).as_posix()
+            text = path.read_text(encoding="utf-8").lower()
+            for fragment in forbidden_frontend_fragments:
+                if fragment in text:
+                    print(f"FAIL: M35 forbidden file-review frontend fragment in {rel}: {fragment}")
+                    sys.exit(1)
+
+    print("OK: M35 safe file review workflow is contract-only, review-only, route-free, and non-authoritative")
 
 
 def verify_local_developer_launcher_safety():

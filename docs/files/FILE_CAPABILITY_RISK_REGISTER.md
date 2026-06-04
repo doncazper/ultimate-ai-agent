@@ -1,7 +1,7 @@
 # File Capability Risk Register
 
 Status: active M34 documentation.
-Current through: **v0.38.2**.
+Current through: **v0.39.0**.
 
 M34 adds no implementation capability. This register records the risks that
 M35-M40 must mitigate before any broader file-review capability can be

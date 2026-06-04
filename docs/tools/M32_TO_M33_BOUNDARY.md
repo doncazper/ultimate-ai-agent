@@ -28,4 +28,4 @@ directory listing, recursive traversal, symlink following, file mutation,
 backend raw-file/execute routes, Control Center raw-preview/execute controls,
 context injection, dependencies, or production authority. v0.38.0 implements
 M34 Broader File Capability Review as planning/docs/verifier only, and
-M35-M60 remain planned/provisional.
+M36-M60 remain planned/provisional.

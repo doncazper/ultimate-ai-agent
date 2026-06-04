@@ -1,7 +1,7 @@
 # M33 to M34 Boundary
 
 Status: active M33 documentation.
-Current active baseline: **v0.37.1**
+Current active baseline: **v0.39.0**
 
 v0.37.1 / M33 hardens the implemented/released First Safe Local File Read
 Proposal, Redacted Preview Only.
@@ -25,5 +25,5 @@ v0.38.0 implements M34 Broader File Capability Review as
 planning/docs/verifier/Foundation Gate work only. M34 adds no broader file
 read, file review workflow implementation, file write, directory traversal,
 raw preview, context injection, backend route, Control Center raw-preview
-control, or production authority. M35 remains planned/provisional for Safe
-File Review Workflow Contracts.
+control, or production authority. v0.39.0 implements M35 Safe File Review
+Workflow Contracts. M36-M60 remain planned/provisional.

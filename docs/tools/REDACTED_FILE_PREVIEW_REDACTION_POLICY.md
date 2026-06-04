@@ -1,7 +1,7 @@
 # Redacted File Preview Redaction Policy
 
 Status: active M33 documentation.
-Current active baseline: **v0.38.2**
+Current active baseline: **v0.39.0**
 
 M33 redacts before result creation. Raw preview bytes may be read only inside the
 bounded redaction pipeline and must not leave that boundary.
@@ -28,5 +28,5 @@ redaction-before-return even if an internal caller tries to bypass the normal
 redaction pipeline.
 
 v0.38.0 implemented M34 Broader File Capability Review as
-planning/docs/verifier work only. M35 remains planned/provisional for Safe File
-Review Workflow Contracts.
+planning/docs/verifier work only. v0.39.0 implements M35 Safe File Review
+Workflow Contracts. M36-M60 remain planned/provisional.
