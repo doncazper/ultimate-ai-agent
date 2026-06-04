@@ -189,10 +189,11 @@ macOS planning constraints:
 
 ## v0.18.4 Post-M20 Mobile/Device Projection
 
-v0.18.4 adds post-M20 roadmap projection docs only. Mobile and device work remains planned/provisional in:
+v0.18.4 adds post-M20 roadmap projection docs only. v0.35.0 supersedes the
+old M31 native-client slot with M31 Real Tool Runtime Adapter, Single Safe No-Op
+Tool. Mobile and device work remains planned/provisional in future reviewed
+roadmap slots:
 
-- M31 - CCC Native Client Contract: iOS / Android / macOS.
-- M32 - Device Pairing + Trust Handshake Contract.
 - M33 - Mobile Approval Surface Prototype, No Sensors.
 - M35 - Device Capability Broker Implementation, No Sensors Yet.
 - M36 - Mobile Capture Inbox, Selected Input Only.

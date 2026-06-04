@@ -20,7 +20,7 @@ Rules:
 Dependency validation authorizes no execution. It only determines whether a
 no-effect state transition may be represented as safe state-machine progress.
 
-M31-M40 remain planned/provisional.
+M31 is implemented/released by v0.35.0 as Real Tool Runtime Adapter, Single Safe No-Op Tool. M32-M40 remain planned/provisional.
 The dependency graph must be acyclic. Duplicate execution step IDs, missing
 dependency refs, self-dependencies, direct dependency cycles, and indirect
 dependency cycles are denied before any no-effect transition is approved.

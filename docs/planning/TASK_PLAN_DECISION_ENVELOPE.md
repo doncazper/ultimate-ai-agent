@@ -1,6 +1,6 @@
 # Task Plan Decision Envelope
 
-Status: active M29 contract. Current active baseline: **v0.34.1**.
+Status: active M29 contract. Current active baseline: **v0.35.0**.
 
 The M29 evaluator returns a decision envelope with stable reason codes and safe messages.
 
@@ -38,4 +38,4 @@ Decision envelopes include trusted derived plan risk. They remain
 non-authoritative review metadata and always keep `execution_authorized=False`,
 `execution_performed=False`, and scheduler/background behavior disabled.
 
-M31-M40 remain planned/provisional.
+M31 is implemented/released by v0.35.0 as Real Tool Runtime Adapter, Single Safe No-Op Tool. M32-M40 remain planned/provisional.

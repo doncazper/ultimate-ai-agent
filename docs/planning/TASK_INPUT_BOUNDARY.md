@@ -1,6 +1,6 @@
 # Task Input Boundary
 
-Status: active M29 contract. Current active baseline: **v0.34.1**.
+Status: active M29 contract. Current active baseline: **v0.35.0**.
 
 Task plans may reference safe reviewed refs. They must not carry raw user prompts, raw model output, raw file content, raw transcripts, secrets, credentials, private local paths, or unreviewed payloads.
 
@@ -22,4 +22,4 @@ The evaluator revalidates current object fields, so model_copy-mutated raw
 content flags, secret-like metadata, and authority refs remain denied at the
 decision boundary.
 
-M31-M40 remain planned/provisional.
+M31 is implemented/released by v0.35.0 as Real Tool Runtime Adapter, Single Safe No-Op Tool. M32-M40 remain planned/provisional.

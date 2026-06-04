@@ -1,6 +1,6 @@
 # Canonical Document Map
 
-Current active baseline: **v0.34.1**
+Current active baseline: **v0.35.0**
 
 This map links major systems to their canonical documentation. If a system has both canonical docs and runtime/API docs, canonical docs define principles and sequencing while runtime/API docs define current implementation boundaries.
 
@@ -13,6 +13,7 @@ This map links major systems to their canonical documentation. If a system has b
 | Context Budget | `docs/canonical/54_context_budget_and_session_survival.md`, `docs/canonical/55_tool_result_retention_and_context_trimming.md`, `docs/canonical/56_prompt_tool_prefix_cache_policy.md` |
 | Consent Ledger | `docs/canonical/21_consent_and_permissions_ledger.md` |
 | Tool Broker | `docs/canonical/37_tool_broker.md`, `docs/tools/TOOL_BROKER_V2.md`, `docs/tools/SAFE_TOOL_INTENT_CONTRACTS.md`, `docs/tools/TOOL_AUTHORITY_BOUNDARY.md`, `docs/tools/TOOL_INTENT_RECEIPT_PLAN.md`, `docs/tools/M27_TO_M28_BOUNDARY.md` |
+| Tool Runtime Adapter | `docs/tools/TOOL_RUNTIME_ADAPTER.md`, `docs/tools/NOOP_TOOL_RUNTIME.md`, `docs/tools/TOOL_RUNTIME_INVOCATION_CONTRACT.md`, `docs/tools/TOOL_RUNTIME_AUTHORITY_BOUNDARY.md`, `docs/tools/TOOL_RUNTIME_REPLAY_POLICY.md`, `docs/tools/TOOL_RUNTIME_RECEIPT_PLAN.md`, `docs/tools/TOOL_RUNTIME_NON_GOALS.md`, `docs/tools/M31_TO_M32_BOUNDARY.md` |
 | Secret Broker | `docs/canonical/40_credentials_secret_broker_and_provider_registry.md` |
 | Provider Registry | `docs/canonical/40_credentials_secret_broker_and_provider_registry.md` |
 | Memory Service | `docs/canonical/03_memory_system.md`, `docs/canonical/41_memory_retrieval_v1.md`, `docs/memory/MEMORY_PROVIDER_ABSTRACTION.md`, `docs/memory/LOCAL_MEMORY_STORE.md`, `docs/memory/MEMORY_RECORD_SCHEMA.md`, `docs/memory/MEMORY_WRITE_POLICY.md`, `docs/memory/MEMORY_REVIEW_AND_PROVENANCE.md`, `docs/memory/MEMORY_SOURCE_PRIORITY.md`, `docs/memory/MEMORY_RECALL_PLANNING.md`, `docs/memory/MEMORY_RETENTION_DELETE_EXPORT.md`, `docs/memory/MEMORY_CONFLICT_AND_STALENESS.md`, `docs/memory/MEMORY_DEDUP_DECAY_ARCHIVE.md`, `docs/memory/MEMORY_SECURITY_MODEL.md`, `docs/memory/MEMORY_NON_GOALS.md`, `docs/memory/MEMORYOS_REVIEW_INCORPORATION.md`, `docs/memory/M24_TO_M25_BOUNDARY.md` |
@@ -42,7 +43,7 @@ This map links major systems to their canonical documentation. If a system has b
 | Mobile Companion | `docs/canonical/64_mobile_companion_and_device_capability_broker.md`, `docs/mobile/MOBILE_COMPANION_CONTRACT.md`, `docs/mobile/MOBILE_CLIENT_SURFACE_ROLES.md`, `docs/mobile/MOBILE_API_PLANNING.md`, `docs/mobile/MOBILE_PERMISSION_RECEIPT_FLOW.md`, `docs/mobile/MOBILE_SENSOR_BOUNDARY.md`, `docs/mobile/MOBILE_SECURITY_MODEL.md`, `docs/mobile/MOBILE_CAPTURE_POLICY.md`, `docs/mobile/CCC_IOS_ANDROID_STRATEGY.md`, `docs/mobile/MOBILE_PAIRING_TRUST_PLANNING.md`, `docs/mobile/MOBILE_COMPANION_NON_GOALS.md`, `docs/backlog/mobile_companion_backlog.md` |
 | Device Capability Broker | `docs/canonical/64_mobile_companion_and_device_capability_broker.md`, `docs/canonical/65_mobile_device_registry_and_sensor_permission_manifest.md`, `docs/device_capabilities/DEVICE_CAPABILITY_BROKER_CONTRACT.md`, `docs/device_capabilities/CAPABILITY_MANIFEST_SCHEMA.md`, `docs/device_capabilities/DEVICE_PERMISSION_LIFECYCLE.md`, `docs/device_capabilities/CAPTURE_INTENT_CONTRACT.md`, `docs/device_capabilities/SENSOR_BOUNDARY_AND_NON_GOALS.md`, `docs/device_capabilities/DEVICE_TRUST_AND_REVOCATION_CONTRACT.md`, `docs/device_capabilities/DEVICE_RECEIPT_AND_REDACTION_POLICY.md`, `docs/device_capabilities/DEVICE_CAPABILITY_SECURITY_MODEL.md`, `docs/device_capabilities/DEVICE_CAPABILITY_BROKER_NON_GOALS.md`, `docs/mobile/MOBILE_SENSOR_BOUNDARY.md`, `docs/backlog/device_capability_broker_backlog.md` |
 | Codex Plugin and External Tooling Governance | `docs/canonical/66_external_tooling_and_codex_plugin_governance.md`, `docs/tooling/CODEX_PLUGIN_CAPABILITY_INVENTORY.md`, `docs/tooling/CODEX_PLUGIN_RISK_POLICY.md`, `docs/backlog/codex_plugin_enablement_backlog.md` |
-| Foundation Gate | `docs/implementation/foundation_gate_implementation_plan_v0_34_1.md`, `docs/evals/foundation_gate_eval.md` |
+| Foundation Gate | `docs/implementation/foundation_gate_implementation_plan_v0_35_0.md`, `docs/evals/foundation_gate_eval.md` |
 | Testing Strategy | `docs/testing/test_strategy_v0.md`, `docs/testing/contract_test_matrix_v0_5_0.md`, `docs/testing/shadow_replay_plan_v0_5_0.md` |
 | Documentation Organization | `docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md`, `docs/maintenance/documentation_integrity_checklist.md`, `docs/DOCUMENTATION_INDEX.md`, `docs/archive/README.md` |
 

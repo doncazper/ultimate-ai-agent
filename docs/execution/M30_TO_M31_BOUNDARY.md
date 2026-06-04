@@ -1,6 +1,6 @@
 # M30 to M31 Boundary
 
-Status: active M30 boundary. Current active baseline: **v0.34.1**.
+Status: active M30-to-M31 boundary. Current active baseline: **v0.35.0**.
 
 v0.34.0 / M30 implements Multi-Step Execution Framework as deterministic,
 local, side-effect-safe, state-machine-only contracts. It may validate
@@ -19,8 +19,8 @@ runtime, background workers, autonomous loops, context injection, backend
 execution routes, Control Center execute controls, dependencies, production
 authority, or M31 work.
 
-M31 remains planned/provisional. Future M31 work requires a dedicated
-implementation prompt, review prompt, tests, verifier coverage, Foundation Gate
-criteria, and release tag.
+M31 is implemented/released by v0.35.0 as Real Tool Runtime Adapter, Single
+Safe No-Op Tool. It allows only the deterministic no-op tool and does not
+weaken M30 state-machine no-side-effect boundaries.
 
-M31-M40 remain planned/provisional.
+M32-M40 remain planned/provisional.

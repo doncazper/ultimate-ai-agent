@@ -30,4 +30,4 @@ M30 intentionally does not add:
 
 M30 is a state-machine contract layer only.
 
-M31-M40 remain planned/provisional.
+M31 is implemented/released by v0.35.0 as Real Tool Runtime Adapter, Single Safe No-Op Tool. M32-M40 remain planned/provisional.

@@ -12,21 +12,21 @@ allowed to become operational authority.
 
 | Field | Current state |
 |---|---|
-| Current active baseline | **v0.34.1** |
-| Current milestone | **M30 - Multi-Step Execution Framework** |
+| Current active baseline | **v0.35.0** |
+| Current milestone | **M31 - Real Tool Runtime Adapter, Single Safe No-Op Tool** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **74** OpenAPI paths |
 | Production readiness | Not claimed |
 
-v0.34.1 hardens M30 Multi-Step Execution Framework as deterministic, local,
-side-effect-safe execution-state-machine contracts. It requires ready-only
-no-effect step completion, blocks incomplete run finalization, denies replay-key
-and transition-id reuse, rejects hidden side-effect metadata, and preserves
-evaluator revalidation with non-authoritative receipt plans. It does not perform
-real task execution, tool execution, action execution, scheduler/background
-worker behavior, file mutation, memory writes, network calls, model/provider
-calls, or context injection. M31-M40 remain planned/provisional.
+v0.35.0 implements M31 Real Tool Runtime Adapter, Single Safe No-Op Tool. It
+adds a governed runtime adapter path for exactly one deterministic no-op tool,
+`tool:no_op.v1`, with replay protection, evaluator revalidation, safe result
+envelopes, and non-authoritative receipt plans. It does not add arbitrary tool
+execution, dynamic dispatch, side-effecting tools, shell execution, file
+mutation, memory writes, network calls, model/provider calls, backend execute
+routes, Control Center execute controls, dependencies, or production authority.
+M32-M40 remain planned/provisional.
 
 v0.29.5 is documentation policy polish. It remains the documentation
 organization cleanup baseline before the M26 and M27 implementation releases.
@@ -40,15 +40,17 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [API route inventory](docs/api/route_inventory.md)
 - [Documentation organization policy](docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md)
 - [Control Center frontend safety policy](docs/control_center/FRONTEND_SAFETY_POLICY.md)
+- [M31 Tool Runtime Adapter](docs/tools/TOOL_RUNTIME_ADAPTER.md)
+- [M31 No-Op Tool Runtime](docs/tools/NOOP_TOOL_RUNTIME.md)
 - [M30 Multi-Step Execution Framework](docs/execution/MULTI_STEP_EXECUTION_FRAMEWORK.md)
 - [M29 Agent Task Planning Engine](docs/planning/TASK_PLANNING_ENGINE.md)
 - [M28 Approval Authority v2](docs/approvals/APPROVAL_AUTHORITY_V2.md)
 - [M28 Action Policy](docs/approvals/ACTION_POLICY.md)
 - [M27 Tool Broker v2](docs/tools/TOOL_BROKER_V2.md)
 - [M26 Grounded Recall Router](docs/recall/GROUNDED_RECALL_ROUTER.md)
-- [v0.34.1 release notes](docs/release_notes/v0_34_1.md)
-- [v0.34.1 release packet](docs/archive/releases/v0_34_1/README_IMPORT.md)
-- [v0.34.1 master plan](docs/archive/releases/v0_34_1/master_plan.md)
+- [v0.35.0 release notes](docs/release_notes/v0_35_0.md)
+- [v0.35.0 release packet](docs/archive/releases/v0_35_0/README_IMPORT.md)
+- [v0.35.0 master plan](docs/archive/releases/v0_35_0/master_plan.md)
 
 ## What This Project Is
 
@@ -75,6 +77,9 @@ Core themes:
 - **Approval decisions are policy decisions, not action execution.** M28
   validates action intent, grant, risk, and scope boundaries with
   `execution_authorized=False` and `execution_performed=False`.
+- **Tool runtime is no-op-only.** M31 can complete exactly one deterministic
+  no-op tool invocation through a governed adapter; it cannot run arbitrary or
+  side-effecting tools.
 
 ## What This Project Is Not
 
@@ -105,6 +110,7 @@ Ultimate AI Agent
     Truth/Evidence: validation over provided refs
     Recall/Context Packs: safe plans, not injection
     Tool Intent Contracts: preview/validation, not execution
+    Tool Runtime Adapter: one no-op tool only
   Control Center / CCC Web
     Local governance and preview surfaces
   OpenWebUI Strategy
@@ -131,6 +137,7 @@ boundary.
 | Recall/context packs | Implemented M26 contracts | Safe summaries and refs only; source_ref/source_kind consistency enforced |
 | Tool Broker v2 | Implemented M27 contracts | Safe intent validation and metadata preview only; no execution |
 | Approval Authority v2 | Implemented M28 contracts | Action policy decisions only; no execution authority |
+| Tool Runtime Adapter | Implemented M31 no-op only | `tool:no_op.v1` can complete deterministically; arbitrary/effectful tools blocked |
 | Mobile/device clients | Planned/contract-only | Future CCC clients and device capability contracts; no native apps or sensors |
 | Foundation Gate | Implemented | Release safety gate covering docs, OpenAPI, frontend, and capability boundaries |
 
@@ -143,6 +150,7 @@ The safety posture is not a side note; it is the product architecture.
 - Memory is recall, not authority.
 - Context packs are planning artifacts, not prompt injection.
 - Tool intents are not tool execution.
+- M31 tool runtime is limited to the deterministic no-op tool.
 - Approval decisions are not action execution.
 - Approval refs are identifiers, not authority.
 - `approval_test_*` refs are test-only and not runtime authority.
@@ -237,7 +245,8 @@ The canonical roadmap source of truth is
 | v0.33.1 | M29 hardening - Task Plan Dependency, Risk, and No-Execution Safety | Implemented/released |
 | v0.34.0 | M30 - Multi-Step Execution Framework | Implemented/released |
 | v0.34.1 | M30 hardening - Execution State Machine, Replay, and No-Side-Effect Safety | Implemented/released |
-| v0.35.0 | M31 | Planned/provisional |
+| v0.35.0 | M31 - Real Tool Runtime Adapter, Single Safe No-Op Tool | Implemented/released |
+| v0.36.0 | M32 - Safe Tool Runtime Expansion | Planned/provisional |
 
 The roadmap intentionally separates contract planning, validation, preview,
 manual local execution, and future operational authority.

@@ -41,6 +41,6 @@ not action execution and do not make Tool Broker v2 intents executable.
 v0.33.0 implements M29 Agent Task Planning Engine as deterministic, local,
 non-executing, review-only planning contracts. M30 Multi-Step Execution Framework
 is implemented/released by v0.34.0 as deterministic, local,
-state-machine-only contracts. M31-M40 remain planned/provisional. Any future local sandbox, dry-run, approval-gated
+state-machine-only contracts. M31 is implemented/released by v0.35.0 as Real Tool Runtime Adapter, Single Safe No-Op Tool. M32-M40 remain planned/provisional. Any future local sandbox, dry-run, approval-gated
 execution, plugin runtime, browser automation, or production tool authority
 must arrive through its own reviewed milestone.

@@ -23,7 +23,7 @@ production authority.
 v0.33.0 implements M29 Agent Task Planning Engine as deterministic, local,
 non-executing, review-only planning contracts. M30 Multi-Step Execution Framework
 is implemented/released by v0.34.0 as deterministic, local, state-machine-only
-contracts. M31-M40 remain planned/provisional. Any future sandbox, dry-run, approved tool execution,
+contracts. M31 is implemented/released by v0.35.0 as Real Tool Runtime Adapter, Single Safe No-Op Tool. M32-M40 remain planned/provisional. Any future sandbox, dry-run, approved tool execution,
 plugin runtime, browser automation, or production authority requires a separate
 reviewed milestone prompt, its own tests, documentation, static verifier
 coverage, Foundation Gate criteria, and release review.

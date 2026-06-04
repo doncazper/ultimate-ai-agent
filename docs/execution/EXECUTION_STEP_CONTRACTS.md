@@ -29,4 +29,4 @@ Blocked M30 step modes:
 Blocked step modes are denied before any state transition. M30 step contracts
 are reviewable state-machine records, not execution instructions.
 
-M31-M40 remain planned/provisional.
+M31 is implemented/released by v0.35.0 as Real Tool Runtime Adapter, Single Safe No-Op Tool. M32-M40 remain planned/provisional.

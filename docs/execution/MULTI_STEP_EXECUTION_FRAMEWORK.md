@@ -1,6 +1,6 @@
 # Multi-Step Execution Framework
 
-Status: active M30 source-of-truth documentation. Current active baseline: **v0.34.1**.
+Status: active M30 source-of-truth documentation. Current active baseline: **v0.35.0**.
 
 v0.34.0 / M30 implements the Multi-Step Execution Framework as deterministic,
 local, state-machine-only contract logic. It models execution runs, execution
@@ -42,4 +42,4 @@ M30 denies:
 - Control Center execute controls.
 - production authority.
 
-M31-M40 remain planned/provisional.
+M31 is implemented/released by v0.35.0 as Real Tool Runtime Adapter, Single Safe No-Op Tool. M32-M40 remain planned/provisional.

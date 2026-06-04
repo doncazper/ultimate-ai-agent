@@ -322,6 +322,24 @@ M30_FORBIDDEN_BACKEND_ROUTES = (
     "/mobile/execute",
     "/remote/execute",
 )
+EXPECTED_M31_OPENAPI_PATH_COUNT = 74
+M31_FORBIDDEN_BACKEND_ROUTES = (
+    "/tools/execute",
+    "/tools/run",
+    "/tool-runtime/execute",
+    "/tool-runtime/run",
+    "/tool-broker/execute",
+    "/tool-broker/run",
+    "/actions/execute",
+    "/runs/execute",
+    "/plugins/enable",
+    "/shell/execute",
+    "/model/execute",
+    "/network/execute",
+    "/browser/execute",
+    "/mobile/execute",
+    "/remote/execute",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -582,6 +600,17 @@ def m30_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
     return failures
 
 
+def m31_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M31_OPENAPI_PATH_COUNT) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+    for route in M31_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(f"M31 forbidden backend route present: {route}")
+    return failures
+
+
 def m22_local_runtime_forbidden_fragment_failures(root: Path) -> List[str]:
     failures: List[str] = []
     runtime_root = root / "src" / "ultimate_ai_agent" / "core" / "model_runtime"
@@ -808,6 +837,9 @@ class FoundationGateEvaluator:
             "m30_execution_framework_contract_safe": self.check_m30_execution_framework_contract_safe,
             "m30_execution_openapi_routes_unchanged": self.check_m30_execution_openapi_routes_unchanged,
             "m30_m31_remains_future": self.check_m30_m31_remains_future,
+            "m31_tool_runtime_noop_contract_safe": self.check_m31_tool_runtime_noop_contract_safe,
+            "m31_tool_runtime_openapi_routes_unchanged": self.check_m31_tool_runtime_openapi_routes_unchanged,
+            "m31_m32_remains_future": self.check_m31_m32_remains_future,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -6258,7 +6290,16 @@ class FoundationGateEvaluator:
             failures.append("M28 docs do not mention v0.32.0 Approval Authority v2 + Action Policy Expansion")
         active_version = self._active_version() or "0.0.0"
         version_tuple = tuple(int(part) for part in active_version.split("."))
-        if version_tuple >= (0, 34, 0):
+        if version_tuple >= (0, 35, 0):
+            if "m29 agent task planning engine" not in text:
+                failures.append("M28 docs do not describe the M29 Agent Task Planning Engine handoff")
+            if "m30" not in text or "multi-step execution framework" not in text or "implemented/released" not in text:
+                failures.append("M28 docs do not acknowledge implemented v0.34.0 / M30")
+            if "m31" not in text or "real tool runtime adapter" not in text or "implemented/released" not in text:
+                failures.append("M28 docs do not acknowledge implemented v0.35.0 / M31")
+            if "m32-m40 remain planned/provisional" not in text:
+                failures.append("M32-M40 must remain planned/provisional after M31")
+        elif version_tuple >= (0, 34, 0):
             if "m29 agent task planning engine" not in text:
                 failures.append("M28 docs do not describe the M29 Agent Task Planning Engine handoff")
             if "m30" not in text or "multi-step execution framework" not in text or "implemented/released" not in text:
@@ -6599,7 +6640,14 @@ class FoundationGateEvaluator:
             failures.append("M29 docs do not mention v0.33.0 Agent Task Planning Engine")
         active_version = self._active_version() or "0.0.0"
         version_tuple = tuple(int(part) for part in active_version.split("."))
-        if version_tuple >= (0, 34, 0):
+        if version_tuple >= (0, 35, 0):
+            if "m30" not in text or "multi-step execution framework" not in text or "implemented/released" not in text:
+                failures.append("M29 boundary docs must acknowledge implemented v0.34.0 / M30")
+            if "m31" not in text or "real tool runtime adapter" not in text or "implemented/released" not in text:
+                failures.append("M29 boundary docs must acknowledge implemented v0.35.0 / M31")
+            if "m32-m40 remain planned/provisional" not in text:
+                failures.append("M32-M40 must remain planned/provisional after M31")
+        elif version_tuple >= (0, 34, 0):
             if "m30" not in text or "multi-step execution framework" not in text or "implemented/released" not in text:
                 failures.append("M29 boundary docs must acknowledge implemented v0.34.0 / M30")
             if "m31-m40 remain planned/provisional" not in text:
@@ -6939,19 +6987,244 @@ class FoundationGateEvaluator:
                 failures.append("M30 docs do not mark v0.34.0 implemented/released")
         else:
             failures.append("M30 docs do not mention v0.34.0 Multi-Step Execution Framework")
-        if "m31-m40 remain planned/provisional" not in text:
-            failures.append("M31-M40 must remain planned/provisional after M30")
-        forbidden_m31_fragments = (
-            "m31 is implemented",
-            "v0.35.0 implements m31",
-            "native client contract is implemented",
-            "ccc ios is implemented",
-            "ccc android is implemented",
-            "ccc macos is implemented",
+        active_version = self._active_version() or "0.0.0"
+        version_tuple = tuple(int(part) for part in active_version.split("."))
+        if version_tuple >= (0, 35, 0):
+            if "m31" not in text or "real tool runtime adapter" not in text or "implemented/released" not in text:
+                failures.append("M30 docs do not acknowledge implemented v0.35.0 / M31")
+            if "m32-m40 remain planned/provisional" not in text:
+                failures.append("M32-M40 must remain planned/provisional after M31")
+        else:
+            if "m31-m40 remain planned/provisional" not in text:
+                failures.append("M31-M40 must remain planned/provisional after M30")
+            forbidden_m31_fragments = (
+                "m31 is implemented",
+                "v0.35.0 implements m31",
+                "native client contract is implemented",
+                "ccc ios is implemented",
+                "ccc android is implemented",
+                "ccc macos is implemented",
+            )
+            failures.extend(
+                f"M30 docs imply M31 implementation: {fragment}"
+                for fragment in forbidden_m31_fragments
+                if fragment in text
+            )
+        return self._result(criterion, failures, required_docs)
+
+    def check_m31_tool_runtime_noop_contract_safe(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/tools/runtime/__init__.py",
+            "src/ultimate_ai_agent/core/tools/runtime/adapters.py",
+            "src/ultimate_ai_agent/core/tools/runtime/contracts.py",
+            "src/ultimate_ai_agent/core/tools/runtime/enums.py",
+            "src/ultimate_ai_agent/core/tools/runtime/invocation.py",
+            "src/ultimate_ai_agent/core/tools/runtime/manifests.py",
+            "src/ultimate_ai_agent/core/tools/runtime/noop.py",
+            "src/ultimate_ai_agent/core/tools/runtime/policy.py",
+            "src/ultimate_ai_agent/core/tools/runtime/receipts.py",
+            "src/ultimate_ai_agent/core/tools/runtime/validation.py",
+            "tests/test_tool_runtime_contracts.py",
+            "tests/test_tool_runtime_noop_invocation.py",
+            "tests/test_tool_runtime_no_side_effects.py",
+            "tests/test_tool_runtime_authority_boundaries.py",
+            "tests/test_tool_runtime_replay_protection.py",
+            "tests/test_tool_runtime_no_dynamic_dispatch.py",
+            "tests/test_m31_gate_integration.py",
+            "docs/tools/TOOL_RUNTIME_ADAPTER.md",
+            "docs/tools/NOOP_TOOL_RUNTIME.md",
+            "docs/tools/TOOL_RUNTIME_INVOCATION_CONTRACT.md",
+            "docs/tools/TOOL_RUNTIME_AUTHORITY_BOUNDARY.md",
+            "docs/tools/TOOL_RUNTIME_REPLAY_POLICY.md",
+            "docs/tools/TOOL_RUNTIME_RECEIPT_PLAN.md",
+            "docs/tools/TOOL_RUNTIME_NON_GOALS.md",
+            "docs/tools/M31_TO_M32_BOUNDARY.md",
+        ]
+        failures = [f"missing M31 Tool Runtime file: {path}" for path in required_files if not (self.root / path).exists()]
+        try:
+            from ultimate_ai_agent.core.tools.runtime import (
+                NOOP_TOOL_NAME,
+                NOOP_TOOL_REF,
+                ToolInvocationRequest,
+                ToolInvocationStatus,
+                ToolRuntimeAdapter,
+                build_tool_runtime_manifest,
+                evaluate_tool_invocation,
+            )
+
+            manifest = build_tool_runtime_manifest(baseline_version="0.35.0")
+            policy = manifest.policy
+            forbidden_flags = [
+                policy.arbitrary_tool_execution_enabled,
+                policy.side_effecting_tools_enabled,
+                policy.shell_tools_enabled,
+                policy.file_tools_enabled,
+                policy.memory_write_tools_enabled,
+                policy.network_tools_enabled,
+                policy.model_tools_enabled,
+                policy.browser_tools_enabled,
+                policy.mobile_tools_enabled,
+                policy.remote_tools_enabled,
+                policy.plugin_tools_enabled,
+                policy.dynamic_tool_registration_enabled,
+                policy.backend_execute_routes_enabled,
+                policy.control_center_execute_controls_enabled,
+                policy.production_authority_enabled,
+            ]
+            if not policy.tool_runtime_enabled or not policy.noop_tool_enabled or any(forbidden_flags):
+                failures.append("M31 manifest enables forbidden runtime tool authority")
+            if manifest.allowlisted_tool_refs != [NOOP_TOOL_REF]:
+                failures.append("M31 manifest allowlist is not exactly the no-op tool")
+
+            safe_request = ToolInvocationRequest(
+                invocation_id="tool-runtime-invocation:gate-m31",
+                tool_ref=NOOP_TOOL_REF,
+                tool_name=NOOP_TOOL_NAME,
+                replay_key="tool-runtime-replay:gate-m31",
+                safe_summary="Run deterministic no-op tool.",
+                input_refs=["canonical:gate-m31"],
+            )
+            safe_decision = ToolRuntimeAdapter().invoke(safe_request)
+            if safe_decision.status != ToolInvocationStatus.noop_completed:
+                failures.append("M31 no-op runtime invocation did not complete")
+            if not safe_decision.execution_performed or not safe_decision.invocation_allowed:
+                failures.append("M31 no-op runtime invocation did not report the no-op invocation")
+            if safe_decision.side_effects_performed:
+                failures.append("M31 no-op runtime reported side effects")
+            if not safe_decision.result or safe_decision.result.output.safe_message != "NOOP_TOOL_COMPLETED":
+                failures.append("M31 no-op runtime result envelope is missing or non-deterministic")
+            if safe_decision.result and (safe_decision.result.output.raw_input_echoed or safe_decision.result.raw_content_stored):
+                failures.append("M31 no-op runtime echoed or stored raw content")
+
+            def require_denial(decision, required_reason: str, label: str) -> None:
+                if decision.status == ToolInvocationStatus.noop_completed or decision.execution_performed:
+                    failures.append(f"M31 denied probe was allowed: {label}")
+                if decision.side_effects_performed:
+                    failures.append(f"M31 denied probe reported side effects: {label}")
+                if required_reason not in decision.reason_codes:
+                    failures.append(f"M31 denied probe missing {required_reason}: {label}")
+
+            require_denial(
+                evaluate_tool_invocation(safe_request.model_copy(update={"tool_ref": "tool:file_write.v1"})),
+                "TOOL_NOT_ALLOWLISTED_DENIED",
+                "file tool ref",
+            )
+            require_denial(
+                evaluate_tool_invocation(safe_request.model_copy(update={"tool_name": "module.callable"})),
+                "DYNAMIC_DISPATCH_DENIED",
+                "dynamic dispatch tool name",
+            )
+            require_denial(
+                evaluate_tool_invocation(safe_request.model_copy(update={"approval_ref": "approval:gate-m31"})),
+                "APPROVAL_REF_NOT_AUTHORITY",
+                "approval_ref alone",
+            )
+            require_denial(
+                evaluate_tool_invocation(safe_request.model_copy(update={"approval_ref": "approval_test_gate_m31"})),
+                "APPROVAL_TEST_REF_DENIED",
+                "approval_test ref",
+            )
+            for authority_ref in [
+                "task-plan:gate-m31",
+                "context-pack:gate-m31",
+                "memory:gate-m31",
+                "tool-intent:gate-m31",
+                "approval:gate-m31",
+                "model:gate-m31",
+            ]:
+                require_denial(
+                    evaluate_tool_invocation(safe_request.model_copy(update={"authority_refs": [authority_ref]})),
+                    "AUTHORITY_REF_NOT_TOOL_RUNTIME_AUTHORITY",
+                    f"authority ref {authority_ref}",
+                )
+            require_denial(
+                evaluate_tool_invocation(safe_request.model_copy(update={"contains_raw_prompt": True})),
+                "RAW_PROMPT_DENIED",
+                "raw prompt model_copy revalidation",
+            )
+            require_denial(
+                evaluate_tool_invocation(safe_request.model_copy(update={"metadata": {"token": "abc123"}})),
+                "SECRET_CONTENT_DENIED",
+                "secret metadata model_copy revalidation",
+            )
+            require_denial(
+                evaluate_tool_invocation(safe_request, replay_keys_seen=["tool-runtime-replay:gate-m31"]),
+                "TOOL_RUNTIME_REPLAY_DETECTED",
+                "replay key reuse",
+            )
+
+            runtime_source = "\n".join(
+                self._read(path)
+                for path in (self.root / "src" / "ultimate_ai_agent" / "core" / "tools" / "runtime").glob("*.py")
+            ).lower()
+            forbidden_fragments = (
+                "os.system(",
+                "popen(",
+                "shell=true",
+                "requests.get(",
+                "requests.post(",
+                "httpx.get(",
+                "httpx.post(",
+                "urllib.request.urlopen(",
+                "write_memory(",
+                ".write_memory(",
+                "put_record(",
+                ".put_record(",
+                "append_event(",
+                "mutate_event(",
+                "importlib",
+                "chat.completions.create(",
+                "import " + "openai",
+                "import " + "anthropic",
+                "import " + "ollama",
+            )
+            failures.extend(
+                f"M31 Tool Runtime module contains forbidden fragment: {fragment}"
+                for fragment in forbidden_fragments
+                if fragment in runtime_source
+            )
+        except Exception as exc:
+            failures.append(f"M31 Tool Runtime validation failed: {exc}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m31_tool_runtime_openapi_routes_unchanged(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m31_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M31 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m31_m32_remains_future(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        required_docs = [
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+            "docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/tools/M31_TO_M32_BOUNDARY.md",
+        ]
+        failures = [f"missing M31 roadmap doc: {path}" for path in required_docs if not (self.root / path).exists()]
+        text = "\n".join(self._read(self.root / path).lower() for path in required_docs if (self.root / path).exists())
+        if "v0.35.0" not in text or "real tool runtime adapter" not in text or "implemented/released" not in text:
+            failures.append("M31 docs do not mark v0.35.0 Real Tool Runtime Adapter implemented/released")
+        if "m32-m40 remain planned/provisional" not in text:
+            failures.append("M32-M40 must remain planned/provisional after M31")
+        forbidden_m32_fragments = (
+            "m32 is implemented",
+            "v0.36.0 implements m32",
+            "file tools are implemented",
+            "network tools are implemented",
+            "model tools are implemented",
+            "arbitrary tool execution is implemented",
         )
         failures.extend(
-            f"M30 docs imply M31 implementation: {fragment}"
-            for fragment in forbidden_m31_fragments
+            f"M31 docs imply M32 implementation: {fragment}"
+            for fragment in forbidden_m32_fragments
             if fragment in text
         )
         return self._result(criterion, failures, required_docs)
@@ -7241,7 +7514,9 @@ class FoundationGateEvaluator:
             "post-M20 docs missing memory charter": "memory provider abstraction",
             "post-M20 docs missing grounded recall charter": "grounded recall router + evidence-linked context pack builder",
             "post-M20 docs missing Tool Broker v2 charter": "tool broker v2 + safe tool intent contracts",
-            "post-M20 docs missing native CCC charter": "ios / android / macos",
+            "post-M20 docs missing M31 tool runtime charter": (
+                "real tool runtime adapter, single safe no-op tool"
+            ),
             "post-M20 docs missing Device Capability Broker charter": (
                 "device capability broker implementation, no sensors"
             ),
@@ -7256,7 +7531,9 @@ class FoundationGateEvaluator:
                 failures.append(failure)
         active_version = self._active_version() or "0.0.0"
         version_tuple = tuple(int(part) for part in active_version.split("."))
-        if version_tuple >= (0, 34, 0):
+        if version_tuple >= (0, 35, 0):
+            implemented_claim_start = 32
+        elif version_tuple >= (0, 34, 0):
             implemented_claim_start = 31
         elif version_tuple >= (0, 33, 0):
             implemented_claim_start = 30

@@ -118,7 +118,13 @@ v0.18.3 adds CCC Android terminology for future native client planning only. No 
 
 ## v0.18.4 Post-M20 Device Registry Projection
 
-v0.18.4 links future device registry and permission work to M31-M37 in `docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md`. M35 is the first planned/provisional Device Capability Broker Implementation, No Sensors Yet milestone; M37 is the first planned/provisional one-governed-sensor milestone.
+v0.18.4 originally linked future device registry and permission work to the
+post-M20 roadmap projection. v0.35.0 supersedes the old M31 native-client slot
+with M31 Real Tool Runtime Adapter, Single Safe No-Op Tool. Device registry and
+permission work remains future planned/provisional roadmap material; M35 is the
+first planned/provisional Device Capability Broker Implementation, No Sensors
+Yet milestone, and M37 is the first planned/provisional one-governed-sensor
+milestone.
 
 This patch adds no registry runtime, OS permission integration, Android/iOS app, background service, notification channel, sensor access, signing, keystore, provisioning, App Store workflow, Play Store workflow, or native build workflow.
 ## M19 Update

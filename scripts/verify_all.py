@@ -32,6 +32,7 @@ SCAN_SEQUENCE = [
     ("M28 Approval Authority v2 action policy safety scan", "verify_m28_approval_authority_v2_safety"),
     ("M29 Agent Task Planning Engine safety scan", "verify_m29_task_planning_engine_safety"),
     ("M30 Multi-Step Execution Framework safety scan", "verify_m30_multi_step_execution_framework_safety"),
+    ("M31 Real Tool Runtime Adapter no-op safety scan", "verify_m31_tool_runtime_noop_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
     ("production truth integration scan", "verify_no_production_truth_integrations"),
@@ -2920,6 +2921,208 @@ def verify_m30_multi_step_execution_framework_safety():
     )
 
     print("OK: M30 Multi-Step Execution Framework remains state-machine-only, route-free, and non-executing")
+
+
+def verify_m31_tool_runtime_noop_safety():
+    print("\n[Verifier] Running M31 Real Tool Runtime Adapter no-op guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/tools/runtime/__init__.py",
+        "src/ultimate_ai_agent/core/tools/runtime/adapters.py",
+        "src/ultimate_ai_agent/core/tools/runtime/contracts.py",
+        "src/ultimate_ai_agent/core/tools/runtime/enums.py",
+        "src/ultimate_ai_agent/core/tools/runtime/invocation.py",
+        "src/ultimate_ai_agent/core/tools/runtime/manifests.py",
+        "src/ultimate_ai_agent/core/tools/runtime/noop.py",
+        "src/ultimate_ai_agent/core/tools/runtime/policy.py",
+        "src/ultimate_ai_agent/core/tools/runtime/receipts.py",
+        "src/ultimate_ai_agent/core/tools/runtime/validation.py",
+        "tests/test_tool_runtime_contracts.py",
+        "tests/test_tool_runtime_noop_invocation.py",
+        "tests/test_tool_runtime_no_side_effects.py",
+        "tests/test_tool_runtime_authority_boundaries.py",
+        "tests/test_tool_runtime_replay_protection.py",
+        "tests/test_tool_runtime_no_dynamic_dispatch.py",
+        "tests/test_m31_gate_integration.py",
+        "docs/tools/TOOL_RUNTIME_ADAPTER.md",
+        "docs/tools/NOOP_TOOL_RUNTIME.md",
+        "docs/tools/TOOL_RUNTIME_INVOCATION_CONTRACT.md",
+        "docs/tools/TOOL_RUNTIME_AUTHORITY_BOUNDARY.md",
+        "docs/tools/TOOL_RUNTIME_REPLAY_POLICY.md",
+        "docs/tools/TOOL_RUNTIME_RECEIPT_PLAN.md",
+        "docs/tools/TOOL_RUNTIME_NON_GOALS.md",
+        "docs/tools/M31_TO_M32_BOUNDARY.md",
+        "docs/release_notes/v0_35_0.md",
+        "docs/archive/releases/v0_35_0/README_IMPORT.md",
+        "docs/archive/releases/v0_35_0/master_plan.md",
+        "docs/implementation/foundation_gate_implementation_plan_v0_35_0.md",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M31 Tool Runtime Adapter file: {rel_path}")
+            sys.exit(1)
+
+    runtime_root = ROOT / "src" / "ultimate_ai_agent" / "core" / "tools" / "runtime"
+    forbidden_source_fragments = [
+        "os.system(",
+        "popen(",
+        "shell=true",
+        "requests.get(",
+        "requests.post(",
+        "httpx.get(",
+        "httpx.post(",
+        "urllib.request.urlopen(",
+        "socket",
+        "websocket",
+        "write_memory(",
+        ".write_memory(",
+        "put_record(",
+        ".put_record(",
+        "append_event(",
+        "mutate_event(",
+        "importlib",
+        "getattr(",
+        "chat.completions.create(",
+        "import openai",
+        "from openai import",
+        "import anthropic",
+        "from anthropic import",
+        "import ollama",
+        "from ollama import",
+    ]
+    for path in runtime_root.rglob("*.py"):
+        rel = path.relative_to(ROOT).as_posix()
+        if "__pycache__" in path.parts:
+            continue
+        text = path.read_text(encoding="utf-8").lower()
+        for fragment in forbidden_source_fragments:
+            if fragment in text:
+                print(f"FAIL: M31 forbidden tool runtime source fragment in {rel}: {fragment}")
+                sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.evaluators import m31_openapi_route_failures
+        from ultimate_ai_agent.core.tools.runtime import (
+            NOOP_TOOL_NAME,
+            NOOP_TOOL_REF,
+            ToolInvocationRequest,
+            ToolInvocationStatus,
+            build_tool_runtime_manifest,
+            evaluate_tool_invocation,
+        )
+    except Exception as exc:
+        print(f"FAIL: M31 Tool Runtime Adapter imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m31_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    manifest = build_tool_runtime_manifest(baseline_version="0.35.0")
+    policy = manifest.policy
+    unsafe_flags = [
+        policy.arbitrary_tool_execution_enabled,
+        policy.side_effecting_tools_enabled,
+        policy.shell_tools_enabled,
+        policy.file_tools_enabled,
+        policy.memory_write_tools_enabled,
+        policy.network_tools_enabled,
+        policy.model_tools_enabled,
+        policy.browser_tools_enabled,
+        policy.mobile_tools_enabled,
+        policy.remote_tools_enabled,
+        policy.plugin_tools_enabled,
+        policy.dynamic_tool_registration_enabled,
+        policy.backend_execute_routes_enabled,
+        policy.control_center_execute_controls_enabled,
+        policy.production_authority_enabled,
+    ]
+    if any(unsafe_flags) or not policy.tool_runtime_enabled or not policy.noop_tool_enabled:
+        print("FAIL: M31 manifest enables forbidden runtime authority or disables the no-op tool")
+        sys.exit(1)
+    if manifest.allowlisted_tool_refs != [NOOP_TOOL_REF]:
+        print("FAIL: M31 manifest allowlist is not exactly the no-op tool")
+        sys.exit(1)
+
+    safe_request = ToolInvocationRequest(
+        invocation_id="tool-runtime-invocation:verify-m31",
+        tool_ref=NOOP_TOOL_REF,
+        tool_name=NOOP_TOOL_NAME,
+        replay_key="tool-runtime-replay:verify-m31",
+        safe_summary="Run deterministic no-op tool.",
+        input_refs=["canonical:verify-m31"],
+    )
+    safe = evaluate_tool_invocation(safe_request)
+    if safe.status != ToolInvocationStatus.noop_completed or not safe.execution_performed:
+        print("FAIL: M31 deterministic no-op invocation did not complete")
+        sys.exit(1)
+    if safe.side_effects_performed or not safe.result or safe.result.side_effects_performed:
+        print("FAIL: M31 deterministic no-op invocation reported side effects")
+        sys.exit(1)
+    if safe.result.output.raw_input_echoed or safe.result.output.raw_content_stored:
+        print("FAIL: M31 deterministic no-op invocation echoed or stored raw input")
+        sys.exit(1)
+
+    def require_denial(decision, required_reason: str, label: str) -> None:
+        if decision.status == ToolInvocationStatus.noop_completed or decision.execution_performed:
+            print(f"FAIL: M31 denied probe was allowed: {label}")
+            sys.exit(1)
+        if decision.side_effects_performed:
+            print(f"FAIL: M31 denied probe reported side effects: {label}")
+            sys.exit(1)
+        if required_reason not in decision.reason_codes:
+            print(f"FAIL: M31 denied probe missing {required_reason}: {label}")
+            sys.exit(1)
+
+    require_denial(
+        evaluate_tool_invocation(safe_request.model_copy(update={"tool_ref": "tool:file_write.v1"})),
+        "TOOL_NOT_ALLOWLISTED_DENIED",
+        "file tool ref",
+    )
+    require_denial(
+        evaluate_tool_invocation(safe_request.model_copy(update={"tool_ref": "tool:network_call.v1"})),
+        "EFFECTFUL_TOOL_BLOCKED",
+        "network tool ref",
+    )
+    require_denial(
+        evaluate_tool_invocation(safe_request.model_copy(update={"tool_name": "module.callable"})),
+        "DYNAMIC_DISPATCH_DENIED",
+        "dynamic dispatch tool name",
+    )
+    require_denial(
+        evaluate_tool_invocation(safe_request.model_copy(update={"approval_ref": "approval:verify-m31"})),
+        "APPROVAL_REF_NOT_AUTHORITY",
+        "approval_ref alone",
+    )
+    require_denial(
+        evaluate_tool_invocation(safe_request.model_copy(update={"approval_ref": "approval_test_verify_m31"})),
+        "APPROVAL_TEST_REF_DENIED",
+        "approval_test ref",
+    )
+    require_denial(
+        evaluate_tool_invocation(safe_request.model_copy(update={"authority_refs": ["model:verify-m31"]})),
+        "AUTHORITY_REF_NOT_TOOL_RUNTIME_AUTHORITY",
+        "model output authority ref",
+    )
+    require_denial(
+        evaluate_tool_invocation(safe_request.model_copy(update={"contains_raw_prompt": True})),
+        "RAW_PROMPT_DENIED",
+        "raw prompt model_copy revalidation",
+    )
+    require_denial(
+        evaluate_tool_invocation(safe_request.model_copy(update={"metadata": {"token": "abc123"}})),
+        "SECRET_CONTENT_DENIED",
+        "secret metadata model_copy revalidation",
+    )
+    require_denial(
+        evaluate_tool_invocation(safe_request, replay_keys_seen=["tool-runtime-replay:verify-m31"]),
+        "TOOL_RUNTIME_REPLAY_DETECTED",
+        "replay key reuse",
+    )
+
+    print("OK: M31 Tool Runtime Adapter allows only deterministic no-op invocation and remains route-free")
 
 
 def verify_v0292_local_dev_api_hardening():

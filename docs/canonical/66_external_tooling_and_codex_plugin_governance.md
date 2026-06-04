@@ -109,7 +109,13 @@ v0.18.4 maps future OpenWebUI bridge work to M21 in `docs/roadmap/M21_M40_CAPABI
 
 iOS, Android, and macOS build plugins are future-only. They may involve Xcode, Gradle, Android Studio, native build systems, signing identities, provisioning profiles, keystores, keychains, simulator/device access, app entitlements, camera/microphone/location permissions, push notification credentials, App Store Connect credentials, and Play Store workflows. They must remain disabled until dedicated milestones define the approval and safety boundary.
 
-v0.18.4 maps future native client contracts to M31 and future browser automation contracts to M38. These milestones remain planned/provisional. No native build plugin, browser automation plugin, sandbox provider, MCP runtime, Agent Skills runtime, or AGENTS.md runtime loading is enabled by v0.18.4.
+v0.18.4 originally mapped future native client contracts to M31 and future
+browser automation contracts to M38. v0.35.0 supersedes the old M31
+native-client slot with M31 Real Tool Runtime Adapter, Single Safe No-Op Tool.
+Native build plugin and browser automation work remains future
+planned/provisional roadmap material. No native build plugin, browser
+automation plugin, sandbox provider, MCP runtime, Agent Skills runtime, or
+AGENTS.md runtime loading is enabled by v0.18.4.
 
 ## Source-of-Truth Boundary
 

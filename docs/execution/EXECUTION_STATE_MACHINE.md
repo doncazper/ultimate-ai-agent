@@ -35,4 +35,4 @@ also denies hidden side-effect metadata, side-effect execution flags, raw
 content flags, secret-like metadata, execution requests, auto-run requests,
 scheduler requests, and background-worker requests.
 
-M31-M40 remain planned/provisional.
+M31 is implemented/released by v0.35.0 as Real Tool Runtime Adapter, Single Safe No-Op Tool. M32-M40 remain planned/provisional.

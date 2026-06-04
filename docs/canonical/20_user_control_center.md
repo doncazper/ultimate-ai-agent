@@ -163,15 +163,18 @@ v0.18.3 adds no M15 Approval Queue + Receipt/Event Viewer UI, OpenWebUI integrat
 
 v0.18.4 points future client work to `docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md` and `docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md`.
 
-Relevant future milestones:
+Relevant future milestones from the original v0.18.4 projection:
 
 - M21 - OpenWebUI Bridge + Chat Shell Integration Contract.
-- M31 - CCC Native Client Contract: iOS / Android / macOS.
-- M32 - Device Pairing + Trust Handshake Contract.
 - M33 - Mobile Approval Surface Prototype, No Sensors.
 - M34 - macOS Local Companion Contract / Prototype.
 
-These are planned/provisional only. v0.18.4 adds no OpenWebUI integration, M15 UI, native CCC implementation, device pairing, mobile app, macOS app, sensor access, browser automation, or production Control Center authority.
+v0.35.0 supersedes the old M31 native-client slot with M31 Real Tool Runtime
+Adapter, Single Safe No-Op Tool. CCC native client and device pairing work
+remain future roadmap material and are not implemented. v0.18.4 adds no
+OpenWebUI integration, M15 UI, native CCC implementation, device pairing,
+mobile app, macOS app, sensor access, browser automation, or production Control
+Center authority.
 
 ## v0.19.0 M15 Approval Receipt Event Viewer
 

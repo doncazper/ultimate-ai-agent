@@ -31,4 +31,4 @@ Allowed transitions do not authorize or perform execution. They return
 Evaluator boundaries revalidate safety-critical fields, including
 `model_copy(update=...)` mutated objects, before any policy allow decision.
 
-M31-M40 remain planned/provisional.
+M31 is implemented/released by v0.35.0 as Real Tool Runtime Adapter, Single Safe No-Op Tool. M32-M40 remain planned/provisional.

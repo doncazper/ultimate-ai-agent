@@ -25,4 +25,4 @@ state transition is reviewable, but they do not authorize real execution.
 M30 input boundaries add no context injection, no RAG, no embeddings, no vector
 search, no external retrieval, and no model/provider calls.
 
-M31-M40 remain planned/provisional.
+M31 is implemented/released by v0.35.0 as Real Tool Runtime Adapter, Single Safe No-Op Tool. M32-M40 remain planned/provisional.
