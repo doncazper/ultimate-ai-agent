@@ -158,3 +158,7 @@ storage, full-file reads, file picker/browser/upload/root selector,
 export/download/copy-raw controls, context proposal, context injection, memory
 writes, execution/tool controls, dependencies, or production Control Center
 authority.
+
+v0.40.1 hardens `/files/review` with safe-ref-only display checks, private/raw
+path drift checks, local read-only packet selection/expansion guarantees, and
+no-mutating-request checks. It adds no frontend route and no backend API path.

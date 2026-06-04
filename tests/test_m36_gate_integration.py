@@ -42,6 +42,19 @@ def test_m36_openapi_route_guard_rejects_review_mutation_context_and_execution_r
     assert m36_openapi_route_failures(app.openapi().get("paths", {})) == []
 
 
+def test_m36_surface_guard_rejects_unsafe_refs_and_mutating_requests():
+    from ultimate_ai_agent.core.gate.evaluators import m36_file_review_surface_failures
+
+    failures = m36_file_review_surface_failures(
+        component_text='fetch("/files/review/approve", { method: "POST" });',
+        mock_text='safePathRef: "/Users/local/private.txt"',
+    )
+
+    assert any("mutating M36 file review request" in failure for failure in failures)
+    assert any("unsafe M36 safe_path_ref" in failure for failure in failures)
+    assert any("private path fragment in M36 file review fixture" in failure for failure in failures)
+
+
 def test_m36_foundation_gate_evaluator_passes_current_surface():
     evaluator = FoundationGateEvaluator()
     criteria = [

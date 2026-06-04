@@ -33,7 +33,7 @@ export function AppShell({ children, activePath }: AppShellProps) {
       <div className="workspace">
         <header className="topbar">
           <div>
-            <p className="eyebrow">v0.40.0 M36 file review surface</p>
+            <p className="eyebrow">v0.40.1 M36 file review surface hardening</p>
             <h1>Read-only governance and preview surfaces</h1>
           </div>
           <div className="topbar-actions" aria-label="Control Center safety status">

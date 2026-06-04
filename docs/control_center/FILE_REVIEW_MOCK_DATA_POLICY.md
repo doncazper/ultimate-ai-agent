@@ -1,7 +1,7 @@
 # File Review Mock Data Policy
 
 Status: active M36 documentation.
-Current through: **v0.40.0**.
+Current through: **v0.40.1**.
 
 The M36 Control Center file review surface may use local mock data when the
 local backend is unavailable or when no live read-only summary endpoint exists.
@@ -10,6 +10,8 @@ That mock data must be visibly mock and non-authoritative.
 ## Mock Data Requirements
 
 - mock packets use safe refs only.
+- mock packets never use private path-shaped values, traversal fragments, raw
+  absolute path labels, or caller-selected root strings as display refs.
 - mock packets include redacted preview text only.
 - mock packets include redaction summary text only.
 - mock packets include exact binding refs.
@@ -18,6 +20,8 @@ That mock data must be visibly mock and non-authoritative.
 - mock packets include receipt plan metadata showing no raw content storage,
   no approval capture, no approval persistence, no context proposal, no context
   injection, no memory writes, no export, and no execution.
+- no mutating request is made to load, select, or expand mock file review
+  packets.
 
 ## Forbidden Mock Data
 

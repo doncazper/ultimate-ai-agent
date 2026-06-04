@@ -74,6 +74,45 @@ def test_control_center_frontend_verifier_tracks_m21_openwebui_drift_strings():
         assert dependency in verifier.FORBIDDEN_FRONTEND_DEPENDENCIES
 
 
+def test_control_center_frontend_verifier_blocks_unsafe_m36_file_review_refs_and_mutations():
+    verifier = load_verifier()
+    rel = Path("apps/control-center/src/mocks/controlCenterData.ts")
+    unsafe_mock = """
+    export const mockControlCenterData = {
+      m36FileReview: {
+        warningCodes: ["NO_APPROVAL_CAPTURE"],
+        packets: [{
+          bindingRefs: {
+            reviewPacketRef: "file-review-packet:mock_001",
+            previewResultRef: "redacted-file-preview-output:mock_001",
+            redactionSummaryRef: "file-review-redaction-summary:mock_001",
+            fileRef: "file-ref:mock_review_001",
+            safePathRef: "/Users/local/private.txt"
+          }
+        }]
+      }
+    };
+    """
+    unsafe_component = """
+    export function FileReviewSurfacePanel() {
+      fetch("/files/review/approve", { method: "POST" });
+      return <button>View review packet</button>;
+    }
+    """
+
+    failures = [
+        *verifier._m36_file_review_fixture_failures(rel, unsafe_mock),
+        *verifier._m36_file_review_component_failures(
+            Path("apps/control-center/src/components/FileReviewSurfacePanel.tsx"),
+            unsafe_component,
+        ),
+    ]
+
+    assert any("unsafe M36 safe_path_ref" in failure for failure in failures)
+    assert any("private path fragment in M36 file review fixture" in failure for failure in failures)
+    assert any("mutating M36 file review request" in failure for failure in failures)
+
+
 def test_control_center_frontend_verifier_blocks_tracked_build_and_log_artifacts(tmp_path, monkeypatch):
     verifier = load_verifier()
 

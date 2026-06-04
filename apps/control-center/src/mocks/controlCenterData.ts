@@ -12,7 +12,7 @@ export const mockControlCenterData: ControlCenterData = {
   },
   manifest: {
     manifest_id: "mock_control_center_manifest_m36",
-    version: "0.40.0",
+    version: "0.40.1",
     generated_at: "2026-01-01T00:00:00Z",
     declared_capabilities: [
       "control_center_read_only_dashboard",
@@ -178,7 +178,7 @@ export const mockControlCenterData: ControlCenterData = {
   },
   dashboard: {
     snapshot_id: "mock_control_center_dashboard_m36",
-    baseline_version: "0.40.0",
+    baseline_version: "0.40.1",
     generated_at: "2026-01-01T00:00:00Z",
     system_status: {
       label: "Control Center",
@@ -270,7 +270,7 @@ export const mockControlCenterData: ControlCenterData = {
   },
   runtimeReadiness: {
     report_id: "mock_runtime_readiness_m18",
-    baseline_version: "0.40.0",
+    baseline_version: "0.40.1",
     status: "report_only",
     production_ready: false,
     real_model_runtime_ready: false,
@@ -284,7 +284,7 @@ export const mockControlCenterData: ControlCenterData = {
   },
   capabilityMatrix: {
     matrix_id: "mock_runtime_capability_matrix_m18",
-    baseline_version: "0.40.0",
+    baseline_version: "0.40.1",
     metadata: { mock: true, no_model_was_called: true },
     entries: [
       {
@@ -759,7 +759,9 @@ export const mockControlCenterData: ControlCenterData = {
       "REDACTED_SUMMARY_ONLY",
       "NO_APPROVAL_CAPTURE",
       "NO_APPROVAL_PERSISTENCE",
-      "NO_RAW_FILE_DISPLAY"
+      "NO_RAW_FILE_DISPLAY",
+      "SAFE_REFS_ONLY",
+      "NO_MUTATING_REQUESTS"
     ],
     packets: [
       {
@@ -795,7 +797,7 @@ export const mockControlCenterData: ControlCenterData = {
           safeSummary:
             "Receipt plan stores refs, redaction status, and decision metadata only."
         },
-        reasonCodes: ["M36_REVIEW_ONLY_SURFACE", "EXACT_BINDING_REFS_DISPLAYED"],
+        reasonCodes: ["M36_REVIEW_ONLY_SURFACE", "EXACT_BINDING_REFS_DISPLAYED", "SAFE_REFS_ONLY"],
         authorityWarnings: [
           "Decision status is display-only and cannot capture approval.",
           "Approval gate refs are shown for review; they are not authority.",
@@ -840,7 +842,7 @@ export const mockControlCenterData: ControlCenterData = {
           safeSummary:
             "Alternate receipt plan confirms no raw data or mutation authority is stored."
         },
-        reasonCodes: ["M36_REVIEW_ONLY_SURFACE", "NO_MUTATION_CONTROLS"],
+        reasonCodes: ["M36_REVIEW_ONLY_SURFACE", "NO_MUTATION_CONTROLS", "NO_MUTATING_REQUESTS"],
         authorityWarnings: [
           "Decision status is display-only and cannot capture approval.",
           "M37 approval capture remains future.",

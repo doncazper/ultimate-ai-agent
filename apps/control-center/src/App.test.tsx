@@ -364,6 +364,40 @@ describe("Web Control Center shell", () => {
     expect(screen.queryByText(/supersecretvalue123/i)).not.toBeInTheDocument();
   });
 
+  it("keeps M36 binding refs safe and free of private path shapes", async () => {
+    mockFetchWithFallback();
+    window.history.pushState({}, "", "/files/review");
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: /File Review Surface/i })).toBeInTheDocument();
+
+    const documentText = document.body.textContent ?? "";
+    for (const safeRef of [
+      "file-review-packet:mock_001",
+      "redacted-file-preview-output:mock_001",
+      "file-review-redaction-summary:mock_001",
+      "file-ref:mock_review_001",
+      "filesystem-preview-path:safe-root_m36/docs/review-summary.md"
+    ]) {
+      expect(documentText).toContain(safeRef);
+    }
+
+    for (const unsafeFragment of [
+      "/Users/",
+      "/home/",
+      "C:\\",
+      "../",
+      "absolute_path",
+      "raw_absolute_path",
+      "raw file path"
+    ]) {
+      expect(documentText.toLowerCase()).not.toContain(unsafeFragment.toLowerCase());
+    }
+
+    expect(screen.getByText(/safe refs only/i)).toBeInTheDocument();
+    expect(screen.getByText(/No mutating request is made/i)).toBeInTheDocument();
+  });
+
   it("renders M17 memory summaries as recall and never authority", async () => {
     mockFetchWithFallback();
     window.history.pushState({}, "", "/memory");

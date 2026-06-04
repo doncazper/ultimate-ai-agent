@@ -1,6 +1,6 @@
 # Post-M20 Capability Layer Roadmap
 
-Status: Active roadmap projection maintained through v0.40.0.
+Status: Active roadmap projection maintained through v0.40.1.
 
 v0.38.0 implements M34 Broader File Capability Review as planning,
 architecture review, documentation, verifier, and Foundation Gate work only.
@@ -15,10 +15,10 @@ context injection, memory write, export, or production authority.
 
 No integration is added. No dependency is added. v0.40.0 implements M36 CCC
 File Review Surface, Review-Only as frontend-only display over already-redacted
-review packets.
+review packets. v0.40.1 hardens M36 read-only surface safety.
 
-M21-M36 are implemented/released through dedicated reviewed milestones. v0.40.0
-is M36 frontend-only. M37-M60
+M21-M36 are implemented/released through dedicated reviewed milestones. v0.40.1
+is M36 hardening only. M37-M60
 remain planned/provisional. M34 is implemented/released as planning/docs/verifier
 only. M35 is implemented/released as Safe File Review Workflow Contracts. M36 is implemented/released as CCC File Review Surface, Review-Only. M42 is the first mobile
 planning refresh in this new sequence. M44 is the first iOS skeleton milestone.
@@ -50,6 +50,7 @@ The detailed post-M33 supersession source of truth is
 | v0.39.0 | M35 | Safe File Review Workflow Contracts | implemented/released contract-only |
 | v0.39.1 | M35 hardening | File Review Exact File/Path Binding | implemented/released hardening |
 | v0.40.0 | M36 | CCC File Review Surface, Review-Only | implemented/released frontend-only |
+| v0.40.1 | M36 hardening | CCC File Review Surface Read-Only Safety | implemented/released hardening |
 | v0.41.0 | M37 | Review Approval Capture, Review-Only Persistence | planned/provisional |
 | v0.42.0 | M38 | Safe Context Proposal From Approved Review | planned/provisional |
 | v0.43.0 | M39 | CCC Context Proposal Surface | planned/provisional |
@@ -77,14 +78,13 @@ The detailed post-M33 supersession source of truth is
 
 ## Prompt-Pack Strategy
 
-Recommended next prompt after v0.40.0:
+Recommended next prompt after v0.40.1:
 
 ```text
-v0.40.1 / M36 hardening only if desired, otherwise v0.41.0 / M37 - Review Approval Capture, Review-Only Persistence
+v0.41.0 / M37 - Review Approval Capture, Review-Only Persistence
 ```
 
-The next prompt packs are M36 CCC File Review Surface hardening if desired,
-and M37 Review Approval Capture review-only persistence.
+The next prompt pack is M37 Review Approval Capture review-only persistence.
 
 Extra-hard reviews are required for M37, M38, M40, M47, M48, M49, M51, M52,
 M57, and M58. Mandatory hardening is expected by default for M35-M40, M43-M50,

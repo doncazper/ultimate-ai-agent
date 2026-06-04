@@ -4111,10 +4111,10 @@ def verify_m36_ccc_file_review_surface_safety():
         "docs/control_center/FILE_REVIEW_MOCK_DATA_POLICY.md",
         "docs/control_center/FILE_REVIEW_BINDING_DISPLAY_POLICY.md",
         "docs/control_center/M36_TO_M37_BOUNDARY.md",
-        "docs/release_notes/v0_40_0.md",
-        "docs/archive/releases/v0_40_0/README_IMPORT.md",
-        "docs/archive/releases/v0_40_0/master_plan.md",
-        "docs/implementation/foundation_gate_implementation_plan_v0_40_0.md",
+        "docs/release_notes/v0_40_1.md",
+        "docs/archive/releases/v0_40_1/README_IMPORT.md",
+        "docs/archive/releases/v0_40_1/master_plan.md",
+        "docs/implementation/foundation_gate_implementation_plan_v0_40_1.md",
         "tests/test_m36_gate_integration.py",
     ]
     for rel_path in required_files:
@@ -4129,6 +4129,8 @@ def verify_m36_ccc_file_review_surface_safety():
         "redacted preview": "M36 docs/tests do not require redacted preview display",
         "redaction summary": "M36 docs/tests do not require redaction summary display",
         "exact binding refs": "M36 docs/tests do not require exact binding refs display",
+        "safe refs only": "M36 docs/tests do not require safe refs only",
+        "no mutating request is made": "M36 docs/tests do not require no mutating request boundary",
         "review_packet_ref": "M36 docs/tests do not require review_packet_ref display",
         "preview_result_ref": "M36 docs/tests do not require preview_result_ref display",
         "redaction_summary_ref": "M36 docs/tests do not require redaction_summary_ref display",
@@ -4153,6 +4155,18 @@ def verify_m36_ccc_file_review_surface_safety():
             sys.exit(1)
 
     component = (ROOT / "apps/control-center/src/components/FileReviewSurfacePanel.tsx").read_text(encoding="utf-8").lower()
+    mock_text = (ROOT / "apps/control-center/src/mocks/controlCenterData.ts").read_text(encoding="utf-8")
+    try:
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.core.gate.evaluators import m36_file_review_surface_failures
+    except Exception as exc:
+        print(f"FAIL: M36 surface safety helper could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m36_file_review_surface_failures(component_text=component, mock_text=mock_text):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
     forbidden_button_labels = [
         "approve",
         "deny",

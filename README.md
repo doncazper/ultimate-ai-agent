@@ -12,20 +12,21 @@ allowed to become operational authority.
 
 | Field | Current state |
 |---|---|
-| Current active baseline | **v0.40.0** |
+| Current active baseline | **v0.40.1** |
 | Current milestone | **M36 - CCC File Review Surface, Review-Only** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **74** OpenAPI paths |
 | Production readiness | Not claimed |
 
-v0.40.0 implements M36 CCC File Review Surface, Review-Only. It adds the
-frontend-only `/files/review` Control Center surface for redacted review
-packets, redacted previews, redaction summaries, exact binding refs,
-review-only decision status, approval gate contract status, and receipt plan
-metadata. It adds no approval capture, approval persistence, backend review
-routes, raw file display, context proposal, context injection, memory writes,
-export, execution controls, dependencies, or production authority.
+v0.40.1 hardens M36 CCC File Review Surface, Review-Only. It strengthens
+safe-ref-only display boundaries, private/raw path drift checks, local
+read-only packet selection/expansion guarantees, no-mutating-request checks,
+frontend tests, static verification, documentation-integrity checks, and
+Foundation Gate coverage. It adds no approval capture, approval persistence,
+backend review routes, raw file display, context proposal, context injection,
+memory writes, export, execution controls, dependencies, M37 work, or
+production authority.
 
 v0.29.5 is documentation policy polish. It remains the documentation
 organization cleanup baseline before the M26 and M27 implementation releases.
@@ -65,9 +66,9 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M28 Action Policy](docs/approvals/ACTION_POLICY.md)
 - [M27 Tool Broker v2](docs/tools/TOOL_BROKER_V2.md)
 - [M26 Grounded Recall Router](docs/recall/GROUNDED_RECALL_ROUTER.md)
-- [v0.40.0 release notes](docs/release_notes/v0_40_0.md)
-- [v0.40.0 release packet](docs/archive/releases/v0_40_0/README_IMPORT.md)
-- [v0.40.0 master plan](docs/archive/releases/v0_40_0/master_plan.md)
+- [v0.40.1 release notes](docs/release_notes/v0_40_1.md)
+- [v0.40.1 release packet](docs/archive/releases/v0_40_1/README_IMPORT.md)
+- [v0.40.1 master plan](docs/archive/releases/v0_40_1/master_plan.md)
 
 ## What This Project Is
 
@@ -318,6 +319,7 @@ post-M33 supersession is
 | v0.39.0 | M35 - Safe File Review Workflow Contracts | Implemented/released contract-only |
 | v0.39.1 | M35 hardening - File Review Exact File/Path Binding | Implemented/released hardening |
 | v0.40.0 | M36 - CCC File Review Surface, Review-Only | Implemented/released frontend-only |
+| v0.40.1 | M36 hardening - CCC File Review Surface Read-Only Safety | Implemented/released hardening |
 | v0.41.0 | M37 - Review Approval Capture, Review-Only Persistence | Planned/provisional |
 | v0.42.0 | M38 - Safe Context Proposal From Approved Review | Planned/provisional |
 | v0.43.0 | M39 - CCC Context Proposal Surface | Planned/provisional |

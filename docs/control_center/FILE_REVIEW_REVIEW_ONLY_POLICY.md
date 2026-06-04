@@ -1,7 +1,7 @@
 # File Review Review-Only Policy
 
 Status: active M36 documentation.
-Current through: **v0.40.0**.
+Current through: **v0.40.1**.
 
 The M36 CCC file review surface is review-only. It can show redacted packet
 metadata and exact binding refs, but it cannot mutate approval state or create
@@ -12,6 +12,9 @@ authority.
 - The surface must show that packet data is mock and non-authoritative when
   fallback data is used.
 - Packet selection and expansion are display-only.
+- Packet selection and expansion are local read-only UI state.
+- The surface displays safe refs only.
+- No mutating request is made by the file review surface.
 - Review-only decision status is informational.
 - Approval gate contract status is informational.
 - Receipt plan metadata is informational.

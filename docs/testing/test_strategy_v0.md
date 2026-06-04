@@ -165,6 +165,12 @@ submit, save, mark-reviewed, export, download, copy-raw, file picker, browse,
 upload, root selector, context proposal, context injection, memory write,
 execute, run, tool, and model-call controls. M37 remains planned/provisional.
 M38 remains planned/provisional.
+
+v0.40.1 hardens M36 CCC File Review Surface, Review-Only coverage. Tests and
+verifiers now require safe refs only, reject private path-shaped refs, raw
+path-shaped labels, and traversal fragments, and confirm packet selection and
+expansion are local read-only UI state with no mutating request. M37 remains
+planned/provisional.
 ```
 
 ## v0.29.0 M25 Truth Source Router + Evidence Claim Checker Tests

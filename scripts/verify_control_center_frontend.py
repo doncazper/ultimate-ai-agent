@@ -253,6 +253,29 @@ RAW_M17_KNOWLEDGE_FIELD = re.compile(
 )
 CREDENTIAL_M17_KNOWLEDGE_FIELD = re.compile(r"\b(?:credentialRef|credentialHandle|apiKey|authToken|password|secretRef)\b")
 PRIVATE_PATH_FRAGMENT = re.compile(r"(/Users/|/home/|[A-Za-z]:\\Users\\)")
+M36_PRIVATE_OR_RAW_PATH_FRAGMENT = re.compile(
+    r"(/Users/|/home/|[A-Za-z]:\\|\.\./|absolute_path|raw_absolute_path|raw file path)",
+    re.IGNORECASE,
+)
+M36_MUTATING_FILE_REVIEW_REQUEST = re.compile(
+    r"fetch\([^)]*(?:/files/review|/files/read|/context/propose|/context/inject|/memory/write|/tools/execute)[^)]*"
+    r"method\s*:\s*['\"](?:POST|PUT|PATCH|DELETE)['\"]",
+    re.IGNORECASE | re.DOTALL,
+)
+M36_SAFE_REF_PREFIXES = {
+    "reviewPacketRef": "file-review-packet:",
+    "previewResultRef": "redacted-file-preview-output:",
+    "redactionSummaryRef": "file-review-redaction-summary:",
+    "fileRef": "file-ref:",
+    "safePathRef": "filesystem-preview-path:safe-root_",
+}
+M36_SAFE_REF_LABELS = {
+    "reviewPacketRef": "review_packet_ref",
+    "previewResultRef": "preview_result_ref",
+    "redactionSummaryRef": "redaction_summary_ref",
+    "fileRef": "file_ref",
+    "safePathRef": "safe_path_ref",
+}
 RAW_M18_RUNTIME_FIELD = re.compile(
     r"\b(raw(?:Prompt|Response|Transcript|File|Memory|Credential|Provider|Secret)[A-Za-z0-9_]*|"
     r"(?:prompt|response|transcript|provider|secret)(?:Body|Payload|Content))\b"
@@ -318,6 +341,8 @@ M36_FILE_REVIEW_BOUNDARY_MARKERS = [
     "Redacted preview",
     "Redaction summary",
     "Exact binding refs",
+    "Safe refs only",
+    "No mutating request is made",
     "Approval gate contract status",
     "Receipt plan metadata",
     "Review decisions are display-only and cannot capture approval",
@@ -333,6 +358,8 @@ M36_FILE_REVIEW_MOCK_MARKERS = [
     "NO_APPROVAL_CAPTURE",
     "NO_APPROVAL_PERSISTENCE",
     "NO_RAW_FILE_DISPLAY",
+    "SAFE_REFS_ONLY",
+    "NO_MUTATING_REQUESTS",
     "rawContentStored: false",
     "approvalCaptured: false",
     "approvalPersisted: false",
@@ -435,6 +462,7 @@ def verify(root: Path = ROOT) -> list[str]:
         for marker in M36_FILE_REVIEW_MOCK_MARKERS:
             if marker.lower() not in mock_lowered:
                 failures.append(f"M36 file review mock marker missing: {marker}")
+        failures.extend(_m36_file_review_fixture_failures(mock_path.relative_to(root), mock_text))
 
     approval_panel = app_root / "src/components/ApprovalQueuePanel.tsx"
     if approval_panel.exists():
@@ -473,6 +501,7 @@ def verify(root: Path = ROOT) -> list[str]:
         for marker in M36_FILE_REVIEW_BOUNDARY_MARKERS:
             if marker not in text:
                 failures.append(f"M36 file review boundary copy missing in {file_review_panel.relative_to(root)}: {marker}")
+        failures.extend(_m36_file_review_component_failures(file_review_panel.relative_to(root), text))
 
     routes = app_root / "src/routes.tsx"
     if routes.exists():
@@ -665,6 +694,31 @@ def _m18_runtime_field_failures(rel: Path, text: str) -> list[str]:
         failures.append(f"raw M18 runtime field in {rel}: {match.group(0)}")
     for match in CREDENTIAL_M18_RUNTIME_FIELD.finditer(m18_text):
         failures.append(f"credential-like M18 runtime field in {rel}: {match.group(0)}")
+    return failures
+
+
+def _m36_file_review_fixture_failures(rel: Path, text: str) -> list[str]:
+    failures: list[str] = []
+    m36_index = text.lower().find("m36filereview")
+    if m36_index == -1:
+        return failures
+    m36_text = text[m36_index:]
+    for match in M36_PRIVATE_OR_RAW_PATH_FRAGMENT.finditer(m36_text):
+        failures.append(f"private path fragment in M36 file review fixture in {rel}: {match.group(0)}")
+
+    for field_name, prefix in M36_SAFE_REF_PREFIXES.items():
+        for match in re.finditer(rf"{field_name}\s*:\s*['\"]([^'\"]+)['\"]", m36_text):
+            value = match.group(1)
+            if not value.startswith(prefix):
+                label = M36_SAFE_REF_LABELS[field_name]
+                failures.append(f"unsafe M36 {label} value in {rel}: expected prefix {prefix}")
+    return failures
+
+
+def _m36_file_review_component_failures(rel: Path, text: str) -> list[str]:
+    failures: list[str] = []
+    for match in M36_MUTATING_FILE_REVIEW_REQUEST.finditer(text):
+        failures.append(f"mutating M36 file review request in {rel}: {match.group(0).strip()}")
     return failures
 
 

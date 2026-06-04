@@ -772,6 +772,49 @@ def m36_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
     return failures
 
 
+M36_SAFE_REF_PREFIXES = {
+    "reviewPacketRef": "file-review-packet:",
+    "previewResultRef": "redacted-file-preview-output:",
+    "redactionSummaryRef": "file-review-redaction-summary:",
+    "fileRef": "file-ref:",
+    "safePathRef": "filesystem-preview-path:safe-root_",
+}
+M36_SAFE_REF_LABELS = {
+    "reviewPacketRef": "review_packet_ref",
+    "previewResultRef": "preview_result_ref",
+    "redactionSummaryRef": "redaction_summary_ref",
+    "fileRef": "file_ref",
+    "safePathRef": "safe_path_ref",
+}
+M36_PRIVATE_OR_RAW_PATH_FRAGMENT = re.compile(
+    r"(/Users/|/home/|[A-Za-z]:\\|\.\./|absolute_path|raw_absolute_path|raw file path)",
+    re.IGNORECASE,
+)
+M36_MUTATING_FILE_REVIEW_REQUEST = re.compile(
+    r"fetch\([^)]*(?:/files/review|/files/read|/context/propose|/context/inject|/memory/write|/tools/execute)[^)]*"
+    r"method\s*:\s*['\"](?:POST|PUT|PATCH|DELETE)['\"]",
+    re.IGNORECASE | re.DOTALL,
+)
+
+
+def m36_file_review_surface_failures(component_text: str, mock_text: str) -> List[str]:
+    failures: List[str] = []
+    for match in M36_MUTATING_FILE_REVIEW_REQUEST.finditer(component_text):
+        failures.append(f"mutating M36 file review request: {match.group(0).strip()}")
+
+    m36_index = mock_text.lower().find("m36filereview")
+    m36_text = mock_text[m36_index:] if m36_index != -1 else mock_text
+    for match in M36_PRIVATE_OR_RAW_PATH_FRAGMENT.finditer(m36_text):
+        failures.append(f"private path fragment in M36 file review fixture: {match.group(0)}")
+    for field_name, prefix in M36_SAFE_REF_PREFIXES.items():
+        for match in re.finditer(rf"{field_name}\s*:\s*['\"]([^'\"]+)['\"]", m36_text):
+            value = match.group(1)
+            if not value.startswith(prefix):
+                label = M36_SAFE_REF_LABELS[field_name]
+                failures.append(f"unsafe M36 {label} value: expected prefix {prefix}")
+    return failures
+
+
 def _normalize_m34_active_text(text: str) -> str:
     return re.sub(r"\s+", " ", text.replace("|", " | ").lower()).strip()
 
@@ -8653,6 +8696,8 @@ class FoundationGateEvaluator:
             "redacted preview display missing": "redacted preview",
             "redaction summary display missing": "redaction summary",
             "review packet ref display missing": "review_packet_ref",
+            "safe refs only marker missing": "safe refs only",
+            "no mutating request marker missing": "no mutating request is made",
             "preview result ref display missing": "preview_result_ref",
             "redaction summary ref display missing": "redaction_summary_ref",
             "file ref display missing": "file_ref",
@@ -8669,6 +8714,8 @@ class FoundationGateEvaluator:
                 failures.append(message)
 
         component_text = self._read(self.root / "apps/control-center/src/components/FileReviewSurfacePanel.tsx").lower()
+        mock_text = self._read(self.root / "apps/control-center/src/mocks/controlCenterData.ts")
+        failures.extend(m36_file_review_surface_failures(component_text=component_text, mock_text=mock_text))
         for fragment in (
             "approve",
             "deny",

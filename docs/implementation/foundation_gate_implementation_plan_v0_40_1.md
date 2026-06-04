@@ -1,8 +1,8 @@
-# Foundation Gate Implementation Plan v0.40.0
+# Foundation Gate Implementation Plan v0.40.1
 
-Status: historical Foundation Gate plan for v0.40.0.
+Status: active Foundation Gate plan for v0.40.1.
 
-v0.40.0 implements M36 CCC File Review Surface, Review-Only as a frontend-only
+v0.40.1 hardens M36 CCC File Review Surface, Review-Only as a frontend-only
 display surface.
 
 ## Gate Coverage
@@ -16,6 +16,11 @@ Foundation Gate must cover:
 - redacted preview display exists.
 - redaction summary display exists.
 - exact binding refs are displayed.
+- safe refs only are displayed.
+- private path-shaped refs are rejected by static verification.
+- raw path-shaped labels and traversal fragments are rejected by static
+  verification.
+- no mutating request is made by the file review surface.
 - review-only decision status is displayed.
 - approval gate contract status is displayed.
 - receipt plan metadata is displayed.
@@ -30,8 +35,9 @@ Foundation Gate must cover:
 ## Blocked Drift
 
 Gate must fail on approval capture, approval persistence, raw file display,
-raw file storage, full-file read output, file picker/browser/upload/root
-selector, export/download/copy-raw controls, context proposal, context
+raw file storage, full-file read output, unsafe ref prefixes, private path
+refs, traversal refs, mutating file-review requests, file picker/browser/upload
+root selector, export/download/copy-raw controls, context proposal, context
 injection, memory writes, execution/tool controls, backend route drift,
 dependency drift, M37 work, M38 work, or production authority.
 

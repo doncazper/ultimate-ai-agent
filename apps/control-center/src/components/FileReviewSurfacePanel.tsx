@@ -19,6 +19,10 @@ export function FileReviewSurfacePanel({ review }: { review: M36FileReviewData }
         Redacted file review packets are shown for local inspection only. The surface displays safe refs,
         redaction summaries, decision status, gate contract status, and receipt-plan metadata without adding approval capture.
       </p>
+      <p className="safe-copy">
+        Safe refs only are displayed. Packet selection is local read-only UI state. No mutating request is made by
+        this file review surface.
+      </p>
       <p className="safe-copy">{review.boundarySummary}</p>
       <div className="note-list" aria-label="M36 file review warnings">
         {review.warningCodes.map((code) => (

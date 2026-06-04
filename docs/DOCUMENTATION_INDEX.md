@@ -1,6 +1,6 @@
 # Documentation Index
 
-Current active baseline: **v0.40.0**
+Current active baseline: **v0.40.1**
 
 This index is the active entrypoint for documentation navigation. Historical release documents remain in the repository for audit history, but active truth starts with the current baseline files listed here.
 
@@ -14,8 +14,8 @@ docs/canonical/CANONICAL_DOC_MAP.md
 docs/canonical/09_roadmap.md
 docs/roadmap/README.md
 docs/archive/README.md
-docs/archive/releases/v0_40_0/README_IMPORT.md
-docs/archive/releases/v0_40_0/master_plan.md
+docs/archive/releases/v0_40_1/README_IMPORT.md
+docs/archive/releases/v0_40_1/master_plan.md
 docs/developer/LOCAL_LAUNCHER.md
 scripts/dev/README.md
 docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md
@@ -408,17 +408,17 @@ scripts/dev/README.md
 ```
 
 v0.37.4 supersedes the old active M35-M40 roadmap projection and defines the
-active M34-M60 sequence. v0.40.0 is the current active baseline after
-implementing M36 CCC File Review Surface, Review-Only as a frontend-only
-display surface. Active roadmap sources consistently keep v0.38.0 / M34 as
-Broader File Capability Review, keep M34 planning/docs/verifier only, mark M36
+active M34-M60 sequence. v0.40.1 is the current active baseline after
+hardening M36 CCC File Review Surface, Review-Only as a frontend-only display
+surface. Active roadmap sources consistently keep v0.38.0 / M34 as Broader
+File Capability Review, keep M34 planning/docs/verifier only, mark M36
 implemented/released, mark M37-M60 planned/provisional, and rely on
-documentation-integrity checks to guard against superseded-roadmap drift and
-stale current-baseline labels.
+documentation-integrity checks to guard against superseded-roadmap drift,
+stale current-baseline labels, and M36 read-only surface safety drift.
 
 ## Release Notes Index
 
-Current release notes: `docs/release_notes/v0_40_0.md`
+Current release notes: `docs/release_notes/v0_40_1.md`
 
 Historical release notes remain under `docs/release_notes/`. Historical docs may mention old active baselines in historical context; they are not the current source of truth.
 

@@ -1,8 +1,8 @@
 # M21-M40 Capability Charters
 
-Status: Active compatibility roadmap projection maintained through v0.40.0. M21-M36 are implemented/released through dedicated reviewed milestones. M34 is implemented/released by v0.38.0 as Broader File Capability Review planning/docs/verifier only. v0.39.0 implements M35 Safe File Review Workflow Contracts as contract-only, review-only logic over already-redacted preview results, v0.39.1 hardens M35 exact file/path binding, and v0.40.0 implements M36 CCC File Review Surface, Review-Only as frontend-only. M37-M60 remain planned/provisional.
+Status: Active compatibility roadmap projection maintained through v0.40.1. M21-M36 are implemented/released through dedicated reviewed milestones. M34 is implemented/released by v0.38.0 as Broader File Capability Review planning/docs/verifier only. v0.39.0 implements M35 Safe File Review Workflow Contracts as contract-only, review-only logic over already-redacted preview results, v0.39.1 hardens M35 exact file/path binding, v0.40.0 implements M36 CCC File Review Surface, Review-Only as frontend-only, and v0.40.1 hardens M36 read-only surface safety. M37-M60 remain planned/provisional.
 
-These charters define capability layers after M20. v0.40.0 implements M36 CCC File Review Surface, Review-Only as frontend-only display logic. M37-M60 remain future capability layers. Every milestone requires its own implementation prompt, review prompt, hardening expectation, and validation evidence before release.
+These charters define capability layers after M20. v0.40.1 is M36 read-only surface hardening only after v0.40.0 implemented CCC File Review Surface, Review-Only as frontend-only display logic. M37-M60 remain future capability layers. Every milestone requires its own implementation prompt, review prompt, hardening expectation, and validation evidence before release.
 
 ## Shared Rules
 
@@ -877,7 +877,7 @@ file read, file review workflow implementation, approval capture, context
 proposal, context injection, memory write, export, execution, dependency, or
 production authority. v0.39.0 implements M35 as contract-only Safe File Review
 Workflow Contracts, v0.39.1 hardens exact file/path binding, and v0.40.0
-implements M36 as CCC File Review Surface, Review-Only; M37-M60 remain
+implements M36 as CCC File Review Surface, Review-Only; v0.40.1 hardens M36 read-only surface safety; M37-M60 remain
 planned/provisional.
 
 Review prompt required: yes.

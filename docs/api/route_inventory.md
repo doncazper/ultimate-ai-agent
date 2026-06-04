@@ -114,6 +114,10 @@ review packets, redacted previews, redaction summaries, exact binding refs,
 review-only decision status, approval gate contract status, and receipt plan
 metadata. OpenAPI path count remains `74`.
 
+v0.40.1 M36 CCC File Review Surface Read-Only Safety hardening adds no backend
+route. It strengthens frontend-only safe-ref and no-mutating-request checks.
+OpenAPI path count remains `74`.
+
 M12 Control Center route group:
 
 - `/control-center/manifest`

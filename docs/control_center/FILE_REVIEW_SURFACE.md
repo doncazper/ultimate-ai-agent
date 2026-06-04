@@ -1,9 +1,10 @@
 # CCC File Review Surface
 
 Status: active M36 documentation.
-Current through: **v0.40.0**.
+Current through: **v0.40.1**.
 
-v0.40.0 / M36 implements the CCC File Review Surface, Review-Only. The
+v0.40.0 / M36 implements the CCC File Review Surface, Review-Only. v0.40.1
+hardens the read-only surface safety boundary. The
 surface displays redacted file review packets that were already produced by
 M35 contracts. It is a Control Center display surface only.
 
@@ -29,6 +30,9 @@ The surface may display:
 - review-only.
 - mock and non-authoritative when fallback data is shown.
 - redacted review packets only.
+- safe refs only.
+- no mutating request is made by the file review surface.
+- packet selection and expansion are local read-only UI state.
 - no approval capture.
 - no approval persistence.
 - no raw file access.

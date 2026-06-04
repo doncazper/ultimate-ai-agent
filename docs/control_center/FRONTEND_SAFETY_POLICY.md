@@ -173,6 +173,18 @@ injection, memory writes, export, execution, dependencies, or production
 Control Center authority. M37 remains planned/provisional. M38 remains
 planned/provisional.
 
+## v0.40.1 M36 File Review Surface Hardening
+
+v0.40.1 keeps `/files/review` frontend-only and review-only. It requires safe
+refs only, rejects private path-shaped refs, raw path-shaped labels, and
+traversal fragments in M36 static checks, and requires that packet selection or
+expansion make no mutating request.
+
+The surface still adds no approval capture, approval persistence, backend
+routes, raw file display, context proposal, context injection, memory writes,
+export/download/copy-raw controls, execution controls, dependencies, or
+production Control Center authority. M37 remains planned/provisional.
+
 ## M19 Mobile Safety Boundary
 
 Frontend code must not add mobile sensor APIs, native mobile endpoints, Android

@@ -1,13 +1,11 @@
 # Ultimate AI Agent Version
 
-Current active baseline: **v0.40.0**
+Current active baseline: **v0.40.1**
 
-v0.40.0 implements M36 CCC File Review Surface, Review-Only. It adds a
-frontend-only Control Center route for redacted file review packets, redacted
-preview display, redaction summary display, exact binding refs display,
-review-only decision status display, approval gate contract status display,
-receipt plan metadata display, mock/non-authoritative fallback data, frontend
-tests, documentation, static verification, documentation-integrity checks, and
+v0.40.1 hardens M36 CCC File Review Surface, Review-Only. It strengthens
+safe-ref-only display boundaries, private/raw path drift checks, local
+read-only packet selection/expansion guarantees, no-mutating-request checks,
+frontend tests, static verification, documentation-integrity checks, and
 Foundation Gate coverage.
 
 It adds no approval capture, approval persistence, backend review routes, raw

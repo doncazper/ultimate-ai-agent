@@ -1029,6 +1029,8 @@ def _verify_m36_file_review_surface_docs(root: Path, version: str | None) -> lis
         "M36 docs must say redacted preview": "redacted preview",
         "M36 docs must say redaction summary": "redaction summary",
         "M36 docs must say exact binding refs": "exact binding refs",
+        "M36 docs must say safe refs only": "safe refs only",
+        "M36 docs must say no mutating request": "no mutating request",
         "M36 docs must say review_packet_ref": "review_packet_ref",
         "M36 docs must say preview_result_ref": "preview_result_ref",
         "M36 docs must say redaction_summary_ref": "redaction_summary_ref",
