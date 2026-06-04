@@ -1,7 +1,7 @@
 # Redacted File Preview Redaction Policy
 
 Status: active M33 documentation.
-Current active baseline: **v0.37.0**
+Current active baseline: **v0.37.1**
 
 M33 redacts before result creation. Raw preview bytes may be read only inside the
 bounded redaction pipeline and must not leave that boundary.
@@ -20,5 +20,11 @@ output, raw transcript, credentials, private keys, browser profile data, signing
 assets, or local-only sensitive data.
 
 If content is binary, unsupported encoding, oversized, or unsafe after decoding,
-the preview is denied instead of returned. M34 remains planned/provisional.
+the preview is denied instead of returned.
 
+v0.37.1 adds a second result-boundary guard: a redacted-preview result is denied
+if its preview text still contains secret-like content. This preserves
+redaction-before-return even if an internal caller tries to bypass the normal
+redaction pipeline.
+
+M34 remains planned/provisional.

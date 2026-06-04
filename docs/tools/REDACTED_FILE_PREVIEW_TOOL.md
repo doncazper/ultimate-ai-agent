@@ -1,7 +1,7 @@
 # Redacted File Preview Tool
 
 Status: active M33 documentation.
-Current active baseline: **v0.37.0**
+Current active baseline: **v0.37.1**
 
 M33 implements the first safe local file read proposal as one governed tool
 runtime adapter entry:
@@ -23,6 +23,10 @@ Allowed behavior:
 - bounded preview bytes only.
 - redaction before result creation.
 - redacted preview and redaction summary only.
+- result-boundary validation that rejects unredacted secret-like preview
+  content even if an output object is constructed directly.
+- safe-root validation that denies a symlink safe root before any preview
+  attempt.
 - non-authoritative receipt plan with no raw content storage.
 
 Denied behavior:
@@ -41,4 +45,3 @@ Denied behavior:
 - Control Center raw-preview or execute controls.
 
 M34 remains planned/provisional for any broader file capability work.
-

@@ -1,7 +1,7 @@
 # Tool Runtime Receipt Plan
 
 Status: active M32 documentation.
-Current active baseline: **v0.37.0**
+Current active baseline: **v0.37.1**
 
 M32 receipt plans are non-authoritative summaries for allowlisted runtime
 invocations.

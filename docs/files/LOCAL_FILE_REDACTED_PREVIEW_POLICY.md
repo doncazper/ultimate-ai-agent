@@ -1,7 +1,7 @@
 # Local File Redacted Preview Policy
 
 Status: active M33 documentation.
-Current active baseline: **v0.37.0**
+Current active baseline: **v0.37.1**
 
 M33 local file preview is a governed proposal path, not arbitrary local file
 access. It may inspect one safe relative text path under a server-owned safe
@@ -14,5 +14,9 @@ read output, raw content return, raw content storage, content hashing, file
 mutation, backend raw-file routes, Control Center raw-preview controls, and
 context injection.
 
-M34 remains planned/provisional.
+v0.37.1 also denies a safe-root path that is itself a symlink before any preview
+attempt. The redacted preview output contract rejects secret-like preview text
+so raw secrets cannot be carried by direct result construction or a
+model_copy-mutated output.
 
+M34 remains planned/provisional.

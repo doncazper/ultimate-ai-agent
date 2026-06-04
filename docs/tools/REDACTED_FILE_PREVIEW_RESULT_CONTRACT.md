@@ -1,7 +1,7 @@
 # Redacted File Preview Result Contract
 
 Status: active M33 documentation.
-Current active baseline: **v0.37.0**
+Current active baseline: **v0.37.1**
 
 M33 returns a `RedactedFilePreviewOutput` only after policy and redaction pass.
 The result is non-authoritative and redacted-preview-only.
@@ -25,5 +25,10 @@ Result guarantees:
 The result schema has no raw content field. Redacted previews are not full-file
 read output, not source-of-truth authority, and not context injection.
 
-M34 remains planned/provisional.
+v0.37.1 hardens the result boundary so `RedactedFilePreviewOutput` rejects
+secret-like preview text such as API-key assignments, bearer tokens, password
+assignments, private-key markers, or high-entropy-looking tokens. That check is
+independent of the redaction pipeline so a directly constructed or
+model_copy-mutated output cannot become an unredacted preview carrier.
 
+M34 remains planned/provisional.

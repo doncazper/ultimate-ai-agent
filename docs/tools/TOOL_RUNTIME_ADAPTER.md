@@ -1,7 +1,7 @@
 # Tool Runtime Adapter
 
 Status: active M33 documentation.
-Current active baseline: **v0.37.0**
+Current active baseline: **v0.37.1**
 
 M31 introduced the first governed Tool Runtime Adapter path. M32 extended that
 path with one safe local filesystem metadata tool. M33 adds one bounded

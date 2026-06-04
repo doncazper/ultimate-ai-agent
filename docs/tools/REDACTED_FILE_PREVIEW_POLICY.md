@@ -1,7 +1,7 @@
 # Redacted File Preview Policy
 
 Status: active M33 documentation.
-Current active baseline: **v0.37.0**
+Current active baseline: **v0.37.1**
 
 M33 preview policy enables only bounded redacted preview generation. Generic raw
 content reads, full-file reads, content hashes, directory listing, recursive
@@ -32,5 +32,9 @@ traversal, hidden paths, secret-like paths, private-key-like paths, directory
 paths, symlinks, binary files, unsupported encodings, and oversized files are
 denied before any result is created.
 
-M34 remains planned/provisional.
+v0.37.1 additionally treats a safe-root path that is itself a symlink as
+unsafe. The evaluator revalidates the current safe root, relative path, tool
+ref, and disabled raw/full-read flags before it can return `preview_completed`;
+constructor validation alone is not trusted.
 
+M34 remains planned/provisional.

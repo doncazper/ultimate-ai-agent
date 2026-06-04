@@ -7353,7 +7353,7 @@ class FoundationGateEvaluator:
                 evaluate_tool_invocation,
             )
 
-            manifest = build_tool_runtime_manifest(baseline_version="0.37.0")
+            manifest = build_tool_runtime_manifest(baseline_version="0.37.1")
             policy = manifest.policy
             forbidden_flags = [
                 policy.arbitrary_tool_execution_enabled,
@@ -7677,7 +7677,9 @@ class FoundationGateEvaluator:
                 NOOP_TOOL_REF,
                 REDACTED_FILE_PREVIEW_TOOL_NAME,
                 REDACTED_FILE_PREVIEW_TOOL_REF,
+                FilePreviewRedactionSummary,
                 FilePreviewSafeRoot,
+                RedactedFilePreviewOutput,
                 RedactedFilePreviewStatus,
                 ToolInvocationKind,
                 ToolInvocationRequest,
@@ -7686,7 +7688,7 @@ class FoundationGateEvaluator:
                 evaluate_tool_invocation,
             )
 
-            manifest = build_tool_runtime_manifest(baseline_version="0.37.0")
+            manifest = build_tool_runtime_manifest(baseline_version="0.37.1")
             policy = manifest.policy
             if manifest.allowlisted_tool_refs != [NOOP_TOOL_REF, FILESYSTEM_METADATA_TOOL_REF, REDACTED_FILE_PREVIEW_TOOL_REF]:
                 failures.append("M33 manifest allowlist is not exactly no-op, filesystem metadata, and redacted preview")
@@ -7769,6 +7771,20 @@ class FoundationGateEvaluator:
                     ]
                     if any(unsafe_output_flags):
                         failures.append("M33 redacted preview output returned raw/full/hash/list/mutation/context data")
+                    try:
+                        RedactedFilePreviewOutput(
+                            output_ref="redacted-file-preview-output:gate-unsafe",
+                            status=RedactedFilePreviewStatus.preview_generated,
+                            root_ref="safe-root:gate-m33",
+                            safe_path_ref="filesystem-preview-path:safe-root_gate-m33/notes/report.md",
+                            redacted_preview="API_KEY=gate-secret-value",
+                            redaction_summary=FilePreviewRedactionSummary(),
+                            file_size_bytes=25,
+                        )
+                        failures.append("M33 redacted preview output accepted unredacted secret-like content")
+                    except ValueError as exc:
+                        if "REDACTED_FILE_PREVIEW_OUTPUT_CONTAINS_SECRET_LIKE_CONTENT" not in str(exc):
+                            failures.append("M33 redacted preview output rejected unsafe content with unexpected reason")
 
                 def require_denial(decision, required_reason: str, label: str) -> None:
                     if decision.status == ToolInvocationStatus.preview_completed or decision.execution_performed:
@@ -7822,6 +7838,31 @@ class FoundationGateEvaluator:
                     "BINARY_FILE_DENIED",
                     "binary file",
                 )
+                try:
+                    symlink_root_path = Path(tmp) / "safe-root-link"
+                    symlink_root_path.symlink_to(safe_root_path, target_is_directory=True)
+                    symlink_root = FilePreviewSafeRoot(
+                        root_ref="safe-root:gate-m33-link",
+                        root_path=symlink_root_path,
+                        safe_label="Gate symlink safe root",
+                    )
+                    require_denial(
+                        evaluate_tool_invocation(
+                            safe_request.model_copy(
+                                update={
+                                    "metadata": {
+                                        "root_ref": "safe-root:gate-m33-link",
+                                        "relative_path": "notes/report.md",
+                                    }
+                                }
+                            ),
+                            safe_roots=[symlink_root],
+                        ),
+                        "SAFE_ROOT_SYMLINK_DENIED",
+                        "symlink safe root",
+                    )
+                except (OSError, NotImplementedError):
+                    pass
                 large = notes / "large.md"
                 large.write_bytes(b"a" * 70000)
                 require_denial(

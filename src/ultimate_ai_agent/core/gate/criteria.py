@@ -1299,7 +1299,7 @@ def default_foundation_gate_criteria() -> List[FoundationGateCriterion]:
             "M33 Redacted File Preview Tool Safe",
             FoundationGateCategory.contracts,
             "FoundationGateEvaluator.check_m33_redacted_file_preview_tool_safe",
-            "M33 adds exactly one bounded redacted file preview proposal tool through the governed runtime adapter, restricted to server-owned safe roots, relative paths, redaction-before-return, no raw content output/storage, no full-file output, no content hash, no directory listing, no symlink following, no caller-selected roots, no mutation, and no shell/network/model/browser/mobile/remote/plugin execution.",
+            "M33 adds exactly one bounded redacted file preview proposal tool through the governed runtime adapter, restricted to server-owned safe roots, relative paths, redaction-before-return, no raw content output/storage, no full-file output, no content hash, no directory listing, no symlink following, no symlink safe roots, no caller-selected roots, no mutation, output-boundary secret-like preview denial, and no shell/network/model/browser/mobile/remote/plugin execution.",
             "M33 redacted file preview tool is missing or violates redacted-preview-only safety.",
             "critical",
         ),

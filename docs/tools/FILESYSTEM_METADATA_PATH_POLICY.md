@@ -1,7 +1,7 @@
 # Filesystem Metadata Path Policy
 
 Status: active M32 documentation.
-Current active baseline: **v0.37.0**
+Current active baseline: **v0.37.1**
 
 M32 filesystem metadata lookup is limited to server-owned safe roots. Callers
 may provide a safe root ref, but they may not provide arbitrary root paths or

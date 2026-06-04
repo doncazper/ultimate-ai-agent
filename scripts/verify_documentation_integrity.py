@@ -1252,6 +1252,10 @@ def _verify_m25_truth_docs(root: Path, version: str | None) -> list[str]:
                                 active_expectations["active docs must keep M34-M40 planned/provisional"] = (
                                     "m34-m40 remain planned/provisional"
                                 )
+                                if _version_tuple(version) >= (0, 37, 1):
+                                    active_expectations["active docs must mention M33/v0.37.1 hardening"] = (
+                                        "v0.37.1 hardens m33"
+                                    )
                             else:
                                 active_expectations["active docs must keep M32-M40 planned/provisional"] = (
                                     "m32-m40 remain planned/provisional"
@@ -1810,6 +1814,15 @@ def _verify_m25_truth_docs(root: Path, version: str | None) -> list[str]:
             "M33 docs must say result is not context injection": "context injection",
             "M33 docs must say M34 remains future": "m34 remains planned/provisional",
         }
+        if _version_tuple(version) >= (0, 37, 1):
+            m33_expectations.update(
+                {
+                    "M33 hardening docs must say symlink safe roots are denied": "symlink safe root",
+                    "M33 hardening docs must say output boundary rejects secret-like preview text": "output contract boundary",
+                    "M33 hardening docs must say evaluator boundaries revalidate": "evaluator",
+                    "M33 hardening docs must say constructor validation alone is not trusted": "constructor validation alone",
+                }
+            )
         for failure, fragment in m33_expectations.items():
             if fragment not in m33_docs:
                 failures.append(failure)
@@ -2499,6 +2512,8 @@ def _verify_post_m18_roadmap_status_labels(root: Path) -> list[str]:
     if active >= (0, 37, 0):
         if "v0.37.0 / m33" not in active_capability_charters or "status: implemented" not in active_capability_charters:
             failures.append("roadmap sequence must mark M33/v0.37.0 implemented")
+        if active >= (0, 37, 1) and "v0.37.1 / m33 hardening" not in active_capability_charters:
+            failures.append("roadmap sequence must mark M33/v0.37.1 hardening implemented")
         if (
             "first safe local file read proposal" not in active_capability_charters
             or "redacted preview" not in active_capability_charters

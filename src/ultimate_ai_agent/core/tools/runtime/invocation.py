@@ -58,6 +58,12 @@ def _denied_decision(request: ToolInvocationRequest, reasons: list[str]) -> Tool
 
 def _symlink_reason_codes(root: Path, normalized_path: str) -> list[str]:
     reasons: list[str] = []
+    try:
+        root_mode = root.lstat().st_mode
+    except FileNotFoundError:
+        return reasons
+    if stat.S_ISLNK(root_mode):
+        return ["SAFE_ROOT_SYMLINK_DENIED"]
     current = root
     for part in normalized_path.split("/"):
         current = current / part

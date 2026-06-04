@@ -1,7 +1,7 @@
 # Master Plan v0.37.0
 
-Status: active release packet.
-Current active baseline: **v0.37.0**
+Status: historical release packet.
+Release baseline: **v0.37.0**
 
 v0.37.0 implements M33 so the Python Agent Core can produce one bounded
 redacted file preview proposal under server-owned safe roots without returning
@@ -36,4 +36,3 @@ or storing raw file content.
 - dependencies, M34 work, or production authority.
 
 M34-M40 remain planned/provisional.
-

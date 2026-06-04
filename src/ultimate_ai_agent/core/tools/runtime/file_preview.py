@@ -163,6 +163,8 @@ class RedactedFilePreviewOutput(BaseModel):
         for ref in [self.output_ref, self.root_ref, self.safe_path_ref]:
             validate_tool_runtime_ref(ref, "preview_ref")
         validate_safe_tool_runtime_text(self.safe_message, "safe_message")
+        if _contains_unredacted_sensitive_preview(self.redacted_preview):
+            raise ValueError("REDACTED_FILE_PREVIEW_OUTPUT_CONTAINS_SECRET_LIKE_CONTENT")
         if not self.redacted_preview_returned or self.status != RedactedFilePreviewStatus.preview_generated:
             raise ValueError("REDACTED_FILE_PREVIEW_OUTPUT_INVALID")
         if self.preview_limit_bytes > DEFAULT_MAX_PREVIEW_BYTES:
@@ -184,6 +186,18 @@ class RedactedFilePreviewOutput(BaseModel):
         if any(unsafe_flags):
             raise ValueError("REDACTED_FILE_PREVIEW_OUTPUT_MUST_BE_REDACTED_ONLY")
         return self
+
+
+def _contains_unredacted_sensitive_preview(value: str) -> bool:
+    return any(
+        pattern.search(value)
+        for pattern in [
+            _SECRET_ASSIGNMENT_RE,
+            _BEARER_TOKEN_RE,
+            _PRIVATE_KEY_MARKER_RE,
+            _HIGH_ENTROPY_RE,
+        ]
+    )
 
 
 def _payload_flag(payload: Dict[str, object], *names: str) -> bool:

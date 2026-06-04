@@ -1,7 +1,7 @@
 # Filesystem Metadata Tool
 
 Status: active M32 documentation.
-Current active baseline: **v0.37.0**
+Current active baseline: **v0.37.1**
 
 M32 implements one safe local filesystem metadata tool:
 

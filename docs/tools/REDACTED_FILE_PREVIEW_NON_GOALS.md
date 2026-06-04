@@ -1,7 +1,7 @@
 # Redacted File Preview Non-Goals
 
 Status: active M33 documentation.
-Current active baseline: **v0.37.0**
+Current active baseline: **v0.37.1**
 
 M33 intentionally does not implement:
 
@@ -14,6 +14,7 @@ M33 intentionally does not implement:
 - recursive traversal.
 - glob, rglob, or os.walk behavior.
 - symlink following.
+- symlink safe roots.
 - hidden file reads.
 - secret-like path reads.
 - caller-selected arbitrary roots.
@@ -35,4 +36,3 @@ M33 intentionally does not implement:
 - dependencies or production authority.
 
 M34 remains planned/provisional for future broader file capability review.
-

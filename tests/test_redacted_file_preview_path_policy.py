@@ -113,6 +113,30 @@ def test_symlink_path_is_denied(tmp_path):
     assert "SYMLINK_DENIED" in decision.reason_codes
 
 
+def test_symlink_safe_root_is_denied_before_preview(tmp_path):
+    real_root = tmp_path / "real-root"
+    real_root.mkdir()
+    (real_root / "notes").mkdir()
+    (real_root / "notes" / "report.md").write_text("secret=outside-root-value\n", encoding="utf-8")
+    symlink_root = tmp_path / "safe-root-link"
+    try:
+        symlink_root.symlink_to(real_root, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pytest.skip("symlink creation not supported")
+    safe_root = FilePreviewSafeRoot(
+        root_ref="safe-root:test",
+        root_path=symlink_root,
+        safe_label="Symlink safe root",
+    )
+
+    decision = evaluate_tool_invocation(_request("notes/report.md"), safe_roots=[safe_root])
+
+    assert decision.status == ToolInvocationStatus.denied
+    assert "SAFE_ROOT_SYMLINK_DENIED" in decision.reason_codes
+    assert decision.result is None
+    assert "outside-root-value" not in str(decision.model_dump())
+
+
 @pytest.mark.parametrize(
     ("flag_name", "reason_code"),
     [
@@ -139,4 +163,3 @@ def test_preview_denies_model_copy_mutated_metadata_alias_flags(tmp_path, flag_n
 
     assert decision.status == ToolInvocationStatus.denied
     assert reason_code in decision.reason_codes
-

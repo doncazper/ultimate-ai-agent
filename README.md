@@ -12,22 +12,22 @@ allowed to become operational authority.
 
 | Field | Current state |
 |---|---|
-| Current active baseline | **v0.37.0** |
+| Current active baseline | **v0.37.1** |
 | Current milestone | **M33 - First Safe Local File Read Proposal, Redacted Preview Only** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **74** OpenAPI paths |
 | Production readiness | Not claimed |
 
-v0.37.0 implements M33 as the first safe local file read proposal: one
-governed redacted-preview-only runtime tool,
-`tool:filesystem.redacted_preview.v1`. The tool is bounded to server-owned
-safe roots, relative paths, small UTF-8 text previews, and
-redaction-before-return. It returns no raw file content, stores no raw content,
-exposes no raw absolute path, computes no content hash, lists no directories,
-follows no symlinks, mutates no files, adds no backend raw-file/execute routes,
-adds no dependencies, and claims no production authority. M34-M40 remain
-planned/provisional.
+v0.37.1 hardens M33 as the first safe local file read proposal: one governed
+redacted-preview-only runtime tool, `tool:filesystem.redacted_preview.v1`. The
+tool is bounded to server-owned safe roots, relative paths, small UTF-8 text
+previews, and redaction-before-return. It returns no raw file content, stores no
+raw content, exposes no raw absolute path, computes no content hash, lists no
+directories, follows no symlinks, rejects symlink safe roots before preview,
+rejects unredacted secret-like preview output at the result boundary, mutates no
+files, adds no backend raw-file/execute routes, adds no dependencies, and
+claims no production authority. M34-M40 remain planned/provisional.
 
 v0.29.5 is documentation policy polish. It remains the documentation
 organization cleanup baseline before the M26 and M27 implementation releases.
@@ -53,9 +53,9 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M28 Action Policy](docs/approvals/ACTION_POLICY.md)
 - [M27 Tool Broker v2](docs/tools/TOOL_BROKER_V2.md)
 - [M26 Grounded Recall Router](docs/recall/GROUNDED_RECALL_ROUTER.md)
-- [v0.37.0 release notes](docs/release_notes/v0_37_0.md)
-- [v0.37.0 release packet](docs/archive/releases/v0_37_0/README_IMPORT.md)
-- [v0.37.0 master plan](docs/archive/releases/v0_37_0/master_plan.md)
+- [v0.37.1 release notes](docs/release_notes/v0_37_1.md)
+- [v0.37.1 release packet](docs/archive/releases/v0_37_1/README_IMPORT.md)
+- [v0.37.1 master plan](docs/archive/releases/v0_37_1/master_plan.md)
 
 ## What This Project Is
 
@@ -259,6 +259,7 @@ The canonical roadmap source of truth is
 | v0.36.0 | M32 - Safe Local Filesystem Metadata Tool | Implemented/released |
 | v0.36.1 | M32 hardening - Filesystem Metadata Path Safety | Implemented/released |
 | v0.37.0 | M33 - First Safe Local File Read Proposal, Redacted Preview Only | Implemented/released |
+| v0.37.1 | M33 hardening - Redacted File Preview Safety | Implemented/released |
 | v0.38.0 | M34 - Broader File Capability Review | Planned/provisional |
 
 The roadmap intentionally separates contract planning, validation, preview,

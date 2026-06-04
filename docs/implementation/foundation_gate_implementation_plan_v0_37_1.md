@@ -1,10 +1,10 @@
-# Foundation Gate Implementation Plan v0.37.0
+# Foundation Gate Implementation Plan v0.37.1
 
-Status: historical Foundation Gate plan.
-Release baseline: **v0.37.0**
+Status: active Foundation Gate plan.
+Current active baseline: **v0.37.1**
 
-v0.37.0 adds Foundation Gate coverage for M33 First Safe Local File Read
-Proposal, Redacted Preview Only.
+v0.37.1 adds Foundation Gate coverage for M33 Redacted File Preview Safety
+hardening.
 
 Gate coverage includes:
 
@@ -17,10 +17,11 @@ Gate coverage includes:
   roots, file mutation, context injection, and production authority.
 - safe text fixture preview succeeds and redacts secret-like values.
 - result returns redacted preview and redaction summary only.
+- result rejects secret-like preview text at output construction.
 - result returns no raw content, stores no raw content, leaks no raw absolute
   path, and records no side effects.
-- binary, unsupported encoding, oversized, directory, symlink, traversal,
-  hidden, and secret-like paths are denied.
+- binary, unsupported encoding, oversized, directory, symlink, symlink safe
+  root, traversal, hidden, and secret-like paths are denied.
 - model_copy-mutated raw-read flags and raw-read tool refs are denied.
 - approval refs, `approval_test_*`, model/memory/context/tool-intent/task-plan
   refs, and arbitrary strings cannot authorize filesystem preview access.

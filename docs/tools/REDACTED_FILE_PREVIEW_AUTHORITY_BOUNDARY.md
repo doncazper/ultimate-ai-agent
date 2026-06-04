@@ -1,7 +1,7 @@
 # Redacted File Preview Authority Boundary
 
 Status: active M33 documentation.
-Current active baseline: **v0.37.0**
+Current active baseline: **v0.37.1**
 
 M33 file preview proposals are not authority. They are bounded, redacted,
 non-authoritative inspection aids.
@@ -26,5 +26,9 @@ authorize filesystem access or execution. Python Agent Core remains the
 governed authority boundary. Redacted previews are not context injection and do
 not create production authority.
 
-M34 remains planned/provisional.
+v0.37.1 keeps evaluator revalidation at the authority boundary: pre-built or
+model_copy-mutated requests still re-check safe roots, relative paths, disabled
+raw/full-read flags, disabled mutation/context flags, and the allowlisted tool
+ref before any redacted preview decision can be returned.
 
+M34 remains planned/provisional.

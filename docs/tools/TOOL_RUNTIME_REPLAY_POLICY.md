@@ -1,7 +1,7 @@
 # Tool Runtime Replay Policy
 
 Status: active M32 documentation.
-Current active baseline: **v0.37.0**
+Current active baseline: **v0.37.1**
 
 M32 runtime invocations require replay-key protection. The evaluator
 revalidates the current request object and denies replay-key reuse before

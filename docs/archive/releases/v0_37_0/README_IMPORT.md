@@ -1,7 +1,7 @@
 # README Import v0.37.0
 
-Status: active release packet.
-Current active baseline: **v0.37.0**
+Status: historical release packet.
+Release baseline: **v0.37.0**
 
 v0.37.0 implements M33 First Safe Local File Read Proposal, Redacted Preview
 Only.
@@ -18,4 +18,3 @@ no backend raw-file/execute routes, Control Center raw-preview/execute controls,
 dependencies, or production authority.
 
 OpenAPI path count remains `74`. M34-M40 remain planned/provisional.
-

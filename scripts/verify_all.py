@@ -3236,10 +3236,10 @@ def verify_m32_filesystem_metadata_tool_safety():
     policy = manifest.policy
     active_text = (ROOT / "VERSION.md").read_text(encoding="utf-8")
     expected_m32_allowlist = [NOOP_TOOL_REF, FILESYSTEM_METADATA_TOOL_REF]
-    if "v0.37.0" in active_text:
+    if "v0.37." in active_text:
         expected_m32_allowlist.append(REDACTED_FILE_PREVIEW_TOOL_REF)
     if manifest.allowlisted_tool_refs != expected_m32_allowlist:
-        print("FAIL: M32 manifest allowlist is not exactly no-op plus filesystem metadata")
+        print("FAIL: M32/M33 manifest allowlist is not the expected safe tool set")
         sys.exit(1)
     unsafe_flags = [
         policy.arbitrary_tool_execution_enabled,
@@ -3464,10 +3464,10 @@ def verify_m33_redacted_file_preview_tool_safety():
         "docs/tools/REDACTED_FILE_PREVIEW_AUTHORITY_BOUNDARY.md",
         "docs/tools/REDACTED_FILE_PREVIEW_NON_GOALS.md",
         "docs/tools/M33_TO_M34_BOUNDARY.md",
-        "docs/release_notes/v0_37_0.md",
-        "docs/archive/releases/v0_37_0/README_IMPORT.md",
-        "docs/archive/releases/v0_37_0/master_plan.md",
-        "docs/implementation/foundation_gate_implementation_plan_v0_37_0.md",
+        "docs/release_notes/v0_37_1.md",
+        "docs/archive/releases/v0_37_1/README_IMPORT.md",
+        "docs/archive/releases/v0_37_1/master_plan.md",
+        "docs/implementation/foundation_gate_implementation_plan_v0_37_1.md",
     ]
     for rel_path in required_files:
         if not (ROOT / rel_path).exists():
@@ -3515,7 +3515,10 @@ def verify_m33_redacted_file_preview_tool_safety():
             NOOP_TOOL_REF,
             REDACTED_FILE_PREVIEW_TOOL_NAME,
             REDACTED_FILE_PREVIEW_TOOL_REF,
+            FilePreviewRedactionSummary,
             FilePreviewSafeRoot,
+            RedactedFilePreviewOutput,
+            RedactedFilePreviewStatus,
             ToolInvocationKind,
             ToolInvocationRequest,
             ToolInvocationStatus,
@@ -3530,7 +3533,7 @@ def verify_m33_redacted_file_preview_tool_safety():
         print(f"FAIL: {failure}")
         sys.exit(1)
 
-    manifest = build_tool_runtime_manifest(baseline_version="0.37.0")
+    manifest = build_tool_runtime_manifest(baseline_version="0.37.1")
     if manifest.allowlisted_tool_refs != [NOOP_TOOL_REF, FILESYSTEM_METADATA_TOOL_REF, REDACTED_FILE_PREVIEW_TOOL_REF]:
         print("FAIL: M33 manifest allowlist is not no-op, metadata, and redacted preview only")
         sys.exit(1)
@@ -3623,6 +3626,22 @@ def verify_m33_redacted_file_preview_tool_safety():
         if any(unsafe_output_flags) or not output.redacted_preview_returned:
             print("FAIL: M33 redacted preview output is not redacted-preview-only")
             sys.exit(1)
+        try:
+            RedactedFilePreviewOutput(
+                output_ref="redacted-file-preview-output:verify-unsafe",
+                status=RedactedFilePreviewStatus.preview_generated,
+                root_ref="safe-root:verify-m33",
+                safe_path_ref="filesystem-preview-path:safe-root_verify-m33/notes/report.md",
+                redacted_preview="API_KEY=verify-secret-value",
+                redaction_summary=FilePreviewRedactionSummary(),
+                file_size_bytes=27,
+            )
+            print("FAIL: M33 redacted preview output accepted unredacted secret-like content")
+            sys.exit(1)
+        except ValueError as exc:
+            if "REDACTED_FILE_PREVIEW_OUTPUT_CONTAINS_SECRET_LIKE_CONTENT" not in str(exc):
+                print("FAIL: M33 redacted preview output rejected unsafe content with unexpected reason")
+                sys.exit(1)
 
         for relative_path, reason in [
             ("/etc/passwd", "ABSOLUTE_PATH_DENIED"),
@@ -3654,6 +3673,31 @@ def verify_m33_redacted_file_preview_tool_safety():
             "BINARY_FILE_DENIED",
             "binary file",
         )
+        try:
+            symlink_root_path = Path(tmp) / "safe-root-link"
+            symlink_root_path.symlink_to(safe_root_path, target_is_directory=True)
+            symlink_root = FilePreviewSafeRoot(
+                root_ref="safe-root:verify-m33-link",
+                root_path=symlink_root_path,
+                safe_label="Verify symlink safe root",
+            )
+            require_denial(
+                evaluate_tool_invocation(
+                    safe_request.model_copy(
+                        update={
+                            "metadata": {
+                                "root_ref": "safe-root:verify-m33-link",
+                                "relative_path": "notes/report.md",
+                            }
+                        }
+                    ),
+                    safe_roots=[symlink_root],
+                ),
+                "SAFE_ROOT_SYMLINK_DENIED",
+                "symlink safe root",
+            )
+        except (OSError, NotImplementedError):
+            pass
         for flag_name, reason in [
             ("raw_content_enabled", "RAW_FILE_CONTENT_DENIED"),
             ("full_file_read_enabled", "FULL_FILE_READ_DENIED"),
