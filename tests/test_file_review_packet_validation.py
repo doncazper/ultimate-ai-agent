@@ -33,6 +33,7 @@ def _packet():
         preview_output=_preview_output(),
         actor_ref="user:packet",
         request_ref="file-review-request:packet",
+        file_ref="file-ref:packet-review",
         safe_summary="Review a redacted preview packet.",
     )
 

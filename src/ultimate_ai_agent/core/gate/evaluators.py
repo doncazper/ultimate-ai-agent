@@ -8432,6 +8432,7 @@ class FoundationGateEvaluator:
                 preview_output=preview,
                 actor_ref="user:gate",
                 request_ref="file-review-request:gate",
+                file_ref="file-ref:gate-review",
                 safe_summary="Review a redacted preview packet.",
             )
             packet_decision = evaluate_file_review_packet(packet)
@@ -8452,6 +8453,8 @@ class FoundationGateEvaluator:
                 review_packet_ref=packet.review_packet_ref,
                 preview_result_ref=packet.source.preview_result_ref,
                 redaction_summary_ref=packet.redaction_verification.redaction_summary_ref,
+                file_ref=packet.source.file_ref,
+                safe_path_ref=packet.source.safe_path_ref,
                 issued_at=utc_now(),
                 expires_at=utc_now() + timedelta(minutes=5),
             )
@@ -8474,6 +8477,22 @@ class FoundationGateEvaluator:
             )
             if "FILE_REVIEW_APPROVAL_PACKET_MISMATCH" not in mismatch_decision.reason_codes:
                 failures.append("M35 approval gate did not deny mismatched packet")
+            file_ref_mismatch_decision = evaluate_file_review_gate(
+                packet.model_copy(update={"source": packet.source.model_copy(update={"file_ref": "file-ref:gate-mutated"})}),
+                approval=approval,
+                current_time=utc_now(),
+            )
+            if "FILE_REVIEW_APPROVAL_FILE_REF_MISMATCH" not in file_ref_mismatch_decision.reason_codes:
+                failures.append("M35 approval gate did not deny mutated packet file_ref")
+            path_ref_mismatch_decision = evaluate_file_review_gate(
+                packet.model_copy(
+                    update={"source": packet.source.model_copy(update={"safe_path_ref": "filesystem-preview-path:safe-root_gate/docs/mutated.md"})}
+                ),
+                approval=approval,
+                current_time=utc_now(),
+            )
+            if "FILE_REVIEW_APPROVAL_PATH_REF_MISMATCH" not in path_ref_mismatch_decision.reason_codes:
+                failures.append("M35 approval gate did not deny mutated packet safe_path_ref")
             test_ref_decision = evaluate_file_review_gate(
                 packet,
                 approval=approval.model_copy(update={"approval_ref": "approval_test_gate"}),

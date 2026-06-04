@@ -1,6 +1,6 @@
 # Documentation Index
 
-Current active baseline: **v0.39.0**
+Current active baseline: **v0.39.1**
 
 This index is the active entrypoint for documentation navigation. Historical release documents remain in the repository for audit history, but active truth starts with the current baseline files listed here.
 
@@ -14,8 +14,8 @@ docs/canonical/CANONICAL_DOC_MAP.md
 docs/canonical/09_roadmap.md
 docs/roadmap/README.md
 docs/archive/README.md
-docs/archive/releases/v0_39_0/README_IMPORT.md
-docs/archive/releases/v0_39_0/master_plan.md
+docs/archive/releases/v0_39_1/README_IMPORT.md
+docs/archive/releases/v0_39_1/master_plan.md
 docs/developer/LOCAL_LAUNCHER.md
 scripts/dev/README.md
 docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md
@@ -321,7 +321,7 @@ Model runtime docs distinguish simulated runtime behavior, dev/manual loopback r
 
 M11 runtime readiness docs describe status/report validation only. They do not describe production runtime execution. v0.15.1 clarifies local loopback policy as supported validation-only and `fake_manual_loopback_smoke` as a fake/test report origin only.
 
-v0.26.0 / M22 adds Local Model Runtime Activation Contract docs as contract/planning/validation only. v0.27.0 / M23 adds the first bounded manual local model call path. v0.28.0 / M24 adds Memory Provider Abstraction + Local Memory Store as governed reviewed-write-only local memory foundation. v0.29.0 / M25 adds Truth Source Router + Evidence Claim Checker as deterministic local contracts over provided refs only. v0.29.5 is documentation policy polish that polishes duplicated policy wording. v0.30.0 implements M26 Grounded Recall Router + Evidence-Linked Context Pack Builder. v0.31.0 implements M27 Tool Broker v2 + Safe Tool Intent Contracts. v0.32.0 implements M28 Approval Authority v2 + Action Policy Expansion. v0.33.0 implements M29 Agent Task Planning Engine. v0.34.0 implements M30 Multi-Step Execution Framework. v0.35.0 implements M31 Real Tool Runtime Adapter, Single Safe No-Op Tool. v0.36.0 implements M32 Safe Local Filesystem Metadata Tool. v0.37.0 implements M33 First Safe Local File Read Proposal, Redacted Preview Only. v0.38.0 implements M34 Broader File Capability Review as planning/docs/verifier only. v0.39.0 implements M35 Safe File Review Workflow Contracts as contract-only, review-only logic over already-redacted preview results. Memory is recall, not authority. Memory is not ground truth. v0.39.0 adds no production installer, backend route, arbitrary tool execution, raw file output, full-file read output, content hash, directory listing, recursive traversal, symlink following, file mutation, memory write, Event Ledger mutation, network call, web search, model/provider call, plugin enablement, browser automation, mobile/device access, remote execution, context proposal, context injection, export, dependency, production persistence, M36 implementation, mobile/TestFlight implementation, or production authority. OpenAPI path count remains `74`. M36-M60 remain planned/provisional.
+v0.26.0 / M22 adds Local Model Runtime Activation Contract docs as contract/planning/validation only. v0.27.0 / M23 adds the first bounded manual local model call path. v0.28.0 / M24 adds Memory Provider Abstraction + Local Memory Store as governed reviewed-write-only local memory foundation. v0.29.0 / M25 adds Truth Source Router + Evidence Claim Checker as deterministic local contracts over provided refs only. v0.29.5 is documentation policy polish that polishes duplicated policy wording. v0.30.0 implements M26 Grounded Recall Router + Evidence-Linked Context Pack Builder. v0.31.0 implements M27 Tool Broker v2 + Safe Tool Intent Contracts. v0.32.0 implements M28 Approval Authority v2 + Action Policy Expansion. v0.33.0 implements M29 Agent Task Planning Engine. v0.34.0 implements M30 Multi-Step Execution Framework. v0.35.0 implements M31 Real Tool Runtime Adapter, Single Safe No-Op Tool. v0.36.0 implements M32 Safe Local Filesystem Metadata Tool. v0.37.0 implements M33 First Safe Local File Read Proposal, Redacted Preview Only. v0.38.0 implements M34 Broader File Capability Review as planning/docs/verifier only. v0.39.0 implements M35 Safe File Review Workflow Contracts as contract-only, review-only logic over already-redacted preview results. v0.39.1 hardens exact file/path binding for M35 approvals. Memory is recall, not authority. Memory is not ground truth. v0.39.1 adds no production installer, backend route, arbitrary tool execution, raw file output, full-file read output, content hash, directory listing, recursive traversal, symlink following, file mutation, memory write, Event Ledger mutation, network call, web search, model/provider call, plugin enablement, browser automation, mobile/device access, remote execution, context proposal, context injection, export, dependency, production persistence, M36 implementation, mobile/TestFlight implementation, or production authority. OpenAPI path count remains `74`. M36-M60 remain planned/provisional.
 
 ## Active Remote Worker and Private Mesh Docs
 
@@ -403,8 +403,8 @@ scripts/dev/README.md
 ```
 
 v0.37.4 supersedes the old active M35-M40 roadmap projection and defines the
-active M34-M60 sequence. v0.39.0 is the current active baseline after
-implementing M35 Safe File Review Workflow Contracts. Active roadmap sources
+active M34-M60 sequence. v0.39.1 is the current active baseline after
+hardening M35 Safe File Review Workflow Contracts exact file/path binding. Active roadmap sources
 consistently keep v0.38.0 / M34 as Broader File Capability Review, keep M34
 planning/docs/verifier only, mark M36-M60 planned/provisional, and rely on
 documentation-integrity checks to guard against superseded-roadmap drift and
@@ -412,7 +412,7 @@ stale current-baseline labels.
 
 ## Release Notes Index
 
-Current release notes: `docs/release_notes/v0_39_0.md`
+Current release notes: `docs/release_notes/v0_39_1.md`
 
 Historical release notes remain under `docs/release_notes/`. Historical docs may mention old active baselines in historical context; they are not the current source of truth.
 

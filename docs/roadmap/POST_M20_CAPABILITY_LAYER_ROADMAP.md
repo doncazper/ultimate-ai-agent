@@ -1,6 +1,6 @@
 # Post-M20 Capability Layer Roadmap
 
-Status: Active roadmap projection maintained through v0.39.0.
+Status: Active roadmap projection maintained through v0.39.1.
 
 v0.38.0 implements M34 Broader File Capability Review as planning,
 architecture review, documentation, verifier, and Foundation Gate work only.
@@ -13,11 +13,12 @@ automation, Computer Use, plugin enablement, dependency, architecture behavior
 change, raw file read, file review workflow implementation, approval capture,
 context injection, memory write, export, or production authority.
 
-No integration is added. No dependency is added. v0.39.0 implements M35 Safe
-File Review Workflow Contracts as contract-only, review-only logic over
-already-redacted preview results.
+No integration is added. No dependency is added. v0.39.1 hardens M35 Safe File
+Review Workflow Contracts exact file/path binding over already-redacted preview
+results.
 
-M21-M35 are implemented/released through dedicated reviewed milestones. M36-M60
+M21-M35 are implemented/released through dedicated reviewed milestones. v0.39.1
+is M35 hardening only. M36-M60
 remain planned/provisional. M34 is implemented/released as planning/docs/verifier
 only. M35 is implemented/released as Safe File Review Workflow Contracts. M42 is the first mobile
 planning refresh in this new sequence. M44 is the first iOS skeleton milestone.
@@ -47,6 +48,7 @@ The detailed post-M33 supersession source of truth is
 | v0.37.0 | M33 | First Safe Local File Read Proposal, Redacted Preview Only | implemented/released |
 | v0.38.0 | M34 | Broader File Capability Review | implemented/released planning/docs/verifier only |
 | v0.39.0 | M35 | Safe File Review Workflow Contracts | implemented/released contract-only |
+| v0.39.1 | M35 hardening | File Review Exact File/Path Binding | implemented/released hardening |
 | v0.40.0 | M36 | CCC File Review Surface, Review-Only | planned/provisional |
 | v0.41.0 | M37 | Review Approval Capture, Review-Only Persistence | planned/provisional |
 | v0.42.0 | M38 | Safe Context Proposal From Approved Review | planned/provisional |
@@ -75,14 +77,13 @@ The detailed post-M33 supersession source of truth is
 
 ## Prompt-Pack Strategy
 
-Recommended next prompt after v0.39.0:
+Recommended next prompt after v0.39.1:
 
 ```text
-v0.39.1 / M35 hardening only if desired, otherwise v0.40.0 / M36 - CCC File Review Surface, Review-Only
+v0.40.0 / M36 - CCC File Review Surface, Review-Only
 ```
 
-The next three prompt packs are M35 Safe File Review Workflow hardening if
-desired, M36 CCC File Review Surface
+The next prompt packs are M36 CCC File Review Surface
 implementation/browser-smoke review/hardening, and M37 Review Approval Capture
 review-only persistence.
 

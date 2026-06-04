@@ -1,4 +1,4 @@
-# 09 - Roadmap v0.39.0
+# 09 - Roadmap v0.39.1
 
 Status: Active foundation-first roadmap. This is the single roadmap source of truth.
 
@@ -25,7 +25,7 @@ The original foundation sequence established runtime hygiene, local runtime/cont
 
 ## Current accepted baseline
 
-The active accepted baseline is v0.39.0. v0.39.0 implements M35 Safe File Review Workflow Contracts as contract-only, review-only logic over already-redacted preview results. It adds redacted review packet contracts, redaction verification, exact approval binding evaluation, review-only decision envelopes, no-raw receipt plans, evaluator revalidation, tests, static verification, documentation, and Foundation Gate coverage. It adds no Control Center file review UI, approval capture, approval persistence, raw file access, raw content, full-file reads, unredacted preview, context proposal, context injection, memory writes, export, execution, backend routes, dependencies, M36 work, M37 work, M38 work, or production authority. v0.38.2 repaired M34 current-baseline labels and documentation-integrity coverage after the v0.38.1 Yellow review. v0.38.0 implements M34 Broader File Capability Review as planning, architecture review, documentation, verifier, and Foundation Gate work only. M36-M60 remain planned/provisional.
+The active accepted baseline is v0.39.1. v0.39.1 hardens M35 Safe File Review Workflow Contracts by requiring exact approval binding across actor, review packet, preview result, redaction summary, file_ref, and safe_path_ref. It denies file/path mismatches, including model_copy-mutated packet file/path refs, while preserving review-only decision envelopes, no-raw receipt plans, evaluator revalidation, tests, static verification, documentation, and Foundation Gate coverage. It adds no Control Center file review UI, approval capture, approval persistence, raw file access, raw content, full-file reads, unredacted preview, context proposal, context injection, memory writes, export, execution, backend routes, dependencies, M36 work, M37 work, M38 work, or production authority. v0.39.0 implements M35 Safe File Review Workflow Contracts as contract-only, review-only logic over already-redacted preview results. v0.38.2 repaired M34 current-baseline labels and documentation-integrity coverage after the v0.38.1 Yellow review. v0.38.0 implements M34 Broader File Capability Review as planning, architecture review, documentation, verifier, and Foundation Gate work only. M36-M60 remain planned/provisional.
 
 v0.25.0 adds:
 
@@ -298,6 +298,7 @@ v0.38.0 / M34 — Broader File Capability Review, implemented/released planning/
 v0.38.1 — M34 hardening: File Capability Review Boundary Clarity, reviewed Yellow and superseded by v0.38.2
 v0.38.2 — M34 current baseline label + documentation integrity repair, implemented/released docs/verifier-only
 v0.39.0 / M35 — Safe File Review Workflow Contracts, implemented/released contract-only
+v0.39.1 / M35 hardening — File Review Exact File/Path Binding, implemented/released
 v0.40.0 / M36 — CCC File Review Surface, Review-Only, planned/provisional
 v0.41.0 / M37 — Review Approval Capture, Review-Only Persistence, planned/provisional
 v0.42.0 / M38 — Safe Context Proposal From Approved Review, planned/provisional

@@ -1,7 +1,7 @@
 # Broader File Capability Review
 
 Status: active M34 documentation.
-Current through: **v0.39.0**.
+Current through: **v0.39.1**.
 
 M34 implements Broader File Capability Review as a planning, architecture
 review, documentation, verifier, and Foundation Gate milestone only. It does

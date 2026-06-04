@@ -27,6 +27,7 @@ def _packet(**overrides):
         preview_output=preview,
         actor_ref="user:authority",
         request_ref="file-review-request:authority",
+        file_ref="file-ref:authority-review",
         safe_summary="Review a redacted preview packet.",
     )
     return packet.model_copy(update=overrides) if overrides else packet

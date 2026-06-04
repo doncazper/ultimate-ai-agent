@@ -78,7 +78,7 @@ class FileReviewPacketSource(BaseModel):
     root_ref: str = Field(..., min_length=1)
     actor_ref: str = Field(..., min_length=1)
     request_ref: str = Field(..., min_length=1)
-    file_ref: Optional[str] = None
+    file_ref: str = Field(..., min_length=1)
 
     model_config = ConfigDict(extra="forbid")
 
@@ -90,10 +90,9 @@ class FileReviewPacketSource(BaseModel):
             (self.root_ref, "root_ref"),
             (self.actor_ref, "actor_ref"),
             (self.request_ref, "request_ref"),
+            (self.file_ref, "file_ref"),
         ]:
             validate_action_ref(value, field_name)
-        if self.file_ref:
-            validate_action_ref(self.file_ref, "file_ref")
         return self
 
 
@@ -221,6 +220,8 @@ class UserFileReviewApproval(BaseModel):
     review_packet_ref: str
     preview_result_ref: str
     redaction_summary_ref: str
+    file_ref: str
+    safe_path_ref: str
     issued_at: datetime = Field(default_factory=utc_now)
     expires_at: Optional[datetime] = None
     revoked_at: Optional[datetime] = None
@@ -241,6 +242,8 @@ class UserFileReviewApproval(BaseModel):
             (self.review_packet_ref, "review_packet_ref"),
             (self.preview_result_ref, "preview_result_ref"),
             (self.redaction_summary_ref, "redaction_summary_ref"),
+            (self.file_ref, "file_ref"),
+            (self.safe_path_ref, "safe_path_ref"),
         ]:
             validate_action_ref(value, field_name)
         if self.replay_nonce:
@@ -356,6 +359,8 @@ class FileReviewGate(BaseModel):
     expected_review_packet_ref: str
     expected_preview_result_ref: str
     expected_redaction_summary_ref: str
+    expected_file_ref: str
+    expected_safe_path_ref: str
 
     model_config = ConfigDict(extra="forbid")
 
@@ -367,6 +372,8 @@ class FileReviewGate(BaseModel):
             (self.expected_review_packet_ref, "expected_review_packet_ref"),
             (self.expected_preview_result_ref, "expected_preview_result_ref"),
             (self.expected_redaction_summary_ref, "expected_redaction_summary_ref"),
+            (self.expected_file_ref, "expected_file_ref"),
+            (self.expected_safe_path_ref, "expected_safe_path_ref"),
         ]:
             validate_action_ref(value, field_name)
         return self

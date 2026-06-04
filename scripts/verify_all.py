@@ -3799,7 +3799,7 @@ def verify_m34_broader_file_capability_review_safety():
         "m36 remains planned/provisional": "M34 docs do not keep M36 planned/provisional",
     }
     current_version = (ROOT / "VERSION.md").read_text(encoding="utf-8")
-    if "v0.39.0" in current_version:
+    if "v0.39." in current_version:
         required_fragments["v0.39.0 implements m35"] = "M34 docs do not acknowledge implemented M35"
     else:
         required_fragments["m35 remains planned/provisional"] = "M34 docs do not keep M35 planned/provisional"
@@ -3845,7 +3845,7 @@ def verify_m34_broader_file_capability_review_safety():
         "raw file export is implemented",
         "backend file route is implemented",
     ]
-    if "v0.39.0" not in current_version:
+    if "v0.39." not in current_version:
         forbidden_doc_fragments.append("safe file review workflow is implemented")
     for fragment in forbidden_doc_fragments:
         if fragment in docs_text:
@@ -3887,7 +3887,7 @@ def verify_m34_broader_file_capability_review_safety():
                     print(f"FAIL: M34 forbidden file-review frontend fragment in {rel}: {fragment}")
                     sys.exit(1)
 
-    if "v0.39.0" in current_version:
+    if "v0.39." in current_version:
         print("OK: M34 broader file capability review is docs/verifier-only, route-free, acknowledges M35, and keeps M36 future")
     else:
         print("OK: M34 broader file capability review is docs/verifier-only, route-free, and keeps M35/M36 future")
@@ -4006,6 +4006,7 @@ def verify_m35_safe_file_review_workflow_safety():
         preview_output=preview,
         actor_ref="user:verify",
         request_ref="file-review-request:verify",
+        file_ref="file-ref:verify-review",
         safe_summary="Review a redacted preview packet.",
     )
     if evaluate_file_review_packet(packet).status != FileReviewDecisionStatus.packet_valid_for_review:
@@ -4022,6 +4023,8 @@ def verify_m35_safe_file_review_workflow_safety():
         review_packet_ref=packet.review_packet_ref,
         preview_result_ref=packet.source.preview_result_ref,
         redaction_summary_ref=packet.redaction_verification.redaction_summary_ref,
+        file_ref=packet.source.file_ref,
+        safe_path_ref=packet.source.safe_path_ref,
         expires_at=utc_now() + timedelta(minutes=5),
     )
     allowed = evaluate_file_review_gate(packet, approval=approval, current_time=utc_now())
@@ -4034,6 +4037,22 @@ def verify_m35_safe_file_review_workflow_safety():
         current_time=utc_now(),
     ).reason_codes:
         print("FAIL: M35 approval gate did not deny mismatched packet ref")
+        sys.exit(1)
+    if "FILE_REVIEW_APPROVAL_FILE_REF_MISMATCH" not in evaluate_file_review_gate(
+        packet.model_copy(update={"source": packet.source.model_copy(update={"file_ref": "file-ref:verify-mutated"})}),
+        approval=approval,
+        current_time=utc_now(),
+    ).reason_codes:
+        print("FAIL: M35 approval gate did not deny mutated packet file_ref")
+        sys.exit(1)
+    if "FILE_REVIEW_APPROVAL_PATH_REF_MISMATCH" not in evaluate_file_review_gate(
+        packet.model_copy(
+            update={"source": packet.source.model_copy(update={"safe_path_ref": "filesystem-preview-path:safe-root_verify/docs/mutated.md"})}
+        ),
+        approval=approval,
+        current_time=utc_now(),
+    ).reason_codes:
+        print("FAIL: M35 approval gate did not deny mutated packet safe_path_ref")
         sys.exit(1)
     if "FILE_REVIEW_APPROVAL_TEST_REF_DENIED" not in evaluate_file_review_gate(
         packet,

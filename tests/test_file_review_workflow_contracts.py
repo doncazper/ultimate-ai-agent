@@ -40,6 +40,7 @@ def _packet(**overrides):
         preview_output=_preview_output(),
         actor_ref="user:m35",
         request_ref="file-review-request:m35",
+        file_ref="file-ref:m35-report",
         safe_summary="Review the redacted preview packet.",
         **overrides,
     )
@@ -52,6 +53,8 @@ def _approval(packet, **overrides):
         "review_packet_ref": packet.review_packet_ref,
         "preview_result_ref": packet.source.preview_result_ref,
         "redaction_summary_ref": packet.redaction_verification.redaction_summary_ref,
+        "file_ref": packet.source.file_ref,
+        "safe_path_ref": packet.source.safe_path_ref,
         "issued_at": utc_now(),
         "expires_at": utc_now() + timedelta(minutes=5),
     }
@@ -86,6 +89,7 @@ def test_review_packet_is_built_from_redacted_preview_output_only():
     assert packet.status == FileReviewPacketStatus.ready_for_review
     assert packet.source.preview_result_ref == "redacted-file-preview-output:m35"
     assert packet.source.safe_path_ref == "filesystem-preview-path:safe-root_m35/docs/report.md"
+    assert packet.source.file_ref == "file-ref:m35-report"
     assert packet.redacted_preview == "Reviewed summary with [REDACTED:SECRET_ASSIGNMENT]."
     assert packet.redaction_verification.redaction_performed is True
     assert packet.redaction_verification.raw_content_removed is True
@@ -133,5 +137,35 @@ def test_mismatched_approval_packet_is_denied():
     assert decision.status == FileReviewDecisionStatus.denied
     assert decision.review_allowed is False
     assert "FILE_REVIEW_APPROVAL_PACKET_MISMATCH" in decision.reason_codes
+    assert decision.execution_authorized is False
+    assert decision.execution_performed is False
+
+
+def test_model_copy_mutated_packet_file_ref_is_denied_at_gate():
+    packet = _packet()
+    approval = _approval(packet)
+    mutated_packet = packet.model_copy(update={"source": packet.source.model_copy(update={"file_ref": "file-ref:m35-mutated"})})
+
+    decision = evaluate_file_review_gate(mutated_packet, approval=approval, current_time=utc_now())
+
+    assert decision.status == FileReviewDecisionStatus.denied
+    assert "FILE_REVIEW_APPROVAL_FILE_REF_MISMATCH" in decision.reason_codes
+    assert decision.review_allowed is False
+    assert decision.execution_authorized is False
+    assert decision.execution_performed is False
+
+
+def test_model_copy_mutated_packet_safe_path_ref_is_denied_at_gate():
+    packet = _packet()
+    approval = _approval(packet)
+    mutated_packet = packet.model_copy(
+        update={"source": packet.source.model_copy(update={"safe_path_ref": "filesystem-preview-path:safe-root_m35/docs/mutated.md"})}
+    )
+
+    decision = evaluate_file_review_gate(mutated_packet, approval=approval, current_time=utc_now())
+
+    assert decision.status == FileReviewDecisionStatus.denied
+    assert "FILE_REVIEW_APPROVAL_PATH_REF_MISMATCH" in decision.reason_codes
+    assert decision.review_allowed is False
     assert decision.execution_authorized is False
     assert decision.execution_performed is False

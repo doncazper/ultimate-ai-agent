@@ -1,9 +1,9 @@
 # Safe File Review Workflow
 
 Status: active M35 contract documentation.
-Current through: **v0.39.0**.
+Current through: **v0.39.1**.
 
-v0.39.0 / M35 implements Safe File Review Workflow Contracts. The workflow is
+v0.39.1 / M35 implements and hardens Safe File Review Workflow Contracts. The workflow is
 contract-only and review-only: it can package an already-redacted file preview
 result into a redacted review packet and evaluate whether an exact approval
 object applies to that exact packet for review-only handling.
@@ -21,6 +21,9 @@ export, no execution, no backend routes, and no production authority.
 4. `FileReviewRedactionVerification` records that redaction summary and
    redaction verification exist.
 5. `FileReviewGate` checks exact approval binding against the packet refs.
+   The approval must match the reviewed actor, review packet, preview result,
+   redaction summary, exact file_ref binding, and exact safe_path_ref binding.
+   `review_packet_ref` alone is not sufficient; file/path mismatches are denied.
 6. `FileReviewDecision` returns review-only decisions.
 7. `FileReviewReceiptPlan` stores refs only and is not authority.
 

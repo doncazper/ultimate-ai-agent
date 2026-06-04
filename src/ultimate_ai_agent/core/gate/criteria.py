@@ -1353,7 +1353,7 @@ def default_foundation_gate_criteria() -> List[FoundationGateCriterion]:
             "M35 Safe File Review Workflow Contract Safe",
             FoundationGateCategory.contracts,
             "FoundationGateEvaluator.check_m35_safe_file_review_workflow_contract_safe",
-            "M35 adds review-only file review workflow contracts, redacted review packets, exact approval binding, no-raw receipt plans, evaluator revalidation, and no raw access/context/memory/export/execution authority.",
+            "M35 adds review-only file review workflow contracts, redacted review packets, exact approval binding across packet, preview, redaction summary, file, path, and actor refs, no-raw receipt plans, evaluator revalidation, and no raw access/context/memory/export/execution authority.",
             "M35 file review workflow contracts are missing or violate review-only/no-authority safety.",
             "critical",
         ),

@@ -932,6 +932,10 @@ def _verify_m35_file_review_workflow_docs(root: Path, version: str | None) -> li
     required_fragments = {
         "M35 docs must say redacted review packets only": "redacted review packets only",
         "M35 docs must say exact approval binding": "exact approval binding",
+        "M35 docs must say exact file_ref binding": "exact file_ref binding",
+        "M35 docs must say exact safe_path_ref binding": "exact safe_path_ref binding",
+        "M35 docs must say review_packet_ref alone is insufficient": "review_packet_ref alone is not sufficient",
+        "M35 docs must say file/path mismatches are denied": "file/path mismatches are denied",
         "M35 docs must say review-only": "review-only",
         "M35 docs must say no raw file access": "no raw file access",
         "M35 docs must say no raw content": "no raw content",
@@ -3104,6 +3108,8 @@ def _verify_post_m18_roadmap_status_labels(root: Path) -> list[str]:
         if active >= (0, 39, 0):
             if "v0.39.0 / m35" not in active_capability_charters or "status: implemented" not in active_capability_charters:
                 failures.append("roadmap sequence must mark M35/v0.39.0 implemented")
+            if active >= (0, 39, 1) and "v0.39.1 / m35 hardening" not in active_capability_charters:
+                failures.append("roadmap sequence must mark v0.39.1 M35 hardening implemented")
             if "m36-m60" not in active_capability_charters or "planned/provisional" not in active_capability_charters:
                 failures.append("roadmap sequence must keep M36-M60 planned/provisional")
         elif active >= (0, 38, 0):

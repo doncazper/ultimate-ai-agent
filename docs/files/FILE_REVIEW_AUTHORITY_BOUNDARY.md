@@ -1,11 +1,17 @@
 # File Review Authority Boundary
 
 Status: active M35 contract documentation.
-Current through: **v0.39.0**.
+Current through: **v0.39.1**.
 
 M35 file review contracts are non-authoritative. They answer only whether a
 redacted review packet is valid for review and whether a provided approval
 object binds exactly to that packet for review-only handling.
+
+Exact approval binding includes the actor ref, review packet ref, preview
+result ref, redaction summary ref, exact file_ref binding, and exact
+safe_path_ref binding. `review_packet_ref` alone is not sufficient, and
+file/path mismatches are denied without granting raw access or any other
+authority.
 
 ## Not Authority
 

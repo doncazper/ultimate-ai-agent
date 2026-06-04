@@ -146,6 +146,15 @@ version files. Stale active labels such as v0.38.0 or v0.38.1 fail once the
 version files show v0.39.0. This is docs/verifier-only coverage and adds no
 runtime behavior, backend route, frontend feature, dependency, M36 work, or
 production authority.
+
+v0.39.1 adds M35 exact file/path binding regression coverage: file review
+approvals must match actor, review packet, preview result, redaction summary,
+exact file_ref binding, and exact safe_path_ref binding. `review_packet_ref`
+alone is not sufficient, file/path mismatches are denied, and `model_copy`
+mutations to packet `file_ref` or `safe_path_ref` cannot receive review_allowed.
+This adds no Control Center file review UI, approval capture, approval
+persistence, backend routes, context proposal, context injection, memory writes,
+export, execution, dependency, M36 work, or production authority.
 ```
 
 ## v0.29.0 M25 Truth Source Router + Evidence Claim Checker Tests

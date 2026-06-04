@@ -1,13 +1,18 @@
 # M35 To M36 Boundary
 
 Status: active M35 boundary documentation.
-Current through: **v0.39.0**.
+Current through: **v0.39.1**.
 
 M35 implements Safe File Review Workflow Contracts only. It adds contract models,
 redacted review packet validation, exact approval binding evaluation,
 review-only decisions, no-raw receipt plans, evaluator revalidation, tests,
 static verification, documentation integrity coverage, and Foundation Gate
 coverage.
+
+v0.39.1 hardens exact approval binding so actor, review packet, preview result,
+redaction summary, exact file_ref binding, and exact safe_path_ref binding must
+all match. `review_packet_ref` alone is not sufficient, and file/path mismatches
+are denied.
 
 M35 adds no Control Center file review UI. M36 remains planned/provisional as
 CCC File Review Surface, Review-Only.

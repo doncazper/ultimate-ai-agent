@@ -12,20 +12,20 @@ allowed to become operational authority.
 
 | Field | Current state |
 |---|---|
-| Current active baseline | **v0.39.0** |
+| Current active baseline | **v0.39.1** |
 | Current milestone | **M35 - Safe File Review Workflow Contracts** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **74** OpenAPI paths |
 | Production readiness | Not claimed |
 
-v0.39.0 implements M35 Safe File Review Workflow Contracts. It adds redacted
-review packet contracts, redaction verification, exact approval binding
-evaluation, review-only decisions, no-raw receipt plans, evaluator
-revalidation, static verification, and Foundation Gate coverage. It adds no
-file review UI, approval capture, approval persistence, context proposal,
-context injection, raw file access, memory writes, export, execution, backend
-routes, or runtime file authority.
+v0.39.1 hardens M35 Safe File Review Workflow Contracts. It requires exact
+approval binding across actor, review packet, preview result, redaction
+summary, `file_ref`, and `safe_path_ref`; denies file/path mismatches including
+`model_copy` mutations; and keeps review decisions review-only. It adds no file
+review UI, approval capture, approval persistence, context proposal, context
+injection, raw file access, memory writes, export, execution, backend routes,
+or runtime file authority.
 
 v0.29.5 is documentation policy polish. It remains the documentation
 organization cleanup baseline before the M26 and M27 implementation releases.
@@ -61,9 +61,9 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M28 Action Policy](docs/approvals/ACTION_POLICY.md)
 - [M27 Tool Broker v2](docs/tools/TOOL_BROKER_V2.md)
 - [M26 Grounded Recall Router](docs/recall/GROUNDED_RECALL_ROUTER.md)
-- [v0.39.0 release notes](docs/release_notes/v0_39_0.md)
-- [v0.39.0 release packet](docs/archive/releases/v0_39_0/README_IMPORT.md)
-- [v0.39.0 master plan](docs/archive/releases/v0_39_0/master_plan.md)
+- [v0.39.1 release notes](docs/release_notes/v0_39_1.md)
+- [v0.39.1 release packet](docs/archive/releases/v0_39_1/README_IMPORT.md)
+- [v0.39.1 master plan](docs/archive/releases/v0_39_1/master_plan.md)
 
 ## What This Project Is
 
@@ -312,6 +312,7 @@ post-M33 supersession is
 | v0.38.1 | M34 hardening - File Capability Review Boundary Clarity | Pushed, reviewed Yellow; superseded by v0.38.2 |
 | v0.38.2 | M34 hardening - Current Baseline Label + Documentation Integrity Repair | Implemented/released docs/verifier-only |
 | v0.39.0 | M35 - Safe File Review Workflow Contracts | Implemented/released contract-only |
+| v0.39.1 | M35 hardening - File Review Exact File/Path Binding | Implemented/released hardening |
 | v0.40.0 | M36 - CCC File Review Surface, Review-Only | Planned/provisional |
 | v0.41.0 | M37 - Review Approval Capture, Review-Only Persistence | Planned/provisional |
 | v0.42.0 | M38 - Safe Context Proposal From Approved Review | Planned/provisional |

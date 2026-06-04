@@ -32,8 +32,8 @@ def build_file_review_packet(
     preview_output: RedactedFilePreviewOutput,
     actor_ref: str,
     request_ref: str,
+    file_ref: str,
     safe_summary: str,
-    file_ref: str | None = None,
     policy: FileReviewWorkflowPolicy | None = None,
 ) -> FileReviewPacket:
     FileReviewWorkflowPolicy.model_validate((policy or FileReviewWorkflowPolicy()).model_dump())
@@ -130,6 +130,8 @@ def evaluate_file_review_gate(
         expected_review_packet_ref=packet.review_packet_ref,
         expected_preview_result_ref=packet.source.preview_result_ref,
         expected_redaction_summary_ref=packet.redaction_verification.redaction_summary_ref,
+        expected_file_ref=packet.source.file_ref,
+        expected_safe_path_ref=packet.source.safe_path_ref,
     )
     reasons.extend(_revalidate_gate_for_evaluation(active_gate))
 
@@ -141,6 +143,10 @@ def evaluate_file_review_gate(
         reasons.append("FILE_REVIEW_APPROVAL_PREVIEW_RESULT_MISMATCH")
     if approval.redaction_summary_ref != active_gate.expected_redaction_summary_ref:
         reasons.append("FILE_REVIEW_APPROVAL_REDACTION_SUMMARY_MISMATCH")
+    if approval.file_ref != active_gate.expected_file_ref:
+        reasons.append("FILE_REVIEW_APPROVAL_FILE_REF_MISMATCH")
+    if approval.safe_path_ref != active_gate.expected_safe_path_ref:
+        reasons.append("FILE_REVIEW_APPROVAL_PATH_REF_MISMATCH")
     if approval.revoked_at is not None:
         reasons.append("FILE_REVIEW_APPROVAL_REVOKED")
     if approval.expires_at is not None and approval.expires_at <= (current_time or utc_now()):
@@ -207,6 +213,12 @@ def _validate_ref_reason(value: str | None, field_name: str, fallback_reason: st
     return []
 
 
+def _validate_required_ref_reason(value: str | None, field_name: str, fallback_reason: str) -> list[str]:
+    if value is None:
+        return [fallback_reason]
+    return _validate_ref_reason(value, field_name, fallback_reason)
+
+
 def _validate_safe_text_reason(value: str | None, field_name: str, fallback_reason: str) -> list[str]:
     if value is None:
         return []
@@ -267,7 +279,7 @@ def _packet_source_reasons(source: FileReviewPacketSource | None) -> list[str]:
         (getattr(source, "request_ref", None), "request_ref"),
         (getattr(source, "file_ref", None), "file_ref"),
     ]:
-        reasons.extend(_validate_ref_reason(value, field_name, "FILE_REVIEW_PACKET_SOURCE_REVALIDATION_FAILED"))
+        reasons.extend(_validate_required_ref_reason(value, field_name, "FILE_REVIEW_PACKET_SOURCE_REVALIDATION_FAILED"))
     if _looks_like_raw_path(getattr(source, "safe_path_ref", "")):
         reasons.append("FILE_REVIEW_RAW_ABSOLUTE_PATH_DENIED")
     return reasons
@@ -324,9 +336,14 @@ def _revalidate_approval_for_evaluation(approval: UserFileReviewApproval) -> lis
         (getattr(approval, "review_packet_ref", None), "review_packet_ref"),
         (getattr(approval, "preview_result_ref", None), "preview_result_ref"),
         (getattr(approval, "redaction_summary_ref", None), "redaction_summary_ref"),
+        (getattr(approval, "file_ref", None), "file_ref"),
+        (getattr(approval, "safe_path_ref", None), "safe_path_ref"),
         (getattr(approval, "replay_nonce", None), "replay_nonce"),
     ]:
-        reasons.extend(_validate_ref_reason(value, field_name, "FILE_REVIEW_APPROVAL_REVALIDATION_FAILED"))
+        if field_name == "replay_nonce":
+            reasons.extend(_validate_ref_reason(value, field_name, "FILE_REVIEW_APPROVAL_REVALIDATION_FAILED"))
+        else:
+            reasons.extend(_validate_required_ref_reason(value, field_name, "FILE_REVIEW_APPROVAL_REVALIDATION_FAILED"))
     approval_ref = str(getattr(approval, "approval_ref", ""))
     if approval_ref.startswith("approval_test_"):
         reasons.append("FILE_REVIEW_APPROVAL_TEST_REF_DENIED")
@@ -350,8 +367,10 @@ def _revalidate_gate_for_evaluation(gate: FileReviewGate) -> list[str]:
         (getattr(gate, "expected_review_packet_ref", None), "expected_review_packet_ref"),
         (getattr(gate, "expected_preview_result_ref", None), "expected_preview_result_ref"),
         (getattr(gate, "expected_redaction_summary_ref", None), "expected_redaction_summary_ref"),
+        (getattr(gate, "expected_file_ref", None), "expected_file_ref"),
+        (getattr(gate, "expected_safe_path_ref", None), "expected_safe_path_ref"),
     ]:
-        reasons.extend(_validate_ref_reason(value, field_name, "FILE_REVIEW_GATE_REVALIDATION_FAILED"))
+        reasons.extend(_validate_required_ref_reason(value, field_name, "FILE_REVIEW_GATE_REVALIDATION_FAILED"))
     return _dedupe(reasons)
 
 

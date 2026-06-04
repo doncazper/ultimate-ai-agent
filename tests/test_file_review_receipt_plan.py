@@ -22,6 +22,7 @@ def _packet():
         preview_output=preview,
         actor_ref="user:receipt",
         request_ref="file-review-request:receipt",
+        file_ref="file-ref:receipt-review",
         safe_summary="Review a redacted preview packet.",
     )
 

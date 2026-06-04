@@ -1,7 +1,7 @@
 # Local File Redacted Preview Policy
 
 Status: active M33 documentation.
-Current active baseline: **v0.39.0**
+Current active baseline: **v0.39.1**
 
 M33 local file preview is a governed proposal path, not arbitrary local file
 access. It may inspect one safe relative text path under a server-owned safe
