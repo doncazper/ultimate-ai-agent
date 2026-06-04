@@ -1,7 +1,7 @@
 # M34 To M35 Boundary
 
 Status: active M34 boundary documentation.
-Current through: **v0.38.1**.
+Current through: **v0.38.2**.
 
 M34 is Broader File Capability Review. It is planning, architecture review,
 documentation, verifier, and Foundation Gate work only.

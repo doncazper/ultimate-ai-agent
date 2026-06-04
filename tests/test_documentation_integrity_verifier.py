@@ -267,6 +267,45 @@ def test_documentation_integrity_verifier_rejects_stale_active_m34_currentness(t
     assert any("active M33 docs must not say M34 remains planned/provisional" in failure for failure in failures)
 
 
+def test_documentation_integrity_verifier_rejects_stale_active_baseline_labels(tmp_path: Path):
+    _write_minimal_repo(tmp_path, version="0.38.2")
+    _write_m34_m60_active_docs(tmp_path, m34_released=True)
+    _write_m34_review_docs(tmp_path)
+
+    (tmp_path / "README.md").write_text(
+        (tmp_path / "README.md").read_text(encoding="utf-8")
+        + "\n| Current active baseline | **v0.38.1** |\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "docs/canonical/09_roadmap.md").write_text(
+        (tmp_path / "docs/canonical/09_roadmap.md").read_text(encoding="utf-8")
+        + "\nThe active accepted baseline is v0.38.0.\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md").write_text(
+        (tmp_path / "docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md").read_text(encoding="utf-8")
+        + "\nStatus: Active compatibility roadmap projection maintained through v0.38.1.\n",
+        encoding="utf-8",
+    )
+
+    failures = verifier.verify(tmp_path)
+
+    assert any("README.md" in failure and "v0.38.1" in failure and "expected v0.38.2" in failure for failure in failures)
+    assert any(
+        "docs/canonical/09_roadmap.md" in failure
+        and "v0.38.0"
+        in failure
+        and "expected v0.38.2" in failure
+        for failure in failures
+    )
+    assert any(
+        "docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md" in failure
+        and "v0.38.1" in failure
+        and "expected v0.38.2" in failure
+        for failure in failures
+    )
+
+
 def test_documentation_integrity_verifier_rejects_implemented_post_m20_claims(tmp_path: Path):
     _write_minimal_repo(tmp_path)
     roadmap = tmp_path / "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md"

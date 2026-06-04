@@ -1,7 +1,7 @@
 # File Review Surface Readiness
 
 Status: active M34 readiness documentation.
-Current through: **v0.38.1**.
+Current through: **v0.38.2**.
 
 M36 is the earliest possible CCC File Review Surface milestone. M34 does not
 add this surface.

@@ -1,6 +1,6 @@
 # M34-M60 Roadmap Supersession
 
-Status: Active roadmap source of truth through v0.38.0.
+Status: Active roadmap source of truth through v0.38.2.
 
 v0.38.0 implements M34 Broader File Capability Review as planning,
 architecture review, documentation, verifier, and Foundation Gate work only.
@@ -9,6 +9,8 @@ active M35-M40 projection. v0.38.0 adds no runtime file capability, backend
 route, frontend runtime feature, dependency, file-review workflow implementation,
 approval capture, context proposal, context injection, memory write, export,
 mobile app, TestFlight pipeline, execution authority, or production authority.
+v0.38.2 repairs active current-baseline labels and documentation-integrity
+coverage after the v0.38.1 Yellow review. It adds no implementation capability.
 
 ## Supersession Rule
 
@@ -58,7 +60,7 @@ mobile approval capture and audit milestones.
 
 ## Prompt-Pack Strategy
 
-Recommended next prompt after v0.38.0:
+Recommended next prompt after v0.38.2:
 
 ```text
 v0.39.0 / M35 - Safe File Review Workflow Contracts

@@ -1,7 +1,7 @@
 # Redacted File Preview Non-Goals
 
 Status: active M33 documentation.
-Current active baseline: **v0.38.1**
+Current active baseline: **v0.38.2**
 
 M33 intentionally does not implement:
 

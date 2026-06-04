@@ -1,6 +1,6 @@
 # Foundation Gate Implementation Plan v0.38.1
 
-Status: active Foundation Gate plan for v0.38.1.
+Status: historical Foundation Gate plan superseded by v0.38.2.
 
 v0.38.1 hardens M34 Broader File Capability Review boundary clarity in
 documentation, static verification, and Foundation Gate checks only.

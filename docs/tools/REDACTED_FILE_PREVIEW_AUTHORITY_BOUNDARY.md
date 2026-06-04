@@ -1,7 +1,7 @@
 # Redacted File Preview Authority Boundary
 
 Status: active M33 documentation.
-Current active baseline: **v0.38.1**
+Current active baseline: **v0.38.2**
 
 M33 file preview proposals are not authority. They are bounded, redacted,
 non-authoritative inspection aids.

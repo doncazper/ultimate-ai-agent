@@ -1,7 +1,7 @@
 # Redacted File Preview Result Contract
 
 Status: active M33 documentation.
-Current active baseline: **v0.38.1**
+Current active baseline: **v0.38.2**
 
 M33 returns a `RedactedFilePreviewOutput` only after policy and redaction pass.
 The result is non-authoritative and redacted-preview-only.

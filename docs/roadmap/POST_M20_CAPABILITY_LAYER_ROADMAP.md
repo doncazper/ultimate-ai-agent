@@ -1,6 +1,6 @@
 # Post-M20 Capability Layer Roadmap
 
-Status: Active roadmap projection maintained through v0.38.0.
+Status: Active roadmap projection maintained through v0.38.2.
 
 v0.38.0 implements M34 Broader File Capability Review as planning,
 architecture review, documentation, verifier, and Foundation Gate work only.
@@ -13,7 +13,9 @@ automation, Computer Use, plugin enablement, dependency, architecture behavior
 change, raw file read, file review workflow implementation, approval capture,
 context injection, memory write, export, or production authority.
 
-No integration is added. No dependency is added.
+No integration is added. No dependency is added. v0.38.2 repairs active
+current-baseline labels and documentation-integrity coverage after the v0.38.1
+Yellow review without adding implementation capability.
 
 M21-M34 are implemented/released through dedicated reviewed milestones. M35-M60
 remain planned/provisional. M34 is implemented/released as planning/docs/verifier
@@ -74,7 +76,7 @@ The detailed post-M33 supersession source of truth is
 
 ## Prompt-Pack Strategy
 
-Recommended next prompt after v0.38.0:
+Recommended next prompt after v0.38.2:
 
 ```text
 v0.39.0 / M35 - Safe File Review Workflow Contracts

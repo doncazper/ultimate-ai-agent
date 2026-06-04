@@ -3772,6 +3772,10 @@ def verify_m34_broader_file_capability_review_safety():
         "docs/archive/releases/v0_38_1/README_IMPORT.md",
         "docs/archive/releases/v0_38_1/master_plan.md",
         "docs/implementation/foundation_gate_implementation_plan_v0_38_1.md",
+        "docs/release_notes/v0_38_2.md",
+        "docs/archive/releases/v0_38_2/README_IMPORT.md",
+        "docs/archive/releases/v0_38_2/master_plan.md",
+        "docs/implementation/foundation_gate_implementation_plan_v0_38_2.md",
     ]
     for rel_path in required_files:
         if not (ROOT / rel_path).exists():

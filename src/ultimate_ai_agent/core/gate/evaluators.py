@@ -8178,6 +8178,10 @@ class FoundationGateEvaluator:
             "docs/files/M34_TO_M35_BOUNDARY.md",
             "docs/control_center/FILE_REVIEW_SURFACE_READINESS.md",
             "docs/tools/FILE_TOOL_CAPABILITY_MATRIX.md",
+            "docs/release_notes/v0_38_2.md",
+            "docs/archive/releases/v0_38_2/README_IMPORT.md",
+            "docs/archive/releases/v0_38_2/master_plan.md",
+            "docs/implementation/foundation_gate_implementation_plan_v0_38_2.md",
             "tests/test_m34_gate_integration.py",
         ]
         failures = [f"missing M34 broader file capability review file: {path}" for path in required_docs if not (self.root / path).exists()]

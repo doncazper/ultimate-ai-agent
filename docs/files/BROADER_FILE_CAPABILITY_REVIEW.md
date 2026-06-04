@@ -1,7 +1,7 @@
 # Broader File Capability Review
 
 Status: active M34 documentation.
-Current through: **v0.38.1**.
+Current through: **v0.38.2**.
 
 M34 implements Broader File Capability Review as a planning, architecture
 review, documentation, verifier, and Foundation Gate milestone only. It does
@@ -13,6 +13,9 @@ v0.38.1 hardens boundary clarity only: active docs and verifiers must not treat
 M34 as Safe File Review Workflow Contracts, file review UI, approval
 capture/persistence, context proposal, context injection, raw file access,
 memory writes, export, execution, or runtime file authority.
+
+v0.38.2 repairs active current-baseline labels and verifier coverage after the
+v0.38.1 Yellow review. It does not add any file capability or M35 work.
 
 ## Purpose
 

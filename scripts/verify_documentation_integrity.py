@@ -515,6 +515,57 @@ def _release_packet_paths(version_key: str) -> tuple[str, str]:
     )
 
 
+def _active_baseline_label_docs(version: str) -> list[str]:
+    version_key = version.replace(".", "_")
+    active_import, active_master = _release_packet_paths(version_key)
+    return [
+        "README.md",
+        "VERSION.md",
+        "docs/DOCUMENTATION_INDEX.md",
+        "docs/canonical/CANONICAL_DOC_MAP.md",
+        "docs/canonical/09_roadmap.md",
+        "docs/roadmap/README.md",
+        "docs/roadmap/MILESTONE_CHARTERS.md",
+        "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+        "docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md",
+        "docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md",
+        f"docs/release_notes/v{version_key}.md",
+        f"docs/implementation/foundation_gate_implementation_plan_v{version_key}.md",
+        active_import,
+        active_master,
+    ]
+
+
+ACTIVE_BASELINE_LABEL_PATTERNS = [
+    re.compile(r"current active baseline\s*(?:\||:)?\s*\*{0,2}v?(\d+\.\d+\.\d+)\*{0,2}", re.IGNORECASE),
+    re.compile(r"active accepted baseline is\s+v?(\d+\.\d+\.\d+)", re.IGNORECASE),
+    re.compile(
+        r"status:\s*active[^\n]*(?:maintained through|source of truth through)\s+v?(\d+\.\d+\.\d+)",
+        re.IGNORECASE,
+    ),
+    re.compile(r"current through:\s*\*{0,2}v?(\d+\.\d+\.\d+)\*{0,2}", re.IGNORECASE),
+]
+
+
+def _verify_active_baseline_labels(root: Path, version: str) -> list[str]:
+    failures: list[str] = []
+    expected = f"v{version}"
+    for rel_path in _active_baseline_label_docs(version):
+        path = root / rel_path
+        if not path.exists():
+            continue
+        for line_number, line in enumerate(_read(path).splitlines(), start=1):
+            for pattern in ACTIVE_BASELINE_LABEL_PATTERNS:
+                for match in pattern.finditer(line):
+                    actual = f"v{match.group(1)}"
+                    if actual != expected:
+                        failures.append(
+                            f"{rel_path}:{line_number} active baseline label {actual} "
+                            f"does not match expected {expected}"
+                        )
+    return failures
+
+
 def verify(root: Path = ROOT) -> list[str]:
     failures: list[str] = []
     version = _active_version(root)
@@ -534,6 +585,7 @@ def verify(root: Path = ROOT) -> list[str]:
     active_import, active_master = _release_packet_paths(version_key)
     active_release_notes = f"docs/release_notes/v{version_key}.md"
     active_gate_plan = f"docs/implementation/foundation_gate_implementation_plan_v{version_key}.md"
+    failures.extend(_verify_active_baseline_labels(root, version))
     for rel_path in [active_import, active_master, active_release_notes, active_gate_plan, *REQUIRED_ACTIVE_DOCS]:
         if not (root / rel_path).exists():
             failures.append(f"missing active documentation file: {rel_path}")

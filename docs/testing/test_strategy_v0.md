@@ -139,6 +139,13 @@ planned/provisional after v0.38.0. They also reject any active claim that M34
 implements Safe File Review Workflow Contracts, file review UI, approval
 capture/persistence, context proposal, context injection, raw file access,
 memory writes, export, execution, or runtime file authority.
+
+v0.38.2 adds current-baseline regression coverage: documentation integrity
+verification rejects active current-baseline labels that do not match the
+version files. Stale active labels such as v0.38.0 or v0.38.1 fail once the
+version files show v0.38.2. This is docs/verifier-only coverage and adds no
+runtime behavior, backend route, frontend feature, dependency, M35 work, or
+production authority.
 ```
 
 ## v0.29.0 M25 Truth Source Router + Evidence Claim Checker Tests

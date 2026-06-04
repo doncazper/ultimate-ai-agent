@@ -1,7 +1,7 @@
 # Redacted File Preview Tool
 
 Status: active M33 documentation.
-Current active baseline: **v0.38.1**
+Current active baseline: **v0.38.2**
 
 M33 implements the first safe local file read proposal as one governed tool
 runtime adapter entry:

@@ -1,7 +1,7 @@
 # Ultimate AI Agent Docs
 
 Status: active
-Current through: v0.38.0
+Current through: v0.38.2
 Purpose: Human-facing entrypoint for active documentation and historical archive navigation.
 
 Active docs are few, indexed, and current. Historical docs are preserved under
@@ -23,10 +23,10 @@ docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md
 Current release packet:
 
 ```text
-docs/archive/releases/v0_38_0/README_IMPORT.md
-docs/archive/releases/v0_38_0/master_plan.md
-docs/release_notes/v0_38_0.md
-docs/implementation/foundation_gate_implementation_plan_v0_38_0.md
+docs/archive/releases/v0_38_2/README_IMPORT.md
+docs/archive/releases/v0_38_2/master_plan.md
+docs/release_notes/v0_38_2.md
+docs/implementation/foundation_gate_implementation_plan_v0_38_2.md
 docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md
 docs/files/BROADER_FILE_CAPABILITY_REVIEW.md
 docs/files/FILE_CAPABILITY_BOUNDARY_MATRIX.md
@@ -109,6 +109,14 @@ file capability, backend routes, frontend runtime features, file-review
 workflow, approval capture, context proposal, context injection, memory writes,
 export, execution, dependencies, mobile or TestFlight implementation, or
 production authority. M35-M60 remain planned/provisional.
+
+v0.38.2 repairs active M34 current-baseline labels and documentation-integrity
+coverage after the v0.38.1 Yellow review. Active docs must identify v0.38.2 as
+the current active baseline while preserving v0.38.0 as the historical M34
+implementation release and v0.38.1 as a superseded hardening release. It adds no
+runtime file capability, backend route, frontend feature, raw file read,
+context injection, memory write, export, execution, dependency, M35 work, or
+production authority.
 
 v0.37.1 hardens M33 First Safe Local File Read Proposal, Redacted Preview Only.
 It keeps the governed tool runtime adapter entry

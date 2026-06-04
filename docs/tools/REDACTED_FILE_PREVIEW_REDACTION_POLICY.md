@@ -1,7 +1,7 @@
 # Redacted File Preview Redaction Policy
 
 Status: active M33 documentation.
-Current active baseline: **v0.38.1**
+Current active baseline: **v0.38.2**
 
 M33 redacts before result creation. Raw preview bytes may be read only inside the
 bounded redaction pipeline and must not leave that boundary.

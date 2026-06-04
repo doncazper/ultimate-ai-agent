@@ -1,7 +1,7 @@
 # M35 Safe File Review Workflow Readiness
 
 Status: active M34 readiness documentation.
-Current through: **v0.38.1**.
+Current through: **v0.38.2**.
 
 M35 is the first implementation milestone after M34. It must implement Safe File
 Review Workflow Contracts only.
