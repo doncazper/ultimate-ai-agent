@@ -1739,6 +1739,19 @@ def _verify_m25_truth_docs(root: Path, version: str | None) -> list[str]:
         for failure, fragment in m32_expectations.items():
             if fragment not in m32_docs:
                 failures.append(failure)
+        if _version_tuple(version) >= (0, 36, 1):
+            m32_hardening_expectations = {
+                "M32 hardening docs must say encoded traversal is denied": "encoded traversal",
+                "M32 hardening docs must say home-directory paths are denied": "home-directory",
+                "M32 hardening docs must say Windows drive paths are denied": "windows drive",
+                "M32 hardening docs must say doubled separators are denied": "doubled separators",
+                "M32 hardening docs must say private-key-like paths are denied": "private-key-like",
+                "M32 hardening docs must say metadata alias flags are denied": "metadata alias flags",
+                "M32 hardening docs must say evaluator boundary revalidates": "evaluator boundary",
+            }
+            for failure, fragment in m32_hardening_expectations.items():
+                if fragment not in m32_docs:
+                    failures.append(failure)
 
     if _version_tuple(version) >= (0, 29, 4):
         policy_path = root / "docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md"

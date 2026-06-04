@@ -1,7 +1,7 @@
 # Filesystem Metadata Non-Goals
 
 Status: active M32 documentation.
-Current active baseline: **v0.36.0**
+Current active baseline: **v0.36.1**
 
 M32 intentionally does not implement:
 

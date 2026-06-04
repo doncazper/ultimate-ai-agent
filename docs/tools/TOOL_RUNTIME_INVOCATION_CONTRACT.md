@@ -1,7 +1,7 @@
 # Tool Runtime Invocation Contract
 
 Status: active M32 documentation.
-Current active baseline: **v0.36.0**
+Current active baseline: **v0.36.1**
 
 M32 defines typed invocation contracts for two allowlisted safe runtime paths:
 

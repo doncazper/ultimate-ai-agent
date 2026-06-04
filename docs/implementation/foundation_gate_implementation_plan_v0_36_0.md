@@ -1,8 +1,8 @@
 # Foundation Gate Implementation Plan v0.36.0
 
-Status: active implementation plan.
+Status: historical implementation plan for v0.36.0.
 
-Current active baseline: **v0.36.0**
+Baseline at release: **v0.36.0**
 
 v0.36.0 adds Foundation Gate coverage for M32 Safe Tool Runtime Expansion,
 Safe Local Filesystem Metadata Tool.

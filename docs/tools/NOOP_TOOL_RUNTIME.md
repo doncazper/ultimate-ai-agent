@@ -1,7 +1,7 @@
 # No-Op Tool Runtime
 
 Status: active M32 documentation.
-Current active baseline: **v0.36.0**
+Current active baseline: **v0.36.1**
 
 The deterministic no-op tool remains enabled in M32:
 

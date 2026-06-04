@@ -1,7 +1,7 @@
 # Ultimate AI Agent Docs
 
 Status: active
-Current through: v0.36.0
+Current through: v0.36.1
 Purpose: Human-facing entrypoint for active documentation and historical archive navigation.
 
 Active docs are few, indexed, and current. Historical docs are preserved under
@@ -22,10 +22,10 @@ docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md
 Current release packet:
 
 ```text
-docs/archive/releases/v0_36_0/README_IMPORT.md
-docs/archive/releases/v0_36_0/master_plan.md
-docs/release_notes/v0_36_0.md
-docs/implementation/foundation_gate_implementation_plan_v0_36_0.md
+docs/archive/releases/v0_36_1/README_IMPORT.md
+docs/archive/releases/v0_36_1/master_plan.md
+docs/release_notes/v0_36_1.md
+docs/implementation/foundation_gate_implementation_plan_v0_36_1.md
 docs/tools/FILESYSTEM_METADATA_TOOL.md
 docs/tools/FILESYSTEM_METADATA_PATH_POLICY.md
 docs/tools/FILESYSTEM_METADATA_RESULT_CONTRACT.md
@@ -81,11 +81,15 @@ historical snapshots.
 v0.29.5 is documentation policy polish only. It accepts the pushed duplicate
 wording cleanup from `374bb1e` and remains the cleanup baseline before M26.
 
-v0.36.0 implements M32 as one safe local filesystem metadata tool under
-server-owned safe roots. It returns metadata only and denies raw content, text
-preview, content hash, directory listing, recursive traversal, symlink
-following, caller-selected roots, file mutation, backend execution routes,
-dependencies, M33 work, and production authority.
+v0.36.1 hardens M32 safe local filesystem metadata under server-owned safe
+roots. It strengthens path normalization, encoded traversal denial,
+home/Windows/double-separator path denial, hidden/private-key-like path denial,
+caller-selected root denial, metadata alias flag denial, evaluator
+revalidation, static verification, documentation, and Foundation Gate coverage.
+It returns metadata only and denies raw content, text preview, content hash,
+directory listing, recursive traversal, symlink following, caller-selected
+roots, file mutation, backend execution routes, dependencies, M33 work, and
+production authority.
 
 v0.35.1 hardens M31 Real Tool Runtime Adapter, Single Safe No-Op Tool. It
 strengthens allowlist validation, tool_ref/tool_name consistency, dynamic
@@ -110,4 +114,4 @@ memory writes, network calls, model/provider calls, plugin enablement, browser
 automation, mobile/device access, remote execution, shell execution,
 dependencies, context injection, or production authority.
 
-M32-M40 remain planned/provisional.
+M33-M40 remain planned/provisional.

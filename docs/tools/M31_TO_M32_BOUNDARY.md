@@ -1,7 +1,7 @@
 # M31 to M32 Boundary
 
 Status: active M32 documentation.
-Current active baseline: **v0.36.0**
+Current active baseline: **v0.36.1**
 
 M31 is implemented/released as Real Tool Runtime Adapter, Single Safe No-Op
 Tool. v0.35.1 hardens that boundary with allowlist validation, tool_ref/tool_name

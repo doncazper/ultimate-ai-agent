@@ -1,7 +1,7 @@
 # Tool Runtime Authority Boundary
 
 Status: active M32 documentation.
-Current active baseline: **v0.36.0**
+Current active baseline: **v0.36.1**
 
 M32 adds one metadata-only filesystem tool without granting broad execution or
 filesystem authority.

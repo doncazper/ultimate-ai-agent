@@ -1,7 +1,7 @@
 # M32 to M33 Boundary
 
 Status: active M32 documentation.
-Current active baseline: **v0.36.0**
+Current active baseline: **v0.36.1**
 
 M32 is implemented/released as Safe Local Filesystem Metadata Tool.
 

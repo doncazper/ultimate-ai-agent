@@ -1,5 +1,5 @@
 from ultimate_ai_agent.core.tools.runtime.contracts import ToolRuntimeManifest
 
 
-def build_tool_runtime_manifest(baseline_version: str = "0.36.0") -> ToolRuntimeManifest:
+def build_tool_runtime_manifest(baseline_version: str = "0.36.1") -> ToolRuntimeManifest:
     return ToolRuntimeManifest(baseline_version=baseline_version)

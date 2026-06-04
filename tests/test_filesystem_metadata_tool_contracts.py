@@ -1,5 +1,7 @@
 import os
 
+import pytest
+
 from ultimate_ai_agent.core.tools.runtime import (
     FILESYSTEM_METADATA_TOOL_NAME,
     FILESYSTEM_METADATA_TOOL_REF,
@@ -37,9 +39,9 @@ def _request(**overrides):
 
 
 def test_manifest_allowlists_noop_and_filesystem_metadata_only():
-    manifest = build_tool_runtime_manifest(baseline_version="0.36.0")
+    manifest = build_tool_runtime_manifest(baseline_version="0.36.1")
 
-    assert manifest.baseline_version == "0.36.0"
+    assert manifest.baseline_version == "0.36.1"
     assert manifest.allowlisted_tool_refs == ["tool:no_op.v1", FILESYSTEM_METADATA_TOOL_REF]
     assert manifest.policy.noop_tool_enabled is True
     assert manifest.policy.filesystem_metadata_tool_enabled is True
@@ -144,6 +146,72 @@ def test_filesystem_metadata_request_revalidation_denies_model_copy_raw_file(tmp
 
     assert decision.status == ToolInvocationStatus.denied
     assert "RAW_FILE_CONTENT_DENIED" in decision.reason_codes
+
+
+def test_filesystem_metadata_denies_model_copy_mutated_path_and_root(tmp_path):
+    safe_root = _safe_root(tmp_path)
+    request = _request().model_copy(
+        update={
+            "metadata": {
+                "root_ref": "safe-root:missing",
+                "relative_path": "notes/%2e%2e/outside.md",
+            }
+        }
+    )
+
+    decision = evaluate_tool_invocation(request, safe_roots=[safe_root])
+
+    assert decision.status == ToolInvocationStatus.denied
+    assert "UNKNOWN_SAFE_ROOT_DENIED" in decision.reason_codes
+    assert "PATH_TRAVERSAL_DENIED" in decision.reason_codes
+
+
+def test_filesystem_metadata_denies_model_copy_mutated_tool_ref_to_content_read(tmp_path):
+    safe_root = _safe_root(tmp_path)
+    request = _request().model_copy(
+        update={
+            "tool_ref": "tool:file_content_read.v1",
+            "tool_name": "filesystem_metadata",
+        }
+    )
+
+    decision = evaluate_tool_invocation(request, safe_roots=[safe_root])
+
+    assert decision.status == ToolInvocationStatus.denied
+    assert "TOOL_NOT_ALLOWLISTED_DENIED" in decision.reason_codes
+
+
+@pytest.mark.parametrize(
+    ("flag_name", "reason_code"),
+    [
+        ("raw_content_enabled", "RAW_FILE_CONTENT_DENIED"),
+        ("file_preview_enabled", "TEXT_PREVIEW_DENIED"),
+        ("file_hash_enabled", "CONTENT_HASH_DENIED"),
+        ("directory_listing_enabled", "DIRECTORY_LISTING_DENIED"),
+        ("recursive_traversal_enabled", "RECURSIVE_TRAVERSAL_DENIED"),
+        ("symlink_following_enabled", "SYMLINK_FOLLOWING_DENIED"),
+        ("file_write_enabled", "FILESYSTEM_MUTATION_DENIED"),
+        ("file_delete_enabled", "FILESYSTEM_MUTATION_DENIED"),
+        ("filesystem_mutation_enabled", "FILESYSTEM_MUTATION_DENIED"),
+        ("caller_selected_root_enabled", "CALLER_SELECTED_ROOT_DENIED"),
+    ],
+)
+def test_filesystem_metadata_denies_model_copy_mutated_metadata_alias_flags(tmp_path, flag_name, reason_code):
+    safe_root = _safe_root(tmp_path)
+    request = _request().model_copy(
+        update={
+            "metadata": {
+                "root_ref": "safe-root:test",
+                "relative_path": "notes/report.md",
+                flag_name: True,
+            }
+        }
+    )
+
+    decision = evaluate_tool_invocation(request, safe_roots=[safe_root])
+
+    assert decision.status == ToolInvocationStatus.denied
+    assert reason_code in decision.reason_codes
 
 
 def test_symlink_path_is_denied(tmp_path):

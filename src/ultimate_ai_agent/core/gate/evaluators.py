@@ -7319,7 +7319,7 @@ class FoundationGateEvaluator:
                 evaluate_tool_invocation,
             )
 
-            manifest = build_tool_runtime_manifest(baseline_version="0.36.0")
+            manifest = build_tool_runtime_manifest(baseline_version="0.36.1")
             policy = manifest.policy
             forbidden_flags = [
                 policy.arbitrary_tool_execution_enabled,
@@ -7400,9 +7400,17 @@ class FoundationGateEvaluator:
 
                 for relative_path, reason in [
                     ("../outside.md", "PATH_TRAVERSAL_DENIED"),
+                    ("notes/%2e%2e/outside.md", "PATH_TRAVERSAL_DENIED"),
+                    ("~/notes/report.md", "HOME_PATH_DENIED"),
+                    ("C:/Users/report.md", "WINDOWS_PATH_DENIED"),
+                    ("notes//report.md", "UNSAFE_PATH_SEPARATOR_DENIED"),
                     (".env", "HIDDEN_PATH_DENIED"),
+                    (".git/config", "HIDDEN_PATH_DENIED"),
                     ("notes/token.txt", "SECRET_LIKE_PATH_DENIED"),
+                    ("keys/id_rsa", "SECRET_LIKE_PATH_DENIED"),
+                    ("keys/private.key", "SECRET_LIKE_PATH_DENIED"),
                     ("notes/*.md", "GLOB_PATH_DENIED"),
+                    ("notes/%2A.md", "GLOB_PATH_DENIED"),
                 ]:
                     require_denial(
                         evaluate_tool_invocation(
@@ -7435,6 +7443,57 @@ class FoundationGateEvaluator:
                     "CALLER_SELECTED_ROOT_DENIED",
                     "caller-selected root",
                 )
+                require_denial(
+                    evaluate_tool_invocation(
+                        safe_request.model_copy(
+                            update={
+                                "metadata": {
+                                    "root_ref": "safe-root:missing",
+                                    "relative_path": "notes/%2e%2e/outside.md",
+                                }
+                            }
+                        ),
+                        safe_roots=[safe_root],
+                    ),
+                    "PATH_TRAVERSAL_DENIED",
+                    "model_copy encoded traversal",
+                )
+                require_denial(
+                    evaluate_tool_invocation(
+                        safe_request.model_copy(update={"tool_ref": "tool:file_content_read.v1"}),
+                        safe_roots=[safe_root],
+                    ),
+                    "TOOL_NOT_ALLOWLISTED_DENIED",
+                    "model_copy file content tool ref",
+                )
+                for flag_name, reason in [
+                    ("raw_content_enabled", "RAW_FILE_CONTENT_DENIED"),
+                    ("file_preview_enabled", "TEXT_PREVIEW_DENIED"),
+                    ("file_hash_enabled", "CONTENT_HASH_DENIED"),
+                    ("directory_listing_enabled", "DIRECTORY_LISTING_DENIED"),
+                    ("recursive_traversal_enabled", "RECURSIVE_TRAVERSAL_DENIED"),
+                    ("symlink_following_enabled", "SYMLINK_FOLLOWING_DENIED"),
+                    ("file_write_enabled", "FILESYSTEM_MUTATION_DENIED"),
+                    ("file_delete_enabled", "FILESYSTEM_MUTATION_DENIED"),
+                    ("filesystem_mutation_enabled", "FILESYSTEM_MUTATION_DENIED"),
+                    ("caller_selected_root_enabled", "CALLER_SELECTED_ROOT_DENIED"),
+                ]:
+                    require_denial(
+                        evaluate_tool_invocation(
+                            safe_request.model_copy(
+                                update={
+                                    "metadata": {
+                                        "root_ref": "safe-root:gate-m32",
+                                        "relative_path": "notes/report.md",
+                                        flag_name: True,
+                                    }
+                                }
+                            ),
+                            safe_roots=[safe_root],
+                        ),
+                        reason,
+                        f"metadata alias flag {flag_name}",
+                    )
                 require_denial(
                     evaluate_tool_invocation(
                         safe_request.model_copy(update={"contains_raw_file_content": True}),
@@ -7529,7 +7588,12 @@ class FoundationGateEvaluator:
         ]
         failures = [f"missing M32 roadmap doc: {path}" for path in required_docs if not (self.root / path).exists()]
         text = "\n".join(self._read(self.root / path).lower() for path in required_docs if (self.root / path).exists())
-        if "v0.36.0" not in text or "safe local filesystem metadata" not in text or "implemented/released" not in text:
+        active_version = self._active_version() or "0.0.0"
+        version_tuple = tuple(int(part) for part in active_version.split("."))
+        if version_tuple >= (0, 36, 1):
+            if "v0.36.1" not in text or "filesystem metadata path safety" not in text:
+                failures.append("M32 docs do not mark v0.36.1 filesystem metadata path safety hardening")
+        if "safe local filesystem metadata" not in text or "implemented/released" not in text:
             failures.append("M32 docs do not mark safe local filesystem metadata implemented/released")
         if "m33-m40 remain planned/provisional" not in text:
             failures.append("M33-M40 must remain planned/provisional after M32")

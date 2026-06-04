@@ -3160,10 +3160,10 @@ def verify_m32_filesystem_metadata_tool_safety():
         "docs/tools/FILESYSTEM_METADATA_AUTHORITY_BOUNDARY.md",
         "docs/tools/FILESYSTEM_METADATA_NON_GOALS.md",
         "docs/tools/M32_TO_M33_BOUNDARY.md",
-        "docs/release_notes/v0_36_0.md",
-        "docs/archive/releases/v0_36_0/README_IMPORT.md",
-        "docs/archive/releases/v0_36_0/master_plan.md",
-        "docs/implementation/foundation_gate_implementation_plan_v0_36_0.md",
+        "docs/release_notes/v0_36_1.md",
+        "docs/archive/releases/v0_36_1/README_IMPORT.md",
+        "docs/archive/releases/v0_36_1/master_plan.md",
+        "docs/implementation/foundation_gate_implementation_plan_v0_36_1.md",
     ]
     for rel_path in required_files:
         if not (ROOT / rel_path).exists():
@@ -3230,7 +3230,7 @@ def verify_m32_filesystem_metadata_tool_safety():
         print(f"FAIL: {failure}")
         sys.exit(1)
 
-    manifest = build_tool_runtime_manifest(baseline_version="0.36.0")
+    manifest = build_tool_runtime_manifest(baseline_version="0.36.1")
     policy = manifest.policy
     if manifest.allowlisted_tool_refs != [NOOP_TOOL_REF, FILESYSTEM_METADATA_TOOL_REF]:
         print("FAIL: M32 manifest allowlist is not exactly no-op plus filesystem metadata")
@@ -3325,9 +3325,17 @@ def verify_m32_filesystem_metadata_tool_safety():
         for relative_path, reason in [
             ("/etc/passwd", "ABSOLUTE_PATH_DENIED"),
             ("../outside.md", "PATH_TRAVERSAL_DENIED"),
+            ("notes/%2e%2e/outside.md", "PATH_TRAVERSAL_DENIED"),
+            ("~/notes/report.md", "HOME_PATH_DENIED"),
+            ("C:/Users/report.md", "WINDOWS_PATH_DENIED"),
+            ("notes//report.md", "UNSAFE_PATH_SEPARATOR_DENIED"),
             (".env", "HIDDEN_PATH_DENIED"),
+            (".git/config", "HIDDEN_PATH_DENIED"),
             ("notes/token.txt", "SECRET_LIKE_PATH_DENIED"),
+            ("keys/id_rsa", "SECRET_LIKE_PATH_DENIED"),
+            ("keys/private.key", "SECRET_LIKE_PATH_DENIED"),
             ("notes/*.md", "GLOB_PATH_DENIED"),
+            ("notes/%2A.md", "GLOB_PATH_DENIED"),
         ]:
             require_denial(
                 evaluate_tool_invocation(
@@ -3355,6 +3363,57 @@ def verify_m32_filesystem_metadata_tool_safety():
             "CALLER_SELECTED_ROOT_DENIED",
             "caller-selected root",
         )
+        require_denial(
+            evaluate_tool_invocation(
+                safe_request.model_copy(
+                    update={
+                        "metadata": {
+                            "root_ref": "safe-root:missing",
+                            "relative_path": "notes/%2e%2e/outside.md",
+                        }
+                    }
+                ),
+                safe_roots=[safe_root],
+            ),
+            "PATH_TRAVERSAL_DENIED",
+            "model_copy encoded traversal",
+        )
+        require_denial(
+            evaluate_tool_invocation(
+                safe_request.model_copy(update={"tool_ref": "tool:file_content_read.v1"}),
+                safe_roots=[safe_root],
+            ),
+            "TOOL_NOT_ALLOWLISTED_DENIED",
+            "model_copy file content tool ref",
+        )
+        for flag_name, reason in [
+            ("raw_content_enabled", "RAW_FILE_CONTENT_DENIED"),
+            ("file_preview_enabled", "TEXT_PREVIEW_DENIED"),
+            ("file_hash_enabled", "CONTENT_HASH_DENIED"),
+            ("directory_listing_enabled", "DIRECTORY_LISTING_DENIED"),
+            ("recursive_traversal_enabled", "RECURSIVE_TRAVERSAL_DENIED"),
+            ("symlink_following_enabled", "SYMLINK_FOLLOWING_DENIED"),
+            ("file_write_enabled", "FILESYSTEM_MUTATION_DENIED"),
+            ("file_delete_enabled", "FILESYSTEM_MUTATION_DENIED"),
+            ("filesystem_mutation_enabled", "FILESYSTEM_MUTATION_DENIED"),
+            ("caller_selected_root_enabled", "CALLER_SELECTED_ROOT_DENIED"),
+        ]:
+            require_denial(
+                evaluate_tool_invocation(
+                    safe_request.model_copy(
+                        update={
+                            "metadata": {
+                                "root_ref": "safe-root:verify-m32",
+                                "relative_path": "notes/report.md",
+                                flag_name: True,
+                            }
+                        }
+                    ),
+                    safe_roots=[safe_root],
+                ),
+                reason,
+                f"metadata alias flag {flag_name}",
+            )
         try:
             link = safe_root_path / "link.md"
             link.symlink_to(target)

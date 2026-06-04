@@ -123,7 +123,7 @@ class ToolRuntimePolicy(BaseModel):
 
 
 class ToolRuntimeManifest(BaseModel):
-    baseline_version: str = "0.36.0"
+    baseline_version: str = "0.36.1"
     contract_version: str = "m32-tool-runtime-filesystem-metadata"
     adapter: ToolRuntimeAdapterDescriptor = Field(default_factory=ToolRuntimeAdapterDescriptor)
     policy: ToolRuntimePolicy = Field(default_factory=ToolRuntimePolicy)

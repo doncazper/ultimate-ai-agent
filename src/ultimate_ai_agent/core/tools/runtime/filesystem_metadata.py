@@ -4,6 +4,7 @@ from enum import Enum
 import stat
 from pathlib import Path, PurePosixPath
 from typing import Dict, List, Optional
+from urllib.parse import unquote
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -19,6 +20,14 @@ FILESYSTEM_METADATA_TOOL_NAME = "filesystem_metadata"
 
 HIDDEN_SEGMENT_DENY_REASON = "HIDDEN_PATH_DENIED"
 SECRET_SEGMENT_DENY_REASON = "SECRET_LIKE_PATH_DENIED"
+PRIVATE_KEY_LIKE_SEGMENTS = {
+    "id_rsa",
+    "id_dsa",
+    "id_ecdsa",
+    "id_ed25519",
+    "private.key",
+    "private_key",
+}
 
 
 class FilesystemMetadataStatus(str, Enum):
@@ -140,11 +149,24 @@ def normalize_relative_metadata_path(relative_path: str) -> tuple[str | None, li
     reasons: list[str] = []
     if not relative_path or not relative_path.strip():
         return None, ["EMPTY_PATH_DENIED"]
-    if "\\" in relative_path:
+    path_text = relative_path.strip()
+    decoded_path_text = unquote(path_text)
+    path_texts_to_check = [path_text]
+    if decoded_path_text != path_text:
+        path_texts_to_check.append(decoded_path_text)
+    if "\\" in path_text or "\\" in decoded_path_text:
         reasons.append("UNSAFE_PATH_SEPARATOR_DENIED")
-    if "*" in relative_path or "?" in relative_path or "[" in relative_path or "]" in relative_path:
+    if "//" in path_text or "//" in decoded_path_text:
+        reasons.append("UNSAFE_PATH_SEPARATOR_DENIED")
+    if path_text.startswith("~") or decoded_path_text.startswith("~"):
+        reasons.append("HOME_PATH_DENIED")
+    if path_text.startswith("//") or decoded_path_text.startswith("//"):
+        reasons.append("UNC_PATH_DENIED")
+    if any(len(text) >= 2 and text[1] == ":" for text in path_texts_to_check):
+        reasons.append("WINDOWS_PATH_DENIED")
+    if any("*" in text or "?" in text or "[" in text or "]" in text for text in path_texts_to_check):
         reasons.append("GLOB_PATH_DENIED")
-    candidate = PurePosixPath(relative_path.strip())
+    candidate = PurePosixPath(decoded_path_text)
     if candidate.is_absolute():
         reasons.append("ABSOLUTE_PATH_DENIED")
     parts = [part for part in candidate.parts if part not in {"", "."}]
@@ -153,9 +175,10 @@ def normalize_relative_metadata_path(relative_path: str) -> tuple[str | None, li
     if any(part == ".." for part in parts):
         reasons.append("PATH_TRAVERSAL_DENIED")
     for part in parts:
+        lower_part = part.lower()
         if part.startswith("."):
             reasons.append(HIDDEN_SEGMENT_DENY_REASON)
-        if SECRET_LIKE_RE.search(part):
+        if SECRET_LIKE_RE.search(part) or lower_part in PRIVATE_KEY_LIKE_SEGMENTS or lower_part.endswith(".pem"):
             reasons.append(SECRET_SEGMENT_DENY_REASON)
     if reasons:
         return None, list(dict.fromkeys(reasons))
@@ -167,6 +190,10 @@ def _safe_path_ref(root_ref: str, normalized_path: str) -> str:
     return f"filesystem-path:{root_label}/{normalized_path}"
 
 
+def _payload_flag(payload: Dict[str, object], *names: str) -> bool:
+    return any(bool(payload.get(name, False)) for name in names)
+
+
 def filesystem_metadata_request_from_payload(payload: Dict[str, object]) -> FilesystemMetadataRequest:
     return FilesystemMetadataRequest.model_validate(
         {
@@ -174,13 +201,25 @@ def filesystem_metadata_request_from_payload(payload: Dict[str, object]) -> File
             "root_ref": payload.get("root_ref"),
             "relative_path": payload.get("relative_path"),
             "caller_selected_root_path": payload.get("caller_selected_root_path") or payload.get("root_path"),
-            "include_raw_content": bool(payload.get("include_raw_content", False)),
-            "include_text_preview": bool(payload.get("include_text_preview", False)),
-            "include_content_hash": bool(payload.get("include_content_hash", False)),
-            "include_directory_listing": bool(payload.get("include_directory_listing", False)),
-            "recursive_traversal_requested": bool(payload.get("recursive_traversal_requested", False)),
-            "follow_symlinks_requested": bool(payload.get("follow_symlinks_requested", False)),
-            "mutation_requested": bool(payload.get("mutation_requested", False)),
+            "include_raw_content": _payload_flag(payload, "include_raw_content", "raw_content_enabled"),
+            "include_text_preview": _payload_flag(payload, "include_text_preview", "file_preview_enabled"),
+            "include_content_hash": _payload_flag(payload, "include_content_hash", "file_hash_enabled"),
+            "include_directory_listing": _payload_flag(
+                payload, "include_directory_listing", "directory_listing_enabled"
+            ),
+            "recursive_traversal_requested": _payload_flag(
+                payload, "recursive_traversal_requested", "recursive_traversal_enabled"
+            ),
+            "follow_symlinks_requested": _payload_flag(
+                payload, "follow_symlinks_requested", "symlink_following_enabled"
+            ),
+            "mutation_requested": _payload_flag(
+                payload,
+                "mutation_requested",
+                "file_write_enabled",
+                "file_delete_enabled",
+                "filesystem_mutation_enabled",
+            ),
         }
     )
 
@@ -194,6 +233,8 @@ def filesystem_metadata_policy_reason_codes(
     except ValueError:
         return None, None, None, ["FILESYSTEM_METADATA_REQUEST_INVALID"]
     reasons = filesystem_metadata_boundary_reason_codes(request)
+    if _payload_flag(payload, "caller_selected_root_enabled"):
+        reasons.append("CALLER_SELECTED_ROOT_DENIED")
     normalized_path, path_reasons = normalize_relative_metadata_path(request.relative_path)
     reasons.extend(path_reasons)
     roots = {root.root_ref: root for root in safe_roots or []}

@@ -1,7 +1,7 @@
 # Filesystem Metadata Tool
 
 Status: active M32 documentation.
-Current active baseline: **v0.36.0**
+Current active baseline: **v0.36.1**
 
 M32 implements one safe local filesystem metadata tool:
 
@@ -23,7 +23,10 @@ only:
 
 The tool does not read raw file content, return text previews, compute content
 hashes, list directory children, recurse, follow symlinks, or mutate the
-filesystem.
+filesystem. v0.36.1 hardens path safety so encoded traversal, home-directory
+paths, Windows drive paths, doubled separators, hidden paths,
+private-key-like paths, caller-selected roots, and metadata alias flags are
+denied at the evaluator boundary.
 
 Allowed runtime tools in M32:
 
