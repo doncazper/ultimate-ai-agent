@@ -17,6 +17,7 @@ Implemented frontend pages:
 - `/events/timeline`
 - `/evidence`
 - `/files`
+- `/files/review`
 - `/memory`
 - `/runtime/local`
 - `/runtime/manual-smoke`
@@ -141,3 +142,19 @@ v0.22.0 adds two frontend routes and no backend API paths:
 - `/runtime/manual-smoke`: validation-only manual smoke report summary surface.
 
 These routes use safe mock fallback data and existing runtime readiness/validation contracts. They do not add local runtime execution, manual smoke execution, backend routes, provider calls, remote dispatch, mobile sensor access, plugin enablement, OpenWebUI integration, raw smoke report display, raw prompts, raw response bodies, credentials, provider payloads, dependencies, or production Control Center authority.
+
+## v0.40.0 M36 CCC File Review Surface
+
+v0.40.0 adds one frontend route and no backend API paths:
+
+- `/files/review`: review-only CCC file review surface for redacted review
+  packets.
+
+The route uses safe mock fallback data, redacted previews, redaction summaries,
+exact binding refs, review-only decision status, approval gate contract status,
+and receipt plan metadata. It does not add approval capture, approval
+persistence, backend review routes, raw file reads, raw file display, raw file
+storage, full-file reads, file picker/browser/upload/root selector,
+export/download/copy-raw controls, context proposal, context injection, memory
+writes, execution/tool controls, dependencies, or production Control Center
+authority.

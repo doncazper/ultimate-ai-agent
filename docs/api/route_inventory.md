@@ -108,6 +108,12 @@ v0.21.2 Developer Environment Command Normalization adds no backend route. It ad
 
 v0.22.0 M18 Local Runtime Status + Manual Smoke Control Surface adds no backend route. `/runtime/local` and `/runtime/manual-smoke` are frontend routes inside CCC Web only. They surface existing runtime readiness, capability matrix, and manual smoke report validation metadata. OpenAPI path count remains `74`.
 
+v0.40.0 M36 CCC File Review Surface, Review-Only adds no backend route.
+`/files/review` is a frontend route inside CCC Web only. It displays redacted
+review packets, redacted previews, redaction summaries, exact binding refs,
+review-only decision status, approval gate contract status, and receipt plan
+metadata. OpenAPI path count remains `74`.
+
 M12 Control Center route group:
 
 - `/control-center/manifest`

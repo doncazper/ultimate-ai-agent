@@ -153,6 +153,26 @@ M18 adds frontend-only `/runtime/local` and `/runtime/manual-smoke` routes. `/ru
 These routes may show readiness status, capability matrix summaries, manual smoke report refs, fixed prompt hash values, validation reason codes, redaction status, and non-authoritative warnings.
 
 They must not add backend routes, runtime execution, manual smoke execution, model/provider calls, local runtime provider integrations, remote execution, mobile sensor access, plugin enablement, OpenWebUI integration, raw smoke report display, raw prompts, raw response bodies, credentials, provider payloads, dependencies, or production Control Center authority.
+
+## v0.40.0 M36 File Review Surface Safety
+
+M36 adds frontend-only `/files/review`. The route is review-only and may show
+redacted review packets, redacted previews, redaction summaries, exact binding
+refs, review-only decision status, approval gate contract status, and receipt
+plan metadata.
+
+The surface must show mock fallback data as mock and non-authoritative. It must
+not include approve, deny, submit, save, mark-reviewed, export, download,
+copy-raw, file picker, browse, upload, root selector, raw file open, context
+proposal, context injection, memory write, execute, run, tool, or model-call
+controls.
+
+M36 adds no approval capture, approval persistence, backend routes, raw file
+display, raw file storage, full-file reads, context proposal, context
+injection, memory writes, export, execution, dependencies, or production
+Control Center authority. M37 remains planned/provisional. M38 remains
+planned/provisional.
+
 ## M19 Mobile Safety Boundary
 
 Frontend code must not add mobile sensor APIs, native mobile endpoints, Android

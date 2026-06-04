@@ -10,6 +10,7 @@ import {
 } from "./components/EvidenceFileMemoryViewerPanel";
 import { EventViewerPanel } from "./components/EventViewerPanel";
 import { EventTimelineTracePanel } from "./components/EventTimelineTracePanel";
+import { FileReviewSurfacePanel } from "./components/FileReviewSurfacePanel";
 import { FoundationGatePanel } from "./components/FoundationGatePanel";
 import {
   LocalRuntimeStatusPanel,
@@ -35,6 +36,7 @@ export const navItems = [
   { path: "/events/timeline", label: "Timeline" },
   { path: "/evidence", label: "Evidence" },
   { path: "/files", label: "Files" },
+  { path: "/files/review", label: "File Review" },
   { path: "/memory", label: "Memory" },
   { path: "/runtime/local", label: "Local Runtime" },
   { path: "/runtime/manual-smoke", label: "Manual Smoke" },
@@ -64,6 +66,8 @@ export function renderRoute(path: string, data: ControlCenterData) {
       return <EvidenceViewerPanel knowledge={data.m17Knowledge} />;
     case "/files":
       return <FileReferenceViewerPanel knowledge={data.m17Knowledge} />;
+    case "/files/review":
+      return <FileReviewSurfacePanel review={data.m36FileReview} />;
     case "/memory":
       return <MemoryViewerPanel knowledge={data.m17Knowledge} />;
     case "/runtime/local":

@@ -1,6 +1,6 @@
 # Documentation Index
 
-Current active baseline: **v0.39.1**
+Current active baseline: **v0.40.0**
 
 This index is the active entrypoint for documentation navigation. Historical release documents remain in the repository for audit history, but active truth starts with the current baseline files listed here.
 
@@ -14,8 +14,8 @@ docs/canonical/CANONICAL_DOC_MAP.md
 docs/canonical/09_roadmap.md
 docs/roadmap/README.md
 docs/archive/README.md
-docs/archive/releases/v0_39_1/README_IMPORT.md
-docs/archive/releases/v0_39_1/master_plan.md
+docs/archive/releases/v0_40_0/README_IMPORT.md
+docs/archive/releases/v0_40_0/master_plan.md
 docs/developer/LOCAL_LAUNCHER.md
 scripts/dev/README.md
 docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md
@@ -37,6 +37,11 @@ docs/files/FILE_REVIEW_AUTHORITY_BOUNDARY.md
 docs/files/FILE_REVIEW_RECEIPT_PLAN.md
 docs/files/FILE_REVIEW_NON_GOALS.md
 docs/files/M35_TO_M36_BOUNDARY.md
+docs/control_center/FILE_REVIEW_SURFACE.md
+docs/control_center/FILE_REVIEW_REVIEW_ONLY_POLICY.md
+docs/control_center/FILE_REVIEW_MOCK_DATA_POLICY.md
+docs/control_center/FILE_REVIEW_BINDING_DISPLAY_POLICY.md
+docs/control_center/M36_TO_M37_BOUNDARY.md
 docs/control_center/FILE_REVIEW_SURFACE_READINESS.md
 docs/tools/FILE_TOOL_CAPABILITY_MATRIX.md
 docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md
@@ -403,16 +408,17 @@ scripts/dev/README.md
 ```
 
 v0.37.4 supersedes the old active M35-M40 roadmap projection and defines the
-active M34-M60 sequence. v0.39.1 is the current active baseline after
-hardening M35 Safe File Review Workflow Contracts exact file/path binding. Active roadmap sources
-consistently keep v0.38.0 / M34 as Broader File Capability Review, keep M34
-planning/docs/verifier only, mark M36-M60 planned/provisional, and rely on
+active M34-M60 sequence. v0.40.0 is the current active baseline after
+implementing M36 CCC File Review Surface, Review-Only as a frontend-only
+display surface. Active roadmap sources consistently keep v0.38.0 / M34 as
+Broader File Capability Review, keep M34 planning/docs/verifier only, mark M36
+implemented/released, mark M37-M60 planned/provisional, and rely on
 documentation-integrity checks to guard against superseded-roadmap drift and
 stale current-baseline labels.
 
 ## Release Notes Index
 
-Current release notes: `docs/release_notes/v0_39_1.md`
+Current release notes: `docs/release_notes/v0_40_0.md`
 
 Historical release notes remain under `docs/release_notes/`. Historical docs may mention old active baselines in historical context; they are not the current source of truth.
 

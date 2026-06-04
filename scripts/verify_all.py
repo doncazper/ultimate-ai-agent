@@ -38,6 +38,7 @@ SCAN_SEQUENCE = [
     ("M33 redacted file preview tool scan", "verify_m33_redacted_file_preview_tool_safety"),
     ("M34 broader file capability review scan", "verify_m34_broader_file_capability_review_safety"),
     ("M35 safe file review workflow contract scan", "verify_m35_safe_file_review_workflow_safety"),
+    ("M36 CCC file review surface scan", "verify_m36_ccc_file_review_surface_safety"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -3836,8 +3837,6 @@ def verify_m34_broader_file_capability_review_safety():
 
     forbidden_doc_fragments = [
         "m34 implements safe file review workflow contracts",
-        "file review ui is implemented",
-        "ccc file review surface is implemented",
         "approval persistence is implemented",
         "review approval capture is implemented",
         "context proposal is implemented",
@@ -3845,6 +3844,13 @@ def verify_m34_broader_file_capability_review_safety():
         "raw file export is implemented",
         "backend file route is implemented",
     ]
+    if "v0.40." not in current_version:
+        forbidden_doc_fragments.extend(
+            [
+                "file review ui is implemented",
+                "ccc file review surface is implemented",
+            ]
+        )
     if "v0.39." not in current_version:
         forbidden_doc_fragments.append("safe file review workflow is implemented")
     for fragment in forbidden_doc_fragments:
@@ -3876,7 +3882,7 @@ def verify_m34_broader_file_capability_review_safety():
         "root selector",
     ]
     frontend_root = ROOT / "apps" / "control-center" / "src"
-    if frontend_root.exists():
+    if frontend_root.exists() and "v0.40." not in current_version:
         for path in frontend_root.rglob("*"):
             if not path.is_file() or path.suffix not in {".ts", ".tsx", ".js", ".jsx"}:
                 continue
@@ -3887,7 +3893,9 @@ def verify_m34_broader_file_capability_review_safety():
                     print(f"FAIL: M34 forbidden file-review frontend fragment in {rel}: {fragment}")
                     sys.exit(1)
 
-    if "v0.39." in current_version:
+    if "v0.40." in current_version:
+        print("OK: M34 broader file capability review is docs/verifier-only, route-free, acknowledges M35/M36, and leaves M36 safety to the M36 verifier")
+    elif "v0.39." in current_version:
         print("OK: M34 broader file capability review is docs/verifier-only, route-free, acknowledges M35, and keeps M36 future")
     else:
         print("OK: M34 broader file capability review is docs/verifier-only, route-free, and keeps M35/M36 future")
@@ -4089,6 +4097,103 @@ def verify_m35_safe_file_review_workflow_safety():
                     sys.exit(1)
 
     print("OK: M35 safe file review workflow is contract-only, review-only, route-free, and non-authoritative")
+
+
+def verify_m36_ccc_file_review_surface_safety():
+    print("\n[Verifier] Running M36 CCC file review surface guard...")
+    required_files = [
+        "apps/control-center/src/components/FileReviewSurfacePanel.tsx",
+        "apps/control-center/src/mocks/controlCenterData.ts",
+        "apps/control-center/src/routes.tsx",
+        "apps/control-center/src/App.test.tsx",
+        "docs/control_center/FILE_REVIEW_SURFACE.md",
+        "docs/control_center/FILE_REVIEW_REVIEW_ONLY_POLICY.md",
+        "docs/control_center/FILE_REVIEW_MOCK_DATA_POLICY.md",
+        "docs/control_center/FILE_REVIEW_BINDING_DISPLAY_POLICY.md",
+        "docs/control_center/M36_TO_M37_BOUNDARY.md",
+        "docs/release_notes/v0_40_0.md",
+        "docs/archive/releases/v0_40_0/README_IMPORT.md",
+        "docs/archive/releases/v0_40_0/master_plan.md",
+        "docs/implementation/foundation_gate_implementation_plan_v0_40_0.md",
+        "tests/test_m36_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M36 CCC file review surface file: {rel_path}")
+            sys.exit(1)
+
+    combined = "\n".join((ROOT / rel_path).read_text(encoding="utf-8").lower() for rel_path in required_files)
+    required_fragments = {
+        "review-only": "M36 docs/tests do not require review-only surface",
+        "mock and non-authoritative": "M36 docs/tests do not require mock non-authoritative data",
+        "redacted preview": "M36 docs/tests do not require redacted preview display",
+        "redaction summary": "M36 docs/tests do not require redaction summary display",
+        "exact binding refs": "M36 docs/tests do not require exact binding refs display",
+        "review_packet_ref": "M36 docs/tests do not require review_packet_ref display",
+        "preview_result_ref": "M36 docs/tests do not require preview_result_ref display",
+        "redaction_summary_ref": "M36 docs/tests do not require redaction_summary_ref display",
+        "file_ref": "M36 docs/tests do not require file_ref display",
+        "safe_path_ref": "M36 docs/tests do not require safe_path_ref display",
+        "approval gate contract status": "M36 docs/tests do not require approval-gate contract status display",
+        "receipt plan metadata": "M36 docs/tests do not require receipt-plan metadata display",
+        "no approval capture": "M36 docs/tests do not deny approval capture",
+        "no approval persistence": "M36 docs/tests do not deny approval persistence",
+        "no raw file display": "M36 docs/tests do not deny raw file display",
+        "no context proposal": "M36 docs/tests do not deny context proposal",
+        "no context injection": "M36 docs/tests do not deny context injection",
+        "no memory writes": "M36 docs/tests do not deny memory writes",
+        "no export": "M36 docs/tests do not deny export",
+        "no execution": "M36 docs/tests do not deny execution",
+        "m37 remains planned/provisional": "M36 docs/tests do not keep M37 planned/provisional",
+        "m38 remains planned/provisional": "M36 docs/tests do not keep M38 planned/provisional",
+    }
+    for fragment, message in required_fragments.items():
+        if fragment not in combined:
+            print(f"FAIL: {message}")
+            sys.exit(1)
+
+    component = (ROOT / "apps/control-center/src/components/FileReviewSurfacePanel.tsx").read_text(encoding="utf-8").lower()
+    forbidden_button_labels = [
+        "approve",
+        "deny",
+        "submit",
+        "save",
+        "mark reviewed",
+        "export",
+        "download",
+        "copy raw",
+        "file picker",
+        "browse",
+        "upload",
+        "root selector",
+        "open raw file",
+        "context proposal",
+        "inject",
+        "write memory",
+        "execute",
+        "run",
+        "run tool",
+        "call model",
+    ]
+    for label in forbidden_button_labels:
+        if re.search(rf"<button\b[^>]*>\s*{re.escape(label)}\s*</button>", component, re.IGNORECASE):
+            print(f"FAIL: M36 component exposes forbidden button label: {label}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.evaluators import m36_openapi_route_failures
+    except Exception as exc:
+        print(f"FAIL: M36 imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m36_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    print("OK: M36 CCC file review surface is review-only, mock, route-free, and non-authoritative")
 
 
 def verify_local_developer_launcher_safety():

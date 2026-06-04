@@ -1,8 +1,8 @@
 # M21-M40 Capability Charters
 
-Status: Active compatibility roadmap projection maintained through v0.39.1. M21-M35 are implemented/released through dedicated reviewed milestones. M34 is implemented/released by v0.38.0 as Broader File Capability Review planning/docs/verifier only. v0.39.0 implements M35 Safe File Review Workflow Contracts as contract-only, review-only logic over already-redacted preview results, and v0.39.1 hardens M35 exact file/path binding. M36-M60 remain planned/provisional.
+Status: Active compatibility roadmap projection maintained through v0.40.0. M21-M36 are implemented/released through dedicated reviewed milestones. M34 is implemented/released by v0.38.0 as Broader File Capability Review planning/docs/verifier only. v0.39.0 implements M35 Safe File Review Workflow Contracts as contract-only, review-only logic over already-redacted preview results, v0.39.1 hardens M35 exact file/path binding, and v0.40.0 implements M36 CCC File Review Surface, Review-Only as frontend-only. M37-M60 remain planned/provisional.
 
-These charters define capability layers after M20. v0.39.1 hardens M35 Safe File Review Workflow Contracts as contract-only, review-only logic. M36-M60 remain future capability layers. Every milestone requires its own implementation prompt, review prompt, hardening expectation, and validation evidence before release.
+These charters define capability layers after M20. v0.40.0 implements M36 CCC File Review Surface, Review-Only as frontend-only display logic. M37-M60 remain future capability layers. Every milestone requires its own implementation prompt, review prompt, hardening expectation, and validation evidence before release.
 
 ## Shared Rules
 
@@ -876,7 +876,8 @@ adds no runtime file capability, backend route, frontend runtime feature, raw
 file read, file review workflow implementation, approval capture, context
 proposal, context injection, memory write, export, execution, dependency, or
 production authority. v0.39.0 implements M35 as contract-only Safe File Review
-Workflow Contracts and v0.39.1 hardens exact file/path binding; M36-M60 remain
+Workflow Contracts, v0.39.1 hardens exact file/path binding, and v0.40.0
+implements M36 as CCC File Review Surface, Review-Only; M37-M60 remain
 planned/provisional.
 
 Review prompt required: yes.
@@ -972,7 +973,7 @@ Source-of-truth docs: `docs/files/SAFE_FILE_REVIEW_WORKFLOW.md`,
 
 ## v0.40.0 / M36 - CCC File Review Surface, Review-Only
 
-Status: planned/provisional.
+Status: implemented/released frontend-only.
 
 Purpose: Add a read-only/review-only CCC file review surface after M35
 contracts exist.
@@ -998,6 +999,7 @@ Hardening expectation: mandatory M36 hardening for browser-smoke reviewability,
 redacted display, and no execute/raw-preview controls.
 
 Source-of-truth docs: `docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md`.
+M37 remains planned/provisional. M38 remains planned/provisional.
 
 ## v0.41.0 / M37 - Review Approval Capture, Review-Only Persistence
 
@@ -1122,7 +1124,7 @@ planning and validation. M21 is implemented/released by v0.25.0 as
 contract-only. M22 is implemented/released by v0.26.0 as contract-only and hardened by v0.26.1.
 M23 is implemented/released by v0.27.0 as manual fixed-prompt local call only.
 M24 is implemented/released by v0.28.0 as governed local memory provider/store foundation, hardened by v0.28.1, and docs-cleaned by v0.28.2.
-M25 is implemented/released by v0.29.0 as deterministic local truth/evidence contracts. M26 is implemented/released by v0.30.0 as deterministic local grounded recall/context-pack contracts and hardened by v0.30.1. M27 is implemented/released by v0.31.0 as validation-only Tool Broker v2 contracts. v0.31.1 is docs-only README polish baseline normalization. M28 is implemented/released by v0.32.0 as Approval Authority v2 + Action Policy Expansion. M29 is implemented/released by v0.33.0 as Agent Task Planning Engine and hardened by v0.33.1 for dependency graph, derived risk, hidden side-effect, authority-boundary, evaluator revalidation, and no-execution coverage. M30 is implemented/released by v0.34.0 as Multi-Step Execution Framework state-machine-only contracts and hardened by v0.34.1. M31 is implemented/released by v0.35.0 as Real Tool Runtime Adapter, Single Safe No-Op Tool. M32 is implemented/released by v0.36.0 and hardened by v0.36.1. M33 is implemented/released by v0.37.0 as First Safe Local File Read Proposal, Redacted Preview Only and hardened by v0.37.1 for redacted preview safety. M34 is implemented/released by v0.38.0 as Broader File Capability Review planning/docs/verifier only. M35 is implemented/released by v0.39.0 as Safe File Review Workflow Contracts and hardened by v0.39.1 for exact file/path binding. M36-M60 remain planned/provisional. The M19 baseline
+M25 is implemented/released by v0.29.0 as deterministic local truth/evidence contracts. M26 is implemented/released by v0.30.0 as deterministic local grounded recall/context-pack contracts and hardened by v0.30.1. M27 is implemented/released by v0.31.0 as validation-only Tool Broker v2 contracts. v0.31.1 is docs-only README polish baseline normalization. M28 is implemented/released by v0.32.0 as Approval Authority v2 + Action Policy Expansion. M29 is implemented/released by v0.33.0 as Agent Task Planning Engine and hardened by v0.33.1 for dependency graph, derived risk, hidden side-effect, authority-boundary, evaluator revalidation, and no-execution coverage. M30 is implemented/released by v0.34.0 as Multi-Step Execution Framework state-machine-only contracts and hardened by v0.34.1. M31 is implemented/released by v0.35.0 as Real Tool Runtime Adapter, Single Safe No-Op Tool. M32 is implemented/released by v0.36.0 and hardened by v0.36.1. M33 is implemented/released by v0.37.0 as First Safe Local File Read Proposal, Redacted Preview Only and hardened by v0.37.1 for redacted preview safety. M34 is implemented/released by v0.38.0 as Broader File Capability Review planning/docs/verifier only. M35 is implemented/released by v0.39.0 as Safe File Review Workflow Contracts and hardened by v0.39.1 for exact file/path binding. M36 is implemented/released by v0.40.0 as CCC File Review Surface, Review-Only. M37-M60 remain planned/provisional. The M19 baseline
 adds no mobile app, Android app, iOS app, macOS app, native build workflow, OS
 permission integration, mobile sensor access, mobile approval execution,
 runtime execution, model/provider calls, remote execution, plugin enablement,
@@ -1136,5 +1138,5 @@ only. v0.25.0 implements M21 OpenWebUI Bridge + Chat Shell Integration
 Contract only. M22 Local Model Runtime Activation Contract is implemented by
 v0.26.0 as contract/planning/validation only and hardened by v0.26.1. M23 is
 implemented/released by v0.27.0 as manual fixed-prompt local call only. M24 is
-implemented/released by v0.28.0 as governed local memory provider/store foundation, hardened by v0.28.1, and docs-cleaned by v0.28.2. M25 is implemented/released by v0.29.0 as deterministic local truth/evidence contracts. M26 is implemented/released by v0.30.0 as deterministic local grounded recall/context-pack contracts and hardened by v0.30.1. M27 is implemented/released by v0.31.0 as validation-only Tool Broker v2 contracts. M28 is implemented/released by v0.32.0 as Approval Authority v2 + Action Policy Expansion. M29 is implemented/released by v0.33.0 as Agent Task Planning Engine and hardened by v0.33.1. M30 is implemented/released by v0.34.0 as Multi-Step Execution Framework and hardened by v0.34.1. M31 is implemented/released by v0.35.0 as Real Tool Runtime Adapter, Single Safe No-Op Tool. M32 is implemented/released by v0.36.0 and hardened by v0.36.1. M33 is implemented/released by v0.37.0 as First Safe Local File Read Proposal, Redacted Preview Only and hardened by v0.37.1 for redacted preview safety. M34-M60
+implemented/released by v0.28.0 as governed local memory provider/store foundation, hardened by v0.28.1, and docs-cleaned by v0.28.2. M25 is implemented/released by v0.29.0 as deterministic local truth/evidence contracts. M26 is implemented/released by v0.30.0 as deterministic local grounded recall/context-pack contracts and hardened by v0.30.1. M27 is implemented/released by v0.31.0 as validation-only Tool Broker v2 contracts. M28 is implemented/released by v0.32.0 as Approval Authority v2 + Action Policy Expansion. M29 is implemented/released by v0.33.0 as Agent Task Planning Engine and hardened by v0.33.1. M30 is implemented/released by v0.34.0 as Multi-Step Execution Framework and hardened by v0.34.1. M31 is implemented/released by v0.35.0 as Real Tool Runtime Adapter, Single Safe No-Op Tool. M32 is implemented/released by v0.36.0 and hardened by v0.36.1. M33 is implemented/released by v0.37.0 as First Safe Local File Read Proposal, Redacted Preview Only and hardened by v0.37.1 for redacted preview safety. M36 is implemented/released by v0.40.0 as CCC File Review Surface, Review-Only. M37-M60
 remain planned/provisional until implemented by dedicated reviewed milestones.

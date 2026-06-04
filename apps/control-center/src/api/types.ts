@@ -458,6 +458,60 @@ export interface M18RuntimeData {
   manualSmokeReports: ManualSmokeReportSummaryItem[];
 }
 
+export interface FileReviewBindingRefs {
+  reviewPacketRef: string;
+  previewResultRef: string;
+  redactionSummaryRef: string;
+  fileRef: string;
+  safePathRef: string;
+}
+
+export interface FileReviewReceiptPlanSummary {
+  receiptPlanRef: string;
+  rawContentStored: boolean;
+  unredactedPreviewStored: boolean;
+  rawAbsolutePathStored: boolean;
+  approvalCaptured: boolean;
+  approvalPersisted: boolean;
+  contextProposalCreated: boolean;
+  contextInjectionPerformed: boolean;
+  memoryWritePerformed: boolean;
+  exportPerformed: boolean;
+  executionPerformed: boolean;
+  safeSummary: string;
+}
+
+export interface FileReviewPacketSummary {
+  reviewPacketRef: string;
+  status: "ready_for_review" | "review_only" | "blocked";
+  actorSummary: string;
+  dataClassification: string;
+  redactedPreview: string;
+  redactionSummary: string;
+  bindingRefs: FileReviewBindingRefs;
+  reviewDecisionStatus: string;
+  approvalGateContractStatus: string;
+  receiptPlan: FileReviewReceiptPlanSummary;
+  reasonCodes: string[];
+  authorityWarnings: string[];
+  redactionStatus: "redacted_summary_only";
+  previewOnly: boolean;
+  readOnly: boolean;
+  mock: boolean;
+  nonAuthoritative: boolean;
+}
+
+export interface M36FileReviewData {
+  status: "mock_review_only" | "review_only";
+  readOnly: boolean;
+  previewOnly: boolean;
+  mock: boolean;
+  nonAuthoritative: boolean;
+  boundarySummary: string;
+  warningCodes: string[];
+  packets: FileReviewPacketSummary[];
+}
+
 export interface ControlCenterData {
   manifest: ControlCenterManifest;
   dashboard: ControlCenterDashboardSnapshot;
@@ -469,6 +523,7 @@ export interface ControlCenterData {
   m16Trace: M16TraceData;
   m17Knowledge: M17KnowledgeData;
   m18Runtime: M18RuntimeData;
+  m36FileReview: M36FileReviewData;
   source: "api" | "mock";
   connection: BackendConnectionSummary;
 }

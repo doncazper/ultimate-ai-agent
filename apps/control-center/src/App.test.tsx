@@ -73,6 +73,7 @@ describe("Web Control Center shell", () => {
       ["/events/timeline", /Event Timeline/i],
       ["/evidence", /Evidence Viewer/i],
       ["/files", /File Reference Viewer/i],
+      ["/files/review", /File Review Surface/i],
       ["/memory", /Memory Viewer/i],
       ["/runtime/local", /Local Runtime Status/i],
       ["/runtime/manual-smoke", /Manual Smoke Control Surface/i],
@@ -282,6 +283,85 @@ describe("Web Control Center shell", () => {
     expect(screen.queryByText(/raw file content/i)).not.toBeInTheDocument();
     expect(screen.queryByText(new RegExp("/Users/", "i"))).not.toBeInTheDocument();
     expect(screen.queryByText(/\/home\//i)).not.toBeInTheDocument();
+  });
+
+  it("renders M36 file review packets as review-only redacted previews", async () => {
+    mockFetchWithFallback();
+    window.history.pushState({}, "", "/files/review");
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: /File Review Surface/i })).toBeInTheDocument();
+    expect(screen.getAllByText(/M36 file review surface/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/mock and non-authoritative/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/MOCK_DATA_ONLY/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/NO_PRODUCTION_AUTHORITY/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Review-only surface/i)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /^Redacted preview$/i })).toBeInTheDocument();
+    expect(screen.getByText(/Reviewed change summary mentions \[REDACTED:SECRET_ASSIGNMENT\]/i)).toBeInTheDocument();
+    expect(screen.getByText(/Redaction summary/i)).toBeInTheDocument();
+    expect(screen.getByText(/Secret-like assignment and private path fragments were removed before display/i)).toBeInTheDocument();
+    expect(screen.getByText(/Exact binding refs/i)).toBeInTheDocument();
+    expect(screen.getAllByText("file-review-packet:mock_001").length).toBeGreaterThan(0);
+    expect(screen.getByText("redacted-file-preview-output:mock_001")).toBeInTheDocument();
+    expect(screen.getByText("file-review-redaction-summary:mock_001")).toBeInTheDocument();
+    expect(screen.getByText("file-ref:mock_review_001")).toBeInTheDocument();
+    expect(screen.getByText("filesystem-preview-path:safe-root_m36/docs/review-summary.md")).toBeInTheDocument();
+    expect(screen.getAllByText(/Approval gate contract status/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/exact_binding_ready/i)).toBeInTheDocument();
+    expect(screen.getByText(/Receipt plan metadata/i)).toBeInTheDocument();
+    expect(screen.getByText(/raw content stored: no/i)).toBeInTheDocument();
+  });
+
+  it("keeps M36 file review packet selection read-only without raw or mutation controls", async () => {
+    mockFetchWithFallback();
+    window.history.pushState({}, "", "/files/review");
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: /File Review Surface/i })).toBeInTheDocument();
+    const reviewButtons = screen.getAllByRole("button", { name: /view review packet/i });
+    expect(reviewButtons.length).toBeGreaterThan(1);
+    fireEvent.click(reviewButtons[1]);
+
+    expect(screen.getAllByRole("heading", { name: "file-review-packet:mock_002" }).length).toBeGreaterThan(0);
+    expect(screen.getByRole("article", { name: /file-review-packet:mock_002/i })).toHaveAttribute(
+      "aria-current",
+      "true"
+    );
+    expect(screen.getByText("file-ref:mock_review_002")).toBeInTheDocument();
+    expect(screen.getByText("filesystem-preview-path:safe-root_m36/docs/alternate-review.md")).toBeInTheDocument();
+    expect(screen.getByText(/Review decisions are display-only and cannot capture approval/i)).toBeInTheDocument();
+
+    for (const label of [
+      /^approve$/i,
+      /^deny$/i,
+      /^submit$/i,
+      /^save$/i,
+      /mark reviewed/i,
+      /mark-reviewed/i,
+      /^export$/i,
+      /^download$/i,
+      /copy raw/i,
+      /file picker/i,
+      /browse/i,
+      /upload/i,
+      /root selector/i,
+      /open raw file/i,
+      /context proposal/i,
+      /inject/i,
+      /write memory/i,
+      /^execute$/i,
+      /^run$/i,
+      /run tool/i,
+      /call model/i
+    ]) {
+      expect(screen.queryByRole("button", { name: label })).not.toBeInTheDocument();
+    }
+    expect(screen.queryByText(/raw_content/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/full_file_content/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/unredacted_preview/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(new RegExp("/Users/", "i"))).not.toBeInTheDocument();
+    expect(screen.queryByText(/\/home\//i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/supersecretvalue123/i)).not.toBeInTheDocument();
   });
 
   it("renders M17 memory summaries as recall and never authority", async () => {

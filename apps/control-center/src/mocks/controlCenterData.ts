@@ -11,8 +11,8 @@ export const mockControlCenterData: ControlCenterData = {
     warnings: ["MOCK_DATA_ONLY", "NO_PRODUCTION_AUTHORITY"]
   },
   manifest: {
-    manifest_id: "mock_control_center_manifest_m18",
-    version: "0.22.0",
+    manifest_id: "mock_control_center_manifest_m36",
+    version: "0.40.0",
     generated_at: "2026-01-01T00:00:00Z",
     declared_capabilities: [
       "control_center_read_only_dashboard",
@@ -20,7 +20,8 @@ export const mockControlCenterData: ControlCenterData = {
       "control_center_m15_review_preview",
       "control_center_m16_timeline_trace_preview",
       "control_center_m17_knowledge_reference_preview",
-      "control_center_m18_local_runtime_manual_smoke_preview"
+      "control_center_m18_local_runtime_manual_smoke_preview",
+      "control_center_m36_file_review_surface"
     ],
     blocked_capabilities: [
       "runtime_execution",
@@ -123,6 +124,24 @@ export const mockControlCenterData: ControlCenterData = {
         }
       },
       {
+        surface: "file_review_surface",
+        status: "preview_only",
+        description: "Mock review-only redacted file review packet surface for M36.",
+        route_refs: [],
+        execution_allowed: false,
+        mutation_allowed: false,
+        credential_resolution_allowed: false,
+        approval_grant_allowed: false,
+        metadata: {
+          mock: true,
+          redacted_summary_only: true,
+          approval_capture_allowed: false,
+          approval_persistence_allowed: false,
+          context_proposal_allowed: false,
+          raw_file_display_allowed: false
+        }
+      },
+      {
         surface: "remote_workers",
         status: "dry_run_only",
         description: "Remote worker controls remain dry-run-only.",
@@ -158,8 +177,8 @@ export const mockControlCenterData: ControlCenterData = {
     ]
   },
   dashboard: {
-    snapshot_id: "mock_control_center_dashboard_m18",
-    baseline_version: "0.22.0",
+    snapshot_id: "mock_control_center_dashboard_m36",
+    baseline_version: "0.40.0",
     generated_at: "2026-01-01T00:00:00Z",
     system_status: {
       label: "Control Center",
@@ -251,7 +270,7 @@ export const mockControlCenterData: ControlCenterData = {
   },
   runtimeReadiness: {
     report_id: "mock_runtime_readiness_m18",
-    baseline_version: "0.22.0",
+    baseline_version: "0.40.0",
     status: "report_only",
     production_ready: false,
     real_model_runtime_ready: false,
@@ -265,7 +284,7 @@ export const mockControlCenterData: ControlCenterData = {
   },
   capabilityMatrix: {
     matrix_id: "mock_runtime_capability_matrix_m18",
-    baseline_version: "0.22.0",
+    baseline_version: "0.40.0",
     metadata: { mock: true, no_model_was_called: true },
     entries: [
       {
@@ -723,6 +742,115 @@ export const mockControlCenterData: ControlCenterData = {
         safeMessage:
           "Mock validation summary only; no smoke attempt was performed and no response text is shown.",
         createdAt: "2026-01-01T00:30:00Z"
+      }
+    ]
+  },
+  m36FileReview: {
+    status: "mock_review_only",
+    readOnly: true,
+    previewOnly: true,
+    mock: true,
+    nonAuthoritative: true,
+    boundarySummary:
+      "This surface is mock and non-authoritative. It displays redacted review packets and exact safe binding refs only.",
+    warningCodes: [
+      "MOCK_DATA_ONLY",
+      "NO_PRODUCTION_AUTHORITY",
+      "REDACTED_SUMMARY_ONLY",
+      "NO_APPROVAL_CAPTURE",
+      "NO_APPROVAL_PERSISTENCE",
+      "NO_RAW_FILE_DISPLAY"
+    ],
+    packets: [
+      {
+        reviewPacketRef: "file-review-packet:mock_001",
+        status: "ready_for_review",
+        actorSummary: "Local reviewer mock session",
+        dataClassification: "project_private",
+        redactedPreview:
+          "Reviewed change summary mentions [REDACTED:SECRET_ASSIGNMENT] and safe project notes only.",
+        redactionSummary:
+          "Secret-like assignment and private path fragments were removed before display.",
+        bindingRefs: {
+          reviewPacketRef: "file-review-packet:mock_001",
+          previewResultRef: "redacted-file-preview-output:mock_001",
+          redactionSummaryRef: "file-review-redaction-summary:mock_001",
+          fileRef: "file-ref:mock_review_001",
+          safePathRef: "filesystem-preview-path:safe-root_m36/docs/review-summary.md"
+        },
+        reviewDecisionStatus: "packet_valid_for_review",
+        approvalGateContractStatus: "exact_binding_ready",
+        receiptPlan: {
+          receiptPlanRef: "file-review-receipt-plan:mock_001",
+          rawContentStored: false,
+          unredactedPreviewStored: false,
+          rawAbsolutePathStored: false,
+          approvalCaptured: false,
+          approvalPersisted: false,
+          contextProposalCreated: false,
+          contextInjectionPerformed: false,
+          memoryWritePerformed: false,
+          exportPerformed: false,
+          executionPerformed: false,
+          safeSummary:
+            "Receipt plan stores refs, redaction status, and decision metadata only."
+        },
+        reasonCodes: ["M36_REVIEW_ONLY_SURFACE", "EXACT_BINDING_REFS_DISPLAYED"],
+        authorityWarnings: [
+          "Decision status is display-only and cannot capture approval.",
+          "Approval gate refs are shown for review; they are not authority.",
+          "No raw file access, context proposal, memory write, export, or execution is available."
+        ],
+        redactionStatus: "redacted_summary_only",
+        previewOnly: true,
+        readOnly: true,
+        mock: true,
+        nonAuthoritative: true
+      },
+      {
+        reviewPacketRef: "file-review-packet:mock_002",
+        status: "review_only",
+        actorSummary: "Alternate local reviewer mock session",
+        dataClassification: "internal",
+        redactedPreview:
+          "Alternate redacted preview shows policy notes with sensitive fragments removed.",
+        redactionSummary:
+          "Identifier-like values and unsupported raw content markers were omitted before display.",
+        bindingRefs: {
+          reviewPacketRef: "file-review-packet:mock_002",
+          previewResultRef: "redacted-file-preview-output:mock_002",
+          redactionSummaryRef: "file-review-redaction-summary:mock_002",
+          fileRef: "file-ref:mock_review_002",
+          safePathRef: "filesystem-preview-path:safe-root_m36/docs/alternate-review.md"
+        },
+        reviewDecisionStatus: "review_only_display",
+        approvalGateContractStatus: "binding_refs_match_required",
+        receiptPlan: {
+          receiptPlanRef: "file-review-receipt-plan:mock_002",
+          rawContentStored: false,
+          unredactedPreviewStored: false,
+          rawAbsolutePathStored: false,
+          approvalCaptured: false,
+          approvalPersisted: false,
+          contextProposalCreated: false,
+          contextInjectionPerformed: false,
+          memoryWritePerformed: false,
+          exportPerformed: false,
+          executionPerformed: false,
+          safeSummary:
+            "Alternate receipt plan confirms no raw data or mutation authority is stored."
+        },
+        reasonCodes: ["M36_REVIEW_ONLY_SURFACE", "NO_MUTATION_CONTROLS"],
+        authorityWarnings: [
+          "Decision status is display-only and cannot capture approval.",
+          "M37 approval capture remains future.",
+          "Context proposal and injection remain unavailable."
+        ],
+        redactionStatus: "redacted_summary_only",
+        previewOnly: true,
+        readOnly: true,
+        mock: true,
+        nonAuthoritative: true
       }
     ]
   }

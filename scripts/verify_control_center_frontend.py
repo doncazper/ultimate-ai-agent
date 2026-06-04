@@ -22,6 +22,7 @@ REQUIRED_FILES = [
     "src/components/EventTimelineTracePanel.tsx",
     "src/components/EvidenceFileMemoryViewerPanel.tsx",
     "src/components/LocalRuntimeStatusPanel.tsx",
+    "src/components/FileReviewSurfacePanel.tsx",
     "src/mocks/controlCenterData.ts",
     "src/App.test.tsx",
 ]
@@ -54,12 +55,22 @@ FORBIDDEN_ENDPOINTS = [
     "/evidence/raw",
     "/evidence/payload",
     "/files/content",
+    "/files/read",
+    "/files/read/raw",
+    "/files/read/content",
+    "/files/read/full",
+    "/files/review/approve",
+    "/files/review/submit",
+    "/files/review/approvals/capture",
     "/files/write",
     "/files/delete",
     "/filesystem/browse",
     "/memory/content",
     "/memory/write",
     "/memory/delete",
+    "/context/propose",
+    "/context/inject",
+    "/tool-runtime/execute",
     "/memory/learn",
     "/memory/forget",
     "/runtime/smoke-reports/execute",
@@ -128,9 +139,25 @@ DANGEROUS_BUTTON_LABELS = [
     "Learn this",
     "Forget this",
     "Open file",
+    "Open raw file",
     "Delete file",
     "Write file",
     "Browse filesystem",
+    "File picker",
+    "Browse",
+    "Upload",
+    "Root selector",
+    "Submit",
+    "Save",
+    "Mark reviewed",
+    "Export",
+    "Download",
+    "Copy raw",
+    "Context proposal",
+    "Inject",
+    "Write memory",
+    "Run tool",
+    "Call model",
     "Reveal raw",
     "Show raw",
     "Run smoke",
@@ -285,6 +312,37 @@ M18_RUNTIME_MOCK_MARKERS = [
     "modelOutputAuthoritative: false",
 ]
 
+M36_FILE_REVIEW_BOUNDARY_MARKERS = [
+    "M36 file review surface",
+    "Review-only surface",
+    "Redacted preview",
+    "Redaction summary",
+    "Exact binding refs",
+    "Approval gate contract status",
+    "Receipt plan metadata",
+    "Review decisions are display-only and cannot capture approval",
+]
+
+M36_FILE_REVIEW_MOCK_MARKERS = [
+    "m36FileReview",
+    "file-review-packet:mock_001",
+    "redacted-file-preview-output:mock_001",
+    "file-review-redaction-summary:mock_001",
+    "file-ref:mock_review_001",
+    "filesystem-preview-path:safe-root_m36/docs/review-summary.md",
+    "NO_APPROVAL_CAPTURE",
+    "NO_APPROVAL_PERSISTENCE",
+    "NO_RAW_FILE_DISPLAY",
+    "rawContentStored: false",
+    "approvalCaptured: false",
+    "approvalPersisted: false",
+    "contextProposalCreated: false",
+    "contextInjectionPerformed: false",
+    "memoryWritePerformed: false",
+    "exportPerformed: false",
+    "executionPerformed: false",
+]
+
 
 def verify(root: Path = ROOT) -> list[str]:
     failures: list[str] = []
@@ -351,9 +409,13 @@ def verify(root: Path = ROOT) -> list[str]:
             "no_raw_content",
             "memory_not_authority",
             "m18runtime",
+            "m36filereview",
             "validation_only",
             "no_runtime_execution",
             "modeloutputauthoritative: false",
+            "no_approval_capture",
+            "no_approval_persistence",
+            "no_raw_file_display",
         ]
         normalized_mock = mock_lowered.replace("_", "").replace(" ", "")
         for fragment in required_mock_safety:
@@ -370,6 +432,9 @@ def verify(root: Path = ROOT) -> list[str]:
         for marker in M18_RUNTIME_MOCK_MARKERS:
             if marker.lower() not in mock_lowered:
                 failures.append(f"M18 runtime mock marker missing: {marker}")
+        for marker in M36_FILE_REVIEW_MOCK_MARKERS:
+            if marker.lower() not in mock_lowered:
+                failures.append(f"M36 file review mock marker missing: {marker}")
 
     approval_panel = app_root / "src/components/ApprovalQueuePanel.tsx"
     if approval_panel.exists():
@@ -401,6 +466,19 @@ def verify(root: Path = ROOT) -> list[str]:
         for marker in M18_RUNTIME_BOUNDARY_MARKERS:
             if marker not in text:
                 failures.append(f"M18 runtime boundary copy missing in {runtime_panel.relative_to(root)}: {marker}")
+
+    file_review_panel = app_root / "src/components/FileReviewSurfacePanel.tsx"
+    if file_review_panel.exists():
+        text = file_review_panel.read_text(encoding="utf-8")
+        for marker in M36_FILE_REVIEW_BOUNDARY_MARKERS:
+            if marker not in text:
+                failures.append(f"M36 file review boundary copy missing in {file_review_panel.relative_to(root)}: {marker}")
+
+    routes = app_root / "src/routes.tsx"
+    if routes.exists():
+        text = routes.read_text(encoding="utf-8")
+        if '"/files/review"' not in text or "FileReviewSurfacePanel" not in text:
+            failures.append("M36 file review route is missing from Control Center routes")
 
     endpoints = app_root / "src/api/endpoints.ts"
     base_url = app_root / "src/api/baseUrl.ts"
@@ -565,7 +643,8 @@ def _m17_knowledge_field_failures(rel: Path, text: str) -> list[str]:
     m17_index = text.lower().find("m17knowledge")
     if m17_index == -1:
         return failures
-    m17_text = text[m17_index:]
+    m18_index = text.lower().find("m18runtime", m17_index)
+    m17_text = text[m17_index:m18_index] if m18_index != -1 else text[m17_index:]
     for match in RAW_M17_KNOWLEDGE_FIELD.finditer(m17_text):
         failures.append(f"raw M17 knowledge field in {rel}: {match.group(0)}")
     for match in CREDENTIAL_M17_KNOWLEDGE_FIELD.finditer(m17_text):
@@ -580,7 +659,8 @@ def _m18_runtime_field_failures(rel: Path, text: str) -> list[str]:
     m18_index = text.lower().find("m18runtime")
     if m18_index == -1:
         return failures
-    m18_text = text[m18_index:]
+    m36_index = text.lower().find("m36filereview", m18_index)
+    m18_text = text[m18_index:m36_index] if m36_index != -1 else text[m18_index:]
     for match in RAW_M18_RUNTIME_FIELD.finditer(m18_text):
         failures.append(f"raw M18 runtime field in {rel}: {match.group(0)}")
     for match in CREDENTIAL_M18_RUNTIME_FIELD.finditer(m18_text):
