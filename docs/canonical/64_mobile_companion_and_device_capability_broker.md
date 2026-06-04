@@ -192,9 +192,9 @@ macOS planning constraints:
 v0.18.4 adds post-M20 roadmap projection docs only. v0.35.0 supersedes the
 old M31 native-client slot with M31 Real Tool Runtime Adapter, Single Safe No-Op
 Tool. Mobile and device work remains planned/provisional in future reviewed
-roadmap slots:
+roadmap slots. The original M33 mobile approval surface slot was superseded by
+v0.37.0 M33 First Safe Local File Read Proposal, Redacted Preview Only:
 
-- M33 - Mobile Approval Surface Prototype, No Sensors.
 - M35 - Device Capability Broker Implementation, No Sensors Yet.
 - M36 - Mobile Capture Inbox, Selected Input Only.
 - M37 - One Governed Sensor Capability.

@@ -1,7 +1,7 @@
 # Tool Runtime Invocation Contract
 
 Status: active M32 documentation.
-Current active baseline: **v0.36.1**
+Current active baseline: **v0.37.0**
 
 M32 defines typed invocation contracts for two allowlisted safe runtime paths:
 
@@ -22,4 +22,7 @@ following, caller-selected root paths, or mutation.
 
 No backend execute route is added in M32.
 
-M33-M40 remain planned/provisional.
+M33 adds `tool:filesystem.redacted_preview.v1` as bounded redacted preview
+only. It remains safe-root-bound, redaction-before-return, no raw content
+return/storage, no full-file output, no content hash, no directory listing, no
+mutation, and no context injection. M34-M40 remain planned/provisional.

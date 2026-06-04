@@ -1,7 +1,7 @@
 # Filesystem Metadata Tool
 
 Status: active M32 documentation.
-Current active baseline: **v0.36.1**
+Current active baseline: **v0.37.0**
 
 M32 implements one safe local filesystem metadata tool:
 
@@ -35,4 +35,7 @@ Allowed runtime tools in M32:
 
 All other runtime tools remain denied.
 
-M33-M40 remain planned/provisional.
+M33 is implemented/released as First Safe Local File Read Proposal, Redacted
+Preview Only. The filesystem metadata tool remains metadata-only and does not
+return raw content, text previews, full-file output, content hashes, directory
+listing, or mutation. M34-M40 remain planned/provisional.

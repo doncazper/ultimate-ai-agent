@@ -1,7 +1,7 @@
 # Filesystem Metadata Result Contract
 
 Status: active M32 documentation.
-Current active baseline: **v0.36.1**
+Current active baseline: **v0.37.0**
 
 M32 filesystem metadata results are safe summary envelopes. They are
 non-authoritative and metadata-only.

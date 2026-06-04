@@ -1,18 +1,19 @@
 # Ultimate AI Agent Version
 
-Current active baseline: **v0.36.1**
+Current active baseline: **v0.37.0**
 
-v0.36.1 hardens M32 Safe Tool Runtime Expansion and the safe local filesystem
-metadata tool. It strengthens source path normalization, encoded traversal
-denial, home/Windows/double-separator path denial, hidden/private-key-like path
-denial, caller-selected root denial, metadata alias flag denial, model_copy
-evaluator revalidation, static verification, documentation, and Foundation Gate
-coverage.
+v0.37.0 implements M33 First Safe Local File Read Proposal, Redacted Preview
+Only. It adds a governed redacted file preview proposal tool through the tool
+runtime adapter, safe root and relative path policies, bounded text preview
+reads, redaction-before-return guarantees, redacted preview result contracts,
+no-raw-content receipt plans, documentation, documentation-integrity checks,
+static safety verification, and Foundation Gate coverage.
 
-It preserves `tool:filesystem_metadata.v1` as metadata-only and bound to
-server-owned safe roots. It adds no raw file reads, text previews, content
-hashing, directory listing, recursive traversal, symlink following, file
-mutation, arbitrary tool execution, shell/subprocess execution, memory writes,
-network calls, model/provider calls, backend execution or raw-file routes,
-Control Center execute/raw-preview controls, dependencies, M33 work, or
-production authority.
+It allows only bounded redacted previews under server-owned safe roots, returns
+no raw file content or raw absolute paths, blocks hidden/secret-like paths,
+binary files, unsupported encodings, symlinks, traversal, full-file reads,
+directory listing, and file mutation, and preserves M34 as future broader file
+capability work. It adds no raw file output, file mutation, memory writes,
+network calls, model/provider calls, context injection, backend raw-file or
+execute routes, Control Center raw-preview or execute controls, dependencies,
+or production authority.

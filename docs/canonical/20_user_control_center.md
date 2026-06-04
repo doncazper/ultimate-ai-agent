@@ -163,10 +163,12 @@ v0.18.3 adds no M15 Approval Queue + Receipt/Event Viewer UI, OpenWebUI integrat
 
 v0.18.4 points future client work to `docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md` and `docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md`.
 
-Relevant future milestones from the original v0.18.4 projection:
+Relevant future milestones from the original v0.18.4 projection, now
+superseded by the active roadmap:
 
 - M21 - OpenWebUI Bridge + Chat Shell Integration Contract.
-- M33 - Mobile Approval Surface Prototype, No Sensors.
+- Original M33 mobile approval surface slot - superseded by v0.37.0 M33
+  First Safe Local File Read Proposal, Redacted Preview Only.
 - M34 - macOS Local Companion Contract / Prototype.
 
 v0.35.0 supersedes the old M31 native-client slot with M31 Real Tool Runtime

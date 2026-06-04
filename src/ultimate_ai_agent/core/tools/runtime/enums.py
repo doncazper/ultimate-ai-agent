@@ -5,6 +5,7 @@ class ToolRuntimeAdapterStatus(str, Enum):
     contract_only = "contract_only"
     noop_only = "noop_only"
     safe_metadata_only = "safe_metadata_only"
+    redacted_preview_only = "redacted_preview_only"
     validation_only = "validation_only"
     blocked = "blocked"
     future_tool_runtime_required = "future_tool_runtime_required"
@@ -13,6 +14,7 @@ class ToolRuntimeAdapterStatus(str, Enum):
 class ToolRuntimeMode(str, Enum):
     noop_only = "noop_only"
     safe_metadata_only = "safe_metadata_only"
+    redacted_preview_only = "redacted_preview_only"
     dry_run_only = "dry_run_only"
     validation_only = "validation_only"
     blocked = "blocked"
@@ -25,6 +27,7 @@ class ToolInvocationStatus(str, Enum):
     blocked = "blocked"
     noop_completed = "noop_completed"
     metadata_completed = "metadata_completed"
+    preview_completed = "preview_completed"
     failed_validation = "failed_validation"
     replay_detected = "replay_detected"
     future_tool_required = "future_tool_required"
@@ -33,6 +36,7 @@ class ToolInvocationStatus(str, Enum):
 class ToolInvocationKind(str, Enum):
     noop = "noop"
     filesystem_metadata = "filesystem_metadata"
+    redacted_file_preview = "redacted_file_preview"
     validation_only = "validation_only"
     blocked_unknown = "blocked_unknown"
     blocked_effectful = "blocked_effectful"
@@ -50,9 +54,11 @@ class ToolInvocationKind(str, Enum):
 class ToolRuntimeCapability(str, Enum):
     noop = "noop"
     filesystem_metadata = "filesystem_metadata"
+    redacted_file_preview = "redacted_file_preview"
     deterministic_result = "deterministic_result"
     no_effect = "no_effect"
     metadata_only_filesystem = "metadata_only_filesystem"
+    redacted_preview_only_filesystem = "redacted_preview_only_filesystem"
     no_memory_write = "no_memory_write"
     no_network = "no_network"
     no_model_call = "no_model_call"

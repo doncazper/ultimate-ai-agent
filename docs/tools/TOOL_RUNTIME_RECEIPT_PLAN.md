@@ -1,7 +1,7 @@
 # Tool Runtime Receipt Plan
 
 Status: active M32 documentation.
-Current active baseline: **v0.36.1**
+Current active baseline: **v0.37.0**
 
 M32 receipt plans are non-authoritative summaries for allowlisted runtime
 invocations.
@@ -22,4 +22,6 @@ For no-op and filesystem metadata invocations, `execution_performed=True` means
 only that the deterministic governed adapter path completed. It does not mean
 action execution or filesystem mutation happened.
 
-M33-M40 remain planned/provisional.
+M33 redacted preview receipt plans are non-authoritative and store no raw file
+content, no raw prompt, no raw model output, no raw transcript, no secret-like
+values, and no raw absolute paths. M34-M40 remain planned/provisional.

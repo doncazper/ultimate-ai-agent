@@ -1,7 +1,7 @@
 # Filesystem Metadata Non-Goals
 
 Status: active M32 documentation.
-Current active baseline: **v0.36.1**
+Current active baseline: **v0.37.0**
 
 M32 intentionally does not implement:
 
@@ -25,4 +25,7 @@ M32 intentionally does not implement:
 - dependencies.
 - production authority.
 
-M33-M40 remain planned/provisional.
+M33 is implemented/released as bounded redacted file preview proposal only.
+Raw file output, full-file reads, content hashes, directory listing, mutation,
+backend raw-file/execute routes, Control Center raw-preview/execute controls,
+and production authority remain non-goals. M34-M40 remain planned/provisional.

@@ -1,7 +1,7 @@
 # Ultimate AI Agent Docs
 
 Status: active
-Current through: v0.36.1
+Current through: v0.37.0
 Purpose: Human-facing entrypoint for active documentation and historical archive navigation.
 
 Active docs are few, indexed, and current. Historical docs are preserved under
@@ -22,10 +22,18 @@ docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md
 Current release packet:
 
 ```text
-docs/archive/releases/v0_36_1/README_IMPORT.md
-docs/archive/releases/v0_36_1/master_plan.md
-docs/release_notes/v0_36_1.md
-docs/implementation/foundation_gate_implementation_plan_v0_36_1.md
+docs/archive/releases/v0_37_0/README_IMPORT.md
+docs/archive/releases/v0_37_0/master_plan.md
+docs/release_notes/v0_37_0.md
+docs/implementation/foundation_gate_implementation_plan_v0_37_0.md
+docs/tools/REDACTED_FILE_PREVIEW_TOOL.md
+docs/tools/REDACTED_FILE_PREVIEW_POLICY.md
+docs/tools/REDACTED_FILE_PREVIEW_RESULT_CONTRACT.md
+docs/tools/REDACTED_FILE_PREVIEW_REDACTION_POLICY.md
+docs/tools/REDACTED_FILE_PREVIEW_AUTHORITY_BOUNDARY.md
+docs/tools/REDACTED_FILE_PREVIEW_NON_GOALS.md
+docs/tools/M33_TO_M34_BOUNDARY.md
+docs/files/LOCAL_FILE_REDACTED_PREVIEW_POLICY.md
 docs/tools/FILESYSTEM_METADATA_TOOL.md
 docs/tools/FILESYSTEM_METADATA_PATH_POLICY.md
 docs/tools/FILESYSTEM_METADATA_RESULT_CONTRACT.md
@@ -81,15 +89,15 @@ historical snapshots.
 v0.29.5 is documentation policy polish only. It accepts the pushed duplicate
 wording cleanup from `374bb1e` and remains the cleanup baseline before M26.
 
-v0.36.1 hardens M32 safe local filesystem metadata under server-owned safe
-roots. It strengthens path normalization, encoded traversal denial,
-home/Windows/double-separator path denial, hidden/private-key-like path denial,
-caller-selected root denial, metadata alias flag denial, evaluator
-revalidation, static verification, documentation, and Foundation Gate coverage.
-It returns metadata only and denies raw content, text preview, content hash,
-directory listing, recursive traversal, symlink following, caller-selected
-roots, file mutation, backend execution routes, dependencies, M33 work, and
-production authority.
+v0.37.0 implements M33 First Safe Local File Read Proposal, Redacted Preview
+Only. It adds one governed tool runtime adapter entry,
+`tool:filesystem.redacted_preview.v1`, for bounded redacted preview proposals
+under server-owned safe roots. It returns no raw file content, stores no raw
+file content, exposes no raw absolute paths, blocks hidden/secret-like paths,
+binary files, unsupported encodings, oversized files, symlinks, traversal,
+full-file reads, content hashes, directory listing, file mutation, backend
+raw-file/execute routes, Control Center raw-preview/execute controls,
+dependencies, context injection, and production authority.
 
 v0.35.1 hardens M31 Real Tool Runtime Adapter, Single Safe No-Op Tool. It
 strengthens allowlist validation, tool_ref/tool_name consistency, dynamic
@@ -114,4 +122,4 @@ memory writes, network calls, model/provider calls, plugin enablement, browser
 automation, mobile/device access, remote execution, shell execution,
 dependencies, context injection, or production authority.
 
-M33-M40 remain planned/provisional.
+M34-M40 remain planned/provisional.

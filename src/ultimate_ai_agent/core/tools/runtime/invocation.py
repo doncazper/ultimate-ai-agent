@@ -16,10 +16,20 @@ from ultimate_ai_agent.core.tools.runtime.filesystem_metadata import (
     build_missing_filesystem_metadata_output,
     filesystem_metadata_policy_reason_codes,
 )
+from ultimate_ai_agent.core.tools.runtime.file_preview import (
+    RedactedFilePreviewPolicy,
+    build_redacted_file_preview_output,
+    redacted_file_preview_policy_reason_codes,
+)
 from ultimate_ai_agent.core.tools.runtime.noop import invoke_noop_tool
 from ultimate_ai_agent.core.tools.runtime.policy import validate_runtime_policy, validate_tool_invocation_request
 from ultimate_ai_agent.core.tools.runtime.receipts import build_tool_invocation_receipt_plan
-from ultimate_ai_agent.core.tools.runtime.validation import ALLOWLISTED_TOOL_NAMES, NOOP_TOOL_REF, validate_tool_runtime_ref
+from ultimate_ai_agent.core.tools.runtime.validation import (
+    ALLOWLISTED_TOOL_NAMES,
+    NOOP_TOOL_REF,
+    REDACTED_FILE_PREVIEW_TOOL_REF,
+    validate_tool_runtime_ref,
+)
 
 
 def _safe_invocation_id(value: str) -> str:
@@ -73,6 +83,9 @@ def evaluate_tool_invocation(
     fs_request = None
     fs_root = None
     fs_normalized_path = None
+    preview_request = None
+    preview_root = None
+    preview_normalized_path = None
     if request.tool_ref == FILESYSTEM_METADATA_TOOL_REF:
         fs_request, fs_root, fs_normalized_path, fs_reasons = filesystem_metadata_policy_reason_codes(
             request.metadata, safe_roots=safe_roots
@@ -80,6 +93,13 @@ def evaluate_tool_invocation(
         reasons.extend(fs_reasons)
         if fs_root is not None and fs_normalized_path is not None:
             reasons.extend(_symlink_reason_codes(fs_root.root_path, fs_normalized_path))
+    if request.tool_ref == REDACTED_FILE_PREVIEW_TOOL_REF:
+        preview_request, preview_root, preview_normalized_path, preview_reasons = redacted_file_preview_policy_reason_codes(
+            request.metadata, safe_roots=safe_roots
+        )
+        reasons.extend(preview_reasons)
+        if preview_root is not None and preview_normalized_path is not None:
+            reasons.extend(_symlink_reason_codes(preview_root.root_path, preview_normalized_path))
     if active_policy.replay_protection_required and request.replay_key in set(replay_keys_seen or []):
         reasons.append("TOOL_RUNTIME_REPLAY_DETECTED")
     reasons = list(dict.fromkeys(reasons))
@@ -123,6 +143,43 @@ def evaluate_tool_invocation(
             authority_level=ToolRuntimeAuthorityLevel.metadata_runtime_only,
             reason_codes=["FILESYSTEM_METADATA_RETURNED"],
             safe_message="Filesystem metadata lookup completed without content access or side effects.",
+            result=result,
+            receipt_plan=receipt,
+        )
+
+    if request.tool_ref == REDACTED_FILE_PREVIEW_TOOL_REF:
+        assert preview_request is not None
+        assert preview_root is not None
+        assert preview_normalized_path is not None
+        target_path = preview_root.root_path / preview_normalized_path
+        try:
+            output = build_redacted_file_preview_output(
+                invocation_id=request.invocation_id,
+                root_ref=preview_request.root_ref,
+                normalized_path=preview_normalized_path,
+                target_path=target_path,
+                policy=RedactedFilePreviewPolicy(),
+            )
+        except ValueError as exc:
+            return _denied_decision(request, [str(exc)])
+        result = ToolInvocationResult(
+            result_id=f"tool-runtime-result:{request.invocation_id.split(':', 1)[-1]}",
+            invocation_id=request.invocation_id,
+            tool_ref=REDACTED_FILE_PREVIEW_TOOL_REF,
+            status=ToolInvocationStatus.preview_completed,
+            output=output,
+            receipt_plan=receipt,
+        )
+        return ToolInvocationDecision(
+            decision_id=f"tool-runtime-decision:{request.invocation_id.split(':', 1)[-1]}",
+            invocation_id=request.invocation_id,
+            tool_ref=REDACTED_FILE_PREVIEW_TOOL_REF,
+            status=ToolInvocationStatus.preview_completed,
+            invocation_allowed=True,
+            execution_performed=True,
+            authority_level=ToolRuntimeAuthorityLevel.metadata_runtime_only,
+            reason_codes=["REDACTED_FILE_PREVIEW_RETURNED"],
+            safe_message="Redacted file preview proposal completed without raw content return or side effects.",
             result=result,
             receipt_plan=receipt,
         )

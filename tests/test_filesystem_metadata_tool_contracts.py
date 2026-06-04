@@ -5,6 +5,7 @@ import pytest
 from ultimate_ai_agent.core.tools.runtime import (
     FILESYSTEM_METADATA_TOOL_NAME,
     FILESYSTEM_METADATA_TOOL_REF,
+    REDACTED_FILE_PREVIEW_TOOL_REF,
     FilesystemMetadataRequest,
     FilesystemMetadataStatus,
     FilesystemSafeRoot,
@@ -38,13 +39,18 @@ def _request(**overrides):
     return ToolInvocationRequest(**data)
 
 
-def test_manifest_allowlists_noop_and_filesystem_metadata_only():
-    manifest = build_tool_runtime_manifest(baseline_version="0.36.1")
+def test_manifest_allowlists_noop_metadata_and_redacted_preview():
+    manifest = build_tool_runtime_manifest(baseline_version="0.37.0")
 
-    assert manifest.baseline_version == "0.36.1"
-    assert manifest.allowlisted_tool_refs == ["tool:no_op.v1", FILESYSTEM_METADATA_TOOL_REF]
+    assert manifest.baseline_version == "0.37.0"
+    assert manifest.allowlisted_tool_refs == [
+        "tool:no_op.v1",
+        FILESYSTEM_METADATA_TOOL_REF,
+        REDACTED_FILE_PREVIEW_TOOL_REF,
+    ]
     assert manifest.policy.noop_tool_enabled is True
     assert manifest.policy.filesystem_metadata_tool_enabled is True
+    assert manifest.policy.redacted_file_preview_tool_enabled is True
     assert manifest.policy.file_tools_enabled is False
     assert manifest.policy.file_content_read_enabled is False
     assert manifest.policy.file_preview_enabled is False

@@ -8,9 +8,12 @@ NOOP_TOOL_REF = "tool:no_op.v1"
 NOOP_TOOL_NAME = "noop"
 FILESYSTEM_METADATA_TOOL_REF = "tool:filesystem_metadata.v1"
 FILESYSTEM_METADATA_TOOL_NAME = "filesystem_metadata"
+REDACTED_FILE_PREVIEW_TOOL_REF = "tool:filesystem.redacted_preview.v1"
+REDACTED_FILE_PREVIEW_TOOL_NAME = "redacted_file_preview"
 ALLOWLISTED_TOOL_NAMES = {
     NOOP_TOOL_REF: NOOP_TOOL_NAME,
     FILESYSTEM_METADATA_TOOL_REF: FILESYSTEM_METADATA_TOOL_NAME,
+    REDACTED_FILE_PREVIEW_TOOL_REF: REDACTED_FILE_PREVIEW_TOOL_NAME,
 }
 SAFE_REF_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9_.-]*:[a-zA-Z0-9][a-zA-Z0-9_.:/@-]*$")
 SECRET_LIKE_RE = re.compile(

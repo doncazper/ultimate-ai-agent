@@ -34,6 +34,7 @@ SCAN_SEQUENCE = [
     ("M30 Multi-Step Execution Framework safety scan", "verify_m30_multi_step_execution_framework_safety"),
     ("M31 Real Tool Runtime Adapter no-op safety scan", "verify_m31_tool_runtime_noop_safety"),
     ("M32 safe filesystem metadata tool scan", "verify_m32_filesystem_metadata_tool_safety"),
+    ("M33 redacted file preview tool scan", "verify_m33_redacted_file_preview_tool_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
     ("production truth integration scan", "verify_no_production_truth_integrations"),
@@ -3215,6 +3216,7 @@ def verify_m32_filesystem_metadata_tool_safety():
             FILESYSTEM_METADATA_TOOL_NAME,
             FILESYSTEM_METADATA_TOOL_REF,
             NOOP_TOOL_REF,
+            REDACTED_FILE_PREVIEW_TOOL_REF,
             FilesystemSafeRoot,
             ToolInvocationKind,
             ToolInvocationRequest,
@@ -3232,7 +3234,11 @@ def verify_m32_filesystem_metadata_tool_safety():
 
     manifest = build_tool_runtime_manifest(baseline_version="0.36.1")
     policy = manifest.policy
-    if manifest.allowlisted_tool_refs != [NOOP_TOOL_REF, FILESYSTEM_METADATA_TOOL_REF]:
+    active_text = (ROOT / "VERSION.md").read_text(encoding="utf-8")
+    expected_m32_allowlist = [NOOP_TOOL_REF, FILESYSTEM_METADATA_TOOL_REF]
+    if "v0.37.0" in active_text:
+        expected_m32_allowlist.append(REDACTED_FILE_PREVIEW_TOOL_REF)
+    if manifest.allowlisted_tool_refs != expected_m32_allowlist:
         print("FAIL: M32 manifest allowlist is not exactly no-op plus filesystem metadata")
         sys.exit(1)
     unsafe_flags = [
@@ -3441,6 +3447,260 @@ def verify_m32_filesystem_metadata_tool_safety():
         )
 
     print("OK: M32 filesystem metadata tool is safe-root-bound, metadata-only, route-free, and non-mutating")
+
+
+def verify_m33_redacted_file_preview_tool_safety():
+    print("\n[Verifier] Running M33 redacted file preview tool guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/tools/runtime/file_preview.py",
+        "tests/test_redacted_file_preview_tool_contracts.py",
+        "tests/test_redacted_file_preview_path_policy.py",
+        "tests/test_redacted_file_preview_authority_boundaries.py",
+        "tests/test_m33_gate_integration.py",
+        "docs/tools/REDACTED_FILE_PREVIEW_TOOL.md",
+        "docs/tools/REDACTED_FILE_PREVIEW_POLICY.md",
+        "docs/tools/REDACTED_FILE_PREVIEW_RESULT_CONTRACT.md",
+        "docs/tools/REDACTED_FILE_PREVIEW_REDACTION_POLICY.md",
+        "docs/tools/REDACTED_FILE_PREVIEW_AUTHORITY_BOUNDARY.md",
+        "docs/tools/REDACTED_FILE_PREVIEW_NON_GOALS.md",
+        "docs/tools/M33_TO_M34_BOUNDARY.md",
+        "docs/release_notes/v0_37_0.md",
+        "docs/archive/releases/v0_37_0/README_IMPORT.md",
+        "docs/archive/releases/v0_37_0/master_plan.md",
+        "docs/implementation/foundation_gate_implementation_plan_v0_37_0.md",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M33 redacted file preview file: {rel_path}")
+            sys.exit(1)
+
+    preview_source = (ROOT / "src/ultimate_ai_agent/core/tools/runtime/file_preview.py").read_text(encoding="utf-8")
+    forbidden_source_fragments = [
+        "read_text(",
+        "read_bytes(",
+        "hashlib",
+        ".glob(",
+        ".rglob(",
+        "os.walk(",
+        "follow_symlinks=True",
+        "shutil",
+        ".unlink(",
+        ".remove(",
+        ".rename(",
+        ".replace(",
+        ".chmod(",
+        ".chown(",
+        "requests.get(",
+        "requests.post(",
+        "httpx.get(",
+        "httpx.post(",
+        "urllib.request.urlopen(",
+        "os.system(",
+        "popen(",
+        "shell=True",
+    ]
+    lowered_preview_source = preview_source.lower()
+    for fragment in forbidden_source_fragments:
+        if fragment.lower() in lowered_preview_source:
+            print(f"FAIL: M33 forbidden redacted preview source fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.evaluators import m33_openapi_route_failures
+        from ultimate_ai_agent.core.tools.runtime import (
+            FILESYSTEM_METADATA_TOOL_REF,
+            NOOP_TOOL_REF,
+            REDACTED_FILE_PREVIEW_TOOL_NAME,
+            REDACTED_FILE_PREVIEW_TOOL_REF,
+            FilePreviewSafeRoot,
+            ToolInvocationKind,
+            ToolInvocationRequest,
+            ToolInvocationStatus,
+            build_tool_runtime_manifest,
+            evaluate_tool_invocation,
+        )
+    except Exception as exc:
+        print(f"FAIL: M33 redacted file preview imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m33_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    manifest = build_tool_runtime_manifest(baseline_version="0.37.0")
+    if manifest.allowlisted_tool_refs != [NOOP_TOOL_REF, FILESYSTEM_METADATA_TOOL_REF, REDACTED_FILE_PREVIEW_TOOL_REF]:
+        print("FAIL: M33 manifest allowlist is not no-op, metadata, and redacted preview only")
+        sys.exit(1)
+    policy = manifest.policy
+    unsafe_flags = [
+        policy.arbitrary_tool_execution_enabled,
+        policy.side_effecting_tools_enabled,
+        policy.shell_tools_enabled,
+        policy.file_tools_enabled,
+        policy.file_content_read_enabled,
+        policy.file_preview_enabled,
+        policy.file_hash_enabled,
+        policy.directory_listing_enabled,
+        policy.recursive_traversal_enabled,
+        policy.symlink_following_enabled,
+        policy.caller_selected_root_enabled,
+        policy.file_write_enabled,
+        policy.file_delete_enabled,
+        policy.memory_write_tools_enabled,
+        policy.network_tools_enabled,
+        policy.model_tools_enabled,
+        policy.browser_tools_enabled,
+        policy.mobile_tools_enabled,
+        policy.remote_tools_enabled,
+        policy.plugin_tools_enabled,
+        policy.dynamic_tool_registration_enabled,
+        policy.backend_execute_routes_enabled,
+        policy.control_center_execute_controls_enabled,
+        policy.production_authority_enabled,
+    ]
+    if not policy.redacted_file_preview_tool_enabled or any(unsafe_flags):
+        print("FAIL: M33 policy enables unsafe redacted preview/runtime authority")
+        sys.exit(1)
+
+    def require_denial(decision, required_reason: str, label: str) -> None:
+        if decision.status == ToolInvocationStatus.preview_completed or decision.execution_performed:
+            print(f"FAIL: M33 denied probe was allowed: {label}")
+            sys.exit(1)
+        if decision.side_effects_performed:
+            print(f"FAIL: M33 denied probe reported side effects: {label}")
+            sys.exit(1)
+        if required_reason not in decision.reason_codes:
+            print(f"FAIL: M33 denied probe missing {required_reason}: {label}")
+            sys.exit(1)
+
+    with tempfile.TemporaryDirectory() as tmp:
+        safe_root_path = Path(tmp) / "safe-root"
+        safe_root_path.mkdir()
+        notes = safe_root_path / "notes"
+        notes.mkdir()
+        target = notes / "report.md"
+        target.write_text("Title\nAPI_KEY=verify-secret-value\nPublic summary.\n", encoding="utf-8")
+        safe_root = FilePreviewSafeRoot(
+            root_ref="safe-root:verify-m33",
+            root_path=safe_root_path,
+            safe_label="Verify safe root",
+        )
+        safe_request = ToolInvocationRequest(
+            invocation_id="tool-runtime-invocation:verify-m33",
+            tool_ref=REDACTED_FILE_PREVIEW_TOOL_REF,
+            tool_name=REDACTED_FILE_PREVIEW_TOOL_NAME,
+            invocation_kind=ToolInvocationKind.redacted_file_preview,
+            replay_key="tool-runtime-replay:verify-m33",
+            safe_summary="Generate a redacted file preview proposal.",
+            metadata={"root_ref": "safe-root:verify-m33", "relative_path": "notes/report.md"},
+        )
+        safe = evaluate_tool_invocation(safe_request, safe_roots=[safe_root])
+        if safe.status != ToolInvocationStatus.preview_completed or not safe.invocation_allowed:
+            print("FAIL: M33 safe redacted preview invocation did not complete")
+            sys.exit(1)
+        dumped = str(safe.model_dump())
+        if "verify-secret-value" in dumped or str(safe_root_path) in dumped:
+            print("FAIL: M33 redacted preview leaked raw secret or absolute path")
+            sys.exit(1)
+        if safe.side_effects_performed or not safe.result or safe.result.side_effects_performed:
+            print("FAIL: M33 redacted preview invocation reported side effects")
+            sys.exit(1)
+        output = safe.result.output
+        unsafe_output_flags = [
+            output.raw_content_returned,
+            output.raw_content_stored,
+            output.full_file_returned,
+            output.content_hash_returned,
+            output.directory_listing_returned,
+            output.absolute_path_returned,
+            output.symlink_followed,
+            output.mutation_performed,
+            output.context_injection_performed,
+        ]
+        if any(unsafe_output_flags) or not output.redacted_preview_returned:
+            print("FAIL: M33 redacted preview output is not redacted-preview-only")
+            sys.exit(1)
+
+        for relative_path, reason in [
+            ("/etc/passwd", "ABSOLUTE_PATH_DENIED"),
+            ("../outside.md", "PATH_TRAVERSAL_DENIED"),
+            ("notes/%2e%2e/outside.md", "PATH_TRAVERSAL_DENIED"),
+            (".env", "HIDDEN_PATH_DENIED"),
+            ("notes/token.txt", "SECRET_LIKE_PATH_DENIED"),
+            ("notes/*.md", "GLOB_PATH_DENIED"),
+        ]:
+            require_denial(
+                evaluate_tool_invocation(
+                    safe_request.model_copy(
+                        update={"metadata": {"root_ref": "safe-root:verify-m33", "relative_path": relative_path}}
+                    ),
+                    safe_roots=[safe_root],
+                ),
+                reason,
+                f"path {relative_path}",
+            )
+        binary = notes / "binary.txt"
+        binary.write_bytes(b"hello\x00world")
+        require_denial(
+            evaluate_tool_invocation(
+                safe_request.model_copy(
+                    update={"metadata": {"root_ref": "safe-root:verify-m33", "relative_path": "notes/binary.txt"}}
+                ),
+                safe_roots=[safe_root],
+            ),
+            "BINARY_FILE_DENIED",
+            "binary file",
+        )
+        for flag_name, reason in [
+            ("raw_content_enabled", "RAW_FILE_CONTENT_DENIED"),
+            ("full_file_read_enabled", "FULL_FILE_READ_DENIED"),
+            ("content_hash_enabled", "CONTENT_HASH_DENIED"),
+            ("directory_listing_enabled", "DIRECTORY_LISTING_DENIED"),
+            ("recursive_traversal_enabled", "RECURSIVE_TRAVERSAL_DENIED"),
+            ("symlink_following_enabled", "SYMLINK_FOLLOWING_DENIED"),
+            ("file_write_enabled", "FILESYSTEM_MUTATION_DENIED"),
+            ("file_delete_enabled", "FILESYSTEM_MUTATION_DENIED"),
+            ("filesystem_mutation_enabled", "FILESYSTEM_MUTATION_DENIED"),
+            ("caller_selected_root_enabled", "CALLER_SELECTED_ROOT_DENIED"),
+            ("context_injection_enabled", "CONTEXT_INJECTION_DENIED"),
+        ]:
+            require_denial(
+                evaluate_tool_invocation(
+                    safe_request.model_copy(
+                        update={
+                            "metadata": {
+                                "root_ref": "safe-root:verify-m33",
+                                "relative_path": "notes/report.md",
+                                flag_name: True,
+                            }
+                        }
+                    ),
+                    safe_roots=[safe_root],
+                ),
+                reason,
+                f"metadata alias flag {flag_name}",
+            )
+        require_denial(
+            evaluate_tool_invocation(
+                safe_request.model_copy(update={"tool_ref": "tool:filesystem.raw_read.v1"}),
+                safe_roots=[safe_root],
+            ),
+            "TOOL_NOT_ALLOWLISTED_DENIED",
+            "model_copy raw read tool ref",
+        )
+        require_denial(
+            evaluate_tool_invocation(
+                safe_request.model_copy(update={"authority_refs": ["model:verify-m33"]}),
+                safe_roots=[safe_root],
+            ),
+            "AUTHORITY_REF_NOT_TOOL_RUNTIME_AUTHORITY",
+            "model authority ref",
+        )
+
+    print("OK: M33 redacted file preview tool is redacted-only, safe-root-bound, route-free, and non-mutating")
 
 
 def verify_v0292_local_dev_api_hardening():

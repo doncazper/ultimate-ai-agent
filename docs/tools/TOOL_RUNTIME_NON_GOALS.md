@@ -1,7 +1,7 @@
 # Tool Runtime Non-Goals
 
 Status: active M32 documentation.
-Current active baseline: **v0.36.1**
+Current active baseline: **v0.37.0**
 
 M32 intentionally does not implement:
 
@@ -34,4 +34,8 @@ M32 intentionally does not implement:
 M32 proves only that a governed adapter can complete deterministic no-op and
 one metadata-only filesystem lookup safely.
 
-M33-M40 remain planned/provisional.
+M33 adds only bounded redacted file preview proposals. Raw file output,
+full-file reads, content hashes, directory listing, symlink following, file
+mutation, context injection, arbitrary filesystem tools, backend raw-file or
+execute routes, and Control Center raw-preview/execute controls remain
+non-goals. M34-M40 remain planned/provisional.

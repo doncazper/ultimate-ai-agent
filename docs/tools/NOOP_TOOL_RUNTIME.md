@@ -1,7 +1,7 @@
 # No-Op Tool Runtime
 
 Status: active M32 documentation.
-Current active baseline: **v0.36.1**
+Current active baseline: **v0.37.0**
 
 The deterministic no-op tool remains enabled in M32:
 
@@ -25,4 +25,6 @@ M32 also enables one safe local filesystem metadata tool. The no-op tool does
 not authorize that tool, and the metadata tool does not authorize any broader
 tool execution.
 
-M33-M40 remain planned/provisional.
+M33 also enables one bounded redacted file preview proposal tool. The no-op
+tool remains deterministic and side-effect-free. M34-M40 remain
+planned/provisional.

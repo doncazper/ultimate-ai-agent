@@ -4,6 +4,7 @@ from pydantic import ValidationError
 from ultimate_ai_agent.core.tools.runtime import (
     FILESYSTEM_METADATA_TOOL_REF,
     NOOP_TOOL_REF,
+    REDACTED_FILE_PREVIEW_TOOL_REF,
     ToolInvocationKind,
     ToolRuntimePolicy,
     build_tool_runtime_manifest,
@@ -15,7 +16,11 @@ def test_default_manifest_enables_allowlisted_safe_runtime():
 
     assert manifest.policy.tool_runtime_enabled is True
     assert manifest.policy.noop_tool_enabled is True
-    assert manifest.allowlisted_tool_refs == [NOOP_TOOL_REF, FILESYSTEM_METADATA_TOOL_REF]
+    assert manifest.allowlisted_tool_refs == [
+        NOOP_TOOL_REF,
+        FILESYSTEM_METADATA_TOOL_REF,
+        REDACTED_FILE_PREVIEW_TOOL_REF,
+    ]
     assert manifest.policy.arbitrary_tool_execution_enabled is False
     assert manifest.policy.side_effecting_tools_enabled is False
     assert manifest.policy.shell_tools_enabled is False

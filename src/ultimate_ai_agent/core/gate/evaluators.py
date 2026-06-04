@@ -356,6 +356,23 @@ M32_FORBIDDEN_BACKEND_ROUTES = (
     "/tool-runtime/run",
     "/plugins/enable",
 )
+EXPECTED_M33_OPENAPI_PATH_COUNT = 74
+M33_FORBIDDEN_BACKEND_ROUTES = (
+    "/files/read",
+    "/files/read/raw",
+    "/files/read/content",
+    "/files/read/full",
+    "/files/write",
+    "/files/delete",
+    "/filesystem/read",
+    "/filesystem/write",
+    "/filesystem/delete",
+    "/tools/execute",
+    "/tools/run",
+    "/tool-runtime/execute",
+    "/tool-runtime/run",
+    "/plugins/enable",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -638,6 +655,17 @@ def m32_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
     return failures
 
 
+def m33_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M33_OPENAPI_PATH_COUNT) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+    for route in M33_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(f"M33 forbidden backend route present: {route}")
+    return failures
+
+
 def m22_local_runtime_forbidden_fragment_failures(root: Path) -> List[str]:
     failures: List[str] = []
     runtime_root = root / "src" / "ultimate_ai_agent" / "core" / "model_runtime"
@@ -870,6 +898,11 @@ class FoundationGateEvaluator:
             "m32_filesystem_metadata_tool_safe": self.check_m32_filesystem_metadata_tool_safe,
             "m32_filesystem_metadata_openapi_routes_unchanged": self.check_m32_filesystem_metadata_openapi_routes_unchanged,
             "m32_m33_remains_future": self.check_m32_m33_remains_future,
+            "m33_redacted_file_preview_tool_safe": self.check_m33_redacted_file_preview_tool_safe,
+            "m33_redacted_file_preview_openapi_routes_unchanged": (
+                self.check_m33_redacted_file_preview_openapi_routes_unchanged
+            ),
+            "m33_m34_remains_future": self.check_m33_m34_remains_future,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -7311,6 +7344,7 @@ class FoundationGateEvaluator:
                 FILESYSTEM_METADATA_TOOL_NAME,
                 FILESYSTEM_METADATA_TOOL_REF,
                 NOOP_TOOL_REF,
+                REDACTED_FILE_PREVIEW_TOOL_REF,
                 FilesystemSafeRoot,
                 ToolInvocationKind,
                 ToolInvocationRequest,
@@ -7319,7 +7353,7 @@ class FoundationGateEvaluator:
                 evaluate_tool_invocation,
             )
 
-            manifest = build_tool_runtime_manifest(baseline_version="0.36.1")
+            manifest = build_tool_runtime_manifest(baseline_version="0.37.0")
             policy = manifest.policy
             forbidden_flags = [
                 policy.arbitrary_tool_execution_enabled,
@@ -7347,8 +7381,13 @@ class FoundationGateEvaluator:
                 policy.control_center_execute_controls_enabled,
                 policy.production_authority_enabled,
             ]
-            if manifest.allowlisted_tool_refs != [NOOP_TOOL_REF, FILESYSTEM_METADATA_TOOL_REF]:
-                failures.append("M32 manifest allowlist is not exactly no-op plus filesystem metadata")
+            expected_allowlist = [
+                NOOP_TOOL_REF,
+                FILESYSTEM_METADATA_TOOL_REF,
+                REDACTED_FILE_PREVIEW_TOOL_REF,
+            ]
+            if manifest.allowlisted_tool_refs != expected_allowlist:
+                failures.append("M32 manifest allowlist does not preserve no-op and filesystem metadata")
             if not policy.filesystem_metadata_tool_enabled or any(forbidden_flags):
                 failures.append("M32 policy enables forbidden filesystem/content/mutation/runtime authority")
 
@@ -7595,17 +7634,354 @@ class FoundationGateEvaluator:
                 failures.append("M32 docs do not mark v0.36.1 filesystem metadata path safety hardening")
         if "safe local filesystem metadata" not in text or "implemented/released" not in text:
             failures.append("M32 docs do not mark safe local filesystem metadata implemented/released")
-        if "m33-m40 remain planned/provisional" not in text:
-            failures.append("M33-M40 must remain planned/provisional after M32")
-        forbidden_m33_fragments = (
-            "m33 is implemented",
-            "v0.37.0 implements m33",
-            "mobile approval surface is implemented",
-            "mobile sensors are implemented",
+        if version_tuple >= (0, 37, 0):
+            if "m33" not in text or "redacted preview" not in text or "implemented/released" not in text:
+                failures.append("M32/M33 docs do not acknowledge implemented M33 redacted preview")
+        else:
+            if "m33-m40 remain planned/provisional" not in text:
+                failures.append("M33-M40 must remain planned/provisional after M32")
+            forbidden_m33_fragments = (
+                "m33 is implemented",
+                "v0.37.0 implements m33",
+                "mobile approval surface is implemented",
+                "mobile sensors are implemented",
+            )
+            failures.extend(
+                f"M32 docs imply M33 implementation: {fragment}"
+                for fragment in forbidden_m33_fragments
+                if fragment in text
+            )
+        return self._result(criterion, failures, required_docs)
+
+    def check_m33_redacted_file_preview_tool_safe(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/tools/runtime/file_preview.py",
+            "tests/test_redacted_file_preview_tool_contracts.py",
+            "tests/test_redacted_file_preview_path_policy.py",
+            "tests/test_redacted_file_preview_authority_boundaries.py",
+            "tests/test_m33_gate_integration.py",
+            "docs/tools/REDACTED_FILE_PREVIEW_TOOL.md",
+            "docs/tools/REDACTED_FILE_PREVIEW_POLICY.md",
+            "docs/tools/REDACTED_FILE_PREVIEW_RESULT_CONTRACT.md",
+            "docs/tools/REDACTED_FILE_PREVIEW_REDACTION_POLICY.md",
+            "docs/tools/REDACTED_FILE_PREVIEW_AUTHORITY_BOUNDARY.md",
+            "docs/tools/REDACTED_FILE_PREVIEW_NON_GOALS.md",
+            "docs/tools/M33_TO_M34_BOUNDARY.md",
+        ]
+        failures = [f"missing M33 redacted file preview file: {path}" for path in required_files if not (self.root / path).exists()]
+        try:
+            from ultimate_ai_agent.core.tools.runtime import (
+                FILESYSTEM_METADATA_TOOL_REF,
+                NOOP_TOOL_REF,
+                REDACTED_FILE_PREVIEW_TOOL_NAME,
+                REDACTED_FILE_PREVIEW_TOOL_REF,
+                FilePreviewSafeRoot,
+                RedactedFilePreviewStatus,
+                ToolInvocationKind,
+                ToolInvocationRequest,
+                ToolInvocationStatus,
+                build_tool_runtime_manifest,
+                evaluate_tool_invocation,
+            )
+
+            manifest = build_tool_runtime_manifest(baseline_version="0.37.0")
+            policy = manifest.policy
+            if manifest.allowlisted_tool_refs != [NOOP_TOOL_REF, FILESYSTEM_METADATA_TOOL_REF, REDACTED_FILE_PREVIEW_TOOL_REF]:
+                failures.append("M33 manifest allowlist is not exactly no-op, filesystem metadata, and redacted preview")
+            forbidden_flags = [
+                policy.arbitrary_tool_execution_enabled,
+                policy.side_effecting_tools_enabled,
+                policy.shell_tools_enabled,
+                policy.file_tools_enabled,
+                policy.file_content_read_enabled,
+                policy.file_preview_enabled,
+                policy.file_hash_enabled,
+                policy.directory_listing_enabled,
+                policy.recursive_traversal_enabled,
+                policy.symlink_following_enabled,
+                policy.caller_selected_root_enabled,
+                policy.file_write_enabled,
+                policy.file_delete_enabled,
+                policy.memory_write_tools_enabled,
+                policy.network_tools_enabled,
+                policy.model_tools_enabled,
+                policy.browser_tools_enabled,
+                policy.mobile_tools_enabled,
+                policy.remote_tools_enabled,
+                policy.plugin_tools_enabled,
+                policy.dynamic_tool_registration_enabled,
+                policy.backend_execute_routes_enabled,
+                policy.control_center_execute_controls_enabled,
+                policy.production_authority_enabled,
+            ]
+            if not policy.redacted_file_preview_tool_enabled or any(forbidden_flags):
+                failures.append("M33 policy enables forbidden filesystem/runtime authority")
+
+            with tempfile.TemporaryDirectory() as tmp:
+                safe_root_path = Path(tmp) / "safe-root"
+                safe_root_path.mkdir()
+                notes = safe_root_path / "notes"
+                notes.mkdir()
+                target = notes / "report.md"
+                target.write_text("Title\nAPI_KEY=gate-secret-value\nPublic summary.\n", encoding="utf-8")
+                safe_root = FilePreviewSafeRoot(
+                    root_ref="safe-root:gate-m33",
+                    root_path=safe_root_path,
+                    safe_label="Gate safe root",
+                )
+                safe_request = ToolInvocationRequest(
+                    invocation_id="tool-runtime-invocation:gate-m33",
+                    tool_ref=REDACTED_FILE_PREVIEW_TOOL_REF,
+                    tool_name=REDACTED_FILE_PREVIEW_TOOL_NAME,
+                    invocation_kind=ToolInvocationKind.redacted_file_preview,
+                    replay_key="tool-runtime-replay:gate-m33",
+                    safe_summary="Generate a redacted file preview proposal.",
+                    metadata={"root_ref": "safe-root:gate-m33", "relative_path": "notes/report.md"},
+                )
+                safe_decision = evaluate_tool_invocation(safe_request, safe_roots=[safe_root])
+                if safe_decision.status != ToolInvocationStatus.preview_completed or not safe_decision.invocation_allowed:
+                    failures.append("M33 safe redacted file preview request did not complete")
+                if safe_decision.side_effects_performed or not safe_decision.result:
+                    failures.append("M33 safe redacted file preview request reported side effects or no result")
+                if safe_decision.result:
+                    dumped = safe_decision.model_dump()
+                    output = safe_decision.result.output
+                    if getattr(output, "status", None) != RedactedFilePreviewStatus.preview_generated:
+                        failures.append("M33 redacted preview output status is invalid")
+                    if not getattr(output, "redacted_preview_returned", False) or not getattr(output, "redacted_preview", ""):
+                        failures.append("M33 redacted preview output did not return a redacted preview")
+                    if "gate-secret-value" in str(dumped):
+                        failures.append("M33 redacted preview leaked a secret-like value")
+                    if str(safe_root_path) in str(dumped):
+                        failures.append("M33 redacted preview leaked an absolute safe-root path")
+                    unsafe_output_flags = [
+                        getattr(output, "raw_content_returned", True),
+                        getattr(output, "raw_content_stored", True),
+                        getattr(output, "full_file_returned", True),
+                        getattr(output, "content_hash_returned", True),
+                        getattr(output, "directory_listing_returned", True),
+                        getattr(output, "absolute_path_returned", True),
+                        getattr(output, "symlink_followed", True),
+                        getattr(output, "mutation_performed", True),
+                        getattr(output, "context_injection_performed", True),
+                    ]
+                    if any(unsafe_output_flags):
+                        failures.append("M33 redacted preview output returned raw/full/hash/list/mutation/context data")
+
+                def require_denial(decision, required_reason: str, label: str) -> None:
+                    if decision.status == ToolInvocationStatus.preview_completed or decision.execution_performed:
+                        failures.append(f"M33 denied probe was allowed: {label}")
+                    if decision.side_effects_performed:
+                        failures.append(f"M33 denied probe reported side effects: {label}")
+                    if required_reason not in decision.reason_codes:
+                        failures.append(f"M33 denied probe missing {required_reason}: {label}")
+
+                for relative_path, reason in [
+                    ("/etc/passwd", "ABSOLUTE_PATH_DENIED"),
+                    ("../outside.md", "PATH_TRAVERSAL_DENIED"),
+                    ("notes/%2e%2e/outside.md", "PATH_TRAVERSAL_DENIED"),
+                    (".env", "HIDDEN_PATH_DENIED"),
+                    ("notes/token.txt", "SECRET_LIKE_PATH_DENIED"),
+                    ("keys/id_rsa", "SECRET_LIKE_PATH_DENIED"),
+                    ("notes/*.md", "GLOB_PATH_DENIED"),
+                ]:
+                    require_denial(
+                        evaluate_tool_invocation(
+                            safe_request.model_copy(
+                                update={"metadata": {"root_ref": "safe-root:gate-m33", "relative_path": relative_path}}
+                            ),
+                            safe_roots=[safe_root],
+                        ),
+                        reason,
+                        f"path {relative_path}",
+                    )
+                directory = safe_root_path / "docs"
+                directory.mkdir()
+                (directory / "child.md").write_text("child content", encoding="utf-8")
+                require_denial(
+                    evaluate_tool_invocation(
+                        safe_request.model_copy(
+                            update={"metadata": {"root_ref": "safe-root:gate-m33", "relative_path": "docs"}}
+                        ),
+                        safe_roots=[safe_root],
+                    ),
+                    "DIRECTORY_PATH_DENIED",
+                    "directory path",
+                )
+                binary = notes / "binary.txt"
+                binary.write_bytes(b"hello\x00world")
+                require_denial(
+                    evaluate_tool_invocation(
+                        safe_request.model_copy(
+                            update={"metadata": {"root_ref": "safe-root:gate-m33", "relative_path": "notes/binary.txt"}}
+                        ),
+                        safe_roots=[safe_root],
+                    ),
+                    "BINARY_FILE_DENIED",
+                    "binary file",
+                )
+                large = notes / "large.md"
+                large.write_bytes(b"a" * 70000)
+                require_denial(
+                    evaluate_tool_invocation(
+                        safe_request.model_copy(
+                            update={"metadata": {"root_ref": "safe-root:gate-m33", "relative_path": "notes/large.md"}}
+                        ),
+                        safe_roots=[safe_root],
+                    ),
+                    "FILE_TOO_LARGE_DENIED",
+                    "oversized file",
+                )
+                for flag_name, reason in [
+                    ("raw_content_enabled", "RAW_FILE_CONTENT_DENIED"),
+                    ("full_file_read_enabled", "FULL_FILE_READ_DENIED"),
+                    ("content_hash_enabled", "CONTENT_HASH_DENIED"),
+                    ("directory_listing_enabled", "DIRECTORY_LISTING_DENIED"),
+                    ("recursive_traversal_enabled", "RECURSIVE_TRAVERSAL_DENIED"),
+                    ("symlink_following_enabled", "SYMLINK_FOLLOWING_DENIED"),
+                    ("file_write_enabled", "FILESYSTEM_MUTATION_DENIED"),
+                    ("file_delete_enabled", "FILESYSTEM_MUTATION_DENIED"),
+                    ("filesystem_mutation_enabled", "FILESYSTEM_MUTATION_DENIED"),
+                    ("caller_selected_root_enabled", "CALLER_SELECTED_ROOT_DENIED"),
+                    ("context_injection_enabled", "CONTEXT_INJECTION_DENIED"),
+                ]:
+                    require_denial(
+                        evaluate_tool_invocation(
+                            safe_request.model_copy(
+                                update={
+                                    "metadata": {
+                                        "root_ref": "safe-root:gate-m33",
+                                        "relative_path": "notes/report.md",
+                                        flag_name: True,
+                                    }
+                                }
+                            ),
+                            safe_roots=[safe_root],
+                        ),
+                        reason,
+                        f"metadata alias flag {flag_name}",
+                    )
+                require_denial(
+                    evaluate_tool_invocation(
+                        safe_request.model_copy(update={"contains_raw_file_content": True}),
+                        safe_roots=[safe_root],
+                    ),
+                    "RAW_FILE_CONTENT_DENIED",
+                    "raw file model_copy revalidation",
+                )
+                require_denial(
+                    evaluate_tool_invocation(
+                        safe_request.model_copy(update={"tool_ref": "tool:filesystem.raw_read.v1"}),
+                        safe_roots=[safe_root],
+                    ),
+                    "TOOL_NOT_ALLOWLISTED_DENIED",
+                    "model_copy raw read tool ref",
+                )
+                require_denial(
+                    evaluate_tool_invocation(
+                        safe_request.model_copy(update={"authority_refs": ["model:gate-m33"]}),
+                        safe_roots=[safe_root],
+                    ),
+                    "AUTHORITY_REF_NOT_TOOL_RUNTIME_AUTHORITY",
+                    "model authority ref",
+                )
+                require_denial(
+                    evaluate_tool_invocation(
+                        safe_request.model_copy(update={"approval_ref": "approval_test_m33"}),
+                        safe_roots=[safe_root],
+                    ),
+                    "APPROVAL_TEST_REF_DENIED",
+                    "approval_test ref",
+                )
+                try:
+                    link = safe_root_path / "link.md"
+                    link.symlink_to(target)
+                    require_denial(
+                        evaluate_tool_invocation(
+                            safe_request.model_copy(
+                                update={"metadata": {"root_ref": "safe-root:gate-m33", "relative_path": "link.md"}}
+                            ),
+                            safe_roots=[safe_root],
+                        ),
+                        "SYMLINK_DENIED",
+                        "symlink path",
+                    )
+                except (OSError, NotImplementedError):
+                    pass
+
+            runtime_root = self.root / "src" / "ultimate_ai_agent" / "core" / "tools" / "runtime"
+            preview_source = self._read(runtime_root / "file_preview.py").lower()
+            forbidden_preview_fragments = (
+                "read_text(",
+                "read_bytes(",
+                "hashlib",
+                ".glob(",
+                ".rglob(",
+                "os.walk(",
+                "follow_symlinks=true",
+                "shutil",
+                ".unlink(",
+                ".remove(",
+                ".rename(",
+                ".replace(",
+                ".chmod(",
+                ".chown(",
+                "requests.get(",
+                "requests.post(",
+                "httpx.get(",
+                "httpx.post(",
+                "urllib.request.urlopen(",
+                "os.system(",
+                "popen(",
+                "shell=true",
+            )
+            failures.extend(
+                f"M33 redacted preview module contains forbidden fragment: {fragment}"
+                for fragment in forbidden_preview_fragments
+                if fragment in preview_source
+            )
+        except Exception as exc:
+            failures.append(f"M33 redacted preview validation failed: {exc}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m33_redacted_file_preview_openapi_routes_unchanged(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m33_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M33 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m33_m34_remains_future(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        required_docs = [
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+            "docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/tools/M33_TO_M34_BOUNDARY.md",
+        ]
+        failures = [f"missing M33 roadmap doc: {path}" for path in required_docs if not (self.root / path).exists()]
+        text = "\n".join(self._read(self.root / path).lower() for path in required_docs if (self.root / path).exists())
+        if "first safe local file read proposal" not in text or "redacted preview" not in text:
+            failures.append("M33 docs do not mark redacted file preview proposal implemented/released")
+        if "implemented/released" not in text:
+            failures.append("M33 docs do not mark M33 implemented/released")
+        if "m34" not in text or "planned/provisional" not in text:
+            failures.append("M34 must remain planned/provisional after M33")
+        forbidden_m34_fragments = (
+            "m34 is implemented",
+            "v0.38.0 implements m34",
+            "full file read is implemented",
+            "file write tool is implemented",
         )
         failures.extend(
-            f"M32 docs imply M33 implementation: {fragment}"
-            for fragment in forbidden_m33_fragments
+            f"M33 docs imply M34 implementation: {fragment}"
+            for fragment in forbidden_m34_fragments
             if fragment in text
         )
         return self._result(criterion, failures, required_docs)
@@ -7912,7 +8288,9 @@ class FoundationGateEvaluator:
                 failures.append(failure)
         active_version = self._active_version() or "0.0.0"
         version_tuple = tuple(int(part) for part in active_version.split("."))
-        if version_tuple >= (0, 36, 0):
+        if version_tuple >= (0, 37, 0):
+            implemented_claim_start = 34
+        elif version_tuple >= (0, 36, 0):
             implemented_claim_start = 33
         elif version_tuple >= (0, 35, 0):
             implemented_claim_start = 32

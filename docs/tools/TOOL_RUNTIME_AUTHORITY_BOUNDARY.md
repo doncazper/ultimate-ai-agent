@@ -1,7 +1,7 @@
 # Tool Runtime Authority Boundary
 
 Status: active M32 documentation.
-Current active baseline: **v0.36.1**
+Current active baseline: **v0.37.0**
 
 M32 adds one metadata-only filesystem tool without granting broad execution or
 filesystem authority.
@@ -29,4 +29,8 @@ metadata-only output. It adds no shell, file content, file mutation, memory,
 network, model, browser, mobile, remote, or plugin tools; no backend execute
 routes; no Control Center execute controls; and no production authority.
 
-M33-M40 remain planned/provisional.
+M33 redacted file preview proposals are not authority and are not context
+injection. Approval refs, `approval_test_*`, task plans, tool intents, context
+packs, memory, model/runtime/OpenWebUI output, Control Center refs, and
+arbitrary strings cannot authorize arbitrary filesystem access. M34-M40 remain
+planned/provisional.

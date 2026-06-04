@@ -1,7 +1,7 @@
 # Filesystem Metadata Authority Boundary
 
 Status: active M32 documentation.
-Current active baseline: **v0.36.1**
+Current active baseline: **v0.37.0**
 
 M32 filesystem metadata lookup is not production authority and is not
 authorization for broader filesystem access.

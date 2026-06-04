@@ -6,7 +6,11 @@ from ultimate_ai_agent.core.tools.runtime.filesystem_metadata import (
     FilesystemSafeRoot,
     filesystem_metadata_policy_reason_codes,
 )
+from ultimate_ai_agent.core.tools.runtime.file_preview import (
+    redacted_file_preview_policy_reason_codes,
+)
 from ultimate_ai_agent.core.tools.runtime.validation import (
+    REDACTED_FILE_PREVIEW_TOOL_REF,
     authority_reason_codes,
     raw_input_reason_codes,
     runtime_request_boundary_reason_codes,
@@ -21,7 +25,7 @@ def validate_tool_invocation_request(
 ) -> list[str]:
     reasons: list[str] = []
     try:
-        if request.tool_ref != FILESYSTEM_METADATA_TOOL_REF:
+        if request.tool_ref not in {FILESYSTEM_METADATA_TOOL_REF, REDACTED_FILE_PREVIEW_TOOL_REF}:
             validate_safe_tool_runtime_payload(request.metadata, "metadata")
         ToolInvocationRequest.model_validate(request.model_dump())
     except (ValidationError, ValueError) as exc:
@@ -37,10 +41,20 @@ def validate_tool_invocation_request(
         reasons.extend(fs_reasons)
         if metadata_request is None:
             reasons.append("FILESYSTEM_METADATA_REQUEST_INVALID")
+    if request.tool_ref == REDACTED_FILE_PREVIEW_TOOL_REF:
+        preview_request, _safe_root, _normalized_path, preview_reasons = redacted_file_preview_policy_reason_codes(
+            request.metadata, safe_roots=safe_roots
+        )
+        reasons.extend(preview_reasons)
+        if preview_request is None:
+            reasons.append("REDACTED_FILE_PREVIEW_REQUEST_INVALID")
     if request.tool_ref == FILESYSTEM_METADATA_TOOL_REF and request.invocation_kind.value != "filesystem_metadata":
         reasons.append("TOOL_INVOCATION_KIND_MISMATCH_DENIED")
+    elif request.tool_ref == REDACTED_FILE_PREVIEW_TOOL_REF and request.invocation_kind.value != "redacted_file_preview":
+        reasons.append("TOOL_INVOCATION_KIND_MISMATCH_DENIED")
     elif request.tool_ref != FILESYSTEM_METADATA_TOOL_REF and request.invocation_kind.value != "noop":
-        reasons.append("EFFECTFUL_TOOL_BLOCKED")
+        if request.tool_ref != REDACTED_FILE_PREVIEW_TOOL_REF:
+            reasons.append("EFFECTFUL_TOOL_BLOCKED")
     return list(dict.fromkeys(reasons))
 
 

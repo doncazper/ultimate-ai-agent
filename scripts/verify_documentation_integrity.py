@@ -131,6 +131,18 @@ REQUIRED_M32_FILESYSTEM_METADATA_DOCS = [
 ]
 
 
+REQUIRED_M33_REDACTED_FILE_PREVIEW_DOCS = [
+    "docs/tools/REDACTED_FILE_PREVIEW_TOOL.md",
+    "docs/tools/REDACTED_FILE_PREVIEW_POLICY.md",
+    "docs/tools/REDACTED_FILE_PREVIEW_RESULT_CONTRACT.md",
+    "docs/tools/REDACTED_FILE_PREVIEW_REDACTION_POLICY.md",
+    "docs/tools/REDACTED_FILE_PREVIEW_AUTHORITY_BOUNDARY.md",
+    "docs/tools/REDACTED_FILE_PREVIEW_NON_GOALS.md",
+    "docs/tools/M33_TO_M34_BOUNDARY.md",
+    "docs/files/LOCAL_FILE_REDACTED_PREVIEW_POLICY.md",
+]
+
+
 REQUIRED_ACTIVE_DOCS = [
     "docs/README.md",
     "docs/DOCUMENTATION_INDEX.md",
@@ -174,6 +186,7 @@ REQUIRED_ACTIVE_DOCS = [
     *REQUIRED_M30_EXECUTION_DOCS,
     *REQUIRED_M31_TOOL_RUNTIME_DOCS,
     *REQUIRED_M32_FILESYSTEM_METADATA_DOCS,
+    *REQUIRED_M33_REDACTED_FILE_PREVIEW_DOCS,
     "docs/control_center/CONTROL_CENTER_CONTRACT.md",
     "docs/control_center/DASHBOARD_SNAPSHOT.md",
     "docs/control_center/ACTION_PREVIEW_POLICY.md",
@@ -1229,9 +1242,20 @@ def _verify_m25_truth_docs(root: Path, version: str | None) -> list[str]:
                             active_expectations["active docs must link M31 tool runtime docs"] = (
                                 "docs/tools/tool_runtime_adapter.md"
                             )
-                            active_expectations["active docs must keep M32-M40 planned/provisional"] = (
-                                "m32-m40 remain planned/provisional"
-                            )
+                            if _version_tuple(version) >= (0, 37, 0):
+                                active_expectations["active docs must mark M33/v0.37.0 as implemented/released"] = (
+                                    "m33 is implemented/released"
+                                )
+                                active_expectations["active docs must link M33 redacted preview docs"] = (
+                                    "docs/tools/redacted_file_preview_tool.md"
+                                )
+                                active_expectations["active docs must keep M34-M40 planned/provisional"] = (
+                                    "m34-m40 remain planned/provisional"
+                                )
+                            else:
+                                active_expectations["active docs must keep M32-M40 planned/provisional"] = (
+                                    "m32-m40 remain planned/provisional"
+                                )
                             if _version_tuple(version) >= (0, 35, 1):
                                 active_expectations["active docs must mention M31/v0.35.1 no-op runtime hardening"] = (
                                     "v0.35.1 hardens m31"
@@ -1734,8 +1758,12 @@ def _verify_m25_truth_docs(root: Path, version: str | None) -> list[str]:
             "M32 docs must say no backend execute route": "backend execute route",
             "M32 docs must say no Control Center execute controls": "control center execute controls",
             "M32 docs must say authority refs cannot authorize": "cannot authorize",
-            "M32 docs must keep M33-M40 planned/provisional": "m33-m40 remain planned/provisional",
         }
+        if _version_tuple(version) >= (0, 37, 0):
+            m32_expectations["M32 docs must acknowledge M33 redacted preview"] = "redacted preview"
+            m32_expectations["M32 docs must keep M34-M40 planned/provisional"] = "m34-m40 remain planned/provisional"
+        else:
+            m32_expectations["M32 docs must keep M33-M40 planned/provisional"] = "m33-m40 remain planned/provisional"
         for failure, fragment in m32_expectations.items():
             if fragment not in m32_docs:
                 failures.append(failure)
@@ -1752,6 +1780,39 @@ def _verify_m25_truth_docs(root: Path, version: str | None) -> list[str]:
             for failure, fragment in m32_hardening_expectations.items():
                 if fragment not in m32_docs:
                     failures.append(failure)
+
+    if _version_tuple(version) >= (0, 37, 0):
+        for rel_path in REQUIRED_M33_REDACTED_FILE_PREVIEW_DOCS:
+            if not (root / rel_path).exists():
+                failures.append(f"missing active documentation file: {rel_path}")
+        m33_docs = "\n".join(
+            _read(root / rel_path).lower()
+            for rel_path in REQUIRED_M33_REDACTED_FILE_PREVIEW_DOCS
+            if (root / rel_path).exists()
+        )
+        m33_expectations = {
+            "M33 docs must say first safe local file read proposal": "first safe local file read proposal",
+            "M33 docs must say redacted preview only": "redacted preview only",
+            "M33 docs must name redacted preview tool ref": "tool:filesystem.redacted_preview.v1",
+            "M33 docs must say no raw file content returned": "raw file content",
+            "M33 docs must say no raw file content stored": "stored",
+            "M33 docs must say no full-file read output": "full-file",
+            "M33 docs must say no content hash": "content hash",
+            "M33 docs must say no directory listing": "directory listing",
+            "M33 docs must say no recursive traversal": "recursive traversal",
+            "M33 docs must say no symlink following": "symlink",
+            "M33 docs must say no caller-selected arbitrary root": "caller-selected",
+            "M33 docs must say hidden paths denied": "hidden",
+            "M33 docs must say secret-like paths denied": "secret-like",
+            "M33 docs must say binary files denied": "binary",
+            "M33 docs must say unsupported encodings denied": "unsupported encoding",
+            "M33 docs must say no file writes/deletes": "file writes",
+            "M33 docs must say result is not context injection": "context injection",
+            "M33 docs must say M34 remains future": "m34 remains planned/provisional",
+        }
+        for failure, fragment in m33_expectations.items():
+            if fragment not in m33_docs:
+                failures.append(failure)
 
     if _version_tuple(version) >= (0, 29, 4):
         policy_path = root / "docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md"
@@ -2141,7 +2202,29 @@ def _verify_post_m20_roadmap_projection(root: Path) -> list[str]:
         "Post-M20 roadmap docs must say no dependency is added": "no dependency",
     }
     active_version_tuple = _version_tuple(_active_version(root))
-    if active_version_tuple >= (0, 36, 0):
+    if active_version_tuple >= (0, 37, 0):
+        expectations["Post-M20 roadmap docs must say M31 is implemented/released"] = (
+            "m31 is implemented/released"
+        )
+        expectations["Post-M20 roadmap docs must say M32 is implemented/released"] = (
+            "m32 is implemented/released"
+        )
+        expectations["Post-M20 roadmap docs must say M33 is implemented/released"] = (
+            "m33 is implemented/released"
+        )
+        expectations["Post-M20 roadmap docs must say M33 redacted preview"] = (
+            "redacted preview"
+        )
+        expectations["Post-M20 roadmap docs must keep M34-M40 planned/provisional"] = (
+            "m34-m40 remain planned/provisional"
+        )
+        expectations["Post-M20 roadmap docs must say M29 is implemented/released"] = (
+            "m29 is implemented/released"
+        )
+        expectations["Post-M20 roadmap docs must say M30 is implemented/released"] = (
+            "m30 is implemented/released"
+        )
+    elif active_version_tuple >= (0, 36, 0):
         expectations["Post-M20 roadmap docs must say M31 is implemented/released"] = (
             "m31 is implemented/released"
         )
@@ -2250,7 +2333,9 @@ def _verify_post_m20_roadmap_projection(root: Path) -> list[str]:
         if fragment not in roadmap_text:
             failures.append(failure)
 
-    if active_version_tuple >= (0, 36, 0):
+    if active_version_tuple >= (0, 37, 0):
+        implemented_claim_start = 34
+    elif active_version_tuple >= (0, 36, 0):
         implemented_claim_start = 33
     elif active_version_tuple >= (0, 35, 0):
         implemented_claim_start = 32
@@ -2394,6 +2479,7 @@ def _verify_post_m18_roadmap_status_labels(root: Path) -> list[str]:
 
     sequence = _read(sequence_path).lower()
     roadmap = _read(roadmap_path).lower()
+    active_capability_charters = _read(root / "docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md").lower()
     m18_section = _milestone_section(sequence, "v0.22.0 / m18")
     if not m18_section or "status: implemented" not in m18_section:
         failures.append("roadmap sequence must mark M18/v0.22.0 as implemented after accepted v0.22.0")
@@ -2410,7 +2496,17 @@ def _verify_post_m18_roadmap_status_labels(root: Path) -> list[str]:
             continue
         if f"status: {expected_status}" not in section:
             failures.append(f"roadmap sequence must mark {milestone.upper()} {expected_status}")
-    if active >= (0, 35, 0):
+    if active >= (0, 37, 0):
+        if "v0.37.0 / m33" not in active_capability_charters or "status: implemented" not in active_capability_charters:
+            failures.append("roadmap sequence must mark M33/v0.37.0 implemented")
+        if (
+            "first safe local file read proposal" not in active_capability_charters
+            or "redacted preview" not in active_capability_charters
+        ):
+            failures.append("roadmap sequence must define M33 as redacted file preview")
+        if "m34-m40" not in active_capability_charters or "planned/provisional" not in active_capability_charters:
+            failures.append("roadmap sequence must keep M34-M40 planned/provisional")
+    elif active >= (0, 35, 0):
         if "m31" not in sequence or "status: implemented" not in sequence:
             failures.append("roadmap sequence must mark M31/v0.35.0 implemented")
         if "real tool runtime adapter" not in sequence:

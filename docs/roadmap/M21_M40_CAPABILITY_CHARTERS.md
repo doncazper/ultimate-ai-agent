@@ -1,8 +1,8 @@
 # M21-M40 Capability Charters
 
-Status: Active roadmap projection maintained through v0.36.1. M21 and M22 are implemented/released contract-only; M23 is implemented/released manual fixed-prompt local call only and hardened by v0.27.1; M24 is implemented/released as governed memory provider/local store, hardened by v0.28.1, and docs-cleaned by v0.28.2; M25 is implemented/released contract-only and hardened by v0.29.1 and v0.29.2; M26 is implemented/released as deterministic grounded recall/context-pack contracts and hardened by v0.30.1; M27 is implemented/released as validation-only Tool Broker v2 contracts; v0.31.1 is docs-only baseline normalization; M28 is implemented/released as Approval Authority v2 + Action Policy Expansion and hardened by v0.32.1; M29 is implemented/released as Agent Task Planning Engine; M30 is implemented/released as Multi-Step Execution Framework state-machine-only contracts and hardened by v0.34.1; M31 is implemented/released as Real Tool Runtime Adapter, Single Safe No-Op Tool and hardened by v0.35.1 for no-op runtime adapter safety; M32 is implemented/released as Safe Local Filesystem Metadata Tool and hardened by v0.36.1; M33-M40 remain planned/provisional.
+Status: Active roadmap projection maintained through v0.37.0. M21 and M22 are implemented/released contract-only; M23 is implemented/released manual fixed-prompt local call only and hardened by v0.27.1; M24 is implemented/released as governed memory provider/local store, hardened by v0.28.1, and docs-cleaned by v0.28.2; M25 is implemented/released contract-only and hardened by v0.29.1 and v0.29.2; M26 is implemented/released as deterministic grounded recall/context-pack contracts and hardened by v0.30.1; M27 is implemented/released as validation-only Tool Broker v2 contracts; v0.31.1 is docs-only baseline normalization; M28 is implemented/released as Approval Authority v2 + Action Policy Expansion and hardened by v0.32.1; M29 is implemented/released as Agent Task Planning Engine; M30 is implemented/released as Multi-Step Execution Framework state-machine-only contracts and hardened by v0.34.1; M31 is implemented/released as Real Tool Runtime Adapter, Single Safe No-Op Tool and hardened by v0.35.1 for no-op runtime adapter safety; M32 is implemented/released as Safe Local Filesystem Metadata Tool and hardened by v0.36.1; M33 is implemented/released as First Safe Local File Read Proposal, Redacted Preview Only; M34-M40 remain planned/provisional.
 
-These charters define capability layers after M20. v0.25.0 implements M21 as contract/planning/validation only. v0.26.0 implements M22 as contract/planning/validation only, and v0.26.1 hardens M22 verifier precision plus metadata key secret hygiene only. v0.27.0 implements M23 as manual/CLI-only, loopback-only, fixed-prompt-only, non-tool, and non-authoritative. v0.27.1 hardens M23 local call safety without adding new runtime authority. v0.28.0 implements M24 as governed, reviewed-write-only local memory provider/store foundation, v0.28.1 repairs/hardens the M24 memory contract without adding new authority, and v0.28.2 removes a duplicate roadmap row only. v0.29.0 implements M25 as deterministic local truth/evidence contracts over provided refs only, v0.29.1 hardens unknown/arbitrary truth ref denial, and v0.29.2 hardens local-dev API authority/raw preview safety. v0.30.0 implements M26 as deterministic local grounded recall/context-pack contracts, v0.30.1 hardens source_ref/source_kind consistency, v0.31.0 implements M27 Tool Broker v2 + Safe Tool Intent Contracts as validation-only and preview-only contract logic, v0.31.1 normalizes the GitHub README polish commit into a clean docs-only baseline, v0.32.0 implements M28 Approval Authority v2 + Action Policy Expansion as policy-only contracts, v0.32.1 hardens evaluator revalidation for raw/secret action inputs, v0.33.0 implements M29 Agent Task Planning Engine as deterministic, local, non-executing, review-only planning contracts, v0.34.0 implements M30 Multi-Step Execution Framework as deterministic, local, side-effect-safe, state-machine-only contracts, v0.34.1 hardens M30 state transitions, replay protection, dependency gating, hidden side-effect denial, evaluator revalidation, and no-side-effect invariants, v0.35.0 implements M31 Real Tool Runtime Adapter, Single Safe No-Op Tool as a governed no-op-only runtime adapter, v0.35.1 hardens M31 no-op runtime adapter safety, v0.36.0 implements M32 Safe Local Filesystem Metadata Tool, and v0.36.1 hardens M32 filesystem metadata path safety. M33-M40 remain future capability layers. Every milestone requires its own implementation prompt, review prompt, hardening expectation, and validation evidence before release.
+These charters define capability layers after M20. v0.25.0 implements M21 as contract/planning/validation only. v0.26.0 implements M22 as contract/planning/validation only, and v0.26.1 hardens M22 verifier precision plus metadata key secret hygiene only. v0.27.0 implements M23 as manual/CLI-only, loopback-only, fixed-prompt-only, non-tool, and non-authoritative. v0.27.1 hardens M23 local call safety without adding new runtime authority. v0.28.0 implements M24 as governed, reviewed-write-only local memory provider/store foundation, v0.28.1 repairs/hardens the M24 memory contract without adding new authority, and v0.28.2 removes a duplicate roadmap row only. v0.29.0 implements M25 as deterministic local truth/evidence contracts over provided refs only, v0.29.1 hardens unknown/arbitrary truth ref denial, and v0.29.2 hardens local-dev API authority/raw preview safety. v0.30.0 implements M26 as deterministic local grounded recall/context-pack contracts, v0.30.1 hardens source_ref/source_kind consistency, v0.31.0 implements M27 Tool Broker v2 + Safe Tool Intent Contracts as validation-only and preview-only contract logic, v0.31.1 normalizes the GitHub README polish commit into a clean docs-only baseline, v0.32.0 implements M28 Approval Authority v2 + Action Policy Expansion as policy-only contracts, v0.32.1 hardens evaluator revalidation for raw/secret action inputs, v0.33.0 implements M29 Agent Task Planning Engine as deterministic, local, non-executing, review-only planning contracts, v0.34.0 implements M30 Multi-Step Execution Framework as deterministic, local, side-effect-safe, state-machine-only contracts, v0.34.1 hardens M30 state transitions, replay protection, dependency gating, hidden side-effect denial, evaluator revalidation, and no-side-effect invariants, v0.35.0 implements M31 Real Tool Runtime Adapter, Single Safe No-Op Tool as a governed no-op-only runtime adapter, v0.35.1 hardens M31 no-op runtime adapter safety, v0.36.0 implements M32 Safe Local Filesystem Metadata Tool, v0.36.1 hardens M32 filesystem metadata path safety, and v0.37.0 implements M33 First Safe Local File Read Proposal, Redacted Preview Only. M34-M40 remain future capability layers. Every milestone requires its own implementation prompt, review prompt, hardening expectation, and validation evidence before release.
 
 ## Shared Rules
 
@@ -704,40 +704,60 @@ Review prompt required: yes.
 
 Hardening expectation: this is the M32 path-safety hardening patch.
 
-## v0.37.0 / M33 - Mobile Approval Surface Prototype, No Sensors
+## v0.37.0 / M33 - First Safe Local File Read Proposal, Redacted Preview Only
 
-Status: planned/provisional.
+Status: implemented/released.
 
-Purpose: Prototype mobile approval/status/receipt surfaces without sensors.
+Purpose: Add exactly one bounded redacted file preview proposal tool through the governed Tool Runtime Adapter.
 
 Allowed scope:
 
-- approval list API contract.
-- receipt viewer contract.
-- emergency stop contract.
-- web/PWA prototype if explicitly scoped.
+- `tool:filesystem.redacted_preview.v1`.
+- server-owned safe roots or explicit test fixtures.
+- relative path preview requests.
+- small UTF-8 text preview bytes read only inside the redaction pipeline.
+- redaction-before-return.
+- redacted preview result contract.
+- redaction summary.
+- no-raw-content receipt planning.
+- static verifier and Foundation Gate coverage.
 
 Must not add:
 
-- camera.
-- microphone.
-- GPS.
-- contacts.
-- calendar.
-- photos.
-- background services.
+- raw file content output or storage.
+- full-file read output.
+- unredacted file preview.
+- content hash.
+- directory listing or recursive traversal.
+- symlink following.
+- caller-selected arbitrary roots.
+- hidden or secret-like path reads.
+- file writes, deletes, chmod, chown, rename, copy, move, or mutation.
+- arbitrary filesystem tools.
+- shell/subprocess execution.
+- memory writes.
+- network, model, browser, mobile, remote, or plugin actions.
+- context injection.
+- backend raw-file or execute routes.
+- Control Center raw-preview or execute controls.
+- dependencies or production authority.
 
-Dependencies: future reviewed client/device strategy and approval-surface contracts.
+Dependencies: M31 no-op runtime adapter and M32 filesystem metadata path policy.
 
-Acceptance criteria: mobile approval and receipt contracts exist without mobile sensor access, native app authority, or background services.
+Acceptance criteria: safe redacted preview succeeds under a server-owned safe
+root; raw/full/hash/listing/mutation flags, unsafe paths, symlinks, directories,
+binary files, unsupported encodings, oversized files, caller roots, and
+authority-ref bypasses are denied; redacted results return no raw content or raw
+absolute path; OpenAPI path count remains `74`.
 
 Review prompt required: yes.
 
-Hardening expectation: approval spoofing, receipt clarity, and emergency stop hardening before macOS companion work.
+Hardening expectation: redaction policy, safe-root registry, result envelope, and
+static verifier hardening before any broader filesystem capability.
 
-Source-of-truth docs: `docs/canonical/64_mobile_companion_and_device_capability_broker.md`, `docs/ui/CCC_NATIVE_CLIENT_STRATEGY.md`.
+Source-of-truth docs: `docs/tools/REDACTED_FILE_PREVIEW_TOOL.md`, `docs/tools/REDACTED_FILE_PREVIEW_POLICY.md`, `docs/tools/REDACTED_FILE_PREVIEW_RESULT_CONTRACT.md`, `docs/tools/REDACTED_FILE_PREVIEW_REDACTION_POLICY.md`, `docs/tools/REDACTED_FILE_PREVIEW_AUTHORITY_BOUNDARY.md`, `docs/tools/REDACTED_FILE_PREVIEW_NON_GOALS.md`, `docs/tools/M33_TO_M34_BOUNDARY.md`, `src/ultimate_ai_agent/core/tools/runtime/file_preview.py`.
 
-Notes: A web/PWA prototype is allowed only if a future prompt explicitly scopes it.
+Notes: M33 is redacted preview only. M34 remains future broader file capability work.
 
 ## v0.38.0 / M34 - macOS Local Companion Contract / Prototype
 
@@ -976,7 +996,7 @@ planning and validation. M21 is implemented/released by v0.25.0 as
 contract-only. M22 is implemented/released by v0.26.0 as contract-only and hardened by v0.26.1.
 M23 is implemented/released by v0.27.0 as manual fixed-prompt local call only.
 M24 is implemented/released by v0.28.0 as governed local memory provider/store foundation, hardened by v0.28.1, and docs-cleaned by v0.28.2.
-M25 is implemented/released by v0.29.0 as deterministic local truth/evidence contracts. M26 is implemented/released by v0.30.0 as deterministic local grounded recall/context-pack contracts and hardened by v0.30.1. M27 is implemented/released by v0.31.0 as validation-only Tool Broker v2 contracts. v0.31.1 is docs-only README polish baseline normalization. M28 is implemented/released by v0.32.0 as Approval Authority v2 + Action Policy Expansion. M29 is implemented/released by v0.33.0 as Agent Task Planning Engine and hardened by v0.33.1 for dependency graph, derived risk, hidden side-effect, authority-boundary, evaluator revalidation, and no-execution coverage. M30 is implemented/released by v0.34.0 as Multi-Step Execution Framework state-machine-only contracts and hardened by v0.34.1. M31 is implemented/released by v0.35.0 as Real Tool Runtime Adapter, Single Safe No-Op Tool. M32-M40 remain planned/provisional. The M19 baseline
+M25 is implemented/released by v0.29.0 as deterministic local truth/evidence contracts. M26 is implemented/released by v0.30.0 as deterministic local grounded recall/context-pack contracts and hardened by v0.30.1. M27 is implemented/released by v0.31.0 as validation-only Tool Broker v2 contracts. v0.31.1 is docs-only README polish baseline normalization. M28 is implemented/released by v0.32.0 as Approval Authority v2 + Action Policy Expansion. M29 is implemented/released by v0.33.0 as Agent Task Planning Engine and hardened by v0.33.1 for dependency graph, derived risk, hidden side-effect, authority-boundary, evaluator revalidation, and no-execution coverage. M30 is implemented/released by v0.34.0 as Multi-Step Execution Framework state-machine-only contracts and hardened by v0.34.1. M31 is implemented/released by v0.35.0 as Real Tool Runtime Adapter, Single Safe No-Op Tool. M32 is implemented/released by v0.36.0 and hardened by v0.36.1. M33 is implemented/released by v0.37.0 as First Safe Local File Read Proposal, Redacted Preview Only. M34-M40 remain planned/provisional. The M19 baseline
 adds no mobile app, Android app, iOS app, macOS app, native build workflow, OS
 permission integration, mobile sensor access, mobile approval execution,
 runtime execution, model/provider calls, remote execution, plugin enablement,
@@ -990,5 +1010,5 @@ only. v0.25.0 implements M21 OpenWebUI Bridge + Chat Shell Integration
 Contract only. M22 Local Model Runtime Activation Contract is implemented by
 v0.26.0 as contract/planning/validation only and hardened by v0.26.1. M23 is
 implemented/released by v0.27.0 as manual fixed-prompt local call only. M24 is
-implemented/released by v0.28.0 as governed local memory provider/store foundation, hardened by v0.28.1, and docs-cleaned by v0.28.2. M25 is implemented/released by v0.29.0 as deterministic local truth/evidence contracts. M26 is implemented/released by v0.30.0 as deterministic local grounded recall/context-pack contracts and hardened by v0.30.1. M27 is implemented/released by v0.31.0 as validation-only Tool Broker v2 contracts. M28 is implemented/released by v0.32.0 as Approval Authority v2 + Action Policy Expansion. M29 is implemented/released by v0.33.0 as Agent Task Planning Engine and hardened by v0.33.1. M30 is implemented/released by v0.34.0 as Multi-Step Execution Framework and hardened by v0.34.1. M31 is implemented/released by v0.35.0 as Real Tool Runtime Adapter, Single Safe No-Op Tool. M32-M40
+implemented/released by v0.28.0 as governed local memory provider/store foundation, hardened by v0.28.1, and docs-cleaned by v0.28.2. M25 is implemented/released by v0.29.0 as deterministic local truth/evidence contracts. M26 is implemented/released by v0.30.0 as deterministic local grounded recall/context-pack contracts and hardened by v0.30.1. M27 is implemented/released by v0.31.0 as validation-only Tool Broker v2 contracts. M28 is implemented/released by v0.32.0 as Approval Authority v2 + Action Policy Expansion. M29 is implemented/released by v0.33.0 as Agent Task Planning Engine and hardened by v0.33.1. M30 is implemented/released by v0.34.0 as Multi-Step Execution Framework and hardened by v0.34.1. M31 is implemented/released by v0.35.0 as Real Tool Runtime Adapter, Single Safe No-Op Tool. M32 is implemented/released by v0.36.0 and hardened by v0.36.1. M33 is implemented/released by v0.37.0 as First Safe Local File Read Proposal, Redacted Preview Only. M34-M40
 remain planned/provisional until implemented by dedicated reviewed milestones.

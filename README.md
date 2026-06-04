@@ -12,23 +12,22 @@ allowed to become operational authority.
 
 | Field | Current state |
 |---|---|
-| Current active baseline | **v0.36.1** |
-| Current milestone | **M32 - Safe Local Filesystem Metadata Tool** |
+| Current active baseline | **v0.37.0** |
+| Current milestone | **M33 - First Safe Local File Read Proposal, Redacted Preview Only** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **74** OpenAPI paths |
 | Production readiness | Not claimed |
 
-v0.36.1 hardens M32 Safe Tool Runtime Expansion and the safe local filesystem
-metadata tool. The governed runtime allowlist still contains the deterministic
-no-op tool and `tool:filesystem_metadata.v1` only. The metadata tool operates
-under server-owned safe roots, returns metadata-only fields, and now has
-stronger path normalization, encoded traversal denial, private-key-like path
-denial, metadata alias flag denial, evaluator revalidation, verifier coverage,
-and Foundation Gate coverage. It does not read file contents, preview text,
-hash content, list directories, recurse, follow symlinks, mutate files, add
-backend execute routes, add dependencies, or claim production authority.
-M33-M40 remain planned/provisional.
+v0.37.0 implements M33 as the first safe local file read proposal: one
+governed redacted-preview-only runtime tool,
+`tool:filesystem.redacted_preview.v1`. The tool is bounded to server-owned
+safe roots, relative paths, small UTF-8 text previews, and
+redaction-before-return. It returns no raw file content, stores no raw content,
+exposes no raw absolute path, computes no content hash, lists no directories,
+follows no symlinks, mutates no files, adds no backend raw-file/execute routes,
+adds no dependencies, and claims no production authority. M34-M40 remain
+planned/provisional.
 
 v0.29.5 is documentation policy polish. It remains the documentation
 organization cleanup baseline before the M26 and M27 implementation releases.
@@ -46,15 +45,17 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M31 No-Op Tool Runtime](docs/tools/NOOP_TOOL_RUNTIME.md)
 - [M32 Filesystem Metadata Tool](docs/tools/FILESYSTEM_METADATA_TOOL.md)
 - [M32 Filesystem Metadata Path Policy](docs/tools/FILESYSTEM_METADATA_PATH_POLICY.md)
+- [M33 Redacted File Preview Tool](docs/tools/REDACTED_FILE_PREVIEW_TOOL.md)
+- [M33 Redacted File Preview Policy](docs/tools/REDACTED_FILE_PREVIEW_POLICY.md)
 - [M30 Multi-Step Execution Framework](docs/execution/MULTI_STEP_EXECUTION_FRAMEWORK.md)
 - [M29 Agent Task Planning Engine](docs/planning/TASK_PLANNING_ENGINE.md)
 - [M28 Approval Authority v2](docs/approvals/APPROVAL_AUTHORITY_V2.md)
 - [M28 Action Policy](docs/approvals/ACTION_POLICY.md)
 - [M27 Tool Broker v2](docs/tools/TOOL_BROKER_V2.md)
 - [M26 Grounded Recall Router](docs/recall/GROUNDED_RECALL_ROUTER.md)
-- [v0.36.1 release notes](docs/release_notes/v0_36_1.md)
-- [v0.36.1 release packet](docs/archive/releases/v0_36_1/README_IMPORT.md)
-- [v0.36.1 master plan](docs/archive/releases/v0_36_1/master_plan.md)
+- [v0.37.0 release notes](docs/release_notes/v0_37_0.md)
+- [v0.37.0 release packet](docs/archive/releases/v0_37_0/README_IMPORT.md)
+- [v0.37.0 master plan](docs/archive/releases/v0_37_0/master_plan.md)
 
 ## What This Project Is
 
@@ -81,9 +82,10 @@ Core themes:
 - **Approval decisions are policy decisions, not action execution.** M28
   validates action intent, grant, risk, and scope boundaries with
   `execution_authorized=False` and `execution_performed=False`.
-- **Tool runtime is allowlist-only.** M32 permits exactly two governed runtime
-  tools: deterministic no-op and safe local filesystem metadata. The metadata
-  tool returns metadata only; it cannot read content or mutate files.
+- **Tool runtime is allowlist-only.** M33 permits exactly three governed runtime
+  tools: deterministic no-op, safe local filesystem metadata, and bounded
+  redacted file preview. The preview tool returns redacted preview output only;
+  it cannot return raw content, full files, hashes, listings, or mutate files.
 
 ## What This Project Is Not
 
@@ -114,7 +116,7 @@ Ultimate AI Agent
     Truth/Evidence: validation over provided refs
     Recall/Context Packs: safe plans, not injection
     Tool Intent Contracts: preview/validation, not execution
-    Tool Runtime Adapter: no-op plus metadata-only filesystem lookup
+    Tool Runtime Adapter: no-op, metadata-only filesystem lookup, redacted file preview
   Control Center / CCC Web
     Local governance and preview surfaces
   OpenWebUI Strategy
@@ -141,7 +143,7 @@ boundary.
 | Recall/context packs | Implemented M26 contracts | Safe summaries and refs only; source_ref/source_kind consistency enforced |
 | Tool Broker v2 | Implemented M27 contracts | Safe intent validation and metadata preview only; no execution |
 | Approval Authority v2 | Implemented M28 contracts | Action policy decisions only; no execution authority |
-| Tool Runtime Adapter | Implemented M32 allowlist-only | `tool:no_op.v1` and `tool:filesystem_metadata.v1` only; arbitrary/effectful tools blocked |
+| Tool Runtime Adapter | Implemented M33 allowlist-only | `tool:no_op.v1`, `tool:filesystem_metadata.v1`, and `tool:filesystem.redacted_preview.v1`; arbitrary/effectful tools blocked |
 | Mobile/device clients | Planned/contract-only | Future CCC clients and device capability contracts; no native apps or sensors |
 | Foundation Gate | Implemented | Release safety gate covering docs, OpenAPI, frontend, and capability boundaries |
 
@@ -154,8 +156,10 @@ The safety posture is not a side note; it is the product architecture.
 - Memory is recall, not authority.
 - Context packs are planning artifacts, not prompt injection.
 - Tool intents are not tool execution.
-- M32 tool runtime is limited to deterministic no-op plus safe local
-  filesystem metadata under server-owned safe roots.
+- M33 tool runtime is limited to deterministic no-op, safe local filesystem
+  metadata, and bounded redacted file preview under server-owned safe roots.
+- Redacted file previews are not raw file reads, full-file reads, or context
+  injection.
 - Approval decisions are not action execution.
 - Approval refs are identifiers, not authority.
 - `approval_test_*` refs are test-only and not runtime authority.
@@ -254,7 +258,8 @@ The canonical roadmap source of truth is
 | v0.35.1 | M31 hardening - No-Op Tool Runtime Adapter Safety | Implemented/released |
 | v0.36.0 | M32 - Safe Local Filesystem Metadata Tool | Implemented/released |
 | v0.36.1 | M32 hardening - Filesystem Metadata Path Safety | Implemented/released |
-| v0.37.0 | M33 - Mobile Approval Surface Prototype, No Sensors | Planned/provisional |
+| v0.37.0 | M33 - First Safe Local File Read Proposal, Redacted Preview Only | Implemented/released |
+| v0.38.0 | M34 - Broader File Capability Review | Planned/provisional |
 
 The roadmap intentionally separates contract planning, validation, preview,
 manual local execution, and future operational authority.

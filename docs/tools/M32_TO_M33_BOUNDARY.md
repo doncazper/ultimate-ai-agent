@@ -1,7 +1,7 @@
 # M32 to M33 Boundary
 
-Status: active M32 documentation.
-Current active baseline: **v0.36.1**
+Status: active M33 documentation.
+Current active baseline: **v0.37.0**
 
 M32 is implemented/released as Safe Local Filesystem Metadata Tool.
 
@@ -17,7 +17,14 @@ traversal, symlink following, file mutation, shell/subprocess execution, memory
 writes, network calls, model/provider calls, backend execution routes, Control
 Center execute controls, dependencies, or production authority.
 
-M33 remains planned/provisional as Mobile Approval Surface Prototype, No
-Sensors. M33-M40 remain planned/provisional. M32 does not add mobile native
-code, mobile sensors, device pairing, notifications, background services,
-mobile approval execution, or native client runtime authority.
+M33 is implemented/released as First Safe Local File Read Proposal, Redacted
+Preview Only. It adds one bounded runtime tool,
+`tool:filesystem.redacted_preview.v1`, which may produce a redacted preview
+proposal under server-owned safe roots after path, size, type, encoding, and
+redaction checks.
+
+M33 does not add raw file output, full-file read output, content hashes,
+directory listing, recursive traversal, symlink following, file mutation,
+backend raw-file/execute routes, Control Center raw-preview/execute controls,
+context injection, dependencies, or production authority. M34-M40 remain
+planned/provisional.
