@@ -1,22 +1,24 @@
 # Post-M20 Capability Layer Roadmap
 
-Status: Active roadmap projection maintained through v0.37.4.
+Status: Active roadmap projection maintained through v0.38.0.
 
-v0.37.4 supersedes the older active post-M33 projection and defines the current
-M34-M60 sequence. This document is roadmap guidance only. It adds no backend API
-route, frontend behavior, runtime execution, local model execution,
-model/provider call, network call, remote execution, mobile app code, iOS app
-code, Android app code, macOS app code, mobile sensor API, Device Capability
-Broker runtime, MCP runtime support, Agent Skills runtime, AGENTS.md runtime
-loading, sandbox execution, tool execution, browser automation, Computer Use,
-plugin enablement, dependency, architecture behavior change, or production
-authority.
+v0.38.0 implements M34 Broader File Capability Review as planning,
+architecture review, documentation, verifier, and Foundation Gate work only.
+It adds no backend API route, frontend runtime behavior, runtime execution,
+local model execution, model/provider call, network call, remote execution,
+mobile app code, iOS app code, Android app code, macOS app code, mobile sensor
+API, Device Capability Broker runtime, MCP runtime support, Agent Skills
+runtime, AGENTS.md runtime loading, sandbox execution, tool execution, browser
+automation, Computer Use, plugin enablement, dependency, architecture behavior
+change, raw file read, file review workflow implementation, approval capture,
+context injection, memory write, export, or production authority.
 
 No integration is added. No dependency is added.
 
-M21-M33 are implemented/released through dedicated reviewed milestones. M34-M60
-remain planned/provisional. M34 is planning/docs/verifier only. M35 is the
-first implementation after the v0.37.4 supersession. M42 is the first mobile
+M21-M34 are implemented/released through dedicated reviewed milestones. M35-M60
+remain planned/provisional. M34 is implemented/released as planning/docs/verifier
+only. M35 is the first implementation after the v0.37.4 supersession and v0.38.0
+review milestone. M42 is the first mobile
 planning refresh in this new sequence. M44 is the first iOS skeleton milestone.
 M47 is the TestFlight-capable pipeline milestone. M48 is the first internal
 TestFlight build. M49-M50 are the first meaningful mobile approval capture and
@@ -42,7 +44,7 @@ The detailed post-M33 supersession source of truth is
 | v0.35.0 | M31 | Real Tool Runtime Adapter, Single Safe No-Op Tool | implemented/released |
 | v0.36.0 | M32 | Safe Local Filesystem Metadata Tool | implemented/released |
 | v0.37.0 | M33 | First Safe Local File Read Proposal, Redacted Preview Only | implemented/released |
-| v0.38.0 | M34 | Broader File Capability Review | planned/provisional |
+| v0.38.0 | M34 | Broader File Capability Review | implemented/released planning/docs/verifier only |
 | v0.39.0 | M35 | Safe File Review Workflow Contracts | planned/provisional |
 | v0.40.0 | M36 | CCC File Review Surface, Review-Only | planned/provisional |
 | v0.41.0 | M37 | Review Approval Capture, Review-Only Persistence | planned/provisional |
@@ -72,16 +74,16 @@ The detailed post-M33 supersession source of truth is
 
 ## Prompt-Pack Strategy
 
-Recommended next prompt after v0.37.4:
+Recommended next prompt after v0.38.0:
 
 ```text
-v0.38.0 / M34 - Broader File Capability Review
+v0.39.0 / M35 - Safe File Review Workflow Contracts
 ```
 
-The next three prompt packs are M34 Broader File Capability Review
-planning/docs/verifier only, M35 Safe File Review Workflow
-implementation/review/hardening, and M36 CCC File Review Surface
-implementation/browser-smoke review/hardening.
+The next three prompt packs are M35 Safe File Review Workflow
+implementation/review/hardening, M36 CCC File Review Surface
+implementation/browser-smoke review/hardening, and M37 Review Approval Capture
+review-only persistence.
 
 Extra-hard reviews are required for M37, M38, M40, M47, M48, M49, M51, M52,
 M57, and M58. Mandatory hardening is expected by default for M35-M40, M43-M50,

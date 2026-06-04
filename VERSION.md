@@ -1,16 +1,14 @@
 # Ultimate AI Agent Version
 
-Current active baseline: **v0.37.4**
+Current active baseline: **v0.38.0**
 
-v0.37.4 supersedes the old active M35-M40 roadmap projection and defines the
-active M34-M60 sequence. It marks M34 as planning/docs/verifier only, M35 as the
-first implementation after supersession, M42 as mobile planning refresh, M44 as
-the first iOS skeleton, M47 as the TestFlight-capable pipeline milestone, M48 as
-the first internal TestFlight build, and M49-M50 as mobile approval capture and
-audit work. It adds documentation-integrity checks for the active M34-M60 labels
-and for superseded-roadmap drift.
+v0.38.0 implements M34 Broader File Capability Review. It adds file capability
+boundary review documentation, a file capability boundary matrix, risk register,
+decision record, M35 Safe File Review Workflow readiness guidance,
+M34-to-M35 boundary documentation, documentation-integrity checks, static safety
+verification, and Foundation Gate coverage.
 
-It adds no M34 implementation, backend routes, frontend features, raw file
-reads, file review workflow, approval capture, context proposal, context
-injection, memory writes, execution, dependencies, mobile/TestFlight
-implementation, or production authority.
+It adds no runtime file capability, raw file reads, file review UI, approval
+persistence, context proposal, context injection, memory writes, export,
+execution, backend routes, dependencies, or production authority. M35 remains
+planned/provisional as Safe File Review Workflow Contracts.

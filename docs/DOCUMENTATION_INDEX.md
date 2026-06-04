@@ -1,6 +1,6 @@
 # Documentation Index
 
-Current active baseline: **v0.37.4**
+Current active baseline: **v0.38.0**
 
 This index is the active entrypoint for documentation navigation. Historical release documents remain in the repository for audit history, but active truth starts with the current baseline files listed here.
 
@@ -14,8 +14,8 @@ docs/canonical/CANONICAL_DOC_MAP.md
 docs/canonical/09_roadmap.md
 docs/roadmap/README.md
 docs/archive/README.md
-docs/archive/releases/v0_37_4/README_IMPORT.md
-docs/archive/releases/v0_37_4/master_plan.md
+docs/archive/releases/v0_38_0/README_IMPORT.md
+docs/archive/releases/v0_38_0/master_plan.md
 docs/developer/LOCAL_LAUNCHER.md
 scripts/dev/README.md
 docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md
@@ -24,6 +24,14 @@ docs/roadmap/NEXT_SEQUENCE_v0_17_5.md
 docs/roadmap/CAPABILITY_LAYERING_STRATEGY.md
 docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md
 docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md
+docs/files/BROADER_FILE_CAPABILITY_REVIEW.md
+docs/files/FILE_CAPABILITY_BOUNDARY_MATRIX.md
+docs/files/FILE_CAPABILITY_RISK_REGISTER.md
+docs/files/FILE_CAPABILITY_DECISION_RECORD.md
+docs/files/M35_SAFE_FILE_REVIEW_WORKFLOW_READINESS.md
+docs/files/M34_TO_M35_BOUNDARY.md
+docs/control_center/FILE_REVIEW_SURFACE_READINESS.md
+docs/tools/FILE_TOOL_CAPABILITY_MATRIX.md
 docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md
 docs/roadmap/ECOSYSTEM_WATCHLIST.md
 docs/roadmap/STANDARDS_ALIGNMENT_WATCHLIST.md
@@ -115,6 +123,12 @@ docs/tools/REDACTED_FILE_PREVIEW_AUTHORITY_BOUNDARY.md
 docs/tools/REDACTED_FILE_PREVIEW_NON_GOALS.md
 docs/tools/M33_TO_M34_BOUNDARY.md
 docs/files/LOCAL_FILE_REDACTED_PREVIEW_POLICY.md
+docs/files/BROADER_FILE_CAPABILITY_REVIEW.md
+docs/files/FILE_CAPABILITY_BOUNDARY_MATRIX.md
+docs/files/FILE_CAPABILITY_RISK_REGISTER.md
+docs/files/FILE_CAPABILITY_DECISION_RECORD.md
+docs/files/M35_SAFE_FILE_REVIEW_WORKFLOW_READINESS.md
+docs/files/M34_TO_M35_BOUNDARY.md
 docs/approvals/APPROVAL_AUTHORITY_V2.md
 docs/approvals/ACTION_POLICY.md
 docs/approvals/APPROVAL_GRANT_BINDING.md
@@ -300,7 +314,7 @@ Model runtime docs distinguish simulated runtime behavior, dev/manual loopback r
 
 M11 runtime readiness docs describe status/report validation only. They do not describe production runtime execution. v0.15.1 clarifies local loopback policy as supported validation-only and `fake_manual_loopback_smoke` as a fake/test report origin only.
 
-v0.26.0 / M22 adds Local Model Runtime Activation Contract docs as contract/planning/validation only. v0.26.1 hardens M22 verifier precision, metadata key secret hygiene, route-count test ownership, and duplicate docs wording. v0.27.0 / M23 adds the first bounded manual local model call path. v0.27.1 hardens M23 endpoint-label safety, approval evidence checks, response redaction/caps, CLI guardrails, policy docs, static verification, Foundation Gate criteria, and Foundation Gate report atomic write/replace safety. v0.28.0 / M24 adds Memory Provider Abstraction + Local Memory Store as governed reviewed-write-only local memory foundation. v0.28.1 repairs the public M24 memory request contract and hardens M24 memory safety checks. v0.28.2 removes the duplicate/conflicting v0.28.1 planned/provisional roadmap row only. v0.29.0 / M25 adds Truth Source Router + Evidence Claim Checker as deterministic local contracts over provided refs only. v0.29.1 hardens M25 unknown/arbitrary truth ref denial. v0.29.2 hardens local-dev API authority and raw preview safety without adding routes. v0.29.3 reorganizes documentation archives and active/historical classification only, v0.29.4 repairs legacy archive references and self-maintaining docs policy coverage, v0.29.5 polishes duplicated policy wording, v0.30.0 implements M26 Grounded Recall Router + Evidence-Linked Context Pack Builder as deterministic local contracts over provided candidates only, v0.30.1 hardens M26 source_ref/source_kind consistency, v0.31.0 implements M27 Tool Broker v2 + Safe Tool Intent Contracts as validation-only and preview-only contracts, v0.31.1 normalizes the GitHub README polish commit into a clean docs-only baseline, v0.32.0 implements M28 Approval Authority v2 + Action Policy Expansion as policy-only and decision-only contracts, v0.32.1 hardens M28 evaluator revalidation for raw/secret action inputs, v0.33.0 implements M29 Agent Task Planning Engine as deterministic, local, non-executing, review-only planning contracts, v0.33.1 hardens M29 dependency graph, derived risk, hidden side-effect, authority-boundary, evaluator revalidation, and no-execution checks, v0.34.0 implements M30 Multi-Step Execution Framework as deterministic, local, side-effect-safe, state-machine-only contracts, v0.34.1 hardens M30 state transitions, replay protection, dependency gating, hidden side-effect denial, evaluator revalidation, and no-side-effect invariants, v0.35.0 implements M31 Real Tool Runtime Adapter, Single Safe No-Op Tool as a governed no-op-only runtime adapter, v0.35.1 hardens M31 no-op runtime adapter safety, v0.36.0 implements M32 as one safe local filesystem metadata tool under server-owned safe roots, v0.36.1 hardens M32 filesystem metadata path safety, v0.37.0 implements M33 First Safe Local File Read Proposal, Redacted Preview Only, v0.37.1 hardens M33 redacted file preview safety, v0.37.2 adds local developer launcher tooling only, v0.37.3 repairs active M34 roadmap label alignment, and v0.37.4 supersedes the old active M35-M40 projection with the M34-M60 roadmap guard. Memory is recall, not authority. Memory is not ground truth. v0.37.4 adds no production installer, backend route, arbitrary tool execution, raw file output, full-file read output, content hash, directory listing, recursive traversal, symlink following, file mutation, memory write, Event Ledger mutation, network call, web search, model/provider call, plugin enablement, browser automation, mobile/device access, remote execution, context injection, dependency, production persistence, M34 implementation, mobile/TestFlight implementation, or production authority. OpenAPI path count remains `74`. M34-M60 remain planned/provisional.
+v0.26.0 / M22 adds Local Model Runtime Activation Contract docs as contract/planning/validation only. v0.26.1 hardens M22 verifier precision, metadata key secret hygiene, route-count test ownership, and duplicate docs wording. v0.27.0 / M23 adds the first bounded manual local model call path. v0.27.1 hardens M23 endpoint-label safety, approval evidence checks, response redaction/caps, CLI guardrails, policy docs, static verification, Foundation Gate criteria, and Foundation Gate report atomic write/replace safety. v0.28.0 / M24 adds Memory Provider Abstraction + Local Memory Store as governed reviewed-write-only local memory foundation. v0.28.1 repairs the public M24 memory request contract and hardens M24 memory safety checks. v0.28.2 removes the duplicate/conflicting v0.28.1 planned/provisional roadmap row only. v0.29.0 / M25 adds Truth Source Router + Evidence Claim Checker as deterministic local contracts over provided refs only. v0.29.1 hardens M25 unknown/arbitrary truth ref denial. v0.29.2 hardens local-dev API authority and raw preview safety without adding routes. v0.29.3 reorganizes documentation archives and active/historical classification only, v0.29.4 repairs legacy archive references and self-maintaining docs policy coverage, v0.29.5 polishes duplicated policy wording, v0.30.0 implements M26 Grounded Recall Router + Evidence-Linked Context Pack Builder as deterministic local contracts over provided candidates only, v0.30.1 hardens M26 source_ref/source_kind consistency, v0.31.0 implements M27 Tool Broker v2 + Safe Tool Intent Contracts as validation-only and preview-only contracts, v0.31.1 normalizes the GitHub README polish commit into a clean docs-only baseline, v0.32.0 implements M28 Approval Authority v2 + Action Policy Expansion as policy-only and decision-only contracts, v0.32.1 hardens M28 evaluator revalidation for raw/secret action inputs, v0.33.0 implements M29 Agent Task Planning Engine as deterministic, local, non-executing, review-only planning contracts, v0.33.1 hardens M29 dependency graph, derived risk, hidden side-effect, authority-boundary, evaluator revalidation, and no-execution checks, v0.34.0 implements M30 Multi-Step Execution Framework as deterministic, local, side-effect-safe, state-machine-only contracts, v0.34.1 hardens M30 state transitions, replay protection, dependency gating, hidden side-effect denial, evaluator revalidation, and no-side-effect invariants, v0.35.0 implements M31 Real Tool Runtime Adapter, Single Safe No-Op Tool as a governed no-op-only runtime adapter, v0.35.1 hardens M31 no-op runtime adapter safety, v0.36.0 implements M32 as one safe local filesystem metadata tool under server-owned safe roots, v0.36.1 hardens M32 filesystem metadata path safety, v0.37.0 implements M33 First Safe Local File Read Proposal, Redacted Preview Only, v0.37.1 hardens M33 redacted file preview safety, v0.37.2 adds local developer launcher tooling only, v0.37.3 repairs active M34 roadmap label alignment, v0.37.4 supersedes the old active M35-M40 projection with the M34-M60 roadmap guard, and v0.38.0 implements M34 Broader File Capability Review as planning/docs/verifier only. Memory is recall, not authority. Memory is not ground truth. v0.38.0 adds no production installer, backend route, arbitrary tool execution, raw file output, full-file read output, content hash, directory listing, recursive traversal, symlink following, file mutation, memory write, Event Ledger mutation, network call, web search, model/provider call, plugin enablement, browser automation, mobile/device access, remote execution, context injection, export, dependency, production persistence, M35 implementation, mobile/TestFlight implementation, or production authority. OpenAPI path count remains `74`. M35-M60 remain planned/provisional.
 
 ## Active Remote Worker and Private Mesh Docs
 
@@ -384,12 +398,12 @@ scripts/dev/README.md
 v0.37.4 supersedes the old active M35-M40 roadmap projection and defines the
 active M34-M60 sequence. Active roadmap sources consistently keep v0.38.0 / M34
 as Broader File Capability Review, keep M34 planning/docs/verifier only, mark
-M34-M60 planned/provisional, and rely on documentation-integrity checks to guard
+M35-M60 planned/provisional, and rely on documentation-integrity checks to guard
 against superseded-roadmap drift.
 
 ## Release Notes Index
 
-Current release notes: `docs/release_notes/v0_37_4.md`
+Current release notes: `docs/release_notes/v0_38_0.md`
 
 Historical release notes remain under `docs/release_notes/`. Historical docs may mention old active baselines in historical context; they are not the current source of truth.
 

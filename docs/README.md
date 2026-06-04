@@ -1,7 +1,7 @@
 # Ultimate AI Agent Docs
 
 Status: active
-Current through: v0.37.4
+Current through: v0.38.0
 Purpose: Human-facing entrypoint for active documentation and historical archive navigation.
 
 Active docs are few, indexed, and current. Historical docs are preserved under
@@ -23,11 +23,19 @@ docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md
 Current release packet:
 
 ```text
-docs/archive/releases/v0_37_4/README_IMPORT.md
-docs/archive/releases/v0_37_4/master_plan.md
-docs/release_notes/v0_37_4.md
-docs/implementation/foundation_gate_implementation_plan_v0_37_4.md
+docs/archive/releases/v0_38_0/README_IMPORT.md
+docs/archive/releases/v0_38_0/master_plan.md
+docs/release_notes/v0_38_0.md
+docs/implementation/foundation_gate_implementation_plan_v0_38_0.md
 docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md
+docs/files/BROADER_FILE_CAPABILITY_REVIEW.md
+docs/files/FILE_CAPABILITY_BOUNDARY_MATRIX.md
+docs/files/FILE_CAPABILITY_RISK_REGISTER.md
+docs/files/FILE_CAPABILITY_DECISION_RECORD.md
+docs/files/M35_SAFE_FILE_REVIEW_WORKFLOW_READINESS.md
+docs/files/M34_TO_M35_BOUNDARY.md
+docs/control_center/FILE_REVIEW_SURFACE_READINESS.md
+docs/tools/FILE_TOOL_CAPABILITY_MATRIX.md
 docs/developer/LOCAL_LAUNCHER.md
 scripts/dev/README.md
 docs/tools/REDACTED_FILE_PREVIEW_TOOL.md
@@ -93,13 +101,14 @@ historical snapshots.
 v0.29.5 is documentation policy polish only. It accepts the pushed duplicate
 wording cleanup from `374bb1e` and remains the cleanup baseline before M26.
 
-v0.37.4 supersedes the old active M35-M40 roadmap projection and defines the
-active M34-M60 sequence. It keeps v0.38.0 / M34 as Broader File Capability
-Review, marks M34 as planning/docs/verifier only, and strengthens
-documentation-integrity checks for the active supersession labels. It adds no
-M34 implementation, backend routes, frontend features, file-review workflow,
-approval capture, context proposal, runtime behavior, dependencies, mobile or
-TestFlight implementation, or production authority.
+v0.38.0 implements M34 Broader File Capability Review as planning,
+architecture review, documentation, verifier, and Foundation Gate work only. It
+adds the file capability boundary review, matrix, risk register, decision
+record, M35 readiness guidance, and M34-to-M35 boundary docs. It adds no runtime
+file capability, backend routes, frontend runtime features, file-review
+workflow, approval capture, context proposal, context injection, memory writes,
+export, execution, dependencies, mobile or TestFlight implementation, or
+production authority. M35-M60 remain planned/provisional.
 
 v0.37.1 hardens M33 First Safe Local File Read Proposal, Redacted Preview Only.
 It keeps the governed tool runtime adapter entry
@@ -129,5 +138,5 @@ memory writes, network calls, model/provider calls, plugin enablement, browser
 automation, mobile/device access, remote execution, shell execution,
 dependencies, context injection, or production authority.
 
-M34-M60 remain planned/provisional under
+M35-M60 remain planned/provisional under
 `docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md`.

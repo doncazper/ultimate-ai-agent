@@ -216,6 +216,35 @@ def test_documentation_integrity_verifier_rejects_stale_m35_m40_projection(tmp_p
     )
 
 
+def test_documentation_integrity_verifier_requires_m34_review_docs(tmp_path: Path):
+    _write_minimal_repo(tmp_path, version="0.38.0")
+    _write_m34_m60_active_docs(tmp_path, m34_released=True)
+    _write_m34_review_docs(tmp_path)
+    (tmp_path / "docs/files/BROADER_FILE_CAPABILITY_REVIEW.md").unlink()
+
+    failures = verifier.verify(tmp_path)
+
+    assert any("missing active M34 file capability doc" in failure for failure in failures)
+    assert any("BROADER_FILE_CAPABILITY_REVIEW.md" in failure for failure in failures)
+
+
+def test_documentation_integrity_verifier_rejects_m34_runtime_capability_claim(tmp_path: Path):
+    _write_minimal_repo(tmp_path, version="0.38.0")
+    _write_m34_m60_active_docs(tmp_path, m34_released=True)
+    _write_m34_review_docs(tmp_path)
+    review = tmp_path / "docs/files/BROADER_FILE_CAPABILITY_REVIEW.md"
+    review.write_text(
+        review.read_text(encoding="utf-8")
+        + "\nM34 implements Safe File Review Workflow Contracts and file review UI.\n",
+        encoding="utf-8",
+    )
+
+    failures = verifier.verify(tmp_path)
+
+    assert any("M34 docs must not claim M35 implementation" in failure for failure in failures)
+    assert any("M34 docs must not claim file review UI implementation" in failure for failure in failures)
+
+
 def test_documentation_integrity_verifier_rejects_implemented_post_m20_claims(tmp_path: Path):
     _write_minimal_repo(tmp_path)
     roadmap = tmp_path / "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md"
@@ -312,11 +341,21 @@ def test_documentation_integrity_verifier_rejects_active_historical_verifiers(tm
     assert any("scripts historical verifier must be archived" in failure for failure in failures)
 
 
-def _write_m34_m60_active_docs(root: Path) -> None:
+def _write_m34_m60_active_docs(root: Path, *, m34_released: bool = False) -> None:
     labels = "\n".join(
-        f"{version} / {milestone} - {title}, planned/provisional"
+        (
+            f"{version} / {milestone} - {title}, implemented/released planning/docs/verifier only"
+            if m34_released and milestone == "M34"
+            else f"{version} / {milestone} - {title}, planned/provisional"
+        )
         for version, milestone, title in verifier.EXPECTED_M34_M60_LABELS
     )
+    m34_status = (
+        "M34 is implemented/released as planning/docs/verifier only.\n"
+        if m34_released
+        else "M34 is planning/docs/verifier only.\n"
+    )
+    future_status = "M35-M60 remain planned/provisional.\n" if m34_released else "M34-M60 remain planned/provisional.\n"
     body = (
         "M21 is implemented/released by v0.25.0 as OpenWebUI Bridge + Chat Shell Integration Contract.\n"
         "M22 is implemented/released by v0.26.0 as Local Model Runtime Activation Contract.\n"
@@ -331,12 +370,12 @@ def _write_m34_m60_active_docs(root: Path) -> None:
         "M31 is implemented/released by v0.35.0 as Real Tool Runtime Adapter, Single Safe No-Op Tool.\n"
         "M32 is implemented/released by v0.36.0 as Safe Local Filesystem Metadata Tool.\n"
         "M33 is implemented/released by v0.37.0 as First Safe Local File Read Proposal, Redacted Preview Only.\n"
-        "M34 is planning/docs/verifier only.\n"
+        f"{m34_status}"
         "M35 is the first implementation after supersession.\n"
         "M42 is mobile planning refresh. M44 is the first iOS skeleton.\n"
         "M47 is the TestFlight-capable pipeline. M48 is the first internal TestFlight build.\n"
         "M49-M50 are mobile approval capture and audit work.\n"
-        "M34-M60 remain planned/provisional.\n"
+        f"{future_status}"
         "Archive docs are not the active source of truth.\n"
         "No integration is added. No dependency is added.\n"
         f"{labels}\n"
@@ -385,6 +424,46 @@ def _write_m34_m60_active_docs(root: Path) -> None:
         "docs/canonical/CANONICAL_DOC_MAP.md\n",
         encoding="utf-8",
     )
+
+
+def _write_m34_review_docs(root: Path) -> None:
+    docs = {
+        "docs/files/BROADER_FILE_CAPABILITY_REVIEW.md": (
+            "M34 Broader File Capability Review. planning/review only. no raw file reads. "
+            "no file review UI. no approval persistence. no context injection. no memory writes. "
+            "no export. no execution. no backend routes. no dependencies. "
+            "M35 remains planned/provisional. M36 remains planned/provisional."
+        ),
+        "docs/files/FILE_CAPABILITY_BOUNDARY_MATRIX.md": (
+            "File Capability Boundary Matrix. planning/review only. no raw file reads. "
+            "no file review UI. no approval persistence. no context injection. no memory writes. "
+            "no export. no execution. raw read blocked. full read blocked. M35 remains planned/provisional."
+        ),
+        "docs/files/FILE_CAPABILITY_RISK_REGISTER.md": (
+            "File Capability Risk Register. raw-content leakage. path traversal. redaction bypass. "
+            "model_copy mutation bypass. no context injection. no memory writes. no export. no execution."
+        ),
+        "docs/files/FILE_CAPABILITY_DECISION_RECORD.md": (
+            "File Capability Decision Record. M35 = contracts only. M36 = review-only UI. "
+            "M37 = review-only approval persistence. M38 = safe context proposal, no injection. "
+            "M40 = context handoff approval, no injection. no raw file reads. no execution."
+        ),
+        "docs/files/M35_SAFE_FILE_REVIEW_WORKFLOW_READINESS.md": (
+            "M35 Safe File Review Workflow readiness. exact M35 implementation scope. "
+            "required contracts. required tests. required verifiers. strict non-goals. "
+            "no file review UI. no approval persistence. no context injection. no memory writes. "
+            "no export. no execution. M35 remains planned/provisional until implemented."
+        ),
+        "docs/files/M34_TO_M35_BOUNDARY.md": (
+            "M34 is planning/review only. M35 starts implementation. no M35 implementation in M34. "
+            "no approval persistence until M37. no UI until M36. no context proposal until M38. "
+            "no context injection through M40. no raw file reads. no memory writes. no export. no execution."
+        ),
+    }
+    for rel_path, content in docs.items():
+        path = root / rel_path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content, encoding="utf-8")
 
 
 def _write_minimal_repo(root: Path, version: str = "0.14.6") -> None:

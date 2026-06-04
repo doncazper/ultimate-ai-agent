@@ -36,6 +36,7 @@ SCAN_SEQUENCE = [
     ("M31 Real Tool Runtime Adapter no-op safety scan", "verify_m31_tool_runtime_noop_safety"),
     ("M32 safe filesystem metadata tool scan", "verify_m32_filesystem_metadata_tool_safety"),
     ("M33 redacted file preview tool scan", "verify_m33_redacted_file_preview_tool_safety"),
+    ("M34 broader file capability review scan", "verify_m34_broader_file_capability_review_safety"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -3238,7 +3239,9 @@ def verify_m32_filesystem_metadata_tool_safety():
     policy = manifest.policy
     active_text = (ROOT / "VERSION.md").read_text(encoding="utf-8")
     expected_m32_allowlist = [NOOP_TOOL_REF, FILESYSTEM_METADATA_TOOL_REF]
-    if "v0.37." in active_text:
+    active_match = re.search(r"Current active baseline:\s*\*\*v(\d+)\.(\d+)\.(\d+)\*\*", active_text)
+    active_tuple = tuple(int(part) for part in active_match.groups()) if active_match else (0, 0, 0)
+    if active_tuple >= (0, 37, 0):
         expected_m32_allowlist.append(REDACTED_FILE_PREVIEW_TOOL_REF)
     if manifest.allowlisted_tool_refs != expected_m32_allowlist:
         print("FAIL: M32/M33 manifest allowlist is not the expected safe tool set")
@@ -3747,6 +3750,104 @@ def verify_m33_redacted_file_preview_tool_safety():
         )
 
     print("OK: M33 redacted file preview tool is redacted-only, safe-root-bound, route-free, and non-mutating")
+
+
+def verify_m34_broader_file_capability_review_safety():
+    print("\n[Verifier] Running M34 broader file capability review guard...")
+    required_files = [
+        "docs/files/BROADER_FILE_CAPABILITY_REVIEW.md",
+        "docs/files/FILE_CAPABILITY_BOUNDARY_MATRIX.md",
+        "docs/files/FILE_CAPABILITY_RISK_REGISTER.md",
+        "docs/files/FILE_CAPABILITY_DECISION_RECORD.md",
+        "docs/files/M35_SAFE_FILE_REVIEW_WORKFLOW_READINESS.md",
+        "docs/files/M34_TO_M35_BOUNDARY.md",
+        "docs/control_center/FILE_REVIEW_SURFACE_READINESS.md",
+        "docs/tools/FILE_TOOL_CAPABILITY_MATRIX.md",
+        "tests/test_m34_gate_integration.py",
+        "docs/release_notes/v0_38_0.md",
+        "docs/archive/releases/v0_38_0/README_IMPORT.md",
+        "docs/archive/releases/v0_38_0/master_plan.md",
+        "docs/implementation/foundation_gate_implementation_plan_v0_38_0.md",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M34 broader file capability review file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = "\n".join((ROOT / rel_path).read_text(encoding="utf-8").lower() for rel_path in required_files)
+    required_fragments = {
+        "planning/review only": "M34 docs do not constrain the release to planning/review only",
+        "no runtime file capability": "M34 docs do not deny runtime file capability",
+        "no raw file reads": "M34 docs do not deny raw file reads",
+        "no file review ui": "M34 docs do not keep file review UI future-only",
+        "no approval persistence": "M34 docs do not keep approval persistence future-only",
+        "no context proposal": "M34 docs do not keep context proposal future-only",
+        "no context injection": "M34 docs do not deny context injection",
+        "no memory writes": "M34 docs do not deny memory writes",
+        "no export": "M34 docs do not deny export",
+        "no execution": "M34 docs do not deny execution",
+        "no backend routes": "M34 docs do not deny backend routes",
+        "m35 remains planned/provisional": "M34 docs do not keep M35 planned/provisional",
+        "m36 remains planned/provisional": "M34 docs do not keep M36 planned/provisional",
+    }
+    for fragment, message in required_fragments.items():
+        if fragment not in docs_text:
+            print(f"FAIL: {message}")
+            sys.exit(1)
+
+    forbidden_doc_fragments = [
+        "m34 implements safe file review workflow contracts",
+        "safe file review workflow is implemented",
+        "file review ui is implemented",
+        "ccc file review surface is implemented",
+        "approval persistence is implemented",
+        "review approval capture is implemented",
+        "context proposal is implemented",
+        "context injection is implemented",
+        "raw file export is implemented",
+        "backend file route is implemented",
+    ]
+    for fragment in forbidden_doc_fragments:
+        if fragment in docs_text:
+            print(f"FAIL: M34 docs imply future implementation: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.evaluators import m34_openapi_route_failures
+    except Exception as exc:
+        print(f"FAIL: M34 OpenAPI guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m34_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    forbidden_frontend_fragments = [
+        "/files/review/approve",
+        "/context/inject",
+        "/memory/write",
+        "/tool-runtime/execute",
+        "copy raw",
+        "raw preview",
+        "file picker",
+        "root selector",
+    ]
+    frontend_root = ROOT / "apps" / "control-center" / "src"
+    if frontend_root.exists():
+        for path in frontend_root.rglob("*"):
+            if not path.is_file() or path.suffix not in {".ts", ".tsx", ".js", ".jsx"}:
+                continue
+            rel = path.relative_to(ROOT).as_posix()
+            text = path.read_text(encoding="utf-8").lower()
+            for fragment in forbidden_frontend_fragments:
+                if fragment in text:
+                    print(f"FAIL: M34 forbidden file-review frontend fragment in {rel}: {fragment}")
+                    sys.exit(1)
+
+    print("OK: M34 broader file capability review is docs/verifier-only, route-free, and keeps M35/M36 future")
 
 
 def verify_local_developer_launcher_safety():

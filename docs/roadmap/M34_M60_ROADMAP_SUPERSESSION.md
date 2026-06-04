@@ -1,13 +1,14 @@
 # M34-M60 Roadmap Supersession
 
-Status: Active roadmap source of truth as of v0.37.4.
+Status: Active roadmap source of truth through v0.38.0.
 
-v0.37.4 supersedes the older active M35-M40 projection while keeping it
-historical. This is a roadmap, documentation, verifier, and release-metadata
-patch only. It starts no M34 implementation and adds no backend route, frontend
-feature, runtime behavior, dependency, file-review workflow, approval capture,
-context proposal, mobile app, TestFlight pipeline, execution authority, or
-production authority.
+v0.38.0 implements M34 Broader File Capability Review as planning,
+architecture review, documentation, verifier, and Foundation Gate work only.
+The v0.37.4 supersession remains the historical patch that replaced the older
+active M35-M40 projection. v0.38.0 adds no runtime file capability, backend
+route, frontend runtime feature, dependency, file-review workflow implementation,
+approval capture, context proposal, context injection, memory write, export,
+mobile app, TestFlight pipeline, execution authority, or production authority.
 
 ## Supersession Rule
 
@@ -17,8 +18,8 @@ active source of truth. If another document disagrees with this page, this page
 and the canonical roadmap win until a later reviewed roadmap patch supersedes
 them.
 
-M34 is planning/docs/verifier only. M35 is the first implementation milestone
-after this supersession. M42 resumes mobile planning. M44 is the first iOS
+M34 is implemented/released as planning/docs/verifier only. M35 is the first
+implementation milestone after this supersession and review. M42 resumes mobile planning. M44 is the first iOS
 skeleton milestone. M47 is the TestFlight-capable pipeline milestone. M48 is the
 first internal TestFlight build milestone. M49 and M50 are the first meaningful
 mobile approval capture and audit milestones.
@@ -27,7 +28,7 @@ mobile approval capture and audit milestones.
 
 | Version | Milestone | Title | Status | Scope |
 | --- | --- | --- | --- | --- |
-| v0.38.0 | M34 | Broader File Capability Review | planned/provisional | Planning, docs, verifier, and prompt-pack strategy only |
+| v0.38.0 | M34 | Broader File Capability Review | implemented/released planning/docs/verifier only | Planning, docs, verifier, Foundation Gate, boundary matrix, risk register, decision record, and M35 readiness only |
 | v0.39.0 | M35 | Safe File Review Workflow Contracts | planned/provisional | Contract-only file review workflow, review packet, and no-authority approval boundary |
 | v0.40.0 | M36 | CCC File Review Surface, Review-Only | planned/provisional | Read-only/review-only CCC surface for redacted review packets |
 | v0.41.0 | M37 | Review Approval Capture, Review-Only Persistence | planned/provisional | Governed review approval capture with audit-only persistence |
@@ -57,17 +58,17 @@ mobile approval capture and audit milestones.
 
 ## Prompt-Pack Strategy
 
-Recommended next prompt after v0.37.4:
+Recommended next prompt after v0.38.0:
 
 ```text
-v0.38.0 / M34 - Broader File Capability Review
+v0.39.0 / M35 - Safe File Review Workflow Contracts
 ```
 
 The first three prompt packs after this patch are:
 
-1. M34 Broader File Capability Review, planning/docs/verifier only.
-2. M35 Safe File Review Workflow implementation/review/hardening.
-3. M36 CCC File Review Surface implementation/browser-smoke review/hardening.
+1. M35 Safe File Review Workflow implementation/review/hardening.
+2. M36 CCC File Review Surface implementation/browser-smoke review/hardening.
+3. M37 Review Approval Capture review-only persistence.
 
 Extra-hard reviews are required for M37, M38, M40, M47, M48, M49, M51, M52,
 M57, and M58. Mandatory hardening is expected by default for M35-M40, M43-M50,
@@ -109,4 +110,3 @@ Metadata Inspector. OCIO deterministic transform preview belongs after M60
 unless media-safe file contracts mature sooner through reviewed roadmap work.
 AI gamut expansion is much later, experimental, preview-only, creative,
 non-authoritative, never default, and never truth recovery.
-

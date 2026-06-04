@@ -21,7 +21,9 @@ secret-like preview text at the output contract boundary. Evaluator boundaries
 revalidate safety-critical fields; constructor validation alone is not
 authority.
 
-M34 remains planned/provisional. Any broader file read, file review, file write,
-directory traversal, raw preview, context injection, backend route, Control
-Center raw-preview control, or production authority requires a separate
-reviewed milestone.
+v0.38.0 implements M34 Broader File Capability Review as
+planning/docs/verifier/Foundation Gate work only. M34 adds no broader file
+read, file review workflow implementation, file write, directory traversal,
+raw preview, context injection, backend route, Control Center raw-preview
+control, or production authority. M35 remains planned/provisional for Safe
+File Review Workflow Contracts.

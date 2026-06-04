@@ -12,20 +12,20 @@ allowed to become operational authority.
 
 | Field | Current state |
 |---|---|
-| Current active baseline | **v0.37.4** |
-| Current milestone | **M33 - First Safe Local File Read Proposal, Redacted Preview Only** |
+| Current active baseline | **v0.38.0** |
+| Current milestone | **M34 - Broader File Capability Review** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **74** OpenAPI paths |
 | Production readiness | Not claimed |
 
-v0.37.4 is a roadmap/docs/verifier-only supersession patch. It defines the
-active M34-M60 sequence, keeps v0.38.0 / M34 as **Broader File Capability
-Review**, and marks M34 as planning/docs/verifier only. It adds no M34
-implementation, backend routes, frontend features, raw file reads, file review
-workflow, approval capture, context proposal, context injection, memory writes,
-execution, dependency changes, mobile/TestFlight implementation, or production
-authority. M34-M60 remain planned/provisional.
+v0.38.0 implements M34 as **Broader File Capability Review**. It is a planning,
+architecture review, documentation, verifier, and Foundation Gate milestone
+only. It defines the next file-review sequence and adds no runtime file
+capability, backend routes, frontend runtime features, raw file reads, file
+review workflow, approval capture, context proposal, context injection, memory
+writes, export, execution, dependency changes, mobile/TestFlight
+implementation, or production authority. M35-M60 remain planned/provisional.
 
 v0.29.5 is documentation policy polish. It remains the documentation
 organization cleanup baseline before the M26 and M27 implementation releases.
@@ -37,6 +37,10 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [Canonical document map](docs/canonical/CANONICAL_DOC_MAP.md)
 - [Current roadmap](docs/canonical/09_roadmap.md)
 - [M34-M60 roadmap supersession](docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md)
+- [M34 Broader File Capability Review](docs/files/BROADER_FILE_CAPABILITY_REVIEW.md)
+- [File capability boundary matrix](docs/files/FILE_CAPABILITY_BOUNDARY_MATRIX.md)
+- [File capability risk register](docs/files/FILE_CAPABILITY_RISK_REGISTER.md)
+- [M35 file review workflow readiness](docs/files/M35_SAFE_FILE_REVIEW_WORKFLOW_READINESS.md)
 - [API route inventory](docs/api/route_inventory.md)
 - [Documentation organization policy](docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md)
 - [Control Center frontend safety policy](docs/control_center/FRONTEND_SAFETY_POLICY.md)
@@ -53,9 +57,9 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M28 Action Policy](docs/approvals/ACTION_POLICY.md)
 - [M27 Tool Broker v2](docs/tools/TOOL_BROKER_V2.md)
 - [M26 Grounded Recall Router](docs/recall/GROUNDED_RECALL_ROUTER.md)
-- [v0.37.4 release notes](docs/release_notes/v0_37_4.md)
-- [v0.37.4 release packet](docs/archive/releases/v0_37_4/README_IMPORT.md)
-- [v0.37.4 master plan](docs/archive/releases/v0_37_4/master_plan.md)
+- [v0.38.0 release notes](docs/release_notes/v0_38_0.md)
+- [v0.38.0 release packet](docs/archive/releases/v0_38_0/README_IMPORT.md)
+- [v0.38.0 master plan](docs/archive/releases/v0_38_0/master_plan.md)
 
 ## What This Project Is
 

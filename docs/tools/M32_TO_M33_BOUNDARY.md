@@ -26,5 +26,6 @@ redaction checks.
 M33 does not add raw file output, full-file read output, content hashes,
 directory listing, recursive traversal, symlink following, file mutation,
 backend raw-file/execute routes, Control Center raw-preview/execute controls,
-context injection, dependencies, or production authority. v0.37.4 supersedes
-the future roadmap and M34-M60 remain planned/provisional.
+context injection, dependencies, or production authority. v0.38.0 implements
+M34 Broader File Capability Review as planning/docs/verifier only, and
+M35-M60 remain planned/provisional.
