@@ -83,6 +83,19 @@ REQUIRED_M28_APPROVAL_DOCS = [
 ]
 
 
+REQUIRED_M29_PLANNING_DOCS = [
+    "docs/planning/TASK_PLANNING_ENGINE.md",
+    "docs/planning/TASK_GOAL_STEP_PLAN_CONTRACTS.md",
+    "docs/planning/TASK_DEPENDENCY_GRAPH.md",
+    "docs/planning/TASK_INPUT_BOUNDARY.md",
+    "docs/planning/TASK_RISK_AND_AUTHORITY_POLICY.md",
+    "docs/planning/TASK_PLAN_DECISION_ENVELOPE.md",
+    "docs/planning/TASK_PLAN_RECEIPT_PLAN.md",
+    "docs/planning/TASK_PLANNING_NON_GOALS.md",
+    "docs/planning/M29_TO_M30_BOUNDARY.md",
+]
+
+
 REQUIRED_ACTIVE_DOCS = [
     "docs/README.md",
     "docs/DOCUMENTATION_INDEX.md",
@@ -122,6 +135,7 @@ REQUIRED_ACTIVE_DOCS = [
     *REQUIRED_M26_RECALL_DOCS,
     *REQUIRED_M27_TOOL_DOCS,
     *REQUIRED_M28_APPROVAL_DOCS,
+    *REQUIRED_M29_PLANNING_DOCS,
     "docs/control_center/CONTROL_CENTER_CONTRACT.md",
     "docs/control_center/DASHBOARD_SNAPSHOT.md",
     "docs/control_center/ACTION_PREVIEW_POLICY.md",
@@ -1152,12 +1166,23 @@ def _verify_m25_truth_docs(root: Path, version: str | None) -> list[str]:
                 active_expectations["active docs must mark M28/v0.32.0 as implemented/released"] = (
                     "m28 is implemented/released"
                 )
-                active_expectations["active docs must keep M29-M40 planned/provisional"] = (
-                    "m29-m40 remain planned/provisional"
-                )
                 active_expectations["active docs must link M28 approval docs"] = (
                     "docs/approvals/approval_authority_v2.md"
                 )
+                if _version_tuple(version) >= (0, 33, 0):
+                    active_expectations["active docs must mark M29/v0.33.0 as implemented/released"] = (
+                        "m29 is implemented/released"
+                    )
+                    active_expectations["active docs must link M29 planning docs"] = (
+                        "docs/planning/task_planning_engine.md"
+                    )
+                    active_expectations["active docs must keep M30-M40 planned/provisional"] = (
+                        "m30-m40 remain planned/provisional"
+                    )
+                else:
+                    active_expectations["active docs must keep M29-M40 planned/provisional"] = (
+                        "m29-m40 remain planned/provisional"
+                    )
             else:
                 active_expectations["active docs must keep M28-M40 planned/provisional"] = (
                     "m28-m40 remain planned/provisional"
@@ -1265,7 +1290,14 @@ def _verify_m25_truth_docs(root: Path, version: str | None) -> list[str]:
             "M26 docs must say source_ref/source_kind consistency": "source_ref/source_kind",
             "M26 docs must say caller-declared source_kind cannot upgrade priority": "cannot upgrade",
         }
-        if _version_tuple(version) >= (0, 32, 0):
+        if _version_tuple(version) >= (0, 33, 0):
+            m26_expectations["M26 docs must say M27 is implemented/released"] = "m27 tool broker v2"
+            m26_expectations["M26 docs must say M28 is implemented/released"] = "m28 approval authority v2"
+            m26_expectations["M26 docs must say M29 is implemented/released"] = "m29 agent task planning engine"
+            m26_expectations["M26 docs must keep M30-M40 planned/provisional"] = (
+                "m30-m40 remain planned/provisional"
+            )
+        elif _version_tuple(version) >= (0, 32, 0):
             m26_expectations["M26 docs must say M27 is implemented/released"] = "m27 tool broker v2"
             m26_expectations["M26 docs must say M28 is implemented/released"] = "m28 approval authority v2"
             m26_expectations["M26 docs must keep M29-M40 planned/provisional"] = (
@@ -1308,7 +1340,17 @@ def _verify_m25_truth_docs(root: Path, version: str | None) -> list[str]:
             "M27 docs must say no plugin enablement": "no plugin enablement",
             "M27 docs must say no context injection": "no context injection",
         }
-        if _version_tuple(version) >= (0, 32, 0):
+        if _version_tuple(version) >= (0, 33, 0):
+            m27_expectations["M27 docs must say M28 is implemented/released"] = (
+                "m28 implements approval authority v2"
+            )
+            m27_expectations["M27 docs must say M29 is implemented/released"] = (
+                "m29 agent task planning engine"
+            )
+            m27_expectations["M27 docs must keep M30-M40 planned/provisional"] = (
+                "m30-m40 remain planned/provisional"
+            )
+        elif _version_tuple(version) >= (0, 32, 0):
             m27_expectations["M27 docs must say M28 is implemented/released"] = (
                 "m28 implements approval authority v2"
             )
@@ -1352,8 +1394,18 @@ def _verify_m25_truth_docs(root: Path, version: str | None) -> list[str]:
             "M28 docs must say actor/action/resource/scope binding": "actor/action/resource/scope",
             "M28 docs must say raw inputs are rejected": "raw",
             "M28 docs must say receipt plans are non-authoritative": "non-authoritative",
-            "M28 docs must keep M29-M40 planned/provisional": "m29-m40 remain planned/provisional",
         }
+        if _version_tuple(version) >= (0, 33, 0):
+            m28_expectations["M28 docs must say M29 is implemented/released"] = (
+                "m29 agent task planning engine"
+            )
+            m28_expectations["M28 docs must keep M30-M40 planned/provisional"] = (
+                "m30-m40 remain planned/provisional"
+            )
+        else:
+            m28_expectations["M28 docs must keep M29-M40 planned/provisional"] = (
+                "m29-m40 remain planned/provisional"
+            )
         if _version_tuple(version) >= (0, 32, 1):
             m28_expectations["M28 docs must say evaluator revalidation is enforced"] = (
                 "evaluator-side revalidation"
@@ -1363,6 +1415,37 @@ def _verify_m25_truth_docs(root: Path, version: str | None) -> list[str]:
             )
         for failure, fragment in m28_expectations.items():
             if fragment not in approval_docs:
+                failures.append(failure)
+
+    if _version_tuple(version) >= (0, 33, 0):
+        for rel_path in REQUIRED_M29_PLANNING_DOCS:
+            if not (root / rel_path).exists():
+                failures.append(f"missing active documentation file: {rel_path}")
+        planning_docs = "\n".join(
+            _read(root / rel_path).lower()
+            for rel_path in REQUIRED_M29_PLANNING_DOCS
+            if (root / rel_path).exists()
+        )
+        m29_expectations = {
+            "M29 docs must say deterministic": "deterministic",
+            "M29 docs must say local": "local",
+            "M29 docs must say review-only": "review-only",
+            "M29 docs must say no task execution": "no task execution",
+            "M29 docs must say no scheduler runtime": "no scheduler runtime",
+            "M29 docs must say no tool execution": "no tool execution",
+            "M29 docs must say no action execution": "no action execution",
+            "M29 docs must say no file mutation": "no file mutation",
+            "M29 docs must say no memory writes": "no memory write",
+            "M29 docs must say no network calls": "no network call",
+            "M29 docs must say no model/provider calls": "model/provider",
+            "M29 docs must say no backend route": "backend task/plan execution routes",
+            "M29 docs must say no context injection": "no context injection",
+            "M29 docs must say dependency graph": "dependency graph",
+            "M29 docs must say receipt plans are non-authoritative": "non-authoritative",
+            "M29 docs must keep M30-M40 planned/provisional": "m30-m40 remain planned/provisional",
+        }
+        for failure, fragment in m29_expectations.items():
+            if fragment not in planning_docs:
                 failures.append(failure)
 
     if _version_tuple(version) >= (0, 29, 4):
@@ -1748,7 +1831,14 @@ def _verify_post_m20_roadmap_projection(root: Path) -> list[str]:
         "Post-M20 roadmap docs must say no dependency is added": "no dependency",
     }
     active_version_tuple = _version_tuple(_active_version(root))
-    if active_version_tuple >= (0, 32, 0):
+    if active_version_tuple >= (0, 33, 0):
+        expectations["Post-M20 roadmap docs must keep M30-M40 planned/provisional"] = (
+            "m30-m40 remain planned/provisional"
+        )
+        expectations["Post-M20 roadmap docs must say M29 is implemented/released"] = (
+            "m29 is implemented/released"
+        )
+    elif active_version_tuple >= (0, 32, 0):
         expectations["Post-M20 roadmap docs must keep M29-M40 planned/provisional"] = (
             "m29-m40 remain planned/provisional"
         )
@@ -1810,7 +1900,9 @@ def _verify_post_m20_roadmap_projection(root: Path) -> list[str]:
         if fragment not in roadmap_text:
             failures.append(failure)
 
-    if active_version_tuple >= (0, 32, 0):
+    if active_version_tuple >= (0, 33, 0):
+        implemented_claim_start = 30
+    elif active_version_tuple >= (0, 32, 0):
         implemented_claim_start = 29
     elif active_version_tuple >= (0, 31, 0):
         implemented_claim_start = 28
@@ -1962,7 +2054,12 @@ def _verify_post_m18_roadmap_status_labels(root: Path) -> list[str]:
             continue
         if f"status: {expected_status}" not in section:
             failures.append(f"roadmap sequence must mark {milestone.upper()} {expected_status}")
-    if active >= (0, 32, 0):
+    if active >= (0, 33, 0):
+        if "m29" not in sequence or "status: implemented" not in sequence:
+            failures.append("roadmap sequence must mark M29/v0.33.0 implemented")
+        if "m30-m40" not in sequence or "planned/provisional" not in sequence:
+            failures.append("roadmap sequence must keep M30-M40 planned/provisional")
+    elif active >= (0, 32, 0):
         if "m28" not in sequence or "status: implemented" not in sequence:
             failures.append("roadmap sequence must mark M28/v0.32.0 implemented")
         if "m29-m40" not in sequence or "planned/provisional" not in sequence:

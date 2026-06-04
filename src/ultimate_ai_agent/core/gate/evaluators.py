@@ -276,6 +276,27 @@ M28_FORBIDDEN_BACKEND_ROUTES = (
     "/mobile/execute",
     "/remote/execute",
 )
+EXPECTED_M29_OPENAPI_PATH_COUNT = 74
+M29_FORBIDDEN_BACKEND_ROUTES = (
+    "/tasks/execute",
+    "/tasks/run",
+    "/tasks/schedule",
+    "/plans/execute",
+    "/plans/run",
+    "/plans/schedule",
+    "/planner/execute",
+    "/planner/run",
+    "/scheduler/run",
+    "/actions/execute",
+    "/tools/execute",
+    "/plugins/enable",
+    "/memory/write",
+    "/model/execute",
+    "/network/execute",
+    "/browser/execute",
+    "/mobile/execute",
+    "/remote/execute",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -514,6 +535,17 @@ def m28_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
     return failures
 
 
+def m29_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M29_OPENAPI_PATH_COUNT) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+    for route in M29_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(f"M29 forbidden backend route present: {route}")
+    return failures
+
+
 def m22_local_runtime_forbidden_fragment_failures(root: Path) -> List[str]:
     failures: List[str] = []
     runtime_root = root / "src" / "ultimate_ai_agent" / "core" / "model_runtime"
@@ -734,6 +766,9 @@ class FoundationGateEvaluator:
             "m28_approval_authority_v2_action_policy_safe": self.check_m28_approval_authority_v2_action_policy_safe,
             "m28_action_policy_openapi_routes_unchanged": self.check_m28_action_policy_openapi_routes_unchanged,
             "m28_m29_remains_future": self.check_m28_m29_remains_future,
+            "m29_task_planning_engine_contract_safe": self.check_m29_task_planning_engine_contract_safe,
+            "m29_task_planning_openapi_routes_unchanged": self.check_m29_task_planning_openapi_routes_unchanged,
+            "m29_m30_remains_future": self.check_m29_m30_remains_future,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -6182,18 +6217,320 @@ class FoundationGateEvaluator:
                 failures.append("M28 docs do not mark v0.32.0 implemented/released")
         else:
             failures.append("M28 docs do not mention v0.32.0 Approval Authority v2 + Action Policy Expansion")
-        if "m29-m40 remain planned/provisional" not in text:
-            failures.append("M29-M40 must remain planned/provisional after M28")
-        forbidden_m29_fragments = (
-            "m29 is implemented",
-            "v0.33.0 implements m29",
-            "action execution is implemented",
-            "tool execution is implemented",
-            "production approval authority is implemented",
+        active_version = self._active_version() or "0.0.0"
+        version_tuple = tuple(int(part) for part in active_version.split("."))
+        if version_tuple >= (0, 33, 0):
+            if "m29 agent task planning engine" not in text:
+                failures.append("M28 docs do not describe the M29 Agent Task Planning Engine handoff")
+            if "m30-m40 remain planned/provisional" not in text:
+                failures.append("M30-M40 must remain planned/provisional after M29")
+        else:
+            if "m29-m40 remain planned/provisional" not in text:
+                failures.append("M29-M40 must remain planned/provisional after M28")
+            forbidden_m29_fragments = (
+                "m29 is implemented",
+                "v0.33.0 implements m29",
+                "action execution is implemented",
+                "tool execution is implemented",
+                "production approval authority is implemented",
+            )
+            failures.extend(
+                f"M28 docs imply M29 implementation: {fragment}"
+                for fragment in forbidden_m29_fragments
+                if fragment in text
+            )
+        return self._result(criterion, failures, required_docs)
+
+    def check_m29_task_planning_engine_contract_safe(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/planning/__init__.py",
+            "src/ultimate_ai_agent/core/planning/enums.py",
+            "src/ultimate_ai_agent/core/planning/contracts.py",
+            "src/ultimate_ai_agent/core/planning/validation.py",
+            "src/ultimate_ai_agent/core/planning/planner.py",
+            "src/ultimate_ai_agent/core/planning/manifests.py",
+            "tests/test_task_planning_contracts.py",
+            "tests/test_task_plan_validation.py",
+            "tests/test_task_plan_dependencies.py",
+            "tests/test_task_plan_no_execution.py",
+            "tests/test_m29_gate_integration.py",
+            "docs/planning/TASK_PLANNING_ENGINE.md",
+            "docs/planning/TASK_GOAL_STEP_PLAN_CONTRACTS.md",
+            "docs/planning/TASK_DEPENDENCY_GRAPH.md",
+            "docs/planning/TASK_INPUT_BOUNDARY.md",
+            "docs/planning/TASK_RISK_AND_AUTHORITY_POLICY.md",
+            "docs/planning/TASK_PLAN_DECISION_ENVELOPE.md",
+            "docs/planning/TASK_PLAN_RECEIPT_PLAN.md",
+            "docs/planning/TASK_PLANNING_NON_GOALS.md",
+            "docs/planning/M29_TO_M30_BOUNDARY.md",
+        ]
+        failures = [
+            f"missing M29 Task Planning Engine file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            from ultimate_ai_agent.core.planning import (
+                PlanInputTrustLevel,
+                TaskDependency,
+                TaskGoal,
+                TaskPlan,
+                TaskPlanDecisionStatus,
+                TaskPlanningManifest,
+                TaskPlanningRequest,
+                TaskRiskLevel,
+                TaskStep,
+                TaskStepInputBoundary,
+                TaskStepKind,
+                build_task_planning_manifest,
+                evaluate_task_plan,
+            )
+
+            manifest = build_task_planning_manifest(baseline_version="0.33.0")
+            if not isinstance(manifest, TaskPlanningManifest):
+                failures.append("M29 manifest builder did not return TaskPlanningManifest")
+            manifest_flags = [
+                manifest.task_execution_enabled,
+                manifest.auto_run_enabled,
+                manifest.scheduler_enabled,
+                manifest.tool_execution_enabled,
+                manifest.action_execution_enabled,
+                manifest.file_mutation_enabled,
+                manifest.memory_write_enabled,
+                manifest.network_call_enabled,
+                manifest.model_provider_call_enabled,
+                manifest.browser_automation_enabled,
+                manifest.mobile_device_access_enabled,
+                manifest.remote_execution_enabled,
+                manifest.plugin_enablement_enabled,
+                manifest.backend_task_routes_added,
+                manifest.control_center_execute_controls_enabled,
+                manifest.context_injection_enabled,
+                manifest.production_authority_enabled,
+            ]
+            if any(manifest_flags):
+                failures.append("M29 manifest enables forbidden execution/runtime authority")
+
+            safe_step = TaskStep(
+                step_id="step:gate-m29-review",
+                step_kind=TaskStepKind.review_metadata,
+                safe_summary="Review safe metadata refs.",
+                input_boundary=TaskStepInputBoundary(input_refs=["canonical:gate-m29"]),
+                declared_risk_level=TaskRiskLevel.low,
+            )
+            safe_plan = TaskPlan(
+                plan_id="plan:gate-m29",
+                goal=TaskGoal(goal_id="goal:gate-m29", safe_summary="Plan a safe review workflow."),
+                steps=[safe_step],
+                safe_summary="Review-only task plan.",
+            )
+            safe_decision = evaluate_task_plan(safe_plan)
+            if safe_decision.status != TaskPlanDecisionStatus.valid_for_review:
+                failures.append("M29 safe task plan was not valid for review")
+            if not safe_decision.valid_for_review:
+                failures.append("M29 safe task plan did not return valid_for_review")
+            if safe_decision.execution_authorized or safe_decision.execution_performed:
+                failures.append("M29 safe task plan authorized or performed execution")
+            if safe_decision.scheduler_registered:
+                failures.append("M29 safe task plan registered a scheduler")
+            if not safe_decision.receipt_plan or safe_decision.receipt_plan.execution_performed:
+                failures.append("M29 safe task plan receipt plan is missing or executable")
+
+            def require_denial(decision, required_reason: str, label: str) -> None:
+                if decision.valid_for_review or decision.execution_authorized or decision.execution_performed:
+                    failures.append(f"M29 denied probe was allowed: {label}")
+                if decision.scheduler_registered:
+                    failures.append(f"M29 denied probe registered a scheduler: {label}")
+                if required_reason not in decision.reason_codes:
+                    failures.append(f"M29 denied probe missing {required_reason}: {label}")
+
+            require_denial(
+                evaluate_task_plan(safe_plan.model_copy(update={"approval_ref": "approval:m28-arbitrary"})),
+                "APPROVAL_REF_NOT_TASK_AUTHORITY",
+                "approval_ref alone",
+            )
+            require_denial(
+                evaluate_task_plan(safe_plan.model_copy(update={"approval_ref": "approval_test_gate_m29"})),
+                "APPROVAL_TEST_REF_DENIED",
+                "approval_test_ ref",
+            )
+            require_denial(
+                evaluate_task_plan(TaskPlanningRequest(plan=safe_plan).model_copy(update={"execution_requested": True})),
+                "TASK_EXECUTION_REQUEST_DENIED",
+                "execution requested",
+            )
+            require_denial(
+                evaluate_task_plan(TaskPlanningRequest(plan=safe_plan).model_copy(update={"auto_run_requested": True})),
+                "TASK_AUTO_RUN_DENIED",
+                "auto-run requested",
+            )
+            require_denial(
+                evaluate_task_plan(TaskPlanningRequest(plan=safe_plan).model_copy(update={"schedule_requested": True})),
+                "TASK_SCHEDULER_DENIED",
+                "scheduler requested",
+            )
+            require_denial(
+                evaluate_task_plan(safe_plan.model_copy(update={"safe_summary": "contains token=abc123"})),
+                "TASK_PLAN_REVALIDATION_FAILED",
+                "model_copy plan secret summary revalidation",
+            )
+            raw_boundary = safe_step.input_boundary.model_copy(update={"contains_raw_prompt": True})
+            require_denial(
+                evaluate_task_plan(safe_plan.model_copy(update={"steps": [safe_step.model_copy(update={"input_boundary": raw_boundary})]})),
+                "RAW_PROMPT_DENIED",
+                "model_copy raw prompt revalidation",
+            )
+            secret_boundary = safe_step.input_boundary.model_copy(update={"metadata": {"token": "abc123"}})
+            require_denial(
+                evaluate_task_plan(safe_plan.model_copy(update={"steps": [safe_step.model_copy(update={"input_boundary": secret_boundary})]})),
+                "SECRET_METADATA_DENIED",
+                "model_copy secret metadata revalidation",
+            )
+            for input_ref, trust_level, reason in [
+                ("model:gate-m29", PlanInputTrustLevel.model_output_blocked, "MODEL_OUTPUT_NOT_PLAN_AUTHORITY"),
+                ("memory:gate-m29", PlanInputTrustLevel.memory_ref, "MEMORY_REF_NOT_PLAN_AUTHORITY"),
+                ("context-pack:gate-m29", PlanInputTrustLevel.context_pack_ref, "CONTEXT_PACK_NOT_PLAN_AUTHORITY"),
+                ("tool-intent:gate-m27", PlanInputTrustLevel.tool_intent_ref, "TOOL_INTENT_NOT_PLAN_AUTHORITY"),
+            ]:
+                blocked_boundary = TaskStepInputBoundary(input_refs=[input_ref], input_trust_level=trust_level)
+                require_denial(
+                    evaluate_task_plan(safe_plan.model_copy(update={"steps": [safe_step.model_copy(update={"input_boundary": blocked_boundary})]})),
+                    reason,
+                    f"non-authoritative input ref {input_ref}",
+                )
+            effectful_step = safe_step.model_copy(
+                update={
+                    "step_kind": TaskStepKind.tool_execution_planned,
+                    "declared_risk_level": TaskRiskLevel.high,
+                }
+            )
+            require_denial(
+                evaluate_task_plan(safe_plan.model_copy(update={"steps": [effectful_step]})),
+                "TASK_STEP_EXECUTION_DENIED",
+                "effectful task step",
+            )
+            downgraded_step = safe_step.model_copy(
+                update={
+                    "step_kind": TaskStepKind.file_mutation_planned,
+                    "declared_risk_level": TaskRiskLevel.low,
+                }
+            )
+            require_denial(
+                evaluate_task_plan(safe_plan.model_copy(update={"steps": [downgraded_step]})),
+                "TASK_RISK_DOWNGRADE_DENIED",
+                "risk downgrade",
+            )
+            duplicate_step = safe_step.model_copy(update={"safe_summary": "Duplicate step ref."})
+            require_denial(
+                evaluate_task_plan(safe_plan.model_copy(update={"steps": [safe_step, duplicate_step]})),
+                "DUPLICATE_STEP_ID_DENIED",
+                "duplicate step id",
+            )
+            missing_dependency_step = safe_step.model_copy(update={"depends_on": ["step:missing-m29"]})
+            require_denial(
+                evaluate_task_plan(safe_plan.model_copy(update={"steps": [missing_dependency_step]})),
+                "MISSING_DEPENDENCY_STEP_DENIED",
+                "missing dependency",
+            )
+            step_a = safe_step.model_copy(update={"step_id": "step:gate-m29-a", "depends_on": ["step:gate-m29-b"]})
+            step_b = safe_step.model_copy(update={"step_id": "step:gate-m29-b", "depends_on": ["step:gate-m29-a"]})
+            require_denial(
+                evaluate_task_plan(safe_plan.model_copy(update={"steps": [step_a, step_b]})),
+                "DEPENDENCY_CYCLE_DENIED",
+                "dependency cycle",
+            )
+            dependency_decision = evaluate_task_plan(
+                safe_plan.model_copy(
+                    update={
+                        "steps": [step_a.model_copy(update={"depends_on": []}), step_b.model_copy(update={"depends_on": []})],
+                        "dependencies": [
+                            TaskDependency(
+                                dependency_id="dependency:gate-m29-a-before-b",
+                                before_step_id="step:gate-m29-a",
+                                after_step_id="step:gate-m29-b",
+                            )
+                        ],
+                    }
+                )
+            )
+            if not dependency_decision.valid_for_review:
+                failures.append("M29 explicit acyclic dependency plan was not valid for review")
+
+            planning_source = "\n".join(
+                self._read(path)
+                for path in (self.root / "src" / "ultimate_ai_agent" / "core" / "planning").glob("*.py")
+            ).lower()
+            forbidden_fragments = (
+                "subprocess",
+                "os.system(",
+                "popen(",
+                "shell=true",
+                "requests.get(",
+                "requests.post(",
+                "httpx.get(",
+                "httpx.post(",
+                "urllib.request.urlopen(",
+                "write_memory(",
+                ".write_memory(",
+                "put_record(",
+                ".put_record(",
+                "append_event(",
+                "mutate_event(",
+                "chat.completions.create(",
+                "import " + "openai",
+                "import " + "anthropic",
+                "import " + "ollama",
+            )
+            failures.extend(
+                f"M29 Task Planning Engine module contains forbidden fragment: {fragment}"
+                for fragment in forbidden_fragments
+                if fragment in planning_source
+            )
+        except Exception as exc:
+            failures.append(f"M29 Task Planning Engine validation failed: {exc}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m29_task_planning_openapi_routes_unchanged(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m29_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M29 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m29_m30_remains_future(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        required_docs = [
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+            "docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/planning/M29_TO_M30_BOUNDARY.md",
+        ]
+        failures = [f"missing M29 roadmap doc: {path}" for path in required_docs if not (self.root / path).exists()]
+        text = "\n".join(self._read(self.root / path).lower() for path in required_docs if (self.root / path).exists())
+        if "v0.33.0" in text and "agent task planning engine" in text:
+            if "implemented/released" not in text:
+                failures.append("M29 docs do not mark v0.33.0 implemented/released")
+        else:
+            failures.append("M29 docs do not mention v0.33.0 Agent Task Planning Engine")
+        if "m30-m40 remain planned/provisional" not in text:
+            failures.append("M30-M40 must remain planned/provisional after M29")
+        forbidden_m30_fragments = (
+            "m30 is implemented",
+            "v0.34.0 implements m30",
+            "approved local tool execution is implemented",
+            "task execution is implemented",
+            "scheduler runtime is implemented",
+            "production task authority is implemented",
         )
         failures.extend(
-            f"M28 docs imply M29 implementation: {fragment}"
-            for fragment in forbidden_m29_fragments
+            f"M29 docs imply M30 implementation: {fragment}"
+            for fragment in forbidden_m30_fragments
             if fragment in text
         )
         return self._result(criterion, failures, required_docs)
@@ -6498,7 +6835,9 @@ class FoundationGateEvaluator:
                 failures.append(failure)
         active_version = self._active_version() or "0.0.0"
         version_tuple = tuple(int(part) for part in active_version.split("."))
-        if version_tuple >= (0, 32, 0):
+        if version_tuple >= (0, 33, 0):
+            implemented_claim_start = 30
+        elif version_tuple >= (0, 32, 0):
             implemented_claim_start = 29
         elif version_tuple >= (0, 31, 0):
             implemented_claim_start = 28

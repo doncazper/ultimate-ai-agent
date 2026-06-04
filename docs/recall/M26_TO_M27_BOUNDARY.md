@@ -1,7 +1,7 @@
 # M26 To M27 Boundary
 
 Status: active
-Current through: v0.32.1
+Current through: v0.33.0
 Purpose: Record the handoff from M26 recall planning to M27 safe tool intent contracts.
 
 M26 implements and hardens Grounded Recall Router + Evidence-Linked Context Pack
@@ -20,7 +20,8 @@ policy-only and decision-only approval/action contracts. M28 approval decisions
 do not authorize context injection, recall execution, tool execution, or
 production authority.
 
-M29-M40 remain planned/provisional. Any future sandbox, dry-run, approved tool
-execution, plugin runtime, browser automation, or production authority requires
-a separate reviewed milestone prompt, its own tests, documentation, static
-verifier coverage, Foundation Gate criteria, and release review.
+v0.33.0 implements M29 Agent Task Planning Engine as deterministic, local,
+non-executing, review-only planning contracts. M30-M40 remain planned/provisional. Any future sandbox, dry-run, approved tool execution,
+plugin runtime, browser automation, or production authority requires a separate
+reviewed milestone prompt, its own tests, documentation, static verifier
+coverage, Foundation Gate criteria, and release review.

@@ -1,6 +1,6 @@
 # Canonical Document Map
 
-Current active baseline: **v0.32.1**
+Current active baseline: **v0.33.0**
 
 This map links major systems to their canonical documentation. If a system has both canonical docs and runtime/API docs, canonical docs define principles and sequencing while runtime/API docs define current implementation boundaries.
 
@@ -29,6 +29,7 @@ This map links major systems to their canonical documentation. If a system has b
 | OpenWebUI and CCC Client Strategy | `docs/ui/OPENWEBUI_AND_CCC_STRATEGY.md`, `docs/ui/CLIENT_SURFACE_ROLES.md`, `docs/ui/OPENWEBUI_INTEGRATION_ROADMAP.md`, `docs/ui/CCC_NATIVE_CLIENT_STRATEGY.md` |
 | OpenWebUI Bridge Contract | `docs/openwebui/OPENWEBUI_BRIDGE_CONTRACT.md`, `docs/openwebui/CHAT_SHELL_INTEGRATION_CONTRACT.md`, `docs/openwebui/SESSION_TRANSCRIPT_REF_POLICY.md`, `docs/openwebui/OPENWEBUI_SECURITY_MODEL.md`, `docs/openwebui/OPENWEBUI_AUTHORITY_BOUNDARY.md`, `docs/openwebui/OPENWEBUI_NON_GOALS.md`, `docs/openwebui/OPENWEBUI_FUTURE_INTEGRATION_STAGES.md` |
 | Approval Authority | `docs/security/approval_authority.md`, `docs/approvals/APPROVAL_AUTHORITY_V2.md`, `docs/approvals/ACTION_POLICY.md`, `docs/approvals/APPROVAL_GRANT_BINDING.md`, `docs/approvals/APPROVAL_EXPIRY_REVOCATION_REPLAY.md`, `docs/approvals/ACTION_RISK_AND_SIDE_EFFECT_POLICY.md`, `docs/approvals/APPROVAL_REF_NOT_AUTHORITY.md`, `docs/approvals/ACTION_POLICY_DECISION_ENVELOPE.md`, `docs/approvals/APPROVAL_RECEIPT_PLAN.md`, `docs/approvals/APPROVAL_AUTHORITY_V2_NON_GOALS.md`, `docs/approvals/M28_TO_M29_BOUNDARY.md`, `docs/canonical/42_autonomy_levels_and_standing_approvals.md` |
+| Agent Task Planning | `docs/planning/TASK_PLANNING_ENGINE.md`, `docs/planning/TASK_GOAL_STEP_PLAN_CONTRACTS.md`, `docs/planning/TASK_DEPENDENCY_GRAPH.md`, `docs/planning/TASK_INPUT_BOUNDARY.md`, `docs/planning/TASK_RISK_AND_AUTHORITY_POLICY.md`, `docs/planning/TASK_PLAN_DECISION_ENVELOPE.md`, `docs/planning/TASK_PLAN_RECEIPT_PLAN.md`, `docs/planning/TASK_PLANNING_NON_GOALS.md`, `docs/planning/M29_TO_M30_BOUNDARY.md` |
 | Model Runtime Adapter Harness | `docs/runtime/model_runtime_adapter_harness.md` |
 | Local Loopback Runtime | `docs/runtime/local_loopback_model_runtime.md`, `docs/canonical/57_local_runtime_and_offline_agent_infrastructure.md` |
 | Manual Smoke Harness | `docs/runtime/local_loopback_model_runtime.md` |

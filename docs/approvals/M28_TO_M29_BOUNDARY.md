@@ -1,7 +1,7 @@
 # M28 to M29 Boundary
 
 Status: active
-Current through: v0.32.1
+Current through: v0.33.0
 Purpose: Keep M28 approval policy separate from future milestones.
 
 v0.32.0 / M28 implements Approval Authority v2 + Action Policy Expansion as
@@ -24,6 +24,7 @@ mutation, memory writes, Event Ledger mutation, network calls, model/provider
 calls, browser/mobile/remote/plugin execution, backend execution routes, Control
 Center execute controls, dependencies, production authority, or M29 work.
 
-M29-M40 remain planned/provisional. Future milestones must not treat M28 policy
-decisions, approval refs, consent refs, memory refs, model output, context packs,
-or tool intents as execution authority.
+v0.33.0 implements M29 Agent Task Planning Engine as deterministic, local,
+non-executing, review-only planning contracts. M30-M40 remain planned/provisional. Future milestones must not treat M28 policy decisions,
+approval refs, consent refs, memory refs, model output, context packs, or tool
+intents as execution authority.
