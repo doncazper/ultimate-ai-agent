@@ -169,7 +169,8 @@ superseded by the active roadmap:
 - M21 - OpenWebUI Bridge + Chat Shell Integration Contract.
 - Original M33 mobile approval surface slot - superseded by v0.37.0 M33
   First Safe Local File Read Proposal, Redacted Preview Only.
-- M34 - macOS Local Companion Contract / Prototype.
+- Original M34 macOS companion slot - superseded by the active
+  v0.38.0 / M34 - Broader File Capability Review roadmap label.
 
 v0.35.0 supersedes the old M31 native-client slot with M31 Real Tool Runtime
 Adapter, Single Safe No-Op Tool. CCC native client and device pairing work

@@ -132,6 +132,50 @@ def test_documentation_integrity_verifier_requires_post_m20_roadmap_docs(tmp_pat
     assert any("docs/roadmap/CAPABILITY_LAYERING_STRATEGY.md" in failure for failure in failures)
 
 
+def test_documentation_integrity_verifier_rejects_active_m34_label_mismatch(tmp_path: Path):
+    _write_minimal_repo(tmp_path, version="0.37.3")
+    expected = "v0.38.0 / M34 - Broader File Capability Review"
+    active_docs = {
+        "README.md": "| v0.38.0 | M34 - Broader File Capability Review | Planned/provisional |\n",
+        "docs/canonical/09_roadmap.md": f"{expected}, planned/provisional\n",
+        "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md": (
+            "| v0.38.0 | M34 | Broader File Capability Review | planned/provisional |\n"
+        ),
+        "docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md": (
+            "## v0.38.0 / M34 - macOS Local Companion Contract / Prototype\n"
+            "Status: planned/provisional.\n"
+        ),
+        "scripts/dev/README.md": (
+            "local developer launcher localhost-only not a production installer "
+            "execution authority uaa stop .uaa/dev backend routes M34\n"
+        ),
+        "docs/release_notes/v0_37_2.md": (
+            "local developer launcher localhost-only not a production installer "
+            "execution authority uaa stop .uaa/dev backend routes M34\n"
+        ),
+        "docs/archive/releases/v0_37_2/README_IMPORT.md": (
+            "local developer launcher localhost-only not a production installer "
+            "execution authority uaa stop .uaa/dev backend routes M34\n"
+        ),
+        "docs/archive/releases/v0_37_2/master_plan.md": (
+            "local developer launcher localhost-only not a production installer "
+            "execution authority uaa stop .uaa/dev backend routes M34\n"
+        ),
+    }
+    for rel_path, content in active_docs.items():
+        path = tmp_path / rel_path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content, encoding="utf-8")
+
+    failures = verifier.verify(tmp_path)
+
+    assert any(
+        "docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md" in failure
+        and "expected v0.38.0 / M34 - Broader File Capability Review" in failure
+        for failure in failures
+    )
+
+
 def test_documentation_integrity_verifier_rejects_implemented_post_m20_claims(tmp_path: Path):
     _write_minimal_repo(tmp_path)
     roadmap = tmp_path / "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md"

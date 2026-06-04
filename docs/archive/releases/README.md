@@ -1,7 +1,7 @@
 # Archived Release Packets
 
 Status: active archive index
-Current through: v0.37.2
+Current through: v0.37.3
 Purpose: Locate historical release import and master-plan packets.
 
 Historical release import and master-plan packets live under versioned folders:

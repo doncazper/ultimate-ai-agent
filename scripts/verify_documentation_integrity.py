@@ -259,6 +259,21 @@ REQUIRED_ACTIVE_DOCS = [
     "docs/roadmap/NEXT_SEQUENCE_v0_17_5.md",
 ]
 
+
+EXPECTED_ACTIVE_M34_LABEL = "v0.38.0 / M34 - Broader File Capability Review"
+ACTIVE_M34_LABEL_DOCS = [
+    "README.md",
+    "docs/canonical/09_roadmap.md",
+    "docs/canonical/20_user_control_center.md",
+    "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+    "docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md",
+    "docs/roadmap/MILESTONE_CHARTERS.md",
+]
+CONFLICTING_ACTIVE_M34_TITLES = [
+    "m34 - macos local companion contract / prototype",
+    "m34 - safe file review workflow + user approval gate",
+]
+
 REQUIRED_DESIGN_DOCS = [
     "docs/design/OPEN_DESIGN_SYSTEM.md",
     "docs/design/CONTROL_CENTER_DESIGN_LANGUAGE.md",
@@ -511,6 +526,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_mobile_companion_contract_docs(root, version))
     failures.extend(_verify_m20_device_capability_docs(root, version))
     failures.extend(_verify_post_m20_roadmap_projection(root))
+    failures.extend(_verify_active_m34_label_consistency(root, version))
     failures.extend(_verify_m19_roadmap_currentness(root, version))
     failures.extend(_verify_post_m18_roadmap_status_labels(root))
 
@@ -535,6 +551,36 @@ def verify(root: Path = ROOT) -> list[str]:
         if not all(fragment in policy_text for fragment in required_fragments):
             failures.append(f"missing Codex plugin governance policy: {label}")
 
+    return failures
+
+
+def _normalize_milestone_label_text(text: str) -> str:
+    normalized = text.lower().replace("—", "-").replace("–", "-")
+    return re.sub(r"\s+", " ", normalized)
+
+
+def _verify_active_m34_label_consistency(root: Path, version: str | None) -> list[str]:
+    if _version_tuple(version) < (0, 37, 3):
+        return []
+
+    failures: list[str] = []
+    expected_fragment = "broader file capability review"
+    for rel_path in ACTIVE_M34_LABEL_DOCS:
+        path = root / rel_path
+        if not path.exists():
+            continue
+        normalized = _normalize_milestone_label_text(_read(path))
+        for stale_title in CONFLICTING_ACTIVE_M34_TITLES:
+            if stale_title in normalized:
+                failures.append(
+                    f"active M34 roadmap label mismatch in {rel_path}: "
+                    f"expected {EXPECTED_ACTIVE_M34_LABEL}"
+                )
+        if "v0.38.0" in normalized and "m34" in normalized and expected_fragment not in normalized:
+            failures.append(
+                f"active M34 roadmap label mismatch in {rel_path}: "
+                f"expected {EXPECTED_ACTIVE_M34_LABEL}"
+            )
     return failures
 
 
@@ -1266,6 +1312,13 @@ def _verify_m25_truth_docs(root: Path, version: str | None) -> list[str]:
                                     )
                                     active_expectations["active docs must keep launcher tooling-only"] = (
                                         "developer-only"
+                                    )
+                                if _version_tuple(version) >= (0, 37, 3):
+                                    active_expectations["active docs must mention v0.37.3 roadmap label repair"] = (
+                                        "v0.37.3 repairs active roadmap label alignment"
+                                    )
+                                    active_expectations["active docs must name planned M34 label"] = (
+                                        "broader file capability review"
                                     )
                             else:
                                 active_expectations["active docs must keep M32-M40 planned/provisional"] = (
@@ -2552,6 +2605,8 @@ def _verify_post_m18_roadmap_status_labels(root: Path) -> list[str]:
             failures.append("roadmap sequence must mark M33/v0.37.1 hardening implemented")
         if active >= (0, 37, 2) and "v0.37.2 / local developer launcher" not in active_capability_charters:
             failures.append("roadmap sequence must mark v0.37.2 local developer launcher implemented")
+        if active >= (0, 37, 3) and "v0.37.3 / roadmap label alignment" not in active_capability_charters:
+            failures.append("roadmap sequence must mark v0.37.3 roadmap label alignment implemented")
         if (
             "first safe local file read proposal" not in active_capability_charters
             or "redacted preview" not in active_capability_charters

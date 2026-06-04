@@ -1,7 +1,7 @@
 # Ultimate AI Agent Docs
 
 Status: active
-Current through: v0.37.2
+Current through: v0.37.3
 Purpose: Human-facing entrypoint for active documentation and historical archive navigation.
 
 Active docs are few, indexed, and current. Historical docs are preserved under
@@ -22,10 +22,10 @@ docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md
 Current release packet:
 
 ```text
-docs/archive/releases/v0_37_2/README_IMPORT.md
-docs/archive/releases/v0_37_2/master_plan.md
-docs/release_notes/v0_37_2.md
-docs/implementation/foundation_gate_implementation_plan_v0_37_2.md
+docs/archive/releases/v0_37_3/README_IMPORT.md
+docs/archive/releases/v0_37_3/master_plan.md
+docs/release_notes/v0_37_3.md
+docs/implementation/foundation_gate_implementation_plan_v0_37_3.md
 docs/developer/LOCAL_LAUNCHER.md
 scripts/dev/README.md
 docs/tools/REDACTED_FILE_PREVIEW_TOOL.md
@@ -91,14 +91,11 @@ historical snapshots.
 v0.29.5 is documentation policy polish only. It accepts the pushed duplicate
 wording cleanup from `374bb1e` and remains the cleanup baseline before M26.
 
-v0.37.2 adds a local developer launcher for prototype testing after the M33
-hardening baseline. It provides `uaa doctor`, `uaa start`, `uaa ui`,
-`uaa status`, `uaa logs`, `uaa stop`, and `uaa restart`, plus a macOS
-`.command` launcher generator for opening the local Control Center. It is
-localhost-only, developer-only, stores only ignored PID/log launcher state
-under `.uaa/dev/`, and adds no production installer, backend routes,
-tool/action execution, model/provider calls, memory writes, dependencies, M34
-work, or production authority.
+v0.37.3 repairs active roadmap label alignment after v0.37.2. It keeps
+v0.38.0 / M34 as Broader File Capability Review, planned/provisional, across
+active roadmap sources and strengthens documentation-integrity checks for this
+next-milestone label. It adds no M34 implementation, backend routes, frontend
+features, runtime behavior, dependencies, or production authority.
 
 v0.37.1 hardens M33 First Safe Local File Read Proposal, Redacted Preview Only.
 It keeps the governed tool runtime adapter entry

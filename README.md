@@ -12,19 +12,20 @@ allowed to become operational authority.
 
 | Field | Current state |
 |---|---|
-| Current active baseline | **v0.37.2** |
+| Current active baseline | **v0.37.3** |
 | Current milestone | **M33 - First Safe Local File Read Proposal, Redacted Preview Only** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **74** OpenAPI paths |
 | Production readiness | Not claimed |
 
-v0.37.2 adds a local developer launcher for prototype testing after the M33
-hardening baseline. It provides terminal commands and a macOS `.command`
-launcher generator for starting the local FastAPI backend and CCC Web Control
-Center on localhost. It adds no production installer, backend routes, tool or
-action execution, model/provider calls, memory writes, dependency changes, M34
-work, or production authority. M34-M40 remain planned/provisional.
+v0.37.3 is a docs/verifier-only repair after the v0.37.2 developer-only local
+developer launcher baseline. It aligns the planned v0.38.0 / M34 label across
+active roadmap sources as **Broader File Capability Review** and strengthens
+documentation-integrity checks for next-milestone label consistency. It adds no
+M34 implementation, backend routes, frontend features, raw file reads, context
+injection, memory writes, execution, dependency changes, or production
+authority. M34-M40 remain planned/provisional.
 
 v0.29.5 is documentation policy polish. It remains the documentation
 organization cleanup baseline before the M26 and M27 implementation releases.
@@ -51,9 +52,9 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M28 Action Policy](docs/approvals/ACTION_POLICY.md)
 - [M27 Tool Broker v2](docs/tools/TOOL_BROKER_V2.md)
 - [M26 Grounded Recall Router](docs/recall/GROUNDED_RECALL_ROUTER.md)
-- [v0.37.2 release notes](docs/release_notes/v0_37_2.md)
-- [v0.37.2 release packet](docs/archive/releases/v0_37_2/README_IMPORT.md)
-- [v0.37.2 master plan](docs/archive/releases/v0_37_2/master_plan.md)
+- [v0.37.3 release notes](docs/release_notes/v0_37_3.md)
+- [v0.37.3 release packet](docs/archive/releases/v0_37_3/README_IMPORT.md)
+- [v0.37.3 master plan](docs/archive/releases/v0_37_3/master_plan.md)
 
 ## What This Project Is
 
@@ -294,6 +295,7 @@ The canonical roadmap source of truth is
 | v0.37.0 | M33 - First Safe Local File Read Proposal, Redacted Preview Only | Implemented/released |
 | v0.37.1 | M33 hardening - Redacted File Preview Safety | Implemented/released |
 | v0.37.2 | Local Developer Launcher + Desktop Shortcut | Implemented/released tooling-only |
+| v0.37.3 | Roadmap Label Alignment + Documentation Integrity Guard | Implemented/released docs/verifier-only |
 | v0.38.0 | M34 - Broader File Capability Review | Planned/provisional |
 
 The roadmap intentionally separates contract planning, validation, preview,
