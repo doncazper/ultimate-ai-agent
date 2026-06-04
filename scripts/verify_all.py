@@ -4,6 +4,7 @@ import subprocess
 import re
 import os
 import tempfile
+import importlib.util
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -35,6 +36,7 @@ SCAN_SEQUENCE = [
     ("M31 Real Tool Runtime Adapter no-op safety scan", "verify_m31_tool_runtime_noop_safety"),
     ("M32 safe filesystem metadata tool scan", "verify_m32_filesystem_metadata_tool_safety"),
     ("M33 redacted file preview tool scan", "verify_m33_redacted_file_preview_tool_safety"),
+    ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
     ("production truth integration scan", "verify_no_production_truth_integrations"),
@@ -3745,6 +3747,102 @@ def verify_m33_redacted_file_preview_tool_safety():
         )
 
     print("OK: M33 redacted file preview tool is redacted-only, safe-root-bound, route-free, and non-mutating")
+
+
+def verify_local_developer_launcher_safety():
+    print("\n[Verifier] Running local developer launcher safety guard...")
+    required_files = [
+        "scripts/dev/uaa",
+        "scripts/dev/uaa_launcher.py",
+        "scripts/dev/create_macos_launcher.py",
+        "scripts/dev/README.md",
+        "docs/developer/LOCAL_LAUNCHER.md",
+        "tests/test_dev_launcher.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing local developer launcher file: {rel_path}")
+            sys.exit(1)
+
+    gitignore = (ROOT / ".gitignore").read_text(encoding="utf-8")
+    if ".uaa/" not in gitignore:
+        print("FAIL: .uaa/ launcher runtime state is not gitignored")
+        sys.exit(1)
+    if "Ultimate AI Agent.command" not in gitignore:
+        print("FAIL: repo-local generated macOS launcher is not gitignored")
+        sys.exit(1)
+
+    launcher_path = ROOT / "scripts/dev/uaa_launcher.py"
+    launcher_source = launcher_path.read_text(encoding="utf-8")
+    for fragment in ["shell=True", "os.system(", "eval(", "exec("]:
+        if fragment in launcher_source:
+            print(f"FAIL: Launcher contains forbidden shell/dynamic fragment: {fragment}")
+            sys.exit(1)
+    if "subprocess.Popen(" not in launcher_source or "start_new_session=True" not in launcher_source:
+        print("FAIL: Launcher does not use explicit local dev process management")
+        sys.exit(1)
+
+    spec = importlib.util.spec_from_file_location("uaa_launcher_verify", launcher_path)
+    if spec is None or spec.loader is None:
+        print("FAIL: Could not load uaa_launcher.py for verification")
+        sys.exit(1)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+
+    for unsafe_host in ["0.0.0.0", "192.168.1.20", "example.com"]:
+        try:
+            module.validate_local_host(unsafe_host)
+            print(f"FAIL: Launcher accepted non-loopback host: {unsafe_host}")
+            sys.exit(1)
+        except ValueError:
+            pass
+
+    backend_command = module.build_backend_command(ROOT)
+    frontend_command = module.build_frontend_command(ROOT)
+    if backend_command[backend_command.index("--host") + 1] != "127.0.0.1":
+        print("FAIL: Backend launcher command is not localhost-only")
+        sys.exit(1)
+    if frontend_command[frontend_command.index("--host") + 1] != "127.0.0.1":
+        print("FAIL: Frontend launcher command is not localhost-only")
+        sys.exit(1)
+
+    macos_content = module.render_macos_launcher()
+    for required in ["./scripts/dev/uaa doctor", "./scripts/dev/uaa start", "./scripts/dev/uaa ui"]:
+        if required not in macos_content:
+            print(f"FAIL: macOS launcher template missing command: {required}")
+            sys.exit(1)
+    for forbidden in ["/Users/", "sudo", "launchctl", "LaunchAgent", "/usr/local/bin"]:
+        if forbidden in macos_content:
+            print(f"FAIL: macOS launcher template contains forbidden installer/system fragment: {forbidden}")
+            sys.exit(1)
+
+    tracked_artifacts = subprocess.run(
+        ["git", "ls-files"],
+        cwd=ROOT,
+        check=True,
+        text=True,
+        capture_output=True,
+    ).stdout.splitlines()
+    for rel in tracked_artifacts:
+        if rel.startswith(".uaa/") or rel.endswith((".pid", ".log")):
+            print(f"FAIL: Launcher runtime artifact is tracked: {rel}")
+            sys.exit(1)
+
+    forbidden_routes = [
+        "/actions/execute",
+        "/tools/execute",
+        "/tasks/execute",
+        "/runs/execute",
+        "/installer/run",
+    ]
+    api_source = (ROOT / "src/ultimate_ai_agent/api/app.py").read_text(encoding="utf-8")
+    for route in forbidden_routes:
+        if route in api_source:
+            print(f"FAIL: Forbidden launcher patch route found: {route}")
+            sys.exit(1)
+
+    print("OK: Local developer launcher is localhost-only, route-free, dependency-free, and tooling-only")
 
 
 def verify_v0292_local_dev_api_hardening():

@@ -23,6 +23,8 @@ secrets.*
 logs/
 debug/
 .local/
+.uaa/
+Ultimate AI Agent.command
 *.sqlite
 *.sqlite3
 *.db

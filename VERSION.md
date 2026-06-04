@@ -1,15 +1,13 @@
 # Ultimate AI Agent Version
 
-Current active baseline: **v0.37.1**
+Current active baseline: **v0.37.2**
 
-v0.37.1 hardens M33 First Safe Local File Read Proposal, Redacted Preview Only.
-It strengthens redaction-before-return guarantees, no-raw-content result and
-receipt boundaries, bounded preview enforcement, safe-root and path
-normalization, secret/hidden/symlink/traversal denial, evaluator revalidation,
-no-context/no-mutation invariants, static verification, documentation, and
-Foundation Gate coverage.
+v0.37.2 adds a local developer launcher for prototype testing. It provides
+terminal commands for doctor, start, ui, status, logs, stop, and restart, plus
+a macOS .command launcher generator for opening the local Control Center.
 
-It adds no raw file output, full-file reads, content hashing, directory
-traversal, file mutation, context injection, backend raw-file/execute routes,
-Control Center raw-preview/execute controls, dependencies, M34 work, or
-production authority.
+It is localhost-only and developer-only, stores only local PID/log files under
+ignored launcher state, and adds no production installer, backend routes,
+tool/action execution, model/provider calls, memory writes, filesystem mutation
+beyond launcher-local PID/log files, dependencies, M34 work, or production
+authority.

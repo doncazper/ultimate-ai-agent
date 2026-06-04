@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+VENV_PYTHON="$ROOT_DIR/.venv/bin/python"
+LAUNCHER="$ROOT_DIR/scripts/dev/uaa_launcher.py"
+COMMAND="${1:-help}"
+
+if [[ -x "$VENV_PYTHON" ]]; then
+  exec "$VENV_PYTHON" "$LAUNCHER" "$@"
+fi
+
+case "$COMMAND" in
+  doctor|help|--help|-h)
+    exec python3 "$LAUNCHER" "$@"
+    ;;
+  *)
+    echo "Missing .venv/bin/python. Run: python3 -m venv .venv && .venv/bin/python -m pip install -e \".[dev]\""
+    exit 1
+    ;;
+esac

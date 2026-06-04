@@ -1,7 +1,7 @@
 # Ultimate AI Agent Docs
 
 Status: active
-Current through: v0.37.1
+Current through: v0.37.2
 Purpose: Human-facing entrypoint for active documentation and historical archive navigation.
 
 Active docs are few, indexed, and current. Historical docs are preserved under
@@ -22,10 +22,12 @@ docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md
 Current release packet:
 
 ```text
-docs/archive/releases/v0_37_1/README_IMPORT.md
-docs/archive/releases/v0_37_1/master_plan.md
-docs/release_notes/v0_37_1.md
-docs/implementation/foundation_gate_implementation_plan_v0_37_1.md
+docs/archive/releases/v0_37_2/README_IMPORT.md
+docs/archive/releases/v0_37_2/master_plan.md
+docs/release_notes/v0_37_2.md
+docs/implementation/foundation_gate_implementation_plan_v0_37_2.md
+docs/developer/LOCAL_LAUNCHER.md
+scripts/dev/README.md
 docs/tools/REDACTED_FILE_PREVIEW_TOOL.md
 docs/tools/REDACTED_FILE_PREVIEW_POLICY.md
 docs/tools/REDACTED_FILE_PREVIEW_RESULT_CONTRACT.md
@@ -89,17 +91,19 @@ historical snapshots.
 v0.29.5 is documentation policy polish only. It accepts the pushed duplicate
 wording cleanup from `374bb1e` and remains the cleanup baseline before M26.
 
+v0.37.2 adds a local developer launcher for prototype testing after the M33
+hardening baseline. It provides `uaa doctor`, `uaa start`, `uaa ui`,
+`uaa status`, `uaa logs`, `uaa stop`, and `uaa restart`, plus a macOS
+`.command` launcher generator for opening the local Control Center. It is
+localhost-only, developer-only, stores only ignored PID/log launcher state
+under `.uaa/dev/`, and adds no production installer, backend routes,
+tool/action execution, model/provider calls, memory writes, dependencies, M34
+work, or production authority.
+
 v0.37.1 hardens M33 First Safe Local File Read Proposal, Redacted Preview Only.
 It keeps the governed tool runtime adapter entry
 `tool:filesystem.redacted_preview.v1` bounded to redacted preview proposals
-under server-owned safe roots, adds output-boundary rejection for secret-like
-preview text, denies symlink safe roots before preview, and preserves evaluator
-revalidation. It returns no raw file content, stores no raw file content,
-exposes no raw absolute paths, blocks hidden/secret-like paths, binary files,
-unsupported encodings, oversized files, symlinks, traversal, full-file reads,
-content hashes, directory listing, file mutation, backend raw-file/execute
-routes, Control Center raw-preview/execute controls, dependencies, context
-injection, and production authority.
+under server-owned safe roots.
 
 v0.35.1 hardens M31 Real Tool Runtime Adapter, Single Safe No-Op Tool. It
 strengthens allowlist validation, tool_ref/tool_name consistency, dynamic

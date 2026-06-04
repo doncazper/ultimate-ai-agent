@@ -187,6 +187,7 @@ REQUIRED_ACTIVE_DOCS = [
     *REQUIRED_M31_TOOL_RUNTIME_DOCS,
     *REQUIRED_M32_FILESYSTEM_METADATA_DOCS,
     *REQUIRED_M33_REDACTED_FILE_PREVIEW_DOCS,
+    "docs/developer/LOCAL_LAUNCHER.md",
     "docs/control_center/CONTROL_CENTER_CONTRACT.md",
     "docs/control_center/DASHBOARD_SNAPSHOT.md",
     "docs/control_center/ACTION_PREVIEW_POLICY.md",
@@ -1256,6 +1257,16 @@ def _verify_m25_truth_docs(root: Path, version: str | None) -> list[str]:
                                     active_expectations["active docs must mention M33/v0.37.1 hardening"] = (
                                         "v0.37.1 hardens m33"
                                     )
+                                if _version_tuple(version) >= (0, 37, 2):
+                                    active_expectations["active docs must mention v0.37.2 local developer launcher"] = (
+                                        "v0.37.2 adds local developer launcher"
+                                    )
+                                    active_expectations["active docs must link local developer launcher docs"] = (
+                                        "docs/developer/local_launcher.md"
+                                    )
+                                    active_expectations["active docs must keep launcher tooling-only"] = (
+                                        "developer-only"
+                                    )
                             else:
                                 active_expectations["active docs must keep M32-M40 planned/provisional"] = (
                                     "m32-m40 remain planned/provisional"
@@ -1825,6 +1836,31 @@ def _verify_m25_truth_docs(root: Path, version: str | None) -> list[str]:
             )
         for failure, fragment in m33_expectations.items():
             if fragment not in m33_docs:
+                failures.append(failure)
+
+    if _version_tuple(version) >= (0, 37, 2):
+        launcher_docs = " ".join(
+            _read(root / path).lower()
+            for path in [
+                "docs/developer/LOCAL_LAUNCHER.md",
+                "scripts/dev/README.md",
+                "docs/release_notes/v0_37_2.md",
+                "docs/archive/releases/v0_37_2/README_IMPORT.md",
+                "docs/archive/releases/v0_37_2/master_plan.md",
+            ]
+        )
+        launcher_expectations = {
+            "launcher docs must say local developer launcher": "local developer launcher",
+            "launcher docs must say localhost-only": "localhost-only",
+            "launcher docs must say not a production installer": "not a production installer",
+            "launcher docs must say no execution authority": "execution authority",
+            "launcher docs must mention stop command": "uaa stop",
+            "launcher docs must mention ignored launcher state": ".uaa/dev",
+            "launcher docs must say no backend routes": "backend routes",
+            "launcher docs must keep M34 future": "m34",
+        }
+        for failure, fragment in launcher_expectations.items():
+            if fragment not in launcher_docs:
                 failures.append(failure)
 
     if _version_tuple(version) >= (0, 29, 4):
@@ -2514,6 +2550,8 @@ def _verify_post_m18_roadmap_status_labels(root: Path) -> list[str]:
             failures.append("roadmap sequence must mark M33/v0.37.0 implemented")
         if active >= (0, 37, 1) and "v0.37.1 / m33 hardening" not in active_capability_charters:
             failures.append("roadmap sequence must mark M33/v0.37.1 hardening implemented")
+        if active >= (0, 37, 2) and "v0.37.2 / local developer launcher" not in active_capability_charters:
+            failures.append("roadmap sequence must mark v0.37.2 local developer launcher implemented")
         if (
             "first safe local file read proposal" not in active_capability_charters
             or "redacted preview" not in active_capability_charters

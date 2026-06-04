@@ -12,22 +12,19 @@ allowed to become operational authority.
 
 | Field | Current state |
 |---|---|
-| Current active baseline | **v0.37.1** |
+| Current active baseline | **v0.37.2** |
 | Current milestone | **M33 - First Safe Local File Read Proposal, Redacted Preview Only** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **74** OpenAPI paths |
 | Production readiness | Not claimed |
 
-v0.37.1 hardens M33 as the first safe local file read proposal: one governed
-redacted-preview-only runtime tool, `tool:filesystem.redacted_preview.v1`. The
-tool is bounded to server-owned safe roots, relative paths, small UTF-8 text
-previews, and redaction-before-return. It returns no raw file content, stores no
-raw content, exposes no raw absolute path, computes no content hash, lists no
-directories, follows no symlinks, rejects symlink safe roots before preview,
-rejects unredacted secret-like preview output at the result boundary, mutates no
-files, adds no backend raw-file/execute routes, adds no dependencies, and
-claims no production authority. M34-M40 remain planned/provisional.
+v0.37.2 adds a local developer launcher for prototype testing after the M33
+hardening baseline. It provides terminal commands and a macOS `.command`
+launcher generator for starting the local FastAPI backend and CCC Web Control
+Center on localhost. It adds no production installer, backend routes, tool or
+action execution, model/provider calls, memory writes, dependency changes, M34
+work, or production authority. M34-M40 remain planned/provisional.
 
 v0.29.5 is documentation policy polish. It remains the documentation
 organization cleanup baseline before the M26 and M27 implementation releases.
@@ -41,6 +38,7 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [API route inventory](docs/api/route_inventory.md)
 - [Documentation organization policy](docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md)
 - [Control Center frontend safety policy](docs/control_center/FRONTEND_SAFETY_POLICY.md)
+- [Local developer launcher](docs/developer/LOCAL_LAUNCHER.md)
 - [M31 Tool Runtime Adapter](docs/tools/TOOL_RUNTIME_ADAPTER.md)
 - [M31 No-Op Tool Runtime](docs/tools/NOOP_TOOL_RUNTIME.md)
 - [M32 Filesystem Metadata Tool](docs/tools/FILESYSTEM_METADATA_TOOL.md)
@@ -53,9 +51,9 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M28 Action Policy](docs/approvals/ACTION_POLICY.md)
 - [M27 Tool Broker v2](docs/tools/TOOL_BROKER_V2.md)
 - [M26 Grounded Recall Router](docs/recall/GROUNDED_RECALL_ROUTER.md)
-- [v0.37.1 release notes](docs/release_notes/v0_37_1.md)
-- [v0.37.1 release packet](docs/archive/releases/v0_37_1/README_IMPORT.md)
-- [v0.37.1 master plan](docs/archive/releases/v0_37_1/master_plan.md)
+- [v0.37.2 release notes](docs/release_notes/v0_37_2.md)
+- [v0.37.2 release packet](docs/archive/releases/v0_37_2/README_IMPORT.md)
+- [v0.37.2 master plan](docs/archive/releases/v0_37_2/master_plan.md)
 
 ## What This Project Is
 
@@ -220,6 +218,41 @@ Or from the repo root:
 make frontend-check
 ```
 
+## Local Developer Launcher
+
+For day-to-day prototype testing, use the repo-local launcher:
+
+```bash
+./scripts/dev/uaa doctor
+./scripts/dev/uaa start
+./scripts/dev/uaa ui
+./scripts/dev/uaa status
+./scripts/dev/uaa logs
+./scripts/dev/uaa stop
+```
+
+It starts only the local FastAPI backend on `127.0.0.1:8000` and the Control
+Center Vite dev server on `127.0.0.1:5173`. PID and log files stay under
+ignored `.uaa/dev/` launcher state.
+
+Optional shell convenience:
+
+```bash
+mkdir -p ~/.local/bin
+ln -s "$(pwd)/scripts/dev/uaa" ~/.local/bin/uaa
+```
+
+Then run `uaa doctor`, `uaa start`, and `uaa ui`.
+
+For a clickable macOS launcher:
+
+```bash
+.venv/bin/python scripts/dev/create_macos_launcher.py --target repo
+```
+
+Read the full launcher guide at
+[docs/developer/LOCAL_LAUNCHER.md](docs/developer/LOCAL_LAUNCHER.md).
+
 ## Control Center
 
 CCC Web is the current TypeScript Control Center surface. It is local,
@@ -260,6 +293,7 @@ The canonical roadmap source of truth is
 | v0.36.1 | M32 hardening - Filesystem Metadata Path Safety | Implemented/released |
 | v0.37.0 | M33 - First Safe Local File Read Proposal, Redacted Preview Only | Implemented/released |
 | v0.37.1 | M33 hardening - Redacted File Preview Safety | Implemented/released |
+| v0.37.2 | Local Developer Launcher + Desktop Shortcut | Implemented/released tooling-only |
 | v0.38.0 | M34 - Broader File Capability Review | Planned/provisional |
 
 The roadmap intentionally separates contract planning, validation, preview,
@@ -271,6 +305,7 @@ manual local execution, and future operational authority.
 src/ultimate_ai_agent/     Python Agent Core contracts and validators
 apps/control-center/       CCC Web React/Vite control surface
 scripts/                   Verifiers, release checks, OpenAPI export, gates
+scripts/dev/               Local developer launcher tooling
 tests/                     Unit, contract, safety, and Foundation Gate tests
 docs/                      Active docs, canonical maps, release notes, archive
 VERSION.md                 Current active baseline summary
