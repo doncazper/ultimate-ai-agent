@@ -1,7 +1,7 @@
 # Redacted File Preview Policy
 
 Status: active M33 documentation.
-Current active baseline: **v0.37.1**
+Current active baseline: **v0.38.1**
 
 M33 preview policy enables only bounded redacted preview generation. Generic raw
 content reads, full-file reads, content hashes, directory listing, recursive
@@ -37,4 +37,6 @@ unsafe. The evaluator revalidates the current safe root, relative path, tool
 ref, and disabled raw/full-read flags before it can return `preview_completed`;
 constructor validation alone is not trusted.
 
-M34 remains planned/provisional.
+v0.38.0 implemented M34 Broader File Capability Review as
+planning/docs/verifier work only. M35 remains planned/provisional for Safe File
+Review Workflow Contracts.

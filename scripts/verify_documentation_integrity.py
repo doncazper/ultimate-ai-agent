@@ -585,6 +585,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_active_m34_label_consistency(root, version))
     failures.extend(_verify_m34_m60_roadmap_supersession(root, version))
     failures.extend(_verify_m34_file_capability_review_docs(root, version))
+    failures.extend(_verify_m34_active_currentness(root, version))
     failures.extend(_verify_m19_roadmap_currentness(root, version))
     failures.extend(_verify_post_m18_roadmap_status_labels(root))
 
@@ -803,6 +804,32 @@ def _verify_m34_file_capability_review_docs(root: Path, version: str | None) -> 
     for failure, fragments in forbidden_fragments.items():
         if any(fragment in combined for fragment in fragments):
             failures.append(failure)
+
+    return failures
+
+
+def _verify_m34_active_currentness(root: Path, version: str | None) -> list[str]:
+    if _version_tuple(version) < (0, 38, 0):
+        return []
+
+    failures: list[str] = []
+    readme = _normalize_milestone_label_text(_read(root / "README.md"))
+    stale_readme_row = (
+        "v0.38.0 | m34 - broader file capability review | planned/provisional"
+    )
+    if stale_readme_row in readme:
+        failures.append("README.md must not list v0.38.0/M34 as planned/provisional")
+
+    stale_active_m33_docs: list[str] = []
+    for rel_path in REQUIRED_M33_REDACTED_FILE_PREVIEW_DOCS:
+        path = root / rel_path
+        if path.exists() and "m34 remains planned/provisional" in _read(path).lower():
+            stale_active_m33_docs.append(rel_path)
+    if stale_active_m33_docs:
+        failures.append(
+            "active M33 docs must not say M34 remains planned/provisional after v0.38.0: "
+            + ", ".join(stale_active_m33_docs)
+        )
 
     return failures
 

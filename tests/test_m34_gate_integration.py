@@ -36,6 +36,29 @@ def test_m34_openapi_route_guard_rejects_file_review_and_execution_routes():
     assert m34_openapi_route_failures(app.openapi().get("paths", {})) == []
 
 
+def test_m34_active_currentness_guard_rejects_stale_planned_labels():
+    from ultimate_ai_agent.core.gate.evaluators import m34_active_currentness_failures
+
+    failures = m34_active_currentness_failures(
+        {
+            "README.md": "| v0.38.0 | M34 - Broader File Capability Review | Planned/provisional |",
+            "docs/tools/REDACTED_FILE_PREVIEW_POLICY.md": "M34 remains planned/provisional.",
+        }
+    )
+
+    assert any("README.md must not list v0.38.0/M34 as planned/provisional" in failure for failure in failures)
+    assert any("active M33 docs must not say M34 remains planned/provisional" in failure for failure in failures)
+    assert m34_active_currentness_failures(
+        {
+            "README.md": "| v0.38.0 | M34 - Broader File Capability Review | Implemented/released |",
+            "docs/tools/REDACTED_FILE_PREVIEW_POLICY.md": (
+                "v0.38.0 implements M34 Broader File Capability Review. "
+                "M35 remains planned/provisional."
+            ),
+        }
+    ) == []
+
+
 def test_m34_foundation_gate_evaluator_passes_current_contracts():
     evaluator = FoundationGateEvaluator()
     criteria = [

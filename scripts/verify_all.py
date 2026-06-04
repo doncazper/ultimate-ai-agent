@@ -3768,6 +3768,10 @@ def verify_m34_broader_file_capability_review_safety():
         "docs/archive/releases/v0_38_0/README_IMPORT.md",
         "docs/archive/releases/v0_38_0/master_plan.md",
         "docs/implementation/foundation_gate_implementation_plan_v0_38_0.md",
+        "docs/release_notes/v0_38_1.md",
+        "docs/archive/releases/v0_38_1/README_IMPORT.md",
+        "docs/archive/releases/v0_38_1/master_plan.md",
+        "docs/implementation/foundation_gate_implementation_plan_v0_38_1.md",
     ]
     for rel_path in required_files:
         if not (ROOT / rel_path).exists():
@@ -3794,6 +3798,32 @@ def verify_m34_broader_file_capability_review_safety():
         if fragment not in docs_text:
             print(f"FAIL: {message}")
             sys.exit(1)
+
+    readme_text = (ROOT / "README.md").read_text(encoding="utf-8").lower()
+    readme_normalized = re.sub(r"\s+", " ", readme_text.replace("|", " | ")).strip()
+    if "v0.38.0 | m34 - broader file capability review | planned/provisional" in readme_normalized:
+        print("FAIL: README.md must not list v0.38.0/M34 as planned/provisional")
+        sys.exit(1)
+
+    stale_m33_docs = []
+    for rel_path in [
+        "docs/files/LOCAL_FILE_REDACTED_PREVIEW_POLICY.md",
+        "docs/tools/REDACTED_FILE_PREVIEW_AUTHORITY_BOUNDARY.md",
+        "docs/tools/REDACTED_FILE_PREVIEW_NON_GOALS.md",
+        "docs/tools/REDACTED_FILE_PREVIEW_POLICY.md",
+        "docs/tools/REDACTED_FILE_PREVIEW_REDACTION_POLICY.md",
+        "docs/tools/REDACTED_FILE_PREVIEW_RESULT_CONTRACT.md",
+        "docs/tools/REDACTED_FILE_PREVIEW_TOOL.md",
+    ]:
+        text = (ROOT / rel_path).read_text(encoding="utf-8").lower()
+        if "m34 remains planned/provisional" in text:
+            stale_m33_docs.append(rel_path)
+    if stale_m33_docs:
+        print(
+            "FAIL: active M33 docs must not say M34 remains planned/provisional after v0.38.0: "
+            + ", ".join(stale_m33_docs)
+        )
+        sys.exit(1)
 
     forbidden_doc_fragments = [
         "m34 implements safe file review workflow contracts",

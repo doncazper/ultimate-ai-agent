@@ -1,7 +1,7 @@
 # Redacted File Preview Result Contract
 
 Status: active M33 documentation.
-Current active baseline: **v0.37.1**
+Current active baseline: **v0.38.1**
 
 M33 returns a `RedactedFilePreviewOutput` only after policy and redaction pass.
 The result is non-authoritative and redacted-preview-only.
@@ -31,4 +31,6 @@ assignments, private-key markers, or high-entropy-looking tokens. That check is
 independent of the redaction pipeline so a directly constructed or
 model_copy-mutated output cannot become an unredacted preview carrier.
 
-M34 remains planned/provisional.
+v0.38.0 implemented M34 Broader File Capability Review as
+planning/docs/verifier work only. M35 remains planned/provisional for Safe File
+Review Workflow Contracts.

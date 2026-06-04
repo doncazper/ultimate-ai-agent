@@ -1,7 +1,7 @@
 # Redacted File Preview Authority Boundary
 
 Status: active M33 documentation.
-Current active baseline: **v0.37.1**
+Current active baseline: **v0.38.1**
 
 M33 file preview proposals are not authority. They are bounded, redacted,
 non-authoritative inspection aids.
@@ -31,4 +31,6 @@ model_copy-mutated requests still re-check safe roots, relative paths, disabled
 raw/full-read flags, disabled mutation/context flags, and the allowlisted tool
 ref before any redacted preview decision can be returned.
 
-M34 remains planned/provisional.
+v0.38.0 implemented M34 Broader File Capability Review as
+planning/docs/verifier work only. M35 remains planned/provisional for Safe File
+Review Workflow Contracts.

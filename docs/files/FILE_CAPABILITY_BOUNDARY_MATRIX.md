@@ -1,7 +1,7 @@
 # File Capability Boundary Matrix
 
 Status: active M34 documentation.
-Current through: **v0.38.0**.
+Current through: **v0.38.1**.
 
 M34 is planning/review only. This matrix defines the allowed sequence for
 broader file capability work. A future milestone may implement only its own

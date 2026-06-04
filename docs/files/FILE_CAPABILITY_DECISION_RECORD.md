@@ -1,7 +1,7 @@
 # File Capability Decision Record
 
 Status: active M34 documentation.
-Current through: **v0.38.0**.
+Current through: **v0.38.1**.
 
 M34 records the staged decision for broader file capability work. It is not an
 implementation milestone.

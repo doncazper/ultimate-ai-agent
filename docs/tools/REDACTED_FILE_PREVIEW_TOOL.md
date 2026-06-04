@@ -1,7 +1,7 @@
 # Redacted File Preview Tool
 
 Status: active M33 documentation.
-Current active baseline: **v0.37.1**
+Current active baseline: **v0.38.1**
 
 M33 implements the first safe local file read proposal as one governed tool
 runtime adapter entry:
@@ -44,4 +44,6 @@ Denied behavior:
 - backend raw-file or execute routes.
 - Control Center raw-preview or execute controls.
 
-M34 remains planned/provisional for any broader file capability work.
+v0.38.0 implemented M34 Broader File Capability Review as
+planning/docs/verifier work only. M35 remains planned/provisional for Safe File
+Review Workflow Contracts.

@@ -701,6 +701,31 @@ def m34_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
     return failures
 
 
+def _normalize_m34_active_text(text: str) -> str:
+    return re.sub(r"\s+", " ", text.replace("|", " | ").lower()).strip()
+
+
+def m34_active_currentness_failures(active_docs: Dict[str, str]) -> List[str]:
+    failures: List[str] = []
+    readme = _normalize_m34_active_text(active_docs.get("README.md", ""))
+    if "v0.38.0 | m34 - broader file capability review | planned/provisional" in readme:
+        failures.append("README.md must not list v0.38.0/M34 as planned/provisional")
+
+    stale_m33_docs = sorted(
+        rel_path
+        for rel_path, text in active_docs.items()
+        if rel_path.startswith(("docs/tools/REDACTED_FILE_PREVIEW_", "docs/files/LOCAL_FILE_REDACTED_PREVIEW_"))
+        and "m34 remains planned/provisional" in text.lower()
+    )
+    if stale_m33_docs:
+        failures.append(
+            "active M33 docs must not say M34 remains planned/provisional after v0.38.0: "
+            + ", ".join(stale_m33_docs)
+        )
+
+    return failures
+
+
 def m22_local_runtime_forbidden_fragment_failures(root: Path) -> List[str]:
     failures: List[str] = []
     runtime_root = root / "src" / "ultimate_ai_agent" / "core" / "model_runtime"
@@ -8097,6 +8122,13 @@ class FoundationGateEvaluator:
             "docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md",
             "docs/canonical/09_roadmap.md",
             "docs/tools/M33_TO_M34_BOUNDARY.md",
+            "docs/files/LOCAL_FILE_REDACTED_PREVIEW_POLICY.md",
+            "docs/tools/REDACTED_FILE_PREVIEW_AUTHORITY_BOUNDARY.md",
+            "docs/tools/REDACTED_FILE_PREVIEW_NON_GOALS.md",
+            "docs/tools/REDACTED_FILE_PREVIEW_POLICY.md",
+            "docs/tools/REDACTED_FILE_PREVIEW_REDACTION_POLICY.md",
+            "docs/tools/REDACTED_FILE_PREVIEW_RESULT_CONTRACT.md",
+            "docs/tools/REDACTED_FILE_PREVIEW_TOOL.md",
         ]
         failures = [f"missing M33 roadmap doc: {path}" for path in required_docs if not (self.root / path).exists()]
         text = "\n".join(self._read(self.root / path).lower() for path in required_docs if (self.root / path).exists())
@@ -8111,6 +8143,12 @@ class FoundationGateEvaluator:
                 failures.append("M34 broader file capability review must be implemented/released at v0.38.0+")
             if "m35-m60 remain planned/provisional" not in text:
                 failures.append("M35-M60 must remain planned/provisional after M34")
+            active_currentness_docs = {
+                path: self._read(self.root / path)
+                for path in ["README.md", *required_docs]
+                if (self.root / path).exists()
+            }
+            failures.extend(m34_active_currentness_failures(active_currentness_docs))
         elif "m34" not in text or "planned/provisional" not in text:
             failures.append("M34 must remain planned/provisional after M33")
         forbidden_m34_fragments = (
@@ -8204,6 +8242,13 @@ class FoundationGateEvaluator:
             "docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md",
             "docs/files/M34_TO_M35_BOUNDARY.md",
             "docs/files/M35_SAFE_FILE_REVIEW_WORKFLOW_READINESS.md",
+            "docs/files/LOCAL_FILE_REDACTED_PREVIEW_POLICY.md",
+            "docs/tools/REDACTED_FILE_PREVIEW_AUTHORITY_BOUNDARY.md",
+            "docs/tools/REDACTED_FILE_PREVIEW_NON_GOALS.md",
+            "docs/tools/REDACTED_FILE_PREVIEW_POLICY.md",
+            "docs/tools/REDACTED_FILE_PREVIEW_REDACTION_POLICY.md",
+            "docs/tools/REDACTED_FILE_PREVIEW_RESULT_CONTRACT.md",
+            "docs/tools/REDACTED_FILE_PREVIEW_TOOL.md",
         ]
         failures = [f"missing M34/M35 roadmap doc: {path}" for path in required_docs if not (self.root / path).exists()]
         text = "\n".join(self._read(self.root / path).lower() for path in required_docs if (self.root / path).exists())
@@ -8229,6 +8274,11 @@ class FoundationGateEvaluator:
         ):
             if fragment in text:
                 failures.append(f"M34 docs imply future milestone implementation: {fragment}")
+        failures.extend(
+            m34_active_currentness_failures(
+                {path: self._read(self.root / path) for path in required_docs if (self.root / path).exists()}
+            )
+        )
         return self._result(criterion, failures, required_docs)
 
     def check_v0292_local_dev_api_authority_and_preview_safe(

@@ -1,13 +1,20 @@
 # M34 To M35 Boundary
 
 Status: active M34 boundary documentation.
-Current through: **v0.38.0**.
+Current through: **v0.38.1**.
 
 M34 is Broader File Capability Review. It is planning, architecture review,
 documentation, verifier, and Foundation Gate work only.
 
 M35 starts the next implementation stage, Safe File Review Workflow Contracts.
 M35 must not be treated as implemented by M34.
+
+v0.38.1 hardens this boundary: M34 active docs, static verifiers, and
+Foundation Gate checks must fail if active text says M34 remains future after
+v0.38.0, or if it implies that M34 already implemented Safe File Review
+Workflow Contracts, file review UI, approval capture/persistence, context
+proposal, context injection, raw file access, memory writes, export, execution,
+or runtime file authority.
 
 ## Boundary Rules
 

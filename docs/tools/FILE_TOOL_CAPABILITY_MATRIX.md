@@ -1,7 +1,7 @@
 # File Tool Capability Matrix
 
 Status: active M34 documentation.
-Current through: **v0.38.0**.
+Current through: **v0.38.1**.
 
 | Tool ref | Status | Capability | Raw content | Mutation | Routes | Notes |
 | --- | --- | --- | --- | --- | --- | --- |

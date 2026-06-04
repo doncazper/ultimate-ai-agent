@@ -132,6 +132,13 @@ M27 is implemented/released by v0.31.0 as validation-only Tool Broker v2 contrac
 Docs do not claim future milestone implementation before dedicated milestones.
 Foundation Gate includes post_m20_roadmap_projection_present.
 Backend OpenAPI path count remains unchanged at 74.
+v0.38.1 adds M34 boundary-clarity regression coverage: documentation integrity,
+static verification, and Foundation Gate checks reject active docs that still
+list v0.38.0 / M34 as planned/provisional or say M34 remains
+planned/provisional after v0.38.0. They also reject any active claim that M34
+implements Safe File Review Workflow Contracts, file review UI, approval
+capture/persistence, context proposal, context injection, raw file access,
+memory writes, export, execution, or runtime file authority.
 ```
 
 ## v0.29.0 M25 Truth Source Router + Evidence Claim Checker Tests

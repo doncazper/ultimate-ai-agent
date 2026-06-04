@@ -245,6 +245,28 @@ def test_documentation_integrity_verifier_rejects_m34_runtime_capability_claim(t
     assert any("M34 docs must not claim file review UI implementation" in failure for failure in failures)
 
 
+def test_documentation_integrity_verifier_rejects_stale_active_m34_currentness(tmp_path: Path):
+    _write_minimal_repo(tmp_path, version="0.38.1")
+    _write_m34_m60_active_docs(tmp_path, m34_released=True)
+    _write_m34_review_docs(tmp_path)
+    readme = tmp_path / "README.md"
+    readme.write_text(
+        readme.read_text(encoding="utf-8")
+        + "\n| v0.38.0 | M34 - Broader File Capability Review | Planned/provisional |\n",
+        encoding="utf-8",
+    )
+    preview_policy = tmp_path / "docs/tools/REDACTED_FILE_PREVIEW_POLICY.md"
+    preview_policy.write_text(
+        preview_policy.read_text(encoding="utf-8") + "\nM34 remains planned/provisional.\n",
+        encoding="utf-8",
+    )
+
+    failures = verifier.verify(tmp_path)
+
+    assert any("README.md must not list v0.38.0/M34 as planned/provisional" in failure for failure in failures)
+    assert any("active M33 docs must not say M34 remains planned/provisional" in failure for failure in failures)
+
+
 def test_documentation_integrity_verifier_rejects_implemented_post_m20_claims(tmp_path: Path):
     _write_minimal_repo(tmp_path)
     roadmap = tmp_path / "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md"
