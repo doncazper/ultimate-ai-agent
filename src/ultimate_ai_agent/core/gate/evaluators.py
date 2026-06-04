@@ -297,6 +297,31 @@ M29_FORBIDDEN_BACKEND_ROUTES = (
     "/mobile/execute",
     "/remote/execute",
 )
+EXPECTED_M30_OPENAPI_PATH_COUNT = 74
+M30_FORBIDDEN_BACKEND_ROUTES = (
+    "/execution/run",
+    "/execution/execute",
+    "/execution/advance",
+    "/runs/execute",
+    "/runs/run",
+    "/tasks/execute",
+    "/tasks/run",
+    "/plans/execute",
+    "/plans/run",
+    "/planner/execute",
+    "/planner/run",
+    "/agent/run",
+    "/workflow/execute",
+    "/actions/execute",
+    "/tools/execute",
+    "/plugins/enable",
+    "/memory/write",
+    "/model/execute",
+    "/network/execute",
+    "/browser/execute",
+    "/mobile/execute",
+    "/remote/execute",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -546,6 +571,17 @@ def m29_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
     return failures
 
 
+def m30_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M30_OPENAPI_PATH_COUNT) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+    for route in M30_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(f"M30 forbidden backend route present: {route}")
+    return failures
+
+
 def m22_local_runtime_forbidden_fragment_failures(root: Path) -> List[str]:
     failures: List[str] = []
     runtime_root = root / "src" / "ultimate_ai_agent" / "core" / "model_runtime"
@@ -769,6 +805,9 @@ class FoundationGateEvaluator:
             "m29_task_planning_engine_contract_safe": self.check_m29_task_planning_engine_contract_safe,
             "m29_task_planning_openapi_routes_unchanged": self.check_m29_task_planning_openapi_routes_unchanged,
             "m29_m30_remains_future": self.check_m29_m30_remains_future,
+            "m30_execution_framework_contract_safe": self.check_m30_execution_framework_contract_safe,
+            "m30_execution_openapi_routes_unchanged": self.check_m30_execution_openapi_routes_unchanged,
+            "m30_m31_remains_future": self.check_m30_m31_remains_future,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -6219,7 +6258,14 @@ class FoundationGateEvaluator:
             failures.append("M28 docs do not mention v0.32.0 Approval Authority v2 + Action Policy Expansion")
         active_version = self._active_version() or "0.0.0"
         version_tuple = tuple(int(part) for part in active_version.split("."))
-        if version_tuple >= (0, 33, 0):
+        if version_tuple >= (0, 34, 0):
+            if "m29 agent task planning engine" not in text:
+                failures.append("M28 docs do not describe the M29 Agent Task Planning Engine handoff")
+            if "m30" not in text or "multi-step execution framework" not in text or "implemented/released" not in text:
+                failures.append("M28 docs do not acknowledge implemented v0.34.0 / M30")
+            if "m31-m40 remain planned/provisional" not in text:
+                failures.append("M31-M40 must remain planned/provisional after M30")
+        elif version_tuple >= (0, 33, 0):
             if "m29 agent task planning engine" not in text:
                 failures.append("M28 docs do not describe the M29 Agent Task Planning Engine handoff")
             if "m30-m40 remain planned/provisional" not in text:
@@ -6551,19 +6597,305 @@ class FoundationGateEvaluator:
                 failures.append("M29 docs do not mark v0.33.0 implemented/released")
         else:
             failures.append("M29 docs do not mention v0.33.0 Agent Task Planning Engine")
-        if "m30-m40 remain planned/provisional" not in text:
-            failures.append("M30-M40 must remain planned/provisional after M29")
-        forbidden_m30_fragments = (
-            "m30 is implemented",
-            "v0.34.0 implements m30",
-            "approved local tool execution is implemented",
-            "task execution is implemented",
-            "scheduler runtime is implemented",
-            "production task authority is implemented",
+        active_version = self._active_version() or "0.0.0"
+        version_tuple = tuple(int(part) for part in active_version.split("."))
+        if version_tuple >= (0, 34, 0):
+            if "m30" not in text or "multi-step execution framework" not in text or "implemented/released" not in text:
+                failures.append("M29 boundary docs must acknowledge implemented v0.34.0 / M30")
+            if "m31-m40 remain planned/provisional" not in text:
+                failures.append("M31-M40 must remain planned/provisional after M30")
+        else:
+            if "m30-m40 remain planned/provisional" not in text:
+                failures.append("M30-M40 must remain planned/provisional after M29")
+            forbidden_m30_fragments = (
+                "m30 is implemented",
+                "v0.34.0 implements m30",
+                "approved local tool execution is implemented",
+                "task execution is implemented",
+                "scheduler runtime is implemented",
+                "production task authority is implemented",
+            )
+            failures.extend(
+                f"M29 docs imply M30 implementation: {fragment}"
+                for fragment in forbidden_m30_fragments
+                if fragment in text
+            )
+        return self._result(criterion, failures, required_docs)
+
+    def check_m30_execution_framework_contract_safe(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/execution/__init__.py",
+            "src/ultimate_ai_agent/core/execution/enums.py",
+            "src/ultimate_ai_agent/core/execution/runs.py",
+            "src/ultimate_ai_agent/core/execution/steps.py",
+            "src/ultimate_ai_agent/core/execution/transitions.py",
+            "src/ultimate_ai_agent/core/execution/state_machine.py",
+            "src/ultimate_ai_agent/core/execution/validation.py",
+            "src/ultimate_ai_agent/core/execution/manifests.py",
+            "src/ultimate_ai_agent/core/execution/receipts.py",
+            "src/ultimate_ai_agent/core/execution/policy.py",
+            "tests/test_execution_framework_contracts.py",
+            "tests/test_execution_state_machine_safety.py",
+            "tests/test_execution_dependency_progression.py",
+            "tests/test_execution_receipt_plan.py",
+            "tests/test_m30_gate_integration.py",
+            "docs/execution/MULTI_STEP_EXECUTION_FRAMEWORK.md",
+            "docs/execution/EXECUTION_STATE_MACHINE.md",
+            "docs/execution/EXECUTION_STEP_CONTRACTS.md",
+            "docs/execution/EXECUTION_DEPENDENCY_POLICY.md",
+            "docs/execution/EXECUTION_TRANSITION_POLICY.md",
+            "docs/execution/EXECUTION_INPUT_BOUNDARY.md",
+            "docs/execution/EXECUTION_RECEIPT_PLAN.md",
+            "docs/execution/EXECUTION_NON_GOALS.md",
+            "docs/execution/M30_TO_M31_BOUNDARY.md",
+        ]
+        failures = [
+            f"missing M30 Multi-Step Execution Framework file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            from ultimate_ai_agent.core.execution import (
+                ExecutionInputTrustLevel,
+                ExecutionRun,
+                ExecutionStep,
+                ExecutionStepInputBoundary,
+                ExecutionStepMode,
+                ExecutionStepStatus,
+                ExecutionTransitionKind,
+                ExecutionTransitionRequest,
+                ExecutionTransitionStatus,
+                build_execution_framework_manifest,
+                evaluate_execution_transition,
+            )
+
+            manifest = build_execution_framework_manifest(baseline_version="0.34.0")
+            manifest_flags = [
+                manifest.real_task_execution_enabled,
+                manifest.action_execution_enabled,
+                manifest.tool_execution_enabled,
+                manifest.file_mutation_enabled,
+                manifest.memory_write_enabled,
+                manifest.event_ledger_mutation_enabled,
+                manifest.network_call_enabled,
+                manifest.model_provider_call_enabled,
+                manifest.browser_automation_enabled,
+                manifest.mobile_device_access_enabled,
+                manifest.remote_execution_enabled,
+                manifest.plugin_enablement_enabled,
+                manifest.scheduler_enabled,
+                manifest.background_worker_enabled,
+                manifest.autonomous_loop_enabled,
+                manifest.context_injection_enabled,
+                manifest.backend_execution_routes_added,
+                manifest.control_center_execute_controls_enabled,
+                manifest.production_authority_enabled,
+            ]
+            if not manifest.execution_state_machine_enabled or any(manifest_flags):
+                failures.append("M30 manifest enables forbidden execution/runtime authority")
+
+            safe_step = ExecutionStep(
+                step_id="execution-step:gate-m30-review",
+                safe_summary="Validate safe metadata only.",
+                mode=ExecutionStepMode.no_effect,
+                input_boundary=ExecutionStepInputBoundary(input_refs=["canonical:gate-m30"]),
+            )
+            safe_run = ExecutionRun(
+                run_id="execution-run:gate-m30",
+                source_task_plan_ref="plan:gate-m30",
+                steps=[safe_step],
+                safe_summary="No-effect execution-state-machine run.",
+            )
+            safe_request = ExecutionTransitionRequest(
+                run_id=safe_run.run_id,
+                target_step_id=safe_step.step_id,
+                transition_kind=ExecutionTransitionKind.complete_no_effect_step,
+                replay_key="replay:gate-m30",
+                safe_summary="Complete a no-effect step.",
+            )
+            safe_decision = evaluate_execution_transition(safe_run, safe_request)
+            if safe_decision.status != ExecutionTransitionStatus.approved_no_effect_transition:
+                failures.append("M30 safe no-effect transition was not allowed")
+            if safe_decision.execution_authorized or safe_decision.execution_performed:
+                failures.append("M30 safe transition authorized or performed real execution")
+            if safe_decision.side_effects_performed:
+                failures.append("M30 safe transition reported side effects")
+            if not safe_decision.receipt_plan or safe_decision.receipt_plan.execution_performed:
+                failures.append("M30 safe transition receipt is missing or executable")
+
+            def require_denial(decision, required_reason: str, label: str) -> None:
+                if decision.status != ExecutionTransitionStatus.denied or decision.execution_performed:
+                    failures.append(f"M30 denied probe was allowed: {label}")
+                if required_reason not in decision.reason_codes:
+                    failures.append(f"M30 denied probe missing {required_reason}: {label}")
+
+            request_with_execution = safe_request.model_copy(update={"execution_requested": True})
+            require_denial(
+                evaluate_execution_transition(safe_run, request_with_execution),
+                "EXECUTION_REQUEST_DENIED",
+                "execution requested",
+            )
+            request_with_auto = safe_request.model_copy(
+                update={"auto_run_requested": True, "schedule_requested": True, "background_worker_requested": True}
+            )
+            auto_decision = evaluate_execution_transition(safe_run, request_with_auto)
+            require_denial(auto_decision, "AUTO_RUN_DENIED", "auto-run requested")
+            if "SCHEDULE_DENIED" not in auto_decision.reason_codes:
+                failures.append("M30 scheduler request was not denied")
+            if "BACKGROUND_WORKER_DENIED" not in auto_decision.reason_codes:
+                failures.append("M30 background worker request was not denied")
+            require_denial(
+                evaluate_execution_transition(safe_run.model_copy(update={"replay_keys_seen": ["replay:gate-m30"]}), safe_request),
+                "EXECUTION_REPLAY_DENIED",
+                "replay key reuse",
+            )
+            raw_boundary = safe_step.input_boundary.model_copy(update={"contains_raw_prompt": True})
+            require_denial(
+                evaluate_execution_transition(
+                    safe_run.model_copy(update={"steps": [safe_step.model_copy(update={"input_boundary": raw_boundary})]}),
+                    safe_request,
+                ),
+                "RAW_PROMPT_DENIED",
+                "raw prompt model_copy revalidation",
+            )
+            secret_boundary = safe_step.input_boundary.model_copy(update={"metadata": {"token": "abc123"}})
+            require_denial(
+                evaluate_execution_transition(
+                    safe_run.model_copy(update={"steps": [safe_step.model_copy(update={"input_boundary": secret_boundary})]}),
+                    safe_request,
+                ),
+                "SECRET_METADATA_DENIED",
+                "secret metadata model_copy revalidation",
+            )
+            effectful_step = safe_step.model_copy(update={"mode": ExecutionStepMode.tool_execution_blocked})
+            require_denial(
+                evaluate_execution_transition(safe_run.model_copy(update={"steps": [effectful_step]}), safe_request),
+                "TOOL_EXECUTION_DENIED",
+                "tool execution step mode",
+            )
+            for input_ref, trust_level, reason in [
+                ("model:gate-m30", ExecutionInputTrustLevel.model_output_blocked, "MODEL_OUTPUT_NOT_EXECUTION_AUTHORITY"),
+                ("memory:gate-m30", ExecutionInputTrustLevel.memory_ref, "MEMORY_REF_NOT_EXECUTION_AUTHORITY"),
+                ("context-pack:gate-m30", ExecutionInputTrustLevel.context_pack_ref, "CONTEXT_PACK_NOT_EXECUTION_AUTHORITY"),
+                ("tool-intent:gate-m27", ExecutionInputTrustLevel.tool_intent_ref, "TOOL_INTENT_NOT_EXECUTION_AUTHORITY"),
+                ("approval:gate-m28", ExecutionInputTrustLevel.approval_ref, "APPROVAL_REF_NOT_EXECUTION_AUTHORITY"),
+                ("openwebui:gate-m30", ExecutionInputTrustLevel.openwebui_output_blocked, "OPENWEBUI_OUTPUT_NOT_EXECUTION_AUTHORITY"),
+                ("control-center:gate-m30", ExecutionInputTrustLevel.control_center_preview_blocked, "CONTROL_CENTER_PREVIEW_NOT_EXECUTION_AUTHORITY"),
+                ("random:gate-m30", ExecutionInputTrustLevel.unknown_blocked, "UNKNOWN_INPUT_REF_DENIED"),
+            ]:
+                blocked_boundary = ExecutionStepInputBoundary(input_refs=[input_ref], input_trust_level=trust_level)
+                require_denial(
+                    evaluate_execution_transition(
+                        safe_run.model_copy(update={"steps": [safe_step.model_copy(update={"input_boundary": blocked_boundary})]}),
+                        safe_request,
+                    ),
+                    reason,
+                    f"non-authoritative execution ref {input_ref}",
+                )
+            missing_dep_step = safe_step.model_copy(update={"depends_on": ["execution-step:missing-m30"]})
+            require_denial(
+                evaluate_execution_transition(safe_run.model_copy(update={"steps": [missing_dep_step]}), safe_request),
+                "MISSING_EXECUTION_DEPENDENCY_DENIED",
+                "missing dependency",
+            )
+            step_a = safe_step.model_copy(
+                update={"step_id": "execution-step:gate-m30-a", "depends_on": ["execution-step:gate-m30-b"]}
+            )
+            step_b = safe_step.model_copy(
+                update={"step_id": "execution-step:gate-m30-b", "depends_on": ["execution-step:gate-m30-a"]}
+            )
+            cycle_request = safe_request.model_copy(update={"target_step_id": "execution-step:gate-m30-a"})
+            require_denial(
+                evaluate_execution_transition(safe_run.model_copy(update={"steps": [step_a, step_b]}), cycle_request),
+                "EXECUTION_DEPENDENCY_CYCLE_DENIED",
+                "dependency cycle",
+            )
+            completed_step = step_a.model_copy(update={"status": ExecutionStepStatus.completed_no_effect, "depends_on": []})
+            dependent_step = step_b.model_copy(update={"depends_on": [completed_step.step_id]})
+            dependent_request = safe_request.model_copy(
+                update={"target_step_id": dependent_step.step_id, "replay_key": "replay:gate-m30-dependent"}
+            )
+            dependent_decision = evaluate_execution_transition(
+                safe_run.model_copy(update={"steps": [completed_step, dependent_step]}),
+                dependent_request,
+            )
+            if dependent_decision.status != ExecutionTransitionStatus.approved_no_effect_transition:
+                failures.append("M30 completed dependency did not allow no-effect dependent step")
+
+            execution_source = "\n".join(
+                self._read(path)
+                for path in (self.root / "src" / "ultimate_ai_agent" / "core" / "execution").glob("*.py")
+            ).lower()
+            forbidden_fragments = (
+                "os.system(",
+                "popen(",
+                "shell=true",
+                "requests.get(",
+                "requests.post(",
+                "httpx.get(",
+                "httpx.post(",
+                "urllib.request.urlopen(",
+                "write_memory(",
+                ".write_memory(",
+                "put_record(",
+                ".put_record(",
+                "append_event(",
+                "mutate_event(",
+                "chat.completions.create(",
+                "import " + "openai",
+                "import " + "anthropic",
+                "import " + "ollama",
+            )
+            failures.extend(
+                f"M30 Multi-Step Execution Framework module contains forbidden fragment: {fragment}"
+                for fragment in forbidden_fragments
+                if fragment in execution_source
+            )
+        except Exception as exc:
+            failures.append(f"M30 Multi-Step Execution Framework validation failed: {exc}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m30_execution_openapi_routes_unchanged(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m30_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M30 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m30_m31_remains_future(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        required_docs = [
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+            "docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/execution/M30_TO_M31_BOUNDARY.md",
+        ]
+        failures = [f"missing M30 roadmap doc: {path}" for path in required_docs if not (self.root / path).exists()]
+        text = "\n".join(self._read(self.root / path).lower() for path in required_docs if (self.root / path).exists())
+        if "v0.34.0" in text and "multi-step execution framework" in text:
+            if "implemented/released" not in text:
+                failures.append("M30 docs do not mark v0.34.0 implemented/released")
+        else:
+            failures.append("M30 docs do not mention v0.34.0 Multi-Step Execution Framework")
+        if "m31-m40 remain planned/provisional" not in text:
+            failures.append("M31-M40 must remain planned/provisional after M30")
+        forbidden_m31_fragments = (
+            "m31 is implemented",
+            "v0.35.0 implements m31",
+            "native client contract is implemented",
+            "ccc ios is implemented",
+            "ccc android is implemented",
+            "ccc macos is implemented",
         )
         failures.extend(
-            f"M29 docs imply M30 implementation: {fragment}"
-            for fragment in forbidden_m30_fragments
+            f"M30 docs imply M31 implementation: {fragment}"
+            for fragment in forbidden_m31_fragments
             if fragment in text
         )
         return self._result(criterion, failures, required_docs)
@@ -6868,7 +7200,9 @@ class FoundationGateEvaluator:
                 failures.append(failure)
         active_version = self._active_version() or "0.0.0"
         version_tuple = tuple(int(part) for part in active_version.split("."))
-        if version_tuple >= (0, 33, 0):
+        if version_tuple >= (0, 34, 0):
+            implemented_claim_start = 31
+        elif version_tuple >= (0, 33, 0):
             implemented_claim_start = 30
         elif version_tuple >= (0, 32, 0):
             implemented_claim_start = 29

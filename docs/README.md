@@ -1,7 +1,7 @@
 # Ultimate AI Agent Docs
 
 Status: active
-Current through: v0.33.1
+Current through: v0.34.0
 Purpose: Human-facing entrypoint for active documentation and historical archive navigation.
 
 Active docs are few, indexed, and current. Historical docs are preserved under
@@ -22,10 +22,19 @@ docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md
 Current release packet:
 
 ```text
-docs/archive/releases/v0_33_1/README_IMPORT.md
-docs/archive/releases/v0_33_1/master_plan.md
-docs/release_notes/v0_33_1.md
-docs/implementation/foundation_gate_implementation_plan_v0_33_1.md
+docs/archive/releases/v0_34_0/README_IMPORT.md
+docs/archive/releases/v0_34_0/master_plan.md
+docs/release_notes/v0_34_0.md
+docs/implementation/foundation_gate_implementation_plan_v0_34_0.md
+docs/execution/MULTI_STEP_EXECUTION_FRAMEWORK.md
+docs/execution/EXECUTION_STATE_MACHINE.md
+docs/execution/EXECUTION_STEP_CONTRACTS.md
+docs/execution/EXECUTION_DEPENDENCY_POLICY.md
+docs/execution/EXECUTION_TRANSITION_POLICY.md
+docs/execution/EXECUTION_INPUT_BOUNDARY.md
+docs/execution/EXECUTION_RECEIPT_PLAN.md
+docs/execution/EXECUTION_NON_GOALS.md
+docs/execution/M30_TO_M31_BOUNDARY.md
 docs/planning/TASK_PLANNING_ENGINE.md
 docs/planning/TASK_GOAL_STEP_PLAN_CONTRACTS.md
 docs/planning/TASK_DEPENDENCY_GRAPH.md
@@ -58,14 +67,20 @@ historical snapshots.
 v0.29.5 is documentation policy polish only. It accepts the pushed duplicate
 wording cleanup from `374bb1e` and remains the cleanup baseline before M26.
 
+v0.34.0 implements M30 Multi-Step Execution Framework as deterministic, local,
+side-effect-safe, state-machine-only contracts. It adds no real task execution,
+action execution, tool execution, backend execution routes, Control Center
+execute controls, dependencies, production authority, or M31 work.
+
 v0.33.1 hardens M29 Agent Task Planning Engine as deterministic, local,
 non-executing, review-only planning contracts. It strengthens dependency graph
 validation, duplicate/missing step denial, self/indirect cycle detection,
 derived risk checks, hidden side-effect denial, authority-boundary checks,
 evaluator revalidation, static verification, and Foundation Gate coverage.
-v0.33.1 adds no backend execution routes, frontend features, task execution,
+v0.33.1 added no backend execution routes, frontend features, task execution,
 scheduler/background worker, action execution, tool execution, file mutation,
 memory writes, network calls, model/provider calls, plugin enablement, browser
 automation, mobile/device access, remote execution, shell execution,
-dependencies, context injection, M30 work, or production authority. M30-M40
-remain planned/provisional.
+dependencies, context injection, or production authority.
+
+M31-M40 remain planned/provisional.

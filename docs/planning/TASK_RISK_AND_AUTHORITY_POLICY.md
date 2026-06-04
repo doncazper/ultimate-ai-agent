@@ -1,6 +1,6 @@
 # Task Risk and Authority Policy
 
-Status: active M29 contract. Current active baseline: **v0.33.1**.
+Status: active M29 contract. Current active baseline: **v0.34.0**.
 
 M29 task plans are review-only. The evaluator denies caller attempts to downgrade risk or hide side effects for:
 
@@ -27,4 +27,4 @@ execution. Truth/evidence refs may explain planning rationale only.
 
 M29 decisions always keep `execution_authorized=False`, `execution_performed=False`, and `scheduler_registered=False`.
 
-M30-M40 remain planned/provisional.
+M31-M40 remain planned/provisional.

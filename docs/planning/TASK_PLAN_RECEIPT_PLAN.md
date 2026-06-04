@@ -1,6 +1,6 @@
 # Task Plan Receipt Plan
 
-Status: active M29 contract. Current active baseline: **v0.33.1**.
+Status: active M29 contract. Current active baseline: **v0.34.0**.
 
 M29 receipt plans are non-authoritative metadata plans. They may summarize the planning decision but must not store raw content or claim performed side effects.
 
@@ -21,4 +21,4 @@ Receipt plans do not write the Event Ledger, write memory, schedule tasks, execu
 Receipt plans may include trusted derived plan risk. They are not authority, do
 not prove execution, and must keep `execution_performed=False`.
 
-M30-M40 remain planned/provisional.
+M31-M40 remain planned/provisional.

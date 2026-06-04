@@ -1,6 +1,6 @@
 # Task Goal, Step, and Plan Contracts
 
-Status: active M29 contract. Current active baseline: **v0.33.1**.
+Status: active M29 contract. Current active baseline: **v0.34.0**.
 
 M29 adds typed contracts for:
 
@@ -18,4 +18,4 @@ review. Constructor validation alone is not trusted for raw-content,
 secret-like metadata, execution flag, risk, side-effect, dependency, or
 authority-boundary decisions.
 
-M30-M40 remain planned/provisional.
+M31-M40 remain planned/provisional.

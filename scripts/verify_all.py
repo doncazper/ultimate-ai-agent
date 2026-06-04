@@ -31,6 +31,7 @@ SCAN_SEQUENCE = [
     ("M27 Tool Broker v2 safe intent contract scan", "verify_m27_tool_broker_v2_safety"),
     ("M28 Approval Authority v2 action policy safety scan", "verify_m28_approval_authority_v2_safety"),
     ("M29 Agent Task Planning Engine safety scan", "verify_m29_task_planning_engine_safety"),
+    ("M30 Multi-Step Execution Framework safety scan", "verify_m30_multi_step_execution_framework_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
     ("production truth integration scan", "verify_no_production_truth_integrations"),
@@ -2579,6 +2580,277 @@ def verify_m29_task_planning_engine_safety():
     )
 
     print("OK: M29 Agent Task Planning Engine contracts remain review-only, route-free, and non-executing")
+
+
+def verify_m30_multi_step_execution_framework_safety():
+    print("\n[Verifier] Running M30 Multi-Step Execution Framework safety guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/execution/__init__.py",
+        "src/ultimate_ai_agent/core/execution/enums.py",
+        "src/ultimate_ai_agent/core/execution/manifests.py",
+        "src/ultimate_ai_agent/core/execution/runs.py",
+        "src/ultimate_ai_agent/core/execution/state_machine.py",
+        "src/ultimate_ai_agent/core/execution/steps.py",
+        "src/ultimate_ai_agent/core/execution/transitions.py",
+        "src/ultimate_ai_agent/core/execution/validation.py",
+        "tests/test_execution_framework_contracts.py",
+        "tests/test_execution_state_machine_safety.py",
+        "tests/test_execution_dependency_progression.py",
+        "tests/test_execution_receipt_plan.py",
+        "tests/test_m30_gate_integration.py",
+        "docs/execution/MULTI_STEP_EXECUTION_FRAMEWORK.md",
+        "docs/execution/EXECUTION_STATE_MACHINE.md",
+        "docs/execution/EXECUTION_STEP_CONTRACTS.md",
+        "docs/execution/EXECUTION_DEPENDENCY_POLICY.md",
+        "docs/execution/EXECUTION_TRANSITION_POLICY.md",
+        "docs/execution/EXECUTION_INPUT_BOUNDARY.md",
+        "docs/execution/EXECUTION_RECEIPT_PLAN.md",
+        "docs/execution/EXECUTION_NON_GOALS.md",
+        "docs/execution/M30_TO_M31_BOUNDARY.md",
+        "docs/release_notes/v0_34_0.md",
+        "docs/archive/releases/v0_34_0/README_IMPORT.md",
+        "docs/archive/releases/v0_34_0/master_plan.md",
+        "docs/implementation/foundation_gate_implementation_plan_v0_34_0.md",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M30 Multi-Step Execution Framework file: {rel_path}")
+            sys.exit(1)
+
+    execution_root = ROOT / "src" / "ultimate_ai_agent" / "core" / "execution"
+    forbidden_source_fragments = [
+        "subprocess",
+        "os.system(",
+        "popen(",
+        "shell=true",
+        "requests.get(",
+        "requests.post(",
+        "httpx.get(",
+        "httpx.post(",
+        "urllib.request.urlopen(",
+        "socket",
+        "websocket",
+        "write_memory(",
+        ".write_memory(",
+        "put_record(",
+        ".put_record(",
+        "append_event(",
+        "mutate_event(",
+        "chat.completions.create(",
+        "import openai",
+        "from openai import",
+        "import anthropic",
+        "from anthropic import",
+        "import ollama",
+        "from ollama import",
+    ]
+    for path in execution_root.rglob("*.py"):
+        rel = path.relative_to(ROOT).as_posix()
+        if "__pycache__" in path.parts:
+            continue
+        text = path.read_text(encoding="utf-8").lower()
+        for fragment in forbidden_source_fragments:
+            if fragment in text:
+                print(f"FAIL: M30 forbidden execution source fragment in {rel}: {fragment}")
+                sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.execution import (
+            ExecutionInputTrustLevel,
+            ExecutionRun,
+            ExecutionStep,
+            ExecutionStepInputBoundary,
+            ExecutionStepMode,
+            ExecutionStepStatus,
+            ExecutionTransitionKind,
+            ExecutionTransitionRequest,
+            ExecutionTransitionStatus,
+            build_execution_framework_manifest,
+            dependency_graph_reason_codes,
+            evaluate_execution_transition,
+        )
+        from ultimate_ai_agent.core.gate.evaluators import m30_openapi_route_failures
+    except Exception as exc:
+        print(f"FAIL: M30 Multi-Step Execution Framework imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m30_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    manifest = build_execution_framework_manifest(baseline_version="0.34.0")
+    unsafe_flags = [
+        manifest.real_task_execution_enabled,
+        manifest.action_execution_enabled,
+        manifest.tool_execution_enabled,
+        manifest.file_mutation_enabled,
+        manifest.memory_write_enabled,
+        manifest.event_ledger_mutation_enabled,
+        manifest.network_call_enabled,
+        manifest.model_provider_call_enabled,
+        manifest.browser_automation_enabled,
+        manifest.mobile_device_access_enabled,
+        manifest.remote_execution_enabled,
+        manifest.plugin_enablement_enabled,
+        manifest.scheduler_enabled,
+        manifest.background_worker_enabled,
+        manifest.autonomous_loop_enabled,
+        manifest.context_injection_enabled,
+        manifest.backend_execution_routes_added,
+        manifest.control_center_execute_controls_enabled,
+        manifest.production_authority_enabled,
+    ]
+    if any(unsafe_flags) or not manifest.execution_state_machine_enabled:
+        print("FAIL: M30 manifest enables forbidden execution authority or disables the state machine")
+        sys.exit(1)
+
+    safe_step = ExecutionStep(
+        step_id="execution-step:verify-m30",
+        safe_summary="Advance a no-effect execution step for review.",
+        input_boundary=ExecutionStepInputBoundary(input_refs=["canonical:verify-m30"]),
+    )
+    safe_run = ExecutionRun(
+        run_id="execution-run:verify-m30",
+        source_task_plan_ref="task-plan:verify-m30",
+        steps=[safe_step],
+        safe_summary="No-effect execution-state-machine run.",
+    )
+    safe_request = ExecutionTransitionRequest(
+        run_id=safe_run.run_id,
+        target_step_id=safe_step.step_id,
+        transition_kind=ExecutionTransitionKind.complete_no_effect_step,
+        replay_key="replay:verify-m30",
+        safe_summary="Complete no-effect step.",
+    )
+    safe = evaluate_execution_transition(safe_run, safe_request)
+    if safe.status != ExecutionTransitionStatus.approved_no_effect_transition:
+        print("FAIL: M30 safe no-effect transition was not approved")
+        sys.exit(1)
+    if safe.execution_authorized or safe.execution_performed or safe.side_effects_performed:
+        print("FAIL: M30 safe no-effect transition authorized, performed, or reported side effects")
+        sys.exit(1)
+    if not safe.receipt_plan or safe.receipt_plan.execution_performed:
+        print("FAIL: M30 safe no-effect transition receipt plan is missing or executable")
+        sys.exit(1)
+
+    def require_denial(decision, required_reason: str, label: str) -> None:
+        if decision.status == ExecutionTransitionStatus.approved_no_effect_transition:
+            print(f"FAIL: M30 denied probe was allowed: {label}")
+            sys.exit(1)
+        if decision.execution_authorized or decision.execution_performed or decision.side_effects_performed:
+            print(f"FAIL: M30 denied probe changed execution invariants: {label}")
+            sys.exit(1)
+        if required_reason not in decision.reason_codes:
+            print(f"FAIL: M30 denied probe missing {required_reason}: {label}")
+            sys.exit(1)
+
+    require_denial(
+        evaluate_execution_transition(safe_run, safe_request.model_copy(update={"execution_requested": True})),
+        "EXECUTION_REQUEST_DENIED",
+        "execution requested",
+    )
+    require_denial(
+        evaluate_execution_transition(safe_run, safe_request.model_copy(update={"auto_run_requested": True})),
+        "AUTO_RUN_DENIED",
+        "auto-run requested",
+    )
+    require_denial(
+        evaluate_execution_transition(safe_run, safe_request.model_copy(update={"schedule_requested": True})),
+        "SCHEDULE_DENIED",
+        "schedule requested",
+    )
+    require_denial(
+        evaluate_execution_transition(safe_run, safe_request.model_copy(update={"background_worker_requested": True})),
+        "BACKGROUND_WORKER_DENIED",
+        "background worker requested",
+    )
+    require_denial(
+        evaluate_execution_transition(
+            safe_run,
+            safe_request.model_copy(update={"contains_raw_prompt": True, "replay_key": "replay:raw-m30"}),
+        ),
+        "RAW_PROMPT_DENIED",
+        "raw prompt model_copy revalidation",
+    )
+    require_denial(
+        evaluate_execution_transition(
+            safe_run,
+            safe_request.model_copy(update={"metadata": {"token": "abc123"}, "replay_key": "replay:metadata-m30"}),
+        ),
+        "SECRET_METADATA_DENIED",
+        "secret metadata model_copy revalidation",
+    )
+    require_denial(
+        evaluate_execution_transition(
+            safe_run.model_copy(update={"replay_keys_seen": ["replay:verify-m30"]}),
+            safe_request,
+        ),
+        "EXECUTION_REPLAY_DENIED",
+        "replay key reuse",
+    )
+    require_denial(
+        evaluate_execution_transition(
+            safe_run.model_copy(update={"approval_ref": "approval_test_verify_m30"}),
+            safe_request.model_copy(update={"replay_key": "replay:approval-m30"}),
+        ),
+        "APPROVAL_TEST_REF_DENIED",
+        "approval_test ref",
+    )
+    blocked_step = safe_step.model_copy(update={"mode": ExecutionStepMode.tool_execution_blocked})
+    require_denial(
+        evaluate_execution_transition(safe_run.model_copy(update={"steps": [blocked_step]}), safe_request),
+        "TOOL_EXECUTION_DENIED",
+        "tool execution step mode",
+    )
+    model_boundary = ExecutionStepInputBoundary(
+        input_refs=["model:verify-m30"],
+        input_trust_level=ExecutionInputTrustLevel.model_output_blocked,
+    )
+    require_denial(
+        evaluate_execution_transition(
+            safe_run.model_copy(update={"steps": [safe_step.model_copy(update={"input_boundary": model_boundary})]}),
+            safe_request,
+        ),
+        "MODEL_OUTPUT_NOT_EXECUTION_AUTHORITY",
+        "model output authority",
+    )
+    missing_dep_step = safe_step.model_copy(update={"depends_on": ["execution-step:missing-m30"]})
+    require_denial(
+        evaluate_execution_transition(safe_run.model_copy(update={"steps": [missing_dep_step]}), safe_request),
+        "MISSING_EXECUTION_DEPENDENCY_DENIED",
+        "missing dependency",
+    )
+    step_a = safe_step.model_copy(
+        update={"step_id": "execution-step:verify-m30-a", "depends_on": ["execution-step:verify-m30-b"]}
+    )
+    step_b = safe_step.model_copy(
+        update={"step_id": "execution-step:verify-m30-b", "depends_on": ["execution-step:verify-m30-a"]}
+    )
+    cyclic_run = safe_run.model_copy(update={"steps": [step_a, step_b]})
+    if "EXECUTION_DEPENDENCY_CYCLE_DENIED" not in dependency_graph_reason_codes(cyclic_run):
+        print("FAIL: M30 dependency graph did not report a direct cycle")
+        sys.exit(1)
+    require_denial(
+        evaluate_execution_transition(cyclic_run, safe_request.model_copy(update={"target_step_id": step_a.step_id})),
+        "EXECUTION_DEPENDENCY_CYCLE_DENIED",
+        "dependency cycle",
+    )
+    completed_dependency = ExecutionStep(
+        step_id="execution-step:verify-m30-dep",
+        safe_summary="Already completed no-effect dependency.",
+        status=ExecutionStepStatus.completed_no_effect,
+    )
+    dependent_step = safe_step.model_copy(update={"depends_on": [completed_dependency.step_id]})
+    dependent_run = safe_run.model_copy(update={"steps": [completed_dependency, dependent_step]})
+    dependent_decision = evaluate_execution_transition(dependent_run, safe_request)
+    if dependent_decision.status != ExecutionTransitionStatus.approved_no_effect_transition:
+        print("FAIL: M30 completed dependency did not allow no-effect progression")
+        sys.exit(1)
+
+    print("OK: M30 Multi-Step Execution Framework remains state-machine-only, route-free, and non-executing")
 
 
 def verify_v0292_local_dev_api_hardening():

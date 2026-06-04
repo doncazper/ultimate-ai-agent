@@ -1,6 +1,6 @@
 # Task Planning Non-Goals
 
-Status: active M29 contract. Current active baseline: **v0.33.1**.
+Status: active M29 contract. Current active baseline: **v0.34.0**.
 
 M29 does not add:
 
@@ -29,4 +29,4 @@ M29 is a deterministic, local, non-executing planning contract milestone.
 v0.33.1 hardening does not change that posture; it only strengthens
 dependency, risk, authority, evaluator revalidation, and no-execution checks.
 
-M30-M40 remain planned/provisional.
+M31-M40 remain planned/provisional.

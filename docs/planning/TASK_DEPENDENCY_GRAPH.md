@@ -1,6 +1,6 @@
 # Task Dependency Graph
 
-Status: active M29 contract. Current active baseline: **v0.33.1**.
+Status: active M29 contract. Current active baseline: **v0.34.0**.
 
 M29 validates task dependencies before a plan can be marked valid for review.
 
@@ -16,4 +16,4 @@ The dependency graph denies:
 
 Dependency validation is deterministic and local. Optional dependencies cannot hide required policy, approval, or authority dependencies. Dependency ordering is review metadata only; it does not schedule work, run steps, execute tools, mutate files, write memory, or call networks/models.
 
-M30-M40 remain planned/provisional.
+M31-M40 remain planned/provisional.

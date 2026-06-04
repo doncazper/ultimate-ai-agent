@@ -1,6 +1,6 @@
 # M29 to M30 Boundary
 
-Status: active M29 boundary. Current active baseline: **v0.33.1**.
+Status: active M29-to-M30 historical boundary. Current active baseline: **v0.34.0**.
 
 v0.33.0 / M29 implements the Agent Task Planning Engine as deterministic, local, non-executing, review-only planning contracts. v0.33.1 hardens M29 dependency graph, risk, side-effect, authority-boundary, evaluator revalidation, and no-execution checks.
 
@@ -15,6 +15,6 @@ graphs must be acyclic, duplicate/missing step IDs are denied, risk downgrade
 is denied, side effects cannot be hidden, and evaluator boundaries revalidate
 safety-critical fields before review decisions.
 
-M30 remains planned/provisional. Future M30 work requires a dedicated implementation prompt, review prompt, tests, verifier coverage, Foundation Gate criteria, and release tag.
+v0.34.0 / M30 is implemented/released as Multi-Step Execution Framework. It is deterministic, local, side-effect-safe, and state-machine-only. It adds no real task execution, action execution, tool execution, scheduler/background worker, file mutation, memory writes, network calls, model/provider calls, backend execution routes, Control Center execute controls, dependency, production authority, or M31 work.
 
-M30-M40 remain planned/provisional.
+M31-M40 remain planned/provisional.
