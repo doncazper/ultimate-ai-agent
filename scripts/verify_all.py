@@ -87,6 +87,7 @@ SCAN_SEQUENCE = [
     ("M51 OpenWebUI bridge adapter pilot scan", "verify_m51_openwebui_bridge_adapter_pilot"),
     ("M52 OpenWebUI safe conversation surface scan", "verify_m52_openwebui_safe_conversation_surface"),
     ("M53 controlled tool expansion review scan", "verify_m53_controlled_tool_expansion_review"),
+    ("M54 safe media metadata inspector scan", "verify_m54_safe_media_metadata_inspector"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -6975,6 +6976,202 @@ def verify_m53_controlled_tool_expansion_review():
             sys.exit(1)
 
     print("OK: M53 controlled tool expansion review is review-only, no-route, and no-authority")
+
+
+def verify_m54_safe_media_metadata_inspector():
+    print("\n[Verifier] Running M54 safe media metadata inspector guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/media/__init__.py",
+        "src/ultimate_ai_agent/core/media/metadata.py",
+        "docs/media/SAFE_MEDIA_METADATA_INSPECTOR.md",
+        "docs/media/SAFE_MEDIA_METADATA_POLICY.md",
+        "docs/media/SAFE_MEDIA_METADATA_AUTHORITY_BOUNDARY.md",
+        "docs/media/M54_TO_M55_BOUNDARY.md",
+        "docs/release_notes/v0_58_0.md",
+        "docs/archive/releases/v0_58_0/README_IMPORT.md",
+        "docs/archive/releases/v0_58_0/master_plan.md",
+        "docs/implementation/foundation_gate_implementation_plan_v0_58_0.md",
+        "tests/test_m54_safe_media_metadata_inspector.py",
+        "tests/test_m54_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M54 safe media metadata file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = "\n".join(
+        (ROOT / rel_path).read_text(encoding="utf-8").lower()
+        for rel_path in required_files
+        if rel_path.startswith("docs/")
+    )
+    for fragment in [
+        "safe media metadata inspector",
+        "metadata-only",
+        "no raw media export",
+        "no raw media storage",
+        "no full-file read",
+        "no file mutation",
+        "no original overwrite",
+        "no ocio transform",
+        "no ai gamut expansion",
+        "no model call",
+        "no context injection",
+        "no backend route",
+        "m55 remains future",
+        "skill package security rule",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M54 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.evaluators import m54_openapi_route_failures
+        from ultimate_ai_agent.core.media import (
+            MediaInspectionKind,
+            SafeMediaMetadataPolicy,
+            SafeMediaMetadataRequest,
+            SafeMediaMetadataStatus,
+            inspect_safe_media_metadata,
+            validate_safe_media_metadata_policy,
+            validate_safe_media_metadata_request,
+        )
+    except Exception as exc:
+        print(f"FAIL: M54 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m54_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    request = SafeMediaMetadataRequest(
+        request_ref="media-metadata-request:verify-all-m54",
+        media_ref="media:verify-all-m54",
+        safe_path_ref="safe-path:verify-all-m54.jpg",
+        inspection_kind=MediaInspectionKind.image_metadata,
+        declared_media_type="image/jpeg",
+        declared_byte_size=2048,
+    )
+    decision = inspect_safe_media_metadata(request)
+    if decision.status != SafeMediaMetadataStatus.metadata_ready or not decision.metadata_ready:
+        print(f"FAIL: M54 safe request was not metadata-ready: {decision.reason_codes}")
+        sys.exit(1)
+    if (
+        decision.raw_media_returned
+        or decision.raw_media_stored
+        or decision.original_file_modified
+        or decision.ocio_transform_performed
+        or decision.ai_gamut_expansion_performed
+        or decision.model_call_performed
+        or decision.context_injection_performed
+    ):
+        print("FAIL: M54 decision performed raw media, mutation, transform, model, or context side effect")
+        sys.exit(1)
+    if decision.receipt_plan is None or decision.receipt_plan.side_effects_performed or decision.receipt_plan.raw_media_stored:
+        print("FAIL: M54 receipt plan did not remain metadata-only/no-effect")
+        sys.exit(1)
+
+    denied = inspect_safe_media_metadata(
+        request.model_copy(
+            update={
+                "request_ref": "media-metadata-request:verify-all-m54-unsupported",
+                "declared_media_type": "application/octet-stream",
+            }
+        )
+    )
+    if denied.status != SafeMediaMetadataStatus.denied or denied.raw_media_returned:
+        print("FAIL: M54 unsupported media type was not safely denied")
+        sys.exit(1)
+
+    for request_update, reason in [
+        ({"raw_media_requested": True}, "RAW_MEDIA_EXPORT_DENIED"),
+        ({"full_file_read_requested": True}, "FULL_FILE_READ_DENIED"),
+        ({"file_mutation_requested": True}, "FILE_MUTATION_DENIED"),
+        ({"original_overwrite_requested": True}, "ORIGINAL_OVERWRITE_DENIED"),
+        ({"ocio_transform_requested": True}, "OCIO_TRANSFORM_DENIED"),
+        ({"ai_gamut_expansion_requested": True}, "AI_GAMUT_EXPANSION_DENIED"),
+        ({"model_call_requested": True}, "MODEL_CALL_DENIED"),
+        ({"context_injection_requested": True}, "CONTEXT_INJECTION_DENIED"),
+        ({"contains_secret_like_metadata": True}, "SECRET_LIKE_METADATA_DENIED"),
+    ]:
+        try:
+            validate_safe_media_metadata_request(request.model_copy(update=request_update))
+            print(f"FAIL: M54 unsafe request mutation was not denied: {reason}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M54 unsafe request reason drifted for {reason}: {exc}")
+                sys.exit(1)
+
+    try:
+        validate_safe_media_metadata_policy(SafeMediaMetadataPolicy(raw_media_export_enabled=True))
+        print("FAIL: M54 unsafe policy flag was not denied")
+        sys.exit(1)
+    except ValueError as exc:
+        if "RAW_MEDIA_EXPORT_DENIED" not in str(exc):
+            print(f"FAIL: M54 unsafe policy reason drifted: {exc}")
+            sys.exit(1)
+
+    forbidden_source_fragments = [
+        "raw_media_export_enabled=True",
+        "raw_media_storage_enabled=True",
+        "full_file_read_enabled=True",
+        "file_mutation_enabled=True",
+        "original_overwrite_enabled=True",
+        "ocio_transform_enabled=True",
+        "ai_gamut_expansion_enabled=True",
+        "model_call_enabled=True",
+        "context_injection_enabled=True",
+        "production_authority_enabled=True",
+        "raw_media_returned=True",
+        "raw_media_stored=True",
+        "original_file_modified=True",
+        "ocio_transform_performed=True",
+        "ai_gamut_expansion_performed=True",
+        "model_call_performed=True",
+        "context_injection_performed=True",
+        "/media/read/raw",
+        "/media/export",
+        "/media/transform/ocio",
+        "/media/gamut/expand",
+        "/models/call",
+        "/provider/call",
+        "/context/inject",
+        "/memory/write",
+        "/tools/execute",
+    ]
+    allowed_files = {
+        "scripts/verify_all.py",
+        "src/ultimate_ai_agent/api/app.py",
+        "src/ultimate_ai_agent/api/openapi.py",
+        "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/media/metadata.py",
+        "tests/test_m54_safe_media_metadata_inspector.py",
+        "tests/test_m54_gate_integration.py",
+    }
+    source_roots = [
+        ROOT / "src",
+        ROOT / "apps" / "control-center" / "src",
+        ROOT / "apps" / "ccc-ios",
+    ]
+    for root in source_roots:
+        if not root.exists():
+            continue
+        for path in root.rglob("*"):
+            if not path.is_file() or path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}:
+                continue
+            rel = path.relative_to(ROOT).as_posix()
+            if rel in allowed_files:
+                continue
+            text = path.read_text(encoding="utf-8")
+            for fragment in forbidden_source_fragments:
+                if fragment in text:
+                    print(f"FAIL: M54 forbidden media metadata fragment in {rel}: {fragment}")
+                    sys.exit(1)
+
+    print("OK: M54 safe media metadata inspector is metadata-only, no-route, no-transform, and no-authority")
 
 
 def verify_local_developer_launcher_safety():

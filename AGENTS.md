@@ -1,6 +1,8 @@
 # Ultimate AI Agent Workspace Standards
 
-Active baseline: v0.57.0.
+Active baseline: v0.58.0.
+
+- v0.58.0 M54 Safe Media Metadata Inspector is metadata-only and contract-only. It may validate declared safe media refs and safe metadata refs, but it must not export or store raw media, perform full-file reads, mutate files, overwrite originals, run OCIO transforms, perform AI gamut expansion, call models or providers, inject context, write memory, add backend routes, add Control Center controls, add dependencies, add production authority, or implement M55.
 
 This repository is the Ultimate AI Agent foundation workspace. Treat it as a contract-first Python core, not a production runtime integration layer.
 

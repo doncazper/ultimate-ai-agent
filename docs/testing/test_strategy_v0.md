@@ -651,5 +651,21 @@ model_copy-mutated unsafe fields are revalidated at the evaluator boundary.
 Receipt plans record no tool execution, no tool enablement, no side effects, no network call, no model call, no memory write, and no context injection.
 Foundation Gate includes M53 controlled tool expansion review, static safety, route boundary, and roadmap currentness criteria.
 OpenAPI path count remains unchanged at 75.
-M54 remains planned/provisional as Safe Media Metadata Inspector.
+At the v0.57.0 M53 baseline, M54 remained planned/provisional as Safe Media Metadata Inspector.
+```
+
+## v0.58.0 M54 Safe Media Metadata Inspector Tests
+
+v0.58.0 adds focused Safe Media Metadata Inspector tests only:
+
+```text
+Safe media metadata policy, request, decision, and receipt plan contracts exist.
+Supported declared image, video, and audio metadata can be marked metadata-ready.
+Unsupported media types are denied without raw media output.
+raw_media_requested, full_file_read_requested, file_mutation_requested, original_overwrite_requested, ocio_transform_requested, ai_gamut_expansion_requested, model_call_requested, context_injection_requested, and secret-like metadata flags are denied.
+model_copy-mutated unsafe fields are revalidated at the evaluator boundary.
+Receipt plans record metadata-only results, no raw media storage, no original overwrite, and no side effects.
+Foundation Gate includes M54 safe media metadata inspector, static safety, route boundary, and roadmap currentness criteria.
+OpenAPI path count remains unchanged at 75.
+M55 remains planned/provisional as Redacted Observability Export.
 ```

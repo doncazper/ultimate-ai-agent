@@ -272,6 +272,17 @@ REQUIRED_M53_CONTROLLED_TOOL_EXPANSION_DOCS = [
     "docs/implementation/foundation_gate_implementation_plan_v0_57_0.md",
 ]
 
+REQUIRED_M54_SAFE_MEDIA_METADATA_DOCS = [
+    "docs/media/SAFE_MEDIA_METADATA_INSPECTOR.md",
+    "docs/media/SAFE_MEDIA_METADATA_POLICY.md",
+    "docs/media/SAFE_MEDIA_METADATA_AUTHORITY_BOUNDARY.md",
+    "docs/media/M54_TO_M55_BOUNDARY.md",
+    "docs/release_notes/v0_58_0.md",
+    "docs/archive/releases/v0_58_0/README_IMPORT.md",
+    "docs/archive/releases/v0_58_0/master_plan.md",
+    "docs/implementation/foundation_gate_implementation_plan_v0_58_0.md",
+]
+
 
 REQUIRED_ACTIVE_DOCS = [
     "docs/README.md",
@@ -785,6 +796,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_m51_openwebui_bridge_adapter_docs(root, version))
     failures.extend(_verify_m52_openwebui_safe_conversation_docs(root, version))
     failures.extend(_verify_m53_controlled_tool_expansion_docs(root, version))
+    failures.extend(_verify_m54_safe_media_metadata_docs(root, version))
     failures.extend(_verify_m19_roadmap_currentness(root, version))
     failures.extend(_verify_post_m18_roadmap_status_labels(root))
 
@@ -933,6 +945,30 @@ def _verify_m34_m60_roadmap_supersession(root: Path, version: str | None) -> lis
                                 **(
                                     (
                                         {
+                                            "M49 must be released as Mobile Review Approval Capture": (
+                                                "m49 is implemented/released"
+                                            ),
+                                            "M50 must be released as Mobile Approval Audit Hardening": (
+                                                "m50 is implemented/released"
+                                            ),
+                                            "M51 must be released as OpenWebUI Bridge Adapter Pilot": (
+                                                "m51 is implemented/released"
+                                            ),
+                                            "M52 must be released as OpenWebUI Safe Conversation Surface": (
+                                                "m52 is implemented/released"
+                                            ),
+                                            "M53 must be released as Controlled Tool Expansion Review": (
+                                                "m53 is implemented/released"
+                                            ),
+                                            "M54 must be released as Safe Media Metadata Inspector": (
+                                                "m54 is implemented/released"
+                                            ),
+                                            "M55-M60 must remain planned/provisional": (
+                                                "m55-m60 remain planned/provisional"
+                                            ),
+                                        }
+                                        if _version_tuple(version) >= (0, 58, 0)
+                                        else {
                                             "M49 must be released as Mobile Review Approval Capture": (
                                                 "m49 is implemented/released"
                                             ),
@@ -2525,6 +2561,53 @@ def _verify_m53_controlled_tool_expansion_docs(root: Path, version: str | None) 
         "M53 docs must not claim provider calls": "provider model call is implemented",
         "M53 docs must not claim M54 implementation": "m54 is implemented",
         "M53 docs must not claim production authority": "production authority is implemented",
+    }
+    for message, fragment in forbidden_fragments.items():
+        if fragment in text:
+            failures.append(f"{message}: {fragment}")
+    return failures
+
+
+def _verify_m54_safe_media_metadata_docs(root: Path, version: str | None) -> list[str]:
+    if _version_tuple(version) < (0, 58, 0):
+        return []
+
+    failures: list[str] = []
+    parts: list[str] = []
+    for rel_path in REQUIRED_M54_SAFE_MEDIA_METADATA_DOCS:
+        path = root / rel_path
+        if not path.exists():
+            failures.append(f"missing active M54 safe media metadata doc: {rel_path}")
+            continue
+        parts.append(_read(path).lower())
+    text = "\n".join(parts)
+    required_fragments = {
+        "M54 docs must say Safe Media Metadata Inspector": "safe media metadata inspector",
+        "M54 docs must say metadata-only": "metadata-only",
+        "M54 docs must deny raw media export": "no raw media export",
+        "M54 docs must deny raw media storage": "no raw media storage",
+        "M54 docs must deny full-file reads": "no full-file read",
+        "M54 docs must deny file mutation": "no file mutation",
+        "M54 docs must deny original overwrite": "no original overwrite",
+        "M54 docs must deny OCIO transform": "no ocio transform",
+        "M54 docs must deny AI gamut expansion": "no ai gamut expansion",
+        "M54 docs must deny model calls": "no model call",
+        "M54 docs must deny context injection": "no context injection",
+        "M54 docs must deny backend routes": "no backend route",
+        "M54 docs must keep M55 future": "m55 remains future",
+        "M54 Foundation Gate docs must mention Skill Package Security Rule": "skill package security rule",
+    }
+    for message, fragment in required_fragments.items():
+        if fragment not in text:
+            failures.append(message)
+
+    forbidden_fragments = {
+        "M54 docs must not claim raw media export implementation": "raw media export is implemented",
+        "M54 docs must not claim OCIO transform implementation": "ocio transform is implemented",
+        "M54 docs must not claim AI gamut expansion implementation": "ai gamut expansion is implemented",
+        "M54 docs must not claim model calls": "model call is implemented",
+        "M54 docs must not claim M55 implementation": "m55 is implemented",
+        "M54 docs must not claim production authority": "production authority is implemented",
     }
     for message, fragment in forbidden_fragments.items():
         if fragment in text:
@@ -4304,7 +4387,50 @@ def _verify_post_m20_roadmap_projection(root: Path) -> list[str]:
         expectations["M40 must be Context Handoff Approval, No Injection"] = (
             "context handoff approval, no injection"
         )
-        if active_version_tuple >= (0, 57, 0):
+        if active_version_tuple >= (0, 58, 0):
+            expectations["Post-M20 roadmap docs must say M42 is implemented/released"] = (
+                "m42 is implemented/released"
+            )
+            expectations["Post-M20 roadmap docs must say M43 is implemented/released"] = (
+                "m43 is implemented/released"
+            )
+            expectations["Post-M20 roadmap docs must say M44 is implemented/released"] = (
+                "m44 is implemented/released"
+            )
+            expectations["Post-M20 roadmap docs must say M45 is implemented/released"] = (
+                "m45 is implemented/released"
+            )
+            expectations["Post-M20 roadmap docs must say M46 is implemented/released"] = (
+                "m46 is implemented/released"
+            )
+            expectations["Post-M20 roadmap docs must say M47 is implemented/released"] = (
+                "m47 is implemented/released"
+            )
+            expectations["Post-M20 roadmap docs must say M48 is implemented/released"] = (
+                "m48 is implemented/released"
+            )
+            expectations["Post-M20 roadmap docs must say M49 is implemented/released"] = (
+                "m49 is implemented/released"
+            )
+            expectations["Post-M20 roadmap docs must say M50 is implemented/released"] = (
+                "m50 is implemented/released"
+            )
+            expectations["Post-M20 roadmap docs must say M51 is implemented/released"] = (
+                "m51 is implemented/released"
+            )
+            expectations["Post-M20 roadmap docs must say M52 is implemented/released"] = (
+                "m52 is implemented/released"
+            )
+            expectations["Post-M20 roadmap docs must say M53 is implemented/released"] = (
+                "m53 is implemented/released"
+            )
+            expectations["Post-M20 roadmap docs must say M54 is implemented/released"] = (
+                "m54 is implemented/released"
+            )
+            expectations["Post-M20 roadmap docs must keep M55-M60 planned/provisional"] = (
+                "m55-m60 remain planned/provisional"
+            )
+        elif active_version_tuple >= (0, 57, 0):
             expectations["Post-M20 roadmap docs must say M42 is implemented/released"] = (
                 "m42 is implemented/released"
             )
@@ -4984,7 +5110,22 @@ def _verify_post_m18_roadmap_status_labels(root: Path) -> list[str]:
             or "redacted preview" not in active_capability_charters
         ):
             failures.append("roadmap sequence must define M33 as redacted file preview")
-        if active >= (0, 57, 0):
+        if active >= (0, 58, 0):
+            if "v0.53.0" not in active_capability_charters or "m49" not in active_capability_charters or "implemented/released" not in active_capability_charters:
+                failures.append("roadmap sequence must mark M49/v0.53.0 implemented")
+            if "v0.54.0" not in active_capability_charters or "m50" not in active_capability_charters or "implemented/released" not in active_capability_charters:
+                failures.append("roadmap sequence must mark M50/v0.54.0 implemented")
+            if "v0.55.0" not in active_capability_charters or "m51" not in active_capability_charters or "implemented/released" not in active_capability_charters:
+                failures.append("roadmap sequence must mark M51/v0.55.0 implemented")
+            if "v0.56.0" not in active_capability_charters or "m52" not in active_capability_charters or "implemented/released" not in active_capability_charters:
+                failures.append("roadmap sequence must mark M52/v0.56.0 implemented")
+            if "v0.57.0" not in active_capability_charters or "m53" not in active_capability_charters or "implemented/released" not in active_capability_charters:
+                failures.append("roadmap sequence must mark M53/v0.57.0 implemented")
+            if "v0.58.0" not in active_capability_charters or "m54" not in active_capability_charters or "implemented/released" not in active_capability_charters:
+                failures.append("roadmap sequence must mark M54/v0.58.0 implemented")
+            if "m55-m60" not in active_capability_charters or "planned/provisional" not in active_capability_charters:
+                failures.append("roadmap sequence must keep M55-M60 planned/provisional")
+        elif active >= (0, 57, 0):
             if "v0.53.0" not in active_capability_charters or "m49" not in active_capability_charters or "implemented/released" not in active_capability_charters:
                 failures.append("roadmap sequence must mark M49/v0.53.0 implemented")
             if "v0.54.0" not in active_capability_charters or "m50" not in active_capability_charters or "implemented/released" not in active_capability_charters:

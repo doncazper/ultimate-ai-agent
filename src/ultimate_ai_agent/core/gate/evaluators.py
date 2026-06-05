@@ -816,6 +816,23 @@ M53_FORBIDDEN_BACKEND_ROUTES = M52_FORBIDDEN_BACKEND_ROUTES + (
     "/memory/write",
     "/context/inject",
 )
+EXPECTED_M54_OPENAPI_PATH_COUNT = 75
+M54_FORBIDDEN_BACKEND_ROUTES = M53_FORBIDDEN_BACKEND_ROUTES + (
+    "/media/read/raw",
+    "/media/read/content",
+    "/media/read/full",
+    "/media/full-read",
+    "/media/export",
+    "/media/download",
+    "/media/original",
+    "/media/write",
+    "/media/delete",
+    "/media/transform",
+    "/media/transform/ocio",
+    "/media/gamut/expand",
+    "/media/ai/gamut",
+    "/media/model/analyze",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -1371,6 +1388,19 @@ def m53_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
     return failures
 
 
+def m54_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M54_OPENAPI_PATH_COUNT) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+    if M37_ALLOWED_CAPTURE_ROUTE not in path_set:
+        failures.append("M37 capture route missing: /files/review/approvals/capture")
+    for route in M54_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(f"M54 forbidden raw media/transform/model/backend route present: {route}")
+    return failures
+
+
 M36_SAFE_REF_PREFIXES = {
     "reviewPacketRef": "file-review-packet:",
     "previewResultRef": "redacted-file-preview-output:",
@@ -1805,6 +1835,14 @@ class FoundationGateEvaluator:
                 self.check_m53_controlled_tool_expansion_route_boundary
             ),
             "m53_roadmap_currentness": self.check_m53_roadmap_currentness,
+            "m54_safe_media_metadata_inspector": self.check_m54_safe_media_metadata_inspector,
+            "m54_safe_media_metadata_static_safety": (
+                self.check_m54_safe_media_metadata_static_safety
+            ),
+            "m54_safe_media_metadata_route_boundary": (
+                self.check_m54_safe_media_metadata_route_boundary
+            ),
+            "m54_roadmap_currentness": self.check_m54_roadmap_currentness,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -9131,6 +9169,7 @@ class FoundationGateEvaluator:
                 and "m52-m60 remain planned/provisional" not in text
                 and "m53-m60 remain planned/provisional" not in text
                 and "m54-m60 remain planned/provisional" not in text
+                and "m55-m60 remain planned/provisional" not in text
             ):
                 failures.append("M42-M60 through M49-M60 planned/provisional marker missing after M41")
         elif current_tuple >= (0, 44, 0):
@@ -9436,6 +9475,7 @@ class FoundationGateEvaluator:
                 and "m52-m60 remain planned/provisional" not in text
                 and "m53-m60 remain planned/provisional" not in text
                 and "m54-m60 remain planned/provisional" not in text
+                and "m55-m60 remain planned/provisional" not in text
             ):
                 failures.append("M42-M60 through M49-M60 planned/provisional marker missing after M41")
         elif version_tuple >= (0, 44, 0):
@@ -9614,6 +9654,7 @@ class FoundationGateEvaluator:
                 and "m52-m60 remain planned/provisional" not in text
                 and "m53-m60 remain planned/provisional" not in text
                 and "m54-m60 remain planned/provisional" not in text
+                and "m55-m60 remain planned/provisional" not in text
             ):
                 failures.append("M42-M60 through M49-M60 planned/provisional marker missing after M41")
         elif version_tuple >= (0, 44, 0):
@@ -9768,6 +9809,7 @@ class FoundationGateEvaluator:
                 and "m52-m60 remain planned/provisional" not in text
                 and "m53-m60 remain planned/provisional" not in text
                 and "m54-m60 remain planned/provisional" not in text
+                and "m55-m60 remain planned/provisional" not in text
             ):
                 failures.append("M42-M60 through M49-M60 planned/provisional marker missing after M41")
         elif version_tuple >= (0, 44, 0):
@@ -10038,6 +10080,7 @@ class FoundationGateEvaluator:
                 and "m52-m60 remain planned/provisional" not in text
                 and "m53-m60 remain planned/provisional" not in text
                 and "m54-m60 remain planned/provisional" not in text
+                and "m55-m60 remain planned/provisional" not in text
             ):
                 failures.append("M42-M60 through M49-M60 planned/provisional marker missing after M41")
         elif current >= (0, 44, 0):
@@ -10193,6 +10236,7 @@ class FoundationGateEvaluator:
                 and "m52-m60 remain planned/provisional" not in text
                 and "m53-m60 remain planned/provisional" not in text
                 and "m54-m60 remain planned/provisional" not in text
+                and "m55-m60 remain planned/provisional" not in text
             ):
                 failures.append("M42-M60 through M49-M60 planned/provisional marker missing after M41")
         elif m40_implemented:
@@ -10422,6 +10466,7 @@ class FoundationGateEvaluator:
                 and "m52-m60 remain planned/provisional" not in text
                 and "m53-m60 remain planned/provisional" not in text
                 and "m54-m60 remain planned/provisional" not in text
+                and "m55-m60 remain planned/provisional" not in text
             ):
                 failures.append("M42-M60 through M49-M60 planned/provisional marker missing after M41")
         elif "m41 remains planned/provisional" not in text and "m41-m60 remain planned/provisional" not in text:
@@ -12094,7 +12139,10 @@ class FoundationGateEvaluator:
                 failures.append("M52 must be implemented/released after v0.56.0")
             if "m53 is implemented/released" not in text and "v0.57.0 implements m53" not in text:
                 failures.append("M53 must be implemented/released after v0.57.0")
-            if "m54-m60 remain planned/provisional" not in text:
+            if (
+                "m54-m60 remain planned/provisional" not in text
+                and "m55-m60 remain planned/provisional" not in text
+            ):
                 failures.append("M54-M60 must remain planned/provisional after M53")
         elif self._active_version_tuple() >= (0, 56, 0):
             if "m50 is implemented/released" not in text and "v0.54.0 implements m50" not in text:
@@ -12350,7 +12398,10 @@ class FoundationGateEvaluator:
                 failures.append("M52 must be implemented/released after v0.56.0")
             if "m53 is implemented/released" not in text and "v0.57.0 implements m53" not in text:
                 failures.append("M53 must be implemented/released after v0.57.0")
-            if "m54-m60 remain planned/provisional" not in text:
+            if (
+                "m54-m60 remain planned/provisional" not in text
+                and "m55-m60 remain planned/provisional" not in text
+            ):
                 failures.append("M54-M60 must remain planned/provisional after M53")
         elif self._active_version_tuple() >= (0, 56, 0):
             if "m51 is implemented/released" not in text and "v0.55.0 implements m51" not in text:
@@ -12590,7 +12641,10 @@ class FoundationGateEvaluator:
                 failures.append("M52 must be implemented/released after v0.56.0")
             if "m53 is implemented/released" not in text and "v0.57.0 implements m53" not in text:
                 failures.append("M53 must be implemented/released after v0.57.0")
-            if "m54-m60 remain planned/provisional" not in text:
+            if (
+                "m54-m60 remain planned/provisional" not in text
+                and "m55-m60 remain planned/provisional" not in text
+            ):
                 failures.append("M54-M60 must remain planned/provisional after M53")
         elif self._active_version_tuple() >= (0, 56, 0):
             if "m52 is implemented/released" not in text and "v0.56.0 implements m52" not in text:
@@ -12848,7 +12902,10 @@ class FoundationGateEvaluator:
         if self._active_version_tuple() >= (0, 57, 0):
             if "m53 is implemented/released" not in text and "v0.57.0 implements m53" not in text:
                 failures.append("M53 must be implemented/released after v0.57.0")
-            if "m54-m60 remain planned/provisional" not in text:
+            if (
+                "m54-m60 remain planned/provisional" not in text
+                and "m55-m60 remain planned/provisional" not in text
+            ):
                 failures.append("M54-M60 must remain planned/provisional after M53")
         else:
             if "m53-m60 remain planned/provisional" not in text:
@@ -13088,20 +13145,254 @@ class FoundationGateEvaluator:
             failures.append("active docs do not identify v0.57.0/M53 Controlled Tool Expansion Review")
         if "m53 is implemented/released" not in text and "v0.57.0 implements m53" not in text:
             failures.append("active docs do not mark M53 implemented/released")
-        if "m54-m60 remain planned/provisional" not in text:
+        if (
+            "m54-m60 remain planned/provisional" not in text
+            and "m55-m60 remain planned/provisional" not in text
+        ):
             failures.append("M54-M60 must remain planned/provisional after M53")
-        for fragment in (
-            "m54 is implemented",
-            "v0.58.0 implements m54",
-            "safe media metadata inspector is implemented",
+        forbidden_fragments = [
             "tool execution is implemented",
             "shell execution is implemented",
             "provider model call is implemented",
             "context injection is implemented",
             "production authority is implemented",
-        ):
+        ]
+        if self._active_version_tuple() < (0, 58, 0):
+            forbidden_fragments.extend(
+                [
+                    "m54 is implemented",
+                    "v0.58.0 implements m54",
+                    "safe media metadata inspector is implemented",
+                ]
+            )
+        for fragment in forbidden_fragments:
             if fragment in text:
                 failures.append(f"M53 docs imply forbidden/future capability: {fragment}")
+        return self._result(criterion, failures, required_docs)
+
+    def check_m54_safe_media_metadata_inspector(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/media/__init__.py",
+            "src/ultimate_ai_agent/core/media/metadata.py",
+            "docs/media/SAFE_MEDIA_METADATA_INSPECTOR.md",
+            "docs/media/SAFE_MEDIA_METADATA_POLICY.md",
+            "docs/media/SAFE_MEDIA_METADATA_AUTHORITY_BOUNDARY.md",
+            "docs/media/M54_TO_M55_BOUNDARY.md",
+            "tests/test_m54_safe_media_metadata_inspector.py",
+            "tests/test_m54_gate_integration.py",
+        ]
+        failures = [
+            f"missing M54 safe media metadata file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            from ultimate_ai_agent.core.media import (
+                MediaInspectionKind,
+                SafeMediaMetadataPolicy,
+                SafeMediaMetadataRequest,
+                SafeMediaMetadataStatus,
+                inspect_safe_media_metadata,
+                validate_safe_media_metadata_policy,
+                validate_safe_media_metadata_request,
+            )
+
+            request = SafeMediaMetadataRequest(
+                request_ref="media-metadata-request:m54-gate",
+                media_ref="media:m54-gate",
+                safe_path_ref="safe-path:m54-gate.jpg",
+                inspection_kind=MediaInspectionKind.image_metadata,
+                declared_media_type="image/jpeg",
+                declared_byte_size=2048,
+            )
+            decision = inspect_safe_media_metadata(request)
+            if decision.status != SafeMediaMetadataStatus.metadata_ready or not decision.metadata_ready:
+                failures.append("M54 safe media metadata request was not metadata-ready")
+            if (
+                decision.raw_media_returned
+                or decision.raw_media_stored
+                or decision.original_file_modified
+                or decision.ocio_transform_performed
+                or decision.ai_gamut_expansion_performed
+                or decision.model_call_performed
+                or decision.context_injection_performed
+            ):
+                failures.append("M54 decision performed raw media output, mutation, transform, model, or context side effect")
+            if decision.receipt_plan is None:
+                failures.append("M54 decision did not create a metadata-only receipt plan")
+            elif decision.receipt_plan.side_effects_performed or decision.receipt_plan.raw_media_stored:
+                failures.append("M54 receipt plan stored raw media or performed side effects")
+            denied = inspect_safe_media_metadata(
+                request.model_copy(
+                    update={
+                        "request_ref": "media-metadata-request:m54-unsupported",
+                        "declared_media_type": "application/octet-stream",
+                    }
+                )
+            )
+            if denied.status != SafeMediaMetadataStatus.denied:
+                failures.append("M54 unsupported media type was not denied")
+            for request_update, reason in [
+                ({"raw_media_requested": True}, "RAW_MEDIA_EXPORT_DENIED"),
+                ({"full_file_read_requested": True}, "FULL_FILE_READ_DENIED"),
+                ({"ocio_transform_requested": True}, "OCIO_TRANSFORM_DENIED"),
+                ({"ai_gamut_expansion_requested": True}, "AI_GAMUT_EXPANSION_DENIED"),
+                ({"model_call_requested": True}, "MODEL_CALL_DENIED"),
+                ({"contains_secret_like_metadata": True}, "SECRET_LIKE_METADATA_DENIED"),
+            ]:
+                try:
+                    validate_safe_media_metadata_request(request.model_copy(update=request_update))
+                    failures.append(f"M54 unsafe request mutation was not denied: {reason}")
+                except ValueError as exc:
+                    if reason not in str(exc):
+                        failures.append(f"M54 unsafe request reason drifted for {reason}: {exc}")
+            try:
+                validate_safe_media_metadata_policy(SafeMediaMetadataPolicy(raw_media_export_enabled=True))
+                failures.append("M54 unsafe policy flag was not denied")
+            except ValueError as exc:
+                if "RAW_MEDIA_EXPORT_DENIED" not in str(exc):
+                    failures.append(f"M54 unsafe policy reason drifted: {exc}")
+        except Exception as exc:
+            failures.append(f"M54 safe media metadata validation failed: {exc}")
+
+        docs_text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_files
+            if path.startswith("docs/") and (self.root / path).exists()
+        )
+        for fragment in [
+            "safe media metadata inspector",
+            "metadata-only",
+            "no raw media export",
+            "no raw media storage",
+            "no full-file read",
+            "no file mutation",
+            "no original overwrite",
+            "no ocio transform",
+            "no ai gamut expansion",
+            "no model call",
+            "no context injection",
+            "no backend route",
+            "m55 remains future",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M54 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m54_safe_media_metadata_static_safety(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        forbidden_source_fragments = [
+            "raw_media_export_enabled=True",
+            "raw_media_storage_enabled=True",
+            "full_file_read_enabled=True",
+            "file_mutation_enabled=True",
+            "original_overwrite_enabled=True",
+            "ocio_transform_enabled=True",
+            "ai_gamut_expansion_enabled=True",
+            "model_call_enabled=True",
+            "context_injection_enabled=True",
+            "production_authority_enabled=True",
+            "raw_media_returned=True",
+            "raw_media_stored=True",
+            "original_file_modified=True",
+            "ocio_transform_performed=True",
+            "ai_gamut_expansion_performed=True",
+            "model_call_performed=True",
+            "context_injection_performed=True",
+            "/media/read/raw",
+            "/media/export",
+            "/media/transform/ocio",
+            "/media/gamut/expand",
+            "/models/call",
+            "/provider/call",
+            "/context/inject",
+            "/memory/write",
+            "/tools/execute",
+        ]
+        allowed_files = {
+            "src/ultimate_ai_agent/api/app.py",
+            "src/ultimate_ai_agent/api/openapi.py",
+            "src/ultimate_ai_agent/core/gate/evaluators.py",
+            "src/ultimate_ai_agent/core/media/metadata.py",
+            "tests/test_m54_safe_media_metadata_inspector.py",
+            "tests/test_m54_gate_integration.py",
+        }
+        source_roots = [
+            self.root / "src",
+            self.root / "apps" / "control-center" / "src",
+            self.root / "apps" / "ccc-ios",
+        ]
+        for root in source_roots:
+            if not root.exists():
+                continue
+            candidate_files = []
+            for pattern in ("*.py", "*.ts", "*.tsx", "*.js", "*.jsx", "*.swift", "*.yml", "*.yaml"):
+                candidate_files.extend(root.rglob(pattern))
+            for path in sorted(candidate_files):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(self.root).as_posix()
+                if rel in allowed_files:
+                    continue
+                text = path.read_text(encoding="utf-8")
+                for fragment in forbidden_source_fragments:
+                    if fragment in text:
+                        failures.append(f"M54 forbidden media metadata fragment in {rel}: {fragment}")
+        return self._result(criterion, failures, [])
+
+    def check_m54_safe_media_metadata_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m54_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M54 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m54_roadmap_currentness(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        required_docs = [
+            "README.md",
+            "VERSION.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+            "docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md",
+            "docs/roadmap/MILESTONE_CHARTERS.md",
+        ]
+        failures = [
+            f"missing M54 roadmap doc: {path}"
+            for path in required_docs
+            if not (self.root / path).exists()
+        ]
+        text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_docs
+            if (self.root / path).exists()
+        )
+        if "v0.58.0" not in text or "m54" not in text or "safe media metadata inspector" not in text:
+            failures.append("active docs do not identify v0.58.0/M54 Safe Media Metadata Inspector")
+        if "m54 is implemented/released" not in text and "v0.58.0 implements m54" not in text:
+            failures.append("active docs do not mark M54 implemented/released")
+        if "m55-m60 remain planned/provisional" not in text:
+            failures.append("M55-M60 must remain planned/provisional after M54")
+        for fragment in (
+            "m55 is implemented",
+            "v0.59.0 implements m55",
+            "redacted observability export is implemented",
+            "ocio deterministic transform preview is implemented",
+            "ai gamut expansion is implemented",
+            "raw media export is implemented",
+            "model call is implemented",
+            "context injection is implemented",
+            "production authority is implemented",
+        ):
+            if fragment in text:
+                failures.append(f"M54 docs imply forbidden/future capability: {fragment}")
         return self._result(criterion, failures, required_docs)
 
     def check_v0292_local_dev_api_authority_and_preview_safe(
@@ -13539,7 +13830,10 @@ class FoundationGateEvaluator:
                 failures.append("M52 must be implemented/released after v0.56.0")
             if "m53 is implemented/released" not in text and "v0.57.0 implements m53" not in text:
                 failures.append("M53 must be implemented/released after v0.57.0")
-            if "m54-m60 remain planned/provisional" not in text:
+            if (
+                "m54-m60 remain planned/provisional" not in text
+                and "m55-m60 remain planned/provisional" not in text
+            ):
                 failures.append("M54-M60 must remain planned/provisional after M53")
         elif self._active_version_tuple() >= (0, 56, 0):
             if "m49 is implemented/released" not in text and "v0.53.0 implements m49" not in text:
