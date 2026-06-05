@@ -12,23 +12,23 @@ allowed to become operational authority.
 
 | Field | Current state |
 |---|---|
-| Current active baseline | **v0.50.0** |
-| Current milestone | **M46 - iOS Review/Receipt Read-Only Surfaces** |
+| Current active baseline | **v0.51.0** |
+| Current milestone | **M47 - TestFlight Pipeline, Internal Only** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **75** OpenAPI paths |
 | Production readiness | Not claimed |
 
-v0.50.0 implements M46 iOS Review/Receipt Read-Only Surfaces. It adds
-source-only, read-only CCC iOS review/receipt display contracts and Swift
-surface data for mock non-authoritative redacted summaries. The surface includes
-no runtime network call. It adds no Xcode project, Swift package, Info.plist,
-entitlements, native build workflow, signing/store workflow, TestFlight
-pipeline, backend route, mobile API route runtime, runtime network call, mobile
-sensor access, OS permission integration, background collection, approval
-capture, approval execution, context injection, memory write, file mutation, raw
-data, export, credential handling, cookie handling, execution, remote execution,
-plugin enablement, dependencies, M47 implementation, or production authority.
+v0.51.0 implements M47 TestFlight Pipeline, Internal Only. It adds an
+internal-only, contract/checklist-only TestFlight pipeline manifest with reviewed
+future stages for source snapshot, build/archive planning, signing asset
+presence checks, internal distribution review, rollback planning, and redacted
+audit receipt planning. It adds no build execution, upload execution, App Store
+Connect API call, signing asset storage, provisioning profile storage,
+certificate/private-key storage, Fastlane lane, CI upload workflow, external
+beta, public distribution, mobile sensor access, background collection, approval
+execution, context injection, memory write, raw data export, dependency,
+production authority, or M48 implementation.
 
 v0.29.5 is documentation policy polish. It remains the documentation
 organization cleanup baseline before the M26 and M27 implementation releases.
@@ -80,6 +80,8 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M45 to M46 Boundary](docs/mobile/M45_TO_M46_BOUNDARY.md)
 - [M46 iOS Review/Receipt Read-Only Surfaces](docs/mobile/CCC_IOS_REVIEW_RECEIPT_READ_ONLY_SURFACES.md)
 - [M46 to M47 Boundary](docs/mobile/M46_TO_M47_BOUNDARY.md)
+- [M47 TestFlight Pipeline, Internal Only](docs/mobile/TESTFLIGHT_PIPELINE_INTERNAL_ONLY.md)
+- [M47 to M48 Boundary](docs/mobile/M47_TO_M48_BOUNDARY.md)
 - [M38 Context Proposal Receipt Plan](docs/context/CONTEXT_PROPOSAL_RECEIPT_PLAN.md)
 - [API route inventory](docs/api/route_inventory.md)
 - [Documentation organization policy](docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md)
@@ -97,9 +99,9 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M28 Action Policy](docs/approvals/ACTION_POLICY.md)
 - [M27 Tool Broker v2](docs/tools/TOOL_BROKER_V2.md)
 - [M26 Grounded Recall Router](docs/recall/GROUNDED_RECALL_ROUTER.md)
-- [v0.50.0 release notes](docs/release_notes/v0_50_0.md)
-- [v0.50.0 release packet](docs/archive/releases/v0_50_0/README_IMPORT.md)
-- [v0.50.0 master plan](docs/archive/releases/v0_50_0/master_plan.md)
+- [v0.51.0 release notes](docs/release_notes/v0_51_0.md)
+- [v0.51.0 release packet](docs/archive/releases/v0_51_0/README_IMPORT.md)
+- [v0.51.0 master plan](docs/archive/releases/v0_51_0/master_plan.md)
 
 ## What This Project Is
 
@@ -362,7 +364,7 @@ post-M33 supersession is
 | v0.48.1 | M44 hardening - CCC iOS Skeleton Verifier Allowance | Implemented/released hardening |
 | v0.49.0 | M45 - CCC iOS Local Read-Only Connection | Implemented/released contract/status-only |
 | v0.50.0 | M46 - iOS Review/Receipt Read-Only Surfaces | Implemented/released source-only read-only |
-| v0.51.0 | M47 - TestFlight Pipeline, Internal Only | Planned/provisional |
+| v0.51.0 | M47 - TestFlight Pipeline, Internal Only | Implemented/released contract/checklist-only |
 | v0.52.0 | M48 - First Internal TestFlight Build | Planned/provisional |
 | v0.53.0 | M49 - Mobile Review Approval Capture | Planned/provisional |
 | v0.54.0 | M50 - Mobile Approval Audit Hardening | Planned/provisional |

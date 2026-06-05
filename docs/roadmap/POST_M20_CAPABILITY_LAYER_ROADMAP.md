@@ -1,6 +1,6 @@
 # Post-M20 Capability Layer Roadmap
 
-Status: Active roadmap projection maintained through v0.50.0.
+Status: Active roadmap projection maintained through v0.51.0.
 
 v0.38.0 implements M34 Broader File Capability Review as planning,
 architecture review, documentation, verifier, and Foundation Gate work only.
@@ -32,9 +32,10 @@ M44 is implemented/released by v0.48.0 as CCC iOS Skeleton, No Authority.
 v0.48.1 hardens the M44 verifier allowance for the reviewed source-only iOS skeleton.
 M45 is implemented/released by v0.49.0 as CCC iOS Local Read-Only Connection.
 M46 is implemented/released by v0.50.0 as iOS Review/Receipt Read-Only Surfaces.
-M47-M60 remain planned/provisional.
+M47 is implemented/released by v0.51.0 as TestFlight Pipeline, Internal Only.
+M48-M60 remain planned/provisional.
 M34 is implemented/released as planning/docs/verifier
-only. M35 is implemented/released as Safe File Review Workflow Contracts. M36 is implemented/released as CCC File Review Surface, Review-Only. M37 is implemented/released as Review Approval Capture, Review-Only Persistence. M38 is implemented/released as Safe Context Proposal From Approved Review. M39 is implemented/released as CCC Context Proposal Surface. M40 is implemented/released as Context Handoff Approval, No Injection. M41 is implemented/released as Local Prototype Safety Freeze. M42 is implemented/released as Mobile Companion Product Contract Refresh. M43 is implemented/released as Mobile API Boundary, Read-Only. M44 is implemented/released as CCC iOS Skeleton, No Authority. M45 is implemented/released as CCC iOS Local Read-Only Connection. M46 is implemented/released as iOS Review/Receipt Read-Only Surfaces. M43 is the first mobile
+only. M35 is implemented/released as Safe File Review Workflow Contracts. M36 is implemented/released as CCC File Review Surface, Review-Only. M37 is implemented/released as Review Approval Capture, Review-Only Persistence. M38 is implemented/released as Safe Context Proposal From Approved Review. M39 is implemented/released as CCC Context Proposal Surface. M40 is implemented/released as Context Handoff Approval, No Injection. M41 is implemented/released as Local Prototype Safety Freeze. M42 is implemented/released as Mobile Companion Product Contract Refresh. M43 is implemented/released as Mobile API Boundary, Read-Only. M44 is implemented/released as CCC iOS Skeleton, No Authority. M45 is implemented/released as CCC iOS Local Read-Only Connection. M46 is implemented/released as iOS Review/Receipt Read-Only Surfaces. M47 is implemented/released as TestFlight Pipeline, Internal Only. M43 is the first mobile
 read-only API boundary in this new sequence. M44 is the first iOS skeleton milestone.
 M45 is the first local read-only iOS connection contract/status milestone.
 M47 is the TestFlight-capable pipeline milestone. M48 is the first internal
@@ -77,7 +78,7 @@ The detailed post-M33 supersession source of truth is
 | v0.48.1 | M44 hardening | CCC iOS Skeleton Verifier Allowance | implemented/released hardening |
 | v0.49.0 | M45 | CCC iOS Local Read-Only Connection | implemented/released contract/status-only |
 | v0.50.0 | M46 | iOS Review/Receipt Read-Only Surfaces | implemented/released source-only read-only |
-| v0.51.0 | M47 | TestFlight Pipeline, Internal Only | planned/provisional |
+| v0.51.0 | M47 | TestFlight Pipeline, Internal Only | implemented/released contract/checklist-only |
 | v0.52.0 | M48 | First Internal TestFlight Build | planned/provisional |
 | v0.53.0 | M49 | Mobile Review Approval Capture | planned/provisional |
 | v0.54.0 | M50 | Mobile Approval Audit Hardening | planned/provisional |
@@ -94,13 +95,13 @@ The detailed post-M33 supersession source of truth is
 
 ## Prompt-Pack Strategy
 
-Recommended next prompt after v0.50.0:
+Recommended next prompt after v0.51.0:
 
 ```text
-v0.51.0 / M47 - TestFlight Pipeline, Internal Only
+v0.52.0 / M48 - First Internal TestFlight Build
 ```
 
-The next prompt pack is M47 TestFlight Pipeline, Internal Only.
+The next prompt pack is M48 First Internal TestFlight Build.
 
 Extra-hard reviews are required for M37, M38, M40, M47, M48, M49, M51, M52,
 M57, and M58. Mandatory hardening is expected by default for M35-M40, M43-M50,

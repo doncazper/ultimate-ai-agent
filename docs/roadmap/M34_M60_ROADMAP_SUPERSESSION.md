@@ -1,6 +1,6 @@
 # M34-M60 Roadmap Supersession
 
-Status: Active roadmap source of truth through v0.50.0.
+Status: Active roadmap source of truth through v0.51.0.
 
 v0.38.0 implements M34 Broader File Capability Review as planning,
 architecture review, documentation, verifier, and Foundation Gate work only.
@@ -23,7 +23,7 @@ file review records. v0.43.0 implements M39 CCC Context Proposal Surface as a
 frontend-only review surface. v0.44.0 implements M40 Context Handoff Approval,
 No Injection as contract-only approval decisions with exact proposal binding.
 v0.45.0 implements M41 Local Prototype Safety Freeze as a docs/verifier/Gate
-safety freeze before mobile work resumes. v0.46.0 implements M42 Mobile Companion Product Contract Refresh as planning/docs/contracts/verifier work only. v0.47.0 implements M43 Mobile API Boundary, Read-Only as contract-only boundary work. v0.48.0 implements M44 CCC iOS Skeleton, No Authority as source-only, mock-only, read-only, non-authoritative SwiftUI skeleton work. v0.48.1 hardens the M44 verifier allowance for that reviewed source-only skeleton. v0.49.0 implements M45 CCC iOS Local Read-Only Connection as local-only, loopback-only, read-only contract/status work with no runtime network call. v0.50.0 implements M46 iOS Review/Receipt Read-Only Surfaces as source-only, read-only redacted summary display work.
+safety freeze before mobile work resumes. v0.46.0 implements M42 Mobile Companion Product Contract Refresh as planning/docs/contracts/verifier work only. v0.47.0 implements M43 Mobile API Boundary, Read-Only as contract-only boundary work. v0.48.0 implements M44 CCC iOS Skeleton, No Authority as source-only, mock-only, read-only, non-authoritative SwiftUI skeleton work. v0.48.1 hardens the M44 verifier allowance for that reviewed source-only skeleton. v0.49.0 implements M45 CCC iOS Local Read-Only Connection as local-only, loopback-only, read-only contract/status work with no runtime network call. v0.50.0 implements M46 iOS Review/Receipt Read-Only Surfaces as source-only, read-only redacted summary display work. v0.51.0 implements M47 TestFlight Pipeline, Internal Only as internal-only, contract/checklist-only pipeline planning work.
 
 ## Supersession Rule
 
@@ -38,7 +38,7 @@ implemented/released as contract-only Safe File Review Workflow Contracts and
 hardened by v0.39.1 for exact file/path binding. M36 is
 implemented/released as frontend-only CCC File Review Surface, Review-Only and
 hardened by v0.40.1 for read-only surface safety.
-M37 is implemented/released. M38 is implemented/released. M39 is implemented/released. M40 is implemented/released. M41 is implemented/released. M42 is implemented/released. M43 is implemented/released. M44 is implemented/released. M45 is implemented/released. M46 is implemented/released. M47-M60 remain planned/provisional. M42 resumes mobile planning. M44 is the first iOS
+M37 is implemented/released. M38 is implemented/released. M39 is implemented/released. M40 is implemented/released. M41 is implemented/released. M42 is implemented/released. M43 is implemented/released. M44 is implemented/released. M45 is implemented/released. M46 is implemented/released. M47 is implemented/released. M48-M60 remain planned/provisional. M42 resumes mobile planning. M44 is the first iOS
 skeleton milestone. M47 is the TestFlight-capable pipeline milestone. M48 is the
 first internal TestFlight build milestone. M49 and M50 are the first meaningful
 mobile approval capture and audit milestones.
@@ -63,7 +63,7 @@ mobile approval capture and audit milestones.
 | v0.48.1 | M44 hardening | CCC iOS Skeleton Verifier Allowance | implemented/released hardening | Narrow verifier allowance for reviewed source-only iOS skeleton files |
 | v0.49.0 | M45 | CCC iOS Local Read-Only Connection | implemented/released contract/status-only | Local read-only connection only |
 | v0.50.0 | M46 | iOS Review/Receipt Read-Only Surfaces | implemented/released source-only read-only | Read-only review and receipt surfaces |
-| v0.51.0 | M47 | TestFlight Pipeline, Internal Only | planned/provisional | Internal-only pipeline; no public distribution or production authority |
+| v0.51.0 | M47 | TestFlight Pipeline, Internal Only | implemented/released contract/checklist-only | Internal-only pipeline contract/checklist; no build execution, upload execution, public distribution, or production authority |
 | v0.52.0 | M48 | First Internal TestFlight Build | planned/provisional | First internal build with explicit review gates |
 | v0.53.0 | M49 | Mobile Review Approval Capture | planned/provisional | Mobile review approval capture; no execution authority |
 | v0.54.0 | M50 | Mobile Approval Audit Hardening | planned/provisional | Hardening and audit coverage for mobile approvals |
@@ -80,10 +80,10 @@ mobile approval capture and audit milestones.
 
 ## Prompt-Pack Strategy
 
-Recommended next prompt after v0.50.0:
+Recommended next prompt after v0.51.0:
 
 ```text
-v0.51.0 / M47 - TestFlight Pipeline, Internal Only
+v0.52.0 / M48 - First Internal TestFlight Build
 ```
 
 The first prompt packs after this patch are:

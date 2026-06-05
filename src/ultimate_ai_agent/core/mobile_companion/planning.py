@@ -8,6 +8,8 @@ from ultimate_ai_agent.core.mobile_companion.contracts import (
     CccIosReviewReceiptSurfaceContract,
     CccIosSkeletonManifest,
     CccIosSkeletonSurface,
+    InternalTestFlightPipelineManifest,
+    InternalTestFlightPipelineStageContract,
     MobileApiBoundaryRefresh,
     MobileCapabilityPlan,
     MobileCaptureIntentPlan,
@@ -22,6 +24,7 @@ from ultimate_ai_agent.core.mobile_companion.enums import (
     CccIosLocalConnectionEndpointKind,
     CccIosReviewReceiptSurfaceKind,
     CccIosSkeletonSurfaceKind,
+    InternalTestFlightPipelineStageKind,
     MobileApiBoundaryStatus,
     MobileApiEndpointKind,
     MobileApiHttpMethod,
@@ -360,6 +363,52 @@ def build_default_ccc_ios_review_receipt_read_only_surface_manifest(
         ],
     )
     assert_ccc_ios_review_receipt_read_only_surfaces_safe(manifest)
+    return manifest
+
+
+def build_default_internal_testflight_pipeline_manifest(
+    version: str = "0.51.0",
+) -> InternalTestFlightPipelineManifest:
+    manifest = InternalTestFlightPipelineManifest(
+        version=version,
+        safe_summary=(
+            "M47 internal TestFlight pipeline contract and review checklist; "
+            "no build, upload, signing asset, credential, or production workflow executes."
+        ),
+        stages=[
+            InternalTestFlightPipelineStageContract(
+                stage_ref="internal_testflight_stage:source-snapshot",
+                kind=InternalTestFlightPipelineStageKind.source_snapshot,
+                safe_summary="Record the reviewed source tag before any future build.",
+            ),
+            InternalTestFlightPipelineStageContract(
+                stage_ref="internal_testflight_stage:build-archive-plan",
+                kind=InternalTestFlightPipelineStageKind.build_archive_plan,
+                safe_summary="Describe the future archive command without executing it.",
+            ),
+            InternalTestFlightPipelineStageContract(
+                stage_ref="internal_testflight_stage:signing-asset-presence-check",
+                kind=InternalTestFlightPipelineStageKind.signing_asset_presence_check,
+                safe_summary="Check that signing materials stay outside git and are not stored here.",
+            ),
+            InternalTestFlightPipelineStageContract(
+                stage_ref="internal_testflight_stage:internal-distribution-review",
+                kind=InternalTestFlightPipelineStageKind.internal_distribution_review,
+                safe_summary="Require human review before any later internal distribution attempt.",
+            ),
+            InternalTestFlightPipelineStageContract(
+                stage_ref="internal_testflight_stage:rollback-plan",
+                kind=InternalTestFlightPipelineStageKind.rollback_plan,
+                safe_summary="Document rollback steps for future internal builds.",
+            ),
+            InternalTestFlightPipelineStageContract(
+                stage_ref="internal_testflight_stage:audit-receipt-plan",
+                kind=InternalTestFlightPipelineStageKind.audit_receipt_plan,
+                safe_summary="Plan redacted audit receipts for future pipeline actions.",
+            ),
+        ],
+    )
+    assert_internal_testflight_pipeline_safe(manifest)
     return manifest
 
 
@@ -843,6 +892,83 @@ def validate_ccc_ios_review_receipt_surface(
         if enabled:
             raise ValueError(f"M46 CCC iOS review/receipt surface cannot enable {label}")
     return surface
+
+
+def assert_internal_testflight_pipeline_safe(
+    manifest: InternalTestFlightPipelineManifest,
+) -> InternalTestFlightPipelineManifest:
+    _assert_safe_text(manifest.safe_summary)
+    if manifest.milestone != "M47":
+        raise ValueError("internal TestFlight pipeline must remain scoped to M47")
+    if not manifest.version.startswith("0.51."):
+        raise ValueError("M47 internal TestFlight pipeline version must be 0.51.x")
+    if not manifest.internal_only:
+        raise ValueError("M47 TestFlight pipeline must remain internal-only")
+    if not manifest.pipeline_contract_only:
+        raise ValueError("M47 TestFlight pipeline must remain contract/checklist only")
+    if not manifest.m48_first_internal_build_future:
+        raise ValueError("M48 first internal TestFlight build must remain future after M47")
+    forbidden_flags = {
+        "build execution": manifest.build_execution_enabled,
+        "upload execution": manifest.upload_execution_enabled,
+        "signing asset storage": manifest.signing_asset_storage_enabled,
+        "signing identity configuration": manifest.signing_identity_configured,
+        "provisioning profile configuration": manifest.provisioning_profile_configured,
+        "App Store Connect API": manifest.app_store_connect_api_enabled,
+        "credential or cookie handling": manifest.credentials_or_cookies_handling_enabled,
+        "external beta": manifest.external_beta_enabled,
+        "public distribution": manifest.public_distribution_enabled,
+        "production authority": manifest.production_authority_enabled,
+        "mobile sensor access": manifest.mobile_sensor_access_enabled,
+        "background collection": manifest.background_collection_enabled,
+        "approval capture": manifest.approval_capture_enabled,
+        "approval execution": manifest.approval_execution_enabled,
+        "context injection": manifest.context_injection_enabled,
+        "memory write": manifest.memory_write_enabled,
+        "raw data": manifest.raw_data_enabled,
+        "export": manifest.export_enabled,
+        "execution": manifest.execution_enabled,
+    }
+    for label, enabled in forbidden_flags.items():
+        if enabled:
+            raise ValueError(f"M47 internal TestFlight pipeline cannot enable {label}")
+    if not manifest.stages:
+        raise ValueError("M47 internal TestFlight pipeline requires checklist stages")
+    seen_refs: set[str] = set()
+    for stage in manifest.stages:
+        validate_internal_testflight_pipeline_stage(stage)
+        if stage.stage_ref in seen_refs:
+            raise ValueError(f"duplicate M47 TestFlight stage ref: {stage.stage_ref}")
+        seen_refs.add(stage.stage_ref)
+    return manifest
+
+
+def validate_internal_testflight_pipeline_stage(
+    stage: InternalTestFlightPipelineStageContract,
+) -> InternalTestFlightPipelineStageContract:
+    _assert_safe_ref(stage.stage_ref, label="stage ref")
+    _assert_safe_text(stage.safe_summary)
+    _assert_metadata_refs_only(stage.metadata_refs)
+    if not stage.internal_only:
+        raise ValueError("M47 TestFlight stages must remain internal-only")
+    if not stage.contract_only:
+        raise ValueError("M47 TestFlight stages must remain contract/checklist only")
+    if not stage.review_required:
+        raise ValueError("M47 TestFlight stages require human review")
+    forbidden_flags = {
+        "secret material storage": stage.stores_secret_material,
+        "signing asset storage": stage.stores_signing_assets,
+        "build execution": stage.executes_build,
+        "upload execution": stage.uploads_build,
+        "App Store Connect API": stage.calls_app_store_connect,
+        "external beta": stage.enables_external_beta,
+        "public distribution": stage.enables_public_distribution,
+        "production authority": stage.grants_production_authority,
+    }
+    for label, enabled in forbidden_flags.items():
+        if enabled:
+            raise ValueError(f"M47 TestFlight stage cannot enable {label}")
+    return stage
 
 
 def assert_no_sensor_access_enabled(plan: MobileCapabilityPlan) -> MobileCapabilityPlan:

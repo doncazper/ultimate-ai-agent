@@ -75,6 +75,7 @@ SCAN_SEQUENCE = [
     ("M44 CCC iOS skeleton no-authority scan", "verify_m44_ccc_ios_skeleton_no_authority"),
     ("M45 CCC iOS local read-only connection scan", "verify_m45_ccc_ios_local_read_only_connection"),
     ("M46 CCC iOS review/receipt read-only surfaces scan", "verify_m46_ccc_ios_review_receipt_read_only_surfaces"),
+    ("M47 TestFlight pipeline internal-only scan", "verify_m47_testflight_pipeline_internal_only"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -5701,6 +5702,167 @@ def verify_m46_ccc_ios_review_receipt_read_only_surfaces():
                     sys.exit(1)
 
     print("OK: M46 CCC iOS review/receipt surfaces are source-only, read-only, redacted, no-runtime, and no-authority")
+
+
+def verify_m47_testflight_pipeline_internal_only():
+    print("\n[Verifier] Running M47 TestFlight pipeline internal-only guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/mobile_companion/contracts.py",
+        "src/ultimate_ai_agent/core/mobile_companion/planning.py",
+        "src/ultimate_ai_agent/core/mobile_companion/enums.py",
+        "docs/mobile/TESTFLIGHT_PIPELINE_INTERNAL_ONLY.md",
+        "docs/mobile/M47_TO_M48_BOUNDARY.md",
+        "docs/release_notes/v0_51_0.md",
+        "docs/archive/releases/v0_51_0/README_IMPORT.md",
+        "docs/archive/releases/v0_51_0/master_plan.md",
+        "docs/implementation/foundation_gate_implementation_plan_v0_51_0.md",
+        "tests/test_m47_testflight_pipeline_internal_only.py",
+        "tests/test_m47_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M47 TestFlight pipeline file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = "\n".join(
+        (ROOT / rel_path).read_text(encoding="utf-8").lower()
+        for rel_path in required_files
+        if rel_path.startswith("docs/")
+    )
+    for fragment in [
+        "testflight pipeline, internal only",
+        "internal-only",
+        "contract",
+        "checklist",
+        "no build execution",
+        "no upload execution",
+        "no signing asset storage",
+        "no app store connect api",
+        "no external beta",
+        "no public distribution",
+        "no production authority",
+        "m48 remains future",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M47 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.evaluators import m47_openapi_route_failures
+        from ultimate_ai_agent.core.mobile_companion import (
+            assert_internal_testflight_pipeline_safe,
+            build_default_internal_testflight_pipeline_manifest,
+        )
+    except Exception as exc:
+        print(f"FAIL: M47 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m47_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    try:
+        manifest = build_default_internal_testflight_pipeline_manifest()
+        assert_internal_testflight_pipeline_safe(manifest)
+    except Exception as exc:
+        print(f"FAIL: M47 default TestFlight pipeline failed validation: {exc}")
+        sys.exit(1)
+
+    ios_root = ROOT / "apps" / "ccc-ios"
+    forbidden_paths = [
+        ios_root / "Package.swift",
+        *ios_root.glob("*.xcodeproj"),
+        *ios_root.rglob("*.xcworkspace"),
+        *ios_root.rglob("*.entitlements"),
+        *ios_root.rglob("Info.plist"),
+        *ios_root.rglob("ExportOptions.plist"),
+        *ios_root.rglob("*.mobileprovision"),
+        *ios_root.rglob("*.p8"),
+        *ios_root.rglob("*.cer"),
+        *ios_root.rglob("*.p12"),
+    ]
+    for forbidden_path in forbidden_paths:
+        if forbidden_path.exists():
+            rel = forbidden_path.relative_to(ROOT).as_posix()
+            print(f"FAIL: M47 forbidden TestFlight/signing artifact present: {rel}")
+            sys.exit(1)
+    for forbidden_dir in [
+        ROOT / "fastlane",
+        ios_root / "fastlane",
+        ios_root / "DerivedData",
+    ]:
+        if forbidden_dir.exists():
+            rel = forbidden_dir.relative_to(ROOT).as_posix()
+            print(f"FAIL: M47 forbidden build/upload directory present: {rel}")
+            sys.exit(1)
+
+    swift_root = ios_root / "Sources" / "UltimateAIAgentCCC"
+    swift_text = "\n".join(path.read_text(encoding="utf-8") for path in sorted(swift_root.rglob("*.swift")))
+    for fragment in [
+        "URLSession",
+        "Alamofire",
+        "URLRequest",
+        "NWConnection",
+        "CLLocationManager",
+        "AVCapture",
+        "PHPhoto",
+        "Contacts",
+        "EventKit",
+        "UserNotifications",
+        "Keychain",
+        "SecItem",
+        "FileManager.default",
+        "Process(",
+        "WKWebView",
+        "AppStoreConnect",
+        "TestFlightUpload",
+        "xcodebuild",
+        "altool",
+        "notarytool",
+        "ExportOptions",
+    ]:
+        if fragment in swift_text:
+            print(f"FAIL: M47 forbidden Swift/build fragment present: {fragment}")
+            sys.exit(1)
+
+    forbidden_source_fragments = [
+        "build_execution_enabled=True",
+        "upload_execution_enabled=True",
+        "signing_asset_storage_enabled=True",
+        "signing_identity_configured=True",
+        "provisioning_profile_configured=True",
+        "app_store_connect_api_enabled=True",
+        "credentials_or_cookies_handling_enabled=True",
+        "external_beta_enabled=True",
+        "public_distribution_enabled=True",
+        "production_authority_enabled=True",
+        "mobile_sensor_access_enabled=True",
+        "background_collection_enabled=True",
+        "approval_execution_enabled=True",
+        "context_injection_enabled=True",
+        "memory_write_enabled=True",
+        "executes_build=True",
+        "uploads_build=True",
+        "calls_app_store_connect=True",
+    ]
+    source_roots = [ROOT / "src", ROOT / "apps" / "control-center" / "src", ios_root]
+    for root in source_roots:
+        if not root.exists():
+            continue
+        for path in root.rglob("*"):
+            if not path.is_file() or path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}:
+                continue
+            rel = path.relative_to(ROOT).as_posix()
+            text = path.read_text(encoding="utf-8")
+            for fragment in forbidden_source_fragments:
+                if fragment in text:
+                    print(f"FAIL: M47 forbidden enabled flag in {rel}: {fragment}")
+                    sys.exit(1)
+
+    print("OK: M47 TestFlight pipeline is internal-only, contract/checklist-only, no-build, no-upload, and no-authority")
 
 
 def verify_local_developer_launcher_safety():

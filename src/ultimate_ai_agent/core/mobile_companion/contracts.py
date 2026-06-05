@@ -6,6 +6,7 @@ from ultimate_ai_agent.core.mobile_companion.enums import (
     CccIosLocalConnectionEndpointKind,
     CccIosReviewReceiptSurfaceKind,
     CccIosSkeletonSurfaceKind,
+    InternalTestFlightPipelineStageKind,
     MobileCapabilityKind,
     MobileCapabilityStatus,
     MobileClientPlatform,
@@ -415,4 +416,63 @@ class CccIosReviewReceiptReadOnlySurfaceManifest(_MobileContractModel):
     def _copy_surfaces(
         cls, value: list[CccIosReviewReceiptSurfaceContract]
     ) -> list[CccIosReviewReceiptSurfaceContract]:
+        return list(value)
+
+
+class InternalTestFlightPipelineStageContract(_MobileContractModel):
+    stage_ref: str = Field(..., min_length=1)
+    kind: InternalTestFlightPipelineStageKind
+    safe_summary: str = Field(..., min_length=1)
+    internal_only: bool = True
+    contract_only: bool = True
+    review_required: bool = True
+    stores_secret_material: bool = False
+    stores_signing_assets: bool = False
+    executes_build: bool = False
+    uploads_build: bool = False
+    calls_app_store_connect: bool = False
+    enables_external_beta: bool = False
+    enables_public_distribution: bool = False
+    grants_production_authority: bool = False
+    metadata_refs: list[str] = Field(default_factory=list)
+
+    @field_validator("metadata_refs")
+    @classmethod
+    def _copy_metadata_refs(cls, value: list[str]) -> list[str]:
+        return list(value)
+
+
+class InternalTestFlightPipelineManifest(_MobileContractModel):
+    milestone: str = "M47"
+    version: str = "0.51.0"
+    internal_only: bool = True
+    pipeline_contract_only: bool = True
+    safe_summary: str = "M47 internal TestFlight pipeline contract and checklist only."
+    stages: list[InternalTestFlightPipelineStageContract] = Field(default_factory=list)
+    build_execution_enabled: bool = False
+    upload_execution_enabled: bool = False
+    signing_asset_storage_enabled: bool = False
+    signing_identity_configured: bool = False
+    provisioning_profile_configured: bool = False
+    app_store_connect_api_enabled: bool = False
+    credentials_or_cookies_handling_enabled: bool = False
+    external_beta_enabled: bool = False
+    public_distribution_enabled: bool = False
+    production_authority_enabled: bool = False
+    mobile_sensor_access_enabled: bool = False
+    background_collection_enabled: bool = False
+    approval_capture_enabled: bool = False
+    approval_execution_enabled: bool = False
+    context_injection_enabled: bool = False
+    memory_write_enabled: bool = False
+    raw_data_enabled: bool = False
+    export_enabled: bool = False
+    execution_enabled: bool = False
+    m48_first_internal_build_future: bool = True
+
+    @field_validator("stages")
+    @classmethod
+    def _copy_stages(
+        cls, value: list[InternalTestFlightPipelineStageContract]
+    ) -> list[InternalTestFlightPipelineStageContract]:
         return list(value)

@@ -120,3 +120,12 @@ class CccIosReviewReceiptSurfaceKind(str, Enum):
     receipt_summary = "receipt_summary"
     receipt_detail = "receipt_detail"
     authority_boundary = "authority_boundary"
+
+
+class InternalTestFlightPipelineStageKind(str, Enum):
+    source_snapshot = "source_snapshot"
+    build_archive_plan = "build_archive_plan"
+    signing_asset_presence_check = "signing_asset_presence_check"
+    internal_distribution_review = "internal_distribution_review"
+    rollback_plan = "rollback_plan"
+    audit_receipt_plan = "audit_receipt_plan"
