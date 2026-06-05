@@ -80,3 +80,21 @@ class MobileApiBoundaryStatus(str, Enum):
     future_read_only = "future_read_only"
     not_implemented = "not_implemented"
     blocked_until_m43 = "blocked_until_m43"
+    read_only_contract = "read_only_contract"
+
+
+class MobileApiEndpointKind(str, Enum):
+    manifest_summary = "manifest_summary"
+    approval_status_summary = "approval_status_summary"
+    receipt_summary = "receipt_summary"
+    review_packet_summary = "review_packet_summary"
+    context_proposal_summary = "context_proposal_summary"
+    device_status_summary = "device_status_summary"
+
+
+class MobileApiHttpMethod(str, Enum):
+    get = "GET"
+    post = "POST"
+    put = "PUT"
+    patch = "PATCH"
+    delete = "DELETE"

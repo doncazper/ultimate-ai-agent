@@ -9,10 +9,11 @@ approval capture, approval persistence, sensors, OS permissions, signing,
 TestFlight, App Store, Play Store, background services, notification runtime,
 device pairing runtime, or production authority.
 
-M43 remains future and may define a read-only Mobile API Boundary. M43 must not
-use M42 product planning as runtime authority. Any M43 API boundary must remain
-read-only, redacted, route-reviewed, non-mutating, and non-authoritative unless
-a later reviewed roadmap patch explicitly changes that scope.
+M43 is implemented/released by v0.47.0 as Mobile API Boundary, Read-Only. M43
+must not use M42 product planning as runtime authority. The M43 API boundary
+remains read-only, redacted, route-reviewed, non-mutating, and
+non-authoritative unless a later reviewed roadmap patch explicitly changes that
+scope.
 
 Blocked through M43 unless a future reviewed milestone says otherwise:
 

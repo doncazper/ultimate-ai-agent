@@ -54,8 +54,8 @@ M42 boundaries:
 - no plugin enablement.
 - no production authority.
 
-M43 remains future and is limited to Mobile API Boundary, Read-Only. M44 remains
-future and is limited to CCC iOS Skeleton, No Authority.
+M43 is implemented/released by v0.47.0 as Mobile API Boundary, Read-Only. M44
+remains future and is limited to CCC iOS Skeleton, No Authority.
 
 M42 exists to tighten the product contract before implementation work resumes.
 It is not an implementation milestone for mobile clients or runtime capability.

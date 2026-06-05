@@ -12,26 +12,27 @@ allowed to become operational authority.
 
 | Field | Current state |
 |---|---|
-| Current active baseline | **v0.46.0** |
-| Current milestone | **M42 - Mobile Companion Product Contract Refresh** |
+| Current active baseline | **v0.47.0** |
+| Current milestone | **M43 - Mobile API Boundary, Read-Only** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **75** OpenAPI paths |
 | Production readiness | Not claimed |
 
-v0.46.0 implements M42 Mobile Companion Product Contract Refresh. It refreshes
-mobile companion product roles, review-only/read-only surface boundaries,
-future M43 read-only API boundary readiness, M44 future iOS skeleton sequencing,
-active mobile docs, tests, static safety verification, documentation-integrity
-checks, Foundation Gate coverage, release metadata, and roadmap currentness
-updates. It adds no mobile app, iOS app, Android app, native package, native
-build workflow, signing/store workflow, TestFlight pipeline, backend route,
-mobile API route, approval capture, approval execution, mobile sensor access,
-OS permission integration, background service, notification runtime, device
-pairing runtime, raw payload exposure, raw prompt/provider payload exposure,
+v0.47.0 implements M43 Mobile API Boundary, Read-Only. It adds contract-only
+planned endpoint refs, GET-only/read-only endpoint validation, redacted summary
+only guarantees, M44 future iOS skeleton sequencing, active mobile docs, tests,
+static safety verification, documentation-integrity checks, Foundation Gate
+coverage, release metadata, and roadmap currentness updates. It adds no mobile
+app, iOS app, Android app, native package, native build workflow, signing/store
+workflow, TestFlight pipeline, backend route, mobile API route runtime, mobile
+mutation, approval capture, approval execution, mobile sensor access, OS
+permission integration, background collection, notification runtime, device
+pairing runtime, raw data, raw payload exposure, raw prompt/provider payload
+exposure, raw absolute path exposure, credential handling, cookie handling,
 memory write, automatic context injection, file mutation, network/provider/model
 call, browser automation execution, remote execution, plugin enablement,
-dependencies, M43 implementation, or production authority.
+dependencies, M44 implementation, or production authority.
 
 v0.29.5 is documentation policy polish. It remains the documentation
 organization cleanup baseline before the M26 and M27 implementation releases.
@@ -75,6 +76,8 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M41 to M42 Boundary](docs/prototype/M41_TO_M42_BOUNDARY.md)
 - [M42 Mobile Companion Product Contract Refresh](docs/mobile/MOBILE_COMPANION_PRODUCT_CONTRACT_REFRESH.md)
 - [M42 to M43 Boundary](docs/mobile/M42_TO_M43_BOUNDARY.md)
+- [M43 Mobile API Boundary, Read-Only](docs/mobile/MOBILE_API_BOUNDARY_READ_ONLY.md)
+- [M43 to M44 Boundary](docs/mobile/M43_TO_M44_BOUNDARY.md)
 - [M38 Context Proposal Receipt Plan](docs/context/CONTEXT_PROPOSAL_RECEIPT_PLAN.md)
 - [API route inventory](docs/api/route_inventory.md)
 - [Documentation organization policy](docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md)
@@ -92,9 +95,9 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M28 Action Policy](docs/approvals/ACTION_POLICY.md)
 - [M27 Tool Broker v2](docs/tools/TOOL_BROKER_V2.md)
 - [M26 Grounded Recall Router](docs/recall/GROUNDED_RECALL_ROUTER.md)
-- [v0.46.0 release notes](docs/release_notes/v0_46_0.md)
-- [v0.46.0 release packet](docs/archive/releases/v0_46_0/README_IMPORT.md)
-- [v0.46.0 master plan](docs/archive/releases/v0_46_0/master_plan.md)
+- [v0.47.0 release notes](docs/release_notes/v0_47_0.md)
+- [v0.47.0 release packet](docs/archive/releases/v0_47_0/README_IMPORT.md)
+- [v0.47.0 master plan](docs/archive/releases/v0_47_0/master_plan.md)
 
 ## What This Project Is
 
@@ -352,7 +355,7 @@ post-M33 supersession is
 | v0.44.0 | M40 - Context Handoff Approval, No Injection | Implemented/released contract-only |
 | v0.45.0 | M41 - Local Prototype Safety Freeze | Implemented/released safety freeze |
 | v0.46.0 | M42 - Mobile Companion Product Contract Refresh | Implemented/released contract refresh |
-| v0.47.0 | M43 - Mobile API Boundary, Read-Only | Planned/provisional |
+| v0.47.0 | M43 - Mobile API Boundary, Read-Only | Implemented/released contract-only |
 | v0.48.0 | M44 - CCC iOS Skeleton, No Authority | Planned/provisional |
 | v0.49.0 | M45 - CCC iOS Local Read-Only Connection | Planned/provisional |
 | v0.50.0 | M46 - iOS Review/Receipt Read-Only Surfaces | Planned/provisional |

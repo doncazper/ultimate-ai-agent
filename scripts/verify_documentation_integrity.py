@@ -712,6 +712,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_m40_context_handoff_approval_docs(root, version))
     failures.extend(_verify_m41_local_prototype_safety_docs(root, version))
     failures.extend(_verify_m42_mobile_product_contract_docs(root, version))
+    failures.extend(_verify_m43_mobile_api_boundary_docs(root, version))
     failures.extend(_verify_m19_roadmap_currentness(root, version))
     failures.extend(_verify_post_m18_roadmap_status_labels(root))
 
@@ -835,7 +836,10 @@ def _verify_m34_m60_roadmap_supersession(root: Path, version: str | None) -> lis
                 "M42 must be released as Mobile Companion Product Contract Refresh": (
                     "m42 is implemented/released"
                 ),
-                "M43-M60 must remain planned/provisional": "m43-m60 remain planned/provisional",
+                "M43 must be released as Mobile API Boundary, Read-Only": (
+                    "m43 is implemented/released"
+                ),
+                "M44-M60 must remain planned/provisional": "m44-m60 remain planned/provisional",
             }
         )
     elif _version_tuple(version) >= (0, 45, 0):
@@ -1597,7 +1601,7 @@ def _verify_m42_mobile_product_contract_docs(root: Path, version: str | None) ->
         "M42 docs must say not the agent brain": "not the agent brain",
         "M42 docs must say review-only": "review-only",
         "M42 docs must say read-only": "read-only",
-        "M42 docs must keep M43 future": "m43 remains future",
+        "M42 docs must acknowledge M43 release": "m43 is implemented/released",
         "M42 docs must keep M44 future": "m44 remains future",
         "M42 docs must deny mobile app": "no mobile app",
         "M42 docs must deny iOS app": "no ios app",
@@ -1631,7 +1635,69 @@ def _verify_m42_mobile_product_contract_docs(root: Path, version: str | None) ->
         "M42 docs must not claim sensor implementation": "mobile sensors are implemented",
         "M42 docs must not claim approval execution implementation": "approval execution is implemented",
         "M42 docs must not claim production authority": "production authority is implemented",
-        "M42 docs must not claim M43 implementation": "m43 is implemented",
+    }
+    if _version_tuple(version) < (0, 47, 0):
+        forbidden_fragments["M42 docs must not claim M43 implementation"] = "m43 is implemented"
+    for message, fragment in forbidden_fragments.items():
+        if fragment in text:
+            failures.append(f"{message}: {fragment}")
+    return failures
+
+
+def _verify_m43_mobile_api_boundary_docs(root: Path, version: str | None) -> list[str]:
+    if _version_tuple(version) < (0, 47, 0):
+        return []
+
+    failures: list[str] = []
+    required_docs = [
+        "docs/mobile/MOBILE_API_BOUNDARY_READ_ONLY.md",
+        "docs/mobile/M43_TO_M44_BOUNDARY.md",
+        "docs/mobile/MOBILE_COMPANION_CONTRACT.md",
+        "docs/mobile/MOBILE_SECURITY_MODEL.md",
+    ]
+    parts: list[str] = []
+    for rel_path in required_docs:
+        path = root / rel_path
+        if not path.exists():
+            failures.append(f"missing active M43 mobile API boundary doc: {rel_path}")
+            continue
+        parts.append(_read(path).lower())
+    text = "\n".join(parts)
+    required_fragments = {
+        "M43 docs must say Mobile API Boundary, Read-Only": "mobile api boundary, read-only",
+        "M43 docs must say contract-only": "contract-only",
+        "M43 docs must say read-only": "read-only",
+        "M43 docs must say redacted summary only": "redacted summary only",
+        "M43 docs must say planned endpoint refs": "planned endpoint refs",
+        "M43 docs must deny backend route": "no backend route",
+        "M43 docs must deny mobile mutation": "no mobile mutation",
+        "M43 docs must deny approval capture": "no approval capture",
+        "M43 docs must deny approval execution": "no approval execution",
+        "M43 docs must deny mobile sensor access": "no mobile sensor access",
+        "M43 docs must deny raw data": "no raw data",
+        "M43 docs must deny raw payload exposure": "no raw payload exposure",
+        "M43 docs must deny raw absolute path": "no raw absolute path",
+        "M43 docs must deny credential handling": "no credential",
+        "M43 docs must deny cookie handling": "no cookie",
+        "M43 docs must deny context injection": "no context injection",
+        "M43 docs must deny memory write": "no memory write",
+        "M43 docs must deny export": "no export",
+        "M43 docs must deny execution": "no execution",
+        "M43 docs must deny production authority": "no production authority",
+        "M43 docs must keep M44 future": "m44 remains future",
+    }
+    for message, fragment in required_fragments.items():
+        if fragment not in text:
+            failures.append(message)
+
+    forbidden_fragments = {
+        "M43 docs must not claim mobile app implementation": "mobile app is implemented",
+        "M43 docs must not claim mobile route implementation": "mobile api route is implemented",
+        "M43 docs must not claim mobile mutation implementation": "mobile mutation is implemented",
+        "M43 docs must not claim sensor implementation": "mobile sensors are implemented",
+        "M43 docs must not claim approval execution implementation": "approval execution is implemented",
+        "M43 docs must not claim production authority": "production authority is implemented",
+        "M43 docs must not claim M44 implementation": "m44 is implemented",
     }
     for message, fragment in forbidden_fragments.items():
         if fragment in text:
@@ -3415,8 +3481,12 @@ def _verify_post_m20_roadmap_projection(root: Path) -> list[str]:
             expectations["Post-M20 roadmap docs must say M42 is implemented/released"] = (
                 "m42 is implemented/released"
             )
-            expectations["Post-M20 roadmap docs must keep M43-M60 planned/provisional"] = (
-                "m43-m60 remain planned/provisional"
+            if active_version_tuple >= (0, 47, 0):
+                expectations["Post-M20 roadmap docs must say M43 is implemented/released"] = (
+                    "m43 is implemented/released"
+                )
+            expectations["Post-M20 roadmap docs must keep M44-M60 planned/provisional"] = (
+                "m44-m60 remain planned/provisional"
             )
         elif active_version_tuple >= (0, 45, 0):
             expectations["Post-M20 roadmap docs must say M41 is implemented/released"] = (
@@ -3822,11 +3892,16 @@ def _verify_post_m18_roadmap_status_labels(root: Path) -> list[str]:
             or "redacted preview" not in active_capability_charters
         ):
             failures.append("roadmap sequence must define M33 as redacted file preview")
-        if active >= (0, 46, 0):
+        if active >= (0, 47, 0):
+            if "v0.47.0 / m43" not in active_capability_charters or "implemented/released" not in active_capability_charters:
+                failures.append("roadmap sequence must mark M43/v0.47.0 implemented")
+            if "m44-m60" not in active_capability_charters or "planned/provisional" not in active_capability_charters:
+                failures.append("roadmap sequence must keep M44-M60 planned/provisional")
+        elif active >= (0, 46, 0):
             if "v0.46.0 / m42" not in active_capability_charters or "implemented/released" not in active_capability_charters:
                 failures.append("roadmap sequence must mark M42/v0.46.0 implemented")
-            if "m43-m60" not in active_capability_charters or "planned/provisional" not in active_capability_charters:
-                failures.append("roadmap sequence must keep M43-M60 planned/provisional")
+            if "m44-m60" not in active_capability_charters or "planned/provisional" not in active_capability_charters:
+                failures.append("roadmap sequence must keep M44-M60 planned/provisional")
         elif active >= (0, 45, 0):
             if "v0.45.0 / m41" not in active_capability_charters or "implemented/released" not in active_capability_charters:
                 failures.append("roadmap sequence must mark M41/v0.45.0 implemented")

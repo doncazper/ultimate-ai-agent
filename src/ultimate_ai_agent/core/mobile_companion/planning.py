@@ -9,9 +9,13 @@ from ultimate_ai_agent.core.mobile_companion.contracts import (
     MobileCompanionManifest,
     MobileProductContractRefresh,
     MobileProductSurfaceContract,
+    MobileReadOnlyApiBoundary,
+    MobileReadOnlyApiEndpointContract,
 )
 from ultimate_ai_agent.core.mobile_companion.enums import (
     MobileApiBoundaryStatus,
+    MobileApiEndpointKind,
+    MobileApiHttpMethod,
     MobileCapabilityKind,
     MobileCapabilityStatus,
     MobileClientPlatform,
@@ -46,6 +50,9 @@ RAW_CONTENT_KEYS = {
     "raw_file",
     "raw_memory",
 }
+RAW_PATH_OR_ROUTE_REF = re.compile(
+    r"(?i)(^/|[a-z]:\\|/users/|/home/|\.\.|raw[_ -]?(path|file|payload|content)|absolute[_ -]?path)"
+)
 
 
 def build_default_mobile_companion_manifest(
@@ -176,6 +183,52 @@ def build_default_mobile_product_contract_refresh(
     )
     assert_mobile_product_contract_refresh_only(refresh)
     return refresh
+
+
+def build_default_mobile_read_only_api_boundary(
+    version: str = "0.47.0",
+) -> MobileReadOnlyApiBoundary:
+    boundary = MobileReadOnlyApiBoundary(
+        version=version,
+        safe_summary=(
+            "M43 mobile API boundary contract only; planned endpoints are "
+            "read-only redacted summaries and add no backend routes."
+        ),
+        endpoints=[
+            MobileReadOnlyApiEndpointContract(
+                endpoint_ref="mobile_api_endpoint:manifest-summary",
+                kind=MobileApiEndpointKind.manifest_summary,
+                planned_route_ref="mobile_api_route:manifest-summary",
+                safe_summary="Manifest summary endpoint contract only.",
+            ),
+            MobileReadOnlyApiEndpointContract(
+                endpoint_ref="mobile_api_endpoint:approval-status-summary",
+                kind=MobileApiEndpointKind.approval_status_summary,
+                planned_route_ref="mobile_api_route:approval-status-summary",
+                safe_summary="Approval status summary endpoint contract only.",
+            ),
+            MobileReadOnlyApiEndpointContract(
+                endpoint_ref="mobile_api_endpoint:receipt-summary",
+                kind=MobileApiEndpointKind.receipt_summary,
+                planned_route_ref="mobile_api_route:receipt-summary",
+                safe_summary="Receipt summary endpoint contract only.",
+            ),
+            MobileReadOnlyApiEndpointContract(
+                endpoint_ref="mobile_api_endpoint:review-packet-summary",
+                kind=MobileApiEndpointKind.review_packet_summary,
+                planned_route_ref="mobile_api_route:review-packet-summary",
+                safe_summary="Review packet summary endpoint contract only.",
+            ),
+            MobileReadOnlyApiEndpointContract(
+                endpoint_ref="mobile_api_endpoint:device-status-summary",
+                kind=MobileApiEndpointKind.device_status_summary,
+                planned_route_ref="mobile_api_route:device-status-summary",
+                safe_summary="Device status summary endpoint contract only; no sensors.",
+            ),
+        ],
+    )
+    assert_mobile_api_boundary_read_only(boundary)
+    return boundary
 
 
 def validate_mobile_capability_plan(plan: MobileCapabilityPlan) -> MobileCapabilityPlan:
@@ -334,6 +387,87 @@ def validate_mobile_api_boundary_refresh(
     return boundary
 
 
+def assert_mobile_api_boundary_read_only(
+    boundary: MobileReadOnlyApiBoundary,
+) -> MobileReadOnlyApiBoundary:
+    _assert_safe_text(boundary.safe_summary)
+    if boundary.milestone != "M43":
+        raise ValueError("mobile API boundary must remain scoped to M43")
+    if not boundary.version.startswith("0.47."):
+        raise ValueError("M43 mobile API boundary version must be 0.47.x")
+    if not boundary.boundary_contract_only:
+        raise ValueError("M43 mobile API boundary must remain contract-only")
+    if not boundary.read_only_boundary:
+        raise ValueError("M43 mobile API boundary must remain read-only")
+    if not boundary.redacted_summary_only:
+        raise ValueError("M43 mobile API boundary must remain redacted summary only")
+    if not boundary.m44_ios_skeleton_future:
+        raise ValueError("M44 iOS skeleton must remain future after M43")
+    forbidden_flags = {
+        "backend route": boundary.backend_routes_added,
+        "mobile mutation": boundary.mobile_mutation_enabled,
+        "mobile sensor access": boundary.mobile_sensor_access_enabled,
+        "approval capture": boundary.approval_capture_enabled,
+        "approval execution": boundary.approval_execution_enabled,
+        "raw data": boundary.raw_data_enabled,
+        "raw payload exposure": boundary.raw_payload_exposure_enabled,
+        "raw absolute path exposure": boundary.raw_absolute_path_exposure_enabled,
+        "context injection": boundary.context_injection_enabled,
+        "memory write": boundary.memory_write_enabled,
+        "export": boundary.export_enabled,
+        "execution": boundary.execution_enabled,
+        "credential or cookie handling": boundary.credential_or_cookie_handling_enabled,
+        "background collection": boundary.background_collection_enabled,
+        "production authority": boundary.production_authority_enabled,
+    }
+    for label, enabled in forbidden_flags.items():
+        if enabled:
+            raise ValueError(f"M43 mobile API boundary cannot enable {label}")
+    if not boundary.endpoints:
+        raise ValueError("M43 mobile API boundary requires planned endpoint contracts")
+    seen_refs: set[str] = set()
+    for endpoint in boundary.endpoints:
+        validate_mobile_api_endpoint_contract(endpoint)
+        if endpoint.endpoint_ref in seen_refs:
+            raise ValueError(f"duplicate M43 endpoint ref: {endpoint.endpoint_ref}")
+        seen_refs.add(endpoint.endpoint_ref)
+    return boundary
+
+
+def validate_mobile_api_endpoint_contract(
+    endpoint: MobileReadOnlyApiEndpointContract,
+) -> MobileReadOnlyApiEndpointContract:
+    _assert_safe_ref(endpoint.endpoint_ref, label="endpoint ref")
+    _assert_safe_ref(endpoint.planned_route_ref, label="route ref")
+    _assert_safe_text(endpoint.safe_summary)
+    _assert_metadata_refs_only(endpoint.metadata_refs)
+    if endpoint.method != MobileApiHttpMethod.get:
+        raise ValueError("M43 mobile API endpoint contracts must use GET only")
+    if not endpoint.read_only:
+        raise ValueError("M43 mobile API endpoints must remain read-only")
+    if not endpoint.redacted_summary_only:
+        raise ValueError("M43 mobile API endpoints must remain redacted summary only")
+    forbidden_flags = {
+        "raw data": endpoint.raw_data_returned,
+        "raw payload": endpoint.raw_payload_returned,
+        "raw absolute path": endpoint.raw_absolute_path_returned,
+        "mutation": endpoint.mutation_enabled,
+        "approval capture": endpoint.approval_capture_enabled,
+        "approval execution": endpoint.approval_execution_enabled,
+        "sensor access": endpoint.sensor_access_enabled,
+        "context injection": endpoint.context_injection_enabled,
+        "memory write": endpoint.memory_write_enabled,
+        "export": endpoint.export_enabled,
+        "execution": endpoint.execution_enabled,
+        "credential or cookie handling": endpoint.credential_or_cookie_handling_enabled,
+        "background collection": endpoint.background_collection_enabled,
+    }
+    for label, enabled in forbidden_flags.items():
+        if enabled:
+            raise ValueError(f"M43 mobile API endpoint cannot enable {label}")
+    return endpoint
+
+
 def assert_no_sensor_access_enabled(plan: MobileCapabilityPlan) -> MobileCapabilityPlan:
     return validate_mobile_capability_plan(plan)
 
@@ -368,5 +502,14 @@ def _assert_safe_text(text: str) -> None:
 def _assert_metadata_refs_only(refs: Iterable[str]) -> None:
     for ref in refs:
         _assert_safe_text(ref)
+        _assert_safe_ref(ref, label="metadata ref")
         if "\n" in ref or len(ref) > 160:
             raise ValueError("metadata refs must be short string/ref-only values")
+
+
+def _assert_safe_ref(ref: str, *, label: str) -> None:
+    _assert_safe_text(ref)
+    if "\n" in ref or len(ref) > 160:
+        raise ValueError(f"{label} must be a short ref-only value")
+    if RAW_PATH_OR_ROUTE_REF.search(ref):
+        raise ValueError(f"{label} cannot contain raw paths, raw route paths, or raw data markers")

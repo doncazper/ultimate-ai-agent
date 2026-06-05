@@ -51,6 +51,7 @@ SCAN_SEQUENCE = [
     ("M40 context handoff approval scan", "verify_m40_context_handoff_approval_safety"),
     ("M41 local prototype safety freeze scan", "verify_m41_local_prototype_safety_freeze"),
     ("M42 mobile product contract refresh scan", "verify_m42_mobile_product_contract_refresh"),
+    ("M43 read-only mobile API boundary scan", "verify_m43_mobile_api_boundary_read_only"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -4986,7 +4987,7 @@ def verify_m42_mobile_product_contract_refresh():
         "not the agent brain",
         "review-only",
         "read-only",
-        "m43 remains future",
+        "m43 is implemented/released",
         "m44 remains future",
         "no mobile app",
         "no ios app",
@@ -5062,6 +5063,114 @@ def verify_m42_mobile_product_contract_refresh():
                     sys.exit(1)
 
     print("OK: M42 mobile product refresh is contract-only, route-free, native-free, and sensor-free")
+
+
+def verify_m43_mobile_api_boundary_read_only():
+    print("\n[Verifier] Running M43 read-only mobile API boundary guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/mobile_companion/contracts.py",
+        "src/ultimate_ai_agent/core/mobile_companion/planning.py",
+        "src/ultimate_ai_agent/core/mobile_companion/enums.py",
+        "docs/mobile/MOBILE_API_BOUNDARY_READ_ONLY.md",
+        "docs/mobile/M43_TO_M44_BOUNDARY.md",
+        "docs/release_notes/v0_47_0.md",
+        "docs/archive/releases/v0_47_0/README_IMPORT.md",
+        "docs/archive/releases/v0_47_0/master_plan.md",
+        "docs/implementation/foundation_gate_implementation_plan_v0_47_0.md",
+        "tests/test_m43_mobile_api_boundary_read_only.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M43 mobile API boundary file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = "\n".join(
+        (ROOT / rel_path).read_text(encoding="utf-8").lower()
+        for rel_path in required_files
+        if rel_path.startswith("docs/")
+    )
+    for fragment in [
+        "mobile api boundary, read-only",
+        "contract-only",
+        "read-only",
+        "redacted summary only",
+        "planned endpoint refs",
+        "no backend route",
+        "no mobile mutation",
+        "no approval capture",
+        "no approval execution",
+        "no mobile sensor access",
+        "no raw data",
+        "no raw payload exposure",
+        "no raw absolute path",
+        "no credential",
+        "no cookie",
+        "no context injection",
+        "no memory write",
+        "no export",
+        "no execution",
+        "no production authority",
+        "m44 remains future",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M43 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.evaluators import m43_openapi_route_failures
+        from ultimate_ai_agent.core.mobile_companion import (
+            assert_mobile_api_boundary_read_only,
+            build_default_mobile_read_only_api_boundary,
+        )
+    except Exception as exc:
+        print(f"FAIL: M43 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m43_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    try:
+        assert_mobile_api_boundary_read_only(build_default_mobile_read_only_api_boundary())
+    except Exception as exc:
+        print(f"FAIL: M43 default mobile API boundary failed validation: {exc}")
+        sys.exit(1)
+
+    forbidden_source_fragments = [
+        "backend_routes_added=True",
+        "mobile_mutation_enabled=True",
+        "mobile_sensor_access_enabled=True",
+        "approval_capture_enabled=True",
+        "approval_execution_enabled=True",
+        "raw_data_enabled=True",
+        "raw_payload_exposure_enabled=True",
+        "raw_absolute_path_exposure_enabled=True",
+        "context_injection_enabled=True",
+        "memory_write_enabled=True",
+        "export_enabled=True",
+        "execution_enabled=True",
+        "credential_or_cookie_handling_enabled=True",
+        "background_collection_enabled=True",
+        "production_authority_enabled=True",
+    ]
+    source_roots = [ROOT / "src", ROOT / "apps" / "control-center" / "src"]
+    for root in source_roots:
+        if not root.exists():
+            continue
+        for path in root.rglob("*"):
+            if not path.is_file() or path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx"}:
+                continue
+            rel = path.relative_to(ROOT).as_posix()
+            text = path.read_text(encoding="utf-8")
+            for fragment in forbidden_source_fragments:
+                if fragment in text:
+                    print(f"FAIL: M43 forbidden authority flag in {rel}: {fragment}")
+                    sys.exit(1)
+
+    print("OK: M43 mobile API boundary is contract-only, read-only, route-stable, raw-data-free, and sensor-free")
 
 
 def verify_local_developer_launcher_safety():

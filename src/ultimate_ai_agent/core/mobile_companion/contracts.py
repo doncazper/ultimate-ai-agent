@@ -9,6 +9,8 @@ from ultimate_ai_agent.core.mobile_companion.enums import (
     MobileCompanionSurface,
     MobileDataClassification,
     MobileApiBoundaryStatus,
+    MobileApiEndpointKind,
+    MobileApiHttpMethod,
     MobilePermissionDecision,
     MobileProductRole,
     MobileReceiptRequirement,
@@ -164,4 +166,66 @@ class MobileProductContractRefresh(_MobileContractModel):
     @field_validator("product_roles")
     @classmethod
     def _copy_product_roles(cls, value: list[MobileProductSurfaceContract]) -> list[MobileProductSurfaceContract]:
+        return list(value)
+
+
+class MobileReadOnlyApiEndpointContract(_MobileContractModel):
+    endpoint_ref: str = Field(..., min_length=1)
+    kind: MobileApiEndpointKind
+    planned_route_ref: str = Field(..., min_length=1)
+    method: MobileApiHttpMethod = MobileApiHttpMethod.get
+    safe_summary: str = Field(..., min_length=1)
+    read_only: bool = True
+    redacted_summary_only: bool = True
+    raw_data_returned: bool = False
+    raw_payload_returned: bool = False
+    raw_absolute_path_returned: bool = False
+    mutation_enabled: bool = False
+    approval_capture_enabled: bool = False
+    approval_execution_enabled: bool = False
+    sensor_access_enabled: bool = False
+    context_injection_enabled: bool = False
+    memory_write_enabled: bool = False
+    export_enabled: bool = False
+    execution_enabled: bool = False
+    credential_or_cookie_handling_enabled: bool = False
+    background_collection_enabled: bool = False
+    metadata_refs: list[str] = Field(default_factory=list)
+
+    @field_validator("metadata_refs")
+    @classmethod
+    def _copy_metadata_refs(cls, value: list[str]) -> list[str]:
+        return list(value)
+
+
+class MobileReadOnlyApiBoundary(_MobileContractModel):
+    milestone: str = "M43"
+    version: str = "0.47.0"
+    boundary_contract_only: bool = True
+    read_only_boundary: bool = True
+    redacted_summary_only: bool = True
+    safe_summary: str = "M43 mobile API boundary contract only."
+    endpoints: list[MobileReadOnlyApiEndpointContract] = Field(default_factory=list)
+    backend_routes_added: bool = False
+    mobile_mutation_enabled: bool = False
+    mobile_sensor_access_enabled: bool = False
+    approval_capture_enabled: bool = False
+    approval_execution_enabled: bool = False
+    raw_data_enabled: bool = False
+    raw_payload_exposure_enabled: bool = False
+    raw_absolute_path_exposure_enabled: bool = False
+    context_injection_enabled: bool = False
+    memory_write_enabled: bool = False
+    export_enabled: bool = False
+    execution_enabled: bool = False
+    credential_or_cookie_handling_enabled: bool = False
+    background_collection_enabled: bool = False
+    production_authority_enabled: bool = False
+    m44_ios_skeleton_future: bool = True
+
+    @field_validator("endpoints")
+    @classmethod
+    def _copy_endpoints(
+        cls, value: list[MobileReadOnlyApiEndpointContract]
+    ) -> list[MobileReadOnlyApiEndpointContract]:
         return list(value)

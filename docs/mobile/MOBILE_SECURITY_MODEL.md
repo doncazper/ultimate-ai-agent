@@ -69,4 +69,5 @@ iOS app, Android app, native build workflow, signing/store workflow, mobile API
 route, backend route, approval capture, approval execution, sensor access, OS
 permission integration, background service, notification runtime, raw payload
 exposure, memory write, context injection, credential handling, or production
-authority. M43 remains future as a read-only API boundary.
+authority. M43 is implemented/released by v0.47.0 as a read-only API boundary.
+M44 remains future as CCC iOS Skeleton, No Authority.
