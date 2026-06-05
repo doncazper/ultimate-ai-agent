@@ -1,5 +1,8 @@
 from ultimate_ai_agent.core.openwebui_bridge.contracts import (
     OpenWebUIBridgeManifest,
+    OpenWebUIBridgeAdapterPolicy,
+    OpenWebUIBridgeAdapterRequest,
+    OpenWebUIBridgeAdapterResult,
     OpenWebUIBridgePlan,
     OpenWebUIBridgeReceiptPlan,
     OpenWebUIBridgeValidationDecision,
@@ -11,12 +14,18 @@ from ultimate_ai_agent.core.openwebui_bridge.contracts import (
 )
 from ultimate_ai_agent.core.openwebui_bridge.enums import (
     OpenWebUIAuthorityBoundary,
+    OpenWebUIBridgeAdapterStatus,
     OpenWebUIBridgeDecisionStatus,
     OpenWebUIBridgeStatus,
     OpenWebUIContentMode,
     OpenWebUIMessageDirection,
     OpenWebUIRiskLevel,
     OpenWebUISurfaceRole,
+)
+from ultimate_ai_agent.core.openwebui_bridge.adapter import (
+    M51_OPENWEBUI_DOCS,
+    adapt_openwebui_bridge_request,
+    build_default_openwebui_bridge_adapter_policy,
 )
 from ultimate_ai_agent.core.openwebui_bridge.manifests import (
     M21_OPENWEBUI_DOCS,
@@ -40,6 +49,9 @@ from ultimate_ai_agent.core.openwebui_bridge.validation import (
     assert_no_secret_metadata,
     assert_no_tool_execution,
     assert_openwebui_contract_only,
+    validate_openwebui_bridge_adapter_policy,
+    validate_openwebui_bridge_adapter_request,
+    validate_openwebui_bridge_adapter_result,
     validate_openwebui_bridge_decision,
     validate_openwebui_bridge_manifest,
     validate_openwebui_bridge_plan,
@@ -53,7 +65,12 @@ from ultimate_ai_agent.core.openwebui_bridge.validation import (
 
 __all__ = [
     "M21_OPENWEBUI_DOCS",
+    "M51_OPENWEBUI_DOCS",
     "OpenWebUIAuthorityBoundary",
+    "OpenWebUIBridgeAdapterPolicy",
+    "OpenWebUIBridgeAdapterRequest",
+    "OpenWebUIBridgeAdapterResult",
+    "OpenWebUIBridgeAdapterStatus",
     "OpenWebUIBridgeDecisionStatus",
     "OpenWebUIBridgeManifest",
     "OpenWebUIBridgePlan",
@@ -78,12 +95,17 @@ __all__ = [
     "assert_no_secret_metadata",
     "assert_no_tool_execution",
     "assert_openwebui_contract_only",
+    "adapt_openwebui_bridge_request",
+    "build_default_openwebui_bridge_adapter_policy",
     "build_default_openwebui_bridge_manifest",
     "build_default_openwebui_bridge_plan",
     "build_openwebui_bridge_receipt_plan",
     "classify_openwebui_bridge_risk",
     "default_openwebui_bridge_decision_status",
     "validate_openwebui_bridge_decision",
+    "validate_openwebui_bridge_adapter_policy",
+    "validate_openwebui_bridge_adapter_request",
+    "validate_openwebui_bridge_adapter_result",
     "validate_openwebui_bridge_manifest",
     "validate_openwebui_bridge_plan",
     "validate_openwebui_bridge_receipt_plan",

@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from ultimate_ai_agent.core.openwebui_bridge.enums import (
     OpenWebUIAuthorityBoundary,
+    OpenWebUIBridgeAdapterStatus,
     OpenWebUIBridgeDecisionStatus,
     OpenWebUIBridgeStatus,
     OpenWebUIContentMode,
@@ -176,5 +177,74 @@ class OpenWebUIBridgeReceiptPlan(_OpenWebUIBridgeContractModel):
     redaction_required: bool = True
     raw_transcript_storage_allowed: bool = False
     safe_summary: str = Field(..., min_length=1)
+    metadata_refs: list[str] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class OpenWebUIBridgeAdapterPolicy(_OpenWebUIBridgeContractModel):
+    adapter_policy_ref: str = "openwebui-bridge-adapter-policy:m51"
+    baseline_version: str = "0.55.0"
+    status: OpenWebUIBridgeStatus = OpenWebUIBridgeStatus.adapter_pilot
+    safe_summary_only: bool = True
+    agent_core_remains_authority: bool = True
+    openwebui_is_agent_brain: bool = False
+    adapter_runtime_enabled: bool = False
+    live_openwebui_connection_enabled: bool = False
+    openwebui_network_call_enabled: bool = False
+    provider_call_enabled: bool = False
+    model_authority_enabled: bool = False
+    tool_execution_enabled: bool = False
+    memory_write_enabled: bool = False
+    context_injection_enabled: bool = False
+    approval_ref_authority_enabled: bool = False
+    raw_prompt_exposure_enabled: bool = False
+    raw_provider_payload_exposure_enabled: bool = False
+    raw_content_allowed: bool = False
+    docs_refs: list[str] = Field(default_factory=list)
+    metadata_refs: list[str] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class OpenWebUIBridgeAdapterRequest(_OpenWebUIBridgeContractModel):
+    adapter_request_ref: str = Field(..., min_length=1)
+    session_ref: str = Field(..., min_length=1)
+    message_ref: str = Field(..., min_length=1)
+    safe_user_summary: str = Field(..., min_length=1)
+    content_mode: OpenWebUIContentMode = OpenWebUIContentMode.summary_only
+    approval_ref: str | None = None
+    raw_prompt_present: bool = False
+    raw_provider_payload_present: bool = False
+    raw_content_present: bool = False
+    secret_like_content_present: bool = False
+    provider_call_requested: bool = False
+    model_authority_requested: bool = False
+    tool_execution_requested: bool = False
+    memory_write_requested: bool = False
+    context_injection_requested: bool = False
+    openwebui_runtime_call_requested: bool = False
+    metadata_refs: list[str] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class OpenWebUIBridgeAdapterResult(_OpenWebUIBridgeContractModel):
+    adapter_result_ref: str
+    adapter_request_ref: str
+    session_ref: str
+    message_ref: str
+    status: OpenWebUIBridgeAdapterStatus = OpenWebUIBridgeAdapterStatus.safe_summary_ready
+    content_mode: OpenWebUIContentMode = OpenWebUIContentMode.summary_only
+    safe_shell_summary: str
+    reason_codes: list[str] = Field(default_factory=list)
+    raw_prompt_returned: bool = False
+    raw_provider_payload_returned: bool = False
+    raw_content_returned: bool = False
+    model_output_authoritative: bool = False
+    openwebui_called: bool = False
+    provider_called: bool = False
+    tool_executed: bool = False
+    memory_written: bool = False
+    context_injected: bool = False
+    approval_granted: bool = False
+    side_effects_performed: list[str] = Field(default_factory=list)
     metadata_refs: list[str] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)

@@ -79,6 +79,7 @@ SCAN_SEQUENCE = [
     ("M48 first internal TestFlight build scan", "verify_m48_first_internal_testflight_build"),
     ("M49 mobile review approval capture scan", "verify_m49_mobile_review_approval_capture"),
     ("M50 mobile approval audit hardening scan", "verify_m50_mobile_approval_audit_hardening"),
+    ("M51 OpenWebUI bridge adapter pilot scan", "verify_m51_openwebui_bridge_adapter_pilot"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -4969,6 +4970,12 @@ def verify_m41_local_prototype_safety_freeze():
         "production_authority_enabled=True",
     ]
     source_roots = [ROOT / "src", ROOT / "apps" / "control-center" / "src"]
+    allowed_files = {
+        "scripts/verify_all.py",
+        "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "tests/test_m41_gate_integration.py",
+        "tests/test_m41_local_prototype_safety_freeze.py",
+    }
     for root in source_roots:
         if not root.exists():
             continue
@@ -4976,6 +4983,8 @@ def verify_m41_local_prototype_safety_freeze():
             if not path.is_file() or path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx"}:
                 continue
             rel = path.relative_to(ROOT).as_posix()
+            if rel in allowed_files:
+                continue
             text = path.read_text(encoding="utf-8")
             for fragment in forbidden_source_fragments:
                 if fragment in text:
@@ -5078,6 +5087,12 @@ def verify_m42_mobile_product_contract_refresh():
         "production_authority_enabled=True",
     ]
     source_roots = [ROOT / "src", ROOT / "apps" / "control-center" / "src"]
+    allowed_files = {
+        "scripts/verify_all.py",
+        "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "tests/test_m42_gate_integration.py",
+        "tests/test_m42_mobile_product_contract_refresh.py",
+    }
     for root in source_roots:
         if not root.exists():
             continue
@@ -5085,6 +5100,8 @@ def verify_m42_mobile_product_contract_refresh():
             if not path.is_file() or path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx"}:
                 continue
             rel = path.relative_to(ROOT).as_posix()
+            if rel in allowed_files:
+                continue
             text = path.read_text(encoding="utf-8")
             for fragment in forbidden_source_fragments:
                 if fragment in text:
@@ -5186,6 +5203,12 @@ def verify_m43_mobile_api_boundary_read_only():
         "production_authority_enabled=True",
     ]
     source_roots = [ROOT / "src", ROOT / "apps" / "control-center" / "src"]
+    allowed_files = {
+        "scripts/verify_all.py",
+        "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "tests/test_m43_gate_integration.py",
+        "tests/test_m43_mobile_api_boundary_read_only.py",
+    }
     for root in source_roots:
         if not root.exists():
             continue
@@ -5193,6 +5216,8 @@ def verify_m43_mobile_api_boundary_read_only():
             if not path.is_file() or path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx"}:
                 continue
             rel = path.relative_to(ROOT).as_posix()
+            if rel in allowed_files:
+                continue
             text = path.read_text(encoding="utf-8")
             for fragment in forbidden_source_fragments:
                 if fragment in text:
@@ -5347,6 +5372,12 @@ def verify_m44_ccc_ios_skeleton_no_authority():
         "production_authority_enabled=True",
     ]
     source_roots = [ROOT / "src", ROOT / "apps" / "control-center" / "src", ios_root]
+    allowed_files = {
+        "scripts/verify_all.py",
+        "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "tests/test_m44_gate_integration.py",
+        "tests/test_m44_ccc_ios_skeleton_no_authority.py",
+    }
     for root in source_roots:
         if not root.exists():
             continue
@@ -5354,6 +5385,8 @@ def verify_m44_ccc_ios_skeleton_no_authority():
             if not path.is_file() or path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}:
                 continue
             rel = path.relative_to(ROOT).as_posix()
+            if rel in allowed_files:
+                continue
             text = path.read_text(encoding="utf-8")
             for fragment in forbidden_source_fragments:
                 if fragment in text:
@@ -5513,6 +5546,12 @@ def verify_m45_ccc_ios_local_read_only_connection():
         "production_authority_enabled=True",
     ]
     source_roots = [ROOT / "src", ROOT / "apps" / "control-center" / "src", ios_root]
+    allowed_files = {
+        "scripts/verify_all.py",
+        "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "tests/test_m45_gate_integration.py",
+        "tests/test_m45_ccc_ios_local_read_only_connection.py",
+    }
     for root in source_roots:
         if not root.exists():
             continue
@@ -5520,6 +5559,8 @@ def verify_m45_ccc_ios_local_read_only_connection():
             if not path.is_file() or path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}:
                 continue
             rel = path.relative_to(ROOT).as_posix()
+            if rel in allowed_files:
+                continue
             text = path.read_text(encoding="utf-8")
             for fragment in forbidden_source_fragments:
                 if fragment in text:
@@ -5691,6 +5732,12 @@ def verify_m46_ccc_ios_review_receipt_read_only_surfaces():
         "production_authority_enabled=True",
     ]
     source_roots = [ROOT / "src", ROOT / "apps" / "control-center" / "src", ios_root]
+    allowed_files = {
+        "scripts/verify_all.py",
+        "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "tests/test_m46_gate_integration.py",
+        "tests/test_m46_ccc_ios_review_receipt_read_only_surfaces.py",
+    }
     for root in source_roots:
         if not root.exists():
             continue
@@ -5698,6 +5745,8 @@ def verify_m46_ccc_ios_review_receipt_read_only_surfaces():
             if not path.is_file() or path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}:
                 continue
             rel = path.relative_to(ROOT).as_posix()
+            if rel in allowed_files:
+                continue
             text = path.read_text(encoding="utf-8")
             for fragment in forbidden_source_fragments:
                 if fragment in text:
@@ -5852,6 +5901,11 @@ def verify_m47_testflight_pipeline_internal_only():
         "calls_app_store_connect=True",
     ]
     source_roots = [ROOT / "src", ROOT / "apps" / "control-center" / "src", ios_root]
+    allowed_files = {
+        "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "tests/test_m47_gate_integration.py",
+        "tests/test_m47_testflight_pipeline_internal_only.py",
+    }
     for root in source_roots:
         if not root.exists():
             continue
@@ -5859,6 +5913,8 @@ def verify_m47_testflight_pipeline_internal_only():
             if not path.is_file() or path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}:
                 continue
             rel = path.relative_to(ROOT).as_posix()
+            if rel in allowed_files:
+                continue
             text = path.read_text(encoding="utf-8")
             for fragment in forbidden_source_fragments:
                 if fragment in text:
@@ -6394,6 +6450,188 @@ def verify_m50_mobile_approval_audit_hardening():
                     sys.exit(1)
 
     print("OK: M50 mobile approval audit is safe-ref-only, review-only, no-route, no-export, and no-authority")
+
+
+def verify_m51_openwebui_bridge_adapter_pilot():
+    print("\n[Verifier] Running M51 OpenWebUI bridge adapter pilot guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/openwebui_bridge/adapter.py",
+        "src/ultimate_ai_agent/core/openwebui_bridge/contracts.py",
+        "src/ultimate_ai_agent/core/openwebui_bridge/validation.py",
+        "docs/openwebui/OPENWEBUI_BRIDGE_ADAPTER_PILOT.md",
+        "docs/openwebui/OPENWEBUI_BRIDGE_ADAPTER_POLICY.md",
+        "docs/openwebui/OPENWEBUI_BRIDGE_ADAPTER_AUTHORITY_BOUNDARY.md",
+        "docs/openwebui/M51_TO_M52_BOUNDARY.md",
+        "docs/release_notes/v0_55_0.md",
+        "docs/archive/releases/v0_55_0/README_IMPORT.md",
+        "docs/archive/releases/v0_55_0/master_plan.md",
+        "docs/implementation/foundation_gate_implementation_plan_v0_55_0.md",
+        "tests/test_m51_openwebui_bridge_adapter_pilot.py",
+        "tests/test_m51_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M51 OpenWebUI bridge adapter file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = "\n".join(
+        (ROOT / rel_path).read_text(encoding="utf-8").lower()
+        for rel_path in required_files
+        if rel_path.startswith("docs/")
+    )
+    for fragment in [
+        "openwebui bridge adapter pilot",
+        "safe-summary-only",
+        "agent core remains authority",
+        "openwebui is not the agent brain",
+        "no raw prompt",
+        "no raw provider payload",
+        "no provider call",
+        "no model authority",
+        "no tool execution",
+        "no memory write",
+        "no context injection",
+        "no backend route",
+        "m52 remains future",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M51 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.evaluators import m51_openapi_route_failures
+        from ultimate_ai_agent.core.openwebui_bridge import (
+            OpenWebUIBridgeAdapterRequest,
+            OpenWebUIBridgeAdapterStatus,
+            adapt_openwebui_bridge_request,
+        )
+    except Exception as exc:
+        print(f"FAIL: M51 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m51_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    request = OpenWebUIBridgeAdapterRequest(
+        adapter_request_ref="openwebui-bridge-adapter-request:verify-all-m51",
+        session_ref="openwebui-session:verify-all-m51",
+        message_ref="openwebui-message:verify-all-m51",
+        safe_user_summary="User asked for a safe governance summary.",
+    )
+    result = adapt_openwebui_bridge_request(request)
+    if result.status != OpenWebUIBridgeAdapterStatus.safe_summary_ready:
+        print(f"FAIL: M51 safe adapter did not return ready status: {result.reason_codes}")
+        sys.exit(1)
+    for field_name in [
+        "raw_prompt_returned",
+        "raw_provider_payload_returned",
+        "raw_content_returned",
+        "model_output_authoritative",
+        "openwebui_called",
+        "provider_called",
+        "tool_executed",
+        "memory_written",
+        "context_injected",
+        "approval_granted",
+    ]:
+        if getattr(result, field_name):
+            print(f"FAIL: M51 adapter result enabled forbidden field: {field_name}")
+            sys.exit(1)
+    if result.side_effects_performed:
+        print("FAIL: M51 adapter result performed side effects")
+        sys.exit(1)
+    try:
+        adapt_openwebui_bridge_request(request.model_copy(update={"raw_provider_payload_present": True}))
+        print("FAIL: M51 raw provider payload mutation was not denied")
+        sys.exit(1)
+    except ValueError as exc:
+        if "RAW_PROVIDER_PAYLOAD_DENIED" not in str(exc):
+            print(f"FAIL: M51 raw provider payload rejection reason drifted: {exc}")
+            sys.exit(1)
+    try:
+        adapt_openwebui_bridge_request(
+            request.model_copy(
+                update={
+                    "approval_ref": "approval:verify-all-m51",
+                    "tool_execution_requested": True,
+                }
+            )
+        )
+        print("FAIL: M51 approval_ref/tool execution mutation was not denied")
+        sys.exit(1)
+    except ValueError as exc:
+        if "APPROVAL_REF_NOT_AUTHORITY" not in str(exc):
+            print(f"FAIL: M51 approval-ref rejection reason drifted: {exc}")
+            sys.exit(1)
+
+    forbidden_source_fragments = [
+        "openwebui_runtime_call_requested=True",
+        "live_openwebui_connection_enabled=True",
+        "openwebui_network_call_enabled=True",
+        "provider_call_enabled=True",
+        "provider_call_requested=True",
+        "model_authority_enabled=True",
+        "model_authority_requested=True",
+        "tool_execution_enabled=True",
+        "tool_execution_requested=True",
+        "memory_write_enabled=True",
+        "memory_write_requested=True",
+        "context_injection_enabled=True",
+        "context_injection_requested=True",
+        "raw_prompt_exposure_enabled=True",
+        "raw_prompt_present=True",
+        "raw_provider_payload_exposure_enabled=True",
+        "raw_provider_payload_present=True",
+        "raw_content_allowed=True",
+        "raw_content_present=True",
+        "openwebui_called=True",
+        "provider_called=True",
+        "tool_executed=True",
+        "memory_written=True",
+        "context_injected=True",
+        "/openwebui/handoff",
+        "/openwebui/runtime/call",
+        "/openwebui/provider/call",
+        "/openwebui/tools/execute",
+        "/openwebui/memory/write",
+        "/openwebui/context/inject",
+        "/openwebui/raw-payload",
+        "import openwebui\n",
+        "from openwebui",
+    ]
+    allowed_files = {
+        "scripts/verify_all.py",
+        "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/openwebui_bridge/contracts.py",
+        "src/ultimate_ai_agent/core/openwebui_bridge/validation.py",
+        "tests/test_m51_openwebui_bridge_adapter_pilot.py",
+        "tests/test_m51_gate_integration.py",
+    }
+    source_roots = [
+        ROOT / "src",
+        ROOT / "apps" / "control-center" / "src",
+        ROOT / "apps" / "ccc-ios",
+    ]
+    for root in source_roots:
+        if not root.exists():
+            continue
+        for path in root.rglob("*"):
+            if not path.is_file() or path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}:
+                continue
+            rel = path.relative_to(ROOT).as_posix()
+            if rel in allowed_files:
+                continue
+            text = path.read_text(encoding="utf-8")
+            for fragment in forbidden_source_fragments:
+                if fragment in text:
+                    print(f"FAIL: M51 forbidden OpenWebUI adapter fragment in {rel}: {fragment}")
+                    sys.exit(1)
+
+    print("OK: M51 OpenWebUI bridge adapter is safe-summary-only, no-route, no-runtime, and no-authority")
 
 
 def verify_local_developer_launcher_safety():

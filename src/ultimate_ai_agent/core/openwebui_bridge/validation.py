@@ -4,6 +4,9 @@ from typing import Any
 
 from ultimate_ai_agent.core.openwebui_bridge.contracts import (
     OpenWebUIBridgeManifest,
+    OpenWebUIBridgeAdapterPolicy,
+    OpenWebUIBridgeAdapterRequest,
+    OpenWebUIBridgeAdapterResult,
     OpenWebUIBridgePlan,
     OpenWebUIBridgeReceiptPlan,
     OpenWebUIBridgeValidationDecision,
@@ -217,6 +220,118 @@ def validate_openwebui_bridge_receipt_plan(
     if plan.raw_transcript_storage_allowed:
         raise ValueError("raw transcript storage is not allowed in M21")
     return plan
+
+
+def validate_openwebui_bridge_adapter_policy(
+    policy: OpenWebUIBridgeAdapterPolicy,
+) -> OpenWebUIBridgeAdapterPolicy:
+    _assert_safe_text(policy.adapter_policy_ref)
+    _assert_metadata_refs_only(policy.docs_refs)
+    _assert_metadata_refs_only(policy.metadata_refs)
+    _assert_safe_metadata(policy.metadata)
+    if policy.status != OpenWebUIBridgeStatus.adapter_pilot:
+        raise ValueError("M51 OpenWebUI adapter policy must remain adapter_pilot")
+    if not policy.safe_summary_only:
+        raise ValueError("SAFE_SUMMARY_ONLY_REQUIRED")
+    if not policy.agent_core_remains_authority:
+        raise ValueError("AGENT_CORE_AUTHORITY_REQUIRED")
+    if policy.openwebui_is_agent_brain:
+        raise ValueError("OPENWEBUI_AGENT_BRAIN_DENIED")
+    flag_reasons = [
+        ("adapter_runtime_enabled", "ADAPTER_RUNTIME_DENIED"),
+        ("live_openwebui_connection_enabled", "LIVE_OPENWEBUI_CONNECTION_DENIED"),
+        ("openwebui_network_call_enabled", "OPENWEBUI_NETWORK_CALL_DENIED"),
+        ("provider_call_enabled", "PROVIDER_CALL_DENIED"),
+        ("model_authority_enabled", "MODEL_AUTHORITY_DENIED"),
+        ("tool_execution_enabled", "TOOL_EXECUTION_DENIED"),
+        ("memory_write_enabled", "MEMORY_WRITE_DENIED"),
+        ("context_injection_enabled", "CONTEXT_INJECTION_DENIED"),
+        ("approval_ref_authority_enabled", "APPROVAL_REF_NOT_AUTHORITY"),
+        ("raw_prompt_exposure_enabled", "RAW_PROMPT_DENIED"),
+        ("raw_provider_payload_exposure_enabled", "RAW_PROVIDER_PAYLOAD_DENIED"),
+        ("raw_content_allowed", "RAW_CONTENT_DENIED"),
+    ]
+    for field_name, reason in flag_reasons:
+        if getattr(policy, field_name):
+            raise ValueError(reason)
+    return policy
+
+
+def validate_openwebui_bridge_adapter_request(
+    request: OpenWebUIBridgeAdapterRequest,
+) -> OpenWebUIBridgeAdapterRequest:
+    _assert_safe_text(request.adapter_request_ref)
+    _assert_safe_text(request.session_ref)
+    _assert_safe_text(request.message_ref)
+    _assert_safe_text(request.safe_user_summary)
+    _assert_metadata_refs_only(request.metadata_refs)
+    _assert_safe_metadata(request.metadata)
+    _assert_allowed_content_mode(request.content_mode)
+    if request.approval_ref is not None:
+        _assert_safe_text(request.approval_ref)
+    if request.raw_prompt_present:
+        raise ValueError("RAW_PROMPT_DENIED")
+    if request.raw_provider_payload_present:
+        raise ValueError("RAW_PROVIDER_PAYLOAD_DENIED")
+    if request.raw_content_present:
+        raise ValueError("RAW_CONTENT_DENIED")
+    if request.secret_like_content_present:
+        raise ValueError("SECRET_LIKE_CONTENT_DENIED")
+    if request.provider_call_requested:
+        raise ValueError("PROVIDER_CALL_DENIED")
+    if request.model_authority_requested:
+        raise ValueError("MODEL_AUTHORITY_DENIED")
+    if request.tool_execution_requested:
+        if request.approval_ref:
+            raise ValueError("APPROVAL_REF_NOT_AUTHORITY")
+        raise ValueError("TOOL_EXECUTION_DENIED")
+    if request.memory_write_requested:
+        if request.approval_ref:
+            raise ValueError("APPROVAL_REF_NOT_AUTHORITY")
+        raise ValueError("MEMORY_WRITE_DENIED")
+    if request.context_injection_requested:
+        if request.approval_ref:
+            raise ValueError("APPROVAL_REF_NOT_AUTHORITY")
+        raise ValueError("CONTEXT_INJECTION_DENIED")
+    if request.openwebui_runtime_call_requested:
+        raise ValueError("OPENWEBUI_RUNTIME_CALL_DENIED")
+    return request
+
+
+def validate_openwebui_bridge_adapter_result(
+    result: OpenWebUIBridgeAdapterResult,
+) -> OpenWebUIBridgeAdapterResult:
+    _assert_safe_text(result.adapter_result_ref)
+    _assert_safe_text(result.adapter_request_ref)
+    _assert_safe_text(result.session_ref)
+    _assert_safe_text(result.message_ref)
+    _assert_safe_text(result.safe_shell_summary)
+    _assert_metadata_refs_only(result.reason_codes)
+    _assert_metadata_refs_only(result.side_effects_performed)
+    _assert_metadata_refs_only(result.metadata_refs)
+    _assert_safe_metadata(result.metadata)
+    _assert_allowed_content_mode(result.content_mode)
+    if result.raw_prompt_returned:
+        raise ValueError("RAW_PROMPT_DENIED")
+    if result.raw_provider_payload_returned:
+        raise ValueError("RAW_PROVIDER_PAYLOAD_DENIED")
+    if result.raw_content_returned:
+        raise ValueError("RAW_CONTENT_DENIED")
+    if result.model_output_authoritative:
+        raise ValueError("MODEL_AUTHORITY_DENIED")
+    for field_name, reason in [
+        ("openwebui_called", "OPENWEBUI_RUNTIME_CALL_DENIED"),
+        ("provider_called", "PROVIDER_CALL_DENIED"),
+        ("tool_executed", "TOOL_EXECUTION_DENIED"),
+        ("memory_written", "MEMORY_WRITE_DENIED"),
+        ("context_injected", "CONTEXT_INJECTION_DENIED"),
+        ("approval_granted", "APPROVAL_REF_NOT_AUTHORITY"),
+    ]:
+        if getattr(result, field_name):
+            raise ValueError(reason)
+    if result.side_effects_performed:
+        raise ValueError("SIDE_EFFECTS_DENIED")
+    return result
 
 
 def assert_openwebui_contract_only(

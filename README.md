@@ -12,23 +12,21 @@ allowed to become operational authority.
 
 | Field | Current state |
 |---|---|
-| Current active baseline | **v0.54.0** |
-| Current milestone | **M50 - Mobile Approval Audit Hardening** |
+| Current active baseline | **v0.55.0** |
+| Current milestone | **M51 - OpenWebUI Bridge Adapter Pilot** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **75** OpenAPI paths |
 | Production readiness | Not claimed |
 
-v0.54.0 implements M50 Mobile Approval Audit Hardening. It adds deterministic
-safe-ref-only mobile approval audit reports over M49 review approval capture
-records, status/decision consistency checks, duplicate idempotency mismatch
-detection, model_copy mutation revalidation, secret-like metadata denial,
-tests, documentation-integrity checks, static verification, and Foundation Gate
-coverage. It adds no raw file access, raw content output, full-file read
-output, unredacted preview, raw absolute path storage, context proposal,
-context injection, memory write, export, approval execution, tool execution,
-action execution, mobile sensor access, background collection, backend mobile
-audit route, native audit UI, dependency, production authority, or M51
+v0.55.0 implements M51 OpenWebUI Bridge Adapter Pilot. It adds deterministic
+local safe-summary adapter contracts for future OpenWebUI shell integration,
+adapter policy checks, request/result validation, model_copy mutation
+revalidation, tests, documentation-integrity checks, static verification, and
+Foundation Gate coverage. It adds no live OpenWebUI connection, OpenWebUI
+runtime call, raw prompt exposure, raw provider payload exposure, raw content
+output, provider/model call, model authority, tool execution, memory write,
+context injection, backend route, dependency, production authority, or M52
 implementation.
 
 v0.29.5 is documentation policy polish. It remains the documentation
@@ -89,6 +87,10 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M49 to M50 Boundary](docs/mobile/M49_TO_M50_BOUNDARY.md)
 - [M50 Mobile Approval Audit Hardening](docs/mobile/MOBILE_APPROVAL_AUDIT_HARDENING.md)
 - [M50 to M51 Boundary](docs/mobile/M50_TO_M51_BOUNDARY.md)
+- [M51 OpenWebUI Bridge Adapter Pilot](docs/openwebui/OPENWEBUI_BRIDGE_ADAPTER_PILOT.md)
+- [M51 OpenWebUI Bridge Adapter Policy](docs/openwebui/OPENWEBUI_BRIDGE_ADAPTER_POLICY.md)
+- [M51 OpenWebUI Bridge Adapter Authority Boundary](docs/openwebui/OPENWEBUI_BRIDGE_ADAPTER_AUTHORITY_BOUNDARY.md)
+- [M51 to M52 Boundary](docs/openwebui/M51_TO_M52_BOUNDARY.md)
 - [M38 Context Proposal Receipt Plan](docs/context/CONTEXT_PROPOSAL_RECEIPT_PLAN.md)
 - [API route inventory](docs/api/route_inventory.md)
 - [Documentation organization policy](docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md)
@@ -106,9 +108,9 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M28 Action Policy](docs/approvals/ACTION_POLICY.md)
 - [M27 Tool Broker v2](docs/tools/TOOL_BROKER_V2.md)
 - [M26 Grounded Recall Router](docs/recall/GROUNDED_RECALL_ROUTER.md)
-- [v0.54.0 release notes](docs/release_notes/v0_54_0.md)
-- [v0.54.0 release packet](docs/archive/releases/v0_54_0/README_IMPORT.md)
-- [v0.54.0 master plan](docs/archive/releases/v0_54_0/master_plan.md)
+- [v0.55.0 release notes](docs/release_notes/v0_55_0.md)
+- [v0.55.0 release packet](docs/archive/releases/v0_55_0/README_IMPORT.md)
+- [v0.55.0 master plan](docs/archive/releases/v0_55_0/master_plan.md)
 
 ## What This Project Is
 
@@ -375,7 +377,7 @@ post-M33 supersession is
 | v0.52.0 | M48 - First Internal TestFlight Build | Implemented/released reviewed-candidate-only |
 | v0.53.0 | M49 - Mobile Review Approval Capture | Implemented/released safe-ref-only review capture |
 | v0.54.0 | M50 - Mobile Approval Audit Hardening | Implemented/released audit hardening |
-| v0.55.0 | M51 - OpenWebUI Bridge Adapter Pilot | Planned/provisional |
+| v0.55.0 | M51 - OpenWebUI Bridge Adapter Pilot | Implemented/released adapter pilot |
 | v0.56.0 | M52 - OpenWebUI Safe Conversation Surface | Planned/provisional |
 | v0.57.0 | M53 - Controlled Tool Expansion Review | Planned/provisional |
 | v0.58.0 | M54 - Safe Media Metadata Inspector | Planned/provisional |

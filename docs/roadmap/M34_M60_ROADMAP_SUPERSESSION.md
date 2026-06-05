@@ -1,6 +1,6 @@
 # M34-M60 Roadmap Supersession
 
-Status: Active roadmap source of truth through v0.54.0.
+Status: Active roadmap source of truth through v0.55.0.
 
 v0.38.0 implements M34 Broader File Capability Review as planning,
 architecture review, documentation, verifier, and Foundation Gate work only.
@@ -38,7 +38,7 @@ implemented/released as contract-only Safe File Review Workflow Contracts and
 hardened by v0.39.1 for exact file/path binding. M36 is
 implemented/released as frontend-only CCC File Review Surface, Review-Only and
 hardened by v0.40.1 for read-only surface safety.
-M37 is implemented/released. M38 is implemented/released. M39 is implemented/released. M40 is implemented/released. M41 is implemented/released. M42 is implemented/released. M43 is implemented/released. M44 is implemented/released. M45 is implemented/released. M46 is implemented/released. M47 is implemented/released. M48 is implemented/released. M49 is implemented/released. M50 is implemented/released. M51-M60 remain planned/provisional. M42 resumes mobile planning. M44 is the first iOS
+M37 is implemented/released. M38 is implemented/released. M39 is implemented/released. M40 is implemented/released. M41 is implemented/released. M42 is implemented/released. M43 is implemented/released. M44 is implemented/released. M45 is implemented/released. M46 is implemented/released. M47 is implemented/released. M48 is implemented/released. M49 is implemented/released. M50 is implemented/released. M51 is implemented/released. M52-M60 remain planned/provisional. M42 resumes mobile planning. M44 is the first iOS
 skeleton milestone. M47 is the TestFlight-capable pipeline milestone. M48 is the
 first internal TestFlight build milestone. M49 and M50 are the first meaningful
 mobile approval capture and audit milestones.
@@ -67,7 +67,7 @@ mobile approval capture and audit milestones.
 | v0.52.0 | M48 | First Internal TestFlight Build | implemented/released reviewed-candidate-only | Internal-only build candidate record; no committed build artifact, TestFlight upload, signing material, external beta, or production authority |
 | v0.53.0 | M49 | Mobile Review Approval Capture | implemented/released safe-ref-only review capture | Exact-scope mobile review approval capture; no raw access, context, memory, export, sensor, execution, backend mobile approval route, or production authority |
 | v0.54.0 | M50 | Mobile Approval Audit Hardening | implemented/released hardening | Deterministic safe-ref-only audit reports for mobile approval records; no raw content, context, memory, export, sensor, execution, backend audit route, native audit UI, OpenWebUI bridge, or production authority |
-| v0.55.0 | M51 | OpenWebUI Bridge Adapter Pilot | planned/provisional | Pilot adapter boundary; no authority bypass |
+| v0.55.0 | M51 | OpenWebUI Bridge Adapter Pilot | implemented/released adapter pilot | Safe-summary adapter boundary; no authority bypass |
 | v0.56.0 | M52 | OpenWebUI Safe Conversation Surface | planned/provisional | Safe conversation surface with Python Agent Core authority |
 | v0.57.0 | M53 | Controlled Tool Expansion Review | planned/provisional | Planning/review only for future tool expansion |
 | v0.58.0 | M54 | Safe Media Metadata Inspector | planned/provisional | Metadata-only media inspection; no creative authority |
@@ -80,10 +80,10 @@ mobile approval capture and audit milestones.
 
 ## Prompt-Pack Strategy
 
-Recommended next prompt after v0.54.0:
+Recommended next prompt after v0.55.0:
 
 ```text
-v0.55.0 / M51 - OpenWebUI Bridge Adapter Pilot
+v0.56.0 / M52 - OpenWebUI Safe Conversation Surface
 ```
 
 The first prompt packs after this patch are:

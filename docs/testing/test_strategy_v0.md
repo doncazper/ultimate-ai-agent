@@ -602,3 +602,20 @@ Foundation Gate includes M50 mobile approval audit criteria and route/static saf
 OpenAPI path count remains unchanged at 75.
 M51 remains planned/provisional as OpenWebUI Bridge Adapter Pilot.
 ```
+
+## v0.55.0 M51 OpenWebUI Bridge Adapter Pilot Tests
+
+v0.55.0 adds focused OpenWebUI bridge adapter pilot tests only:
+
+```text
+OpenWebUI bridge adapter policy, request, and result contracts exist.
+Adapter output is safe-summary-only and returns safe refs plus safe metadata.
+Agent Core remains authority and OpenWebUI is not the agent brain.
+raw prompt exposure, raw provider payload exposure, raw content, live OpenWebUI connection,
+OpenWebUI runtime calls, provider/model calls, model authority, tool execution, memory writes,
+context injection, side effects, and approval_ref-as-authority are denied.
+model_copy-mutated unsafe fields are revalidated at the adapter boundary.
+Foundation Gate includes M51 adapter pilot, route boundary, static safety, and roadmap currentness criteria.
+OpenAPI path count remains unchanged at 75.
+M52 remains planned/provisional as OpenWebUI Safe Conversation Surface.
+```
