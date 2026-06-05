@@ -129,3 +129,8 @@ class InternalTestFlightPipelineStageKind(str, Enum):
     internal_distribution_review = "internal_distribution_review"
     rollback_plan = "rollback_plan"
     audit_receipt_plan = "audit_receipt_plan"
+
+
+class FirstInternalTestFlightBuildStatus(str, Enum):
+    reviewed_candidate = "reviewed_candidate"
+    blocked_pending_external_signing = "blocked_pending_external_signing"

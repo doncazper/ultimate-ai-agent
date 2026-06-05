@@ -12,23 +12,23 @@ allowed to become operational authority.
 
 | Field | Current state |
 |---|---|
-| Current active baseline | **v0.51.0** |
-| Current milestone | **M47 - TestFlight Pipeline, Internal Only** |
+| Current active baseline | **v0.52.0** |
+| Current milestone | **M48 - First Internal TestFlight Build** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **75** OpenAPI paths |
 | Production readiness | Not claimed |
 
-v0.51.0 implements M47 TestFlight Pipeline, Internal Only. It adds an
-internal-only, contract/checklist-only TestFlight pipeline manifest with reviewed
-future stages for source snapshot, build/archive planning, signing asset
-presence checks, internal distribution review, rollback planning, and redacted
-audit receipt planning. It adds no build execution, upload execution, App Store
-Connect API call, signing asset storage, provisioning profile storage,
-certificate/private-key storage, Fastlane lane, CI upload workflow, external
-beta, public distribution, mobile sensor access, background collection, approval
-execution, context injection, memory write, raw data export, dependency,
-production authority, or M48 implementation.
+v0.52.0 implements M48 First Internal TestFlight Build. It adds a reviewed
+internal-only, review-only TestFlight build candidate record with safe refs for
+the candidate, M47 pipeline manifest, source snapshot, and redacted audit
+receipt plan. It adds no build execution, committed build artifact, IPA, Xcode
+archive, TestFlight upload, App Store Connect API call, signing material
+storage, provisioning profile storage, certificate/private-key storage, Fastlane
+lane, CI upload workflow, external beta, public distribution, mobile approval
+capture, mobile sensor access, background collection, approval execution,
+context injection, memory write, raw data export, dependency, production
+authority, or M49 implementation.
 
 v0.29.5 is documentation policy polish. It remains the documentation
 organization cleanup baseline before the M26 and M27 implementation releases.
@@ -82,6 +82,8 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M46 to M47 Boundary](docs/mobile/M46_TO_M47_BOUNDARY.md)
 - [M47 TestFlight Pipeline, Internal Only](docs/mobile/TESTFLIGHT_PIPELINE_INTERNAL_ONLY.md)
 - [M47 to M48 Boundary](docs/mobile/M47_TO_M48_BOUNDARY.md)
+- [M48 First Internal TestFlight Build](docs/mobile/FIRST_INTERNAL_TESTFLIGHT_BUILD.md)
+- [M48 to M49 Boundary](docs/mobile/M48_TO_M49_BOUNDARY.md)
 - [M38 Context Proposal Receipt Plan](docs/context/CONTEXT_PROPOSAL_RECEIPT_PLAN.md)
 - [API route inventory](docs/api/route_inventory.md)
 - [Documentation organization policy](docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md)
@@ -99,9 +101,9 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M28 Action Policy](docs/approvals/ACTION_POLICY.md)
 - [M27 Tool Broker v2](docs/tools/TOOL_BROKER_V2.md)
 - [M26 Grounded Recall Router](docs/recall/GROUNDED_RECALL_ROUTER.md)
-- [v0.51.0 release notes](docs/release_notes/v0_51_0.md)
-- [v0.51.0 release packet](docs/archive/releases/v0_51_0/README_IMPORT.md)
-- [v0.51.0 master plan](docs/archive/releases/v0_51_0/master_plan.md)
+- [v0.52.0 release notes](docs/release_notes/v0_52_0.md)
+- [v0.52.0 release packet](docs/archive/releases/v0_52_0/README_IMPORT.md)
+- [v0.52.0 master plan](docs/archive/releases/v0_52_0/master_plan.md)
 
 ## What This Project Is
 
@@ -365,7 +367,7 @@ post-M33 supersession is
 | v0.49.0 | M45 - CCC iOS Local Read-Only Connection | Implemented/released contract/status-only |
 | v0.50.0 | M46 - iOS Review/Receipt Read-Only Surfaces | Implemented/released source-only read-only |
 | v0.51.0 | M47 - TestFlight Pipeline, Internal Only | Implemented/released contract/checklist-only |
-| v0.52.0 | M48 - First Internal TestFlight Build | Planned/provisional |
+| v0.52.0 | M48 - First Internal TestFlight Build | Implemented/released reviewed-candidate-only |
 | v0.53.0 | M49 - Mobile Review Approval Capture | Planned/provisional |
 | v0.54.0 | M50 - Mobile Approval Audit Hardening | Planned/provisional |
 | v0.55.0 | M51 - OpenWebUI Bridge Adapter Pilot | Planned/provisional |

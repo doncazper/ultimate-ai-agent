@@ -1,16 +1,16 @@
 # Ultimate AI Agent Version
 
-Current active baseline: **v0.51.0**
+Current active baseline: **v0.52.0**
 
-v0.51.0 implements M47 TestFlight Pipeline, Internal Only. It adds an
-internal-only, contract/checklist-only TestFlight pipeline manifest with reviewed
-future stages for source snapshot, build/archive planning, signing asset
-presence checks, internal distribution review, rollback planning, and redacted
-audit receipt planning.
+v0.52.0 implements M48 First Internal TestFlight Build. It adds a reviewed
+internal-only, review-only TestFlight build candidate record with safe refs for
+the candidate, M47 pipeline manifest, source snapshot, and redacted audit
+receipt plan.
 
-It adds no build execution, upload execution, App Store Connect API call, signing
-asset storage, provisioning profile storage, certificate/private-key storage,
-Fastlane lane, CI upload workflow, external beta, public distribution, mobile
-sensor access, background collection, approval execution, context injection,
-memory write, raw data export, dependency, production authority, or M48
-implementation.
+It adds no build execution, committed build artifact, IPA, Xcode archive,
+TestFlight upload, App Store Connect API call, signing material storage,
+provisioning profile storage, certificate/private-key storage, Fastlane lane, CI
+upload workflow, external beta, public distribution, mobile approval capture,
+mobile sensor access, background collection, approval execution, context
+injection, memory write, raw data export, dependency, production authority, or
+M49 implementation.

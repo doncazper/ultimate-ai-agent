@@ -6,6 +6,7 @@ from ultimate_ai_agent.core.mobile_companion.enums import (
     CccIosLocalConnectionEndpointKind,
     CccIosReviewReceiptSurfaceKind,
     CccIosSkeletonSurfaceKind,
+    FirstInternalTestFlightBuildStatus,
     InternalTestFlightPipelineStageKind,
     MobileCapabilityKind,
     MobileCapabilityStatus,
@@ -475,4 +476,53 @@ class InternalTestFlightPipelineManifest(_MobileContractModel):
     def _copy_stages(
         cls, value: list[InternalTestFlightPipelineStageContract]
     ) -> list[InternalTestFlightPipelineStageContract]:
+        return list(value)
+
+
+class FirstInternalTestFlightBuildCandidate(_MobileContractModel):
+    milestone: str = "M48"
+    version: str = "0.52.0"
+    build_candidate_ref: str = Field(..., min_length=1)
+    pipeline_manifest_ref: str = Field(..., min_length=1)
+    source_snapshot_ref: str = Field(..., min_length=1)
+    audit_receipt_ref: str = Field(..., min_length=1)
+    status: FirstInternalTestFlightBuildStatus = (
+        FirstInternalTestFlightBuildStatus.reviewed_candidate
+    )
+    internal_only: bool = True
+    review_only_record: bool = True
+    first_internal_build_candidate_record: bool = True
+    safe_summary: str = (
+        "M48 first internal TestFlight build candidate record; no upload, signing "
+        "material, App Store Connect call, or production authority."
+    )
+    redacted_metadata_refs: list[str] = Field(default_factory=list)
+    build_execution_performed: bool = False
+    archive_created_in_repo: bool = False
+    ipa_created_in_repo: bool = False
+    testflight_upload_performed: bool = False
+    app_store_connect_api_called: bool = False
+    signing_asset_storage_enabled: bool = False
+    signing_identity_material_stored: bool = False
+    provisioning_profile_material_stored: bool = False
+    certificate_or_private_key_stored: bool = False
+    fastlane_workflow_enabled: bool = False
+    ci_upload_workflow_enabled: bool = False
+    external_beta_enabled: bool = False
+    public_distribution_enabled: bool = False
+    production_authority_enabled: bool = False
+    mobile_sensor_access_enabled: bool = False
+    background_collection_enabled: bool = False
+    approval_capture_enabled: bool = False
+    approval_execution_enabled: bool = False
+    context_injection_enabled: bool = False
+    memory_write_enabled: bool = False
+    raw_data_export_enabled: bool = False
+    export_enabled: bool = False
+    execution_enabled: bool = False
+    m49_mobile_approval_capture_future: bool = True
+
+    @field_validator("redacted_metadata_refs")
+    @classmethod
+    def _copy_redacted_metadata_refs(cls, value: list[str]) -> list[str]:
         return list(value)

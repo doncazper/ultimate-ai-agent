@@ -76,6 +76,7 @@ SCAN_SEQUENCE = [
     ("M45 CCC iOS local read-only connection scan", "verify_m45_ccc_ios_local_read_only_connection"),
     ("M46 CCC iOS review/receipt read-only surfaces scan", "verify_m46_ccc_ios_review_receipt_read_only_surfaces"),
     ("M47 TestFlight pipeline internal-only scan", "verify_m47_testflight_pipeline_internal_only"),
+    ("M48 first internal TestFlight build scan", "verify_m48_first_internal_testflight_build"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -5863,6 +5864,186 @@ def verify_m47_testflight_pipeline_internal_only():
                     sys.exit(1)
 
     print("OK: M47 TestFlight pipeline is internal-only, contract/checklist-only, no-build, no-upload, and no-authority")
+
+
+def verify_m48_first_internal_testflight_build():
+    print("\n[Verifier] Running M48 first internal TestFlight build guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/mobile_companion/contracts.py",
+        "src/ultimate_ai_agent/core/mobile_companion/planning.py",
+        "src/ultimate_ai_agent/core/mobile_companion/enums.py",
+        "docs/mobile/FIRST_INTERNAL_TESTFLIGHT_BUILD.md",
+        "docs/mobile/M48_TO_M49_BOUNDARY.md",
+        "docs/release_notes/v0_52_0.md",
+        "docs/archive/releases/v0_52_0/README_IMPORT.md",
+        "docs/archive/releases/v0_52_0/master_plan.md",
+        "docs/implementation/foundation_gate_implementation_plan_v0_52_0.md",
+        "tests/test_m48_first_internal_testflight_build.py",
+        "tests/test_m48_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M48 first internal TestFlight build file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = "\n".join(
+        (ROOT / rel_path).read_text(encoding="utf-8").lower()
+        for rel_path in required_files
+        if rel_path.startswith("docs/")
+    )
+    for fragment in [
+        "first internal testflight build",
+        "build candidate",
+        "review-only",
+        "internal-only",
+        "no committed build artifact",
+        "no ipa",
+        "no signing material",
+        "no app store connect",
+        "no testflight upload",
+        "no external beta",
+        "no public distribution",
+        "no production authority",
+        "m49 remains future",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M48 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.evaluators import m48_openapi_route_failures
+        from ultimate_ai_agent.core.mobile_companion import (
+            assert_first_internal_testflight_build_candidate_safe,
+            build_default_first_internal_testflight_build_candidate,
+        )
+    except Exception as exc:
+        print(f"FAIL: M48 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m48_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    try:
+        candidate = build_default_first_internal_testflight_build_candidate()
+        assert_first_internal_testflight_build_candidate_safe(candidate)
+    except Exception as exc:
+        print(f"FAIL: M48 default first internal TestFlight build candidate failed validation: {exc}")
+        sys.exit(1)
+
+    ios_root = ROOT / "apps" / "ccc-ios"
+    forbidden_paths = [
+        ios_root / "Package.swift",
+        *ios_root.glob("*.xcodeproj"),
+        *ios_root.rglob("*.xcworkspace"),
+        *ios_root.rglob("*.entitlements"),
+        *ios_root.rglob("Info.plist"),
+        *ios_root.rglob("ExportOptions.plist"),
+        *ios_root.rglob("*.xcarchive"),
+        *ios_root.rglob("*.ipa"),
+        *ios_root.rglob("*.mobileprovision"),
+        *ios_root.rglob("*.p8"),
+        *ios_root.rglob("*.cer"),
+        *ios_root.rglob("*.p12"),
+    ]
+    if (ROOT / ".github").exists():
+        forbidden_paths.extend((ROOT / ".github").rglob("*testflight*"))
+        forbidden_paths.extend((ROOT / ".github").rglob("*app-store-connect*"))
+    for forbidden_path in forbidden_paths:
+        if forbidden_path.exists():
+            rel = forbidden_path.relative_to(ROOT).as_posix()
+            print(f"FAIL: M48 forbidden TestFlight/signing/build artifact present: {rel}")
+            sys.exit(1)
+    for forbidden_dir in [
+        ROOT / "fastlane",
+        ios_root / "fastlane",
+        ios_root / "DerivedData",
+        ios_root / "Archives",
+        ios_root / "build",
+        ios_root / "dist",
+    ]:
+        if forbidden_dir.exists():
+            rel = forbidden_dir.relative_to(ROOT).as_posix()
+            print(f"FAIL: M48 forbidden build/upload directory present: {rel}")
+            sys.exit(1)
+
+    swift_root = ios_root / "Sources" / "UltimateAIAgentCCC"
+    swift_text = "\n".join(path.read_text(encoding="utf-8") for path in sorted(swift_root.rglob("*.swift")))
+    for fragment in [
+        "URLSession",
+        "Alamofire",
+        "URLRequest",
+        "NWConnection",
+        "CLLocationManager",
+        "AVCapture",
+        "PHPhoto",
+        "Contacts",
+        "EventKit",
+        "UserNotifications",
+        "Keychain",
+        "SecItem",
+        "FileManager.default",
+        "Process(",
+        "WKWebView",
+        "AppStoreConnect",
+        "App Store Connect",
+        "TestFlightUpload",
+        "xcodebuild",
+        "altool",
+        "notarytool",
+        "ExportOptions",
+        "XCArchive",
+        ".ipa",
+        "mobileprovision",
+    ]:
+        if fragment in swift_text:
+            print(f"FAIL: M48 forbidden Swift/build fragment present: {fragment}")
+            sys.exit(1)
+
+    forbidden_source_fragments = [
+        "build_execution_performed=True",
+        "archive_created_in_repo=True",
+        "ipa_created_in_repo=True",
+        "testflight_upload_performed=True",
+        "app_store_connect_api_called=True",
+        "signing_asset_storage_enabled=True",
+        "signing_identity_material_stored=True",
+        "provisioning_profile_material_stored=True",
+        "certificate_or_private_key_stored=True",
+        "fastlane_workflow_enabled=True",
+        "ci_upload_workflow_enabled=True",
+        "external_beta_enabled=True",
+        "public_distribution_enabled=True",
+        "production_authority_enabled=True",
+        "mobile_sensor_access_enabled=True",
+        "background_collection_enabled=True",
+        "approval_execution_enabled=True",
+        "context_injection_enabled=True",
+        "memory_write_enabled=True",
+        "raw_data_export_enabled=True",
+        "export_enabled=True",
+        "execution_enabled=True",
+    ]
+    source_roots = [ROOT / "src", ROOT / "apps" / "control-center" / "src", ios_root]
+    for root in source_roots:
+        if not root.exists():
+            continue
+        for path in root.rglob("*"):
+            if not path.is_file() or path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}:
+                continue
+            rel = path.relative_to(ROOT).as_posix()
+            if rel == "src/ultimate_ai_agent/core/gate/evaluators.py":
+                continue
+            text = path.read_text(encoding="utf-8")
+            for fragment in forbidden_source_fragments:
+                if fragment in text:
+                    print(f"FAIL: M48 forbidden enabled flag in {rel}: {fragment}")
+                    sys.exit(1)
+
+    print("OK: M48 first internal TestFlight build is reviewed-candidate-only, no-build-artifact, no-upload, no-signing-material, and no-authority")
 
 
 def verify_local_developer_launcher_safety():

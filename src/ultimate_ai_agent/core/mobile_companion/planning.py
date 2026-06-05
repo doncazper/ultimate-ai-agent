@@ -8,6 +8,7 @@ from ultimate_ai_agent.core.mobile_companion.contracts import (
     CccIosReviewReceiptSurfaceContract,
     CccIosSkeletonManifest,
     CccIosSkeletonSurface,
+    FirstInternalTestFlightBuildCandidate,
     InternalTestFlightPipelineManifest,
     InternalTestFlightPipelineStageContract,
     MobileApiBoundaryRefresh,
@@ -24,6 +25,7 @@ from ultimate_ai_agent.core.mobile_companion.enums import (
     CccIosLocalConnectionEndpointKind,
     CccIosReviewReceiptSurfaceKind,
     CccIosSkeletonSurfaceKind,
+    FirstInternalTestFlightBuildStatus,
     InternalTestFlightPipelineStageKind,
     MobileApiBoundaryStatus,
     MobileApiEndpointKind,
@@ -410,6 +412,29 @@ def build_default_internal_testflight_pipeline_manifest(
     )
     assert_internal_testflight_pipeline_safe(manifest)
     return manifest
+
+
+def build_default_first_internal_testflight_build_candidate(
+    version: str = "0.52.0",
+) -> FirstInternalTestFlightBuildCandidate:
+    candidate = FirstInternalTestFlightBuildCandidate(
+        version=version,
+        build_candidate_ref="internal_testflight_build_candidate:v0_52_0_reviewed",
+        pipeline_manifest_ref="internal_testflight_pipeline_manifest:v0_51_0",
+        source_snapshot_ref="source_snapshot:v0_52_0",
+        audit_receipt_ref="mobile_audit_receipt_plan:v0_52_0_redacted",
+        safe_summary=(
+            "M48 first internal TestFlight build candidate review record; "
+            "no build artifact, signing material, App Store Connect upload, "
+            "external beta, public distribution, or production authority is stored here."
+        ),
+        redacted_metadata_refs=[
+            "testflight_candidate_metadata:v0_52_0",
+            "redacted_audit_receipt:v0_52_0",
+        ],
+    )
+    assert_first_internal_testflight_build_candidate_safe(candidate)
+    return candidate
 
 
 def validate_mobile_capability_plan(plan: MobileCapabilityPlan) -> MobileCapabilityPlan:
@@ -969,6 +994,68 @@ def validate_internal_testflight_pipeline_stage(
         if enabled:
             raise ValueError(f"M47 TestFlight stage cannot enable {label}")
     return stage
+
+
+def assert_first_internal_testflight_build_candidate_safe(
+    candidate: FirstInternalTestFlightBuildCandidate,
+) -> FirstInternalTestFlightBuildCandidate:
+    for ref_label, ref in {
+        "build candidate ref": candidate.build_candidate_ref,
+        "pipeline manifest ref": candidate.pipeline_manifest_ref,
+        "source snapshot ref": candidate.source_snapshot_ref,
+        "audit receipt ref": candidate.audit_receipt_ref,
+    }.items():
+        _assert_safe_ref(ref, label=ref_label)
+    _assert_safe_text(candidate.safe_summary)
+    if RAW_PATH_OR_ROUTE_REF.search(candidate.safe_summary):
+        raise ValueError("M48 safe summary cannot contain raw paths, routes, or raw data markers")
+    _assert_metadata_refs_only(candidate.redacted_metadata_refs)
+    if candidate.milestone != "M48":
+        raise ValueError("first internal TestFlight build candidate must remain scoped to M48")
+    if not candidate.version.startswith("0.52."):
+        raise ValueError("M48 first internal TestFlight build candidate version must be 0.52.x")
+    if candidate.status not in {
+        FirstInternalTestFlightBuildStatus.reviewed_candidate,
+        FirstInternalTestFlightBuildStatus.blocked_pending_external_signing,
+    }:
+        raise ValueError("M48 build candidate has unsupported review status")
+    if not candidate.internal_only:
+        raise ValueError("M48 first internal TestFlight build candidate must remain internal-only")
+    if not candidate.review_only_record:
+        raise ValueError("M48 first internal TestFlight build candidate must remain review-only")
+    if not candidate.first_internal_build_candidate_record:
+        raise ValueError("M48 first internal TestFlight build candidate record is required")
+    if not candidate.m49_mobile_approval_capture_future:
+        raise ValueError("M49 mobile approval capture must remain future after M48")
+    forbidden_flags = {
+        "build execution": candidate.build_execution_performed,
+        "archive artifact in repo": candidate.archive_created_in_repo,
+        "IPA artifact in repo": candidate.ipa_created_in_repo,
+        "TestFlight upload": candidate.testflight_upload_performed,
+        "App Store Connect API": candidate.app_store_connect_api_called,
+        "signing asset storage": candidate.signing_asset_storage_enabled,
+        "signing identity material storage": candidate.signing_identity_material_stored,
+        "provisioning profile material storage": candidate.provisioning_profile_material_stored,
+        "certificate or private key storage": candidate.certificate_or_private_key_stored,
+        "Fastlane workflow": candidate.fastlane_workflow_enabled,
+        "CI upload workflow": candidate.ci_upload_workflow_enabled,
+        "external beta": candidate.external_beta_enabled,
+        "public distribution": candidate.public_distribution_enabled,
+        "production authority": candidate.production_authority_enabled,
+        "mobile sensor access": candidate.mobile_sensor_access_enabled,
+        "background collection": candidate.background_collection_enabled,
+        "approval capture": candidate.approval_capture_enabled,
+        "approval execution": candidate.approval_execution_enabled,
+        "context injection": candidate.context_injection_enabled,
+        "memory write": candidate.memory_write_enabled,
+        "raw data export": candidate.raw_data_export_enabled,
+        "export": candidate.export_enabled,
+        "execution": candidate.execution_enabled,
+    }
+    for label, enabled in forbidden_flags.items():
+        if enabled:
+            raise ValueError(f"M48 first internal TestFlight build candidate cannot enable {label}")
+    return candidate
 
 
 def assert_no_sensor_access_enabled(plan: MobileCapabilityPlan) -> MobileCapabilityPlan:

@@ -1,6 +1,6 @@
 # Documentation Index
 
-Current active baseline: **v0.51.0**
+Current active baseline: **v0.52.0**
 
 This index is the active entrypoint for documentation navigation. Historical release documents remain in the repository for audit history, but active truth starts with the current baseline files listed here.
 
@@ -14,8 +14,8 @@ docs/canonical/CANONICAL_DOC_MAP.md
 docs/canonical/09_roadmap.md
 docs/roadmap/README.md
 docs/archive/README.md
-docs/archive/releases/v0_51_0/README_IMPORT.md
-docs/archive/releases/v0_51_0/master_plan.md
+docs/archive/releases/v0_52_0/README_IMPORT.md
+docs/archive/releases/v0_52_0/master_plan.md
 docs/developer/LOCAL_LAUNCHER.md
 scripts/dev/README.md
 docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md
@@ -80,6 +80,8 @@ docs/mobile/CCC_IOS_REVIEW_RECEIPT_READ_ONLY_SURFACES.md
 docs/mobile/M46_TO_M47_BOUNDARY.md
 docs/mobile/TESTFLIGHT_PIPELINE_INTERNAL_ONLY.md
 docs/mobile/M47_TO_M48_BOUNDARY.md
+docs/mobile/FIRST_INTERNAL_TESTFLIGHT_BUILD.md
+docs/mobile/M48_TO_M49_BOUNDARY.md
 docs/tools/FILE_TOOL_CAPABILITY_MATRIX.md
 docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md
 docs/roadmap/ECOSYSTEM_WATCHLIST.md
@@ -445,19 +447,19 @@ scripts/dev/README.md
 ```
 
 v0.37.4 supersedes the old active M35-M40 roadmap projection and defines the
-active M34-M60 sequence. v0.51.0 is the current active baseline after
-implementing M47 TestFlight Pipeline, Internal Only as internal-only,
-contract/checklist-only pipeline planning work. Active roadmap sources consistently
+active M34-M60 sequence. v0.52.0 is the current active baseline after
+implementing M48 First Internal TestFlight Build as an internal-only,
+review-only build candidate record. Active roadmap sources consistently
 keep v0.38.0 / M34 as Broader File Capability Review, keep M34
 planning/docs/verifier only, mark M36 through M43 implemented/released, mark
-M44, M45, M46, and M47 implemented/released, keep M48-M60 planned/provisional, and rely on documentation-integrity checks to guard
+M44, M45, M46, M47, and M48 implemented/released, keep M49-M60 planned/provisional, and rely on documentation-integrity checks to guard
 against superseded-roadmap drift, stale current-baseline labels, mobile product
 contract drift, read-only mobile API boundary drift, and no-authority iOS
-skeleton/local connection/review receipt/TestFlight pipeline drift.
+skeleton/local connection/review receipt/TestFlight pipeline/build candidate drift.
 
 ## Release Notes Index
 
-Current release notes: `docs/release_notes/v0_51_0.md`
+Current release notes: `docs/release_notes/v0_52_0.md`
 
 Historical release notes remain under `docs/release_notes/`. Historical docs may mention old active baselines in historical context; they are not the current source of truth.
 

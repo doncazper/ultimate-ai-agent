@@ -212,6 +212,15 @@ REQUIRED_M41_LOCAL_PROTOTYPE_SAFETY_DOCS = [
     "docs/prototype/M41_TO_M42_BOUNDARY.md",
 ]
 
+REQUIRED_M48_FIRST_INTERNAL_TESTFLIGHT_BUILD_DOCS = [
+    "docs/mobile/FIRST_INTERNAL_TESTFLIGHT_BUILD.md",
+    "docs/mobile/M48_TO_M49_BOUNDARY.md",
+    "docs/release_notes/v0_52_0.md",
+    "docs/archive/releases/v0_52_0/README_IMPORT.md",
+    "docs/archive/releases/v0_52_0/master_plan.md",
+    "docs/implementation/foundation_gate_implementation_plan_v0_52_0.md",
+]
+
 
 REQUIRED_ACTIVE_DOCS = [
     "docs/README.md",
@@ -320,6 +329,8 @@ REQUIRED_ACTIVE_DOCS = [
     "docs/mobile/MOBILE_SENSOR_BOUNDARY.md",
     "docs/mobile/MOBILE_SECURITY_MODEL.md",
     "docs/mobile/MOBILE_CAPTURE_POLICY.md",
+    "docs/mobile/FIRST_INTERNAL_TESTFLIGHT_BUILD.md",
+    "docs/mobile/M48_TO_M49_BOUNDARY.md",
     "docs/mobile/CCC_IOS_ANDROID_STRATEGY.md",
     "docs/mobile/MOBILE_PAIRING_TRUST_PLANNING.md",
     "docs/mobile/MOBILE_COMPANION_NON_GOALS.md",
@@ -717,6 +728,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_m45_ccc_ios_local_read_only_connection_docs(root, version))
     failures.extend(_verify_m46_ccc_ios_review_receipt_read_only_surface_docs(root, version))
     failures.extend(_verify_m47_testflight_pipeline_internal_only_docs(root, version))
+    failures.extend(_verify_m48_first_internal_testflight_build_docs(root, version))
     failures.extend(_verify_m19_roadmap_currentness(root, version))
     failures.extend(_verify_post_m18_roadmap_status_labels(root))
 
@@ -856,6 +868,18 @@ def _verify_m34_m60_roadmap_supersession(root: Path, version: str | None) -> lis
                         ),
                         **(
                             {
+                                "M47 must be released as TestFlight Pipeline, Internal Only": (
+                                    "m47 is implemented/released"
+                                ),
+                                "M48 must be released as First Internal TestFlight Build": (
+                                    "m48 is implemented/released"
+                                ),
+                                "M49-M60 must remain planned/provisional": (
+                                    "m49-m60 remain planned/provisional"
+                                ),
+                            }
+                            if _version_tuple(version) >= (0, 52, 0)
+                            else {
                                 "M47 must be released as TestFlight Pipeline, Internal Only": (
                                     "m47 is implemented/released"
                                 ),
@@ -2039,6 +2063,63 @@ def _verify_m47_testflight_pipeline_internal_only_docs(root: Path, version: str 
         "M47 docs must not claim external beta": "external beta is implemented",
         "M47 docs must not claim public distribution": "public distribution is implemented",
         "M47 docs must not claim production authority": "production authority is implemented",
+    }
+    for message, fragment in forbidden_fragments.items():
+        if fragment in text:
+            failures.append(f"{message}: {fragment}")
+    return failures
+
+
+def _verify_m48_first_internal_testflight_build_docs(root: Path, version: str | None) -> list[str]:
+    if _version_tuple(version) < (0, 52, 0):
+        return []
+
+    failures: list[str] = []
+    parts: list[str] = []
+    for rel_path in REQUIRED_M48_FIRST_INTERNAL_TESTFLIGHT_BUILD_DOCS:
+        path = root / rel_path
+        if not path.exists():
+            failures.append(f"missing active M48 first internal TestFlight build doc: {rel_path}")
+            continue
+        parts.append(_read(path).lower())
+    text = "\n".join(parts)
+    required_fragments = {
+        "M48 docs must say First Internal TestFlight Build": "first internal testflight build",
+        "M48 docs must say build candidate": "build candidate",
+        "M48 docs must say review-only": "review-only",
+        "M48 docs must say internal-only": "internal-only",
+        "M48 docs must deny committed build artifact": "no committed build artifact",
+        "M48 docs must deny IPA": "no ipa",
+        "M48 docs must deny Xcode archive": "no xcode archive",
+        "M48 docs must deny signing material": "no signing material",
+        "M48 docs must deny App Store Connect": "no app store connect",
+        "M48 docs must deny TestFlight upload": "no testflight upload",
+        "M48 docs must deny external beta": "no external beta",
+        "M48 docs must deny public distribution": "no public distribution",
+        "M48 docs must deny mobile approval capture": "no mobile approval capture",
+        "M48 docs must deny mobile sensor access": "no mobile sensor access",
+        "M48 docs must deny background collection": "no background collection",
+        "M48 docs must deny context injection": "no context injection",
+        "M48 docs must deny memory write": "no memory write",
+        "M48 docs must deny raw data export": "no raw data export",
+        "M48 docs must deny execution": "no execution",
+        "M48 docs must deny production authority": "no production authority",
+        "M48 docs must keep M49 future": "m49 remains future",
+    }
+    for message, fragment in required_fragments.items():
+        if fragment not in text:
+            failures.append(message)
+
+    forbidden_fragments = {
+        "M48 docs must not claim M49 implementation": "m49 is implemented",
+        "M48 docs must not claim mobile approval capture implementation": (
+            "mobile review approval capture is implemented"
+        ),
+        "M48 docs must not claim upload implementation": "testflight upload is implemented",
+        "M48 docs must not claim signing implementation": "signing material storage is implemented",
+        "M48 docs must not claim external beta": "external beta is implemented",
+        "M48 docs must not claim public distribution": "public distribution is implemented",
+        "M48 docs must not claim production authority": "production authority is implemented",
     }
     for message, fragment in forbidden_fragments.items():
         if fragment in text:
@@ -3818,7 +3899,32 @@ def _verify_post_m20_roadmap_projection(root: Path) -> list[str]:
         expectations["M40 must be Context Handoff Approval, No Injection"] = (
             "context handoff approval, no injection"
         )
-        if active_version_tuple >= (0, 51, 0):
+        if active_version_tuple >= (0, 52, 0):
+            expectations["Post-M20 roadmap docs must say M42 is implemented/released"] = (
+                "m42 is implemented/released"
+            )
+            expectations["Post-M20 roadmap docs must say M43 is implemented/released"] = (
+                "m43 is implemented/released"
+            )
+            expectations["Post-M20 roadmap docs must say M44 is implemented/released"] = (
+                "m44 is implemented/released"
+            )
+            expectations["Post-M20 roadmap docs must say M45 is implemented/released"] = (
+                "m45 is implemented/released"
+            )
+            expectations["Post-M20 roadmap docs must say M46 is implemented/released"] = (
+                "m46 is implemented/released"
+            )
+            expectations["Post-M20 roadmap docs must say M47 is implemented/released"] = (
+                "m47 is implemented/released"
+            )
+            expectations["Post-M20 roadmap docs must say M48 is implemented/released"] = (
+                "m48 is implemented/released"
+            )
+            expectations["Post-M20 roadmap docs must keep M49-M60 planned/provisional"] = (
+                "m49-m60 remain planned/provisional"
+            )
+        elif active_version_tuple >= (0, 51, 0):
             expectations["Post-M20 roadmap docs must say M42 is implemented/released"] = (
                 "m42 is implemented/released"
             )
@@ -4303,7 +4409,12 @@ def _verify_post_m18_roadmap_status_labels(root: Path) -> list[str]:
             or "redacted preview" not in active_capability_charters
         ):
             failures.append("roadmap sequence must define M33 as redacted file preview")
-        if active >= (0, 51, 0):
+        if active >= (0, 52, 0):
+            if "v0.52.0" not in active_capability_charters or "m48" not in active_capability_charters or "implemented/released" not in active_capability_charters:
+                failures.append("roadmap sequence must mark M48/v0.52.0 implemented")
+            if "m49-m60" not in active_capability_charters or "planned/provisional" not in active_capability_charters:
+                failures.append("roadmap sequence must keep M49-M60 planned/provisional")
+        elif active >= (0, 51, 0):
             if "v0.51.0 / m47" not in active_capability_charters or "implemented/released" not in active_capability_charters:
                 failures.append("roadmap sequence must mark M47/v0.51.0 implemented")
             if "m48-m60" not in active_capability_charters or "planned/provisional" not in active_capability_charters:
