@@ -4,15 +4,20 @@ from ultimate_ai_agent.core.mobile_companion.contracts import (
     MobileClientPlan,
     MobileCompanionManifest,
     MobilePermissionManifest,
+    MobileApiBoundaryRefresh,
+    MobileProductContractRefresh,
+    MobileProductSurfaceContract,
     MobileReceiptPlan,
 )
 from ultimate_ai_agent.core.mobile_companion.enums import (
+    MobileApiBoundaryStatus,
     MobileCapabilityKind,
     MobileCapabilityStatus,
     MobileClientPlatform,
     MobileCompanionSurface,
     MobileDataClassification,
     MobilePermissionDecision,
+    MobileProductRole,
     MobileReceiptRequirement,
 )
 from ultimate_ai_agent.core.mobile_companion.permissions import (
@@ -20,14 +25,20 @@ from ultimate_ai_agent.core.mobile_companion.permissions import (
 )
 from ultimate_ai_agent.core.mobile_companion.planning import (
     assert_mobile_contract_only,
+    assert_mobile_product_contract_refresh_only,
     assert_no_sensor_access_enabled,
     assert_no_silent_memory_write,
     build_default_mobile_companion_manifest,
+    build_default_mobile_product_contract_refresh,
     validate_mobile_capability_plan,
+    validate_mobile_api_boundary_refresh,
     validate_mobile_capture_intent_plan,
+    validate_mobile_product_surface_contract,
 )
 
 __all__ = [
+    "MobileApiBoundaryRefresh",
+    "MobileApiBoundaryStatus",
     "MobileCapabilityKind",
     "MobileCapabilityPlan",
     "MobileCapabilityStatus",
@@ -39,13 +50,20 @@ __all__ = [
     "MobileDataClassification",
     "MobilePermissionDecision",
     "MobilePermissionManifest",
+    "MobileProductContractRefresh",
+    "MobileProductRole",
+    "MobileProductSurfaceContract",
     "MobileReceiptPlan",
     "MobileReceiptRequirement",
     "assert_mobile_contract_only",
+    "assert_mobile_product_contract_refresh_only",
     "assert_no_sensor_access_enabled",
     "assert_no_silent_memory_write",
     "build_default_mobile_companion_manifest",
+    "build_default_mobile_product_contract_refresh",
     "build_default_mobile_permission_manifest",
+    "validate_mobile_api_boundary_refresh",
     "validate_mobile_capability_plan",
     "validate_mobile_capture_intent_plan",
+    "validate_mobile_product_surface_contract",
 ]

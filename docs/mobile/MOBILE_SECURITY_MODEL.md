@@ -60,3 +60,13 @@ execute actions, bypass governance, silently become memory, or trigger external
 sends. v0.25.0 implements M21 OpenWebUI Bridge + Chat Shell Integration
 Contract as contract/planning/validation only. M22 and M23 remain
 planned/provisional.
+
+## v0.46.0 M42 Product Contract Refresh
+
+M42 refreshes the mobile product contract without adding mobile implementation.
+Mobile remains governance/control, not the agent brain. M42 adds no mobile app,
+iOS app, Android app, native build workflow, signing/store workflow, mobile API
+route, backend route, approval capture, approval execution, sensor access, OS
+permission integration, background service, notification runtime, raw payload
+exposure, memory write, context injection, credential handling, or production
+authority. M43 remains future as a read-only API boundary.

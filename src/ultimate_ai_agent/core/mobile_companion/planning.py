@@ -2,17 +2,22 @@ import re
 from typing import Iterable
 
 from ultimate_ai_agent.core.mobile_companion.contracts import (
+    MobileApiBoundaryRefresh,
     MobileCapabilityPlan,
     MobileCaptureIntentPlan,
     MobileClientPlan,
     MobileCompanionManifest,
+    MobileProductContractRefresh,
+    MobileProductSurfaceContract,
 )
 from ultimate_ai_agent.core.mobile_companion.enums import (
+    MobileApiBoundaryStatus,
     MobileCapabilityKind,
     MobileCapabilityStatus,
     MobileClientPlatform,
     MobileCompanionSurface,
     MobileDataClassification,
+    MobileProductRole,
 )
 
 
@@ -130,6 +135,49 @@ def build_default_mobile_companion_manifest(
     return manifest
 
 
+def build_default_mobile_product_contract_refresh(
+    version: str = "0.46.0",
+) -> MobileProductContractRefresh:
+    refresh = MobileProductContractRefresh(
+        version=version,
+        safe_summary=(
+            "M42 mobile companion product contract refresh only; mobile remains "
+            "governance/control, not the agent brain."
+        ),
+        product_roles=[
+            MobileProductSurfaceContract(
+                role=MobileProductRole.governance_surface,
+                surfaces=[
+                    MobileCompanionSurface.approval_status_planned,
+                    MobileCompanionSurface.emergency_stop_planned,
+                ],
+                safe_summary="Governance status planning only; no approval execution.",
+            ),
+            MobileProductSurfaceContract(
+                role=MobileProductRole.review_surface,
+                surfaces=[MobileCompanionSurface.receipt_view_planned],
+                safe_summary="Review and receipt display planning only.",
+            ),
+            MobileProductSurfaceContract(
+                role=MobileProductRole.capture_inbox_surface,
+                surfaces=[MobileCompanionSurface.capture_inbox_planned],
+                safe_summary="Capture inbox product planning only; no sensor capture.",
+            ),
+            MobileProductSurfaceContract(
+                role=MobileProductRole.status_surface,
+                surfaces=[MobileCompanionSurface.status_dashboard_planned],
+                safe_summary="Status dashboard planning only.",
+            ),
+        ],
+        api_boundary=MobileApiBoundaryRefresh(
+            status=MobileApiBoundaryStatus.blocked_until_m43,
+            safe_summary="M43 may define a read-only mobile API boundary; M42 adds no route.",
+        ),
+    )
+    assert_mobile_product_contract_refresh_only(refresh)
+    return refresh
+
+
 def validate_mobile_capability_plan(plan: MobileCapabilityPlan) -> MobileCapabilityPlan:
     _assert_safe_text(plan.safe_summary)
     _assert_metadata_refs_only(plan.metadata_refs)
@@ -202,6 +250,88 @@ def assert_mobile_contract_only(manifest: MobileCompanionManifest) -> MobileComp
         if receipt.raw_payload_stored or receipt.secret_storage_allowed:
             raise ValueError("mobile receipt plans cannot store raw payloads or secrets")
     return manifest
+
+
+def assert_mobile_product_contract_refresh_only(
+    refresh: MobileProductContractRefresh,
+) -> MobileProductContractRefresh:
+    _assert_safe_text(refresh.safe_summary)
+    if refresh.milestone != "M42":
+        raise ValueError("mobile product refresh must remain scoped to M42")
+    if not refresh.contract_refresh_only:
+        raise ValueError("M42 mobile product refresh must remain contract_refresh_only")
+    if not refresh.m43_read_only_api_future:
+        raise ValueError("M43 read-only API boundary must remain future")
+    if not refresh.m44_ios_skeleton_future:
+        raise ValueError("M44 iOS skeleton must remain future")
+    forbidden_flags = {
+        "native app": refresh.native_app_implemented,
+        "mobile api": refresh.mobile_api_implemented,
+        "mobile sensor access": refresh.mobile_sensor_access_enabled,
+        "OS permission integration": refresh.os_permission_integration_enabled,
+        "background service": refresh.background_service_enabled,
+        "signing or store workflow": refresh.signing_or_store_workflow_enabled,
+        "approval capture": refresh.approval_capture_enabled,
+        "approval execution": refresh.approval_execution_enabled,
+        "memory write": refresh.memory_write_enabled,
+        "context injection": refresh.context_injection_enabled,
+        "raw payload exposure": refresh.raw_payload_exposure_enabled,
+        "production authority": refresh.production_authority_enabled,
+    }
+    for label, enabled in forbidden_flags.items():
+        if enabled:
+            raise ValueError(f"M42 cannot enable {label}")
+    validate_mobile_api_boundary_refresh(refresh.api_boundary)
+    for role in refresh.product_roles:
+        validate_mobile_product_surface_contract(role)
+    return refresh
+
+
+def validate_mobile_product_surface_contract(
+    contract: MobileProductSurfaceContract,
+) -> MobileProductSurfaceContract:
+    _assert_safe_text(contract.safe_summary)
+    if not contract.review_only:
+        raise ValueError("M42 mobile product surfaces must remain review-only")
+    if not contract.read_only:
+        raise ValueError("M42 mobile product surfaces must remain read-only")
+    forbidden_flags = {
+        "authority": contract.authority_claimed,
+        "approval execution": contract.approval_execution_enabled,
+        "sensor access": contract.sensor_access_enabled,
+        "background service": contract.background_service_enabled,
+        "native implementation": contract.native_implementation_started,
+        "raw payload display": contract.raw_payload_display_enabled,
+    }
+    for label, enabled in forbidden_flags.items():
+        if enabled:
+            raise ValueError(f"M42 mobile product surface cannot enable {label}")
+    return contract
+
+
+def validate_mobile_api_boundary_refresh(
+    boundary: MobileApiBoundaryRefresh,
+) -> MobileApiBoundaryRefresh:
+    _assert_safe_text(boundary.safe_summary)
+    if boundary.status not in {
+        MobileApiBoundaryStatus.future_read_only,
+        MobileApiBoundaryStatus.blocked_until_m43,
+    }:
+        raise ValueError("M42 API boundary must remain future/read-only planning")
+    if not boundary.m43_boundary_only:
+        raise ValueError("M42 must keep the mobile API boundary reserved for M43")
+    forbidden_flags = {
+        "backend route": boundary.backend_route_added,
+        "mutation": boundary.mutation_enabled,
+        "raw data": boundary.raw_data_enabled,
+        "sensor endpoint": boundary.sensor_endpoint_enabled,
+        "approval execution": boundary.approval_execution_enabled,
+        "credential handling": boundary.credential_handling_enabled,
+    }
+    for label, enabled in forbidden_flags.items():
+        if enabled:
+            raise ValueError(f"M42 API boundary cannot enable {label}")
+    return boundary
 
 
 def assert_no_sensor_access_enabled(plan: MobileCapabilityPlan) -> MobileCapabilityPlan:

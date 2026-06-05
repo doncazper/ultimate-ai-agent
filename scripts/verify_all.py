@@ -50,6 +50,7 @@ SCAN_SEQUENCE = [
     ("M39 CCC context proposal surface scan", "verify_m39_ccc_context_proposal_surface_safety"),
     ("M40 context handoff approval scan", "verify_m40_context_handoff_approval_safety"),
     ("M41 local prototype safety freeze scan", "verify_m41_local_prototype_safety_freeze"),
+    ("M42 mobile product contract refresh scan", "verify_m42_mobile_product_contract_refresh"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -4952,6 +4953,115 @@ def verify_m41_local_prototype_safety_freeze():
                     sys.exit(1)
 
     print("OK: M41 local prototype safety freeze is route-stable, localhost/review-only, and keeps future authority blocked")
+
+
+def verify_m42_mobile_product_contract_refresh():
+    print("\n[Verifier] Running M42 mobile product contract refresh guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/mobile_companion/contracts.py",
+        "src/ultimate_ai_agent/core/mobile_companion/planning.py",
+        "src/ultimate_ai_agent/core/mobile_companion/enums.py",
+        "docs/mobile/MOBILE_COMPANION_PRODUCT_CONTRACT_REFRESH.md",
+        "docs/mobile/M42_TO_M43_BOUNDARY.md",
+        "docs/release_notes/v0_46_0.md",
+        "docs/archive/releases/v0_46_0/README_IMPORT.md",
+        "docs/archive/releases/v0_46_0/master_plan.md",
+        "docs/implementation/foundation_gate_implementation_plan_v0_46_0.md",
+        "tests/test_m42_mobile_product_contract_refresh.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M42 mobile product contract refresh file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = "\n".join(
+        (ROOT / rel_path).read_text(encoding="utf-8").lower()
+        for rel_path in required_files
+        if rel_path.startswith("docs/")
+    )
+    for fragment in [
+        "mobile companion product contract refresh",
+        "planning/docs/contracts/verifier",
+        "governance/control",
+        "not the agent brain",
+        "review-only",
+        "read-only",
+        "m43 remains future",
+        "m44 remains future",
+        "no mobile app",
+        "no ios app",
+        "no android app",
+        "no native package",
+        "no native build workflow",
+        "no signing",
+        "no testflight",
+        "no backend route",
+        "no mobile api route",
+        "no approval capture",
+        "no approval execution",
+        "no mobile sensor access",
+        "no os permission integration",
+        "no background service",
+        "no notification runtime",
+        "no raw payload exposure",
+        "no memory write",
+        "no context injection",
+        "no production authority",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M42 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.evaluators import m42_openapi_route_failures
+        from ultimate_ai_agent.core.mobile_companion import (
+            assert_mobile_product_contract_refresh_only,
+            build_default_mobile_product_contract_refresh,
+        )
+    except Exception as exc:
+        print(f"FAIL: M42 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m42_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    try:
+        assert_mobile_product_contract_refresh_only(build_default_mobile_product_contract_refresh())
+    except Exception as exc:
+        print(f"FAIL: M42 default mobile product refresh failed validation: {exc}")
+        sys.exit(1)
+
+    forbidden_source_fragments = [
+        "native_app_implemented=True",
+        "mobile_api_implemented=True",
+        "mobile_sensor_access_enabled=True",
+        "os_permission_integration_enabled=True",
+        "background_service_enabled=True",
+        "signing_or_store_workflow_enabled=True",
+        "approval_capture_enabled=True",
+        "approval_execution_enabled=True",
+        "raw_payload_exposure_enabled=True",
+        "production_authority_enabled=True",
+    ]
+    source_roots = [ROOT / "src", ROOT / "apps" / "control-center" / "src"]
+    for root in source_roots:
+        if not root.exists():
+            continue
+        for path in root.rglob("*"):
+            if not path.is_file() or path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx"}:
+                continue
+            rel = path.relative_to(ROOT).as_posix()
+            text = path.read_text(encoding="utf-8")
+            for fragment in forbidden_source_fragments:
+                if fragment in text:
+                    print(f"FAIL: M42 forbidden authority flag in {rel}: {fragment}")
+                    sys.exit(1)
+
+    print("OK: M42 mobile product refresh is contract-only, route-free, native-free, and sensor-free")
 
 
 def verify_local_developer_launcher_safety():

@@ -66,3 +66,17 @@ class MobileReceiptRequirement(str, Enum):
     redacted_receipt_required = "redacted_receipt_required"
     no_storage_allowed = "no_storage_allowed"
     not_applicable = "not_applicable"
+
+
+class MobileProductRole(str, Enum):
+    governance_surface = "governance_surface"
+    review_surface = "review_surface"
+    status_surface = "status_surface"
+    capture_inbox_surface = "capture_inbox_surface"
+    notification_surface = "notification_surface"
+
+
+class MobileApiBoundaryStatus(str, Enum):
+    future_read_only = "future_read_only"
+    not_implemented = "not_implemented"
+    blocked_until_m43 = "blocked_until_m43"

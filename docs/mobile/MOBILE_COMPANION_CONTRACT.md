@@ -61,3 +61,16 @@ model/provider call, remote execution, plugin enablement, OpenWebUI
 integration, or production authority. Device Capability Broker output is not
 trusted control input by default. Capture cannot silently become memory. M21
 remains planned/provisional.
+
+## v0.46.0 M42 Product Contract Refresh
+
+v0.46.0 implements M42 Mobile Companion Product Contract Refresh as
+planning/docs/contracts/verifier work only. M42 refreshes product roles,
+review-only/read-only surface boundaries, future M43 read-only API boundary
+readiness, and M44 future iOS skeleton sequencing. M42 adds no mobile app, no
+iOS app, no Android app, no native package, no native build workflow, no
+signing or store workflow, no TestFlight pipeline, no backend route, no mobile
+API route, no approval capture, no approval execution, no mobile sensor access,
+no OS permission integration, no background service, no notification runtime,
+no device pairing runtime, no raw payload exposure, no memory write, no context
+injection, no dependency, and no production authority.

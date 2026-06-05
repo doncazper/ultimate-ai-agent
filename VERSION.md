@@ -1,17 +1,19 @@
 # Ultimate AI Agent Version
 
-Current active baseline: **v0.45.0**
+Current active baseline: **v0.46.0**
 
-v0.45.0 implements M41 Local Prototype Safety Freeze. It freezes and reviews the
-local prototype safety posture before mobile work resumes, adding active
-prototype safety docs, browser-smoke review boundaries, no-authority boundary
-docs, static safety verification, documentation-integrity checks, Foundation
-Gate coverage, release metadata, and roadmap currentness updates.
+v0.46.0 implements M42 Mobile Companion Product Contract Refresh. It refreshes
+mobile companion product roles, review-only/read-only surface boundaries,
+future M43 read-only API boundary readiness, M44 future iOS skeleton sequencing,
+active mobile docs, tests, static safety verification, documentation-integrity
+checks, Foundation Gate coverage, release metadata, and roadmap currentness
+updates.
 
-It adds no raw file browsing, raw file export, full-file reads, arbitrary
-caller-selected roots, shell/subprocess, unrestricted network tools,
-provider/model calls as authority, background workers, mobile sensors, plugin
-enablement, production authority, unreviewed memory writes, automatic context
-injection, raw prompt/provider payload exposure, credentials/cookie handling,
-remote execution, browser automation execution, backend routes, dependencies,
-M42 work, or production authority.
+It adds no mobile app, iOS app, Android app, native package, native build
+workflow, signing/store workflow, TestFlight pipeline, backend route, mobile API
+route, approval capture, approval execution, mobile sensor access, OS
+permission integration, background service, notification runtime, device
+pairing runtime, raw payload exposure, raw prompt/provider payload exposure,
+memory write, automatic context injection, file mutation, network/provider/model
+call, browser automation execution, remote execution, plugin enablement,
+dependencies, M43 implementation, or production authority.
