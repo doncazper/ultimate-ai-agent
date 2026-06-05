@@ -9,6 +9,18 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 
+M44_ALLOWED_CCC_IOS_SKELETON_PREFIX = "apps/ccc-ios/Sources/UltimateAIAgentCCC/"
+M44_ALLOWED_CCC_IOS_SKELETON_FILES = {
+    "apps/ccc-ios/README.md",
+}
+
+
+def _is_m44_allowed_ccc_ios_skeleton_file(rel_path: str) -> bool:
+    return rel_path in M44_ALLOWED_CCC_IOS_SKELETON_FILES or (
+        rel_path.startswith(M44_ALLOWED_CCC_IOS_SKELETON_PREFIX)
+        and rel_path.endswith(".swift")
+    )
+
 
 def _current_version() -> str:
     text = (ROOT / "VERSION.md").read_text(encoding="utf-8")
@@ -615,6 +627,8 @@ def verify_m13_web_control_center_frontend_safety():
     ]
     for rel_path in git_files:
         if rel_path == ".env.example" or rel_path.endswith("/.env.example"):
+            continue
+        if _is_m44_allowed_ccc_ios_skeleton_file(rel_path):
             continue
         if any(fragment in rel_path for fragment in forbidden_tracked_fragments):
             print(f"FAIL: Forbidden generated/native/frontend artifact is tracked: {rel_path}")
@@ -5681,7 +5695,7 @@ def verify_no_mobile_native_or_sensor_implementation():
         if (
             rel_path.endswith((".swift", ".kt", ".kts", ".java"))
             and not rel_path.startswith("docs/")
-            and not rel_path.startswith("apps/ccc-ios/Sources/UltimateAIAgentCCC/")
+            and not _is_m44_allowed_ccc_ios_skeleton_file(rel_path)
         ):
             print(f"FAIL: Forbidden native mobile source file tracked in git: {rel_path}")
             sys.exit(1)

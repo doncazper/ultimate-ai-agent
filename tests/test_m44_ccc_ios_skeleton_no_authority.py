@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 
+import scripts.verify_all as verify_all
 from ultimate_ai_agent.core.mobile_companion import (
     CccIosSkeletonSurfaceKind,
     assert_ccc_ios_skeleton_no_authority,
@@ -121,3 +122,29 @@ def test_m44_swift_skeleton_has_no_authority_apis() -> None:
     ]
     for fragment in forbidden_fragments:
         assert fragment not in swift_text
+
+
+def test_m44_source_only_files_are_allowed_by_legacy_artifact_guard(monkeypatch: pytest.MonkeyPatch) -> None:
+    tracked = "\n".join(
+        [
+            "apps/control-center/package.json",
+            "apps/ccc-ios/README.md",
+            "apps/ccc-ios/Sources/UltimateAIAgentCCC/UltimateAIAgentCCCApp.swift",
+            "apps/ccc-ios/Sources/UltimateAIAgentCCC/ReadOnlyDashboardView.swift",
+            "apps/ccc-ios/Sources/UltimateAIAgentCCC/SkeletonFixtures.swift",
+        ]
+    )
+
+    monkeypatch.setattr(verify_all.subprocess, "check_output", lambda *args, **kwargs: tracked)
+
+    verify_all.verify_m13_web_control_center_frontend_safety()
+
+
+def test_m44_native_workflow_files_remain_blocked() -> None:
+    assert verify_all._is_m44_allowed_ccc_ios_skeleton_file("apps/ccc-ios/README.md")
+    assert verify_all._is_m44_allowed_ccc_ios_skeleton_file(
+        "apps/ccc-ios/Sources/UltimateAIAgentCCC/ReadOnlyDashboardView.swift"
+    )
+    assert not verify_all._is_m44_allowed_ccc_ios_skeleton_file("apps/ccc-ios/Package.swift")
+    assert not verify_all._is_m44_allowed_ccc_ios_skeleton_file("apps/ccc-ios/App.xcodeproj/project.pbxproj")
+    assert not verify_all._is_m44_allowed_ccc_ios_skeleton_file("apps/ccc-ios/Info.plist")

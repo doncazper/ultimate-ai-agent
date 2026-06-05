@@ -12,19 +12,18 @@ allowed to become operational authority.
 
 | Field | Current state |
 |---|---|
-| Current active baseline | **v0.48.0** |
+| Current active baseline | **v0.48.1** |
 | Current milestone | **M44 - CCC iOS Skeleton, No Authority** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **75** OpenAPI paths |
 | Production readiness | Not claimed |
 
-v0.48.0 implements M44 CCC iOS Skeleton, No Authority. It adds a source-only CCC
-iOS SwiftUI skeleton with mock read-only surfaces, static redacted preview
-placeholders, no-authority boundary copy, active mobile docs, tests, static
-safety verification, documentation-integrity checks, Foundation Gate coverage,
-release metadata, and roadmap currentness updates. It adds no Xcode project,
-Swift package, Info.plist, entitlements, native build workflow,
+v0.48.1 hardens M44 CCC iOS Skeleton, No Authority. It preserves the source-only
+CCC iOS SwiftUI skeleton from v0.48.0 and repairs verifier policy so the reviewed
+`apps/ccc-ios/` source-only skeleton is allowed while native build, signing,
+store, sensor, permission, runtime, and authority files remain blocked. It adds
+no Xcode project, Swift package, Info.plist, entitlements, native build workflow,
 signing/store workflow, TestFlight pipeline, backend route, mobile API route
 runtime, network call, mobile sensor access, OS permission integration,
 background collection, approval capture, approval execution, context injection,
@@ -95,9 +94,9 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M28 Action Policy](docs/approvals/ACTION_POLICY.md)
 - [M27 Tool Broker v2](docs/tools/TOOL_BROKER_V2.md)
 - [M26 Grounded Recall Router](docs/recall/GROUNDED_RECALL_ROUTER.md)
-- [v0.48.0 release notes](docs/release_notes/v0_48_0.md)
-- [v0.48.0 release packet](docs/archive/releases/v0_48_0/README_IMPORT.md)
-- [v0.48.0 master plan](docs/archive/releases/v0_48_0/master_plan.md)
+- [v0.48.1 release notes](docs/release_notes/v0_48_1.md)
+- [v0.48.1 release packet](docs/archive/releases/v0_48_1/README_IMPORT.md)
+- [v0.48.1 master plan](docs/archive/releases/v0_48_1/master_plan.md)
 
 ## What This Project Is
 
@@ -357,6 +356,7 @@ post-M33 supersession is
 | v0.46.0 | M42 - Mobile Companion Product Contract Refresh | Implemented/released contract refresh |
 | v0.47.0 | M43 - Mobile API Boundary, Read-Only | Implemented/released contract-only |
 | v0.48.0 | M44 - CCC iOS Skeleton, No Authority | Implemented/released source-only |
+| v0.48.1 | M44 hardening - CCC iOS Skeleton Verifier Allowance | Implemented/released hardening |
 | v0.49.0 | M45 - CCC iOS Local Read-Only Connection | Planned/provisional |
 | v0.50.0 | M46 - iOS Review/Receipt Read-Only Surfaces | Planned/provisional |
 | v0.51.0 | M47 - TestFlight Pipeline, Internal Only | Planned/provisional |

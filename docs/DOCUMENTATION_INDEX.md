@@ -1,6 +1,6 @@
 # Documentation Index
 
-Current active baseline: **v0.48.0**
+Current active baseline: **v0.48.1**
 
 This index is the active entrypoint for documentation navigation. Historical release documents remain in the repository for audit history, but active truth starts with the current baseline files listed here.
 
@@ -14,8 +14,8 @@ docs/canonical/CANONICAL_DOC_MAP.md
 docs/canonical/09_roadmap.md
 docs/roadmap/README.md
 docs/archive/README.md
-docs/archive/releases/v0_48_0/README_IMPORT.md
-docs/archive/releases/v0_48_0/master_plan.md
+docs/archive/releases/v0_48_1/README_IMPORT.md
+docs/archive/releases/v0_48_1/master_plan.md
 docs/developer/LOCAL_LAUNCHER.md
 scripts/dev/README.md
 docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md
@@ -439,9 +439,9 @@ scripts/dev/README.md
 ```
 
 v0.37.4 supersedes the old active M35-M40 roadmap projection and defines the
-active M34-M60 sequence. v0.48.0 is the current active baseline after
-implementing M44 CCC iOS Skeleton, No Authority as source-only,
-mock-only, read-only, non-authoritative SwiftUI skeleton work. Active roadmap sources consistently
+active M34-M60 sequence. v0.48.1 is the current active baseline after
+hardening M44 CCC iOS Skeleton, No Authority verifier policy for the
+source-only, mock-only, read-only, non-authoritative SwiftUI skeleton work. Active roadmap sources consistently
 keep v0.38.0 / M34 as Broader File Capability Review, keep M34
 planning/docs/verifier only, mark M36 through M43 implemented/released, mark
 M44 implemented/released, keep M45-M60 planned/provisional, and rely on documentation-integrity checks to guard
@@ -451,7 +451,7 @@ skeleton drift.
 
 ## Release Notes Index
 
-Current release notes: `docs/release_notes/v0_48_0.md`
+Current release notes: `docs/release_notes/v0_48_1.md`
 
 Historical release notes remain under `docs/release_notes/`. Historical docs may mention old active baselines in historical context; they are not the current source of truth.
 

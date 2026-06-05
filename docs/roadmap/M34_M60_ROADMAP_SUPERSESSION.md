@@ -1,6 +1,6 @@
 # M34-M60 Roadmap Supersession
 
-Status: Active roadmap source of truth through v0.48.0.
+Status: Active roadmap source of truth through v0.48.1.
 
 v0.38.0 implements M34 Broader File Capability Review as planning,
 architecture review, documentation, verifier, and Foundation Gate work only.
@@ -23,7 +23,7 @@ file review records. v0.43.0 implements M39 CCC Context Proposal Surface as a
 frontend-only review surface. v0.44.0 implements M40 Context Handoff Approval,
 No Injection as contract-only approval decisions with exact proposal binding.
 v0.45.0 implements M41 Local Prototype Safety Freeze as a docs/verifier/Gate
-safety freeze before mobile work resumes. v0.46.0 implements M42 Mobile Companion Product Contract Refresh as planning/docs/contracts/verifier work only. v0.47.0 implements M43 Mobile API Boundary, Read-Only as contract-only boundary work. v0.48.0 implements M44 CCC iOS Skeleton, No Authority as source-only, mock-only, read-only, non-authoritative SwiftUI skeleton work.
+safety freeze before mobile work resumes. v0.46.0 implements M42 Mobile Companion Product Contract Refresh as planning/docs/contracts/verifier work only. v0.47.0 implements M43 Mobile API Boundary, Read-Only as contract-only boundary work. v0.48.0 implements M44 CCC iOS Skeleton, No Authority as source-only, mock-only, read-only, non-authoritative SwiftUI skeleton work. v0.48.1 hardens the M44 verifier allowance for that reviewed source-only skeleton.
 
 ## Supersession Rule
 
@@ -60,6 +60,7 @@ mobile approval capture and audit milestones.
 | v0.46.0 | M42 | Mobile Companion Product Contract Refresh | implemented/released contract refresh | Mobile planning refresh only; no native app implementation |
 | v0.47.0 | M43 | Mobile API Boundary, Read-Only | implemented/released contract-only | Read-only mobile API boundary contract |
 | v0.48.0 | M44 | CCC iOS Skeleton, No Authority | implemented/released source-only | First iOS skeleton; no authority, sensors, or production workflow |
+| v0.48.1 | M44 hardening | CCC iOS Skeleton Verifier Allowance | implemented/released hardening | Narrow verifier allowance for reviewed source-only iOS skeleton files |
 | v0.49.0 | M45 | CCC iOS Local Read-Only Connection | planned/provisional | Local read-only connection only |
 | v0.50.0 | M46 | iOS Review/Receipt Read-Only Surfaces | planned/provisional | Read-only review and receipt surfaces |
 | v0.51.0 | M47 | TestFlight Pipeline, Internal Only | planned/provisional | Internal-only pipeline; no public distribution or production authority |
@@ -79,7 +80,7 @@ mobile approval capture and audit milestones.
 
 ## Prompt-Pack Strategy
 
-Recommended next prompt after v0.48.0:
+Recommended next prompt after v0.48.1:
 
 ```text
 v0.49.0 / M45 - CCC iOS Local Read-Only Connection

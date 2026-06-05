@@ -1,12 +1,11 @@
 # Ultimate AI Agent Version
 
-Current active baseline: **v0.48.0**
+Current active baseline: **v0.48.1**
 
-v0.48.0 implements M44 CCC iOS Skeleton, No Authority. It adds a source-only
-CCC iOS SwiftUI skeleton with mock read-only surfaces, static redacted preview
-placeholders, no-authority boundary copy, active mobile docs, tests, static
-safety verification, documentation-integrity checks, Foundation Gate coverage,
-release metadata, and roadmap currentness updates.
+v0.48.1 hardens M44 CCC iOS Skeleton, No Authority. It preserves the
+source-only CCC iOS SwiftUI skeleton from v0.48.0 and repairs verifier policy so
+the reviewed `apps/ccc-ios/` source-only skeleton is allowed while native build,
+signing, store, sensor, permission, runtime, and authority files remain blocked.
 
 It adds no Xcode project, Swift package, Info.plist, entitlements, native build
 workflow, signing/store workflow, TestFlight pipeline, backend route, mobile API
