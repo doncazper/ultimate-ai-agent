@@ -105,3 +105,10 @@ class CccIosSkeletonSurfaceKind(str, Enum):
     review_packet_preview = "review_packet_preview"
     receipt_preview = "receipt_preview"
     authority_boundary = "authority_boundary"
+
+
+class CccIosLocalConnectionEndpointKind(str, Enum):
+    manifest_summary = "manifest_summary"
+    review_packet_summary = "review_packet_summary"
+    receipt_summary = "receipt_summary"
+    authority_boundary = "authority_boundary"

@@ -2,6 +2,8 @@ import re
 from typing import Iterable
 
 from ultimate_ai_agent.core.mobile_companion.contracts import (
+    CccIosLocalConnectionEndpointContract,
+    CccIosLocalReadOnlyConnectionManifest,
     CccIosSkeletonManifest,
     CccIosSkeletonSurface,
     MobileApiBoundaryRefresh,
@@ -15,6 +17,7 @@ from ultimate_ai_agent.core.mobile_companion.contracts import (
     MobileReadOnlyApiEndpointContract,
 )
 from ultimate_ai_agent.core.mobile_companion.enums import (
+    CccIosLocalConnectionEndpointKind,
     CccIosSkeletonSurfaceKind,
     MobileApiBoundaryStatus,
     MobileApiEndpointKind,
@@ -55,6 +58,12 @@ RAW_CONTENT_KEYS = {
 }
 RAW_PATH_OR_ROUTE_REF = re.compile(
     r"(?i)(^/|[a-z]:\\|/users/|/home/|\.\.|raw[_ -]?(path|file|payload|content)|absolute[_ -]?path)"
+)
+LOOPBACK_API_BASE_REF = re.compile(
+    r"(?i)^mobile_connection_base:(loopback|localhost|127[._-]0[._-]0[._-]1|ipv6-loopback|relative)([:._-][a-z0-9._-]+)?$"
+)
+NON_LOOPBACK_HOST_REF = re.compile(
+    r"(?i)(0[._-]0[._-]0[._-]0|192[._-]168|10[._-]|172[._-](1[6-9]|2[0-9]|3[0-1])|example|http|https|external|lan|wan)"
 )
 
 
@@ -267,6 +276,46 @@ def build_default_ccc_ios_skeleton_manifest(
         ],
     )
     assert_ccc_ios_skeleton_no_authority(manifest)
+    return manifest
+
+
+def build_default_ccc_ios_local_read_only_connection_manifest(
+    version: str = "0.49.0",
+) -> CccIosLocalReadOnlyConnectionManifest:
+    manifest = CccIosLocalReadOnlyConnectionManifest(
+        version=version,
+        safe_summary=(
+            "M45 CCC iOS local read-only connection contract; loopback-only, "
+            "redacted summaries only, and no runtime network call."
+        ),
+        endpoints=[
+            CccIosLocalConnectionEndpointContract(
+                endpoint_ref="ccc_ios_connection_endpoint:manifest-summary",
+                kind=CccIosLocalConnectionEndpointKind.manifest_summary,
+                planned_route_ref="mobile_api_route:manifest-summary",
+                safe_summary="Local manifest summary connection contract only.",
+            ),
+            CccIosLocalConnectionEndpointContract(
+                endpoint_ref="ccc_ios_connection_endpoint:review-packet-summary",
+                kind=CccIosLocalConnectionEndpointKind.review_packet_summary,
+                planned_route_ref="mobile_api_route:review-packet-summary",
+                safe_summary="Local review packet summary connection contract only.",
+            ),
+            CccIosLocalConnectionEndpointContract(
+                endpoint_ref="ccc_ios_connection_endpoint:receipt-summary",
+                kind=CccIosLocalConnectionEndpointKind.receipt_summary,
+                planned_route_ref="mobile_api_route:receipt-summary",
+                safe_summary="Local receipt summary connection contract only.",
+            ),
+            CccIosLocalConnectionEndpointContract(
+                endpoint_ref="ccc_ios_connection_endpoint:authority-boundary",
+                kind=CccIosLocalConnectionEndpointKind.authority_boundary,
+                planned_route_ref="mobile_api_route:authority-boundary",
+                safe_summary="Local authority boundary status contract only.",
+            ),
+        ],
+    )
+    assert_ccc_ios_local_read_only_connection_safe(manifest)
     return manifest
 
 
@@ -583,6 +632,89 @@ def validate_ccc_ios_skeleton_surface(
     return surface
 
 
+def assert_ccc_ios_local_read_only_connection_safe(
+    manifest: CccIosLocalReadOnlyConnectionManifest,
+) -> CccIosLocalReadOnlyConnectionManifest:
+    _assert_safe_text(manifest.safe_summary)
+    _assert_safe_ref(manifest.api_base_ref, label="api base ref")
+    _assert_loopback_api_base_ref(manifest.api_base_ref)
+    if manifest.milestone != "M45":
+        raise ValueError("CCC iOS local read-only connection must remain scoped to M45")
+    if not manifest.version.startswith("0.49."):
+        raise ValueError("M45 CCC iOS local read-only connection version must be 0.49.x")
+    if not manifest.local_only:
+        raise ValueError("M45 CCC iOS connection must remain local-only")
+    if not manifest.read_only:
+        raise ValueError("M45 CCC iOS connection must remain read-only")
+    if not manifest.m46_review_receipt_surfaces_future:
+        raise ValueError("M46 review/receipt surfaces must remain future after M45")
+    forbidden_flags = {
+        "connection runtime": manifest.connection_runtime_enabled,
+        "backend route": manifest.backend_routes_added,
+        "network runtime": manifest.network_runtime_enabled,
+        "external network": manifest.external_network_enabled,
+        "raw data": manifest.raw_data_enabled,
+        "approval capture": manifest.approval_capture_enabled,
+        "approval execution": manifest.approval_execution_enabled,
+        "context injection": manifest.context_injection_enabled,
+        "memory write": manifest.memory_write_enabled,
+        "file mutation": manifest.file_mutation_enabled,
+        "execution": manifest.execution_enabled,
+        "background collection": manifest.background_collection_enabled,
+        "sensor access": manifest.sensor_access_enabled,
+        "credential or cookie handling": manifest.credential_or_cookie_handling_enabled,
+        "native build workflow": manifest.native_build_workflow_enabled,
+        "signing or store workflow": manifest.signing_or_store_workflow_enabled,
+        "production authority": manifest.production_authority_enabled,
+    }
+    for label, enabled in forbidden_flags.items():
+        if enabled:
+            raise ValueError(f"M45 CCC iOS local connection cannot enable {label}")
+    if not manifest.endpoints:
+        raise ValueError("M45 CCC iOS local connection requires endpoint contracts")
+    seen_refs: set[str] = set()
+    for endpoint in manifest.endpoints:
+        validate_ccc_ios_local_connection_endpoint(endpoint)
+        if endpoint.endpoint_ref in seen_refs:
+            raise ValueError(f"duplicate M45 local connection endpoint ref: {endpoint.endpoint_ref}")
+        seen_refs.add(endpoint.endpoint_ref)
+    return manifest
+
+
+def validate_ccc_ios_local_connection_endpoint(
+    endpoint: CccIosLocalConnectionEndpointContract,
+) -> CccIosLocalConnectionEndpointContract:
+    _assert_safe_ref(endpoint.endpoint_ref, label="endpoint ref")
+    _assert_safe_ref(endpoint.planned_route_ref, label="planned route ref")
+    _assert_safe_text(endpoint.safe_summary)
+    _assert_metadata_refs_only(endpoint.metadata_refs)
+    if endpoint.method != MobileApiHttpMethod.get:
+        raise ValueError("M45 CCC iOS local connection endpoints must use GET only")
+    if not endpoint.read_only:
+        raise ValueError("M45 CCC iOS local connection endpoints must remain read-only")
+    if not endpoint.redacted_summary_only:
+        raise ValueError("M45 CCC iOS local connection endpoints must remain redacted summary only")
+    if not endpoint.non_authoritative:
+        raise ValueError("M45 CCC iOS local connection endpoints must remain non-authoritative")
+    forbidden_flags = {
+        "raw data": endpoint.raw_data_returned,
+        "raw payload": endpoint.raw_payload_returned,
+        "mutation": endpoint.mutation_enabled,
+        "approval capture": endpoint.approval_capture_enabled,
+        "approval execution": endpoint.approval_execution_enabled,
+        "context injection": endpoint.context_injection_enabled,
+        "memory write": endpoint.memory_write_enabled,
+        "export": endpoint.export_enabled,
+        "execution": endpoint.execution_enabled,
+        "background collection": endpoint.background_collection_enabled,
+        "credential or cookie handling": endpoint.credential_or_cookie_handling_enabled,
+    }
+    for label, enabled in forbidden_flags.items():
+        if enabled:
+            raise ValueError(f"M45 CCC iOS local connection endpoint cannot enable {label}")
+    return endpoint
+
+
 def assert_no_sensor_access_enabled(plan: MobileCapabilityPlan) -> MobileCapabilityPlan:
     return validate_mobile_capability_plan(plan)
 
@@ -628,3 +760,14 @@ def _assert_safe_ref(ref: str, *, label: str) -> None:
         raise ValueError(f"{label} must be a short ref-only value")
     if RAW_PATH_OR_ROUTE_REF.search(ref):
         raise ValueError(f"{label} cannot contain raw paths, raw route paths, or raw data markers")
+
+
+def _assert_loopback_api_base_ref(ref: str) -> None:
+    if SECRET_LIKE.search(ref):
+        raise ValueError("api base ref cannot contain secret-like values")
+    if "/" in ref or "\\" in ref:
+        raise ValueError("api base ref cannot contain raw paths")
+    if not LOOPBACK_API_BASE_REF.fullmatch(ref):
+        raise ValueError("M45 api base ref must be a loopback-only or relative ref")
+    if NON_LOOPBACK_HOST_REF.search(ref):
+        raise ValueError("M45 api base ref must not name non-loopback hosts")

@@ -4,7 +4,10 @@ import SwiftUI
 struct UltimateAIAgentCCCApp: App {
     var body: some Scene {
         WindowGroup {
-            ReadOnlyDashboardView(snapshot: SkeletonFixtures.demoSnapshot)
+            ReadOnlyDashboardView(
+                snapshot: SkeletonFixtures.demoSnapshot,
+                connectionSnapshot: LocalReadOnlyConnectionFixtures.demoSnapshot
+            )
         }
     }
 }

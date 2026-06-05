@@ -3,6 +3,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from ultimate_ai_agent.core.mobile_companion.enums import (
+    CccIosLocalConnectionEndpointKind,
     CccIosSkeletonSurfaceKind,
     MobileCapabilityKind,
     MobileCapabilityStatus,
@@ -285,4 +286,67 @@ class CccIosSkeletonManifest(_MobileContractModel):
     @field_validator("surfaces")
     @classmethod
     def _copy_surfaces(cls, value: list[CccIosSkeletonSurface]) -> list[CccIosSkeletonSurface]:
+        return list(value)
+
+
+class CccIosLocalConnectionEndpointContract(_MobileContractModel):
+    endpoint_ref: str = Field(..., min_length=1)
+    kind: CccIosLocalConnectionEndpointKind
+    planned_route_ref: str = Field(..., min_length=1)
+    method: MobileApiHttpMethod = MobileApiHttpMethod.get
+    safe_summary: str = Field(..., min_length=1)
+    read_only: bool = True
+    redacted_summary_only: bool = True
+    non_authoritative: bool = True
+    raw_data_returned: bool = False
+    raw_payload_returned: bool = False
+    mutation_enabled: bool = False
+    approval_capture_enabled: bool = False
+    approval_execution_enabled: bool = False
+    context_injection_enabled: bool = False
+    memory_write_enabled: bool = False
+    export_enabled: bool = False
+    execution_enabled: bool = False
+    background_collection_enabled: bool = False
+    credential_or_cookie_handling_enabled: bool = False
+    metadata_refs: list[str] = Field(default_factory=list)
+
+    @field_validator("metadata_refs")
+    @classmethod
+    def _copy_metadata_refs(cls, value: list[str]) -> list[str]:
+        return list(value)
+
+
+class CccIosLocalReadOnlyConnectionManifest(_MobileContractModel):
+    milestone: str = "M45"
+    version: str = "0.49.0"
+    local_only: bool = True
+    read_only: bool = True
+    safe_summary: str = "M45 CCC iOS local read-only connection contract."
+    api_base_ref: str = "mobile_connection_base:loopback-localhost"
+    endpoints: list[CccIosLocalConnectionEndpointContract] = Field(default_factory=list)
+    connection_runtime_enabled: bool = False
+    backend_routes_added: bool = False
+    network_runtime_enabled: bool = False
+    external_network_enabled: bool = False
+    raw_data_enabled: bool = False
+    approval_capture_enabled: bool = False
+    approval_execution_enabled: bool = False
+    context_injection_enabled: bool = False
+    memory_write_enabled: bool = False
+    file_mutation_enabled: bool = False
+    execution_enabled: bool = False
+    background_collection_enabled: bool = False
+    sensor_access_enabled: bool = False
+    credential_or_cookie_handling_enabled: bool = False
+    native_build_workflow_enabled: bool = False
+    signing_or_store_workflow_enabled: bool = False
+    production_authority_enabled: bool = False
+    m46_review_receipt_surfaces_future: bool = True
+
+    @field_validator("endpoints")
+    @classmethod
+    def _copy_endpoints(
+        cls, value: list[CccIosLocalConnectionEndpointContract]
+    ) -> list[CccIosLocalConnectionEndpointContract]:
         return list(value)
