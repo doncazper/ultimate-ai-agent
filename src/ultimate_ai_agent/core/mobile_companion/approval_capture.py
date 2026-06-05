@@ -13,6 +13,7 @@ from ultimate_ai_agent.core.approvals.v2.validation import (
     validate_safe_action_text,
 )
 from ultimate_ai_agent.core.mobile_companion.enums import (
+    MobileApprovalAuditStatus,
     MobileReviewApprovalCaptureDecisionStatus,
     MobileReviewApprovalDecisionKind,
 )
@@ -188,6 +189,72 @@ class MobileReviewApprovalCaptureDecision(BaseModel):
         return self
 
 
+class MobileApprovalAuditEntry(BaseModel):
+    audit_entry_ref: str
+    approval_ref: str
+    actor_ref: str
+    mobile_surface_ref: str
+    review_packet_ref: str
+    preview_result_ref: str
+    redaction_summary_ref: str
+    file_ref: str
+    safe_path_ref: str
+    idempotency_key: str
+    decision: MobileReviewApprovalDecisionKind
+    capture_status: MobileReviewApprovalCaptureDecisionStatus
+    safe_ref_only: bool = True
+    reason_codes: list[str] = Field(default_factory=list)
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_audit_entry(self):
+        for value, field_name in [
+            (self.audit_entry_ref, "audit_entry_ref"),
+            (self.approval_ref, "approval_ref"),
+            (self.actor_ref, "actor_ref"),
+            (self.mobile_surface_ref, "mobile_surface_ref"),
+            (self.review_packet_ref, "review_packet_ref"),
+            (self.preview_result_ref, "preview_result_ref"),
+            (self.redaction_summary_ref, "redaction_summary_ref"),
+            (self.file_ref, "file_ref"),
+            (self.safe_path_ref, "safe_path_ref"),
+            (self.idempotency_key, "idempotency_key"),
+        ]:
+            validate_action_ref(value, field_name)
+        if not self.safe_ref_only:
+            raise ValueError("MOBILE_APPROVAL_AUDIT_ENTRY_MUST_BE_SAFE_REF_ONLY")
+        return self
+
+
+class MobileApprovalAuditReport(BaseModel):
+    audit_ref: str = "mobile-approval-audit:m50"
+    status: MobileApprovalAuditStatus
+    record_count: int
+    entries: list[MobileApprovalAuditEntry] = Field(default_factory=list)
+    reason_codes: list[str] = Field(default_factory=list)
+    safe_message: str
+    review_only: bool = True
+    raw_content_found: bool = False
+    context_or_execution_authority_found: bool = False
+    memory_write_performed: bool = False
+    export_performed: bool = False
+    execution_performed: bool = False
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_audit_report(self):
+        validate_action_ref(self.audit_ref, "audit_ref")
+        validate_safe_action_text(self.safe_message, "safe_message")
+        if not self.review_only:
+            raise ValueError("MOBILE_APPROVAL_AUDIT_MUST_BE_REVIEW_ONLY")
+        for field_name in ["memory_write_performed", "export_performed", "execution_performed"]:
+            if getattr(self, field_name):
+                raise ValueError(f"{field_name} must be False in M50")
+        return self
+
+
 class MobileReviewApprovalStore:
     def __init__(self, path: Path | str | None = None):
         self.path = Path(path) if path is not None else None
@@ -228,6 +295,9 @@ class MobileReviewApprovalStore:
             persisted=True,
         )
 
+    def records(self) -> tuple[MobileReviewApprovalRecord, ...]:
+        return tuple(MobileReviewApprovalRecord.model_validate(record.model_dump()) for record in self._records.values())
+
 
 def capture_mobile_review_approval(
     request: MobileReviewApprovalCaptureRequest,
@@ -261,6 +331,63 @@ def capture_mobile_review_approval(
     )
     active_store = store or MobileReviewApprovalStore()
     return active_store.persist(record)
+
+
+def audit_mobile_review_approval_store(store: MobileReviewApprovalStore) -> MobileApprovalAuditReport:
+    return audit_mobile_review_approval_records(store.records())
+
+
+def audit_mobile_review_approval_records(records: list[MobileReviewApprovalRecord] | tuple[MobileReviewApprovalRecord, ...]) -> MobileApprovalAuditReport:
+    entries: list[MobileApprovalAuditEntry] = []
+    reasons: list[str] = []
+    fingerprints_by_idempotency: dict[str, dict[str, Any]] = {}
+
+    for index, record in enumerate(records):
+        record_reasons = _revalidate_record_for_audit(record)
+        expected_status = _record_status_for_decision(record.decision)
+        if record.status != expected_status:
+            record_reasons.append("MOBILE_APPROVAL_AUDIT_STATUS_DECISION_MISMATCH")
+
+        existing = fingerprints_by_idempotency.get(record.idempotency_key)
+        fingerprint = _record_fingerprint(record)
+        if existing is not None and existing != fingerprint:
+            record_reasons.append("MOBILE_APPROVAL_AUDIT_DUPLICATE_IDEMPOTENCY_MISMATCH")
+        fingerprints_by_idempotency.setdefault(record.idempotency_key, fingerprint)
+
+        reasons.extend(record_reasons)
+        if not record_reasons:
+            entries.append(
+                MobileApprovalAuditEntry(
+                    audit_entry_ref=f"mobile-approval-audit-entry:{index}-{_safe_suffix(record.review_packet_ref)}",
+                    approval_ref=record.approval_ref,
+                    actor_ref=record.actor_ref,
+                    mobile_surface_ref=record.mobile_surface_ref,
+                    review_packet_ref=record.review_packet_ref,
+                    preview_result_ref=record.preview_result_ref,
+                    redaction_summary_ref=record.redaction_summary_ref,
+                    file_ref=record.file_ref,
+                    safe_path_ref=record.safe_path_ref,
+                    idempotency_key=record.idempotency_key,
+                    decision=record.decision,
+                    capture_status=record.status,
+                    reason_codes=[],
+                )
+            )
+
+    unique_reasons = _dedupe(reasons)
+    return MobileApprovalAuditReport(
+        status=MobileApprovalAuditStatus.failed if unique_reasons else MobileApprovalAuditStatus.passed,
+        record_count=len(records),
+        entries=entries,
+        reason_codes=unique_reasons,
+        raw_content_found=any(reason in unique_reasons for reason in _RAW_AUDIT_REASONS),
+        context_or_execution_authority_found=any(reason in unique_reasons for reason in _AUTHORITY_AUDIT_REASONS),
+        safe_message=(
+            "Mobile approval audit passed with safe refs only and no authority granted."
+            if not unique_reasons
+            else "Mobile approval audit failed safely. No raw content, context, memory, export, or execution authority was granted."
+        ),
+    )
 
 
 def _record_status_for_decision(
@@ -364,11 +491,38 @@ def _revalidate_record_for_persistence(record: MobileReviewApprovalRecord) -> li
     for field_name, reason in _EXTRA_CAPTURE_FIELD_REASONS.items():
         if field_name in _extra_keys(record) or getattr(record, field_name, None) is not None:
             reasons.append(reason)
-    reasons.extend(_validate_payload_reason(getattr(record, "metadata", {}), "metadata"))
+    reasons.extend(_validate_audit_payload_reason(getattr(record, "metadata", {}), "metadata"))
     if _looks_like_raw_path(str(getattr(record, "safe_path_ref", ""))):
         reasons.append("MOBILE_REVIEW_APPROVAL_CAPTURE_RAW_PATH_DENIED")
     for ref in list(getattr(record, "metadata_refs", [])):
         reasons.extend(_validate_ref_reason(ref, "metadata_ref"))
+    return _dedupe(reasons)
+
+
+def _revalidate_record_for_audit(record: MobileReviewApprovalRecord) -> list[str]:
+    reasons: list[str] = []
+    for value, field_name in [
+        (getattr(record, "approval_ref", None), "approval_ref"),
+        (getattr(record, "actor_ref", None), "actor_ref"),
+        (getattr(record, "mobile_surface_ref", None), "mobile_surface_ref"),
+        (getattr(record, "review_packet_ref", None), "review_packet_ref"),
+        (getattr(record, "preview_result_ref", None), "preview_result_ref"),
+        (getattr(record, "redaction_summary_ref", None), "redaction_summary_ref"),
+        (getattr(record, "file_ref", None), "file_ref"),
+        (getattr(record, "safe_path_ref", None), "safe_path_ref"),
+        (getattr(record, "receipt_plan_ref", None), "receipt_plan_ref"),
+        (getattr(record, "idempotency_key", None), "idempotency_key"),
+    ]:
+        if value is None:
+            reasons.append("MOBILE_APPROVAL_AUDIT_REVALIDATION_FAILED")
+        else:
+            reasons.extend(_validate_audit_ref_reason(value, field_name))
+    reasons.extend(_validate_audit_payload_reason(getattr(record, "metadata", {}), "metadata"))
+    if _looks_like_raw_path(str(getattr(record, "safe_path_ref", ""))):
+        reasons.append("MOBILE_APPROVAL_AUDIT_RAW_PATH_DENIED")
+    for extra_key in _extra_keys(record):
+        if extra_key in _EXTRA_AUDIT_FIELD_REASONS:
+            reasons.append(_EXTRA_AUDIT_FIELD_REASONS[extra_key])
     return _dedupe(reasons)
 
 
@@ -442,6 +596,14 @@ def _validate_ref_reason(value: str, field_name: str) -> list[str]:
     return []
 
 
+def _validate_audit_ref_reason(value: str, field_name: str) -> list[str]:
+    try:
+        validate_action_ref(value, field_name)
+    except ValueError:
+        return ["MOBILE_APPROVAL_AUDIT_REVALIDATION_FAILED"]
+    return []
+
+
 def _validate_safe_text_reason(value: str, field_name: str) -> list[str]:
     try:
         validate_safe_action_text(value, field_name)
@@ -455,6 +617,14 @@ def _validate_payload_reason(value, field_name: str) -> list[str]:
         validate_safe_action_payload(value, field_name)
     except ValueError:
         return ["MOBILE_REVIEW_APPROVAL_CAPTURE_SECRET_METADATA_DENIED"]
+    return []
+
+
+def _validate_audit_payload_reason(value, field_name: str) -> list[str]:
+    try:
+        validate_safe_action_payload(value, field_name)
+    except ValueError:
+        return ["MOBILE_APPROVAL_AUDIT_SECRET_METADATA_DENIED"]
     return []
 
 
@@ -499,4 +669,39 @@ _EXTRA_CAPTURE_FIELD_REASONS = {
     "memory_payload": "MOBILE_REVIEW_APPROVAL_CAPTURE_MEMORY_WRITE_DENIED",
     "export_payload": "MOBILE_REVIEW_APPROVAL_CAPTURE_EXPORT_DENIED",
     "execution_payload": "MOBILE_REVIEW_APPROVAL_CAPTURE_EXECUTION_DENIED",
+}
+
+_EXTRA_AUDIT_FIELD_REASONS = {
+    "raw_content": "MOBILE_APPROVAL_AUDIT_RAW_CONTENT_DENIED",
+    "full_file_content": "MOBILE_APPROVAL_AUDIT_FULL_FILE_CONTENT_DENIED",
+    "unredacted_preview": "MOBILE_APPROVAL_AUDIT_UNREDACTED_PREVIEW_DENIED",
+    "raw_absolute_path": "MOBILE_APPROVAL_AUDIT_RAW_PATH_DENIED",
+    "absolute_path": "MOBILE_APPROVAL_AUDIT_RAW_PATH_DENIED",
+    "context_proposal_enabled": "MOBILE_APPROVAL_AUDIT_CONTEXT_PROPOSAL_DENIED",
+    "context_injection_enabled": "MOBILE_APPROVAL_AUDIT_CONTEXT_INJECTION_DENIED",
+    "memory_write_enabled": "MOBILE_APPROVAL_AUDIT_MEMORY_WRITE_DENIED",
+    "export_enabled": "MOBILE_APPROVAL_AUDIT_EXPORT_DENIED",
+    "execution_enabled": "MOBILE_APPROVAL_AUDIT_EXECUTION_DENIED",
+    "approval_execution_enabled": "MOBILE_APPROVAL_AUDIT_APPROVAL_EXECUTION_DENIED",
+    "mobile_sensor_access_enabled": "MOBILE_APPROVAL_AUDIT_SENSOR_DENIED",
+    "background_collection_enabled": "MOBILE_APPROVAL_AUDIT_BACKGROUND_DENIED",
+}
+
+_RAW_AUDIT_REASONS = {
+    "MOBILE_APPROVAL_AUDIT_RAW_CONTENT_DENIED",
+    "MOBILE_APPROVAL_AUDIT_FULL_FILE_CONTENT_DENIED",
+    "MOBILE_APPROVAL_AUDIT_UNREDACTED_PREVIEW_DENIED",
+    "MOBILE_APPROVAL_AUDIT_RAW_PATH_DENIED",
+    "MOBILE_APPROVAL_AUDIT_SECRET_METADATA_DENIED",
+}
+
+_AUTHORITY_AUDIT_REASONS = {
+    "MOBILE_APPROVAL_AUDIT_CONTEXT_PROPOSAL_DENIED",
+    "MOBILE_APPROVAL_AUDIT_CONTEXT_INJECTION_DENIED",
+    "MOBILE_APPROVAL_AUDIT_MEMORY_WRITE_DENIED",
+    "MOBILE_APPROVAL_AUDIT_EXPORT_DENIED",
+    "MOBILE_APPROVAL_AUDIT_EXECUTION_DENIED",
+    "MOBILE_APPROVAL_AUDIT_APPROVAL_EXECUTION_DENIED",
+    "MOBILE_APPROVAL_AUDIT_SENSOR_DENIED",
+    "MOBILE_APPROVAL_AUDIT_BACKGROUND_DENIED",
 }

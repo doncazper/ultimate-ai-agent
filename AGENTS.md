@@ -1,6 +1,6 @@
 # Ultimate AI Agent Workspace Standards
 
-Active baseline: v0.53.0.
+Active baseline: v0.54.0.
 
 This repository is the Ultimate AI Agent foundation workspace. Treat it as a contract-first Python core, not a production runtime integration layer.
 
@@ -92,6 +92,7 @@ This repository is the Ultimate AI Agent foundation workspace. Treat it as a con
 - v0.51.0 M47 TestFlight Pipeline, Internal Only adds internal-only, contract/checklist-only TestFlight pipeline planning. It may define reviewed future pipeline stages and validation guards. Do not use v0.51.0 to add build execution, upload execution, App Store Connect API calls, signing asset storage, provisioning profile storage, certificate/private-key storage, Fastlane lanes, CI upload workflows, external beta, public distribution, mobile sensor access, background collection, approval execution, context injection, memory writes, raw data export, dependencies, M48 work, or production authority.
 - v0.52.0 M48 First Internal TestFlight Build adds an internal-only, review-only build candidate record. It may define safe refs for the build candidate, M47 pipeline manifest, source snapshot, and redacted audit receipt plan. Do not use v0.52.0 to add build execution, committed build artifacts, IPA files, Xcode archives, TestFlight upload, App Store Connect API calls, signing material storage, provisioning profile storage, certificate/private-key storage, Fastlane lanes, CI upload workflows, external beta, public distribution, mobile approval capture, mobile sensor access, background collection, approval execution, context injection, memory writes, raw data export, dependencies, M49 work, or production authority.
 - v0.53.0 M49 Mobile Review Approval Capture adds exact-scope, actor-bound, resource-bound, replay-safe, revocable, review-only mobile approval capture contracts and safe-ref-only persistence. Do not use v0.53.0 to add raw file access, raw content output, full-file read output, unredacted preview, raw absolute paths, context proposal, context injection, memory writes, export, approval execution, tool execution, action execution, mobile sensor access, background collection, backend mobile approval routes, native approval capture UI, dependencies, M50 work, or production authority.
+- v0.54.0 M50 Mobile Approval Audit Hardening adds deterministic safe-ref-only audit reports over M49 mobile review approval records, status/decision consistency checks, duplicate idempotency mismatch detection, and model_copy mutation revalidation. Do not use v0.54.0 to add raw file access, raw content output, full-file read output, unredacted preview, raw absolute paths, context proposal, context injection, memory writes, export, approval execution, tool execution, action execution, mobile sensor access, background collection, backend mobile audit routes, native audit UI, dependencies, M51 work, or production authority.
 - API validation errors must be sanitized and must never echo raw invalid input values or secret-like field values.
 
 ## Workspace

@@ -12,23 +12,24 @@ allowed to become operational authority.
 
 | Field | Current state |
 |---|---|
-| Current active baseline | **v0.53.0** |
-| Current milestone | **M49 - Mobile Review Approval Capture** |
+| Current active baseline | **v0.54.0** |
+| Current milestone | **M50 - Mobile Approval Audit Hardening** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **75** OpenAPI paths |
 | Production readiness | Not claimed |
 
-v0.53.0 implements M49 Mobile Review Approval Capture. It adds exact-scope,
-actor-bound, resource-bound, replay-safe, revocable, review-only mobile
-approval capture contracts, safe-ref-only record persistence, receipt plans,
-evaluator revalidation, tests, documentation-integrity checks, static
-verification, and Foundation Gate coverage. It adds no raw file access, raw
-content output, full-file read output, unredacted preview, raw absolute path
-storage, context proposal, context injection, memory write, export, approval
-execution, tool execution, action execution, mobile sensor access, background
-collection, backend mobile approval route, native approval capture UI,
-dependency, production authority, or M50 implementation.
+v0.54.0 implements M50 Mobile Approval Audit Hardening. It adds deterministic
+safe-ref-only mobile approval audit reports over M49 review approval capture
+records, status/decision consistency checks, duplicate idempotency mismatch
+detection, model_copy mutation revalidation, secret-like metadata denial,
+tests, documentation-integrity checks, static verification, and Foundation Gate
+coverage. It adds no raw file access, raw content output, full-file read
+output, unredacted preview, raw absolute path storage, context proposal,
+context injection, memory write, export, approval execution, tool execution,
+action execution, mobile sensor access, background collection, backend mobile
+audit route, native audit UI, dependency, production authority, or M51
+implementation.
 
 v0.29.5 is documentation policy polish. It remains the documentation
 organization cleanup baseline before the M26 and M27 implementation releases.
@@ -86,6 +87,8 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M48 to M49 Boundary](docs/mobile/M48_TO_M49_BOUNDARY.md)
 - [M49 Mobile Review Approval Capture](docs/mobile/MOBILE_REVIEW_APPROVAL_CAPTURE.md)
 - [M49 to M50 Boundary](docs/mobile/M49_TO_M50_BOUNDARY.md)
+- [M50 Mobile Approval Audit Hardening](docs/mobile/MOBILE_APPROVAL_AUDIT_HARDENING.md)
+- [M50 to M51 Boundary](docs/mobile/M50_TO_M51_BOUNDARY.md)
 - [M38 Context Proposal Receipt Plan](docs/context/CONTEXT_PROPOSAL_RECEIPT_PLAN.md)
 - [API route inventory](docs/api/route_inventory.md)
 - [Documentation organization policy](docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md)
@@ -103,9 +106,9 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M28 Action Policy](docs/approvals/ACTION_POLICY.md)
 - [M27 Tool Broker v2](docs/tools/TOOL_BROKER_V2.md)
 - [M26 Grounded Recall Router](docs/recall/GROUNDED_RECALL_ROUTER.md)
-- [v0.53.0 release notes](docs/release_notes/v0_53_0.md)
-- [v0.53.0 release packet](docs/archive/releases/v0_53_0/README_IMPORT.md)
-- [v0.53.0 master plan](docs/archive/releases/v0_53_0/master_plan.md)
+- [v0.54.0 release notes](docs/release_notes/v0_54_0.md)
+- [v0.54.0 release packet](docs/archive/releases/v0_54_0/README_IMPORT.md)
+- [v0.54.0 master plan](docs/archive/releases/v0_54_0/master_plan.md)
 
 ## What This Project Is
 
@@ -371,7 +374,7 @@ post-M33 supersession is
 | v0.51.0 | M47 - TestFlight Pipeline, Internal Only | Implemented/released contract/checklist-only |
 | v0.52.0 | M48 - First Internal TestFlight Build | Implemented/released reviewed-candidate-only |
 | v0.53.0 | M49 - Mobile Review Approval Capture | Implemented/released safe-ref-only review capture |
-| v0.54.0 | M50 - Mobile Approval Audit Hardening | Planned/provisional |
+| v0.54.0 | M50 - Mobile Approval Audit Hardening | Implemented/released audit hardening |
 | v0.55.0 | M51 - OpenWebUI Bridge Adapter Pilot | Planned/provisional |
 | v0.56.0 | M52 - OpenWebUI Safe Conversation Surface | Planned/provisional |
 | v0.57.0 | M53 - Controlled Tool Expansion Review | Planned/provisional |

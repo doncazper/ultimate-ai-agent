@@ -585,3 +585,20 @@ OpenAPI path count remains unchanged at 74.
 M22 is implemented/released contract-only by v0.26.0. M23 is implemented/released by v0.27.0 as manual fixed-prompt local call only.
 No OpenWebUI integration, deployment config, Docker config, backend API route, frontend feature, runtime execution, local LLM call, model/provider call, tool execution, memory write, file access, remote execution, browser automation, Computer Use, mobile sensor access, plugin enablement, dependency, or production authority is added.
 ```
+
+## v0.54.0 M50 Mobile Approval Audit Hardening Tests
+
+v0.54.0 adds focused mobile approval audit hardening tests only:
+
+```text
+Mobile approval audit reports are deterministic, review-only, and safe-ref-only.
+M49 approve-review-only and deny-review-only capture records are revalidated before audit success.
+Duplicate idempotency keys with mismatched record fingerprints are denied.
+Status and decision mismatches are denied.
+model_copy-mutated raw content, raw paths, context injection, memory write, export, execution, approval execution, sensor, and background collection flags are denied.
+Secret-like metadata is denied without echoing secret values in safe messages.
+Audit reports perform no memory write, export, execution, sensor access, background collection, backend route, native audit UI, dependency, OpenWebUI bridge, M51 work, or production authority.
+Foundation Gate includes M50 mobile approval audit criteria and route/static safety checks.
+OpenAPI path count remains unchanged at 75.
+M51 remains planned/provisional as OpenWebUI Bridge Adapter Pilot.
+```

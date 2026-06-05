@@ -145,3 +145,8 @@ class MobileReviewApprovalCaptureDecisionStatus(str, Enum):
     approved_for_mobile_review_only = "approved_for_mobile_review_only"
     denied_for_mobile_review = "denied_for_mobile_review"
     rejected = "rejected"
+
+
+class MobileApprovalAuditStatus(str, Enum):
+    passed = "passed"
+    failed = "failed"

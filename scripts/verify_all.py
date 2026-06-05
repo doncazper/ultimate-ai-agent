@@ -78,6 +78,7 @@ SCAN_SEQUENCE = [
     ("M47 TestFlight pipeline internal-only scan", "verify_m47_testflight_pipeline_internal_only"),
     ("M48 first internal TestFlight build scan", "verify_m48_first_internal_testflight_build"),
     ("M49 mobile review approval capture scan", "verify_m49_mobile_review_approval_capture"),
+    ("M50 mobile approval audit hardening scan", "verify_m50_mobile_approval_audit_hardening"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -6219,6 +6220,180 @@ def verify_m49_mobile_review_approval_capture():
                     sys.exit(1)
 
     print("OK: M49 mobile review approval capture is exact-scope, safe-ref-only, review-only, no-route, and no-authority")
+
+
+def verify_m50_mobile_approval_audit_hardening():
+    print("\n[Verifier] Running M50 mobile approval audit hardening guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/mobile_companion/approval_capture.py",
+        "src/ultimate_ai_agent/core/mobile_companion/enums.py",
+        "docs/mobile/MOBILE_APPROVAL_AUDIT_HARDENING.md",
+        "docs/mobile/M50_TO_M51_BOUNDARY.md",
+        "docs/release_notes/v0_54_0.md",
+        "docs/archive/releases/v0_54_0/README_IMPORT.md",
+        "docs/archive/releases/v0_54_0/master_plan.md",
+        "docs/implementation/foundation_gate_implementation_plan_v0_54_0.md",
+        "tests/test_m50_mobile_approval_audit_hardening.py",
+        "tests/test_m50_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M50 mobile approval audit file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = "\n".join(
+        (ROOT / rel_path).read_text(encoding="utf-8").lower()
+        for rel_path in required_files
+        if rel_path.startswith("docs/")
+    )
+    for fragment in [
+        "mobile approval audit hardening",
+        "review-only",
+        "safe-ref-only",
+        "model_copy",
+        "no raw content",
+        "no context injection",
+        "no memory write",
+        "no export",
+        "no execution",
+        "no mobile sensor access",
+        "no backend route",
+        "m51 remains future",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M50 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        from datetime import timedelta
+
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.evaluators import m50_openapi_route_failures
+        from ultimate_ai_agent.core.mobile_companion import (
+            MobileApprovalAuditStatus,
+            MobileReviewApprovalCaptureRequest,
+            MobileReviewApprovalDecisionKind,
+            MobileReviewApprovalStore,
+            audit_mobile_review_approval_records,
+            audit_mobile_review_approval_store,
+            capture_mobile_review_approval,
+        )
+        from ultimate_ai_agent.core.time import utc_now
+    except Exception as exc:
+        print(f"FAIL: M50 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m50_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    now = utc_now()
+    request = MobileReviewApprovalCaptureRequest(
+        approval_ref="mobile-review-approval-capture:verify-all-m50",
+        actor_ref="user:verify-all-m50-mobile-reviewer",
+        mobile_surface_ref="ccc-ios-review-surface:verify-all-m50",
+        review_packet_ref="file-review-packet:verify-all-m50",
+        preview_result_ref="redacted-file-preview-output:verify-all-m50",
+        redaction_summary_ref="file-review-redaction-summary:verify-all-m50",
+        file_ref="file-ref:verify-all-m50",
+        safe_path_ref="filesystem-preview-path:safe-root_mobile/verify-all/m50.md",
+        receipt_plan_ref="mobile-review-receipt-plan:verify-all-m50",
+        decision=MobileReviewApprovalDecisionKind.approve_review_only,
+        idempotency_key="mobile-review-approval-idempotency:verify-all-m50",
+        expected_actor_ref="user:verify-all-m50-mobile-reviewer",
+        expected_mobile_surface_ref="ccc-ios-review-surface:verify-all-m50",
+        expected_review_packet_ref="file-review-packet:verify-all-m50",
+        expected_preview_result_ref="redacted-file-preview-output:verify-all-m50",
+        expected_redaction_summary_ref="file-review-redaction-summary:verify-all-m50",
+        expected_file_ref="file-ref:verify-all-m50",
+        expected_safe_path_ref="filesystem-preview-path:safe-root_mobile/verify-all/m50.md",
+        expires_at=now + timedelta(minutes=5),
+    )
+    store = MobileReviewApprovalStore()
+    decision = capture_mobile_review_approval(request, store=store, current_time=now)
+    report = audit_mobile_review_approval_store(store)
+    if report.status != MobileApprovalAuditStatus.passed or report.record_count != 1:
+        print(f"FAIL: M50 safe mobile approval audit did not pass: {report.reason_codes}")
+        sys.exit(1)
+    if report.memory_write_performed or report.export_performed or report.execution_performed:
+        print("FAIL: M50 audit report performed forbidden side effect")
+        sys.exit(1)
+    if decision.record is None:
+        print("FAIL: M50 capture setup did not produce a record")
+        sys.exit(1)
+    unsafe = audit_mobile_review_approval_records([decision.record.model_copy(update={"execution_enabled": True})])
+    if unsafe.status != MobileApprovalAuditStatus.failed:
+        print("FAIL: M50 model_copy execution field was not rejected")
+        sys.exit(1)
+    if "MOBILE_APPROVAL_AUDIT_EXECUTION_DENIED" not in unsafe.reason_codes:
+        print("FAIL: M50 execution audit rejection reason missing")
+        sys.exit(1)
+
+    ios_root = ROOT / "apps" / "ccc-ios"
+    swift_root = ios_root / "Sources" / "UltimateAIAgentCCC"
+    swift_text = "\n".join(path.read_text(encoding="utf-8") for path in sorted(swift_root.rglob("*.swift")))
+    for fragment in [
+        "MobileApprovalAudit",
+        "approvalAuditExport",
+        "auditRaw",
+        "auditWrite",
+        "approvalExecution",
+        "SensorAccess",
+        "BackgroundCollection",
+    ]:
+        if fragment in swift_text:
+            print(f"FAIL: M50 forbidden Swift mobile audit/sensor fragment present: {fragment}")
+            sys.exit(1)
+
+    forbidden_source_fragments = [
+        "raw_file_access_enabled=True",
+        "raw_content_enabled=True",
+        "full_file_content_enabled=True",
+        "unredacted_preview_enabled=True",
+        "context_proposal_enabled=True",
+        "context_injection_enabled=True",
+        "memory_write_enabled=True",
+        "export_enabled=True",
+        "execution_enabled=True",
+        "approval_execution_enabled=True",
+        "mobile_sensor_access_enabled=True",
+        "background_collection_enabled=True",
+        "/mobile/review/audit",
+        "/mobile/review/audit/export",
+        "/mobile/review/audit/raw",
+        "/mobile/approvals/audit/write",
+        "/mobile/context/inject",
+        "/mobile/memory/write",
+        "/mobile/tools/execute",
+    ]
+    allowed_files = {
+        "scripts/verify_all.py",
+        "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/mobile_companion/approval_capture.py",
+        "tests/test_m49_mobile_review_approval_capture.py",
+        "tests/test_m49_gate_integration.py",
+        "tests/test_m50_mobile_approval_audit_hardening.py",
+        "tests/test_m50_gate_integration.py",
+    }
+    source_roots = [ROOT / "src", ROOT / "apps" / "control-center" / "src", ios_root]
+    for root in source_roots:
+        if not root.exists():
+            continue
+        for path in root.rglob("*"):
+            if not path.is_file() or path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}:
+                continue
+            rel = path.relative_to(ROOT).as_posix()
+            if rel in allowed_files:
+                continue
+            text = path.read_text(encoding="utf-8")
+            for fragment in forbidden_source_fragments:
+                if fragment in text:
+                    print(f"FAIL: M50 forbidden authority/route fragment in {rel}: {fragment}")
+                    sys.exit(1)
+
+    print("OK: M50 mobile approval audit is safe-ref-only, review-only, no-route, no-export, and no-authority")
 
 
 def verify_local_developer_launcher_safety():
