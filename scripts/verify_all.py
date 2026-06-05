@@ -48,6 +48,7 @@ SCAN_SEQUENCE = [
     ("M37 review approval capture scan", "verify_m37_review_approval_capture_safety"),
     ("M38 safe context proposal scan", "verify_m38_safe_context_proposal_safety"),
     ("M39 CCC context proposal surface scan", "verify_m39_ccc_context_proposal_surface_safety"),
+    ("M40 context handoff approval scan", "verify_m40_context_handoff_approval_safety"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -4650,6 +4651,208 @@ def verify_m39_ccc_context_proposal_surface_safety():
             sys.exit(1)
 
     print("OK: M39 CCC context proposal surface is frontend-only, review-only, safe-ref-only, and non-authoritative")
+
+
+def verify_m40_context_handoff_approval_safety():
+    print("\n[Verifier] Running M40 context handoff approval guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/context_handoff/__init__.py",
+        "src/ultimate_ai_agent/core/context_handoff/contracts.py",
+        "src/ultimate_ai_agent/core/context_handoff/validation.py",
+        "src/ultimate_ai_agent/core/context_handoff/workflow.py",
+        "src/ultimate_ai_agent/core/context_handoff/receipts.py",
+        "tests/test_context_handoff_approval_contracts.py",
+        "tests/test_context_handoff_approval_binding.py",
+        "tests/test_context_handoff_no_injection.py",
+        "tests/test_context_handoff_receipt_plan.py",
+        "tests/test_m40_gate_integration.py",
+        "docs/context/CONTEXT_HANDOFF_APPROVAL.md",
+        "docs/context/CONTEXT_HANDOFF_APPROVAL_BOUNDARY.md",
+        "docs/context/CONTEXT_HANDOFF_NO_INJECTION_POLICY.md",
+        "docs/context/CONTEXT_HANDOFF_RECEIPT_PLAN.md",
+        "docs/context/M40_TO_M41_BOUNDARY.md",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M40 context handoff approval file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = "\n".join(
+        (ROOT / rel_path).read_text(encoding="utf-8").lower()
+        for rel_path in required_files
+        if rel_path.startswith("docs/")
+    )
+    for fragment in [
+        "exact proposal binding",
+        "review-only",
+        "no context injection",
+        "no openwebui handoff execution",
+        "no model calls",
+        "no memory writes",
+        "no export",
+        "no execution",
+        "approval_ref alone is not authority",
+        "approval_test_ is not runtime authority",
+        "evaluator boundaries revalidate",
+        "m41 remains future",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M40 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.context_handoff import (
+            ContextHandoffApprovalDecisionStatus,
+            ContextHandoffApprovalKind,
+            ContextHandoffApprovalRequest,
+            evaluate_context_handoff_approval,
+        )
+        from ultimate_ai_agent.core.context_proposal import build_safe_context_proposal
+        from ultimate_ai_agent.core.file_review import (
+            FileReviewApprovalCaptureDecisionStatus,
+            FileReviewApprovalDecisionKind,
+            FileReviewApprovalRecord,
+            build_file_review_packet,
+        )
+        from ultimate_ai_agent.core.tools.runtime import (
+            FilePreviewRedactionSummary,
+            RedactedFilePreviewOutput,
+            RedactedFilePreviewStatus,
+        )
+
+        preview = RedactedFilePreviewOutput(
+            output_ref="redacted-file-preview-output:m40-verify",
+            status=RedactedFilePreviewStatus.preview_generated,
+            root_ref="safe-root:m40-verify",
+            safe_path_ref="filesystem-preview-path:safe-root_m40_verify/docs/review.md",
+            redacted_preview="M40 verifier redacted preview only.",
+            redaction_summary=FilePreviewRedactionSummary(redaction_count=1, categories=["secret_assignment"]),
+            file_size_bytes=64,
+        )
+        packet = build_file_review_packet(
+            preview_output=preview,
+            actor_ref="user:m40-verify",
+            request_ref="file-review-request:m40-verify",
+            file_ref="file-ref:m40-verify-review",
+            safe_summary="Review a redacted packet for M40 handoff approval.",
+        )
+        approval_record = FileReviewApprovalRecord(
+            approval_ref="file-review-approval-capture:m40-verify",
+            actor_ref=packet.source.actor_ref,
+            review_packet_ref=packet.review_packet_ref,
+            preview_result_ref=packet.source.preview_result_ref,
+            redaction_summary_ref=packet.redaction_verification.redaction_summary_ref,
+            file_ref=packet.source.file_ref,
+            safe_path_ref=packet.source.safe_path_ref,
+            decision=FileReviewApprovalDecisionKind.approve_review_only,
+            status=FileReviewApprovalCaptureDecisionStatus.approved_for_review_only,
+            idempotency_key="file-review-approval-idempotency:m40-verify",
+            safe_reason="User approved the redacted review packet for review-only follow-up.",
+            receipt_plan_ref="file-review-approval-capture-receipt:m40-verify",
+        )
+        proposal = build_safe_context_proposal(packet=packet, approval_record=approval_record)
+        request = ContextHandoffApprovalRequest(
+            approval_ref="context-handoff-approval:m40-verify",
+            actor_ref=proposal.binding.actor_ref,
+            proposal_ref=proposal.proposal_ref,
+            approval_record_ref=proposal.source.approval_record_ref,
+            review_packet_ref=proposal.binding.review_packet_ref,
+            preview_result_ref=proposal.binding.preview_result_ref,
+            redaction_summary_ref=proposal.binding.redaction_summary_ref,
+            file_ref=proposal.binding.file_ref,
+            safe_path_ref=proposal.binding.safe_path_ref,
+            decision=ContextHandoffApprovalKind.approve_handoff_review_only,
+            idempotency_key="context-handoff-idempotency:m40-verify",
+            safe_reason="Approve the safe context proposal for future handoff review only.",
+        )
+        decision = evaluate_context_handoff_approval(proposal=proposal, request=request)
+        if decision.status != ContextHandoffApprovalDecisionStatus.approved_for_handoff_review_only:
+            print("FAIL: M40 safe handoff approval did not produce review-only approval")
+            sys.exit(1)
+        for field_name in [
+            "handoff_execution_authorized",
+            "context_injection_authorized",
+            "openwebui_handoff_authorized",
+            "model_call_authorized",
+            "memory_write_authorized",
+            "export_authorized",
+            "execution_authorized",
+            "context_injection_performed",
+            "openwebui_handoff_performed",
+            "model_call_performed",
+            "memory_write_performed",
+            "export_performed",
+            "execution_performed",
+        ]:
+            if getattr(decision, field_name):
+                print(f"FAIL: M40 decision granted or performed forbidden authority: {field_name}")
+                sys.exit(1)
+        if decision.receipt_plan is None or any(
+            getattr(decision.receipt_plan, field_name)
+            for field_name in [
+                "receipt_is_authority",
+                "raw_content_stored",
+                "full_file_content_stored",
+                "unredacted_preview_stored",
+                "context_injection_performed",
+                "openwebui_handoff_performed",
+                "model_call_performed",
+                "memory_write_performed",
+                "export_performed",
+                "execution_performed",
+            ]
+        ):
+            print("FAIL: M40 receipt plan stores raw content or performs authority")
+            sys.exit(1)
+        mutated_proposal = proposal.model_copy(update={"context_injection_enabled": True})
+        if "context_injection_denied" not in evaluate_context_handoff_approval(proposal=mutated_proposal, request=request).reason_codes:
+            print("FAIL: M40 evaluator did not revalidate model_copy-mutated proposal injection flag")
+            sys.exit(1)
+        mutated_request = request.model_copy(update={"openwebui_handoff_execution_enabled": True})
+        if "openwebui_handoff_denied" not in evaluate_context_handoff_approval(proposal=proposal, request=mutated_request).reason_codes:
+            print("FAIL: M40 evaluator did not revalidate model_copy-mutated request handoff flag")
+            sys.exit(1)
+        if "approval_ref_not_authority" not in evaluate_context_handoff_approval(
+            proposal=None,
+            request_ref="context-handoff-approval:m40-verify",
+        ).reason_codes:
+            print("FAIL: M40 approval_ref-alone probe did not fail closed")
+            sys.exit(1)
+        if "approval_test_ref_denied" not in evaluate_context_handoff_approval(
+            proposal=proposal,
+            request=request.model_copy(update={"approval_ref": "approval_test_m40_verify"}),
+        ).reason_codes:
+            print("FAIL: M40 approval_test_ mutation probe did not fail closed")
+            sys.exit(1)
+
+        paths = app.openapi().get("paths", {})
+        if len(paths) != 75:
+            print(f"FAIL: M40 OpenAPI path count changed: expected 75, found {len(paths)}")
+            sys.exit(1)
+        if "/files/review/approvals/capture" not in paths:
+            print("FAIL: M40 expected M37 review approval capture route is missing")
+            sys.exit(1)
+        for forbidden in [
+            "/context/propose",
+            "/context/handoff",
+            "/context/handoff/approve",
+            "/context/inject",
+            "/openwebui/handoff",
+            "/memory/write",
+            "/tools/execute",
+            "/tool-runtime/execute",
+        ]:
+            if forbidden in paths:
+                print(f"FAIL: M40 forbidden backend route present: {forbidden}")
+                sys.exit(1)
+    except Exception as exc:
+        print(f"FAIL: M40 context handoff approval validation failed: {exc}")
+        sys.exit(1)
+
+    print("OK: M40 context handoff approval is exact-bound, review-only, no-injection, and route-free")
 
 
 def verify_local_developer_launcher_safety():

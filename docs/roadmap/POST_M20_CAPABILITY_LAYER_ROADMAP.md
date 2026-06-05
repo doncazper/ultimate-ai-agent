@@ -1,6 +1,6 @@
 # Post-M20 Capability Layer Roadmap
 
-Status: Active roadmap projection maintained through v0.43.0.
+Status: Active roadmap projection maintained through v0.44.0.
 
 v0.38.0 implements M34 Broader File Capability Review as planning,
 architecture review, documentation, verifier, and Foundation Gate work only.
@@ -20,12 +20,14 @@ implements M37 Review Approval Capture, Review-Only Persistence as safe-ref-only
 approval and denial capture for exact redacted review packets. v0.42.0
 implements M38 Safe Context Proposal From Approved Review as proposal-only,
 non-authoritative contracts from exact-scope approved redacted file review
-records.
+records. v0.43.0 implements M39 CCC Context Proposal Surface as frontend-only
+display. v0.44.0 implements M40 Context Handoff Approval, No Injection as
+contract-only approval decisions with exact proposal binding.
 
-M21-M38 are implemented/released through dedicated reviewed milestones. v0.42.0
-is M39 CCC Context Proposal Surface. M40-M60 remain planned/provisional.
+M21-M40 are implemented/released through dedicated reviewed milestones.
+M41-M60 remain planned/provisional.
 M34 is implemented/released as planning/docs/verifier
-only. M35 is implemented/released as Safe File Review Workflow Contracts. M36 is implemented/released as CCC File Review Surface, Review-Only. M37 is implemented/released as Review Approval Capture, Review-Only Persistence. M38 is implemented/released as Safe Context Proposal From Approved Review. M42 is the first mobile
+only. M35 is implemented/released as Safe File Review Workflow Contracts. M36 is implemented/released as CCC File Review Surface, Review-Only. M37 is implemented/released as Review Approval Capture, Review-Only Persistence. M38 is implemented/released as Safe Context Proposal From Approved Review. M39 is implemented/released as CCC Context Proposal Surface. M40 is implemented/released as Context Handoff Approval, No Injection. M42 is the first mobile
 planning refresh in this new sequence. M44 is the first iOS skeleton milestone.
 M47 is the TestFlight-capable pipeline milestone. M48 is the first internal
 TestFlight build. M49-M50 are the first meaningful mobile approval capture and
@@ -59,7 +61,7 @@ The detailed post-M33 supersession source of truth is
 | v0.41.0 | M37 | Review Approval Capture, Review-Only Persistence | implemented/released |
 | v0.42.0 | M38 | Safe Context Proposal From Approved Review | implemented/released contract-only |
 | v0.43.0 | M39 | CCC Context Proposal Surface | implemented/released frontend-only |
-| v0.44.0 | M40 | Context Handoff Approval, No Injection | planned/provisional |
+| v0.44.0 | M40 | Context Handoff Approval, No Injection | implemented/released contract-only |
 | v0.45.0 | M41 | Local Prototype Safety Freeze | planned/provisional |
 | v0.46.0 | M42 | Mobile Companion Product Contract Refresh | planned/provisional |
 | v0.47.0 | M43 | Mobile API Boundary, Read-Only | planned/provisional |
@@ -83,13 +85,13 @@ The detailed post-M33 supersession source of truth is
 
 ## Prompt-Pack Strategy
 
-Recommended next prompt after v0.42.0:
+Recommended next prompt after v0.44.0:
 
 ```text
-v0.43.0 / M39 - CCC Context Proposal Surface
+v0.45.0 / M41 - Local Prototype Safety Freeze
 ```
 
-The next prompt pack is M40 Context Handoff Approval, No Injection.
+The next prompt pack is M41 Local Prototype Safety Freeze.
 
 Extra-hard reviews are required for M37, M38, M40, M47, M48, M49, M51, M52,
 M57, and M58. Mandatory hardening is expected by default for M35-M40, M43-M50,

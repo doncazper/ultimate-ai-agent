@@ -1,20 +1,21 @@
 # Ultimate AI Agent Version
 
-Current active baseline: **v0.43.0**
+Current active baseline: **v0.44.0**
 
-v0.43.0 implements M39 CCC Context Proposal Surface. It adds a read-only
-Control Center surface for M38 safe context proposals, with safe mock data,
-proposal-only status, approved-review provenance, exact binding refs, redaction
-verification, safe proposal sections, receipt-plan metadata, frontend tests,
+v0.44.0 implements M40 Context Handoff Approval, No Injection. It adds
+contract-only context handoff approval policy, request, decision, and receipt
+plans over M38 safe context proposals, with exact proposal binding,
+approval_ref and approval_test_ denial, expired/revoked/replayed approval
+denial, evaluator revalidation, review-only no-injection decisions, tests,
 static safety verification, documentation-integrity checks, and Foundation Gate
 coverage.
 
-It adds no context handoff approval, context injection, OpenWebUI handoff,
-OpenWebUI runtime integration, model/provider calls, LLM summarization, memory
-writes, export/download/copy-raw controls, execution/tool/action/task controls,
-approval mutation controls, backend routes, raw file reads, raw file content
+It adds no automatic context injection, OpenWebUI handoff execution, OpenWebUI
+runtime integration, model/provider calls, LLM summarization, memory writes,
+export/download/copy-raw controls, execution/tool/action/task controls, approval
+mutation controls, backend routes, raw file reads, raw file content
 display/storage, full-file content display, unredacted preview display, raw
 absolute path display, arbitrary file reads, file picker/browser/upload/root
-selector controls, directory traversal/listing, file mutation,
-shell/subprocess, network calls, mobile/native work, plugins, dependencies, M40
-work, or production authority.
+selector controls, directory traversal/listing, file mutation, shell/subprocess,
+network calls, mobile/native work, plugins, dependencies, M41 work, or
+production authority.

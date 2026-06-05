@@ -1,6 +1,6 @@
 # Documentation Index
 
-Current active baseline: **v0.43.0**
+Current active baseline: **v0.44.0**
 
 This index is the active entrypoint for documentation navigation. Historical release documents remain in the repository for audit history, but active truth starts with the current baseline files listed here.
 
@@ -14,8 +14,8 @@ docs/canonical/CANONICAL_DOC_MAP.md
 docs/canonical/09_roadmap.md
 docs/roadmap/README.md
 docs/archive/README.md
-docs/archive/releases/v0_43_0/README_IMPORT.md
-docs/archive/releases/v0_43_0/master_plan.md
+docs/archive/releases/v0_44_0/README_IMPORT.md
+docs/archive/releases/v0_44_0/master_plan.md
 docs/developer/LOCAL_LAUNCHER.md
 scripts/dev/README.md
 docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md
@@ -59,6 +59,11 @@ docs/control_center/CONTEXT_PROPOSAL_REVIEW_ONLY_POLICY.md
 docs/control_center/CONTEXT_PROPOSAL_MOCK_DATA_POLICY.md
 docs/control_center/CONTEXT_PROPOSAL_BINDING_DISPLAY_POLICY.md
 docs/control_center/M39_TO_M40_BOUNDARY.md
+docs/context/CONTEXT_HANDOFF_APPROVAL.md
+docs/context/CONTEXT_HANDOFF_APPROVAL_BOUNDARY.md
+docs/context/CONTEXT_HANDOFF_NO_INJECTION_POLICY.md
+docs/context/CONTEXT_HANDOFF_RECEIPT_PLAN.md
+docs/context/M40_TO_M41_BOUNDARY.md
 docs/tools/FILE_TOOL_CAPABILITY_MATRIX.md
 docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md
 docs/roadmap/ECOSYSTEM_WATCHLIST.md
@@ -435,7 +440,7 @@ stale current-baseline labels, and M36 read-only surface safety drift.
 
 ## Release Notes Index
 
-Current release notes: `docs/release_notes/v0_43_0.md`
+Current release notes: `docs/release_notes/v0_44_0.md`
 
 Historical release notes remain under `docs/release_notes/`. Historical docs may mention old active baselines in historical context; they are not the current source of truth.
 

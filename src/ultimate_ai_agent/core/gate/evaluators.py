@@ -514,6 +514,32 @@ M39_FORBIDDEN_BACKEND_ROUTES = (
     "/tool-runtime/run",
     "/plugins/enable",
 )
+EXPECTED_M40_OPENAPI_PATH_COUNT = 75
+M40_FORBIDDEN_BACKEND_ROUTES = (
+    "/files/read",
+    "/files/read/raw",
+    "/files/read/content",
+    "/files/read/full",
+    "/files/write",
+    "/files/delete",
+    "/filesystem/read",
+    "/filesystem/write",
+    "/filesystem/delete",
+    "/context/propose",
+    "/context/proposals/approve",
+    "/context/proposals/submit",
+    "/context/handoff",
+    "/context/handoff/approve",
+    "/context/handoff/submit",
+    "/context/inject",
+    "/openwebui/handoff",
+    "/memory/write",
+    "/tools/execute",
+    "/tools/run",
+    "/tool-runtime/execute",
+    "/tool-runtime/run",
+    "/plugins/enable",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -887,6 +913,19 @@ def m39_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
     return failures
 
 
+def m40_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M40_OPENAPI_PATH_COUNT) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+    if M37_ALLOWED_CAPTURE_ROUTE not in path_set:
+        failures.append("M37 capture route missing: /files/review/approvals/capture")
+    for route in M40_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(f"M40 forbidden backend route present: {route}")
+    return failures
+
+
 M36_SAFE_REF_PREFIXES = {
     "reviewPacketRef": "file-review-packet:",
     "previewResultRef": "redacted-file-preview-output:",
@@ -1255,6 +1294,9 @@ class FoundationGateEvaluator:
             "m39_ccc_context_proposal_surface_safe": self.check_m39_ccc_context_proposal_surface_safe,
             "m39_context_proposal_route_boundary": self.check_m39_context_proposal_route_boundary,
             "m39_roadmap_currentness": self.check_m39_roadmap_currentness,
+            "m40_context_handoff_approval_contracts": self.check_m40_context_handoff_approval_contracts,
+            "m40_context_handoff_route_boundary": self.check_m40_context_handoff_route_boundary,
+            "m40_roadmap_currentness": self.check_m40_roadmap_currentness,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -8565,7 +8607,12 @@ class FoundationGateEvaluator:
             failures.append("M34 roadmap docs do not constrain M34 to planning/docs/verifier work")
         current_version = self._active_version() or "0.0.0"
         current_tuple = tuple(int(part) for part in current_version.split(".")[:3])
-        if current_tuple >= (0, 43, 0):
+        if current_tuple >= (0, 44, 0):
+            if "m40 is implemented/released" not in text and "v0.44.0 implements m40" not in text:
+                failures.append("M40 roadmap docs do not mark M40 implemented/released")
+            if "m41-m60 remain planned/provisional" not in text:
+                failures.append("M41-M60 must remain planned/provisional after M40")
+        elif current_tuple >= (0, 43, 0):
             if "m39 is implemented/released" not in text and "v0.43.0 implements m39" not in text:
                 failures.append("M39 roadmap docs do not mark M39 implemented/released")
             if "m40-m60 remain planned/provisional" not in text:
@@ -8847,7 +8894,12 @@ class FoundationGateEvaluator:
                 failures.append("M37 must be implemented/released for active v0.41.0+ docs")
         elif "m37 remains planned/provisional" not in text:
             failures.append("M37 must remain planned/provisional after M35")
-        if version_tuple >= (0, 43, 0):
+        if version_tuple >= (0, 44, 0):
+            if "m40 is implemented/released" not in text and "v0.44.0 implements m40" not in text:
+                failures.append("M40 must be implemented/released for active v0.44.0+ docs")
+            if "m41-m60 remain planned/provisional" not in text:
+                failures.append("M41-M60 must remain planned/provisional after M40")
+        elif version_tuple >= (0, 43, 0):
             if "m39 is implemented/released" not in text and "v0.43.0 implements m39" not in text:
                 failures.append("M39 must be implemented/released for active v0.43.0+ docs")
             if "m40-m60 remain planned/provisional" not in text:
@@ -9002,7 +9054,12 @@ class FoundationGateEvaluator:
                 failures.append("M37 must be implemented/released for active v0.41.0+ docs")
         elif "m37 remains planned/provisional" not in text:
             failures.append("M37 must remain planned/provisional after M36")
-        if version_tuple >= (0, 43, 0):
+        if version_tuple >= (0, 44, 0):
+            if "m40 is implemented/released" not in text and "v0.44.0 implements m40" not in text:
+                failures.append("M40 must be implemented/released for active v0.44.0+ docs")
+            if "m41-m60 remain planned/provisional" not in text:
+                failures.append("M41-M60 must remain planned/provisional after M40")
+        elif version_tuple >= (0, 43, 0):
             if "m39 is implemented/released" not in text and "v0.43.0 implements m39" not in text:
                 failures.append("M39 must be implemented/released for active v0.43.0+ docs")
             if "m40-m60 remain planned/provisional" not in text:
@@ -9133,7 +9190,12 @@ class FoundationGateEvaluator:
             failures.append("active docs do not mark M37 implemented/released")
         active_version = self._active_version() or "0.0.0"
         version_tuple = tuple(int(part) for part in active_version.split(".")[:3])
-        if version_tuple >= (0, 43, 0):
+        if version_tuple >= (0, 44, 0):
+            if "m40 is implemented/released" not in text and "v0.44.0 implements m40" not in text:
+                failures.append("active docs do not mark M40 implemented/released")
+            if "m41-m60 remain planned/provisional" not in text:
+                failures.append("M41-M60 must remain planned/provisional after M40")
+        elif version_tuple >= (0, 43, 0):
             if "m39 is implemented/released" not in text and "v0.43.0 implements m39" not in text:
                 failures.append("active docs do not mark M39 implemented/released")
             if "m40-m60 remain planned/provisional" not in text and "m40 remains planned/provisional" not in text:
@@ -9380,7 +9442,12 @@ class FoundationGateEvaluator:
         if "m38 is implemented/released" not in text and "m38 implemented/released" not in text:
             failures.append("active docs do not mark M38 implemented/released")
         current = tuple(int(part) for part in (self._active_version() or "0.0.0").split(".")[:3])
-        if current >= (0, 43, 0):
+        if current >= (0, 44, 0):
+            if "m40 is implemented/released" not in text and "v0.44.0 implements m40" not in text:
+                failures.append("active docs do not mark M40 implemented/released after v0.44.0")
+            if "m41-m60 remain planned/provisional" not in text:
+                failures.append("M41-M60 must remain planned/provisional after M40")
+        elif current >= (0, 43, 0):
             if "m39 is implemented/released" not in text and "v0.43.0 implements m39" not in text:
                 failures.append("active docs do not mark M39 implemented/released after v0.43.0")
             if "m40 remains planned/provisional" not in text and "m40-m60 remain planned/provisional" not in text:
@@ -9390,9 +9457,9 @@ class FoundationGateEvaluator:
         forbidden_future = [
             "context injection is implemented",
             "openwebui handoff is implemented",
-            "m40 is implemented",
-            "v0.44.0 implements m40",
         ]
+        if current < (0, 44, 0):
+            forbidden_future.extend(["m40 is implemented", "v0.44.0 implements m40"])
         if current < (0, 43, 0):
             forbidden_future.extend(["m39 is implemented", "v0.43.0 implements m39"])
         for fragment in forbidden_future:
@@ -9512,16 +9579,227 @@ class FoundationGateEvaluator:
             failures.append("active docs do not identify v0.43.0/M39 CCC Context Proposal Surface")
         if "m39 is implemented/released" not in text and "v0.43.0 implements m39" not in text:
             failures.append("active docs do not mark M39 implemented/released")
-        if "m40 remains planned/provisional" not in text and "m40-m60 remain planned/provisional" not in text:
+        m40_implemented = "v0.44.0 implements m40" in text or "m40 is implemented/released" in text
+        if m40_implemented:
+            if "m41-m60 remain planned/provisional" not in text:
+                failures.append("M41-M60 must remain planned/provisional after M40")
+        elif "m40 remains planned/provisional" not in text and "m40-m60 remain planned/provisional" not in text:
             failures.append("M40 must remain planned/provisional after M39")
         for fragment in (
             "context injection is implemented",
             "openwebui handoff is implemented",
-            "m40 is implemented",
-            "v0.44.0 implements m40",
         ):
             if fragment in text:
                 failures.append(f"M39 docs imply forbidden/future capability: {fragment}")
+        return self._result(criterion, failures, required_docs)
+
+    def check_m40_context_handoff_approval_contracts(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/context_handoff/__init__.py",
+            "src/ultimate_ai_agent/core/context_handoff/contracts.py",
+            "src/ultimate_ai_agent/core/context_handoff/validation.py",
+            "src/ultimate_ai_agent/core/context_handoff/workflow.py",
+            "src/ultimate_ai_agent/core/context_handoff/receipts.py",
+            "tests/test_context_handoff_approval_contracts.py",
+            "tests/test_context_handoff_approval_binding.py",
+            "tests/test_context_handoff_no_injection.py",
+            "tests/test_m40_gate_integration.py",
+            "docs/context/CONTEXT_HANDOFF_APPROVAL.md",
+            "docs/context/CONTEXT_HANDOFF_APPROVAL_BOUNDARY.md",
+            "docs/context/CONTEXT_HANDOFF_NO_INJECTION_POLICY.md",
+            "docs/context/CONTEXT_HANDOFF_RECEIPT_PLAN.md",
+            "docs/context/M40_TO_M41_BOUNDARY.md",
+        ]
+        failures = [f"missing M40 context handoff approval file: {path}" for path in required_files if not (self.root / path).exists()]
+        try:
+            from ultimate_ai_agent.core.context_handoff import (
+                ContextHandoffApprovalDecisionStatus,
+                ContextHandoffApprovalKind,
+                ContextHandoffApprovalRequest,
+                evaluate_context_handoff_approval,
+            )
+            from ultimate_ai_agent.core.context_proposal import build_safe_context_proposal
+            from ultimate_ai_agent.core.file_review import (
+                FileReviewApprovalCaptureDecisionStatus,
+                FileReviewApprovalDecisionKind,
+                FileReviewApprovalRecord,
+                build_file_review_packet,
+            )
+            from ultimate_ai_agent.core.tools.runtime import (
+                FilePreviewRedactionSummary,
+                RedactedFilePreviewOutput,
+                RedactedFilePreviewStatus,
+            )
+
+            preview = RedactedFilePreviewOutput(
+                output_ref="redacted-file-preview-output:m40-gate",
+                status=RedactedFilePreviewStatus.preview_generated,
+                root_ref="safe-root:m40-gate",
+                safe_path_ref="filesystem-preview-path:safe-root_m40_gate/docs/review.md",
+                redacted_preview="M40 gate redacted preview only.",
+                redaction_summary=FilePreviewRedactionSummary(redaction_count=1, categories=["secret_assignment"]),
+                file_size_bytes=64,
+            )
+            packet = build_file_review_packet(
+                preview_output=preview,
+                actor_ref="user:m40-gate",
+                request_ref="file-review-request:m40-gate",
+                file_ref="file-ref:m40-gate-review",
+                safe_summary="Review a redacted packet for M40 handoff approval.",
+            )
+            approval_record = FileReviewApprovalRecord(
+                approval_ref="file-review-approval-capture:m40-gate",
+                actor_ref=packet.source.actor_ref,
+                review_packet_ref=packet.review_packet_ref,
+                preview_result_ref=packet.source.preview_result_ref,
+                redaction_summary_ref=packet.redaction_verification.redaction_summary_ref,
+                file_ref=packet.source.file_ref,
+                safe_path_ref=packet.source.safe_path_ref,
+                decision=FileReviewApprovalDecisionKind.approve_review_only,
+                status=FileReviewApprovalCaptureDecisionStatus.approved_for_review_only,
+                idempotency_key="file-review-approval-idempotency:m40-gate",
+                safe_reason="User approved the redacted review packet for review-only follow-up.",
+                receipt_plan_ref="file-review-approval-capture-receipt:m40-gate",
+            )
+            proposal = build_safe_context_proposal(packet=packet, approval_record=approval_record)
+            request = ContextHandoffApprovalRequest(
+                approval_ref="context-handoff-approval:m40-gate",
+                actor_ref=proposal.binding.actor_ref,
+                proposal_ref=proposal.proposal_ref,
+                approval_record_ref=proposal.source.approval_record_ref,
+                review_packet_ref=proposal.binding.review_packet_ref,
+                preview_result_ref=proposal.binding.preview_result_ref,
+                redaction_summary_ref=proposal.binding.redaction_summary_ref,
+                file_ref=proposal.binding.file_ref,
+                safe_path_ref=proposal.binding.safe_path_ref,
+                decision=ContextHandoffApprovalKind.approve_handoff_review_only,
+                idempotency_key="context-handoff-idempotency:m40-gate",
+                safe_reason="Approve the safe context proposal for future handoff review only.",
+            )
+            decision = evaluate_context_handoff_approval(proposal=proposal, request=request)
+            if decision.status != ContextHandoffApprovalDecisionStatus.approved_for_handoff_review_only:
+                failures.append("M40 safe handoff approval did not produce review-only approval")
+            if not decision.handoff_approved_for_review:
+                failures.append("M40 safe handoff approval did not preserve review decision")
+            for field_name in [
+                "handoff_execution_authorized",
+                "context_injection_authorized",
+                "openwebui_handoff_authorized",
+                "model_call_authorized",
+                "memory_write_authorized",
+                "export_authorized",
+                "execution_authorized",
+                "context_injection_performed",
+                "openwebui_handoff_performed",
+                "model_call_performed",
+                "memory_write_performed",
+                "export_performed",
+                "execution_performed",
+            ]:
+                if getattr(decision, field_name):
+                    failures.append(f"M40 decision granted or performed forbidden authority: {field_name}")
+            if decision.receipt_plan is None:
+                failures.append("M40 approved decision is missing receipt plan")
+            elif any(
+                getattr(decision.receipt_plan, field_name)
+                for field_name in [
+                    "receipt_is_authority",
+                    "raw_content_stored",
+                    "full_file_content_stored",
+                    "unredacted_preview_stored",
+                    "context_injection_performed",
+                    "openwebui_handoff_performed",
+                    "model_call_performed",
+                    "memory_write_performed",
+                    "export_performed",
+                    "execution_performed",
+                ]
+            ):
+                failures.append("M40 receipt plan stores raw content or performs authority")
+            mutated_proposal = proposal.model_copy(update={"context_injection_enabled": True})
+            mutated_decision = evaluate_context_handoff_approval(proposal=mutated_proposal, request=request)
+            if "context_injection_denied" not in mutated_decision.reason_codes:
+                failures.append("M40 evaluator did not revalidate model_copy-mutated proposal context injection")
+            mutated_request = request.model_copy(update={"openwebui_handoff_execution_enabled": True})
+            mutated_request_decision = evaluate_context_handoff_approval(proposal=proposal, request=mutated_request)
+            if "openwebui_handoff_denied" not in mutated_request_decision.reason_codes:
+                failures.append("M40 evaluator did not revalidate model_copy-mutated request OpenWebUI handoff")
+            ref_only = evaluate_context_handoff_approval(proposal=None, request_ref="context-handoff-approval:m40-gate")
+            if "approval_ref_not_authority" not in ref_only.reason_codes:
+                failures.append("M40 approval_ref-alone probe did not fail closed")
+            test_ref_request = request.model_copy(update={"approval_ref": "approval_test_m40_gate"})
+            test_ref_decision = evaluate_context_handoff_approval(proposal=proposal, request=test_ref_request)
+            if "approval_test_ref_denied" not in test_ref_decision.reason_codes:
+                failures.append("M40 approval_test_ mutation probe did not fail closed")
+            mismatch_request = request.model_copy(update={"proposal_ref": "safe-context-proposal:mismatch"})
+            mismatch_decision = evaluate_context_handoff_approval(proposal=proposal, request=mismatch_request)
+            if "proposal_ref_mismatch" not in mismatch_decision.reason_codes:
+                failures.append("M40 exact proposal binding mismatch probe did not fail closed")
+        except Exception as exc:
+            failures.append(f"M40 context handoff approval probe failed: {exc}")
+
+        docs_text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_files
+            if path.startswith("docs/") and (self.root / path).exists()
+        )
+        for fragment in [
+            "exact proposal binding",
+            "review-only",
+            "no context injection",
+            "no openwebui handoff execution",
+            "no model calls",
+            "no memory writes",
+            "no export",
+            "no execution",
+            "approval_ref alone is not authority",
+            "approval_test_ is not runtime authority",
+            "evaluator boundaries revalidate",
+            "m41 remains future",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M40 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m40_context_handoff_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m40_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M40 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m40_roadmap_currentness(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        required_docs = [
+            "README.md",
+            "VERSION.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+            "docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md",
+        ]
+        failures = [f"missing M40 roadmap doc: {path}" for path in required_docs if not (self.root / path).exists()]
+        text = "\n".join(self._read(self.root / path).lower() for path in required_docs if (self.root / path).exists())
+        if "v0.44.0" not in text or "m40" not in text or "context handoff approval, no injection" not in text:
+            failures.append("active docs do not identify v0.44.0/M40 Context Handoff Approval, No Injection")
+        if "m40 is implemented/released" not in text and "v0.44.0 implements m40" not in text:
+            failures.append("active docs do not mark M40 implemented/released")
+        if "m41 remains planned/provisional" not in text and "m41-m60 remain planned/provisional" not in text:
+            failures.append("M41-M60 must remain planned/provisional after M40")
+        for fragment in (
+            "context injection is implemented",
+            "openwebui handoff execution is implemented",
+            "m41 is implemented",
+            "v0.45.0 implements m41",
+        ):
+            if fragment in text:
+                failures.append(f"M40 docs imply forbidden/future capability: {fragment}")
         return self._result(criterion, failures, required_docs)
 
     def check_v0292_local_dev_api_authority_and_preview_safe(
@@ -9862,7 +10140,9 @@ class FoundationGateEvaluator:
         for failure, fragment in expectations.items():
             if fragment not in roadmap_text:
                 failures.append(failure)
-        if version_tuple >= (0, 43, 0):
+        if version_tuple >= (0, 44, 0):
+            implemented_claim_start = 41
+        elif version_tuple >= (0, 43, 0):
             implemented_claim_start = 40
         elif version_tuple >= (0, 42, 0):
             implemented_claim_start = 39
@@ -9900,11 +10180,15 @@ class FoundationGateEvaluator:
             implemented_claim_start = 23
         else:
             implemented_claim_start = 22
-        implemented_claims = [f"m{number} is implemented" for number in range(implemented_claim_start, 41)] + [
-            "m21-m40 are implemented",
-            "m21 through m40 are implemented",
-            "post-m20 capabilities are implemented",
-        ]
+        implemented_claims = [f"m{number} is implemented" for number in range(implemented_claim_start, 41)]
+        if version_tuple < (0, 44, 0):
+            implemented_claims.extend(
+                [
+                    "m21-m40 are implemented",
+                    "m21 through m40 are implemented",
+                ]
+            )
+        implemented_claims.append("post-m20 capabilities are implemented")
         if any(claim in roadmap_text for claim in implemented_claims):
             failures.append("post-M20 roadmap docs must not claim future milestone implementation")
         return self._result(criterion, failures, required_docs)

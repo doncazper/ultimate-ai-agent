@@ -12,23 +12,24 @@ allowed to become operational authority.
 
 | Field | Current state |
 |---|---|
-| Current active baseline | **v0.43.0** |
-| Current milestone | **M39 - CCC Context Proposal Surface** |
+| Current active baseline | **v0.44.0** |
+| Current milestone | **M40 - Context Handoff Approval, No Injection** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **75** OpenAPI paths |
 | Production readiness | Not claimed |
 
-v0.43.0 implements M39 CCC Context Proposal Surface. It adds a read-only
-Control Center surface for M38 safe context proposals, with safe mock data,
-proposal-only status, approved-review provenance, exact binding refs, redaction
-verification, safe proposal sections, receipt-plan metadata, tests, static
-verification, documentation-integrity checks, and Foundation Gate coverage. It
-adds no context handoff approval, context injection, OpenWebUI handoff,
+v0.44.0 implements M40 Context Handoff Approval, No Injection. It adds
+contract-only context handoff approval policy, request, decision, and receipt
+plans over M38 safe context proposals, with exact proposal binding,
+approval_ref and approval_test_ denial, expired/revoked/replayed approval
+denial, evaluator revalidation, review-only no-injection decisions, tests,
+static verification, documentation-integrity checks, and Foundation Gate
+coverage. It adds no automatic context injection, OpenWebUI handoff execution,
 model/provider calls, memory writes, raw file reads, raw output/storage,
 full-file display, unredacted preview display, export/download/copy-raw,
 execution controls, approval mutation controls, backend routes, dependencies,
-M40 work, or production authority.
+M41 work, or production authority.
 
 v0.29.5 is documentation policy polish. It remains the documentation
 organization cleanup baseline before the M26 and M27 implementation releases.
@@ -62,6 +63,10 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M39 CCC Context Proposal Surface](docs/control_center/CONTEXT_PROPOSAL_SURFACE.md)
 - [M39 Context Proposal Review-Only Policy](docs/control_center/CONTEXT_PROPOSAL_REVIEW_ONLY_POLICY.md)
 - [M39 Context Proposal Binding Display Policy](docs/control_center/CONTEXT_PROPOSAL_BINDING_DISPLAY_POLICY.md)
+- [M40 Context Handoff Approval](docs/context/CONTEXT_HANDOFF_APPROVAL.md)
+- [M40 Context Handoff Approval Boundary](docs/context/CONTEXT_HANDOFF_APPROVAL_BOUNDARY.md)
+- [M40 Context Handoff No-Injection Policy](docs/context/CONTEXT_HANDOFF_NO_INJECTION_POLICY.md)
+- [M40 Context Handoff Receipt Plan](docs/context/CONTEXT_HANDOFF_RECEIPT_PLAN.md)
 - [M38 Context Proposal Receipt Plan](docs/context/CONTEXT_PROPOSAL_RECEIPT_PLAN.md)
 - [API route inventory](docs/api/route_inventory.md)
 - [Documentation organization policy](docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md)
@@ -79,9 +84,9 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M28 Action Policy](docs/approvals/ACTION_POLICY.md)
 - [M27 Tool Broker v2](docs/tools/TOOL_BROKER_V2.md)
 - [M26 Grounded Recall Router](docs/recall/GROUNDED_RECALL_ROUTER.md)
-- [v0.43.0 release notes](docs/release_notes/v0_43_0.md)
-- [v0.43.0 release packet](docs/archive/releases/v0_43_0/README_IMPORT.md)
-- [v0.43.0 master plan](docs/archive/releases/v0_43_0/master_plan.md)
+- [v0.44.0 release notes](docs/release_notes/v0_44_0.md)
+- [v0.44.0 release packet](docs/archive/releases/v0_44_0/README_IMPORT.md)
+- [v0.44.0 master plan](docs/archive/releases/v0_44_0/master_plan.md)
 
 ## What This Project Is
 
@@ -336,7 +341,7 @@ post-M33 supersession is
 | v0.41.0 | M37 - Review Approval Capture, Review-Only Persistence | Implemented/released |
 | v0.42.0 | M38 - Safe Context Proposal From Approved Review | Implemented/released |
 | v0.43.0 | M39 - CCC Context Proposal Surface | Implemented/released frontend-only |
-| v0.44.0 | M40 - Context Handoff Approval, No Injection | Planned/provisional |
+| v0.44.0 | M40 - Context Handoff Approval, No Injection | Implemented/released contract-only |
 | v0.45.0 | M41 - Local Prototype Safety Freeze | Planned/provisional |
 | v0.46.0 | M42 - Mobile Companion Product Contract Refresh | Planned/provisional |
 | v0.47.0 | M43 - Mobile API Boundary, Read-Only | Planned/provisional |
