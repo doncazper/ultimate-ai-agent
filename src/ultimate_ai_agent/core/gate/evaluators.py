@@ -492,6 +492,28 @@ M38_FORBIDDEN_BACKEND_ROUTES = (
     "/tool-runtime/run",
     "/plugins/enable",
 )
+EXPECTED_M39_OPENAPI_PATH_COUNT = 75
+M39_FORBIDDEN_BACKEND_ROUTES = (
+    "/files/read",
+    "/files/read/raw",
+    "/files/read/content",
+    "/files/read/full",
+    "/files/write",
+    "/files/delete",
+    "/filesystem/read",
+    "/filesystem/write",
+    "/filesystem/delete",
+    "/context/propose",
+    "/context/inject",
+    "/context/handoff",
+    "/openwebui/handoff",
+    "/memory/write",
+    "/tools/execute",
+    "/tools/run",
+    "/tool-runtime/execute",
+    "/tool-runtime/run",
+    "/plugins/enable",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -849,6 +871,19 @@ def m38_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
     for route in M38_FORBIDDEN_BACKEND_ROUTES:
         if route in path_set:
             failures.append(f"M38 forbidden backend route present: {route}")
+    return failures
+
+
+def m39_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M39_OPENAPI_PATH_COUNT) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+    if M37_ALLOWED_CAPTURE_ROUTE not in path_set:
+        failures.append("M37 capture route missing: /files/review/approvals/capture")
+    for route in M39_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(f"M39 forbidden backend route present: {route}")
     return failures
 
 
@@ -1217,6 +1252,9 @@ class FoundationGateEvaluator:
             "m38_safe_context_proposal_route_boundary": self.check_m38_safe_context_proposal_route_boundary,
             "m38_no_control_center_context_surface": self.check_m38_no_control_center_context_surface,
             "m38_roadmap_currentness": self.check_m38_roadmap_currentness,
+            "m39_ccc_context_proposal_surface_safe": self.check_m39_ccc_context_proposal_surface_safe,
+            "m39_context_proposal_route_boundary": self.check_m39_context_proposal_route_boundary,
+            "m39_roadmap_currentness": self.check_m39_roadmap_currentness,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -8527,7 +8565,12 @@ class FoundationGateEvaluator:
             failures.append("M34 roadmap docs do not constrain M34 to planning/docs/verifier work")
         current_version = self._active_version() or "0.0.0"
         current_tuple = tuple(int(part) for part in current_version.split(".")[:3])
-        if current_tuple >= (0, 42, 0):
+        if current_tuple >= (0, 43, 0):
+            if "m39 is implemented/released" not in text and "v0.43.0 implements m39" not in text:
+                failures.append("M39 roadmap docs do not mark M39 implemented/released")
+            if "m40-m60 remain planned/provisional" not in text:
+                failures.append("M40-M60 must remain planned/provisional after M39")
+        elif current_tuple >= (0, 42, 0):
             if "m38 is implemented/released" not in text and "v0.42.0 implements m38" not in text:
                 failures.append("M38 roadmap docs do not mark M38 implemented/released")
             if "m39-m60 remain planned/provisional" not in text:
@@ -8804,7 +8847,12 @@ class FoundationGateEvaluator:
                 failures.append("M37 must be implemented/released for active v0.41.0+ docs")
         elif "m37 remains planned/provisional" not in text:
             failures.append("M37 must remain planned/provisional after M35")
-        if version_tuple >= (0, 42, 0):
+        if version_tuple >= (0, 43, 0):
+            if "m39 is implemented/released" not in text and "v0.43.0 implements m39" not in text:
+                failures.append("M39 must be implemented/released for active v0.43.0+ docs")
+            if "m40-m60 remain planned/provisional" not in text:
+                failures.append("M40-M60 must remain planned/provisional after M39")
+        elif version_tuple >= (0, 42, 0):
             if "m38 is implemented/released" not in text and "m38 implemented/released" not in text:
                 failures.append("M38 must be implemented/released for active v0.42.0+ docs")
             if "m39-m60 remain planned/provisional" not in text:
@@ -8954,7 +9002,12 @@ class FoundationGateEvaluator:
                 failures.append("M37 must be implemented/released for active v0.41.0+ docs")
         elif "m37 remains planned/provisional" not in text:
             failures.append("M37 must remain planned/provisional after M36")
-        if version_tuple >= (0, 42, 0):
+        if version_tuple >= (0, 43, 0):
+            if "m39 is implemented/released" not in text and "v0.43.0 implements m39" not in text:
+                failures.append("M39 must be implemented/released for active v0.43.0+ docs")
+            if "m40-m60 remain planned/provisional" not in text:
+                failures.append("M40-M60 must remain planned/provisional after M39")
+        elif version_tuple >= (0, 42, 0):
             if "m38 is implemented/released" not in text and "m38 implemented/released" not in text:
                 failures.append("M38 must be implemented/released for active v0.42.0+ docs")
             if "m39-m60 remain planned/provisional" not in text:
@@ -9080,7 +9133,12 @@ class FoundationGateEvaluator:
             failures.append("active docs do not mark M37 implemented/released")
         active_version = self._active_version() or "0.0.0"
         version_tuple = tuple(int(part) for part in active_version.split(".")[:3])
-        if version_tuple >= (0, 42, 0):
+        if version_tuple >= (0, 43, 0):
+            if "m39 is implemented/released" not in text and "v0.43.0 implements m39" not in text:
+                failures.append("active docs do not mark M39 implemented/released")
+            if "m40-m60 remain planned/provisional" not in text and "m40 remains planned/provisional" not in text:
+                failures.append("M40-M60 must remain planned/provisional after M39")
+        elif version_tuple >= (0, 42, 0):
             if "m38 is implemented/released" not in text and "m38 implemented/released" not in text:
                 failures.append("active docs do not mark M38 implemented/released")
             if "m39-m60 remain planned/provisional" not in text:
@@ -9099,7 +9157,7 @@ class FoundationGateEvaluator:
                     "v0.42.0 implements m38",
                 ]
             )
-        else:
+        elif version_tuple < (0, 43, 0):
             future_fragments.extend(
                 [
                     "m39 is implemented",
@@ -9277,7 +9335,8 @@ class FoundationGateEvaluator:
         ]
         failures = [f"missing M38 Control Center boundary file: {path}" for path in required_files if not (self.root / path).exists()]
         text = "\n".join(self._read(self.root / path).lower() for path in required_files if (self.root / path).exists())
-        for fragment in [
+        current = tuple(int(part) for part in (self._active_version() or "0.0.0").split(".")[:3])
+        forbidden_fragments = [
             "/context/proposals",
             "/context/propose",
             "/context/inject",
@@ -9285,7 +9344,14 @@ class FoundationGateEvaluator:
             "context proposal surface",
             "send to openwebui",
             "export context",
-        ]:
+        ]
+        if current >= (0, 43, 0):
+            forbidden_fragments = [
+                fragment
+                for fragment in forbidden_fragments
+                if fragment not in {"/context/proposals", "context proposal surface"}
+            ]
+        for fragment in forbidden_fragments:
             if fragment in text:
                 failures.append(f"M38 must not add M39/M40 Control Center surface/control: {fragment}")
         for label in [
@@ -9313,18 +9379,149 @@ class FoundationGateEvaluator:
             failures.append("active docs do not identify v0.42.0/M38 Safe Context Proposal")
         if "m38 is implemented/released" not in text and "m38 implemented/released" not in text:
             failures.append("active docs do not mark M38 implemented/released")
-        if "m39 remains planned/provisional" not in text and "m39-m60 remain planned/provisional" not in text:
+        current = tuple(int(part) for part in (self._active_version() or "0.0.0").split(".")[:3])
+        if current >= (0, 43, 0):
+            if "m39 is implemented/released" not in text and "v0.43.0 implements m39" not in text:
+                failures.append("active docs do not mark M39 implemented/released after v0.43.0")
+            if "m40 remains planned/provisional" not in text and "m40-m60 remain planned/provisional" not in text:
+                failures.append("M40 must remain planned/provisional after M39")
+        elif "m39 remains planned/provisional" not in text and "m39-m60 remain planned/provisional" not in text:
             failures.append("M39 must remain planned/provisional after M38")
+        forbidden_future = [
+            "context injection is implemented",
+            "openwebui handoff is implemented",
+            "m40 is implemented",
+            "v0.44.0 implements m40",
+        ]
+        if current < (0, 43, 0):
+            forbidden_future.extend(["m39 is implemented", "v0.43.0 implements m39"])
+        for fragment in forbidden_future:
+            if fragment in text:
+                failures.append(f"M38 docs imply forbidden/future capability: {fragment}")
+        return self._result(criterion, failures, required_docs)
+
+    def check_m39_ccc_context_proposal_surface_safe(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "apps/control-center/src/components/ContextProposalSurfacePanel.tsx",
+            "apps/control-center/src/routes.tsx",
+            "apps/control-center/src/mocks/controlCenterData.ts",
+            "apps/control-center/src/App.test.tsx",
+            "docs/control_center/CONTEXT_PROPOSAL_SURFACE.md",
+            "docs/control_center/CONTEXT_PROPOSAL_REVIEW_ONLY_POLICY.md",
+            "docs/control_center/CONTEXT_PROPOSAL_MOCK_DATA_POLICY.md",
+            "docs/control_center/CONTEXT_PROPOSAL_BINDING_DISPLAY_POLICY.md",
+            "docs/control_center/M39_TO_M40_BOUNDARY.md",
+        ]
+        failures = [f"missing M39 context proposal surface file: {path}" for path in required_files if not (self.root / path).exists()]
+        app_text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_files
+            if path.startswith("apps/") and (self.root / path).exists()
+        )
+        for fragment in [
+            "/context/proposals",
+            "contextproposalsurfacepanel",
+            "m39contextproposals",
+            "safe-context-proposal:mock_001",
+            "safe proposal sections",
+            "exact binding refs",
+            "source chain refs",
+            "control center output is not authority",
+            "openwebui handoff authorized",
+            "context injection authorized",
+            "memory write authorized",
+            "export authorized",
+            "execution authorized",
+            "rawfileaccessauthorized: false",
+            "executionauthorized: false",
+        ]:
+            normalized = app_text.replace("_", "")
+            if fragment not in app_text and fragment not in normalized:
+                failures.append(f"M39 Control Center missing safe marker: {fragment}")
+        for label in [
+            "send to openwebui",
+            "inject context",
+            "write memory",
+            "export context",
+            "download context",
+            "execute context",
+            "call model",
+            "open raw file",
+        ]:
+            if re.search(rf"<button\b[^>]*>\s*{re.escape(label)}\s*</button>", app_text, re.IGNORECASE):
+                failures.append(f"M39 Control Center added forbidden control: {label}")
+        for forbidden in [
+            "/context/propose",
+            "/context/inject",
+            "/context/handoff",
+            "/openwebui/handoff",
+            "/memory/write",
+            "/tools/execute",
+        ]:
+            if forbidden in app_text:
+                failures.append(f"M39 Control Center references forbidden route/control: {forbidden}")
+
+        docs_text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_files
+            if path.startswith("docs/") and (self.root / path).exists()
+        )
+        for fragment in [
+            "read-only",
+            "proposal-only",
+            "mock and non-authoritative",
+            "no context handoff",
+            "no context injection",
+            "no openwebui handoff",
+            "no memory writes",
+            "no export",
+            "no execution",
+            "no raw file access",
+            "m40 remains future",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M39 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m39_context_proposal_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m39_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M39 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m39_roadmap_currentness(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        required_docs = [
+            "README.md",
+            "VERSION.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+            "docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md",
+        ]
+        failures = [f"missing M39 roadmap doc: {path}" for path in required_docs if not (self.root / path).exists()]
+        text = "\n".join(self._read(self.root / path).lower() for path in required_docs if (self.root / path).exists())
+        if "v0.43.0" not in text or "m39" not in text or "ccc context proposal surface" not in text:
+            failures.append("active docs do not identify v0.43.0/M39 CCC Context Proposal Surface")
+        if "m39 is implemented/released" not in text and "v0.43.0 implements m39" not in text:
+            failures.append("active docs do not mark M39 implemented/released")
+        if "m40 remains planned/provisional" not in text and "m40-m60 remain planned/provisional" not in text:
+            failures.append("M40 must remain planned/provisional after M39")
         for fragment in (
             "context injection is implemented",
             "openwebui handoff is implemented",
-            "m39 is implemented",
-            "v0.43.0 implements m39",
             "m40 is implemented",
             "v0.44.0 implements m40",
         ):
             if fragment in text:
-                failures.append(f"M38 docs imply forbidden/future capability: {fragment}")
+                failures.append(f"M39 docs imply forbidden/future capability: {fragment}")
         return self._result(criterion, failures, required_docs)
 
     def check_v0292_local_dev_api_authority_and_preview_safe(
@@ -9665,7 +9862,9 @@ class FoundationGateEvaluator:
         for failure, fragment in expectations.items():
             if fragment not in roadmap_text:
                 failures.append(failure)
-        if version_tuple >= (0, 42, 0):
+        if version_tuple >= (0, 43, 0):
+            implemented_claim_start = 40
+        elif version_tuple >= (0, 42, 0):
             implemented_claim_start = 39
         elif version_tuple >= (0, 41, 0):
             implemented_claim_start = 38

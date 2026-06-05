@@ -34,5 +34,5 @@ M38 does not add:
 - production authority
 
 The proposal is non-authoritative and not context injection. It does not write
-memory. It does not export. It does not execute. M39 remains
-planned/provisional.
+memory. It does not export. It does not execute. M39 is implemented/released by
+v0.43.0 as a read-only CCC Context Proposal Surface. M40 remains future.

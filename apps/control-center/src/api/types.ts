@@ -531,6 +531,85 @@ export interface M36FileReviewData {
   packets: FileReviewPacketSummary[];
 }
 
+export interface ContextProposalBindingRefs {
+  proposalRef: string;
+  approvalRef: string;
+  reviewPacketRef: string;
+  previewResultRef: string;
+  redactionSummaryRef: string;
+  fileRef: string;
+  safePathRef: string;
+  actorRef: string;
+}
+
+export interface ContextProposalSectionSummary {
+  sectionRef: string;
+  title: string;
+  redactedContent: string;
+  sourceRef: string;
+  redacted: boolean;
+  bounded: boolean;
+  nonAuthoritative: boolean;
+}
+
+export interface ContextProposalReceiptPlanSummary {
+  receiptPlanRef: string;
+  safeSummary: string;
+  rawContentStored: boolean;
+  fullFileContentStored: boolean;
+  unredactedPreviewStored: boolean;
+  contextInjected: boolean;
+  openwebuiHandoffPerformed: boolean;
+  memoryWritePerformed: boolean;
+  exportPerformed: boolean;
+  executionPerformed: boolean;
+}
+
+export interface ContextProposalAuthoritySummary {
+  contextInjectionAuthorized: boolean;
+  openwebuiHandoffAuthorized: boolean;
+  modelCallAuthorized: boolean;
+  memoryWriteAuthorized: boolean;
+  exportAuthorized: boolean;
+  executionAuthorized: boolean;
+  rawFileAccessAuthorized: boolean;
+  truthAuthorityClaimed: boolean;
+}
+
+export interface ContextProposalSummary {
+  proposalRef: string;
+  status: "proposal_ready_for_review" | "review_only" | "blocked";
+  proposalOnly: boolean;
+  nonAuthoritative: boolean;
+  sourceSummary: string;
+  safeSummary: string;
+  dataClassification: string;
+  bindingRefs: ContextProposalBindingRefs;
+  sourceChainRefs: string[];
+  sections: ContextProposalSectionSummary[];
+  redactionVerificationStatus: string;
+  decisionStatus: string;
+  receiptPlan: ContextProposalReceiptPlanSummary;
+  authority: ContextProposalAuthoritySummary;
+  reasonCodes: string[];
+  authorityWarnings: string[];
+  redactionStatus: "redacted_summary_only";
+  previewOnly: boolean;
+  readOnly: boolean;
+  mock: boolean;
+}
+
+export interface M39ContextProposalData {
+  status: "mock_review_only" | "review_only";
+  readOnly: boolean;
+  previewOnly: boolean;
+  mock: boolean;
+  nonAuthoritative: boolean;
+  boundarySummary: string;
+  warningCodes: string[];
+  proposals: ContextProposalSummary[];
+}
+
 export interface ControlCenterData {
   manifest: ControlCenterManifest;
   dashboard: ControlCenterDashboardSnapshot;
@@ -543,6 +622,7 @@ export interface ControlCenterData {
   m17Knowledge: M17KnowledgeData;
   m18Runtime: M18RuntimeData;
   m36FileReview: M36FileReviewData;
+  m39ContextProposals: M39ContextProposalData;
   source: "api" | "mock";
   connection: BackendConnectionSummary;
 }

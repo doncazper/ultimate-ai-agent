@@ -7,10 +7,11 @@ contracts, validation, tests, documentation, static verifier coverage, and
 Foundation Gate coverage for building safe, bounded, non-authoritative context
 proposal objects from exact-scope approved redacted file review records.
 
-M38 does not implement M39. M39 remains planned/provisional as CCC Context
-Proposal Surface. M38 adds no Control Center context proposal surface, no
-context injection, no OpenWebUI handoff, no memory write, no export, no
-execution, no model/provider call, no raw file access, and no production
-authority.
+M38 itself does not implement the Control Center context proposal surface. M39
+is implemented/released by v0.43.0 as the CCC Context Proposal Surface. M39
+adds a read-only display for safe context proposals only; it adds no context
+handoff approval, context injection, OpenWebUI handoff, memory write, export,
+execution, model/provider call, raw file access, backend route, dependency, or
+production authority.
 
 M40 remains future for Context Handoff Approval, No Injection.

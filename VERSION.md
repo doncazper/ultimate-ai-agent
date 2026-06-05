@@ -1,16 +1,20 @@
 # Ultimate AI Agent Version
 
-Current active baseline: **v0.42.0**
+Current active baseline: **v0.43.0**
 
-v0.42.0 implements M38 Safe Context Proposal From Approved Review. It adds safe,
-non-authoritative context proposal contracts built from exact-scope approved
-redacted file review records, including proposal policy, source binding,
-redaction verification, safe proposal sections, receipt plans, documentation,
-tests, static safety verification, and Foundation Gate coverage. It requires
-exact approval/review/preview/redaction/file/path/actor binding and keeps
-proposals proposal-only: they grant no context injection, OpenWebUI handoff,
-memory write, export, execution, raw file access, model/provider call, or
-production authority.
+v0.43.0 implements M39 CCC Context Proposal Surface. It adds a read-only
+Control Center surface for M38 safe context proposals, with safe mock data,
+proposal-only status, approved-review provenance, exact binding refs, redaction
+verification, safe proposal sections, receipt-plan metadata, frontend tests,
+static safety verification, documentation-integrity checks, and Foundation Gate
+coverage.
 
-It adds no context proposal UI, backend injection route, OpenWebUI runtime
-integration, dependencies, M39 work, or M40 handoff work.
+It adds no context handoff approval, context injection, OpenWebUI handoff,
+OpenWebUI runtime integration, model/provider calls, LLM summarization, memory
+writes, export/download/copy-raw controls, execution/tool/action/task controls,
+approval mutation controls, backend routes, raw file reads, raw file content
+display/storage, full-file content display, unredacted preview display, raw
+absolute path display, arbitrary file reads, file picker/browser/upload/root
+selector controls, directory traversal/listing, file mutation,
+shell/subprocess, network calls, mobile/native work, plugins, dependencies, M40
+work, or production authority.

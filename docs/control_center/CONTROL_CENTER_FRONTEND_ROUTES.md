@@ -18,6 +18,7 @@ Implemented frontend pages:
 - `/evidence`
 - `/files`
 - `/files/review`
+- `/context/proposals`
 - `/memory`
 - `/runtime/local`
 - `/runtime/manual-smoke`
@@ -162,3 +163,23 @@ authority.
 v0.40.1 hardens `/files/review` with safe-ref-only display checks, private/raw
 path drift checks, local read-only packet selection/expansion guarantees, and
 no-mutating-request checks. It adds no frontend route and no backend API path.
+
+## v0.43.0 M39 CCC Context Proposal Surface
+
+v0.43.0 adds one frontend route and no backend API paths:
+
+- `/context/proposals`: read-only CCC context proposal surface for M38 safe
+  context proposal objects.
+
+The route uses safe mock fallback data, proposal-only status, approved-review
+provenance, exact binding refs, redaction verification, safe proposal sections,
+review-only decision status, approval-gate contract status, and receipt-plan
+metadata. It does not add context handoff approval, context injection,
+OpenWebUI handoff, OpenWebUI runtime integration, model/provider calls, memory
+writes, export/download/copy-raw controls, execution/tool controls, approval
+mutation controls, backend routes, raw file reads, raw file display/storage,
+full-file display, unredacted preview display, raw absolute paths, file picker,
+browser, upload, root selector, dependencies, or production Control Center
+authority.
+
+M40 remains future.

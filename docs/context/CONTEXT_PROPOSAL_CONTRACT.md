@@ -32,4 +32,5 @@ alone is not trusted. `model_copy` mutations that add raw content, full file
 content, unredacted preview, context injection, OpenWebUI handoff, model calls,
 memory writes, export, execution, or mismatched refs are denied.
 
-M39 remains planned/provisional.
+M39 is implemented/released by v0.43.0 as a read-only CCC Context Proposal
+Surface. M40 remains future.

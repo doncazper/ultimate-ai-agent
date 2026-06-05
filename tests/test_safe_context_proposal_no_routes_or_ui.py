@@ -26,17 +26,23 @@ def test_openapi_path_count_remains_at_m37_boundary():
     client = TestClient(app)
     data = client.get("/openapi.json").json()
 
-    assert data["info"]["version"] == "0.42.0"
+    assert data["info"]["version"] == "0.43.0"
     assert len(data.get("paths", {})) == 75
 
 
-def test_control_center_has_no_m39_context_proposal_surface():
+def test_control_center_context_proposal_surface_has_no_handoff_or_injection_controls():
     from pathlib import Path
 
     src_root = Path("apps/control-center/src")
-    text = "\n".join(path.read_text(encoding="utf-8").lower() for path in src_root.rglob("*") if path.is_file())
+    text = "\n".join(
+        path.read_text(encoding="utf-8").lower()
+        for path in src_root.rglob("*")
+        if path.is_file() and not path.name.endswith((".test.ts", ".test.tsx"))
+    )
 
-    assert "/context/proposals" not in text
-    assert "context proposal surface" not in text
+    assert "/context/proposals" in text
+    assert "context proposal surface" in text
     assert "send to openwebui" not in text
-    assert "inject context" not in text
+    assert "/context/inject" not in text
+    assert "/context/handoff" not in text
+    assert "/openwebui/handoff" not in text

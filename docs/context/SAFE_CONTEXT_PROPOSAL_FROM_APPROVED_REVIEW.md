@@ -31,6 +31,7 @@ runtime output refs, OpenWebUI refs, and Control Center refs cannot authorize
 context proposal creation, context injection, memory writes, export, execution,
 model calls, or raw file access.
 
-M39 remains planned/provisional for the future Control Center context proposal
-surface. M40 remains future for context handoff approval with no injection.
+M39 is implemented/released by v0.43.0 as a read-only Control Center context
+proposal surface. M40 remains future for context handoff approval with no
+injection.
 OpenWebUI bridge work remains future M51/M52.

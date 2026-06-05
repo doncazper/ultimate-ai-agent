@@ -1,7 +1,7 @@
 # Roadmap Docs
 
 Status: active
-Current through: v0.42.0
+Current through: v0.43.0
 Purpose: Entry point for active roadmap docs and historical roadmap references.
 
 Current roadmap source of truth:
@@ -30,7 +30,7 @@ original paths.
 active verifier and Foundation Gate checks, but it is a historical roadmap
 projection and not the current roadmap source of truth.
 
-M25 is implemented/hardened. M26 is implemented/released by v0.30.0 as deterministic local grounded recall/context-pack contracts and hardened by v0.30.1 for source_ref/source_kind consistency. M27 is implemented/released by v0.31.0 as validation-only Tool Broker v2 contracts. v0.31.1 is docs-only README polish baseline normalization. M28 is implemented/released by v0.32.0 as Approval Authority v2 + Action Policy Expansion policy-only contracts. M29 is implemented/released by v0.33.0 as Agent Task Planning Engine. M30-M33 are implemented/released. v0.37.4 supersedes the old active post-M33 projection, v0.38.0 implements M34 Broader File Capability Review as planning/docs/verifier only, v0.39.0 implements M35 Safe File Review Workflow Contracts, v0.40.0 implements M36 CCC File Review Surface, Review-Only, v0.40.1 hardens M36 read-only surface safety, v0.41.0 implements M37 Review Approval Capture, Review-Only Persistence, and v0.42.0 implements M38 Safe Context Proposal From Approved Review. M39-M60 remain planned/provisional.
+M25 is implemented/hardened. M26 is implemented/released by v0.30.0 as deterministic local grounded recall/context-pack contracts and hardened by v0.30.1 for source_ref/source_kind consistency. M27 is implemented/released by v0.31.0 as validation-only Tool Broker v2 contracts. v0.31.1 is docs-only README polish baseline normalization. M28 is implemented/released by v0.32.0 as Approval Authority v2 + Action Policy Expansion policy-only contracts. M29 is implemented/released by v0.33.0 as Agent Task Planning Engine. M30-M33 are implemented/released. v0.37.4 supersedes the old active post-M33 projection, v0.38.0 implements M34 Broader File Capability Review as planning/docs/verifier only, v0.39.0 implements M35 Safe File Review Workflow Contracts, v0.40.0 implements M36 CCC File Review Surface, Review-Only, v0.40.1 hardens M36 read-only surface safety, v0.41.0 implements M37 Review Approval Capture, Review-Only Persistence, v0.42.0 implements M38 Safe Context Proposal From Approved Review, and v0.43.0 implements M39 CCC Context Proposal Surface. M40-M60 remain planned/provisional.
 
 Documentation organization and historical-roadmap handling rules live in
 `docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md`.

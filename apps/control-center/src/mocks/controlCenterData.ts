@@ -21,7 +21,8 @@ export const mockControlCenterData: ControlCenterData = {
       "control_center_m16_timeline_trace_preview",
       "control_center_m17_knowledge_reference_preview",
       "control_center_m18_local_runtime_manual_smoke_preview",
-      "control_center_m36_file_review_surface"
+      "control_center_m36_file_review_surface",
+      "control_center_m39_context_proposal_surface"
     ],
     blocked_capabilities: [
       "runtime_execution",
@@ -138,6 +139,27 @@ export const mockControlCenterData: ControlCenterData = {
           approval_capture_allowed: false,
           approval_persistence_allowed: false,
           context_proposal_allowed: false,
+          raw_file_display_allowed: false
+        }
+      },
+      {
+        surface: "context_proposal_surface",
+        status: "preview_only",
+        description: "Mock review-only context proposal surface for safe M38 proposal objects.",
+        route_refs: [],
+        execution_allowed: false,
+        mutation_allowed: false,
+        credential_resolution_allowed: false,
+        approval_grant_allowed: false,
+        metadata: {
+          mock: true,
+          redacted_summary_only: true,
+          context_handoff_allowed: false,
+          context_injection_allowed: false,
+          openwebui_handoff_allowed: false,
+          memory_write_allowed: false,
+          export_allowed: false,
+          execution_allowed: false,
           raw_file_display_allowed: false
         }
       },
@@ -883,6 +905,183 @@ export const mockControlCenterData: ControlCenterData = {
         readOnly: true,
         mock: true,
         nonAuthoritative: true
+      }
+    ]
+  },
+  m39ContextProposals: {
+    status: "mock_review_only",
+    readOnly: true,
+    previewOnly: true,
+    mock: true,
+    nonAuthoritative: true,
+    boundarySummary:
+      "This M39 surface is mock and non-authoritative. It displays safe, proposal-only context proposal objects from approved redacted reviews and grants no handoff, injection, memory, export, model, raw-file, or execution authority.",
+    warningCodes: [
+      "MOCK_DATA_ONLY",
+      "NO_PRODUCTION_AUTHORITY",
+      "REDACTED_SUMMARY_ONLY",
+      "PROPOSAL_ONLY",
+      "SAFE_REFS_ONLY",
+      "NO_CONTEXT_HANDOFF",
+      "NO_CONTEXT_INJECTION",
+      "NO_OPENWEBUI_HANDOFF",
+      "NO_MEMORY_WRITE",
+      "NO_EXPORT",
+      "NO_EXECUTION",
+      "NO_RAW_FILE_DISPLAY"
+    ],
+    proposals: [
+      {
+        proposalRef: "safe-context-proposal:mock_001",
+        status: "proposal_ready_for_review",
+        proposalOnly: true,
+        nonAuthoritative: true,
+        sourceSummary: "Proposal built from exact-scope approved redacted review packet mock_001.",
+        safeSummary:
+          "Safe context proposal is proposal-only and non-authoritative. Future handoff requires a separate M40 approval gate and still performs no injection.",
+        dataClassification: "project_private",
+        bindingRefs: {
+          proposalRef: "safe-context-proposal:mock_001",
+          approvalRef: "file-review-approval-capture:mock_001",
+          reviewPacketRef: "file-review-packet:mock_001",
+          previewResultRef: "redacted-file-preview-output:mock_001",
+          redactionSummaryRef: "file-review-redaction-summary:mock_001",
+          fileRef: "file-ref:mock_review_001",
+          safePathRef: "filesystem-preview-path:safe-root_m39/docs/review-summary.md",
+          actorRef: "user:mock_reviewer_001"
+        },
+        sourceChainRefs: [
+          "file-review-approval-capture:mock_001",
+          "file-review-packet:mock_001",
+          "redacted-file-preview-output:mock_001",
+          "file-review-redaction-summary:mock_001",
+          "file-ref:mock_review_001",
+          "filesystem-preview-path:safe-root_m39/docs/review-summary.md",
+          "user:mock_reviewer_001"
+        ],
+        sections: [
+          {
+            sectionRef: "safe-context-proposal-section:mock_001:redacted-preview",
+            title: "Redacted review excerpt",
+            redactedContent:
+              "M39 surface displays redacted proposal text with [REDACTED:SECRET_ASSIGNMENT] and safe review rationale only.",
+            sourceRef: "redacted-file-preview-output:mock_001",
+            redacted: true,
+            bounded: true,
+            nonAuthoritative: true
+          }
+        ],
+        redactionVerificationStatus: "redacted_review_material_only",
+        decisionStatus: "proposal_ready_for_review",
+        receiptPlan: {
+          receiptPlanRef: "safe-context-proposal-receipt-plan:mock_001",
+          safeSummary:
+            "Receipt plan stores safe proposal refs, redaction verification, and denied-authority flags only.",
+          rawContentStored: false,
+          fullFileContentStored: false,
+          unredactedPreviewStored: false,
+          contextInjected: false,
+          openwebuiHandoffPerformed: false,
+          memoryWritePerformed: false,
+          exportPerformed: false,
+          executionPerformed: false
+        },
+        authority: {
+          contextInjectionAuthorized: false,
+          openwebuiHandoffAuthorized: false,
+          modelCallAuthorized: false,
+          memoryWriteAuthorized: false,
+          exportAuthorized: false,
+          executionAuthorized: false,
+          rawFileAccessAuthorized: false,
+          truthAuthorityClaimed: false
+        },
+        reasonCodes: ["M39_CONTEXT_PROPOSAL_SURFACE", "PROPOSAL_ONLY", "SAFE_REFS_ONLY"],
+        authorityWarnings: [
+          "Control Center output is not authority.",
+          "Context proposal review does not authorize OpenWebUI handoff or context injection.",
+          "No raw file access, memory write, export, model call, or execution is available."
+        ],
+        redactionStatus: "redacted_summary_only",
+        previewOnly: true,
+        readOnly: true,
+        mock: true
+      },
+      {
+        proposalRef: "safe-context-proposal:mock_002",
+        status: "review_only",
+        proposalOnly: true,
+        nonAuthoritative: true,
+        sourceSummary: "Alternate safe context proposal from exact-scope approved redacted review packet mock_002.",
+        safeSummary:
+          "Alternate proposal remains review-only display. It cannot become context handoff, injection, memory, export, or execution authority.",
+        dataClassification: "internal",
+        bindingRefs: {
+          proposalRef: "safe-context-proposal:mock_002",
+          approvalRef: "file-review-approval-capture:mock_002",
+          reviewPacketRef: "file-review-packet:mock_002",
+          previewResultRef: "redacted-file-preview-output:mock_002",
+          redactionSummaryRef: "file-review-redaction-summary:mock_002",
+          fileRef: "file-ref:mock_review_002",
+          safePathRef: "filesystem-preview-path:safe-root_m39/docs/alternate-review.md",
+          actorRef: "user:mock_reviewer_002"
+        },
+        sourceChainRefs: [
+          "file-review-approval-capture:mock_002",
+          "file-review-packet:mock_002",
+          "redacted-file-preview-output:mock_002",
+          "file-review-redaction-summary:mock_002",
+          "file-ref:mock_review_002",
+          "filesystem-preview-path:safe-root_m39/docs/alternate-review.md",
+          "user:mock_reviewer_002"
+        ],
+        sections: [
+          {
+            sectionRef: "safe-context-proposal-section:mock_002:redacted-preview",
+            title: "Redacted review excerpt",
+            redactedContent:
+              "Alternate proposal text is bounded, redacted, and limited to safe review rationale.",
+            sourceRef: "redacted-file-preview-output:mock_002",
+            redacted: true,
+            bounded: true,
+            nonAuthoritative: true
+          }
+        ],
+        redactionVerificationStatus: "redacted_review_material_only",
+        decisionStatus: "proposal_ready_for_review",
+        receiptPlan: {
+          receiptPlanRef: "safe-context-proposal-receipt-plan:mock_002",
+          safeSummary:
+            "Alternate receipt plan stores refs and no raw proposal source material.",
+          rawContentStored: false,
+          fullFileContentStored: false,
+          unredactedPreviewStored: false,
+          contextInjected: false,
+          openwebuiHandoffPerformed: false,
+          memoryWritePerformed: false,
+          exportPerformed: false,
+          executionPerformed: false
+        },
+        authority: {
+          contextInjectionAuthorized: false,
+          openwebuiHandoffAuthorized: false,
+          modelCallAuthorized: false,
+          memoryWriteAuthorized: false,
+          exportAuthorized: false,
+          executionAuthorized: false,
+          rawFileAccessAuthorized: false,
+          truthAuthorityClaimed: false
+        },
+        reasonCodes: ["M39_CONTEXT_PROPOSAL_SURFACE", "NO_AUTHORITY_GRANTED", "SAFE_REFS_ONLY"],
+        authorityWarnings: [
+          "Control Center output is not authority.",
+          "M40 handoff approval remains future and does not imply injection.",
+          "No context injection, memory write, export, model call, raw file access, or execution is available."
+        ],
+        redactionStatus: "redacted_summary_only",
+        previewOnly: true,
+        readOnly: true,
+        mock: true
       }
     ]
   }

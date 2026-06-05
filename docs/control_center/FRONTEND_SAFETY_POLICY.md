@@ -185,6 +185,25 @@ routes, raw file display, context proposal, context injection, memory writes,
 export/download/copy-raw controls, execution controls, dependencies, or
 production Control Center authority. M37 remains planned/provisional.
 
+## v0.43.0 M39 Context Proposal Surface Safety
+
+M39 adds frontend-only `/context/proposals`. The route is read-only and
+proposal-only. It may show safe mock context proposals, approved-review
+provenance, exact binding refs, redaction verification, safe proposal sections,
+proposal-only decision status, approval-gate contract status, and receipt-plan
+metadata.
+
+The surface must show mock fallback data as mock and non-authoritative. It must
+not include approve, deny, submit, save, mark-reviewed, handoff, inject,
+OpenWebUI handoff, export, download, copy-raw, memory write, execute, run, tool,
+model-call, file picker, browse, upload, or root selector controls.
+
+M39 adds no context handoff approval, context injection, OpenWebUI handoff,
+OpenWebUI runtime integration, model/provider calls, memory writes, export,
+execution, raw file display/storage, full-file display, unredacted preview
+display, raw absolute path display, backend routes, dependencies, or production
+Control Center authority. M40 remains future.
+
 ## M19 Mobile Safety Boundary
 
 Frontend code must not add mobile sensor APIs, native mobile endpoints, Android

@@ -22,4 +22,5 @@ Receipt fields record that no context injection was performed, no OpenWebUI
 handoff was performed, no model call was performed, no memory write was
 performed, no export was performed, and no execution was performed.
 
-M39 remains planned/provisional.
+M39 is implemented/released by v0.43.0 as a read-only CCC Context Proposal
+Surface. M40 remains future.

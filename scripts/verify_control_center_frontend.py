@@ -34,6 +34,7 @@ REQUIRED_FILES = [
     "src/components/EvidenceFileMemoryViewerPanel.tsx",
     "src/components/LocalRuntimeStatusPanel.tsx",
     "src/components/FileReviewSurfacePanel.tsx",
+    "src/components/ContextProposalSurfacePanel.tsx",
     "src/mocks/controlCenterData.ts",
     "src/App.test.tsx",
 ]
@@ -386,6 +387,77 @@ M36_FILE_REVIEW_MOCK_MARKERS = [
     "exportPerformed: false",
     "executionPerformed: false",
 ]
+M39_CONTEXT_PROPOSAL_BOUNDARY_MARKERS = [
+    "M39 CCC context proposal surface",
+    "Context Proposal Surface",
+    "Safe proposal sections",
+    "Exact binding refs",
+    "Source chain refs",
+    "Control Center output is not authority",
+    "does not hand off to OpenWebUI",
+    "inject context",
+    "write memory",
+    "export data",
+    "execute actions",
+    "Receipt plan metadata",
+    "OpenWebUI handoff authorized",
+    "context injection authorized",
+    "memory write authorized",
+    "export authorized",
+    "execution authorized",
+]
+M39_CONTEXT_PROPOSAL_MOCK_MARKERS = [
+    "m39ContextProposals",
+    "safe-context-proposal:mock_001",
+    "safe-context-proposal-section:mock_001:redacted-preview",
+    "file-review-approval-capture:mock_001",
+    "file-review-packet:mock_001",
+    "redacted-file-preview-output:mock_001",
+    "file-review-redaction-summary:mock_001",
+    "file-ref:mock_review_001",
+    "filesystem-preview-path:safe-root_m39/docs/review-summary.md",
+    "user:mock_reviewer_001",
+    "PROPOSAL_ONLY",
+    "SAFE_REFS_ONLY",
+    "NO_CONTEXT_HANDOFF",
+    "NO_CONTEXT_INJECTION",
+    "NO_OPENWEBUI_HANDOFF",
+    "NO_MEMORY_WRITE",
+    "NO_EXPORT",
+    "NO_EXECUTION",
+    "NO_RAW_FILE_DISPLAY",
+    "rawContentStored: false",
+    "fullFileContentStored: false",
+    "unredactedPreviewStored: false",
+    "contextInjected: false",
+    "openwebuiHandoffPerformed: false",
+    "memoryWritePerformed: false",
+    "exportPerformed: false",
+    "executionPerformed: false",
+    "contextInjectionAuthorized: false",
+    "openwebuiHandoffAuthorized: false",
+    "modelCallAuthorized: false",
+    "memoryWriteAuthorized: false",
+    "exportAuthorized: false",
+    "executionAuthorized: false",
+    "rawFileAccessAuthorized: false",
+    "truthAuthorityClaimed: false",
+]
+M39_SAFE_REF_PREFIXES = {
+    "proposalRef": "safe-context-proposal:",
+    "approvalRef": "file-review-approval-capture:",
+    "reviewPacketRef": "file-review-packet:",
+    "previewResultRef": "redacted-file-preview-output:",
+    "redactionSummaryRef": "file-review-redaction-summary:",
+    "fileRef": "file-ref:",
+    "safePathRef": "filesystem-preview-path:safe-root_",
+    "actorRef": "user:",
+}
+M39_MUTATING_CONTEXT_PROPOSAL_REQUEST = re.compile(
+    r"fetch\([^)]*(?:/context/propose|/context/inject|/context/handoff|/openwebui/handoff|/memory/write|/tools/execute)[^)]*"
+    r"method\s*:\s*['\"](?:POST|PUT|PATCH|DELETE)['\"]",
+    re.IGNORECASE | re.DOTALL,
+)
 
 
 def verify(root: Path = ROOT) -> list[str]:
@@ -454,10 +526,13 @@ def verify(root: Path = ROOT) -> list[str]:
             "memory_not_authority",
             "m18runtime",
             "m36filereview",
+            "m39contextproposals",
             "validation_only",
             "no_runtime_execution",
             "modeloutputauthoritative: false",
             "no_raw_file_display",
+            "no_context_injection",
+            "no_openwebui_handoff",
         ]
         if _current_version(root) < "v0.41.0":
             required_mock_safety.extend(["no_approval_capture", "no_approval_persistence"])
@@ -484,6 +559,10 @@ def verify(root: Path = ROOT) -> list[str]:
             if marker.lower() not in mock_lowered:
                 failures.append(f"M36 file review mock marker missing: {marker}")
         failures.extend(_m36_file_review_fixture_failures(mock_path.relative_to(root), mock_text))
+        for marker in M39_CONTEXT_PROPOSAL_MOCK_MARKERS:
+            if marker.lower() not in mock_lowered:
+                failures.append(f"M39 context proposal mock marker missing: {marker}")
+        failures.extend(_m39_context_proposal_fixture_failures(mock_path.relative_to(root), mock_text))
 
     approval_panel = app_root / "src/components/ApprovalQueuePanel.tsx"
     if approval_panel.exists():
@@ -524,11 +603,21 @@ def verify(root: Path = ROOT) -> list[str]:
                 failures.append(f"M36 file review boundary copy missing in {file_review_panel.relative_to(root)}: {marker}")
         failures.extend(_m36_file_review_component_failures(file_review_panel.relative_to(root), text))
 
+    context_proposal_panel = app_root / "src/components/ContextProposalSurfacePanel.tsx"
+    if context_proposal_panel.exists():
+        text = context_proposal_panel.read_text(encoding="utf-8")
+        for marker in M39_CONTEXT_PROPOSAL_BOUNDARY_MARKERS:
+            if marker not in text:
+                failures.append(f"M39 context proposal boundary copy missing in {context_proposal_panel.relative_to(root)}: {marker}")
+        failures.extend(_m39_context_proposal_component_failures(context_proposal_panel.relative_to(root), text))
+
     routes = app_root / "src/routes.tsx"
     if routes.exists():
         text = routes.read_text(encoding="utf-8")
         if '"/files/review"' not in text or "FileReviewSurfacePanel" not in text:
             failures.append("M36 file review route is missing from Control Center routes")
+        if '"/context/proposals"' not in text or "ContextProposalSurfacePanel" not in text:
+            failures.append("M39 context proposal route is missing from Control Center routes")
 
     endpoints = app_root / "src/api/endpoints.ts"
     base_url = app_root / "src/api/baseUrl.ts"
@@ -742,6 +831,30 @@ def _m36_file_review_component_failures(rel: Path, text: str) -> list[str]:
     failures: list[str] = []
     for match in M36_MUTATING_FILE_REVIEW_REQUEST.finditer(text):
         failures.append(f"mutating M36 file review request in {rel}: {match.group(0).strip()}")
+    return failures
+
+
+def _m39_context_proposal_fixture_failures(rel: Path, text: str) -> list[str]:
+    failures: list[str] = []
+    m39_index = text.lower().find("m39contextproposals")
+    if m39_index == -1:
+        return failures
+    m39_text = text[m39_index:]
+    for match in M36_PRIVATE_OR_RAW_PATH_FRAGMENT.finditer(m39_text):
+        failures.append(f"private path fragment in M39 context proposal fixture in {rel}: {match.group(0)}")
+
+    for field_name, prefix in M39_SAFE_REF_PREFIXES.items():
+        for match in re.finditer(rf"{field_name}\s*:\s*['\"]([^'\"]+)['\"]", m39_text):
+            value = match.group(1)
+            if not value.startswith(prefix):
+                failures.append(f"unsafe M39 {field_name} value in {rel}: expected prefix {prefix}")
+    return failures
+
+
+def _m39_context_proposal_component_failures(rel: Path, text: str) -> list[str]:
+    failures: list[str] = []
+    for match in M39_MUTATING_CONTEXT_PROPOSAL_REQUEST.finditer(text):
+        failures.append(f"mutating M39 context proposal request in {rel}: {match.group(0).strip()}")
     return failures
 
 

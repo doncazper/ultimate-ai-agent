@@ -138,6 +138,12 @@ expose `/context/propose`, `/context/inject`, `/context/handoff`,
 model/provider routes. The M37 review approval capture route remains the only
 post-M36 backend addition. OpenAPI path count remains `75`.
 
+v0.43.0 M39 CCC Context Proposal Surface adds no backend route. It adds the
+frontend-only `/context/proposals` Control Center surface for safe context
+proposal display. It does not expose context handoff, context injection,
+OpenWebUI handoff, memory write, raw-file, export, execution, tool execution,
+or model/provider routes. OpenAPI path count remains `75`.
+
 M12 Control Center route group:
 
 - `/control-center/manifest`

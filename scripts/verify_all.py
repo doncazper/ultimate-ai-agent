@@ -47,6 +47,7 @@ SCAN_SEQUENCE = [
     ("M36 CCC file review surface scan", "verify_m36_ccc_file_review_surface_safety"),
     ("M37 review approval capture scan", "verify_m37_review_approval_capture_safety"),
     ("M38 safe context proposal scan", "verify_m38_safe_context_proposal_safety"),
+    ("M39 CCC context proposal surface scan", "verify_m39_ccc_context_proposal_surface_safety"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -4402,7 +4403,7 @@ def verify_m38_safe_context_proposal_safety():
         for rel_path in required_files
         if rel_path.startswith("docs/")
     )
-    for fragment in [
+    required_doc_fragments = [
         "non-authoritative",
         "not context injection",
         "not openwebui handoff",
@@ -4411,8 +4412,17 @@ def verify_m38_safe_context_proposal_safety():
         "does not execute",
         "exact approved-review binding",
         "approval_ref alone is not authority",
-        "m39 remains planned/provisional",
-    ]:
+    ]
+    if _current_version() >= "v0.43.0":
+        required_doc_fragments.extend(
+            [
+                "m39 is implemented/released",
+                "m40 remains future",
+            ]
+        )
+    else:
+        required_doc_fragments.append("m39 remains planned/provisional")
+    for fragment in required_doc_fragments:
         if fragment not in docs_text:
             print(f"FAIL: M38 docs missing fragment: {fragment}")
             sys.exit(1)
@@ -4510,17 +4520,136 @@ def verify_m38_safe_context_proposal_safety():
         print(f"FAIL: {failure}")
         sys.exit(1)
 
-    control_center_text = "\n".join(
-        path.read_text(encoding="utf-8").lower()
-        for path in (ROOT / "apps/control-center/src").rglob("*")
-        if path.is_file()
-    )
-    for forbidden in ["/context/proposals", "context proposal surface", "send to openwebui", "inject context"]:
-        if forbidden in control_center_text:
-            print(f"FAIL: M38 Control Center started future context surface/control: {forbidden}")
-            sys.exit(1)
+    if _current_version() < "v0.43.0":
+        control_center_text = "\n".join(
+            path.read_text(encoding="utf-8").lower()
+            for path in (ROOT / "apps/control-center/src").rglob("*")
+            if path.is_file()
+        )
+        for forbidden in ["/context/proposals", "context proposal surface", "send to openwebui", "inject context"]:
+            if forbidden in control_center_text:
+                print(f"FAIL: M38 Control Center started future context surface/control: {forbidden}")
+                sys.exit(1)
 
     print("OK: M38 safe context proposal is proposal-only, route-free beyond M37 capture, and non-authoritative")
+
+
+def verify_m39_ccc_context_proposal_surface_safety():
+    print("\n[Verifier] Running M39 CCC context proposal surface guard...")
+    required_files = [
+        "apps/control-center/src/components/ContextProposalSurfacePanel.tsx",
+        "apps/control-center/src/routes.tsx",
+        "apps/control-center/src/mocks/controlCenterData.ts",
+        "apps/control-center/src/App.test.tsx",
+        "docs/control_center/CONTEXT_PROPOSAL_SURFACE.md",
+        "docs/control_center/CONTEXT_PROPOSAL_REVIEW_ONLY_POLICY.md",
+        "docs/control_center/CONTEXT_PROPOSAL_MOCK_DATA_POLICY.md",
+        "docs/control_center/CONTEXT_PROPOSAL_BINDING_DISPLAY_POLICY.md",
+        "docs/control_center/M39_TO_M40_BOUNDARY.md",
+        "tests/test_m39_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M39 context proposal surface file: {rel_path}")
+            sys.exit(1)
+
+    app_text = "\n".join(
+        (ROOT / rel_path).read_text(encoding="utf-8").lower()
+        for rel_path in required_files
+        if rel_path.startswith("apps/")
+    )
+    for fragment in [
+        "/context/proposals",
+        "contextproposalsurfacepanel",
+        "m39contextproposals",
+        "safe-context-proposal:mock_001",
+        "safe proposal sections",
+        "exact binding refs",
+        "source chain refs",
+        "control center output is not authority",
+        "openwebui handoff authorized",
+        "context injection authorized",
+        "memory write authorized",
+        "export authorized",
+        "execution authorized",
+        "rawfileaccessauthorized: false",
+        "executionauthorized: false",
+    ]:
+        if fragment not in app_text.replace("_", "") and fragment not in app_text:
+            print(f"FAIL: M39 Control Center missing safe surface marker: {fragment}")
+            sys.exit(1)
+
+    for label in [
+        "send to openwebui",
+        "inject context",
+        "write memory",
+        "export context",
+        "download context",
+        "execute context",
+        "call model",
+        "open raw file",
+    ]:
+        if re.search(rf"<button\b[^>]*>\s*{re.escape(label)}\s*</button>", app_text, re.IGNORECASE):
+            print(f"FAIL: M39 Control Center added forbidden context proposal control: {label}")
+            sys.exit(1)
+
+    for forbidden in ["/context/propose", "/context/inject", "/context/handoff", "/openwebui/handoff", "/memory/write", "/tools/execute"]:
+        if forbidden in app_text:
+            print(f"FAIL: M39 Control Center references forbidden backend route/control: {forbidden}")
+            sys.exit(1)
+
+    docs_text = "\n".join(
+        (ROOT / rel_path).read_text(encoding="utf-8").lower()
+        for rel_path in required_files
+        if rel_path.startswith("docs/")
+    )
+    for fragment in [
+        "read-only",
+        "proposal-only",
+        "mock and non-authoritative",
+        "no context handoff",
+        "no context injection",
+        "no openwebui handoff",
+        "no memory writes",
+        "no export",
+        "no execution",
+        "no raw file access",
+        "m40 remains future",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M39 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+
+        paths = app.openapi().get("paths", {})
+    except Exception as exc:
+        print(f"FAIL: M39 OpenAPI route validation failed: {exc}")
+        sys.exit(1)
+
+    if len(paths) != 75:
+        print(f"FAIL: M39 OpenAPI path count changed: expected 75, found {len(paths)}")
+        sys.exit(1)
+    if "/files/review/approvals/capture" not in paths:
+        print("FAIL: M39 expected M37 review approval capture route is missing")
+        sys.exit(1)
+    for forbidden in [
+        "/context/propose",
+        "/context/inject",
+        "/context/handoff",
+        "/openwebui/handoff",
+        "/memory/write",
+        "/tools/execute",
+        "/tool-runtime/execute",
+    ]:
+        if forbidden in paths:
+            print(f"FAIL: M39 forbidden backend route present: {forbidden}")
+            sys.exit(1)
+
+    print("OK: M39 CCC context proposal surface is frontend-only, review-only, safe-ref-only, and non-authoritative")
 
 
 def verify_local_developer_launcher_safety():

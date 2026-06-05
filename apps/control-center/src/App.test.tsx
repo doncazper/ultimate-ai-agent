@@ -74,6 +74,7 @@ describe("Web Control Center shell", () => {
       ["/evidence", /Evidence Viewer/i],
       ["/files", /File Reference Viewer/i],
       ["/files/review", /File Review Surface/i],
+      ["/context/proposals", /Context Proposal Surface/i],
       ["/memory", /Memory Viewer/i],
       ["/runtime/local", /Local Runtime Status/i],
       ["/runtime/manual-smoke", /Manual Smoke Control Surface/i],
@@ -425,6 +426,91 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getAllByText(/Only the review approval capture route may persist safe refs/i).length
     ).toBeGreaterThan(0);
+  });
+
+  it("renders M39 context proposals as read-only safe proposal summaries", async () => {
+    mockFetchWithFallback();
+    window.history.pushState({}, "", "/context/proposals");
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: /Context Proposal Surface/i })).toBeInTheDocument();
+    expect(screen.getAllByText(/M39 CCC context proposal surface/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/mock and non-authoritative/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/proposal-only/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/MOCK_DATA_ONLY/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/NO_PRODUCTION_AUTHORITY/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Safe proposal sections/i)).toBeInTheDocument();
+    expect(screen.getByText(/Redacted review excerpt/i)).toBeInTheDocument();
+    expect(screen.getByText(/M39 surface displays redacted proposal text with \[REDACTED:SECRET_ASSIGNMENT\]/i)).toBeInTheDocument();
+    expect(screen.getByText(/Source chain refs/i)).toBeInTheDocument();
+    expect(screen.getAllByText("safe-context-proposal:mock_001").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("file-review-approval-capture:mock_001").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("file-review-packet:mock_001").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("redacted-file-preview-output:mock_001").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("file-review-redaction-summary:mock_001").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("file-ref:mock_review_001").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("filesystem-preview-path:safe-root_m39/docs/review-summary.md").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("user:mock_reviewer_001").length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Decision status/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/proposal_ready_for_review/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Receipt plan metadata/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/context injected: no/i)).toBeInTheDocument();
+    expect(screen.getByText(/OpenWebUI handoff authorized: no/i)).toBeInTheDocument();
+    expect(screen.getByText(/memory write authorized: no/i)).toBeInTheDocument();
+    expect(screen.getByText(/export authorized: no/i)).toBeInTheDocument();
+    expect(screen.getByText(/execution authorized: no/i)).toBeInTheDocument();
+  });
+
+  it("keeps M39 proposal selection read-only without handoff injection or mutation controls", async () => {
+    mockFetchWithFallback();
+    window.history.pushState({}, "", "/context/proposals");
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: /Context Proposal Surface/i })).toBeInTheDocument();
+    const proposalButtons = screen.getAllByRole("button", { name: /view context proposal/i });
+    expect(proposalButtons.length).toBeGreaterThan(1);
+    fireEvent.click(proposalButtons[1]);
+
+    expect(screen.getAllByRole("heading", { name: "safe-context-proposal:mock_002" }).length).toBeGreaterThan(0);
+    expect(screen.getByRole("article", { name: /safe-context-proposal:mock_002/i })).toHaveAttribute(
+      "aria-current",
+      "true"
+    );
+    expect(screen.getAllByText("safe-context-proposal-section:mock_002:redacted-preview").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("file-ref:mock_review_002").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("filesystem-preview-path:safe-root_m39/docs/alternate-review.md").length).toBeGreaterThan(0);
+
+    for (const label of [
+      /^approve$/i,
+      /^deny$/i,
+      /^submit$/i,
+      /^save$/i,
+      /^export$/i,
+      /^download$/i,
+      /copy raw/i,
+      /send to openwebui/i,
+      /handoff/i,
+      /inject/i,
+      /write memory/i,
+      /^execute$/i,
+      /^run$/i,
+      /run tool/i,
+      /call model/i,
+      /open raw file/i,
+      /file picker/i,
+      /browse/i,
+      /upload/i,
+      /root selector/i
+    ]) {
+      expect(screen.queryByRole("button", { name: label })).not.toBeInTheDocument();
+    }
+    expect(screen.queryByText(/raw_content/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/full_file_content/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/unredacted_preview/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(new RegExp("/Users/", "i"))).not.toBeInTheDocument();
+    expect(screen.queryByText(/\/home\//i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/supersecretvalue123/i)).not.toBeInTheDocument();
+    expect(screen.getAllByText(/Control Center output is not authority/i).length).toBeGreaterThan(0);
   });
 
   it("renders M17 memory summaries as recall and never authority", async () => {

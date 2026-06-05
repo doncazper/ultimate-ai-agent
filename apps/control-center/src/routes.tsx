@@ -2,6 +2,7 @@ import type { ControlCenterData } from "./api/types";
 import { ActionPreviewForm } from "./components/ActionPreviewForm";
 import { ApprovalQueuePanel } from "./components/ApprovalQueuePanel";
 import { ApiRouteInventoryPanel } from "./components/ApiRouteInventoryPanel";
+import { ContextProposalSurfacePanel } from "./components/ContextProposalSurfacePanel";
 import { DashboardSummary } from "./components/DashboardSummary";
 import {
   EvidenceViewerPanel,
@@ -37,6 +38,7 @@ export const navItems = [
   { path: "/evidence", label: "Evidence" },
   { path: "/files", label: "Files" },
   { path: "/files/review", label: "File Review" },
+  { path: "/context/proposals", label: "Context Proposals" },
   { path: "/memory", label: "Memory" },
   { path: "/runtime/local", label: "Local Runtime" },
   { path: "/runtime/manual-smoke", label: "Manual Smoke" },
@@ -68,6 +70,8 @@ export function renderRoute(path: string, data: ControlCenterData) {
       return <FileReferenceViewerPanel knowledge={data.m17Knowledge} />;
     case "/files/review":
       return <FileReviewSurfacePanel review={data.m36FileReview} />;
+    case "/context/proposals":
+      return <ContextProposalSurfacePanel proposals={data.m39ContextProposals} />;
     case "/memory":
       return <MemoryViewerPanel knowledge={data.m17Knowledge} />;
     case "/runtime/local":

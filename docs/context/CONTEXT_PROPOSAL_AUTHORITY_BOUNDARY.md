@@ -22,5 +22,6 @@ Memory is recall, not authority. Context packs are not authority. Model output
 is not authority. Runtime output is not authority. OpenWebUI output is not
 authority. Control Center output is not authority.
 
-M39 remains planned/provisional for a future review surface. M40 remains future
+M39 is implemented/released by v0.43.0 as a read-only CCC Context Proposal
+Surface. M40 remains future
 for handoff approval with no injection.
