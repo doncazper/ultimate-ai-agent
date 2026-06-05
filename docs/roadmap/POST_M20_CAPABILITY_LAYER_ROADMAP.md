@@ -1,6 +1,6 @@
 # Post-M20 Capability Layer Roadmap
 
-Status: Active roadmap projection maintained through v0.56.0.
+Status: Active roadmap projection maintained through v0.57.0.
 
 v0.38.0 implements M34 Broader File Capability Review as planning,
 architecture review, documentation, verifier, and Foundation Gate work only.
@@ -38,7 +38,7 @@ M49 is implemented/released by v0.53.0 as Mobile Review Approval Capture.
 M50 is implemented/released by v0.54.0 as Mobile Approval Audit Hardening.
 M51 is implemented/released by v0.55.0 as OpenWebUI Bridge Adapter Pilot.
 M52 is implemented/released by v0.56.0 as OpenWebUI Safe Conversation Surface.
-M53-M60 remain planned/provisional.
+M53 is implemented/released and M54-M60 remain planned/provisional.
 M34 is implemented/released as planning/docs/verifier
 only. M35 is implemented/released as Safe File Review Workflow Contracts. M36 is implemented/released as CCC File Review Surface, Review-Only. M37 is implemented/released as Review Approval Capture, Review-Only Persistence. M38 is implemented/released as Safe Context Proposal From Approved Review. M39 is implemented/released as CCC Context Proposal Surface. M40 is implemented/released as Context Handoff Approval, No Injection. M41 is implemented/released as Local Prototype Safety Freeze. M42 is implemented/released as Mobile Companion Product Contract Refresh. M43 is implemented/released as Mobile API Boundary, Read-Only. M44 is implemented/released as CCC iOS Skeleton, No Authority. M45 is implemented/released as CCC iOS Local Read-Only Connection. M46 is implemented/released as iOS Review/Receipt Read-Only Surfaces. M47 is implemented/released as TestFlight Pipeline, Internal Only. M48 is implemented/released as First Internal TestFlight Build. M49 is implemented/released as Mobile Review Approval Capture. M50 is implemented/released as Mobile Approval Audit Hardening. M43 is the first mobile
 read-only API boundary in this new sequence. M44 is the first iOS skeleton milestone.
@@ -89,7 +89,7 @@ The detailed post-M33 supersession source of truth is
 | v0.54.0 | M50 | Mobile Approval Audit Hardening | implemented/released hardening |
 | v0.55.0 | M51 | OpenWebUI Bridge Adapter Pilot | implemented/released adapter pilot |
 | v0.56.0 | M52 | OpenWebUI Safe Conversation Surface | implemented/released safe conversation surface |
-| v0.57.0 | M53 | Controlled Tool Expansion Review | planned/provisional |
+| v0.57.0 | M53 | Controlled Tool Expansion Review | implemented/released |
 | v0.58.0 | M54 | Safe Media Metadata Inspector | planned/provisional |
 | v0.59.0 | M55 | Redacted Observability Export | planned/provisional |
 | v0.60.0 | M56 | Agent Eval Regression Harness | planned/provisional |

@@ -1,8 +1,10 @@
 # Ultimate AI Agent Workspace Standards
 
-Active baseline: v0.56.0.
+Active baseline: v0.57.0.
 
 This repository is the Ultimate AI Agent foundation workspace. Treat it as a contract-first Python core, not a production runtime integration layer.
+
+- v0.57.0 M53 Controlled Tool Expansion Review is review-only and planning-only. It may classify future tool expansion candidates and require later reviewed milestones, but it must not enable tools, execute tools, add shell/subprocess execution, unrestricted network tools, provider/model calls as authority, browser automation execution, plugin enablement, mobile sensor access, remote execution, raw file browsing/export, full-file reads, file mutation, memory writes, context injection, credentials/cookie handling runtime, external SaaS/analytics SDKs, backend routes, Control Center controls, dependencies, production authority, or M54 implementation.
 
 ## API Boundary
 

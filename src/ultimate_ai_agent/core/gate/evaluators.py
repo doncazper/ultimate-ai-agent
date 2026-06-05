@@ -800,6 +800,22 @@ M52_FORBIDDEN_BACKEND_ROUTES = M51_FORBIDDEN_BACKEND_ROUTES + (
     "/openwebui/conversation/context",
     "/openwebui/conversation/memory",
 )
+EXPECTED_M53_OPENAPI_PATH_COUNT = 75
+M53_FORBIDDEN_BACKEND_ROUTES = M52_FORBIDDEN_BACKEND_ROUTES + (
+    "/tools/expand",
+    "/tools/register",
+    "/tools/enable",
+    "/tools/run",
+    "/tools/execute",
+    "/shell/execute",
+    "/network/request",
+    "/provider/call",
+    "/models/call",
+    "/browser/click",
+    "/plugins/enable",
+    "/memory/write",
+    "/context/inject",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -1342,6 +1358,19 @@ def m52_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
     return failures
 
 
+def m53_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M53_OPENAPI_PATH_COUNT) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+    if M37_ALLOWED_CAPTURE_ROUTE not in path_set:
+        failures.append("M37 capture route missing: /files/review/approvals/capture")
+    for route in M53_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(f"M53 forbidden tool expansion/runtime backend route present: {route}")
+    return failures
+
+
 M36_SAFE_REF_PREFIXES = {
     "reviewPacketRef": "file-review-packet:",
     "previewResultRef": "redacted-file-preview-output:",
@@ -1768,6 +1797,14 @@ class FoundationGateEvaluator:
                 self.check_m52_openwebui_safe_conversation_route_boundary
             ),
             "m52_roadmap_currentness": self.check_m52_roadmap_currentness,
+            "m53_controlled_tool_expansion_review": self.check_m53_controlled_tool_expansion_review,
+            "m53_controlled_tool_expansion_static_safety": (
+                self.check_m53_controlled_tool_expansion_static_safety
+            ),
+            "m53_controlled_tool_expansion_route_boundary": (
+                self.check_m53_controlled_tool_expansion_route_boundary
+            ),
+            "m53_roadmap_currentness": self.check_m53_roadmap_currentness,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -9093,6 +9130,7 @@ class FoundationGateEvaluator:
                 and "m51-m60 remain planned/provisional" not in text
                 and "m52-m60 remain planned/provisional" not in text
                 and "m53-m60 remain planned/provisional" not in text
+                and "m54-m60 remain planned/provisional" not in text
             ):
                 failures.append("M42-M60 through M49-M60 planned/provisional marker missing after M41")
         elif current_tuple >= (0, 44, 0):
@@ -9397,6 +9435,7 @@ class FoundationGateEvaluator:
                 and "m51-m60 remain planned/provisional" not in text
                 and "m52-m60 remain planned/provisional" not in text
                 and "m53-m60 remain planned/provisional" not in text
+                and "m54-m60 remain planned/provisional" not in text
             ):
                 failures.append("M42-M60 through M49-M60 planned/provisional marker missing after M41")
         elif version_tuple >= (0, 44, 0):
@@ -9574,6 +9613,7 @@ class FoundationGateEvaluator:
                 and "m51-m60 remain planned/provisional" not in text
                 and "m52-m60 remain planned/provisional" not in text
                 and "m53-m60 remain planned/provisional" not in text
+                and "m54-m60 remain planned/provisional" not in text
             ):
                 failures.append("M42-M60 through M49-M60 planned/provisional marker missing after M41")
         elif version_tuple >= (0, 44, 0):
@@ -9727,6 +9767,7 @@ class FoundationGateEvaluator:
                 and "m51-m60 remain planned/provisional" not in text
                 and "m52-m60 remain planned/provisional" not in text
                 and "m53-m60 remain planned/provisional" not in text
+                and "m54-m60 remain planned/provisional" not in text
             ):
                 failures.append("M42-M60 through M49-M60 planned/provisional marker missing after M41")
         elif version_tuple >= (0, 44, 0):
@@ -9996,6 +10037,7 @@ class FoundationGateEvaluator:
                 and "m51-m60 remain planned/provisional" not in text
                 and "m52-m60 remain planned/provisional" not in text
                 and "m53-m60 remain planned/provisional" not in text
+                and "m54-m60 remain planned/provisional" not in text
             ):
                 failures.append("M42-M60 through M49-M60 planned/provisional marker missing after M41")
         elif current >= (0, 44, 0):
@@ -10150,6 +10192,7 @@ class FoundationGateEvaluator:
                 and "m51-m60 remain planned/provisional" not in text
                 and "m52-m60 remain planned/provisional" not in text
                 and "m53-m60 remain planned/provisional" not in text
+                and "m54-m60 remain planned/provisional" not in text
             ):
                 failures.append("M42-M60 through M49-M60 planned/provisional marker missing after M41")
         elif m40_implemented:
@@ -10378,6 +10421,7 @@ class FoundationGateEvaluator:
                 and "m51-m60 remain planned/provisional" not in text
                 and "m52-m60 remain planned/provisional" not in text
                 and "m53-m60 remain planned/provisional" not in text
+                and "m54-m60 remain planned/provisional" not in text
             ):
                 failures.append("M42-M60 through M49-M60 planned/provisional marker missing after M41")
         elif "m41 remains planned/provisional" not in text and "m41-m60 remain planned/provisional" not in text:
@@ -12041,7 +12085,18 @@ class FoundationGateEvaluator:
             failures.append("active docs do not identify v0.53.0/M49 Mobile Review Approval Capture")
         if "m49 is implemented/released" not in text and "v0.53.0 implements m49" not in text:
             failures.append("active docs do not mark M49 implemented/released")
-        if self._active_version_tuple() >= (0, 56, 0):
+        if self._active_version_tuple() >= (0, 57, 0):
+            if "m50 is implemented/released" not in text and "v0.54.0 implements m50" not in text:
+                failures.append("M50 must be implemented/released after v0.54.0")
+            if "m51 is implemented/released" not in text and "v0.55.0 implements m51" not in text:
+                failures.append("M51 must be implemented/released after v0.55.0")
+            if "m52 is implemented/released" not in text and "v0.56.0 implements m52" not in text:
+                failures.append("M52 must be implemented/released after v0.56.0")
+            if "m53 is implemented/released" not in text and "v0.57.0 implements m53" not in text:
+                failures.append("M53 must be implemented/released after v0.57.0")
+            if "m54-m60 remain planned/provisional" not in text:
+                failures.append("M54-M60 must remain planned/provisional after M53")
+        elif self._active_version_tuple() >= (0, 56, 0):
             if "m50 is implemented/released" not in text and "v0.54.0 implements m50" not in text:
                 failures.append("M50 must be implemented/released after v0.54.0")
             if "m51 is implemented/released" not in text and "v0.55.0 implements m51" not in text:
@@ -12288,7 +12343,16 @@ class FoundationGateEvaluator:
             failures.append("active docs do not identify v0.54.0/M50 Mobile Approval Audit Hardening")
         if "m50 is implemented/released" not in text and "v0.54.0 implements m50" not in text:
             failures.append("active docs do not mark M50 implemented/released")
-        if self._active_version_tuple() >= (0, 56, 0):
+        if self._active_version_tuple() >= (0, 57, 0):
+            if "m51 is implemented/released" not in text and "v0.55.0 implements m51" not in text:
+                failures.append("M51 must be implemented/released after v0.55.0")
+            if "m52 is implemented/released" not in text and "v0.56.0 implements m52" not in text:
+                failures.append("M52 must be implemented/released after v0.56.0")
+            if "m53 is implemented/released" not in text and "v0.57.0 implements m53" not in text:
+                failures.append("M53 must be implemented/released after v0.57.0")
+            if "m54-m60 remain planned/provisional" not in text:
+                failures.append("M54-M60 must remain planned/provisional after M53")
+        elif self._active_version_tuple() >= (0, 56, 0):
             if "m51 is implemented/released" not in text and "v0.55.0 implements m51" not in text:
                 failures.append("M51 must be implemented/released after v0.55.0")
             if "m52 is implemented/released" not in text and "v0.56.0 implements m52" not in text:
@@ -12521,7 +12585,14 @@ class FoundationGateEvaluator:
             failures.append("active docs do not identify v0.55.0/M51 OpenWebUI Bridge Adapter Pilot")
         if "m51 is implemented/released" not in text and "v0.55.0 implements m51" not in text:
             failures.append("active docs do not mark M51 implemented/released")
-        if self._active_version_tuple() >= (0, 56, 0):
+        if self._active_version_tuple() >= (0, 57, 0):
+            if "m52 is implemented/released" not in text and "v0.56.0 implements m52" not in text:
+                failures.append("M52 must be implemented/released after v0.56.0")
+            if "m53 is implemented/released" not in text and "v0.57.0 implements m53" not in text:
+                failures.append("M53 must be implemented/released after v0.57.0")
+            if "m54-m60 remain planned/provisional" not in text:
+                failures.append("M54-M60 must remain planned/provisional after M53")
+        elif self._active_version_tuple() >= (0, 56, 0):
             if "m52 is implemented/released" not in text and "v0.56.0 implements m52" not in text:
                 failures.append("M52 must be implemented/released after v0.56.0")
             if "m53-m60 remain planned/provisional" not in text:
@@ -12774,12 +12845,22 @@ class FoundationGateEvaluator:
             failures.append("active docs do not identify v0.56.0/M52 OpenWebUI Safe Conversation Surface")
         if "m52 is implemented/released" not in text and "v0.56.0 implements m52" not in text:
             failures.append("active docs do not mark M52 implemented/released")
-        if "m53-m60 remain planned/provisional" not in text:
-            failures.append("M53-M60 must remain planned/provisional after M52")
+        if self._active_version_tuple() >= (0, 57, 0):
+            if "m53 is implemented/released" not in text and "v0.57.0 implements m53" not in text:
+                failures.append("M53 must be implemented/released after v0.57.0")
+            if "m54-m60 remain planned/provisional" not in text:
+                failures.append("M54-M60 must remain planned/provisional after M53")
+        else:
+            if "m53-m60 remain planned/provisional" not in text:
+                failures.append("M53-M60 must remain planned/provisional after M52")
+            for fragment in (
+                "m53 is implemented",
+                "v0.57.0 implements m53",
+                "controlled tool expansion review is implemented",
+            ):
+                if fragment in text:
+                    failures.append(f"M52 docs imply forbidden/future capability: {fragment}")
         for fragment in (
-            "m53 is implemented",
-            "v0.57.0 implements m53",
-            "controlled tool expansion review is implemented",
             "openwebui tool execution is implemented",
             "provider call is implemented",
             "model authority is implemented",
@@ -12788,6 +12869,239 @@ class FoundationGateEvaluator:
         ):
             if fragment in text:
                 failures.append(f"M52 docs imply forbidden/future capability: {fragment}")
+        return self._result(criterion, failures, required_docs)
+
+    def check_m53_controlled_tool_expansion_review(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/tools/expansion_review.py",
+            "docs/tools/CONTROLLED_TOOL_EXPANSION_REVIEW.md",
+            "docs/tools/CONTROLLED_TOOL_EXPANSION_POLICY.md",
+            "docs/tools/CONTROLLED_TOOL_EXPANSION_AUTHORITY_BOUNDARY.md",
+            "docs/tools/M53_TO_M54_BOUNDARY.md",
+            "tests/test_m53_controlled_tool_expansion_review.py",
+            "tests/test_m53_gate_integration.py",
+        ]
+        failures = [
+            f"missing M53 controlled tool expansion review file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            from ultimate_ai_agent.core.tools import (
+                ControlledToolExpansionCandidate,
+                ControlledToolExpansionPolicy,
+                ControlledToolExpansionReviewStatus,
+                ToolExpansionCapabilityKind,
+                evaluate_controlled_tool_expansion_candidate,
+                validate_controlled_tool_expansion_candidate,
+                validate_controlled_tool_expansion_policy,
+            )
+
+            candidate = ControlledToolExpansionCandidate(
+                candidate_ref="tool-expansion-candidate:m53-gate",
+                safe_name="Metadata-only review candidate",
+                capability_kind=ToolExpansionCapabilityKind.safe_metadata_review,
+                safe_summary="Review future tool capability metadata without enablement.",
+            )
+            decision = evaluate_controlled_tool_expansion_candidate(candidate)
+            if decision.status != ControlledToolExpansionReviewStatus.review_ready:
+                failures.append("M53 safe metadata review candidate was not review-ready")
+            if not decision.review_allowed or decision.execution_allowed or decision.tool_enablement_allowed:
+                failures.append("M53 decision did not remain review-only")
+            if decision.receipt_plan is None:
+                failures.append("M53 decision did not create a no-enable receipt plan")
+            elif (
+                decision.receipt_plan.execution_performed
+                or decision.receipt_plan.tool_enabled
+                or decision.receipt_plan.side_effects_performed
+            ):
+                failures.append("M53 receipt plan performed execution, enablement, or side effects")
+            future_decision = evaluate_controlled_tool_expansion_candidate(
+                ControlledToolExpansionCandidate(
+                    candidate_ref="tool-expansion-candidate:m53-shell_execution",
+                    safe_name="Future shell execution review",
+                    capability_kind=ToolExpansionCapabilityKind.shell_execution,
+                    safe_summary="Review a future tool capability without enabling it.",
+                )
+            )
+            if future_decision.status != ControlledToolExpansionReviewStatus.future_milestone:
+                failures.append("M53 effectful candidate did not require a future milestone")
+            for candidate_update, reason in [
+                ({"execution_requested": True}, "TOOL_EXPANSION_EXECUTION_DENIED"),
+                ({"tool_enablement_requested": True}, "TOOL_ENABLEMENT_DENIED"),
+                ({"contains_raw_provider_payload": True}, "RAW_PROVIDER_PAYLOAD_DENIED"),
+                ({"approval_ref": "approval:m53-gate"}, "APPROVAL_REF_NOT_AUTHORITY"),
+            ]:
+                try:
+                    validate_controlled_tool_expansion_candidate(candidate.model_copy(update=candidate_update))
+                    failures.append(f"M53 unsafe candidate mutation was not denied: {reason}")
+                except ValueError as exc:
+                    if reason not in str(exc):
+                        failures.append(f"M53 unsafe candidate reason drifted for {reason}: {exc}")
+            try:
+                validate_controlled_tool_expansion_policy(
+                    ControlledToolExpansionPolicy(shell_execution_enabled=True)
+                )
+                failures.append("M53 unsafe policy flag was not denied")
+            except ValueError as exc:
+                if "SHELL_EXECUTION_DENIED" not in str(exc):
+                    failures.append(f"M53 unsafe policy reason drifted: {exc}")
+        except Exception as exc:
+            failures.append(f"M53 controlled tool expansion validation failed: {exc}")
+
+        docs_text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_files
+            if path.startswith("docs/") and (self.root / path).exists()
+        )
+        for fragment in [
+            "controlled tool expansion review",
+            "review-only",
+            "planning-only",
+            "no tool execution",
+            "no tool enablement",
+            "no shell execution",
+            "no unrestricted network tool",
+            "no provider model call",
+            "no browser automation execution",
+            "no plugin enablement",
+            "no mobile sensor access",
+            "no remote execution",
+            "no raw file browsing",
+            "no raw file export",
+            "no full-file read",
+            "no memory write",
+            "no context injection",
+            "no backend route",
+            "m54 remains future",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M53 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m53_controlled_tool_expansion_static_safety(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        forbidden_source_fragments = [
+            "shell_execution_enabled=True",
+            "subprocess_execution_enabled=True",
+            "unrestricted_network_tools_enabled=True",
+            "provider_model_calls_enabled=True",
+            "model_authority_enabled=True",
+            "browser_automation_execution_enabled=True",
+            "plugin_enablement_enabled=True",
+            "mobile_sensor_access_enabled=True",
+            "remote_execution_enabled=True",
+            "raw_file_browsing_enabled=True",
+            "raw_file_export_enabled=True",
+            "full_file_read_enabled=True",
+            "file_mutation_enabled=True",
+            "memory_write_enabled=True",
+            "context_injection_enabled=True",
+            "credentials_cookie_handling_enabled=True",
+            "external_saas_analytics_sdk_enabled=True",
+            "production_authority_enabled=True",
+            "execution_allowed=True",
+            "tool_enablement_allowed=True",
+            "/tools/expand",
+            "/tools/register",
+            "/tools/enable",
+            "/tools/run",
+            "/tools/execute",
+            "/shell/execute",
+            "/network/request",
+            "/provider/call",
+            "/models/call",
+            "/browser/click",
+            "/plugins/enable",
+            "/memory/write",
+            "/context/inject",
+        ]
+        allowed_files = {
+            "src/ultimate_ai_agent/api/app.py",
+            "src/ultimate_ai_agent/api/openapi.py",
+            "src/ultimate_ai_agent/core/gate/evaluators.py",
+            "src/ultimate_ai_agent/core/tools/expansion_review.py",
+            "apps/control-center/src/App.test.tsx",
+            "tests/test_m53_controlled_tool_expansion_review.py",
+            "tests/test_m53_gate_integration.py",
+        }
+        source_roots = [
+            self.root / "src",
+            self.root / "apps" / "control-center" / "src",
+            self.root / "apps" / "ccc-ios",
+        ]
+        for root in source_roots:
+            if not root.exists():
+                continue
+            candidate_files = []
+            for pattern in ("*.py", "*.ts", "*.tsx", "*.js", "*.jsx", "*.swift", "*.yml", "*.yaml"):
+                candidate_files.extend(root.rglob(pattern))
+            for path in sorted(candidate_files):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(self.root).as_posix()
+                if rel in allowed_files:
+                    continue
+                text = path.read_text(encoding="utf-8")
+                for fragment in forbidden_source_fragments:
+                    if fragment in text:
+                        failures.append(f"M53 forbidden controlled tool expansion fragment in {rel}: {fragment}")
+        return self._result(criterion, failures, [])
+
+    def check_m53_controlled_tool_expansion_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m53_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M53 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m53_roadmap_currentness(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        required_docs = [
+            "README.md",
+            "VERSION.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+            "docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md",
+            "docs/roadmap/MILESTONE_CHARTERS.md",
+        ]
+        failures = [
+            f"missing M53 roadmap doc: {path}"
+            for path in required_docs
+            if not (self.root / path).exists()
+        ]
+        text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_docs
+            if (self.root / path).exists()
+        )
+        if "v0.57.0" not in text or "m53" not in text or "controlled tool expansion review" not in text:
+            failures.append("active docs do not identify v0.57.0/M53 Controlled Tool Expansion Review")
+        if "m53 is implemented/released" not in text and "v0.57.0 implements m53" not in text:
+            failures.append("active docs do not mark M53 implemented/released")
+        if "m54-m60 remain planned/provisional" not in text:
+            failures.append("M54-M60 must remain planned/provisional after M53")
+        for fragment in (
+            "m54 is implemented",
+            "v0.58.0 implements m54",
+            "safe media metadata inspector is implemented",
+            "tool execution is implemented",
+            "shell execution is implemented",
+            "provider model call is implemented",
+            "context injection is implemented",
+            "production authority is implemented",
+        ):
+            if fragment in text:
+                failures.append(f"M53 docs imply forbidden/future capability: {fragment}")
         return self._result(criterion, failures, required_docs)
 
     def check_v0292_local_dev_api_authority_and_preview_safe(
@@ -13214,7 +13528,20 @@ class FoundationGateEvaluator:
         return tuple(int(part) for part in version.split("."))  # type: ignore[return-value]
 
     def _append_post_m48_mobile_status_failures(self, text: str, failures: List[str]) -> None:
-        if self._active_version_tuple() >= (0, 56, 0):
+        if self._active_version_tuple() >= (0, 57, 0):
+            if "m49 is implemented/released" not in text and "v0.53.0 implements m49" not in text:
+                failures.append("M49 must be implemented/released after v0.53.0")
+            if "m50 is implemented/released" not in text and "v0.54.0 implements m50" not in text:
+                failures.append("M50 must be implemented/released after v0.54.0")
+            if "m51 is implemented/released" not in text and "v0.55.0 implements m51" not in text:
+                failures.append("M51 must be implemented/released after v0.55.0")
+            if "m52 is implemented/released" not in text and "v0.56.0 implements m52" not in text:
+                failures.append("M52 must be implemented/released after v0.56.0")
+            if "m53 is implemented/released" not in text and "v0.57.0 implements m53" not in text:
+                failures.append("M53 must be implemented/released after v0.57.0")
+            if "m54-m60 remain planned/provisional" not in text:
+                failures.append("M54-M60 must remain planned/provisional after M53")
+        elif self._active_version_tuple() >= (0, 56, 0):
             if "m49 is implemented/released" not in text and "v0.53.0 implements m49" not in text:
                 failures.append("M49 must be implemented/released after v0.53.0")
             if "m50 is implemented/released" not in text and "v0.54.0 implements m50" not in text:

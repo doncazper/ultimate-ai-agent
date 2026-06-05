@@ -36,6 +36,11 @@ def _current_version() -> str:
     return match.group(0) if match else "v0.0.0"
 
 
+def _current_version_tuple() -> tuple[int, int, int]:
+    version = _current_version().lstrip("v")
+    return tuple(int(part) for part in version.split("."))  # type: ignore[return-value]
+
+
 SCAN_SEQUENCE = [
     ("generated artifact scan", "verify_no_generated_artifacts"),
     ("obvious secret scan", "verify_no_obvious_secrets"),
@@ -81,6 +86,7 @@ SCAN_SEQUENCE = [
     ("M50 mobile approval audit hardening scan", "verify_m50_mobile_approval_audit_hardening"),
     ("M51 OpenWebUI bridge adapter pilot scan", "verify_m51_openwebui_bridge_adapter_pilot"),
     ("M52 OpenWebUI safe conversation surface scan", "verify_m52_openwebui_safe_conversation_surface"),
+    ("M53 controlled tool expansion review scan", "verify_m53_controlled_tool_expansion_review"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -6662,7 +6668,7 @@ def verify_m52_openwebui_safe_conversation_surface():
         for rel_path in required_files
         if rel_path.startswith("docs/")
     )
-    for fragment in [
+    docs_fragments = [
         "openwebui safe conversation surface",
         "safe-summary-only",
         "agent core remains authority",
@@ -6677,8 +6683,10 @@ def verify_m52_openwebui_safe_conversation_surface():
         "no memory write",
         "no context injection",
         "no backend route",
-        "m53 remains future",
-    ]:
+    ]
+    if _current_version_tuple() < (0, 57, 0):
+        docs_fragments.append("m53 remains future")
+    for fragment in docs_fragments:
         if fragment not in docs_text:
             print(f"FAIL: M52 docs missing fragment: {fragment}")
             sys.exit(1)
@@ -6839,6 +6847,134 @@ def verify_m52_openwebui_safe_conversation_surface():
                     sys.exit(1)
 
     print("OK: M52 OpenWebUI safe conversation surface is safe-summary-only, no-route, no-runtime, and no-authority")
+
+
+def verify_m53_controlled_tool_expansion_review():
+    print("\n[Verifier] Running M53 controlled tool expansion review guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/tools/expansion_review.py",
+        "docs/tools/CONTROLLED_TOOL_EXPANSION_REVIEW.md",
+        "docs/tools/CONTROLLED_TOOL_EXPANSION_POLICY.md",
+        "docs/tools/CONTROLLED_TOOL_EXPANSION_AUTHORITY_BOUNDARY.md",
+        "docs/tools/M53_TO_M54_BOUNDARY.md",
+        "docs/release_notes/v0_57_0.md",
+        "docs/archive/releases/v0_57_0/README_IMPORT.md",
+        "docs/archive/releases/v0_57_0/master_plan.md",
+        "docs/implementation/foundation_gate_implementation_plan_v0_57_0.md",
+        "tests/test_m53_controlled_tool_expansion_review.py",
+        "tests/test_m53_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M53 controlled tool expansion file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = "\n".join(
+        (ROOT / rel_path).read_text(encoding="utf-8").lower()
+        for rel_path in required_files
+        if rel_path.startswith("docs/")
+    )
+    for fragment in [
+        "controlled tool expansion review",
+        "review-only",
+        "planning-only",
+        "no tool execution",
+        "no tool enablement",
+        "no shell execution",
+        "no unrestricted network tool",
+        "no provider model call",
+        "no browser automation execution",
+        "no plugin enablement",
+        "no mobile sensor access",
+        "no remote execution",
+        "no raw file browsing",
+        "no raw file export",
+        "no full-file read",
+        "no memory write",
+        "no context injection",
+        "no backend route",
+        "m54 remains future",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M53 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.evaluators import m53_openapi_route_failures
+        from ultimate_ai_agent.core.tools import (
+            ControlledToolExpansionCandidate,
+            ControlledToolExpansionPolicy,
+            ControlledToolExpansionReviewStatus,
+            ToolExpansionCapabilityKind,
+            evaluate_controlled_tool_expansion_candidate,
+            validate_controlled_tool_expansion_candidate,
+            validate_controlled_tool_expansion_policy,
+        )
+    except Exception as exc:
+        print(f"FAIL: M53 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m53_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    candidate = ControlledToolExpansionCandidate(
+        candidate_ref="tool-expansion-candidate:verify-all-m53",
+        safe_name="Metadata-only review candidate",
+        capability_kind=ToolExpansionCapabilityKind.safe_metadata_review,
+        safe_summary="Review future tool capability metadata without enablement.",
+    )
+    decision = evaluate_controlled_tool_expansion_candidate(candidate)
+    if decision.status != ControlledToolExpansionReviewStatus.review_ready:
+        print(f"FAIL: M53 safe candidate was not review-ready: {decision.reason_codes}")
+        sys.exit(1)
+    if not decision.review_allowed or decision.execution_allowed or decision.tool_enablement_allowed:
+        print("FAIL: M53 decision did not remain review-only")
+        sys.exit(1)
+    if decision.receipt_plan is None or decision.receipt_plan.execution_performed or decision.receipt_plan.tool_enabled:
+        print("FAIL: M53 receipt plan did not remain no-execution/no-enable")
+        sys.exit(1)
+
+    future_decision = evaluate_controlled_tool_expansion_candidate(
+        ControlledToolExpansionCandidate(
+            candidate_ref="tool-expansion-candidate:verify-all-m53-shell_execution",
+            safe_name="Future shell execution review",
+            capability_kind=ToolExpansionCapabilityKind.shell_execution,
+            safe_summary="Review a future tool capability without enabling it.",
+        )
+    )
+    if future_decision.status != ControlledToolExpansionReviewStatus.future_milestone:
+        print("FAIL: M53 effectful candidate did not require a future milestone")
+        sys.exit(1)
+
+    for candidate_update, reason in [
+        ({"execution_requested": True}, "TOOL_EXPANSION_EXECUTION_DENIED"),
+        ({"tool_enablement_requested": True}, "TOOL_ENABLEMENT_DENIED"),
+        ({"contains_raw_provider_payload": True}, "RAW_PROVIDER_PAYLOAD_DENIED"),
+        ({"approval_ref": "approval:verify-all-m53"}, "APPROVAL_REF_NOT_AUTHORITY"),
+    ]:
+        try:
+            validate_controlled_tool_expansion_candidate(candidate.model_copy(update=candidate_update))
+            print(f"FAIL: M53 unsafe candidate mutation was not denied: {reason}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M53 unsafe candidate reason drifted for {reason}: {exc}")
+                sys.exit(1)
+
+    try:
+        validate_controlled_tool_expansion_policy(ControlledToolExpansionPolicy(shell_execution_enabled=True))
+        print("FAIL: M53 unsafe policy flag was not denied")
+        sys.exit(1)
+    except ValueError as exc:
+        if "SHELL_EXECUTION_DENIED" not in str(exc):
+            print(f"FAIL: M53 unsafe policy reason drifted: {exc}")
+            sys.exit(1)
+
+    print("OK: M53 controlled tool expansion review is review-only, no-route, and no-authority")
 
 
 def verify_local_developer_launcher_safety():

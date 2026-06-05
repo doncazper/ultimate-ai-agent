@@ -636,3 +636,20 @@ Foundation Gate includes M52 safe conversation surface, route boundary, static s
 OpenAPI path count remains unchanged at 75.
 M53 remains planned/provisional as Controlled Tool Expansion Review.
 ```
+
+## v0.57.0 M53 Controlled Tool Expansion Review Tests
+
+v0.57.0 adds focused controlled tool expansion review tests only:
+
+```text
+Controlled tool expansion policy, candidate, decision, and receipt plan contracts exist.
+Safe metadata review candidates are review-ready only.
+Effectful tool capability candidates require a future reviewed milestone.
+Unknown tool capability candidates are denied.
+execution_requested, tool_enablement_requested, backend route requests, Control Center controls, raw prompt/provider/tool payload flags, secret-like content flags, and approval_ref-as-authority are denied.
+model_copy-mutated unsafe fields are revalidated at the evaluator boundary.
+Receipt plans record no tool execution, no tool enablement, no side effects, no network call, no model call, no memory write, and no context injection.
+Foundation Gate includes M53 controlled tool expansion review, static safety, route boundary, and roadmap currentness criteria.
+OpenAPI path count remains unchanged at 75.
+M54 remains planned/provisional as Safe Media Metadata Inspector.
+```

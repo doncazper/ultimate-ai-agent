@@ -12,22 +12,24 @@ allowed to become operational authority.
 
 | Field | Current state |
 |---|---|
-| Current active baseline | **v0.56.0** |
-| Current milestone | **M52 - OpenWebUI Safe Conversation Surface** |
+| Current active baseline | **v0.57.0** |
+| Current milestone | **M53 - Controlled Tool Expansion Review** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **75** OpenAPI paths |
 | Production readiness | Not claimed |
 
-v0.56.0 implements M52 OpenWebUI Safe Conversation Surface. It adds deterministic
-local safe-summary conversation surface contracts for future OpenWebUI shell
-review, safe conversation turn validation, surface policy checks, model_copy
-mutation revalidation, tests, documentation-integrity checks, static
-verification, and Foundation Gate coverage. It adds no live OpenWebUI
-connection, OpenWebUI runtime call, raw prompt exposure, raw provider payload
-exposure, raw content output, provider/model call, model authority, tool
-execution, memory write, context injection, backend route, dependency,
-production authority, or M53 implementation.
+v0.57.0 implements M53 Controlled Tool Expansion Review. It adds deterministic
+local review-only contracts for future tool expansion candidates, policy
+checks, future-milestone classification, no-execution/no-enable receipt plans,
+tests, documentation-integrity checks, static verification, and Foundation Gate
+coverage. It adds no shell/subprocess execution, unrestricted network tools,
+provider/model calls as authority, browser automation execution, plugin
+enablement, mobile sensor access, remote execution, raw file browsing/export,
+full-file reads, file mutation, memory write, context injection,
+credentials/cookie handling runtime, external SaaS/analytics SDK, backend
+route, Control Center control, dependency, production authority, or M54
+implementation.
 
 v0.29.5 is documentation policy polish. It remains the documentation
 organization cleanup baseline before the M26 and M27 implementation releases.
@@ -95,6 +97,10 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M52 OpenWebUI Safe Conversation Policy](docs/openwebui/OPENWEBUI_SAFE_CONVERSATION_POLICY.md)
 - [M52 OpenWebUI Safe Conversation Authority Boundary](docs/openwebui/OPENWEBUI_SAFE_CONVERSATION_AUTHORITY_BOUNDARY.md)
 - [M52 to M53 Boundary](docs/openwebui/M52_TO_M53_BOUNDARY.md)
+- [M53 Controlled Tool Expansion Review](docs/tools/CONTROLLED_TOOL_EXPANSION_REVIEW.md)
+- [M53 Controlled Tool Expansion Policy](docs/tools/CONTROLLED_TOOL_EXPANSION_POLICY.md)
+- [M53 Controlled Tool Expansion Authority Boundary](docs/tools/CONTROLLED_TOOL_EXPANSION_AUTHORITY_BOUNDARY.md)
+- [M53 to M54 Boundary](docs/tools/M53_TO_M54_BOUNDARY.md)
 - [M38 Context Proposal Receipt Plan](docs/context/CONTEXT_PROPOSAL_RECEIPT_PLAN.md)
 - [API route inventory](docs/api/route_inventory.md)
 - [Documentation organization policy](docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md)
@@ -112,9 +118,9 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M28 Action Policy](docs/approvals/ACTION_POLICY.md)
 - [M27 Tool Broker v2](docs/tools/TOOL_BROKER_V2.md)
 - [M26 Grounded Recall Router](docs/recall/GROUNDED_RECALL_ROUTER.md)
-- [v0.56.0 release notes](docs/release_notes/v0_56_0.md)
-- [v0.56.0 release packet](docs/archive/releases/v0_56_0/README_IMPORT.md)
-- [v0.56.0 master plan](docs/archive/releases/v0_56_0/master_plan.md)
+- [v0.57.0 release notes](docs/release_notes/v0_57_0.md)
+- [v0.57.0 release packet](docs/archive/releases/v0_57_0/README_IMPORT.md)
+- [v0.57.0 master plan](docs/archive/releases/v0_57_0/master_plan.md)
 
 ## What This Project Is
 
@@ -383,7 +389,7 @@ post-M33 supersession is
 | v0.54.0 | M50 - Mobile Approval Audit Hardening | Implemented/released audit hardening |
 | v0.55.0 | M51 - OpenWebUI Bridge Adapter Pilot | Implemented/released adapter pilot |
 | v0.56.0 | M52 - OpenWebUI Safe Conversation Surface | Implemented/released safe conversation surface |
-| v0.57.0 | M53 - Controlled Tool Expansion Review | Planned/provisional |
+| v0.57.0 | M53 - Controlled Tool Expansion Review | Implemented/released review-only |
 | v0.58.0 | M54 - Safe Media Metadata Inspector | Planned/provisional |
 | v0.59.0 | M55 - Redacted Observability Export | Planned/provisional |
 | v0.60.0 | M56 - Agent Eval Regression Harness | Planned/provisional |

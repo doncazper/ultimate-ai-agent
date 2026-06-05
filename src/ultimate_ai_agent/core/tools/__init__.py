@@ -45,6 +45,17 @@ from ultimate_ai_agent.core.tools.runtime import (
     build_tool_runtime_manifest,
     evaluate_tool_invocation,
 )
+from ultimate_ai_agent.core.tools.expansion_review import (
+    ControlledToolExpansionCandidate,
+    ControlledToolExpansionDecision,
+    ControlledToolExpansionPolicy,
+    ControlledToolExpansionReceiptPlan,
+    ControlledToolExpansionReviewStatus,
+    ToolExpansionCapabilityKind,
+    evaluate_controlled_tool_expansion_candidate,
+    validate_controlled_tool_expansion_candidate,
+    validate_controlled_tool_expansion_policy,
+)
 
 __all__ = [
     "ToolCategory",
@@ -84,4 +95,13 @@ __all__ = [
     "ToolRuntimePolicy",
     "build_tool_runtime_manifest",
     "evaluate_tool_invocation",
+    "ControlledToolExpansionCandidate",
+    "ControlledToolExpansionDecision",
+    "ControlledToolExpansionPolicy",
+    "ControlledToolExpansionReceiptPlan",
+    "ControlledToolExpansionReviewStatus",
+    "ToolExpansionCapabilityKind",
+    "evaluate_controlled_tool_expansion_candidate",
+    "validate_controlled_tool_expansion_candidate",
+    "validate_controlled_tool_expansion_policy",
 ]
