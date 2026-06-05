@@ -80,6 +80,7 @@ SCAN_SEQUENCE = [
     ("M49 mobile review approval capture scan", "verify_m49_mobile_review_approval_capture"),
     ("M50 mobile approval audit hardening scan", "verify_m50_mobile_approval_audit_hardening"),
     ("M51 OpenWebUI bridge adapter pilot scan", "verify_m51_openwebui_bridge_adapter_pilot"),
+    ("M52 OpenWebUI safe conversation surface scan", "verify_m52_openwebui_safe_conversation_surface"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -6632,6 +6633,212 @@ def verify_m51_openwebui_bridge_adapter_pilot():
                     sys.exit(1)
 
     print("OK: M51 OpenWebUI bridge adapter is safe-summary-only, no-route, no-runtime, and no-authority")
+
+
+def verify_m52_openwebui_safe_conversation_surface():
+    print("\n[Verifier] Running M52 OpenWebUI safe conversation surface guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/openwebui_bridge/conversation.py",
+        "src/ultimate_ai_agent/core/openwebui_bridge/contracts.py",
+        "src/ultimate_ai_agent/core/openwebui_bridge/validation.py",
+        "docs/openwebui/OPENWEBUI_SAFE_CONVERSATION_SURFACE.md",
+        "docs/openwebui/OPENWEBUI_SAFE_CONVERSATION_POLICY.md",
+        "docs/openwebui/OPENWEBUI_SAFE_CONVERSATION_AUTHORITY_BOUNDARY.md",
+        "docs/openwebui/M52_TO_M53_BOUNDARY.md",
+        "docs/release_notes/v0_56_0.md",
+        "docs/archive/releases/v0_56_0/README_IMPORT.md",
+        "docs/archive/releases/v0_56_0/master_plan.md",
+        "docs/implementation/foundation_gate_implementation_plan_v0_56_0.md",
+        "tests/test_m52_openwebui_safe_conversation_surface.py",
+        "tests/test_m52_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M52 OpenWebUI safe conversation file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = "\n".join(
+        (ROOT / rel_path).read_text(encoding="utf-8").lower()
+        for rel_path in required_files
+        if rel_path.startswith("docs/")
+    )
+    for fragment in [
+        "openwebui safe conversation surface",
+        "safe-summary-only",
+        "agent core remains authority",
+        "openwebui is not the agent brain",
+        "no raw prompt",
+        "no raw provider payload",
+        "no raw content",
+        "no provider call",
+        "no model call",
+        "no model authority",
+        "no tool execution",
+        "no memory write",
+        "no context injection",
+        "no backend route",
+        "m53 remains future",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M52 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.evaluators import m52_openapi_route_failures
+        from ultimate_ai_agent.core.openwebui_bridge import (
+            OpenWebUIMessageDirection,
+            OpenWebUISafeConversationSurfaceStatus,
+            OpenWebUISafeConversationTurn,
+            build_openwebui_safe_conversation_surface,
+        )
+    except Exception as exc:
+        print(f"FAIL: M52 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m52_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    turn = OpenWebUISafeConversationTurn(
+        turn_ref="openwebui-conversation-turn:verify-all-m52",
+        session_ref="openwebui-session:verify-all-m52",
+        message_ref="openwebui-message:verify-all-m52",
+        direction=OpenWebUIMessageDirection.user_to_agent_core_planned,
+        safe_summary="User asked for a safe OpenWebUI conversation summary.",
+    )
+    surface = build_openwebui_safe_conversation_surface(
+        conversation_ref="openwebui-safe-conversation:verify-all-m52",
+        session_ref="openwebui-session:verify-all-m52",
+        safe_title="Governed OpenWebUI conversation preview",
+        turns=[turn],
+    )
+    if surface.status != OpenWebUISafeConversationSurfaceStatus.safe_review_ready:
+        print(f"FAIL: M52 safe conversation surface did not return ready status: {surface.reason_codes}")
+        sys.exit(1)
+    for field_name in [
+        "openwebui_called",
+        "provider_called",
+        "model_called",
+        "model_output_authoritative",
+        "tool_executed",
+        "memory_written",
+        "context_injected",
+        "approval_granted",
+        "raw_prompt_returned",
+        "raw_provider_payload_returned",
+        "raw_content_returned",
+    ]:
+        if getattr(surface, field_name):
+            print(f"FAIL: M52 surface enabled forbidden field: {field_name}")
+            sys.exit(1)
+    if surface.side_effects_performed:
+        print("FAIL: M52 surface performed side effects")
+        sys.exit(1)
+    try:
+        build_openwebui_safe_conversation_surface(
+            conversation_ref="openwebui-safe-conversation:verify-all-m52-raw",
+            session_ref="openwebui-session:verify-all-m52",
+            safe_title="Mutated unsafe conversation",
+            turns=[turn.model_copy(update={"raw_provider_payload_present": True})],
+        )
+        print("FAIL: M52 raw provider payload mutation was not denied")
+        sys.exit(1)
+    except ValueError as exc:
+        if "RAW_PROVIDER_PAYLOAD_DENIED" not in str(exc):
+            print(f"FAIL: M52 raw provider payload rejection reason drifted: {exc}")
+            sys.exit(1)
+    try:
+        build_openwebui_safe_conversation_surface(
+            conversation_ref="openwebui-safe-conversation:verify-all-m52-approval",
+            session_ref="openwebui-session:verify-all-m52",
+            safe_title="Approval refs are not authority",
+            turns=[
+                turn.model_copy(
+                    update={
+                        "approval_ref": "approval:verify-all-m52",
+                        "tool_execution_requested": True,
+                    }
+                )
+            ],
+        )
+        print("FAIL: M52 approval_ref/tool execution mutation was not denied")
+        sys.exit(1)
+    except ValueError as exc:
+        if "APPROVAL_REF_NOT_AUTHORITY" not in str(exc):
+            print(f"FAIL: M52 approval-ref rejection reason drifted: {exc}")
+            sys.exit(1)
+
+    forbidden_source_fragments = [
+        "openwebui_runtime_call_requested=True",
+        "live_openwebui_connection_enabled=True",
+        "openwebui_network_call_enabled=True",
+        "provider_call_enabled=True",
+        "provider_call_requested=True",
+        "model_call_enabled=True",
+        "model_call_requested=True",
+        "model_authority_enabled=True",
+        "model_authority_requested=True",
+        "tool_execution_enabled=True",
+        "tool_execution_requested=True",
+        "memory_write_enabled=True",
+        "memory_write_requested=True",
+        "context_injection_enabled=True",
+        "context_injection_requested=True",
+        "raw_prompt_exposure_enabled=True",
+        "raw_prompt_present=True",
+        "raw_provider_payload_exposure_enabled=True",
+        "raw_provider_payload_present=True",
+        "raw_content_allowed=True",
+        "raw_content_present=True",
+        "openwebui_called=True",
+        "provider_called=True",
+        "model_called=True",
+        "tool_executed=True",
+        "memory_written=True",
+        "context_injected=True",
+        "/openwebui/conversation",
+        "/openwebui/runtime/call",
+        "/openwebui/provider/call",
+        "/openwebui/model/call",
+        "/openwebui/tools/execute",
+        "/openwebui/memory/write",
+        "/openwebui/context/inject",
+        "/openwebui/raw-payload",
+        "import openwebui\n",
+        "from openwebui",
+    ]
+    allowed_files = {
+        "scripts/verify_all.py",
+        "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/openwebui_bridge/contracts.py",
+        "src/ultimate_ai_agent/core/openwebui_bridge/validation.py",
+        "tests/test_m52_openwebui_safe_conversation_surface.py",
+        "tests/test_m52_gate_integration.py",
+    }
+    source_roots = [
+        ROOT / "src",
+        ROOT / "apps" / "control-center" / "src",
+        ROOT / "apps" / "ccc-ios",
+    ]
+    for root in source_roots:
+        if not root.exists():
+            continue
+        for path in root.rglob("*"):
+            if not path.is_file() or path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}:
+                continue
+            rel = path.relative_to(ROOT).as_posix()
+            if rel in allowed_files:
+                continue
+            text = path.read_text(encoding="utf-8")
+            for fragment in forbidden_source_fragments:
+                if fragment in text:
+                    print(f"FAIL: M52 forbidden OpenWebUI safe conversation fragment in {rel}: {fragment}")
+                    sys.exit(1)
+
+    print("OK: M52 OpenWebUI safe conversation surface is safe-summary-only, no-route, no-runtime, and no-authority")
 
 
 def verify_local_developer_launcher_safety():

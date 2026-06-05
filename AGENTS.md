@@ -1,6 +1,6 @@
 # Ultimate AI Agent Workspace Standards
 
-Active baseline: v0.54.0.
+Active baseline: v0.56.0.
 
 This repository is the Ultimate AI Agent foundation workspace. Treat it as a contract-first Python core, not a production runtime integration layer.
 
@@ -94,6 +94,7 @@ This repository is the Ultimate AI Agent foundation workspace. Treat it as a con
 - v0.53.0 M49 Mobile Review Approval Capture adds exact-scope, actor-bound, resource-bound, replay-safe, revocable, review-only mobile approval capture contracts and safe-ref-only persistence. Do not use v0.53.0 to add raw file access, raw content output, full-file read output, unredacted preview, raw absolute paths, context proposal, context injection, memory writes, export, approval execution, tool execution, action execution, mobile sensor access, background collection, backend mobile approval routes, native approval capture UI, dependencies, M50 work, or production authority.
 - v0.54.0 M50 Mobile Approval Audit Hardening adds deterministic safe-ref-only audit reports over M49 mobile review approval records, status/decision consistency checks, duplicate idempotency mismatch detection, and model_copy mutation revalidation. Do not use v0.54.0 to add raw file access, raw content output, full-file read output, unredacted preview, raw absolute paths, context proposal, context injection, memory writes, export, approval execution, tool execution, action execution, mobile sensor access, background collection, backend mobile audit routes, native audit UI, dependencies, M51 work, or production authority.
 - v0.55.0 M51 OpenWebUI Bridge Adapter Pilot adds deterministic local safe-summary adapter contracts for future OpenWebUI shell integration. Agent Core remains authority and OpenWebUI is not the agent brain. Do not use v0.55.0 to add live OpenWebUI connections, OpenWebUI runtime calls, raw prompt exposure, raw provider payload exposure, provider/model calls, model authority, tool execution, memory writes, context injection, backend OpenWebUI routes, dependencies, M52 work, or production authority.
+- v0.56.0 M52 OpenWebUI Safe Conversation Surface adds deterministic local safe-summary conversation surface contracts for future OpenWebUI shell review. Agent Core remains authority and OpenWebUI is not the agent brain. Do not use v0.56.0 to add live OpenWebUI connections, OpenWebUI runtime calls, raw prompt exposure, raw provider payload exposure, raw content output, provider/model calls, model authority, tool execution, memory writes, context injection, backend OpenWebUI routes, dependencies, M53 work, or production authority.
 - API validation errors must be sanitized and must never echo raw invalid input values or secret-like field values.
 
 ## Workspace

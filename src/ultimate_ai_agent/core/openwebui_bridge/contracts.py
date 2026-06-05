@@ -10,6 +10,7 @@ from ultimate_ai_agent.core.openwebui_bridge.enums import (
     OpenWebUIBridgeStatus,
     OpenWebUIContentMode,
     OpenWebUIMessageDirection,
+    OpenWebUISafeConversationSurfaceStatus,
     OpenWebUISurfaceRole,
 )
 
@@ -246,5 +247,83 @@ class OpenWebUIBridgeAdapterResult(_OpenWebUIBridgeContractModel):
     context_injected: bool = False
     approval_granted: bool = False
     side_effects_performed: list[str] = Field(default_factory=list)
+    metadata_refs: list[str] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class OpenWebUISafeConversationSurfacePolicy(_OpenWebUIBridgeContractModel):
+    surface_policy_ref: str = "openwebui-safe-conversation-policy:m52"
+    baseline_version: str = "0.56.0"
+    status: OpenWebUIBridgeStatus = OpenWebUIBridgeStatus.safe_conversation_surface
+    safe_summary_only: bool = True
+    agent_core_remains_authority: bool = True
+    openwebui_is_agent_brain: bool = False
+    live_openwebui_connection_enabled: bool = False
+    openwebui_runtime_call_enabled: bool = False
+    openwebui_network_call_enabled: bool = False
+    provider_call_enabled: bool = False
+    model_call_enabled: bool = False
+    model_authority_enabled: bool = False
+    tool_execution_enabled: bool = False
+    memory_write_enabled: bool = False
+    context_injection_enabled: bool = False
+    approval_ref_authority_enabled: bool = False
+    raw_prompt_exposure_enabled: bool = False
+    raw_provider_payload_exposure_enabled: bool = False
+    raw_content_allowed: bool = False
+    docs_refs: list[str] = Field(default_factory=list)
+    metadata_refs: list[str] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class OpenWebUISafeConversationTurn(_OpenWebUIBridgeContractModel):
+    turn_ref: str = Field(..., min_length=1)
+    session_ref: str = Field(..., min_length=1)
+    message_ref: str = Field(..., min_length=1)
+    direction: OpenWebUIMessageDirection
+    content_mode: OpenWebUIContentMode = OpenWebUIContentMode.summary_only
+    safe_summary: str = Field(..., min_length=1)
+    approval_ref: str | None = None
+    raw_prompt_present: bool = False
+    raw_provider_payload_present: bool = False
+    raw_content_present: bool = False
+    secret_like_content_present: bool = False
+    provider_call_requested: bool = False
+    model_call_requested: bool = False
+    model_authority_requested: bool = False
+    model_output_authoritative: bool = False
+    tool_execution_requested: bool = False
+    memory_write_requested: bool = False
+    context_injection_requested: bool = False
+    openwebui_runtime_call_requested: bool = False
+    event_refs: list[str] = Field(default_factory=list)
+    receipt_refs: list[str] = Field(default_factory=list)
+    metadata_refs: list[str] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class OpenWebUISafeConversationSurface(_OpenWebUIBridgeContractModel):
+    conversation_ref: str = Field(..., min_length=1)
+    session_ref: str = Field(..., min_length=1)
+    status: OpenWebUISafeConversationSurfaceStatus = (
+        OpenWebUISafeConversationSurfaceStatus.safe_review_ready
+    )
+    content_mode: OpenWebUIContentMode = OpenWebUIContentMode.summary_only
+    safe_title: str = Field(..., min_length=1)
+    turns: list[OpenWebUISafeConversationTurn] = Field(default_factory=list)
+    reason_codes: list[str] = Field(default_factory=list)
+    openwebui_called: bool = False
+    provider_called: bool = False
+    model_called: bool = False
+    model_output_authoritative: bool = False
+    tool_executed: bool = False
+    memory_written: bool = False
+    context_injected: bool = False
+    approval_granted: bool = False
+    raw_prompt_returned: bool = False
+    raw_provider_payload_returned: bool = False
+    raw_content_returned: bool = False
+    side_effects_performed: list[str] = Field(default_factory=list)
+    docs_refs: list[str] = Field(default_factory=list)
     metadata_refs: list[str] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)

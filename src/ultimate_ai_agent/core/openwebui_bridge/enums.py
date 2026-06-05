@@ -5,6 +5,7 @@ class OpenWebUIBridgeStatus(str, Enum):
     contract_only = "contract_only"
     planned_disabled = "planned_disabled"
     adapter_pilot = "adapter_pilot"
+    safe_conversation_surface = "safe_conversation_surface"
     blocked = "blocked"
     future_requires_review = "future_requires_review"
     not_implemented = "not_implemented"
@@ -53,6 +54,12 @@ class OpenWebUIBridgeDecisionStatus(str, Enum):
 
 class OpenWebUIBridgeAdapterStatus(str, Enum):
     safe_summary_ready = "safe_summary_ready"
+    denied = "denied"
+    blocked = "blocked"
+
+
+class OpenWebUISafeConversationSurfaceStatus(str, Enum):
+    safe_review_ready = "safe_review_ready"
     denied = "denied"
     blocked = "blocked"
 

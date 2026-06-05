@@ -619,3 +619,20 @@ Foundation Gate includes M51 adapter pilot, route boundary, static safety, and r
 OpenAPI path count remains unchanged at 75.
 M52 remains planned/provisional as OpenWebUI Safe Conversation Surface.
 ```
+
+## v0.56.0 M52 OpenWebUI Safe Conversation Surface Tests
+
+v0.56.0 adds focused OpenWebUI safe conversation surface tests only:
+
+```text
+OpenWebUI safe conversation surface policy, turn, and surface contracts exist.
+Surface output is safe-summary-only and returns safe refs plus safe metadata.
+Agent Core remains authority and OpenWebUI is not the agent brain.
+raw prompt exposure, raw provider payload exposure, raw content, live OpenWebUI connection,
+OpenWebUI runtime calls, provider/model calls, model authority, tool execution, memory writes,
+context injection, side effects, and approval_ref-as-authority are denied.
+model_copy-mutated unsafe fields are revalidated at the conversation surface boundary.
+Foundation Gate includes M52 safe conversation surface, route boundary, static safety, and roadmap currentness criteria.
+OpenAPI path count remains unchanged at 75.
+M53 remains planned/provisional as Controlled Tool Expansion Review.
+```

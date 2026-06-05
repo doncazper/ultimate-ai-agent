@@ -3,10 +3,10 @@ from collections.abc import Mapping
 from typing import Any
 
 from ultimate_ai_agent.core.openwebui_bridge.contracts import (
-    OpenWebUIBridgeManifest,
     OpenWebUIBridgeAdapterPolicy,
     OpenWebUIBridgeAdapterRequest,
     OpenWebUIBridgeAdapterResult,
+    OpenWebUIBridgeManifest,
     OpenWebUIBridgePlan,
     OpenWebUIBridgeReceiptPlan,
     OpenWebUIBridgeValidationDecision,
@@ -14,6 +14,9 @@ from ultimate_ai_agent.core.openwebui_bridge.contracts import (
     OpenWebUIChatIngressEnvelope,
     OpenWebUIChatSessionRef,
     OpenWebUIMessageRef,
+    OpenWebUISafeConversationSurface,
+    OpenWebUISafeConversationSurfacePolicy,
+    OpenWebUISafeConversationTurn,
     OpenWebUITranscriptRef,
 )
 from ultimate_ai_agent.core.openwebui_bridge.enums import (
@@ -332,6 +335,121 @@ def validate_openwebui_bridge_adapter_result(
     if result.side_effects_performed:
         raise ValueError("SIDE_EFFECTS_DENIED")
     return result
+
+
+def validate_openwebui_safe_conversation_surface_policy(
+    policy: OpenWebUISafeConversationSurfacePolicy,
+) -> OpenWebUISafeConversationSurfacePolicy:
+    _assert_safe_text(policy.surface_policy_ref)
+    _assert_metadata_refs_only(policy.docs_refs)
+    _assert_metadata_refs_only(policy.metadata_refs)
+    _assert_safe_metadata(policy.metadata)
+    if policy.status != OpenWebUIBridgeStatus.safe_conversation_surface:
+        raise ValueError("M52 OpenWebUI conversation policy must remain safe_conversation_surface")
+    if not policy.safe_summary_only:
+        raise ValueError("SAFE_SUMMARY_ONLY_REQUIRED")
+    if not policy.agent_core_remains_authority:
+        raise ValueError("AGENT_CORE_AUTHORITY_REQUIRED")
+    if policy.openwebui_is_agent_brain:
+        raise ValueError("OPENWEBUI_AGENT_BRAIN_DENIED")
+    flag_reasons = [
+        ("live_openwebui_connection_enabled", "LIVE_OPENWEBUI_CONNECTION_DENIED"),
+        ("openwebui_runtime_call_enabled", "OPENWEBUI_RUNTIME_CALL_DENIED"),
+        ("openwebui_network_call_enabled", "OPENWEBUI_NETWORK_CALL_DENIED"),
+        ("provider_call_enabled", "PROVIDER_CALL_DENIED"),
+        ("model_call_enabled", "MODEL_CALL_DENIED"),
+        ("model_authority_enabled", "MODEL_AUTHORITY_DENIED"),
+        ("tool_execution_enabled", "TOOL_EXECUTION_DENIED"),
+        ("memory_write_enabled", "MEMORY_WRITE_DENIED"),
+        ("context_injection_enabled", "CONTEXT_INJECTION_DENIED"),
+        ("approval_ref_authority_enabled", "APPROVAL_REF_NOT_AUTHORITY"),
+        ("raw_prompt_exposure_enabled", "RAW_PROMPT_DENIED"),
+        ("raw_provider_payload_exposure_enabled", "RAW_PROVIDER_PAYLOAD_DENIED"),
+        ("raw_content_allowed", "RAW_CONTENT_DENIED"),
+    ]
+    for field_name, reason in flag_reasons:
+        if getattr(policy, field_name):
+            raise ValueError(reason)
+    return policy
+
+
+def validate_openwebui_safe_conversation_turn(
+    turn: OpenWebUISafeConversationTurn,
+) -> OpenWebUISafeConversationTurn:
+    _assert_safe_text(turn.turn_ref)
+    _assert_safe_text(turn.session_ref)
+    _assert_safe_text(turn.message_ref)
+    _assert_safe_text(turn.safe_summary)
+    _assert_metadata_refs_only(turn.event_refs)
+    _assert_metadata_refs_only(turn.receipt_refs)
+    _assert_metadata_refs_only(turn.metadata_refs)
+    _assert_safe_metadata(turn.metadata)
+    _assert_allowed_content_mode(turn.content_mode)
+    if turn.approval_ref is not None:
+        _assert_safe_text(turn.approval_ref)
+    if turn.raw_prompt_present:
+        raise ValueError("RAW_PROMPT_DENIED")
+    if turn.raw_provider_payload_present:
+        raise ValueError("RAW_PROVIDER_PAYLOAD_DENIED")
+    if turn.raw_content_present:
+        raise ValueError("RAW_CONTENT_DENIED")
+    if turn.secret_like_content_present:
+        raise ValueError("SECRET_LIKE_CONTENT_DENIED")
+    if turn.provider_call_requested:
+        raise ValueError("PROVIDER_CALL_DENIED")
+    if turn.model_call_requested:
+        raise ValueError("MODEL_CALL_DENIED")
+    if turn.model_authority_requested or turn.model_output_authoritative:
+        raise ValueError("MODEL_AUTHORITY_DENIED")
+    if turn.tool_execution_requested:
+        if turn.approval_ref:
+            raise ValueError("APPROVAL_REF_NOT_AUTHORITY")
+        raise ValueError("TOOL_EXECUTION_DENIED")
+    if turn.memory_write_requested:
+        if turn.approval_ref:
+            raise ValueError("APPROVAL_REF_NOT_AUTHORITY")
+        raise ValueError("MEMORY_WRITE_DENIED")
+    if turn.context_injection_requested:
+        if turn.approval_ref:
+            raise ValueError("APPROVAL_REF_NOT_AUTHORITY")
+        raise ValueError("CONTEXT_INJECTION_DENIED")
+    if turn.openwebui_runtime_call_requested:
+        raise ValueError("OPENWEBUI_RUNTIME_CALL_DENIED")
+    return turn
+
+
+def validate_openwebui_safe_conversation_surface(
+    surface: OpenWebUISafeConversationSurface,
+) -> OpenWebUISafeConversationSurface:
+    _assert_safe_text(surface.conversation_ref)
+    _assert_safe_text(surface.session_ref)
+    _assert_safe_text(surface.safe_title)
+    _assert_metadata_refs_only(surface.reason_codes)
+    _assert_metadata_refs_only(surface.side_effects_performed)
+    _assert_metadata_refs_only(surface.docs_refs)
+    _assert_metadata_refs_only(surface.metadata_refs)
+    _assert_safe_metadata(surface.metadata)
+    _assert_allowed_content_mode(surface.content_mode)
+    for turn in surface.turns:
+        validate_openwebui_safe_conversation_turn(turn)
+    for field_name, reason in [
+        ("openwebui_called", "OPENWEBUI_RUNTIME_CALL_DENIED"),
+        ("provider_called", "PROVIDER_CALL_DENIED"),
+        ("model_called", "MODEL_CALL_DENIED"),
+        ("model_output_authoritative", "MODEL_AUTHORITY_DENIED"),
+        ("tool_executed", "TOOL_EXECUTION_DENIED"),
+        ("memory_written", "MEMORY_WRITE_DENIED"),
+        ("context_injected", "CONTEXT_INJECTION_DENIED"),
+        ("approval_granted", "APPROVAL_REF_NOT_AUTHORITY"),
+        ("raw_prompt_returned", "RAW_PROMPT_DENIED"),
+        ("raw_provider_payload_returned", "RAW_PROVIDER_PAYLOAD_DENIED"),
+        ("raw_content_returned", "RAW_CONTENT_DENIED"),
+    ]:
+        if getattr(surface, field_name):
+            raise ValueError(reason)
+    if surface.side_effects_performed:
+        raise ValueError("SIDE_EFFECTS_DENIED")
+    return surface
 
 
 def assert_openwebui_contract_only(

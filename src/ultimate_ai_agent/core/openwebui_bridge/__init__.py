@@ -1,8 +1,8 @@
 from ultimate_ai_agent.core.openwebui_bridge.contracts import (
-    OpenWebUIBridgeManifest,
     OpenWebUIBridgeAdapterPolicy,
     OpenWebUIBridgeAdapterRequest,
     OpenWebUIBridgeAdapterResult,
+    OpenWebUIBridgeManifest,
     OpenWebUIBridgePlan,
     OpenWebUIBridgeReceiptPlan,
     OpenWebUIBridgeValidationDecision,
@@ -10,6 +10,9 @@ from ultimate_ai_agent.core.openwebui_bridge.contracts import (
     OpenWebUIChatIngressEnvelope,
     OpenWebUIChatSessionRef,
     OpenWebUIMessageRef,
+    OpenWebUISafeConversationSurface,
+    OpenWebUISafeConversationSurfacePolicy,
+    OpenWebUISafeConversationTurn,
     OpenWebUITranscriptRef,
 )
 from ultimate_ai_agent.core.openwebui_bridge.enums import (
@@ -20,12 +23,18 @@ from ultimate_ai_agent.core.openwebui_bridge.enums import (
     OpenWebUIContentMode,
     OpenWebUIMessageDirection,
     OpenWebUIRiskLevel,
+    OpenWebUISafeConversationSurfaceStatus,
     OpenWebUISurfaceRole,
 )
 from ultimate_ai_agent.core.openwebui_bridge.adapter import (
     M51_OPENWEBUI_DOCS,
     adapt_openwebui_bridge_request,
     build_default_openwebui_bridge_adapter_policy,
+)
+from ultimate_ai_agent.core.openwebui_bridge.conversation import (
+    M52_OPENWEBUI_DOCS,
+    build_default_openwebui_safe_conversation_policy,
+    build_openwebui_safe_conversation_surface,
 )
 from ultimate_ai_agent.core.openwebui_bridge.manifests import (
     M21_OPENWEBUI_DOCS,
@@ -60,12 +69,16 @@ from ultimate_ai_agent.core.openwebui_bridge.validation import (
     validate_openwebui_chat_ingress_envelope,
     validate_openwebui_chat_session_ref,
     validate_openwebui_message_ref,
+    validate_openwebui_safe_conversation_surface,
+    validate_openwebui_safe_conversation_surface_policy,
+    validate_openwebui_safe_conversation_turn,
     validate_openwebui_transcript_ref,
 )
 
 __all__ = [
     "M21_OPENWEBUI_DOCS",
     "M51_OPENWEBUI_DOCS",
+    "M52_OPENWEBUI_DOCS",
     "OpenWebUIAuthorityBoundary",
     "OpenWebUIBridgeAdapterPolicy",
     "OpenWebUIBridgeAdapterRequest",
@@ -84,6 +97,10 @@ __all__ = [
     "OpenWebUIMessageDirection",
     "OpenWebUIMessageRef",
     "OpenWebUIRiskLevel",
+    "OpenWebUISafeConversationSurface",
+    "OpenWebUISafeConversationSurfacePolicy",
+    "OpenWebUISafeConversationSurfaceStatus",
+    "OpenWebUISafeConversationTurn",
     "OpenWebUISurfaceRole",
     "OpenWebUITranscriptRef",
     "assert_agent_core_authority_boundary",
@@ -99,6 +116,8 @@ __all__ = [
     "build_default_openwebui_bridge_adapter_policy",
     "build_default_openwebui_bridge_manifest",
     "build_default_openwebui_bridge_plan",
+    "build_default_openwebui_safe_conversation_policy",
+    "build_openwebui_safe_conversation_surface",
     "build_openwebui_bridge_receipt_plan",
     "classify_openwebui_bridge_risk",
     "default_openwebui_bridge_decision_status",
@@ -113,5 +132,8 @@ __all__ = [
     "validate_openwebui_chat_ingress_envelope",
     "validate_openwebui_chat_session_ref",
     "validate_openwebui_message_ref",
+    "validate_openwebui_safe_conversation_surface",
+    "validate_openwebui_safe_conversation_surface_policy",
+    "validate_openwebui_safe_conversation_turn",
     "validate_openwebui_transcript_ref",
 ]

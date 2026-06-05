@@ -791,6 +791,15 @@ M51_FORBIDDEN_BACKEND_ROUTES = (
     "/openwebui/raw-prompt",
     "/openwebui/provider-payload",
 )
+EXPECTED_M52_OPENAPI_PATH_COUNT = 75
+M52_FORBIDDEN_BACKEND_ROUTES = M51_FORBIDDEN_BACKEND_ROUTES + (
+    "/openwebui/conversation",
+    "/openwebui/conversation/send",
+    "/openwebui/conversation/raw",
+    "/openwebui/conversation/provider-payload",
+    "/openwebui/conversation/context",
+    "/openwebui/conversation/memory",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -1320,6 +1329,19 @@ def m51_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
     return failures
 
 
+def m52_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M52_OPENAPI_PATH_COUNT) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+    if M37_ALLOWED_CAPTURE_ROUTE not in path_set:
+        failures.append("M37 capture route missing: /files/review/approvals/capture")
+    for route in M52_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(f"M52 forbidden OpenWebUI conversation backend route present: {route}")
+    return failures
+
+
 M36_SAFE_REF_PREFIXES = {
     "reviewPacketRef": "file-review-packet:",
     "previewResultRef": "redacted-file-preview-output:",
@@ -1738,6 +1760,14 @@ class FoundationGateEvaluator:
             "m51_openwebui_adapter_static_safety": self.check_m51_openwebui_adapter_static_safety,
             "m51_openwebui_adapter_route_boundary": self.check_m51_openwebui_adapter_route_boundary,
             "m51_roadmap_currentness": self.check_m51_roadmap_currentness,
+            "m52_openwebui_safe_conversation_surface": self.check_m52_openwebui_safe_conversation_surface,
+            "m52_openwebui_safe_conversation_static_safety": (
+                self.check_m52_openwebui_safe_conversation_static_safety
+            ),
+            "m52_openwebui_safe_conversation_route_boundary": (
+                self.check_m52_openwebui_safe_conversation_route_boundary
+            ),
+            "m52_roadmap_currentness": self.check_m52_roadmap_currentness,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -9062,6 +9092,7 @@ class FoundationGateEvaluator:
                 and "m50-m60 remain planned/provisional" not in text
                 and "m51-m60 remain planned/provisional" not in text
                 and "m52-m60 remain planned/provisional" not in text
+                and "m53-m60 remain planned/provisional" not in text
             ):
                 failures.append("M42-M60 through M49-M60 planned/provisional marker missing after M41")
         elif current_tuple >= (0, 44, 0):
@@ -9365,6 +9396,7 @@ class FoundationGateEvaluator:
                 and "m50-m60 remain planned/provisional" not in text
                 and "m51-m60 remain planned/provisional" not in text
                 and "m52-m60 remain planned/provisional" not in text
+                and "m53-m60 remain planned/provisional" not in text
             ):
                 failures.append("M42-M60 through M49-M60 planned/provisional marker missing after M41")
         elif version_tuple >= (0, 44, 0):
@@ -9541,6 +9573,7 @@ class FoundationGateEvaluator:
                 and "m50-m60 remain planned/provisional" not in text
                 and "m51-m60 remain planned/provisional" not in text
                 and "m52-m60 remain planned/provisional" not in text
+                and "m53-m60 remain planned/provisional" not in text
             ):
                 failures.append("M42-M60 through M49-M60 planned/provisional marker missing after M41")
         elif version_tuple >= (0, 44, 0):
@@ -9693,6 +9726,7 @@ class FoundationGateEvaluator:
                 and "m50-m60 remain planned/provisional" not in text
                 and "m51-m60 remain planned/provisional" not in text
                 and "m52-m60 remain planned/provisional" not in text
+                and "m53-m60 remain planned/provisional" not in text
             ):
                 failures.append("M42-M60 through M49-M60 planned/provisional marker missing after M41")
         elif version_tuple >= (0, 44, 0):
@@ -9961,6 +9995,7 @@ class FoundationGateEvaluator:
                 and "m50-m60 remain planned/provisional" not in text
                 and "m51-m60 remain planned/provisional" not in text
                 and "m52-m60 remain planned/provisional" not in text
+                and "m53-m60 remain planned/provisional" not in text
             ):
                 failures.append("M42-M60 through M49-M60 planned/provisional marker missing after M41")
         elif current >= (0, 44, 0):
@@ -10114,6 +10149,7 @@ class FoundationGateEvaluator:
                 and "m50-m60 remain planned/provisional" not in text
                 and "m51-m60 remain planned/provisional" not in text
                 and "m52-m60 remain planned/provisional" not in text
+                and "m53-m60 remain planned/provisional" not in text
             ):
                 failures.append("M42-M60 through M49-M60 planned/provisional marker missing after M41")
         elif m40_implemented:
@@ -10341,6 +10377,7 @@ class FoundationGateEvaluator:
                 and "m50-m60 remain planned/provisional" not in text
                 and "m51-m60 remain planned/provisional" not in text
                 and "m52-m60 remain planned/provisional" not in text
+                and "m53-m60 remain planned/provisional" not in text
             ):
                 failures.append("M42-M60 through M49-M60 planned/provisional marker missing after M41")
         elif "m41 remains planned/provisional" not in text and "m41-m60 remain planned/provisional" not in text:
@@ -12004,7 +12041,16 @@ class FoundationGateEvaluator:
             failures.append("active docs do not identify v0.53.0/M49 Mobile Review Approval Capture")
         if "m49 is implemented/released" not in text and "v0.53.0 implements m49" not in text:
             failures.append("active docs do not mark M49 implemented/released")
-        if self._active_version_tuple() >= (0, 55, 0):
+        if self._active_version_tuple() >= (0, 56, 0):
+            if "m50 is implemented/released" not in text and "v0.54.0 implements m50" not in text:
+                failures.append("M50 must be implemented/released after v0.54.0")
+            if "m51 is implemented/released" not in text and "v0.55.0 implements m51" not in text:
+                failures.append("M51 must be implemented/released after v0.55.0")
+            if "m52 is implemented/released" not in text and "v0.56.0 implements m52" not in text:
+                failures.append("M52 must be implemented/released after v0.56.0")
+            if "m53-m60 remain planned/provisional" not in text:
+                failures.append("M53-M60 must remain planned/provisional after M52")
+        elif self._active_version_tuple() >= (0, 55, 0):
             if "m50 is implemented/released" not in text and "v0.54.0 implements m50" not in text:
                 failures.append("M50 must be implemented/released after v0.54.0")
             if "m51 is implemented/released" not in text and "v0.55.0 implements m51" not in text:
@@ -12242,7 +12288,14 @@ class FoundationGateEvaluator:
             failures.append("active docs do not identify v0.54.0/M50 Mobile Approval Audit Hardening")
         if "m50 is implemented/released" not in text and "v0.54.0 implements m50" not in text:
             failures.append("active docs do not mark M50 implemented/released")
-        if self._active_version_tuple() >= (0, 55, 0):
+        if self._active_version_tuple() >= (0, 56, 0):
+            if "m51 is implemented/released" not in text and "v0.55.0 implements m51" not in text:
+                failures.append("M51 must be implemented/released after v0.55.0")
+            if "m52 is implemented/released" not in text and "v0.56.0 implements m52" not in text:
+                failures.append("M52 must be implemented/released after v0.56.0")
+            if "m53-m60 remain planned/provisional" not in text:
+                failures.append("M53-M60 must remain planned/provisional after M52")
+        elif self._active_version_tuple() >= (0, 55, 0):
             if "m51 is implemented/released" not in text and "v0.55.0 implements m51" not in text:
                 failures.append("M51 must be implemented/released after v0.55.0")
             if "m52-m60 remain planned/provisional" not in text:
@@ -12468,18 +12521,273 @@ class FoundationGateEvaluator:
             failures.append("active docs do not identify v0.55.0/M51 OpenWebUI Bridge Adapter Pilot")
         if "m51 is implemented/released" not in text and "v0.55.0 implements m51" not in text:
             failures.append("active docs do not mark M51 implemented/released")
-        if "m52-m60 remain planned/provisional" not in text:
+        if self._active_version_tuple() >= (0, 56, 0):
+            if "m52 is implemented/released" not in text and "v0.56.0 implements m52" not in text:
+                failures.append("M52 must be implemented/released after v0.56.0")
+            if "m53-m60 remain planned/provisional" not in text:
+                failures.append("M53-M60 must remain planned/provisional after M52")
+        elif "m52-m60 remain planned/provisional" not in text:
             failures.append("M52-M60 must remain planned/provisional after M51")
-        for fragment in (
-            "m52 is implemented",
-            "v0.56.0 implements m52",
-            "openwebui safe conversation surface is implemented",
+        forbidden_fragments = [
             "openwebui tool execution is implemented",
+            "context injection is implemented",
+            "production authority is implemented",
+        ]
+        if self._active_version_tuple() < (0, 56, 0):
+            forbidden_fragments.extend(
+                [
+                    "m52 is implemented",
+                    "v0.56.0 implements m52",
+                    "openwebui safe conversation surface is implemented",
+                ]
+            )
+        for fragment in forbidden_fragments:
+            if fragment in text:
+                failures.append(f"M51 docs imply forbidden/future capability: {fragment}")
+        return self._result(criterion, failures, required_docs)
+
+    def check_m52_openwebui_safe_conversation_surface(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/openwebui_bridge/conversation.py",
+            "src/ultimate_ai_agent/core/openwebui_bridge/contracts.py",
+            "src/ultimate_ai_agent/core/openwebui_bridge/validation.py",
+            "docs/openwebui/OPENWEBUI_SAFE_CONVERSATION_SURFACE.md",
+            "docs/openwebui/OPENWEBUI_SAFE_CONVERSATION_POLICY.md",
+            "docs/openwebui/OPENWEBUI_SAFE_CONVERSATION_AUTHORITY_BOUNDARY.md",
+            "docs/openwebui/M52_TO_M53_BOUNDARY.md",
+            "tests/test_m52_openwebui_safe_conversation_surface.py",
+        ]
+        failures = [
+            f"missing M52 OpenWebUI safe conversation file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            from ultimate_ai_agent.core.openwebui_bridge import (
+                OpenWebUIMessageDirection,
+                OpenWebUISafeConversationSurfaceStatus,
+                OpenWebUISafeConversationTurn,
+                build_openwebui_safe_conversation_surface,
+            )
+
+            turn = OpenWebUISafeConversationTurn(
+                turn_ref="openwebui-conversation-turn:m52-gate",
+                session_ref="openwebui-session:m52-gate",
+                message_ref="openwebui-message:m52-gate",
+                direction=OpenWebUIMessageDirection.user_to_agent_core_planned,
+                safe_summary="User asked for a redacted OpenWebUI conversation summary.",
+            )
+            surface = build_openwebui_safe_conversation_surface(
+                conversation_ref="openwebui-safe-conversation:m52-gate",
+                session_ref="openwebui-session:m52-gate",
+                safe_title="OpenWebUI safe conversation preview",
+                turns=[turn],
+            )
+            if surface.status != OpenWebUISafeConversationSurfaceStatus.safe_review_ready:
+                failures.append("M52 safe conversation surface was not ready")
+            for field_name in [
+                "openwebui_called",
+                "provider_called",
+                "model_called",
+                "model_output_authoritative",
+                "tool_executed",
+                "memory_written",
+                "context_injected",
+                "approval_granted",
+                "raw_prompt_returned",
+                "raw_provider_payload_returned",
+                "raw_content_returned",
+            ]:
+                if getattr(surface, field_name):
+                    failures.append(f"M52 surface enabled forbidden field: {field_name}")
+            if surface.side_effects_performed:
+                failures.append("M52 surface performed side effects")
+            try:
+                build_openwebui_safe_conversation_surface(
+                    conversation_ref="openwebui-safe-conversation:m52-mutated",
+                    session_ref="openwebui-session:m52-gate",
+                    safe_title="Mutated unsafe conversation",
+                    turns=[turn.model_copy(update={"raw_provider_payload_present": True})],
+                )
+                failures.append("M52 model_copy raw provider payload mutation was not denied")
+            except ValueError as exc:
+                if "RAW_PROVIDER_PAYLOAD_DENIED" not in str(exc):
+                    failures.append(f"M52 raw provider payload rejection reason drifted: {exc}")
+            try:
+                build_openwebui_safe_conversation_surface(
+                    conversation_ref="openwebui-safe-conversation:m52-approval",
+                    session_ref="openwebui-session:m52-gate",
+                    safe_title="Approval refs are not authority",
+                    turns=[
+                        turn.model_copy(
+                            update={
+                                "approval_ref": "approval:m52-gate",
+                                "tool_execution_requested": True,
+                            }
+                        )
+                    ],
+                )
+                failures.append("M52 approval_ref/tool execution mutation was not denied")
+            except ValueError as exc:
+                if "APPROVAL_REF_NOT_AUTHORITY" not in str(exc):
+                    failures.append(f"M52 approval-ref rejection reason drifted: {exc}")
+        except Exception as exc:
+            failures.append(f"M52 OpenWebUI safe conversation validation failed: {exc}")
+
+        docs_text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_files
+            if path.startswith("docs/") and (self.root / path).exists()
+        )
+        for fragment in [
+            "openwebui safe conversation surface",
+            "safe-summary-only",
+            "agent core remains authority",
+            "openwebui is not the agent brain",
+            "no raw prompt",
+            "no raw provider payload",
+            "no raw content",
+            "no provider call",
+            "no model call",
+            "no model authority",
+            "no tool execution",
+            "no memory write",
+            "no context injection",
+            "no backend route",
+            "m53 remains future",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M52 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m52_openwebui_safe_conversation_static_safety(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        forbidden_source_fragments = [
+            "openwebui_runtime_call_requested=True",
+            "live_openwebui_connection_enabled=True",
+            "openwebui_network_call_enabled=True",
+            "provider_call_enabled=True",
+            "provider_call_requested=True",
+            "model_call_enabled=True",
+            "model_call_requested=True",
+            "model_authority_enabled=True",
+            "model_authority_requested=True",
+            "tool_execution_enabled=True",
+            "tool_execution_requested=True",
+            "memory_write_enabled=True",
+            "memory_write_requested=True",
+            "context_injection_enabled=True",
+            "context_injection_requested=True",
+            "raw_prompt_exposure_enabled=True",
+            "raw_prompt_present=True",
+            "raw_provider_payload_exposure_enabled=True",
+            "raw_provider_payload_present=True",
+            "raw_content_allowed=True",
+            "raw_content_present=True",
+            "openwebui_called=True",
+            "provider_called=True",
+            "model_called=True",
+            "tool_executed=True",
+            "memory_written=True",
+            "context_injected=True",
+            "/openwebui/conversation",
+            "/openwebui/runtime/call",
+            "/openwebui/provider/call",
+            "/openwebui/model/call",
+            "/openwebui/tools/execute",
+            "/openwebui/memory/write",
+            "/openwebui/context/inject",
+            "/openwebui/raw-payload",
+            "/openwebui/raw-prompt",
+            "import openwebui\n",
+            "from openwebui",
+        ]
+        allowed_files = {
+            "src/ultimate_ai_agent/core/gate/evaluators.py",
+            "src/ultimate_ai_agent/core/openwebui_bridge/contracts.py",
+            "src/ultimate_ai_agent/core/openwebui_bridge/validation.py",
+            "tests/test_m52_openwebui_safe_conversation_surface.py",
+            "tests/test_m52_gate_integration.py",
+        }
+        source_roots = [
+            self.root / "src",
+            self.root / "apps" / "control-center" / "src",
+            self.root / "apps" / "ccc-ios",
+        ]
+        for root in source_roots:
+            if not root.exists():
+                continue
+            candidate_files = []
+            for pattern in ("*.py", "*.ts", "*.tsx", "*.js", "*.jsx", "*.swift", "*.yml", "*.yaml"):
+                candidate_files.extend(root.rglob(pattern))
+            for path in sorted(candidate_files):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(self.root).as_posix()
+                if rel in allowed_files:
+                    continue
+                text = path.read_text(encoding="utf-8").lower()
+                for fragment in forbidden_source_fragments:
+                    if fragment.lower() in text:
+                        failures.append(
+                            f"M52 forbidden OpenWebUI safe conversation fragment in {rel}: {fragment}"
+                        )
+        return self._result(criterion, failures, [])
+
+    def check_m52_openwebui_safe_conversation_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m52_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M52 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m52_roadmap_currentness(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        required_docs = [
+            "README.md",
+            "VERSION.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+            "docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md",
+            "docs/roadmap/MILESTONE_CHARTERS.md",
+        ]
+        failures = [
+            f"missing M52 roadmap doc: {path}"
+            for path in required_docs
+            if not (self.root / path).exists()
+        ]
+        text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_docs
+            if (self.root / path).exists()
+        )
+        if "v0.56.0" not in text or "m52" not in text or "openwebui safe conversation surface" not in text:
+            failures.append("active docs do not identify v0.56.0/M52 OpenWebUI Safe Conversation Surface")
+        if "m52 is implemented/released" not in text and "v0.56.0 implements m52" not in text:
+            failures.append("active docs do not mark M52 implemented/released")
+        if "m53-m60 remain planned/provisional" not in text:
+            failures.append("M53-M60 must remain planned/provisional after M52")
+        for fragment in (
+            "m53 is implemented",
+            "v0.57.0 implements m53",
+            "controlled tool expansion review is implemented",
+            "openwebui tool execution is implemented",
+            "provider call is implemented",
+            "model authority is implemented",
             "context injection is implemented",
             "production authority is implemented",
         ):
             if fragment in text:
-                failures.append(f"M51 docs imply forbidden/future capability: {fragment}")
+                failures.append(f"M52 docs imply forbidden/future capability: {fragment}")
         return self._result(criterion, failures, required_docs)
 
     def check_v0292_local_dev_api_authority_and_preview_safe(
@@ -12906,7 +13214,18 @@ class FoundationGateEvaluator:
         return tuple(int(part) for part in version.split("."))  # type: ignore[return-value]
 
     def _append_post_m48_mobile_status_failures(self, text: str, failures: List[str]) -> None:
-        if self._active_version_tuple() >= (0, 55, 0):
+        if self._active_version_tuple() >= (0, 56, 0):
+            if "m49 is implemented/released" not in text and "v0.53.0 implements m49" not in text:
+                failures.append("M49 must be implemented/released after v0.53.0")
+            if "m50 is implemented/released" not in text and "v0.54.0 implements m50" not in text:
+                failures.append("M50 must be implemented/released after v0.54.0")
+            if "m51 is implemented/released" not in text and "v0.55.0 implements m51" not in text:
+                failures.append("M51 must be implemented/released after v0.55.0")
+            if "m52 is implemented/released" not in text and "v0.56.0 implements m52" not in text:
+                failures.append("M52 must be implemented/released after v0.56.0")
+            if "m53-m60 remain planned/provisional" not in text:
+                failures.append("M53-M60 must remain planned/provisional after M52")
+        elif self._active_version_tuple() >= (0, 55, 0):
             if "m49 is implemented/released" not in text and "v0.53.0 implements m49" not in text:
                 failures.append("M49 must be implemented/released after v0.53.0")
             if "m50 is implemented/released" not in text and "v0.54.0 implements m50" not in text:
