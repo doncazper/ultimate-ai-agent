@@ -131,6 +131,13 @@ export, execution, tool use, or production authority. OpenAPI path count is
 `75`. No raw-file, full-file, file write/delete, context, memory, export, tool
 execution, or arbitrary filesystem route is added.
 
+v0.42.0 M38 Safe Context Proposal From Approved Review adds no backend route.
+Safe context proposal contracts are core validation objects only. They do not
+expose `/context/propose`, `/context/inject`, `/context/handoff`,
+`/openwebui/handoff`, `/memory/write`, raw-file, export, tool execution, or
+model/provider routes. The M37 review approval capture route remains the only
+post-M36 backend addition. OpenAPI path count remains `75`.
+
 M12 Control Center route group:
 
 - `/control-center/manifest`

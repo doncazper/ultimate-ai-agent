@@ -180,6 +180,16 @@ REQUIRED_M37_REVIEW_APPROVAL_CAPTURE_DOCS = [
 ]
 
 
+REQUIRED_M38_SAFE_CONTEXT_PROPOSAL_DOCS = [
+    "docs/context/SAFE_CONTEXT_PROPOSAL_FROM_APPROVED_REVIEW.md",
+    "docs/context/CONTEXT_PROPOSAL_CONTRACT.md",
+    "docs/context/CONTEXT_PROPOSAL_AUTHORITY_BOUNDARY.md",
+    "docs/context/CONTEXT_PROPOSAL_RECEIPT_PLAN.md",
+    "docs/context/CONTEXT_PROPOSAL_NON_GOALS.md",
+    "docs/context/M38_TO_M39_BOUNDARY.md",
+]
+
+
 REQUIRED_ACTIVE_DOCS = [
     "docs/README.md",
     "docs/DOCUMENTATION_INDEX.md",
@@ -672,6 +682,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_m35_file_review_workflow_docs(root, version))
     failures.extend(_verify_m36_file_review_surface_docs(root, version))
     failures.extend(_verify_m37_review_approval_capture_docs(root, version))
+    failures.extend(_verify_m38_safe_context_proposal_docs(root, version))
     failures.extend(_verify_m19_roadmap_currentness(root, version))
     failures.extend(_verify_post_m18_roadmap_status_labels(root))
 
@@ -765,7 +776,28 @@ def _verify_m34_m60_roadmap_supersession(root: Path, version: str | None) -> lis
         "M49-M50 must be mobile approval capture/audit": "m49-m50",
         "Archive docs must not be active source of truth": "not the active source of truth",
     }
-    if _version_tuple(version) >= (0, 41, 0):
+    if _version_tuple(version) >= (0, 42, 0):
+        required_fragments.update(
+            {
+                "M34 must be released as planning/docs/verifier only": (
+                    "m34 is implemented/released as planning/docs/verifier only"
+                ),
+                "M35 must be released as Safe File Review Workflow Contracts": (
+                    "m35 is implemented/released"
+                ),
+                "M36 must be released as CCC File Review Surface": (
+                    "m36 is implemented/released"
+                ),
+                "M37 must be released as Review Approval Capture": (
+                    "m37 is implemented/released"
+                ),
+                "M38 must be released as Safe Context Proposal": (
+                    "m38 is implemented/released"
+                ),
+                "M39-M60 must remain planned/provisional": "m39-m60 remain planned/provisional",
+            }
+        )
+    elif _version_tuple(version) >= (0, 41, 0):
         required_fragments.update(
             {
                 "M34 must be released as planning/docs/verifier only": (
@@ -1127,18 +1159,83 @@ def _verify_m37_review_approval_capture_docs(root: Path, version: str | None) ->
         "M37 docs must deny memory writes": "no memory write",
         "M37 docs must deny export": "no export",
         "M37 docs must deny execution": "no execution",
-        "M37 docs must keep M38 planned/provisional": "m38 remains planned/provisional",
+    }
+    if _version_tuple(version) >= (0, 42, 0):
+        required_fragments["M37 docs must acknowledge M38 implemented/released"] = "m38 is now implemented/released"
+    else:
+        required_fragments["M37 docs must keep M38 planned/provisional"] = "m38 remains planned/provisional"
+    for message, fragment in required_fragments.items():
+        if fragment not in text:
+            failures.append(message)
+    forbidden_fragments = {
+        "M37 docs must not claim context injection": ["context injection is implemented"],
+        "M37 docs must not claim raw file reads": ["raw file reads are implemented"],
+    }
+    if _version_tuple(version) < (0, 42, 0):
+        forbidden_fragments["M37 docs must not claim context proposal implementation"] = [
+            "context proposal is implemented",
+            "v0.42.0 implements m38",
+        ]
+    for message, fragments in forbidden_fragments.items():
+        for fragment in fragments:
+            if fragment in text:
+                failures.append(f"{message}: {fragment}")
+    return failures
+
+
+def _verify_m38_safe_context_proposal_docs(root: Path, version: str | None) -> list[str]:
+    if _version_tuple(version) < (0, 42, 0):
+        return []
+
+    failures: list[str] = []
+    parts: list[str] = []
+    for rel_path in REQUIRED_M38_SAFE_CONTEXT_PROPOSAL_DOCS:
+        path = root / rel_path
+        if not path.exists():
+            failures.append(f"missing active M38 safe context proposal doc: {rel_path}")
+            continue
+        parts.append(_read(path).lower())
+    text = "\n".join(parts)
+    required_fragments = {
+        "M38 docs must say non-authoritative": "non-authoritative",
+        "M38 docs must say proposal-only": "proposal-only",
+        "M38 docs must say exact approved-review binding": "exact approved-review binding",
+        "M38 docs must say approval_ref alone is not authority": "approval_ref alone is not authority",
+        "M38 docs must deny approval_test_ refs": "approval_test_",
+        "M38 docs must deny raw content": "no raw content",
+        "M38 docs must deny full-file reads": "no full-file reads",
+        "M38 docs must deny unredacted preview": "no unredacted preview",
+        "M38 docs must say not context injection": "not context injection",
+        "M38 docs must say not OpenWebUI handoff": "not openwebui handoff",
+        "M38 docs must deny model calls": "no model calls",
+        "M38 docs must deny memory writes": "does not write memory",
+        "M38 docs must deny export": "does not export",
+        "M38 docs must deny execution": "does not execute",
+        "M38 docs must keep M39 planned/provisional": "m39 remains planned/provisional",
     }
     for message, fragment in required_fragments.items():
         if fragment not in text:
             failures.append(message)
     forbidden_fragments = {
-        "M37 docs must not claim context proposal implementation": [
-            "context proposal is implemented",
-            "v0.42.0 implements m38",
+        "M38 docs must not claim context injection implementation": [
+            "context injection is implemented",
+            "automatic context injection is implemented",
         ],
-        "M37 docs must not claim context injection": ["context injection is implemented"],
-        "M37 docs must not claim raw file reads": ["raw file reads are implemented"],
+        "M38 docs must not claim OpenWebUI handoff implementation": [
+            "openwebui handoff is implemented",
+            "send to openwebui is implemented",
+        ],
+        "M38 docs must not claim memory/export/execution implementation": [
+            "memory writes are implemented",
+            "export is implemented",
+            "execution is implemented",
+        ],
+        "M38 docs must not claim M39/M40 implementation": [
+            "m39 is implemented",
+            "v0.43.0 implements m39",
+            "m40 is implemented",
+            "v0.44.0 implements m40",
+        ],
     }
     for message, fragments in forbidden_fragments.items():
         for fragment in fragments:
@@ -2919,7 +3016,14 @@ def _verify_post_m20_roadmap_projection(root: Path) -> list[str]:
         expectations["M40 must be Context Handoff Approval, No Injection"] = (
             "context handoff approval, no injection"
         )
-        if active_version_tuple >= (0, 41, 0):
+        if active_version_tuple >= (0, 42, 0):
+            expectations["Post-M20 roadmap docs must say M38 is implemented/released"] = (
+                "m38 is implemented/released"
+            )
+            expectations["Post-M20 roadmap docs must keep M39-M60 planned/provisional"] = (
+                "m39-m60 remain planned/provisional"
+            )
+        elif active_version_tuple >= (0, 41, 0):
             expectations["Post-M20 roadmap docs must say M37 is implemented/released"] = (
                 "m37 is implemented/released"
             )
@@ -3100,7 +3204,9 @@ def _verify_post_m20_roadmap_projection(root: Path) -> list[str]:
         if fragment not in roadmap_text:
             failures.append(failure)
 
-    if active_version_tuple >= (0, 41, 0):
+    if active_version_tuple >= (0, 42, 0):
+        implemented_claim_start = 39
+    elif active_version_tuple >= (0, 41, 0):
         implemented_claim_start = 38
     elif active_version_tuple >= (0, 40, 0):
         implemented_claim_start = 37
@@ -3287,7 +3393,12 @@ def _verify_post_m18_roadmap_status_labels(root: Path) -> list[str]:
             or "redacted preview" not in active_capability_charters
         ):
             failures.append("roadmap sequence must define M33 as redacted file preview")
-        if active >= (0, 41, 0):
+        if active >= (0, 42, 0):
+            if "v0.42.0 / m38" not in active_capability_charters or "status: implemented" not in active_capability_charters:
+                failures.append("roadmap sequence must mark M38/v0.42.0 implemented")
+            if "m39-m60" not in active_capability_charters or "planned/provisional" not in active_capability_charters:
+                failures.append("roadmap sequence must keep M39-M60 planned/provisional")
+        elif active >= (0, 41, 0):
             if "v0.41.0 / m37" not in active_capability_charters or "status: implemented" not in active_capability_charters:
                 failures.append("roadmap sequence must mark M37/v0.41.0 implemented")
             if "m38-m60" not in active_capability_charters or "planned/provisional" not in active_capability_charters:

@@ -470,6 +470,28 @@ M37_FORBIDDEN_BACKEND_ROUTES = (
     "/tool-runtime/run",
     "/plugins/enable",
 )
+EXPECTED_M38_OPENAPI_PATH_COUNT = 75
+M38_FORBIDDEN_BACKEND_ROUTES = (
+    "/files/read",
+    "/files/read/raw",
+    "/files/read/content",
+    "/files/read/full",
+    "/files/write",
+    "/files/delete",
+    "/filesystem/read",
+    "/filesystem/write",
+    "/filesystem/delete",
+    "/context/propose",
+    "/context/inject",
+    "/context/handoff",
+    "/openwebui/handoff",
+    "/memory/write",
+    "/tools/execute",
+    "/tools/run",
+    "/tool-runtime/execute",
+    "/tool-runtime/run",
+    "/plugins/enable",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -814,6 +836,19 @@ def m37_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
     for route in M37_FORBIDDEN_BACKEND_ROUTES:
         if route in path_set:
             failures.append(f"M37 forbidden backend route present: {route}")
+    return failures
+
+
+def m38_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M38_OPENAPI_PATH_COUNT) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+    if M37_ALLOWED_CAPTURE_ROUTE not in path_set:
+        failures.append("M37 capture route missing: /files/review/approvals/capture")
+    for route in M38_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(f"M38 forbidden backend route present: {route}")
     return failures
 
 
@@ -1178,6 +1213,10 @@ class FoundationGateEvaluator:
                 self.check_m37_control_center_review_only_approval_capture
             ),
             "m37_roadmap_currentness": self.check_m37_roadmap_currentness,
+            "m38_safe_context_proposal_contracts": self.check_m38_safe_context_proposal_contracts,
+            "m38_safe_context_proposal_route_boundary": self.check_m38_safe_context_proposal_route_boundary,
+            "m38_no_control_center_context_surface": self.check_m38_no_control_center_context_surface,
+            "m38_roadmap_currentness": self.check_m38_roadmap_currentness,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -8488,7 +8527,12 @@ class FoundationGateEvaluator:
             failures.append("M34 roadmap docs do not constrain M34 to planning/docs/verifier work")
         current_version = self._active_version() or "0.0.0"
         current_tuple = tuple(int(part) for part in current_version.split(".")[:3])
-        if current_tuple >= (0, 41, 0):
+        if current_tuple >= (0, 42, 0):
+            if "m38 is implemented/released" not in text and "v0.42.0 implements m38" not in text:
+                failures.append("M38 roadmap docs do not mark M38 implemented/released")
+            if "m39-m60 remain planned/provisional" not in text:
+                failures.append("M39-M60 must remain planned/provisional after M38")
+        elif current_tuple >= (0, 41, 0):
             if "m37 is implemented/released" not in text and "v0.41.0 implements m37" not in text:
                 failures.append("M37 roadmap docs do not mark M37 implemented/released")
             if "m38-m60 remain planned/provisional" not in text:
@@ -8507,9 +8551,10 @@ class FoundationGateEvaluator:
             failures.append("M36-M60 must remain planned/provisional after M34")
         future_fragments = [
             "approval persistence is implemented",
-            "context proposal is implemented",
             "context injection is implemented",
         ]
+        if current_tuple < (0, 42, 0):
+            future_fragments.append("context proposal is implemented")
         if current_tuple < (0, 40, 0):
             future_fragments.extend(
                 [
@@ -8526,6 +8571,13 @@ class FoundationGateEvaluator:
                     "review approval capture is implemented",
                     "m37 is implemented",
                     "v0.41.0 implements m37",
+                ]
+            )
+        if current_tuple < (0, 42, 0):
+            future_fragments.extend(
+                [
+                    "m38 is implemented",
+                    "v0.42.0 implements m38",
                 ]
             )
         for fragment in future_fragments:
@@ -8594,11 +8646,13 @@ class FoundationGateEvaluator:
             "M35 docs must say no export": "no export",
             "M35 docs must say no execution": "no execution",
             "M35 docs must say no backend routes": "no backend routes",
-            "M37 must remain planned/provisional": "m37 remains planned/provisional",
-            "M38 must remain planned/provisional": "m38 remains planned/provisional",
         }
         if version_tuple < (0, 40, 0):
             required_fragments["M36 must remain planned/provisional"] = "m36 remains planned/provisional"
+        if version_tuple < (0, 41, 0):
+            required_fragments["M37 must remain planned/provisional"] = "m37 remains planned/provisional"
+        if version_tuple < (0, 42, 0):
+            required_fragments["M38 must remain planned/provisional"] = "m38 remains planned/provisional"
         for failure, fragment in required_fragments.items():
             if fragment not in docs_text:
                 failures.append(failure)
@@ -8750,7 +8804,12 @@ class FoundationGateEvaluator:
                 failures.append("M37 must be implemented/released for active v0.41.0+ docs")
         elif "m37 remains planned/provisional" not in text:
             failures.append("M37 must remain planned/provisional after M35")
-        if "m38 remains planned/provisional" not in text:
+        if version_tuple >= (0, 42, 0):
+            if "m38 is implemented/released" not in text and "m38 implemented/released" not in text:
+                failures.append("M38 must be implemented/released for active v0.42.0+ docs")
+            if "m39-m60 remain planned/provisional" not in text:
+                failures.append("M39-M60 must remain planned/provisional after M38")
+        elif "m38 remains planned/provisional" not in text:
             failures.append("M38 must remain planned/provisional after M35")
         future_fragments = [
             "ccc file review surface is implemented",
@@ -8769,14 +8828,15 @@ class FoundationGateEvaluator:
                     "v0.41.0 implements m37",
                 ]
             )
-        future_fragments.extend(
-            [
-                "context proposal is implemented",
-                "m38 is implemented",
-                "v0.42.0 implements m38",
-                "context injection is implemented",
-            ]
-        )
+        if version_tuple < (0, 42, 0):
+            future_fragments.extend(
+                [
+                    "context proposal is implemented",
+                    "m38 is implemented",
+                    "v0.42.0 implements m38",
+                ]
+            )
+        future_fragments.append("context injection is implemented")
         for fragment in future_fragments:
             if fragment in text:
                 failures.append(f"M35 docs imply future milestone implementation: {fragment}")
@@ -8894,7 +8954,12 @@ class FoundationGateEvaluator:
                 failures.append("M37 must be implemented/released for active v0.41.0+ docs")
         elif "m37 remains planned/provisional" not in text:
             failures.append("M37 must remain planned/provisional after M36")
-        if "m38 remains planned/provisional" not in text:
+        if version_tuple >= (0, 42, 0):
+            if "m38 is implemented/released" not in text and "m38 implemented/released" not in text:
+                failures.append("M38 must be implemented/released for active v0.42.0+ docs")
+            if "m39-m60 remain planned/provisional" not in text:
+                failures.append("M39-M60 must remain planned/provisional after M38")
+        elif "m38 remains planned/provisional" not in text:
             failures.append("M38 must remain planned/provisional after M36")
         future_fragments = []
         if version_tuple < (0, 41, 0):
@@ -8906,14 +8971,15 @@ class FoundationGateEvaluator:
                     "v0.41.0 implements m37",
                 ]
             )
-        future_fragments.extend(
-            [
-                "context proposal is implemented",
-                "m38 is implemented",
-                "v0.42.0 implements m38",
-                "context injection is implemented",
-            ]
-        )
+        if version_tuple < (0, 42, 0):
+            future_fragments.extend(
+                [
+                    "context proposal is implemented",
+                    "m38 is implemented",
+                    "v0.42.0 implements m38",
+                ]
+            )
+        future_fragments.append("context injection is implemented")
         for fragment in future_fragments:
             if fragment in text:
                 failures.append(f"M36 docs imply future milestone implementation: {fragment}")
@@ -9012,17 +9078,253 @@ class FoundationGateEvaluator:
             failures.append("active docs do not identify v0.41.0/M37 Review Approval Capture")
         if "m37 is implemented/released" not in text and "m37 implemented/released" not in text:
             failures.append("active docs do not mark M37 implemented/released")
-        if "m38 remains planned/provisional" not in text:
+        active_version = self._active_version() or "0.0.0"
+        version_tuple = tuple(int(part) for part in active_version.split(".")[:3])
+        if version_tuple >= (0, 42, 0):
+            if "m38 is implemented/released" not in text and "m38 implemented/released" not in text:
+                failures.append("active docs do not mark M38 implemented/released")
+            if "m39-m60 remain planned/provisional" not in text:
+                failures.append("M39-M60 must remain planned/provisional after M38")
+        elif "m38 remains planned/provisional" not in text:
             failures.append("M38 must remain planned/provisional after M37")
-        for fragment in (
-            "context proposal is implemented",
-            "m38 is implemented",
-            "v0.42.0 implements m38",
+        future_fragments = [
             "context injection is implemented",
             "raw file reads are implemented",
-        ):
+        ]
+        if version_tuple < (0, 42, 0):
+            future_fragments.extend(
+                [
+                    "context proposal is implemented",
+                    "m38 is implemented",
+                    "v0.42.0 implements m38",
+                ]
+            )
+        else:
+            future_fragments.extend(
+                [
+                    "m39 is implemented",
+                    "v0.43.0 implements m39",
+                    "m40 is implemented",
+                    "v0.44.0 implements m40",
+                ]
+            )
+        for fragment in future_fragments:
             if fragment in text:
                 failures.append(f"M37 docs imply forbidden/future capability: {fragment}")
+        return self._result(criterion, failures, required_docs)
+
+    def check_m38_safe_context_proposal_contracts(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/context_proposal/__init__.py",
+            "src/ultimate_ai_agent/core/context_proposal/contracts.py",
+            "src/ultimate_ai_agent/core/context_proposal/validation.py",
+            "src/ultimate_ai_agent/core/context_proposal/workflow.py",
+            "tests/test_safe_context_proposal_contracts.py",
+            "tests/test_safe_context_proposal_binding.py",
+            "tests/test_safe_context_proposal_no_raw_content.py",
+            "tests/test_safe_context_proposal_authority_boundaries.py",
+            "tests/test_safe_context_proposal_receipt_plan.py",
+        ]
+        failures = [f"missing M38 context proposal file: {path}" for path in required_files if not (self.root / path).exists()]
+        try:
+            from ultimate_ai_agent.core.context_proposal import (
+                SafeContextProposalDecisionStatus,
+                build_safe_context_proposal_policy,
+                evaluate_safe_context_proposal_request,
+            )
+            from ultimate_ai_agent.core.file_review import (
+                FileReviewApprovalCaptureDecisionStatus,
+                FileReviewApprovalDecisionKind,
+                FileReviewApprovalRecord,
+                build_file_review_packet,
+            )
+            from ultimate_ai_agent.core.tools.runtime import (
+                FilePreviewRedactionSummary,
+                RedactedFilePreviewOutput,
+                RedactedFilePreviewStatus,
+            )
+
+            policy = build_safe_context_proposal_policy()
+            for field_name in [
+                "context_surface_enabled",
+                "context_handoff_enabled",
+                "context_injection_enabled",
+                "openwebui_handoff_enabled",
+                "model_call_enabled",
+                "memory_write_enabled",
+                "export_enabled",
+                "execution_enabled",
+                "raw_file_access_enabled",
+            ]:
+                if getattr(policy, field_name):
+                    failures.append(f"M38 policy enables forbidden flag: {field_name}")
+
+            preview = RedactedFilePreviewOutput(
+                output_ref="redacted-file-preview-output:m38-gate",
+                status=RedactedFilePreviewStatus.preview_generated,
+                root_ref="safe-root:m38-gate",
+                safe_path_ref="filesystem-preview-path:safe-root_m38_gate/docs/review.md",
+                redacted_preview="Redacted preview only.",
+                redaction_summary=FilePreviewRedactionSummary(redaction_count=0, categories=[]),
+                file_size_bytes=32,
+            )
+            packet = build_file_review_packet(
+                preview_output=preview,
+                actor_ref="user:m38-gate",
+                request_ref="file-review-request:m38-gate",
+                file_ref="file-ref:m38-gate-review",
+                safe_summary="Review a redacted packet for context proposal.",
+            )
+            record = FileReviewApprovalRecord(
+                approval_ref="file-review-approval-capture:m38-gate",
+                actor_ref=packet.source.actor_ref,
+                review_packet_ref=packet.review_packet_ref,
+                preview_result_ref=packet.source.preview_result_ref,
+                redaction_summary_ref=packet.redaction_verification.redaction_summary_ref,
+                file_ref=packet.source.file_ref,
+                safe_path_ref=packet.source.safe_path_ref,
+                decision=FileReviewApprovalDecisionKind.approve_review_only,
+                status=FileReviewApprovalCaptureDecisionStatus.approved_for_review_only,
+                idempotency_key="file-review-approval-idempotency:m38-gate",
+                receipt_plan_ref="file-review-approval-capture-receipt:m38-gate",
+            )
+            allowed = evaluate_safe_context_proposal_request(packet=packet, approval_record=record)
+            if allowed.status != SafeContextProposalDecisionStatus.proposal_ready or not allowed.proposal_ready:
+                failures.append("M38 safe approved review did not build a proposal")
+            if any(
+                [
+                    allowed.context_injection_authorized,
+                    allowed.openwebui_handoff_authorized,
+                    allowed.model_call_authorized,
+                    allowed.memory_write_authorized,
+                    allowed.export_authorized,
+                    allowed.execution_authorized,
+                    allowed.execution_performed,
+                ]
+            ):
+                failures.append("M38 proposal decision granted forbidden authority")
+            denied_ref = evaluate_safe_context_proposal_request(
+                packet=packet,
+                approval_record=None,
+                approval_ref=record.approval_ref,
+            )
+            if "approval_ref_not_authority" not in denied_ref.reason_codes:
+                failures.append("M38 did not deny approval_ref alone")
+            denied_test = evaluate_safe_context_proposal_request(
+                packet=packet,
+                approval_record=record.model_copy(update={"approval_ref": "approval_test_m38"}),
+            )
+            if "approval_test_ref_denied" not in denied_test.reason_codes:
+                failures.append("M38 did not deny approval_test_ ref")
+            denied_path = evaluate_safe_context_proposal_request(
+                packet=packet,
+                approval_record=record.model_copy(
+                    update={"safe_path_ref": "filesystem-preview-path:safe-root_m38_gate/docs/mutated.md"}
+                ),
+            )
+            if "path_ref_mismatch" not in denied_path.reason_codes:
+                failures.append("M38 did not enforce safe_path_ref binding")
+            denied_flag = evaluate_safe_context_proposal_request(
+                packet=packet,
+                approval_record=record,
+                policy_overrides={"context_injection_enabled": True},
+            )
+            if "context_injection_denied" not in denied_flag.reason_codes:
+                failures.append("M38 did not deny model_copy-mutated context injection flag")
+        except Exception as exc:
+            failures.append(f"M38 context proposal probe failed: {exc}")
+
+        text = "\n".join(self._read(self.root / path).lower() for path in required_files if (self.root / path).exists())
+        for fragment in [
+            "safecontextproposalpolicy",
+            "safecontextproposalrequest",
+            "safecontextproposalsource",
+            "safecontextproposalbinding",
+            "safecontextproposalredactionverification",
+            "safecontextproposalsection",
+            "safecontextproposaldecision",
+            "safecontextproposalreceiptplan",
+            "context_injection_enabled: bool = false",
+            "openwebui_handoff_enabled: bool = false",
+            "memory_write_enabled: bool = false",
+            "execution_enabled: bool = false",
+        ]:
+            if fragment not in text:
+                failures.append(f"M38 contracts/tests missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m38_safe_context_proposal_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m38_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M38 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m38_no_control_center_context_surface(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "apps/control-center/src/components/FileReviewSurfacePanel.tsx",
+            "apps/control-center/src/routes.tsx",
+            "apps/control-center/src/mocks/controlCenterData.ts",
+        ]
+        failures = [f"missing M38 Control Center boundary file: {path}" for path in required_files if not (self.root / path).exists()]
+        text = "\n".join(self._read(self.root / path).lower() for path in required_files if (self.root / path).exists())
+        for fragment in [
+            "/context/proposals",
+            "/context/propose",
+            "/context/inject",
+            "/openwebui/handoff",
+            "context proposal surface",
+            "send to openwebui",
+            "export context",
+        ]:
+            if fragment in text:
+                failures.append(f"M38 must not add M39/M40 Control Center surface/control: {fragment}")
+        for label in [
+            "inject context",
+            "write memory",
+            "export context",
+            "execute context",
+        ]:
+            if re.search(rf"<button\b[^>]*>\s*{re.escape(label)}\s*</button>", text, re.IGNORECASE):
+                failures.append(f"M38 must not add M39/M40 Control Center control: {label}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m38_roadmap_currentness(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        required_docs = [
+            "README.md",
+            "VERSION.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+            "docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md",
+        ]
+        failures = [f"missing M38 roadmap doc: {path}" for path in required_docs if not (self.root / path).exists()]
+        text = "\n".join(self._read(self.root / path).lower() for path in required_docs if (self.root / path).exists())
+        if "v0.42.0" not in text or "m38" not in text or "safe context proposal" not in text:
+            failures.append("active docs do not identify v0.42.0/M38 Safe Context Proposal")
+        if "m38 is implemented/released" not in text and "m38 implemented/released" not in text:
+            failures.append("active docs do not mark M38 implemented/released")
+        if "m39 remains planned/provisional" not in text and "m39-m60 remain planned/provisional" not in text:
+            failures.append("M39 must remain planned/provisional after M38")
+        for fragment in (
+            "context injection is implemented",
+            "openwebui handoff is implemented",
+            "m39 is implemented",
+            "v0.43.0 implements m39",
+            "m40 is implemented",
+            "v0.44.0 implements m40",
+        ):
+            if fragment in text:
+                failures.append(f"M38 docs imply forbidden/future capability: {fragment}")
         return self._result(criterion, failures, required_docs)
 
     def check_v0292_local_dev_api_authority_and_preview_safe(
@@ -9363,7 +9665,9 @@ class FoundationGateEvaluator:
         for failure, fragment in expectations.items():
             if fragment not in roadmap_text:
                 failures.append(failure)
-        if version_tuple >= (0, 41, 0):
+        if version_tuple >= (0, 42, 0):
+            implemented_claim_start = 39
+        elif version_tuple >= (0, 41, 0):
             implemented_claim_start = 38
         elif version_tuple >= (0, 40, 0):
             implemented_claim_start = 37

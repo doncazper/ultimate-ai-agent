@@ -12,21 +12,22 @@ allowed to become operational authority.
 
 | Field | Current state |
 |---|---|
-| Current active baseline | **v0.41.0** |
-| Current milestone | **M37 - Review Approval Capture, Review-Only Persistence** |
+| Current active baseline | **v0.42.0** |
+| Current milestone | **M38 - Safe Context Proposal From Approved Review** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **75** OpenAPI paths |
 | Production readiness | Not claimed |
 
-v0.41.0 implements M37 Review Approval Capture, Review-Only Persistence. It
-adds safe review-only approval and denial capture for exact redacted file
-review packets, safe-ref-only persistence, idempotency/replay protection, one
-backend capture route, Control Center review-only capture controls, tests,
-static verification, documentation-integrity checks, and Foundation Gate
-coverage. It adds no raw file reads, raw file output/storage, full-file reads,
-unredacted preview, context proposal, context injection, memory writes, export,
-execution controls, dependencies, M38 work, or production authority.
+v0.42.0 implements M38 Safe Context Proposal From Approved Review. It adds
+safe, non-authoritative context proposal contracts from exact-scope approved
+redacted file review records, with proposal policy, source binding, redaction
+verification, safe proposal sections, receipt plans, tests, static
+verification, documentation-integrity checks, and Foundation Gate coverage. It
+adds no context injection, OpenWebUI handoff, model/provider calls, memory
+writes, raw file reads, raw output/storage, full-file reads, unredacted preview,
+export/download, execution controls, Control Center context proposal surface,
+dependencies, M39 work, M40 handoff work, or production authority.
 
 v0.29.5 is documentation policy polish. It remains the documentation
 organization cleanup baseline before the M26 and M27 implementation releases.
@@ -54,6 +55,10 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M37 File Review Approval Persistence](docs/files/FILE_REVIEW_APPROVAL_PERSISTENCE.md)
 - [M37 File Review Approval Authority Boundary](docs/files/FILE_REVIEW_APPROVAL_AUTHORITY_BOUNDARY.md)
 - [M37 File Review Approval API](docs/files/FILE_REVIEW_APPROVAL_API.md)
+- [M38 Safe Context Proposal](docs/context/SAFE_CONTEXT_PROPOSAL_FROM_APPROVED_REVIEW.md)
+- [M38 Context Proposal Contract](docs/context/CONTEXT_PROPOSAL_CONTRACT.md)
+- [M38 Context Proposal Authority Boundary](docs/context/CONTEXT_PROPOSAL_AUTHORITY_BOUNDARY.md)
+- [M38 Context Proposal Receipt Plan](docs/context/CONTEXT_PROPOSAL_RECEIPT_PLAN.md)
 - [API route inventory](docs/api/route_inventory.md)
 - [Documentation organization policy](docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md)
 - [Control Center frontend safety policy](docs/control_center/FRONTEND_SAFETY_POLICY.md)
@@ -70,9 +75,9 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M28 Action Policy](docs/approvals/ACTION_POLICY.md)
 - [M27 Tool Broker v2](docs/tools/TOOL_BROKER_V2.md)
 - [M26 Grounded Recall Router](docs/recall/GROUNDED_RECALL_ROUTER.md)
-- [v0.41.0 release notes](docs/release_notes/v0_41_0.md)
-- [v0.41.0 release packet](docs/archive/releases/v0_41_0/README_IMPORT.md)
-- [v0.41.0 master plan](docs/archive/releases/v0_41_0/master_plan.md)
+- [v0.42.0 release notes](docs/release_notes/v0_42_0.md)
+- [v0.42.0 release packet](docs/archive/releases/v0_42_0/README_IMPORT.md)
+- [v0.42.0 master plan](docs/archive/releases/v0_42_0/master_plan.md)
 
 ## What This Project Is
 
@@ -325,7 +330,7 @@ post-M33 supersession is
 | v0.40.0 | M36 - CCC File Review Surface, Review-Only | Implemented/released frontend-only |
 | v0.40.1 | M36 hardening - CCC File Review Surface Read-Only Safety | Implemented/released hardening |
 | v0.41.0 | M37 - Review Approval Capture, Review-Only Persistence | Implemented/released |
-| v0.42.0 | M38 - Safe Context Proposal From Approved Review | Planned/provisional |
+| v0.42.0 | M38 - Safe Context Proposal From Approved Review | Implemented/released |
 | v0.43.0 | M39 - CCC Context Proposal Surface | Planned/provisional |
 | v0.44.0 | M40 - Context Handoff Approval, No Injection | Planned/provisional |
 | v0.45.0 | M41 - Local Prototype Safety Freeze | Planned/provisional |

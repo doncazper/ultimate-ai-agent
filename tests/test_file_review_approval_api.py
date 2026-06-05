@@ -55,7 +55,7 @@ def test_file_review_approval_capture_route_rejects_raw_content_extra():
 def test_openapi_adds_only_review_approval_capture_route():
     schema = app.openapi()
 
-    assert schema["info"]["version"] == __version__ == "0.41.0"
+    assert schema["info"]["version"] == __version__
     assert len(schema["paths"]) == 75
     assert "/files/review/approvals/capture" in schema["paths"]
     assert schema["paths"]["/files/review/approvals/capture"]["post"]["operationId"] == "post_files_review_approvals_capture"

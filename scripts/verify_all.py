@@ -46,6 +46,7 @@ SCAN_SEQUENCE = [
     ("M35 safe file review workflow contract scan", "verify_m35_safe_file_review_workflow_safety"),
     ("M36 CCC file review surface scan", "verify_m36_ccc_file_review_surface_safety"),
     ("M37 review approval capture scan", "verify_m37_review_approval_capture_safety"),
+    ("M38 safe context proposal scan", "verify_m38_safe_context_proposal_safety"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -4121,7 +4122,7 @@ def verify_m35_safe_file_review_workflow_safety():
 def verify_m36_ccc_file_review_surface_safety():
     print("\n[Verifier] Running M36 CCC file review surface guard...")
     if _current_version() >= "v0.41.0":
-        print("OK: M36 file review surface historical guard deferred to M37 capture verifier for active v0.41.0 tree")
+        print("OK: M36 file review surface historical guard deferred to M37 capture verifier for active v0.41.0+ tree")
         return
     required_files = [
         "apps/control-center/src/components/FileReviewSurfacePanel.tsx",
@@ -4269,8 +4270,11 @@ def verify_m37_review_approval_capture_safety():
         "no memory write",
         "no export",
         "no execution",
-        "m38 remains planned/provisional",
     ]
+    if _current_version() >= "v0.42.0":
+        required_doc_fragments.append("m38 is now implemented/released")
+    else:
+        required_doc_fragments.append("m38 remains planned/provisional")
     for fragment in required_doc_fragments:
         if fragment not in docs_text:
             print(f"FAIL: M37 docs missing fragment: {fragment}")
@@ -4366,6 +4370,157 @@ def verify_m37_review_approval_capture_safety():
             sys.exit(1)
 
     print("OK: M37 review approval capture is safe-ref-only, review-only, and non-authoritative")
+
+
+def verify_m38_safe_context_proposal_safety():
+    print("\n[Verifier] Running M38 safe context proposal guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/context_proposal/__init__.py",
+        "src/ultimate_ai_agent/core/context_proposal/contracts.py",
+        "src/ultimate_ai_agent/core/context_proposal/validation.py",
+        "src/ultimate_ai_agent/core/context_proposal/workflow.py",
+        "docs/context/SAFE_CONTEXT_PROPOSAL_FROM_APPROVED_REVIEW.md",
+        "docs/context/CONTEXT_PROPOSAL_CONTRACT.md",
+        "docs/context/CONTEXT_PROPOSAL_AUTHORITY_BOUNDARY.md",
+        "docs/context/CONTEXT_PROPOSAL_RECEIPT_PLAN.md",
+        "docs/context/CONTEXT_PROPOSAL_NON_GOALS.md",
+        "docs/context/M38_TO_M39_BOUNDARY.md",
+        "tests/test_safe_context_proposal_contracts.py",
+        "tests/test_safe_context_proposal_binding.py",
+        "tests/test_safe_context_proposal_no_raw_content.py",
+        "tests/test_safe_context_proposal_authority_boundaries.py",
+        "tests/test_safe_context_proposal_receipt_plan.py",
+        "tests/test_m38_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M38 safe context proposal file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = "\n".join(
+        (ROOT / rel_path).read_text(encoding="utf-8").lower()
+        for rel_path in required_files
+        if rel_path.startswith("docs/")
+    )
+    for fragment in [
+        "non-authoritative",
+        "not context injection",
+        "not openwebui handoff",
+        "does not write memory",
+        "does not export",
+        "does not execute",
+        "exact approved-review binding",
+        "approval_ref alone is not authority",
+        "m39 remains planned/provisional",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M38 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.context_proposal import (
+            SafeContextProposalDecisionStatus,
+            evaluate_safe_context_proposal_request,
+        )
+        from ultimate_ai_agent.core.file_review import (
+            FileReviewApprovalCaptureDecisionStatus,
+            FileReviewApprovalDecisionKind,
+            FileReviewApprovalRecord,
+            build_file_review_packet,
+        )
+        from ultimate_ai_agent.core.gate.evaluators import m38_openapi_route_failures
+        from ultimate_ai_agent.core.tools.runtime import (
+            FilePreviewRedactionSummary,
+            RedactedFilePreviewOutput,
+            RedactedFilePreviewStatus,
+        )
+    except Exception as exc:
+        print(f"FAIL: M38 imports could not load: {exc}")
+        sys.exit(1)
+
+    preview = RedactedFilePreviewOutput(
+        output_ref="redacted-file-preview-output:verify-m38",
+        status=RedactedFilePreviewStatus.preview_generated,
+        root_ref="safe-root:verify-m38",
+        safe_path_ref="filesystem-preview-path:safe-root_verify_m38/docs/review.md",
+        redacted_preview="Redacted preview only.",
+        redaction_summary=FilePreviewRedactionSummary(redaction_count=0, categories=[]),
+        file_size_bytes=32,
+    )
+    packet = build_file_review_packet(
+        preview_output=preview,
+        actor_ref="user:verify-m38",
+        request_ref="file-review-request:verify-m38",
+        file_ref="file-ref:verify-m38-review",
+        safe_summary="Review a redacted packet for context proposal.",
+    )
+    record = FileReviewApprovalRecord(
+        approval_ref="file-review-approval-capture:verify-m38",
+        actor_ref=packet.source.actor_ref,
+        review_packet_ref=packet.review_packet_ref,
+        preview_result_ref=packet.source.preview_result_ref,
+        redaction_summary_ref=packet.redaction_verification.redaction_summary_ref,
+        file_ref=packet.source.file_ref,
+        safe_path_ref=packet.source.safe_path_ref,
+        decision=FileReviewApprovalDecisionKind.approve_review_only,
+        status=FileReviewApprovalCaptureDecisionStatus.approved_for_review_only,
+        idempotency_key="file-review-approval-idempotency:verify-m38",
+    )
+    allowed = evaluate_safe_context_proposal_request(packet=packet, approval_record=record)
+    if allowed.status != SafeContextProposalDecisionStatus.proposal_ready or not allowed.proposal_ready:
+        print("FAIL: M38 safe approved review did not build proposal")
+        sys.exit(1)
+    if any(
+        [
+            allowed.context_injection_authorized,
+            allowed.openwebui_handoff_authorized,
+            allowed.model_call_authorized,
+            allowed.memory_write_authorized,
+            allowed.export_authorized,
+            allowed.execution_authorized,
+            allowed.execution_performed,
+        ]
+    ):
+        print("FAIL: M38 proposal granted forbidden authority")
+        sys.exit(1)
+    denied_ref = evaluate_safe_context_proposal_request(packet=packet, approval_record=None, approval_ref=record.approval_ref)
+    if "approval_ref_not_authority" not in denied_ref.reason_codes:
+        print("FAIL: M38 approval_ref alone was not denied")
+        sys.exit(1)
+    denied_path = evaluate_safe_context_proposal_request(
+        packet=packet,
+        approval_record=record.model_copy(update={"safe_path_ref": "filesystem-preview-path:safe-root_verify_m38/docs/other.md"}),
+    )
+    if "path_ref_mismatch" not in denied_path.reason_codes:
+        print("FAIL: M38 file/path exact binding was not enforced")
+        sys.exit(1)
+    denied_flag = evaluate_safe_context_proposal_request(
+        packet=packet,
+        approval_record=record,
+        policy_overrides={"openwebui_handoff_enabled": True},
+    )
+    if "openwebui_handoff_denied" not in denied_flag.reason_codes:
+        print("FAIL: M38 did not deny model_copy-mutated OpenWebUI handoff flag")
+        sys.exit(1)
+
+    for failure in m38_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    control_center_text = "\n".join(
+        path.read_text(encoding="utf-8").lower()
+        for path in (ROOT / "apps/control-center/src").rglob("*")
+        if path.is_file()
+    )
+    for forbidden in ["/context/proposals", "context proposal surface", "send to openwebui", "inject context"]:
+        if forbidden in control_center_text:
+            print(f"FAIL: M38 Control Center started future context surface/control: {forbidden}")
+            sys.exit(1)
+
+    print("OK: M38 safe context proposal is proposal-only, route-free beyond M37 capture, and non-authoritative")
 
 
 def verify_local_developer_launcher_safety():

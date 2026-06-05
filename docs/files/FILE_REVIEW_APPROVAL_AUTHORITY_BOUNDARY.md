@@ -22,4 +22,7 @@ result, redaction summary, file, safe path, or actor refs are denied. Expired,
 revoked, replayed, and `approval_test_` approvals are denied.
 
 Review decisions and review approval records are non-authoritative audit
-records. M38 remains planned/provisional.
+records. M38 can consume exact-scope approved review records as evidence for a
+safe, non-authoritative context proposal, but the review approval record itself
+still grants no context injection, OpenWebUI handoff, memory write, export, raw
+file access, execution, or truth authority.
