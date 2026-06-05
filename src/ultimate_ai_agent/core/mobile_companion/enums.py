@@ -98,3 +98,10 @@ class MobileApiHttpMethod(str, Enum):
     put = "PUT"
     patch = "PATCH"
     delete = "DELETE"
+
+
+class CccIosSkeletonSurfaceKind(str, Enum):
+    status_overview = "status_overview"
+    review_packet_preview = "review_packet_preview"
+    receipt_preview = "receipt_preview"
+    authority_boundary = "authority_boundary"

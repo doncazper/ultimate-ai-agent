@@ -12,27 +12,25 @@ allowed to become operational authority.
 
 | Field | Current state |
 |---|---|
-| Current active baseline | **v0.47.0** |
-| Current milestone | **M43 - Mobile API Boundary, Read-Only** |
+| Current active baseline | **v0.48.0** |
+| Current milestone | **M44 - CCC iOS Skeleton, No Authority** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **75** OpenAPI paths |
 | Production readiness | Not claimed |
 
-v0.47.0 implements M43 Mobile API Boundary, Read-Only. It adds contract-only
-planned endpoint refs, GET-only/read-only endpoint validation, redacted summary
-only guarantees, M44 future iOS skeleton sequencing, active mobile docs, tests,
-static safety verification, documentation-integrity checks, Foundation Gate
-coverage, release metadata, and roadmap currentness updates. It adds no mobile
-app, iOS app, Android app, native package, native build workflow, signing/store
-workflow, TestFlight pipeline, backend route, mobile API route runtime, mobile
-mutation, approval capture, approval execution, mobile sensor access, OS
-permission integration, background collection, notification runtime, device
-pairing runtime, raw data, raw payload exposure, raw prompt/provider payload
-exposure, raw absolute path exposure, credential handling, cookie handling,
-memory write, automatic context injection, file mutation, network/provider/model
-call, browser automation execution, remote execution, plugin enablement,
-dependencies, M44 implementation, or production authority.
+v0.48.0 implements M44 CCC iOS Skeleton, No Authority. It adds a source-only CCC
+iOS SwiftUI skeleton with mock read-only surfaces, static redacted preview
+placeholders, no-authority boundary copy, active mobile docs, tests, static
+safety verification, documentation-integrity checks, Foundation Gate coverage,
+release metadata, and roadmap currentness updates. It adds no Xcode project,
+Swift package, Info.plist, entitlements, native build workflow,
+signing/store workflow, TestFlight pipeline, backend route, mobile API route
+runtime, network call, mobile sensor access, OS permission integration,
+background collection, approval capture, approval execution, context injection,
+memory write, file mutation, raw data, credential handling, cookie handling,
+execution, remote execution, plugin enablement, dependencies, M45
+implementation, or production authority.
 
 v0.29.5 is documentation policy polish. It remains the documentation
 organization cleanup baseline before the M26 and M27 implementation releases.
@@ -78,6 +76,8 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M42 to M43 Boundary](docs/mobile/M42_TO_M43_BOUNDARY.md)
 - [M43 Mobile API Boundary, Read-Only](docs/mobile/MOBILE_API_BOUNDARY_READ_ONLY.md)
 - [M43 to M44 Boundary](docs/mobile/M43_TO_M44_BOUNDARY.md)
+- [M44 CCC iOS Skeleton, No Authority](docs/mobile/CCC_IOS_SKELETON_NO_AUTHORITY.md)
+- [M44 to M45 Boundary](docs/mobile/M44_TO_M45_BOUNDARY.md)
 - [M38 Context Proposal Receipt Plan](docs/context/CONTEXT_PROPOSAL_RECEIPT_PLAN.md)
 - [API route inventory](docs/api/route_inventory.md)
 - [Documentation organization policy](docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md)
@@ -95,9 +95,9 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M28 Action Policy](docs/approvals/ACTION_POLICY.md)
 - [M27 Tool Broker v2](docs/tools/TOOL_BROKER_V2.md)
 - [M26 Grounded Recall Router](docs/recall/GROUNDED_RECALL_ROUTER.md)
-- [v0.47.0 release notes](docs/release_notes/v0_47_0.md)
-- [v0.47.0 release packet](docs/archive/releases/v0_47_0/README_IMPORT.md)
-- [v0.47.0 master plan](docs/archive/releases/v0_47_0/master_plan.md)
+- [v0.48.0 release notes](docs/release_notes/v0_48_0.md)
+- [v0.48.0 release packet](docs/archive/releases/v0_48_0/README_IMPORT.md)
+- [v0.48.0 master plan](docs/archive/releases/v0_48_0/master_plan.md)
 
 ## What This Project Is
 
@@ -356,7 +356,7 @@ post-M33 supersession is
 | v0.45.0 | M41 - Local Prototype Safety Freeze | Implemented/released safety freeze |
 | v0.46.0 | M42 - Mobile Companion Product Contract Refresh | Implemented/released contract refresh |
 | v0.47.0 | M43 - Mobile API Boundary, Read-Only | Implemented/released contract-only |
-| v0.48.0 | M44 - CCC iOS Skeleton, No Authority | Planned/provisional |
+| v0.48.0 | M44 - CCC iOS Skeleton, No Authority | Implemented/released source-only |
 | v0.49.0 | M45 - CCC iOS Local Read-Only Connection | Planned/provisional |
 | v0.50.0 | M46 - iOS Review/Receipt Read-Only Surfaces | Planned/provisional |
 | v0.51.0 | M47 - TestFlight Pipeline, Internal Only | Planned/provisional |

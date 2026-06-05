@@ -713,6 +713,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_m41_local_prototype_safety_docs(root, version))
     failures.extend(_verify_m42_mobile_product_contract_docs(root, version))
     failures.extend(_verify_m43_mobile_api_boundary_docs(root, version))
+    failures.extend(_verify_m44_ccc_ios_skeleton_docs(root, version))
     failures.extend(_verify_m19_roadmap_currentness(root, version))
     failures.extend(_verify_post_m18_roadmap_status_labels(root))
 
@@ -806,7 +807,46 @@ def _verify_m34_m60_roadmap_supersession(root: Path, version: str | None) -> lis
         "M49-M50 must be mobile approval capture/audit": "m49-m50",
         "Archive docs must not be active source of truth": "not the active source of truth",
     }
-    if _version_tuple(version) >= (0, 46, 0):
+    if _version_tuple(version) >= (0, 48, 0):
+        required_fragments.update(
+            {
+                "M34 must be released as planning/docs/verifier only": (
+                    "m34 is implemented/released as planning/docs/verifier only"
+                ),
+                "M35 must be released as Safe File Review Workflow Contracts": (
+                    "m35 is implemented/released"
+                ),
+                "M36 must be released as CCC File Review Surface": (
+                    "m36 is implemented/released"
+                ),
+                "M37 must be released as Review Approval Capture": (
+                    "m37 is implemented/released"
+                ),
+                "M38 must be released as Safe Context Proposal": (
+                    "m38 is implemented/released"
+                ),
+                "M39 must be released as CCC Context Proposal Surface": (
+                    "m39 is implemented/released"
+                ),
+                "M40 must be released as Context Handoff Approval": (
+                    "m40 is implemented/released"
+                ),
+                "M41 must be released as Local Prototype Safety Freeze": (
+                    "m41 is implemented/released"
+                ),
+                "M42 must be released as Mobile Companion Product Contract Refresh": (
+                    "m42 is implemented/released"
+                ),
+                "M43 must be released as Mobile API Boundary, Read-Only": (
+                    "m43 is implemented/released"
+                ),
+                "M44 must be released as CCC iOS Skeleton, No Authority": (
+                    "m44 is implemented/released"
+                ),
+                "M45-M60 must remain planned/provisional": "m45-m60 remain planned/provisional",
+            }
+        )
+    elif _version_tuple(version) >= (0, 46, 0):
         required_fragments.update(
             {
                 "M34 must be released as planning/docs/verifier only": (
@@ -1698,6 +1738,71 @@ def _verify_m43_mobile_api_boundary_docs(root: Path, version: str | None) -> lis
         "M43 docs must not claim approval execution implementation": "approval execution is implemented",
         "M43 docs must not claim production authority": "production authority is implemented",
         "M43 docs must not claim M44 implementation": "m44 is implemented",
+    }
+    for message, fragment in forbidden_fragments.items():
+        if fragment in text:
+            failures.append(f"{message}: {fragment}")
+    return failures
+
+
+def _verify_m44_ccc_ios_skeleton_docs(root: Path, version: str | None) -> list[str]:
+    if _version_tuple(version) < (0, 48, 0):
+        return []
+
+    failures: list[str] = []
+    required_docs = [
+        "docs/mobile/CCC_IOS_SKELETON_NO_AUTHORITY.md",
+        "docs/mobile/M44_TO_M45_BOUNDARY.md",
+        "docs/release_notes/v0_48_0.md",
+        "docs/archive/releases/v0_48_0/README_IMPORT.md",
+        "docs/archive/releases/v0_48_0/master_plan.md",
+        "docs/implementation/foundation_gate_implementation_plan_v0_48_0.md",
+    ]
+    parts: list[str] = []
+    for rel_path in required_docs:
+        path = root / rel_path
+        if not path.exists():
+            failures.append(f"missing active M44 CCC iOS skeleton doc: {rel_path}")
+            continue
+        parts.append(_read(path).lower())
+    text = "\n".join(parts)
+    required_fragments = {
+        "M44 docs must say CCC iOS Skeleton, No Authority": "ccc ios skeleton, no authority",
+        "M44 docs must say source-only": "source-only",
+        "M44 docs must say mock-only": "mock-only",
+        "M44 docs must say read-only": "read-only",
+        "M44 docs must say non-authoritative": "non-authoritative",
+        "M44 docs must deny Xcode project": "no xcode project",
+        "M44 docs must deny Swift package": "no swift package",
+        "M44 docs must deny Info.plist": "no info.plist",
+        "M44 docs must deny entitlements": "no entitlements",
+        "M44 docs must deny backend route": "no backend route",
+        "M44 docs must deny mobile API route runtime": "no mobile api route runtime",
+        "M44 docs must deny network": "no network",
+        "M44 docs must deny mobile sensor access": "no mobile sensor access",
+        "M44 docs must deny OS permission integration": "no os permission integration",
+        "M44 docs must deny approval capture": "no approval capture",
+        "M44 docs must deny approval execution": "no approval execution",
+        "M44 docs must deny context injection": "no context injection",
+        "M44 docs must deny memory write": "no memory write",
+        "M44 docs must deny file mutation": "no file mutation",
+        "M44 docs must deny execution": "no execution",
+        "M44 docs must deny credentials": "no credential",
+        "M44 docs must deny background": "no background",
+        "M44 docs must deny production authority": "no production authority",
+        "M44 docs must keep M45 future": "m45 remains future",
+    }
+    for message, fragment in required_fragments.items():
+        if fragment not in text:
+            failures.append(message)
+
+    forbidden_fragments = {
+        "M44 docs must not claim M45 implementation": "m45 is implemented",
+        "M44 docs must not claim local connection implementation": "local read-only connection is implemented",
+        "M44 docs must not claim TestFlight implementation": "testflight pipeline is implemented",
+        "M44 docs must not claim sensor implementation": "mobile sensors are implemented",
+        "M44 docs must not claim approval execution implementation": "approval execution is implemented",
+        "M44 docs must not claim production authority": "production authority is implemented",
     }
     for message, fragment in forbidden_fragments.items():
         if fragment in text:
@@ -3477,7 +3582,20 @@ def _verify_post_m20_roadmap_projection(root: Path) -> list[str]:
         expectations["M40 must be Context Handoff Approval, No Injection"] = (
             "context handoff approval, no injection"
         )
-        if active_version_tuple >= (0, 46, 0):
+        if active_version_tuple >= (0, 48, 0):
+            expectations["Post-M20 roadmap docs must say M42 is implemented/released"] = (
+                "m42 is implemented/released"
+            )
+            expectations["Post-M20 roadmap docs must say M43 is implemented/released"] = (
+                "m43 is implemented/released"
+            )
+            expectations["Post-M20 roadmap docs must say M44 is implemented/released"] = (
+                "m44 is implemented/released"
+            )
+            expectations["Post-M20 roadmap docs must keep M45-M60 planned/provisional"] = (
+                "m45-m60 remain planned/provisional"
+            )
+        elif active_version_tuple >= (0, 46, 0):
             expectations["Post-M20 roadmap docs must say M42 is implemented/released"] = (
                 "m42 is implemented/released"
             )
@@ -3892,7 +4010,12 @@ def _verify_post_m18_roadmap_status_labels(root: Path) -> list[str]:
             or "redacted preview" not in active_capability_charters
         ):
             failures.append("roadmap sequence must define M33 as redacted file preview")
-        if active >= (0, 47, 0):
+        if active >= (0, 48, 0):
+            if "v0.48.0 / m44" not in active_capability_charters or "implemented/released" not in active_capability_charters:
+                failures.append("roadmap sequence must mark M44/v0.48.0 implemented")
+            if "m45-m60" not in active_capability_charters or "planned/provisional" not in active_capability_charters:
+                failures.append("roadmap sequence must keep M45-M60 planned/provisional")
+        elif active >= (0, 47, 0):
             if "v0.47.0 / m43" not in active_capability_charters or "implemented/released" not in active_capability_charters:
                 failures.append("roadmap sequence must mark M43/v0.47.0 implemented")
             if "m44-m60" not in active_capability_charters or "planned/provisional" not in active_capability_charters:

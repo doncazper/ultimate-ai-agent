@@ -2,6 +2,8 @@ import re
 from typing import Iterable
 
 from ultimate_ai_agent.core.mobile_companion.contracts import (
+    CccIosSkeletonManifest,
+    CccIosSkeletonSurface,
     MobileApiBoundaryRefresh,
     MobileCapabilityPlan,
     MobileCaptureIntentPlan,
@@ -13,6 +15,7 @@ from ultimate_ai_agent.core.mobile_companion.contracts import (
     MobileReadOnlyApiEndpointContract,
 )
 from ultimate_ai_agent.core.mobile_companion.enums import (
+    CccIosSkeletonSurfaceKind,
     MobileApiBoundaryStatus,
     MobileApiEndpointKind,
     MobileApiHttpMethod,
@@ -229,6 +232,42 @@ def build_default_mobile_read_only_api_boundary(
     )
     assert_mobile_api_boundary_read_only(boundary)
     return boundary
+
+
+def build_default_ccc_ios_skeleton_manifest(
+    version: str = "0.48.0",
+) -> CccIosSkeletonManifest:
+    manifest = CccIosSkeletonManifest(
+        version=version,
+        safe_summary=(
+            "M44 CCC iOS source-only skeleton; mock read-only views, no native "
+            "authority, and no production workflow."
+        ),
+        surfaces=[
+            CccIosSkeletonSurface(
+                surface_ref="ccc_ios_surface:status-overview",
+                kind=CccIosSkeletonSurfaceKind.status_overview,
+                safe_summary="Mock status overview surface; read-only and non-authoritative.",
+            ),
+            CccIosSkeletonSurface(
+                surface_ref="ccc_ios_surface:review-packet-preview",
+                kind=CccIosSkeletonSurfaceKind.review_packet_preview,
+                safe_summary="Mock review packet preview surface; no approval capture.",
+            ),
+            CccIosSkeletonSurface(
+                surface_ref="ccc_ios_surface:receipt-preview",
+                kind=CccIosSkeletonSurfaceKind.receipt_preview,
+                safe_summary="Mock receipt preview surface; safe refs only.",
+            ),
+            CccIosSkeletonSurface(
+                surface_ref="ccc_ios_surface:authority-boundary",
+                kind=CccIosSkeletonSurfaceKind.authority_boundary,
+                safe_summary="Authority boundary copy; iOS is not the agent brain.",
+            ),
+        ],
+    )
+    assert_ccc_ios_skeleton_no_authority(manifest)
+    return manifest
 
 
 def validate_mobile_capability_plan(plan: MobileCapabilityPlan) -> MobileCapabilityPlan:
@@ -466,6 +505,82 @@ def validate_mobile_api_endpoint_contract(
         if enabled:
             raise ValueError(f"M43 mobile API endpoint cannot enable {label}")
     return endpoint
+
+
+def assert_ccc_ios_skeleton_no_authority(
+    manifest: CccIosSkeletonManifest,
+) -> CccIosSkeletonManifest:
+    _assert_safe_text(manifest.safe_summary)
+    _assert_safe_ref(manifest.source_root_ref, label="source root ref")
+    if manifest.milestone != "M44":
+        raise ValueError("CCC iOS skeleton must remain scoped to M44")
+    if not manifest.version.startswith("0.48."):
+        raise ValueError("M44 CCC iOS skeleton version must be 0.48.x")
+    if not manifest.source_only_skeleton:
+        raise ValueError("M44 CCC iOS skeleton must remain source-only")
+    if not manifest.no_authority:
+        raise ValueError("M44 CCC iOS skeleton must remain no-authority")
+    if not manifest.m45_local_read_only_connection_future:
+        raise ValueError("M45 local read-only connection must remain future")
+    forbidden_flags = {
+        "production workflow": manifest.production_workflow_enabled,
+        "signing or store workflow": manifest.signing_or_store_workflow_enabled,
+        "native build workflow": manifest.native_build_workflow_enabled,
+        "network access": manifest.network_access_enabled,
+        "sensor access": manifest.sensor_access_enabled,
+        "OS permission integration": manifest.os_permission_integration_enabled,
+        "approval capture": manifest.approval_capture_enabled,
+        "approval execution": manifest.approval_execution_enabled,
+        "context injection": manifest.context_injection_enabled,
+        "memory write": manifest.memory_write_enabled,
+        "file mutation": manifest.file_mutation_enabled,
+        "execution": manifest.execution_enabled,
+        "credential storage": manifest.credential_storage_enabled,
+        "background task": manifest.background_task_enabled,
+        "production authority": manifest.production_authority_enabled,
+    }
+    for label, enabled in forbidden_flags.items():
+        if enabled:
+            raise ValueError(f"M44 CCC iOS skeleton cannot enable {label}")
+    if not manifest.surfaces:
+        raise ValueError("M44 CCC iOS skeleton requires read-only surfaces")
+    seen_refs: set[str] = set()
+    for surface in manifest.surfaces:
+        validate_ccc_ios_skeleton_surface(surface)
+        if surface.surface_ref in seen_refs:
+            raise ValueError(f"duplicate M44 iOS surface ref: {surface.surface_ref}")
+        seen_refs.add(surface.surface_ref)
+    return manifest
+
+
+def validate_ccc_ios_skeleton_surface(
+    surface: CccIosSkeletonSurface,
+) -> CccIosSkeletonSurface:
+    _assert_safe_ref(surface.surface_ref, label="surface ref")
+    _assert_safe_text(surface.safe_summary)
+    _assert_metadata_refs_only(surface.metadata_refs)
+    if not surface.read_only:
+        raise ValueError("M44 CCC iOS surfaces must remain read-only")
+    if not surface.mock_only:
+        raise ValueError("M44 CCC iOS surfaces must remain mock-only")
+    if not surface.non_authoritative:
+        raise ValueError("M44 CCC iOS surfaces must remain non-authoritative")
+    forbidden_flags = {
+        "mutation": surface.mutation_enabled,
+        "approval capture": surface.approval_capture_enabled,
+        "approval execution": surface.approval_execution_enabled,
+        "sensor access": surface.sensor_access_enabled,
+        "network access": surface.network_access_enabled,
+        "context injection": surface.context_injection_enabled,
+        "memory write": surface.memory_write_enabled,
+        "file mutation": surface.file_mutation_enabled,
+        "execution": surface.execution_enabled,
+        "credential storage": surface.credential_storage_enabled,
+    }
+    for label, enabled in forbidden_flags.items():
+        if enabled:
+            raise ValueError(f"M44 CCC iOS surface cannot enable {label}")
+    return surface
 
 
 def assert_no_sensor_access_enabled(plan: MobileCapabilityPlan) -> MobileCapabilityPlan:

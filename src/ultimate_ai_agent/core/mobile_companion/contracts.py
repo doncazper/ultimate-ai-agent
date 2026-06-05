@@ -3,6 +3,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from ultimate_ai_agent.core.mobile_companion.enums import (
+    CccIosSkeletonSurfaceKind,
     MobileCapabilityKind,
     MobileCapabilityStatus,
     MobileClientPlatform,
@@ -228,4 +229,60 @@ class MobileReadOnlyApiBoundary(_MobileContractModel):
     def _copy_endpoints(
         cls, value: list[MobileReadOnlyApiEndpointContract]
     ) -> list[MobileReadOnlyApiEndpointContract]:
+        return list(value)
+
+
+class CccIosSkeletonSurface(_MobileContractModel):
+    surface_ref: str = Field(..., min_length=1)
+    kind: CccIosSkeletonSurfaceKind
+    safe_summary: str = Field(..., min_length=1)
+    read_only: bool = True
+    mock_only: bool = True
+    non_authoritative: bool = True
+    mutation_enabled: bool = False
+    approval_capture_enabled: bool = False
+    approval_execution_enabled: bool = False
+    sensor_access_enabled: bool = False
+    network_access_enabled: bool = False
+    context_injection_enabled: bool = False
+    memory_write_enabled: bool = False
+    file_mutation_enabled: bool = False
+    execution_enabled: bool = False
+    credential_storage_enabled: bool = False
+    metadata_refs: list[str] = Field(default_factory=list)
+
+    @field_validator("metadata_refs")
+    @classmethod
+    def _copy_metadata_refs(cls, value: list[str]) -> list[str]:
+        return list(value)
+
+
+class CccIosSkeletonManifest(_MobileContractModel):
+    milestone: str = "M44"
+    version: str = "0.48.0"
+    source_only_skeleton: bool = True
+    no_authority: bool = True
+    safe_summary: str = "M44 CCC iOS source-only skeleton with no authority."
+    source_root_ref: str = "ccc_ios_source:apps-ccc-ios"
+    surfaces: list[CccIosSkeletonSurface] = Field(default_factory=list)
+    production_workflow_enabled: bool = False
+    signing_or_store_workflow_enabled: bool = False
+    native_build_workflow_enabled: bool = False
+    network_access_enabled: bool = False
+    sensor_access_enabled: bool = False
+    os_permission_integration_enabled: bool = False
+    approval_capture_enabled: bool = False
+    approval_execution_enabled: bool = False
+    context_injection_enabled: bool = False
+    memory_write_enabled: bool = False
+    file_mutation_enabled: bool = False
+    execution_enabled: bool = False
+    credential_storage_enabled: bool = False
+    background_task_enabled: bool = False
+    production_authority_enabled: bool = False
+    m45_local_read_only_connection_future: bool = True
+
+    @field_validator("surfaces")
+    @classmethod
+    def _copy_surfaces(cls, value: list[CccIosSkeletonSurface]) -> list[CccIosSkeletonSurface]:
         return list(value)

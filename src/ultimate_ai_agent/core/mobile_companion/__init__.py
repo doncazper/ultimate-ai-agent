@@ -1,4 +1,6 @@
 from ultimate_ai_agent.core.mobile_companion.contracts import (
+    CccIosSkeletonManifest,
+    CccIosSkeletonSurface,
     MobileCapabilityPlan,
     MobileCaptureIntentPlan,
     MobileClientPlan,
@@ -12,6 +14,7 @@ from ultimate_ai_agent.core.mobile_companion.contracts import (
     MobileReceiptPlan,
 )
 from ultimate_ai_agent.core.mobile_companion.enums import (
+    CccIosSkeletonSurfaceKind,
     MobileApiBoundaryStatus,
     MobileApiEndpointKind,
     MobileApiHttpMethod,
@@ -28,14 +31,17 @@ from ultimate_ai_agent.core.mobile_companion.permissions import (
     build_default_mobile_permission_manifest,
 )
 from ultimate_ai_agent.core.mobile_companion.planning import (
+    assert_ccc_ios_skeleton_no_authority,
     assert_mobile_api_boundary_read_only,
     assert_mobile_contract_only,
     assert_mobile_product_contract_refresh_only,
     assert_no_sensor_access_enabled,
     assert_no_silent_memory_write,
+    build_default_ccc_ios_skeleton_manifest,
     build_default_mobile_companion_manifest,
     build_default_mobile_read_only_api_boundary,
     build_default_mobile_product_contract_refresh,
+    validate_ccc_ios_skeleton_surface,
     validate_mobile_api_endpoint_contract,
     validate_mobile_capability_plan,
     validate_mobile_api_boundary_refresh,
@@ -44,6 +50,9 @@ from ultimate_ai_agent.core.mobile_companion.planning import (
 )
 
 __all__ = [
+    "CccIosSkeletonManifest",
+    "CccIosSkeletonSurface",
+    "CccIosSkeletonSurfaceKind",
     "MobileApiBoundaryRefresh",
     "MobileApiBoundaryStatus",
     "MobileApiEndpointKind",
@@ -66,15 +75,18 @@ __all__ = [
     "MobileReadOnlyApiEndpointContract",
     "MobileReceiptPlan",
     "MobileReceiptRequirement",
+    "assert_ccc_ios_skeleton_no_authority",
     "assert_mobile_api_boundary_read_only",
     "assert_mobile_contract_only",
     "assert_mobile_product_contract_refresh_only",
     "assert_no_sensor_access_enabled",
     "assert_no_silent_memory_write",
+    "build_default_ccc_ios_skeleton_manifest",
     "build_default_mobile_companion_manifest",
     "build_default_mobile_read_only_api_boundary",
     "build_default_mobile_product_contract_refresh",
     "build_default_mobile_permission_manifest",
+    "validate_ccc_ios_skeleton_surface",
     "validate_mobile_api_endpoint_contract",
     "validate_mobile_api_boundary_refresh",
     "validate_mobile_capability_plan",

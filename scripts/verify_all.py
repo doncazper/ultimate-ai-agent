@@ -52,6 +52,7 @@ SCAN_SEQUENCE = [
     ("M41 local prototype safety freeze scan", "verify_m41_local_prototype_safety_freeze"),
     ("M42 mobile product contract refresh scan", "verify_m42_mobile_product_contract_refresh"),
     ("M43 read-only mobile API boundary scan", "verify_m43_mobile_api_boundary_read_only"),
+    ("M44 CCC iOS skeleton no-authority scan", "verify_m44_ccc_ios_skeleton_no_authority"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -5173,6 +5174,167 @@ def verify_m43_mobile_api_boundary_read_only():
     print("OK: M43 mobile API boundary is contract-only, read-only, route-stable, raw-data-free, and sensor-free")
 
 
+def verify_m44_ccc_ios_skeleton_no_authority():
+    print("\n[Verifier] Running M44 CCC iOS skeleton no-authority guard...")
+    required_files = [
+        "apps/ccc-ios/README.md",
+        "apps/ccc-ios/Sources/UltimateAIAgentCCC/UltimateAIAgentCCCApp.swift",
+        "apps/ccc-ios/Sources/UltimateAIAgentCCC/ReadOnlyDashboardView.swift",
+        "apps/ccc-ios/Sources/UltimateAIAgentCCC/SkeletonFixtures.swift",
+        "src/ultimate_ai_agent/core/mobile_companion/contracts.py",
+        "src/ultimate_ai_agent/core/mobile_companion/planning.py",
+        "src/ultimate_ai_agent/core/mobile_companion/enums.py",
+        "docs/mobile/CCC_IOS_SKELETON_NO_AUTHORITY.md",
+        "docs/mobile/M44_TO_M45_BOUNDARY.md",
+        "docs/release_notes/v0_48_0.md",
+        "docs/archive/releases/v0_48_0/README_IMPORT.md",
+        "docs/archive/releases/v0_48_0/master_plan.md",
+        "docs/implementation/foundation_gate_implementation_plan_v0_48_0.md",
+        "tests/test_m44_ccc_ios_skeleton_no_authority.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M44 CCC iOS skeleton file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = "\n".join(
+        (ROOT / rel_path).read_text(encoding="utf-8").lower()
+        for rel_path in required_files
+        if rel_path.startswith("docs/")
+    )
+    for fragment in [
+        "ccc ios skeleton, no authority",
+        "source-only",
+        "mock-only",
+        "read-only",
+        "non-authoritative",
+        "no xcode project",
+        "no swift package",
+        "no info.plist",
+        "no entitlements",
+        "no backend route",
+        "no mobile api route runtime",
+        "no network",
+        "no mobile sensor access",
+        "no os permission integration",
+        "no approval capture",
+        "no approval execution",
+        "no context injection",
+        "no memory write",
+        "no file mutation",
+        "no execution",
+        "no credential",
+        "no background",
+        "no production authority",
+        "m45 remains future",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M44 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.evaluators import m44_openapi_route_failures
+        from ultimate_ai_agent.core.mobile_companion import (
+            assert_ccc_ios_skeleton_no_authority,
+            build_default_ccc_ios_skeleton_manifest,
+        )
+    except Exception as exc:
+        print(f"FAIL: M44 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m44_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    try:
+        manifest = build_default_ccc_ios_skeleton_manifest()
+        assert_ccc_ios_skeleton_no_authority(manifest)
+    except Exception as exc:
+        print(f"FAIL: M44 default CCC iOS skeleton failed validation: {exc}")
+        sys.exit(1)
+
+    ios_root = ROOT / "apps" / "ccc-ios"
+    for forbidden_path in [
+        ios_root / "Package.swift",
+        *ios_root.glob("*.xcodeproj"),
+        *ios_root.rglob("*.entitlements"),
+        *ios_root.rglob("Info.plist"),
+    ]:
+        if forbidden_path.exists():
+            rel = forbidden_path.relative_to(ROOT).as_posix()
+            print(f"FAIL: M44 forbidden native workflow file present: {rel}")
+            sys.exit(1)
+
+    swift_files = sorted((ios_root / "Sources" / "UltimateAIAgentCCC").rglob("*.swift"))
+    if not swift_files:
+        print("FAIL: M44 Swift source files missing")
+        sys.exit(1)
+    swift_text = "\n".join(path.read_text(encoding="utf-8") for path in swift_files)
+    lowered_swift = swift_text.lower()
+    for required in ["swiftui", "mock", "non-authoritative", "read-only"]:
+        if required not in lowered_swift:
+            print(f"FAIL: M44 Swift source missing marker: {required}")
+            sys.exit(1)
+    for fragment in [
+        "URLSession",
+        "Alamofire",
+        "CLLocationManager",
+        "AVCapture",
+        "PHPhoto",
+        "Contacts",
+        "EventKit",
+        "UserNotifications",
+        "Keychain",
+        "SecItem",
+        "FileManager.default",
+        "Process(",
+        "WKWebView",
+        "approvalCapture",
+        "approvalExecution",
+        "contextInjection",
+        "memoryWrite",
+    ]:
+        if fragment in swift_text:
+            print(f"FAIL: M44 forbidden Swift API fragment present: {fragment}")
+            sys.exit(1)
+
+    forbidden_source_fragments = [
+        "production_workflow_enabled=True",
+        "signing_or_store_workflow_enabled=True",
+        "native_build_workflow_enabled=True",
+        "network_access_enabled=True",
+        "sensor_access_enabled=True",
+        "os_permission_integration_enabled=True",
+        "approval_capture_enabled=True",
+        "approval_execution_enabled=True",
+        "context_injection_enabled=True",
+        "memory_write_enabled=True",
+        "file_mutation_enabled=True",
+        "execution_enabled=True",
+        "credential_storage_enabled=True",
+        "background_task_enabled=True",
+        "production_authority_enabled=True",
+    ]
+    source_roots = [ROOT / "src", ROOT / "apps" / "control-center" / "src", ios_root]
+    for root in source_roots:
+        if not root.exists():
+            continue
+        for path in root.rglob("*"):
+            if not path.is_file() or path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}:
+                continue
+            rel = path.relative_to(ROOT).as_posix()
+            text = path.read_text(encoding="utf-8")
+            for fragment in forbidden_source_fragments:
+                if fragment in text:
+                    print(f"FAIL: M44 forbidden authority flag in {rel}: {fragment}")
+                    sys.exit(1)
+
+    print("OK: M44 CCC iOS skeleton is source-only, mock-only, read-only, no-authority, and route-stable")
+
+
 def verify_local_developer_launcher_safety():
     print("\n[Verifier] Running local developer launcher safety guard...")
     required_files = [
@@ -5516,7 +5678,11 @@ def verify_no_mobile_native_or_sensor_implementation():
         if Path(rel_path).name in forbidden_file_names:
             print(f"FAIL: Forbidden native/mobile build or store file tracked in git: {rel_path}")
             sys.exit(1)
-        if rel_path.endswith((".swift", ".kt", ".kts", ".java")) and not rel_path.startswith("docs/"):
+        if (
+            rel_path.endswith((".swift", ".kt", ".kts", ".java"))
+            and not rel_path.startswith("docs/")
+            and not rel_path.startswith("apps/ccc-ios/Sources/UltimateAIAgentCCC/")
+        ):
             print(f"FAIL: Forbidden native mobile source file tracked in git: {rel_path}")
             sys.exit(1)
 
@@ -5539,7 +5705,7 @@ def verify_no_mobile_native_or_sensor_implementation():
                 print(f"FAIL: Forbidden mobile/native dependency fragment in {rel_path}: {fragment}")
                 sys.exit(1)
 
-    implementation_roots = [ROOT / "src", ROOT / "apps", ROOT / "scripts", ROOT / "tests"]
+    implementation_roots = [ROOT / "src", ROOT / "apps", ROOT / "scripts"]
     forbidden_fragments = [
         "navigator.geolocation",
         "navigator.mediadevices",

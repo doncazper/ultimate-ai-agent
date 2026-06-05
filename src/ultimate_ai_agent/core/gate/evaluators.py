@@ -613,6 +613,45 @@ M43_FORBIDDEN_BACKEND_ROUTES = M42_FORBIDDEN_BACKEND_ROUTES + (
     "/mobile/tools/execute",
     "/mobile/plugins/execute",
 )
+EXPECTED_M44_OPENAPI_PATH_COUNT = 75
+M44_FORBIDDEN_BACKEND_ROUTES = M43_FORBIDDEN_BACKEND_ROUTES + (
+    "/mobile/app/build",
+    "/mobile/ios",
+    "/mobile/ios/build",
+    "/mobile/ios/sign",
+    "/mobile/ios/provision",
+    "/mobile/ios/testflight",
+    "/mobile/ios/sensors",
+    "/mobile/ios/permissions",
+    "/mobile/ios/background",
+    "/mobile/ios/network",
+    "/mobile/ios/approvals/capture",
+    "/mobile/ios/approvals/execute",
+    "/mobile/ios/context/inject",
+    "/mobile/ios/memory/write",
+    "/mobile/ios/files/raw",
+    "/mobile/ios/export",
+    "/mobile/ios/execute",
+)
+M44_FORBIDDEN_SWIFT_FRAGMENTS = (
+    "URLSession",
+    "Alamofire",
+    "CLLocationManager",
+    "AVCapture",
+    "PHPhoto",
+    "Contacts",
+    "EventKit",
+    "UserNotifications",
+    "Keychain",
+    "SecItem",
+    "FileManager.default",
+    "Process(",
+    "WKWebView",
+    "approvalCapture",
+    "approvalExecution",
+    "contextInjection",
+    "memoryWrite",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -1038,6 +1077,19 @@ def m43_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
     return failures
 
 
+def m44_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M44_OPENAPI_PATH_COUNT) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+    if M37_ALLOWED_CAPTURE_ROUTE not in path_set:
+        failures.append("M37 capture route missing: /files/review/approvals/capture")
+    for route in M44_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(f"M44 forbidden backend route present: {route}")
+    return failures
+
+
 M36_SAFE_REF_PREFIXES = {
     "reviewPacketRef": "file-review-packet:",
     "previewResultRef": "redacted-file-preview-output:",
@@ -1418,6 +1470,10 @@ class FoundationGateEvaluator:
             "m43_mobile_api_boundary_read_only": self.check_m43_mobile_api_boundary_read_only,
             "m43_mobile_route_boundary": self.check_m43_mobile_route_boundary,
             "m43_roadmap_currentness": self.check_m43_roadmap_currentness,
+            "m44_ccc_ios_skeleton_no_authority": self.check_m44_ccc_ios_skeleton_no_authority,
+            "m44_ios_skeleton_static_safety": self.check_m44_ios_skeleton_static_safety,
+            "m44_mobile_route_boundary": self.check_m44_mobile_route_boundary,
+            "m44_roadmap_currentness": self.check_m44_roadmap_currentness,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -8731,8 +8787,12 @@ class FoundationGateEvaluator:
         if current_tuple >= (0, 45, 0):
             if "m41 is implemented/released" not in text and "v0.45.0 implements m41" not in text:
                 failures.append("M41 roadmap docs do not mark M41 implemented/released")
-            if "m42-m60 remain planned/provisional" not in text and "m44-m60 remain planned/provisional" not in text:
-                failures.append("M42-M60 or M43-M60 planned/provisional marker missing after M41")
+            if (
+                "m42-m60 remain planned/provisional" not in text
+                and "m44-m60 remain planned/provisional" not in text
+                and "m45-m60 remain planned/provisional" not in text
+            ):
+                failures.append("M42-M60, M44-M60, or M45-M60 planned/provisional marker missing after M41")
         elif current_tuple >= (0, 44, 0):
             if "m40 is implemented/released" not in text and "v0.44.0 implements m40" not in text:
                 failures.append("M40 roadmap docs do not mark M40 implemented/released")
@@ -9023,8 +9083,12 @@ class FoundationGateEvaluator:
         if version_tuple >= (0, 45, 0):
             if "m41 is implemented/released" not in text and "v0.45.0 implements m41" not in text:
                 failures.append("M41 must be implemented/released for active v0.45.0+ docs")
-            if "m42-m60 remain planned/provisional" not in text and "m44-m60 remain planned/provisional" not in text:
-                failures.append("M42-M60 or M43-M60 planned/provisional marker missing after M41")
+            if (
+                "m42-m60 remain planned/provisional" not in text
+                and "m44-m60 remain planned/provisional" not in text
+                and "m45-m60 remain planned/provisional" not in text
+            ):
+                failures.append("M42-M60, M44-M60, or M45-M60 planned/provisional marker missing after M41")
         elif version_tuple >= (0, 44, 0):
             if "m40 is implemented/released" not in text and "v0.44.0 implements m40" not in text:
                 failures.append("M40 must be implemented/released for active v0.44.0+ docs")
@@ -9188,8 +9252,12 @@ class FoundationGateEvaluator:
         if version_tuple >= (0, 45, 0):
             if "m41 is implemented/released" not in text and "v0.45.0 implements m41" not in text:
                 failures.append("M41 must be implemented/released for active v0.45.0+ docs")
-            if "m42-m60 remain planned/provisional" not in text and "m44-m60 remain planned/provisional" not in text:
-                failures.append("M42-M60 or M43-M60 planned/provisional marker missing after M41")
+            if (
+                "m42-m60 remain planned/provisional" not in text
+                and "m44-m60 remain planned/provisional" not in text
+                and "m45-m60 remain planned/provisional" not in text
+            ):
+                failures.append("M42-M60, M44-M60, or M45-M60 planned/provisional marker missing after M41")
         elif version_tuple >= (0, 44, 0):
             if "m40 is implemented/released" not in text and "v0.44.0 implements m40" not in text:
                 failures.append("M40 must be implemented/released for active v0.44.0+ docs")
@@ -9329,8 +9397,12 @@ class FoundationGateEvaluator:
         if version_tuple >= (0, 45, 0):
             if "m41 is implemented/released" not in text and "v0.45.0 implements m41" not in text:
                 failures.append("active docs do not mark M41 implemented/released")
-            if "m42-m60 remain planned/provisional" not in text and "m44-m60 remain planned/provisional" not in text:
-                failures.append("M42-M60 or M43-M60 planned/provisional marker missing after M41")
+            if (
+                "m42-m60 remain planned/provisional" not in text
+                and "m44-m60 remain planned/provisional" not in text
+                and "m45-m60 remain planned/provisional" not in text
+            ):
+                failures.append("M42-M60, M44-M60, or M45-M60 planned/provisional marker missing after M41")
         elif version_tuple >= (0, 44, 0):
             if "m40 is implemented/released" not in text and "v0.44.0 implements m40" not in text:
                 failures.append("active docs do not mark M40 implemented/released")
@@ -9586,8 +9658,12 @@ class FoundationGateEvaluator:
         if current >= (0, 45, 0):
             if "m41 is implemented/released" not in text and "v0.45.0 implements m41" not in text:
                 failures.append("active docs do not mark M41 implemented/released after v0.45.0")
-            if "m42-m60 remain planned/provisional" not in text and "m44-m60 remain planned/provisional" not in text:
-                failures.append("M42-M60 or M43-M60 planned/provisional marker missing after M41")
+            if (
+                "m42-m60 remain planned/provisional" not in text
+                and "m44-m60 remain planned/provisional" not in text
+                and "m45-m60 remain planned/provisional" not in text
+            ):
+                failures.append("M42-M60, M44-M60, or M45-M60 planned/provisional marker missing after M41")
         elif current >= (0, 44, 0):
             if "m40 is implemented/released" not in text and "v0.44.0 implements m40" not in text:
                 failures.append("active docs do not mark M40 implemented/released after v0.44.0")
@@ -9728,8 +9804,12 @@ class FoundationGateEvaluator:
         m41_implemented = "v0.45.0 implements m41" in text or "m41 is implemented/released" in text
         m40_implemented = "v0.44.0 implements m40" in text or "m40 is implemented/released" in text
         if m41_implemented:
-            if "m42-m60 remain planned/provisional" not in text and "m44-m60 remain planned/provisional" not in text:
-                failures.append("M42-M60 or M43-M60 planned/provisional marker missing after M41")
+            if (
+                "m42-m60 remain planned/provisional" not in text
+                and "m44-m60 remain planned/provisional" not in text
+                and "m45-m60 remain planned/provisional" not in text
+            ):
+                failures.append("M42-M60, M44-M60, or M45-M60 planned/provisional marker missing after M41")
         elif m40_implemented:
             if "m41-m60 remain planned/provisional" not in text:
                 failures.append("M41-M60 must remain planned/provisional after M40")
@@ -9944,8 +10024,12 @@ class FoundationGateEvaluator:
         if active_version >= (0, 45, 0):
             if "m41 is implemented/released" not in text and "v0.45.0 implements m41" not in text:
                 failures.append("active docs do not mark M41 implemented/released")
-            if "m42-m60 remain planned/provisional" not in text and "m44-m60 remain planned/provisional" not in text:
-                failures.append("M42-M60 or M43-M60 planned/provisional marker missing after M41")
+            if (
+                "m42-m60 remain planned/provisional" not in text
+                and "m44-m60 remain planned/provisional" not in text
+                and "m45-m60 remain planned/provisional" not in text
+            ):
+                failures.append("M42-M60, M44-M60, or M45-M60 planned/provisional marker missing after M41")
         elif "m41 remains planned/provisional" not in text and "m41-m60 remain planned/provisional" not in text:
             failures.append("M41-M60 must remain planned/provisional after M40")
         for fragment in (
@@ -10068,15 +10152,17 @@ class FoundationGateEvaluator:
         if "m41 is implemented/released" not in text and "v0.45.0 implements m41" not in text:
             failures.append("active docs do not mark M41 implemented/released")
         current_tuple = tuple(int(part) for part in (self._active_version() or "0.0.0").split(".")[:3])
-        if current_tuple >= (0, 46, 0):
+        if current_tuple >= (0, 48, 0):
+            if "m45-m60 remain planned/provisional" not in text:
+                failures.append("M45-M60 must remain planned/provisional after M44")
+        elif current_tuple >= (0, 46, 0):
             if "m44-m60 remain planned/provisional" not in text:
                 failures.append("M44-M60 must remain planned/provisional after M43")
         elif "m42-m60 remain planned/provisional" not in text:
             failures.append("M42-M60 must remain planned/provisional after M41")
-        forbidden_fragments = [
-            "ccc ios skeleton is implemented",
-            "testflight pipeline is implemented",
-        ]
+        forbidden_fragments = ["testflight pipeline is implemented"]
+        if current_tuple < (0, 48, 0):
+            forbidden_fragments.append("ccc ios skeleton is implemented")
         if current_tuple < (0, 46, 0):
             forbidden_fragments.extend(
                 [
@@ -10220,13 +10306,15 @@ class FoundationGateEvaluator:
             failures.append("active docs do not identify v0.46.0/M42 Mobile Companion Product Contract Refresh")
         if "m42 is implemented/released" not in text and "v0.46.0 implements m42" not in text:
             failures.append("active docs do not mark M42 implemented/released")
-        if "m44-m60 remain planned/provisional" not in text:
-            failures.append("M44-M60 must remain planned/provisional after M43")
         current_tuple = tuple(int(part) for part in (self._active_version() or "0.0.0").split(".")[:3])
-        forbidden_fragments = [
-            "ccc ios skeleton is implemented",
-            "testflight pipeline is implemented",
-        ]
+        if current_tuple >= (0, 48, 0):
+            if "m45-m60 remain planned/provisional" not in text:
+                failures.append("M45-M60 must remain planned/provisional after M44")
+        elif "m44-m60 remain planned/provisional" not in text:
+            failures.append("M44-M60 must remain planned/provisional after M43")
+        forbidden_fragments = ["testflight pipeline is implemented"]
+        if current_tuple < (0, 48, 0):
+            forbidden_fragments.append("ccc ios skeleton is implemented")
         if current_tuple < (0, 47, 0):
             forbidden_fragments.extend(
                 [
@@ -10383,18 +10471,206 @@ class FoundationGateEvaluator:
             failures.append("active docs do not identify v0.47.0/M43 Mobile API Boundary, Read-Only")
         if "m43 is implemented/released" not in text and "v0.47.0 implements m43" not in text:
             failures.append("active docs do not mark M43 implemented/released")
-        if "m44-m60 remain planned/provisional" not in text:
+        current_tuple = tuple(int(part) for part in (self._active_version() or "0.0.0").split(".")[:3])
+        if current_tuple >= (0, 48, 0):
+            if "m45-m60 remain planned/provisional" not in text:
+                failures.append("M45-M60 must remain planned/provisional after M44")
+        elif "m44-m60 remain planned/provisional" not in text:
             failures.append("M44-M60 must remain planned/provisional after M43")
+        forbidden_fragments = [
+            "mobile sensors are implemented",
+            "approval execution is implemented",
+            "production authority is implemented",
+        ]
+        if current_tuple < (0, 48, 0):
+            forbidden_fragments.extend(
+                [
+                    "m44 is implemented",
+                    "v0.48.0 implements m44",
+                    "ccc ios skeleton is implemented",
+                ]
+            )
+        for fragment in forbidden_fragments:
+            if fragment in text:
+                failures.append(f"M43 docs imply forbidden/future capability: {fragment}")
+        return self._result(criterion, failures, required_docs)
+
+    def check_m44_ccc_ios_skeleton_no_authority(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "apps/ccc-ios/README.md",
+            "apps/ccc-ios/Sources/UltimateAIAgentCCC/UltimateAIAgentCCCApp.swift",
+            "apps/ccc-ios/Sources/UltimateAIAgentCCC/ReadOnlyDashboardView.swift",
+            "apps/ccc-ios/Sources/UltimateAIAgentCCC/SkeletonFixtures.swift",
+            "docs/mobile/CCC_IOS_SKELETON_NO_AUTHORITY.md",
+            "docs/mobile/M44_TO_M45_BOUNDARY.md",
+            "docs/release_notes/v0_48_0.md",
+            "docs/archive/releases/v0_48_0/README_IMPORT.md",
+            "docs/archive/releases/v0_48_0/master_plan.md",
+            "docs/implementation/foundation_gate_implementation_plan_v0_48_0.md",
+            "tests/test_m44_ccc_ios_skeleton_no_authority.py",
+        ]
+        failures = [
+            f"missing M44 iOS skeleton file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+
+        try:
+            from ultimate_ai_agent.core.mobile_companion import (
+                assert_ccc_ios_skeleton_no_authority,
+                build_default_ccc_ios_skeleton_manifest,
+            )
+
+            manifest = build_default_ccc_ios_skeleton_manifest()
+            assert_ccc_ios_skeleton_no_authority(manifest)
+            if manifest.milestone != "M44" or manifest.version != "0.48.0":
+                failures.append("default M44 iOS skeleton manifest has wrong milestone/version")
+            if not manifest.source_only_skeleton or not manifest.no_authority:
+                failures.append("default M44 iOS skeleton is not source-only/no-authority")
+            forbidden_flags = [
+                manifest.production_workflow_enabled,
+                manifest.signing_or_store_workflow_enabled,
+                manifest.native_build_workflow_enabled,
+                manifest.network_access_enabled,
+                manifest.sensor_access_enabled,
+                manifest.os_permission_integration_enabled,
+                manifest.approval_capture_enabled,
+                manifest.approval_execution_enabled,
+                manifest.context_injection_enabled,
+                manifest.memory_write_enabled,
+                manifest.file_mutation_enabled,
+                manifest.execution_enabled,
+                manifest.credential_storage_enabled,
+                manifest.background_task_enabled,
+                manifest.production_authority_enabled,
+            ]
+            if any(forbidden_flags):
+                failures.append("default M44 iOS skeleton enables forbidden authority")
+            if not manifest.m45_local_read_only_connection_future:
+                failures.append("M44 does not keep M45 future")
+        except Exception as exc:
+            failures.append(f"M44 iOS skeleton validation failed: {exc}")
+
+        docs_text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_files
+            if path.startswith("docs/") and (self.root / path).exists()
+        )
+        required_fragments = [
+            "ccc ios skeleton, no authority",
+            "source-only",
+            "mock-only",
+            "read-only",
+            "non-authoritative",
+            "no xcode project",
+            "no swift package",
+            "no info.plist",
+            "no entitlements",
+            "no backend route",
+            "no mobile api route runtime",
+            "no network",
+            "no mobile sensor access",
+            "no os permission integration",
+            "no approval capture",
+            "no approval execution",
+            "no context injection",
+            "no memory write",
+            "no file mutation",
+            "no execution",
+            "no credential",
+            "no background",
+            "no production authority",
+            "m45 remains future",
+        ]
+        for fragment in required_fragments:
+            if fragment not in docs_text:
+                failures.append(f"M44 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m44_ios_skeleton_static_safety(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        ios_root = self.root / "apps" / "ccc-ios"
+        swift_root = ios_root / "Sources" / "UltimateAIAgentCCC"
+        failures: List[str] = []
+        if not swift_root.exists():
+            failures.append("M44 Swift source root missing")
+            return self._result(criterion, failures, [str(swift_root.relative_to(self.root))])
+        for forbidden_path in [
+            ios_root / "Package.swift",
+            *ios_root.glob("*.xcodeproj"),
+            *ios_root.rglob("*.entitlements"),
+            *ios_root.rglob("Info.plist"),
+        ]:
+            if forbidden_path.exists():
+                failures.append(f"M44 forbidden native workflow file present: {forbidden_path.relative_to(self.root)}")
+        swift_files = sorted(swift_root.rglob("*.swift"))
+        if not swift_files:
+            failures.append("M44 Swift source files missing")
+        swift_text = "\n".join(path.read_text(encoding="utf-8") for path in swift_files)
+        for fragment in M44_FORBIDDEN_SWIFT_FRAGMENTS:
+            if fragment in swift_text:
+                failures.append(f"M44 forbidden Swift API fragment present: {fragment}")
+        lowered = swift_text.lower()
+        for required in ["swiftui", "mock", "non-authoritative", "read-only"]:
+            if required not in lowered:
+                failures.append(f"M44 Swift source missing required marker: {required}")
+        return self._result(
+            criterion,
+            failures,
+            [path.relative_to(self.root).as_posix() for path in swift_files],
+        )
+
+    def check_m44_mobile_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m44_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M44 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m44_roadmap_currentness(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        required_docs = [
+            "README.md",
+            "VERSION.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+            "docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md",
+        ]
+        failures = [
+            f"missing M44 roadmap doc: {path}"
+            for path in required_docs
+            if not (self.root / path).exists()
+        ]
+        text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_docs
+            if (self.root / path).exists()
+        )
+        if "v0.48.0" not in text or "m44" not in text or "ccc ios skeleton, no authority" not in text:
+            failures.append("active docs do not identify v0.48.0/M44 CCC iOS Skeleton, No Authority")
+        if "m44 is implemented/released" not in text and "v0.48.0 implements m44" not in text:
+            failures.append("active docs do not mark M44 implemented/released")
+        if "m45-m60 remain planned/provisional" not in text:
+            failures.append("M45-M60 must remain planned/provisional after M44")
         for fragment in (
-            "m44 is implemented",
-            "v0.48.0 implements m44",
-            "ccc ios skeleton is implemented",
+            "m45 is implemented",
+            "v0.49.0 implements m45",
+            "local read-only connection is implemented",
+            "testflight pipeline is implemented",
             "mobile sensors are implemented",
             "approval execution is implemented",
             "production authority is implemented",
         ):
             if fragment in text:
-                failures.append(f"M43 docs imply forbidden/future capability: {fragment}")
+                failures.append(f"M44 docs imply forbidden/future capability: {fragment}")
         return self._result(criterion, failures, required_docs)
 
     def check_v0292_local_dev_api_authority_and_preview_safe(

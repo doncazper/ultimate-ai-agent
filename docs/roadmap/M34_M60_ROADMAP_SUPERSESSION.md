@@ -1,6 +1,6 @@
 # M34-M60 Roadmap Supersession
 
-Status: Active roadmap source of truth through v0.47.0.
+Status: Active roadmap source of truth through v0.48.0.
 
 v0.38.0 implements M34 Broader File Capability Review as planning,
 architecture review, documentation, verifier, and Foundation Gate work only.
@@ -23,7 +23,7 @@ file review records. v0.43.0 implements M39 CCC Context Proposal Surface as a
 frontend-only review surface. v0.44.0 implements M40 Context Handoff Approval,
 No Injection as contract-only approval decisions with exact proposal binding.
 v0.45.0 implements M41 Local Prototype Safety Freeze as a docs/verifier/Gate
-safety freeze before mobile work resumes. v0.46.0 implements M42 Mobile Companion Product Contract Refresh as planning/docs/contracts/verifier work only.
+safety freeze before mobile work resumes. v0.46.0 implements M42 Mobile Companion Product Contract Refresh as planning/docs/contracts/verifier work only. v0.47.0 implements M43 Mobile API Boundary, Read-Only as contract-only boundary work. v0.48.0 implements M44 CCC iOS Skeleton, No Authority as source-only, mock-only, read-only, non-authoritative SwiftUI skeleton work.
 
 ## Supersession Rule
 
@@ -38,7 +38,7 @@ implemented/released as contract-only Safe File Review Workflow Contracts and
 hardened by v0.39.1 for exact file/path binding. M36 is
 implemented/released as frontend-only CCC File Review Surface, Review-Only and
 hardened by v0.40.1 for read-only surface safety.
-M37 is implemented/released. M38 is implemented/released. M39 is implemented/released. M40 is implemented/released. M41 is implemented/released. M42 is implemented/released. M43 is implemented/released. M44-M60 remain planned/provisional. M42 resumes mobile planning. M44 is the first iOS
+M37 is implemented/released. M38 is implemented/released. M39 is implemented/released. M40 is implemented/released. M41 is implemented/released. M42 is implemented/released. M43 is implemented/released. M44 is implemented/released. M45-M60 remain planned/provisional. M42 resumes mobile planning. M44 is the first iOS
 skeleton milestone. M47 is the TestFlight-capable pipeline milestone. M48 is the
 first internal TestFlight build milestone. M49 and M50 are the first meaningful
 mobile approval capture and audit milestones.
@@ -59,7 +59,7 @@ mobile approval capture and audit milestones.
 | v0.45.0 | M41 | Local Prototype Safety Freeze | implemented/released safety freeze | Freeze and review local prototype safety before mobile work |
 | v0.46.0 | M42 | Mobile Companion Product Contract Refresh | implemented/released contract refresh | Mobile planning refresh only; no native app implementation |
 | v0.47.0 | M43 | Mobile API Boundary, Read-Only | implemented/released contract-only | Read-only mobile API boundary contract |
-| v0.48.0 | M44 | CCC iOS Skeleton, No Authority | planned/provisional | First iOS skeleton; no authority, sensors, or production workflow |
+| v0.48.0 | M44 | CCC iOS Skeleton, No Authority | implemented/released source-only | First iOS skeleton; no authority, sensors, or production workflow |
 | v0.49.0 | M45 | CCC iOS Local Read-Only Connection | planned/provisional | Local read-only connection only |
 | v0.50.0 | M46 | iOS Review/Receipt Read-Only Surfaces | planned/provisional | Read-only review and receipt surfaces |
 | v0.51.0 | M47 | TestFlight Pipeline, Internal Only | planned/provisional | Internal-only pipeline; no public distribution or production authority |
@@ -79,10 +79,10 @@ mobile approval capture and audit milestones.
 
 ## Prompt-Pack Strategy
 
-Recommended next prompt after v0.47.0:
+Recommended next prompt after v0.48.0:
 
 ```text
-v0.48.0 / M44 - CCC iOS Skeleton, No Authority
+v0.49.0 / M45 - CCC iOS Local Read-Only Connection
 ```
 
 The first prompt packs after this patch are:
@@ -90,6 +90,7 @@ The first prompt packs after this patch are:
 1. M41 Local Prototype Safety Freeze is implemented/released by v0.45.0.
 2. M42 Mobile Companion Product Contract Refresh is implemented/released by v0.46.0.
 3. M43 Mobile API Boundary, Read-Only is implemented/released by v0.47.0.
+4. M44 CCC iOS Skeleton, No Authority is implemented/released by v0.48.0.
 
 Extra-hard reviews are required for M37, M38, M40, M47, M48, M49, M51, M52,
 M57, and M58. Mandatory hardening is expected by default for M35-M40, M43-M50,
