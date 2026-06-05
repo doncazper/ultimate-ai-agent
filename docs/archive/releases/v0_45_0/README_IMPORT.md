@@ -1,12 +1,12 @@
-# Ultimate AI Agent Version
+# v0.45.0 README Import
 
-Current active baseline: **v0.45.0**
+v0.45.0 implements M41 Local Prototype Safety Freeze.
 
-v0.45.0 implements M41 Local Prototype Safety Freeze. It freezes and reviews the
-local prototype safety posture before mobile work resumes, adding active
-prototype safety docs, browser-smoke review boundaries, no-authority boundary
-docs, static safety verification, documentation-integrity checks, Foundation
-Gate coverage, release metadata, and roadmap currentness updates.
+Use this release as the stable M41 baseline after review. It freezes the local
+prototype safety posture before mobile work resumes by adding active prototype
+safety docs, browser-smoke review boundaries, no-authority boundary docs, static
+safety verification, documentation-integrity checks, Foundation Gate coverage,
+and roadmap currentness updates.
 
 It adds no raw file browsing, raw file export, full-file reads, arbitrary
 caller-selected roots, shell/subprocess, unrestricted network tools,
@@ -15,3 +15,5 @@ enablement, production authority, unreviewed memory writes, automatic context
 injection, raw prompt/provider payload exposure, credentials/cookie handling,
 remote execution, browser automation execution, backend routes, dependencies,
 M42 work, or production authority.
+
+M42 remains future.

@@ -22,11 +22,11 @@ def test_m38_adds_no_backend_context_or_openwebui_routes():
         assert forbidden not in paths
 
 
-def test_openapi_path_count_remains_at_m37_boundary():
+def test_openapi_path_count_remains_at_m41_boundary():
     client = TestClient(app)
     data = client.get("/openapi.json").json()
 
-    assert data["info"]["version"] == "0.44.0"
+    assert data["info"]["version"] == "0.45.0"
     assert len(data.get("paths", {})) == 75
 
 

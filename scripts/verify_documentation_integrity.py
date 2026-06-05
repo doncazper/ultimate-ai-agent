@@ -205,6 +205,13 @@ REQUIRED_M40_CONTEXT_HANDOFF_APPROVAL_DOCS = [
     "docs/context/M40_TO_M41_BOUNDARY.md",
 ]
 
+REQUIRED_M41_LOCAL_PROTOTYPE_SAFETY_DOCS = [
+    "docs/prototype/LOCAL_PROTOTYPE_SAFETY_FREEZE.md",
+    "docs/prototype/LOCAL_PROTOTYPE_BROWSER_SMOKE_REVIEW.md",
+    "docs/prototype/LOCAL_PROTOTYPE_NO_AUTHORITY_BOUNDARY.md",
+    "docs/prototype/M41_TO_M42_BOUNDARY.md",
+]
+
 
 REQUIRED_ACTIVE_DOCS = [
     "docs/README.md",
@@ -701,6 +708,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_m38_safe_context_proposal_docs(root, version))
     failures.extend(_verify_m39_context_proposal_surface_docs(root, version))
     failures.extend(_verify_m40_context_handoff_approval_docs(root, version))
+    failures.extend(_verify_m41_local_prototype_safety_docs(root, version))
     failures.extend(_verify_m19_roadmap_currentness(root, version))
     failures.extend(_verify_post_m18_roadmap_status_labels(root))
 
@@ -794,7 +802,37 @@ def _verify_m34_m60_roadmap_supersession(root: Path, version: str | None) -> lis
         "M49-M50 must be mobile approval capture/audit": "m49-m50",
         "Archive docs must not be active source of truth": "not the active source of truth",
     }
-    if _version_tuple(version) >= (0, 44, 0):
+    if _version_tuple(version) >= (0, 45, 0):
+        required_fragments.update(
+            {
+                "M34 must be released as planning/docs/verifier only": (
+                    "m34 is implemented/released as planning/docs/verifier only"
+                ),
+                "M35 must be released as Safe File Review Workflow Contracts": (
+                    "m35 is implemented/released"
+                ),
+                "M36 must be released as CCC File Review Surface": (
+                    "m36 is implemented/released"
+                ),
+                "M37 must be released as Review Approval Capture": (
+                    "m37 is implemented/released"
+                ),
+                "M38 must be released as Safe Context Proposal": (
+                    "m38 is implemented/released"
+                ),
+                "M39 must be released as CCC Context Proposal Surface": (
+                    "m39 is implemented/released"
+                ),
+                "M40 must be released as Context Handoff Approval": (
+                    "m40 is implemented/released"
+                ),
+                "M41 must be released as Local Prototype Safety Freeze": (
+                    "m41 is implemented/released"
+                ),
+                "M42-M60 must remain planned/provisional": "m42-m60 remain planned/provisional",
+            }
+        )
+    elif _version_tuple(version) >= (0, 44, 0):
         required_fragments.update(
             {
                 "M34 must be released as planning/docs/verifier only": (
@@ -1429,6 +1467,71 @@ def _verify_m40_context_handoff_approval_docs(root: Path, version: str | None) -
         for fragment in fragments:
             if fragment in text:
                 failures.append(f"{message}: {fragment}")
+    return failures
+
+
+def _verify_m41_local_prototype_safety_docs(root: Path, version: str | None) -> list[str]:
+    if _version_tuple(version) < (0, 45, 0):
+        return []
+
+    failures: list[str] = []
+    parts: list[str] = []
+    for rel_path in REQUIRED_M41_LOCAL_PROTOTYPE_SAFETY_DOCS:
+        path = root / rel_path
+        if not path.exists():
+            failures.append(f"missing active M41 local prototype safety doc: {rel_path}")
+            continue
+        parts.append(_read(path).lower())
+    text = "\n".join(parts)
+    required_fragments = {
+        "M41 docs must say local prototype safety freeze": "local prototype safety freeze",
+        "M41 docs must say localhost-only": "localhost-only",
+        "M41 docs must say review-only": "review-only",
+        "M41 docs must say mock/non-authoritative": "mock/non-authoritative",
+        "M41 docs must deny raw file browsing": "no raw file browsing",
+        "M41 docs must deny raw file export": "no raw file export",
+        "M41 docs must deny full-file reads": "no full-file reads",
+        "M41 docs must deny caller-selected roots": "no arbitrary caller-selected roots",
+        "M41 docs must deny shell/subprocess": "no shell/subprocess",
+        "M41 docs must deny unrestricted network tools": "no unrestricted network tools",
+        "M41 docs must deny model authority": "no provider/model calls as authority",
+        "M41 docs must deny background workers": "no background workers",
+        "M41 docs must deny mobile sensors": "no mobile sensors",
+        "M41 docs must deny plugin enablement": "no plugin enablement",
+        "M41 docs must deny production authority": "no production authority",
+        "M41 docs must deny unreviewed memory writes": "no unreviewed memory writes",
+        "M41 docs must deny context injection": "no automatic context injection",
+        "M41 docs must deny raw prompt/provider payloads": "no raw prompt/provider payload exposure",
+        "M41 docs must deny credentials/cookies": "no credentials/cookie handling",
+        "M41 docs must deny remote execution": "no remote execution",
+        "M41 docs must deny browser automation execution": "no browser automation execution",
+        "M41 docs must deny approval-ref authority": "approval refs are not authority",
+        "M41 docs must define local browser smoke review": "browser smoke review is local-only",
+        "M41 docs must keep M42 future": "m42 remains future",
+    }
+    for message, fragment in required_fragments.items():
+        if fragment not in text:
+            failures.append(message)
+
+    forbidden_fragments = {
+        "M41 docs must not claim raw file browsing implementation": "raw file browsing is implemented",
+        "M41 docs must not claim raw file export implementation": "raw file export is implemented",
+        "M41 docs must not claim full-file reads implementation": "full-file reads are implemented",
+        "M41 docs must not claim shell execution implementation": "shell execution is implemented",
+        "M41 docs must not claim network tools implementation": "network tools are implemented",
+        "M41 docs must not claim background workers implementation": "background workers are implemented",
+        "M41 docs must not claim mobile sensors implementation": "mobile sensors are implemented",
+        "M41 docs must not claim plugin enablement implementation": "plugin enablement is implemented",
+        "M41 docs must not claim production authority implementation": "production authority is implemented",
+        "M41 docs must not claim automatic context injection implementation": "automatic context injection is implemented",
+        "M41 docs must not claim remote execution implementation": "remote execution is implemented",
+        "M41 docs must not claim browser automation execution implementation": "browser automation execution is implemented",
+        "M41 docs must not claim approval refs as authority": "approval refs are authority",
+        "M41 docs must not claim M42 implementation": "m42 is implemented",
+    }
+    for message, fragment in forbidden_fragments.items():
+        if fragment in text:
+            failures.append(f"{message}: {fragment}")
     return failures
 
 
@@ -3204,7 +3307,14 @@ def _verify_post_m20_roadmap_projection(root: Path) -> list[str]:
         expectations["M40 must be Context Handoff Approval, No Injection"] = (
             "context handoff approval, no injection"
         )
-        if active_version_tuple >= (0, 44, 0):
+        if active_version_tuple >= (0, 45, 0):
+            expectations["Post-M20 roadmap docs must say M41 is implemented/released"] = (
+                "m41 is implemented/released"
+            )
+            expectations["Post-M20 roadmap docs must keep M42-M60 planned/provisional"] = (
+                "m42-m60 remain planned/provisional"
+            )
+        elif active_version_tuple >= (0, 44, 0):
             expectations["Post-M20 roadmap docs must say M40 is implemented/released"] = (
                 "m40 is implemented/released"
             )
@@ -3601,7 +3711,12 @@ def _verify_post_m18_roadmap_status_labels(root: Path) -> list[str]:
             or "redacted preview" not in active_capability_charters
         ):
             failures.append("roadmap sequence must define M33 as redacted file preview")
-        if active >= (0, 44, 0):
+        if active >= (0, 45, 0):
+            if "v0.45.0 / m41" not in active_capability_charters or "implemented/released" not in active_capability_charters:
+                failures.append("roadmap sequence must mark M41/v0.45.0 implemented")
+            if "m42-m60" not in active_capability_charters or "planned/provisional" not in active_capability_charters:
+                failures.append("roadmap sequence must keep M42-M60 planned/provisional")
+        elif active >= (0, 44, 0):
             if "v0.44.0 / m40" not in active_capability_charters or "status: implemented" not in active_capability_charters:
                 failures.append("roadmap sequence must mark M40/v0.44.0 implemented")
             if "m41-m60" not in active_capability_charters or "planned/provisional" not in active_capability_charters:

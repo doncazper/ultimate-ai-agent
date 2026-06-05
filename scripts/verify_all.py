@@ -49,6 +49,7 @@ SCAN_SEQUENCE = [
     ("M38 safe context proposal scan", "verify_m38_safe_context_proposal_safety"),
     ("M39 CCC context proposal surface scan", "verify_m39_ccc_context_proposal_surface_safety"),
     ("M40 context handoff approval scan", "verify_m40_context_handoff_approval_safety"),
+    ("M41 local prototype safety freeze scan", "verify_m41_local_prototype_safety_freeze"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -4853,6 +4854,104 @@ def verify_m40_context_handoff_approval_safety():
         sys.exit(1)
 
     print("OK: M40 context handoff approval is exact-bound, review-only, no-injection, and route-free")
+
+
+def verify_m41_local_prototype_safety_freeze():
+    print("\n[Verifier] Running M41 local prototype safety freeze guard...")
+    required_files = [
+        "docs/prototype/LOCAL_PROTOTYPE_SAFETY_FREEZE.md",
+        "docs/prototype/LOCAL_PROTOTYPE_BROWSER_SMOKE_REVIEW.md",
+        "docs/prototype/LOCAL_PROTOTYPE_NO_AUTHORITY_BOUNDARY.md",
+        "docs/prototype/M41_TO_M42_BOUNDARY.md",
+        "docs/release_notes/v0_45_0.md",
+        "docs/archive/releases/v0_45_0/README_IMPORT.md",
+        "docs/archive/releases/v0_45_0/master_plan.md",
+        "docs/implementation/foundation_gate_implementation_plan_v0_45_0.md",
+        "tests/test_m41_gate_integration.py",
+        "tests/test_m41_local_prototype_safety_freeze.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M41 local prototype safety freeze file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = "\n".join(
+        (ROOT / rel_path).read_text(encoding="utf-8").lower()
+        for rel_path in required_files
+        if rel_path.startswith("docs/")
+    )
+    for fragment in [
+        "local prototype safety freeze",
+        "localhost-only",
+        "review-only",
+        "mock/non-authoritative",
+        "no raw file browsing",
+        "no raw file export",
+        "no full-file reads",
+        "no arbitrary caller-selected roots",
+        "no shell/subprocess",
+        "no unrestricted network tools",
+        "no provider/model calls as authority",
+        "no background workers",
+        "no mobile sensors",
+        "no plugin enablement",
+        "no production authority",
+        "no unreviewed memory writes",
+        "no automatic context injection",
+        "no raw prompt/provider payload exposure",
+        "no credentials/cookie handling",
+        "no remote execution",
+        "no browser automation execution",
+        "approval refs are not authority",
+        "browser smoke review is local-only",
+        "m42 remains future",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M41 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.evaluators import m41_openapi_route_failures
+    except Exception as exc:
+        print(f"FAIL: M41 OpenAPI guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m41_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    forbidden_source_fragments = [
+        "context_handoff_execution_enabled=True",
+        "context_injection_enabled=True",
+        "openwebui_handoff_execution_enabled=True",
+        "model_call_enabled=True",
+        "memory_write_enabled=True",
+        "execution_enabled=True",
+        "export_enabled=True",
+        "background_worker_enabled=True",
+        "scheduler_enabled=True",
+        "mobile_sensor_enabled=True",
+        "plugin_enable_enabled=True",
+        "production_authority_enabled=True",
+    ]
+    source_roots = [ROOT / "src", ROOT / "apps" / "control-center" / "src"]
+    for root in source_roots:
+        if not root.exists():
+            continue
+        for path in root.rglob("*"):
+            if not path.is_file() or path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx"}:
+                continue
+            rel = path.relative_to(ROOT).as_posix()
+            text = path.read_text(encoding="utf-8")
+            for fragment in forbidden_source_fragments:
+                if fragment in text:
+                    print(f"FAIL: M41 forbidden authority flag in {rel}: {fragment}")
+                    sys.exit(1)
+
+    print("OK: M41 local prototype safety freeze is route-stable, localhost/review-only, and keeps future authority blocked")
 
 
 def verify_local_developer_launcher_safety():

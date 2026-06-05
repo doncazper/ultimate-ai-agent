@@ -12,24 +12,25 @@ allowed to become operational authority.
 
 | Field | Current state |
 |---|---|
-| Current active baseline | **v0.44.0** |
-| Current milestone | **M40 - Context Handoff Approval, No Injection** |
+| Current active baseline | **v0.45.0** |
+| Current milestone | **M41 - Local Prototype Safety Freeze** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **75** OpenAPI paths |
 | Production readiness | Not claimed |
 
-v0.44.0 implements M40 Context Handoff Approval, No Injection. It adds
-contract-only context handoff approval policy, request, decision, and receipt
-plans over M38 safe context proposals, with exact proposal binding,
-approval_ref and approval_test_ denial, expired/revoked/replayed approval
-denial, evaluator revalidation, review-only no-injection decisions, tests,
-static verification, documentation-integrity checks, and Foundation Gate
-coverage. It adds no automatic context injection, OpenWebUI handoff execution,
-model/provider calls, memory writes, raw file reads, raw output/storage,
-full-file display, unredacted preview display, export/download/copy-raw,
-execution controls, approval mutation controls, backend routes, dependencies,
-M41 work, or production authority.
+v0.45.0 implements M41 Local Prototype Safety Freeze. It freezes and reviews the
+local prototype safety posture before mobile work resumes, adding active
+prototype safety docs, browser-smoke review boundaries, no-authority boundary
+docs, static safety verification, documentation-integrity checks, Foundation
+Gate coverage, release metadata, and roadmap currentness updates. It adds no
+raw file browsing, raw file export, full-file reads, arbitrary caller-selected
+roots, shell/subprocess, unrestricted network tools, provider/model calls as
+authority, background workers, mobile sensors, plugin enablement, production
+authority, unreviewed memory writes, automatic context injection, raw
+prompt/provider payload exposure, credentials/cookie handling, remote execution,
+browser automation execution, backend routes, dependencies, M42 work, or
+production authority.
 
 v0.29.5 is documentation policy polish. It remains the documentation
 organization cleanup baseline before the M26 and M27 implementation releases.
@@ -67,6 +68,10 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M40 Context Handoff Approval Boundary](docs/context/CONTEXT_HANDOFF_APPROVAL_BOUNDARY.md)
 - [M40 Context Handoff No-Injection Policy](docs/context/CONTEXT_HANDOFF_NO_INJECTION_POLICY.md)
 - [M40 Context Handoff Receipt Plan](docs/context/CONTEXT_HANDOFF_RECEIPT_PLAN.md)
+- [M41 Local Prototype Safety Freeze](docs/prototype/LOCAL_PROTOTYPE_SAFETY_FREEZE.md)
+- [M41 Local Prototype Browser Smoke Review](docs/prototype/LOCAL_PROTOTYPE_BROWSER_SMOKE_REVIEW.md)
+- [M41 Local Prototype No-Authority Boundary](docs/prototype/LOCAL_PROTOTYPE_NO_AUTHORITY_BOUNDARY.md)
+- [M41 to M42 Boundary](docs/prototype/M41_TO_M42_BOUNDARY.md)
 - [M38 Context Proposal Receipt Plan](docs/context/CONTEXT_PROPOSAL_RECEIPT_PLAN.md)
 - [API route inventory](docs/api/route_inventory.md)
 - [Documentation organization policy](docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md)
@@ -84,9 +89,9 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M28 Action Policy](docs/approvals/ACTION_POLICY.md)
 - [M27 Tool Broker v2](docs/tools/TOOL_BROKER_V2.md)
 - [M26 Grounded Recall Router](docs/recall/GROUNDED_RECALL_ROUTER.md)
-- [v0.44.0 release notes](docs/release_notes/v0_44_0.md)
-- [v0.44.0 release packet](docs/archive/releases/v0_44_0/README_IMPORT.md)
-- [v0.44.0 master plan](docs/archive/releases/v0_44_0/master_plan.md)
+- [v0.45.0 release notes](docs/release_notes/v0_45_0.md)
+- [v0.45.0 release packet](docs/archive/releases/v0_45_0/README_IMPORT.md)
+- [v0.45.0 master plan](docs/archive/releases/v0_45_0/master_plan.md)
 
 ## What This Project Is
 
@@ -342,7 +347,7 @@ post-M33 supersession is
 | v0.42.0 | M38 - Safe Context Proposal From Approved Review | Implemented/released |
 | v0.43.0 | M39 - CCC Context Proposal Surface | Implemented/released frontend-only |
 | v0.44.0 | M40 - Context Handoff Approval, No Injection | Implemented/released contract-only |
-| v0.45.0 | M41 - Local Prototype Safety Freeze | Planned/provisional |
+| v0.45.0 | M41 - Local Prototype Safety Freeze | Implemented/released safety freeze |
 | v0.46.0 | M42 - Mobile Companion Product Contract Refresh | Planned/provisional |
 | v0.47.0 | M43 - Mobile API Boundary, Read-Only | Planned/provisional |
 | v0.48.0 | M44 - CCC iOS Skeleton, No Authority | Planned/provisional |

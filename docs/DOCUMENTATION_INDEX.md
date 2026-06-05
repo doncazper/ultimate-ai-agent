@@ -1,6 +1,6 @@
 # Documentation Index
 
-Current active baseline: **v0.44.0**
+Current active baseline: **v0.45.0**
 
 This index is the active entrypoint for documentation navigation. Historical release documents remain in the repository for audit history, but active truth starts with the current baseline files listed here.
 
@@ -14,8 +14,8 @@ docs/canonical/CANONICAL_DOC_MAP.md
 docs/canonical/09_roadmap.md
 docs/roadmap/README.md
 docs/archive/README.md
-docs/archive/releases/v0_44_0/README_IMPORT.md
-docs/archive/releases/v0_44_0/master_plan.md
+docs/archive/releases/v0_45_0/README_IMPORT.md
+docs/archive/releases/v0_45_0/master_plan.md
 docs/developer/LOCAL_LAUNCHER.md
 scripts/dev/README.md
 docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md
@@ -64,6 +64,10 @@ docs/context/CONTEXT_HANDOFF_APPROVAL_BOUNDARY.md
 docs/context/CONTEXT_HANDOFF_NO_INJECTION_POLICY.md
 docs/context/CONTEXT_HANDOFF_RECEIPT_PLAN.md
 docs/context/M40_TO_M41_BOUNDARY.md
+docs/prototype/LOCAL_PROTOTYPE_SAFETY_FREEZE.md
+docs/prototype/LOCAL_PROTOTYPE_BROWSER_SMOKE_REVIEW.md
+docs/prototype/LOCAL_PROTOTYPE_NO_AUTHORITY_BOUNDARY.md
+docs/prototype/M41_TO_M42_BOUNDARY.md
 docs/tools/FILE_TOOL_CAPABILITY_MATRIX.md
 docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md
 docs/roadmap/ECOSYSTEM_WATCHLIST.md
@@ -433,14 +437,14 @@ active M34-M60 sequence. v0.41.0 is the current active baseline after
 implementing M37 Review Approval Capture, Review-Only Persistence as safe-ref-only
 approval and denial capture for exact redacted review packets. Active roadmap
 sources consistently keep v0.38.0 / M34 as Broader File Capability Review, keep
-M34 planning/docs/verifier only, mark M36 and M37 implemented/released, mark
-M40-M60 planned/provisional, and rely on
-documentation-integrity checks to guard against superseded-roadmap drift,
-stale current-baseline labels, and M36 read-only surface safety drift.
+M34 planning/docs/verifier only, mark M36 through M41 implemented/released, mark
+M42-M60 planned/provisional, and rely on documentation-integrity checks to guard
+against superseded-roadmap drift, stale current-baseline labels, and local
+prototype safety-freeze drift.
 
 ## Release Notes Index
 
-Current release notes: `docs/release_notes/v0_44_0.md`
+Current release notes: `docs/release_notes/v0_45_0.md`
 
 Historical release notes remain under `docs/release_notes/`. Historical docs may mention old active baselines in historical context; they are not the current source of truth.
 
