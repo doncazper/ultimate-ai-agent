@@ -729,6 +729,38 @@ M48_FORBIDDEN_SWIFT_FRAGMENTS = M47_FORBIDDEN_SWIFT_FRAGMENTS + (
     "mobileprovision",
     "App Store Connect",
 )
+EXPECTED_M49_OPENAPI_PATH_COUNT = 75
+M49_FORBIDDEN_BACKEND_ROUTES = M48_FORBIDDEN_BACKEND_ROUTES + (
+    "/mobile/review",
+    "/mobile/review/approve",
+    "/mobile/review/deny",
+    "/mobile/review/submit",
+    "/mobile/review/approvals",
+    "/mobile/review/approvals/capture",
+    "/mobile/review/approvals/execute",
+    "/mobile/review/approvals/persist",
+    "/mobile/approvals/capture",
+    "/mobile/approvals/execute",
+    "/mobile/context/propose",
+    "/mobile/context/inject",
+    "/mobile/memory/write",
+    "/mobile/export",
+    "/mobile/download",
+    "/mobile/tools/execute",
+    "/mobile/sensors",
+    "/mobile/background",
+)
+M49_FORBIDDEN_SWIFT_FRAGMENTS = M48_FORBIDDEN_SWIFT_FRAGMENTS + (
+    "MobileReviewApprovalCapture",
+    "approvalCapture",
+    "approvalExecution",
+    "contextProposal",
+    "contextInjection",
+    "memoryWrite",
+    "exportReview",
+    "SensorAccess",
+    "BackgroundCollection",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -1219,6 +1251,19 @@ def m48_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
     return failures
 
 
+def m49_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M49_OPENAPI_PATH_COUNT) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+    if M37_ALLOWED_CAPTURE_ROUTE not in path_set:
+        failures.append("M37 capture route missing: /files/review/approvals/capture")
+    for route in M49_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(f"M49 forbidden backend route present: {route}")
+    return failures
+
+
 M36_SAFE_REF_PREFIXES = {
     "reviewPacketRef": "file-review-packet:",
     "previewResultRef": "redacted-file-preview-output:",
@@ -1625,6 +1670,10 @@ class FoundationGateEvaluator:
             "m48_testflight_build_static_safety": self.check_m48_testflight_build_static_safety,
             "m48_mobile_route_boundary": self.check_m48_mobile_route_boundary,
             "m48_roadmap_currentness": self.check_m48_roadmap_currentness,
+            "m49_mobile_review_approval_capture": self.check_m49_mobile_review_approval_capture,
+            "m49_mobile_approval_static_safety": self.check_m49_mobile_approval_static_safety,
+            "m49_mobile_route_boundary": self.check_m49_mobile_route_boundary,
+            "m49_roadmap_currentness": self.check_m49_roadmap_currentness,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -8946,6 +8995,7 @@ class FoundationGateEvaluator:
                 and "m47-m60 remain planned/provisional" not in text
                 and "m48-m60 remain planned/provisional" not in text
                 and "m49-m60 remain planned/provisional" not in text
+                and "m50-m60 remain planned/provisional" not in text
             ):
                 failures.append("M42-M60 through M49-M60 planned/provisional marker missing after M41")
         elif current_tuple >= (0, 44, 0):
@@ -9246,6 +9296,7 @@ class FoundationGateEvaluator:
                 and "m47-m60 remain planned/provisional" not in text
                 and "m48-m60 remain planned/provisional" not in text
                 and "m49-m60 remain planned/provisional" not in text
+                and "m50-m60 remain planned/provisional" not in text
             ):
                 failures.append("M42-M60 through M49-M60 planned/provisional marker missing after M41")
         elif version_tuple >= (0, 44, 0):
@@ -9419,6 +9470,7 @@ class FoundationGateEvaluator:
                 and "m47-m60 remain planned/provisional" not in text
                 and "m48-m60 remain planned/provisional" not in text
                 and "m49-m60 remain planned/provisional" not in text
+                and "m50-m60 remain planned/provisional" not in text
             ):
                 failures.append("M42-M60 through M49-M60 planned/provisional marker missing after M41")
         elif version_tuple >= (0, 44, 0):
@@ -9568,6 +9620,7 @@ class FoundationGateEvaluator:
                 and "m47-m60 remain planned/provisional" not in text
                 and "m48-m60 remain planned/provisional" not in text
                 and "m49-m60 remain planned/provisional" not in text
+                and "m50-m60 remain planned/provisional" not in text
             ):
                 failures.append("M42-M60 through M49-M60 planned/provisional marker missing after M41")
         elif version_tuple >= (0, 44, 0):
@@ -9833,6 +9886,7 @@ class FoundationGateEvaluator:
                 and "m47-m60 remain planned/provisional" not in text
                 and "m48-m60 remain planned/provisional" not in text
                 and "m49-m60 remain planned/provisional" not in text
+                and "m50-m60 remain planned/provisional" not in text
             ):
                 failures.append("M42-M60 through M49-M60 planned/provisional marker missing after M41")
         elif current >= (0, 44, 0):
@@ -9983,6 +10037,7 @@ class FoundationGateEvaluator:
                 and "m47-m60 remain planned/provisional" not in text
                 and "m48-m60 remain planned/provisional" not in text
                 and "m49-m60 remain planned/provisional" not in text
+                and "m50-m60 remain planned/provisional" not in text
             ):
                 failures.append("M42-M60 through M49-M60 planned/provisional marker missing after M41")
         elif m40_implemented:
@@ -10207,6 +10262,7 @@ class FoundationGateEvaluator:
                 and "m47-m60 remain planned/provisional" not in text
                 and "m48-m60 remain planned/provisional" not in text
                 and "m49-m60 remain planned/provisional" not in text
+                and "m50-m60 remain planned/provisional" not in text
             ):
                 failures.append("M42-M60 through M49-M60 planned/provisional marker missing after M41")
         elif "m41 remains planned/provisional" not in text and "m41-m60 remain planned/provisional" not in text:
@@ -10332,8 +10388,7 @@ class FoundationGateEvaluator:
             failures.append("active docs do not mark M41 implemented/released")
         current_tuple = tuple(int(part) for part in (self._active_version() or "0.0.0").split(".")[:3])
         if current_tuple >= (0, 52, 0):
-            if "m49-m60 remain planned/provisional" not in text:
-                failures.append("M49-M60 must remain planned/provisional after M48")
+            self._append_post_m48_mobile_status_failures(text, failures)
         elif current_tuple >= (0, 51, 0):
             if "m48-m60 remain planned/provisional" not in text:
                 failures.append("M48-M60 must remain planned/provisional after M47")
@@ -10499,8 +10554,7 @@ class FoundationGateEvaluator:
             failures.append("active docs do not mark M42 implemented/released")
         current_tuple = tuple(int(part) for part in (self._active_version() or "0.0.0").split(".")[:3])
         if current_tuple >= (0, 52, 0):
-            if "m49-m60 remain planned/provisional" not in text:
-                failures.append("M49-M60 must remain planned/provisional after M48")
+            self._append_post_m48_mobile_status_failures(text, failures)
         elif current_tuple >= (0, 51, 0):
             if "m48-m60 remain planned/provisional" not in text:
                 failures.append("M48-M60 must remain planned/provisional after M47")
@@ -10676,8 +10730,7 @@ class FoundationGateEvaluator:
             failures.append("active docs do not mark M43 implemented/released")
         current_tuple = tuple(int(part) for part in (self._active_version() or "0.0.0").split(".")[:3])
         if current_tuple >= (0, 52, 0):
-            if "m49-m60 remain planned/provisional" not in text:
-                failures.append("M49-M60 must remain planned/provisional after M48")
+            self._append_post_m48_mobile_status_failures(text, failures)
         elif current_tuple >= (0, 51, 0):
             if "m48-m60 remain planned/provisional" not in text:
                 failures.append("M48-M60 must remain planned/provisional after M47")
@@ -10875,8 +10928,7 @@ class FoundationGateEvaluator:
             failures.append("active docs do not mark M44 implemented/released")
         current_tuple = tuple(int(part) for part in (self._active_version() or "0.0.0").split(".")[:3])
         if current_tuple >= (0, 52, 0):
-            if "m49-m60 remain planned/provisional" not in text:
-                failures.append("M49-M60 must remain planned/provisional after M48")
+            self._append_post_m48_mobile_status_failures(text, failures)
         elif current_tuple >= (0, 51, 0):
             if "m48-m60 remain planned/provisional" not in text:
                 failures.append("M48-M60 must remain planned/provisional after M47")
@@ -11078,8 +11130,7 @@ class FoundationGateEvaluator:
         active_version = self._active_version() or "0.0.0"
         current = tuple(int(part) for part in active_version.split(".")[:3])
         if current >= (0, 52, 0):
-            if "m49-m60 remain planned/provisional" not in text:
-                failures.append("M49-M60 must remain planned/provisional after M48")
+            self._append_post_m48_mobile_status_failures(text, failures)
         elif current >= (0, 51, 0):
             if "m48-m60 remain planned/provisional" not in text:
                 failures.append("M48-M60 must remain planned/provisional after M47")
@@ -11252,8 +11303,7 @@ class FoundationGateEvaluator:
             failures.append("active docs do not mark M46 implemented/released")
         current_tuple = tuple(int(part) for part in (self._active_version() or "0.0.0").split(".")[:3])
         if current_tuple >= (0, 52, 0):
-            if "m49-m60 remain planned/provisional" not in text:
-                failures.append("M49-M60 must remain planned/provisional after M48")
+            self._append_post_m48_mobile_status_failures(text, failures)
         elif current_tuple >= (0, 51, 0):
             if "m48-m60 remain planned/provisional" not in text:
                 failures.append("M48-M60 must remain planned/provisional after M47")
@@ -11444,8 +11494,7 @@ class FoundationGateEvaluator:
             failures.append("active docs do not mark M47 implemented/released")
         current_tuple = tuple(int(part) for part in (self._active_version() or "0.0.0").split(".")[:3])
         if current_tuple >= (0, 52, 0):
-            if "m49-m60 remain planned/provisional" not in text:
-                failures.append("M49-M60 must remain planned/provisional after M48")
+            self._append_post_m48_mobile_status_failures(text, failures)
         elif "m48-m60 remain planned/provisional" not in text:
             failures.append("M48-M60 must remain planned/provisional after M47")
         forbidden_fragments = [
@@ -11649,19 +11698,247 @@ class FoundationGateEvaluator:
             failures.append("active docs do not identify v0.52.0/M48 First Internal TestFlight Build")
         if "m48 is implemented/released" not in text and "v0.52.0 implements m48" not in text:
             failures.append("active docs do not mark M48 implemented/released")
-        if "m49-m60 remain planned/provisional" not in text:
-            failures.append("M49-M60 must remain planned/provisional after M48")
-        for fragment in (
-            "m49 is implemented",
-            "v0.53.0 implements m49",
-            "mobile review approval capture is implemented",
+        self._append_post_m48_mobile_status_failures(text, failures)
+        forbidden_fragments = [
             "mobile approval execution is implemented",
             "mobile sensors are implemented",
             "external beta is implemented",
             "production authority is implemented",
-        ):
+        ]
+        if self._active_version_tuple() < (0, 53, 0):
+            forbidden_fragments.extend(
+                [
+                    "m49 is implemented",
+                    "v0.53.0 implements m49",
+                    "mobile review approval capture is implemented",
+                ]
+            )
+        for fragment in forbidden_fragments:
             if fragment in text:
                 failures.append(f"M48 docs imply forbidden/future capability: {fragment}")
+        return self._result(criterion, failures, required_docs)
+
+    def check_m49_mobile_review_approval_capture(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/mobile_companion/approval_capture.py",
+            "src/ultimate_ai_agent/core/mobile_companion/enums.py",
+            "docs/mobile/MOBILE_REVIEW_APPROVAL_CAPTURE.md",
+            "docs/mobile/M49_TO_M50_BOUNDARY.md",
+            "tests/test_m49_mobile_review_approval_capture.py",
+        ]
+        failures = [
+            f"missing M49 mobile review approval capture file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            from datetime import timedelta
+
+            from ultimate_ai_agent.core.mobile_companion import (
+                MobileReviewApprovalCaptureDecisionStatus,
+                MobileReviewApprovalDecisionKind,
+                MobileReviewApprovalCaptureRequest,
+                capture_mobile_review_approval,
+            )
+            from ultimate_ai_agent.core.time import utc_now
+
+            now = utc_now()
+            request = MobileReviewApprovalCaptureRequest(
+                approval_ref="mobile-review-approval-capture:gate",
+                actor_ref="user:foundation-gate-mobile-reviewer",
+                mobile_surface_ref="ccc-ios-review-surface:gate",
+                review_packet_ref="file-review-packet:gate-mobile-review",
+                preview_result_ref="redacted-file-preview-output:gate-mobile-review",
+                redaction_summary_ref="file-review-redaction-summary:gate-mobile-review",
+                file_ref="file-ref:gate-mobile-review",
+                safe_path_ref="filesystem-preview-path:safe-root_mobile/gate/review.md",
+                receipt_plan_ref="mobile-review-receipt-plan:gate-mobile-review",
+                decision=MobileReviewApprovalDecisionKind.approve_review_only,
+                idempotency_key="mobile-review-approval-idempotency:gate-mobile-review",
+                expected_actor_ref="user:foundation-gate-mobile-reviewer",
+                expected_mobile_surface_ref="ccc-ios-review-surface:gate",
+                expected_review_packet_ref="file-review-packet:gate-mobile-review",
+                expected_preview_result_ref="redacted-file-preview-output:gate-mobile-review",
+                expected_redaction_summary_ref="file-review-redaction-summary:gate-mobile-review",
+                expected_file_ref="file-ref:gate-mobile-review",
+                expected_safe_path_ref="filesystem-preview-path:safe-root_mobile/gate/review.md",
+                expires_at=now + timedelta(minutes=5),
+            )
+            decision = capture_mobile_review_approval(request, current_time=now)
+            if decision.status != MobileReviewApprovalCaptureDecisionStatus.approved_for_mobile_review_only:
+                failures.append("M49 safe mobile review approval capture did not produce review-only approval")
+            if not decision.captured or not decision.persisted or not decision.review_only:
+                failures.append("M49 safe mobile review approval capture was not captured/persisted as review-only")
+            for field_name in [
+                "raw_file_access_authorized",
+                "context_proposal_authorized",
+                "context_injection_authorized",
+                "memory_write_authorized",
+                "export_authorized",
+                "execution_authorized",
+                "execution_performed",
+            ]:
+                if getattr(decision, field_name):
+                    failures.append(f"M49 decision granted forbidden authority: {field_name}")
+
+            unsafe = capture_mobile_review_approval(
+                request.model_copy(update={"raw_content_enabled": True}),
+                current_time=now,
+            )
+            if unsafe.status != MobileReviewApprovalCaptureDecisionStatus.rejected:
+                failures.append("M49 model_copy raw-content mutation was not rejected")
+            if "MOBILE_REVIEW_APPROVAL_CAPTURE_RAW_CONTENT_DENIED" not in unsafe.reason_codes:
+                failures.append("M49 model_copy raw-content rejection reason missing")
+
+            test_ref = capture_mobile_review_approval(
+                request.model_copy(update={"approval_ref": "approval_test_m49_gate"}),
+                current_time=now,
+            )
+            if test_ref.status != MobileReviewApprovalCaptureDecisionStatus.rejected:
+                failures.append("M49 approval_test_ ref was not rejected")
+        except Exception as exc:
+            failures.append(f"M49 mobile review approval capture validation failed: {exc}")
+
+        docs_text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_files
+            if path.startswith("docs/") and (self.root / path).exists()
+        )
+        for fragment in [
+            "mobile review approval capture",
+            "review-only",
+            "exact-scope",
+            "actor-bound",
+            "resource-bound",
+            "replay-safe",
+            "revocable",
+            "safe refs only",
+            "no raw file access",
+            "no context proposal",
+            "no context injection",
+            "no memory write",
+            "no export",
+            "no execution",
+            "no mobile sensor access",
+            "no background collection",
+            "m50 remains future",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M49 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m49_mobile_approval_static_safety(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        ios_root = self.root / "apps" / "ccc-ios"
+        swift_root = ios_root / "Sources" / "UltimateAIAgentCCC"
+        swift_files = sorted(swift_root.rglob("*.swift")) if swift_root.exists() else []
+        swift_text = "\n".join(path.read_text(encoding="utf-8") for path in swift_files)
+        for fragment in M49_FORBIDDEN_SWIFT_FRAGMENTS:
+            if fragment in swift_text:
+                failures.append(f"M49 forbidden Swift approval/sensor fragment present: {fragment}")
+
+        source_roots = [
+            self.root / "src",
+            self.root / "apps" / "control-center" / "src",
+            ios_root,
+        ]
+        enabled = "{}=True".format
+        forbidden_source_fragments = [
+            enabled("raw_file_access_enabled"),
+            enabled("raw_content_enabled"),
+            enabled("full_file_content_enabled"),
+            enabled("unredacted_preview_enabled"),
+            enabled("context_proposal_enabled"),
+            enabled("context_injection_enabled"),
+            enabled("memory_write_enabled"),
+            enabled("export_enabled"),
+            enabled("execution_enabled"),
+            enabled("approval_execution_enabled"),
+            enabled("mobile_sensor_access_enabled"),
+            enabled("background_collection_enabled"),
+            "/mobile/review/approvals/capture",
+            "/mobile/review/approvals/execute",
+            "/mobile/context/inject",
+            "/mobile/memory/write",
+            "/mobile/tools/execute",
+        ]
+        allowed_files = {
+            "src/ultimate_ai_agent/core/gate/evaluators.py",
+            "src/ultimate_ai_agent/core/mobile_companion/approval_capture.py",
+            "tests/test_m49_mobile_review_approval_capture.py",
+            "tests/test_m49_gate_integration.py",
+        }
+        for root in source_roots:
+            if not root.exists():
+                continue
+            candidate_files = []
+            for pattern in ("*.py", "*.ts", "*.tsx", "*.js", "*.jsx", "*.swift", "*.yml", "*.yaml"):
+                candidate_files.extend(root.rglob(pattern))
+            for path in sorted(candidate_files):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(self.root).as_posix()
+                if rel in allowed_files:
+                    continue
+                text = path.read_text(encoding="utf-8")
+                for fragment in forbidden_source_fragments:
+                    if fragment in text:
+                        failures.append(f"M49 forbidden authority/route fragment in {rel}: {fragment}")
+        return self._result(criterion, failures, [path.relative_to(self.root).as_posix() for path in swift_files])
+
+    def check_m49_mobile_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m49_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M49 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m49_roadmap_currentness(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        required_docs = [
+            "README.md",
+            "VERSION.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+            "docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md",
+            "docs/roadmap/MILESTONE_CHARTERS.md",
+        ]
+        failures = [
+            f"missing M49 roadmap doc: {path}"
+            for path in required_docs
+            if not (self.root / path).exists()
+        ]
+        text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_docs
+            if (self.root / path).exists()
+        )
+        if "v0.53.0" not in text or "m49" not in text or "mobile review approval capture" not in text:
+            failures.append("active docs do not identify v0.53.0/M49 Mobile Review Approval Capture")
+        if "m49 is implemented/released" not in text and "v0.53.0 implements m49" not in text:
+            failures.append("active docs do not mark M49 implemented/released")
+        if "m50-m60 remain planned/provisional" not in text:
+            failures.append("M50-M60 must remain planned/provisional after M49")
+        for fragment in (
+            "m50 is implemented",
+            "v0.54.0 implements m50",
+            "mobile approval audit hardening is implemented",
+            "mobile approval execution is implemented",
+            "mobile sensors are implemented",
+            "context injection is implemented",
+            "production authority is implemented",
+        ):
+            if fragment in text:
+                failures.append(f"M49 docs imply forbidden/future capability: {fragment}")
         return self._result(criterion, failures, required_docs)
 
     def check_v0292_local_dev_api_authority_and_preview_safe(
@@ -12082,6 +12359,19 @@ class FoundationGateEvaluator:
 
     def _active_version(self) -> Optional[str]:
         return self._regex_first(self.root / "VERSION.md", r"Current active baseline:\s*\*\*v?(\d+\.\d+\.\d+)\*\*")
+
+    def _active_version_tuple(self) -> tuple[int, int, int]:
+        version = self._active_version() or "0.0.0"
+        return tuple(int(part) for part in version.split("."))  # type: ignore[return-value]
+
+    def _append_post_m48_mobile_status_failures(self, text: str, failures: List[str]) -> None:
+        if self._active_version_tuple() >= (0, 53, 0):
+            if "m49 is implemented/released" not in text and "v0.53.0 implements m49" not in text:
+                failures.append("M49 must be implemented/released after v0.53.0")
+            if "m50-m60 remain planned/provisional" not in text:
+                failures.append("M50-M60 must remain planned/provisional after M49")
+        elif "m49-m60 remain planned/provisional" not in text:
+            failures.append("M49-M60 must remain planned/provisional after M48")
 
     def _regex_first(self, path: Path, pattern: str) -> Optional[str]:
         match = re.search(pattern, self._read(path))

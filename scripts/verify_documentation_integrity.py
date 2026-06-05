@@ -221,6 +221,15 @@ REQUIRED_M48_FIRST_INTERNAL_TESTFLIGHT_BUILD_DOCS = [
     "docs/implementation/foundation_gate_implementation_plan_v0_52_0.md",
 ]
 
+REQUIRED_M49_MOBILE_REVIEW_APPROVAL_CAPTURE_DOCS = [
+    "docs/mobile/MOBILE_REVIEW_APPROVAL_CAPTURE.md",
+    "docs/mobile/M49_TO_M50_BOUNDARY.md",
+    "docs/release_notes/v0_53_0.md",
+    "docs/archive/releases/v0_53_0/README_IMPORT.md",
+    "docs/archive/releases/v0_53_0/master_plan.md",
+    "docs/implementation/foundation_gate_implementation_plan_v0_53_0.md",
+]
+
 
 REQUIRED_ACTIVE_DOCS = [
     "docs/README.md",
@@ -729,6 +738,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_m46_ccc_ios_review_receipt_read_only_surface_docs(root, version))
     failures.extend(_verify_m47_testflight_pipeline_internal_only_docs(root, version))
     failures.extend(_verify_m48_first_internal_testflight_build_docs(root, version))
+    failures.extend(_verify_m49_mobile_review_approval_capture_docs(root, version))
     failures.extend(_verify_m19_roadmap_currentness(root, version))
     failures.extend(_verify_post_m18_roadmap_status_labels(root))
 
@@ -874,8 +884,21 @@ def _verify_m34_m60_roadmap_supersession(root: Path, version: str | None) -> lis
                                 "M48 must be released as First Internal TestFlight Build": (
                                     "m48 is implemented/released"
                                 ),
-                                "M49-M60 must remain planned/provisional": (
-                                    "m49-m60 remain planned/provisional"
+                                **(
+                                    {
+                                        "M49 must be released as Mobile Review Approval Capture": (
+                                            "m49 is implemented/released"
+                                        ),
+                                        "M50-M60 must remain planned/provisional": (
+                                            "m50-m60 remain planned/provisional"
+                                        ),
+                                    }
+                                    if _version_tuple(version) >= (0, 53, 0)
+                                    else {
+                                        "M49-M60 must remain planned/provisional": (
+                                            "m49-m60 remain planned/provisional"
+                                        ),
+                                    }
                                 ),
                             }
                             if _version_tuple(version) >= (0, 52, 0)
@@ -2120,6 +2143,63 @@ def _verify_m48_first_internal_testflight_build_docs(root: Path, version: str | 
         "M48 docs must not claim external beta": "external beta is implemented",
         "M48 docs must not claim public distribution": "public distribution is implemented",
         "M48 docs must not claim production authority": "production authority is implemented",
+    }
+    for message, fragment in forbidden_fragments.items():
+        if fragment in text:
+            failures.append(f"{message}: {fragment}")
+    return failures
+
+
+def _verify_m49_mobile_review_approval_capture_docs(root: Path, version: str | None) -> list[str]:
+    if _version_tuple(version) < (0, 53, 0):
+        return []
+
+    failures: list[str] = []
+    parts: list[str] = []
+    for rel_path in REQUIRED_M49_MOBILE_REVIEW_APPROVAL_CAPTURE_DOCS:
+        path = root / rel_path
+        if not path.exists():
+            failures.append(f"missing active M49 mobile review approval capture doc: {rel_path}")
+            continue
+        parts.append(_read(path).lower())
+    text = "\n".join(parts)
+    required_fragments = {
+        "M49 docs must say Mobile Review Approval Capture": "mobile review approval capture",
+        "M49 docs must say review-only": "review-only",
+        "M49 docs must say exact-scope": "exact-scope",
+        "M49 docs must say actor-bound": "actor-bound",
+        "M49 docs must say resource-bound": "resource-bound",
+        "M49 docs must say replay-safe": "replay-safe",
+        "M49 docs must say revocable": "revocable",
+        "M49 docs must say safe refs only": "safe refs only",
+        "M49 docs must deny raw file access": "no raw file access",
+        "M49 docs must deny raw content": "no raw content",
+        "M49 docs must deny full-file content": "no full-file content",
+        "M49 docs must deny unredacted preview": "no unredacted preview",
+        "M49 docs must deny context proposal": "no context proposal",
+        "M49 docs must deny context injection": "no context injection",
+        "M49 docs must deny memory write": "no memory write",
+        "M49 docs must deny export": "no export",
+        "M49 docs must deny execution": "no execution",
+        "M49 docs must deny mobile sensor access": "no mobile sensor access",
+        "M49 docs must deny background collection": "no background collection",
+        "M49 docs must deny backend mobile approval route": "no backend mobile approval route",
+        "M49 docs must deny native approval capture UI": "no native approval capture ui",
+        "M49 docs must keep M50 future": "m50 remains future",
+    }
+    for message, fragment in required_fragments.items():
+        if fragment not in text:
+            failures.append(message)
+
+    forbidden_fragments = {
+        "M49 docs must not claim M50 implementation": "m50 is implemented",
+        "M49 docs must not claim audit hardening implementation": (
+            "mobile approval audit hardening is implemented"
+        ),
+        "M49 docs must not claim sensor implementation": "mobile sensors are implemented",
+        "M49 docs must not claim context injection implementation": "context injection is implemented",
+        "M49 docs must not claim execution implementation": "execution is implemented",
+        "M49 docs must not claim production authority": "production authority is implemented",
     }
     for message, fragment in forbidden_fragments.items():
         if fragment in text:
@@ -3899,7 +3979,35 @@ def _verify_post_m20_roadmap_projection(root: Path) -> list[str]:
         expectations["M40 must be Context Handoff Approval, No Injection"] = (
             "context handoff approval, no injection"
         )
-        if active_version_tuple >= (0, 52, 0):
+        if active_version_tuple >= (0, 53, 0):
+            expectations["Post-M20 roadmap docs must say M42 is implemented/released"] = (
+                "m42 is implemented/released"
+            )
+            expectations["Post-M20 roadmap docs must say M43 is implemented/released"] = (
+                "m43 is implemented/released"
+            )
+            expectations["Post-M20 roadmap docs must say M44 is implemented/released"] = (
+                "m44 is implemented/released"
+            )
+            expectations["Post-M20 roadmap docs must say M45 is implemented/released"] = (
+                "m45 is implemented/released"
+            )
+            expectations["Post-M20 roadmap docs must say M46 is implemented/released"] = (
+                "m46 is implemented/released"
+            )
+            expectations["Post-M20 roadmap docs must say M47 is implemented/released"] = (
+                "m47 is implemented/released"
+            )
+            expectations["Post-M20 roadmap docs must say M48 is implemented/released"] = (
+                "m48 is implemented/released"
+            )
+            expectations["Post-M20 roadmap docs must say M49 is implemented/released"] = (
+                "m49 is implemented/released"
+            )
+            expectations["Post-M20 roadmap docs must keep M50-M60 planned/provisional"] = (
+                "m50-m60 remain planned/provisional"
+            )
+        elif active_version_tuple >= (0, 52, 0):
             expectations["Post-M20 roadmap docs must say M42 is implemented/released"] = (
                 "m42 is implemented/released"
             )
@@ -4409,7 +4517,12 @@ def _verify_post_m18_roadmap_status_labels(root: Path) -> list[str]:
             or "redacted preview" not in active_capability_charters
         ):
             failures.append("roadmap sequence must define M33 as redacted file preview")
-        if active >= (0, 52, 0):
+        if active >= (0, 53, 0):
+            if "v0.53.0" not in active_capability_charters or "m49" not in active_capability_charters or "implemented/released" not in active_capability_charters:
+                failures.append("roadmap sequence must mark M49/v0.53.0 implemented")
+            if "m50-m60" not in active_capability_charters or "planned/provisional" not in active_capability_charters:
+                failures.append("roadmap sequence must keep M50-M60 planned/provisional")
+        elif active >= (0, 52, 0):
             if "v0.52.0" not in active_capability_charters or "m48" not in active_capability_charters or "implemented/released" not in active_capability_charters:
                 failures.append("roadmap sequence must mark M48/v0.52.0 implemented")
             if "m49-m60" not in active_capability_charters or "planned/provisional" not in active_capability_charters:

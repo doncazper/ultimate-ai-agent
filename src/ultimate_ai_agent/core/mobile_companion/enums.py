@@ -134,3 +134,14 @@ class InternalTestFlightPipelineStageKind(str, Enum):
 class FirstInternalTestFlightBuildStatus(str, Enum):
     reviewed_candidate = "reviewed_candidate"
     blocked_pending_external_signing = "blocked_pending_external_signing"
+
+
+class MobileReviewApprovalDecisionKind(str, Enum):
+    approve_review_only = "approve_review_only"
+    deny_review_only = "deny_review_only"
+
+
+class MobileReviewApprovalCaptureDecisionStatus(str, Enum):
+    approved_for_mobile_review_only = "approved_for_mobile_review_only"
+    denied_for_mobile_review = "denied_for_mobile_review"
+    rejected = "rejected"

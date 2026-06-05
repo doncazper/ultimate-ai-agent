@@ -20,6 +20,14 @@ from ultimate_ai_agent.core.mobile_companion.contracts import (
     MobileReadOnlyApiEndpointContract,
     MobileReceiptPlan,
 )
+from ultimate_ai_agent.core.mobile_companion.approval_capture import (
+    MobileReviewApprovalCaptureDecision,
+    MobileReviewApprovalCaptureReceiptPlan,
+    MobileReviewApprovalCaptureRequest,
+    MobileReviewApprovalRecord,
+    MobileReviewApprovalStore,
+    capture_mobile_review_approval,
+)
 from ultimate_ai_agent.core.mobile_companion.enums import (
     CccIosLocalConnectionEndpointKind,
     CccIosReviewReceiptSurfaceKind,
@@ -35,6 +43,8 @@ from ultimate_ai_agent.core.mobile_companion.enums import (
     MobileCompanionSurface,
     MobileDataClassification,
     MobilePermissionDecision,
+    MobileReviewApprovalCaptureDecisionStatus,
+    MobileReviewApprovalDecisionKind,
     MobileProductRole,
     MobileReceiptRequirement,
 )
@@ -108,6 +118,13 @@ __all__ = [
     "MobileReadOnlyApiEndpointContract",
     "MobileReceiptPlan",
     "MobileReceiptRequirement",
+    "MobileReviewApprovalCaptureDecision",
+    "MobileReviewApprovalCaptureDecisionStatus",
+    "MobileReviewApprovalCaptureReceiptPlan",
+    "MobileReviewApprovalCaptureRequest",
+    "MobileReviewApprovalDecisionKind",
+    "MobileReviewApprovalRecord",
+    "MobileReviewApprovalStore",
     "assert_ccc_ios_local_read_only_connection_safe",
     "assert_ccc_ios_review_receipt_read_only_surfaces_safe",
     "assert_ccc_ios_skeleton_no_authority",
@@ -127,6 +144,7 @@ __all__ = [
     "build_default_mobile_read_only_api_boundary",
     "build_default_mobile_product_contract_refresh",
     "build_default_mobile_permission_manifest",
+    "capture_mobile_review_approval",
     "validate_ccc_ios_local_connection_endpoint",
     "validate_ccc_ios_review_receipt_surface",
     "validate_ccc_ios_skeleton_surface",

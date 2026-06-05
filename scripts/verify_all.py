@@ -77,6 +77,7 @@ SCAN_SEQUENCE = [
     ("M46 CCC iOS review/receipt read-only surfaces scan", "verify_m46_ccc_ios_review_receipt_read_only_surfaces"),
     ("M47 TestFlight pipeline internal-only scan", "verify_m47_testflight_pipeline_internal_only"),
     ("M48 first internal TestFlight build scan", "verify_m48_first_internal_testflight_build"),
+    ("M49 mobile review approval capture scan", "verify_m49_mobile_review_approval_capture"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -6044,6 +6045,180 @@ def verify_m48_first_internal_testflight_build():
                     sys.exit(1)
 
     print("OK: M48 first internal TestFlight build is reviewed-candidate-only, no-build-artifact, no-upload, no-signing-material, and no-authority")
+
+
+def verify_m49_mobile_review_approval_capture():
+    print("\n[Verifier] Running M49 mobile review approval capture guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/mobile_companion/approval_capture.py",
+        "src/ultimate_ai_agent/core/mobile_companion/enums.py",
+        "docs/mobile/MOBILE_REVIEW_APPROVAL_CAPTURE.md",
+        "docs/mobile/M49_TO_M50_BOUNDARY.md",
+        "docs/release_notes/v0_53_0.md",
+        "docs/archive/releases/v0_53_0/README_IMPORT.md",
+        "docs/archive/releases/v0_53_0/master_plan.md",
+        "docs/implementation/foundation_gate_implementation_plan_v0_53_0.md",
+        "tests/test_m49_mobile_review_approval_capture.py",
+        "tests/test_m49_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M49 mobile review approval capture file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = "\n".join(
+        (ROOT / rel_path).read_text(encoding="utf-8").lower()
+        for rel_path in required_files
+        if rel_path.startswith("docs/")
+    )
+    for fragment in [
+        "mobile review approval capture",
+        "review-only",
+        "exact-scope",
+        "actor-bound",
+        "resource-bound",
+        "replay-safe",
+        "revocable",
+        "safe refs only",
+        "no raw file access",
+        "no raw content",
+        "no full-file content",
+        "no unredacted preview",
+        "no context proposal",
+        "no context injection",
+        "no memory write",
+        "no export",
+        "no execution",
+        "no mobile sensor access",
+        "no background collection",
+        "no backend mobile approval route",
+        "no native approval capture ui",
+        "m50 remains future",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M49 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        from datetime import timedelta
+
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.evaluators import m49_openapi_route_failures
+        from ultimate_ai_agent.core.mobile_companion import (
+            MobileReviewApprovalCaptureDecisionStatus,
+            MobileReviewApprovalCaptureRequest,
+            MobileReviewApprovalDecisionKind,
+            capture_mobile_review_approval,
+        )
+        from ultimate_ai_agent.core.time import utc_now
+    except Exception as exc:
+        print(f"FAIL: M49 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m49_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    now = utc_now()
+    request = MobileReviewApprovalCaptureRequest(
+        approval_ref="mobile-review-approval-capture:verify-all",
+        actor_ref="user:verify-all-mobile-reviewer",
+        mobile_surface_ref="ccc-ios-review-surface:verify-all",
+        review_packet_ref="file-review-packet:verify-all-mobile-review",
+        preview_result_ref="redacted-file-preview-output:verify-all-mobile-review",
+        redaction_summary_ref="file-review-redaction-summary:verify-all-mobile-review",
+        file_ref="file-ref:verify-all-mobile-review",
+        safe_path_ref="filesystem-preview-path:safe-root_mobile/verify-all/review.md",
+        receipt_plan_ref="mobile-review-receipt-plan:verify-all-mobile-review",
+        decision=MobileReviewApprovalDecisionKind.approve_review_only,
+        idempotency_key="mobile-review-approval-idempotency:verify-all-mobile-review",
+        expected_actor_ref="user:verify-all-mobile-reviewer",
+        expected_mobile_surface_ref="ccc-ios-review-surface:verify-all",
+        expected_review_packet_ref="file-review-packet:verify-all-mobile-review",
+        expected_preview_result_ref="redacted-file-preview-output:verify-all-mobile-review",
+        expected_redaction_summary_ref="file-review-redaction-summary:verify-all-mobile-review",
+        expected_file_ref="file-ref:verify-all-mobile-review",
+        expected_safe_path_ref="filesystem-preview-path:safe-root_mobile/verify-all/review.md",
+        expires_at=now + timedelta(minutes=5),
+    )
+    decision = capture_mobile_review_approval(request, current_time=now)
+    if decision.status != MobileReviewApprovalCaptureDecisionStatus.approved_for_mobile_review_only:
+        print("FAIL: M49 safe mobile review approval capture did not approve review-only")
+        sys.exit(1)
+    if not decision.review_only or decision.execution_authorized or decision.execution_performed:
+        print("FAIL: M49 capture decision granted execution or stopped being review-only")
+        sys.exit(1)
+    unsafe = capture_mobile_review_approval(
+        request.model_copy(update={"execution_enabled": True}),
+        current_time=now,
+    )
+    if unsafe.status != MobileReviewApprovalCaptureDecisionStatus.rejected:
+        print("FAIL: M49 model_copy execution flag was not rejected")
+        sys.exit(1)
+
+    ios_root = ROOT / "apps" / "ccc-ios"
+    swift_root = ios_root / "Sources" / "UltimateAIAgentCCC"
+    swift_text = "\n".join(path.read_text(encoding="utf-8") for path in sorted(swift_root.rglob("*.swift")))
+    for fragment in [
+        "MobileReviewApprovalCapture",
+        "approvalCapture",
+        "approvalExecution",
+        "contextProposal",
+        "contextInjection",
+        "memoryWrite",
+        "exportReview",
+        "SensorAccess",
+        "BackgroundCollection",
+    ]:
+        if fragment in swift_text:
+            print(f"FAIL: M49 forbidden Swift mobile approval/sensor fragment present: {fragment}")
+            sys.exit(1)
+
+    forbidden_source_fragments = [
+        "raw_file_access_enabled=True",
+        "raw_content_enabled=True",
+        "full_file_content_enabled=True",
+        "unredacted_preview_enabled=True",
+        "context_proposal_enabled=True",
+        "context_injection_enabled=True",
+        "memory_write_enabled=True",
+        "export_enabled=True",
+        "execution_enabled=True",
+        "approval_execution_enabled=True",
+        "mobile_sensor_access_enabled=True",
+        "background_collection_enabled=True",
+        "/mobile/review/approvals/capture",
+        "/mobile/review/approvals/execute",
+        "/mobile/context/inject",
+        "/mobile/memory/write",
+        "/mobile/tools/execute",
+    ]
+    allowed_files = {
+        "scripts/verify_all.py",
+        "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/mobile_companion/approval_capture.py",
+        "tests/test_m49_mobile_review_approval_capture.py",
+        "tests/test_m49_gate_integration.py",
+    }
+    source_roots = [ROOT / "src", ROOT / "apps" / "control-center" / "src", ios_root]
+    for root in source_roots:
+        if not root.exists():
+            continue
+        for path in root.rglob("*"):
+            if not path.is_file() or path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}:
+                continue
+            rel = path.relative_to(ROOT).as_posix()
+            if rel in allowed_files:
+                continue
+            text = path.read_text(encoding="utf-8")
+            for fragment in forbidden_source_fragments:
+                if fragment in text:
+                    print(f"FAIL: M49 forbidden authority/route fragment in {rel}: {fragment}")
+                    sys.exit(1)
+
+    print("OK: M49 mobile review approval capture is exact-scope, safe-ref-only, review-only, no-route, and no-authority")
 
 
 def verify_local_developer_launcher_safety():
