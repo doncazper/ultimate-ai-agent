@@ -6,7 +6,8 @@ struct UltimateAIAgentCCCApp: App {
         WindowGroup {
             ReadOnlyDashboardView(
                 snapshot: SkeletonFixtures.demoSnapshot,
-                connectionSnapshot: LocalReadOnlyConnectionFixtures.demoSnapshot
+                connectionSnapshot: LocalReadOnlyConnectionFixtures.demoSnapshot,
+                reviewReceiptSnapshot: ReviewReceiptReadOnlyFixtures.demoSnapshot
             )
         }
     }

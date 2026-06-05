@@ -1,6 +1,6 @@
 # Documentation Index
 
-Current active baseline: **v0.49.0**
+Current active baseline: **v0.50.0**
 
 This index is the active entrypoint for documentation navigation. Historical release documents remain in the repository for audit history, but active truth starts with the current baseline files listed here.
 
@@ -14,8 +14,8 @@ docs/canonical/CANONICAL_DOC_MAP.md
 docs/canonical/09_roadmap.md
 docs/roadmap/README.md
 docs/archive/README.md
-docs/archive/releases/v0_49_0/README_IMPORT.md
-docs/archive/releases/v0_49_0/master_plan.md
+docs/archive/releases/v0_50_0/README_IMPORT.md
+docs/archive/releases/v0_50_0/master_plan.md
 docs/developer/LOCAL_LAUNCHER.md
 scripts/dev/README.md
 docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md
@@ -76,6 +76,8 @@ docs/mobile/CCC_IOS_SKELETON_NO_AUTHORITY.md
 docs/mobile/M44_TO_M45_BOUNDARY.md
 docs/mobile/CCC_IOS_LOCAL_READ_ONLY_CONNECTION.md
 docs/mobile/M45_TO_M46_BOUNDARY.md
+docs/mobile/CCC_IOS_REVIEW_RECEIPT_READ_ONLY_SURFACES.md
+docs/mobile/M46_TO_M47_BOUNDARY.md
 docs/tools/FILE_TOOL_CAPABILITY_MATRIX.md
 docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md
 docs/roadmap/ECOSYSTEM_WATCHLIST.md
@@ -441,19 +443,19 @@ scripts/dev/README.md
 ```
 
 v0.37.4 supersedes the old active M35-M40 roadmap projection and defines the
-active M34-M60 sequence. v0.49.0 is the current active baseline after
-implementing M45 CCC iOS Local Read-Only Connection as local-only,
-loopback-only, read-only, non-authoritative contract/status work. Active roadmap sources consistently
+active M34-M60 sequence. v0.50.0 is the current active baseline after
+implementing M46 iOS Review/Receipt Read-Only Surfaces as source-only,
+read-only, redacted summary display work. Active roadmap sources consistently
 keep v0.38.0 / M34 as Broader File Capability Review, keep M34
 planning/docs/verifier only, mark M36 through M43 implemented/released, mark
-M44 and M45 implemented/released, keep M46-M60 planned/provisional, and rely on documentation-integrity checks to guard
+M44, M45, and M46 implemented/released, keep M47-M60 planned/provisional, and rely on documentation-integrity checks to guard
 against superseded-roadmap drift, stale current-baseline labels, mobile product
 contract drift, read-only mobile API boundary drift, and no-authority iOS
-skeleton/local connection drift.
+skeleton/local connection/review receipt drift.
 
 ## Release Notes Index
 
-Current release notes: `docs/release_notes/v0_49_0.md`
+Current release notes: `docs/release_notes/v0_50_0.md`
 
 Historical release notes remain under `docs/release_notes/`. Historical docs may mention old active baselines in historical context; they are not the current source of truth.
 

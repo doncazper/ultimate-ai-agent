@@ -4,6 +4,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from ultimate_ai_agent.core.mobile_companion.enums import (
     CccIosLocalConnectionEndpointKind,
+    CccIosReviewReceiptSurfaceKind,
     CccIosSkeletonSurfaceKind,
     MobileCapabilityKind,
     MobileCapabilityStatus,
@@ -349,4 +350,69 @@ class CccIosLocalReadOnlyConnectionManifest(_MobileContractModel):
     def _copy_endpoints(
         cls, value: list[CccIosLocalConnectionEndpointContract]
     ) -> list[CccIosLocalConnectionEndpointContract]:
+        return list(value)
+
+
+class CccIosReviewReceiptSurfaceContract(_MobileContractModel):
+    surface_ref: str = Field(..., min_length=1)
+    kind: CccIosReviewReceiptSurfaceKind
+    safe_summary: str = Field(..., min_length=1)
+    read_only: bool = True
+    redacted_summary_only: bool = True
+    mock_only: bool = True
+    non_authoritative: bool = True
+    raw_data_display_enabled: bool = False
+    raw_payload_display_enabled: bool = False
+    raw_absolute_path_display_enabled: bool = False
+    mutation_enabled: bool = False
+    approval_capture_enabled: bool = False
+    approval_execution_enabled: bool = False
+    context_injection_enabled: bool = False
+    memory_write_enabled: bool = False
+    export_enabled: bool = False
+    execution_enabled: bool = False
+    background_collection_enabled: bool = False
+    sensor_access_enabled: bool = False
+    credential_or_cookie_handling_enabled: bool = False
+    metadata_refs: list[str] = Field(default_factory=list)
+
+    @field_validator("metadata_refs")
+    @classmethod
+    def _copy_metadata_refs(cls, value: list[str]) -> list[str]:
+        return list(value)
+
+
+class CccIosReviewReceiptReadOnlySurfaceManifest(_MobileContractModel):
+    milestone: str = "M46"
+    version: str = "0.50.0"
+    source_only: bool = True
+    read_only: bool = True
+    redacted_summary_only: bool = True
+    non_authoritative: bool = True
+    safe_summary: str = "M46 CCC iOS review/receipt read-only surfaces."
+    surfaces: list[CccIosReviewReceiptSurfaceContract] = Field(default_factory=list)
+    backend_routes_added: bool = False
+    network_runtime_enabled: bool = False
+    raw_data_enabled: bool = False
+    approval_capture_enabled: bool = False
+    approval_execution_enabled: bool = False
+    context_injection_enabled: bool = False
+    memory_write_enabled: bool = False
+    file_mutation_enabled: bool = False
+    export_enabled: bool = False
+    execution_enabled: bool = False
+    background_collection_enabled: bool = False
+    sensor_access_enabled: bool = False
+    credential_or_cookie_handling_enabled: bool = False
+    native_build_workflow_enabled: bool = False
+    signing_or_store_workflow_enabled: bool = False
+    testflight_pipeline_enabled: bool = False
+    production_authority_enabled: bool = False
+    m47_testflight_pipeline_future: bool = True
+
+    @field_validator("surfaces")
+    @classmethod
+    def _copy_surfaces(
+        cls, value: list[CccIosReviewReceiptSurfaceContract]
+    ) -> list[CccIosReviewReceiptSurfaceContract]:
         return list(value)

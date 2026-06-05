@@ -112,3 +112,11 @@ class CccIosLocalConnectionEndpointKind(str, Enum):
     review_packet_summary = "review_packet_summary"
     receipt_summary = "receipt_summary"
     authority_boundary = "authority_boundary"
+
+
+class CccIosReviewReceiptSurfaceKind(str, Enum):
+    review_packet_summary = "review_packet_summary"
+    review_packet_detail = "review_packet_detail"
+    receipt_summary = "receipt_summary"
+    receipt_detail = "receipt_detail"
+    authority_boundary = "authority_boundary"

@@ -3,6 +3,7 @@ import SwiftUI
 struct ReadOnlyDashboardView: View {
     let snapshot: SkeletonSnapshot
     let connectionSnapshot: LocalReadOnlyConnectionSnapshot
+    let reviewReceiptSnapshot: ReviewReceiptReadOnlySnapshot
 
     var body: some View {
         NavigationStack {
@@ -35,6 +36,31 @@ struct ReadOnlyDashboardView: View {
                         .accessibilityLabel("Local read-only connection authority boundary")
                 }
 
+                Section(reviewReceiptSnapshot.title) {
+                    ForEach(reviewReceiptSnapshot.items) { item in
+                        LabeledContent(item.label, value: item.value)
+                    }
+                }
+
+                Section("Redacted Review Packet") {
+                    Text(reviewReceiptSnapshot.reviewPacketSummary)
+                        .font(.body)
+                        .accessibilityLabel("Redacted review packet summary")
+                }
+
+                Section("Redacted Receipt") {
+                    Text(reviewReceiptSnapshot.receiptSummary)
+                        .font(.body)
+                        .accessibilityLabel("Redacted receipt summary")
+                }
+
+                Section("Review/Receipt Authority Boundary") {
+                    Text(reviewReceiptSnapshot.authorityBoundary)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .accessibilityLabel("Review and receipt read-only authority boundary")
+                }
+
                 Section("Authority Boundary") {
                     Text(snapshot.authorityBoundary)
                         .font(.callout)
@@ -50,6 +76,7 @@ struct ReadOnlyDashboardView: View {
 #Preview {
     ReadOnlyDashboardView(
         snapshot: SkeletonFixtures.demoSnapshot,
-        connectionSnapshot: LocalReadOnlyConnectionFixtures.demoSnapshot
+        connectionSnapshot: LocalReadOnlyConnectionFixtures.demoSnapshot,
+        reviewReceiptSnapshot: ReviewReceiptReadOnlyFixtures.demoSnapshot
     )
 }

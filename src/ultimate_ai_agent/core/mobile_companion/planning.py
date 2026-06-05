@@ -4,6 +4,8 @@ from typing import Iterable
 from ultimate_ai_agent.core.mobile_companion.contracts import (
     CccIosLocalConnectionEndpointContract,
     CccIosLocalReadOnlyConnectionManifest,
+    CccIosReviewReceiptReadOnlySurfaceManifest,
+    CccIosReviewReceiptSurfaceContract,
     CccIosSkeletonManifest,
     CccIosSkeletonSurface,
     MobileApiBoundaryRefresh,
@@ -18,6 +20,7 @@ from ultimate_ai_agent.core.mobile_companion.contracts import (
 )
 from ultimate_ai_agent.core.mobile_companion.enums import (
     CccIosLocalConnectionEndpointKind,
+    CccIosReviewReceiptSurfaceKind,
     CccIosSkeletonSurfaceKind,
     MobileApiBoundaryStatus,
     MobileApiEndpointKind,
@@ -316,6 +319,47 @@ def build_default_ccc_ios_local_read_only_connection_manifest(
         ],
     )
     assert_ccc_ios_local_read_only_connection_safe(manifest)
+    return manifest
+
+
+def build_default_ccc_ios_review_receipt_read_only_surface_manifest(
+    version: str = "0.50.0",
+) -> CccIosReviewReceiptReadOnlySurfaceManifest:
+    manifest = CccIosReviewReceiptReadOnlySurfaceManifest(
+        version=version,
+        safe_summary=(
+            "M46 CCC iOS review/receipt read-only surfaces; source-only "
+            "redacted summaries, mock non-authoritative data, and no runtime authority."
+        ),
+        surfaces=[
+            CccIosReviewReceiptSurfaceContract(
+                surface_ref="ccc_ios_review_receipt_surface:review-packet-summary",
+                kind=CccIosReviewReceiptSurfaceKind.review_packet_summary,
+                safe_summary="Redacted review packet summary surface; display-only.",
+            ),
+            CccIosReviewReceiptSurfaceContract(
+                surface_ref="ccc_ios_review_receipt_surface:review-packet-detail",
+                kind=CccIosReviewReceiptSurfaceKind.review_packet_detail,
+                safe_summary="Redacted review packet detail surface; no raw data display.",
+            ),
+            CccIosReviewReceiptSurfaceContract(
+                surface_ref="ccc_ios_review_receipt_surface:receipt-summary",
+                kind=CccIosReviewReceiptSurfaceKind.receipt_summary,
+                safe_summary="Redacted receipt summary surface; display-only.",
+            ),
+            CccIosReviewReceiptSurfaceContract(
+                surface_ref="ccc_ios_review_receipt_surface:receipt-detail",
+                kind=CccIosReviewReceiptSurfaceKind.receipt_detail,
+                safe_summary="Redacted receipt detail surface; no raw payload display.",
+            ),
+            CccIosReviewReceiptSurfaceContract(
+                surface_ref="ccc_ios_review_receipt_surface:authority-boundary",
+                kind=CccIosReviewReceiptSurfaceKind.authority_boundary,
+                safe_summary="Authority boundary display; no approval capture or execution.",
+            ),
+        ],
+    )
+    assert_ccc_ios_review_receipt_read_only_surfaces_safe(manifest)
     return manifest
 
 
@@ -713,6 +757,92 @@ def validate_ccc_ios_local_connection_endpoint(
         if enabled:
             raise ValueError(f"M45 CCC iOS local connection endpoint cannot enable {label}")
     return endpoint
+
+
+def assert_ccc_ios_review_receipt_read_only_surfaces_safe(
+    manifest: CccIosReviewReceiptReadOnlySurfaceManifest,
+) -> CccIosReviewReceiptReadOnlySurfaceManifest:
+    _assert_safe_text(manifest.safe_summary)
+    if manifest.milestone != "M46":
+        raise ValueError("CCC iOS review/receipt surfaces must remain scoped to M46")
+    if not manifest.version.startswith("0.50."):
+        raise ValueError("M46 CCC iOS review/receipt surfaces version must be 0.50.x")
+    if not manifest.source_only:
+        raise ValueError("M46 CCC iOS review/receipt surfaces must remain source-only")
+    if not manifest.read_only:
+        raise ValueError("M46 CCC iOS review/receipt surfaces must remain read-only")
+    if not manifest.redacted_summary_only:
+        raise ValueError("M46 CCC iOS review/receipt surfaces must remain redacted summary only")
+    if not manifest.non_authoritative:
+        raise ValueError("M46 CCC iOS review/receipt surfaces must remain non-authoritative")
+    if not manifest.m47_testflight_pipeline_future:
+        raise ValueError("M47 TestFlight pipeline must remain future after M46")
+    forbidden_flags = {
+        "backend route": manifest.backend_routes_added,
+        "network runtime": manifest.network_runtime_enabled,
+        "raw data": manifest.raw_data_enabled,
+        "approval capture": manifest.approval_capture_enabled,
+        "approval execution": manifest.approval_execution_enabled,
+        "context injection": manifest.context_injection_enabled,
+        "memory write": manifest.memory_write_enabled,
+        "file mutation": manifest.file_mutation_enabled,
+        "export": manifest.export_enabled,
+        "execution": manifest.execution_enabled,
+        "background collection": manifest.background_collection_enabled,
+        "sensor access": manifest.sensor_access_enabled,
+        "credential or cookie handling": manifest.credential_or_cookie_handling_enabled,
+        "native build workflow": manifest.native_build_workflow_enabled,
+        "signing or store workflow": manifest.signing_or_store_workflow_enabled,
+        "TestFlight": manifest.testflight_pipeline_enabled,
+        "production authority": manifest.production_authority_enabled,
+    }
+    for label, enabled in forbidden_flags.items():
+        if enabled:
+            raise ValueError(f"M46 CCC iOS review/receipt surfaces cannot enable {label}")
+    if not manifest.surfaces:
+        raise ValueError("M46 CCC iOS review/receipt surfaces require display surface contracts")
+    seen_refs: set[str] = set()
+    for surface in manifest.surfaces:
+        validate_ccc_ios_review_receipt_surface(surface)
+        if surface.surface_ref in seen_refs:
+            raise ValueError(f"duplicate M46 review/receipt surface ref: {surface.surface_ref}")
+        seen_refs.add(surface.surface_ref)
+    return manifest
+
+
+def validate_ccc_ios_review_receipt_surface(
+    surface: CccIosReviewReceiptSurfaceContract,
+) -> CccIosReviewReceiptSurfaceContract:
+    _assert_safe_ref(surface.surface_ref, label="surface ref")
+    _assert_safe_text(surface.safe_summary)
+    _assert_metadata_refs_only(surface.metadata_refs)
+    if not surface.read_only:
+        raise ValueError("M46 CCC iOS review/receipt surfaces must remain read-only")
+    if not surface.redacted_summary_only:
+        raise ValueError("M46 CCC iOS review/receipt surfaces must remain redacted summary only")
+    if not surface.mock_only:
+        raise ValueError("M46 CCC iOS review/receipt surfaces must remain mock-only")
+    if not surface.non_authoritative:
+        raise ValueError("M46 CCC iOS review/receipt surfaces must remain non-authoritative")
+    forbidden_flags = {
+        "raw data": surface.raw_data_display_enabled,
+        "raw payload": surface.raw_payload_display_enabled,
+        "raw absolute path": surface.raw_absolute_path_display_enabled,
+        "mutation": surface.mutation_enabled,
+        "approval capture": surface.approval_capture_enabled,
+        "approval execution": surface.approval_execution_enabled,
+        "context injection": surface.context_injection_enabled,
+        "memory write": surface.memory_write_enabled,
+        "export": surface.export_enabled,
+        "execution": surface.execution_enabled,
+        "background collection": surface.background_collection_enabled,
+        "sensor access": surface.sensor_access_enabled,
+        "credential or cookie handling": surface.credential_or_cookie_handling_enabled,
+    }
+    for label, enabled in forbidden_flags.items():
+        if enabled:
+            raise ValueError(f"M46 CCC iOS review/receipt surface cannot enable {label}")
+    return surface
 
 
 def assert_no_sensor_access_enabled(plan: MobileCapabilityPlan) -> MobileCapabilityPlan:

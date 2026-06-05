@@ -26,6 +26,10 @@ def _is_m45_allowed_ccc_ios_local_connection_file(rel_path: str) -> bool:
     return _is_m44_allowed_ccc_ios_skeleton_file(rel_path)
 
 
+def _is_m46_allowed_ccc_ios_review_receipt_file(rel_path: str) -> bool:
+    return _is_m45_allowed_ccc_ios_local_connection_file(rel_path)
+
+
 def _current_version() -> str:
     text = (ROOT / "VERSION.md").read_text(encoding="utf-8")
     match = re.search(r"v\d+\.\d+\.\d+", text)
@@ -70,6 +74,7 @@ SCAN_SEQUENCE = [
     ("M43 read-only mobile API boundary scan", "verify_m43_mobile_api_boundary_read_only"),
     ("M44 CCC iOS skeleton no-authority scan", "verify_m44_ccc_ios_skeleton_no_authority"),
     ("M45 CCC iOS local read-only connection scan", "verify_m45_ccc_ios_local_read_only_connection"),
+    ("M46 CCC iOS review/receipt read-only surfaces scan", "verify_m46_ccc_ios_review_receipt_read_only_surfaces"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -5518,6 +5523,184 @@ def verify_m45_ccc_ios_local_read_only_connection():
                     sys.exit(1)
 
     print("OK: M45 CCC iOS local connection is local-only, read-only, no-runtime, no-route, and no-authority")
+
+
+def verify_m46_ccc_ios_review_receipt_read_only_surfaces():
+    print("\n[Verifier] Running M46 CCC iOS review/receipt read-only surfaces guard...")
+    required_files = [
+        "apps/ccc-ios/README.md",
+        "apps/ccc-ios/Sources/UltimateAIAgentCCC/UltimateAIAgentCCCApp.swift",
+        "apps/ccc-ios/Sources/UltimateAIAgentCCC/ReadOnlyDashboardView.swift",
+        "apps/ccc-ios/Sources/UltimateAIAgentCCC/SkeletonFixtures.swift",
+        "apps/ccc-ios/Sources/UltimateAIAgentCCC/LocalReadOnlyConnectionModels.swift",
+        "apps/ccc-ios/Sources/UltimateAIAgentCCC/ReviewReceiptReadOnlyModels.swift",
+        "src/ultimate_ai_agent/core/mobile_companion/contracts.py",
+        "src/ultimate_ai_agent/core/mobile_companion/planning.py",
+        "src/ultimate_ai_agent/core/mobile_companion/enums.py",
+        "docs/mobile/CCC_IOS_REVIEW_RECEIPT_READ_ONLY_SURFACES.md",
+        "docs/mobile/M46_TO_M47_BOUNDARY.md",
+        "docs/release_notes/v0_50_0.md",
+        "docs/archive/releases/v0_50_0/README_IMPORT.md",
+        "docs/archive/releases/v0_50_0/master_plan.md",
+        "docs/implementation/foundation_gate_implementation_plan_v0_50_0.md",
+        "tests/test_m46_ccc_ios_review_receipt_read_only_surfaces.py",
+        "tests/test_m46_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M46 CCC iOS review/receipt file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = "\n".join(
+        (ROOT / rel_path).read_text(encoding="utf-8").lower()
+        for rel_path in required_files
+        if rel_path.startswith("docs/")
+    )
+    for fragment in [
+        "ios review/receipt read-only surfaces",
+        "source-only",
+        "read-only",
+        "redacted summary",
+        "mock",
+        "non-authoritative",
+        "no runtime network call",
+        "no backend route",
+        "no approval capture",
+        "no approval execution",
+        "no raw data",
+        "no context injection",
+        "no memory write",
+        "no file mutation",
+        "no export",
+        "no execution",
+        "no background collection",
+        "no mobile sensor access",
+        "no credential",
+        "no xcode project",
+        "no swift package",
+        "no signing",
+        "no testflight",
+        "no production authority",
+        "m47 remains future",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M46 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.evaluators import m46_openapi_route_failures
+        from ultimate_ai_agent.core.mobile_companion import (
+            assert_ccc_ios_review_receipt_read_only_surfaces_safe,
+            build_default_ccc_ios_review_receipt_read_only_surface_manifest,
+        )
+    except Exception as exc:
+        print(f"FAIL: M46 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m46_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    try:
+        manifest = build_default_ccc_ios_review_receipt_read_only_surface_manifest()
+        assert_ccc_ios_review_receipt_read_only_surfaces_safe(manifest)
+    except Exception as exc:
+        print(f"FAIL: M46 default CCC iOS review/receipt surfaces failed validation: {exc}")
+        sys.exit(1)
+
+    ios_root = ROOT / "apps" / "ccc-ios"
+    for forbidden_path in [
+        ios_root / "Package.swift",
+        *ios_root.glob("*.xcodeproj"),
+        *ios_root.rglob("*.entitlements"),
+        *ios_root.rglob("Info.plist"),
+        *ios_root.rglob("ExportOptions.plist"),
+        *ios_root.rglob("*.mobileprovision"),
+    ]:
+        if forbidden_path.exists():
+            rel = forbidden_path.relative_to(ROOT).as_posix()
+            print(f"FAIL: M46 forbidden native workflow file present: {rel}")
+            sys.exit(1)
+
+    swift_files = sorted((ios_root / "Sources" / "UltimateAIAgentCCC").rglob("*.swift"))
+    swift_text = "\n".join(path.read_text(encoding="utf-8") for path in swift_files)
+    lowered_swift = swift_text.lower()
+    for required in [
+        "review/receipt read-only surfaces",
+        "redacted review packet summary",
+        "redacted receipt summary",
+        "mock non-authoritative",
+        "no approval capture",
+        "no raw data",
+        "no runtime network call",
+    ]:
+        if required not in lowered_swift:
+            print(f"FAIL: M46 Swift source missing marker: {required}")
+            sys.exit(1)
+    for fragment in [
+        "URLSession",
+        "Alamofire",
+        "URLRequest",
+        "NWConnection",
+        "CLLocationManager",
+        "AVCapture",
+        "PHPhoto",
+        "Contacts",
+        "EventKit",
+        "UserNotifications",
+        "Keychain",
+        "SecItem",
+        "FileManager.default",
+        "Process(",
+        "WKWebView",
+        "approvalCapture",
+        "approvalExecution",
+        "contextInjection",
+        "memoryWrite",
+        "backgroundTask",
+        "ExportOptions",
+    ]:
+        if fragment in swift_text:
+            print(f"FAIL: M46 forbidden Swift API fragment present: {fragment}")
+            sys.exit(1)
+
+    forbidden_source_fragments = [
+        "backend_routes_added=True",
+        "network_runtime_enabled=True",
+        "raw_data_enabled=True",
+        "approval_capture_enabled=True",
+        "approval_execution_enabled=True",
+        "context_injection_enabled=True",
+        "memory_write_enabled=True",
+        "file_mutation_enabled=True",
+        "export_enabled=True",
+        "execution_enabled=True",
+        "background_collection_enabled=True",
+        "sensor_access_enabled=True",
+        "credential_or_cookie_handling_enabled=True",
+        "native_build_workflow_enabled=True",
+        "signing_or_store_workflow_enabled=True",
+        "testflight_pipeline_enabled=True",
+        "production_authority_enabled=True",
+    ]
+    source_roots = [ROOT / "src", ROOT / "apps" / "control-center" / "src", ios_root]
+    for root in source_roots:
+        if not root.exists():
+            continue
+        for path in root.rglob("*"):
+            if not path.is_file() or path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}:
+                continue
+            rel = path.relative_to(ROOT).as_posix()
+            text = path.read_text(encoding="utf-8")
+            for fragment in forbidden_source_fragments:
+                if fragment in text:
+                    print(f"FAIL: M46 forbidden authority flag in {rel}: {fragment}")
+                    sys.exit(1)
+
+    print("OK: M46 CCC iOS review/receipt surfaces are source-only, read-only, redacted, no-runtime, and no-authority")
 
 
 def verify_local_developer_launcher_safety():
