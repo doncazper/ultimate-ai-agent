@@ -1,6 +1,6 @@
 # Milestone Charters
 
-Status: Active roadmap governance template maintained through v0.65.0.
+Status: Active roadmap governance template maintained through v0.66.0.
 
 This document defines the required charter shape for every future milestone prompt. A milestone charter is planning authority only. It does not implement runtime behavior, frontend behavior, backend API routes, provider calls, network calls, remote execution, mobile sensor access, plugin enablement, native build workflows, production persistence, or external actions.
 

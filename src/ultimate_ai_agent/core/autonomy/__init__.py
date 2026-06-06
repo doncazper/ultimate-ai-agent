@@ -9,6 +9,16 @@ from ultimate_ai_agent.core.autonomy.modes import (
     validate_autonomy_capability_toggle,
     validate_autonomy_mode_charter,
 )
+from ultimate_ai_agent.core.autonomy.sessions import (
+    M62_MAX_SESSION_DURATION_SECONDS,
+    SCOPED_AUTONOMY_SESSION_DOCS,
+    ScopedAutonomySessionDecision,
+    ScopedAutonomySessionRequest,
+    ScopedAutonomySessionScope,
+    build_scoped_autonomy_session_decision,
+    validate_scoped_autonomy_session_request,
+    validate_scoped_autonomy_session_scope,
+)
 
 __all__ = [
     "AUTONOMY_MODE_CHARTER_DOCS",
@@ -20,4 +30,12 @@ __all__ = [
     "build_autonomy_mode_decision",
     "validate_autonomy_capability_toggle",
     "validate_autonomy_mode_charter",
+    "M62_MAX_SESSION_DURATION_SECONDS",
+    "SCOPED_AUTONOMY_SESSION_DOCS",
+    "ScopedAutonomySessionDecision",
+    "ScopedAutonomySessionRequest",
+    "ScopedAutonomySessionScope",
+    "build_scoped_autonomy_session_decision",
+    "validate_scoped_autonomy_session_request",
+    "validate_scoped_autonomy_session_scope",
 ]

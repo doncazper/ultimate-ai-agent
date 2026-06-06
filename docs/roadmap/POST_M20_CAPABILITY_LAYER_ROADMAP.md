@@ -1,6 +1,6 @@
 # Post-M20 Capability Layer Roadmap
 
-Status: Active roadmap projection maintained through v0.65.0.
+Status: Active roadmap projection maintained through v0.66.0.
 
 v0.38.0 implements M34 Broader File Capability Review as planning,
 architecture review, documentation, verifier, and Foundation Gate work only.
@@ -98,17 +98,19 @@ The detailed post-M33 supersession source of truth is
 | v0.63.0 | M59 | Public GitHub Readiness | implemented/released review-only |
 | v0.64.0 | M60 | Local Developer Beta Freeze | implemented/released |
 | v0.65.0 | M61 | Autonomy Mode Charter + Authority Levels | implemented/released contract-only |
+| v0.66.0 | M62 | Scoped Autonomy Session Contracts | implemented/released contract-only |
 
 ## Prompt-Pack Strategy
 
-Recommended next prompt after v0.65.0:
+Recommended next prompt after v0.66.0:
 
 ```text
-Start v0.66.0 / M62 - Autonomy Consent Ledger Extension only after v0.65.0 is accepted Green.
+Start v0.67.0 / M63 - Autonomy Policy Engine v1 only after v0.66.0 is accepted Green.
 ```
 
 M61 is implemented/released by v0.65.0 as Autonomy Mode Charter + Authority
-Levels. M62-M100 remain planned/provisional.
+Levels. M62 is implemented/released by v0.66.0 as Scoped Autonomy Session
+Contracts. M63-M100 remain planned/provisional.
 
 Extra-hard reviews are required for M37, M38, M40, M47, M48, M49, M51, M52,
 M57, M58, and M59. Mandatory hardening is expected by default for M35-M40, M43-M50,

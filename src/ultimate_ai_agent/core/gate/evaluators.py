@@ -918,6 +918,16 @@ M61_FORBIDDEN_BACKEND_ROUTES = M60_FORBIDDEN_BACKEND_ROUTES + (
     "/network/fetch",
     "/network/request",
 )
+EXPECTED_M62_OPENAPI_PATH_COUNT = 75
+M62_FORBIDDEN_BACKEND_ROUTES = M61_FORBIDDEN_BACKEND_ROUTES + (
+    "/autonomy/session/activate",
+    "/autonomy/session/execute",
+    "/autonomy/session/stop",
+    "/autonomy/session/status",
+    "/autonomy/session/background",
+    "/autonomy/session/approval",
+    "/autonomy/session/persist",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -1577,6 +1587,19 @@ def m61_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
     return failures
 
 
+def m62_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M62_OPENAPI_PATH_COUNT) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+    if M37_ALLOWED_CAPTURE_ROUTE not in path_set:
+        failures.append("M37 capture route missing: /files/review/approvals/capture")
+    for route in M62_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(f"M62 forbidden autonomy session/execution/backend route present: {route}")
+    return failures
+
+
 M36_SAFE_REF_PREFIXES = {
     "reviewPacketRef": "file-review-packet:",
     "previewResultRef": "redacted-file-preview-output:",
@@ -2069,6 +2092,16 @@ class FoundationGateEvaluator:
                 self.check_m61_autonomy_mode_charter_route_boundary
             ),
             "m61_roadmap_currentness": self.check_m61_roadmap_currentness,
+            "m62_scoped_autonomy_session_contract_review": (
+                self.check_m62_scoped_autonomy_session_contract_review
+            ),
+            "m62_scoped_autonomy_session_static_safety": (
+                self.check_m62_scoped_autonomy_session_static_safety
+            ),
+            "m62_scoped_autonomy_session_route_boundary": (
+                self.check_m62_scoped_autonomy_session_route_boundary
+            ),
+            "m62_roadmap_currentness": self.check_m62_roadmap_currentness,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -15545,8 +15578,7 @@ class FoundationGateEvaluator:
         ]:
             if version_label.lower() not in text or milestone.lower() not in text or title.lower() not in text:
                 failures.append(f"active docs missing planned M61-M100 row: {version_label} / {milestone} — {title}")
-        for fragment in (
-            "m62 is implemented",
+        forbidden_fragments = [
             "m63 is implemented",
             "m64 is implemented",
             "production authority is implemented",
@@ -15555,9 +15587,264 @@ class FoundationGateEvaluator:
             "tool execution is implemented",
             "shell execution is implemented",
             "browser automation is implemented",
-        ):
+        ]
+        if self._active_version_tuple() < (0, 66, 0):
+            forbidden_fragments.append("m62 is implemented")
+        for fragment in forbidden_fragments:
             if fragment in text:
                 failures.append(f"M61 docs imply forbidden/future capability: {fragment}")
+        return self._result(criterion, failures, required_docs)
+
+    def check_m62_scoped_autonomy_session_contract_review(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/autonomy/sessions.py",
+            "tests/test_m62_scoped_autonomy_session_contracts.py",
+            "docs/autonomy/SCOPED_AUTONOMY_SESSION_CONTRACTS.md",
+            "docs/autonomy/SCOPED_AUTONOMY_SESSION_SCOPE_POLICY.md",
+            "docs/autonomy/SCOPED_AUTONOMY_SESSION_NON_GOALS.md",
+            "docs/autonomy/M62_TO_M63_BOUNDARY.md",
+            "docs/roadmap/M61_M100_ROADMAP.md",
+        ]
+        failures = [
+            f"missing M62 scoped autonomy session file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            from ultimate_ai_agent.core.autonomy import (
+                AutonomyAuthorityMode,
+                AutonomyRiskClass,
+                ScopedAutonomySessionRequest,
+                ScopedAutonomySessionScope,
+                build_scoped_autonomy_session_decision,
+                validate_scoped_autonomy_session_request,
+                validate_scoped_autonomy_session_scope,
+            )
+
+            scope = ScopedAutonomySessionScope(
+                scope_ref="autonomy-session-scope:m62-gate",
+                actor_ref="actor:gate-reviewer",
+                resource_refs=["resource:local-prototype"],
+                capability_refs=["capability:observe-only-review"],
+                allowlist_refs=["allowlist:m62-gate"],
+                max_duration_seconds=900,
+                risk_class=AutonomyRiskClass.low,
+                revocation_ref="revocation:m62-gate",
+                audit_ref="audit:m62-gate",
+                replay_ref="replay:m62-gate",
+            )
+            validate_scoped_autonomy_session_scope(scope)
+            request = ScopedAutonomySessionRequest(
+                session_request_ref="autonomy-session-request:m62-gate",
+                requested_mode=AutonomyAuthorityMode.dry_run_plan,
+                scope=scope,
+                approval_ref="approval:m62-review-only",
+            )
+            validated = validate_scoped_autonomy_session_request(request)
+            decision = build_scoped_autonomy_session_decision(validated)
+            if (
+                not decision.contract_valid_for_review
+                or decision.session_started
+                or decision.session_active
+                or decision.execution_performed
+                or decision.side_effects_performed
+            ):
+                failures.append("M62 scoped session decision granted authority or side effects")
+            for update, reason in [
+                ({"start_requested": True}, "AUTONOMY_SESSION_START_DENIED"),
+                ({"session_active": True}, "AUTONOMY_SESSION_ACTIVATION_DENIED"),
+                ({"execution_requested": True}, "EXECUTION_DENIED"),
+                ({"approval_test_ref": "approval_test_:m62"}, "APPROVAL_TEST_REF_DENIED"),
+                (
+                    {"requested_mode": AutonomyAuthorityMode.ask_before_every_action},
+                    "AUTONOMY_MODE_ENABLEMENT_DENIED",
+                ),
+                (
+                    {"requested_mode": AutonomyAuthorityMode.scoped_autonomy_window},
+                    "AUTONOMY_MODE_FUTURE_MILESTONE_DENIED",
+                ),
+            ]:
+                try:
+                    validate_scoped_autonomy_session_request(request.model_copy(update=update))
+                    failures.append(f"M62 unsafe session request mutation was not denied: {reason}")
+                except ValueError as exc:
+                    if reason not in str(exc):
+                        failures.append(f"M62 unsafe session request reason drifted for {reason}: {exc}")
+            for update, reason in [
+                ({"session_start_enabled": True}, "AUTONOMY_SESSION_START_DENIED"),
+                ({"session_activation_enabled": True}, "AUTONOMY_SESSION_ACTIVATION_DENIED"),
+                ({"background_worker_enabled": True}, "BACKGROUND_WORKER_DENIED"),
+                ({"production_authority_enabled": True}, "PRODUCTION_AUTHORITY_DENIED"),
+            ]:
+                try:
+                    validate_scoped_autonomy_session_scope(scope.model_copy(update=update))
+                    failures.append(f"M62 unsafe session scope mutation was not denied: {reason}")
+                except ValueError as exc:
+                    if reason not in str(exc):
+                        failures.append(f"M62 unsafe session scope reason drifted for {reason}: {exc}")
+        except Exception as exc:
+            failures.append(f"M62 scoped autonomy session validation failed: {exc}")
+
+        docs_text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_files
+            if path.startswith("docs/") and (self.root / path).exists()
+        )
+        for fragment in [
+            "scoped autonomy session contracts",
+            "contract-only",
+            "review-only",
+            "actor-bound",
+            "resource-bound",
+            "duration-bound",
+            "allowlist",
+            "revocation",
+            "audit/replay",
+            "no session start",
+            "no session activation",
+            "no autonomous actions",
+            "no background worker",
+            "no execution",
+            "no tool execution",
+            "no shell execution",
+            "no network tools",
+            "no browser automation",
+            "no backend route",
+            "no dependency",
+            "m63 remains future",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M62 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m62_scoped_autonomy_session_static_safety(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        forbidden_source_fragments = [
+            "session_start_enabled=True",
+            "session_activation_enabled=True",
+            "start_requested=True",
+            "session_active=True",
+            "execution_requested=True",
+            "autonomous_actions_enabled=True",
+            "background_worker_enabled=True",
+            "execution_enabled=True",
+            "tool_execution_enabled=True",
+            "shell_execution_enabled=True",
+            "network_tool_enabled=True",
+            "browser_automation_enabled=True",
+            "plugin_execution_enabled=True",
+            "mobile_sensor_enabled=True",
+            "remote_execution_enabled=True",
+            "memory_write_enabled=True",
+            "context_injection_enabled=True",
+            "production_authority_enabled=True",
+            "execution_performed=True",
+            "/autonomy/session/start",
+            "/autonomy/session/activate",
+            "/autonomy/session/run",
+            "/autonomy/session/execute",
+            "/autonomy/session/stop",
+            "/background/start",
+            "/network/fetch",
+            "/shell/execute",
+            "/browser/click",
+            "subprocess" + ".run(",
+            "subprocess" + ".Popen(",
+            "os.system(",
+            "shell=True",
+        ]
+        allowed_files = {
+            "src/ultimate_ai_agent/core/autonomy/sessions.py",
+            "src/ultimate_ai_agent/core/gate/evaluators.py",
+            "src/ultimate_ai_agent/core/tools/runtime/invocation.py",
+            "tests/test_m62_scoped_autonomy_session_contracts.py",
+            "tests/test_m62_gate_integration.py",
+        }
+        source_roots = [
+            self.root / "src" / "ultimate_ai_agent",
+            self.root / "apps" / "control-center" / "src",
+            self.root / "apps" / "ccc-ios",
+        ]
+        for root in source_roots:
+            if not root.exists():
+                continue
+            candidate_files = []
+            for pattern in ("*.py", "*.ts", "*.tsx", "*.js", "*.jsx", "*.swift", "*.yml", "*.yaml"):
+                candidate_files.extend(root.rglob(pattern))
+            for path in sorted(candidate_files):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(self.root).as_posix()
+                if rel in allowed_files:
+                    continue
+                text = path.read_text(encoding="utf-8")
+                for fragment in forbidden_source_fragments:
+                    if fragment in text:
+                        failures.append(f"M62 forbidden scoped session fragment in {rel}: {fragment}")
+        return self._result(criterion, failures, [])
+
+    def check_m62_scoped_autonomy_session_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m62_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M62 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m62_roadmap_currentness(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        required_docs = [
+            "README.md",
+            "VERSION.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/roadmap/M61_M100_ROADMAP.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+            "docs/roadmap/MILESTONE_CHARTERS.md",
+        ]
+        failures = [
+            f"missing M62 roadmap doc: {path}"
+            for path in required_docs
+            if not (self.root / path).exists()
+        ]
+        text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_docs
+            if (self.root / path).exists()
+        )
+        if "v0.66.0" not in text or "m62" not in text or "scoped autonomy session contracts" not in text:
+            failures.append("active docs do not identify v0.66.0/M62 Scoped Autonomy Session Contracts")
+        if "m62 is implemented/released" not in text and "v0.66.0 implements m62" not in text:
+            failures.append("active docs do not mark M62 implemented/released")
+        for version_label, milestone, title in [
+            ("v0.67.0", "M63", "Autonomy Policy Engine v1"),
+            ("v0.68.0", "M64", "Autonomous Plan Simulator"),
+            ("v0.69.0", "M65", "Autonomy Audit + Replay Viewer"),
+            ("v0.70.0", "M66", "Scoped Approval Bundles"),
+            ("v0.95.0", "M91", "Autonomous Tool Execution Contract"),
+            ("v1.4.0", "M100", "Mobile Permission Model v1"),
+        ]:
+            if version_label.lower() not in text or milestone.lower() not in text or title.lower() not in text:
+                failures.append(f"active docs missing planned M62-M100 row: {version_label} / {milestone} — {title}")
+        for fragment in (
+            "m63 is implemented",
+            "autonomy policy engine is implemented",
+            "session start is implemented",
+            "session activation is implemented",
+            "production authority is implemented",
+            "broad autonomy is implemented",
+            "tool execution is implemented",
+            "shell execution is implemented",
+            "browser automation is implemented",
+        ):
+            if fragment in text:
+                failures.append(f"M62 docs imply forbidden/future capability: {fragment}")
         return self._result(criterion, failures, required_docs)
 
     def check_v0292_local_dev_api_authority_and_preview_safe(

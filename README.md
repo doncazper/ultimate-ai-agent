@@ -12,20 +12,20 @@ allowed to become operational authority.
 
 | Field | Current state |
 |---|---|
-| Current active baseline | **v0.65.0** |
-| Current milestone | **M61 - Autonomy Mode Charter + Authority Levels** |
+| Current active baseline | **v0.66.0** |
+| Current milestone | **M62 - Scoped Autonomy Session Contracts** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **75** OpenAPI paths |
 | Production readiness | Not claimed |
 
-v0.65.0 implements M61 Autonomy Mode Charter + Authority Levels. It defines
-Mode 0 through Mode 6, keeps default mode off, adds capability-toggle registry
-contracts, documents consent/revocation and audit/replay requirements, promotes
-the active M61-M100 roadmap, and adds tests, documentation-integrity checks,
-static verification, and Foundation Gate coverage. It adds no global autonomy
-switch, production authority, execution, backend routes, Control Center
-controls, background worker, autonomous session, dependency, or M62 work.
+v0.66.0 implements M62 Scoped Autonomy Session Contracts. It adds
+contract-only and review-only scoped autonomy session models with actor, scope,
+resource, capability, allowlist, duration, risk, revocation, audit, and replay
+bindings. It adds tests, documentation-integrity checks, static verification,
+and Foundation Gate coverage. It adds no session start, session activation,
+autonomous actions, background worker, execution, backend routes, Control
+Center controls, dependency, or M63 work.
 
 v0.29.5 is documentation policy polish. It remains the documentation
 organization cleanup baseline before the M26 and M27 implementation releases.
@@ -131,6 +131,10 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M61 Capability Toggle Registry](docs/autonomy/CAPABILITY_TOGGLE_REGISTRY.md)
 - [M61 Autonomy Consent And Revocation Policy](docs/autonomy/AUTONOMY_CONSENT_REVOCATION_POLICY.md)
 - [M61 to M62 Boundary](docs/autonomy/M61_TO_M62_BOUNDARY.md)
+- [M62 Scoped Autonomy Session Contracts](docs/autonomy/SCOPED_AUTONOMY_SESSION_CONTRACTS.md)
+- [M62 Scoped Autonomy Session Scope Policy](docs/autonomy/SCOPED_AUTONOMY_SESSION_SCOPE_POLICY.md)
+- [M62 Scoped Autonomy Session Non-Goals](docs/autonomy/SCOPED_AUTONOMY_SESSION_NON_GOALS.md)
+- [M62 to M63 Boundary](docs/autonomy/M62_TO_M63_BOUNDARY.md)
 - [M38 Context Proposal Receipt Plan](docs/context/CONTEXT_PROPOSAL_RECEIPT_PLAN.md)
 - [API route inventory](docs/api/route_inventory.md)
 - [Documentation organization policy](docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md)
@@ -149,8 +153,8 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M27 Tool Broker v2](docs/tools/TOOL_BROKER_V2.md)
 - [M26 Grounded Recall Router](docs/recall/GROUNDED_RECALL_ROUTER.md)
 - [v0.60.0 release notes](docs/release_notes/v0_60_0.md)
-- [v0.65.0 release packet](docs/archive/releases/v0_65_0/README_IMPORT.md)
-- [v0.65.0 master plan](docs/archive/releases/v0_65_0/master_plan.md)
+- [v0.66.0 release packet](docs/archive/releases/v0_66_0/README_IMPORT.md)
+- [v0.66.0 master plan](docs/archive/releases/v0_66_0/master_plan.md)
 
 ## What This Project Is
 
@@ -428,6 +432,7 @@ post-M33 supersession is
 | v0.63.0 | M59 - Public GitHub Readiness | Implemented/released review-only |
 | v0.64.0 | M60 - Local Developer Beta Freeze | Implemented/released freeze-only |
 | v0.65.0 | M61 - Autonomy Mode Charter + Authority Levels | Implemented/released contract-only autonomy authority charter |
+| v0.66.0 | M62 - Scoped Autonomy Session Contracts | Implemented/released contract-only scoped session records |
 
 The roadmap intentionally separates contract planning, validation, preview,
 manual local execution, and future operational authority.

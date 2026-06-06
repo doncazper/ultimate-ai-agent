@@ -95,6 +95,7 @@ SCAN_SEQUENCE = [
     ("M59 public GitHub readiness scan", "verify_m59_public_github_readiness"),
     ("M60 local developer beta freeze scan", "verify_m60_local_developer_beta_freeze"),
     ("M61 autonomy mode charter scan", "verify_m61_autonomy_mode_charter"),
+    ("M62 scoped autonomy session scan", "verify_m62_scoped_autonomy_session"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -8672,6 +8673,189 @@ def verify_m61_autonomy_mode_charter():
                     sys.exit(1)
 
     print("OK: M61 autonomy mode charter is default-off, route-free, no-autonomy, and no-authority")
+
+
+def verify_m62_scoped_autonomy_session():
+    print("\n[Verifier] Running M62 scoped autonomy session guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/autonomy/sessions.py",
+        "docs/autonomy/SCOPED_AUTONOMY_SESSION_CONTRACTS.md",
+        "docs/autonomy/SCOPED_AUTONOMY_SESSION_SCOPE_POLICY.md",
+        "docs/autonomy/SCOPED_AUTONOMY_SESSION_NON_GOALS.md",
+        "docs/autonomy/M62_TO_M63_BOUNDARY.md",
+        "docs/roadmap/M61_M100_ROADMAP.md",
+        "docs/release_notes/v0_66_0.md",
+        "docs/archive/releases/v0_66_0/README_IMPORT.md",
+        "docs/archive/releases/v0_66_0/master_plan.md",
+        "docs/implementation/foundation_gate_implementation_plan_v0_66_0.md",
+        "tests/test_m62_scoped_autonomy_session_contracts.py",
+        "tests/test_m62_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M62 scoped autonomy session file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = "\n".join(
+        (ROOT / rel_path).read_text(encoding="utf-8").lower()
+        for rel_path in required_files
+        if rel_path.startswith("docs/")
+    )
+    for fragment in [
+        "scoped autonomy session contracts",
+        "contract-only",
+        "review-only",
+        "actor-bound",
+        "resource-bound",
+        "duration-bound",
+        "allowlist",
+        "revocation",
+        "audit/replay",
+        "no session start",
+        "no session activation",
+        "no autonomous actions",
+        "no background worker",
+        "no execution",
+        "no tool execution",
+        "no shell execution",
+        "no network tools",
+        "no browser automation",
+        "no backend route",
+        "no dependency",
+        "m63 remains future",
+        "skill package security rule",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M62 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.autonomy import (
+            AutonomyAuthorityMode,
+            AutonomyRiskClass,
+            ScopedAutonomySessionRequest,
+            ScopedAutonomySessionScope,
+            build_scoped_autonomy_session_decision,
+            validate_scoped_autonomy_session_request,
+            validate_scoped_autonomy_session_scope,
+        )
+        from ultimate_ai_agent.core.gate.evaluators import m62_openapi_route_failures
+    except Exception as exc:
+        print(f"FAIL: M62 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m62_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    scope = ScopedAutonomySessionScope(
+        scope_ref="autonomy-session-scope:verify-all-m62",
+        actor_ref="actor:verify-all-reviewer",
+        resource_refs=["resource:local-prototype"],
+        capability_refs=["capability:observe-only-review"],
+        allowlist_refs=["allowlist:verify-all-m62"],
+        max_duration_seconds=900,
+        risk_class=AutonomyRiskClass.low,
+        revocation_ref="revocation:verify-all-m62",
+        audit_ref="audit:verify-all-m62",
+        replay_ref="replay:verify-all-m62",
+    )
+    validate_scoped_autonomy_session_scope(scope)
+    request = ScopedAutonomySessionRequest(
+        session_request_ref="autonomy-session-request:verify-all-m62",
+        requested_mode=AutonomyAuthorityMode.dry_run_plan,
+        scope=scope,
+        approval_ref="approval:m62-review-only",
+    )
+    decision = build_scoped_autonomy_session_decision(request)
+    if decision.session_started or decision.session_active or decision.execution_performed or decision.side_effects_performed:
+        print("FAIL: M62 scoped autonomy session decision granted authority or side effects")
+        sys.exit(1)
+
+    for update, reason in [
+        ({"start_requested": True}, "AUTONOMY_SESSION_START_DENIED"),
+        ({"session_active": True}, "AUTONOMY_SESSION_ACTIVATION_DENIED"),
+        ({"execution_requested": True}, "EXECUTION_DENIED"),
+        ({"autonomous_actions_enabled": True}, "AUTONOMOUS_ACTIONS_DENIED"),
+        ({"background_worker_enabled": True}, "BACKGROUND_WORKER_DENIED"),
+        ({"approval_test_ref": "approval_test_:m62"}, "APPROVAL_TEST_REF_DENIED"),
+        ({"requested_mode": AutonomyAuthorityMode.ask_before_every_action}, "AUTONOMY_MODE_ENABLEMENT_DENIED"),
+        ({"requested_mode": AutonomyAuthorityMode.scoped_autonomy_window}, "AUTONOMY_MODE_FUTURE_MILESTONE_DENIED"),
+    ]:
+        try:
+            validate_scoped_autonomy_session_request(request.model_copy(update=update))
+            print(f"FAIL: M62 unsafe request mutation was not denied: {reason}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M62 unsafe request reason drifted for {reason}: {exc}")
+                sys.exit(1)
+
+    forbidden_source_fragments = [
+        "session_start_enabled=True",
+        "session_activation_enabled=True",
+        "start_requested=True",
+        "session_active=True",
+        "execution_requested=True",
+        "autonomous_actions_enabled=True",
+        "background_worker_enabled=True",
+        "execution_enabled=True",
+        "tool_execution_enabled=True",
+        "shell_execution_enabled=True",
+        "network_tool_enabled=True",
+        "browser_automation_enabled=True",
+        "plugin_execution_enabled=True",
+        "mobile_sensor_enabled=True",
+        "remote_execution_enabled=True",
+        "memory_write_enabled=True",
+        "context_injection_enabled=True",
+        "production_authority_enabled=True",
+        "execution_performed=True",
+        "/autonomy/session/start",
+        "/autonomy/session/activate",
+        "/autonomy/session/run",
+        "/autonomy/session/execute",
+        "/background/start",
+        "/network/fetch",
+        "/shell/execute",
+        "/browser/click",
+        "subprocess" + ".run(",
+        "subprocess" + ".Popen(",
+        "os.system(",
+        "shell=True",
+    ]
+    allowed_files = {
+        "scripts/verify_all.py",
+        "src/ultimate_ai_agent/core/autonomy/sessions.py",
+        "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/tools/runtime/invocation.py",
+        "tests/test_m62_scoped_autonomy_session_contracts.py",
+        "tests/test_m62_gate_integration.py",
+    }
+    source_roots = [
+        ROOT / "src" / "ultimate_ai_agent",
+        ROOT / "apps" / "control-center" / "src",
+        ROOT / "apps" / "ccc-ios",
+    ]
+    for root in source_roots:
+        if not root.exists():
+            continue
+        for path in root.rglob("*"):
+            if not path.is_file() or path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}:
+                continue
+            rel = path.relative_to(ROOT).as_posix()
+            if rel in allowed_files:
+                continue
+            text = path.read_text(encoding="utf-8")
+            for fragment in forbidden_source_fragments:
+                if fragment in text:
+                    print(f"FAIL: M62 forbidden scoped session fragment in {rel}: {fragment}")
+                    sys.exit(1)
+
+    print("OK: M62 scoped autonomy session is contract-only, route-free, no-session-start, and no-authority")
 
 
 def verify_local_developer_launcher_safety():
