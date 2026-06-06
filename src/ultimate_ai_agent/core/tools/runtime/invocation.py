@@ -21,6 +21,13 @@ from ultimate_ai_agent.core.tools.runtime.file_preview import (
     build_redacted_file_preview_output,
     redacted_file_preview_policy_reason_codes,
 )
+from ultimate_ai_agent.core.tools.runtime.http_fetch import (
+    READ_ONLY_HTTP_FETCH_TOOL_REF,
+    HttpFetchTransport,
+    ReadOnlyHttpFetchPolicy,
+    build_read_only_http_fetch_output,
+    http_fetch_policy_reason_codes,
+)
 from ultimate_ai_agent.core.tools.runtime.noop import invoke_noop_tool
 from ultimate_ai_agent.core.tools.runtime.policy import validate_runtime_policy, validate_tool_invocation_request
 from ultimate_ai_agent.core.tools.runtime.receipts import build_tool_invocation_receipt_plan
@@ -38,6 +45,19 @@ def _safe_invocation_id(value: str) -> str:
     except ValueError:
         return "tool-runtime-invocation:denied"
     return value
+
+
+def _safe_http_fetch_reason(value: str) -> str:
+    for reason in [
+        "UNSAFE_ALLOWLIST_HOST_DENIED",
+        "HTTP_FETCH_ALLOWLIST_REQUIRED",
+        "WILDCARD_HOST_DENIED",
+        "SECRET_LIKE_HOST_DENIED",
+        "HTTP_FETCH_HOST_INVALID",
+    ]:
+        if reason in value:
+            return reason
+    return value.strip().split("\n", 1)[0] or "HTTP_FETCH_REQUEST_INVALID"
 
 
 def _denied_decision(request: ToolInvocationRequest, reasons: list[str]) -> ToolInvocationDecision:
@@ -82,6 +102,7 @@ def evaluate_tool_invocation(
     policy: ToolRuntimePolicy | None = None,
     replay_keys_seen: Iterable[str] | None = None,
     safe_roots: list[FilesystemSafeRoot] | None = None,
+    http_fetch_transport: HttpFetchTransport | None = None,
 ) -> ToolInvocationDecision:
     active_policy = policy or ToolRuntimePolicy()
     reasons = validate_runtime_policy(active_policy)
@@ -92,6 +113,8 @@ def evaluate_tool_invocation(
     preview_request = None
     preview_root = None
     preview_normalized_path = None
+    http_request = None
+    http_policy = None
     if request.tool_ref == FILESYSTEM_METADATA_TOOL_REF:
         fs_request, fs_root, fs_normalized_path, fs_reasons = filesystem_metadata_policy_reason_codes(
             request.metadata, safe_roots=safe_roots
@@ -106,6 +129,17 @@ def evaluate_tool_invocation(
         reasons.extend(preview_reasons)
         if preview_root is not None and preview_normalized_path is not None:
             reasons.extend(_symlink_reason_codes(preview_root.root_path, preview_normalized_path))
+    if request.tool_ref == READ_ONLY_HTTP_FETCH_TOOL_REF:
+        allowed_hosts = tuple(str(host) for host in request.metadata.get("allowed_hosts", ()))
+        try:
+            http_policy = ReadOnlyHttpFetchPolicy(allowed_hosts=allowed_hosts)
+            http_request, _http_target, http_reasons = http_fetch_policy_reason_codes(
+                request.metadata,
+                policy=http_policy,
+            )
+            reasons.extend(http_reasons)
+        except ValueError as exc:
+            reasons.append(_safe_http_fetch_reason(str(exc)))
     if active_policy.replay_protection_required and request.replay_key in set(replay_keys_seen or []):
         reasons.append("TOOL_RUNTIME_REPLAY_DETECTED")
     reasons = list(dict.fromkeys(reasons))
@@ -186,6 +220,43 @@ def evaluate_tool_invocation(
             authority_level=ToolRuntimeAuthorityLevel.metadata_runtime_only,
             reason_codes=["REDACTED_FILE_PREVIEW_RETURNED"],
             safe_message="Redacted file preview proposal completed without raw content return or side effects.",
+            result=result,
+            receipt_plan=receipt,
+        )
+
+    if request.tool_ref == READ_ONLY_HTTP_FETCH_TOOL_REF:
+        assert http_request is not None
+        assert http_policy is not None
+        try:
+            output = build_read_only_http_fetch_output(
+                invocation_id=request.invocation_id,
+                request=http_request,
+                policy=http_policy,
+                transport=http_fetch_transport,
+            )
+        except ValueError as exc:
+            return _denied_decision(request, [str(exc)])
+        result = ToolInvocationResult(
+            result_id=f"tool-runtime-result:{request.invocation_id.split(':', 1)[-1]}",
+            invocation_id=request.invocation_id,
+            tool_ref=READ_ONLY_HTTP_FETCH_TOOL_REF,
+            status=ToolInvocationStatus.http_fetch_completed,
+            output=output,
+            receipt_plan=receipt,
+        )
+        return ToolInvocationDecision(
+            decision_id=f"tool-runtime-decision:{request.invocation_id.split(':', 1)[-1]}",
+            invocation_id=request.invocation_id,
+            tool_ref=READ_ONLY_HTTP_FETCH_TOOL_REF,
+            status=ToolInvocationStatus.http_fetch_completed,
+            invocation_allowed=True,
+            execution_performed=True,
+            authority_level=ToolRuntimeAuthorityLevel.metadata_runtime_only,
+            reason_codes=["READ_ONLY_HTTP_FETCH_REDACTED_PREVIEW_RETURNED"],
+            safe_message=(
+                "Allowlisted read-only HTTP fetch returned a bounded redacted preview "
+                "without raw headers, credentials, writes, context injection, or execution."
+            ),
             result=result,
             receipt_plan=receipt,
         )

@@ -5,6 +5,7 @@ from ultimate_ai_agent.core.tools.runtime import (
     FILESYSTEM_METADATA_TOOL_REF,
     NOOP_TOOL_REF,
     REDACTED_FILE_PREVIEW_TOOL_REF,
+    READ_ONLY_HTTP_FETCH_TOOL_REF,
     ToolInvocationKind,
     ToolRuntimePolicy,
     build_tool_runtime_manifest,
@@ -20,7 +21,9 @@ def test_default_manifest_enables_allowlisted_safe_runtime():
         NOOP_TOOL_REF,
         FILESYSTEM_METADATA_TOOL_REF,
         REDACTED_FILE_PREVIEW_TOOL_REF,
+        READ_ONLY_HTTP_FETCH_TOOL_REF,
     ]
+    assert manifest.policy.read_only_http_fetch_tool_enabled is True
     assert manifest.policy.arbitrary_tool_execution_enabled is False
     assert manifest.policy.side_effecting_tools_enabled is False
     assert manifest.policy.shell_tools_enabled is False

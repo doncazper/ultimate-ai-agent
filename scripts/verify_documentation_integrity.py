@@ -483,6 +483,19 @@ REQUIRED_M71_NETWORK_TOOL_CONTRACT_REVIEW_DOCS = [
     "docs/implementation/foundation_gate_implementation_plan_v0_75_0.md",
 ]
 
+REQUIRED_M72_READ_ONLY_HTTP_FETCH_DOCS = [
+    "docs/network/READ_ONLY_HTTP_FETCH_TOOL.md",
+    "docs/network/READ_ONLY_HTTP_FETCH_POLICY.md",
+    "docs/network/READ_ONLY_HTTP_FETCH_AUTHORITY_BOUNDARY.md",
+    "docs/network/READ_ONLY_HTTP_FETCH_RECEIPT_PLAN.md",
+    "docs/network/M72_TO_M73_BOUNDARY.md",
+    "docs/roadmap/M61_M100_ROADMAP.md",
+    "docs/release_notes/v0_76_0.md",
+    "docs/archive/releases/v0_76_0/README_IMPORT.md",
+    "docs/archive/releases/v0_76_0/master_plan.md",
+    "docs/implementation/foundation_gate_implementation_plan_v0_76_0.md",
+]
+
 
 REQUIRED_ACTIVE_DOCS = [
     "docs/README.md",
@@ -1014,6 +1027,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_m69_low_risk_autonomous_dry_run_docs(root, version))
     failures.extend(_verify_m70_autonomy_foundation_freeze_docs(root, version))
     failures.extend(_verify_m71_network_tool_contract_review_docs(root, version))
+    failures.extend(_verify_m72_read_only_http_fetch_docs(root, version))
     failures.extend(_verify_m19_roadmap_currentness(root, version))
     failures.extend(_verify_post_m18_roadmap_status_labels(root))
 
@@ -2156,7 +2170,7 @@ def _verify_m41_local_prototype_safety_docs(root: Path, version: str | None) -> 
         "M41 docs must deny full-file reads": "no full-file reads",
         "M41 docs must deny caller-selected roots": "no arbitrary caller-selected roots",
         "M41 docs must deny shell/subprocess": "no shell/subprocess",
-        "M41 docs must deny unrestricted network tools": "no unrestricted network tools",
+        "M41 docs must deny unrestricted network tools": "no network tools",
         "M41 docs must deny model authority": "no provider/model calls as authority",
         "M41 docs must deny background workers": "no background workers",
         "M41 docs must deny mobile sensors": "no mobile sensors",
@@ -2878,7 +2892,7 @@ def _verify_m53_controlled_tool_expansion_docs(root: Path, version: str | None) 
         "M53 docs must deny tool enablement": "no tool enablement",
         "M53 docs must deny shell execution": "no shell execution",
         "M53 docs must deny subprocess execution": "no subprocess execution",
-        "M53 docs must deny unrestricted network tools": "no unrestricted network tool",
+        "M53 docs must deny unrestricted network tools": "no network tool",
         "M53 docs must deny provider model calls": "no provider model call",
         "M53 docs must deny browser automation execution": "no browser automation execution",
         "M53 docs must deny plugin enablement": "no plugin enablement",
@@ -4090,7 +4104,7 @@ def _verify_m71_network_tool_contract_review_docs(root: Path, version: str | Non
         "M71 docs must keep M72 future": "m72 remains future",
         "M71 docs must deny network calls": "no network call",
         "M71 docs must deny HTTP fetch": "no http fetch",
-        "M71 docs must deny unrestricted network tools": "no unrestricted network tool",
+        "M71 docs must deny unrestricted network tools": "no network tool",
         "M71 docs must deny authenticated network actions": "no authenticated network action",
         "M71 docs must deny credentials/cookies": "no credentials or cookies",
         "M71 docs must deny request bodies": "no request body",
@@ -4124,7 +4138,68 @@ def _verify_m71_network_tool_contract_review_docs(root: Path, version: str | Non
         "M71 docs must not claim unrestricted network implementation": "unrestricted network tool is implemented",
         "M71 docs must not claim authenticated network implementation": "authenticated network action is implemented",
         "M71 docs must not claim production authority": "production authority is implemented",
-        "M71 docs must not claim M72 implementation": "m72 is implemented",
+    }
+    for message, fragment in forbidden_fragments.items():
+        if fragment in text:
+            failures.append(f"{message}: {fragment}")
+    return failures
+
+
+def _verify_m72_read_only_http_fetch_docs(root: Path, version: str | None) -> list[str]:
+    failures: list[str] = []
+    if _version_tuple(version) < (0, 76, 0):
+        return failures
+    parts: list[str] = []
+    for rel_path in REQUIRED_M72_READ_ONLY_HTTP_FETCH_DOCS:
+        path = root / rel_path
+        if not path.exists():
+            failures.append(f"M72 read-only HTTP fetch doc missing: {rel_path}")
+            continue
+        parts.append(_read(path).lower())
+    text = "\n".join(parts)
+    required_fragments = {
+        "M72 docs must say read-only HTTP fetch": "read-only http fetch",
+        "M72 docs must say allowlisted": "allowlisted",
+        "M72 docs must say bounded redacted preview": "bounded redacted preview",
+        "M72 docs must say redaction before return": "redaction before return",
+        "M72 docs must deny credentials/cookies": "no credentials or cookies",
+        "M72 docs must deny request bodies": "no request body",
+        "M72 docs must deny non-GET methods": "no non-get method",
+        "M72 docs must deny raw response bodies": "no raw response body",
+        "M72 docs must deny raw headers": "no raw headers",
+        "M72 docs must deny download/export": "no download or export",
+        "M72 docs must deny context injection": "no context injection",
+        "M72 docs must deny memory writes": "no memory write",
+        "M72 docs must deny model calls": "no model call",
+        "M72 docs must deny browser automation": "no browser automation",
+        "M72 docs must deny backend routes": "no backend route",
+        "M72 docs must deny Control Center controls": "no control center control",
+        "M72 docs must deny dependencies": "no dependency",
+        "M72 docs must deny production authority": "no production authority",
+        "M72 docs must keep M73 future": "m73 remains future",
+    }
+    for message, fragment in required_fragments.items():
+        if fragment not in text:
+            failures.append(message)
+
+    for version_label, milestone, title in [
+        ("v0.76.0", "m72", "read-only http fetch tool, allowlisted"),
+        ("v0.77.0", "m73", "browser automation contract review"),
+        ("v0.95.0", "m91", "autonomous tool execution contract"),
+        ("v1.4.0", "m100", "mobile permission model v1"),
+    ]:
+        if version_label not in text or milestone not in text or title not in text:
+            failures.append(
+                f"M72-M100 roadmap missing label: {version_label} / {milestone.upper()} - {title}"
+            )
+
+    forbidden_fragments = {
+        "M72 docs must not claim unrestricted network implementation": "unrestricted network tool is implemented",
+        "M72 docs must not claim authenticated network implementation": "authenticated network action is implemented",
+        "M72 docs must not claim browser automation implementation": "browser automation is implemented",
+        "M72 docs must not claim tool execution implementation": "tool execution is implemented",
+        "M72 docs must not claim production authority": "production authority is implemented",
+        "M72 docs must not claim M73 implementation": "m73 is implemented",
     }
     for message, fragment in forbidden_fragments.items():
         if fragment in text:

@@ -16,6 +16,7 @@ The freeze confirms:
 - no arbitrary caller-selected roots
 - no shell/subprocess
 - no unrestricted network tools
+- no network tools outside the M72 allowlisted redacted fetch boundary
 - no provider/model calls as authority
 - no background workers
 - no mobile sensors

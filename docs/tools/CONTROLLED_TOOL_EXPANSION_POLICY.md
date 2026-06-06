@@ -11,6 +11,7 @@ The default policy denies runtime and authority flags:
 - no shell execution
 - no subprocess execution
 - no unrestricted network tool
+- no network tool outside the M72 allowlisted redacted fetch boundary
 - no provider model call
 - no model authority
 - no browser automation execution

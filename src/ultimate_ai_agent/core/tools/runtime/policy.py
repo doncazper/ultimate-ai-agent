@@ -9,6 +9,10 @@ from ultimate_ai_agent.core.tools.runtime.filesystem_metadata import (
 from ultimate_ai_agent.core.tools.runtime.file_preview import (
     redacted_file_preview_policy_reason_codes,
 )
+from ultimate_ai_agent.core.tools.runtime.http_fetch import (
+    READ_ONLY_HTTP_FETCH_TOOL_REF,
+    http_fetch_policy_reason_codes,
+)
 from ultimate_ai_agent.core.tools.runtime.validation import (
     REDACTED_FILE_PREVIEW_TOOL_REF,
     authority_reason_codes,
@@ -25,7 +29,11 @@ def validate_tool_invocation_request(
 ) -> list[str]:
     reasons: list[str] = []
     try:
-        if request.tool_ref not in {FILESYSTEM_METADATA_TOOL_REF, REDACTED_FILE_PREVIEW_TOOL_REF}:
+        if request.tool_ref not in {
+            FILESYSTEM_METADATA_TOOL_REF,
+            REDACTED_FILE_PREVIEW_TOOL_REF,
+            READ_ONLY_HTTP_FETCH_TOOL_REF,
+        }:
             validate_safe_tool_runtime_payload(request.metadata, "metadata")
         ToolInvocationRequest.model_validate(request.model_dump())
     except (ValidationError, ValueError) as exc:
@@ -48,12 +56,19 @@ def validate_tool_invocation_request(
         reasons.extend(preview_reasons)
         if preview_request is None:
             reasons.append("REDACTED_FILE_PREVIEW_REQUEST_INVALID")
+    if request.tool_ref == READ_ONLY_HTTP_FETCH_TOOL_REF:
+        http_request, _http_target, http_reasons = http_fetch_policy_reason_codes(request.metadata)
+        reasons.extend(http_reasons)
+        if http_request is None:
+            reasons.append("HTTP_FETCH_REQUEST_INVALID")
     if request.tool_ref == FILESYSTEM_METADATA_TOOL_REF and request.invocation_kind.value != "filesystem_metadata":
         reasons.append("TOOL_INVOCATION_KIND_MISMATCH_DENIED")
     elif request.tool_ref == REDACTED_FILE_PREVIEW_TOOL_REF and request.invocation_kind.value != "redacted_file_preview":
         reasons.append("TOOL_INVOCATION_KIND_MISMATCH_DENIED")
+    elif request.tool_ref == READ_ONLY_HTTP_FETCH_TOOL_REF and request.invocation_kind.value != "read_only_http_fetch":
+        reasons.append("TOOL_INVOCATION_KIND_MISMATCH_DENIED")
     elif request.tool_ref != FILESYSTEM_METADATA_TOOL_REF and request.invocation_kind.value != "noop":
-        if request.tool_ref != REDACTED_FILE_PREVIEW_TOOL_REF:
+        if request.tool_ref not in {REDACTED_FILE_PREVIEW_TOOL_REF, READ_ONLY_HTTP_FETCH_TOOL_REF}:
             reasons.append("EFFECTFUL_TOOL_BLOCKED")
     return list(dict.fromkeys(reasons))
 

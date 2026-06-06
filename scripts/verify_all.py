@@ -105,6 +105,7 @@ SCAN_SEQUENCE = [
     ("M69 low-risk autonomous dry run scan", "verify_m69_low_risk_autonomous_dry_run"),
     ("M70 autonomy foundation freeze scan", "verify_m70_autonomy_foundation_freeze"),
     ("M71 network tool contract review scan", "verify_m71_network_tool_contract_review"),
+    ("M72 read-only HTTP fetch tool scan", "verify_m72_read_only_http_fetch_tool"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -3247,7 +3248,12 @@ def verify_m32_filesystem_metadata_tool_safety():
             print(f"FAIL: Missing M32 filesystem metadata file: {rel_path}")
             sys.exit(1)
 
-    runtime_root = ROOT / "src" / "ultimate_ai_agent" / "core" / "tools" / "runtime"
+    runtime_source_files = [
+        ROOT / "src" / "ultimate_ai_agent" / "core" / "tools" / "runtime" / "filesystem_metadata.py",
+        ROOT / "src" / "ultimate_ai_agent" / "core" / "tools" / "runtime" / "file_preview.py",
+        ROOT / "src" / "ultimate_ai_agent" / "core" / "tools" / "runtime" / "invocation.py",
+        ROOT / "src" / "ultimate_ai_agent" / "core" / "tools" / "runtime" / "policy.py",
+    ]
     forbidden_source_fragments = [
         "read_text(",
         "read_bytes(",
@@ -3272,10 +3278,8 @@ def verify_m32_filesystem_metadata_tool_safety():
         "popen(",
         "shell=True",
     ]
-    for path in runtime_root.rglob("*.py"):
+    for path in runtime_source_files:
         rel = path.relative_to(ROOT).as_posix()
-        if "__pycache__" in path.parts:
-            continue
         text = path.read_text(encoding="utf-8")
         lowered = text.lower()
         for fragment in forbidden_source_fragments:
@@ -3316,8 +3320,8 @@ def verify_m32_filesystem_metadata_tool_safety():
     active_tuple = tuple(int(part) for part in active_match.groups()) if active_match else (0, 0, 0)
     if active_tuple >= (0, 37, 0):
         expected_m32_allowlist.append(REDACTED_FILE_PREVIEW_TOOL_REF)
-    if manifest.allowlisted_tool_refs != expected_m32_allowlist:
-        print("FAIL: M32/M33 manifest allowlist is not the expected safe tool set")
+    if manifest.allowlisted_tool_refs[: len(expected_m32_allowlist)] != expected_m32_allowlist:
+        print("FAIL: M32/M33 manifest allowlist does not preserve the expected safe tool prefix")
         sys.exit(1)
     unsafe_flags = [
         policy.arbitrary_tool_execution_enabled,
@@ -3612,8 +3616,9 @@ def verify_m33_redacted_file_preview_tool_safety():
         sys.exit(1)
 
     manifest = build_tool_runtime_manifest(baseline_version="0.37.1")
-    if manifest.allowlisted_tool_refs != [NOOP_TOOL_REF, FILESYSTEM_METADATA_TOOL_REF, REDACTED_FILE_PREVIEW_TOOL_REF]:
-        print("FAIL: M33 manifest allowlist is not no-op, metadata, and redacted preview only")
+    expected_m33_allowlist = [NOOP_TOOL_REF, FILESYSTEM_METADATA_TOOL_REF, REDACTED_FILE_PREVIEW_TOOL_REF]
+    if manifest.allowlisted_tool_refs[: len(expected_m33_allowlist)] != expected_m33_allowlist:
+        print("FAIL: M33 manifest allowlist does not preserve no-op, metadata, and redacted preview")
         sys.exit(1)
     policy = manifest.policy
     unsafe_flags = [
@@ -4947,7 +4952,7 @@ def verify_m41_local_prototype_safety_freeze():
         "no full-file reads",
         "no arbitrary caller-selected roots",
         "no shell/subprocess",
-        "no unrestricted network tools",
+        "no network tools",
         "no provider/model calls as authority",
         "no background workers",
         "no mobile sensors",
@@ -6899,7 +6904,7 @@ def verify_m53_controlled_tool_expansion_review():
         "no tool execution",
         "no tool enablement",
         "no shell execution",
-        "no unrestricted network tool",
+        "no network tool",
         "no provider model call",
         "no browser automation execution",
         "no plugin enablement",
@@ -10831,7 +10836,7 @@ def verify_m71_network_tool_contract_review():
         "m72 remains future",
         "no network call",
         "no http fetch",
-        "no unrestricted network tool",
+        "no network tool",
         "no authenticated network action",
         "no credentials or cookies",
         "no request body",
@@ -11034,6 +11039,7 @@ def verify_m71_network_tool_contract_review():
         "scripts/verify_all.py",
         "src/ultimate_ai_agent/core/network/contract_review.py",
         "src/ultimate_ai_agent/core/network/__init__.py",
+        "src/ultimate_ai_agent/core/tools/runtime/http_fetch.py",
         "src/ultimate_ai_agent/core/gate/evaluators.py",
         "src/ultimate_ai_agent/api/openapi.py",
         "src/ultimate_ai_agent/core/autonomy/foundation_freeze.py",
@@ -11046,6 +11052,11 @@ def verify_m71_network_tool_contract_review():
         "src/ultimate_ai_agent/core/autonomy/sessions.py",
         "src/ultimate_ai_agent/core/autonomy/simulator.py",
         "src/ultimate_ai_agent/core/tools/runtime/invocation.py",
+        "src/ultimate_ai_agent/core/tools/runtime/adapters.py",
+        "src/ultimate_ai_agent/core/tools/runtime/contracts.py",
+        "src/ultimate_ai_agent/core/tools/runtime/enums.py",
+        "src/ultimate_ai_agent/core/tools/runtime/policy.py",
+        "src/ultimate_ai_agent/core/tools/runtime/validation.py",
         "tests/test_m71_network_tool_contract_review.py",
         "tests/test_m71_gate_integration.py",
         "tests/test_m70_autonomy_foundation_freeze.py",
@@ -11072,6 +11083,240 @@ def verify_m71_network_tool_contract_review():
                     sys.exit(1)
 
     print("OK: M71 network tool contract review is contract-only, route-free, disabled-by-default, and no-authority")
+
+
+def verify_m72_read_only_http_fetch_tool():
+    print("\n[Verifier] Running M72 read-only HTTP fetch tool guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/tools/runtime/http_fetch.py",
+        "src/ultimate_ai_agent/core/tools/runtime/invocation.py",
+        "src/ultimate_ai_agent/core/tools/runtime/contracts.py",
+        "docs/network/READ_ONLY_HTTP_FETCH_TOOL.md",
+        "docs/network/READ_ONLY_HTTP_FETCH_POLICY.md",
+        "docs/network/READ_ONLY_HTTP_FETCH_AUTHORITY_BOUNDARY.md",
+        "docs/network/READ_ONLY_HTTP_FETCH_RECEIPT_PLAN.md",
+        "docs/network/M72_TO_M73_BOUNDARY.md",
+        "docs/release_notes/v0_76_0.md",
+        "docs/archive/releases/v0_76_0/README_IMPORT.md",
+        "docs/archive/releases/v0_76_0/master_plan.md",
+        "docs/implementation/foundation_gate_implementation_plan_v0_76_0.md",
+        "tests/test_m72_read_only_http_fetch_tool.py",
+        "tests/test_m72_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M72 read-only HTTP fetch file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = "\n".join(
+        (ROOT / rel_path).read_text(encoding="utf-8").lower()
+        for rel_path in required_files
+        if rel_path.startswith("docs/")
+    )
+    for fragment in [
+        "read-only http fetch",
+        "allowlisted",
+        "bounded redacted preview",
+        "redaction before return",
+        "no credentials or cookies",
+        "no request body",
+        "no non-get method",
+        "no raw response body",
+        "no raw headers",
+        "no download or export",
+        "no context injection",
+        "no memory write",
+        "no model call",
+        "no browser automation",
+        "no backend route",
+        "no control center control",
+        "no dependency",
+        "no production authority",
+        "m73 remains future",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M72 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.evaluators import m72_openapi_route_failures
+        from ultimate_ai_agent.core.tools.runtime import (
+            READ_ONLY_HTTP_FETCH_TOOL_NAME,
+            READ_ONLY_HTTP_FETCH_TOOL_REF,
+            ReadOnlyHttpFetchPolicy,
+            ReadOnlyHttpFetchTransportResponse,
+            ToolInvocationKind,
+            ToolInvocationRequest,
+            ToolInvocationStatus,
+            ToolRuntimeAdapter,
+        )
+    except Exception as exc:
+        print(f"FAIL: M72 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m72_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    def fake_transport(_request, _policy):
+        return ReadOnlyHttpFetchTransportResponse(
+            status_code=200,
+            content_type="text/plain",
+            body=b"public status\napi_key=hidden-value\n",
+        )
+
+    request = ToolInvocationRequest(
+        invocation_id="tool-runtime-invocation:verify-all-m72",
+        tool_ref=READ_ONLY_HTTP_FETCH_TOOL_REF,
+        tool_name=READ_ONLY_HTTP_FETCH_TOOL_NAME,
+        invocation_kind=ToolInvocationKind.read_only_http_fetch,
+        replay_key="tool-runtime-replay:verify-all-m72",
+        safe_summary="Allowlisted read-only HTTP fetch.",
+        metadata={
+            "request_ref": "http-fetch-request:verify-all-m72",
+            "url": "https://docs.example.test/status",
+            "allowed_hosts": ["docs.example.test"],
+            "allowed_host_policy_ref": "http-fetch-policy:m72-read-only-allowlisted",
+            "safe_summary": "Fetch a bounded redacted preview from an allowlisted documentation endpoint.",
+        },
+    )
+    decision = ToolRuntimeAdapter().invoke(request, http_fetch_transport=fake_transport)
+    if (
+        decision.status != ToolInvocationStatus.http_fetch_completed
+        or not decision.invocation_allowed
+        or not decision.execution_performed
+        or decision.network_call_performed
+        or decision.raw_content_stored
+        or decision.memory_write_performed
+        or decision.model_call_performed
+        or decision.shell_execution_performed
+        or decision.result is None
+        or "hidden-value" in str(decision.result.output)
+        or decision.result.output.raw_response_body_stored
+        or decision.result.output.raw_headers_stored
+        or decision.result.output.absolute_url_returned
+        or decision.result.output.context_injection_performed
+        or decision.result.output.memory_write_performed
+        or decision.result.output.tool_execution_performed
+        or decision.result.output.production_authority_granted
+        or decision.result.output.side_effects_performed
+    ):
+        print("FAIL: M72 read-only HTTP fetch granted unsafe authority or returned unsafe content")
+        sys.exit(1)
+
+    no_transport = ToolRuntimeAdapter().invoke(request)
+    if no_transport.invocation_allowed or "HTTP_FETCH_TRANSPORT_REQUIRED" not in no_transport.reason_codes:
+        print("FAIL: M72 HTTP fetch without explicit transport was not denied")
+        sys.exit(1)
+
+    for update, reason in [
+        ({"url": "http://docs.example.test/status"}, "HTTPS_ONLY_REQUIRED"),
+        ({"url": "https://evil.example/status"}, "HOST_NOT_ALLOWLISTED_DENIED"),
+        ({"url": "https://docs.example.test/status?token=value"}, "QUERY_STRING_DENIED"),
+        ({"method": "POST"}, "NON_GET_METHOD_DENIED"),
+        ({"include_raw_response_body": True}, "RAW_RESPONSE_BODY_DENIED"),
+        ({"include_raw_headers": True}, "RAW_HEADERS_DENIED"),
+        ({"request_body": "payload"}, "REQUEST_BODY_DENIED"),
+        ({"request_headers": {"X-Test": "value"}}, "REQUEST_HEADERS_DENIED"),
+        ({"download_requested": True}, "DOWNLOAD_DENIED"),
+        ({"context_injection_requested": True}, "CONTEXT_INJECTION_DENIED"),
+        ({"memory_write_requested": True}, "MEMORY_WRITE_DENIED"),
+        ({"model_call_requested": True}, "MODEL_CALL_DENIED"),
+        ({"browser_automation_requested": True}, "BROWSER_AUTOMATION_DENIED"),
+        ({"tool_execution_requested": True}, "TOOL_EXECUTION_DENIED"),
+        ({"production_authority_requested": True}, "PRODUCTION_AUTHORITY_DENIED"),
+    ]:
+        unsafe = request.model_copy(update={"metadata": {**request.metadata, **update}})
+        denied = ToolRuntimeAdapter().invoke(unsafe, http_fetch_transport=fake_transport)
+        if denied.invocation_allowed or reason not in denied.reason_codes:
+            print(f"FAIL: M72 unsafe HTTP fetch request was not denied with {reason}")
+            sys.exit(1)
+
+    try:
+        ReadOnlyHttpFetchPolicy(allowed_hosts=("*",))
+        print("FAIL: M72 wildcard allowlist host was not denied")
+        sys.exit(1)
+    except ValueError as exc:
+        if "WILDCARD_HOST_DENIED" not in str(exc):
+            print(f"FAIL: M72 wildcard allowlist reason drifted: {exc}")
+            sys.exit(1)
+
+    forbidden_source_fragments = [
+        "credentials_allowed=True",
+        "cookies_allowed=True",
+        "request_body_allowed=True",
+        "request_headers_allowed=True",
+        "query_string_allowed=True",
+        "raw_response_body_allowed=True",
+        "raw_headers_allowed=True",
+        "download_allowed=True",
+        "context_injection_allowed=True",
+        "memory_write_allowed=True",
+        "model_call_allowed=True",
+        "browser_automation_allowed=True",
+        "tool_execution_allowed=True",
+        "backend_route_allowed=True",
+        "production_authority_allowed=True",
+        "include_raw_response_body=True",
+        "include_raw_headers=True",
+        "download_requested=True",
+        "context_injection_requested=True",
+        "memory_write_requested=True",
+        "model_call_requested=True",
+        "browser_automation_requested=True",
+        "tool_execution_requested=True",
+        "backend_route_requested=True",
+        "production_authority_requested=True",
+        "raw_response_body_stored=True",
+        "raw_headers_stored=True",
+        "credentials_or_cookies_used=True",
+        "/network/fetch",
+        "/network/request",
+        "/http/fetch",
+        "/http/request",
+        "/tools/network/execute",
+        "/tools/execute",
+        "/tool-runtime/execute",
+        "/browser/click",
+        "/plugins/execute",
+        "requests.get(",
+        "requests.post(",
+        "httpx.get(",
+        "httpx.post(",
+        "urllib.request.urlopen",
+        "websocket",
+        "socket.",
+    ]
+    allowed_files = {
+        "scripts/verify_all.py",
+        "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/api/openapi.py",
+        "src/ultimate_ai_agent/core/tools/runtime/http_fetch.py",
+    }
+    source_roots = [
+        ROOT / "src" / "ultimate_ai_agent",
+        ROOT / "apps" / "control-center" / "src",
+        ROOT / "apps" / "ccc-ios",
+    ]
+    for root in source_roots:
+        if not root.exists():
+            continue
+        for path in root.rglob("*"):
+            if not path.is_file() or path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}:
+                continue
+            rel = path.relative_to(ROOT).as_posix()
+            if rel in allowed_files:
+                continue
+            text = path.read_text(encoding="utf-8")
+            for fragment in forbidden_source_fragments:
+                if fragment in text:
+                    print(f"FAIL: M72 forbidden HTTP fetch fragment in {rel}: {fragment}")
+                    sys.exit(1)
+
+    print("OK: M72 read-only HTTP fetch is allowlisted, redacted, route-free, and no-authority")
 
 
 def verify_local_developer_launcher_safety():

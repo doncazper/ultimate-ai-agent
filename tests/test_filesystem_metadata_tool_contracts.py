@@ -47,10 +47,12 @@ def test_manifest_allowlists_noop_metadata_and_redacted_preview():
         "tool:no_op.v1",
         FILESYSTEM_METADATA_TOOL_REF,
         REDACTED_FILE_PREVIEW_TOOL_REF,
+        "tool:http_fetch.read_only_allowlisted.v1",
     ]
     assert manifest.policy.noop_tool_enabled is True
     assert manifest.policy.filesystem_metadata_tool_enabled is True
     assert manifest.policy.redacted_file_preview_tool_enabled is True
+    assert manifest.policy.read_only_http_fetch_tool_enabled is True
     assert manifest.policy.file_tools_enabled is False
     assert manifest.policy.file_content_read_enabled is False
     assert manifest.policy.file_preview_enabled is False
