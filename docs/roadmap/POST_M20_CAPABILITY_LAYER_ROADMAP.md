@@ -1,6 +1,6 @@
 # Post-M20 Capability Layer Roadmap
 
-Status: Active roadmap projection maintained through v0.69.0.
+Status: Active roadmap projection maintained through v0.70.0.
 
 v0.38.0 implements M34 Broader File Capability Review as planning,
 architecture review, documentation, verifier, and Foundation Gate work only.
@@ -102,20 +102,22 @@ The detailed post-M33 supersession source of truth is
 | v0.67.0 | M63 | Autonomy Policy Engine v1 | implemented/released contract-only |
 | v0.68.0 | M64 | Autonomous Plan Simulator | implemented/released contract-only |
 | v0.69.0 | M65 | Autonomy Audit + Replay Viewer | implemented/released contract-only |
+| v0.70.0 | M66 | Scoped Approval Bundles | implemented/released contract-only |
 
 ## Prompt-Pack Strategy
 
-Recommended next prompt after v0.69.0:
+Recommended next prompt after v0.70.0:
 
 ```text
-Start v0.70.0 / M66 - Scoped Approval Bundles only after v0.69.0 / M65 is accepted Green.
+Start v0.71.0 / M67 - Revocation + Kill Switch only after v0.70.0 / M66 is accepted Green.
 ```
 
 M61 is implemented/released by v0.65.0 as Autonomy Mode Charter + Authority
 Levels. M62 is implemented/released by v0.66.0 as Scoped Autonomy Session
 Contracts. M63 is implemented/released by v0.67.0 as Autonomy Policy Engine v1.
 M64 is implemented/released by v0.68.0 as Autonomous Plan Simulator. M65 is
-implemented/released by v0.69.0 as Autonomy Audit + Replay Viewer. M66-M100
+implemented/released by v0.69.0 as Autonomy Audit + Replay Viewer. M66 is
+implemented/released by v0.70.0 as Scoped Approval Bundles. M67-M100
 remain planned/provisional.
 
 Extra-hard reviews are required for M37, M38, M40, M47, M48, M49, M51, M52,

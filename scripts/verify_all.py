@@ -99,6 +99,7 @@ SCAN_SEQUENCE = [
     ("M63 autonomy policy engine scan", "verify_m63_autonomy_policy_engine"),
     ("M64 autonomous plan simulator scan", "verify_m64_autonomous_plan_simulator"),
     ("M65 autonomy audit replay viewer scan", "verify_m65_autonomy_audit_replay_viewer"),
+    ("M66 scoped approval bundles scan", "verify_m66_scoped_approval_bundles"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -9540,6 +9541,268 @@ def verify_m65_autonomy_audit_replay_viewer():
                     sys.exit(1)
 
     print("OK: M65 autonomy audit replay viewer is contract-only, route-free, replay-view-only, and no-authority")
+
+
+def verify_m66_scoped_approval_bundles():
+    print("\n[Verifier] Running M66 scoped approval bundles guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/autonomy/approvals.py",
+        "docs/autonomy/SCOPED_APPROVAL_BUNDLES.md",
+        "docs/autonomy/SCOPED_APPROVAL_BUNDLE_CONTRACTS.md",
+        "docs/autonomy/SCOPED_APPROVAL_BUNDLE_NON_GOALS.md",
+        "docs/autonomy/M66_TO_M67_BOUNDARY.md",
+        "docs/roadmap/M61_M100_ROADMAP.md",
+        "docs/release_notes/v0_70_0.md",
+        "docs/archive/releases/v0_70_0/README_IMPORT.md",
+        "docs/archive/releases/v0_70_0/master_plan.md",
+        "docs/implementation/foundation_gate_implementation_plan_v0_70_0.md",
+        "tests/test_m66_scoped_approval_bundles.py",
+        "tests/test_m66_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M66 scoped approval bundle file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = "\n".join(
+        (ROOT / rel_path).read_text(encoding="utf-8").lower()
+        for rel_path in required_files
+        if rel_path.startswith("docs/")
+    )
+    for fragment in [
+        "scoped approval bundles",
+        "contract-only",
+        "review-only",
+        "exact-scope",
+        "actor-bound",
+        "resource-bound",
+        "capability-bound",
+        "allowlist-bound",
+        "non-transferable",
+        "revocable",
+        "replay-safe",
+        "approval refs are identifiers",
+        "no policy activation",
+        "no session start",
+        "no autonomous actions",
+        "no background worker",
+        "no execution",
+        "no tool execution",
+        "no shell execution",
+        "no network tools",
+        "no browser automation",
+        "no backend route",
+        "no dependency",
+        "m67 remains future",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M66 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.autonomy import (
+            AutonomyAuthorityMode,
+            AutonomyPolicyEvaluationRequest,
+            AutonomyPolicyEnginePolicy,
+            AutonomyPolicyRule,
+            AutonomyRiskClass,
+            AutonomousPlanSimulationRequest,
+            AutonomousPlanSimulationStep,
+            ScopedAutonomySessionRequest,
+            ScopedAutonomySessionScope,
+            build_autonomous_plan_simulation_result,
+            build_autonomy_audit_replay_view,
+            build_autonomy_policy_decision,
+            build_scoped_approval_bundle,
+            validate_scoped_approval_bundle,
+        )
+        from ultimate_ai_agent.core.gate.evaluators import m66_openapi_route_failures
+    except Exception as exc:
+        print(f"FAIL: M66 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m66_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    scope = ScopedAutonomySessionScope(
+        scope_ref="autonomy-session-scope:verify-all-m66",
+        actor_ref="actor:verify-all-reviewer",
+        resource_refs=["resource:local-prototype"],
+        capability_refs=["capability:observe-only-review"],
+        allowlist_refs=["allowlist:verify-all-m66"],
+        max_duration_seconds=900,
+        risk_class=AutonomyRiskClass.low,
+        revocation_ref="revocation:verify-all-m66",
+        audit_ref="audit:verify-all-m66",
+        replay_ref="replay:verify-all-m66",
+    )
+    policy_decision = build_autonomy_policy_decision(
+        AutonomyPolicyEvaluationRequest(
+            evaluation_request_ref="autonomy-policy-evaluation:verify-all-m66",
+            policy=AutonomyPolicyEnginePolicy(
+                policy_ref="autonomy-policy:verify-all-m66",
+                policy_version_ref="autonomy-policy-version:m66-v1",
+                rules=[
+                    AutonomyPolicyRule(
+                        rule_ref="autonomy-policy-rule:verify-all-m66",
+                        allowed_actor_refs=["actor:verify-all-reviewer"],
+                        allowed_resource_refs=["resource:local-prototype"],
+                        allowed_capability_refs=["capability:observe-only-review"],
+                        required_allowlist_refs=["allowlist:verify-all-m66"],
+                        max_mode=AutonomyAuthorityMode.dry_run_plan,
+                        max_risk_class=AutonomyRiskClass.low,
+                        max_duration_seconds=900,
+                    )
+                ],
+            ),
+            session_request=ScopedAutonomySessionRequest(
+                session_request_ref="autonomy-session-request:verify-all-m66",
+                requested_mode=AutonomyAuthorityMode.dry_run_plan,
+                scope=scope,
+            ),
+        )
+    )
+    simulation_result = build_autonomous_plan_simulation_result(
+        AutonomousPlanSimulationRequest(
+            simulation_request_ref="autonomy-plan-simulation-request:verify-all-m66",
+            policy_decision=policy_decision,
+            steps=[
+                AutonomousPlanSimulationStep(
+                    step_ref="autonomy-simulation-step:verify-all-m66",
+                    intent_ref="intent:inspect-redacted-review-packet",
+                    capability_ref="capability:observe-only-review",
+                    resource_ref="resource:local-prototype",
+                    simulated_outcome_ref="simulation-outcome:m66-review-only",
+                )
+            ],
+            actor_ref="actor:verify-all-reviewer",
+            resource_refs=["resource:local-prototype"],
+            capability_refs=["capability:observe-only-review"],
+            allowlist_refs=["allowlist:verify-all-m66"],
+            audit_ref="audit:verify-all-m66",
+            replay_ref="replay:verify-all-m66",
+        )
+    )
+    replay_view = build_autonomy_audit_replay_view(
+        audit_view_ref="autonomy-audit-replay-view:verify-all-m66",
+        simulation_result=simulation_result,
+        actor_ref="actor:verify-all-reviewer",
+        audit_ref="audit:verify-all-m66",
+        replay_ref="replay:verify-all-m66",
+    )
+    bundle = build_scoped_approval_bundle(
+        bundle_ref="scoped-approval-bundle:verify-all-m66",
+        source_scope=scope,
+        audit_replay_view=replay_view,
+        approval_refs=["approval:verify-all-m66-review", "approval:verify-all-m66-dry-run"],
+        actor_ref="actor:verify-all-reviewer",
+        resource_refs=["resource:local-prototype"],
+        capability_refs=["capability:observe-only-review"],
+        allowlist_refs=["allowlist:verify-all-m66"],
+        max_duration_seconds=900,
+        risk_class=AutonomyRiskClass.low,
+        revocation_ref="revocation:verify-all-m66",
+        audit_ref="audit:verify-all-m66",
+        replay_ref="replay:verify-all-m66",
+    )
+    if bundle.authority_granted or bundle.session_started or bundle.execution_performed or bundle.side_effects_performed:
+        print("FAIL: M66 scoped approval bundle granted authority or side effects")
+        sys.exit(1)
+    for update, reason in [
+        ({"approval_test_ref": "approval_test_:m66"}, "APPROVAL_TEST_REF_DENIED"),
+        ({"approval_refs": ["approval:verify-all-m66-review", "approval:verify-all-m66-review"]}, "APPROVAL_BUNDLE_DUPLICATE_REF_DENIED"),
+        ({"revoked": True}, "APPROVAL_BUNDLE_REVOKED_DENIED"),
+        ({"expired": True}, "APPROVAL_BUNDLE_EXPIRED_DENIED"),
+        ({"replay_used": True}, "APPROVAL_BUNDLE_REPLAY_DENIED"),
+        ({"authority_granted": True}, "AUTONOMY_POLICY_AUTHORITY_DENIED"),
+        ({"execution_requested": True}, "EXECUTION_DENIED"),
+        ({"context_injection_enabled": True}, "CONTEXT_INJECTION_DENIED"),
+        ({"memory_write_enabled": True}, "MEMORY_WRITE_DENIED"),
+        ({"metadata": {"api_key": "secret-value"}}, "SECRET_LIKE_SCOPED_APPROVAL_BUNDLE_CONTENT_DENIED"),
+    ]:
+        try:
+            validate_scoped_approval_bundle(bundle.model_copy(update=update))
+            print(f"FAIL: M66 unsafe approval bundle mutation was not denied: {reason}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M66 unsafe approval bundle reason drifted for {reason}: {exc}")
+                sys.exit(1)
+
+    forbidden_source_fragments = [
+        "policy_activation_enabled=True",
+        "policy_activation_requested=True",
+        "session_start_enabled=True",
+        "session_start_requested=True",
+        "session_active=True",
+        "execution_requested=True",
+        "execution_performed=True",
+        "autonomous_actions_enabled=True",
+        "background_worker_enabled=True",
+        "execution_enabled=True",
+        "tool_execution_enabled=True",
+        "shell_execution_enabled=True",
+        "network_tool_enabled=True",
+        "browser_automation_enabled=True",
+        "plugin_execution_enabled=True",
+        "mobile_sensor_enabled=True",
+        "remote_execution_enabled=True",
+        "memory_write_enabled=True",
+        "context_injection_enabled=True",
+        "model_provider_call_enabled=True",
+        "production_authority_enabled=True",
+        "authority_granted=True",
+        "/autonomy/approval-bundles",
+        "/autonomy/approval-bundles/grant",
+        "/autonomy/approval-bundles/activate",
+        "/autonomy/approval-bundles/execute",
+        "/autonomy/execute",
+        "/background/start",
+        "/network/fetch",
+        "/shell/execute",
+        "/browser/click",
+        "subprocess" + ".run(",
+        "subprocess" + ".Popen(",
+        "os.system(",
+        "shell=True",
+    ]
+    allowed_files = {
+        "scripts/verify_all.py",
+        "src/ultimate_ai_agent/core/autonomy/approvals.py",
+        "src/ultimate_ai_agent/core/autonomy/audit.py",
+        "src/ultimate_ai_agent/core/autonomy/policies.py",
+        "src/ultimate_ai_agent/core/autonomy/sessions.py",
+        "src/ultimate_ai_agent/core/autonomy/simulator.py",
+        "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/tools/runtime/invocation.py",
+        "tests/test_m66_scoped_approval_bundles.py",
+        "tests/test_m66_gate_integration.py",
+    }
+    source_roots = [
+        ROOT / "src" / "ultimate_ai_agent",
+        ROOT / "apps" / "control-center" / "src",
+        ROOT / "apps" / "ccc-ios",
+    ]
+    for root in source_roots:
+        if not root.exists():
+            continue
+        for path in root.rglob("*"):
+            if not path.is_file() or path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}:
+                continue
+            rel = path.relative_to(ROOT).as_posix()
+            if rel in allowed_files:
+                continue
+            text = path.read_text(encoding="utf-8")
+            for fragment in forbidden_source_fragments:
+                if fragment in text:
+                    print(f"FAIL: M66 forbidden scoped approval bundle fragment in {rel}: {fragment}")
+                    sys.exit(1)
+
+    print("OK: M66 scoped approval bundles are contract-only, route-free, exact-scope, and no-authority")
 
 
 def verify_local_developer_launcher_safety():

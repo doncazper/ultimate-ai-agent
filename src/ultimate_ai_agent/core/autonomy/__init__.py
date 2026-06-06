@@ -36,6 +36,12 @@ from ultimate_ai_agent.core.autonomy.audit import (
     build_autonomy_audit_replay_view,
     validate_autonomy_audit_replay_view,
 )
+from ultimate_ai_agent.core.autonomy.approvals import (
+    SCOPED_APPROVAL_BUNDLE_DOCS,
+    ScopedApprovalBundle,
+    build_scoped_approval_bundle,
+    validate_scoped_approval_bundle,
+)
 from ultimate_ai_agent.core.autonomy.sessions import (
     M62_MAX_SESSION_DURATION_SECONDS,
     SCOPED_AUTONOMY_SESSION_DOCS,
@@ -62,6 +68,10 @@ __all__ = [
     "AutonomyReplayStepView",
     "build_autonomy_audit_replay_view",
     "validate_autonomy_audit_replay_view",
+    "SCOPED_APPROVAL_BUNDLE_DOCS",
+    "ScopedApprovalBundle",
+    "build_scoped_approval_bundle",
+    "validate_scoped_approval_bundle",
     "AUTONOMY_POLICY_ENGINE_DOCS",
     "AutonomyPolicyDecision",
     "AutonomyPolicyEnginePolicy",
