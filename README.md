@@ -12,21 +12,24 @@ allowed to become operational authority.
 
 | Field | Current state |
 |---|---|
-| Current active baseline | **v0.81.0** |
-| Current milestone | **M77 - OpenWebUI Safe Handoff Execution** |
+| Current active baseline | **v0.82.0** |
+| Current milestone | **M78 - Plugin Manifest Security Model** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **75** OpenAPI paths |
 | Production readiness | Not claimed |
 
-v0.81.0 implements M77 OpenWebUI Safe Handoff Execution. It adds exact-bound
-Agent Core safe handoff result contracts over safe refs only, approval binding
-validation, receipt plans, stable reason codes, documentation-integrity checks,
-static verification, and Foundation Gate coverage. It adds no live OpenWebUI
-connection, OpenWebUI runtime call, provider call, model call, model authority,
-tool execution, memory write, context injection, network call, credentials or
-cookies, raw prompt, raw provider payload, raw content, backend routes, Control
-Center controls, dependency, M78 work, or production authority.
+v0.82.0 implements M78 Plugin Manifest Security Model. It adds disabled-only
+plugin manifest security contracts for declared permissions, source/provenance
+metadata, static review, sandbox test plan, Tool Broker permission mapping,
+Event Ledger logging, version pinning, revocation, human approval for high-risk
+capabilities, receipt plans, stable reason codes, documentation-integrity
+checks, static verification, and Foundation Gate coverage. It adds no plugin
+install, plugin enablement, plugin execution, runtime import, network access,
+model/provider call, browser automation, shell execution, mobile device access,
+remote execution, credentials or cookies, raw prompt, raw provider payload,
+backend routes, Control Center controls, dependency, M79 work, or production
+authority.
 
 v0.29.5 is documentation policy polish. It remains the documentation
 organization cleanup baseline before the M26 and M27 implementation releases.
@@ -76,6 +79,9 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M77 OpenWebUI Safe Handoff Execution](docs/openwebui/OPENWEBUI_SAFE_HANDOFF_EXECUTION.md)
 - [M77 OpenWebUI Safe Handoff Policy](docs/openwebui/OPENWEBUI_SAFE_HANDOFF_POLICY.md)
 - [M77 OpenWebUI Safe Handoff Authority Boundary](docs/openwebui/OPENWEBUI_SAFE_HANDOFF_AUTHORITY_BOUNDARY.md)
+- [M78 Plugin Manifest Security Model](docs/tooling/PLUGIN_MANIFEST_SECURITY_MODEL.md)
+- [M78 Plugin Manifest Policy](docs/tooling/PLUGIN_MANIFEST_POLICY.md)
+- [M78 Plugin Manifest Authority Boundary](docs/tooling/PLUGIN_MANIFEST_AUTHORITY_BOUNDARY.md)
 - [M34 Broader File Capability Review](docs/files/BROADER_FILE_CAPABILITY_REVIEW.md)
 - [File capability boundary matrix](docs/files/FILE_CAPABILITY_BOUNDARY_MATRIX.md)
 - [File capability risk register](docs/files/FILE_CAPABILITY_RISK_REGISTER.md)
@@ -203,8 +209,8 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M27 Tool Broker v2](docs/tools/TOOL_BROKER_V2.md)
 - [M26 Grounded Recall Router](docs/recall/GROUNDED_RECALL_ROUTER.md)
 - [v0.60.0 release notes](docs/release_notes/v0_60_0.md)
-- [v0.81.0 release packet](docs/archive/releases/v0_81_0/README_IMPORT.md)
-- [v0.81.0 master plan](docs/archive/releases/v0_81_0/master_plan.md)
+- [v0.82.0 release packet](docs/archive/releases/v0_82_0/README_IMPORT.md)
+- [v0.82.0 master plan](docs/archive/releases/v0_82_0/master_plan.md)
 
 ## What This Project Is
 

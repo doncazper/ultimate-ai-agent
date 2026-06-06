@@ -565,6 +565,22 @@ REQUIRED_M77_OPENWEBUI_SAFE_HANDOFF_DOCS = [
     "docs/implementation/foundation_gate_implementation_plan_v0_81_0.md",
 ]
 
+REQUIRED_M78_PLUGIN_MANIFEST_SECURITY_DOCS = [
+    "docs/tooling/PLUGIN_MANIFEST_SECURITY_MODEL.md",
+    "docs/tooling/PLUGIN_MANIFEST_POLICY.md",
+    "docs/tooling/PLUGIN_PERMISSION_MODEL.md",
+    "docs/tooling/PLUGIN_PROVENANCE_REVIEW.md",
+    "docs/tooling/PLUGIN_SANDBOX_TEST_PLAN.md",
+    "docs/tooling/PLUGIN_MANIFEST_AUTHORITY_BOUNDARY.md",
+    "docs/tooling/PLUGIN_MANIFEST_RECEIPT_PLAN.md",
+    "docs/tooling/M78_TO_M79_BOUNDARY.md",
+    "docs/roadmap/M61_M100_ROADMAP.md",
+    "docs/release_notes/v0_82_0.md",
+    "docs/archive/releases/v0_82_0/README_IMPORT.md",
+    "docs/archive/releases/v0_82_0/master_plan.md",
+    "docs/implementation/foundation_gate_implementation_plan_v0_82_0.md",
+]
+
 
 REQUIRED_ACTIVE_DOCS = [
     "docs/README.md",
@@ -1102,6 +1118,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_m75_browser_action_dry_run_docs(root, version))
     failures.extend(_verify_m76_openwebui_runtime_bridge_docs(root, version))
     failures.extend(_verify_m77_openwebui_safe_handoff_docs(root, version))
+    failures.extend(_verify_m78_plugin_manifest_security_docs(root, version))
     failures.extend(_verify_m19_roadmap_currentness(root, version))
     failures.extend(_verify_post_m18_roadmap_status_labels(root))
 
@@ -4609,8 +4626,9 @@ def _verify_m77_openwebui_safe_handoff_docs(root: Path, version: str | None) -> 
         "M77 docs must deny dependencies": "no dependency",
         "M77 docs must deny production authority": "no production authority",
         "M77 docs must say evaluator boundaries revalidate": "evaluator boundaries revalidate",
-        "M77 docs must keep M78 future": "m78 remains future",
     }
+    if _version_tuple(version) < (0, 82, 0):
+        required_fragments["M77 docs must keep M78 future"] = "m78 remains future"
     for message, fragment in required_fragments.items():
         if fragment not in text:
             failures.append(message)
@@ -4628,12 +4646,87 @@ def _verify_m77_openwebui_safe_handoff_docs(root: Path, version: str | None) -> 
             )
 
     forbidden_fragments = {
-        "M77 docs must not claim M78 implementation": "m78 is implemented",
         "M77 docs must not claim plugin execution implementation": "plugin execution is implemented",
         "M77 docs must not claim OpenWebUI runtime calls": "openwebui runtime calls are implemented",
         "M77 docs must not claim model authority implementation": "model authority is implemented",
         "M77 docs must not claim tool execution implementation": "tool execution is implemented",
         "M77 docs must not claim production authority": "production authority is implemented",
+    }
+    if _version_tuple(version) < (0, 82, 0):
+        forbidden_fragments["M77 docs must not claim M78 implementation"] = "m78 is implemented"
+    for message, fragment in forbidden_fragments.items():
+        if fragment in text:
+            failures.append(f"{message}: {fragment}")
+    return failures
+
+
+def _verify_m78_plugin_manifest_security_docs(root: Path, version: str | None) -> list[str]:
+    failures: list[str] = []
+    if _version_tuple(version) < (0, 82, 0):
+        return failures
+
+    missing = [rel_path for rel_path in REQUIRED_M78_PLUGIN_MANIFEST_SECURITY_DOCS if not (root / rel_path).exists()]
+    failures.extend(f"missing M78 plugin manifest security doc: {rel_path}" for rel_path in missing)
+    text = "\n".join(
+        _read(root / rel_path).lower()
+        for rel_path in REQUIRED_M78_PLUGIN_MANIFEST_SECURITY_DOCS
+        if (root / rel_path).exists()
+    )
+    required_fragments = {
+        "M78 docs must say plugin manifest security model": "plugin manifest security model",
+        "M78 docs must say declared permissions": "declared permissions",
+        "M78 docs must say source/provenance metadata": "source/provenance metadata",
+        "M78 docs must say static review": "static review",
+        "M78 docs must say sandbox test plan": "sandbox test plan",
+        "M78 docs must say Tool Broker permission mapping": "tool broker permission mapping",
+        "M78 docs must say Event Ledger logging": "event ledger logging",
+        "M78 docs must say version pinning": "version pinning",
+        "M78 docs must say revocation": "revocation",
+        "M78 docs must say human approval for high-risk capabilities": "human approval for high-risk capabilities",
+        "M78 docs must say plugins remain disabled": "plugins remain disabled",
+        "M78 docs must deny plugin install": "no plugin install",
+        "M78 docs must deny plugin enablement": "no plugin enablement",
+        "M78 docs must deny plugin execution": "no plugin execution",
+        "M78 docs must deny runtime import": "no runtime import",
+        "M78 docs must deny network access": "no network access",
+        "M78 docs must deny model/provider calls": "no model/provider call",
+        "M78 docs must deny browser automation": "no browser automation",
+        "M78 docs must deny shell execution": "no shell execution",
+        "M78 docs must deny mobile device access": "no mobile device access",
+        "M78 docs must deny remote execution": "no remote execution",
+        "M78 docs must deny credentials/cookies": "no credentials or cookies",
+        "M78 docs must deny raw prompts": "no raw prompt",
+        "M78 docs must deny raw provider payloads": "no raw provider payload",
+        "M78 docs must deny backend routes": "no backend route",
+        "M78 docs must deny Control Center controls": "no control center control",
+        "M78 docs must deny dependencies": "no dependency",
+        "M78 docs must deny production authority": "no production authority",
+        "M78 docs must say evaluator boundaries revalidate": "evaluator boundaries revalidate",
+        "M78 docs must keep M79 future": "m79 remains future",
+    }
+    for message, fragment in required_fragments.items():
+        if fragment not in text:
+            failures.append(message)
+
+    for version_label, milestone, title in [
+        ("v0.82.0", "m78", "plugin manifest security model"),
+        ("v0.83.0", "m79", "plugin install review, disabled by default"),
+        ("v0.84.0", "m80", "network/browser/openwebui hardening freeze"),
+        ("v0.95.0", "m91", "autonomous tool execution contract"),
+        ("v1.4.0", "m100", "mobile permission model v1"),
+    ]:
+        if version_label not in text or milestone not in text or title not in text:
+            failures.append(
+                f"M78-M100 roadmap missing label: {version_label} / {milestone.upper()} - {title}"
+            )
+
+    forbidden_fragments = {
+        "M78 docs must not claim M79 implementation": "m79 is implemented",
+        "M78 docs must not claim plugin install implementation": "plugin install is implemented",
+        "M78 docs must not claim plugin enablement implementation": "plugin enablement is implemented",
+        "M78 docs must not claim plugin execution implementation": "plugin execution is implemented",
+        "M78 docs must not claim shell execution implementation": "shell execution is implemented",
+        "M78 docs must not claim production authority": "production authority is implemented",
     }
     for message, fragment in forbidden_fragments.items():
         if fragment in text:
