@@ -936,6 +936,14 @@ M63_FORBIDDEN_BACKEND_ROUTES = M62_FORBIDDEN_BACKEND_ROUTES + (
     "/autonomy/policy/execute",
     "/autonomy/policy/persist",
 )
+EXPECTED_M64_OPENAPI_PATH_COUNT = 75
+M64_FORBIDDEN_BACKEND_ROUTES = M63_FORBIDDEN_BACKEND_ROUTES + (
+    "/autonomy/simulate",
+    "/autonomy/simulator/run",
+    "/autonomy/simulator/execute",
+    "/autonomy/plan/simulate",
+    "/autonomy/plan/execute",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -1621,6 +1629,19 @@ def m63_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
     return failures
 
 
+def m64_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M64_OPENAPI_PATH_COUNT) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+    if M37_ALLOWED_CAPTURE_ROUTE not in path_set:
+        failures.append("M37 capture route missing: /files/review/approvals/capture")
+    for route in M64_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(f"M64 forbidden autonomy simulation/execution/backend route present: {route}")
+    return failures
+
+
 M36_SAFE_REF_PREFIXES = {
     "reviewPacketRef": "file-review-packet:",
     "previewResultRef": "redacted-file-preview-output:",
@@ -2133,6 +2154,16 @@ class FoundationGateEvaluator:
                 self.check_m63_autonomy_policy_engine_route_boundary
             ),
             "m63_roadmap_currentness": self.check_m63_roadmap_currentness,
+            "m64_autonomous_plan_simulator_contract_review": (
+                self.check_m64_autonomous_plan_simulator_contract_review
+            ),
+            "m64_autonomous_plan_simulator_static_safety": (
+                self.check_m64_autonomous_plan_simulator_static_safety
+            ),
+            "m64_autonomous_plan_simulator_route_boundary": (
+                self.check_m64_autonomous_plan_simulator_route_boundary
+            ),
+            "m64_roadmap_currentness": self.check_m64_roadmap_currentness,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -15610,7 +15641,6 @@ class FoundationGateEvaluator:
             if version_label.lower() not in text or milestone.lower() not in text or title.lower() not in text:
                 failures.append(f"active docs missing planned M61-M100 row: {version_label} / {milestone} — {title}")
         forbidden_fragments = [
-            "m64 is implemented",
             "production authority is implemented",
             "global autonomy switch is implemented",
             "broad autonomy is implemented",
@@ -15622,6 +15652,8 @@ class FoundationGateEvaluator:
             forbidden_fragments.append("m62 is implemented")
         if self._active_version_tuple() < (0, 67, 0):
             forbidden_fragments.append("m63 is implemented")
+        if self._active_version_tuple() < (0, 68, 0):
+            forbidden_fragments.append("m64 is implemented")
         for fragment in forbidden_fragments:
             if fragment in text:
                 failures.append(f"M61 docs imply forbidden/future capability: {fragment}")
@@ -16144,9 +16176,7 @@ class FoundationGateEvaluator:
         ]:
             if version_label.lower() not in text or milestone.lower() not in text or title.lower() not in text:
                 failures.append(f"active docs missing planned M63-M100 row: {version_label} / {milestone} — {title}")
-        for fragment in (
-            "m64 is implemented",
-            "autonomous plan simulator is implemented",
+        forbidden_fragments = [
             "policy activation is implemented",
             "session start is implemented",
             "production authority is implemented",
@@ -16154,9 +16184,317 @@ class FoundationGateEvaluator:
             "tool execution is implemented",
             "shell execution is implemented",
             "browser automation is implemented",
-        ):
+        ]
+        if self._active_version_tuple() < (0, 68, 0):
+            forbidden_fragments.extend(
+                [
+                    "m64 is implemented",
+                    "autonomous plan simulator is implemented",
+                ]
+            )
+        for fragment in forbidden_fragments:
             if fragment in text:
                 failures.append(f"M63 docs imply forbidden/future capability: {fragment}")
+        return self._result(criterion, failures, required_docs)
+
+    def check_m64_autonomous_plan_simulator_contract_review(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/autonomy/simulator.py",
+            "tests/test_m64_autonomous_plan_simulator_contracts.py",
+            "docs/autonomy/AUTONOMOUS_PLAN_SIMULATOR.md",
+            "docs/autonomy/AUTONOMOUS_PLAN_SIMULATOR_CONTRACTS.md",
+            "docs/autonomy/AUTONOMOUS_PLAN_SIMULATOR_NON_GOALS.md",
+            "docs/autonomy/M64_TO_M65_BOUNDARY.md",
+            "docs/roadmap/M61_M100_ROADMAP.md",
+        ]
+        failures = [
+            f"missing M64 autonomous plan simulator file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            from ultimate_ai_agent.core.autonomy import (
+                AutonomyAuthorityMode,
+                AutonomyPolicyEvaluationRequest,
+                AutonomyPolicyEnginePolicy,
+                AutonomyPolicyRule,
+                AutonomyRiskClass,
+                AutonomousPlanSimulationRequest,
+                AutonomousPlanSimulationStep,
+                ScopedAutonomySessionRequest,
+                ScopedAutonomySessionScope,
+                build_autonomous_plan_simulation_result,
+                build_autonomy_policy_decision,
+                validate_autonomous_plan_simulation_request,
+            )
+
+            scope = ScopedAutonomySessionScope(
+                scope_ref="autonomy-session-scope:m64-gate",
+                actor_ref="actor:gate-reviewer",
+                resource_refs=["resource:local-prototype"],
+                capability_refs=["capability:observe-only-review"],
+                allowlist_refs=["allowlist:m64-gate"],
+                max_duration_seconds=900,
+                risk_class=AutonomyRiskClass.low,
+                revocation_ref="revocation:m64-gate",
+                audit_ref="audit:m64-gate",
+                replay_ref="replay:m64-gate",
+            )
+            session_request = ScopedAutonomySessionRequest(
+                session_request_ref="autonomy-session-request:m64-gate",
+                requested_mode=AutonomyAuthorityMode.dry_run_plan,
+                scope=scope,
+            )
+            rule = AutonomyPolicyRule(
+                rule_ref="autonomy-policy-rule:m64-gate",
+                allowed_actor_refs=["actor:gate-reviewer"],
+                allowed_resource_refs=["resource:local-prototype"],
+                allowed_capability_refs=["capability:observe-only-review"],
+                required_allowlist_refs=["allowlist:m64-gate"],
+                max_mode=AutonomyAuthorityMode.dry_run_plan,
+                max_risk_class=AutonomyRiskClass.low,
+                max_duration_seconds=900,
+            )
+            policy_decision = build_autonomy_policy_decision(
+                AutonomyPolicyEvaluationRequest(
+                    evaluation_request_ref="autonomy-policy-evaluation:m64-gate",
+                    policy=AutonomyPolicyEnginePolicy(
+                        policy_ref="autonomy-policy:m64-gate",
+                        policy_version_ref="autonomy-policy-version:m64-v1",
+                        rules=[rule],
+                    ),
+                    session_request=session_request,
+                )
+            )
+            request = AutonomousPlanSimulationRequest(
+                simulation_request_ref="autonomy-plan-simulation-request:m64-gate",
+                policy_decision=policy_decision,
+                steps=[
+                    AutonomousPlanSimulationStep(
+                        step_ref="autonomy-simulation-step:m64-gate",
+                        intent_ref="intent:inspect-redacted-review-packet",
+                        capability_ref="capability:observe-only-review",
+                        resource_ref="resource:local-prototype",
+                        simulated_outcome_ref="simulation-outcome:m64-review-only",
+                    )
+                ],
+                actor_ref="actor:gate-reviewer",
+                resource_refs=["resource:local-prototype"],
+                capability_refs=["capability:observe-only-review"],
+                allowlist_refs=["allowlist:m64-gate"],
+                audit_ref="audit:m64-gate",
+                replay_ref="replay:m64-gate",
+            )
+            validate_autonomous_plan_simulation_request(request)
+            result = build_autonomous_plan_simulation_result(request)
+            if (
+                not result.contract_valid_for_review
+                or not result.review_only
+                or not result.dry_run_only
+                or not result.deterministic
+                or result.authority_granted
+                or result.session_started
+                or result.execution_performed
+                or result.side_effects_performed
+            ):
+                failures.append("M64 autonomous plan simulator granted authority or side effects")
+            for update, reason in [
+                ({"approval_test_ref": "approval_test_:m64"}, "APPROVAL_TEST_REF_DENIED"),
+                ({"policy_activation_requested": True}, "AUTONOMY_POLICY_ACTIVATION_DENIED"),
+                ({"session_start_requested": True}, "AUTONOMY_SESSION_START_DENIED"),
+                ({"execution_requested": True}, "EXECUTION_DENIED"),
+                ({"background_worker_enabled": True}, "BACKGROUND_WORKER_DENIED"),
+                ({"context_injection_enabled": True}, "CONTEXT_INJECTION_DENIED"),
+                ({"memory_write_enabled": True}, "MEMORY_WRITE_DENIED"),
+            ]:
+                try:
+                    validate_autonomous_plan_simulation_request(request.model_copy(update=update))
+                    failures.append(f"M64 unsafe simulation mutation was not denied: {reason}")
+                except ValueError as exc:
+                    if reason not in str(exc):
+                        failures.append(f"M64 unsafe simulation reason drifted for {reason}: {exc}")
+            for update, reason in [
+                ({"authority_granted": True}, "AUTONOMY_POLICY_AUTHORITY_DENIED"),
+                ({"session_started": True}, "AUTONOMY_SESSION_START_DENIED"),
+                ({"execution_performed": True}, "EXECUTION_DENIED"),
+            ]:
+                try:
+                    validate_autonomous_plan_simulation_request(
+                        request.model_copy(update={"policy_decision": policy_decision.model_copy(update=update)})
+                    )
+                    failures.append(f"M64 unsafe policy decision mutation was not denied: {reason}")
+                except ValueError as exc:
+                    if reason not in str(exc):
+                        failures.append(f"M64 unsafe policy decision reason drifted for {reason}: {exc}")
+        except Exception as exc:
+            failures.append(f"M64 autonomous plan simulator validation failed: {exc}")
+
+        docs_text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_files
+            if path.startswith("docs/") and (self.root / path).exists()
+        )
+        for fragment in [
+            "autonomous plan simulator",
+            "contract-only",
+            "review-only",
+            "dry-run-only",
+            "deterministic",
+            "dependency graph",
+            "acyclic",
+            "policy decision",
+            "approval refs are identifiers",
+            "no policy activation",
+            "no session start",
+            "no autonomous actions",
+            "no background worker",
+            "no execution",
+            "no tool execution",
+            "no shell execution",
+            "no network tools",
+            "no browser automation",
+            "no context injection",
+            "no memory write",
+            "no backend route",
+            "no dependency",
+            "m65 remains future",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M64 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m64_autonomous_plan_simulator_static_safety(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        forbidden_source_fragments = [
+            "policy_activation_enabled=True",
+            "policy_activation_requested=True",
+            "session_start_enabled=True",
+            "session_start_requested=True",
+            "session_active=True",
+            "execution_requested=True",
+            "execution_performed=True",
+            "autonomous_actions_enabled=True",
+            "background_worker_enabled=True",
+            "execution_enabled=True",
+            "tool_execution_enabled=True",
+            "shell_execution_enabled=True",
+            "network_tool_enabled=True",
+            "browser_automation_enabled=True",
+            "plugin_execution_enabled=True",
+            "mobile_sensor_enabled=True",
+            "remote_execution_enabled=True",
+            "memory_write_enabled=True",
+            "context_injection_enabled=True",
+            "production_authority_enabled=True",
+            "authority_granted=True",
+            "/autonomy/simulate",
+            "/autonomy/simulator/run",
+            "/autonomy/simulator/execute",
+            "/autonomy/execute",
+            "/background/start",
+            "/network/fetch",
+            "/shell/execute",
+            "/browser/click",
+            "subprocess" + ".run(",
+            "subprocess" + ".Popen(",
+            "os.system(",
+            "shell=True",
+        ]
+        allowed_files = {
+            "src/ultimate_ai_agent/core/autonomy/policies.py",
+            "src/ultimate_ai_agent/core/autonomy/sessions.py",
+            "src/ultimate_ai_agent/core/autonomy/simulator.py",
+            "src/ultimate_ai_agent/core/gate/evaluators.py",
+            "src/ultimate_ai_agent/core/tools/runtime/invocation.py",
+            "tests/test_m64_autonomous_plan_simulator_contracts.py",
+            "tests/test_m64_gate_integration.py",
+        }
+        source_roots = [
+            self.root / "src" / "ultimate_ai_agent",
+            self.root / "apps" / "control-center" / "src",
+            self.root / "apps" / "ccc-ios",
+        ]
+        for root in source_roots:
+            if not root.exists():
+                continue
+            candidate_files = []
+            for pattern in ("*.py", "*.ts", "*.tsx", "*.js", "*.jsx", "*.swift", "*.yml", "*.yaml"):
+                candidate_files.extend(root.rglob(pattern))
+            for path in sorted(candidate_files):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(self.root).as_posix()
+                if rel in allowed_files:
+                    continue
+                text = path.read_text(encoding="utf-8")
+                for fragment in forbidden_source_fragments:
+                    if fragment in text:
+                        failures.append(f"M64 forbidden autonomy simulation fragment in {rel}: {fragment}")
+        return self._result(criterion, failures, [])
+
+    def check_m64_autonomous_plan_simulator_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m64_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M64 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m64_roadmap_currentness(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        required_docs = [
+            "README.md",
+            "VERSION.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/roadmap/M61_M100_ROADMAP.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+            "docs/roadmap/MILESTONE_CHARTERS.md",
+        ]
+        failures = [
+            f"missing M64 roadmap doc: {path}"
+            for path in required_docs
+            if not (self.root / path).exists()
+        ]
+        text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_docs
+            if (self.root / path).exists()
+        )
+        if "v0.68.0" not in text or "m64" not in text or "autonomous plan simulator" not in text:
+            failures.append("active docs do not identify v0.68.0/M64 Autonomous Plan Simulator")
+        if "m64 is implemented/released" not in text and "v0.68.0 implements m64" not in text:
+            failures.append("active docs do not mark M64 implemented/released")
+        for version_label, milestone, title in [
+            ("v0.69.0", "M65", "Autonomy Audit + Replay Viewer"),
+            ("v0.70.0", "M66", "Scoped Approval Bundles"),
+            ("v0.71.0", "M67", "Revocation + Kill Switch"),
+            ("v0.72.0", "M68", "Autonomy Risk Classifier"),
+            ("v0.74.0", "M70", "Autonomy Foundation Freeze"),
+            ("v0.80.0", "M76", "OpenWebUI Runtime Bridge v1"),
+            ("v0.94.0", "M90", "Shell/Subprocess Hardening Freeze"),
+            ("v0.95.0", "M91", "Autonomous Tool Execution Contract"),
+            ("v1.4.0", "M100", "Mobile Permission Model v1"),
+        ]:
+            if version_label.lower() not in text or milestone.lower() not in text or title.lower() not in text:
+                failures.append(f"active docs missing planned M64-M100 row: {version_label} / {milestone} — {title}")
+        for fragment in (
+            "m65 is implemented",
+            "autonomy audit + replay viewer is implemented",
+            "production authority is implemented",
+            "broad autonomy is implemented",
+            "tool execution is implemented",
+            "shell execution is implemented",
+            "browser automation is implemented",
+        ):
+            if fragment in text:
+                failures.append(f"M64 docs imply forbidden/future capability: {fragment}")
         return self._result(criterion, failures, required_docs)
 
     def check_v0292_local_dev_api_authority_and_preview_safe(

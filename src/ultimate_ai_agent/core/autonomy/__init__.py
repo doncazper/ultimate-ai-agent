@@ -20,6 +20,15 @@ from ultimate_ai_agent.core.autonomy.policies import (
     validate_autonomy_policy_evaluation_request,
     validate_autonomy_policy_rule,
 )
+from ultimate_ai_agent.core.autonomy.simulator import (
+    AUTONOMOUS_PLAN_SIMULATOR_DOCS,
+    AutonomousPlanSimulationRequest,
+    AutonomousPlanSimulationResult,
+    AutonomousPlanSimulationStep,
+    build_autonomous_plan_simulation_result,
+    validate_autonomous_plan_simulation_request,
+    validate_autonomous_plan_simulation_step,
+)
 from ultimate_ai_agent.core.autonomy.sessions import (
     M62_MAX_SESSION_DURATION_SECONDS,
     SCOPED_AUTONOMY_SESSION_DOCS,
@@ -50,6 +59,13 @@ __all__ = [
     "validate_autonomy_policy_engine_policy",
     "validate_autonomy_policy_evaluation_request",
     "validate_autonomy_policy_rule",
+    "AUTONOMOUS_PLAN_SIMULATOR_DOCS",
+    "AutonomousPlanSimulationRequest",
+    "AutonomousPlanSimulationResult",
+    "AutonomousPlanSimulationStep",
+    "build_autonomous_plan_simulation_result",
+    "validate_autonomous_plan_simulation_request",
+    "validate_autonomous_plan_simulation_step",
     "M62_MAX_SESSION_DURATION_SECONDS",
     "SCOPED_AUTONOMY_SESSION_DOCS",
     "ScopedAutonomySessionDecision",

@@ -97,6 +97,7 @@ SCAN_SEQUENCE = [
     ("M61 autonomy mode charter scan", "verify_m61_autonomy_mode_charter"),
     ("M62 scoped autonomy session scan", "verify_m62_scoped_autonomy_session"),
     ("M63 autonomy policy engine scan", "verify_m63_autonomy_policy_engine"),
+    ("M64 autonomous plan simulator scan", "verify_m64_autonomous_plan_simulator"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -9067,6 +9068,233 @@ def verify_m63_autonomy_policy_engine():
                     sys.exit(1)
 
     print("OK: M63 autonomy policy engine is contract-only, route-free, no-policy-activation, and no-authority")
+
+
+def verify_m64_autonomous_plan_simulator():
+    print("\n[Verifier] Running M64 autonomous plan simulator guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/autonomy/simulator.py",
+        "docs/autonomy/AUTONOMOUS_PLAN_SIMULATOR.md",
+        "docs/autonomy/AUTONOMOUS_PLAN_SIMULATOR_CONTRACTS.md",
+        "docs/autonomy/AUTONOMOUS_PLAN_SIMULATOR_NON_GOALS.md",
+        "docs/autonomy/M64_TO_M65_BOUNDARY.md",
+        "docs/roadmap/M61_M100_ROADMAP.md",
+        "docs/release_notes/v0_68_0.md",
+        "docs/archive/releases/v0_68_0/README_IMPORT.md",
+        "docs/archive/releases/v0_68_0/master_plan.md",
+        "docs/implementation/foundation_gate_implementation_plan_v0_68_0.md",
+        "tests/test_m64_autonomous_plan_simulator_contracts.py",
+        "tests/test_m64_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M64 autonomous plan simulator file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = "\n".join(
+        (ROOT / rel_path).read_text(encoding="utf-8").lower()
+        for rel_path in required_files
+        if rel_path.startswith("docs/")
+    )
+    for fragment in [
+        "autonomous plan simulator",
+        "contract-only",
+        "review-only",
+        "dry-run-only",
+        "deterministic",
+        "dependency graph",
+        "acyclic",
+        "policy decision",
+        "approval refs are identifiers",
+        "no policy activation",
+        "no session start",
+        "no autonomous actions",
+        "no background worker",
+        "no execution",
+        "no tool execution",
+        "no shell execution",
+        "no network tools",
+        "no browser automation",
+        "no backend route",
+        "no dependency",
+        "m65 remains future",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M64 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.autonomy import (
+            AutonomyAuthorityMode,
+            AutonomyPolicyEvaluationRequest,
+            AutonomyPolicyEnginePolicy,
+            AutonomyPolicyRule,
+            AutonomyRiskClass,
+            AutonomousPlanSimulationRequest,
+            AutonomousPlanSimulationStep,
+            ScopedAutonomySessionRequest,
+            ScopedAutonomySessionScope,
+            build_autonomous_plan_simulation_result,
+            build_autonomy_policy_decision,
+            validate_autonomous_plan_simulation_request,
+        )
+        from ultimate_ai_agent.core.gate.evaluators import m64_openapi_route_failures
+    except Exception as exc:
+        print(f"FAIL: M64 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m64_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    scope = ScopedAutonomySessionScope(
+        scope_ref="autonomy-session-scope:verify-all-m64",
+        actor_ref="actor:verify-all-reviewer",
+        resource_refs=["resource:local-prototype"],
+        capability_refs=["capability:observe-only-review"],
+        allowlist_refs=["allowlist:verify-all-m64"],
+        max_duration_seconds=900,
+        risk_class=AutonomyRiskClass.low,
+        revocation_ref="revocation:verify-all-m64",
+        audit_ref="audit:verify-all-m64",
+        replay_ref="replay:verify-all-m64",
+    )
+    session_request = ScopedAutonomySessionRequest(
+        session_request_ref="autonomy-session-request:verify-all-m64",
+        requested_mode=AutonomyAuthorityMode.dry_run_plan,
+        scope=scope,
+    )
+    rule = AutonomyPolicyRule(
+        rule_ref="autonomy-policy-rule:verify-all-m64",
+        allowed_actor_refs=["actor:verify-all-reviewer"],
+        allowed_resource_refs=["resource:local-prototype"],
+        allowed_capability_refs=["capability:observe-only-review"],
+        required_allowlist_refs=["allowlist:verify-all-m64"],
+        max_mode=AutonomyAuthorityMode.dry_run_plan,
+        max_risk_class=AutonomyRiskClass.low,
+        max_duration_seconds=900,
+    )
+    policy_decision = build_autonomy_policy_decision(
+        AutonomyPolicyEvaluationRequest(
+            evaluation_request_ref="autonomy-policy-evaluation:verify-all-m64",
+            policy=AutonomyPolicyEnginePolicy(
+                policy_ref="autonomy-policy:verify-all-m64",
+                policy_version_ref="autonomy-policy-version:m64-v1",
+                rules=[rule],
+            ),
+            session_request=session_request,
+        )
+    )
+    request = AutonomousPlanSimulationRequest(
+        simulation_request_ref="autonomy-plan-simulation-request:verify-all-m64",
+        policy_decision=policy_decision,
+        steps=[
+            AutonomousPlanSimulationStep(
+                step_ref="autonomy-simulation-step:verify-all-m64",
+                intent_ref="intent:inspect-redacted-review-packet",
+                capability_ref="capability:observe-only-review",
+                resource_ref="resource:local-prototype",
+                simulated_outcome_ref="simulation-outcome:m64-review-only",
+            )
+        ],
+        actor_ref="actor:verify-all-reviewer",
+        resource_refs=["resource:local-prototype"],
+        capability_refs=["capability:observe-only-review"],
+        allowlist_refs=["allowlist:verify-all-m64"],
+        audit_ref="audit:verify-all-m64",
+        replay_ref="replay:verify-all-m64",
+    )
+    validate_autonomous_plan_simulation_request(request)
+    result = build_autonomous_plan_simulation_result(request)
+    if result.authority_granted or result.session_started or result.execution_performed or result.side_effects_performed:
+        print("FAIL: M64 autonomous plan simulator granted authority or side effects")
+        sys.exit(1)
+    for update, reason in [
+        ({"approval_test_ref": "approval_test_:m64"}, "APPROVAL_TEST_REF_DENIED"),
+        ({"policy_activation_requested": True}, "AUTONOMY_POLICY_ACTIVATION_DENIED"),
+        ({"session_start_requested": True}, "AUTONOMY_SESSION_START_DENIED"),
+        ({"execution_requested": True}, "EXECUTION_DENIED"),
+        ({"background_worker_enabled": True}, "BACKGROUND_WORKER_DENIED"),
+        ({"context_injection_enabled": True}, "CONTEXT_INJECTION_DENIED"),
+        ({"memory_write_enabled": True}, "MEMORY_WRITE_DENIED"),
+    ]:
+        try:
+            validate_autonomous_plan_simulation_request(request.model_copy(update=update))
+            print(f"FAIL: M64 unsafe simulation mutation was not denied: {reason}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M64 unsafe simulation reason drifted for {reason}: {exc}")
+                sys.exit(1)
+
+    forbidden_source_fragments = [
+        "policy_activation_enabled=True",
+        "policy_activation_requested=True",
+        "session_start_enabled=True",
+        "session_start_requested=True",
+        "session_active=True",
+        "execution_requested=True",
+        "execution_performed=True",
+        "autonomous_actions_enabled=True",
+        "background_worker_enabled=True",
+        "execution_enabled=True",
+        "tool_execution_enabled=True",
+        "shell_execution_enabled=True",
+        "network_tool_enabled=True",
+        "browser_automation_enabled=True",
+        "plugin_execution_enabled=True",
+        "mobile_sensor_enabled=True",
+        "remote_execution_enabled=True",
+        "memory_write_enabled=True",
+        "context_injection_enabled=True",
+        "production_authority_enabled=True",
+        "authority_granted=True",
+        "/autonomy/simulate",
+        "/autonomy/simulator/run",
+        "/autonomy/execute",
+        "/background/start",
+        "/network/fetch",
+        "/shell/execute",
+        "/browser/click",
+        "subprocess" + ".run(",
+        "subprocess" + ".Popen(",
+        "os.system(",
+        "shell=True",
+    ]
+    allowed_files = {
+        "scripts/verify_all.py",
+        "src/ultimate_ai_agent/core/autonomy/policies.py",
+        "src/ultimate_ai_agent/core/autonomy/sessions.py",
+        "src/ultimate_ai_agent/core/autonomy/simulator.py",
+        "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/tools/runtime/invocation.py",
+        "tests/test_m64_autonomous_plan_simulator_contracts.py",
+        "tests/test_m64_gate_integration.py",
+    }
+    source_roots = [
+        ROOT / "src" / "ultimate_ai_agent",
+        ROOT / "apps" / "control-center" / "src",
+        ROOT / "apps" / "ccc-ios",
+    ]
+    for root in source_roots:
+        if not root.exists():
+            continue
+        for path in root.rglob("*"):
+            if not path.is_file() or path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}:
+                continue
+            rel = path.relative_to(ROOT).as_posix()
+            if rel in allowed_files:
+                continue
+            text = path.read_text(encoding="utf-8")
+            for fragment in forbidden_source_fragments:
+                if fragment in text:
+                    print(f"FAIL: M64 forbidden autonomy simulation fragment in {rel}: {fragment}")
+                    sys.exit(1)
+
+    print("OK: M64 autonomous plan simulator is contract-only, route-free, dry-run-only, and no-authority")
 
 
 def verify_local_developer_launcher_safety():

@@ -12,22 +12,21 @@ allowed to become operational authority.
 
 | Field | Current state |
 |---|---|
-| Current active baseline | **v0.67.0** |
-| Current milestone | **M63 - Autonomy Policy Engine v1** |
+| Current active baseline | **v0.68.0** |
+| Current milestone | **M64 - Autonomous Plan Simulator** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **75** OpenAPI paths |
 | Production readiness | Not claimed |
 
-v0.67.0 implements M63 Autonomy Policy Engine v1. It adds contract-only and
-review-only autonomy policy rule, policy, evaluation request, and decision
-contracts over M62 scoped autonomy session records. It validates actor-bound,
-resource-bound, capability-bound, allowlist-bound, risk ceiling, duration
-ceiling, revocation, and audit/replay requirements. It adds tests,
-documentation-integrity checks, static verification, and Foundation Gate
-coverage. It adds no policy activation, session start, autonomous actions,
-background worker, execution, backend routes, Control Center controls,
-dependency, or M64 work.
+v0.68.0 implements M64 Autonomous Plan Simulator. It adds contract-only and
+review-only autonomous plan simulation contracts over M63 policy decisions. The
+simulator is dry-run-only and deterministic, validates dependency graph
+ordering, and rejects duplicate, missing, self-referential, and cyclic
+dependencies. It adds tests, documentation-integrity checks, static
+verification, and Foundation Gate coverage. It adds no policy activation,
+session start, autonomous actions, background worker, execution, backend routes,
+Control Center controls, dependency, or M65 work.
 
 v0.29.5 is documentation policy polish. It remains the documentation
 organization cleanup baseline before the M26 and M27 implementation releases.
@@ -42,6 +41,8 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M61-M100 roadmap](docs/roadmap/M61_M100_ROADMAP.md)
 - [M63 Autonomy Policy Engine v1](docs/autonomy/AUTONOMY_POLICY_ENGINE_V1.md)
 - [M63 Autonomy Policy Rule Contracts](docs/autonomy/AUTONOMY_POLICY_RULE_CONTRACTS.md)
+- [M64 Autonomous Plan Simulator](docs/autonomy/AUTONOMOUS_PLAN_SIMULATOR.md)
+- [M64 Autonomous Plan Simulator Contracts](docs/autonomy/AUTONOMOUS_PLAN_SIMULATOR_CONTRACTS.md)
 - [M34 Broader File Capability Review](docs/files/BROADER_FILE_CAPABILITY_REVIEW.md)
 - [File capability boundary matrix](docs/files/FILE_CAPABILITY_BOUNDARY_MATRIX.md)
 - [File capability risk register](docs/files/FILE_CAPABILITY_RISK_REGISTER.md)
@@ -143,6 +144,10 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M63 Autonomy Policy Rule Contracts](docs/autonomy/AUTONOMY_POLICY_RULE_CONTRACTS.md)
 - [M63 Autonomy Policy Engine Non-Goals](docs/autonomy/AUTONOMY_POLICY_ENGINE_NON_GOALS.md)
 - [M63 to M64 Boundary](docs/autonomy/M63_TO_M64_BOUNDARY.md)
+- [M64 Autonomous Plan Simulator](docs/autonomy/AUTONOMOUS_PLAN_SIMULATOR.md)
+- [M64 Autonomous Plan Simulator Contracts](docs/autonomy/AUTONOMOUS_PLAN_SIMULATOR_CONTRACTS.md)
+- [M64 Autonomous Plan Simulator Non-Goals](docs/autonomy/AUTONOMOUS_PLAN_SIMULATOR_NON_GOALS.md)
+- [M64 to M65 Boundary](docs/autonomy/M64_TO_M65_BOUNDARY.md)
 - [M38 Context Proposal Receipt Plan](docs/context/CONTEXT_PROPOSAL_RECEIPT_PLAN.md)
 - [API route inventory](docs/api/route_inventory.md)
 - [Documentation organization policy](docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md)
@@ -161,8 +166,8 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M27 Tool Broker v2](docs/tools/TOOL_BROKER_V2.md)
 - [M26 Grounded Recall Router](docs/recall/GROUNDED_RECALL_ROUTER.md)
 - [v0.60.0 release notes](docs/release_notes/v0_60_0.md)
-- [v0.67.0 release packet](docs/archive/releases/v0_67_0/README_IMPORT.md)
-- [v0.67.0 master plan](docs/archive/releases/v0_67_0/master_plan.md)
+- [v0.68.0 release packet](docs/archive/releases/v0_68_0/README_IMPORT.md)
+- [v0.68.0 master plan](docs/archive/releases/v0_68_0/master_plan.md)
 
 ## What This Project Is
 
