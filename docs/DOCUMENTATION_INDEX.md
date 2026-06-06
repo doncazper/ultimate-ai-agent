@@ -1,6 +1,6 @@
 # Documentation Index
 
-Current active baseline: **v0.68.0**
+Current active baseline: **v0.69.0**
 
 This index is the active entrypoint for documentation navigation. Historical release documents remain in the repository for audit history, but active truth starts with the current baseline files listed here.
 
@@ -14,9 +14,9 @@ docs/canonical/CANONICAL_DOC_MAP.md
 docs/canonical/09_roadmap.md
 docs/roadmap/README.md
 docs/archive/README.md
-docs/archive/releases/v0_68_0/README_IMPORT.md
-docs/archive/releases/v0_68_0/master_plan.md
-docs/release_notes/v0_68_0.md
+docs/archive/releases/v0_69_0/README_IMPORT.md
+docs/archive/releases/v0_69_0/master_plan.md
+docs/release_notes/v0_69_0.md
 docs/developer/LOCAL_LAUNCHER.md
 scripts/dev/README.md
 docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md
@@ -64,6 +64,10 @@ docs/autonomy/AUTONOMOUS_PLAN_SIMULATOR.md
 docs/autonomy/AUTONOMOUS_PLAN_SIMULATOR_CONTRACTS.md
 docs/autonomy/AUTONOMOUS_PLAN_SIMULATOR_NON_GOALS.md
 docs/autonomy/M64_TO_M65_BOUNDARY.md
+docs/autonomy/AUTONOMY_AUDIT_REPLAY_VIEWER.md
+docs/autonomy/AUTONOMY_AUDIT_REPLAY_CONTRACTS.md
+docs/autonomy/AUTONOMY_AUDIT_REPLAY_NON_GOALS.md
+docs/autonomy/M65_TO_M66_BOUNDARY.md
 docs/roadmap/M61_M100_ROADMAP.md
 docs/files/FILE_REVIEW_RECEIPT_PLAN.md
 docs/files/FILE_REVIEW_NON_GOALS.md
@@ -510,9 +514,9 @@ scripts/dev/README.md
 ```
 
 v0.37.4 supersedes the old active M35-M40 roadmap projection and defines the
-active M34-M60 sequence. v0.68.0 is the current active baseline after
-implementing M64 Autonomous Plan Simulator as contract-only, review-only,
-dry-run-only, deterministic simulation over M63 policy decisions.
+active M34-M60 sequence. v0.69.0 is the current active baseline after
+implementing M65 Autonomy Audit + Replay Viewer as contract-only, review-only,
+replay-view-only, deterministic inspection over exact M64 simulation results.
 Active roadmap sources consistently
 keep v0.38.0 / M34 as Broader File Capability Review, keep M34
 planning/docs/verifier only, mark M36 through M43 implemented/released, mark
@@ -524,7 +528,7 @@ skeleton/local connection/review receipt/TestFlight pipeline/build candidate/mob
 
 ## Release Notes Index
 
-Current release notes: `docs/release_notes/v0_68_0.md`
+Current release notes: `docs/release_notes/v0_69_0.md`
 
 Historical release notes remain under `docs/release_notes/`. Historical docs may mention old active baselines in historical context; they are not the current source of truth.
 

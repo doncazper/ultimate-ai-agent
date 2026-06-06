@@ -29,6 +29,13 @@ from ultimate_ai_agent.core.autonomy.simulator import (
     validate_autonomous_plan_simulation_request,
     validate_autonomous_plan_simulation_step,
 )
+from ultimate_ai_agent.core.autonomy.audit import (
+    AUTONOMY_AUDIT_REPLAY_VIEWER_DOCS,
+    AutonomyAuditReplayView,
+    AutonomyReplayStepView,
+    build_autonomy_audit_replay_view,
+    validate_autonomy_audit_replay_view,
+)
 from ultimate_ai_agent.core.autonomy.sessions import (
     M62_MAX_SESSION_DURATION_SECONDS,
     SCOPED_AUTONOMY_SESSION_DOCS,
@@ -50,6 +57,11 @@ __all__ = [
     "build_autonomy_mode_decision",
     "validate_autonomy_capability_toggle",
     "validate_autonomy_mode_charter",
+    "AUTONOMY_AUDIT_REPLAY_VIEWER_DOCS",
+    "AutonomyAuditReplayView",
+    "AutonomyReplayStepView",
+    "build_autonomy_audit_replay_view",
+    "validate_autonomy_audit_replay_view",
     "AUTONOMY_POLICY_ENGINE_DOCS",
     "AutonomyPolicyDecision",
     "AutonomyPolicyEnginePolicy",

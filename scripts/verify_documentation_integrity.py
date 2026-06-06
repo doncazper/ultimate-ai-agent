@@ -399,6 +399,18 @@ REQUIRED_M64_AUTONOMOUS_PLAN_SIMULATOR_DOCS = [
     "docs/implementation/foundation_gate_implementation_plan_v0_68_0.md",
 ]
 
+REQUIRED_M65_AUTONOMY_AUDIT_REPLAY_VIEWER_DOCS = [
+    "docs/autonomy/AUTONOMY_AUDIT_REPLAY_VIEWER.md",
+    "docs/autonomy/AUTONOMY_AUDIT_REPLAY_CONTRACTS.md",
+    "docs/autonomy/AUTONOMY_AUDIT_REPLAY_NON_GOALS.md",
+    "docs/autonomy/M65_TO_M66_BOUNDARY.md",
+    "docs/roadmap/M61_M100_ROADMAP.md",
+    "docs/release_notes/v0_69_0.md",
+    "docs/archive/releases/v0_69_0/README_IMPORT.md",
+    "docs/archive/releases/v0_69_0/master_plan.md",
+    "docs/implementation/foundation_gate_implementation_plan_v0_69_0.md",
+]
+
 
 REQUIRED_ACTIVE_DOCS = [
     "docs/README.md",
@@ -923,6 +935,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_m62_scoped_autonomy_session_docs(root, version))
     failures.extend(_verify_m63_autonomy_policy_engine_docs(root, version))
     failures.extend(_verify_m64_autonomous_plan_simulator_docs(root, version))
+    failures.extend(_verify_m65_autonomy_audit_replay_viewer_docs(root, version))
     failures.extend(_verify_m19_roadmap_currentness(root, version))
     failures.extend(_verify_post_m18_roadmap_status_labels(root))
 
@@ -3479,8 +3492,9 @@ def _verify_m64_autonomous_plan_simulator_docs(root: Path, version: str | None) 
         "M64 docs must deny memory writes": "no memory write",
         "M64 docs must deny backend routes": "no backend route",
         "M64 docs must deny dependencies": "no dependency",
-        "M64 docs must keep M65 future": "m65 remains future",
     }
+    if _version_tuple(version) < (0, 69, 0):
+        required_fragments["M64 docs must keep M65 future"] = "m65 remains future"
     for message, fragment in required_fragments.items():
         if fragment not in text:
             failures.append(message)
@@ -3508,7 +3522,79 @@ def _verify_m64_autonomous_plan_simulator_docs(root: Path, version: str | None) 
         "M64 docs must not claim shell execution": "shell execution is implemented",
         "M64 docs must not claim browser automation": "browser automation is implemented",
         "M64 docs must not claim production authority": "production authority is implemented",
-        "M64 docs must not claim M65 implementation": "m65 is implemented",
+    }
+    if _version_tuple(version) < (0, 69, 0):
+        forbidden_fragments["M64 docs must not claim M65 implementation"] = "m65 is implemented"
+    for message, fragment in forbidden_fragments.items():
+        if fragment in text:
+            failures.append(f"{message}: {fragment}")
+    return failures
+
+
+def _verify_m65_autonomy_audit_replay_viewer_docs(root: Path, version: str | None) -> list[str]:
+    failures: list[str] = []
+    if _version_tuple(version) < (0, 69, 0):
+        return failures
+    parts: list[str] = []
+    for rel_path in REQUIRED_M65_AUTONOMY_AUDIT_REPLAY_VIEWER_DOCS:
+        path = root / rel_path
+        if not path.exists():
+            failures.append(f"M65 autonomy audit replay viewer doc missing: {rel_path}")
+            continue
+        parts.append(_read(path).lower())
+    text = "\n".join(parts)
+    required_fragments = {
+        "M65 docs must say autonomy audit": "autonomy audit",
+        "M65 docs must say replay viewer": "replay viewer",
+        "M65 docs must say contract-only": "contract-only",
+        "M65 docs must say review-only": "review-only",
+        "M65 docs must say replay-view-only": "replay-view-only",
+        "M65 docs must say deterministic": "deterministic",
+        "M65 docs must say exact simulation result": "exact simulation result",
+        "M65 docs must say exact replay step": "exact replay step",
+        "M65 docs must say approval refs are identifiers": "approval refs are identifiers",
+        "M65 docs must deny policy activation": "no policy activation",
+        "M65 docs must deny session start": "no session start",
+        "M65 docs must deny autonomous actions": "no autonomous actions",
+        "M65 docs must deny background workers": "no background worker",
+        "M65 docs must deny execution": "no execution",
+        "M65 docs must deny tool execution": "no tool execution",
+        "M65 docs must deny shell execution": "no shell execution",
+        "M65 docs must deny network tools": "no network tools",
+        "M65 docs must deny browser automation": "no browser automation",
+        "M65 docs must deny context injection": "no context injection",
+        "M65 docs must deny memory writes": "no memory write",
+        "M65 docs must deny backend routes": "no backend route",
+        "M65 docs must deny dependencies": "no dependency",
+        "M65 docs must keep M66 future": "m66 remains future",
+    }
+    for message, fragment in required_fragments.items():
+        if fragment not in text:
+            failures.append(message)
+
+    for version_label, milestone, title in [
+        ("v0.70.0", "m66", "scoped approval bundles"),
+        ("v0.71.0", "m67", "revocation + kill switch"),
+        ("v0.72.0", "m68", "autonomy risk classifier"),
+        ("v0.95.0", "m91", "autonomous tool execution contract"),
+        ("v1.4.0", "m100", "mobile permission model v1"),
+    ]:
+        if version_label not in text or milestone not in text or title not in text:
+            failures.append(
+                f"M65-M100 roadmap missing planned label: {version_label} / {milestone.upper()} - {title}"
+            )
+
+    forbidden_fragments = {
+        "M65 docs must not claim policy activation": "policy activation is implemented",
+        "M65 docs must not claim session start": "session start is implemented",
+        "M65 docs must not claim autonomous actions": "autonomous actions are implemented",
+        "M65 docs must not claim background workers": "background workers are implemented",
+        "M65 docs must not claim execution": "execution is implemented",
+        "M65 docs must not claim tool execution": "tool execution is implemented",
+        "M65 docs must not claim shell execution": "shell execution is implemented",
+        "M65 docs must not claim browser automation": "browser automation is implemented",
+        "M65 docs must not claim production authority": "production authority is implemented",
+        "M65 docs must not claim M66 implementation": "m66 is implemented",
     }
     for message, fragment in forbidden_fragments.items():
         if fragment in text:
