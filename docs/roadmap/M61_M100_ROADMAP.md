@@ -1,19 +1,20 @@
 # M61-M100 Roadmap
 
-Status: Active roadmap maintained through M62 / v0.66.0.
+Status: Active roadmap maintained through M63 / v0.67.0.
 
 M61 is implemented/released by v0.65.0 as Autonomy Mode Charter + Authority
 Levels. M62 is implemented/released by v0.66.0 as Scoped Autonomy Session
-Contracts. M63-M100 remain planned/provisional. This roadmap adds no production
+Contracts. M63 is implemented/released by v0.67.0 as Autonomy Policy Engine v1.
+M64-M100 remain planned/provisional. This roadmap adds no production
 authority, no global autonomy switch, no broad autonomy, no tool execution, no
 shell execution, no browser automation, no network tools, no background worker,
-no autonomous session, no backend route, and no dependency.
+no policy activation, no autonomous session, no backend route, and no dependency.
 
 | Version | Milestone | Title | Status |
 | --- | --- | --- | --- |
 | v0.65.0 | M61 | Autonomy Mode Charter + Authority Levels | Implemented/released |
 | v0.66.0 | M62 | Scoped Autonomy Session Contracts | Implemented/released |
-| v0.67.0 | M63 | Autonomy Policy Engine v1 | Planned/provisional |
+| v0.67.0 | M63 | Autonomy Policy Engine v1 | Implemented/released |
 | v0.68.0 | M64 | Autonomous Plan Simulator | Planned/provisional |
 | v0.69.0 | M65 | Autonomy Audit + Replay Viewer | Planned/provisional |
 | v0.70.0 | M66 | Scoped Approval Bundles | Planned/provisional |

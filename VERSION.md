@@ -1,15 +1,17 @@
 # Ultimate AI Agent Version
 
-Current active baseline: **v0.66.0**
+Current active baseline: **v0.67.0**
 
-v0.66.0 implements M62 Scoped Autonomy Session Contracts. It adds
-contract-only and review-only scoped autonomy session models with actor, scope,
-resource, capability, allowlist, duration, risk, revocation, audit, and replay
-bindings. It adds tests, documentation-integrity checks, static verification,
-and Foundation Gate coverage.
+v0.67.0 implements M63 Autonomy Policy Engine v1. It adds contract-only and
+review-only autonomy policy rule, policy, evaluation request, and decision
+contracts over M62 scoped autonomy session records. It validates actor-bound,
+resource-bound, capability-bound, allowlist-bound, risk ceiling, duration
+ceiling, revocation, and audit/replay requirements. It adds tests,
+documentation-integrity checks, static verification, and Foundation Gate
+coverage.
 
-It adds no session start, session activation, autonomous actions, background
+It adds no policy activation, session start, autonomous actions, background
 worker, execution, tool execution, shell execution, network tools, browser
 automation, plugin execution, mobile sensor access, remote execution, memory
 writes, context injection, model/provider authority, backend routes, Control
-Center controls, dependencies, M63 work, or production authority.
+Center controls, dependencies, M64 work, or production authority.

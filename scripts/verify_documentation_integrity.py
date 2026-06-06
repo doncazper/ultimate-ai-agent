@@ -375,6 +375,18 @@ REQUIRED_M62_SCOPED_AUTONOMY_SESSION_DOCS = [
     "docs/implementation/foundation_gate_implementation_plan_v0_66_0.md",
 ]
 
+REQUIRED_M63_AUTONOMY_POLICY_ENGINE_DOCS = [
+    "docs/autonomy/AUTONOMY_POLICY_ENGINE_V1.md",
+    "docs/autonomy/AUTONOMY_POLICY_RULE_CONTRACTS.md",
+    "docs/autonomy/AUTONOMY_POLICY_ENGINE_NON_GOALS.md",
+    "docs/autonomy/M63_TO_M64_BOUNDARY.md",
+    "docs/roadmap/M61_M100_ROADMAP.md",
+    "docs/release_notes/v0_67_0.md",
+    "docs/archive/releases/v0_67_0/README_IMPORT.md",
+    "docs/archive/releases/v0_67_0/master_plan.md",
+    "docs/implementation/foundation_gate_implementation_plan_v0_67_0.md",
+]
+
 
 REQUIRED_ACTIVE_DOCS = [
     "docs/README.md",
@@ -897,6 +909,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_m60_local_developer_beta_freeze_docs(root, version))
     failures.extend(_verify_m61_autonomy_mode_charter_docs(root, version))
     failures.extend(_verify_m62_scoped_autonomy_session_docs(root, version))
+    failures.extend(_verify_m63_autonomy_policy_engine_docs(root, version))
     failures.extend(_verify_m19_roadmap_currentness(root, version))
     failures.extend(_verify_post_m18_roadmap_status_labels(root))
 
@@ -3246,9 +3259,7 @@ def _verify_m61_autonomy_mode_charter_docs(root: Path, version: str | None) -> l
             )
 
     forbidden_fragments = {
-        "M61 docs must not claim global autonomy implementation": (
-            "global autonomy switch is implemented"
-        ),
+        "M61 docs must not claim global autonomy implementation": "global autonomy switch is implemented",
         "M61 docs must not claim production authority": "production authority is implemented",
         "M61 docs must not claim execution": "execution is implemented",
         "M61 docs must not claim tool execution": "tool execution is implemented",
@@ -3257,6 +3268,8 @@ def _verify_m61_autonomy_mode_charter_docs(root: Path, version: str | None) -> l
     }
     if _version_tuple(version) < (0, 66, 0):
         forbidden_fragments["M61 docs must not claim M62 implementation"] = "m62 is implemented"
+    if _version_tuple(version) < (0, 67, 0):
+        forbidden_fragments["M61 docs must not claim M63 implementation"] = "m63 is implemented"
     for message, fragment in forbidden_fragments.items():
         if fragment in text:
             failures.append(f"{message}: {fragment}")
@@ -3328,7 +3341,85 @@ def _verify_m62_scoped_autonomy_session_docs(root: Path, version: str | None) ->
         "M62 docs must not claim shell execution": "shell execution is implemented",
         "M62 docs must not claim browser automation": "browser automation is implemented",
         "M62 docs must not claim production authority": "production authority is implemented",
-        "M62 docs must not claim M63 implementation": "m63 is implemented",
+    }
+    if _version_tuple(version) < (0, 67, 0):
+        forbidden_fragments["M62 docs must not claim M63 implementation"] = "m63 is implemented"
+    for message, fragment in forbidden_fragments.items():
+        if fragment in text:
+            failures.append(f"{message}: {fragment}")
+    return failures
+
+
+def _verify_m63_autonomy_policy_engine_docs(root: Path, version: str | None) -> list[str]:
+    failures: list[str] = []
+    if _version_tuple(version) < (0, 67, 0):
+        return failures
+    parts: list[str] = []
+    for rel_path in REQUIRED_M63_AUTONOMY_POLICY_ENGINE_DOCS:
+        path = root / rel_path
+        if not path.exists():
+            failures.append(f"M63 autonomy policy engine doc missing: {rel_path}")
+            continue
+        parts.append(_read(path).lower())
+    text = "\n".join(parts)
+    required_fragments = {
+        "M63 docs must say autonomy policy engine v1": "autonomy policy engine v1",
+        "M63 docs must say contract-only": "contract-only",
+        "M63 docs must say review-only": "review-only",
+        "M63 docs must say policy rules": "policy rules",
+        "M63 docs must say actor-bound": "actor-bound",
+        "M63 docs must say resource-bound": "resource-bound",
+        "M63 docs must say capability-bound": "capability-bound",
+        "M63 docs must say allowlist": "allowlist",
+        "M63 docs must say risk ceiling": "risk ceiling",
+        "M63 docs must say duration ceiling": "duration ceiling",
+        "M63 docs must say revocation": "revocation",
+        "M63 docs must say audit/replay": "audit/replay",
+        "M63 docs must say approval refs are identifiers": "approval refs are identifiers",
+        "M63 docs must deny policy activation": "no policy activation",
+        "M63 docs must deny session start": "no session start",
+        "M63 docs must deny autonomous actions": "no autonomous actions",
+        "M63 docs must deny background worker": "no background worker",
+        "M63 docs must deny execution": "no execution",
+        "M63 docs must deny tool execution": "no tool execution",
+        "M63 docs must deny shell execution": "no shell execution",
+        "M63 docs must deny network tools": "no network tools",
+        "M63 docs must deny browser automation": "no browser automation",
+        "M63 docs must deny backend routes": "no backend route",
+        "M63 docs must deny dependencies": "no dependency",
+        "M63 docs must keep M64 future": "m64 remains future",
+        "M63 Foundation Gate docs must mention Skill Package Security Rule": (
+            "skill package security rule"
+        ),
+    }
+    for message, fragment in required_fragments.items():
+        if fragment not in text:
+            failures.append(message)
+
+    for version_label, milestone, title in [
+        ("v0.68.0", "m64", "autonomous plan simulator"),
+        ("v0.69.0", "m65", "autonomy audit + replay viewer"),
+        ("v0.70.0", "m66", "scoped approval bundles"),
+        ("v0.71.0", "m67", "revocation + kill switch"),
+        ("v0.95.0", "m91", "autonomous tool execution contract"),
+        ("v1.4.0", "m100", "mobile permission model v1"),
+    ]:
+        if version_label not in text or milestone not in text or title not in text:
+            failures.append(
+                f"M63-M100 roadmap missing planned label: {version_label} / {milestone.upper()} - {title}"
+            )
+
+    forbidden_fragments = {
+        "M63 docs must not claim policy activation": "policy activation is implemented",
+        "M63 docs must not claim session start": "session start is implemented",
+        "M63 docs must not claim autonomous actions": "autonomous actions are implemented",
+        "M63 docs must not claim background workers": "background workers are implemented",
+        "M63 docs must not claim execution": "execution is implemented",
+        "M63 docs must not claim tool execution": "tool execution is implemented",
+        "M63 docs must not claim shell execution": "shell execution is implemented",
+        "M63 docs must not claim browser automation": "browser automation is implemented",
+        "M63 docs must not claim production authority": "production authority is implemented",
+        "M63 docs must not claim M64 implementation": "m64 is implemented",
     }
     for message, fragment in forbidden_fragments.items():
         if fragment in text:

@@ -96,6 +96,7 @@ SCAN_SEQUENCE = [
     ("M60 local developer beta freeze scan", "verify_m60_local_developer_beta_freeze"),
     ("M61 autonomy mode charter scan", "verify_m61_autonomy_mode_charter"),
     ("M62 scoped autonomy session scan", "verify_m62_scoped_autonomy_session"),
+    ("M63 autonomy policy engine scan", "verify_m63_autonomy_policy_engine"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -8856,6 +8857,216 @@ def verify_m62_scoped_autonomy_session():
                     sys.exit(1)
 
     print("OK: M62 scoped autonomy session is contract-only, route-free, no-session-start, and no-authority")
+
+
+def verify_m63_autonomy_policy_engine():
+    print("\n[Verifier] Running M63 autonomy policy engine guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/autonomy/policies.py",
+        "docs/autonomy/AUTONOMY_POLICY_ENGINE_V1.md",
+        "docs/autonomy/AUTONOMY_POLICY_RULE_CONTRACTS.md",
+        "docs/autonomy/AUTONOMY_POLICY_ENGINE_NON_GOALS.md",
+        "docs/autonomy/M63_TO_M64_BOUNDARY.md",
+        "docs/roadmap/M61_M100_ROADMAP.md",
+        "docs/release_notes/v0_67_0.md",
+        "docs/archive/releases/v0_67_0/README_IMPORT.md",
+        "docs/archive/releases/v0_67_0/master_plan.md",
+        "docs/implementation/foundation_gate_implementation_plan_v0_67_0.md",
+        "tests/test_m63_autonomy_policy_engine_contracts.py",
+        "tests/test_m63_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M63 autonomy policy engine file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = "\n".join(
+        (ROOT / rel_path).read_text(encoding="utf-8").lower()
+        for rel_path in required_files
+        if rel_path.startswith("docs/")
+    )
+    for fragment in [
+        "autonomy policy engine v1",
+        "contract-only",
+        "review-only",
+        "policy rules",
+        "actor-bound",
+        "resource-bound",
+        "capability-bound",
+        "allowlist",
+        "risk ceiling",
+        "duration ceiling",
+        "revocation",
+        "audit/replay",
+        "approval refs are identifiers",
+        "no policy activation",
+        "no session start",
+        "no autonomous actions",
+        "no background worker",
+        "no execution",
+        "no tool execution",
+        "no shell execution",
+        "no network tools",
+        "no browser automation",
+        "no backend route",
+        "no dependency",
+        "m64 remains future",
+        "skill package security rule",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M63 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.autonomy import (
+            AutonomyAuthorityMode,
+            AutonomyPolicyEvaluationRequest,
+            AutonomyPolicyEnginePolicy,
+            AutonomyPolicyRule,
+            AutonomyRiskClass,
+            ScopedAutonomySessionRequest,
+            ScopedAutonomySessionScope,
+            build_autonomy_policy_decision,
+            validate_autonomy_policy_evaluation_request,
+            validate_autonomy_policy_rule,
+        )
+        from ultimate_ai_agent.core.gate.evaluators import m63_openapi_route_failures
+    except Exception as exc:
+        print(f"FAIL: M63 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m63_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    scope = ScopedAutonomySessionScope(
+        scope_ref="autonomy-session-scope:verify-all-m63",
+        actor_ref="actor:verify-all-reviewer",
+        resource_refs=["resource:local-prototype"],
+        capability_refs=["capability:observe-only-review"],
+        allowlist_refs=["allowlist:verify-all-m63"],
+        max_duration_seconds=900,
+        risk_class=AutonomyRiskClass.low,
+        revocation_ref="revocation:verify-all-m63",
+        audit_ref="audit:verify-all-m63",
+        replay_ref="replay:verify-all-m63",
+    )
+    request = ScopedAutonomySessionRequest(
+        session_request_ref="autonomy-session-request:verify-all-m63",
+        requested_mode=AutonomyAuthorityMode.dry_run_plan,
+        scope=scope,
+        approval_ref="approval:m63-review-only",
+    )
+    rule = AutonomyPolicyRule(
+        rule_ref="autonomy-policy-rule:verify-all-m63",
+        allowed_actor_refs=["actor:verify-all-reviewer"],
+        allowed_resource_refs=["resource:local-prototype"],
+        allowed_capability_refs=["capability:observe-only-review"],
+        required_allowlist_refs=["allowlist:verify-all-m63"],
+        max_mode=AutonomyAuthorityMode.dry_run_plan,
+        max_risk_class=AutonomyRiskClass.low,
+        max_duration_seconds=900,
+    )
+    validate_autonomy_policy_rule(rule)
+    evaluation_request = AutonomyPolicyEvaluationRequest(
+        evaluation_request_ref="autonomy-policy-evaluation:verify-all-m63",
+        policy=AutonomyPolicyEnginePolicy(
+            policy_ref="autonomy-policy:verify-all-m63",
+            policy_version_ref="autonomy-policy-version:m63-v1",
+            rules=[rule],
+        ),
+        session_request=request,
+    )
+    validate_autonomy_policy_evaluation_request(evaluation_request)
+    decision = build_autonomy_policy_decision(evaluation_request)
+    if decision.authority_granted or decision.session_started or decision.execution_performed or decision.side_effects_performed:
+        print("FAIL: M63 autonomy policy decision granted authority or side effects")
+        sys.exit(1)
+
+    for update, reason in [
+        ({"approval_test_ref": "approval_test_:m63"}, "APPROVAL_TEST_REF_DENIED"),
+        ({"policy_activation_requested": True}, "AUTONOMY_POLICY_ACTIVATION_DENIED"),
+        ({"session_start_requested": True}, "AUTONOMY_SESSION_START_DENIED"),
+        ({"execution_requested": True}, "EXECUTION_DENIED"),
+    ]:
+        try:
+            validate_autonomy_policy_evaluation_request(evaluation_request.model_copy(update=update))
+            print(f"FAIL: M63 unsafe policy request mutation was not denied: {reason}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M63 unsafe policy request reason drifted for {reason}: {exc}")
+                sys.exit(1)
+
+    forbidden_source_fragments = [
+        "policy_activation_enabled=True",
+        "policy_activation_requested=True",
+        "session_start_enabled=True",
+        "session_activation_enabled=True",
+        "start_requested=True",
+        "session_active=True",
+        "execution_requested=True",
+        "autonomous_actions_enabled=True",
+        "background_worker_enabled=True",
+        "execution_enabled=True",
+        "tool_execution_enabled=True",
+        "shell_execution_enabled=True",
+        "network_tool_enabled=True",
+        "browser_automation_enabled=True",
+        "plugin_execution_enabled=True",
+        "mobile_sensor_enabled=True",
+        "remote_execution_enabled=True",
+        "memory_write_enabled=True",
+        "context_injection_enabled=True",
+        "production_authority_enabled=True",
+        "authority_granted=True",
+        "execution_performed=True",
+        "/autonomy/policy/evaluate",
+        "/autonomy/policy/activate",
+        "/autonomy/session/start",
+        "/autonomy/execute",
+        "/background/start",
+        "/network/fetch",
+        "/shell/execute",
+        "/browser/click",
+        "subprocess" + ".run(",
+        "subprocess" + ".Popen(",
+        "os.system(",
+        "shell=True",
+    ]
+    allowed_files = {
+        "scripts/verify_all.py",
+        "src/ultimate_ai_agent/core/autonomy/policies.py",
+        "src/ultimate_ai_agent/core/autonomy/sessions.py",
+        "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/tools/runtime/invocation.py",
+        "tests/test_m63_autonomy_policy_engine_contracts.py",
+        "tests/test_m63_gate_integration.py",
+    }
+    source_roots = [
+        ROOT / "src" / "ultimate_ai_agent",
+        ROOT / "apps" / "control-center" / "src",
+        ROOT / "apps" / "ccc-ios",
+    ]
+    for root in source_roots:
+        if not root.exists():
+            continue
+        for path in root.rglob("*"):
+            if not path.is_file() or path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}:
+                continue
+            rel = path.relative_to(ROOT).as_posix()
+            if rel in allowed_files:
+                continue
+            text = path.read_text(encoding="utf-8")
+            for fragment in forbidden_source_fragments:
+                if fragment in text:
+                    print(f"FAIL: M63 forbidden autonomy policy fragment in {rel}: {fragment}")
+                    sys.exit(1)
+
+    print("OK: M63 autonomy policy engine is contract-only, route-free, no-policy-activation, and no-authority")
 
 
 def verify_local_developer_launcher_safety():
