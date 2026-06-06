@@ -1134,6 +1134,13 @@ M83_FORBIDDEN_BACKEND_ROUTES = M82_FORBIDDEN_BACKEND_ROUTES + (
     "/shell/dry-run/classify",
     "/shell/dry-run/execute",
 )
+EXPECTED_M84_OPENAPI_PATH_COUNT = 75
+M84_FORBIDDEN_BACKEND_ROUTES = M83_FORBIDDEN_BACKEND_ROUTES + (
+    "/sandbox/echo",
+    "/sandbox/noop",
+    "/sandbox/commands/run",
+    "/sandbox/commands/execute",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -2083,6 +2090,21 @@ def m83_openapi_route_failures(
     return failures
 
 
+def m84_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M84_OPENAPI_PATH_COUNT
+) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(
+            f"OpenAPI path count changed for M84: expected {expected_path_count}, got {len(path_set)}"
+        )
+    for route in M84_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(f"M84 forbidden sandboxed command/backend route present: {route}")
+    return failures
+
+
 M36_SAFE_REF_PREFIXES = {
     "reviewPacketRef": "file-review-packet:",
     "previewResultRef": "redacted-file-preview-output:",
@@ -2779,6 +2801,16 @@ class FoundationGateEvaluator:
                 self.check_m83_shell_dry_run_classifier_route_boundary
             ),
             "m83_roadmap_currentness": self.check_m83_roadmap_currentness,
+            "m84_sandboxed_echo_noop_command_contract": (
+                self.check_m84_sandboxed_echo_noop_command_contract
+            ),
+            "m84_sandboxed_echo_noop_static_safety": (
+                self.check_m84_sandboxed_echo_noop_static_safety
+            ),
+            "m84_sandboxed_echo_noop_route_boundary": (
+                self.check_m84_sandboxed_echo_noop_route_boundary
+            ),
+            "m84_roadmap_currentness": self.check_m84_roadmap_currentness,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -22886,6 +22918,334 @@ class FoundationGateEvaluator:
         ):
             if fragment in text:
                 failures.append(f"M83 docs imply forbidden/future capability: {fragment}")
+        return self._result(criterion, failures, required_docs)
+
+    def check_m84_sandboxed_echo_noop_command_contract(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/sandbox/__init__.py",
+            "src/ultimate_ai_agent/core/sandbox/sandboxed_echo_noop_command.py",
+            "docs/sandbox/SANDBOXED_ECHO_NOOP_COMMAND.md",
+            "docs/sandbox/SANDBOXED_ECHO_NOOP_COMMAND_POLICY.md",
+            "docs/sandbox/SANDBOXED_ECHO_NOOP_COMMAND_AUTHORITY_BOUNDARY.md",
+            "docs/sandbox/SANDBOXED_ECHO_NOOP_COMMAND_RECEIPT_PLAN.md",
+            "docs/sandbox/SANDBOXED_ECHO_NOOP_COMMAND_NON_GOALS.md",
+            "docs/sandbox/M84_TO_M85_BOUNDARY.md",
+            "docs/release_notes/v0_88_0.md",
+            "docs/archive/releases/v0_88_0/README_IMPORT.md",
+            "docs/archive/releases/v0_88_0/master_plan.md",
+            "docs/implementation/foundation_gate_implementation_plan_v0_88_0.md",
+            "tests/test_m84_sandboxed_echo_noop_command.py",
+            "tests/test_m84_gate_integration.py",
+        ]
+        failures = [
+            f"missing M84 sandboxed echo/no-op command file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            from ultimate_ai_agent.core.sandbox import (
+                CommandProposalRequest,
+                SandboxedEchoNoOpCommandRequest,
+                SandboxedEchoNoOpCommandStatus,
+                ShellDryRunClass,
+                ShellDryRunClassifierRequest,
+                build_command_proposal,
+                build_sandboxed_echo_noop_command,
+                build_shell_dry_run_classification,
+            )
+
+            proposal = build_command_proposal(
+                CommandProposalRequest(
+                    request_ref="command-proposal-request:gate-m84",
+                    proposal_ref="command-proposal:gate-m84",
+                    sandbox_spec_ref="runtime-sandbox-spec:m81",
+                    baseline_ref="baseline:v0.87.0",
+                    actor_ref="actor:gate-m84",
+                    prior_milestone_refs=[
+                        "milestone:M57",
+                        "milestone:M58",
+                        "milestone:M80",
+                        "milestone:M81",
+                    ],
+                    command_ref="command-ref:gate-noop",
+                    safe_purpose="Gate verifies a no-effect command proposal for sandboxed echo/no-op.",
+                    safe_command_label="gate noop metadata",
+                    argv_preview=["gate-noop", "--dry-summary"],
+                )
+            )
+            classification = build_shell_dry_run_classification(
+                ShellDryRunClassifierRequest(
+                    request_ref="shell-dry-run-classifier-request:gate-m84",
+                    classifier_ref="shell-dry-run-classifier:gate-m84",
+                    command_proposal_ref=proposal.proposal_ref,
+                    sandbox_spec_ref=proposal.sandbox_spec_ref,
+                    baseline_ref="baseline:v0.87.0",
+                    actor_ref=proposal.actor_ref,
+                    prior_milestone_refs=[
+                        "milestone:M57",
+                        "milestone:M58",
+                        "milestone:M80",
+                        "milestone:M81",
+                        "milestone:M82",
+                    ],
+                    command_proposal=proposal,
+                )
+            )
+            request = SandboxedEchoNoOpCommandRequest(
+                request_ref="sandboxed-echo-noop-command-request:gate-m84",
+                sandboxed_command_ref="sandboxed-echo-noop-command:gate-m84",
+                shell_dry_run_classifier_ref=classification.classifier_ref,
+                shell_dry_run_decision_ref=classification.decision_ref,
+                command_proposal_ref=classification.command_proposal_ref,
+                sandbox_spec_ref=classification.sandbox_spec_ref,
+                baseline_ref="baseline:v0.87.0",
+                actor_ref=classification.actor_ref,
+                prior_milestone_refs=[
+                    "milestone:M57",
+                    "milestone:M58",
+                    "milestone:M80",
+                    "milestone:M81",
+                    "milestone:M82",
+                    "milestone:M83",
+                ],
+                safe_echo_text="Gate verifies M84 safe in-process echo/no-op text.",
+                shell_dry_run_classification=classification,
+            )
+            decision = build_sandboxed_echo_noop_command(request)
+            if (
+                decision.status != SandboxedEchoNoOpCommandStatus.completed_for_review
+                or decision.classification != ShellDryRunClass.no_effect_review
+                or not decision.sandboxed_echo_noop_allowed
+                or not decision.in_process_only
+                or not decision.deterministic
+                or not decision.local_only
+                or decision.command_execution_performed
+                or decision.subprocess_execution_performed
+                or decision.shell_execution_performed
+                or decision.process_spawn_performed
+                or decision.filesystem_mutation_performed
+                or decision.network_access_performed
+                or decision.tool_execution_performed
+                or decision.browser_automation_performed
+                or decision.plugin_execution_performed
+                or decision.remote_execution_performed
+                or decision.model_call_performed
+                or decision.memory_write_performed
+                or decision.context_injection_performed
+                or decision.background_worker_started
+                or decision.backend_route_added
+                or decision.control_center_control_added
+                or decision.dependency_added
+                or decision.production_authority_granted
+                or decision.side_effects_performed
+                or not decision.receipt_plan.store_safe_summary_only
+                or decision.receipt_plan.store_raw_command
+                or decision.receipt_plan.store_shell_string
+                or decision.receipt_plan.store_raw_output
+                or "M84_SANDBOXED_ECHO_NOOP_COMMAND_ONLY" not in decision.reason_codes
+                or "M84_IN_PROCESS_ONLY" not in decision.reason_codes
+                or "M84_NO_SHELL_OR_SUBPROCESS_EXECUTION" not in decision.reason_codes
+                or "M85_REMAINS_FUTURE" not in decision.reason_codes
+            ):
+                failures.append("M84 sandboxed echo/no-op decision is unsafe or over-authoritative")
+            for update, reason in [
+                ({"command_execution_requested": True}, "COMMAND_EXECUTION_DENIED"),
+                ({"shell_execution_requested": True}, "SHELL_EXECUTION_DENIED"),
+                ({"subprocess_execution_requested": True}, "SUBPROCESS_EXECUTION_DENIED"),
+                ({"process_spawn_requested": True}, "PROCESS_SPAWN_DENIED"),
+                ({"contains_shell_string": True}, "M84_SHELL_STRING_DENIED"),
+                ({"contains_secret": True}, "SECRET_LIKE_SANDBOXED_ECHO_NOOP_CONTENT_DENIED"),
+            ]:
+                try:
+                    build_sandboxed_echo_noop_command(request.model_copy(update=update))
+                    failures.append(f"M84 unsafe sandboxed echo/no-op request was not denied with {reason}")
+                except ValueError as exc:
+                    if reason not in str(exc):
+                        failures.append(
+                            f"M84 unsafe sandboxed echo/no-op request raised {exc!s}, expected {reason}"
+                        )
+        except Exception as exc:
+            failures.append(f"M84 sandboxed echo/no-op validation failed: {exc}")
+
+        docs_text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_files
+            if path.startswith("docs/") and (self.root / path).exists()
+        )
+        for fragment in [
+            "sandboxed echo/no-op command",
+            "in-process only",
+            "deterministic",
+            "local-only",
+            "m83 shell dry-run classifier",
+            "no shell string",
+            "no raw command",
+            "no raw output",
+            "no command execution",
+            "no subprocess execution",
+            "no shell execution",
+            "no process spawn",
+            "no filesystem mutation",
+            "no network access",
+            "no tool execution",
+            "no browser automation",
+            "no plugin execution",
+            "no remote execution",
+            "no model call",
+            "no memory write",
+            "no context injection",
+            "no background worker",
+            "no backend route",
+            "no control center control",
+            "no dependency",
+            "no production authority",
+            "safe summary only",
+            "evaluator boundaries revalidate",
+            "m85 remains future",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M84 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m84_sandboxed_echo_noop_static_safety(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        forbidden_source_fragments = [
+            "command_execution_enabled=True",
+            "command_execution_requested=True",
+            "subprocess_execution_enabled=True",
+            "subprocess_execution_requested=True",
+            "shell_execution_enabled=True",
+            "shell_execution_requested=True",
+            "process_spawn_enabled=True",
+            "process_spawn_requested=True",
+            "filesystem_mutation_enabled=True",
+            "network_access_enabled=True",
+            "tool_execution_enabled=True",
+            "browser_automation_enabled=True",
+            "plugin_execution_enabled=True",
+            "remote_execution_enabled=True",
+            "model_call_enabled=True",
+            "memory_write_enabled=True",
+            "context_injection_enabled=True",
+            "background_worker_enabled=True",
+            "backend_route_enabled=True",
+            "control_center_control_enabled=True",
+            "dependency_change_enabled=True",
+            "production_authority_enabled=True",
+            "command_execution_performed=True",
+            "subprocess_execution_performed=True",
+            "shell_execution_performed=True",
+            "process_spawn_performed=True",
+            "filesystem_mutation_performed=True",
+            "network_access_performed=True",
+            "tool_execution_performed=True",
+            "browser_automation_performed=True",
+            "plugin_execution_performed=True",
+            "remote_execution_performed=True",
+            "model_call_performed=True",
+            "memory_write_performed=True",
+            "context_injection_performed=True",
+            "background_worker_started=True",
+            "production_authority_granted=True",
+            "store_raw_command=True",
+            "store_shell_string=True",
+            "store_raw_output=True",
+        ]
+        allowed_files = {
+            "scripts/verify_all.py",
+            "src/ultimate_ai_agent/core/sandbox/__init__.py",
+            "src/ultimate_ai_agent/core/sandbox/command_proposal.py",
+            "src/ultimate_ai_agent/core/sandbox/runtime_spec.py",
+            "src/ultimate_ai_agent/core/sandbox/shell_dry_run_classifier.py",
+            "src/ultimate_ai_agent/core/sandbox/sandboxed_echo_noop_command.py",
+            "src/ultimate_ai_agent/core/gate/evaluators.py",
+            "src/ultimate_ai_agent/api/openapi.py",
+        }
+        for root in [
+            self.root / "src" / "ultimate_ai_agent",
+            self.root / "apps" / "control-center" / "src",
+            self.root / "apps" / "ccc-ios",
+        ]:
+            if not root.exists():
+                continue
+            candidate_files = []
+            for pattern in ("*.py", "*.ts", "*.tsx", "*.js", "*.jsx", "*.swift", "*.yml", "*.yaml"):
+                candidate_files.extend(root.rglob(pattern))
+            for path in sorted(candidate_files):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(self.root).as_posix()
+                if ".test." in rel:
+                    continue
+                if rel in allowed_files:
+                    continue
+                text = path.read_text(encoding="utf-8")
+                for fragment in forbidden_source_fragments:
+                    if fragment in text:
+                        failures.append(f"M84 forbidden sandboxed echo/no-op fragment in {rel}: {fragment}")
+        return self._result(criterion, failures, [])
+
+    def check_m84_sandboxed_echo_noop_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m84_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M84 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m84_roadmap_currentness(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        required_docs = [
+            "README.md",
+            "VERSION.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/roadmap/M61_M100_ROADMAP.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+            "docs/roadmap/MILESTONE_CHARTERS.md",
+        ]
+        failures = [
+            f"missing M84 roadmap doc: {path}"
+            for path in required_docs
+            if not (self.root / path).exists()
+        ]
+        text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_docs
+            if (self.root / path).exists()
+        )
+        if "v0.88.0" not in text or "m84" not in text or "sandboxed echo/no-op command" not in text:
+            failures.append("active docs do not identify v0.88.0/M84 Sandboxed Echo/No-Op Command")
+        if "m84 is implemented/released" not in text and "v0.88.0 implements m84" not in text:
+            failures.append("active docs do not mark M84 implemented/released")
+        for version_label, milestone, title in [
+            ("v0.89.0", "M85", "Read-Only Command Allowlist"),
+            ("v0.90.0", "M86", "Shell Approval Gate v1"),
+            ("v0.94.0", "M90", "Shell/Subprocess Hardening Freeze"),
+            ("v0.95.0", "M91", "Autonomous Tool Execution Contract"),
+            ("v1.4.0", "M100", "Mobile Permission Model v1"),
+        ]:
+            if version_label.lower() not in text or milestone.lower() not in text or title.lower() not in text:
+                failures.append(f"active docs missing planned M85-M100 row: {version_label} / {milestone} — {title}")
+        for fragment in (
+            "subprocess execution is implemented",
+            "shell execution is implemented",
+            "process spawn is implemented",
+            "filesystem mutation is implemented",
+            "network access is implemented",
+            "browser click is implemented",
+            "plugin execution is implemented",
+            "production authority is implemented",
+            "broad autonomy is implemented",
+        ):
+            if fragment in text:
+                failures.append(f"M84 docs imply forbidden/future capability: {fragment}")
         return self._result(criterion, failures, required_docs)
 
     def check_v0292_local_dev_api_authority_and_preview_safe(

@@ -1,6 +1,6 @@
 # Post-M20 Capability Layer Roadmap
 
-Status: Active roadmap projection maintained through v0.87.0.
+Status: Active roadmap projection maintained through v0.88.0.
 
 v0.38.0 implements M34 Broader File Capability Review as planning,
 architecture review, documentation, verifier, and Foundation Gate work only.
@@ -120,13 +120,14 @@ The detailed post-M33 supersession source of truth is
 | v0.85.0 | M81 | Runtime Sandbox Spec | implemented/released spec-only |
 | v0.86.0 | M82 | Command Proposal Contracts | implemented/released proposal-only |
 | v0.87.0 | M83 | Shell Dry-Run Classifier | implemented/released classifier-only |
+| v0.88.0 | M84 | Sandboxed Echo/No-Op Command | implemented/released in-process only |
 
 ## Prompt-Pack Strategy
 
-Recommended next prompt after v0.87.0:
+Recommended next prompt after v0.88.0:
 
 ```text
-Start v0.88.0 / M84 - Sandboxed Echo/No-Op Command only after v0.87.0 / M83 is accepted Green.
+Start v0.89.0 / M85 - Read-Only Command Allowlist only after v0.88.0 / M84 is accepted Green.
 ```
 
 M61 is implemented/released by v0.65.0 as Autonomy Mode Charter + Authority
@@ -152,7 +153,8 @@ M80 is implemented/released by v0.84.0 as Network/Browser/OpenWebUI Hardening
 Freeze and currentness-repaired by v0.84.1. M81 is implemented/released by
 v0.85.0 as Runtime Sandbox Spec, and M82 is implemented/released by v0.86.0 as
 Command Proposal Contracts. M83 is implemented/released by v0.87.0 as Shell
-Dry-Run Classifier. M84-M100 remain planned/provisional.
+Dry-Run Classifier. M84 is implemented/released by v0.88.0 as Sandboxed
+Echo/No-Op Command. M85-M100 remain planned/provisional.
 
 Extra-hard reviews are required for M37, M38, M40, M47, M48, M49, M51, M52,
 M57, M58, and M59. Mandatory hardening is expected by default for M35-M40, M43-M50,

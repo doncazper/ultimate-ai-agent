@@ -12,23 +12,23 @@ allowed to become operational authority.
 
 | Field | Current state |
 |---|---|
-| Current active baseline | **v0.87.0** |
-| Current milestone | **M83 - Shell Dry-Run Classifier** |
+| Current active baseline | **v0.88.0** |
+| Current milestone | **M84 - Sandboxed Echo/No-Op Command** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **75** OpenAPI paths |
 | Production readiness | Not claimed |
 
-v0.87.0 implements M83 Shell Dry-Run Classifier. It adds classifier-only,
-review-only, deterministic, local-only shell dry-run classification contracts
-over M82 command proposals, safe summary only receipt plans, evaluator
-revalidation, documentation-integrity checks, static verification, tests, and
-Foundation Gate coverage. It adds no dry-run execution, shell string, command
-execution, subprocess execution, shell execution, process spawn, filesystem
-mutation, network access, tool execution, browser automation, plugin execution,
-remote execution, model call, memory write, context injection, background
-worker, backend routes, Control Center controls, dependency, M84 work, or
-production authority.
+v0.88.0 implements M84 Sandboxed Echo/No-Op Command. It adds in-process only,
+deterministic, local-only sandboxed echo/no-op command contracts over M83
+no-effect shell dry-run classifier decisions, safe summary only receipt plans,
+evaluator revalidation, documentation-integrity checks, static verification,
+tests, and Foundation Gate coverage. It adds no shell string, raw command, raw
+output, command execution, subprocess execution, shell execution, process spawn,
+filesystem mutation, network access, tool execution, browser automation, plugin
+execution, remote execution, model call, memory write, context injection,
+background worker, backend routes, Control Center controls, dependency, M85
+work, or production authority.
 
 v0.29.5 is documentation policy polish. It remains the documentation
 organization cleanup baseline before the M26 and M27 implementation releases.
@@ -91,6 +91,9 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M81 Runtime Sandbox Spec Contracts](docs/sandbox/RUNTIME_SANDBOX_SPEC_CONTRACTS.md)
 - [M81 Runtime Sandbox Spec Authority Boundary](docs/sandbox/RUNTIME_SANDBOX_SPEC_AUTHORITY_BOUNDARY.md)
 - [M81 Runtime Sandbox Spec Non-Goals](docs/sandbox/RUNTIME_SANDBOX_SPEC_NON_GOALS.md)
+- [M82 Command Proposal Contracts](docs/sandbox/COMMAND_PROPOSAL_CONTRACTS.md)
+- [M83 Shell Dry-Run Classifier](docs/sandbox/SHELL_DRY_RUN_CLASSIFIER.md)
+- [M84 Sandboxed Echo/No-Op Command](docs/sandbox/SANDBOXED_ECHO_NOOP_COMMAND.md)
 - [M34 Broader File Capability Review](docs/files/BROADER_FILE_CAPABILITY_REVIEW.md)
 - [File capability boundary matrix](docs/files/FILE_CAPABILITY_BOUNDARY_MATRIX.md)
 - [File capability risk register](docs/files/FILE_CAPABILITY_RISK_REGISTER.md)
@@ -226,8 +229,8 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [v0.85.0 master plan](docs/archive/releases/v0_85_0/master_plan.md)
 - [v0.86.0 release packet](docs/archive/releases/v0_86_0/README_IMPORT.md)
 - [v0.86.0 master plan](docs/archive/releases/v0_86_0/master_plan.md)
-- [v0.87.0 release packet](docs/archive/releases/v0_87_0/README_IMPORT.md)
-- [v0.87.0 master plan](docs/archive/releases/v0_87_0/master_plan.md)
+- [v0.88.0 release packet](docs/archive/releases/v0_88_0/README_IMPORT.md)
+- [v0.88.0 master plan](docs/archive/releases/v0_88_0/master_plan.md)
 
 ## What This Project Is
 

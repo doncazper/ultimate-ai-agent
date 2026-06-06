@@ -161,6 +161,15 @@ classifier contracts are core validation objects only. They do not expose
 `/remote/execute`, `/memory/write`, `/context/inject`, `/tools/execute`, or any
 production authority route. OpenAPI path count remains `75`.
 
+v0.88.0 M84 Sandboxed Echo/No-Op Command adds no backend route. Sandboxed
+echo/no-op command contracts are core validation objects only. They do not
+expose `/sandbox/echo`, `/sandbox/noop`, `/sandbox/commands/run`,
+`/sandbox/commands/execute`, `/commands/execute`, `/shell/execute`,
+`/process/spawn`, `/filesystem/write`, `/network/fetch/unrestricted`,
+`/browser/click`, `/plugins/execute`, `/remote/execute`, `/memory/write`,
+`/context/inject`, `/tools/execute`, or any production authority route.
+OpenAPI path count remains `75`.
+
 v0.43.0 M39 CCC Context Proposal Surface adds no backend route. It adds the
 frontend-only `/context/proposals` Control Center surface for safe context
 proposal display. It does not expose context handoff, context injection,

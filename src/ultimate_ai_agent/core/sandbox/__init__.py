@@ -42,6 +42,17 @@ from ultimate_ai_agent.core.sandbox.shell_dry_run_classifier import (
     validate_shell_dry_run_classifier_policy,
     validate_shell_dry_run_classifier_request,
 )
+from ultimate_ai_agent.core.sandbox.sandboxed_echo_noop_command import (
+    SandboxedEchoNoOpCommandDecision,
+    SandboxedEchoNoOpCommandPolicy,
+    SandboxedEchoNoOpCommandReceiptPlan,
+    SandboxedEchoNoOpCommandRequest,
+    SandboxedEchoNoOpCommandStatus,
+    build_sandboxed_echo_noop_command,
+    validate_sandboxed_echo_noop_command_decision,
+    validate_sandboxed_echo_noop_command_policy,
+    validate_sandboxed_echo_noop_command_request,
+)
 
 __all__ = [
     "RuntimeSandboxArchitectureDecision",
@@ -65,10 +76,16 @@ __all__ = [
     "ShellDryRunClassifierPolicy",
     "ShellDryRunClassifierReceiptPlan",
     "ShellDryRunClassifierRequest",
+    "SandboxedEchoNoOpCommandDecision",
+    "SandboxedEchoNoOpCommandPolicy",
+    "SandboxedEchoNoOpCommandReceiptPlan",
+    "SandboxedEchoNoOpCommandRequest",
+    "SandboxedEchoNoOpCommandStatus",
     "build_runtime_sandbox_architecture_review",
     "build_command_proposal",
     "build_runtime_sandbox_spec",
     "build_shell_dry_run_classification",
+    "build_sandboxed_echo_noop_command",
     "validate_command_proposal_decision",
     "validate_command_proposal_policy",
     "validate_command_proposal_request",
@@ -80,4 +97,7 @@ __all__ = [
     "validate_shell_dry_run_classifier_decision",
     "validate_shell_dry_run_classifier_policy",
     "validate_shell_dry_run_classifier_request",
+    "validate_sandboxed_echo_noop_command_decision",
+    "validate_sandboxed_echo_noop_command_policy",
+    "validate_sandboxed_echo_noop_command_request",
 ]

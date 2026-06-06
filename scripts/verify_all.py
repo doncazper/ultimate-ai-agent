@@ -117,6 +117,7 @@ SCAN_SEQUENCE = [
     ("M81 runtime sandbox spec scan", "verify_m81_runtime_sandbox_spec"),
     ("M82 command proposal contract scan", "verify_m82_command_proposal_contracts"),
     ("M83 shell dry-run classifier scan", "verify_m83_shell_dry_run_classifier"),
+    ("M84 sandboxed echo/no-op command scan", "verify_m84_sandboxed_echo_noop_command"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -13606,6 +13607,255 @@ def verify_m83_shell_dry_run_classifier():
             sys.exit(1)
 
     print("OK: M83 shell dry-run classifier is classifier-only, route-free, and no-authority")
+
+
+def verify_m84_sandboxed_echo_noop_command():
+    print("\n[Verifier] Running M84 sandboxed echo/no-op command guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/sandbox/__init__.py",
+        "src/ultimate_ai_agent/core/sandbox/sandboxed_echo_noop_command.py",
+        "docs/sandbox/SANDBOXED_ECHO_NOOP_COMMAND.md",
+        "docs/sandbox/SANDBOXED_ECHO_NOOP_COMMAND_POLICY.md",
+        "docs/sandbox/SANDBOXED_ECHO_NOOP_COMMAND_AUTHORITY_BOUNDARY.md",
+        "docs/sandbox/SANDBOXED_ECHO_NOOP_COMMAND_RECEIPT_PLAN.md",
+        "docs/sandbox/SANDBOXED_ECHO_NOOP_COMMAND_NON_GOALS.md",
+        "docs/sandbox/M84_TO_M85_BOUNDARY.md",
+        "docs/release_notes/v0_88_0.md",
+        "docs/archive/releases/v0_88_0/README_IMPORT.md",
+        "docs/archive/releases/v0_88_0/master_plan.md",
+        "docs/implementation/foundation_gate_implementation_plan_v0_88_0.md",
+        "tests/test_m84_sandboxed_echo_noop_command.py",
+        "tests/test_m84_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M84 sandboxed echo/no-op file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = "\n".join(
+        (ROOT / rel_path).read_text(encoding="utf-8").lower()
+        for rel_path in required_files
+        if rel_path.startswith("docs/")
+    )
+    for fragment in [
+        "sandboxed echo/no-op command",
+        "in-process only",
+        "deterministic",
+        "local-only",
+        "m83 shell dry-run classifier",
+        "no shell string",
+        "no raw command",
+        "no raw output",
+        "no command execution",
+        "no subprocess execution",
+        "no shell execution",
+        "no process spawn",
+        "no filesystem mutation",
+        "no network access",
+        "no tool execution",
+        "no browser automation",
+        "no plugin execution",
+        "no remote execution",
+        "no model call",
+        "no memory write",
+        "no context injection",
+        "no background worker",
+        "no backend route",
+        "no control center control",
+        "no dependency",
+        "no production authority",
+        "safe summary only",
+        "evaluator boundaries revalidate",
+        "m85 remains future",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M84 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.evaluators import m84_openapi_route_failures
+        from ultimate_ai_agent.core.sandbox import (
+            CommandProposalRequest,
+            SandboxedEchoNoOpCommandRequest,
+            SandboxedEchoNoOpCommandStatus,
+            ShellDryRunClass,
+            ShellDryRunClassifierRequest,
+            build_command_proposal,
+            build_sandboxed_echo_noop_command,
+            build_shell_dry_run_classification,
+        )
+    except Exception as exc:
+        print(f"FAIL: M84 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m84_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    proposal = build_command_proposal(
+        CommandProposalRequest(
+            request_ref="command-proposal-request:verify-all-m84",
+            proposal_ref="command-proposal:verify-all-m84",
+            sandbox_spec_ref="runtime-sandbox-spec:m81",
+            baseline_ref="baseline:v0.87.0",
+            actor_ref="actor:verify-all-m84",
+            prior_milestone_refs=["milestone:M57", "milestone:M58", "milestone:M80", "milestone:M81"],
+            command_ref="command-ref:verify-noop",
+            safe_purpose="Verify-all no-effect command proposal for sandboxed echo/no-op.",
+            safe_command_label="verify noop metadata",
+            argv_preview=["verify-noop", "--dry-summary"],
+        )
+    )
+    classification = build_shell_dry_run_classification(
+        ShellDryRunClassifierRequest(
+            request_ref="shell-dry-run-classifier-request:verify-all-m84",
+            classifier_ref="shell-dry-run-classifier:verify-all-m84",
+            command_proposal_ref=proposal.proposal_ref,
+            sandbox_spec_ref=proposal.sandbox_spec_ref,
+            baseline_ref="baseline:v0.87.0",
+            actor_ref=proposal.actor_ref,
+            prior_milestone_refs=[
+                "milestone:M57",
+                "milestone:M58",
+                "milestone:M80",
+                "milestone:M81",
+                "milestone:M82",
+            ],
+            command_proposal=proposal,
+        )
+    )
+    request = SandboxedEchoNoOpCommandRequest(
+        request_ref="sandboxed-echo-noop-command-request:verify-all-m84",
+        sandboxed_command_ref="sandboxed-echo-noop-command:verify-all-m84",
+        shell_dry_run_classifier_ref=classification.classifier_ref,
+        shell_dry_run_decision_ref=classification.decision_ref,
+        command_proposal_ref=classification.command_proposal_ref,
+        sandbox_spec_ref=classification.sandbox_spec_ref,
+        baseline_ref="baseline:v0.87.0",
+        actor_ref=classification.actor_ref,
+        prior_milestone_refs=[
+            "milestone:M57",
+            "milestone:M58",
+            "milestone:M80",
+            "milestone:M81",
+            "milestone:M82",
+            "milestone:M83",
+        ],
+        safe_echo_text="Verify-all M84 safe in-process echo/no-op text.",
+        shell_dry_run_classification=classification,
+    )
+    decision = build_sandboxed_echo_noop_command(request)
+    if (
+        decision.status != SandboxedEchoNoOpCommandStatus.completed_for_review
+        or decision.classification != ShellDryRunClass.no_effect_review
+        or not decision.sandboxed_echo_noop_allowed
+        or not decision.in_process_only
+        or not decision.deterministic
+        or not decision.local_only
+        or decision.command_execution_performed
+        or decision.subprocess_execution_performed
+        or decision.shell_execution_performed
+        or decision.process_spawn_performed
+        or decision.filesystem_mutation_performed
+        or decision.network_access_performed
+        or decision.tool_execution_performed
+        or decision.browser_automation_performed
+        or decision.plugin_execution_performed
+        or decision.remote_execution_performed
+        or decision.model_call_performed
+        or decision.memory_write_performed
+        or decision.context_injection_performed
+        or decision.background_worker_started
+        or decision.backend_route_added
+        or decision.control_center_control_added
+        or decision.dependency_added
+        or decision.production_authority_granted
+        or decision.side_effects_performed
+        or decision.receipt_plan.store_raw_command
+        or decision.receipt_plan.store_shell_string
+        or decision.receipt_plan.store_raw_output
+        or "M84_SANDBOXED_ECHO_NOOP_COMMAND_ONLY" not in decision.reason_codes
+        or "M84_IN_PROCESS_ONLY" not in decision.reason_codes
+        or "M84_NO_SHELL_OR_SUBPROCESS_EXECUTION" not in decision.reason_codes
+        or "M85_REMAINS_FUTURE" not in decision.reason_codes
+    ):
+        print("FAIL: M84 sandboxed echo/no-op decision is unsafe or over-authoritative")
+        sys.exit(1)
+
+    for update, reason in [
+        ({"command_execution_requested": True}, "COMMAND_EXECUTION_DENIED"),
+        ({"shell_execution_requested": True}, "SHELL_EXECUTION_DENIED"),
+        ({"subprocess_execution_requested": True}, "SUBPROCESS_EXECUTION_DENIED"),
+        ({"process_spawn_requested": True}, "PROCESS_SPAWN_DENIED"),
+        ({"contains_shell_string": True}, "M84_SHELL_STRING_DENIED"),
+        ({"contains_secret": True}, "SECRET_LIKE_SANDBOXED_ECHO_NOOP_CONTENT_DENIED"),
+    ]:
+        try:
+            build_sandboxed_echo_noop_command(request.model_copy(update=update))
+            print(f"FAIL: M84 unsafe sandboxed echo/no-op request was not denied with {reason}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M84 unsafe sandboxed echo/no-op raised {exc!s}, expected {reason}")
+                sys.exit(1)
+
+    allowed_scan_files = {
+        "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/sandbox/__init__.py",
+        "src/ultimate_ai_agent/core/sandbox/command_proposal.py",
+        "src/ultimate_ai_agent/core/sandbox/runtime_spec.py",
+        "src/ultimate_ai_agent/core/sandbox/shell_dry_run_classifier.py",
+        "src/ultimate_ai_agent/core/sandbox/sandboxed_echo_noop_command.py",
+    }
+    source_text = "\n".join(
+        path.read_text(encoding="utf-8")
+        for root in [ROOT / "src" / "ultimate_ai_agent", ROOT / "apps" / "control-center" / "src"]
+        if root.exists()
+        for path in root.rglob("*")
+        if path.is_file()
+        and path.suffix in {".py", ".ts", ".tsx", ".js", ".jsx"}
+        and path.relative_to(ROOT).as_posix() not in allowed_scan_files
+    )
+    for fragment in [
+        "command_execution_enabled=True",
+        "command_execution_requested=True",
+        "subprocess_execution_enabled=True",
+        "subprocess_execution_requested=True",
+        "shell_execution_enabled=True",
+        "shell_execution_requested=True",
+        "process_spawn_enabled=True",
+        "process_spawn_requested=True",
+        "filesystem_mutation_enabled=True",
+        "network_access_enabled=True",
+        "tool_execution_enabled=True",
+        "browser_automation_enabled=True",
+        "plugin_execution_enabled=True",
+        "remote_execution_enabled=True",
+        "model_call_enabled=True",
+        "memory_write_enabled=True",
+        "context_injection_enabled=True",
+        "background_worker_enabled=True",
+        "backend_route_enabled=True",
+        "control_center_control_enabled=True",
+        "dependency_change_enabled=True",
+        "production_authority_enabled=True",
+        "command_execution_performed=True",
+        "subprocess_execution_performed=True",
+        "shell_execution_performed=True",
+        "process_spawn_performed=True",
+        "production_authority_granted=True",
+        "store_raw_command=True",
+        "store_shell_string=True",
+        "store_raw_output=True",
+    ]:
+        if fragment in source_text:
+            print(f"FAIL: M84 forbidden source fragment present: {fragment}")
+            sys.exit(1)
+
+    print("OK: M84 sandboxed echo/no-op command is in-process, route-free, and no-authority")
 
 
 def verify_local_developer_launcher_safety():

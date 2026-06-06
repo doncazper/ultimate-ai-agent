@@ -646,6 +646,20 @@ REQUIRED_M83_SHELL_DRY_RUN_CLASSIFIER_DOCS = [
     "docs/implementation/foundation_gate_implementation_plan_v0_87_0.md",
 ]
 
+REQUIRED_M84_SANDBOXED_ECHO_NOOP_DOCS = [
+    "docs/sandbox/SANDBOXED_ECHO_NOOP_COMMAND.md",
+    "docs/sandbox/SANDBOXED_ECHO_NOOP_COMMAND_POLICY.md",
+    "docs/sandbox/SANDBOXED_ECHO_NOOP_COMMAND_AUTHORITY_BOUNDARY.md",
+    "docs/sandbox/SANDBOXED_ECHO_NOOP_COMMAND_RECEIPT_PLAN.md",
+    "docs/sandbox/SANDBOXED_ECHO_NOOP_COMMAND_NON_GOALS.md",
+    "docs/sandbox/M84_TO_M85_BOUNDARY.md",
+    "docs/roadmap/M61_M100_ROADMAP.md",
+    "docs/release_notes/v0_88_0.md",
+    "docs/archive/releases/v0_88_0/README_IMPORT.md",
+    "docs/archive/releases/v0_88_0/master_plan.md",
+    "docs/implementation/foundation_gate_implementation_plan_v0_88_0.md",
+]
+
 
 REQUIRED_ACTIVE_DOCS = [
     "docs/README.md",
@@ -1189,6 +1203,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_m81_runtime_sandbox_spec_docs(root, version))
     failures.extend(_verify_m82_command_proposal_docs(root, version))
     failures.extend(_verify_m83_shell_dry_run_classifier_docs(root, version))
+    failures.extend(_verify_m84_sandboxed_echo_noop_docs(root, version))
     failures.extend(_verify_m19_roadmap_currentness(root, version))
     failures.extend(_verify_post_m18_roadmap_status_labels(root))
 
@@ -5196,6 +5211,85 @@ def _verify_m83_shell_dry_run_classifier_docs(root: Path, version: str | None) -
         "M83 docs must not claim browser click implementation": "browser click is implemented",
         "M83 docs must not claim plugin execution implementation": "plugin execution is implemented",
         "M83 docs must not claim production authority": "production authority is implemented",
+    }
+    for message, fragment in forbidden_fragments.items():
+        if fragment in text:
+            failures.append(f"{message}: {fragment}")
+    return failures
+
+
+def _verify_m84_sandboxed_echo_noop_docs(root: Path, version: str | None) -> list[str]:
+    failures: list[str] = []
+    if _version_tuple(version) < (0, 88, 0):
+        return failures
+
+    missing = [
+        rel_path
+        for rel_path in REQUIRED_M84_SANDBOXED_ECHO_NOOP_DOCS
+        if not (root / rel_path).exists()
+    ]
+    failures.extend(f"missing M84 sandboxed echo/no-op doc: {rel_path}" for rel_path in missing)
+    text = "\n".join(
+        _read(root / rel_path).lower()
+        for rel_path in REQUIRED_M84_SANDBOXED_ECHO_NOOP_DOCS
+        if (root / rel_path).exists()
+    )
+    required_fragments = {
+        "M84 docs must say sandboxed echo/no-op command": "sandboxed echo/no-op command",
+        "M84 docs must say in-process only": "in-process only",
+        "M84 docs must say deterministic": "deterministic",
+        "M84 docs must say local-only": "local-only",
+        "M84 docs must require M83 shell dry-run classifier": "m83 shell dry-run classifier",
+        "M84 docs must deny shell strings": "no shell string",
+        "M84 docs must deny raw commands": "no raw command",
+        "M84 docs must deny raw output": "no raw output",
+        "M84 docs must deny command execution": "no command execution",
+        "M84 docs must deny subprocess execution": "no subprocess execution",
+        "M84 docs must deny shell execution": "no shell execution",
+        "M84 docs must deny process spawn": "no process spawn",
+        "M84 docs must deny filesystem mutation": "no filesystem mutation",
+        "M84 docs must deny network access": "no network access",
+        "M84 docs must deny tool execution": "no tool execution",
+        "M84 docs must deny browser automation": "no browser automation",
+        "M84 docs must deny plugin execution": "no plugin execution",
+        "M84 docs must deny remote execution": "no remote execution",
+        "M84 docs must deny model call": "no model call",
+        "M84 docs must deny memory write": "no memory write",
+        "M84 docs must deny context injection": "no context injection",
+        "M84 docs must deny background worker": "no background worker",
+        "M84 docs must deny backend routes": "no backend route",
+        "M84 docs must deny Control Center controls": "no control center control",
+        "M84 docs must deny dependencies": "no dependency",
+        "M84 docs must deny production authority": "no production authority",
+        "M84 docs must say safe summary only": "safe summary only",
+        "M84 docs must say evaluator boundaries revalidate": "evaluator boundaries revalidate",
+        "M84 docs must keep M85 future": "m85 remains future",
+    }
+    for message, fragment in required_fragments.items():
+        if fragment not in text:
+            failures.append(message)
+
+    for version_label, milestone, title in [
+        ("v0.88.0", "m84", "sandboxed echo/no-op command"),
+        ("v0.89.0", "m85", "read-only command allowlist"),
+        ("v0.94.0", "m90", "shell/subprocess hardening freeze"),
+        ("v0.95.0", "m91", "autonomous tool execution contract"),
+        ("v1.4.0", "m100", "mobile permission model v1"),
+    ]:
+        if version_label not in text or milestone not in text or title not in text:
+            failures.append(
+                f"M84-M100 roadmap missing label: {version_label} / {milestone.upper()} - {title}"
+            )
+
+    forbidden_fragments = {
+        "M84 docs must not claim subprocess execution implementation": "subprocess execution is implemented",
+        "M84 docs must not claim shell execution implementation": "shell execution is implemented",
+        "M84 docs must not claim process spawn implementation": "process spawn is implemented",
+        "M84 docs must not claim filesystem mutation implementation": "filesystem mutation is implemented",
+        "M84 docs must not claim network access implementation": "network access is implemented",
+        "M84 docs must not claim browser click implementation": "browser click is implemented",
+        "M84 docs must not claim plugin execution implementation": "plugin execution is implemented",
+        "M84 docs must not claim production authority": "production authority is implemented",
     }
     for message, fragment in forbidden_fragments.items():
         if fragment in text:

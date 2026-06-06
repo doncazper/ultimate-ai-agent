@@ -1,6 +1,6 @@
 # M61-M100 Roadmap
 
-Status: Active roadmap maintained through M83 / v0.87.0.
+Status: Active roadmap maintained through M84 / v0.88.0.
 
 M61 is implemented/released by v0.65.0 as Autonomy Mode Charter + Authority
 Levels. M62 is implemented/released by v0.66.0 as Scoped Autonomy Session
@@ -25,7 +25,8 @@ Default. M80 is implemented/released by v0.84.0 as Network/Browser/OpenWebUI
 Hardening Freeze and currentness-repaired by v0.84.1. M81 is
 implemented/released by v0.85.0 as Runtime Sandbox Spec. M82 is
 implemented/released by v0.86.0 as Command Proposal Contracts. M83 is
-implemented/released by v0.87.0 as Shell Dry-Run Classifier. M84-M100 remain
+implemented/released by v0.87.0 as Shell Dry-Run Classifier. M84 is
+implemented/released by v0.88.0 as Sandboxed Echo/No-Op Command. M85-M100 remain
 planned/provisional. This roadmap adds no
 production authority, no global autonomy switch, no broad autonomy, no tool
 execution, no shell execution, no browser automation beyond the M74 injected
@@ -63,7 +64,7 @@ no dependency.
 | v0.85.0 | M81 | Runtime Sandbox Spec | Implemented/released |
 | v0.86.0 | M82 | Command Proposal Contracts | Implemented/released |
 | v0.87.0 | M83 | Shell Dry-Run Classifier | Implemented/released |
-| v0.88.0 | M84 | Sandboxed Echo/No-Op Command | Planned/provisional |
+| v0.88.0 | M84 | Sandboxed Echo/No-Op Command | Implemented/released |
 | v0.89.0 | M85 | Read-Only Command Allowlist | Planned/provisional |
 | v0.90.0 | M86 | Shell Approval Gate v1 | Planned/provisional |
 | v0.91.0 | M87 | Sandboxed Command Audit Replay | Planned/provisional |
@@ -109,6 +110,17 @@ mutation, no network access, no tool execution, no browser automation, no plugin
 execution, no remote execution, no model call, no memory write, no context
 injection, no background worker, no backend route, no Control Center control, no
 dependency, and no production authority.
+
+M84 is implemented/released as in-process only, deterministic, and local-only
+Sandboxed Echo/No-Op Command contracts over M83 no-effect shell dry-run
+classifier decisions. It validates exact M83 decision refs, command proposal
+refs, prior milestone refs, stable reason codes, and safe summary only receipt
+plans. It adds no shell string, no raw command, no raw output, no command
+execution, no subprocess execution, no shell execution, no process spawn, no
+filesystem mutation, no network access, no tool execution, no browser
+automation, no plugin execution, no remote execution, no model call, no memory
+write, no context injection, no background worker, no backend route, no Control
+Center control, no dependency, and no production authority.
 
 Production authority remains future beyond M100 unless a later reviewed roadmap
 promotion explicitly changes the boundary.

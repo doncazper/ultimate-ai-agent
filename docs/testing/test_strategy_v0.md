@@ -76,7 +76,7 @@ Already-validated M82 command proposal decisions, exact command proposal refs, p
 Dry-run execution, shell strings, command execution, subprocess execution, shell execution, process spawn, filesystem mutation, network access, tool execution, browser automation, plugin execution, remote execution, model call, memory write, context injection, background worker, backend route, Control Center control, dependency, and production authority flags are denied.
 Evaluator boundaries revalidate model-copy mutated unsafe fields and model-copy mutated M82 command proposal decisions.
 OpenAPI path count remains 75 and no shell dry-run classify, shell dry-run execute, command execution, shell, process, filesystem, network, browser, plugin, remote, memory, context, or tool execution routes are added.
-M84 remains future.
+M84 is implemented/released by v0.88.0 and M85 remains future.
 ```
 
 M82 adds contract, verifier, documentation-integrity, and Foundation Gate tests
@@ -88,7 +88,8 @@ Structured argv preview metadata, safe command labels, safe purpose summaries, a
 Shell strings, command execution, subprocess execution, shell execution, process spawn, filesystem mutation, network access, tool execution, browser automation, plugin execution, remote execution, model call, memory write, context injection, background worker, backend route, Control Center control, dependency, and production authority flags are denied.
 Evaluator boundaries revalidate model-copy mutated unsafe fields.
 OpenAPI path count remains 75 and no command execution, shell, process, filesystem, network, browser, plugin, remote, memory, context, or tool execution routes are added.
-M83 is implemented/released by v0.87.0 and M84 remains future.
+M83 is implemented/released by v0.87.0 and M84 is implemented/released by
+v0.88.0 as an in-process only sandboxed echo/no-op command.
 ```
 
 M81 adds contract, verifier, documentation-integrity, and Foundation Gate tests
