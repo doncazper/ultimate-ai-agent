@@ -1,6 +1,6 @@
 # Post-M20 Capability Layer Roadmap
 
-Status: Active roadmap projection maintained through v0.72.0.
+Status: Active roadmap projection maintained through v0.73.0.
 
 v0.38.0 implements M34 Broader File Capability Review as planning,
 architecture review, documentation, verifier, and Foundation Gate work only.
@@ -105,13 +105,14 @@ The detailed post-M33 supersession source of truth is
 | v0.70.0 | M66 | Scoped Approval Bundles | implemented/released contract-only |
 | v0.71.0 | M67 | Revocation + Kill Switch | implemented/released contract-only |
 | v0.72.0 | M68 | Autonomy Risk Classifier | implemented/released contract-only |
+| v0.73.0 | M69 | Low-Risk Autonomous Dry Run | implemented/released contract-only |
 
 ## Prompt-Pack Strategy
 
-Recommended next prompt after v0.72.0:
+Recommended next prompt after v0.73.0:
 
 ```text
-Start v0.73.0 / M69 - Low-Risk Autonomous Dry Run only after v0.72.0 / M68 is accepted Green.
+Start v0.74.0 / M70 - Autonomy Foundation Freeze only after v0.73.0 / M69 is accepted Green.
 ```
 
 M61 is implemented/released by v0.65.0 as Autonomy Mode Charter + Authority
@@ -121,7 +122,8 @@ M64 is implemented/released by v0.68.0 as Autonomous Plan Simulator. M65 is
 implemented/released by v0.69.0 as Autonomy Audit + Replay Viewer. M66 is
 implemented/released by v0.70.0 as Scoped Approval Bundles. M67 is
 implemented/released by v0.71.0 as Revocation + Kill Switch. M68 is
-implemented/released by v0.72.0 as Autonomy Risk Classifier. M69-M100
+implemented/released by v0.72.0 as Autonomy Risk Classifier. M69 is
+implemented/released by v0.73.0 as Low-Risk Autonomous Dry Run. M70-M100
 remain planned/provisional.
 
 Extra-hard reviews are required for M37, M38, M40, M47, M48, M49, M51, M52,

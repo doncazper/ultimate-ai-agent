@@ -102,6 +102,7 @@ SCAN_SEQUENCE = [
     ("M66 scoped approval bundles scan", "verify_m66_scoped_approval_bundles"),
     ("M67 revocation kill switch scan", "verify_m67_revocation_kill_switch"),
     ("M68 autonomy risk classifier scan", "verify_m68_autonomy_risk_classifier"),
+    ("M69 low-risk autonomous dry run scan", "verify_m69_low_risk_autonomous_dry_run"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -10308,6 +10309,268 @@ def verify_m68_autonomy_risk_classifier():
                     sys.exit(1)
 
     print("OK: M68 autonomy risk classifier is contract-only, route-free, highest-risk, and no-authority")
+
+
+def verify_m69_low_risk_autonomous_dry_run():
+    print("\n[Verifier] Running M69 low-risk autonomous dry-run guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/autonomy/dry_run.py",
+        "docs/autonomy/LOW_RISK_AUTONOMOUS_DRY_RUN.md",
+        "docs/autonomy/LOW_RISK_AUTONOMOUS_DRY_RUN_CONTRACTS.md",
+        "docs/autonomy/LOW_RISK_AUTONOMOUS_DRY_RUN_NON_GOALS.md",
+        "docs/autonomy/M69_TO_M70_BOUNDARY.md",
+        "docs/roadmap/M61_M100_ROADMAP.md",
+        "docs/release_notes/v0_73_0.md",
+        "docs/archive/releases/v0_73_0/README_IMPORT.md",
+        "docs/archive/releases/v0_73_0/master_plan.md",
+        "docs/implementation/foundation_gate_implementation_plan_v0_73_0.md",
+        "tests/test_m69_low_risk_autonomous_dry_run.py",
+        "tests/test_m69_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M69 low-risk autonomous dry-run file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = "\n".join(
+        (ROOT / rel_path).read_text(encoding="utf-8").lower()
+        for rel_path in required_files
+        if rel_path.startswith("docs/")
+    )
+    for fragment in [
+        "low-risk autonomous dry run",
+        "contract-only",
+        "review-only",
+        "dry-run-only",
+        "deterministic",
+        "low risk",
+        "risk ceiling",
+        "autonomy risk classifier",
+        "approval refs are identifiers",
+        "evaluator boundaries revalidate",
+        "no policy activation",
+        "no session start",
+        "no autonomous actions",
+        "no background worker",
+        "no execution",
+        "no tool execution",
+        "no shell execution",
+        "no network tools",
+        "no browser automation",
+        "no backend route",
+        "no dependency",
+        "m70 remains future",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M69 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.autonomy import (
+            AutonomyRiskClass,
+            LowRiskAutonomousDryRunRequest,
+            LowRiskAutonomousDryRunStep,
+            build_low_risk_autonomous_dry_run_record,
+            validate_low_risk_autonomous_dry_run_record,
+        )
+        from ultimate_ai_agent.core.gate.evaluators import m69_openapi_route_failures
+
+        test_spec = importlib.util.spec_from_file_location(
+            "uaa_m68_contract_helpers_for_m69",
+            ROOT / "tests" / "test_m68_autonomy_risk_classifier.py",
+        )
+        if test_spec is None or test_spec.loader is None:
+            print("FAIL: M69 contract helper test module could not be loaded")
+            sys.exit(1)
+        test_module = importlib.util.module_from_spec(test_spec)
+        sys.modules[test_spec.name] = test_module
+        test_spec.loader.exec_module(test_module)
+    except Exception as exc:
+        print(f"FAIL: M69 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m69_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    risk_decision = test_module._decision()
+    record = build_low_risk_autonomous_dry_run_record(
+        LowRiskAutonomousDryRunRequest(
+            dry_run_request_ref="low-risk-autonomous-dry-run-request:verify-all-m69",
+            risk_decision=risk_decision,
+            risk_decision_ref=risk_decision.decision_ref,
+            actor_ref=risk_decision.actor_ref,
+            resource_refs=list(risk_decision.resource_refs),
+            capability_refs=list(risk_decision.capability_refs),
+            allowlist_refs=list(risk_decision.allowlist_refs),
+            bundle_ref=risk_decision.bundle_ref,
+            revocation_record_ref=risk_decision.revocation_record_ref,
+            source_scope_ref=risk_decision.source_scope_ref,
+            audit_ref=risk_decision.audit_ref,
+            replay_ref=risk_decision.replay_ref,
+            steps=[
+                LowRiskAutonomousDryRunStep(
+                    step_ref="low-risk-dry-run-step:verify-all-m69",
+                    intent_ref="intent:inspect-redacted-review-packet",
+                    capability_ref="capability:observe-only-review",
+                    resource_ref="resource:local-prototype",
+                    risk_class=AutonomyRiskClass.low,
+                    dry_run_outcome_ref="dry-run-outcome:verify-all-m69",
+                )
+            ],
+        )
+    )
+    if (
+        record.authority_granted
+        or record.low_risk_dry_run_authority_granted
+        or record.policy_activation_requested
+        or record.session_start_requested
+        or record.background_worker_enabled
+        or record.execution_requested
+        or record.execution_performed
+        or record.side_effects_performed
+    ):
+        print("FAIL: M69 low-risk autonomous dry-run granted authority or side effects")
+        sys.exit(1)
+    if record.derived_risk_class != AutonomyRiskClass.low:
+        print("FAIL: M69 dry-run record did not preserve low risk")
+        sys.exit(1)
+
+    for update, reason in [
+        ({"derived_risk_class": AutonomyRiskClass.medium}, "LOW_RISK_DRY_RUN_RISK_CEILING_DENIED"),
+        ({"approval_test_ref": "approval_test_:m69"}, "APPROVAL_TEST_REF_DENIED"),
+        ({"low_risk_dry_run_authority_granted": True}, "LOW_RISK_DRY_RUN_AUTHORITY_DENIED"),
+        ({"policy_activation_requested": True}, "POLICY_ACTIVATION_DENIED"),
+        ({"session_start_requested": True}, "AUTONOMY_SESSION_START_DENIED"),
+        ({"background_worker_enabled": True}, "BACKGROUND_WORKER_DENIED"),
+        ({"execution_requested": True}, "EXECUTION_DENIED"),
+        ({"context_injection_enabled": True}, "CONTEXT_INJECTION_DENIED"),
+        ({"memory_write_enabled": True}, "MEMORY_WRITE_DENIED"),
+        ({"metadata": {"api_key": "secret-value"}}, "SECRET_LIKE_LOW_RISK_DRY_RUN_CONTENT_DENIED"),
+    ]:
+        try:
+            validate_low_risk_autonomous_dry_run_record(record.model_copy(update=update))
+            print(f"FAIL: M69 unsafe low-risk autonomous dry-run mutation was not denied: {reason}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M69 unsafe low-risk autonomous dry-run reason drifted for {reason}: {exc}")
+                sys.exit(1)
+
+    try:
+        high_risk_decision = test_module._decision(
+            classification_request=test_module._request(
+                declared_risk_class=AutonomyRiskClass.medium
+            )
+        )
+        build_low_risk_autonomous_dry_run_record(
+            LowRiskAutonomousDryRunRequest(
+                dry_run_request_ref="low-risk-autonomous-dry-run-request:verify-all-m69-high-risk",
+                risk_decision=high_risk_decision,
+                risk_decision_ref=high_risk_decision.decision_ref,
+                actor_ref=high_risk_decision.actor_ref,
+                resource_refs=list(high_risk_decision.resource_refs),
+                capability_refs=list(high_risk_decision.capability_refs),
+                allowlist_refs=list(high_risk_decision.allowlist_refs),
+                bundle_ref=high_risk_decision.bundle_ref,
+                revocation_record_ref=high_risk_decision.revocation_record_ref,
+                source_scope_ref=high_risk_decision.source_scope_ref,
+                audit_ref=high_risk_decision.audit_ref,
+                replay_ref=high_risk_decision.replay_ref,
+                steps=[
+                    LowRiskAutonomousDryRunStep(
+                        step_ref="low-risk-dry-run-step:verify-all-m69-high-risk",
+                        intent_ref="intent:inspect-redacted-review-packet",
+                        capability_ref="capability:observe-only-review",
+                        resource_ref="resource:local-prototype",
+                        risk_class=AutonomyRiskClass.low,
+                        dry_run_outcome_ref="dry-run-outcome:verify-all-m69-high-risk",
+                    )
+                ],
+            )
+        )
+        print("FAIL: M69 accepted a higher-risk classifier decision")
+        sys.exit(1)
+    except ValueError as exc:
+        if "LOW_RISK_DRY_RUN_RISK_CEILING_DENIED" not in str(exc):
+            print(f"FAIL: M69 high-risk denial reason drifted: {exc}")
+            sys.exit(1)
+
+    forbidden_source_fragments = [
+        "low_risk_dry_run_authority_granted=True",
+        "dry_run_execution_performed=True",
+        "policy_activation_requested=True",
+        "session_start_requested=True",
+        "session_active=True",
+        "execution_requested=True",
+        "execution_performed=True",
+        "autonomous_actions_enabled=True",
+        "background_worker_enabled=True",
+        "execution_enabled=True",
+        "tool_execution_enabled=True",
+        "shell_execution_enabled=True",
+        "network_tool_enabled=True",
+        "browser_automation_enabled=True",
+        "plugin_execution_enabled=True",
+        "mobile_sensor_enabled=True",
+        "remote_execution_enabled=True",
+        "memory_write_enabled=True",
+        "context_injection_enabled=True",
+        "model_provider_call_enabled=True",
+        "production_authority_enabled=True",
+        "authority_granted=True",
+        "/autonomy/dry-run/start",
+        "/autonomy/dry-run/execute",
+        "/autonomy/dry-run/activate",
+        "/autonomy/session/start",
+        "/autonomy/policy/activate",
+        "/network/fetch",
+        "/shell/execute",
+        "/browser/click",
+        "subprocess" + ".run(",
+        "subprocess" + ".Popen(",
+        "os.system(",
+        "shell=True",
+    ]
+    allowed_files = {
+        "scripts/verify_all.py",
+        "src/ultimate_ai_agent/core/autonomy/dry_run.py",
+        "src/ultimate_ai_agent/core/autonomy/risk.py",
+        "src/ultimate_ai_agent/core/autonomy/revocation.py",
+        "src/ultimate_ai_agent/core/autonomy/approvals.py",
+        "src/ultimate_ai_agent/core/autonomy/audit.py",
+        "src/ultimate_ai_agent/core/autonomy/policies.py",
+        "src/ultimate_ai_agent/core/autonomy/sessions.py",
+        "src/ultimate_ai_agent/core/autonomy/simulator.py",
+        "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/tools/runtime/invocation.py",
+        "tests/test_m69_low_risk_autonomous_dry_run.py",
+        "tests/test_m69_gate_integration.py",
+    }
+    source_roots = [
+        ROOT / "src" / "ultimate_ai_agent",
+        ROOT / "apps" / "control-center" / "src",
+        ROOT / "apps" / "ccc-ios",
+    ]
+    for root in source_roots:
+        if not root.exists():
+            continue
+        for path in root.rglob("*"):
+            if not path.is_file() or path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}:
+                continue
+            rel = path.relative_to(ROOT).as_posix()
+            if rel in allowed_files:
+                continue
+            text = path.read_text(encoding="utf-8")
+            for fragment in forbidden_source_fragments:
+                if fragment in text:
+                    print(f"FAIL: M69 forbidden low-risk autonomous dry-run fragment in {rel}: {fragment}")
+                    sys.exit(1)
+
+    print("OK: M69 low-risk autonomous dry run is contract-only, route-free, low-risk-only, and no-authority")
 
 
 def verify_local_developer_launcher_safety():

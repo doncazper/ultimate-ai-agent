@@ -59,6 +59,16 @@ from ultimate_ai_agent.core.autonomy.risk import (
     validate_autonomy_risk_classification_request,
     validate_autonomy_risk_signal,
 )
+from ultimate_ai_agent.core.autonomy.dry_run import (
+    LOW_RISK_AUTONOMOUS_DRY_RUN_DOCS,
+    LowRiskAutonomousDryRunRecord,
+    LowRiskAutonomousDryRunRequest,
+    LowRiskAutonomousDryRunStep,
+    build_low_risk_autonomous_dry_run_record,
+    validate_low_risk_autonomous_dry_run_record,
+    validate_low_risk_autonomous_dry_run_request,
+    validate_low_risk_autonomous_dry_run_step,
+)
 from ultimate_ai_agent.core.autonomy.sessions import (
     M62_MAX_SESSION_DURATION_SECONDS,
     SCOPED_AUTONOMY_SESSION_DOCS,
@@ -102,6 +112,14 @@ __all__ = [
     "validate_autonomy_risk_classification_decision",
     "validate_autonomy_risk_classification_request",
     "validate_autonomy_risk_signal",
+    "LOW_RISK_AUTONOMOUS_DRY_RUN_DOCS",
+    "LowRiskAutonomousDryRunRecord",
+    "LowRiskAutonomousDryRunRequest",
+    "LowRiskAutonomousDryRunStep",
+    "build_low_risk_autonomous_dry_run_record",
+    "validate_low_risk_autonomous_dry_run_record",
+    "validate_low_risk_autonomous_dry_run_request",
+    "validate_low_risk_autonomous_dry_run_step",
     "AUTONOMY_POLICY_ENGINE_DOCS",
     "AutonomyPolicyDecision",
     "AutonomyPolicyEnginePolicy",

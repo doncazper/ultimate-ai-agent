@@ -978,6 +978,14 @@ M68_FORBIDDEN_BACKEND_ROUTES = M67_FORBIDDEN_BACKEND_ROUTES + (
     "/autonomy/session/start",
     "/autonomy/policy/activate",
 )
+EXPECTED_M69_OPENAPI_PATH_COUNT = 75
+M69_FORBIDDEN_BACKEND_ROUTES = M68_FORBIDDEN_BACKEND_ROUTES + (
+    "/autonomy/dry-run/start",
+    "/autonomy/dry-run/execute",
+    "/autonomy/dry-run/activate",
+    "/autonomy/dry-run/persist",
+    "/autonomy/dry-run/session",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -1728,6 +1736,19 @@ def m68_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
     return failures
 
 
+def m69_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M69_OPENAPI_PATH_COUNT) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+    if M37_ALLOWED_CAPTURE_ROUTE not in path_set:
+        failures.append("M37 capture route missing: /files/review/approvals/capture")
+    for route in M69_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(f"M69 forbidden dry-run/execution/backend route present: {route}")
+    return failures
+
+
 M36_SAFE_REF_PREFIXES = {
     "reviewPacketRef": "file-review-packet:",
     "previewResultRef": "redacted-file-preview-output:",
@@ -2290,6 +2311,16 @@ class FoundationGateEvaluator:
                 self.check_m68_autonomy_risk_classifier_route_boundary
             ),
             "m68_roadmap_currentness": self.check_m68_roadmap_currentness,
+            "m69_low_risk_autonomous_dry_run_contract_review": (
+                self.check_m69_low_risk_autonomous_dry_run_contract_review
+            ),
+            "m69_low_risk_autonomous_dry_run_static_safety": (
+                self.check_m69_low_risk_autonomous_dry_run_static_safety
+            ),
+            "m69_low_risk_autonomous_dry_run_route_boundary": (
+                self.check_m69_low_risk_autonomous_dry_run_route_boundary
+            ),
+            "m69_roadmap_currentness": self.check_m69_roadmap_currentness,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -17991,8 +18022,6 @@ class FoundationGateEvaluator:
             if version_label.lower() not in text or milestone.lower() not in text or title.lower() not in text:
                 failures.append(f"active docs missing planned M69-M100 row: {version_label} / {milestone} — {title}")
         for fragment in (
-            "m69 is implemented",
-            "low-risk autonomous dry run is implemented",
             "production authority is implemented",
             "broad autonomy is implemented",
             "tool execution is implemented",
@@ -18001,6 +18030,270 @@ class FoundationGateEvaluator:
         ):
             if fragment in text:
                 failures.append(f"M68 docs imply forbidden/future capability: {fragment}")
+        return self._result(criterion, failures, required_docs)
+
+    def check_m69_low_risk_autonomous_dry_run_contract_review(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/autonomy/dry_run.py",
+            "src/ultimate_ai_agent/core/autonomy/__init__.py",
+            "docs/autonomy/LOW_RISK_AUTONOMOUS_DRY_RUN.md",
+            "docs/autonomy/LOW_RISK_AUTONOMOUS_DRY_RUN_CONTRACTS.md",
+            "docs/autonomy/LOW_RISK_AUTONOMOUS_DRY_RUN_NON_GOALS.md",
+            "docs/autonomy/M69_TO_M70_BOUNDARY.md",
+            "docs/roadmap/M61_M100_ROADMAP.md",
+            "tests/test_m69_low_risk_autonomous_dry_run.py",
+            "tests/test_m69_gate_integration.py",
+        ]
+        failures = [
+            f"missing M69 low-risk autonomous dry-run file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            from ultimate_ai_agent.core.autonomy import (
+                AutonomyRiskClass,
+                LowRiskAutonomousDryRunRequest,
+                LowRiskAutonomousDryRunStep,
+                build_low_risk_autonomous_dry_run_record,
+                validate_low_risk_autonomous_dry_run_record,
+            )
+
+            import importlib.util
+
+            test_spec = importlib.util.spec_from_file_location(
+                "uaa_m68_contract_helpers_for_m69",
+                self.root / "tests" / "test_m68_autonomy_risk_classifier.py",
+            )
+            if test_spec is None or test_spec.loader is None:
+                failures.append("M69 contract helper test module could not be loaded")
+            else:
+                test_module = importlib.util.module_from_spec(test_spec)
+                test_spec.loader.exec_module(test_module)
+                risk_decision = test_module._decision()
+                request = LowRiskAutonomousDryRunRequest(
+                    dry_run_request_ref="low-risk-autonomous-dry-run-request:m69-gate",
+                    risk_decision=risk_decision,
+                    risk_decision_ref=risk_decision.decision_ref,
+                    actor_ref=risk_decision.actor_ref,
+                    resource_refs=list(risk_decision.resource_refs),
+                    capability_refs=list(risk_decision.capability_refs),
+                    allowlist_refs=list(risk_decision.allowlist_refs),
+                    bundle_ref=risk_decision.bundle_ref,
+                    revocation_record_ref=risk_decision.revocation_record_ref,
+                    source_scope_ref=risk_decision.source_scope_ref,
+                    audit_ref=risk_decision.audit_ref,
+                    replay_ref=risk_decision.replay_ref,
+                    steps=[
+                        LowRiskAutonomousDryRunStep(
+                            step_ref="low-risk-dry-run-step:m69-gate",
+                            intent_ref="intent:inspect-redacted-review-packet",
+                            capability_ref="capability:observe-only-review",
+                            resource_ref="resource:local-prototype",
+                            risk_class=AutonomyRiskClass.low,
+                            dry_run_outcome_ref="dry-run-outcome:m69-review-only",
+                        )
+                    ],
+                )
+                record = build_low_risk_autonomous_dry_run_record(request)
+                if (
+                    record.derived_risk_class != AutonomyRiskClass.low
+                    or not record.dry_run_valid_for_review
+                    or not record.review_only
+                    or not record.dry_run_only
+                    or not record.low_risk_only
+                    or record.authority_granted
+                    or record.execution_requested
+                    or record.execution_performed
+                    or record.side_effects_performed
+                ):
+                    failures.append("M69 low-risk dry-run record did not remain review-only and no-authority")
+                for update, reason in [
+                    ({"derived_risk_class": AutonomyRiskClass.medium}, "LOW_RISK_DRY_RUN_RISK_CEILING_DENIED"),
+                    ({"authority_granted": True}, "LOW_RISK_DRY_RUN_AUTHORITY_DENIED"),
+                    ({"policy_activation_requested": True}, "AUTONOMY_POLICY_ACTIVATION_DENIED"),
+                    ({"session_start_requested": True}, "AUTONOMY_SESSION_START_DENIED"),
+                    ({"background_worker_enabled": True}, "BACKGROUND_WORKER_DENIED"),
+                    ({"execution_requested": True}, "EXECUTION_DENIED"),
+                    ({"context_injection_enabled": True}, "CONTEXT_INJECTION_DENIED"),
+                    ({"memory_write_enabled": True}, "MEMORY_WRITE_DENIED"),
+                    ({"metadata": {"api_key": "secret-value"}}, "SECRET_LIKE_LOW_RISK_DRY_RUN_CONTENT_DENIED"),
+                ]:
+                    try:
+                        validate_low_risk_autonomous_dry_run_record(record.model_copy(update=update))
+                        failures.append(f"M69 unsafe low-risk dry-run mutation was not denied: {reason}")
+                    except ValueError as exc:
+                        if reason not in str(exc):
+                            failures.append(f"M69 unsafe low-risk dry-run reason drifted for {reason}: {exc}")
+        except Exception as exc:
+            failures.append(f"M69 low-risk autonomous dry-run validation failed: {exc}")
+
+        docs_text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_files
+            if path.startswith("docs/") and (self.root / path).exists()
+        )
+        for fragment in [
+            "low-risk autonomous dry run",
+            "contract-only",
+            "review-only",
+            "dry-run-only",
+            "low risk",
+            "risk ceiling",
+            "autonomy risk classifier",
+            "approval refs are identifiers",
+            "no policy activation",
+            "no session start",
+            "no autonomous actions",
+            "no background worker",
+            "no execution",
+            "no tool execution",
+            "no shell execution",
+            "no network tools",
+            "no browser automation",
+            "no context injection",
+            "no memory write",
+            "no backend route",
+            "no dependency",
+            "m70 remains future",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M69 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m69_low_risk_autonomous_dry_run_static_safety(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        forbidden_source_fragments = [
+            "low_risk_dry_run_authority_granted=True",
+            "dry_run_execution_performed=True",
+            "policy_activation_requested=True",
+            "session_start_requested=True",
+            "session_active=True",
+            "execution_requested=True",
+            "execution_performed=True",
+            "autonomous_actions_enabled=True",
+            "background_worker_enabled=True",
+            "execution_enabled=True",
+            "tool_execution_enabled=True",
+            "shell_execution_enabled=True",
+            "network_tool_enabled=True",
+            "browser_automation_enabled=True",
+            "plugin_execution_enabled=True",
+            "mobile_sensor_enabled=True",
+            "remote_execution_enabled=True",
+            "memory_write_enabled=True",
+            "context_injection_enabled=True",
+            "model_provider_call_enabled=True",
+            "production_authority_enabled=True",
+            "authority_granted=True",
+            "/autonomy/dry-run/start",
+            "/autonomy/dry-run/execute",
+            "/autonomy/dry-run/activate",
+            "/autonomy/session/start",
+            "/autonomy/policy/activate",
+            "/network/fetch",
+            "/shell/execute",
+            "/browser/click",
+            "subprocess" + ".run(",
+            "subprocess" + ".Popen(",
+            "os.system(",
+            "shell=True",
+        ]
+        allowed_files = {
+            "src/ultimate_ai_agent/core/autonomy/dry_run.py",
+            "src/ultimate_ai_agent/core/autonomy/risk.py",
+            "src/ultimate_ai_agent/core/autonomy/revocation.py",
+            "src/ultimate_ai_agent/core/autonomy/approvals.py",
+            "src/ultimate_ai_agent/core/autonomy/audit.py",
+            "src/ultimate_ai_agent/core/autonomy/policies.py",
+            "src/ultimate_ai_agent/core/autonomy/sessions.py",
+            "src/ultimate_ai_agent/core/autonomy/simulator.py",
+            "src/ultimate_ai_agent/core/gate/evaluators.py",
+            "src/ultimate_ai_agent/core/tools/runtime/invocation.py",
+            "tests/test_m69_low_risk_autonomous_dry_run.py",
+            "tests/test_m69_gate_integration.py",
+        }
+        source_roots = [
+            self.root / "src" / "ultimate_ai_agent",
+            self.root / "apps" / "control-center" / "src",
+            self.root / "apps" / "ccc-ios",
+        ]
+        for root in source_roots:
+            if not root.exists():
+                continue
+            candidate_files = []
+            for pattern in ("*.py", "*.ts", "*.tsx", "*.js", "*.jsx", "*.swift", "*.yml", "*.yaml"):
+                candidate_files.extend(root.rglob(pattern))
+            for path in sorted(candidate_files):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(self.root).as_posix()
+                if rel in allowed_files:
+                    continue
+                text = path.read_text(encoding="utf-8")
+                for fragment in forbidden_source_fragments:
+                    if fragment in text:
+                        failures.append(f"M69 forbidden low-risk dry-run fragment in {rel}: {fragment}")
+        return self._result(criterion, failures, [])
+
+    def check_m69_low_risk_autonomous_dry_run_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m69_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M69 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m69_roadmap_currentness(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        required_docs = [
+            "README.md",
+            "VERSION.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/roadmap/M61_M100_ROADMAP.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+            "docs/roadmap/MILESTONE_CHARTERS.md",
+        ]
+        failures = [
+            f"missing M69 roadmap doc: {path}"
+            for path in required_docs
+            if not (self.root / path).exists()
+        ]
+        text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_docs
+            if (self.root / path).exists()
+        )
+        if "v0.73.0" not in text or "m69" not in text or "low-risk autonomous dry run" not in text:
+            failures.append("active docs do not identify v0.73.0/M69 Low-Risk Autonomous Dry Run")
+        if "m69 is implemented/released" not in text and "v0.73.0 implements m69" not in text:
+            failures.append("active docs do not mark M69 implemented/released")
+        for version_label, milestone, title in [
+            ("v0.74.0", "M70", "Autonomy Foundation Freeze"),
+            ("v0.80.0", "M76", "OpenWebUI Runtime Bridge v1"),
+            ("v0.94.0", "M90", "Shell/Subprocess Hardening Freeze"),
+            ("v0.95.0", "M91", "Autonomous Tool Execution Contract"),
+            ("v1.4.0", "M100", "Mobile Permission Model v1"),
+        ]:
+            if version_label.lower() not in text or milestone.lower() not in text or title.lower() not in text:
+                failures.append(f"active docs missing planned M70-M100 row: {version_label} / {milestone} — {title}")
+        for fragment in (
+            "m70 is implemented",
+            "autonomy foundation freeze is implemented",
+            "production authority is implemented",
+            "broad autonomy is implemented",
+            "tool execution is implemented",
+            "shell execution is implemented",
+            "browser automation is implemented",
+        ):
+            if fragment in text:
+                failures.append(f"M69 docs imply forbidden/future capability: {fragment}")
         return self._result(criterion, failures, required_docs)
 
     def check_v0292_local_dev_api_authority_and_preview_safe(
