@@ -12,25 +12,25 @@ allowed to become operational authority.
 
 | Field | Current state |
 |---|---|
-| Current active baseline | **v0.83.0** |
-| Current milestone | **M79 - Plugin Install Review, Disabled by Default** |
+| Current active baseline | **v0.84.0** |
+| Current milestone | **M80 - Network/Browser/OpenWebUI Hardening Freeze** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **75** OpenAPI paths |
 | Production readiness | Not claimed |
 
-v0.83.0 implements M79 Plugin Install Review, Disabled by Default. It adds
-exact-bound plugin install review contracts over an accepted M78 manifest
-security decision, source package refs, provenance refs, static review refs,
-sandbox test plan refs, Tool Broker mapping refs, Event Ledger plan refs,
-version pin refs, revocation refs, approval binding, receipt plans, stable
-reason codes, documentation-integrity checks, static verification, and
-Foundation Gate coverage. It adds no plugin install, plugin enablement, plugin
-execution, runtime import, network access, model/provider call, browser
-automation, shell execution, mobile device access, remote execution,
-credentials or cookies, raw manifest content, raw package content, raw prompt,
-raw provider payload, backend routes, Control Center controls, dependency, M80
-work, or production authority.
+v0.84.0 implements M80 Network/Browser/OpenWebUI Hardening Freeze. It adds
+freeze-only, review-only, deterministic contracts over accepted M71-M79
+network, browser, OpenWebUI, and plugin-adjacent boundaries, with accepted
+milestone refs, checklist refs, stable reason codes, documentation-integrity
+checks, static verification, tests, and Foundation Gate coverage. It adds no
+unrestricted network access, authenticated network action, raw network response,
+browser navigation, browser click, browser screenshot, raw DOM, authenticated
+browser profile, OpenWebUI model authority, OpenWebUI tool execution,
+OpenWebUI memory write, OpenWebUI context injection, raw prompt, raw provider
+payload, plugin install, plugin enablement, plugin execution, runtime import,
+shell execution, background worker, backend routes, Control Center controls,
+dependency, M81 work, or production authority.
 
 v0.29.5 is documentation policy polish. It remains the documentation
 organization cleanup baseline before the M26 and M27 implementation releases.
@@ -86,6 +86,9 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M79 Plugin Install Review](docs/tooling/PLUGIN_INSTALL_REVIEW.md)
 - [M79 Plugin Install Review Policy](docs/tooling/PLUGIN_INSTALL_REVIEW_POLICY.md)
 - [M79 Plugin Install Review Authority Boundary](docs/tooling/PLUGIN_INSTALL_REVIEW_AUTHORITY_BOUNDARY.md)
+- [M80 Network/Browser/OpenWebUI Hardening Freeze](docs/hardening/NETWORK_BROWSER_OPENWEBUI_HARDENING_FREEZE.md)
+- [M80 Hardening Freeze Contracts](docs/hardening/NETWORK_BROWSER_OPENWEBUI_HARDENING_FREEZE_CONTRACTS.md)
+- [M80 Hardening Freeze Non-Goals](docs/hardening/NETWORK_BROWSER_OPENWEBUI_HARDENING_FREEZE_NON_GOALS.md)
 - [M34 Broader File Capability Review](docs/files/BROADER_FILE_CAPABILITY_REVIEW.md)
 - [File capability boundary matrix](docs/files/FILE_CAPABILITY_BOUNDARY_MATRIX.md)
 - [File capability risk register](docs/files/FILE_CAPABILITY_RISK_REGISTER.md)
@@ -217,6 +220,8 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [v0.82.0 master plan](docs/archive/releases/v0_82_0/master_plan.md)
 - [v0.83.0 release packet](docs/archive/releases/v0_83_0/README_IMPORT.md)
 - [v0.83.0 master plan](docs/archive/releases/v0_83_0/master_plan.md)
+- [v0.84.0 release packet](docs/archive/releases/v0_84_0/README_IMPORT.md)
+- [v0.84.0 master plan](docs/archive/releases/v0_84_0/master_plan.md)
 
 ## What This Project Is
 

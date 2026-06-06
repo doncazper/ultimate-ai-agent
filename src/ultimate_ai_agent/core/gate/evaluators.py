@@ -1090,6 +1090,30 @@ M79_FORBIDDEN_BACKEND_ROUTES = M78_FORBIDDEN_BACKEND_ROUTES + (
     "/plugins/install/review/submit",
     "/plugins/install/perform",
 )
+EXPECTED_M80_OPENAPI_PATH_COUNT = 75
+M80_FORBIDDEN_BACKEND_ROUTES = M79_FORBIDDEN_BACKEND_ROUTES + (
+    "/network/fetch/unrestricted",
+    "/network/fetch/raw",
+    "/network/post",
+    "/network/write",
+    "/browser/navigate",
+    "/browser/click",
+    "/browser/screenshot",
+    "/browser/dom/raw",
+    "/openwebui/tools/execute",
+    "/openwebui/context/inject",
+    "/openwebui/memory/write",
+    "/openwebui/model/authority",
+    "/openwebui/raw-prompt",
+    "/openwebui/raw-provider-payload",
+    "/plugins/install",
+    "/plugins/enable",
+    "/plugins/execute",
+    "/plugin-runtime/import",
+    "/plugin-runtime/execute",
+    "/tools/execute",
+    "/shell/execute",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -1180,6 +1204,8 @@ M21_OPENWEBUI_SCAN_EXCLUDED_DIRS = {
 }
 M21_OPENWEBUI_ALLOWED_FRAGMENT_SCAN_FILES = {
     "src/ultimate_ai_agent/core/gate/evaluators.py",
+    "src/ultimate_ai_agent/core/hardening_freeze/__init__.py",
+    "src/ultimate_ai_agent/core/hardening_freeze/network_browser_openwebui.py",
     "scripts/verify_all.py",
     "scripts/verify_control_center_frontend.py",
 }
@@ -1983,6 +2009,19 @@ def m79_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
     return failures
 
 
+def m80_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M80_OPENAPI_PATH_COUNT) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(
+            f"OpenAPI path count changed for M80: expected {expected_path_count}, got {len(path_set)}"
+        )
+    for route in M80_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(f"M80 forbidden network/browser/OpenWebUI/plugin route present: {route}")
+    return failures
+
+
 M36_SAFE_REF_PREFIXES = {
     "reviewPacketRef": "file-review-packet:",
     "previewResultRef": "redacted-file-preview-output:",
@@ -2643,6 +2682,16 @@ class FoundationGateEvaluator:
             "m79_plugin_install_static_safety": self.check_m79_plugin_install_static_safety,
             "m79_plugin_install_route_boundary": self.check_m79_plugin_install_route_boundary,
             "m79_roadmap_currentness": self.check_m79_roadmap_currentness,
+            "m80_network_browser_openwebui_hardening_freeze_review": (
+                self.check_m80_network_browser_openwebui_hardening_freeze_review
+            ),
+            "m80_network_browser_openwebui_hardening_freeze_static_safety": (
+                self.check_m80_network_browser_openwebui_hardening_freeze_static_safety
+            ),
+            "m80_network_browser_openwebui_hardening_freeze_route_boundary": (
+                self.check_m80_network_browser_openwebui_hardening_freeze_route_boundary
+            ),
+            "m80_roadmap_currentness": self.check_m80_roadmap_currentness,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -21546,6 +21595,318 @@ class FoundationGateEvaluator:
         ):
             if fragment in text:
                 failures.append(f"M79 docs imply forbidden/future capability: {fragment}")
+        return self._result(criterion, failures, required_docs)
+
+    def check_m80_network_browser_openwebui_hardening_freeze_review(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/hardening_freeze/__init__.py",
+            "src/ultimate_ai_agent/core/hardening_freeze/network_browser_openwebui.py",
+            "docs/hardening/NETWORK_BROWSER_OPENWEBUI_HARDENING_FREEZE.md",
+            "docs/hardening/NETWORK_BROWSER_OPENWEBUI_HARDENING_FREEZE_CONTRACTS.md",
+            "docs/hardening/NETWORK_BROWSER_OPENWEBUI_HARDENING_FREEZE_NON_GOALS.md",
+            "docs/hardening/M80_TO_M81_BOUNDARY.md",
+            "docs/release_notes/v0_84_0.md",
+            "docs/archive/releases/v0_84_0/README_IMPORT.md",
+            "docs/archive/releases/v0_84_0/master_plan.md",
+            "docs/implementation/foundation_gate_implementation_plan_v0_84_0.md",
+            "tests/test_m80_network_browser_openwebui_hardening_freeze.py",
+            "tests/test_m80_gate_integration.py",
+        ]
+        failures = [
+            f"missing M80 hardening freeze file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            from ultimate_ai_agent.core.hardening_freeze import (
+                NetworkBrowserOpenWebUIFreezeRequest,
+                NetworkBrowserOpenWebUIFreezeStatus,
+                build_network_browser_openwebui_freeze_report,
+            )
+
+            request = NetworkBrowserOpenWebUIFreezeRequest(
+                request_ref="network-browser-openwebui-freeze-request:m80-gate",
+                freeze_ref="network-browser-openwebui-freeze:m80-gate",
+                baseline_ref="baseline:v0.83.0",
+                actor_ref="actor:m80-gate",
+                accepted_milestone_refs=[f"milestone:M{index}" for index in range(71, 80)],
+                checklist_refs=[
+                    "m80-freeze:m71-network-contract-reviewed",
+                    "m80-freeze:m72-allowlisted-redacted-fetch-only",
+                    "m80-freeze:m74-browser-observe-only",
+                    "m80-freeze:m75-browser-action-dry-run-only",
+                    "m80-freeze:m76-openwebui-bridge-review-only",
+                    "m80-freeze:m77-openwebui-handoff-exact-bound",
+                    "m80-freeze:m78-m79-plugin-disabled-by-default",
+                    "m80-freeze:route-stable",
+                    "m80-freeze:dependency-stable",
+                ],
+                safe_summary="Freeze accepted network browser openwebui and plugin boundaries.",
+            )
+            report = build_network_browser_openwebui_freeze_report(request)
+            if (
+                report.status != NetworkBrowserOpenWebUIFreezeStatus.frozen
+                or not report.freeze_only
+                or not report.review_only
+                or not report.network_browser_openwebui_only
+                or not report.deterministic
+                or report.unrestricted_network_performed
+                or report.authenticated_network_action_performed
+                or report.raw_network_response_returned
+                or report.browser_navigation_performed
+                or report.browser_action_performed
+                or report.browser_screenshot_performed
+                or report.raw_dom_returned
+                or report.authenticated_browser_profile_accessed
+                or report.openwebui_model_authority_granted
+                or report.openwebui_tool_execution_performed
+                or report.openwebui_memory_write_performed
+                or report.openwebui_context_injection_performed
+                or report.raw_prompt_exposed
+                or report.raw_provider_payload_exposed
+                or report.plugin_install_performed
+                or report.plugin_enablement_performed
+                or report.plugin_execution_performed
+                or report.plugin_runtime_import_performed
+                or report.shell_execution_performed
+                or report.background_worker_started
+                or report.remote_execution_performed
+                or report.backend_route_added
+                or report.control_center_control_added
+                or report.dependency_added
+                or report.production_authority_granted
+                or report.side_effects_performed
+                or "M80_NETWORK_BROWSER_OPENWEBUI_HARDENING_FREEZE_REVIEW_ONLY" not in report.reason_codes
+                or "M80_NO_NEW_RUNTIME_AUTHORITY" not in report.reason_codes
+                or "M81_REMAINS_FUTURE" not in report.reason_codes
+            ):
+                failures.append("M80 hardening freeze report is unsafe or over-authoritative")
+
+            for update, reason in [
+                ({"network_tool_expansion_requested": True}, "NETWORK_TOOL_EXPANSION_DENIED"),
+                ({"unrestricted_network_requested": True}, "UNRESTRICTED_NETWORK_DENIED"),
+                ({"authenticated_network_action_requested": True}, "AUTHENTICATED_NETWORK_ACTION_DENIED"),
+                ({"raw_network_response_requested": True}, "RAW_NETWORK_RESPONSE_DENIED"),
+                ({"browser_navigation_requested": True}, "BROWSER_NAVIGATION_DENIED"),
+                ({"browser_click_requested": True}, "BROWSER_CLICK_DENIED"),
+                ({"browser_action_execution_requested": True}, "BROWSER_ACTION_EXECUTION_DENIED"),
+                ({"browser_screenshot_requested": True}, "BROWSER_SCREENSHOT_DENIED"),
+                ({"raw_dom_requested": True}, "RAW_DOM_DENIED"),
+                ({"authenticated_browser_profile_requested": True}, "AUTHENTICATED_BROWSER_PROFILE_DENIED"),
+                ({"openwebui_model_authority_requested": True}, "OPENWEBUI_MODEL_AUTHORITY_DENIED"),
+                ({"openwebui_tool_execution_requested": True}, "OPENWEBUI_TOOL_EXECUTION_DENIED"),
+                ({"openwebui_memory_write_requested": True}, "OPENWEBUI_MEMORY_WRITE_DENIED"),
+                ({"openwebui_context_injection_requested": True}, "OPENWEBUI_CONTEXT_INJECTION_DENIED"),
+                ({"raw_prompt_exposure_requested": True}, "RAW_PROMPT_EXPOSURE_DENIED"),
+                ({"raw_provider_payload_exposure_requested": True}, "RAW_PROVIDER_PAYLOAD_EXPOSURE_DENIED"),
+                ({"plugin_install_requested": True}, "PLUGIN_INSTALL_DENIED"),
+                ({"plugin_enablement_requested": True}, "PLUGIN_ENABLEMENT_DENIED"),
+                ({"plugin_execution_requested": True}, "PLUGIN_EXECUTION_DENIED"),
+                ({"plugin_runtime_import_requested": True}, "PLUGIN_RUNTIME_IMPORT_DENIED"),
+                ({"shell_execution_requested": True}, "SHELL_EXECUTION_DENIED"),
+                ({"background_worker_requested": True}, "BACKGROUND_WORKER_DENIED"),
+                ({"remote_execution_requested": True}, "REMOTE_EXECUTION_DENIED"),
+                ({"credential_cookie_access_requested": True}, "CREDENTIAL_COOKIE_ACCESS_DENIED"),
+                ({"backend_route_requested": True}, "BACKEND_ROUTE_DENIED"),
+                ({"control_center_control_requested": True}, "CONTROL_CENTER_CONTROL_DENIED"),
+                ({"dependency_requested": True}, "DEPENDENCY_CHANGE_DENIED"),
+                ({"production_authority_requested": True}, "PRODUCTION_AUTHORITY_DENIED"),
+            ]:
+                try:
+                    build_network_browser_openwebui_freeze_report(request.model_copy(update=update))
+                    failures.append(f"M80 unsafe freeze request was not denied with {reason}")
+                except ValueError as exc:
+                    if reason not in str(exc):
+                        failures.append(f"M80 unsafe freeze request raised {exc!s}, expected {reason}")
+        except Exception as exc:
+            failures.append(f"M80 hardening freeze validation failed: {exc}")
+
+        docs_text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_files
+            if path.startswith("docs/") and (self.root / path).exists()
+        )
+        for fragment in [
+            "network/browser/openwebui hardening freeze",
+            "m71-m79",
+            "freeze-only",
+            "review-only",
+            "deterministic",
+            "accepted milestone refs",
+            "checklist refs",
+            "no unrestricted network",
+            "no authenticated network action",
+            "no raw network response",
+            "no browser navigation",
+            "no browser click",
+            "no browser screenshot",
+            "no raw dom",
+            "no authenticated browser profile",
+            "no openwebui model authority",
+            "no openwebui tool execution",
+            "no openwebui memory write",
+            "no openwebui context injection",
+            "no raw prompt",
+            "no raw provider payload",
+            "no plugin install",
+            "no plugin enablement",
+            "no plugin execution",
+            "no runtime import",
+            "no shell execution",
+            "no background worker",
+            "no remote execution",
+            "no backend route",
+            "no control center control",
+            "no dependency",
+            "no production authority",
+            "evaluator boundaries revalidate",
+            "m81 remains future",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M80 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m80_network_browser_openwebui_hardening_freeze_static_safety(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        forbidden_source_fragments = [
+            "network_tool_expansion_enabled=True",
+            "unrestricted_network_enabled=True",
+            "authenticated_network_action_enabled=True",
+            "raw_network_response_enabled=True",
+            "browser_navigation_enabled=True",
+            "browser_click_enabled=True",
+            "browser_action_execution_enabled=True",
+            "browser_screenshot_enabled=True",
+            "raw_dom_enabled=True",
+            "authenticated_browser_profile_enabled=True",
+            "openwebui_model_authority_enabled=True",
+            "openwebui_tool_execution_enabled=True",
+            "openwebui_memory_write_enabled=True",
+            "openwebui_context_injection_enabled=True",
+            "raw_prompt_exposure_enabled=True",
+            "raw_provider_payload_exposure_enabled=True",
+            "plugin_install_enabled=True",
+            "plugin_enablement_enabled=True",
+            "plugin_execution_enabled=True",
+            "plugin_runtime_import_enabled=True",
+            "shell_execution_enabled=True",
+            "background_worker_enabled=True",
+            "remote_execution_enabled=True",
+            "credential_cookie_access_enabled=True",
+            "production_authority_enabled=True",
+            "unrestricted_network_performed=True",
+            "browser_action_performed=True",
+            "openwebui_tool_execution_performed=True",
+            "plugin_runtime_import_performed=True",
+            "remote_execution_performed=True",
+            "production_authority_granted=True",
+            "/network/fetch/unrestricted",
+            "/network/post",
+            "/browser/navigate",
+            "/browser/click",
+            "/browser/screenshot",
+            "/openwebui/tools/execute",
+            "/openwebui/context/inject",
+            "/openwebui/memory/write",
+            "/plugins/install",
+            "/plugins/enable",
+            "/plugins/execute",
+            "/plugin-runtime/import",
+            "/plugin-runtime/execute",
+            "/shell/execute",
+        ]
+        allowed_files = {
+            "scripts/verify_all.py",
+            "src/ultimate_ai_agent/core/hardening_freeze/__init__.py",
+            "src/ultimate_ai_agent/core/hardening_freeze/network_browser_openwebui.py",
+            "src/ultimate_ai_agent/core/gate/evaluators.py",
+            "src/ultimate_ai_agent/api/openapi.py",
+        }
+        for root in [
+            self.root / "src" / "ultimate_ai_agent",
+            self.root / "apps" / "control-center" / "src",
+            self.root / "apps" / "ccc-ios",
+        ]:
+            if not root.exists():
+                continue
+            candidate_files = []
+            for pattern in ("*.py", "*.ts", "*.tsx", "*.js", "*.jsx", "*.swift", "*.yml", "*.yaml"):
+                candidate_files.extend(root.rglob(pattern))
+            for path in sorted(candidate_files):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(self.root).as_posix()
+                if ".test." in rel:
+                    continue
+                if rel in allowed_files:
+                    continue
+                text = path.read_text(encoding="utf-8")
+                for fragment in forbidden_source_fragments:
+                    if fragment in text:
+                        failures.append(f"M80 forbidden hardening freeze fragment in {rel}: {fragment}")
+        return self._result(criterion, failures, [])
+
+    def check_m80_network_browser_openwebui_hardening_freeze_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m80_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M80 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m80_roadmap_currentness(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        required_docs = [
+            "README.md",
+            "VERSION.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/roadmap/M61_M100_ROADMAP.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+            "docs/roadmap/MILESTONE_CHARTERS.md",
+        ]
+        failures = [
+            f"missing M80 roadmap doc: {path}"
+            for path in required_docs
+            if not (self.root / path).exists()
+        ]
+        text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_docs
+            if (self.root / path).exists()
+        )
+        if "v0.84.0" not in text or "m80" not in text or "network/browser/openwebui hardening freeze" not in text:
+            failures.append("active docs do not identify v0.84.0/M80 Network/Browser/OpenWebUI Hardening Freeze")
+        if "m80 is implemented/released" not in text and "v0.84.0 implements m80" not in text:
+            failures.append("active docs do not mark M80 implemented/released")
+        for version_label, milestone, title in [
+            ("v0.85.0", "M81", "Runtime Sandbox Spec"),
+            ("v0.90.0", "M86", "Shell Approval Gate v1"),
+            ("v0.94.0", "M90", "Shell/Subprocess Hardening Freeze"),
+            ("v0.95.0", "M91", "Autonomous Tool Execution Contract"),
+            ("v1.4.0", "M100", "Mobile Permission Model v1"),
+        ]:
+            if version_label.lower() not in text or milestone.lower() not in text or title.lower() not in text:
+                failures.append(f"active docs missing planned M81-M100 row: {version_label} / {milestone} — {title}")
+        for fragment in (
+            "unrestricted network is implemented",
+            "browser click is implemented",
+            "browser action execution is implemented",
+            "openwebui model authority is implemented",
+            "openwebui tool execution is implemented",
+            "plugin execution is implemented",
+            "shell execution is implemented",
+            "production authority is implemented",
+            "broad autonomy is implemented",
+        ):
+            if fragment in text:
+                failures.append(f"M80 docs imply forbidden/future capability: {fragment}")
         return self._result(criterion, failures, required_docs)
 
     def check_v0292_local_dev_api_authority_and_preview_safe(

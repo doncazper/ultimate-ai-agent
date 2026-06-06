@@ -594,6 +594,18 @@ REQUIRED_M79_PLUGIN_INSTALL_REVIEW_DOCS = [
     "docs/implementation/foundation_gate_implementation_plan_v0_83_0.md",
 ]
 
+REQUIRED_M80_NETWORK_BROWSER_OPENWEBUI_FREEZE_DOCS = [
+    "docs/hardening/NETWORK_BROWSER_OPENWEBUI_HARDENING_FREEZE.md",
+    "docs/hardening/NETWORK_BROWSER_OPENWEBUI_HARDENING_FREEZE_CONTRACTS.md",
+    "docs/hardening/NETWORK_BROWSER_OPENWEBUI_HARDENING_FREEZE_NON_GOALS.md",
+    "docs/hardening/M80_TO_M81_BOUNDARY.md",
+    "docs/roadmap/M61_M100_ROADMAP.md",
+    "docs/release_notes/v0_84_0.md",
+    "docs/archive/releases/v0_84_0/README_IMPORT.md",
+    "docs/archive/releases/v0_84_0/master_plan.md",
+    "docs/implementation/foundation_gate_implementation_plan_v0_84_0.md",
+]
+
 
 REQUIRED_ACTIVE_DOCS = [
     "docs/README.md",
@@ -1133,6 +1145,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_m77_openwebui_safe_handoff_docs(root, version))
     failures.extend(_verify_m78_plugin_manifest_security_docs(root, version))
     failures.extend(_verify_m79_plugin_install_review_docs(root, version))
+    failures.extend(_verify_m80_network_browser_openwebui_freeze_docs(root, version))
     failures.extend(_verify_m19_roadmap_currentness(root, version))
     failures.extend(_verify_post_m18_roadmap_status_labels(root))
 
@@ -4816,6 +4829,90 @@ def _verify_m79_plugin_install_review_docs(root: Path, version: str | None) -> l
         "M79 docs must not claim runtime import implementation": "runtime import is implemented",
         "M79 docs must not claim shell execution implementation": "shell execution is implemented",
         "M79 docs must not claim production authority": "production authority is implemented",
+    }
+    for message, fragment in forbidden_fragments.items():
+        if fragment in text:
+            failures.append(f"{message}: {fragment}")
+    return failures
+
+
+def _verify_m80_network_browser_openwebui_freeze_docs(root: Path, version: str | None) -> list[str]:
+    failures: list[str] = []
+    if _version_tuple(version) < (0, 84, 0):
+        return failures
+
+    missing = [
+        rel_path
+        for rel_path in REQUIRED_M80_NETWORK_BROWSER_OPENWEBUI_FREEZE_DOCS
+        if not (root / rel_path).exists()
+    ]
+    failures.extend(f"missing M80 hardening freeze doc: {rel_path}" for rel_path in missing)
+    text = "\n".join(
+        _read(root / rel_path).lower()
+        for rel_path in REQUIRED_M80_NETWORK_BROWSER_OPENWEBUI_FREEZE_DOCS
+        if (root / rel_path).exists()
+    )
+    required_fragments = {
+        "M80 docs must say hardening freeze": "network/browser/openwebui hardening freeze",
+        "M80 docs must say M71-M79": "m71-m79",
+        "M80 docs must say freeze-only": "freeze-only",
+        "M80 docs must say review-only": "review-only",
+        "M80 docs must say deterministic": "deterministic",
+        "M80 docs must say accepted milestone refs": "accepted milestone refs",
+        "M80 docs must say checklist refs": "checklist refs",
+        "M80 docs must deny unrestricted network": "no unrestricted network",
+        "M80 docs must deny authenticated network action": "no authenticated network action",
+        "M80 docs must deny raw network response": "no raw network response",
+        "M80 docs must deny browser navigation": "no browser navigation",
+        "M80 docs must deny browser click": "no browser click",
+        "M80 docs must deny browser screenshot": "no browser screenshot",
+        "M80 docs must deny raw DOM": "no raw dom",
+        "M80 docs must deny authenticated browser profile": "no authenticated browser profile",
+        "M80 docs must deny OpenWebUI model authority": "no openwebui model authority",
+        "M80 docs must deny OpenWebUI tool execution": "no openwebui tool execution",
+        "M80 docs must deny OpenWebUI memory write": "no openwebui memory write",
+        "M80 docs must deny OpenWebUI context injection": "no openwebui context injection",
+        "M80 docs must deny raw prompts": "no raw prompt",
+        "M80 docs must deny raw provider payloads": "no raw provider payload",
+        "M80 docs must deny plugin install": "no plugin install",
+        "M80 docs must deny plugin enablement": "no plugin enablement",
+        "M80 docs must deny plugin execution": "no plugin execution",
+        "M80 docs must deny runtime import": "no runtime import",
+        "M80 docs must deny shell execution": "no shell execution",
+        "M80 docs must deny background worker": "no background worker",
+        "M80 docs must deny remote execution": "no remote execution",
+        "M80 docs must deny backend routes": "no backend route",
+        "M80 docs must deny Control Center controls": "no control center control",
+        "M80 docs must deny dependencies": "no dependency",
+        "M80 docs must deny production authority": "no production authority",
+        "M80 docs must say evaluator boundaries revalidate": "evaluator boundaries revalidate",
+        "M80 docs must keep M81 future": "m81 remains future",
+    }
+    for message, fragment in required_fragments.items():
+        if fragment not in text:
+            failures.append(message)
+
+    for version_label, milestone, title in [
+        ("v0.84.0", "m80", "network/browser/openwebui hardening freeze"),
+        ("v0.85.0", "m81", "runtime sandbox spec"),
+        ("v0.94.0", "m90", "shell/subprocess hardening freeze"),
+        ("v0.95.0", "m91", "autonomous tool execution contract"),
+        ("v1.4.0", "m100", "mobile permission model v1"),
+    ]:
+        if version_label not in text or milestone not in text or title not in text:
+            failures.append(
+                f"M80-M100 roadmap missing label: {version_label} / {milestone.upper()} - {title}"
+            )
+
+    forbidden_fragments = {
+        "M80 docs must not claim unrestricted network implementation": "unrestricted network is implemented",
+        "M80 docs must not claim browser click implementation": "browser click is implemented",
+        "M80 docs must not claim OpenWebUI model authority implementation": "openwebui model authority is implemented",
+        "M80 docs must not claim OpenWebUI tool execution implementation": "openwebui tool execution is implemented",
+        "M80 docs must not claim plugin execution implementation": "plugin execution is implemented",
+        "M80 docs must not claim shell execution implementation": "shell execution is implemented",
+        "M80 docs must not claim remote execution implementation": "remote execution is implemented",
+        "M80 docs must not claim production authority": "production authority is implemented",
     }
     for message, fragment in forbidden_fragments.items():
         if fragment in text:
