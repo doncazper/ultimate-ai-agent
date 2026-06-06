@@ -1,6 +1,6 @@
 # Documentation Index
 
-Current active baseline: **v0.58.0**
+Current active baseline: **v0.59.0**
 
 This index is the active entrypoint for documentation navigation. Historical release documents remain in the repository for audit history, but active truth starts with the current baseline files listed here.
 
@@ -14,8 +14,8 @@ docs/canonical/CANONICAL_DOC_MAP.md
 docs/canonical/09_roadmap.md
 docs/roadmap/README.md
 docs/archive/README.md
-docs/archive/releases/v0_58_0/README_IMPORT.md
-docs/archive/releases/v0_58_0/master_plan.md
+docs/archive/releases/v0_59_0/README_IMPORT.md
+docs/archive/releases/v0_59_0/master_plan.md
 docs/developer/LOCAL_LAUNCHER.md
 scripts/dev/README.md
 docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md
@@ -102,6 +102,10 @@ docs/media/SAFE_MEDIA_METADATA_INSPECTOR.md
 docs/media/SAFE_MEDIA_METADATA_POLICY.md
 docs/media/SAFE_MEDIA_METADATA_AUTHORITY_BOUNDARY.md
 docs/media/M54_TO_M55_BOUNDARY.md
+docs/observability/REDACTED_OBSERVABILITY_EXPORT.md
+docs/observability/REDACTED_OBSERVABILITY_EXPORT_POLICY.md
+docs/observability/REDACTED_OBSERVABILITY_EXPORT_AUTHORITY_BOUNDARY.md
+docs/observability/M55_TO_M56_BOUNDARY.md
 docs/tools/FILE_TOOL_CAPABILITY_MATRIX.md
 docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md
 docs/roadmap/ECOSYSTEM_WATCHLIST.md
@@ -467,20 +471,21 @@ scripts/dev/README.md
 ```
 
 v0.37.4 supersedes the old active M35-M40 roadmap projection and defines the
-active M34-M60 sequence. v0.58.0 is the current active baseline after
-implementing M54 Safe Media Metadata Inspector as deterministic metadata-only
-media inspection contracts. Active roadmap sources consistently
+active M34-M60 sequence. v0.59.0 is the current active baseline after
+implementing M55 Redacted Observability Export as deterministic local
+redacted-export contract generation over explicitly provided safe event refs.
+Active roadmap sources consistently
 keep v0.38.0 / M34 as Broader File Capability Review, keep M34
 planning/docs/verifier only, mark M36 through M43 implemented/released, mark
-M44, M45, M46, M47, M48, M49, M50, M51, M52, M53, and M54 implemented/released,
-keep M55-M60 planned/provisional, and rely on documentation-integrity checks to guard
+M44, M45, M46, M47, M48, M49, M50, M51, M52, M53, M54, and M55 implemented/released,
+keep M56-M60 planned/provisional, and rely on documentation-integrity checks to guard
 against superseded-roadmap drift, stale current-baseline labels, mobile product
 contract drift, read-only mobile API boundary drift, and no-authority iOS
 skeleton/local connection/review receipt/TestFlight pipeline/build candidate/mobile approval/audit/OpenWebUI adapter/conversation-surface drift.
 
 ## Release Notes Index
 
-Current release notes: `docs/release_notes/v0_58_0.md`
+Current release notes: `docs/release_notes/v0_59_0.md`
 
 Historical release notes remain under `docs/release_notes/`. Historical docs may mention old active baselines in historical context; they are not the current source of truth.
 

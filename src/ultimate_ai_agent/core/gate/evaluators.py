@@ -833,6 +833,18 @@ M54_FORBIDDEN_BACKEND_ROUTES = M53_FORBIDDEN_BACKEND_ROUTES + (
     "/media/ai/gamut",
     "/media/model/analyze",
 )
+EXPECTED_M55_OPENAPI_PATH_COUNT = 75
+M55_FORBIDDEN_BACKEND_ROUTES = M54_FORBIDDEN_BACKEND_ROUTES + (
+    "/observability/export",
+    "/observability/export/raw",
+    "/observability/export/prompts",
+    "/observability/export/provider-payloads",
+    "/observability/export/secrets",
+    "/observability/export/saas",
+    "/observability/export/network",
+    "/otel/export",
+    "/analytics/export",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -1401,6 +1413,19 @@ def m54_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
     return failures
 
 
+def m55_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M55_OPENAPI_PATH_COUNT) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+    if M37_ALLOWED_CAPTURE_ROUTE not in path_set:
+        failures.append("M37 capture route missing: /files/review/approvals/capture")
+    for route in M55_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(f"M55 forbidden observability export/raw/SaaS/backend route present: {route}")
+    return failures
+
+
 M36_SAFE_REF_PREFIXES = {
     "reviewPacketRef": "file-review-packet:",
     "previewResultRef": "redacted-file-preview-output:",
@@ -1843,6 +1868,14 @@ class FoundationGateEvaluator:
                 self.check_m54_safe_media_metadata_route_boundary
             ),
             "m54_roadmap_currentness": self.check_m54_roadmap_currentness,
+            "m55_redacted_observability_export": self.check_m55_redacted_observability_export,
+            "m55_observability_export_static_safety": (
+                self.check_m55_observability_export_static_safety
+            ),
+            "m55_observability_export_route_boundary": (
+                self.check_m55_observability_export_route_boundary
+            ),
+            "m55_roadmap_currentness": self.check_m55_roadmap_currentness,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -9170,6 +9203,7 @@ class FoundationGateEvaluator:
                 and "m53-m60 remain planned/provisional" not in text
                 and "m54-m60 remain planned/provisional" not in text
                 and "m55-m60 remain planned/provisional" not in text
+                and "m56-m60 remain planned/provisional" not in text
             ):
                 failures.append("M42-M60 through M49-M60 planned/provisional marker missing after M41")
         elif current_tuple >= (0, 44, 0):
@@ -9476,6 +9510,7 @@ class FoundationGateEvaluator:
                 and "m53-m60 remain planned/provisional" not in text
                 and "m54-m60 remain planned/provisional" not in text
                 and "m55-m60 remain planned/provisional" not in text
+                and "m56-m60 remain planned/provisional" not in text
             ):
                 failures.append("M42-M60 through M49-M60 planned/provisional marker missing after M41")
         elif version_tuple >= (0, 44, 0):
@@ -9655,6 +9690,7 @@ class FoundationGateEvaluator:
                 and "m53-m60 remain planned/provisional" not in text
                 and "m54-m60 remain planned/provisional" not in text
                 and "m55-m60 remain planned/provisional" not in text
+                and "m56-m60 remain planned/provisional" not in text
             ):
                 failures.append("M42-M60 through M49-M60 planned/provisional marker missing after M41")
         elif version_tuple >= (0, 44, 0):
@@ -9810,6 +9846,7 @@ class FoundationGateEvaluator:
                 and "m53-m60 remain planned/provisional" not in text
                 and "m54-m60 remain planned/provisional" not in text
                 and "m55-m60 remain planned/provisional" not in text
+                and "m56-m60 remain planned/provisional" not in text
             ):
                 failures.append("M42-M60 through M49-M60 planned/provisional marker missing after M41")
         elif version_tuple >= (0, 44, 0):
@@ -10081,6 +10118,7 @@ class FoundationGateEvaluator:
                 and "m53-m60 remain planned/provisional" not in text
                 and "m54-m60 remain planned/provisional" not in text
                 and "m55-m60 remain planned/provisional" not in text
+                and "m56-m60 remain planned/provisional" not in text
             ):
                 failures.append("M42-M60 through M49-M60 planned/provisional marker missing after M41")
         elif current >= (0, 44, 0):
@@ -10237,6 +10275,7 @@ class FoundationGateEvaluator:
                 and "m53-m60 remain planned/provisional" not in text
                 and "m54-m60 remain planned/provisional" not in text
                 and "m55-m60 remain planned/provisional" not in text
+                and "m56-m60 remain planned/provisional" not in text
             ):
                 failures.append("M42-M60 through M49-M60 planned/provisional marker missing after M41")
         elif m40_implemented:
@@ -10467,6 +10506,7 @@ class FoundationGateEvaluator:
                 and "m53-m60 remain planned/provisional" not in text
                 and "m54-m60 remain planned/provisional" not in text
                 and "m55-m60 remain planned/provisional" not in text
+                and "m56-m60 remain planned/provisional" not in text
             ):
                 failures.append("M42-M60 through M49-M60 planned/provisional marker missing after M41")
         elif "m41 remains planned/provisional" not in text and "m41-m60 remain planned/provisional" not in text:
@@ -12142,6 +12182,7 @@ class FoundationGateEvaluator:
             if (
                 "m54-m60 remain planned/provisional" not in text
                 and "m55-m60 remain planned/provisional" not in text
+                and "m56-m60 remain planned/provisional" not in text
             ):
                 failures.append("M54-M60 must remain planned/provisional after M53")
         elif self._active_version_tuple() >= (0, 56, 0):
@@ -12401,6 +12442,7 @@ class FoundationGateEvaluator:
             if (
                 "m54-m60 remain planned/provisional" not in text
                 and "m55-m60 remain planned/provisional" not in text
+                and "m56-m60 remain planned/provisional" not in text
             ):
                 failures.append("M54-M60 must remain planned/provisional after M53")
         elif self._active_version_tuple() >= (0, 56, 0):
@@ -12644,6 +12686,7 @@ class FoundationGateEvaluator:
             if (
                 "m54-m60 remain planned/provisional" not in text
                 and "m55-m60 remain planned/provisional" not in text
+                and "m56-m60 remain planned/provisional" not in text
             ):
                 failures.append("M54-M60 must remain planned/provisional after M53")
         elif self._active_version_tuple() >= (0, 56, 0):
@@ -12905,6 +12948,7 @@ class FoundationGateEvaluator:
             if (
                 "m54-m60 remain planned/provisional" not in text
                 and "m55-m60 remain planned/provisional" not in text
+                and "m56-m60 remain planned/provisional" not in text
             ):
                 failures.append("M54-M60 must remain planned/provisional after M53")
         else:
@@ -13148,6 +13192,7 @@ class FoundationGateEvaluator:
         if (
             "m54-m60 remain planned/provisional" not in text
             and "m55-m60 remain planned/provisional" not in text
+                and "m56-m60 remain planned/provisional" not in text
         ):
             failures.append("M54-M60 must remain planned/provisional after M53")
         forbidden_fragments = [
@@ -13378,21 +13423,304 @@ class FoundationGateEvaluator:
             failures.append("active docs do not identify v0.58.0/M54 Safe Media Metadata Inspector")
         if "m54 is implemented/released" not in text and "v0.58.0 implements m54" not in text:
             failures.append("active docs do not mark M54 implemented/released")
-        if "m55-m60 remain planned/provisional" not in text:
+        if self._active_version_tuple() >= (0, 59, 0):
+            if "m55 is implemented/released" not in text and "v0.59.0 implements m55" not in text:
+                failures.append("active docs do not mark M55 implemented/released")
+            if "m56-m60 remain planned/provisional" not in text:
+                failures.append("M56-M60 must remain planned/provisional after M55")
+        elif "m55-m60 remain planned/provisional" not in text:
             failures.append("M55-M60 must remain planned/provisional after M54")
-        for fragment in (
-            "m55 is implemented",
-            "v0.59.0 implements m55",
-            "redacted observability export is implemented",
+        forbidden_fragments = [
             "ocio deterministic transform preview is implemented",
             "ai gamut expansion is implemented",
             "raw media export is implemented",
             "model call is implemented",
             "context injection is implemented",
             "production authority is implemented",
-        ):
+        ]
+        if self._active_version_tuple() < (0, 59, 0):
+            forbidden_fragments.extend(
+                [
+                    "m55 is implemented",
+                    "v0.59.0 implements m55",
+                    "redacted observability export is implemented",
+                ]
+            )
+        for fragment in forbidden_fragments:
             if fragment in text:
                 failures.append(f"M54 docs imply forbidden/future capability: {fragment}")
+        return self._result(criterion, failures, required_docs)
+
+    def check_m55_redacted_observability_export(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/observability/__init__.py",
+            "src/ultimate_ai_agent/core/observability/export.py",
+            "docs/observability/REDACTED_OBSERVABILITY_EXPORT.md",
+            "docs/observability/REDACTED_OBSERVABILITY_EXPORT_POLICY.md",
+            "docs/observability/REDACTED_OBSERVABILITY_EXPORT_AUTHORITY_BOUNDARY.md",
+            "docs/observability/M55_TO_M56_BOUNDARY.md",
+            "tests/test_m55_redacted_observability_export.py",
+            "tests/test_m55_gate_integration.py",
+        ]
+        failures = [
+            f"missing M55 redacted observability export file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            from datetime import UTC, datetime
+
+            from ultimate_ai_agent.core.hygiene.actor_context import (
+                ActorContext,
+                ActorType,
+                AuthoritySource,
+            )
+            from ultimate_ai_agent.core.hygiene.policies import ClassificationValue, DataClassification
+            from ultimate_ai_agent.core.hygiene.temporal_context import (
+                FreshnessClass,
+                StalenessPolicy,
+                TemporalContext,
+            )
+            from ultimate_ai_agent.core.ledger import EventLedgerEvent, EventName
+            from ultimate_ai_agent.core.observability import (
+                ObservabilityExportFormat,
+                RedactedObservabilityExportPolicy,
+                RedactedObservabilityExportRequest,
+                RedactedObservabilityExportStatus,
+                build_redacted_observability_export,
+                validate_redacted_observability_export_policy,
+                validate_redacted_observability_export_request,
+            )
+
+            event = EventLedgerEvent(
+                event_id="evt_m55_gate",
+                event_type="run",
+                event_name=EventName.run_completed,
+                run_id="run_m55_gate",
+                trace_id="trace_m55_gate",
+                span_id="span_m55_gate",
+                correlation_id="corr_m55_gate",
+                actor_context=ActorContext(
+                    actor_type=ActorType.orchestrator,
+                    actor_id="m55-gate",
+                    authority_source=AuthoritySource.explicit_user_request,
+                    created_at=datetime.now(UTC),
+                ),
+                temporal_context=TemporalContext(
+                    current_time_utc=datetime.now(UTC),
+                    freshness_class=FreshnessClass.daily,
+                    staleness_policy=StalenessPolicy.allow_with_label,
+                ),
+                data_classification=DataClassification(
+                    classification=ClassificationValue.project_private,
+                    source="m55-gate",
+                ),
+                event_source="ultimate-ai-agent",
+                subject="M55 gate",
+                action="summarize",
+                outcome="completed",
+                status="success",
+                severity="info",
+                redaction_summary={"status": "redacted"},
+                metadata={"safe_summary": "M55 gate safe redacted summary."},
+            )
+            request = RedactedObservabilityExportRequest(
+                request_ref="observability-export-request:m55-gate",
+                run_ref="run:m55-gate",
+                export_ref="observability-export:m55-gate",
+                requested_formats=[ObservabilityExportFormat.internal_redacted_json],
+                source_event_refs=["event:evt_m55_gate"],
+                redaction_policy_ref="redaction-policy:m55-gate",
+            )
+            bundle = build_redacted_observability_export(request, [event])
+            if bundle.status != RedactedObservabilityExportStatus.ready or not bundle.items:
+                failures.append("M55 redacted observability export bundle was not ready")
+            if (
+                bundle.export_performed
+                or bundle.external_delivery_performed
+                or bundle.raw_prompt_exported
+                or bundle.raw_provider_payload_exported
+                or bundle.secret_exported
+                or bundle.network_call_performed
+                or bundle.model_call_performed
+                or bundle.memory_write_performed
+                or bundle.context_injection_performed
+            ):
+                failures.append("M55 bundle performed export, raw leak, network/model/context/memory side effect")
+            if bundle.receipt_plan is None:
+                failures.append("M55 bundle did not create a redacted no-effect receipt plan")
+            elif bundle.receipt_plan.side_effects_performed or bundle.receipt_plan.export_performed:
+                failures.append("M55 receipt plan performed side effects or export")
+            for request_update, reason in [
+                ({"raw_prompt_export_requested": True}, "RAW_PROMPT_EXPORT_DENIED"),
+                ({"raw_provider_payload_export_requested": True}, "RAW_PROVIDER_PAYLOAD_EXPORT_DENIED"),
+                ({"secret_export_requested": True}, "SECRET_EXPORT_DENIED"),
+                ({"external_saas_export_requested": True}, "EXTERNAL_SAAS_EXPORT_DENIED"),
+                ({"network_export_requested": True}, "NETWORK_EXPORT_DENIED"),
+                ({"model_call_requested": True}, "MODEL_CALL_DENIED"),
+                ({"memory_write_requested": True}, "MEMORY_WRITE_DENIED"),
+                ({"context_injection_requested": True}, "CONTEXT_INJECTION_DENIED"),
+            ]:
+                try:
+                    validate_redacted_observability_export_request(request.model_copy(update=request_update))
+                    failures.append(f"M55 unsafe request mutation was not denied: {reason}")
+                except ValueError as exc:
+                    if reason not in str(exc):
+                        failures.append(f"M55 unsafe request reason drifted for {reason}: {exc}")
+            try:
+                validate_redacted_observability_export_policy(
+                    RedactedObservabilityExportPolicy(external_saas_sdk_enabled=True)
+                )
+                failures.append("M55 unsafe policy flag was not denied")
+            except ValueError as exc:
+                if "EXTERNAL_SAAS_SDK_DENIED" not in str(exc):
+                    failures.append(f"M55 unsafe policy reason drifted: {exc}")
+        except Exception as exc:
+            failures.append(f"M55 redacted observability export validation failed: {exc}")
+
+        docs_text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_files
+            if path.startswith("docs/") and (self.root / path).exists()
+        )
+        for fragment in [
+            "redacted observability export",
+            "redacted-only",
+            "contract-only",
+            "no external saas",
+            "no network delivery",
+            "no raw prompts",
+            "no raw provider payloads",
+            "no secrets",
+            "no model call",
+            "no memory write",
+            "no context injection",
+            "no backend route",
+            "m56 remains future",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M55 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m55_observability_export_static_safety(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        forbidden_source_fragments = [
+            "raw_prompt_export_enabled=True",
+            "raw_provider_payload_export_enabled=True",
+            "raw_private_content_export_enabled=True",
+            "secret_export_enabled=True",
+            "external_saas_sdk_enabled=True",
+            "network_delivery_enabled=True",
+            "forensic_trace_export_enabled=True",
+            "model_call_enabled=True",
+            "memory_write_enabled=True",
+            "context_injection_enabled=True",
+            "production_authority_enabled=True",
+            "export_performed=True",
+            "external_delivery_performed=True",
+            "raw_prompt_exported=True",
+            "raw_provider_payload_exported=True",
+            "secret_exported=True",
+            "network_call_performed=True",
+            "/observability/export",
+            "/observability/export/raw",
+            "/observability/export/prompts",
+            "/observability/export/provider-payloads",
+            "/observability/export/saas",
+            "/otel/export",
+            "/analytics/export",
+            "/models/call",
+            "/provider/call",
+            "/context/inject",
+            "/memory/write",
+            "/tools/execute",
+        ]
+        allowed_files = {
+            "src/ultimate_ai_agent/api/app.py",
+            "src/ultimate_ai_agent/api/openapi.py",
+            "src/ultimate_ai_agent/core/gate/evaluators.py",
+            "src/ultimate_ai_agent/core/observability/export.py",
+            "tests/test_m55_redacted_observability_export.py",
+            "tests/test_m55_gate_integration.py",
+        }
+        source_roots = [
+            self.root / "src",
+            self.root / "apps" / "control-center" / "src",
+            self.root / "apps" / "ccc-ios",
+        ]
+        for root in source_roots:
+            if not root.exists():
+                continue
+            candidate_files = []
+            for pattern in ("*.py", "*.ts", "*.tsx", "*.js", "*.jsx", "*.swift", "*.yml", "*.yaml"):
+                candidate_files.extend(root.rglob(pattern))
+            for path in sorted(candidate_files):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(self.root).as_posix()
+                if rel in allowed_files:
+                    continue
+                text = path.read_text(encoding="utf-8")
+                for fragment in forbidden_source_fragments:
+                    if fragment in text:
+                        failures.append(f"M55 forbidden observability export fragment in {rel}: {fragment}")
+        return self._result(criterion, failures, [])
+
+    def check_m55_observability_export_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m55_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M55 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m55_roadmap_currentness(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        required_docs = [
+            "README.md",
+            "VERSION.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+            "docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md",
+            "docs/roadmap/MILESTONE_CHARTERS.md",
+        ]
+        failures = [
+            f"missing M55 roadmap doc: {path}"
+            for path in required_docs
+            if not (self.root / path).exists()
+        ]
+        text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_docs
+            if (self.root / path).exists()
+        )
+        if "v0.59.0" not in text or "m55" not in text or "redacted observability export" not in text:
+            failures.append("active docs do not identify v0.59.0/M55 Redacted Observability Export")
+        if "m55 is implemented/released" not in text and "v0.59.0 implements m55" not in text:
+            failures.append("active docs do not mark M55 implemented/released")
+        if "m56-m60 remain planned/provisional" not in text:
+            failures.append("M56-M60 must remain planned/provisional after M55")
+        for fragment in (
+            "m56 is implemented",
+            "v0.60.0 implements m56",
+            "agent eval regression harness is implemented",
+            "runtime sandbox architecture is implemented",
+            "dry-run execution audit harness is implemented",
+            "public github readiness is implemented",
+            "production authority is implemented",
+            "raw prompt export is implemented",
+            "provider payload export is implemented",
+        ):
+            if fragment in text:
+                failures.append(f"M55 docs imply forbidden/future capability: {fragment}")
         return self._result(criterion, failures, required_docs)
 
     def check_v0292_local_dev_api_authority_and_preview_safe(
@@ -13833,6 +14161,7 @@ class FoundationGateEvaluator:
             if (
                 "m54-m60 remain planned/provisional" not in text
                 and "m55-m60 remain planned/provisional" not in text
+                and "m56-m60 remain planned/provisional" not in text
             ):
                 failures.append("M54-M60 must remain planned/provisional after M53")
         elif self._active_version_tuple() >= (0, 56, 0):

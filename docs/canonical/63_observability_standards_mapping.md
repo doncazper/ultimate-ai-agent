@@ -82,7 +82,7 @@ The FastAPI Agent API Boundary should expose OpenAPI documentation for HTTP endp
 
 ## Redaction and privacy
 
-Exported telemetry must never leak secrets, raw private content, or sensitive prompt payloads. Observability export must use redacted summaries, references, hashes, and source IDs unless the user explicitly enables forensic trace export.
+Exported telemetry must never leak secrets, raw private content, or sensitive prompt payloads. Observability export must use redacted summaries, references, hashes, and source IDs. M55 does not enable forensic trace export; any future forensic mode requires a later reviewed milestone and must remain disabled through M60.
 
 ## M2 acceptance addendum
 

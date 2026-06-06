@@ -88,6 +88,7 @@ SCAN_SEQUENCE = [
     ("M52 OpenWebUI safe conversation surface scan", "verify_m52_openwebui_safe_conversation_surface"),
     ("M53 controlled tool expansion review scan", "verify_m53_controlled_tool_expansion_review"),
     ("M54 safe media metadata inspector scan", "verify_m54_safe_media_metadata_inspector"),
+    ("M55 redacted observability export scan", "verify_m55_redacted_observability_export"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -7172,6 +7173,251 @@ def verify_m54_safe_media_metadata_inspector():
                     sys.exit(1)
 
     print("OK: M54 safe media metadata inspector is metadata-only, no-route, no-transform, and no-authority")
+
+
+def verify_m55_redacted_observability_export():
+    print("\n[Verifier] Running M55 redacted observability export guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/observability/__init__.py",
+        "src/ultimate_ai_agent/core/observability/export.py",
+        "docs/observability/REDACTED_OBSERVABILITY_EXPORT.md",
+        "docs/observability/REDACTED_OBSERVABILITY_EXPORT_POLICY.md",
+        "docs/observability/REDACTED_OBSERVABILITY_EXPORT_AUTHORITY_BOUNDARY.md",
+        "docs/observability/M55_TO_M56_BOUNDARY.md",
+        "docs/release_notes/v0_59_0.md",
+        "docs/archive/releases/v0_59_0/README_IMPORT.md",
+        "docs/archive/releases/v0_59_0/master_plan.md",
+        "docs/implementation/foundation_gate_implementation_plan_v0_59_0.md",
+        "tests/test_m55_redacted_observability_export.py",
+        "tests/test_m55_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M55 redacted observability export file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = "\n".join(
+        (ROOT / rel_path).read_text(encoding="utf-8").lower()
+        for rel_path in required_files
+        if rel_path.startswith("docs/")
+    )
+    for fragment in [
+        "redacted observability export",
+        "redacted-only",
+        "contract-only",
+        "no external saas",
+        "no network delivery",
+        "no raw prompt",
+        "no raw provider payload",
+        "no raw private content",
+        "no secrets",
+        "no forensic trace export",
+        "no model call",
+        "no memory write",
+        "no context injection",
+        "no backend route",
+        "no control center control",
+        "no dependency",
+        "no production authority",
+        "m56 remains future",
+        "skill package security rule",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M55 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from datetime import UTC, datetime
+
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.evaluators import m55_openapi_route_failures
+        from ultimate_ai_agent.core.hygiene.actor_context import ActorContext, ActorType, AuthoritySource
+        from ultimate_ai_agent.core.hygiene.policies import ClassificationValue, DataClassification
+        from ultimate_ai_agent.core.hygiene.temporal_context import (
+            FreshnessClass,
+            StalenessPolicy,
+            TemporalContext,
+        )
+        from ultimate_ai_agent.core.ledger import EventLedgerEvent, EventName
+        from ultimate_ai_agent.core.observability import (
+            ObservabilityExportFormat,
+            RedactedObservabilityExportPolicy,
+            RedactedObservabilityExportRequest,
+            RedactedObservabilityExportStatus,
+            build_redacted_observability_export,
+            validate_redacted_observability_export_policy,
+            validate_redacted_observability_export_request,
+        )
+    except Exception as exc:
+        print(f"FAIL: M55 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m55_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    event = EventLedgerEvent(
+        event_id="evt_verify_all_m55",
+        event_type="run",
+        event_name=EventName.run_completed,
+        run_id="run_verify_all_m55",
+        trace_id="trace_verify_all_m55",
+        span_id="span_verify_all_m55",
+        correlation_id="corr_verify_all_m55",
+        actor_context=ActorContext(
+            actor_type=ActorType.orchestrator,
+            actor_id="m55-verify-all",
+            authority_source=AuthoritySource.explicit_user_request,
+            created_at=datetime.now(UTC),
+        ),
+        temporal_context=TemporalContext(
+            current_time_utc=datetime.now(UTC),
+            freshness_class=FreshnessClass.daily,
+            staleness_policy=StalenessPolicy.allow_with_label,
+        ),
+        data_classification=DataClassification(
+            classification=ClassificationValue.project_private,
+            source="verify-all-m55",
+        ),
+        redaction_summary={"status": "redacted"},
+        event_source="ultimate-ai-agent",
+        subject="M55 verify all",
+        action="summarize",
+        outcome="completed",
+        status="success",
+        severity="info",
+        evidence_refs=["evidence:verify-all-m55"],
+        metadata={"safe_summary": "M55 verify-all redacted summary only."},
+    )
+    request = RedactedObservabilityExportRequest(
+        request_ref="observability-export-request:verify-all-m55",
+        run_ref="run:verify-all-m55",
+        export_ref="observability-export:verify-all-m55",
+        requested_formats=[ObservabilityExportFormat.internal_redacted_json],
+        source_event_refs=["event:evt_verify_all_m55"],
+        redaction_policy_ref="redaction-policy:verify-all-m55",
+    )
+    bundle = build_redacted_observability_export(request, [event])
+    if bundle.status != RedactedObservabilityExportStatus.ready or bundle.export_performed:
+        print(f"FAIL: M55 safe export bundle was not review-ready/no-effect: {bundle.status}")
+        sys.exit(1)
+    if (
+        bundle.external_delivery_performed
+        or bundle.raw_prompt_exported
+        or bundle.raw_provider_payload_exported
+        or bundle.raw_private_content_exported
+        or bundle.secret_exported
+        or bundle.saas_sdk_enabled
+        or bundle.network_call_performed
+        or bundle.memory_write_performed
+        or bundle.model_call_performed
+        or bundle.context_injection_performed
+    ):
+        print("FAIL: M55 bundle performed external, raw, model, memory, or context side effect")
+        sys.exit(1)
+    if bundle.receipt_plan is None or bundle.receipt_plan.side_effects_performed:
+        print("FAIL: M55 receipt plan did not remain no-effect")
+        sys.exit(1)
+
+    for request_update, reason in [
+        ({"raw_prompt_export_requested": True}, "RAW_PROMPT_EXPORT_DENIED"),
+        ({"raw_provider_payload_export_requested": True}, "RAW_PROVIDER_PAYLOAD_EXPORT_DENIED"),
+        ({"raw_private_content_export_requested": True}, "RAW_PRIVATE_CONTENT_EXPORT_DENIED"),
+        ({"secret_export_requested": True}, "SECRET_EXPORT_DENIED"),
+        ({"external_saas_export_requested": True}, "EXTERNAL_SAAS_EXPORT_DENIED"),
+        ({"network_export_requested": True}, "NETWORK_EXPORT_DENIED"),
+        ({"memory_write_requested": True}, "MEMORY_WRITE_DENIED"),
+        ({"model_call_requested": True}, "MODEL_CALL_DENIED"),
+        ({"context_injection_requested": True}, "CONTEXT_INJECTION_DENIED"),
+    ]:
+        try:
+            validate_redacted_observability_export_request(request.model_copy(update=request_update))
+            print(f"FAIL: M55 unsafe request mutation was not denied: {reason}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M55 unsafe request reason drifted for {reason}: {exc}")
+                sys.exit(1)
+
+    try:
+        validate_redacted_observability_export_policy(
+            RedactedObservabilityExportPolicy(external_saas_sdk_enabled=True)
+        )
+        print("FAIL: M55 unsafe policy flag was not denied")
+        sys.exit(1)
+    except ValueError as exc:
+        if "EXTERNAL_SAAS_SDK_DENIED" not in str(exc):
+            print(f"FAIL: M55 unsafe policy reason drifted: {exc}")
+            sys.exit(1)
+
+    forbidden_source_fragments = [
+        "external_saas_sdk_enabled=True",
+        "network_delivery_enabled=True",
+        "raw_prompt_export_enabled=True",
+        "raw_provider_payload_export_enabled=True",
+        "raw_private_content_export_enabled=True",
+        "secret_export_enabled=True",
+        "forensic_trace_export_enabled=True",
+        "model_call_enabled=True",
+        "memory_write_enabled=True",
+        "context_injection_enabled=True",
+        "production_authority_enabled=True",
+        "export_performed=True",
+        "external_delivery_performed=True",
+        "raw_prompt_exported=True",
+        "raw_provider_payload_exported=True",
+        "raw_private_content_exported=True",
+        "secret_exported=True",
+        "saas_sdk_enabled=True",
+        "network_call_performed=True",
+        "memory_write_performed=True",
+        "model_call_performed=True",
+        "context_injection_performed=True",
+        "/observability/export",
+        "/observability/export/raw",
+        "/observability/export/prompts",
+        "/observability/export/provider-payloads",
+        "/observability/export/secrets",
+        "/observability/export/saas",
+        "/observability/export/network",
+        "/otel/export",
+        "/analytics/export",
+        "/context/inject",
+        "/memory/write",
+        "/tools/execute",
+    ]
+    allowed_files = {
+        "scripts/verify_all.py",
+        "src/ultimate_ai_agent/api/app.py",
+        "src/ultimate_ai_agent/api/openapi.py",
+        "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/observability/export.py",
+        "tests/test_m55_redacted_observability_export.py",
+        "tests/test_m55_gate_integration.py",
+    }
+    source_roots = [
+        ROOT / "src",
+        ROOT / "apps" / "control-center" / "src",
+        ROOT / "apps" / "ccc-ios",
+    ]
+    for root in source_roots:
+        if not root.exists():
+            continue
+        for path in root.rglob("*"):
+            if not path.is_file() or path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}:
+                continue
+            rel = path.relative_to(ROOT).as_posix()
+            if rel in allowed_files:
+                continue
+            text = path.read_text(encoding="utf-8")
+            for fragment in forbidden_source_fragments:
+                if fragment in text:
+                    print(f"FAIL: M55 forbidden observability export fragment in {rel}: {fragment}")
+                    sys.exit(1)
+
+    print("OK: M55 redacted observability export is redacted-only, no-route, no-delivery, and no-authority")
 
 
 def verify_local_developer_launcher_safety():

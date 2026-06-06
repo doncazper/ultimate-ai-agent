@@ -1,7 +1,7 @@
 # Ultimate AI Agent Docs
 
 Status: active
-Current through: v0.58.0
+Current through: v0.59.0
 Purpose: Human-facing entrypoint for active documentation and historical archive navigation.
 
 Active docs are few, indexed, and current. Historical docs are preserved under
@@ -23,10 +23,14 @@ docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md
 Current release packet:
 
 ```text
-docs/archive/releases/v0_58_0/README_IMPORT.md
-docs/archive/releases/v0_58_0/master_plan.md
-docs/release_notes/v0_58_0.md
-docs/implementation/foundation_gate_implementation_plan_v0_58_0.md
+docs/archive/releases/v0_59_0/README_IMPORT.md
+docs/archive/releases/v0_59_0/master_plan.md
+docs/release_notes/v0_59_0.md
+docs/implementation/foundation_gate_implementation_plan_v0_59_0.md
+docs/observability/REDACTED_OBSERVABILITY_EXPORT.md
+docs/observability/REDACTED_OBSERVABILITY_EXPORT_POLICY.md
+docs/observability/REDACTED_OBSERVABILITY_EXPORT_AUTHORITY_BOUNDARY.md
+docs/observability/M55_TO_M56_BOUNDARY.md
 docs/media/SAFE_MEDIA_METADATA_INSPECTOR.md
 docs/media/SAFE_MEDIA_METADATA_POLICY.md
 docs/media/SAFE_MEDIA_METADATA_AUTHORITY_BOUNDARY.md
@@ -166,5 +170,12 @@ memory writes, network calls, model/provider calls, plugin enablement, browser
 automation, mobile/device access, remote execution, shell execution,
 dependencies, context injection, or production authority.
 
-M40-M60 remain planned/provisional under
+v0.59.0 implements M55 Redacted Observability Export as deterministic local
+redacted-export contract generation over explicitly provided safe event refs. It
+adds no external SaaS or analytics SDK, network delivery, raw prompt export, raw
+provider payload export, raw private content export, secret export, forensic
+trace export, model/provider call, memory write, context injection, backend
+route, Control Center control, dependency, production authority, or M56 work.
+
+M56-M60 remain planned/provisional under
 `docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md`.

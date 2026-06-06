@@ -667,5 +667,22 @@ model_copy-mutated unsafe fields are revalidated at the evaluator boundary.
 Receipt plans record metadata-only results, no raw media storage, no original overwrite, and no side effects.
 Foundation Gate includes M54 safe media metadata inspector, static safety, route boundary, and roadmap currentness criteria.
 OpenAPI path count remains unchanged at 75.
-M55 remains planned/provisional as Redacted Observability Export.
+At the v0.58.0 M54 baseline, M55 remained planned/provisional as Redacted Observability Export.
+```
+
+## v0.59.0 M55 Redacted Observability Export Tests
+
+v0.59.0 adds focused Redacted Observability Export tests only:
+
+```text
+Redacted observability export policy, request, item, bundle, and receipt plan contracts exist.
+Explicit safe event refs can build deterministic redacted export bundles.
+Export bundles include safe event refs, safe trace refs, redacted summaries, redaction summaries, and safe metadata refs only.
+raw_prompt_export_requested, raw_provider_payload_export_requested, raw_private_content_export_requested, secret_export_requested, external_saas_export_requested, network_export_requested, memory_write_requested, model_call_requested, and context_injection_requested are denied.
+Secret-like event metadata and missing source event refs are denied.
+model_copy-mutated unsafe fields are revalidated at the evaluator boundary.
+Receipt plans record no raw prompt export, no raw provider payload export, no raw private content export, no secret export, no external delivery, no network delivery, no memory write, no model call, and no context injection.
+Foundation Gate includes M55 redacted observability export, static safety, route boundary, and roadmap currentness criteria.
+OpenAPI path count remains unchanged at 75.
+M56 remains planned/provisional as Agent Eval Regression Harness.
 ```
