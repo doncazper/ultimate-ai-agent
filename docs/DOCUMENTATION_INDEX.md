@@ -1,6 +1,6 @@
 # Documentation Index
 
-Current active baseline: **v0.64.1**
+Current active baseline: **v0.65.0**
 
 This index is the active entrypoint for documentation navigation. Historical release documents remain in the repository for audit history, but active truth starts with the current baseline files listed here.
 
@@ -14,8 +14,8 @@ docs/canonical/CANONICAL_DOC_MAP.md
 docs/canonical/09_roadmap.md
 docs/roadmap/README.md
 docs/archive/README.md
-docs/archive/releases/v0_64_1/README_IMPORT.md
-docs/archive/releases/v0_64_1/master_plan.md
+docs/archive/releases/v0_65_0/README_IMPORT.md
+docs/archive/releases/v0_65_0/master_plan.md
 docs/developer/LOCAL_LAUNCHER.md
 scripts/dev/README.md
 docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md
@@ -46,6 +46,12 @@ docs/beta/LOCAL_DEVELOPER_BETA_FREEZE.md
 docs/beta/LOCAL_DEVELOPER_BETA_FREEZE_POLICY.md
 docs/beta/LOCAL_DEVELOPER_BETA_FREEZE_AUTHORITY_BOUNDARY.md
 docs/beta/POST_M60_AUTONOMY_BOUNDARY.md
+docs/autonomy/AUTONOMY_MODE_CHARTER.md
+docs/autonomy/AUTHORITY_LEVELS.md
+docs/autonomy/CAPABILITY_TOGGLE_REGISTRY.md
+docs/autonomy/AUTONOMY_CONSENT_REVOCATION_POLICY.md
+docs/autonomy/M61_TO_M62_BOUNDARY.md
+docs/roadmap/M61_M100_ROADMAP.md
 docs/files/FILE_REVIEW_RECEIPT_PLAN.md
 docs/files/FILE_REVIEW_NON_GOALS.md
 docs/files/M35_TO_M36_BOUNDARY.md
@@ -491,7 +497,7 @@ scripts/dev/README.md
 ```
 
 v0.37.4 supersedes the old active M35-M40 roadmap projection and defines the
-active M34-M60 sequence. v0.64.1 is the current active baseline after
+active M34-M60 sequence. v0.65.0 is the current active baseline after
 hardening the accepted M60 Local Developer Beta Freeze with broader static
 verification, row-anchored roadmap checks, explicit no-authority documentation,
 and Foundation Gate coverage.
@@ -506,7 +512,7 @@ skeleton/local connection/review receipt/TestFlight pipeline/build candidate/mob
 
 ## Release Notes Index
 
-Current release notes: `docs/release_notes/v0_64_1.md`
+Current release notes: `docs/release_notes/v0_65_0.md`
 
 Historical release notes remain under `docs/release_notes/`. Historical docs may mention old active baselines in historical context; they are not the current source of truth.
 

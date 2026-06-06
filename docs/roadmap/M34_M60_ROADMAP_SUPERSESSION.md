@@ -1,6 +1,6 @@
 # M34-M60 Roadmap Supersession
 
-Status: Active roadmap source of truth through v0.64.1.
+Status: Active roadmap source of truth through v0.65.0. M61-M100 planning continues in `docs/roadmap/M61_M100_ROADMAP.md`.
 
 v0.38.0 implements M34 Broader File Capability Review as planning,
 architecture review, documentation, verifier, and Foundation Gate work only.

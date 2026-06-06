@@ -1,0 +1,55 @@
+# M61-M100 Roadmap
+
+Status: Active roadmap promoted by M61 / v0.65.0.
+
+M61 is implemented/released by v0.65.0 as Autonomy Mode Charter + Authority
+Levels. M62-M100 remain planned/provisional. This roadmap adds no production
+authority, no global autonomy switch, no broad autonomy, no tool execution, no
+shell execution, no browser automation, no network tools, no background worker,
+no autonomous session, no backend route, and no dependency.
+
+| Version | Milestone | Title | Status |
+| --- | --- | --- | --- |
+| v0.65.0 | M61 | Autonomy Mode Charter + Authority Levels | Implemented/released |
+| v0.66.0 | M62 | Scoped Autonomy Session Contracts | Planned/provisional |
+| v0.67.0 | M63 | Autonomy Policy Engine v1 | Planned/provisional |
+| v0.68.0 | M64 | Autonomous Plan Simulator | Planned/provisional |
+| v0.69.0 | M65 | Autonomy Audit + Replay Viewer | Planned/provisional |
+| v0.70.0 | M66 | Scoped Approval Bundles | Planned/provisional |
+| v0.71.0 | M67 | Revocation + Kill Switch | Planned/provisional |
+| v0.72.0 | M68 | Autonomy Risk Classifier | Planned/provisional |
+| v0.73.0 | M69 | Low-Risk Autonomous Dry Run | Planned/provisional |
+| v0.74.0 | M70 | Autonomy Foundation Freeze | Planned/provisional |
+| v0.75.0 | M71 | Network Tool Contract Review | Planned/provisional |
+| v0.76.0 | M72 | Read-Only HTTP Fetch Tool, Allowlisted | Planned/provisional |
+| v0.77.0 | M73 | Browser Automation Contract Review | Planned/provisional |
+| v0.78.0 | M74 | Browser Observe-Only Adapter | Planned/provisional |
+| v0.79.0 | M75 | Browser Action Dry-Run Planner | Planned/provisional |
+| v0.80.0 | M76 | OpenWebUI Runtime Bridge v1 | Planned/provisional |
+| v0.81.0 | M77 | OpenWebUI Safe Handoff Execution | Planned/provisional |
+| v0.82.0 | M78 | Plugin Manifest Security Model | Planned/provisional |
+| v0.83.0 | M79 | Plugin Install Review, Disabled by Default | Planned/provisional |
+| v0.84.0 | M80 | Network/Browser/OpenWebUI Hardening Freeze | Planned/provisional |
+| v0.85.0 | M81 | Runtime Sandbox Spec | Planned/provisional |
+| v0.86.0 | M82 | Command Proposal Contracts | Planned/provisional |
+| v0.87.0 | M83 | Shell Dry-Run Classifier | Planned/provisional |
+| v0.88.0 | M84 | Sandboxed Echo/No-Op Command | Planned/provisional |
+| v0.89.0 | M85 | Read-Only Command Allowlist | Planned/provisional |
+| v0.90.0 | M86 | Shell Approval Gate v1 | Planned/provisional |
+| v0.91.0 | M87 | Sandboxed Command Audit Replay | Planned/provisional |
+| v0.92.0 | M88 | Mutating Command Proposal, No Execution | Planned/provisional |
+| v0.93.0 | M89 | Emergency Stop + Process Kill Safety | Planned/provisional |
+| v0.94.0 | M90 | Shell/Subprocess Hardening Freeze | Planned/provisional |
+| v0.95.0 | M91 | Autonomous Tool Execution Contract | Planned/provisional |
+| v0.96.0 | M92 | Low-Risk Tool Autonomy, Single Session | Planned/provisional |
+| v0.97.0 | M93 | Multi-Tool Dry-Run to Real Run Promotion | Planned/provisional |
+| v0.98.0 | M94 | Autonomous Browser Clicks, Low-Risk Only | Planned/provisional |
+| v0.99.0 | M95 | Network Tool Expansion, Authless Only | Planned/provisional |
+| v1.0.0 | M96 | Plugin Execution Sandbox, No External Plugins | Planned/provisional |
+| v1.1.0 | M97 | Recurring Automation Contracts | Planned/provisional |
+| v1.2.0 | M98 | Scoped Recurring Low-Risk Automation | Planned/provisional |
+| v1.3.0 | M99 | Autonomy v1 Safety Freeze | Planned/provisional |
+| v1.4.0 | M100 | Mobile Permission Model v1 | Planned/provisional |
+
+Production authority remains future beyond M100 unless a later reviewed roadmap
+promotion explicitly changes the boundary.

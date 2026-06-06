@@ -94,6 +94,7 @@ SCAN_SEQUENCE = [
     ("M58 dry-run execution audit harness scan", "verify_m58_dry_run_execution_audit_harness"),
     ("M59 public GitHub readiness scan", "verify_m59_public_github_readiness"),
     ("M60 local developer beta freeze scan", "verify_m60_local_developer_beta_freeze"),
+    ("M61 autonomy mode charter scan", "verify_m61_autonomy_mode_charter"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -8462,6 +8463,215 @@ def verify_m60_local_developer_beta_freeze():
                     sys.exit(1)
 
     print("OK: M60 local developer beta freeze is freeze-only, route-free, no-autonomy, and no-authority")
+
+
+def verify_m61_autonomy_mode_charter():
+    print("\n[Verifier] Running M61 autonomy mode charter guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/autonomy/__init__.py",
+        "src/ultimate_ai_agent/core/autonomy/modes.py",
+        "docs/autonomy/AUTONOMY_MODE_CHARTER.md",
+        "docs/autonomy/AUTHORITY_LEVELS.md",
+        "docs/autonomy/CAPABILITY_TOGGLE_REGISTRY.md",
+        "docs/autonomy/AUTONOMY_CONSENT_REVOCATION_POLICY.md",
+        "docs/autonomy/M61_TO_M62_BOUNDARY.md",
+        "docs/roadmap/M61_M100_ROADMAP.md",
+        "docs/release_notes/v0_65_0.md",
+        "docs/archive/releases/v0_65_0/README_IMPORT.md",
+        "docs/archive/releases/v0_65_0/master_plan.md",
+        "docs/implementation/foundation_gate_implementation_plan_v0_65_0.md",
+        "tests/test_m61_autonomy_mode_charter.py",
+        "tests/test_m61_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M61 autonomy mode charter file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = "\n".join(
+        (ROOT / rel_path).read_text(encoding="utf-8").lower()
+        for rel_path in required_files
+        if rel_path.startswith("docs/")
+    )
+    for fragment in [
+        "autonomy mode charter",
+        "authority levels",
+        "mode 0",
+        "mode 1",
+        "mode 2",
+        "mode 3",
+        "mode 4",
+        "mode 5",
+        "mode 6",
+        "default mode off",
+        "disabled by default",
+        "dry-run first",
+        "limited allowlist",
+        "explicit approval",
+        "scoped autonomy window",
+        "audit/replay",
+        "revocation",
+        "no global autonomy switch",
+        "no production authority",
+        "no execution",
+        "no tool execution",
+        "no browser automation",
+        "no shell execution",
+        "no network tools",
+        "no background worker",
+        "no autonomous session",
+        "no backend route",
+        "no dependency",
+        "m62 remains future",
+        "skill package security rule",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M61 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.autonomy import (
+            AutonomyAuthorityMode,
+            AutonomyCapabilityToggle,
+            AutonomyModeCharter,
+            AutonomyRiskClass,
+            build_autonomy_mode_decision,
+            validate_autonomy_capability_toggle,
+            validate_autonomy_mode_charter,
+        )
+        from ultimate_ai_agent.core.gate.evaluators import m61_openapi_route_failures
+    except Exception as exc:
+        print(f"FAIL: M61 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m61_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    charter = validate_autonomy_mode_charter(AutonomyModeCharter())
+    if charter.default_mode != AutonomyAuthorityMode.off:
+        print("FAIL: M61 autonomy charter default mode is not OFF")
+        sys.exit(1)
+    toggle = AutonomyCapabilityToggle(
+        toggle_ref="autonomy-toggle:verify-all-m61",
+        capability_ref="capability:observe-only-review",
+        requested_mode=AutonomyAuthorityMode.off,
+        actor_ref="actor:verify-all-reviewer",
+        scope_ref="scope:verify-all-m61",
+        resource_refs=["resource:local-prototype"],
+        duration_seconds=0,
+        risk_class=AutonomyRiskClass.low,
+        revocation_ref="revocation:verify-all-m61",
+        audit_ref="audit:verify-all-m61",
+    )
+    decision = build_autonomy_mode_decision(toggle, charter)
+    if decision.selected_mode != AutonomyAuthorityMode.off or decision.allowed or decision.side_effects_performed:
+        print("FAIL: M61 autonomy decision granted authority or side effects")
+        sys.exit(1)
+
+    for update, reason in [
+        ({"enabled": True}, "AUTONOMY_TOGGLE_ENABLEMENT_DENIED"),
+        (
+            {"requested_mode": AutonomyAuthorityMode.ask_before_every_action, "duration_seconds": 300},
+            "AUTONOMY_MODE_ENABLEMENT_DENIED",
+        ),
+        ({"approval_test_ref": "approval_test_:m61"}, "APPROVAL_TEST_REF_DENIED"),
+        ({"tool_execution_enabled": True}, "TOOL_EXECUTION_DENIED"),
+        ({"shell_execution_enabled": True}, "SHELL_EXECUTION_DENIED"),
+        ({"network_tool_enabled": True}, "NETWORK_TOOL_DENIED"),
+        ({"browser_automation_enabled": True}, "BROWSER_AUTOMATION_DENIED"),
+        ({"background_worker_enabled": True}, "BACKGROUND_WORKER_DENIED"),
+        ({"production_authority_enabled": True}, "PRODUCTION_AUTHORITY_DENIED"),
+    ]:
+        try:
+            validate_autonomy_capability_toggle(toggle.model_copy(update=update))
+            print(f"FAIL: M61 unsafe toggle mutation was not denied: {reason}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M61 unsafe toggle reason drifted for {reason}: {exc}")
+                sys.exit(1)
+
+    for update, reason in [
+        ({"default_mode": AutonomyAuthorityMode.dry_run_plan}, "AUTONOMY_DEFAULT_MODE_OFF_REQUIRED"),
+        ({"global_autonomy_switch_enabled": True}, "GLOBAL_AUTONOMY_SWITCH_DENIED"),
+        ({"production_authority_enabled": True}, "PRODUCTION_AUTHORITY_DENIED"),
+        ({"backend_routes_enabled": True}, "BACKEND_ROUTE_DENIED"),
+        ({"dependencies_added": True}, "DEPENDENCY_ADDITION_DENIED"),
+    ]:
+        try:
+            validate_autonomy_mode_charter(charter.model_copy(update=update))
+            print(f"FAIL: M61 unsafe charter mutation was not denied: {reason}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M61 unsafe charter reason drifted for {reason}: {exc}")
+                sys.exit(1)
+
+    forbidden_source_fragments = [
+        "global_autonomy_switch_enabled=True",
+        "production_authority_enabled=True",
+        "execution_enabled=True",
+        "tool_execution_enabled=True",
+        "shell_execution_enabled=True",
+        "network_tool_enabled=True",
+        "browser_automation_enabled=True",
+        "plugin_execution_enabled=True",
+        "mobile_sensor_enabled=True",
+        "remote_execution_enabled=True",
+        "background_worker_enabled=True",
+        "memory_write_enabled=True",
+        "context_injection_enabled=True",
+        "model_provider_call_enabled=True",
+        "backend_routes_enabled=True",
+        "dependencies_added=True",
+        "execution_performed=True",
+        "production_authority_granted=True",
+        "/autonomy/enable",
+        "/autonomy/session/start",
+        "/autonomy/execute",
+        "/network/fetch",
+        "/shell/execute",
+        "/browser/click",
+        "/plugins/execute",
+        "/background/start",
+        "subprocess" + ".run(",
+        "subprocess" + ".Popen(",
+        "os.system(",
+        "shell=True",
+    ]
+    allowed_files = {
+        "scripts/verify_all.py",
+        "src/ultimate_ai_agent/core/autonomy/modes.py",
+        "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/tools/runtime/invocation.py",
+        "tests/test_m61_autonomy_mode_charter.py",
+        "tests/test_m61_gate_integration.py",
+    }
+    source_roots = [
+        ROOT / "src" / "ultimate_ai_agent",
+        ROOT / "apps" / "control-center" / "src",
+        ROOT / "apps" / "ccc-ios",
+    ]
+    for root in source_roots:
+        if not root.exists():
+            continue
+        for path in root.rglob("*"):
+            if not path.is_file() or path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}:
+                continue
+            rel = path.relative_to(ROOT).as_posix()
+            if rel in allowed_files:
+                continue
+            text = path.read_text(encoding="utf-8")
+            for fragment in forbidden_source_fragments:
+                if fragment in text:
+                    print(f"FAIL: M61 forbidden autonomy fragment in {rel}: {fragment}")
+                    sys.exit(1)
+
+    print("OK: M61 autonomy mode charter is default-off, route-free, no-autonomy, and no-authority")
 
 
 def verify_local_developer_launcher_safety():

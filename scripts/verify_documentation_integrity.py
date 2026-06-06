@@ -350,6 +350,19 @@ REQUIRED_M60_LOCAL_DEVELOPER_BETA_FREEZE_DOCS = [
     "docs/implementation/foundation_gate_implementation_plan_v0_64_0.md",
 ]
 
+REQUIRED_M61_AUTONOMY_MODE_CHARTER_DOCS = [
+    "docs/autonomy/AUTONOMY_MODE_CHARTER.md",
+    "docs/autonomy/AUTHORITY_LEVELS.md",
+    "docs/autonomy/CAPABILITY_TOGGLE_REGISTRY.md",
+    "docs/autonomy/AUTONOMY_CONSENT_REVOCATION_POLICY.md",
+    "docs/autonomy/M61_TO_M62_BOUNDARY.md",
+    "docs/roadmap/M61_M100_ROADMAP.md",
+    "docs/release_notes/v0_65_0.md",
+    "docs/archive/releases/v0_65_0/README_IMPORT.md",
+    "docs/archive/releases/v0_65_0/master_plan.md",
+    "docs/implementation/foundation_gate_implementation_plan_v0_65_0.md",
+]
+
 
 REQUIRED_ACTIVE_DOCS = [
     "docs/README.md",
@@ -870,6 +883,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_m58_dry_run_audit_docs(root, version))
     failures.extend(_verify_m59_public_github_readiness_docs(root, version))
     failures.extend(_verify_m60_local_developer_beta_freeze_docs(root, version))
+    failures.extend(_verify_m61_autonomy_mode_charter_docs(root, version))
     failures.extend(_verify_m19_roadmap_currentness(root, version))
     failures.extend(_verify_post_m18_roadmap_status_labels(root))
 
@@ -3144,6 +3158,90 @@ def _verify_m60_local_developer_beta_freeze_docs(root: Path, version: str | None
         "M60 docs must not claim post-M60 autonomy implementation": "post-m60 autonomy is implemented",
         "M60 docs must not claim production authority": "production authority is implemented",
         "M60 docs must not claim M61 implementation": "m61 is implemented",
+    }
+    for message, fragment in forbidden_fragments.items():
+        if fragment in text:
+            failures.append(f"{message}: {fragment}")
+    return failures
+
+
+def _verify_m61_autonomy_mode_charter_docs(root: Path, version: str | None) -> list[str]:
+    if _version_tuple(version) < (0, 65, 0):
+        return []
+
+    failures: list[str] = []
+    parts: list[str] = []
+    for rel_path in REQUIRED_M61_AUTONOMY_MODE_CHARTER_DOCS:
+        path = root / rel_path
+        if not path.exists():
+            failures.append(f"missing active M61 autonomy mode charter doc: {rel_path}")
+            continue
+        parts.append(_read(path).lower())
+    text = "\n".join(parts)
+    required_fragments = {
+        "M61 docs must say Autonomy Mode Charter": "autonomy mode charter",
+        "M61 docs must say authority levels": "authority levels",
+        "M61 docs must define Mode 0": "mode 0",
+        "M61 docs must define Mode 1": "mode 1",
+        "M61 docs must define Mode 2": "mode 2",
+        "M61 docs must define Mode 3": "mode 3",
+        "M61 docs must define Mode 4": "mode 4",
+        "M61 docs must define Mode 5": "mode 5",
+        "M61 docs must define Mode 6": "mode 6",
+        "M61 docs must say default mode off": "default mode off",
+        "M61 docs must say disabled by default": "disabled by default",
+        "M61 docs must say dry-run first": "dry-run first",
+        "M61 docs must say limited allowlist": "limited allowlist",
+        "M61 docs must say explicit approval": "explicit approval",
+        "M61 docs must say scoped autonomy window": "scoped autonomy window",
+        "M61 docs must say audit/replay": "audit/replay",
+        "M61 docs must say revocation": "revocation",
+        "M61 docs must deny global autonomy switch": "no global autonomy switch",
+        "M61 docs must deny production authority": "no production authority",
+        "M61 docs must deny execution": "no execution",
+        "M61 docs must deny tool execution": "no tool execution",
+        "M61 docs must deny browser automation": "no browser automation",
+        "M61 docs must deny shell execution": "no shell execution",
+        "M61 docs must deny network tools": "no network tools",
+        "M61 docs must deny background worker": "no background worker",
+        "M61 docs must deny autonomous session": "no autonomous session",
+        "M61 docs must deny backend routes": "no backend route",
+        "M61 docs must deny dependencies": "no dependency",
+        "M61 docs must keep M62 future": "m62 remains future",
+        "M61 Foundation Gate docs must mention Skill Package Security Rule": (
+            "skill package security rule"
+        ),
+    }
+    for message, fragment in required_fragments.items():
+        if fragment not in text:
+            failures.append(message)
+
+    for version_label, milestone, title in [
+        ("v0.66.0", "m62", "scoped autonomy session contracts"),
+        ("v0.67.0", "m63", "autonomy policy engine v1"),
+        ("v0.68.0", "m64", "autonomous plan simulator"),
+        ("v0.69.0", "m65", "autonomy audit + replay viewer"),
+        ("v0.74.0", "m70", "autonomy foundation freeze"),
+        ("v0.80.0", "m76", "openwebui runtime bridge v1"),
+        ("v0.94.0", "m90", "shell/subprocess hardening freeze"),
+        ("v0.95.0", "m91", "autonomous tool execution contract"),
+        ("v1.4.0", "m100", "mobile permission model v1"),
+    ]:
+        if version_label not in text or milestone not in text or title not in text:
+            failures.append(
+                f"M61-M100 roadmap missing planned label: {version_label} / {milestone.upper()} - {title}"
+            )
+
+    forbidden_fragments = {
+        "M61 docs must not claim global autonomy implementation": (
+            "global autonomy switch is implemented"
+        ),
+        "M61 docs must not claim production authority": "production authority is implemented",
+        "M61 docs must not claim execution": "execution is implemented",
+        "M61 docs must not claim tool execution": "tool execution is implemented",
+        "M61 docs must not claim shell execution": "shell execution is implemented",
+        "M61 docs must not claim browser automation": "browser automation is implemented",
+        "M61 docs must not claim M62 implementation": "m62 is implemented",
     }
     for message, fragment in forbidden_fragments.items():
         if fragment in text:

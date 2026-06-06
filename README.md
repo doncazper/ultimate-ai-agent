@@ -12,20 +12,20 @@ allowed to become operational authority.
 
 | Field | Current state |
 |---|---|
-| Current active baseline | **v0.64.1** |
-| Current milestone | **M60 - Local Developer Beta Freeze** |
+| Current active baseline | **v0.65.0** |
+| Current milestone | **M61 - Autonomy Mode Charter + Authority Levels** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **75** OpenAPI paths |
 | Production readiness | Not claimed |
 
-v0.64.1 hardens the accepted M60 Local Developer Beta Freeze baseline after
-post-M60 review. It strengthens M60 verifier scope, external-distribution
-no-effect checks, roadmap row anchoring, explicit safety-boundary documentation,
-tests, documentation-integrity checks, static verification, and Foundation Gate
-coverage. It adds no public release, external distribution, post-M60 autonomy,
-production authority, execution, backend routes, Control Center controls,
-dependencies, M61 work, or production authority.
+v0.65.0 implements M61 Autonomy Mode Charter + Authority Levels. It defines
+Mode 0 through Mode 6, keeps default mode off, adds capability-toggle registry
+contracts, documents consent/revocation and audit/replay requirements, promotes
+the active M61-M100 roadmap, and adds tests, documentation-integrity checks,
+static verification, and Foundation Gate coverage. It adds no global autonomy
+switch, production authority, execution, backend routes, Control Center
+controls, background worker, autonomous session, dependency, or M62 work.
 
 v0.29.5 is documentation policy polish. It remains the documentation
 organization cleanup baseline before the M26 and M27 implementation releases.
@@ -37,6 +37,7 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [Canonical document map](docs/canonical/CANONICAL_DOC_MAP.md)
 - [Current roadmap](docs/canonical/09_roadmap.md)
 - [M34-M60 roadmap supersession](docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md)
+- [M61-M100 roadmap](docs/roadmap/M61_M100_ROADMAP.md)
 - [M34 Broader File Capability Review](docs/files/BROADER_FILE_CAPABILITY_REVIEW.md)
 - [File capability boundary matrix](docs/files/FILE_CAPABILITY_BOUNDARY_MATRIX.md)
 - [File capability risk register](docs/files/FILE_CAPABILITY_RISK_REGISTER.md)
@@ -125,6 +126,11 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M60 Local Developer Beta Freeze Policy](docs/beta/LOCAL_DEVELOPER_BETA_FREEZE_POLICY.md)
 - [M60 Local Developer Beta Freeze Authority Boundary](docs/beta/LOCAL_DEVELOPER_BETA_FREEZE_AUTHORITY_BOUNDARY.md)
 - [Post-M60 Autonomy Boundary](docs/beta/POST_M60_AUTONOMY_BOUNDARY.md)
+- [M61 Autonomy Mode Charter](docs/autonomy/AUTONOMY_MODE_CHARTER.md)
+- [M61 Authority Levels](docs/autonomy/AUTHORITY_LEVELS.md)
+- [M61 Capability Toggle Registry](docs/autonomy/CAPABILITY_TOGGLE_REGISTRY.md)
+- [M61 Autonomy Consent And Revocation Policy](docs/autonomy/AUTONOMY_CONSENT_REVOCATION_POLICY.md)
+- [M61 to M62 Boundary](docs/autonomy/M61_TO_M62_BOUNDARY.md)
 - [M38 Context Proposal Receipt Plan](docs/context/CONTEXT_PROPOSAL_RECEIPT_PLAN.md)
 - [API route inventory](docs/api/route_inventory.md)
 - [Documentation organization policy](docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md)
@@ -143,8 +149,8 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M27 Tool Broker v2](docs/tools/TOOL_BROKER_V2.md)
 - [M26 Grounded Recall Router](docs/recall/GROUNDED_RECALL_ROUTER.md)
 - [v0.60.0 release notes](docs/release_notes/v0_60_0.md)
-- [v0.64.1 release packet](docs/archive/releases/v0_64_1/README_IMPORT.md)
-- [v0.64.1 master plan](docs/archive/releases/v0_64_1/master_plan.md)
+- [v0.65.0 release packet](docs/archive/releases/v0_65_0/README_IMPORT.md)
+- [v0.65.0 master plan](docs/archive/releases/v0_65_0/master_plan.md)
 
 ## What This Project Is
 
@@ -421,7 +427,7 @@ post-M33 supersession is
 | v0.62.0 | M58 - Dry-Run Execution Audit Harness | Implemented/released dry-run-only |
 | v0.63.0 | M59 - Public GitHub Readiness | Implemented/released review-only |
 | v0.64.0 | M60 - Local Developer Beta Freeze | Implemented/released freeze-only |
-| v0.64.1 | M60 hardening - Post-M60 Stabilization | Implemented/released verifier and documentation hardening |
+| v0.65.0 | M61 - Autonomy Mode Charter + Authority Levels | Implemented/released contract-only autonomy authority charter |
 
 The roadmap intentionally separates contract planning, validation, preview,
 manual local execution, and future operational authority.

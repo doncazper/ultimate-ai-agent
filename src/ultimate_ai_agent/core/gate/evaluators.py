@@ -906,6 +906,18 @@ M60_FORBIDDEN_BACKEND_ROUTES = M59_FORBIDDEN_BACKEND_ROUTES + (
     "/plugins/execute",
     "/remote/execute",
 )
+EXPECTED_M61_OPENAPI_PATH_COUNT = 75
+M61_FORBIDDEN_BACKEND_ROUTES = M60_FORBIDDEN_BACKEND_ROUTES + (
+    "/autonomy/session/start",
+    "/autonomy/session/run",
+    "/autonomy/execute",
+    "/autonomy/authority/enable",
+    "/autonomy/toggle/enable",
+    "/background/start",
+    "/background/run",
+    "/network/fetch",
+    "/network/request",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -1552,6 +1564,19 @@ def m60_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
     return failures
 
 
+def m61_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M61_OPENAPI_PATH_COUNT) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+    if M37_ALLOWED_CAPTURE_ROUTE not in path_set:
+        failures.append("M37 capture route missing: /files/review/approvals/capture")
+    for route in M61_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(f"M61 forbidden autonomy/execution/backend route present: {route}")
+    return failures
+
+
 M36_SAFE_REF_PREFIXES = {
     "reviewPacketRef": "file-review-packet:",
     "previewResultRef": "redacted-file-preview-output:",
@@ -2036,6 +2061,14 @@ class FoundationGateEvaluator:
                 self.check_m60_local_developer_beta_freeze_route_boundary
             ),
             "m60_final_roadmap_currentness": self.check_m60_final_roadmap_currentness,
+            "m61_autonomy_mode_charter_review": self.check_m61_autonomy_mode_charter_review,
+            "m61_autonomy_mode_charter_static_safety": (
+                self.check_m61_autonomy_mode_charter_static_safety
+            ),
+            "m61_autonomy_mode_charter_route_boundary": (
+                self.check_m61_autonomy_mode_charter_route_boundary
+            ),
+            "m61_roadmap_currentness": self.check_m61_roadmap_currentness,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -15246,16 +15279,285 @@ class FoundationGateEvaluator:
             failures.append("active docs do not identify v0.64.0/M60 Local Developer Beta Freeze")
         if "m60 is implemented/released" not in text and "v0.64.0 implements m60" not in text:
             failures.append("active docs do not mark M60 implemented/released")
-        for fragment in (
-            "m61 is implemented",
-            "m61-m80 is active",
+        forbidden_fragments = [
             "post-m60 autonomy is implemented",
             "production authority is implemented",
             "public release is implemented",
             "external distribution is implemented",
-        ):
+        ]
+        if self._active_version_tuple() < (0, 65, 0):
+            forbidden_fragments.extend(["m61 is implemented", "m61-m80 is active"])
+        for fragment in forbidden_fragments:
             if fragment in text:
                 failures.append(f"M60 docs imply forbidden/future capability: {fragment}")
+        return self._result(criterion, failures, required_docs)
+
+    def check_m61_autonomy_mode_charter_review(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/autonomy/__init__.py",
+            "src/ultimate_ai_agent/core/autonomy/modes.py",
+            "tests/test_m61_autonomy_mode_charter.py",
+            "docs/autonomy/AUTONOMY_MODE_CHARTER.md",
+            "docs/autonomy/AUTHORITY_LEVELS.md",
+            "docs/autonomy/CAPABILITY_TOGGLE_REGISTRY.md",
+            "docs/autonomy/AUTONOMY_CONSENT_REVOCATION_POLICY.md",
+            "docs/autonomy/M61_TO_M62_BOUNDARY.md",
+            "docs/roadmap/M61_M100_ROADMAP.md",
+        ]
+        failures = [
+            f"missing M61 autonomy mode charter file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            from ultimate_ai_agent.core.autonomy import (
+                AutonomyAuthorityMode,
+                AutonomyCapabilityToggle,
+                AutonomyModeCharter,
+                AutonomyRiskClass,
+                build_autonomy_mode_decision,
+                validate_autonomy_capability_toggle,
+                validate_autonomy_mode_charter,
+            )
+
+            charter = validate_autonomy_mode_charter(AutonomyModeCharter())
+            if charter.default_mode != AutonomyAuthorityMode.off:
+                failures.append("M61 autonomy charter default mode is not OFF")
+            if not {
+                AutonomyAuthorityMode.off,
+                AutonomyAuthorityMode.observe_only,
+                AutonomyAuthorityMode.dry_run_plan,
+                AutonomyAuthorityMode.ask_before_every_action,
+                AutonomyAuthorityMode.scoped_autonomy_window,
+                AutonomyAuthorityMode.trusted_recurring_automation,
+                AutonomyAuthorityMode.production_authority_later,
+            }.issubset(set(charter.available_modes)):
+                failures.append("M61 autonomy authority modes are incomplete")
+            toggle = AutonomyCapabilityToggle(
+                toggle_ref="autonomy-toggle:m61-gate",
+                capability_ref="capability:observe-only-review",
+                requested_mode=AutonomyAuthorityMode.off,
+                actor_ref="actor:gate-reviewer",
+                scope_ref="scope:m61-gate",
+                resource_refs=["resource:local-prototype"],
+                duration_seconds=0,
+                risk_class=AutonomyRiskClass.low,
+                revocation_ref="revocation:m61-gate",
+                audit_ref="audit:m61-gate",
+            )
+            decision = build_autonomy_mode_decision(toggle, charter)
+            if (
+                decision.selected_mode != AutonomyAuthorityMode.off
+                or decision.allowed
+                or not decision.dry_run_only
+                or decision.side_effects_performed
+            ):
+                failures.append("M61 autonomy decision granted authority or side effects")
+            for update, reason in [
+                ({"enabled": True}, "AUTONOMY_TOGGLE_ENABLEMENT_DENIED"),
+                ({"requested_mode": AutonomyAuthorityMode.ask_before_every_action, "duration_seconds": 300}, "AUTONOMY_MODE_ENABLEMENT_DENIED"),
+                ({"approval_test_ref": "approval_test_:m61"}, "APPROVAL_TEST_REF_DENIED"),
+                ({"tool_execution_enabled": True}, "TOOL_EXECUTION_DENIED"),
+                ({"shell_execution_enabled": True}, "SHELL_EXECUTION_DENIED"),
+                ({"network_tool_enabled": True}, "NETWORK_TOOL_DENIED"),
+                ({"browser_automation_enabled": True}, "BROWSER_AUTOMATION_DENIED"),
+                ({"background_worker_enabled": True}, "BACKGROUND_WORKER_DENIED"),
+                ({"production_authority_enabled": True}, "PRODUCTION_AUTHORITY_DENIED"),
+            ]:
+                mutated_toggle = toggle.model_copy(update=update)
+                try:
+                    validate_autonomy_capability_toggle(mutated_toggle)
+                    failures.append(f"M61 unsafe autonomy toggle mutation was not denied: {reason}")
+                except ValueError as exc:
+                    if reason not in str(exc):
+                        failures.append(f"M61 unsafe autonomy toggle reason drifted for {reason}: {exc}")
+            for update, reason in [
+                ({"default_mode": AutonomyAuthorityMode.dry_run_plan}, "AUTONOMY_DEFAULT_MODE_OFF_REQUIRED"),
+                ({"global_autonomy_switch_enabled": True}, "GLOBAL_AUTONOMY_SWITCH_DENIED"),
+                ({"production_authority_enabled": True}, "PRODUCTION_AUTHORITY_DENIED"),
+                ({"backend_routes_enabled": True}, "BACKEND_ROUTE_DENIED"),
+                ({"dependencies_added": True}, "DEPENDENCY_ADDITION_DENIED"),
+            ]:
+                mutated_charter = charter.model_copy(update=update)
+                try:
+                    validate_autonomy_mode_charter(mutated_charter)
+                    failures.append(f"M61 unsafe autonomy charter mutation was not denied: {reason}")
+                except ValueError as exc:
+                    if reason not in str(exc):
+                        failures.append(f"M61 unsafe autonomy charter reason drifted for {reason}: {exc}")
+        except Exception as exc:
+            failures.append(f"M61 autonomy mode charter validation failed: {exc}")
+
+        docs_text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_files
+            if path.startswith("docs/") and (self.root / path).exists()
+        )
+        for fragment in [
+            "autonomy mode charter",
+            "authority levels",
+            "mode 0",
+            "mode 1",
+            "mode 2",
+            "mode 3",
+            "mode 4",
+            "mode 5",
+            "mode 6",
+            "default mode off",
+            "disabled by default",
+            "dry-run first",
+            "limited allowlist",
+            "explicit approval",
+            "scoped autonomy window",
+            "audit/replay",
+            "revocation",
+            "no global autonomy switch",
+            "no production authority",
+            "no execution",
+            "no tool execution",
+            "no browser automation",
+            "no shell execution",
+            "no network tools",
+            "no background worker",
+            "no autonomous session",
+            "no backend route",
+            "no dependency",
+            "m62 remains future",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M61 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m61_autonomy_mode_charter_static_safety(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        forbidden_source_fragments = [
+            "global_autonomy_switch_enabled=True",
+            "production_authority_enabled=True",
+            "execution_enabled=True",
+            "tool_execution_enabled=True",
+            "shell_execution_enabled=True",
+            "network_tool_enabled=True",
+            "browser_automation_enabled=True",
+            "plugin_execution_enabled=True",
+            "mobile_sensor_enabled=True",
+            "remote_execution_enabled=True",
+            "background_worker_enabled=True",
+            "memory_write_enabled=True",
+            "context_injection_enabled=True",
+            "model_provider_call_enabled=True",
+            "backend_routes_enabled=True",
+            "dependencies_added=True",
+            "execution_performed=True",
+            "production_authority_granted=True",
+            "/autonomy/enable",
+            "/autonomy/session/start",
+            "/autonomy/execute",
+            "/network/fetch",
+            "/shell/execute",
+            "/browser/click",
+            "/plugins/execute",
+            "/background/start",
+            "subprocess" + ".run(",
+            "subprocess" + ".Popen(",
+            "os.system(",
+            "shell=True",
+        ]
+        allowed_files = {
+            "src/ultimate_ai_agent/core/autonomy/modes.py",
+            "src/ultimate_ai_agent/core/gate/evaluators.py",
+            "src/ultimate_ai_agent/core/tools/runtime/invocation.py",
+            "tests/test_m61_autonomy_mode_charter.py",
+            "tests/test_m61_gate_integration.py",
+        }
+        source_roots = [
+            self.root / "src" / "ultimate_ai_agent",
+            self.root / "apps" / "control-center" / "src",
+            self.root / "apps" / "ccc-ios",
+        ]
+        for root in source_roots:
+            if not root.exists():
+                continue
+            candidate_files = []
+            for pattern in ("*.py", "*.ts", "*.tsx", "*.js", "*.jsx", "*.swift", "*.yml", "*.yaml"):
+                candidate_files.extend(root.rglob(pattern))
+            for path in sorted(candidate_files):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(self.root).as_posix()
+                if rel in allowed_files:
+                    continue
+                text = path.read_text(encoding="utf-8")
+                for fragment in forbidden_source_fragments:
+                    if fragment in text:
+                        failures.append(f"M61 forbidden autonomy fragment in {rel}: {fragment}")
+        return self._result(criterion, failures, [])
+
+    def check_m61_autonomy_mode_charter_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m61_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M61 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m61_roadmap_currentness(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        required_docs = [
+            "README.md",
+            "VERSION.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/roadmap/M61_M100_ROADMAP.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+            "docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md",
+            "docs/roadmap/MILESTONE_CHARTERS.md",
+        ]
+        failures = [
+            f"missing M61 roadmap doc: {path}"
+            for path in required_docs
+            if not (self.root / path).exists()
+        ]
+        text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_docs
+            if (self.root / path).exists()
+        )
+        if "v0.65.0" not in text or "m61" not in text or "autonomy mode charter" not in text:
+            failures.append("active docs do not identify v0.65.0/M61 Autonomy Mode Charter")
+        if "m61 is implemented/released" not in text and "v0.65.0 implements m61" not in text:
+            failures.append("active docs do not mark M61 implemented/released")
+        for version_label, milestone, title in [
+            ("v0.66.0", "M62", "Scoped Autonomy Session Contracts"),
+            ("v0.67.0", "M63", "Autonomy Policy Engine v1"),
+            ("v0.68.0", "M64", "Autonomous Plan Simulator"),
+            ("v0.69.0", "M65", "Autonomy Audit + Replay Viewer"),
+            ("v0.74.0", "M70", "Autonomy Foundation Freeze"),
+            ("v0.80.0", "M76", "OpenWebUI Runtime Bridge v1"),
+            ("v0.94.0", "M90", "Shell/Subprocess Hardening Freeze"),
+            ("v0.95.0", "M91", "Autonomous Tool Execution Contract"),
+            ("v1.4.0", "M100", "Mobile Permission Model v1"),
+        ]:
+            if version_label.lower() not in text or milestone.lower() not in text or title.lower() not in text:
+                failures.append(f"active docs missing planned M61-M100 row: {version_label} / {milestone} — {title}")
+        for fragment in (
+            "m62 is implemented",
+            "m63 is implemented",
+            "m64 is implemented",
+            "production authority is implemented",
+            "global autonomy switch is implemented",
+            "broad autonomy is implemented",
+            "tool execution is implemented",
+            "shell execution is implemented",
+            "browser automation is implemented",
+        ):
+            if fragment in text:
+                failures.append(f"M61 docs imply forbidden/future capability: {fragment}")
         return self._result(criterion, failures, required_docs)
 
     def check_v0292_local_dev_api_authority_and_preview_safe(
