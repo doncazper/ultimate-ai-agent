@@ -1047,6 +1047,14 @@ M74_FORBIDDEN_BACKEND_ROUTES = M73_FORBIDDEN_BACKEND_ROUTES + (
     "/browser/upload",
     "/browser/network/intercept",
 )
+EXPECTED_M75_OPENAPI_PATH_COUNT = 75
+M75_FORBIDDEN_BACKEND_ROUTES = M74_FORBIDDEN_BACKEND_ROUTES + (
+    "/browser/actions/plan",
+    "/browser/actions/run",
+    "/browser/actions/execute",
+    "/browser/action/dry-run",
+    "/browser/action/execute",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -1875,6 +1883,19 @@ def m74_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
     return failures
 
 
+def m75_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M75_OPENAPI_PATH_COUNT) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+    if M37_ALLOWED_CAPTURE_ROUTE not in path_set:
+        failures.append("M37 capture route missing: /files/review/approvals/capture")
+    for route in M75_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(f"M75 forbidden browser action/runtime route present: {route}")
+    return failures
+
+
 M36_SAFE_REF_PREFIXES = {
     "reviewPacketRef": "file-review-packet:",
     "previewResultRef": "redacted-file-preview-output:",
@@ -2491,6 +2512,16 @@ class FoundationGateEvaluator:
                 self.check_m74_browser_observe_only_route_boundary
             ),
             "m74_roadmap_currentness": self.check_m74_roadmap_currentness,
+            "m75_browser_action_dry_run_planner": (
+                self.check_m75_browser_action_dry_run_planner
+            ),
+            "m75_browser_action_dry_run_static_safety": (
+                self.check_m75_browser_action_dry_run_static_safety
+            ),
+            "m75_browser_action_dry_run_route_boundary": (
+                self.check_m75_browser_action_dry_run_route_boundary
+            ),
+            "m75_roadmap_currentness": self.check_m75_roadmap_currentness,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -19943,7 +19974,9 @@ class FoundationGateEvaluator:
         ]:
             if version_label.lower() not in text or milestone.lower() not in text or title.lower() not in text:
                 failures.append(f"active docs missing planned M75-M100 row: {version_label} / {milestone} — {title}")
-        for fragment in (
+        active_version = self._active_version() or "0.0.0"
+        version_tuple = tuple(int(part) for part in active_version.split(".")[:3])
+        forbidden_fragments = [
             "m75 is implemented",
             "browser action dry-run planner is implemented",
             "browser click execution is implemented",
@@ -19952,9 +19985,283 @@ class FoundationGateEvaluator:
             "broad autonomy is implemented",
             "tool execution is implemented",
             "shell execution is implemented",
-        ):
+        ]
+        if version_tuple >= (0, 79, 0):
+            forbidden_fragments = [
+                fragment
+                for fragment in forbidden_fragments
+                if fragment not in {"m75 is implemented", "browser action dry-run planner is implemented"}
+            ]
+        for fragment in forbidden_fragments:
             if fragment in text:
                 failures.append(f"M74 docs imply forbidden/future capability: {fragment}")
+        return self._result(criterion, failures, required_docs)
+
+    def check_m75_browser_action_dry_run_planner(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/browser/__init__.py",
+            "src/ultimate_ai_agent/core/browser/action_dry_run.py",
+            "docs/browser/BROWSER_ACTION_DRY_RUN_PLANNER.md",
+            "docs/browser/BROWSER_ACTION_DRY_RUN_POLICY.md",
+            "docs/browser/BROWSER_ACTION_DRY_RUN_RESULT_CONTRACT.md",
+            "docs/browser/BROWSER_ACTION_DRY_RUN_AUTHORITY_BOUNDARY.md",
+            "docs/browser/BROWSER_ACTION_DRY_RUN_RECEIPT_PLAN.md",
+            "docs/browser/M75_TO_M76_BOUNDARY.md",
+            "tests/test_m75_browser_action_dry_run_planner.py",
+            "tests/test_m75_browser_action_gate_integration.py",
+        ]
+        failures = [
+            f"missing M75 browser action dry-run planner file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            from ultimate_ai_agent.core.browser import (
+                BrowserActionDryRunActionKind,
+                BrowserActionDryRunPlannerRequest,
+                BrowserActionDryRunPlannerStatus,
+                BrowserActionDryRunStep,
+                build_browser_action_dry_run_plan,
+            )
+
+            request = BrowserActionDryRunPlannerRequest(
+                plan_ref="browser-action-plan:m75-gate",
+                actor_ref="actor:m75-gate",
+                target_ref="browser-target:m75-gate",
+                source_observation_ref="browser-observe-output:m74-gate",
+                safe_url_ref="browser-url:m75-gate",
+                safe_summary="Plan a dry-run browser action without executing browser control.",
+                steps=[
+                    BrowserActionDryRunStep(
+                        step_ref="browser-action-step:m75-gate-click",
+                        action_kind=BrowserActionDryRunActionKind.click,
+                        safe_target_ref="browser-target:m75-gate-button",
+                        safe_intent="Dry-run plan to click a reviewed safe target.",
+                    )
+                ],
+            )
+            plan = build_browser_action_dry_run_plan(request)
+            if (
+                plan.status != BrowserActionDryRunPlannerStatus.plan_ready
+                or not plan.plan_valid_for_review
+                or not plan.dry_run_only
+                or plan.browser_action_execution_allowed
+                or plan.browser_action_execution_performed
+                or plan.browser_session_started
+                or plan.navigation_performed
+                or plan.click_performed
+                or plan.form_fill_performed
+                or plan.screenshot_returned
+                or plan.raw_dom_returned
+                or plan.authenticated_profile_used
+                or plan.cookies_or_credentials_used
+                or plan.network_call_performed
+                or plan.tool_execution_performed
+                or plan.memory_write_performed
+                or plan.context_injection_performed
+                or plan.backend_route_used
+                or plan.control_center_control_used
+                or plan.production_authority_granted
+                or plan.side_effects_performed
+                or "M75_BROWSER_ACTION_DRY_RUN_PLAN" not in plan.reason_codes
+                or "M76_REMAINS_FUTURE" not in plan.reason_codes
+            ):
+                failures.append("M75 browser action dry-run plan is unsafe or executing")
+
+            for update, reason in [
+                ({"browser_action_execution_requested": True}, "BROWSER_ACTION_EXECUTION_DENIED"),
+                ({"click_execution_requested": True}, "BROWSER_CLICK_EXECUTION_DENIED"),
+                ({"raw_dom_requested": True}, "RAW_DOM_DENIED"),
+                ({"screenshot_requested": True}, "SCREENSHOT_DENIED"),
+                ({"approval_ref": "approval:m75"}, "APPROVAL_REF_NOT_AUTHORITY"),
+                ({"approval_ref": "approval_test_m75"}, "APPROVAL_TEST_REF_DENIED"),
+                ({"authority_refs": ["context-pack:m75"]}, "AUTHORITY_REF_NOT_BROWSER_ACTION_AUTHORITY"),
+            ]:
+                denied = build_browser_action_dry_run_plan(request.model_copy(update=update))
+                if denied.plan_valid_for_review or reason not in denied.reason_codes:
+                    failures.append(f"M75 unsafe browser action plan request was not denied with {reason}")
+        except Exception as exc:
+            failures.append(f"M75 browser action dry-run planner validation failed: {exc}")
+
+        docs_text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_files
+            if path.startswith("docs/") and (self.root / path).exists()
+        )
+        for fragment in [
+            "browser action dry-run planner",
+            "dry-run only",
+            "reviewable action plan",
+            "safe refs only",
+            "no browser action execution",
+            "no browser session start",
+            "no browser navigation execution",
+            "no browser click execution",
+            "no form fill execution",
+            "no screenshot",
+            "no raw dom",
+            "no authenticated browser profile",
+            "no cookies or credentials",
+            "no download or upload",
+            "no remote browser",
+            "no network interception",
+            "no backend route",
+            "no control center control",
+            "no memory write",
+            "no context injection",
+            "no dependency",
+            "no production authority",
+            "m76 remains future",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M75 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m75_browser_action_dry_run_static_safety(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        forbidden_source_fragments = [
+            "browser_action_execution_performed=True",
+            "browser_session_started=True",
+            "navigation_performed=True",
+            "click_performed=True",
+            "form_fill_performed=True",
+            "screenshot_returned=True",
+            "screenshot_stored=True",
+            "raw_dom_returned=True",
+            "raw_dom_stored=True",
+            "authenticated_profile_used=True",
+            "cookies_or_credentials_used=True",
+            "download_or_upload_performed=True",
+            "remote_browser_control_performed=True",
+            "network_interception_performed=True",
+            "network_call_performed=True",
+            "model_call_performed=True",
+            "tool_execution_performed=True",
+            "memory_write_performed=True",
+            "context_injection_performed=True",
+            "backend_route_used=True",
+            "control_center_control_used=True",
+            "production_authority_granted=True",
+            "/browser/actions/plan",
+            "/browser/actions/run",
+            "/browser/actions/execute",
+            "/browser/action/execute",
+            "/browser/click",
+            "/browser/navigate",
+            "/browser/type",
+            "/browser/screenshot",
+            "/browser/dom/raw",
+            "/browser/session/start",
+            "/browser/profile/authenticated",
+            "/tools/browser/execute",
+            "/tools/execute",
+            "/tool-runtime/execute",
+            "playwright.",
+            "selenium",
+            "browser_use",
+            "chromedriver",
+            "puppeteer",
+        ]
+        allowed_files = {
+            "scripts/verify_all.py",
+            "src/ultimate_ai_agent/core/browser/action_dry_run.py",
+            "src/ultimate_ai_agent/core/browser/observe.py",
+            "src/ultimate_ai_agent/core/browser/contract_review.py",
+            "src/ultimate_ai_agent/core/browser/__init__.py",
+            "src/ultimate_ai_agent/core/gate/evaluators.py",
+            "src/ultimate_ai_agent/api/openapi.py",
+            "src/ultimate_ai_agent/core/autonomy/foundation_freeze.py",
+            "src/ultimate_ai_agent/core/autonomy/dry_run.py",
+            "src/ultimate_ai_agent/core/autonomy/risk.py",
+            "src/ultimate_ai_agent/core/autonomy/revocation.py",
+            "src/ultimate_ai_agent/core/autonomy/approvals.py",
+            "src/ultimate_ai_agent/core/autonomy/audit.py",
+            "src/ultimate_ai_agent/core/autonomy/policies.py",
+            "src/ultimate_ai_agent/core/autonomy/sessions.py",
+            "src/ultimate_ai_agent/core/autonomy/simulator.py",
+        }
+        for root in [
+            self.root / "src" / "ultimate_ai_agent",
+            self.root / "apps" / "control-center" / "src",
+            self.root / "apps" / "ccc-ios",
+        ]:
+            if not root.exists():
+                continue
+            candidate_files = []
+            for pattern in ("*.py", "*.ts", "*.tsx", "*.js", "*.jsx", "*.swift", "*.yml", "*.yaml"):
+                candidate_files.extend(root.rglob(pattern))
+            for path in sorted(candidate_files):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(self.root).as_posix()
+                if rel in allowed_files:
+                    continue
+                text = path.read_text(encoding="utf-8")
+                for fragment in forbidden_source_fragments:
+                    if fragment in text:
+                        failures.append(f"M75 forbidden browser action fragment in {rel}: {fragment}")
+        return self._result(criterion, failures, [])
+
+    def check_m75_browser_action_dry_run_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m75_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M75 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m75_roadmap_currentness(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        required_docs = [
+            "README.md",
+            "VERSION.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/roadmap/M61_M100_ROADMAP.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+            "docs/roadmap/MILESTONE_CHARTERS.md",
+        ]
+        failures = [
+            f"missing M75 roadmap doc: {path}"
+            for path in required_docs
+            if not (self.root / path).exists()
+        ]
+        text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_docs
+            if (self.root / path).exists()
+        )
+        if "v0.79.0" not in text or "m75" not in text or "browser action dry-run planner" not in text:
+            failures.append("active docs do not identify v0.79.0/M75 Browser Action Dry-Run Planner")
+        if "m75 is implemented/released" not in text and "v0.79.0 implements m75" not in text:
+            failures.append("active docs do not mark M75 implemented/released")
+        for version_label, milestone, title in [
+            ("v0.80.0", "M76", "OpenWebUI Runtime Bridge v1"),
+            ("v0.81.0", "M77", "OpenWebUI Safe Handoff Execution"),
+            ("v0.94.0", "M90", "Shell/Subprocess Hardening Freeze"),
+            ("v0.95.0", "M91", "Autonomous Tool Execution Contract"),
+            ("v1.4.0", "M100", "Mobile Permission Model v1"),
+        ]:
+            if version_label.lower() not in text or milestone.lower() not in text or title.lower() not in text:
+                failures.append(f"active docs missing planned M76-M100 row: {version_label} / {milestone} — {title}")
+        for fragment in (
+            "m76 is implemented",
+            "openwebui runtime bridge v1 is implemented",
+            "browser click execution is implemented",
+            "browser automation execution is implemented",
+            "production authority is implemented",
+            "broad autonomy is implemented",
+            "tool execution is implemented",
+            "shell execution is implemented",
+        ):
+            if fragment in text:
+                failures.append(f"M75 docs imply forbidden/future capability: {fragment}")
         return self._result(criterion, failures, required_docs)
 
     def check_v0292_local_dev_api_authority_and_preview_safe(

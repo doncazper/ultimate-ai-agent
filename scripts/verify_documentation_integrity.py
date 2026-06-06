@@ -523,6 +523,20 @@ REQUIRED_M74_BROWSER_OBSERVE_ONLY_DOCS = [
     "docs/implementation/foundation_gate_implementation_plan_v0_78_0.md",
 ]
 
+REQUIRED_M75_BROWSER_ACTION_DRY_RUN_DOCS = [
+    "docs/browser/BROWSER_ACTION_DRY_RUN_PLANNER.md",
+    "docs/browser/BROWSER_ACTION_DRY_RUN_POLICY.md",
+    "docs/browser/BROWSER_ACTION_DRY_RUN_RESULT_CONTRACT.md",
+    "docs/browser/BROWSER_ACTION_DRY_RUN_AUTHORITY_BOUNDARY.md",
+    "docs/browser/BROWSER_ACTION_DRY_RUN_RECEIPT_PLAN.md",
+    "docs/browser/M75_TO_M76_BOUNDARY.md",
+    "docs/roadmap/M61_M100_ROADMAP.md",
+    "docs/release_notes/v0_79_0.md",
+    "docs/archive/releases/v0_79_0/README_IMPORT.md",
+    "docs/archive/releases/v0_79_0/master_plan.md",
+    "docs/implementation/foundation_gate_implementation_plan_v0_79_0.md",
+]
+
 
 REQUIRED_ACTIVE_DOCS = [
     "docs/README.md",
@@ -1057,6 +1071,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_m72_read_only_http_fetch_docs(root, version))
     failures.extend(_verify_m73_browser_automation_contract_review_docs(root, version))
     failures.extend(_verify_m74_browser_observe_only_docs(root, version))
+    failures.extend(_verify_m75_browser_action_dry_run_docs(root, version))
     failures.extend(_verify_m19_roadmap_currentness(root, version))
     failures.extend(_verify_post_m18_roadmap_status_labels(root))
 
@@ -4340,8 +4355,9 @@ def _verify_m74_browser_observe_only_docs(root: Path, version: str | None) -> li
         "M74 docs must deny dependencies": "no dependency",
         "M74 docs must deny production authority": "no production authority",
         "M74 docs must say evaluator boundaries revalidate": "evaluator boundaries revalidate",
-        "M74 docs must keep M75 future": "m75 remains future",
     }
+    if _version_tuple(version) < (0, 79, 0):
+        required_fragments["M74 docs must keep M75 future"] = "m75 remains future"
     for message, fragment in required_fragments.items():
         if fragment not in text:
             failures.append(message)
@@ -4365,7 +4381,80 @@ def _verify_m74_browser_observe_only_docs(root: Path, version: str | None) -> li
         "M74 docs must not claim browser click execution": "browser click execution is implemented",
         "M74 docs must not claim tool execution implementation": "tool execution is implemented",
         "M74 docs must not claim production authority": "production authority is implemented",
-        "M74 docs must not claim M75 implementation": "m75 is implemented",
+    }
+    if _version_tuple(version) < (0, 79, 0):
+        forbidden_fragments["M74 docs must not claim M75 implementation"] = "m75 is implemented"
+    for message, fragment in forbidden_fragments.items():
+        if fragment in text:
+            failures.append(f"{message}: {fragment}")
+    return failures
+
+
+def _verify_m75_browser_action_dry_run_docs(root: Path, version: str | None) -> list[str]:
+    failures: list[str] = []
+    if _version_tuple(version) < (0, 79, 0):
+        return failures
+
+    missing = [rel_path for rel_path in REQUIRED_M75_BROWSER_ACTION_DRY_RUN_DOCS if not (root / rel_path).exists()]
+    failures.extend(f"missing M75 browser action dry-run doc: {rel_path}" for rel_path in missing)
+    text = "\n".join(
+        _read(root / rel_path).lower()
+        for rel_path in REQUIRED_M75_BROWSER_ACTION_DRY_RUN_DOCS
+        if (root / rel_path).exists()
+    )
+    required_fragments = {
+        "M75 docs must say browser action dry-run planner": "browser action dry-run planner",
+        "M75 docs must say dry-run only": "dry-run only",
+        "M75 docs must say reviewable action plan": "reviewable action plan",
+        "M75 docs must say safe refs only": "safe refs only",
+        "M75 docs must deny browser action execution": "no browser action execution",
+        "M75 docs must deny browser session start": "no browser session start",
+        "M75 docs must deny browser navigation execution": "no browser navigation execution",
+        "M75 docs must deny browser click execution": "no browser click execution",
+        "M75 docs must deny form fill execution": "no form fill execution",
+        "M75 docs must deny screenshot": "no screenshot",
+        "M75 docs must deny raw DOM": "no raw dom",
+        "M75 docs must deny authenticated browser profile": "no authenticated browser profile",
+        "M75 docs must deny cookies or credentials": "no cookies or credentials",
+        "M75 docs must deny download/upload": "no download or upload",
+        "M75 docs must deny remote browser": "no remote browser",
+        "M75 docs must deny network interception": "no network interception",
+        "M75 docs must deny network calls": "no network call",
+        "M75 docs must deny model calls": "no model call",
+        "M75 docs must deny tool execution": "no tool execution",
+        "M75 docs must deny backend routes": "no backend route",
+        "M75 docs must deny Control Center controls": "no control center control",
+        "M75 docs must deny memory writes": "no memory write",
+        "M75 docs must deny context injection": "no context injection",
+        "M75 docs must deny dependencies": "no dependency",
+        "M75 docs must deny production authority": "no production authority",
+        "M75 docs must say evaluator boundaries revalidate": "evaluator boundaries revalidate",
+        "M75 docs must keep M76 future": "m76 remains future",
+    }
+    for message, fragment in required_fragments.items():
+        if fragment not in text:
+            failures.append(message)
+
+    for version_label, milestone, title in [
+        ("v0.79.0", "m75", "browser action dry-run planner"),
+        ("v0.80.0", "m76", "openwebui runtime bridge v1"),
+        ("v0.95.0", "m91", "autonomous tool execution contract"),
+        ("v1.4.0", "m100", "mobile permission model v1"),
+    ]:
+        if version_label not in text or milestone not in text or title not in text:
+            failures.append(
+                f"M75-M100 roadmap missing label: {version_label} / {milestone.upper()} - {title}"
+            )
+
+    forbidden_fragments = {
+        "M75 docs must not claim M76 implementation": "m76 is implemented",
+        "M75 docs must not claim OpenWebUI runtime bridge implementation": (
+            "openwebui runtime bridge v1 is implemented"
+        ),
+        "M75 docs must not claim browser automation execution": "browser automation execution is implemented",
+        "M75 docs must not claim browser click execution": "browser click execution is implemented",
+        "M75 docs must not claim tool execution implementation": "tool execution is implemented",
+        "M75 docs must not claim production authority": "production authority is implemented",
     }
     for message, fragment in forbidden_fragments.items():
         if fragment in text:

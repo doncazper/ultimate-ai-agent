@@ -1,6 +1,6 @@
 # Documentation Index
 
-Current active baseline: **v0.78.0**
+Current active baseline: **v0.79.0**
 
 This index is the active entrypoint for documentation navigation. Historical release documents remain in the repository for audit history, but active truth starts with the current baseline files listed here.
 
@@ -14,9 +14,9 @@ docs/canonical/CANONICAL_DOC_MAP.md
 docs/canonical/09_roadmap.md
 docs/roadmap/README.md
 docs/archive/README.md
-docs/archive/releases/v0_78_0/README_IMPORT.md
-docs/archive/releases/v0_78_0/master_plan.md
-docs/release_notes/v0_78_0.md
+docs/archive/releases/v0_79_0/README_IMPORT.md
+docs/archive/releases/v0_79_0/master_plan.md
+docs/release_notes/v0_79_0.md
 docs/developer/LOCAL_LAUNCHER.md
 scripts/dev/README.md
 docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md
@@ -42,6 +42,12 @@ docs/browser/BROWSER_OBSERVE_ONLY_RESULT_CONTRACT.md
 docs/browser/BROWSER_OBSERVE_ONLY_AUTHORITY_BOUNDARY.md
 docs/browser/BROWSER_OBSERVE_ONLY_RECEIPT_PLAN.md
 docs/browser/M74_TO_M75_BOUNDARY.md
+docs/browser/BROWSER_ACTION_DRY_RUN_PLANNER.md
+docs/browser/BROWSER_ACTION_DRY_RUN_POLICY.md
+docs/browser/BROWSER_ACTION_DRY_RUN_RESULT_CONTRACT.md
+docs/browser/BROWSER_ACTION_DRY_RUN_AUTHORITY_BOUNDARY.md
+docs/browser/BROWSER_ACTION_DRY_RUN_RECEIPT_PLAN.md
+docs/browser/M75_TO_M76_BOUNDARY.md
 docs/dry_run_audit/DRY_RUN_EXECUTION_AUDIT_HARNESS.md
 docs/dry_run_audit/DRY_RUN_EXECUTION_AUDIT_POLICY.md
 docs/dry_run_audit/DRY_RUN_EXECUTION_AUTHORITY_BOUNDARY.md
@@ -569,7 +575,7 @@ skeleton/local connection/review receipt/TestFlight pipeline/build candidate/mob
 
 ## Release Notes Index
 
-Current release notes: `docs/release_notes/v0_78_0.md`
+Current release notes: `docs/release_notes/v0_79_0.md`
 
 Historical release notes remain under `docs/release_notes/`. Historical docs may mention old active baselines in historical context; they are not the current source of truth.
 
