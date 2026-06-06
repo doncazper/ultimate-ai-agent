@@ -684,5 +684,13 @@ model_copy-mutated unsafe fields are revalidated at the evaluator boundary.
 Receipt plans record no raw prompt export, no raw provider payload export, no raw private content export, no secret export, no external delivery, no network delivery, no memory write, no model call, and no context injection.
 Foundation Gate includes M55 redacted observability export, static safety, route boundary, and roadmap currentness criteria.
 OpenAPI path count remains unchanged at 75.
-M56 remains planned/provisional as Agent Eval Regression Harness.
+M56 is implemented/released as Agent Eval Regression Harness. It adds focused
+tests for deterministic eval case, suite, observation, result, report, and
+receipt-plan contracts. The tests verify explicit safe observations can produce
+deterministic pass/fail regression reports without model calls, provider calls,
+tool execution, shell execution, browser automation, network access, memory
+writes, context injection, raw prompt capture, raw provider payload capture,
+backend routes, dependencies, production authority, or M57 work.
+
+M57 remains planned/provisional as Runtime Sandbox Architecture Review.
 ```

@@ -12,22 +12,22 @@ allowed to become operational authority.
 
 | Field | Current state |
 |---|---|
-| Current active baseline | **v0.59.0** |
-| Current milestone | **M55 - Redacted Observability Export** |
+| Current active baseline | **v0.60.0** |
+| Current milestone | **M56 - Agent Eval Regression Harness** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **75** OpenAPI paths |
 | Production readiness | Not claimed |
 
-v0.59.0 implements M55 Redacted Observability Export. It adds deterministic
-local redacted-only observability export contracts, safe export policy checks,
-safe event/ref bundle generation, no-effect receipt plans, tests,
+v0.60.0 implements M56 Agent Eval Regression Harness. It adds deterministic
+local contract-only eval regression harness contracts, safe policy checks, safe
+case/suite/observation/report generation, no-effect receipt plans, tests,
 documentation-integrity checks, static verification, and Foundation Gate
-coverage. It adds no external SaaS or analytics SDK, network delivery, raw
-prompt export, raw provider payload export, raw private content export, secret
-export, forensic trace export, model/provider calls, memory writes, context
-injection, backend routes, Control Center controls, dependencies, production
-authority, or M56 implementation.
+coverage. It adds no model/provider calls, tool execution, shell execution,
+browser automation, network access, memory writes, context injection, raw
+prompt capture, raw provider payload capture, external dataset fetch, backend
+routes, Control Center controls, dependencies, production authority, or M57
+implementation.
 
 v0.29.5 is documentation policy polish. It remains the documentation
 organization cleanup baseline before the M26 and M27 implementation releases.
@@ -107,6 +107,10 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M55 Redacted Observability Export Policy](docs/observability/REDACTED_OBSERVABILITY_EXPORT_POLICY.md)
 - [M55 Redacted Observability Export Authority Boundary](docs/observability/REDACTED_OBSERVABILITY_EXPORT_AUTHORITY_BOUNDARY.md)
 - [M55 to M56 Boundary](docs/observability/M55_TO_M56_BOUNDARY.md)
+- [M56 Agent Eval Regression Harness](docs/evals/AGENT_EVAL_REGRESSION_HARNESS.md)
+- [M56 Agent Eval Regression Policy](docs/evals/AGENT_EVAL_REGRESSION_POLICY.md)
+- [M56 Agent Eval Regression Authority Boundary](docs/evals/AGENT_EVAL_REGRESSION_AUTHORITY_BOUNDARY.md)
+- [M56 to M57 Boundary](docs/evals/M56_TO_M57_BOUNDARY.md)
 - [M38 Context Proposal Receipt Plan](docs/context/CONTEXT_PROPOSAL_RECEIPT_PLAN.md)
 - [API route inventory](docs/api/route_inventory.md)
 - [Documentation organization policy](docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md)
@@ -124,9 +128,9 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M28 Action Policy](docs/approvals/ACTION_POLICY.md)
 - [M27 Tool Broker v2](docs/tools/TOOL_BROKER_V2.md)
 - [M26 Grounded Recall Router](docs/recall/GROUNDED_RECALL_ROUTER.md)
-- [v0.59.0 release notes](docs/release_notes/v0_59_0.md)
-- [v0.59.0 release packet](docs/archive/releases/v0_59_0/README_IMPORT.md)
-- [v0.59.0 master plan](docs/archive/releases/v0_59_0/master_plan.md)
+- [v0.60.0 release notes](docs/release_notes/v0_60_0.md)
+- [v0.60.0 release packet](docs/archive/releases/v0_60_0/README_IMPORT.md)
+- [v0.60.0 master plan](docs/archive/releases/v0_60_0/master_plan.md)
 
 ## What This Project Is
 
@@ -398,7 +402,7 @@ post-M33 supersession is
 | v0.57.0 | M53 - Controlled Tool Expansion Review | Implemented/released review-only |
 | v0.58.0 | M54 - Safe Media Metadata Inspector | Implemented/released metadata-only |
 | v0.59.0 | M55 - Redacted Observability Export | Implemented/released redacted-only |
-| v0.60.0 | M56 - Agent Eval Regression Harness | Planned/provisional |
+| v0.60.0 | M56 - Agent Eval Regression Harness | Implemented/released contract-only |
 | v0.61.0 | M57 - Runtime Sandbox Architecture Review | Planned/provisional |
 | v0.62.0 | M58 - Dry-Run Execution Audit Harness | Planned/provisional |
 | v0.63.0 | M59 - Public GitHub Readiness | Planned/provisional |

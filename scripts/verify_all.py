@@ -89,6 +89,7 @@ SCAN_SEQUENCE = [
     ("M53 controlled tool expansion review scan", "verify_m53_controlled_tool_expansion_review"),
     ("M54 safe media metadata inspector scan", "verify_m54_safe_media_metadata_inspector"),
     ("M55 redacted observability export scan", "verify_m55_redacted_observability_export"),
+    ("M56 agent eval regression harness scan", "verify_m56_agent_eval_regression_harness"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -7418,6 +7419,231 @@ def verify_m55_redacted_observability_export():
                     sys.exit(1)
 
     print("OK: M55 redacted observability export is redacted-only, no-route, no-delivery, and no-authority")
+
+
+def verify_m56_agent_eval_regression_harness():
+    print("\n[Verifier] Running M56 agent eval regression harness guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/evals/__init__.py",
+        "src/ultimate_ai_agent/core/evals/regression.py",
+        "docs/evals/AGENT_EVAL_REGRESSION_HARNESS.md",
+        "docs/evals/AGENT_EVAL_REGRESSION_POLICY.md",
+        "docs/evals/AGENT_EVAL_REGRESSION_AUTHORITY_BOUNDARY.md",
+        "docs/evals/M56_TO_M57_BOUNDARY.md",
+        "docs/release_notes/v0_60_0.md",
+        "docs/archive/releases/v0_60_0/README_IMPORT.md",
+        "docs/archive/releases/v0_60_0/master_plan.md",
+        "docs/implementation/foundation_gate_implementation_plan_v0_60_0.md",
+        "tests/test_m56_agent_eval_regression_harness.py",
+        "tests/test_m56_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M56 agent eval regression file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = "\n".join(
+        (ROOT / rel_path).read_text(encoding="utf-8").lower()
+        for rel_path in required_files
+        if rel_path.startswith("docs/")
+    )
+    for fragment in [
+        "agent eval regression harness",
+        "deterministic",
+        "contract-only",
+        "no model call",
+        "no provider call",
+        "no tool execution",
+        "no shell execution",
+        "no browser automation",
+        "no network access",
+        "no memory write",
+        "no context injection",
+        "no raw prompt",
+        "no raw provider payload",
+        "no backend route",
+        "no control center control",
+        "no dependency",
+        "no production authority",
+        "m57 remains future",
+        "skill package security rule",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M56 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.evals import (
+            AgentEvalCase,
+            AgentEvalCaseObservation,
+            AgentEvalHarnessPolicy,
+            AgentEvalRegressionRunRequest,
+            AgentEvalRegressionStatus,
+            AgentEvalSuite,
+            build_agent_eval_regression_report,
+            validate_agent_eval_harness_policy,
+            validate_agent_eval_regression_request,
+        )
+        from ultimate_ai_agent.core.gate.evaluators import m56_openapi_route_failures
+    except Exception as exc:
+        print(f"FAIL: M56 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m56_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    case = AgentEvalCase(
+        case_ref="eval-case:verify-all-m56",
+        suite_ref="eval-suite:verify-all-m56",
+        scenario_ref="scenario:verify-all-m56",
+        expected_outcome_ref="outcome:contract-only",
+        redacted_input_summary="Verify-all safe redacted eval case.",
+        invariant_refs=["invariant:no-model-call", "invariant:no-tool-execution"],
+        evidence_refs=["evidence:verify-all-m56"],
+    )
+    suite = AgentEvalSuite(
+        suite_ref="eval-suite:verify-all-m56",
+        baseline_ref="baseline:v0.59.0",
+        case_refs=[case.case_ref],
+        cases=[case],
+        deterministic_seed_ref="seed:verify-all-m56",
+    )
+    request = AgentEvalRegressionRunRequest(
+        request_ref="eval-request:verify-all-m56",
+        run_ref="eval-run:verify-all-m56",
+        suite_ref=suite.suite_ref,
+        case_refs=[case.case_ref],
+        baseline_ref=suite.baseline_ref,
+    )
+    report = build_agent_eval_regression_report(
+        request,
+        suite,
+        [
+            AgentEvalCaseObservation(
+                case_ref=case.case_ref,
+                observed_outcome_ref=case.expected_outcome_ref,
+                safe_observation_summary="Verify-all explicit safe observation.",
+                evidence_refs=["evidence:verify-all-m56-observed"],
+            )
+        ],
+    )
+    if report.status != AgentEvalRegressionStatus.passed or report.failed_cases:
+        print(f"FAIL: M56 safe eval regression report did not pass: {report.status}")
+        sys.exit(1)
+    if (
+        report.model_call_performed
+        or report.provider_call_performed
+        or report.tool_execution_performed
+        or report.shell_execution_performed
+        or report.browser_automation_performed
+        or report.network_call_performed
+        or report.memory_write_performed
+        or report.context_injection_performed
+    ):
+        print("FAIL: M56 report performed model/provider/tool/network/memory/context side effect")
+        sys.exit(1)
+    if report.receipt_plan is None or report.receipt_plan.evaluation_performed:
+        print("FAIL: M56 receipt plan did not remain no-effect")
+        sys.exit(1)
+
+    for request_update, reason in [
+        ({"model_call_requested": True}, "MODEL_CALL_DENIED"),
+        ({"provider_call_requested": True}, "PROVIDER_CALL_DENIED"),
+        ({"tool_execution_requested": True}, "TOOL_EXECUTION_DENIED"),
+        ({"shell_execution_requested": True}, "SHELL_EXECUTION_DENIED"),
+        ({"browser_automation_requested": True}, "BROWSER_AUTOMATION_DENIED"),
+        ({"network_access_requested": True}, "NETWORK_ACCESS_DENIED"),
+        ({"memory_write_requested": True}, "MEMORY_WRITE_DENIED"),
+        ({"context_injection_requested": True}, "CONTEXT_INJECTION_DENIED"),
+        ({"raw_prompt_capture_requested": True}, "RAW_PROMPT_CAPTURE_DENIED"),
+        ({"raw_provider_payload_capture_requested": True}, "RAW_PROVIDER_PAYLOAD_CAPTURE_DENIED"),
+    ]:
+        try:
+            validate_agent_eval_regression_request(request.model_copy(update=request_update))
+            print(f"FAIL: M56 unsafe request mutation was not denied: {reason}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M56 unsafe request reason drifted for {reason}: {exc}")
+                sys.exit(1)
+
+    try:
+        validate_agent_eval_harness_policy(AgentEvalHarnessPolicy(model_call_enabled=True))
+        print("FAIL: M56 unsafe policy flag was not denied")
+        sys.exit(1)
+    except ValueError as exc:
+        if "MODEL_CALL_DENIED" not in str(exc):
+            print(f"FAIL: M56 unsafe policy reason drifted: {exc}")
+            sys.exit(1)
+
+    forbidden_source_fragments = [
+        "model_call_enabled=True",
+        "provider_call_enabled=True",
+        "tool_execution_enabled=True",
+        "shell_execution_enabled=True",
+        "browser_automation_enabled=True",
+        "network_access_enabled=True",
+        "memory_write_enabled=True",
+        "context_injection_enabled=True",
+        "raw_prompt_capture_enabled=True",
+        "raw_provider_payload_capture_enabled=True",
+        "external_dataset_fetch_enabled=True",
+        "score_authority_enabled=True",
+        "production_authority_enabled=True",
+        "evaluation_performed=True",
+        "model_call_performed=True",
+        "provider_call_performed=True",
+        "tool_execution_performed=True",
+        "network_call_performed=True",
+        "memory_write_performed=True",
+        "context_injection_performed=True",
+        "/evals/run",
+        "/evals/execute",
+        "/evals/model-call",
+        "/evals/provider-call",
+        "/evals/export/raw",
+        "/models/call",
+        "/provider/call",
+        "/context/inject",
+        "/memory/write",
+        "/tools/execute",
+        "/shell/execute",
+        "/browser/click",
+    ]
+    allowed_files = {
+        "scripts/verify_all.py",
+        "src/ultimate_ai_agent/api/app.py",
+        "src/ultimate_ai_agent/api/openapi.py",
+        "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/evals/regression.py",
+        "tests/test_m56_agent_eval_regression_harness.py",
+        "tests/test_m56_gate_integration.py",
+    }
+    source_roots = [
+        ROOT / "src",
+        ROOT / "apps" / "control-center" / "src",
+        ROOT / "apps" / "ccc-ios",
+    ]
+    for root in source_roots:
+        if not root.exists():
+            continue
+        for path in root.rglob("*"):
+            if not path.is_file() or path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}:
+                continue
+            rel = path.relative_to(ROOT).as_posix()
+            if rel in allowed_files:
+                continue
+            text = path.read_text(encoding="utf-8")
+            for fragment in forbidden_source_fragments:
+                if fragment in text:
+                    print(f"FAIL: M56 forbidden eval regression fragment in {rel}: {fragment}")
+                    sys.exit(1)
+
+    print("OK: M56 agent eval regression harness is deterministic, no-route, no-execution, and no-authority")
 
 
 def verify_local_developer_launcher_safety():

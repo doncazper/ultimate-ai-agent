@@ -845,6 +845,19 @@ M55_FORBIDDEN_BACKEND_ROUTES = M54_FORBIDDEN_BACKEND_ROUTES + (
     "/otel/export",
     "/analytics/export",
 )
+EXPECTED_M56_OPENAPI_PATH_COUNT = 75
+M56_FORBIDDEN_BACKEND_ROUTES = M55_FORBIDDEN_BACKEND_ROUTES + (
+    "/evals/run",
+    "/evals/execute",
+    "/evals/model-call",
+    "/evals/provider-call",
+    "/evals/tool-execute",
+    "/evals/export/raw",
+    "/evals/export/prompts",
+    "/evals/export/provider-payloads",
+    "/models/call",
+    "/provider/call",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -1426,6 +1439,19 @@ def m55_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
     return failures
 
 
+def m56_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M56_OPENAPI_PATH_COUNT) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+    if M37_ALLOWED_CAPTURE_ROUTE not in path_set:
+        failures.append("M37 capture route missing: /files/review/approvals/capture")
+    for route in M56_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(f"M56 forbidden eval execution/raw/model/backend route present: {route}")
+    return failures
+
+
 M36_SAFE_REF_PREFIXES = {
     "reviewPacketRef": "file-review-packet:",
     "previewResultRef": "redacted-file-preview-output:",
@@ -1876,6 +1902,10 @@ class FoundationGateEvaluator:
                 self.check_m55_observability_export_route_boundary
             ),
             "m55_roadmap_currentness": self.check_m55_roadmap_currentness,
+            "m56_agent_eval_regression_harness": self.check_m56_agent_eval_regression_harness,
+            "m56_eval_regression_static_safety": self.check_m56_eval_regression_static_safety,
+            "m56_eval_regression_route_boundary": self.check_m56_eval_regression_route_boundary,
+            "m56_roadmap_currentness": self.check_m56_roadmap_currentness,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -9204,6 +9234,7 @@ class FoundationGateEvaluator:
                 and "m54-m60 remain planned/provisional" not in text
                 and "m55-m60 remain planned/provisional" not in text
                 and "m56-m60 remain planned/provisional" not in text
+                and "m57-m60 remain planned/provisional" not in text
             ):
                 failures.append("M42-M60 through M49-M60 planned/provisional marker missing after M41")
         elif current_tuple >= (0, 44, 0):
@@ -9511,6 +9542,7 @@ class FoundationGateEvaluator:
                 and "m54-m60 remain planned/provisional" not in text
                 and "m55-m60 remain planned/provisional" not in text
                 and "m56-m60 remain planned/provisional" not in text
+                and "m57-m60 remain planned/provisional" not in text
             ):
                 failures.append("M42-M60 through M49-M60 planned/provisional marker missing after M41")
         elif version_tuple >= (0, 44, 0):
@@ -9691,6 +9723,7 @@ class FoundationGateEvaluator:
                 and "m54-m60 remain planned/provisional" not in text
                 and "m55-m60 remain planned/provisional" not in text
                 and "m56-m60 remain planned/provisional" not in text
+                and "m57-m60 remain planned/provisional" not in text
             ):
                 failures.append("M42-M60 through M49-M60 planned/provisional marker missing after M41")
         elif version_tuple >= (0, 44, 0):
@@ -9847,6 +9880,7 @@ class FoundationGateEvaluator:
                 and "m54-m60 remain planned/provisional" not in text
                 and "m55-m60 remain planned/provisional" not in text
                 and "m56-m60 remain planned/provisional" not in text
+                and "m57-m60 remain planned/provisional" not in text
             ):
                 failures.append("M42-M60 through M49-M60 planned/provisional marker missing after M41")
         elif version_tuple >= (0, 44, 0):
@@ -10119,6 +10153,7 @@ class FoundationGateEvaluator:
                 and "m54-m60 remain planned/provisional" not in text
                 and "m55-m60 remain planned/provisional" not in text
                 and "m56-m60 remain planned/provisional" not in text
+                and "m57-m60 remain planned/provisional" not in text
             ):
                 failures.append("M42-M60 through M49-M60 planned/provisional marker missing after M41")
         elif current >= (0, 44, 0):
@@ -10276,6 +10311,7 @@ class FoundationGateEvaluator:
                 and "m54-m60 remain planned/provisional" not in text
                 and "m55-m60 remain planned/provisional" not in text
                 and "m56-m60 remain planned/provisional" not in text
+                and "m57-m60 remain planned/provisional" not in text
             ):
                 failures.append("M42-M60 through M49-M60 planned/provisional marker missing after M41")
         elif m40_implemented:
@@ -10507,6 +10543,7 @@ class FoundationGateEvaluator:
                 and "m54-m60 remain planned/provisional" not in text
                 and "m55-m60 remain planned/provisional" not in text
                 and "m56-m60 remain planned/provisional" not in text
+                and "m57-m60 remain planned/provisional" not in text
             ):
                 failures.append("M42-M60 through M49-M60 planned/provisional marker missing after M41")
         elif "m41 remains planned/provisional" not in text and "m41-m60 remain planned/provisional" not in text:
@@ -12183,6 +12220,7 @@ class FoundationGateEvaluator:
                 "m54-m60 remain planned/provisional" not in text
                 and "m55-m60 remain planned/provisional" not in text
                 and "m56-m60 remain planned/provisional" not in text
+                and "m57-m60 remain planned/provisional" not in text
             ):
                 failures.append("M54-M60 must remain planned/provisional after M53")
         elif self._active_version_tuple() >= (0, 56, 0):
@@ -12443,6 +12481,7 @@ class FoundationGateEvaluator:
                 "m54-m60 remain planned/provisional" not in text
                 and "m55-m60 remain planned/provisional" not in text
                 and "m56-m60 remain planned/provisional" not in text
+                and "m57-m60 remain planned/provisional" not in text
             ):
                 failures.append("M54-M60 must remain planned/provisional after M53")
         elif self._active_version_tuple() >= (0, 56, 0):
@@ -12687,6 +12726,7 @@ class FoundationGateEvaluator:
                 "m54-m60 remain planned/provisional" not in text
                 and "m55-m60 remain planned/provisional" not in text
                 and "m56-m60 remain planned/provisional" not in text
+                and "m57-m60 remain planned/provisional" not in text
             ):
                 failures.append("M54-M60 must remain planned/provisional after M53")
         elif self._active_version_tuple() >= (0, 56, 0):
@@ -12949,6 +12989,7 @@ class FoundationGateEvaluator:
                 "m54-m60 remain planned/provisional" not in text
                 and "m55-m60 remain planned/provisional" not in text
                 and "m56-m60 remain planned/provisional" not in text
+                and "m57-m60 remain planned/provisional" not in text
             ):
                 failures.append("M54-M60 must remain planned/provisional after M53")
         else:
@@ -13193,6 +13234,7 @@ class FoundationGateEvaluator:
             "m54-m60 remain planned/provisional" not in text
             and "m55-m60 remain planned/provisional" not in text
                 and "m56-m60 remain planned/provisional" not in text
+                and "m57-m60 remain planned/provisional" not in text
         ):
             failures.append("M54-M60 must remain planned/provisional after M53")
         forbidden_fragments = [
@@ -13423,7 +13465,14 @@ class FoundationGateEvaluator:
             failures.append("active docs do not identify v0.58.0/M54 Safe Media Metadata Inspector")
         if "m54 is implemented/released" not in text and "v0.58.0 implements m54" not in text:
             failures.append("active docs do not mark M54 implemented/released")
-        if self._active_version_tuple() >= (0, 59, 0):
+        if self._active_version_tuple() >= (0, 60, 0):
+            if "m55 is implemented/released" not in text and "v0.59.0 implements m55" not in text:
+                failures.append("active docs do not mark M55 implemented/released")
+            if "m56 is implemented/released" not in text and "v0.60.0 implements m56" not in text:
+                failures.append("active docs do not mark M56 implemented/released")
+            if "m57-m60 remain planned/provisional" not in text:
+                failures.append("M57-M60 must remain planned/provisional after M56")
+        elif self._active_version_tuple() >= (0, 59, 0):
             if "m55 is implemented/released" not in text and "v0.59.0 implements m55" not in text:
                 failures.append("active docs do not mark M55 implemented/released")
             if "m56-m60 remain planned/provisional" not in text:
@@ -13706,21 +13755,285 @@ class FoundationGateEvaluator:
             failures.append("active docs do not identify v0.59.0/M55 Redacted Observability Export")
         if "m55 is implemented/released" not in text and "v0.59.0 implements m55" not in text:
             failures.append("active docs do not mark M55 implemented/released")
-        if "m56-m60 remain planned/provisional" not in text:
+        if self._active_version_tuple() >= (0, 60, 0):
+            if "m56 is implemented/released" not in text and "v0.60.0 implements m56" not in text:
+                failures.append("active docs do not mark M56 implemented/released")
+            if "m57-m60 remain planned/provisional" not in text:
+                failures.append("M57-M60 must remain planned/provisional after M56")
+        elif "m56-m60 remain planned/provisional" not in text:
             failures.append("M56-M60 must remain planned/provisional after M55")
-        for fragment in (
-            "m56 is implemented",
-            "v0.60.0 implements m56",
-            "agent eval regression harness is implemented",
+        forbidden_fragments = [
             "runtime sandbox architecture is implemented",
             "dry-run execution audit harness is implemented",
             "public github readiness is implemented",
             "production authority is implemented",
             "raw prompt export is implemented",
             "provider payload export is implemented",
-        ):
+        ]
+        if self._active_version_tuple() < (0, 60, 0):
+            forbidden_fragments.extend(
+                [
+                    "m56 is implemented",
+                    "v0.60.0 implements m56",
+                    "agent eval regression harness is implemented",
+                ]
+            )
+        for fragment in forbidden_fragments:
             if fragment in text:
                 failures.append(f"M55 docs imply forbidden/future capability: {fragment}")
+        return self._result(criterion, failures, required_docs)
+
+    def check_m56_agent_eval_regression_harness(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/evals/__init__.py",
+            "src/ultimate_ai_agent/core/evals/regression.py",
+            "docs/evals/AGENT_EVAL_REGRESSION_HARNESS.md",
+            "docs/evals/AGENT_EVAL_REGRESSION_POLICY.md",
+            "docs/evals/AGENT_EVAL_REGRESSION_AUTHORITY_BOUNDARY.md",
+            "docs/evals/M56_TO_M57_BOUNDARY.md",
+            "tests/test_m56_agent_eval_regression_harness.py",
+            "tests/test_m56_gate_integration.py",
+        ]
+        failures = [
+            f"missing M56 agent eval regression harness file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            from ultimate_ai_agent.core.evals import (
+                AgentEvalCase,
+                AgentEvalCaseObservation,
+                AgentEvalHarnessPolicy,
+                AgentEvalRegressionRunRequest,
+                AgentEvalRegressionStatus,
+                AgentEvalSuite,
+                build_agent_eval_regression_report,
+                validate_agent_eval_harness_policy,
+                validate_agent_eval_regression_request,
+            )
+
+            case = AgentEvalCase(
+                case_ref="eval-case:m56-gate",
+                suite_ref="eval-suite:m56-gate",
+                scenario_ref="scenario:m56-gate",
+                expected_outcome_ref="outcome:review-only",
+                redacted_input_summary="Gate safe redacted eval case.",
+                invariant_refs=["invariant:no-model-call", "invariant:no-tool-execution"],
+                evidence_refs=["evidence:m56-gate"],
+            )
+            suite = AgentEvalSuite(
+                suite_ref="eval-suite:m56-gate",
+                baseline_ref="baseline:v0.59.0",
+                case_refs=[case.case_ref],
+                cases=[case],
+                deterministic_seed_ref="seed:m56-gate",
+            )
+            request = AgentEvalRegressionRunRequest(
+                request_ref="eval-request:m56-gate",
+                run_ref="eval-run:m56-gate",
+                suite_ref=suite.suite_ref,
+                case_refs=[case.case_ref],
+                baseline_ref=suite.baseline_ref,
+            )
+            report = build_agent_eval_regression_report(
+                request,
+                suite,
+                [
+                    AgentEvalCaseObservation(
+                        case_ref=case.case_ref,
+                        observed_outcome_ref=case.expected_outcome_ref,
+                        safe_observation_summary="Gate safe explicit observation.",
+                        evidence_refs=["evidence:m56-observation"],
+                    )
+                ],
+            )
+            if report.status != AgentEvalRegressionStatus.passed or report.total_cases != 1:
+                failures.append("M56 eval regression report was not passed for matching safe refs")
+            if (
+                report.model_call_performed
+                or report.provider_call_performed
+                or report.tool_execution_performed
+                or report.network_call_performed
+                or report.memory_write_performed
+                or report.context_injection_performed
+            ):
+                failures.append("M56 eval regression report performed model/tool/network/memory/context side effect")
+            if report.receipt_plan is None:
+                failures.append("M56 eval regression report did not include a no-effect receipt plan")
+            elif report.receipt_plan.evaluation_performed or report.receipt_plan.side_effects_performed:
+                failures.append("M56 eval regression receipt performed evaluation or side effects")
+            for request_update, reason in [
+                ({"model_call_requested": True}, "MODEL_CALL_DENIED"),
+                ({"provider_call_requested": True}, "PROVIDER_CALL_DENIED"),
+                ({"tool_execution_requested": True}, "TOOL_EXECUTION_DENIED"),
+                ({"shell_execution_requested": True}, "SHELL_EXECUTION_DENIED"),
+                ({"network_access_requested": True}, "NETWORK_ACCESS_DENIED"),
+                ({"memory_write_requested": True}, "MEMORY_WRITE_DENIED"),
+                ({"context_injection_requested": True}, "CONTEXT_INJECTION_DENIED"),
+                ({"raw_prompt_capture_requested": True}, "RAW_PROMPT_CAPTURE_DENIED"),
+            ]:
+                try:
+                    validate_agent_eval_regression_request(request.model_copy(update=request_update))
+                    failures.append(f"M56 unsafe request mutation was not denied: {reason}")
+                except ValueError as exc:
+                    if reason not in str(exc):
+                        failures.append(f"M56 unsafe request reason drifted for {reason}: {exc}")
+            try:
+                validate_agent_eval_harness_policy(AgentEvalHarnessPolicy(model_call_enabled=True))
+                failures.append("M56 unsafe policy flag was not denied")
+            except ValueError as exc:
+                if "MODEL_CALL_DENIED" not in str(exc):
+                    failures.append(f"M56 unsafe policy reason drifted: {exc}")
+        except Exception as exc:
+            failures.append(f"M56 agent eval regression validation failed: {exc}")
+
+        docs_text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_files
+            if path.startswith("docs/") and (self.root / path).exists()
+        )
+        for fragment in [
+            "agent eval regression harness",
+            "deterministic",
+            "contract-only",
+            "no model call",
+            "no provider call",
+            "no tool execution",
+            "no shell execution",
+            "no browser automation",
+            "no network access",
+            "no memory write",
+            "no context injection",
+            "no raw prompt",
+            "no raw provider payload",
+            "no backend route",
+            "m57 remains future",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M56 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m56_eval_regression_static_safety(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        forbidden_source_fragments = [
+            "model_call_enabled=True",
+            "provider_call_enabled=True",
+            "tool_execution_enabled=True",
+            "shell_execution_enabled=True",
+            "browser_automation_enabled=True",
+            "network_access_enabled=True",
+            "memory_write_enabled=True",
+            "context_injection_enabled=True",
+            "raw_prompt_capture_enabled=True",
+            "raw_provider_payload_capture_enabled=True",
+            "external_dataset_fetch_enabled=True",
+            "score_authority_enabled=True",
+            "production_authority_enabled=True",
+            "evaluation_performed=True",
+            "model_call_performed=True",
+            "provider_call_performed=True",
+            "tool_execution_performed=True",
+            "network_call_performed=True",
+            "memory_write_performed=True",
+            "context_injection_performed=True",
+            "/evals/run",
+            "/evals/execute",
+            "/evals/model-call",
+            "/evals/provider-call",
+            "/evals/export/raw",
+            "/models/call",
+            "/provider/call",
+            "/context/inject",
+            "/memory/write",
+            "/tools/execute",
+            "/shell/execute",
+            "/browser/click",
+        ]
+        allowed_files = {
+            "src/ultimate_ai_agent/api/app.py",
+            "src/ultimate_ai_agent/api/openapi.py",
+            "src/ultimate_ai_agent/core/gate/evaluators.py",
+            "src/ultimate_ai_agent/core/evals/regression.py",
+            "tests/test_m56_agent_eval_regression_harness.py",
+            "tests/test_m56_gate_integration.py",
+        }
+        source_roots = [
+            self.root / "src",
+            self.root / "apps" / "control-center" / "src",
+            self.root / "apps" / "ccc-ios",
+        ]
+        for root in source_roots:
+            if not root.exists():
+                continue
+            candidate_files = []
+            for pattern in ("*.py", "*.ts", "*.tsx", "*.js", "*.jsx", "*.swift", "*.yml", "*.yaml"):
+                candidate_files.extend(root.rglob(pattern))
+            for path in sorted(candidate_files):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(self.root).as_posix()
+                if rel in allowed_files:
+                    continue
+                text = path.read_text(encoding="utf-8")
+                for fragment in forbidden_source_fragments:
+                    if fragment in text:
+                        failures.append(f"M56 forbidden eval harness fragment in {rel}: {fragment}")
+        return self._result(criterion, failures, [])
+
+    def check_m56_eval_regression_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m56_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M56 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m56_roadmap_currentness(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        required_docs = [
+            "README.md",
+            "VERSION.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+            "docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md",
+            "docs/roadmap/MILESTONE_CHARTERS.md",
+        ]
+        failures = [
+            f"missing M56 roadmap doc: {path}"
+            for path in required_docs
+            if not (self.root / path).exists()
+        ]
+        text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_docs
+            if (self.root / path).exists()
+        )
+        if "v0.60.0" not in text or "m56" not in text or "agent eval regression harness" not in text:
+            failures.append("active docs do not identify v0.60.0/M56 Agent Eval Regression Harness")
+        if "m56 is implemented/released" not in text and "v0.60.0 implements m56" not in text:
+            failures.append("active docs do not mark M56 implemented/released")
+        if "m57-m60 remain planned/provisional" not in text:
+            failures.append("M57-M60 must remain planned/provisional after M56")
+        for fragment in (
+            "m57 is implemented",
+            "v0.61.0 implements m57",
+            "runtime sandbox architecture is implemented",
+            "dry-run execution audit harness is implemented",
+            "public github readiness is implemented",
+            "production authority is implemented",
+            "eval execution api is implemented",
+            "model evaluation calls are implemented",
+        ):
+            if fragment in text:
+                failures.append(f"M56 docs imply forbidden/future capability: {fragment}")
         return self._result(criterion, failures, required_docs)
 
     def check_v0292_local_dev_api_authority_and_preview_safe(
@@ -14162,6 +14475,7 @@ class FoundationGateEvaluator:
                 "m54-m60 remain planned/provisional" not in text
                 and "m55-m60 remain planned/provisional" not in text
                 and "m56-m60 remain planned/provisional" not in text
+                and "m57-m60 remain planned/provisional" not in text
             ):
                 failures.append("M54-M60 must remain planned/provisional after M53")
         elif self._active_version_tuple() >= (0, 56, 0):
