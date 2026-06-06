@@ -1,14 +1,15 @@
 # Ultimate AI Agent Version
 
-Current active baseline: **v0.63.0**
+Current active baseline: **v0.64.0**
 
-v0.63.0 implements M59 Public GitHub Readiness. It adds deterministic local
-review-only public-readiness contracts, safe policy checks,
-request/report/receipt-plan generation, tests, documentation,
-documentation-integrity checks, static verification, and Foundation Gate
-coverage.
+v0.64.0 implements M60 Local Developer Beta Freeze. It adds deterministic local
+developer beta freeze contracts, checklist validation, no-effect receipt-plan
+metadata, tests, documentation, documentation-integrity checks, static
+verification, and Foundation Gate coverage.
 
-It adds no GitHub push, GitHub release automation, wiki automation, artifact
-upload, external service calls, credential handling, network access, backend
-routes, Control Center controls, dependencies, production authority, M60
-implementation, or post-M60 autonomy.
+It adds no public release, external distribution, post-M60 autonomy, production
+authority, execution, tool execution, shell execution, network tool, browser
+automation, plugin execution, mobile sensor access, remote execution,
+credential handling, memory writes, context injection, model/provider calls,
+backend routes, Control Center controls, dependencies, M61 work, or production
+authority.

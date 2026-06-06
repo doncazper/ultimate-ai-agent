@@ -12,21 +12,19 @@ allowed to become operational authority.
 
 | Field | Current state |
 |---|---|
-| Current active baseline | **v0.63.0** |
-| Current milestone | **M59 - Public GitHub Readiness** |
+| Current active baseline | **v0.64.0** |
+| Current milestone | **M60 - Local Developer Beta Freeze** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **75** OpenAPI paths |
 | Production readiness | Not claimed |
 
-v0.63.0 implements M59 Public GitHub Readiness. It adds deterministic local
-review-only public-readiness contracts, safe policy checks,
-request/report/receipt-plan generation, tests, documentation-integrity checks,
-static verification, and Foundation Gate coverage. It adds no GitHub push,
-GitHub release automation, wiki automation, artifact upload, external service
-calls, credential handling, network access, backend routes, Control Center
-controls, dependencies, production authority, M60 implementation, or post-M60
-autonomy.
+v0.64.0 implements M60 Local Developer Beta Freeze. It adds deterministic local
+developer beta freeze contracts, checklist validation, no-effect receipt-plan
+metadata, tests, documentation-integrity checks, static verification, and
+Foundation Gate coverage. It adds no public release, external distribution,
+post-M60 autonomy, production authority, execution, backend routes, Control
+Center controls, dependencies, M61 work, or production authority.
 
 v0.29.5 is documentation policy polish. It remains the documentation
 organization cleanup baseline before the M26 and M27 implementation releases.
@@ -122,6 +120,10 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M59 Public GitHub Readiness Policy](docs/public_readiness/PUBLIC_GITHUB_READINESS_POLICY.md)
 - [M59 Public GitHub Readiness Authority Boundary](docs/public_readiness/PUBLIC_GITHUB_READINESS_AUTHORITY_BOUNDARY.md)
 - [M59 to M60 Boundary](docs/public_readiness/M59_TO_M60_BOUNDARY.md)
+- [M60 Local Developer Beta Freeze](docs/beta/LOCAL_DEVELOPER_BETA_FREEZE.md)
+- [M60 Local Developer Beta Freeze Policy](docs/beta/LOCAL_DEVELOPER_BETA_FREEZE_POLICY.md)
+- [M60 Local Developer Beta Freeze Authority Boundary](docs/beta/LOCAL_DEVELOPER_BETA_FREEZE_AUTHORITY_BOUNDARY.md)
+- [Post-M60 Autonomy Boundary](docs/beta/POST_M60_AUTONOMY_BOUNDARY.md)
 - [M38 Context Proposal Receipt Plan](docs/context/CONTEXT_PROPOSAL_RECEIPT_PLAN.md)
 - [API route inventory](docs/api/route_inventory.md)
 - [Documentation organization policy](docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md)
@@ -140,8 +142,8 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M27 Tool Broker v2](docs/tools/TOOL_BROKER_V2.md)
 - [M26 Grounded Recall Router](docs/recall/GROUNDED_RECALL_ROUTER.md)
 - [v0.60.0 release notes](docs/release_notes/v0_60_0.md)
-- [v0.63.0 release packet](docs/archive/releases/v0_63_0/README_IMPORT.md)
-- [v0.63.0 master plan](docs/archive/releases/v0_63_0/master_plan.md)
+- [v0.64.0 release packet](docs/archive/releases/v0_64_0/README_IMPORT.md)
+- [v0.64.0 master plan](docs/archive/releases/v0_64_0/master_plan.md)
 
 ## What This Project Is
 
@@ -417,7 +419,7 @@ post-M33 supersession is
 | v0.61.0 | M57 - Runtime Sandbox Architecture Review | Implemented/released architecture-review-only |
 | v0.62.0 | M58 - Dry-Run Execution Audit Harness | Implemented/released dry-run-only |
 | v0.63.0 | M59 - Public GitHub Readiness | Implemented/released review-only |
-| v0.64.0 | M60 - Local Developer Beta Freeze | Planned/provisional |
+| v0.64.0 | M60 - Local Developer Beta Freeze | Implemented/released freeze-only |
 
 The roadmap intentionally separates contract planning, validation, preview,
 manual local execution, and future operational authority.

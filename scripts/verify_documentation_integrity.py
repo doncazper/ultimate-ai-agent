@@ -339,6 +339,17 @@ REQUIRED_M59_PUBLIC_GITHUB_READINESS_DOCS = [
     "docs/implementation/foundation_gate_implementation_plan_v0_63_0.md",
 ]
 
+REQUIRED_M60_LOCAL_DEVELOPER_BETA_FREEZE_DOCS = [
+    "docs/beta/LOCAL_DEVELOPER_BETA_FREEZE.md",
+    "docs/beta/LOCAL_DEVELOPER_BETA_FREEZE_POLICY.md",
+    "docs/beta/LOCAL_DEVELOPER_BETA_FREEZE_AUTHORITY_BOUNDARY.md",
+    "docs/beta/POST_M60_AUTONOMY_BOUNDARY.md",
+    "docs/release_notes/v0_64_0.md",
+    "docs/archive/releases/v0_64_0/README_IMPORT.md",
+    "docs/archive/releases/v0_64_0/master_plan.md",
+    "docs/implementation/foundation_gate_implementation_plan_v0_64_0.md",
+]
+
 
 REQUIRED_ACTIVE_DOCS = [
     "docs/README.md",
@@ -858,6 +869,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_m57_runtime_sandbox_docs(root, version))
     failures.extend(_verify_m58_dry_run_audit_docs(root, version))
     failures.extend(_verify_m59_public_github_readiness_docs(root, version))
+    failures.extend(_verify_m60_local_developer_beta_freeze_docs(root, version))
     failures.extend(_verify_m19_roadmap_currentness(root, version))
     failures.extend(_verify_post_m18_roadmap_status_labels(root))
 
@@ -1042,16 +1054,27 @@ def _verify_m34_m60_roadmap_supersession(root: Path, version: str | None) -> lis
                                                         "M59 must be released as Public GitHub Readiness": (
                                                             "m59 is implemented/released"
                                                         ),
-                                                        "M60 must remain planned/provisional": (
-                                                            "m60 remains planned/provisional"
+                                                        "M60 must be released as Local Developer Beta Freeze": (
+                                                            "m60 is implemented/released"
                                                         ),
                                                     }
-                                                    if _version_tuple(version) >= (0, 63, 0)
-                                                    else {
-                                                        "M59-M60 must remain planned/provisional": (
-                                                            "m59-m60 remain planned/provisional"
-                                                        ),
-                                                    }
+                                                    if _version_tuple(version) >= (0, 64, 0)
+                                                    else (
+                                                        {
+                                                            "M59 must be released as Public GitHub Readiness": (
+                                                                "m59 is implemented/released"
+                                                            ),
+                                                            "M60 must remain planned/provisional": (
+                                                                "m60 remains planned/provisional"
+                                                            ),
+                                                        }
+                                                        if _version_tuple(version) >= (0, 63, 0)
+                                                        else {
+                                                            "M59-M60 must remain planned/provisional": (
+                                                                "m59-m60 remain planned/provisional"
+                                                            ),
+                                                        }
+                                                    )
                                                 ),
                                             }
                                             if _version_tuple(version) >= (0, 62, 0)
@@ -3069,6 +3092,54 @@ def _verify_m59_public_github_readiness_docs(root: Path, version: str | None) ->
     return failures
 
 
+def _verify_m60_local_developer_beta_freeze_docs(root: Path, version: str | None) -> list[str]:
+    if _version_tuple(version) < (0, 64, 0):
+        return []
+
+    failures: list[str] = []
+    parts: list[str] = []
+    for rel_path in REQUIRED_M60_LOCAL_DEVELOPER_BETA_FREEZE_DOCS:
+        path = root / rel_path
+        if not path.exists():
+            failures.append(f"missing active M60 local developer beta freeze doc: {rel_path}")
+            continue
+        parts.append(_read(path).lower())
+    text = "\n".join(parts)
+    required_fragments = {
+        "M60 docs must say Local Developer Beta Freeze": "local developer beta freeze",
+        "M60 docs must say freeze-only": "freeze-only",
+        "M60 docs must say local developer beta only": "local developer beta only",
+        "M60 docs must deny public release": "no public release",
+        "M60 docs must deny external distribution": "no external distribution",
+        "M60 docs must deny post-M60 autonomy": "no post-m60 autonomy",
+        "M60 docs must deny production authority": "no production authority",
+        "M60 docs must deny execution": "no execution",
+        "M60 docs must deny credential handling": "no credential handling",
+        "M60 docs must deny backend routes": "no backend route",
+        "M60 docs must deny Control Center controls": "no control center control",
+        "M60 docs must deny dependencies": "no dependency",
+        "M60 docs must keep M61+ future": "m61+ remains future",
+        "M60 Foundation Gate docs must mention Skill Package Security Rule": (
+            "skill package security rule"
+        ),
+    }
+    for message, fragment in required_fragments.items():
+        if fragment not in text:
+            failures.append(message)
+
+    forbidden_fragments = {
+        "M60 docs must not claim public release implementation": "public release is implemented",
+        "M60 docs must not claim external distribution": "external distribution is implemented",
+        "M60 docs must not claim post-M60 autonomy implementation": "post-m60 autonomy is implemented",
+        "M60 docs must not claim production authority": "production authority is implemented",
+        "M60 docs must not claim M61 implementation": "m61 is implemented",
+    }
+    for message, fragment in forbidden_fragments.items():
+        if fragment in text:
+            failures.append(f"{message}: {fragment}")
+    return failures
+
+
 def _verify_m19_roadmap_currentness(root: Path, version: str | None) -> list[str]:
     failures: list[str] = []
     if _version_tuple(version) < (0, 23, 1):
@@ -4896,9 +4967,14 @@ def _verify_post_m20_roadmap_projection(root: Path) -> list[str]:
             expectations["Post-M20 roadmap docs must say M59 is implemented/released"] = (
                 "m59 is implemented/released"
             )
-            expectations["Post-M20 roadmap docs must keep M60 planned/provisional"] = (
-                "m60 remains planned/provisional"
-            )
+            if active_version_tuple >= (0, 64, 0):
+                expectations["Post-M20 roadmap docs must say M60 is implemented/released"] = (
+                    "m60 is implemented/released"
+                )
+            else:
+                expectations["Post-M20 roadmap docs must keep M60 planned/provisional"] = (
+                    "m60 remains planned/provisional"
+                )
         elif active_version_tuple >= (0, 62, 0):
             expectations["Post-M20 roadmap docs must say M42 is implemented/released"] = (
                 "m42 is implemented/released"
@@ -5847,7 +5923,10 @@ def _verify_post_m18_roadmap_status_labels(root: Path) -> list[str]:
                 failures.append("roadmap sequence must mark M58/v0.62.0 implemented")
             if "v0.63.0" not in active_capability_charters or "m59" not in active_capability_charters or "implemented/released" not in active_capability_charters:
                 failures.append("roadmap sequence must mark M59/v0.63.0 implemented")
-            if "m60 remains planned/provisional" not in active_capability_charters:
+            if active >= (0, 64, 0):
+                if "v0.64.0" not in active_capability_charters or "m60" not in active_capability_charters or "implemented/released" not in active_capability_charters:
+                    failures.append("roadmap sequence must mark M60/v0.64.0 implemented")
+            elif "m60 remains planned/provisional" not in active_capability_charters:
                 failures.append("roadmap sequence must keep M60 planned/provisional")
         elif active >= (0, 62, 0):
             if "v0.53.0" not in active_capability_charters or "m49" not in active_capability_charters or "implemented/released" not in active_capability_charters:

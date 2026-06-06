@@ -93,6 +93,7 @@ SCAN_SEQUENCE = [
     ("M57 runtime sandbox architecture review scan", "verify_m57_runtime_sandbox_architecture_review"),
     ("M58 dry-run execution audit harness scan", "verify_m58_dry_run_execution_audit_harness"),
     ("M59 public GitHub readiness scan", "verify_m59_public_github_readiness"),
+    ("M60 local developer beta freeze scan", "verify_m60_local_developer_beta_freeze"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -8259,6 +8260,189 @@ def verify_m59_public_github_readiness():
                     sys.exit(1)
 
     print("OK: M59 public GitHub readiness is review-only, no-publication, no-route, and no-authority")
+
+
+def verify_m60_local_developer_beta_freeze():
+    print("\n[Verifier] Running M60 local developer beta freeze guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/beta_freeze/__init__.py",
+        "src/ultimate_ai_agent/core/beta_freeze/review.py",
+        "docs/beta/LOCAL_DEVELOPER_BETA_FREEZE.md",
+        "docs/beta/LOCAL_DEVELOPER_BETA_FREEZE_POLICY.md",
+        "docs/beta/LOCAL_DEVELOPER_BETA_FREEZE_AUTHORITY_BOUNDARY.md",
+        "docs/beta/POST_M60_AUTONOMY_BOUNDARY.md",
+        "docs/release_notes/v0_64_0.md",
+        "docs/archive/releases/v0_64_0/README_IMPORT.md",
+        "docs/archive/releases/v0_64_0/master_plan.md",
+        "docs/implementation/foundation_gate_implementation_plan_v0_64_0.md",
+        "tests/test_m60_local_developer_beta_freeze.py",
+        "tests/test_m60_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M60 local developer beta freeze file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = "\n".join(
+        (ROOT / rel_path).read_text(encoding="utf-8").lower()
+        for rel_path in required_files
+        if rel_path.startswith("docs/")
+    )
+    for fragment in [
+        "local developer beta freeze",
+        "freeze-only",
+        "local developer beta only",
+        "no public release",
+        "no external distribution",
+        "no post-m60 autonomy",
+        "no production authority",
+        "no execution",
+        "no backend route",
+        "no control center control",
+        "no dependency",
+        "m61+ remains future",
+        "skill package security rule",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M60 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.beta_freeze import (
+            LocalDeveloperBetaFreezePolicy,
+            LocalDeveloperBetaFreezeRequest,
+            LocalDeveloperBetaFreezeStatus,
+            build_local_developer_beta_freeze_report,
+            validate_local_developer_beta_freeze_policy,
+            validate_local_developer_beta_freeze_request,
+        )
+        from ultimate_ai_agent.core.gate.evaluators import m60_openapi_route_failures
+    except Exception as exc:
+        print(f"FAIL: M60 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m60_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    request = LocalDeveloperBetaFreezeRequest(
+        request_ref="beta-freeze-request:verify-all-m60",
+        freeze_ref="beta-freeze:verify-all-m60",
+        baseline_ref="baseline:v0.64.0",
+        actor_ref="actor:verify-all-reviewer",
+        checklist_refs=[
+            "beta-freeze:validation-green",
+            "beta-freeze:docs-current",
+            "beta-freeze:route-stable",
+            "beta-freeze:dependency-stable",
+            "beta-freeze:artifact-clean",
+            "beta-freeze:authority-frozen",
+        ],
+        safe_summary="Verify-all local developer beta freeze review.",
+    )
+    report = build_local_developer_beta_freeze_report(request)
+    if report.status != LocalDeveloperBetaFreezeStatus.frozen:
+        print(f"FAIL: M60 safe beta freeze report did not pass: {report.status}")
+        sys.exit(1)
+    if (
+        not report.freeze_only
+        or not report.local_developer_beta_only
+        or report.public_release_performed
+        or report.execution_performed
+        or report.post_m60_autonomy_enabled
+        or report.production_authority_granted
+        or report.side_effects_performed
+    ):
+        print("FAIL: M60 beta freeze report performed release/autonomy/authority side effects")
+        sys.exit(1)
+    if report.receipt_plan is None or report.receipt_plan.side_effects_performed:
+        print("FAIL: M60 receipt plan did not remain no-effect")
+        sys.exit(1)
+
+    for request_update, reason in [
+        ({"public_release_requested": True}, "PUBLIC_RELEASE_DENIED"),
+        ({"external_distribution_requested": True}, "EXTERNAL_DISTRIBUTION_DENIED"),
+        ({"post_m60_autonomy_requested": True}, "POST_M60_AUTONOMY_DENIED"),
+        ({"production_authority_requested": True}, "PRODUCTION_AUTHORITY_DENIED"),
+        ({"execution_requested": True}, "EXECUTION_DENIED"),
+        ({"tool_execution_requested": True}, "TOOL_EXECUTION_DENIED"),
+        ({"shell_execution_requested": True}, "SHELL_EXECUTION_DENIED"),
+        ({"credential_handling_requested": True}, "CREDENTIAL_HANDLING_DENIED"),
+        ({"context_injection_requested": True}, "CONTEXT_INJECTION_DENIED"),
+    ]:
+        try:
+            validate_local_developer_beta_freeze_request(request.model_copy(update=request_update))
+            print(f"FAIL: M60 unsafe request mutation was not denied: {reason}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M60 unsafe request reason drifted for {reason}: {exc}")
+                sys.exit(1)
+
+    try:
+        validate_local_developer_beta_freeze_policy(LocalDeveloperBetaFreezePolicy(public_release_enabled=True))
+        print("FAIL: M60 unsafe policy flag was not denied")
+        sys.exit(1)
+    except ValueError as exc:
+        if "PUBLIC_RELEASE_DENIED" not in str(exc):
+            print(f"FAIL: M60 unsafe policy reason drifted: {exc}")
+            sys.exit(1)
+
+    forbidden_source_fragments = [
+        "public_release_enabled=True",
+        "external_distribution_enabled=True",
+        "post_m60_autonomy_enabled=True",
+        "production_authority_enabled=True",
+        "execution_enabled=True",
+        "tool_execution_enabled=True",
+        "shell_execution_enabled=True",
+        "network_tool_enabled=True",
+        "browser_automation_enabled=True",
+        "plugin_execution_enabled=True",
+        "mobile_sensor_enabled=True",
+        "remote_execution_enabled=True",
+        "credential_handling_enabled=True",
+        "memory_write_enabled=True",
+        "context_injection_enabled=True",
+        "model_provider_call_enabled=True",
+        "public_release_performed=True",
+        "external_distribution_performed=True",
+        "execution_performed=True",
+        "production_authority_granted=True",
+        "/public/beta/release",
+        "/github/release",
+        "/autonomy/enable",
+        "/remote/execute",
+        "subprocess" + ".run(",
+        "subprocess" + ".Popen(",
+        "os.system(",
+        "shell=True",
+    ]
+    allowed_files = {
+        "scripts/verify_all.py",
+        "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "tests/test_m60_local_developer_beta_freeze.py",
+        "tests/test_m60_gate_integration.py",
+    }
+    for root in [ROOT / "src" / "ultimate_ai_agent" / "core" / "beta_freeze"]:
+        if not root.exists():
+            continue
+        for path in root.rglob("*"):
+            if not path.is_file() or path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}:
+                continue
+            rel = path.relative_to(ROOT).as_posix()
+            if rel in allowed_files:
+                continue
+            text = path.read_text(encoding="utf-8")
+            for fragment in forbidden_source_fragments:
+                if fragment in text:
+                    print(f"FAIL: M60 forbidden beta freeze fragment in {rel}: {fragment}")
+                    sys.exit(1)
+
+    print("OK: M60 local developer beta freeze is freeze-only, route-free, no-autonomy, and no-authority")
 
 
 def verify_local_developer_launcher_safety():

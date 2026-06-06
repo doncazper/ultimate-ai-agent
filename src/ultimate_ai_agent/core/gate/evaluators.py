@@ -891,6 +891,21 @@ M59_FORBIDDEN_BACKEND_ROUTES = M58_FORBIDDEN_BACKEND_ROUTES + (
     "/public/github/publish",
     "/release/upload",
 )
+EXPECTED_M60_OPENAPI_PATH_COUNT = 75
+M60_FORBIDDEN_BACKEND_ROUTES = M59_FORBIDDEN_BACKEND_ROUTES + (
+    "/public/beta/release",
+    "/public/beta/publish",
+    "/beta/release",
+    "/beta/publish",
+    "/release/public",
+    "/production/enable",
+    "/autonomy/enable",
+    "/autonomy/run",
+    "/post-m60/autonomy",
+    "/tool-runtime/execute",
+    "/plugins/execute",
+    "/remote/execute",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -1524,6 +1539,19 @@ def m59_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
     return failures
 
 
+def m60_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M60_OPENAPI_PATH_COUNT) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+    if M37_ALLOWED_CAPTURE_ROUTE not in path_set:
+        failures.append("M37 capture route missing: /files/review/approvals/capture")
+    for route in M60_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(f"M60 forbidden beta/public/autonomy/backend route present: {route}")
+    return failures
+
+
 M36_SAFE_REF_PREFIXES = {
     "reviewPacketRef": "file-review-packet:",
     "previewResultRef": "redacted-file-preview-output:",
@@ -1998,6 +2026,16 @@ class FoundationGateEvaluator:
                 self.check_m59_public_github_readiness_route_boundary
             ),
             "m59_roadmap_currentness": self.check_m59_roadmap_currentness,
+            "m60_local_developer_beta_freeze_review": (
+                self.check_m60_local_developer_beta_freeze_review
+            ),
+            "m60_local_developer_beta_freeze_static_safety": (
+                self.check_m60_local_developer_beta_freeze_static_safety
+            ),
+            "m60_local_developer_beta_freeze_route_boundary": (
+                self.check_m60_local_developer_beta_freeze_route_boundary
+            ),
+            "m60_final_roadmap_currentness": self.check_m60_final_roadmap_currentness,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -9329,7 +9367,7 @@ class FoundationGateEvaluator:
                 and "m57-m60 remain planned/provisional" not in text
                 and "m58-m60 remain planned/provisional" not in text
                 and "m59-m60 remain planned/provisional" not in text
-                and "m60 remains planned/provisional" not in text
+                and not self._m60_currentness_marker_present(text)
             ):
                 failures.append("M42-M60 through M49-M60 planned/provisional marker missing after M41")
         elif current_tuple >= (0, 44, 0):
@@ -9640,7 +9678,7 @@ class FoundationGateEvaluator:
                 and "m57-m60 remain planned/provisional" not in text
                 and "m58-m60 remain planned/provisional" not in text
                 and "m59-m60 remain planned/provisional" not in text
-                and "m60 remains planned/provisional" not in text
+                and not self._m60_currentness_marker_present(text)
             ):
                 failures.append("M42-M60 through M49-M60 planned/provisional marker missing after M41")
         elif version_tuple >= (0, 44, 0):
@@ -9824,7 +9862,7 @@ class FoundationGateEvaluator:
                 and "m57-m60 remain planned/provisional" not in text
                 and "m58-m60 remain planned/provisional" not in text
                 and "m59-m60 remain planned/provisional" not in text
-                and "m60 remains planned/provisional" not in text
+                and not self._m60_currentness_marker_present(text)
             ):
                 failures.append("M42-M60 through M49-M60 planned/provisional marker missing after M41")
         elif version_tuple >= (0, 44, 0):
@@ -9984,7 +10022,7 @@ class FoundationGateEvaluator:
                 and "m57-m60 remain planned/provisional" not in text
                 and "m58-m60 remain planned/provisional" not in text
                 and "m59-m60 remain planned/provisional" not in text
-                and "m60 remains planned/provisional" not in text
+                and not self._m60_currentness_marker_present(text)
             ):
                 failures.append("M42-M60 through M49-M60 planned/provisional marker missing after M41")
         elif version_tuple >= (0, 44, 0):
@@ -10260,7 +10298,7 @@ class FoundationGateEvaluator:
                 and "m57-m60 remain planned/provisional" not in text
                 and "m58-m60 remain planned/provisional" not in text
                 and "m59-m60 remain planned/provisional" not in text
-                and "m60 remains planned/provisional" not in text
+                and not self._m60_currentness_marker_present(text)
             ):
                 failures.append("M42-M60 through M49-M60 planned/provisional marker missing after M41")
         elif current >= (0, 44, 0):
@@ -10421,7 +10459,7 @@ class FoundationGateEvaluator:
                 and "m57-m60 remain planned/provisional" not in text
                 and "m58-m60 remain planned/provisional" not in text
                 and "m59-m60 remain planned/provisional" not in text
-                and "m60 remains planned/provisional" not in text
+                and not self._m60_currentness_marker_present(text)
             ):
                 failures.append("M42-M60 through M49-M60 planned/provisional marker missing after M41")
         elif m40_implemented:
@@ -10656,7 +10694,7 @@ class FoundationGateEvaluator:
                 and "m57-m60 remain planned/provisional" not in text
                 and "m58-m60 remain planned/provisional" not in text
                 and "m59-m60 remain planned/provisional" not in text
-                and "m60 remains planned/provisional" not in text
+                and not self._m60_currentness_marker_present(text)
             ):
                 failures.append("M42-M60 through M49-M60 planned/provisional marker missing after M41")
         elif "m41 remains planned/provisional" not in text and "m41-m60 remain planned/provisional" not in text:
@@ -12336,7 +12374,7 @@ class FoundationGateEvaluator:
                 and "m57-m60 remain planned/provisional" not in text
                 and "m58-m60 remain planned/provisional" not in text
                 and "m59-m60 remain planned/provisional" not in text
-                and "m60 remains planned/provisional" not in text
+                and not self._m60_currentness_marker_present(text)
             ):
                 failures.append("M54-M60 must remain planned/provisional after M53")
         elif self._active_version_tuple() >= (0, 56, 0):
@@ -12600,7 +12638,7 @@ class FoundationGateEvaluator:
                 and "m57-m60 remain planned/provisional" not in text
                 and "m58-m60 remain planned/provisional" not in text
                 and "m59-m60 remain planned/provisional" not in text
-                and "m60 remains planned/provisional" not in text
+                and not self._m60_currentness_marker_present(text)
             ):
                 failures.append("M54-M60 must remain planned/provisional after M53")
         elif self._active_version_tuple() >= (0, 56, 0):
@@ -12848,7 +12886,7 @@ class FoundationGateEvaluator:
                 and "m57-m60 remain planned/provisional" not in text
                 and "m58-m60 remain planned/provisional" not in text
                 and "m59-m60 remain planned/provisional" not in text
-                and "m60 remains planned/provisional" not in text
+                and not self._m60_currentness_marker_present(text)
             ):
                 failures.append("M54-M60 must remain planned/provisional after M53")
         elif self._active_version_tuple() >= (0, 56, 0):
@@ -13114,7 +13152,7 @@ class FoundationGateEvaluator:
                 and "m57-m60 remain planned/provisional" not in text
                 and "m58-m60 remain planned/provisional" not in text
                 and "m59-m60 remain planned/provisional" not in text
-                and "m60 remains planned/provisional" not in text
+                and not self._m60_currentness_marker_present(text)
             ):
                 failures.append("M54-M60 must remain planned/provisional after M53")
         else:
@@ -13297,9 +13335,7 @@ class FoundationGateEvaluator:
             "tests/test_m53_gate_integration.py",
         }
         source_roots = [
-            self.root / "src",
-            self.root / "apps" / "control-center" / "src",
-            self.root / "apps" / "ccc-ios",
+            self.root / "src" / "ultimate_ai_agent" / "core" / "beta_freeze",
         ]
         for root in source_roots:
             if not root.exists():
@@ -13362,7 +13398,7 @@ class FoundationGateEvaluator:
                 and "m57-m60 remain planned/provisional" not in text
                 and "m58-m60 remain planned/provisional" not in text
                 and "m59-m60 remain planned/provisional" not in text
-                and "m60 remains planned/provisional" not in text
+                and not self._m60_currentness_marker_present(text)
         ):
             failures.append("M54-M60 must remain planned/provisional after M53")
         forbidden_fragments = [
@@ -13604,8 +13640,8 @@ class FoundationGateEvaluator:
                 failures.append("active docs do not mark M58 implemented/released")
             if "m59 is implemented/released" not in text and "v0.63.0 implements m59" not in text:
                 failures.append("active docs do not mark M59 implemented/released")
-            if "m60 remains planned/provisional" not in text:
-                failures.append("M60 must remain planned/provisional after M59")
+            if not self._m60_currentness_marker_present(text):
+                failures.append("M60 currentness marker is missing after M59")
         elif self._active_version_tuple() >= (0, 62, 0):
             if "m55 is implemented/released" not in text and "v0.59.0 implements m55" not in text:
                 failures.append("active docs do not mark M55 implemented/released")
@@ -13916,8 +13952,8 @@ class FoundationGateEvaluator:
                 failures.append("active docs do not mark M58 implemented/released")
             if "m59 is implemented/released" not in text and "v0.63.0 implements m59" not in text:
                 failures.append("active docs do not mark M59 implemented/released")
-            if "m60 remains planned/provisional" not in text:
-                failures.append("M60 must remain planned/provisional after M59")
+            if not self._m60_currentness_marker_present(text):
+                failures.append("M60 currentness marker is missing after M59")
         elif self._active_version_tuple() >= (0, 62, 0):
             if "m56 is implemented/released" not in text and "v0.60.0 implements m56" not in text:
                 failures.append("active docs do not mark M56 implemented/released")
@@ -14202,8 +14238,8 @@ class FoundationGateEvaluator:
                 failures.append("active docs do not mark M58 implemented/released")
             if "m59 is implemented/released" not in text and "v0.63.0 implements m59" not in text:
                 failures.append("active docs do not mark M59 implemented/released")
-            if "m60 remains planned/provisional" not in text:
-                failures.append("M60 must remain planned/provisional after M59")
+            if not self._m60_currentness_marker_present(text):
+                failures.append("M60 currentness marker is missing after M59")
         elif self._active_version_tuple() >= (0, 62, 0):
             if "m57 is implemented/released" not in text and "v0.61.0 implements m57" not in text:
                 failures.append("active docs do not mark M57 implemented/released")
@@ -14456,8 +14492,8 @@ class FoundationGateEvaluator:
                 failures.append("active docs do not mark M58 implemented/released")
             if "m59 is implemented/released" not in text and "v0.63.0 implements m59" not in text:
                 failures.append("active docs do not mark M59 implemented/released")
-            if "m60 remains planned/provisional" not in text:
-                failures.append("M60 must remain planned/provisional after M59")
+            if not self._m60_currentness_marker_present(text):
+                failures.append("M60 currentness marker is missing after M59")
             forbidden_fragments = (
                 "shell execution is implemented",
                 "subprocess execution is implemented",
@@ -14726,8 +14762,8 @@ class FoundationGateEvaluator:
         if self._active_version_tuple() >= (0, 63, 0):
             if "m59 is implemented/released" not in text and "v0.63.0 implements m59" not in text:
                 failures.append("active docs do not mark M59 implemented/released")
-            if "m60 remains planned/provisional" not in text:
-                failures.append("M60 must remain planned/provisional after M59")
+            if not self._m60_currentness_marker_present(text):
+                failures.append("M60 currentness marker is missing after M59")
         elif "m59-m60 remain planned/provisional" not in text:
             failures.append("M59-M60 must remain planned/provisional after M58")
         for fragment in (
@@ -14744,6 +14780,12 @@ class FoundationGateEvaluator:
                 "m59 is implemented",
                 "v0.63.0 implements m59",
                 "public github readiness is implemented",
+            }:
+                continue
+            if self._active_version_tuple() >= (0, 64, 0) and fragment in {
+                "m60 is implemented",
+                "v0.64.0 implements m60",
+                "local developer beta freeze is implemented",
             }:
                 continue
             if fragment in text:
@@ -14960,8 +15002,8 @@ class FoundationGateEvaluator:
             failures.append("active docs do not identify v0.63.0/M59 Public GitHub Readiness")
         if "m59 is implemented/released" not in text and "v0.63.0 implements m59" not in text:
             failures.append("active docs do not mark M59 implemented/released")
-        if "m60 remains planned/provisional" not in text:
-            failures.append("M60 must remain planned/provisional after M59")
+        if not self._m60_currentness_marker_present(text):
+            failures.append("M60 currentness marker is missing after M59")
         for fragment in (
             "m60 is implemented",
             "v0.64.0 implements m60",
@@ -14970,8 +15012,233 @@ class FoundationGateEvaluator:
             "github publish automation is implemented",
             "wiki automation is implemented",
         ):
+            if self._active_version_tuple() >= (0, 64, 0) and fragment in {
+                "m60 is implemented",
+                "v0.64.0 implements m60",
+                "local developer beta freeze is implemented",
+            }:
+                continue
             if fragment in text:
                 failures.append(f"M59 docs imply forbidden/future capability: {fragment}")
+        return self._result(criterion, failures, required_docs)
+
+    def check_m60_local_developer_beta_freeze_review(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/beta_freeze/__init__.py",
+            "src/ultimate_ai_agent/core/beta_freeze/review.py",
+            "docs/beta/LOCAL_DEVELOPER_BETA_FREEZE.md",
+            "docs/beta/LOCAL_DEVELOPER_BETA_FREEZE_POLICY.md",
+            "docs/beta/LOCAL_DEVELOPER_BETA_FREEZE_AUTHORITY_BOUNDARY.md",
+            "docs/beta/POST_M60_AUTONOMY_BOUNDARY.md",
+            "tests/test_m60_local_developer_beta_freeze.py",
+            "tests/test_m60_gate_integration.py",
+        ]
+        failures = [
+            f"missing M60 local developer beta freeze file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            from ultimate_ai_agent.core.beta_freeze import (
+                LocalDeveloperBetaFreezePolicy,
+                LocalDeveloperBetaFreezeRequest,
+                LocalDeveloperBetaFreezeStatus,
+                build_local_developer_beta_freeze_report,
+                validate_local_developer_beta_freeze_policy,
+                validate_local_developer_beta_freeze_request,
+            )
+
+            request = LocalDeveloperBetaFreezeRequest(
+                request_ref="beta-freeze-request:m60-gate",
+                freeze_ref="beta-freeze:m60-gate",
+                baseline_ref="baseline:v0.64.0",
+                actor_ref="actor:gate-reviewer",
+                checklist_refs=[
+                    "beta-freeze:validation-green",
+                    "beta-freeze:docs-current",
+                    "beta-freeze:route-stable",
+                    "beta-freeze:dependency-stable",
+                    "beta-freeze:artifact-clean",
+                    "beta-freeze:authority-frozen",
+                ],
+                safe_summary="Gate safe local developer beta freeze review.",
+            )
+            report = build_local_developer_beta_freeze_report(request)
+            if report.status != LocalDeveloperBetaFreezeStatus.frozen:
+                failures.append("M60 beta freeze report did not return frozen status")
+            if (
+                not report.freeze_only
+                or not report.local_developer_beta_only
+                or report.production_authority_granted
+                or report.public_release_performed
+                or report.execution_performed
+                or report.post_m60_autonomy_enabled
+                or report.side_effects_performed
+            ):
+                failures.append("M60 beta freeze report performed release/autonomy/authority side effects")
+            if report.receipt_plan is None:
+                failures.append("M60 beta freeze report did not include no-effect receipt plan")
+            elif report.receipt_plan.public_release_performed or report.receipt_plan.side_effects_performed:
+                failures.append("M60 beta freeze receipt performed release side effects")
+            for request_update, reason in [
+                ({"public_release_requested": True}, "PUBLIC_RELEASE_DENIED"),
+                ({"external_distribution_requested": True}, "EXTERNAL_DISTRIBUTION_DENIED"),
+                ({"post_m60_autonomy_requested": True}, "POST_M60_AUTONOMY_DENIED"),
+                ({"production_authority_requested": True}, "PRODUCTION_AUTHORITY_DENIED"),
+                ({"execution_requested": True}, "EXECUTION_DENIED"),
+                ({"tool_execution_requested": True}, "TOOL_EXECUTION_DENIED"),
+                ({"shell_execution_requested": True}, "SHELL_EXECUTION_DENIED"),
+                ({"credential_handling_requested": True}, "CREDENTIAL_HANDLING_DENIED"),
+                ({"context_injection_requested": True}, "CONTEXT_INJECTION_DENIED"),
+            ]:
+                mutated_request = request.model_copy(update=request_update)
+                try:
+                    validate_local_developer_beta_freeze_request(mutated_request)
+                    failures.append(f"M60 unsafe beta freeze mutation was not denied: {reason}")
+                except ValueError as exc:
+                    if reason not in str(exc):
+                        failures.append(f"M60 unsafe beta freeze reason drifted for {reason}: {exc}")
+            try:
+                validate_local_developer_beta_freeze_policy(
+                    LocalDeveloperBetaFreezePolicy(public_release_enabled=True)
+                )
+                failures.append("M60 unsafe beta freeze policy flag was not denied")
+            except ValueError as exc:
+                if "PUBLIC_RELEASE_DENIED" not in str(exc):
+                    failures.append(f"M60 unsafe policy reason drifted: {exc}")
+        except Exception as exc:
+            failures.append(f"M60 local developer beta freeze validation failed: {exc}")
+
+        docs_text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_files
+            if path.startswith("docs/") and (self.root / path).exists()
+        )
+        for fragment in [
+            "local developer beta freeze",
+            "freeze-only",
+            "local developer beta only",
+            "no public release",
+            "no external distribution",
+            "no post-m60 autonomy",
+            "no production authority",
+            "no execution",
+            "no backend route",
+            "no dependency",
+            "m61+ remains future",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M60 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m60_local_developer_beta_freeze_static_safety(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        forbidden_source_fragments = [
+            "public_release_enabled=True",
+            "external_distribution_enabled=True",
+            "post_m60_autonomy_enabled=True",
+            "production_authority_enabled=True",
+            "execution_enabled=True",
+            "tool_execution_enabled=True",
+            "shell_execution_enabled=True",
+            "network_tool_enabled=True",
+            "browser_automation_enabled=True",
+            "plugin_execution_enabled=True",
+            "mobile_sensor_enabled=True",
+            "remote_execution_enabled=True",
+            "credential_handling_enabled=True",
+            "memory_write_enabled=True",
+            "context_injection_enabled=True",
+            "model_provider_call_enabled=True",
+            "public_release_performed=True",
+            "external_distribution_performed=True",
+            "execution_performed=True",
+            "production_authority_granted=True",
+            "/public/beta/release",
+            "/github/release",
+            "/autonomy/enable",
+            "/remote/execute",
+            "subprocess" + ".run(",
+            "subprocess" + ".Popen(",
+            "os.system(",
+            "shell=True",
+        ]
+        allowed_files = {
+            "src/ultimate_ai_agent/core/gate/evaluators.py",
+            "tests/test_m60_local_developer_beta_freeze.py",
+            "tests/test_m60_gate_integration.py",
+        }
+        source_roots = [
+            self.root / "src" / "ultimate_ai_agent" / "core" / "beta_freeze",
+        ]
+        for root in source_roots:
+            if not root.exists():
+                continue
+            candidate_files = []
+            for pattern in ("*.py", "*.ts", "*.tsx", "*.js", "*.jsx", "*.swift", "*.yml", "*.yaml"):
+                candidate_files.extend(root.rglob(pattern))
+            for path in sorted(candidate_files):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(self.root).as_posix()
+                if rel in allowed_files:
+                    continue
+                text = path.read_text(encoding="utf-8")
+                for fragment in forbidden_source_fragments:
+                    if fragment in text:
+                        failures.append(f"M60 forbidden beta freeze fragment in {rel}: {fragment}")
+        return self._result(criterion, failures, [])
+
+    def check_m60_local_developer_beta_freeze_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m60_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M60 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m60_final_roadmap_currentness(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        required_docs = [
+            "README.md",
+            "VERSION.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+            "docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md",
+            "docs/roadmap/MILESTONE_CHARTERS.md",
+        ]
+        failures = [
+            f"missing M60 roadmap doc: {path}"
+            for path in required_docs
+            if not (self.root / path).exists()
+        ]
+        text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_docs
+            if (self.root / path).exists()
+        )
+        if "v0.64.0" not in text or "m60" not in text or "local developer beta freeze" not in text:
+            failures.append("active docs do not identify v0.64.0/M60 Local Developer Beta Freeze")
+        if "m60 is implemented/released" not in text and "v0.64.0 implements m60" not in text:
+            failures.append("active docs do not mark M60 implemented/released")
+        for fragment in (
+            "m61 is implemented",
+            "m61-m80 is active",
+            "post-m60 autonomy is implemented",
+            "production authority is implemented",
+            "public release is implemented",
+            "external distribution is implemented",
+        ):
+            if fragment in text:
+                failures.append(f"M60 docs imply forbidden/future capability: {fragment}")
         return self._result(criterion, failures, required_docs)
 
     def check_v0292_local_dev_api_authority_and_preview_safe(
@@ -15397,6 +15664,11 @@ class FoundationGateEvaluator:
         version = self._active_version() or "0.0.0"
         return tuple(int(part) for part in version.split("."))  # type: ignore[return-value]
 
+    def _m60_currentness_marker_present(self, text: str) -> bool:
+        if self._active_version_tuple() >= (0, 64, 0):
+            return "m60 is implemented/released" in text or "v0.64.0 implements m60" in text
+        return "m60 remains planned/provisional" in text
+
     def _append_post_m48_mobile_status_failures(self, text: str, failures: List[str]) -> None:
         if self._active_version_tuple() >= (0, 57, 0):
             if "m49 is implemented/released" not in text and "v0.53.0 implements m49" not in text:
@@ -15416,7 +15688,7 @@ class FoundationGateEvaluator:
                 and "m57-m60 remain planned/provisional" not in text
                 and "m58-m60 remain planned/provisional" not in text
                 and "m59-m60 remain planned/provisional" not in text
-                and "m60 remains planned/provisional" not in text
+                and not self._m60_currentness_marker_present(text)
             ):
                 failures.append("M54-M60 must remain planned/provisional after M53")
         elif self._active_version_tuple() >= (0, 56, 0):

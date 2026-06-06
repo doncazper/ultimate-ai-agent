@@ -717,5 +717,5 @@ produce readiness reports without GitHub push, release automation, wiki
 automation, artifact upload, external service calls, credential handling,
 network access, backend routes, dependencies, production authority, or M60 work.
 
-M60 remains planned/provisional as Local Developer Beta Freeze.
+M60 is implemented/released by v0.64.0 as Local Developer Beta Freeze.
 ```
