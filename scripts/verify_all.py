@@ -115,6 +115,7 @@ SCAN_SEQUENCE = [
     ("M79 plugin install review scan", "verify_m79_plugin_install_review"),
     ("M80 network/browser/openwebui hardening freeze scan", "verify_m80_network_browser_openwebui_hardening_freeze"),
     ("M81 runtime sandbox spec scan", "verify_m81_runtime_sandbox_spec"),
+    ("M82 command proposal contract scan", "verify_m82_command_proposal_contracts"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -13018,7 +13019,6 @@ def verify_m81_runtime_sandbox_spec():
         "no dependency",
         "no production authority",
         "evaluator boundaries revalidate",
-        "m82 remains future",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M81 docs missing fragment: {fragment}")
@@ -13176,6 +13176,207 @@ def verify_m81_runtime_sandbox_spec():
             sys.exit(1)
 
     print("OK: M81 runtime sandbox spec is spec-only, route-free, and no-authority")
+
+
+def verify_m82_command_proposal_contracts():
+    print("\n[Verifier] Running M82 command proposal contract guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/sandbox/__init__.py",
+        "src/ultimate_ai_agent/core/sandbox/command_proposal.py",
+        "docs/sandbox/COMMAND_PROPOSAL_CONTRACTS.md",
+        "docs/sandbox/COMMAND_PROPOSAL_AUTHORITY_BOUNDARY.md",
+        "docs/sandbox/COMMAND_PROPOSAL_RECEIPT_PLAN.md",
+        "docs/sandbox/COMMAND_PROPOSAL_NON_GOALS.md",
+        "docs/sandbox/M82_TO_M83_BOUNDARY.md",
+        "docs/release_notes/v0_86_0.md",
+        "docs/archive/releases/v0_86_0/README_IMPORT.md",
+        "docs/archive/releases/v0_86_0/master_plan.md",
+        "docs/implementation/foundation_gate_implementation_plan_v0_86_0.md",
+        "tests/test_m82_command_proposal_contracts.py",
+        "tests/test_m82_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M82 command proposal file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = "\n".join(
+        (ROOT / rel_path).read_text(encoding="utf-8").lower()
+        for rel_path in required_files
+        if rel_path.startswith("docs/")
+    )
+    for fragment in [
+        "command proposal contracts",
+        "proposal-only",
+        "review-only",
+        "deterministic",
+        "local-only",
+        "structured argv preview",
+        "no shell string",
+        "no command execution",
+        "no subprocess execution",
+        "no shell execution",
+        "no process spawn",
+        "no filesystem mutation",
+        "no network access",
+        "no tool execution",
+        "no browser automation",
+        "no plugin execution",
+        "no remote execution",
+        "no model call",
+        "no memory write",
+        "no context injection",
+        "no background worker",
+        "no backend route",
+        "no control center control",
+        "no dependency",
+        "no production authority",
+        "safe summary only",
+        "evaluator boundaries revalidate",
+        "m83 remains future",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M82 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.evaluators import m82_openapi_route_failures
+        from ultimate_ai_agent.core.sandbox import (
+            CommandProposalRequest,
+            CommandProposalStatus,
+            build_command_proposal,
+        )
+    except Exception as exc:
+        print(f"FAIL: M82 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m82_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    request = CommandProposalRequest(
+        request_ref="command-proposal-request:verify-all-m82",
+        proposal_ref="command-proposal:verify-all-m82",
+        sandbox_spec_ref="runtime-sandbox-spec:m81",
+        baseline_ref="baseline:v0.85.0",
+        actor_ref="actor:verify-all-m82",
+        prior_milestone_refs=["milestone:M57", "milestone:M58", "milestone:M80", "milestone:M81"],
+        command_ref="command-ref:verify-noop",
+        safe_purpose="Verify-all no-effect command proposal contract.",
+        safe_command_label="verify noop metadata",
+        argv_preview=["verify-noop", "--dry-summary"],
+    )
+    decision = build_command_proposal(request)
+    if (
+        decision.status != CommandProposalStatus.proposed_for_review
+        or not decision.proposal_only
+        or not decision.review_only
+        or not decision.deterministic
+        or not decision.structured_args_only
+        or decision.execution_authorized
+        or decision.command_execution_performed
+        or decision.subprocess_execution_performed
+        or decision.shell_execution_performed
+        or decision.process_spawn_performed
+        or decision.filesystem_mutation_performed
+        or decision.network_access_performed
+        or decision.tool_execution_performed
+        or decision.browser_automation_performed
+        or decision.plugin_execution_performed
+        or decision.remote_execution_performed
+        or decision.model_call_performed
+        or decision.memory_write_performed
+        or decision.context_injection_performed
+        or decision.background_worker_started
+        or decision.backend_route_added
+        or decision.dependency_added
+        or decision.production_authority_granted
+        or decision.side_effects_performed
+        or decision.receipt_plan.store_raw_command
+        or decision.receipt_plan.store_shell_string
+        or "M82_COMMAND_PROPOSAL_CONTRACT_ONLY" not in decision.reason_codes
+        or "M82_NO_COMMAND_EXECUTION" not in decision.reason_codes
+        or "M83_REMAINS_FUTURE" not in decision.reason_codes
+    ):
+        print("FAIL: M82 command proposal decision is unsafe or over-authoritative")
+        sys.exit(1)
+
+    for update, reason in [
+        ({"execution_requested": True}, "EXECUTION_REQUEST_DENIED"),
+        ({"command_execution_requested": True}, "COMMAND_EXECUTION_DENIED"),
+        ({"subprocess_execution_requested": True}, "SUBPROCESS_EXECUTION_DENIED"),
+        ({"shell_execution_requested": True}, "SHELL_EXECUTION_DENIED"),
+        ({"process_spawn_requested": True}, "PROCESS_SPAWN_DENIED"),
+        ({"filesystem_mutation_requested": True}, "FILESYSTEM_MUTATION_DENIED"),
+        ({"network_access_requested": True}, "NETWORK_ACCESS_DENIED"),
+        ({"tool_execution_requested": True}, "TOOL_EXECUTION_DENIED"),
+        ({"browser_automation_requested": True}, "BROWSER_AUTOMATION_DENIED"),
+        ({"plugin_execution_requested": True}, "PLUGIN_EXECUTION_DENIED"),
+        ({"remote_execution_requested": True}, "REMOTE_EXECUTION_DENIED"),
+        ({"model_call_requested": True}, "MODEL_CALL_DENIED"),
+        ({"memory_write_requested": True}, "MEMORY_WRITE_DENIED"),
+        ({"context_injection_requested": True}, "CONTEXT_INJECTION_DENIED"),
+        ({"contains_shell_string": True}, "M82_SHELL_STRING_DENIED"),
+        ({"contains_secret": True}, "SECRET_LIKE_COMMAND_PROPOSAL_CONTENT_DENIED"),
+    ]:
+        try:
+            build_command_proposal(request.model_copy(update=update))
+            print(f"FAIL: M82 unsafe command proposal request was not denied with {reason}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M82 unsafe command proposal request raised {exc!s}, expected {reason}")
+                sys.exit(1)
+
+    allowed_scan_files = {
+        "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/sandbox/__init__.py",
+        "src/ultimate_ai_agent/core/sandbox/command_proposal.py",
+    }
+    source_text = "\n".join(
+        path.read_text(encoding="utf-8")
+        for root in [ROOT / "src" / "ultimate_ai_agent", ROOT / "apps" / "control-center" / "src"]
+        if root.exists()
+        for path in root.rglob("*")
+        if path.is_file()
+        and path.suffix in {".py", ".ts", ".tsx", ".js", ".jsx"}
+        and path.relative_to(ROOT).as_posix() not in allowed_scan_files
+    )
+    for fragment in [
+        "command_execution_enabled=True",
+        "subprocess_execution_enabled=True",
+        "shell_execution_enabled=True",
+        "process_spawn_enabled=True",
+        "filesystem_mutation_enabled=True",
+        "network_access_enabled=True",
+        "tool_execution_enabled=True",
+        "browser_automation_enabled=True",
+        "plugin_execution_enabled=True",
+        "remote_execution_enabled=True",
+        "model_call_enabled=True",
+        "memory_write_enabled=True",
+        "context_injection_enabled=True",
+        "background_worker_enabled=True",
+        "backend_route_enabled=True",
+        "production_authority_enabled=True",
+        "execution_authorized=True",
+        "command_execution_performed=True",
+        "subprocess_execution_performed=True",
+        "shell_execution_performed=True",
+        "process_spawn_performed=True",
+        "remote_execution_performed=True",
+        "production_authority_granted=True",
+        "store_raw_command=True",
+        "store_shell_string=True",
+    ]:
+        if fragment in source_text:
+            print(f"FAIL: M82 forbidden source fragment present: {fragment}")
+            sys.exit(1)
+
+    print("OK: M82 command proposal contracts are proposal-only, route-free, and no-authority")
 
 
 def verify_local_developer_launcher_safety():

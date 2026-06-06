@@ -1,6 +1,6 @@
 # Documentation Index
 
-Current active baseline: **v0.85.0**
+Current active baseline: **v0.86.0**
 
 This index is the active entrypoint for documentation navigation. Historical release documents remain in the repository for audit history, but active truth starts with the current baseline files listed here.
 
@@ -14,9 +14,9 @@ docs/canonical/CANONICAL_DOC_MAP.md
 docs/canonical/09_roadmap.md
 docs/roadmap/README.md
 docs/archive/README.md
-docs/archive/releases/v0_85_0/README_IMPORT.md
-docs/archive/releases/v0_85_0/master_plan.md
-docs/release_notes/v0_85_0.md
+docs/archive/releases/v0_86_0/README_IMPORT.md
+docs/archive/releases/v0_86_0/master_plan.md
+docs/release_notes/v0_86_0.md
 docs/developer/LOCAL_LAUNCHER.md
 scripts/dev/README.md
 docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md
@@ -82,6 +82,11 @@ docs/sandbox/RUNTIME_SANDBOX_SPEC_CONTRACTS.md
 docs/sandbox/RUNTIME_SANDBOX_SPEC_AUTHORITY_BOUNDARY.md
 docs/sandbox/RUNTIME_SANDBOX_SPEC_NON_GOALS.md
 docs/sandbox/M81_TO_M82_BOUNDARY.md
+docs/sandbox/COMMAND_PROPOSAL_CONTRACTS.md
+docs/sandbox/COMMAND_PROPOSAL_AUTHORITY_BOUNDARY.md
+docs/sandbox/COMMAND_PROPOSAL_RECEIPT_PLAN.md
+docs/sandbox/COMMAND_PROPOSAL_NON_GOALS.md
+docs/sandbox/M82_TO_M83_BOUNDARY.md
 docs/dry_run_audit/DRY_RUN_EXECUTION_AUDIT_HARNESS.md
 docs/dry_run_audit/DRY_RUN_EXECUTION_AUDIT_POLICY.md
 docs/dry_run_audit/DRY_RUN_EXECUTION_AUTHORITY_BOUNDARY.md
@@ -609,7 +614,7 @@ skeleton/local connection/review receipt/TestFlight pipeline/build candidate/mob
 
 ## Release Notes Index
 
-Current release notes: `docs/release_notes/v0_85_0.md`
+Current release notes: `docs/release_notes/v0_86_0.md`
 
 Historical release notes remain under `docs/release_notes/`. Historical docs may mention old active baselines in historical context; they are not the current source of truth.
 

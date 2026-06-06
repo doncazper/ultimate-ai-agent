@@ -1127,6 +1127,8 @@ M81_FORBIDDEN_BACKEND_ROUTES = M80_FORBIDDEN_BACKEND_ROUTES + (
     "/filesystem/mutate",
     "/remote/execute",
 )
+EXPECTED_M82_OPENAPI_PATH_COUNT = 75
+M82_FORBIDDEN_BACKEND_ROUTES = M81_FORBIDDEN_BACKEND_ROUTES
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -2048,6 +2050,19 @@ def m81_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
     return failures
 
 
+def m82_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M82_OPENAPI_PATH_COUNT) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(
+            f"OpenAPI path count changed for M82: expected {expected_path_count}, got {len(path_set)}"
+        )
+    for route in M82_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(f"M82 forbidden command execution/backend route present: {route}")
+    return failures
+
+
 M36_SAFE_REF_PREFIXES = {
     "reviewPacketRef": "file-review-packet:",
     "previewResultRef": "redacted-file-preview-output:",
@@ -2726,6 +2741,14 @@ class FoundationGateEvaluator:
                 self.check_m81_runtime_sandbox_spec_route_boundary
             ),
             "m81_roadmap_currentness": self.check_m81_roadmap_currentness,
+            "m82_command_proposal_contract": self.check_m82_command_proposal_contract,
+            "m82_command_proposal_static_safety": (
+                self.check_m82_command_proposal_static_safety
+            ),
+            "m82_command_proposal_route_boundary": (
+                self.check_m82_command_proposal_route_boundary
+            ),
+            "m82_roadmap_currentness": self.check_m82_roadmap_currentness,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -22216,7 +22239,6 @@ class FoundationGateEvaluator:
         if "m81 is implemented/released" not in text and "v0.85.0 implements m81" not in text:
             failures.append("active docs do not mark M81 implemented/released")
         for version_label, milestone, title in [
-            ("v0.86.0", "M82", "Command Proposal Contracts"),
             ("v0.90.0", "M86", "Shell Approval Gate v1"),
             ("v0.94.0", "M90", "Shell/Subprocess Hardening Freeze"),
             ("v0.95.0", "M91", "Autonomous Tool Execution Contract"),
@@ -22226,7 +22248,6 @@ class FoundationGateEvaluator:
                 failures.append(f"active docs missing planned M82-M100 row: {version_label} / {milestone} — {title}")
         for fragment in (
             "runtime sandbox execution is implemented",
-            "command proposal is implemented",
             "command execution is implemented",
             "subprocess execution is implemented",
             "shell execution is implemented",
@@ -22238,6 +22259,291 @@ class FoundationGateEvaluator:
         ):
             if fragment in text:
                 failures.append(f"M81 docs imply forbidden/future capability: {fragment}")
+        return self._result(criterion, failures, required_docs)
+
+    def check_m82_command_proposal_contract(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/sandbox/__init__.py",
+            "src/ultimate_ai_agent/core/sandbox/command_proposal.py",
+            "docs/sandbox/COMMAND_PROPOSAL_CONTRACTS.md",
+            "docs/sandbox/COMMAND_PROPOSAL_AUTHORITY_BOUNDARY.md",
+            "docs/sandbox/COMMAND_PROPOSAL_RECEIPT_PLAN.md",
+            "docs/sandbox/COMMAND_PROPOSAL_NON_GOALS.md",
+            "docs/sandbox/M82_TO_M83_BOUNDARY.md",
+            "docs/release_notes/v0_86_0.md",
+            "docs/archive/releases/v0_86_0/README_IMPORT.md",
+            "docs/archive/releases/v0_86_0/master_plan.md",
+            "docs/implementation/foundation_gate_implementation_plan_v0_86_0.md",
+            "tests/test_m82_command_proposal_contracts.py",
+            "tests/test_m82_gate_integration.py",
+        ]
+        failures = [
+            f"missing M82 command proposal file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            from ultimate_ai_agent.core.sandbox import (
+                CommandProposalRequest,
+                CommandProposalStatus,
+                build_command_proposal,
+            )
+
+            request = CommandProposalRequest(
+                request_ref="command-proposal-request:gate-m82",
+                proposal_ref="command-proposal:gate-m82",
+                sandbox_spec_ref="runtime-sandbox-spec:m81",
+                baseline_ref="baseline:v0.85.0",
+                actor_ref="actor:gate-m82",
+                prior_milestone_refs=[
+                    "milestone:M57",
+                    "milestone:M58",
+                    "milestone:M80",
+                    "milestone:M81",
+                ],
+                command_ref="command-ref:gate-noop",
+                safe_purpose="Gate verifies a no-effect command proposal contract.",
+                safe_command_label="gate noop metadata",
+                argv_preview=["gate-noop", "--dry-summary"],
+            )
+            decision = build_command_proposal(request)
+            if (
+                decision.status != CommandProposalStatus.proposed_for_review
+                or not decision.proposal_only
+                or not decision.review_only
+                or not decision.deterministic
+                or not decision.local_only
+                or not decision.structured_args_only
+                or decision.execution_authorized
+                or decision.command_execution_performed
+                or decision.subprocess_execution_performed
+                or decision.shell_execution_performed
+                or decision.process_spawn_performed
+                or decision.filesystem_mutation_performed
+                or decision.network_access_performed
+                or decision.tool_execution_performed
+                or decision.browser_automation_performed
+                or decision.plugin_execution_performed
+                or decision.remote_execution_performed
+                or decision.model_call_performed
+                or decision.memory_write_performed
+                or decision.context_injection_performed
+                or decision.background_worker_started
+                or decision.backend_route_added
+                or decision.control_center_control_added
+                or decision.dependency_added
+                or decision.production_authority_granted
+                or decision.side_effects_performed
+                or not decision.receipt_plan.store_safe_summary_only
+                or decision.receipt_plan.store_raw_command
+                or decision.receipt_plan.store_shell_string
+                or "M82_COMMAND_PROPOSAL_CONTRACT_ONLY" not in decision.reason_codes
+                or "M82_NO_COMMAND_EXECUTION" not in decision.reason_codes
+                or "M83_REMAINS_FUTURE" not in decision.reason_codes
+            ):
+                failures.append("M82 command proposal decision is unsafe or over-authoritative")
+            for update, reason in [
+                ({"execution_requested": True}, "EXECUTION_REQUEST_DENIED"),
+                ({"command_execution_requested": True}, "COMMAND_EXECUTION_DENIED"),
+                ({"subprocess_execution_requested": True}, "SUBPROCESS_EXECUTION_DENIED"),
+                ({"shell_execution_requested": True}, "SHELL_EXECUTION_DENIED"),
+                ({"process_spawn_requested": True}, "PROCESS_SPAWN_DENIED"),
+                ({"filesystem_mutation_requested": True}, "FILESYSTEM_MUTATION_DENIED"),
+                ({"network_access_requested": True}, "NETWORK_ACCESS_DENIED"),
+                ({"tool_execution_requested": True}, "TOOL_EXECUTION_DENIED"),
+                ({"browser_automation_requested": True}, "BROWSER_AUTOMATION_DENIED"),
+                ({"plugin_execution_requested": True}, "PLUGIN_EXECUTION_DENIED"),
+                ({"remote_execution_requested": True}, "REMOTE_EXECUTION_DENIED"),
+                ({"model_call_requested": True}, "MODEL_CALL_DENIED"),
+                ({"memory_write_requested": True}, "MEMORY_WRITE_DENIED"),
+                ({"context_injection_requested": True}, "CONTEXT_INJECTION_DENIED"),
+                ({"contains_shell_string": True}, "M82_SHELL_STRING_DENIED"),
+                ({"contains_secret": True}, "SECRET_LIKE_COMMAND_PROPOSAL_CONTENT_DENIED"),
+            ]:
+                try:
+                    build_command_proposal(request.model_copy(update=update))
+                    failures.append(f"M82 unsafe command proposal request was not denied with {reason}")
+                except ValueError as exc:
+                    if reason not in str(exc):
+                        failures.append(
+                            f"M82 unsafe command proposal request raised {exc!s}, expected {reason}"
+                        )
+        except Exception as exc:
+            failures.append(f"M82 command proposal validation failed: {exc}")
+
+        docs_text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_files
+            if path.startswith("docs/") and (self.root / path).exists()
+        )
+        for fragment in [
+            "command proposal contracts",
+            "proposal-only",
+            "review-only",
+            "deterministic",
+            "local-only",
+            "structured argv preview",
+            "no shell string",
+            "no command execution",
+            "no subprocess execution",
+            "no shell execution",
+            "no process spawn",
+            "no filesystem mutation",
+            "no network access",
+            "no tool execution",
+            "no browser automation",
+            "no plugin execution",
+            "no remote execution",
+            "no model call",
+            "no memory write",
+            "no context injection",
+            "no background worker",
+            "no backend route",
+            "no control center control",
+            "no dependency",
+            "no production authority",
+            "safe summary only",
+            "evaluator boundaries revalidate",
+            "m83 remains future",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M82 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m82_command_proposal_static_safety(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        forbidden_source_fragments = [
+            "command_execution_enabled=True",
+            "subprocess_execution_enabled=True",
+            "shell_execution_enabled=True",
+            "process_spawn_enabled=True",
+            "filesystem_mutation_enabled=True",
+            "network_access_enabled=True",
+            "tool_execution_enabled=True",
+            "browser_automation_enabled=True",
+            "plugin_execution_enabled=True",
+            "remote_execution_enabled=True",
+            "model_call_enabled=True",
+            "memory_write_enabled=True",
+            "context_injection_enabled=True",
+            "background_worker_enabled=True",
+            "backend_route_enabled=True",
+            "control_center_control_enabled=True",
+            "dependency_change_enabled=True",
+            "production_authority_enabled=True",
+            "execution_authorized=True",
+            "command_execution_performed=True",
+            "subprocess_execution_performed=True",
+            "shell_execution_performed=True",
+            "process_spawn_performed=True",
+            "filesystem_mutation_performed=True",
+            "network_access_performed=True",
+            "tool_execution_performed=True",
+            "browser_automation_performed=True",
+            "plugin_execution_performed=True",
+            "remote_execution_performed=True",
+            "model_call_performed=True",
+            "memory_write_performed=True",
+            "context_injection_performed=True",
+            "background_worker_started=True",
+            "production_authority_granted=True",
+            "store_raw_command=True",
+            "store_shell_string=True",
+        ]
+        allowed_files = {
+            "scripts/verify_all.py",
+            "src/ultimate_ai_agent/core/sandbox/__init__.py",
+            "src/ultimate_ai_agent/core/sandbox/command_proposal.py",
+            "src/ultimate_ai_agent/core/sandbox/runtime_spec.py",
+            "src/ultimate_ai_agent/core/gate/evaluators.py",
+            "src/ultimate_ai_agent/api/openapi.py",
+        }
+        for root in [
+            self.root / "src" / "ultimate_ai_agent",
+            self.root / "apps" / "control-center" / "src",
+            self.root / "apps" / "ccc-ios",
+        ]:
+            if not root.exists():
+                continue
+            candidate_files = []
+            for pattern in ("*.py", "*.ts", "*.tsx", "*.js", "*.jsx", "*.swift", "*.yml", "*.yaml"):
+                candidate_files.extend(root.rglob(pattern))
+            for path in sorted(candidate_files):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(self.root).as_posix()
+                if ".test." in rel:
+                    continue
+                if rel in allowed_files:
+                    continue
+                text = path.read_text(encoding="utf-8")
+                for fragment in forbidden_source_fragments:
+                    if fragment in text:
+                        failures.append(f"M82 forbidden command proposal fragment in {rel}: {fragment}")
+        return self._result(criterion, failures, [])
+
+    def check_m82_command_proposal_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m82_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M82 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m82_roadmap_currentness(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        required_docs = [
+            "README.md",
+            "VERSION.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/roadmap/M61_M100_ROADMAP.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+            "docs/roadmap/MILESTONE_CHARTERS.md",
+        ]
+        failures = [
+            f"missing M82 roadmap doc: {path}"
+            for path in required_docs
+            if not (self.root / path).exists()
+        ]
+        text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_docs
+            if (self.root / path).exists()
+        )
+        if "v0.86.0" not in text or "m82" not in text or "command proposal contracts" not in text:
+            failures.append("active docs do not identify v0.86.0/M82 Command Proposal Contracts")
+        if "m82 is implemented/released" not in text and "v0.86.0 implements m82" not in text:
+            failures.append("active docs do not mark M82 implemented/released")
+        for version_label, milestone, title in [
+            ("v0.87.0", "M83", "Shell Dry-Run Classifier"),
+            ("v0.90.0", "M86", "Shell Approval Gate v1"),
+            ("v0.94.0", "M90", "Shell/Subprocess Hardening Freeze"),
+            ("v0.95.0", "M91", "Autonomous Tool Execution Contract"),
+            ("v1.4.0", "M100", "Mobile Permission Model v1"),
+        ]:
+            if version_label.lower() not in text or milestone.lower() not in text or title.lower() not in text:
+                failures.append(f"active docs missing planned M83-M100 row: {version_label} / {milestone} — {title}")
+        for fragment in (
+            "command execution is implemented",
+            "subprocess execution is implemented",
+            "shell execution is implemented",
+            "process spawn is implemented",
+            "filesystem mutation is implemented",
+            "network access is implemented",
+            "browser click is implemented",
+            "plugin execution is implemented",
+            "production authority is implemented",
+            "broad autonomy is implemented",
+        ):
+            if fragment in text:
+                failures.append(f"M82 docs imply forbidden/future capability: {fragment}")
         return self._result(criterion, failures, required_docs)
 
     def check_v0292_local_dev_api_authority_and_preview_safe(

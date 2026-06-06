@@ -67,6 +67,18 @@ Every bug fixed after M0 should produce either a regression test, an eval, or an
 
 ## M81 Runtime Sandbox Spec Tests
 
+M82 adds contract, verifier, documentation-integrity, and Foundation Gate tests
+only:
+
+```text
+Command proposal contracts are proposal-only, review-only, deterministic, and local-only.
+Structured argv preview metadata, safe command labels, safe purpose summaries, and safe summary only receipt plans are validated.
+Shell strings, command execution, subprocess execution, shell execution, process spawn, filesystem mutation, network access, tool execution, browser automation, plugin execution, remote execution, model call, memory write, context injection, background worker, backend route, Control Center control, dependency, and production authority flags are denied.
+Evaluator boundaries revalidate model-copy mutated unsafe fields.
+OpenAPI path count remains 75 and no command execution, shell, process, filesystem, network, browser, plugin, remote, memory, context, or tool execution routes are added.
+M83 remains future.
+```
+
 M81 adds contract, verifier, documentation-integrity, and Foundation Gate tests
 only:
 
@@ -76,7 +88,6 @@ Prior milestone refs, boundary refs, threat model refs, and audit requirement re
 Runtime sandbox execution, command proposal, command execution, subprocess execution, shell execution, process spawn, filesystem mutation, network access, tool execution, browser automation, plugin execution, remote execution, model call, memory write, context injection, background worker, backend route, Control Center control, dependency, and production authority flags are denied.
 Evaluator boundaries revalidate model-copy mutated unsafe fields.
 OpenAPI path count remains 75 and no sandbox, command, shell, process, filesystem, network, browser, plugin, remote, memory, context, or tool execution routes are added.
-M82 remains future.
 ```
 
 ## M12 Control Center Contract Tests
