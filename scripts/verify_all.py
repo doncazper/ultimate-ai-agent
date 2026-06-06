@@ -107,6 +107,7 @@ SCAN_SEQUENCE = [
     ("M71 network tool contract review scan", "verify_m71_network_tool_contract_review"),
     ("M72 read-only HTTP fetch tool scan", "verify_m72_read_only_http_fetch_tool"),
     ("M73 browser automation contract review scan", "verify_m73_browser_automation_contract_review"),
+    ("M74 browser observe-only adapter scan", "verify_m74_browser_observe_only_adapter"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -11590,6 +11591,233 @@ def verify_m73_browser_automation_contract_review():
                     sys.exit(1)
 
     print("OK: M73 browser automation contract review is contract-only, route-free, disabled-by-default, and no-authority")
+
+
+def verify_m74_browser_observe_only_adapter():
+    print("\n[Verifier] Running M74 browser observe-only adapter guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/browser/__init__.py",
+        "src/ultimate_ai_agent/core/browser/observe.py",
+        "docs/browser/BROWSER_OBSERVE_ONLY_ADAPTER.md",
+        "docs/browser/BROWSER_OBSERVE_ONLY_POLICY.md",
+        "docs/browser/BROWSER_OBSERVE_ONLY_RESULT_CONTRACT.md",
+        "docs/browser/BROWSER_OBSERVE_ONLY_AUTHORITY_BOUNDARY.md",
+        "docs/browser/BROWSER_OBSERVE_ONLY_RECEIPT_PLAN.md",
+        "docs/browser/M74_TO_M75_BOUNDARY.md",
+        "docs/release_notes/v0_78_0.md",
+        "docs/archive/releases/v0_78_0/README_IMPORT.md",
+        "docs/archive/releases/v0_78_0/master_plan.md",
+        "docs/implementation/foundation_gate_implementation_plan_v0_78_0.md",
+        "tests/test_m74_browser_observe_only_adapter.py",
+        "tests/test_m74_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M74 browser observe-only file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = "\n".join(
+        (ROOT / rel_path).read_text(encoding="utf-8").lower()
+        for rel_path in required_files
+        if rel_path.startswith("docs/")
+    )
+    for fragment in [
+        "browser observe-only adapter",
+        "observe-only",
+        "injected observation",
+        "redacted visible text",
+        "safe refs only",
+        "no browser automation",
+        "no browser navigation",
+        "no browser click",
+        "no form fill",
+        "no screenshot",
+        "no raw dom",
+        "no authenticated browser profile",
+        "no cookies or credentials",
+        "no download or upload",
+        "no remote browser",
+        "no network interception",
+        "no backend route",
+        "no control center control",
+        "no memory write",
+        "no context injection",
+        "no dependency",
+        "no production authority",
+        "evaluator boundaries revalidate",
+        "m75 remains future",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M74 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.browser import (
+            BrowserObserveOnlyAdapter,
+            BrowserObserveOnlyObservation,
+            BrowserObserveOnlyPolicy,
+            BrowserObserveOnlyRequest,
+            BrowserObserveOnlyStatus,
+        )
+        from ultimate_ai_agent.core.gate.evaluators import m74_openapi_route_failures
+    except Exception as exc:
+        print(f"FAIL: M74 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m74_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    request = BrowserObserveOnlyRequest(
+        request_ref="browser-observe-request:verify-all-m74",
+        target_ref="browser-target:verify-all-m74",
+        safe_url_ref="browser-url:verify-all-m74",
+        safe_summary="Observe an injected safe browser page snapshot without browser control.",
+    )
+
+    def transport(_request, _policy):
+        return BrowserObserveOnlyObservation(
+            title="Verify all status",
+            safe_url_ref="browser-url:verify-all-m74",
+            text_preview="Visible status ok\napi_key=verify-all-secret\n",
+            visible_text_bytes=44,
+        )
+
+    output = BrowserObserveOnlyAdapter(BrowserObserveOnlyPolicy()).observe(
+        request,
+        observe_transport=transport,
+    )
+    if (
+        output.status != BrowserObserveOnlyStatus.observation_ready
+        or not output.observe_allowed
+        or not output.observe_performed
+        or output.browser_automation_performed
+        or output.navigation_performed
+        or output.click_performed
+        or output.form_fill_performed
+        or output.screenshot_returned
+        or output.raw_dom_returned
+        or output.authenticated_profile_used
+        or output.cookies_or_credentials_used
+        or output.network_call_performed
+        or output.tool_execution_performed
+        or output.memory_write_performed
+        or output.context_injection_performed
+        or output.backend_route_used
+        or output.control_center_control_used
+        or output.production_authority_granted
+        or output.side_effects_performed
+        or "verify-all-secret" in output.redacted_text_preview
+        or "BROWSER_OBSERVE_ONLY_ADAPTER_OUTPUT" not in output.reason_codes
+        or "M75_REMAINS_FUTURE" not in output.reason_codes
+    ):
+        print("FAIL: M74 browser observe-only adapter output is unsafe or unredacted")
+        sys.exit(1)
+
+    for update, reason in [
+        ({"click_requested": True}, "BROWSER_CLICK_DENIED"),
+        ({"navigation_requested": True}, "BROWSER_NAVIGATION_DENIED"),
+        ({"raw_dom_requested": True}, "RAW_DOM_DENIED"),
+        ({"screenshot_requested": True}, "SCREENSHOT_DENIED"),
+        ({"approval_ref": "approval:m74"}, "APPROVAL_REF_NOT_AUTHORITY"),
+        ({"approval_ref": "approval_test_m74"}, "APPROVAL_TEST_REF_DENIED"),
+        ({"authority_refs": ["context-pack:m74"]}, "AUTHORITY_REF_NOT_BROWSER_OBSERVE_AUTHORITY"),
+    ]:
+        decision = BrowserObserveOnlyAdapter().observe(request.model_copy(update=update), observe_transport=transport)
+        if decision.observe_allowed or reason not in decision.reason_codes:
+            print(f"FAIL: M74 unsafe browser observe request was not denied with {reason}")
+            sys.exit(1)
+
+    no_transport = BrowserObserveOnlyAdapter().observe(request)
+    if (
+        no_transport.status != BrowserObserveOnlyStatus.transport_unavailable
+        or no_transport.observe_allowed
+        or "BROWSER_OBSERVE_TRANSPORT_REQUIRED" not in no_transport.reason_codes
+    ):
+        print("FAIL: M74 browser observe-only adapter did not require explicit transport")
+        sys.exit(1)
+
+    forbidden_source_fragments = [
+        "browser_automation_performed=True",
+        "browser_navigation_performed=True",
+        "browser_click_performed=True",
+        "click_performed=True",
+        "form_fill_performed=True",
+        "screenshot_returned=True",
+        "screenshot_stored=True",
+        "raw_dom_returned=True",
+        "raw_dom_stored=True",
+        "authenticated_profile_used=True",
+        "cookies_or_credentials_used=True",
+        "download_or_upload_performed=True",
+        "remote_browser_control_performed=True",
+        "network_interception_performed=True",
+        "network_call_performed=True",
+        "model_call_performed=True",
+        "tool_execution_performed=True",
+        "memory_write_performed=True",
+        "context_injection_performed=True",
+        "backend_route_used=True",
+        "control_center_control_used=True",
+        "production_authority_granted=True",
+        "/browser/observe",
+        "/browser/click",
+        "/browser/navigate",
+        "/browser/type",
+        "/browser/screenshot",
+        "/browser/dom/raw",
+        "/browser/execute",
+        "/browser/run",
+        "/browser/session/start",
+        "/browser/profile/authenticated",
+        "/tools/browser/execute",
+        "/tools/execute",
+        "/tool-runtime/execute",
+        "playwright.",
+        "selenium",
+        "browser_use",
+        "chromedriver",
+        "puppeteer",
+    ]
+    allowed_files = {
+        "scripts/verify_all.py",
+        "src/ultimate_ai_agent/core/browser/observe.py",
+        "src/ultimate_ai_agent/core/browser/contract_review.py",
+        "src/ultimate_ai_agent/core/browser/__init__.py",
+        "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/api/openapi.py",
+        "src/ultimate_ai_agent/core/autonomy/foundation_freeze.py",
+        "src/ultimate_ai_agent/core/autonomy/dry_run.py",
+        "src/ultimate_ai_agent/core/autonomy/risk.py",
+        "src/ultimate_ai_agent/core/autonomy/revocation.py",
+        "src/ultimate_ai_agent/core/autonomy/approvals.py",
+        "src/ultimate_ai_agent/core/autonomy/audit.py",
+        "src/ultimate_ai_agent/core/autonomy/policies.py",
+        "src/ultimate_ai_agent/core/autonomy/sessions.py",
+        "src/ultimate_ai_agent/core/autonomy/simulator.py",
+    }
+    for root in [ROOT / "src" / "ultimate_ai_agent", ROOT / "apps" / "control-center" / "src", ROOT / "apps" / "ccc-ios"]:
+        if not root.exists():
+            continue
+        candidate_files = []
+        for pattern in ("*.py", "*.ts", "*.tsx", "*.js", "*.jsx", "*.swift", "*.yml", "*.yaml"):
+            candidate_files.extend(root.rglob(pattern))
+        for path in sorted(candidate_files):
+            if not path.is_file():
+                continue
+            rel = path.relative_to(ROOT).as_posix()
+            if rel in allowed_files:
+                continue
+            text = path.read_text(encoding="utf-8")
+            for fragment in forbidden_source_fragments:
+                if fragment in text:
+                    print(f"FAIL: M74 forbidden browser observe/control fragment in {rel}: {fragment}")
+                    sys.exit(1)
+
+    print("OK: M74 browser observe-only adapter is injected, redacted, route-free, and no-authority")
 
 
 def verify_local_developer_launcher_safety():

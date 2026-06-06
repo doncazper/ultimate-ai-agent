@@ -509,6 +509,20 @@ REQUIRED_M73_BROWSER_AUTOMATION_CONTRACT_REVIEW_DOCS = [
     "docs/implementation/foundation_gate_implementation_plan_v0_77_0.md",
 ]
 
+REQUIRED_M74_BROWSER_OBSERVE_ONLY_DOCS = [
+    "docs/browser/BROWSER_OBSERVE_ONLY_ADAPTER.md",
+    "docs/browser/BROWSER_OBSERVE_ONLY_POLICY.md",
+    "docs/browser/BROWSER_OBSERVE_ONLY_RESULT_CONTRACT.md",
+    "docs/browser/BROWSER_OBSERVE_ONLY_AUTHORITY_BOUNDARY.md",
+    "docs/browser/BROWSER_OBSERVE_ONLY_RECEIPT_PLAN.md",
+    "docs/browser/M74_TO_M75_BOUNDARY.md",
+    "docs/roadmap/M61_M100_ROADMAP.md",
+    "docs/release_notes/v0_78_0.md",
+    "docs/archive/releases/v0_78_0/README_IMPORT.md",
+    "docs/archive/releases/v0_78_0/master_plan.md",
+    "docs/implementation/foundation_gate_implementation_plan_v0_78_0.md",
+]
+
 
 REQUIRED_ACTIVE_DOCS = [
     "docs/README.md",
@@ -1042,6 +1056,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_m71_network_tool_contract_review_docs(root, version))
     failures.extend(_verify_m72_read_only_http_fetch_docs(root, version))
     failures.extend(_verify_m73_browser_automation_contract_review_docs(root, version))
+    failures.extend(_verify_m74_browser_observe_only_docs(root, version))
     failures.extend(_verify_m19_roadmap_currentness(root, version))
     failures.extend(_verify_post_m18_roadmap_status_labels(root))
 
@@ -4280,7 +4295,77 @@ def _verify_m73_browser_automation_contract_review_docs(root: Path, version: str
         "M73 docs must not claim browser click execution": "browser click execution is implemented",
         "M73 docs must not claim tool execution implementation": "tool execution is implemented",
         "M73 docs must not claim production authority": "production authority is implemented",
-        "M73 docs must not claim M74 implementation": "m74 is implemented",
+    }
+    if _version_tuple(version) < (0, 78, 0):
+        forbidden_fragments["M73 docs must not claim M74 implementation"] = "m74 is implemented"
+    for message, fragment in forbidden_fragments.items():
+        if fragment in text:
+            failures.append(f"{message}: {fragment}")
+    return failures
+
+
+def _verify_m74_browser_observe_only_docs(root: Path, version: str | None) -> list[str]:
+    failures: list[str] = []
+    if _version_tuple(version) < (0, 78, 0):
+        return failures
+    parts: list[str] = []
+    for rel_path in REQUIRED_M74_BROWSER_OBSERVE_ONLY_DOCS:
+        path = root / rel_path
+        if not path.exists():
+            failures.append(f"M74 browser observe-only doc missing: {rel_path}")
+            continue
+        parts.append(_read(path).lower())
+    text = "\n".join(parts)
+    required_fragments = {
+        "M74 docs must say browser observe-only adapter": "browser observe-only adapter",
+        "M74 docs must say observe-only": "observe-only",
+        "M74 docs must require injected observation": "injected observation",
+        "M74 docs must say redacted visible text": "redacted visible text",
+        "M74 docs must say safe refs only": "safe refs only",
+        "M74 docs must deny browser automation": "no browser automation",
+        "M74 docs must deny browser navigation": "no browser navigation",
+        "M74 docs must deny browser click": "no browser click",
+        "M74 docs must deny form fill": "no form fill",
+        "M74 docs must deny screenshot": "no screenshot",
+        "M74 docs must deny raw DOM": "no raw dom",
+        "M74 docs must deny authenticated browser profile": "no authenticated browser profile",
+        "M74 docs must deny cookies or credentials": "no cookies or credentials",
+        "M74 docs must deny download/upload": "no download or upload",
+        "M74 docs must deny remote browser": "no remote browser",
+        "M74 docs must deny network interception": "no network interception",
+        "M74 docs must deny backend routes": "no backend route",
+        "M74 docs must deny Control Center controls": "no control center control",
+        "M74 docs must deny memory writes": "no memory write",
+        "M74 docs must deny context injection": "no context injection",
+        "M74 docs must deny dependencies": "no dependency",
+        "M74 docs must deny production authority": "no production authority",
+        "M74 docs must say evaluator boundaries revalidate": "evaluator boundaries revalidate",
+        "M74 docs must keep M75 future": "m75 remains future",
+    }
+    for message, fragment in required_fragments.items():
+        if fragment not in text:
+            failures.append(message)
+
+    for version_label, milestone, title in [
+        ("v0.78.0", "m74", "browser observe-only adapter"),
+        ("v0.79.0", "m75", "browser action dry-run planner"),
+        ("v0.95.0", "m91", "autonomous tool execution contract"),
+        ("v1.4.0", "m100", "mobile permission model v1"),
+    ]:
+        if version_label not in text or milestone not in text or title not in text:
+            failures.append(
+                f"M74-M100 roadmap missing label: {version_label} / {milestone.upper()} - {title}"
+            )
+
+    forbidden_fragments = {
+        "M74 docs must not claim browser action dry-run implementation": (
+            "browser action dry-run planner is implemented"
+        ),
+        "M74 docs must not claim browser automation execution": "browser automation execution is implemented",
+        "M74 docs must not claim browser click execution": "browser click execution is implemented",
+        "M74 docs must not claim tool execution implementation": "tool execution is implemented",
+        "M74 docs must not claim production authority": "production authority is implemented",
+        "M74 docs must not claim M75 implementation": "m75 is implemented",
     }
     for message, fragment in forbidden_fragments.items():
         if fragment in text:

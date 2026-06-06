@@ -1,6 +1,6 @@
 # Documentation Index
 
-Current active baseline: **v0.77.0**
+Current active baseline: **v0.78.0**
 
 This index is the active entrypoint for documentation navigation. Historical release documents remain in the repository for audit history, but active truth starts with the current baseline files listed here.
 
@@ -14,9 +14,9 @@ docs/canonical/CANONICAL_DOC_MAP.md
 docs/canonical/09_roadmap.md
 docs/roadmap/README.md
 docs/archive/README.md
-docs/archive/releases/v0_77_0/README_IMPORT.md
-docs/archive/releases/v0_77_0/master_plan.md
-docs/release_notes/v0_77_0.md
+docs/archive/releases/v0_78_0/README_IMPORT.md
+docs/archive/releases/v0_78_0/master_plan.md
+docs/release_notes/v0_78_0.md
 docs/developer/LOCAL_LAUNCHER.md
 scripts/dev/README.md
 docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md
@@ -25,6 +25,7 @@ docs/roadmap/NEXT_SEQUENCE_v0_17_5.md
 docs/roadmap/CAPABILITY_LAYERING_STRATEGY.md
 docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md
 docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md
+docs/roadmap/M61_M100_ROADMAP.md
 docs/files/BROADER_FILE_CAPABILITY_REVIEW.md
 docs/files/FILE_CAPABILITY_BOUNDARY_MATRIX.md
 docs/files/FILE_CAPABILITY_RISK_REGISTER.md
@@ -35,6 +36,12 @@ docs/files/SAFE_FILE_REVIEW_WORKFLOW.md
 docs/files/FILE_REVIEW_PACKET_CONTRACT.md
 docs/files/FILE_REVIEW_USER_APPROVAL_GATE.md
 docs/files/FILE_REVIEW_AUTHORITY_BOUNDARY.md
+docs/browser/BROWSER_OBSERVE_ONLY_ADAPTER.md
+docs/browser/BROWSER_OBSERVE_ONLY_POLICY.md
+docs/browser/BROWSER_OBSERVE_ONLY_RESULT_CONTRACT.md
+docs/browser/BROWSER_OBSERVE_ONLY_AUTHORITY_BOUNDARY.md
+docs/browser/BROWSER_OBSERVE_ONLY_RECEIPT_PLAN.md
+docs/browser/M74_TO_M75_BOUNDARY.md
 docs/dry_run_audit/DRY_RUN_EXECUTION_AUDIT_HARNESS.md
 docs/dry_run_audit/DRY_RUN_EXECUTION_AUDIT_POLICY.md
 docs/dry_run_audit/DRY_RUN_EXECUTION_AUTHORITY_BOUNDARY.md
@@ -562,7 +569,7 @@ skeleton/local connection/review receipt/TestFlight pipeline/build candidate/mob
 
 ## Release Notes Index
 
-Current release notes: `docs/release_notes/v0_77_0.md`
+Current release notes: `docs/release_notes/v0_78_0.md`
 
 Historical release notes remain under `docs/release_notes/`. Historical docs may mention old active baselines in historical context; they are not the current source of truth.
 

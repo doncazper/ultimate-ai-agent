@@ -1,6 +1,6 @@
 # M61-M100 Roadmap
 
-Status: Active roadmap maintained through M73 / v0.77.0.
+Status: Active roadmap maintained through M74 / v0.78.0.
 
 M61 is implemented/released by v0.65.0 as Autonomy Mode Charter + Authority
 Levels. M62 is implemented/released by v0.66.0 as Scoped Autonomy Session
@@ -15,10 +15,12 @@ M70 is implemented/released by v0.74.0 as Autonomy Foundation Freeze.
 M71 is implemented/released by v0.75.0 as Network Tool Contract Review.
 M72 is implemented/released by v0.76.0 as Read-Only HTTP Fetch Tool,
 Allowlisted. M73 is implemented/released by v0.77.0 as Browser Automation
-Contract Review. M74-M100 remain planned/provisional. This roadmap adds no
+Contract Review. M74 is implemented/released by v0.78.0 as Browser Observe-Only
+Adapter. M75-M100 remain planned/provisional. This roadmap adds no
 production authority, no global autonomy switch, no broad autonomy, no tool
-execution, no shell execution, no browser automation, no browser observe, no
-browser navigation, no browser click, no screenshot, no raw DOM, no
+execution, no shell execution, no browser automation beyond the M74 injected
+observation redacted preview boundary, no browser navigation, no browser click,
+no screenshot, no raw DOM, no
 authenticated browser profile, no unrestricted network tools, no network tools
 outside the M72 allowlisted redacted fetch boundary, no authenticated network
 actions, no raw network responses, no background worker, no revocation action,
@@ -40,7 +42,7 @@ activation, no autonomous session, no backend route, and no dependency.
 | v0.75.0 | M71 | Network Tool Contract Review | Implemented/released |
 | v0.76.0 | M72 | Read-Only HTTP Fetch Tool, Allowlisted | Implemented/released |
 | v0.77.0 | M73 | Browser Automation Contract Review | Implemented/released |
-| v0.78.0 | M74 | Browser Observe-Only Adapter | Planned/provisional |
+| v0.78.0 | M74 | Browser Observe-Only Adapter | Implemented/released |
 | v0.79.0 | M75 | Browser Action Dry-Run Planner | Planned/provisional |
 | v0.80.0 | M76 | OpenWebUI Runtime Bridge v1 | Planned/provisional |
 | v0.81.0 | M77 | OpenWebUI Safe Handoff Execution | Planned/provisional |
