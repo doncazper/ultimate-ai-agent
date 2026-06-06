@@ -1,6 +1,6 @@
 # M61-M100 Roadmap
 
-Status: Active roadmap maintained through M80 / v0.84.0.
+Status: Active roadmap maintained through M80 / v0.84.1.
 
 M61 is implemented/released by v0.65.0 as Autonomy Mode Charter + Authority
 Levels. M62 is implemented/released by v0.66.0 as Scoped Autonomy Session
@@ -22,7 +22,8 @@ M77 is implemented/released by v0.81.0 as OpenWebUI Safe Handoff Execution.
 M78 is implemented/released by v0.82.0 as Plugin Manifest Security Model.
 M79 is implemented/released by v0.83.0 as Plugin Install Review, Disabled by
 Default. M80 is implemented/released by v0.84.0 as Network/Browser/OpenWebUI
-Hardening Freeze. M81-M100 remain planned/provisional. This roadmap adds no
+Hardening Freeze and currentness-repaired by v0.84.1. M81-M100 remain
+planned/provisional. This roadmap adds no
 production authority, no global autonomy switch, no broad autonomy, no tool
 execution, no shell execution, no browser automation beyond the M74 injected
 observation redacted preview boundary, no browser navigation, no browser click,
@@ -31,7 +32,8 @@ authenticated browser profile, no unrestricted network tools, no network tools
 outside the M72 allowlisted redacted fetch boundary, no authenticated network
 actions, no raw network responses, no background worker, no revocation action,
 no kill-switch activation, no session stop, no process kill, no policy
-activation, no autonomous session, no backend route, and no dependency.
+activation, no autonomous session, no remote execution, no backend route, and
+no dependency.
 
 | Version | Milestone | Title | Status |
 | --- | --- | --- | --- |

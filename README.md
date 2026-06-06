@@ -12,25 +12,26 @@ allowed to become operational authority.
 
 | Field | Current state |
 |---|---|
-| Current active baseline | **v0.84.0** |
+| Current active baseline | **v0.84.1** |
 | Current milestone | **M80 - Network/Browser/OpenWebUI Hardening Freeze** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **75** OpenAPI paths |
 | Production readiness | Not claimed |
 
-v0.84.0 implements M80 Network/Browser/OpenWebUI Hardening Freeze. It adds
-freeze-only, review-only, deterministic contracts over accepted M71-M79
-network, browser, OpenWebUI, and plugin-adjacent boundaries, with accepted
-milestone refs, checklist refs, stable reason codes, documentation-integrity
-checks, static verification, tests, and Foundation Gate coverage. It adds no
+v0.84.1 repairs M80 Network/Browser/OpenWebUI Hardening Freeze active
+currentness wording after v0.84.0. It keeps freeze-only, review-only,
+deterministic contracts over accepted M71-M79 network, browser, OpenWebUI, and
+plugin-adjacent boundaries, with accepted milestone refs, checklist refs,
+stable reason codes, documentation-integrity checks, static verification,
+tests, and Foundation Gate coverage. It adds no
 unrestricted network access, authenticated network action, raw network response,
 browser navigation, browser click, browser screenshot, raw DOM, authenticated
 browser profile, OpenWebUI model authority, OpenWebUI tool execution,
 OpenWebUI memory write, OpenWebUI context injection, raw prompt, raw provider
 payload, plugin install, plugin enablement, plugin execution, runtime import,
-shell execution, background worker, backend routes, Control Center controls,
-dependency, M81 work, or production authority.
+shell execution, background worker, remote execution, backend routes, Control
+Center controls, dependency, M81 work, or production authority.
 
 v0.29.5 is documentation policy polish. It remains the documentation
 organization cleanup baseline before the M26 and M27 implementation releases.
@@ -220,8 +221,8 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [v0.82.0 master plan](docs/archive/releases/v0_82_0/master_plan.md)
 - [v0.83.0 release packet](docs/archive/releases/v0_83_0/README_IMPORT.md)
 - [v0.83.0 master plan](docs/archive/releases/v0_83_0/master_plan.md)
-- [v0.84.0 release packet](docs/archive/releases/v0_84_0/README_IMPORT.md)
-- [v0.84.0 master plan](docs/archive/releases/v0_84_0/master_plan.md)
+- [v0.84.1 release packet](docs/archive/releases/v0_84_1/README_IMPORT.md)
+- [v0.84.1 master plan](docs/archive/releases/v0_84_1/master_plan.md)
 
 ## What This Project Is
 
