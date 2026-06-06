@@ -10,6 +10,7 @@ from ultimate_ai_agent.core.openwebui_bridge.enums import (
     OpenWebUIBridgeStatus,
     OpenWebUIContentMode,
     OpenWebUIMessageDirection,
+    OpenWebUIRuntimeBridgeStatus,
     OpenWebUISafeConversationSurfaceStatus,
     OpenWebUISurfaceRole,
 )
@@ -323,6 +324,117 @@ class OpenWebUISafeConversationSurface(_OpenWebUIBridgeContractModel):
     raw_prompt_returned: bool = False
     raw_provider_payload_returned: bool = False
     raw_content_returned: bool = False
+    side_effects_performed: list[str] = Field(default_factory=list)
+    docs_refs: list[str] = Field(default_factory=list)
+    metadata_refs: list[str] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class OpenWebUIRuntimeBridgePolicy(_OpenWebUIBridgeContractModel):
+    runtime_bridge_policy_ref: str = "openwebui-runtime-bridge-policy:m76"
+    baseline_version: str = "0.80.0"
+    status: OpenWebUIBridgeStatus = OpenWebUIBridgeStatus.contract_only
+    safe_summary_only: bool = True
+    review_only: bool = True
+    agent_core_remains_authority: bool = True
+    openwebui_is_agent_brain: bool = False
+    live_openwebui_connection_enabled: bool = False
+    openwebui_runtime_call_enabled: bool = False
+    openwebui_network_call_enabled: bool = False
+    provider_call_enabled: bool = False
+    model_call_enabled: bool = False
+    model_authority_enabled: bool = False
+    tool_execution_enabled: bool = False
+    memory_write_enabled: bool = False
+    context_injection_enabled: bool = False
+    approval_ref_authority_enabled: bool = False
+    raw_prompt_exposure_enabled: bool = False
+    raw_provider_payload_exposure_enabled: bool = False
+    raw_content_allowed: bool = False
+    credential_cookie_access_enabled: bool = False
+    production_authority_enabled: bool = False
+    docs_refs: list[str] = Field(default_factory=list)
+    metadata_refs: list[str] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class OpenWebUIRuntimeBridgeRequest(_OpenWebUIBridgeContractModel):
+    bridge_request_ref: str = Field(..., min_length=1)
+    session_ref: str = Field(..., min_length=1)
+    safe_conversation_ref: str = Field(..., min_length=1)
+    actor_ref: str = Field(..., min_length=1)
+    safe_intent_summary: str = Field(..., min_length=1)
+    content_mode: OpenWebUIContentMode = OpenWebUIContentMode.summary_only
+    approval_ref: str | None = None
+    raw_prompt_present: bool = False
+    raw_provider_payload_present: bool = False
+    raw_content_present: bool = False
+    secret_like_content_present: bool = False
+    provider_call_requested: bool = False
+    model_call_requested: bool = False
+    model_authority_requested: bool = False
+    tool_execution_requested: bool = False
+    memory_write_requested: bool = False
+    context_injection_requested: bool = False
+    openwebui_runtime_call_requested: bool = False
+    openwebui_handoff_requested: bool = False
+    network_call_requested: bool = False
+    credential_cookie_access_requested: bool = False
+    production_authority_requested: bool = False
+    metadata_refs: list[str] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class OpenWebUIRuntimeBridgeReceiptPlan(_OpenWebUIBridgeContractModel):
+    receipt_plan_ref: str = Field(..., min_length=1)
+    bridge_request_ref: str = Field(..., min_length=1)
+    bridge_envelope_ref: str = Field(..., min_length=1)
+    session_ref: str = Field(..., min_length=1)
+    safe_conversation_ref: str = Field(..., min_length=1)
+    redaction_required: bool = True
+    raw_prompt_stored: bool = False
+    raw_provider_payload_stored: bool = False
+    raw_content_stored: bool = False
+    openwebui_runtime_call_performed: bool = False
+    provider_call_performed: bool = False
+    model_call_performed: bool = False
+    tool_execution_performed: bool = False
+    memory_write_performed: bool = False
+    context_injection_performed: bool = False
+    network_call_performed: bool = False
+    credential_cookie_access_performed: bool = False
+    production_authority_granted: bool = False
+    safe_summary: str = Field(..., min_length=1)
+    metadata_refs: list[str] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class OpenWebUIRuntimeBridgeEnvelope(_OpenWebUIBridgeContractModel):
+    bridge_envelope_ref: str = Field(..., min_length=1)
+    bridge_request_ref: str = Field(..., min_length=1)
+    session_ref: str = Field(..., min_length=1)
+    safe_conversation_ref: str = Field(..., min_length=1)
+    actor_ref: str = Field(..., min_length=1)
+    status: OpenWebUIRuntimeBridgeStatus = OpenWebUIRuntimeBridgeStatus.review_envelope_ready
+    content_mode: OpenWebUIContentMode = OpenWebUIContentMode.summary_only
+    safe_bridge_summary: str = Field(..., min_length=1)
+    reason_codes: list[str] = Field(default_factory=list)
+    receipt_plan: OpenWebUIRuntimeBridgeReceiptPlan
+    raw_prompt_returned: bool = False
+    raw_provider_payload_returned: bool = False
+    raw_content_returned: bool = False
+    model_output_authoritative: bool = False
+    openwebui_called: bool = False
+    provider_called: bool = False
+    model_called: bool = False
+    tool_executed: bool = False
+    memory_written: bool = False
+    context_injected: bool = False
+    network_called: bool = False
+    credential_cookie_accessed: bool = False
+    approval_granted: bool = False
+    handoff_executed: bool = False
+    production_authority_granted: bool = False
     side_effects_performed: list[str] = Field(default_factory=list)
     docs_refs: list[str] = Field(default_factory=list)
     metadata_refs: list[str] = Field(default_factory=list)

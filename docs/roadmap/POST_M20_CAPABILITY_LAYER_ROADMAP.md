@@ -1,6 +1,6 @@
 # Post-M20 Capability Layer Roadmap
 
-Status: Active roadmap projection maintained through v0.79.0.
+Status: Active roadmap projection maintained through v0.80.0.
 
 v0.38.0 implements M34 Broader File Capability Review as planning,
 architecture review, documentation, verifier, and Foundation Gate work only.
@@ -112,13 +112,14 @@ The detailed post-M33 supersession source of truth is
 | v0.77.0 | M73 | Browser Automation Contract Review | implemented/released contract-only |
 | v0.78.0 | M74 | Browser Observe-Only Adapter | implemented/released observe-only/redacted-only |
 | v0.79.0 | M75 | Browser Action Dry-Run Planner | implemented/released dry-run-only |
+| v0.80.0 | M76 | OpenWebUI Runtime Bridge v1 | implemented/released review-only |
 
 ## Prompt-Pack Strategy
 
-Recommended next prompt after v0.79.0:
+Recommended next prompt after v0.80.0:
 
 ```text
-Start v0.80.0 / M76 - OpenWebUI Runtime Bridge v1 only after v0.79.0 / M75 is accepted Green.
+Start v0.81.0 / M77 - OpenWebUI Safe Handoff Execution only after v0.80.0 / M76 is accepted Green.
 ```
 
 M61 is implemented/released by v0.65.0 as Autonomy Mode Charter + Authority
@@ -135,8 +136,9 @@ implemented/released by v0.75.0 as Network Tool Contract Review. M72 is
 implemented/released by v0.76.0 as Read-Only HTTP Fetch Tool, Allowlisted. M73 is
 implemented/released by v0.77.0 as Browser Automation Contract Review. M74 is
 implemented/released by v0.78.0 as Browser Observe-Only Adapter. M75 is
-implemented/released by v0.79.0 as Browser Action Dry-Run Planner. M76-M100
-remain planned/provisional.
+implemented/released by v0.79.0 as Browser Action Dry-Run Planner. M76 is
+implemented/released by v0.80.0 as OpenWebUI Runtime Bridge v1. M77-M100 remain
+planned/provisional.
 
 Extra-hard reviews are required for M37, M38, M40, M47, M48, M49, M51, M52,
 M57, M58, and M59. Mandatory hardening is expected by default for M35-M40, M43-M50,

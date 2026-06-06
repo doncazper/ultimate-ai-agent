@@ -1055,6 +1055,19 @@ M75_FORBIDDEN_BACKEND_ROUTES = M74_FORBIDDEN_BACKEND_ROUTES + (
     "/browser/action/dry-run",
     "/browser/action/execute",
 )
+EXPECTED_M76_OPENAPI_PATH_COUNT = 75
+M76_FORBIDDEN_BACKEND_ROUTES = M75_FORBIDDEN_BACKEND_ROUTES + (
+    "/openwebui/runtime/bridge",
+    "/openwebui/runtime/handoff",
+    "/openwebui/runtime/execute",
+    "/openwebui/chat/send",
+    "/openwebui/model/call",
+    "/openwebui/provider/call",
+    "/openwebui/tools/execute",
+    "/openwebui/memory/write",
+    "/openwebui/context/inject",
+    "/openwebui/raw-payload",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -1896,6 +1909,19 @@ def m75_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
     return failures
 
 
+def m76_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M76_OPENAPI_PATH_COUNT) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+    if M37_ALLOWED_CAPTURE_ROUTE not in path_set:
+        failures.append("M37 capture route missing: /files/review/approvals/capture")
+    for route in M76_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(f"M76 forbidden OpenWebUI runtime/backend route present: {route}")
+    return failures
+
+
 M36_SAFE_REF_PREFIXES = {
     "reviewPacketRef": "file-review-packet:",
     "previewResultRef": "redacted-file-preview-output:",
@@ -2522,6 +2548,16 @@ class FoundationGateEvaluator:
                 self.check_m75_browser_action_dry_run_route_boundary
             ),
             "m75_roadmap_currentness": self.check_m75_roadmap_currentness,
+            "m76_openwebui_runtime_bridge_v1": (
+                self.check_m76_openwebui_runtime_bridge_v1
+            ),
+            "m76_openwebui_runtime_bridge_static_safety": (
+                self.check_m76_openwebui_runtime_bridge_static_safety
+            ),
+            "m76_openwebui_runtime_bridge_route_boundary": (
+                self.check_m76_openwebui_runtime_bridge_route_boundary
+            ),
+            "m76_roadmap_currentness": self.check_m76_roadmap_currentness,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -20250,18 +20286,279 @@ class FoundationGateEvaluator:
         ]:
             if version_label.lower() not in text or milestone.lower() not in text or title.lower() not in text:
                 failures.append(f"active docs missing planned M76-M100 row: {version_label} / {milestone} — {title}")
-        for fragment in (
-            "m76 is implemented",
-            "openwebui runtime bridge v1 is implemented",
+        forbidden_fragments = [
             "browser click execution is implemented",
             "browser automation execution is implemented",
             "production authority is implemented",
             "broad autonomy is implemented",
             "tool execution is implemented",
             "shell execution is implemented",
-        ):
+        ]
+        if (self._active_version_tuple() or (0, 0, 0)) < (0, 80, 0):
+            forbidden_fragments.extend(
+                [
+                    "m76 is implemented",
+                    "openwebui runtime bridge v1 is implemented",
+                ]
+            )
+        for fragment in forbidden_fragments:
             if fragment in text:
                 failures.append(f"M75 docs imply forbidden/future capability: {fragment}")
+        return self._result(criterion, failures, required_docs)
+
+    def check_m76_openwebui_runtime_bridge_v1(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/openwebui_bridge/__init__.py",
+            "src/ultimate_ai_agent/core/openwebui_bridge/runtime.py",
+            "docs/openwebui/OPENWEBUI_RUNTIME_BRIDGE_V1.md",
+            "docs/openwebui/OPENWEBUI_RUNTIME_BRIDGE_POLICY.md",
+            "docs/openwebui/OPENWEBUI_RUNTIME_BRIDGE_RESULT_CONTRACT.md",
+            "docs/openwebui/OPENWEBUI_RUNTIME_BRIDGE_AUTHORITY_BOUNDARY.md",
+            "docs/openwebui/OPENWEBUI_RUNTIME_BRIDGE_RECEIPT_PLAN.md",
+            "docs/openwebui/M76_TO_M77_BOUNDARY.md",
+            "tests/test_m76_openwebui_runtime_bridge.py",
+            "tests/test_m76_openwebui_runtime_bridge_gate_integration.py",
+        ]
+        failures = [
+            f"missing M76 OpenWebUI runtime bridge file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            from ultimate_ai_agent.core.openwebui_bridge import (
+                OpenWebUIRuntimeBridgeRequest,
+                OpenWebUIRuntimeBridgeStatus,
+                build_openwebui_runtime_bridge_envelope,
+            )
+
+            request = OpenWebUIRuntimeBridgeRequest(
+                bridge_request_ref="openwebui-runtime-bridge-request:m76-gate",
+                session_ref="openwebui-session:m76-gate",
+                safe_conversation_ref="openwebui-safe-conversation:m76-gate",
+                actor_ref="actor:m76-gate",
+                safe_intent_summary="Prepare a review-only OpenWebUI bridge envelope.",
+            )
+            envelope = build_openwebui_runtime_bridge_envelope(request)
+            if (
+                envelope.status != OpenWebUIRuntimeBridgeStatus.review_envelope_ready
+                or envelope.raw_prompt_returned
+                or envelope.raw_provider_payload_returned
+                or envelope.raw_content_returned
+                or envelope.model_output_authoritative
+                or envelope.openwebui_called
+                or envelope.provider_called
+                or envelope.model_called
+                or envelope.tool_executed
+                or envelope.memory_written
+                or envelope.context_injected
+                or envelope.network_called
+                or envelope.credential_cookie_accessed
+                or envelope.approval_granted
+                or envelope.handoff_executed
+                or envelope.production_authority_granted
+                or envelope.side_effects_performed
+                or envelope.receipt_plan.openwebui_runtime_call_performed
+                or envelope.receipt_plan.raw_prompt_stored
+                or envelope.receipt_plan.raw_provider_payload_stored
+                or envelope.receipt_plan.raw_content_stored
+                or "M76_OPENWEBUI_RUNTIME_BRIDGE_V1" not in envelope.reason_codes
+                or "M77_REMAINS_FUTURE" not in envelope.reason_codes
+            ):
+                failures.append("M76 OpenWebUI runtime bridge envelope is unsafe or executing")
+
+            for update, reason in [
+                ({"raw_prompt_present": True}, "RAW_PROMPT_DENIED"),
+                ({"raw_provider_payload_present": True}, "RAW_PROVIDER_PAYLOAD_DENIED"),
+                ({"openwebui_runtime_call_requested": True}, "OPENWEBUI_RUNTIME_CALL_DENIED"),
+                ({"openwebui_handoff_requested": True}, "OPENWEBUI_HANDOFF_DENIED"),
+                ({"model_call_requested": True}, "MODEL_CALL_DENIED"),
+                ({"model_authority_requested": True}, "MODEL_AUTHORITY_DENIED"),
+                ({"tool_execution_requested": True}, "TOOL_EXECUTION_DENIED"),
+                ({"memory_write_requested": True}, "MEMORY_WRITE_DENIED"),
+                ({"context_injection_requested": True}, "CONTEXT_INJECTION_DENIED"),
+                ({"network_call_requested": True}, "OPENWEBUI_NETWORK_CALL_DENIED"),
+                ({"credential_cookie_access_requested": True}, "CREDENTIAL_COOKIE_ACCESS_DENIED"),
+                ({"production_authority_requested": True}, "PRODUCTION_AUTHORITY_DENIED"),
+                ({"approval_ref": "approval_test_m76"}, "APPROVAL_TEST_REF_DENIED"),
+            ]:
+                try:
+                    build_openwebui_runtime_bridge_envelope(request.model_copy(update=update))
+                    failures.append(f"M76 unsafe OpenWebUI bridge request was not denied with {reason}")
+                except ValueError as exc:
+                    if reason not in str(exc):
+                        failures.append(f"M76 unsafe OpenWebUI bridge request raised {exc!s}, expected {reason}")
+        except Exception as exc:
+            failures.append(f"M76 OpenWebUI runtime bridge validation failed: {exc}")
+
+        docs_text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_files
+            if path.startswith("docs/") and (self.root / path).exists()
+        )
+        for fragment in [
+            "openwebui runtime bridge v1",
+            "review-only bridge envelope",
+            "safe refs only",
+            "redacted summary only",
+            "python agent core remains authority",
+            "openwebui is a shell/bridge, not the brain",
+            "no live openwebui connection",
+            "no openwebui runtime call",
+            "no provider call",
+            "no model call",
+            "no model authority",
+            "no tool execution",
+            "no memory write",
+            "no context injection",
+            "no network call",
+            "no credentials or cookies",
+            "no raw prompt",
+            "no raw provider payload",
+            "no raw content",
+            "no backend route",
+            "no control center control",
+            "no dependency",
+            "no production authority",
+            "evaluator boundaries revalidate",
+            "m77 remains future",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M76 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m76_openwebui_runtime_bridge_static_safety(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        forbidden_source_fragments = [
+            "openwebui_runtime_call_performed=True",
+            "openwebui_called=True",
+            "provider_called=True",
+            "provider_call_performed=True",
+            "model_called=True",
+            "model_call_performed=True",
+            "model_output_authoritative=True",
+            "tool_executed=True",
+            "tool_execution_performed=True",
+            "memory_written=True",
+            "memory_write_performed=True",
+            "context_injected=True",
+            "context_injection_performed=True",
+            "network_called=True",
+            "network_call_performed=True",
+            "credential_cookie_accessed=True",
+            "credential_cookie_access_performed=True",
+            "raw_prompt_returned=True",
+            "raw_provider_payload_returned=True",
+            "raw_content_returned=True",
+            "handoff_executed=True",
+            "production_authority_granted=True",
+            "/openwebui/runtime/bridge",
+            "/openwebui/runtime/handoff",
+            "/openwebui/runtime/execute",
+            "/openwebui/chat/send",
+            "/openwebui/model/call",
+            "/openwebui/provider/call",
+            "/openwebui/tools/execute",
+            "/openwebui/memory/write",
+            "/openwebui/context/inject",
+            "/openwebui/raw-payload",
+        ]
+        allowed_files = {
+            "scripts/verify_all.py",
+            "src/ultimate_ai_agent/core/openwebui_bridge/__init__.py",
+            "src/ultimate_ai_agent/core/openwebui_bridge/adapter.py",
+            "src/ultimate_ai_agent/core/openwebui_bridge/contracts.py",
+            "src/ultimate_ai_agent/core/openwebui_bridge/conversation.py",
+            "src/ultimate_ai_agent/core/openwebui_bridge/enums.py",
+            "src/ultimate_ai_agent/core/openwebui_bridge/manifests.py",
+            "src/ultimate_ai_agent/core/openwebui_bridge/policy.py",
+            "src/ultimate_ai_agent/core/openwebui_bridge/receipts.py",
+            "src/ultimate_ai_agent/core/openwebui_bridge/runtime.py",
+            "src/ultimate_ai_agent/core/openwebui_bridge/validation.py",
+            "src/ultimate_ai_agent/core/gate/evaluators.py",
+            "src/ultimate_ai_agent/api/openapi.py",
+        }
+        for root in [
+            self.root / "src" / "ultimate_ai_agent",
+            self.root / "apps" / "control-center" / "src",
+            self.root / "apps" / "ccc-ios",
+        ]:
+            if not root.exists():
+                continue
+            candidate_files = []
+            for pattern in ("*.py", "*.ts", "*.tsx", "*.js", "*.jsx", "*.swift", "*.yml", "*.yaml"):
+                candidate_files.extend(root.rglob(pattern))
+            for path in sorted(candidate_files):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(self.root).as_posix()
+                if rel in allowed_files:
+                    continue
+                text = path.read_text(encoding="utf-8")
+                for fragment in forbidden_source_fragments:
+                    if fragment in text:
+                        failures.append(f"M76 forbidden OpenWebUI runtime fragment in {rel}: {fragment}")
+        return self._result(criterion, failures, [])
+
+    def check_m76_openwebui_runtime_bridge_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m76_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M76 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m76_roadmap_currentness(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        required_docs = [
+            "README.md",
+            "VERSION.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/roadmap/M61_M100_ROADMAP.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+            "docs/roadmap/MILESTONE_CHARTERS.md",
+        ]
+        failures = [
+            f"missing M76 roadmap doc: {path}"
+            for path in required_docs
+            if not (self.root / path).exists()
+        ]
+        text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_docs
+            if (self.root / path).exists()
+        )
+        if "v0.80.0" not in text or "m76" not in text or "openwebui runtime bridge v1" not in text:
+            failures.append("active docs do not identify v0.80.0/M76 OpenWebUI Runtime Bridge v1")
+        if "m76 is implemented/released" not in text and "v0.80.0 implements m76" not in text:
+            failures.append("active docs do not mark M76 implemented/released")
+        for version_label, milestone, title in [
+            ("v0.81.0", "M77", "OpenWebUI Safe Handoff Execution"),
+            ("v0.82.0", "M78", "Plugin Manifest Security Model"),
+            ("v0.94.0", "M90", "Shell/Subprocess Hardening Freeze"),
+            ("v0.95.0", "M91", "Autonomous Tool Execution Contract"),
+            ("v1.4.0", "M100", "Mobile Permission Model v1"),
+        ]:
+            if version_label.lower() not in text or milestone.lower() not in text or title.lower() not in text:
+                failures.append(f"active docs missing planned M77-M100 row: {version_label} / {milestone} — {title}")
+        for fragment in (
+            "m77 is implemented",
+            "openwebui safe handoff execution is implemented",
+            "openwebui runtime calls are implemented",
+            "model authority is implemented",
+            "tool execution is implemented",
+            "shell execution is implemented",
+            "production authority is implemented",
+            "broad autonomy is implemented",
+        ):
+            if fragment in text:
+                failures.append(f"M76 docs imply forbidden/future capability: {fragment}")
         return self._result(criterion, failures, required_docs)
 
     def check_v0292_local_dev_api_authority_and_preview_safe(

@@ -12,23 +12,22 @@ allowed to become operational authority.
 
 | Field | Current state |
 |---|---|
-| Current active baseline | **v0.79.0** |
-| Current milestone | **M75 - Browser Action Dry-Run Planner** |
+| Current active baseline | **v0.80.0** |
+| Current milestone | **M76 - OpenWebUI Runtime Bridge v1** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **75** OpenAPI paths |
 | Production readiness | Not claimed |
 
-v0.79.0 implements M75 Browser Action Dry-Run Planner. It adds deterministic
-reviewable browser action dry-run planning contracts over safe refs only,
-policy validation, request validation, step validation, receipt plans, stable
-reason codes, documentation-integrity checks, static verification, and
-Foundation Gate coverage. It adds no browser action execution, browser session
-start, browser navigation execution, browser click execution, form fill
-execution, screenshot, raw DOM, authenticated browser profile, cookies or
-credentials, download or upload, remote browser, network interception, network
-call, model call, tool execution, memory write, context injection, backend
-routes, Control Center controls, dependency, M76 work, or production authority.
+v0.80.0 implements M76 OpenWebUI Runtime Bridge v1. It adds deterministic
+review-only OpenWebUI runtime bridge envelopes over safe refs only, policy
+validation, request validation, receipt plans, stable reason codes,
+documentation-integrity checks, static verification, and Foundation Gate
+coverage. It adds no live OpenWebUI connection, OpenWebUI runtime call,
+OpenWebUI handoff execution, provider call, model call, model authority, tool
+execution, memory write, context injection, network call, credentials or
+cookies, raw prompt, raw provider payload, raw content, backend routes, Control
+Center controls, dependency, M77 work, or production authority.
 
 v0.29.5 is documentation policy polish. It remains the documentation
 organization cleanup baseline before the M26 and M27 implementation releases.
@@ -72,6 +71,9 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M75 Browser Action Dry-Run Planner](docs/browser/BROWSER_ACTION_DRY_RUN_PLANNER.md)
 - [M75 Browser Action Dry-Run Policy](docs/browser/BROWSER_ACTION_DRY_RUN_POLICY.md)
 - [M75 Browser Action Dry-Run Authority Boundary](docs/browser/BROWSER_ACTION_DRY_RUN_AUTHORITY_BOUNDARY.md)
+- [M76 OpenWebUI Runtime Bridge v1](docs/openwebui/OPENWEBUI_RUNTIME_BRIDGE_V1.md)
+- [M76 OpenWebUI Runtime Bridge Policy](docs/openwebui/OPENWEBUI_RUNTIME_BRIDGE_POLICY.md)
+- [M76 OpenWebUI Runtime Bridge Authority Boundary](docs/openwebui/OPENWEBUI_RUNTIME_BRIDGE_AUTHORITY_BOUNDARY.md)
 - [M34 Broader File Capability Review](docs/files/BROADER_FILE_CAPABILITY_REVIEW.md)
 - [File capability boundary matrix](docs/files/FILE_CAPABILITY_BOUNDARY_MATRIX.md)
 - [File capability risk register](docs/files/FILE_CAPABILITY_RISK_REGISTER.md)
@@ -199,8 +201,8 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M27 Tool Broker v2](docs/tools/TOOL_BROKER_V2.md)
 - [M26 Grounded Recall Router](docs/recall/GROUNDED_RECALL_ROUTER.md)
 - [v0.60.0 release notes](docs/release_notes/v0_60_0.md)
-- [v0.79.0 release packet](docs/archive/releases/v0_79_0/README_IMPORT.md)
-- [v0.79.0 master plan](docs/archive/releases/v0_79_0/master_plan.md)
+- [v0.80.0 release packet](docs/archive/releases/v0_80_0/README_IMPORT.md)
+- [v0.80.0 master plan](docs/archive/releases/v0_80_0/master_plan.md)
 
 ## What This Project Is
 

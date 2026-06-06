@@ -109,6 +109,7 @@ SCAN_SEQUENCE = [
     ("M73 browser automation contract review scan", "verify_m73_browser_automation_contract_review"),
     ("M74 browser observe-only adapter scan", "verify_m74_browser_observe_only_adapter"),
     ("M75 browser action dry-run planner scan", "verify_m75_browser_action_dry_run_planner"),
+    ("M76 OpenWebUI runtime bridge scan", "verify_m76_openwebui_runtime_bridge"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -12043,6 +12044,143 @@ def verify_m75_browser_action_dry_run_planner():
                     sys.exit(1)
 
     print("OK: M75 browser action dry-run planner is review-only, route-free, and no-authority")
+
+
+def verify_m76_openwebui_runtime_bridge():
+    print("\n[Verifier] Running M76 OpenWebUI runtime bridge guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/openwebui_bridge/__init__.py",
+        "src/ultimate_ai_agent/core/openwebui_bridge/runtime.py",
+        "docs/openwebui/OPENWEBUI_RUNTIME_BRIDGE_V1.md",
+        "docs/openwebui/OPENWEBUI_RUNTIME_BRIDGE_POLICY.md",
+        "docs/openwebui/OPENWEBUI_RUNTIME_BRIDGE_RESULT_CONTRACT.md",
+        "docs/openwebui/OPENWEBUI_RUNTIME_BRIDGE_AUTHORITY_BOUNDARY.md",
+        "docs/openwebui/OPENWEBUI_RUNTIME_BRIDGE_RECEIPT_PLAN.md",
+        "docs/openwebui/M76_TO_M77_BOUNDARY.md",
+        "docs/release_notes/v0_80_0.md",
+        "docs/archive/releases/v0_80_0/README_IMPORT.md",
+        "docs/archive/releases/v0_80_0/master_plan.md",
+        "docs/implementation/foundation_gate_implementation_plan_v0_80_0.md",
+        "tests/test_m76_openwebui_runtime_bridge.py",
+        "tests/test_m76_openwebui_runtime_bridge_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M76 OpenWebUI runtime bridge file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = "\n".join(
+        (ROOT / rel_path).read_text(encoding="utf-8").lower()
+        for rel_path in required_files
+        if rel_path.startswith("docs/")
+    )
+    for fragment in [
+        "openwebui runtime bridge v1",
+        "review-only bridge envelope",
+        "safe refs only",
+        "redacted summary only",
+        "python agent core remains authority",
+        "openwebui is a shell/bridge, not the brain",
+        "no live openwebui connection",
+        "no openwebui runtime call",
+        "no provider call",
+        "no model call",
+        "no model authority",
+        "no tool execution",
+        "no memory write",
+        "no context injection",
+        "no network call",
+        "no credentials or cookies",
+        "no raw prompt",
+        "no raw provider payload",
+        "no raw content",
+        "no backend route",
+        "no control center control",
+        "no dependency",
+        "no production authority",
+        "evaluator boundaries revalidate",
+        "m77 remains future",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M76 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.evaluators import m76_openapi_route_failures
+        from ultimate_ai_agent.core.openwebui_bridge import (
+            OpenWebUIRuntimeBridgeRequest,
+            OpenWebUIRuntimeBridgeStatus,
+            build_openwebui_runtime_bridge_envelope,
+        )
+    except Exception as exc:
+        print(f"FAIL: M76 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m76_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    request = OpenWebUIRuntimeBridgeRequest(
+        bridge_request_ref="openwebui-runtime-bridge-request:verify-all-m76",
+        session_ref="openwebui-session:verify-all-m76",
+        safe_conversation_ref="openwebui-safe-conversation:verify-all-m76",
+        actor_ref="actor:verify-all-m76",
+        safe_intent_summary="Prepare a review-only OpenWebUI bridge envelope.",
+    )
+    envelope = build_openwebui_runtime_bridge_envelope(request)
+    if (
+        envelope.status != OpenWebUIRuntimeBridgeStatus.review_envelope_ready
+        or envelope.raw_prompt_returned
+        or envelope.raw_provider_payload_returned
+        or envelope.raw_content_returned
+        or envelope.model_output_authoritative
+        or envelope.openwebui_called
+        or envelope.provider_called
+        or envelope.model_called
+        or envelope.tool_executed
+        or envelope.memory_written
+        or envelope.context_injected
+        or envelope.network_called
+        or envelope.credential_cookie_accessed
+        or envelope.approval_granted
+        or envelope.handoff_executed
+        or envelope.production_authority_granted
+        or envelope.side_effects_performed
+        or envelope.receipt_plan.openwebui_runtime_call_performed
+        or "M76_OPENWEBUI_RUNTIME_BRIDGE_V1" not in envelope.reason_codes
+        or "M77_REMAINS_FUTURE" not in envelope.reason_codes
+    ):
+        print("FAIL: M76 OpenWebUI runtime bridge envelope is unsafe or executing")
+        sys.exit(1)
+
+    for update, reason in [
+        ({"raw_prompt_present": True}, "RAW_PROMPT_DENIED"),
+        ({"raw_provider_payload_present": True}, "RAW_PROVIDER_PAYLOAD_DENIED"),
+        ({"openwebui_runtime_call_requested": True}, "OPENWEBUI_RUNTIME_CALL_DENIED"),
+        ({"openwebui_handoff_requested": True}, "OPENWEBUI_HANDOFF_DENIED"),
+        ({"model_call_requested": True}, "MODEL_CALL_DENIED"),
+        ({"model_authority_requested": True}, "MODEL_AUTHORITY_DENIED"),
+        ({"tool_execution_requested": True}, "TOOL_EXECUTION_DENIED"),
+        ({"memory_write_requested": True}, "MEMORY_WRITE_DENIED"),
+        ({"context_injection_requested": True}, "CONTEXT_INJECTION_DENIED"),
+        ({"network_call_requested": True}, "OPENWEBUI_NETWORK_CALL_DENIED"),
+        ({"credential_cookie_access_requested": True}, "CREDENTIAL_COOKIE_ACCESS_DENIED"),
+        ({"production_authority_requested": True}, "PRODUCTION_AUTHORITY_DENIED"),
+        ({"approval_ref": "approval_test_m76"}, "APPROVAL_TEST_REF_DENIED"),
+    ]:
+        try:
+            build_openwebui_runtime_bridge_envelope(request.model_copy(update=update))
+            print(f"FAIL: M76 unsafe OpenWebUI bridge request was not denied with {reason}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M76 unsafe OpenWebUI bridge request raised {exc!s}, expected {reason}")
+                sys.exit(1)
+
+    print("OK: M76 OpenWebUI runtime bridge is review-only, route-free, and no-authority")
 
 
 def verify_local_developer_launcher_safety():

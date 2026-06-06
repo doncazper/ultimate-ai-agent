@@ -64,6 +64,12 @@ class OpenWebUISafeConversationSurfaceStatus(str, Enum):
     blocked = "blocked"
 
 
+class OpenWebUIRuntimeBridgeStatus(str, Enum):
+    review_envelope_ready = "review_envelope_ready"
+    denied = "denied"
+    blocked = "blocked"
+
+
 class OpenWebUIRiskLevel(str, Enum):
     safe = "safe"
     low = "low"
