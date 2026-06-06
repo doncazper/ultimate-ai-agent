@@ -1,17 +1,17 @@
 # Ultimate AI Agent Version
 
-Current active baseline: **v0.76.0**
+Current active baseline: **v0.77.0**
 
-v0.76.0 implements M72 Read-Only HTTP Fetch Tool, Allowlisted. It adds a
-bounded allowlisted read-only HTTP fetch tool through the governed tool runtime
-adapter, with explicit host allowlists, HTTPS-only and GET-only validation, no
-credentials or cookies, no request body, no request headers, no query strings,
-bounded response bytes, redaction before return, bounded redacted preview
-outputs, safe receipt metadata, evaluator revalidation, documentation-integrity
-checks, static verification, and Foundation Gate coverage.
+v0.77.0 implements M73 Browser Automation Contract Review. It adds
+contract-only, review-only browser automation contract review models,
+validation helpers, decision envelopes, receipt plans, stable reason codes,
+documentation-integrity checks, static verification, and Foundation Gate
+coverage. It treats observe-only browser adapter work as an M74 candidate only
+and keeps all browser runtime authority disabled by default.
 
-It adds no unrestricted network tool, authenticated network action, credentials
-or cookies, request body, non-GET method, raw response body, raw headers,
-download or export, context injection, memory write, model call, browser
-automation, backend routes, Control Center controls, dependencies, M73 work, or
-production authority.
+It adds no browser automation, browser observe, browser navigation, browser
+click, form fill, screenshot, raw DOM, authenticated browser profile, cookies or
+credentials, download or upload, remote browser, network interception, network
+call, model call, tool execution, memory write, context injection, backend
+routes, Control Center controls, dependencies, M74 work, or production
+authority.

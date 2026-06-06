@@ -1027,6 +1027,19 @@ M72_FORBIDDEN_BACKEND_ROUTES = M71_FORBIDDEN_BACKEND_ROUTES + (
     "/http/fetch/full",
     "/http/request/authenticated",
 )
+EXPECTED_M73_OPENAPI_PATH_COUNT = 75
+M73_FORBIDDEN_BACKEND_ROUTES = M72_FORBIDDEN_BACKEND_ROUTES + (
+    "/browser/observe",
+    "/browser/click",
+    "/browser/navigate",
+    "/browser/type",
+    "/browser/screenshot",
+    "/browser/execute",
+    "/browser/run",
+    "/browser/session/start",
+    "/browser/profile/authenticated",
+    "/tools/browser/execute",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -1829,6 +1842,19 @@ def m72_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
     return failures
 
 
+def m73_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M73_OPENAPI_PATH_COUNT) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+    if M37_ALLOWED_CAPTURE_ROUTE not in path_set:
+        failures.append("M37 capture route missing: /files/review/approvals/capture")
+    for route in M73_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(f"M73 forbidden browser/runtime/backend route present: {route}")
+    return failures
+
+
 M36_SAFE_REF_PREFIXES = {
     "reviewPacketRef": "file-review-packet:",
     "previewResultRef": "redacted-file-preview-output:",
@@ -2427,6 +2453,16 @@ class FoundationGateEvaluator:
                 self.check_m72_read_only_http_fetch_route_boundary
             ),
             "m72_roadmap_currentness": self.check_m72_roadmap_currentness,
+            "m73_browser_automation_contract_review": (
+                self.check_m73_browser_automation_contract_review
+            ),
+            "m73_browser_automation_contract_static_safety": (
+                self.check_m73_browser_automation_contract_static_safety
+            ),
+            "m73_browser_automation_contract_route_boundary": (
+                self.check_m73_browser_automation_contract_route_boundary
+            ),
+            "m73_roadmap_currentness": self.check_m73_roadmap_currentness,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -19277,7 +19313,6 @@ class FoundationGateEvaluator:
             if version_label.lower() not in text or milestone.lower() not in text or title.lower() not in text:
                 failures.append(f"active docs missing planned M73-M100 row: {version_label} / {milestone} — {title}")
         for fragment in (
-            "m73 is implemented",
             "unrestricted network tool is implemented",
             "authenticated network action is implemented",
             "production authority is implemented",
@@ -19288,6 +19323,325 @@ class FoundationGateEvaluator:
         ):
             if fragment in text:
                 failures.append(f"M72 docs imply forbidden/future capability: {fragment}")
+        return self._result(criterion, failures, required_docs)
+
+    def check_m73_browser_automation_contract_review(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/browser/__init__.py",
+            "src/ultimate_ai_agent/core/browser/contract_review.py",
+            "docs/browser/BROWSER_AUTOMATION_CONTRACT_REVIEW.md",
+            "docs/browser/BROWSER_AUTOMATION_CONTRACT_REVIEW_POLICY.md",
+            "docs/browser/BROWSER_AUTOMATION_AUTHORITY_BOUNDARY.md",
+            "docs/browser/BROWSER_AUTOMATION_RECEIPT_PLAN.md",
+            "docs/browser/M73_TO_M74_BOUNDARY.md",
+            "tests/test_m73_browser_automation_contract_review.py",
+            "tests/test_m73_gate_integration.py",
+        ]
+        failures = [
+            f"missing M73 browser automation contract review file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            from ultimate_ai_agent.core.browser import (
+                BrowserAutomationCapabilityKind,
+                BrowserAutomationContractReviewPolicy,
+                BrowserAutomationContractReviewRequest,
+                BrowserAutomationContractReviewStatus,
+                build_browser_automation_contract_review_decision,
+                validate_browser_automation_contract_review_policy,
+            )
+
+            request = BrowserAutomationContractReviewRequest(
+                review_ref="browser-contract-review:m73-gate",
+                candidate_ref="browser-contract-candidate:m73-observe-only-adapter",
+                actor_ref="actor:foundation-gate",
+                proposed_adapter_ref="browser-adapter:m74-observe-only-candidate",
+                safe_name="Browser observe-only adapter contract review",
+                capability_kind=BrowserAutomationCapabilityKind.observe_only_adapter,
+                safe_summary=(
+                    "Review a future M74 observe-only browser adapter contract without enabling "
+                    "browser automation."
+                ),
+                safe_browser_policy_ref="browser-policy:m74-future-observe-only",
+                risk_ref="risk:browser-review-only",
+            )
+            decision = build_browser_automation_contract_review_decision(request)
+            if (
+                decision.status != BrowserAutomationContractReviewStatus.review_ready
+                or not decision.review_allowed
+                or not decision.contract_only
+                or not decision.review_only
+                or not decision.disabled_by_default
+                or not decision.deterministic
+                or not decision.m74_candidate_only
+                or not decision.future_milestone_required
+                or decision.browser_automation_allowed
+                or decision.browser_observe_allowed
+                or decision.browser_navigation_allowed
+                or decision.browser_click_allowed
+                or decision.form_fill_allowed
+                or decision.screenshot_allowed
+                or decision.dom_read_allowed
+                or decision.network_call_allowed
+                or decision.tool_execution_allowed
+                or decision.backend_route_allowed
+                or decision.control_center_control_allowed
+                or decision.production_authority_granted
+                or decision.receipt_plan.browser_automation_performed
+                or decision.receipt_plan.raw_dom_stored
+                or decision.receipt_plan.screenshot_stored
+                or decision.receipt_plan.side_effects_performed
+            ):
+                failures.append("M73 browser contract review granted unsafe authority")
+            if "M74_REMAINS_FUTURE" not in decision.reason_codes:
+                failures.append("M73 decision does not keep M74 future")
+
+            future = build_browser_automation_contract_review_decision(
+                request.model_copy(
+                    update={
+                        "candidate_ref": "browser-contract-candidate:m73-click",
+                        "capability_kind": BrowserAutomationCapabilityKind.click,
+                    }
+                )
+            )
+            if (
+                future.status != BrowserAutomationContractReviewStatus.future_milestone
+                or future.browser_click_allowed
+                or "FUTURE_BROWSER_MILESTONE_REQUIRED" not in future.reason_codes
+            ):
+                failures.append("M73 effectful browser capability was not future-milestone only")
+
+            for update, reason in [
+                ({"browser_click_requested": True}, "BROWSER_CLICK_DENIED"),
+                ({"browser_navigation_requested": True}, "BROWSER_NAVIGATION_DENIED"),
+                ({"form_fill_requested": True}, "FORM_FILL_DENIED"),
+                ({"contains_raw_dom": True}, "RAW_DOM_DENIED"),
+                ({"contains_screenshot_bytes": True}, "SCREENSHOT_BYTES_DENIED"),
+                ({"approval_ref": "approval:m73"}, "APPROVAL_REF_NOT_AUTHORITY"),
+                ({"approval_test_ref": "approval_test_m73"}, "APPROVAL_TEST_REF_DENIED"),
+                ({"authority_refs": ["context-pack:m73"]}, "AUTHORITY_REF_NOT_BROWSER_AUTHORITY"),
+            ]:
+                try:
+                    build_browser_automation_contract_review_decision(request.model_copy(update=update))
+                    failures.append(f"M73 unsafe browser review request was not denied with {reason}")
+                except ValueError as exc:
+                    if reason not in str(exc):
+                        failures.append(f"M73 reason drift for {reason}: {exc}")
+
+            try:
+                validate_browser_automation_contract_review_policy(
+                    BrowserAutomationContractReviewPolicy(browser_click_enabled=True)
+                )
+                failures.append("M73 policy did not deny browser click enablement")
+            except ValueError as exc:
+                if "BROWSER_CLICK_DENIED" not in str(exc):
+                    failures.append(f"M73 policy denial reason drifted: {exc}")
+        except Exception as exc:
+            failures.append(f"M73 browser automation contract review validation failed: {exc}")
+
+        docs_text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_files
+            if path.startswith("docs/") and (self.root / path).exists()
+        )
+        for fragment in [
+            "browser automation contract review",
+            "contract-only",
+            "review-only",
+            "disabled by default",
+            "m74 remains future",
+            "no browser automation",
+            "no browser observe",
+            "no browser navigation",
+            "no browser click",
+            "no form fill",
+            "no screenshot",
+            "no raw dom",
+            "no authenticated browser profile",
+            "no download or upload",
+            "no remote browser",
+            "no network interception",
+            "no backend route",
+            "no control center control",
+            "no dependency",
+            "no production authority",
+            "evaluator boundaries revalidate",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M73 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m73_browser_automation_contract_static_safety(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        forbidden_source_fragments = [
+            "browser_automation_enabled=True",
+            "browser_automation_requested=True",
+            "browser_observe_enabled=True",
+            "browser_observe_requested=True",
+            "browser_navigation_enabled=True",
+            "browser_navigation_requested=True",
+            "browser_click_enabled=True",
+            "browser_click_requested=True",
+            "form_fill_enabled=True",
+            "form_fill_requested=True",
+            "screenshot_enabled=True",
+            "screenshot_requested=True",
+            "dom_read_enabled=True",
+            "dom_read_requested=True",
+            "authenticated_profile_enabled=True",
+            "authenticated_profile_requested=True",
+            "download_or_upload_enabled=True",
+            "download_or_upload_requested=True",
+            "remote_browser_enabled=True",
+            "remote_browser_requested=True",
+            "network_interception_enabled=True",
+            "network_interception_requested=True",
+            "network_call_enabled=True",
+            "network_call_requested=True",
+            "model_call_enabled=True",
+            "model_call_requested=True",
+            "tool_execution_enabled=True",
+            "tool_execution_requested=True",
+            "memory_write_enabled=True",
+            "memory_write_requested=True",
+            "context_injection_enabled=True",
+            "context_injection_requested=True",
+            "backend_route_enabled=True",
+            "backend_route_requested=True",
+            "control_center_control_enabled=True",
+            "control_center_control_requested=True",
+            "dependency_change_enabled=True",
+            "dependency_requested=True",
+            "production_authority_enabled=True",
+            "production_authority_requested=True",
+            "production_authority_granted=True",
+            "browser_automation_performed=True",
+            "browser_click_performed=True",
+            "form_fill_performed=True",
+            "screenshot_stored=True",
+            "raw_dom_stored=True",
+            "authenticated_profile_used=True",
+            "cookies_or_credentials_used=True",
+            "/browser/observe",
+            "/browser/click",
+            "/browser/navigate",
+            "/browser/type",
+            "/browser/screenshot",
+            "/browser/execute",
+            "/browser/run",
+            "/browser/session/start",
+            "/browser/profile/authenticated",
+            "/tools/browser/execute",
+            "/tools/execute",
+            "/tool-runtime/execute",
+            "playwright.",
+            "selenium",
+            "browser_use",
+            "chromedriver",
+            "puppeteer",
+        ]
+        allowed_files = {
+            "scripts/verify_all.py",
+            "src/ultimate_ai_agent/core/browser/contract_review.py",
+            "src/ultimate_ai_agent/core/browser/__init__.py",
+            "src/ultimate_ai_agent/core/gate/evaluators.py",
+            "src/ultimate_ai_agent/api/openapi.py",
+            "src/ultimate_ai_agent/core/autonomy/foundation_freeze.py",
+            "src/ultimate_ai_agent/core/autonomy/dry_run.py",
+            "src/ultimate_ai_agent/core/autonomy/risk.py",
+            "src/ultimate_ai_agent/core/autonomy/revocation.py",
+            "src/ultimate_ai_agent/core/autonomy/approvals.py",
+            "src/ultimate_ai_agent/core/autonomy/audit.py",
+            "src/ultimate_ai_agent/core/autonomy/policies.py",
+            "src/ultimate_ai_agent/core/autonomy/sessions.py",
+            "src/ultimate_ai_agent/core/autonomy/simulator.py",
+        }
+        source_roots = [
+            self.root / "src" / "ultimate_ai_agent",
+            self.root / "apps" / "control-center" / "src",
+            self.root / "apps" / "ccc-ios",
+        ]
+        for root in source_roots:
+            if not root.exists():
+                continue
+            candidate_files = []
+            for pattern in ("*.py", "*.ts", "*.tsx", "*.js", "*.jsx", "*.swift", "*.yml", "*.yaml"):
+                candidate_files.extend(root.rglob(pattern))
+            for path in sorted(candidate_files):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(self.root).as_posix()
+                if rel in allowed_files:
+                    continue
+                text = path.read_text(encoding="utf-8")
+                for fragment in forbidden_source_fragments:
+                    if fragment in text:
+                        failures.append(f"M73 forbidden browser contract fragment in {rel}: {fragment}")
+        return self._result(criterion, failures, [])
+
+    def check_m73_browser_automation_contract_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m73_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M73 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m73_roadmap_currentness(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        required_docs = [
+            "README.md",
+            "VERSION.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/roadmap/M61_M100_ROADMAP.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+            "docs/roadmap/MILESTONE_CHARTERS.md",
+        ]
+        failures = [
+            f"missing M73 roadmap doc: {path}"
+            for path in required_docs
+            if not (self.root / path).exists()
+        ]
+        text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_docs
+            if (self.root / path).exists()
+        )
+        if "v0.77.0" not in text or "m73" not in text or "browser automation contract review" not in text:
+            failures.append("active docs do not identify v0.77.0/M73 Browser Automation Contract Review")
+        if "m73 is implemented/released" not in text and "v0.77.0 implements m73" not in text:
+            failures.append("active docs do not mark M73 implemented/released")
+        for version_label, milestone, title in [
+            ("v0.78.0", "M74", "Browser Observe-Only Adapter"),
+            ("v0.79.0", "M75", "Browser Action Dry-Run Planner"),
+            ("v0.80.0", "M76", "OpenWebUI Runtime Bridge v1"),
+            ("v0.94.0", "M90", "Shell/Subprocess Hardening Freeze"),
+            ("v0.95.0", "M91", "Autonomous Tool Execution Contract"),
+            ("v1.4.0", "M100", "Mobile Permission Model v1"),
+        ]:
+            if version_label.lower() not in text or milestone.lower() not in text or title.lower() not in text:
+                failures.append(f"active docs missing planned M74-M100 row: {version_label} / {milestone} — {title}")
+        for fragment in (
+            "m74 is implemented",
+            "browser observe-only adapter is implemented",
+            "browser action dry-run planner is implemented",
+            "browser click execution is implemented",
+            "browser automation execution is implemented",
+            "production authority is implemented",
+            "broad autonomy is implemented",
+            "tool execution is implemented",
+            "shell execution is implemented",
+        ):
+            if fragment in text:
+                failures.append(f"M73 docs imply forbidden/future capability: {fragment}")
         return self._result(criterion, failures, required_docs)
 
     def check_v0292_local_dev_api_authority_and_preview_safe(

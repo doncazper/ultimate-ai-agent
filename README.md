@@ -12,23 +12,24 @@ allowed to become operational authority.
 
 | Field | Current state |
 |---|---|
-| Current active baseline | **v0.76.0** |
-| Current milestone | **M72 - Read-Only HTTP Fetch Tool, Allowlisted** |
+| Current active baseline | **v0.77.0** |
+| Current milestone | **M73 - Browser Automation Contract Review** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **75** OpenAPI paths |
 | Production readiness | Not claimed |
 
-v0.76.0 implements M72 Read-Only HTTP Fetch Tool, Allowlisted. It adds a
-bounded allowlisted read-only HTTP fetch tool through the governed tool runtime
-adapter, with explicit host allowlists, HTTPS-only and GET-only validation, no
-credentials or cookies, no request body, no request headers, no query strings,
-bounded response bytes, redaction before return, bounded redacted preview
-outputs, safe receipt metadata, documentation-integrity checks, static
-verification, and Foundation Gate coverage. It adds no unrestricted network
-tool, authenticated network action, raw response body, raw headers, download or
-export, context injection, memory write, model call, browser automation,
-backend routes, Control Center controls, dependency, or M73 work.
+v0.77.0 implements M73 Browser Automation Contract Review. It adds
+contract-only, review-only browser automation contract review models, validation
+helpers, decision envelopes, receipt plans, stable reason codes,
+documentation-integrity checks, static verification, and Foundation Gate
+coverage. It treats observe-only browser adapter work as an M74 candidate only
+and keeps all browser runtime authority disabled by default. It adds no browser
+automation, browser observe, browser navigation, browser click, form fill,
+screenshot, raw DOM, authenticated browser profile, cookies or credentials,
+download or upload, remote browser, network interception, network call, model
+call, tool execution, memory write, context injection, backend routes, Control
+Center controls, dependency, M74 work, or production authority.
 
 v0.29.5 is documentation policy polish. It remains the documentation
 organization cleanup baseline before the M26 and M27 implementation releases.
@@ -63,6 +64,9 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M72 Read-Only HTTP Fetch Tool](docs/network/READ_ONLY_HTTP_FETCH_TOOL.md)
 - [M72 Read-Only HTTP Fetch Policy](docs/network/READ_ONLY_HTTP_FETCH_POLICY.md)
 - [M72 Read-Only HTTP Fetch Authority Boundary](docs/network/READ_ONLY_HTTP_FETCH_AUTHORITY_BOUNDARY.md)
+- [M73 Browser Automation Contract Review](docs/browser/BROWSER_AUTOMATION_CONTRACT_REVIEW.md)
+- [M73 Browser Automation Contract Review Policy](docs/browser/BROWSER_AUTOMATION_CONTRACT_REVIEW_POLICY.md)
+- [M73 Browser Automation Authority Boundary](docs/browser/BROWSER_AUTOMATION_AUTHORITY_BOUNDARY.md)
 - [M34 Broader File Capability Review](docs/files/BROADER_FILE_CAPABILITY_REVIEW.md)
 - [File capability boundary matrix](docs/files/FILE_CAPABILITY_BOUNDARY_MATRIX.md)
 - [File capability risk register](docs/files/FILE_CAPABILITY_RISK_REGISTER.md)
@@ -190,8 +194,8 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M27 Tool Broker v2](docs/tools/TOOL_BROKER_V2.md)
 - [M26 Grounded Recall Router](docs/recall/GROUNDED_RECALL_ROUTER.md)
 - [v0.60.0 release notes](docs/release_notes/v0_60_0.md)
-- [v0.76.0 release packet](docs/archive/releases/v0_76_0/README_IMPORT.md)
-- [v0.76.0 master plan](docs/archive/releases/v0_76_0/master_plan.md)
+- [v0.77.0 release packet](docs/archive/releases/v0_77_0/README_IMPORT.md)
+- [v0.77.0 master plan](docs/archive/releases/v0_77_0/master_plan.md)
 
 ## What This Project Is
 

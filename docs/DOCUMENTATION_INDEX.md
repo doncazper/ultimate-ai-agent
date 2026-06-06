@@ -1,6 +1,6 @@
 # Documentation Index
 
-Current active baseline: **v0.76.0**
+Current active baseline: **v0.77.0**
 
 This index is the active entrypoint for documentation navigation. Historical release documents remain in the repository for audit history, but active truth starts with the current baseline files listed here.
 
@@ -14,9 +14,9 @@ docs/canonical/CANONICAL_DOC_MAP.md
 docs/canonical/09_roadmap.md
 docs/roadmap/README.md
 docs/archive/README.md
-docs/archive/releases/v0_76_0/README_IMPORT.md
-docs/archive/releases/v0_76_0/master_plan.md
-docs/release_notes/v0_76_0.md
+docs/archive/releases/v0_77_0/README_IMPORT.md
+docs/archive/releases/v0_77_0/master_plan.md
+docs/release_notes/v0_77_0.md
 docs/developer/LOCAL_LAUNCHER.md
 scripts/dev/README.md
 docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md
@@ -97,6 +97,11 @@ docs/network/READ_ONLY_HTTP_FETCH_POLICY.md
 docs/network/READ_ONLY_HTTP_FETCH_AUTHORITY_BOUNDARY.md
 docs/network/READ_ONLY_HTTP_FETCH_RECEIPT_PLAN.md
 docs/network/M72_TO_M73_BOUNDARY.md
+docs/browser/BROWSER_AUTOMATION_CONTRACT_REVIEW.md
+docs/browser/BROWSER_AUTOMATION_CONTRACT_REVIEW_POLICY.md
+docs/browser/BROWSER_AUTOMATION_AUTHORITY_BOUNDARY.md
+docs/browser/BROWSER_AUTOMATION_RECEIPT_PLAN.md
+docs/browser/M73_TO_M74_BOUNDARY.md
 docs/roadmap/M61_M100_ROADMAP.md
 docs/files/FILE_REVIEW_RECEIPT_PLAN.md
 docs/files/FILE_REVIEW_NON_GOALS.md
@@ -557,7 +562,7 @@ skeleton/local connection/review receipt/TestFlight pipeline/build candidate/mob
 
 ## Release Notes Index
 
-Current release notes: `docs/release_notes/v0_76_0.md`
+Current release notes: `docs/release_notes/v0_77_0.md`
 
 Historical release notes remain under `docs/release_notes/`. Historical docs may mention old active baselines in historical context; they are not the current source of truth.
 

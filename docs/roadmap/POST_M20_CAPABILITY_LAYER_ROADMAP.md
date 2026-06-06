@@ -1,6 +1,6 @@
 # Post-M20 Capability Layer Roadmap
 
-Status: Active roadmap projection maintained through v0.76.0.
+Status: Active roadmap projection maintained through v0.77.0.
 
 v0.38.0 implements M34 Broader File Capability Review as planning,
 architecture review, documentation, verifier, and Foundation Gate work only.
@@ -112,10 +112,10 @@ The detailed post-M33 supersession source of truth is
 
 ## Prompt-Pack Strategy
 
-Recommended next prompt after v0.76.0:
+Recommended next prompt after v0.77.0:
 
 ```text
-Start v0.77.0 / M73 - Browser Automation Contract Review only after v0.76.0 / M72 is accepted Green.
+Start v0.78.0 / M74 - Browser Observe-Only Adapter only after v0.77.0 / M73 is accepted Green.
 ```
 
 M61 is implemented/released by v0.65.0 as Autonomy Mode Charter + Authority
@@ -129,7 +129,8 @@ implemented/released by v0.72.0 as Autonomy Risk Classifier. M69 is
 implemented/released by v0.73.0 as Low-Risk Autonomous Dry Run. M70 is
 implemented/released by v0.74.0 as Autonomy Foundation Freeze. M71 is
 implemented/released by v0.75.0 as Network Tool Contract Review. M72 is
-implemented/released by v0.76.0 as Read-Only HTTP Fetch Tool, Allowlisted. M73-M100
+implemented/released by v0.76.0 as Read-Only HTTP Fetch Tool, Allowlisted. M73 is
+implemented/released by v0.77.0 as Browser Automation Contract Review. M74-M100
 remain planned/provisional.
 
 Extra-hard reviews are required for M37, M38, M40, M47, M48, M49, M51, M52,

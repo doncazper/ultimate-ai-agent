@@ -496,6 +496,19 @@ REQUIRED_M72_READ_ONLY_HTTP_FETCH_DOCS = [
     "docs/implementation/foundation_gate_implementation_plan_v0_76_0.md",
 ]
 
+REQUIRED_M73_BROWSER_AUTOMATION_CONTRACT_REVIEW_DOCS = [
+    "docs/browser/BROWSER_AUTOMATION_CONTRACT_REVIEW.md",
+    "docs/browser/BROWSER_AUTOMATION_CONTRACT_REVIEW_POLICY.md",
+    "docs/browser/BROWSER_AUTOMATION_AUTHORITY_BOUNDARY.md",
+    "docs/browser/BROWSER_AUTOMATION_RECEIPT_PLAN.md",
+    "docs/browser/M73_TO_M74_BOUNDARY.md",
+    "docs/roadmap/M61_M100_ROADMAP.md",
+    "docs/release_notes/v0_77_0.md",
+    "docs/archive/releases/v0_77_0/README_IMPORT.md",
+    "docs/archive/releases/v0_77_0/master_plan.md",
+    "docs/implementation/foundation_gate_implementation_plan_v0_77_0.md",
+]
+
 
 REQUIRED_ACTIVE_DOCS = [
     "docs/README.md",
@@ -1028,6 +1041,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_m70_autonomy_foundation_freeze_docs(root, version))
     failures.extend(_verify_m71_network_tool_contract_review_docs(root, version))
     failures.extend(_verify_m72_read_only_http_fetch_docs(root, version))
+    failures.extend(_verify_m73_browser_automation_contract_review_docs(root, version))
     failures.extend(_verify_m19_roadmap_currentness(root, version))
     failures.extend(_verify_post_m18_roadmap_status_labels(root))
 
@@ -4199,7 +4213,74 @@ def _verify_m72_read_only_http_fetch_docs(root: Path, version: str | None) -> li
         "M72 docs must not claim browser automation implementation": "browser automation is implemented",
         "M72 docs must not claim tool execution implementation": "tool execution is implemented",
         "M72 docs must not claim production authority": "production authority is implemented",
-        "M72 docs must not claim M73 implementation": "m73 is implemented",
+    }
+    if _version_tuple(version) < (0, 77, 0):
+        forbidden_fragments["M72 docs must not claim M73 implementation"] = "m73 is implemented"
+    for message, fragment in forbidden_fragments.items():
+        if fragment in text:
+            failures.append(f"{message}: {fragment}")
+    return failures
+
+
+def _verify_m73_browser_automation_contract_review_docs(root: Path, version: str | None) -> list[str]:
+    failures: list[str] = []
+    if _version_tuple(version) < (0, 77, 0):
+        return failures
+    parts: list[str] = []
+    for rel_path in REQUIRED_M73_BROWSER_AUTOMATION_CONTRACT_REVIEW_DOCS:
+        path = root / rel_path
+        if not path.exists():
+            failures.append(f"M73 browser automation contract review doc missing: {rel_path}")
+            continue
+        parts.append(_read(path).lower())
+    text = "\n".join(parts)
+    required_fragments = {
+        "M73 docs must say browser automation contract review": "browser automation contract review",
+        "M73 docs must say contract-only": "contract-only",
+        "M73 docs must say review-only": "review-only",
+        "M73 docs must say disabled by default": "disabled by default",
+        "M73 docs must deny browser automation": "no browser automation",
+        "M73 docs must deny browser observe": "no browser observe",
+        "M73 docs must deny browser navigation": "no browser navigation",
+        "M73 docs must deny browser click": "no browser click",
+        "M73 docs must deny form fill": "no form fill",
+        "M73 docs must deny screenshot": "no screenshot",
+        "M73 docs must deny raw DOM": "no raw dom",
+        "M73 docs must deny authenticated browser profile": "no authenticated browser profile",
+        "M73 docs must deny download/upload": "no download or upload",
+        "M73 docs must deny remote browser": "no remote browser",
+        "M73 docs must deny network interception": "no network interception",
+        "M73 docs must deny backend routes": "no backend route",
+        "M73 docs must deny Control Center controls": "no control center control",
+        "M73 docs must deny dependencies": "no dependency",
+        "M73 docs must deny production authority": "no production authority",
+        "M73 docs must say evaluator boundaries revalidate": "evaluator boundaries revalidate",
+        "M73 docs must keep M74 future": "m74 remains future",
+    }
+    for message, fragment in required_fragments.items():
+        if fragment not in text:
+            failures.append(message)
+
+    for version_label, milestone, title in [
+        ("v0.77.0", "m73", "browser automation contract review"),
+        ("v0.78.0", "m74", "browser observe-only adapter"),
+        ("v0.95.0", "m91", "autonomous tool execution contract"),
+        ("v1.4.0", "m100", "mobile permission model v1"),
+    ]:
+        if version_label not in text or milestone not in text or title not in text:
+            failures.append(
+                f"M73-M100 roadmap missing label: {version_label} / {milestone.upper()} - {title}"
+            )
+
+    forbidden_fragments = {
+        "M73 docs must not claim browser observe adapter implementation": (
+            "browser observe-only adapter is implemented"
+        ),
+        "M73 docs must not claim browser automation execution": "browser automation execution is implemented",
+        "M73 docs must not claim browser click execution": "browser click execution is implemented",
+        "M73 docs must not claim tool execution implementation": "tool execution is implemented",
+        "M73 docs must not claim production authority": "production authority is implemented",
+        "M73 docs must not claim M74 implementation": "m74 is implemented",
     }
     for message, fragment in forbidden_fragments.items():
         if fragment in text:

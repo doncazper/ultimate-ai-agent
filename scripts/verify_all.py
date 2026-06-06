@@ -106,6 +106,7 @@ SCAN_SEQUENCE = [
     ("M70 autonomy foundation freeze scan", "verify_m70_autonomy_foundation_freeze"),
     ("M71 network tool contract review scan", "verify_m71_network_tool_contract_review"),
     ("M72 read-only HTTP fetch tool scan", "verify_m72_read_only_http_fetch_tool"),
+    ("M73 browser automation contract review scan", "verify_m73_browser_automation_contract_review"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -11317,6 +11318,278 @@ def verify_m72_read_only_http_fetch_tool():
                     sys.exit(1)
 
     print("OK: M72 read-only HTTP fetch is allowlisted, redacted, route-free, and no-authority")
+
+
+def verify_m73_browser_automation_contract_review():
+    print("\n[Verifier] Running M73 browser automation contract review guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/browser/__init__.py",
+        "src/ultimate_ai_agent/core/browser/contract_review.py",
+        "docs/browser/BROWSER_AUTOMATION_CONTRACT_REVIEW.md",
+        "docs/browser/BROWSER_AUTOMATION_CONTRACT_REVIEW_POLICY.md",
+        "docs/browser/BROWSER_AUTOMATION_AUTHORITY_BOUNDARY.md",
+        "docs/browser/BROWSER_AUTOMATION_RECEIPT_PLAN.md",
+        "docs/browser/M73_TO_M74_BOUNDARY.md",
+        "docs/release_notes/v0_77_0.md",
+        "docs/archive/releases/v0_77_0/README_IMPORT.md",
+        "docs/archive/releases/v0_77_0/master_plan.md",
+        "docs/implementation/foundation_gate_implementation_plan_v0_77_0.md",
+        "tests/test_m73_browser_automation_contract_review.py",
+        "tests/test_m73_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M73 browser automation contract review file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = "\n".join(
+        (ROOT / rel_path).read_text(encoding="utf-8").lower()
+        for rel_path in required_files
+        if rel_path.startswith("docs/")
+    )
+    for fragment in [
+        "browser automation contract review",
+        "contract-only",
+        "review-only",
+        "disabled by default",
+        "m74 remains future",
+        "no browser automation",
+        "no browser observe",
+        "no browser navigation",
+        "no browser click",
+        "no form fill",
+        "no screenshot",
+        "no raw dom",
+        "no authenticated browser profile",
+        "no download or upload",
+        "no remote browser",
+        "no network interception",
+        "no backend route",
+        "no control center control",
+        "no dependency",
+        "no production authority",
+        "evaluator boundaries revalidate",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M73 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.browser import (
+            BrowserAutomationCapabilityKind,
+            BrowserAutomationContractReviewPolicy,
+            BrowserAutomationContractReviewRequest,
+            BrowserAutomationContractReviewStatus,
+            build_browser_automation_contract_review_decision,
+            validate_browser_automation_contract_review_policy,
+        )
+        from ultimate_ai_agent.core.gate.evaluators import m73_openapi_route_failures
+    except Exception as exc:
+        print(f"FAIL: M73 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m73_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    request = BrowserAutomationContractReviewRequest(
+        review_ref="browser-contract-review:verify-all-m73",
+        candidate_ref="browser-contract-candidate:m73-observe-only-adapter",
+        actor_ref="actor:verify-all",
+        proposed_adapter_ref="browser-adapter:m74-observe-only-candidate",
+        safe_name="Browser observe-only adapter contract review",
+        capability_kind=BrowserAutomationCapabilityKind.observe_only_adapter,
+        safe_summary="Review the future M74 observe-only browser adapter contract without enabling browser automation.",
+        safe_browser_policy_ref="browser-policy:m74-future-observe-only",
+        risk_ref="risk:browser-review-only",
+    )
+    decision = build_browser_automation_contract_review_decision(request)
+    if (
+        decision.status != BrowserAutomationContractReviewStatus.review_ready
+        or not decision.review_allowed
+        or not decision.contract_only
+        or not decision.review_only
+        or not decision.disabled_by_default
+        or not decision.deterministic
+        or not decision.m74_candidate_only
+        or not decision.future_milestone_required
+        or decision.browser_automation_allowed
+        or decision.browser_observe_allowed
+        or decision.browser_navigation_allowed
+        or decision.browser_click_allowed
+        or decision.form_fill_allowed
+        or decision.screenshot_allowed
+        or decision.dom_read_allowed
+        or decision.network_call_allowed
+        or decision.tool_execution_allowed
+        or decision.backend_route_allowed
+        or decision.control_center_control_allowed
+        or decision.production_authority_granted
+        or decision.receipt_plan.browser_automation_performed
+        or decision.receipt_plan.raw_dom_stored
+        or decision.receipt_plan.screenshot_stored
+        or decision.receipt_plan.side_effects_performed
+        or "M74_REMAINS_FUTURE" not in decision.reason_codes
+    ):
+        print("FAIL: M73 browser automation contract review granted unsafe authority")
+        sys.exit(1)
+
+    future = build_browser_automation_contract_review_decision(
+        request.model_copy(
+            update={
+                "candidate_ref": "browser-contract-candidate:m73-click",
+                "capability_kind": BrowserAutomationCapabilityKind.click,
+            }
+        )
+    )
+    if (
+        future.status != BrowserAutomationContractReviewStatus.future_milestone
+        or future.browser_click_allowed
+        or "FUTURE_BROWSER_MILESTONE_REQUIRED" not in future.reason_codes
+    ):
+        print("FAIL: M73 effectful browser capability was not future-milestone only")
+        sys.exit(1)
+
+    for update, reason in [
+        ({"browser_click_requested": True}, "BROWSER_CLICK_DENIED"),
+        ({"browser_navigation_requested": True}, "BROWSER_NAVIGATION_DENIED"),
+        ({"form_fill_requested": True}, "FORM_FILL_DENIED"),
+        ({"contains_raw_dom": True}, "RAW_DOM_DENIED"),
+        ({"contains_screenshot_bytes": True}, "SCREENSHOT_BYTES_DENIED"),
+        ({"approval_ref": "approval:m73"}, "APPROVAL_REF_NOT_AUTHORITY"),
+        ({"approval_test_ref": "approval_test_m73"}, "APPROVAL_TEST_REF_DENIED"),
+        ({"authority_refs": ["context-pack:m73"]}, "AUTHORITY_REF_NOT_BROWSER_AUTHORITY"),
+    ]:
+        try:
+            build_browser_automation_contract_review_decision(request.model_copy(update=update))
+            print(f"FAIL: M73 unsafe browser review request was not denied with {reason}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M73 reason drift for {reason}: {exc}")
+                sys.exit(1)
+
+    try:
+        validate_browser_automation_contract_review_policy(
+            BrowserAutomationContractReviewPolicy(browser_click_enabled=True)
+        )
+        print("FAIL: M73 policy did not deny browser click enablement")
+        sys.exit(1)
+    except ValueError as exc:
+        if "BROWSER_CLICK_DENIED" not in str(exc):
+            print(f"FAIL: M73 policy denial reason drifted: {exc}")
+            sys.exit(1)
+
+    forbidden_source_fragments = [
+        "browser_automation_enabled=True",
+        "browser_automation_requested=True",
+        "browser_observe_enabled=True",
+        "browser_observe_requested=True",
+        "browser_navigation_enabled=True",
+        "browser_navigation_requested=True",
+        "browser_click_enabled=True",
+        "browser_click_requested=True",
+        "form_fill_enabled=True",
+        "form_fill_requested=True",
+        "screenshot_enabled=True",
+        "screenshot_requested=True",
+        "dom_read_enabled=True",
+        "dom_read_requested=True",
+        "authenticated_profile_enabled=True",
+        "authenticated_profile_requested=True",
+        "download_or_upload_enabled=True",
+        "download_or_upload_requested=True",
+        "remote_browser_enabled=True",
+        "remote_browser_requested=True",
+        "network_interception_enabled=True",
+        "network_interception_requested=True",
+        "network_call_enabled=True",
+        "network_call_requested=True",
+        "model_call_enabled=True",
+        "model_call_requested=True",
+        "tool_execution_enabled=True",
+        "tool_execution_requested=True",
+        "memory_write_enabled=True",
+        "memory_write_requested=True",
+        "context_injection_enabled=True",
+        "context_injection_requested=True",
+        "backend_route_enabled=True",
+        "backend_route_requested=True",
+        "control_center_control_enabled=True",
+        "control_center_control_requested=True",
+        "dependency_change_enabled=True",
+        "dependency_requested=True",
+        "production_authority_enabled=True",
+        "production_authority_requested=True",
+        "production_authority_granted=True",
+        "browser_automation_performed=True",
+        "browser_click_performed=True",
+        "form_fill_performed=True",
+        "screenshot_stored=True",
+        "raw_dom_stored=True",
+        "authenticated_profile_used=True",
+        "cookies_or_credentials_used=True",
+        "/browser/observe",
+        "/browser/click",
+        "/browser/navigate",
+        "/browser/type",
+        "/browser/screenshot",
+        "/browser/execute",
+        "/browser/run",
+        "/browser/session/start",
+        "/browser/profile/authenticated",
+        "/tools/browser/execute",
+        "/tools/execute",
+        "/tool-runtime/execute",
+        "playwright.",
+        "selenium",
+        "browser_use",
+        "chromedriver",
+        "puppeteer",
+    ]
+    allowed_files = {
+        "scripts/verify_all.py",
+        "src/ultimate_ai_agent/core/browser/contract_review.py",
+        "src/ultimate_ai_agent/core/browser/__init__.py",
+        "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/api/openapi.py",
+        "src/ultimate_ai_agent/core/autonomy/foundation_freeze.py",
+        "src/ultimate_ai_agent/core/autonomy/dry_run.py",
+        "src/ultimate_ai_agent/core/autonomy/risk.py",
+        "src/ultimate_ai_agent/core/autonomy/revocation.py",
+        "src/ultimate_ai_agent/core/autonomy/approvals.py",
+        "src/ultimate_ai_agent/core/autonomy/audit.py",
+        "src/ultimate_ai_agent/core/autonomy/policies.py",
+        "src/ultimate_ai_agent/core/autonomy/sessions.py",
+        "src/ultimate_ai_agent/core/autonomy/simulator.py",
+    }
+    source_roots = [
+        ROOT / "src" / "ultimate_ai_agent",
+        ROOT / "apps" / "control-center" / "src",
+        ROOT / "apps" / "ccc-ios",
+    ]
+    for root in source_roots:
+        if not root.exists():
+            continue
+        candidate_files = []
+        for pattern in ("*.py", "*.ts", "*.tsx", "*.js", "*.jsx", "*.swift", "*.yml", "*.yaml"):
+            candidate_files.extend(root.rglob(pattern))
+        for path in sorted(candidate_files):
+            if not path.is_file():
+                continue
+            rel = path.relative_to(ROOT).as_posix()
+            if rel in allowed_files:
+                continue
+            text = path.read_text(encoding="utf-8")
+            for fragment in forbidden_source_fragments:
+                if fragment in text:
+                    print(f"FAIL: M73 forbidden browser contract fragment in {rel}: {fragment}")
+                    sys.exit(1)
+
+    print("OK: M73 browser automation contract review is contract-only, route-free, disabled-by-default, and no-authority")
 
 
 def verify_local_developer_launcher_safety():
