@@ -12,24 +12,25 @@ allowed to become operational authority.
 
 | Field | Current state |
 |---|---|
-| Current active baseline | **v0.82.0** |
-| Current milestone | **M78 - Plugin Manifest Security Model** |
+| Current active baseline | **v0.83.0** |
+| Current milestone | **M79 - Plugin Install Review, Disabled by Default** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **75** OpenAPI paths |
 | Production readiness | Not claimed |
 
-v0.82.0 implements M78 Plugin Manifest Security Model. It adds disabled-only
-plugin manifest security contracts for declared permissions, source/provenance
-metadata, static review, sandbox test plan, Tool Broker permission mapping,
-Event Ledger logging, version pinning, revocation, human approval for high-risk
-capabilities, receipt plans, stable reason codes, documentation-integrity
-checks, static verification, and Foundation Gate coverage. It adds no plugin
-install, plugin enablement, plugin execution, runtime import, network access,
-model/provider call, browser automation, shell execution, mobile device access,
-remote execution, credentials or cookies, raw prompt, raw provider payload,
-backend routes, Control Center controls, dependency, M79 work, or production
-authority.
+v0.83.0 implements M79 Plugin Install Review, Disabled by Default. It adds
+exact-bound plugin install review contracts over an accepted M78 manifest
+security decision, source package refs, provenance refs, static review refs,
+sandbox test plan refs, Tool Broker mapping refs, Event Ledger plan refs,
+version pin refs, revocation refs, approval binding, receipt plans, stable
+reason codes, documentation-integrity checks, static verification, and
+Foundation Gate coverage. It adds no plugin install, plugin enablement, plugin
+execution, runtime import, network access, model/provider call, browser
+automation, shell execution, mobile device access, remote execution,
+credentials or cookies, raw manifest content, raw package content, raw prompt,
+raw provider payload, backend routes, Control Center controls, dependency, M80
+work, or production authority.
 
 v0.29.5 is documentation policy polish. It remains the documentation
 organization cleanup baseline before the M26 and M27 implementation releases.
@@ -82,6 +83,9 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M78 Plugin Manifest Security Model](docs/tooling/PLUGIN_MANIFEST_SECURITY_MODEL.md)
 - [M78 Plugin Manifest Policy](docs/tooling/PLUGIN_MANIFEST_POLICY.md)
 - [M78 Plugin Manifest Authority Boundary](docs/tooling/PLUGIN_MANIFEST_AUTHORITY_BOUNDARY.md)
+- [M79 Plugin Install Review](docs/tooling/PLUGIN_INSTALL_REVIEW.md)
+- [M79 Plugin Install Review Policy](docs/tooling/PLUGIN_INSTALL_REVIEW_POLICY.md)
+- [M79 Plugin Install Review Authority Boundary](docs/tooling/PLUGIN_INSTALL_REVIEW_AUTHORITY_BOUNDARY.md)
 - [M34 Broader File Capability Review](docs/files/BROADER_FILE_CAPABILITY_REVIEW.md)
 - [File capability boundary matrix](docs/files/FILE_CAPABILITY_BOUNDARY_MATRIX.md)
 - [File capability risk register](docs/files/FILE_CAPABILITY_RISK_REGISTER.md)
@@ -211,6 +215,8 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [v0.60.0 release notes](docs/release_notes/v0_60_0.md)
 - [v0.82.0 release packet](docs/archive/releases/v0_82_0/README_IMPORT.md)
 - [v0.82.0 master plan](docs/archive/releases/v0_82_0/master_plan.md)
+- [v0.83.0 release packet](docs/archive/releases/v0_83_0/README_IMPORT.md)
+- [v0.83.0 master plan](docs/archive/releases/v0_83_0/master_plan.md)
 
 ## What This Project Is
 

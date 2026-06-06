@@ -1,6 +1,6 @@
 # Post-M20 Capability Layer Roadmap
 
-Status: Active roadmap projection maintained through v0.82.0.
+Status: Active roadmap projection maintained through v0.83.0.
 
 v0.38.0 implements M34 Broader File Capability Review as planning,
 architecture review, documentation, verifier, and Foundation Gate work only.
@@ -115,13 +115,14 @@ The detailed post-M33 supersession source of truth is
 | v0.80.0 | M76 | OpenWebUI Runtime Bridge v1 | implemented/released review-only |
 | v0.81.0 | M77 | OpenWebUI Safe Handoff Execution | implemented/released exact-bound Agent Core handoff only |
 | v0.82.0 | M78 | Plugin Manifest Security Model | implemented/released disabled-only security model |
+| v0.83.0 | M79 | Plugin Install Review, Disabled by Default | implemented/released review-only disabled install candidate contracts |
 
 ## Prompt-Pack Strategy
 
-Recommended next prompt after v0.82.0:
+Recommended next prompt after v0.83.0:
 
 ```text
-Start v0.83.0 / M79 - Plugin Install Review, Disabled by Default only after v0.82.0 / M78 is accepted Green.
+Start v0.84.0 / M80 - Network/Browser/OpenWebUI Hardening Freeze only after v0.83.0 / M79 is accepted Green.
 ```
 
 M61 is implemented/released by v0.65.0 as Autonomy Mode Charter + Authority
@@ -141,8 +142,9 @@ implemented/released by v0.78.0 as Browser Observe-Only Adapter. M75 is
 implemented/released by v0.79.0 as Browser Action Dry-Run Planner. M76 is
 implemented/released by v0.80.0 as OpenWebUI Runtime Bridge v1. M77 is
 implemented/released by v0.81.0 as OpenWebUI Safe Handoff Execution. M78 is
-implemented/released by v0.82.0 as Plugin Manifest Security Model. M79-M100
-remain planned/provisional.
+implemented/released by v0.82.0 as Plugin Manifest Security Model. M79 is
+implemented/released by v0.83.0 as Plugin Install Review, Disabled by Default.
+M80-M100 remain planned/provisional.
 
 Extra-hard reviews are required for M37, M38, M40, M47, M48, M49, M51, M52,
 M57, M58, and M59. Mandatory hardening is expected by default for M35-M40, M43-M50,

@@ -112,6 +112,7 @@ SCAN_SEQUENCE = [
     ("M76 OpenWebUI runtime bridge scan", "verify_m76_openwebui_runtime_bridge"),
     ("M77 OpenWebUI safe handoff scan", "verify_m77_openwebui_safe_handoff"),
     ("M78 plugin manifest security scan", "verify_m78_plugin_manifest_security_model"),
+    ("M79 plugin install review scan", "verify_m79_plugin_install_review"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -12531,6 +12532,226 @@ def verify_m78_plugin_manifest_security_model():
                 sys.exit(1)
 
     print("OK: M78 plugin manifest security model is disabled-only, route-free, and no-authority")
+
+
+def verify_m79_plugin_install_review():
+    print("\n[Verifier] Running M79 plugin install review guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/plugin_install_review/__init__.py",
+        "src/ultimate_ai_agent/core/plugin_install_review/contracts.py",
+        "src/ultimate_ai_agent/core/plugin_install_review/enums.py",
+        "src/ultimate_ai_agent/core/plugin_install_review/runtime.py",
+        "src/ultimate_ai_agent/core/plugin_install_review/validation.py",
+        "docs/tooling/PLUGIN_INSTALL_REVIEW.md",
+        "docs/tooling/PLUGIN_INSTALL_REVIEW_POLICY.md",
+        "docs/tooling/PLUGIN_INSTALL_REVIEW_AUTHORITY_BOUNDARY.md",
+        "docs/tooling/PLUGIN_INSTALL_REVIEW_RECEIPT_PLAN.md",
+        "docs/tooling/M79_TO_M80_BOUNDARY.md",
+        "docs/release_notes/v0_83_0.md",
+        "docs/archive/releases/v0_83_0/README_IMPORT.md",
+        "docs/archive/releases/v0_83_0/master_plan.md",
+        "docs/implementation/foundation_gate_implementation_plan_v0_83_0.md",
+        "tests/test_m79_plugin_install_review_disabled.py",
+        "tests/test_m79_plugin_install_review_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M79 plugin install review file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = "\n".join(
+        (ROOT / rel_path).read_text(encoding="utf-8").lower()
+        for rel_path in required_files
+        if rel_path.startswith("docs/")
+    )
+    for fragment in [
+        "plugin install review",
+        "disabled by default",
+        "exact approval binding",
+        "manifest security decision",
+        "source package ref",
+        "static review",
+        "sandbox test plan",
+        "tool broker mapping",
+        "event ledger",
+        "version pin",
+        "revocation",
+        "no plugin install",
+        "no plugin enablement",
+        "no plugin execution",
+        "no runtime import",
+        "no network access",
+        "no model/provider call",
+        "no browser automation",
+        "no shell execution",
+        "no mobile device access",
+        "no remote execution",
+        "no credentials or cookies",
+        "no raw package content",
+        "no raw prompt",
+        "no raw provider payload",
+        "no backend route",
+        "no control center control",
+        "no dependency",
+        "no production authority",
+        "evaluator boundaries revalidate",
+        "m80 remains future",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M79 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.evaluators import m79_openapi_route_failures
+        from ultimate_ai_agent.core.plugin_install_review import (
+            PluginInstallReviewApprovalBinding,
+            PluginInstallReviewDecisionStatus,
+            PluginInstallReviewRequest,
+            build_plugin_install_review_decision,
+        )
+        from ultimate_ai_agent.core.plugin_manifest import (
+            PluginManifestApprovalBinding,
+            PluginManifestDeclaredPermission,
+            PluginManifestPermissionKind,
+            PluginManifestRiskLevel,
+            PluginManifestSecurityReviewRequest,
+            build_plugin_manifest_security_decision,
+        )
+    except Exception as exc:
+        print(f"FAIL: M79 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m79_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    manifest_decision = build_plugin_manifest_security_decision(
+        PluginManifestSecurityReviewRequest(
+            review_request_ref="plugin-manifest-review-request:verify-all-m79",
+            manifest_ref="plugin-manifest:verify-all-m79",
+            plugin_ref="plugin:verify-all-m79",
+            plugin_name="verify-all-install-review-disabled-plugin",
+            plugin_version="1.0.0",
+            actor_ref="actor:verify-all-m79",
+            source_ref="plugin-source:verify-all-m79",
+            provenance_ref="plugin-provenance:verify-all-m79",
+            declared_permissions=[
+                PluginManifestDeclaredPermission(
+                    permission_ref="plugin-permission:verify-all-m79",
+                    kind=PluginManifestPermissionKind.read_only_local_docs,
+                    risk_level=PluginManifestRiskLevel.low,
+                    safe_purpose="Review plugin install metadata only.",
+                    tool_broker_capability_ref="tool-broker-capability:verify-all-m79",
+                )
+            ],
+            static_review_ref="plugin-static-review:verify-all-m79",
+            sandbox_test_plan_ref="plugin-sandbox-test-plan:verify-all-m79",
+            tool_broker_mapping_ref="plugin-tool-broker-map:verify-all-m79",
+            event_ledger_plan_ref="event-ledger-plan:verify-all-m79",
+            version_pin_ref="plugin-version-pin:verify-all-m79-1.0.0",
+            revocation_plan_ref="plugin-revocation-plan:verify-all-m79",
+            human_approval=PluginManifestApprovalBinding(
+                approval_ref="approval:verify-all-m79-manifest",
+                approved_manifest_ref="plugin-manifest:verify-all-m79",
+                approved_plugin_ref="plugin:verify-all-m79",
+                approved_version="1.0.0",
+                approved_actor_ref="actor:verify-all-m79",
+            ),
+            safe_manifest_summary="Reviewed disabled plugin manifest metadata.",
+        )
+    )
+    request = PluginInstallReviewRequest(
+        install_review_request_ref="plugin-install-review-request:verify-all-m79",
+        manifest_security_decision=manifest_decision,
+        manifest_ref=manifest_decision.manifest_ref,
+        plugin_ref=manifest_decision.plugin_ref,
+        plugin_version=manifest_decision.plugin_version,
+        actor_ref=manifest_decision.actor_ref,
+        source_package_ref="plugin-package:verify-all-m79-reviewed",
+        provenance_ref="plugin-provenance:verify-all-m79",
+        static_review_ref="plugin-static-review:verify-all-m79",
+        sandbox_test_plan_ref="plugin-sandbox-test-plan:verify-all-m79",
+        tool_broker_mapping_ref="plugin-tool-broker-map:verify-all-m79",
+        event_ledger_plan_ref="event-ledger-plan:verify-all-m79-install-review",
+        version_pin_ref="plugin-version-pin:verify-all-m79-1.0.0",
+        revocation_plan_ref="plugin-revocation-plan:verify-all-m79",
+        approval=PluginInstallReviewApprovalBinding(
+            approval_ref="approval:verify-all-m79-install-review",
+            approved_install_review_request_ref="plugin-install-review-request:verify-all-m79",
+            approved_manifest_security_decision_ref=manifest_decision.decision_ref,
+            approved_manifest_ref=manifest_decision.manifest_ref,
+            approved_plugin_ref=manifest_decision.plugin_ref,
+            approved_version=manifest_decision.plugin_version,
+            approved_actor_ref=manifest_decision.actor_ref,
+        ),
+        safe_install_review_summary="Review plugin install candidate metadata while disabled.",
+    )
+    decision = build_plugin_install_review_decision(request)
+    if (
+        decision.status != PluginInstallReviewDecisionStatus.install_review_ready_disabled
+        or not decision.install_reviewed
+        or decision.plugin_install_enabled
+        or decision.plugin_enablement_enabled
+        or decision.plugin_execution_enabled
+        or decision.runtime_import_enabled
+        or decision.network_access_enabled
+        or decision.model_provider_call_enabled
+        or decision.browser_automation_enabled
+        or decision.shell_execution_enabled
+        or decision.mobile_device_access_enabled
+        or decision.remote_execution_enabled
+        or decision.credential_cookie_access_enabled
+        or decision.raw_manifest_content_returned
+        or decision.raw_package_content_returned
+        or decision.raw_prompt_exposure_enabled
+        or decision.raw_provider_payload_exposure_enabled
+        or decision.production_authority_granted
+        or decision.side_effects_performed
+        or decision.receipt_plan.plugin_install_performed
+        or decision.receipt_plan.plugin_enablement_performed
+        or decision.receipt_plan.plugin_execution_performed
+        or decision.receipt_plan.runtime_import_performed
+        or decision.receipt_plan.raw_manifest_content_stored
+        or decision.receipt_plan.raw_package_content_stored
+        or "M79_PLUGIN_INSTALL_REVIEW_DISABLED_BY_DEFAULT" not in decision.reason_codes
+        or "M80_REMAINS_FUTURE" not in decision.reason_codes
+    ):
+        print("FAIL: M79 plugin install review decision is unsafe or over-authoritative")
+        sys.exit(1)
+
+    for update, reason in [
+        ({"source_package_ref": None}, "PLUGIN_SOURCE_PACKAGE_REF_REQUIRED"),
+        ({"static_review_ref": None}, "PLUGIN_STATIC_REVIEW_REQUIRED"),
+        ({"sandbox_test_plan_ref": None}, "PLUGIN_SANDBOX_TEST_PLAN_REQUIRED"),
+        ({"approval": None}, "PLUGIN_INSTALL_REVIEW_APPROVAL_REQUIRED"),
+        ({"approval_ref": "approval_test_m79"}, "APPROVAL_TEST_REF_DENIED"),
+        ({"plugin_install_requested": True}, "PLUGIN_INSTALL_DENIED"),
+        ({"plugin_enablement_requested": True}, "PLUGIN_ENABLEMENT_DENIED"),
+        ({"plugin_execution_requested": True}, "PLUGIN_EXECUTION_DENIED"),
+        ({"runtime_import_requested": True}, "PLUGIN_RUNTIME_IMPORT_DENIED"),
+        ({"network_access_requested": True}, "PLUGIN_NETWORK_ACCESS_DENIED"),
+        ({"model_provider_call_requested": True}, "PLUGIN_MODEL_PROVIDER_CALL_DENIED"),
+        ({"browser_automation_requested": True}, "PLUGIN_BROWSER_AUTOMATION_DENIED"),
+        ({"shell_execution_requested": True}, "PLUGIN_SHELL_EXECUTION_DENIED"),
+        ({"mobile_device_access_requested": True}, "PLUGIN_MOBILE_DEVICE_ACCESS_DENIED"),
+        ({"remote_execution_requested": True}, "PLUGIN_REMOTE_EXECUTION_DENIED"),
+        ({"credential_cookie_access_requested": True}, "PLUGIN_CREDENTIAL_COOKIE_ACCESS_DENIED"),
+        ({"raw_package_content_requested": True}, "RAW_PACKAGE_CONTENT_DENIED"),
+        ({"production_authority_requested": True}, "PRODUCTION_AUTHORITY_DENIED"),
+    ]:
+        try:
+            build_plugin_install_review_decision(request.model_copy(update=update))
+            print(f"FAIL: M79 unsafe plugin install review request was not denied with {reason}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M79 unsafe plugin install review request raised {exc!s}, expected {reason}")
+                sys.exit(1)
+
+    print("OK: M79 plugin install review is disabled-by-default, route-free, and no-authority")
 
 
 def verify_local_developer_launcher_safety():
