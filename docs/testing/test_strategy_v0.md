@@ -692,5 +692,14 @@ tool execution, shell execution, browser automation, network access, memory
 writes, context injection, raw prompt capture, raw provider payload capture,
 backend routes, dependencies, production authority, or M57 work.
 
-M57 remains planned/provisional as Runtime Sandbox Architecture Review.
+M57 is implemented/released as Runtime Sandbox Architecture Review. It adds
+focused tests for deterministic architecture policy, request, decision, and
+receipt-plan contracts. The tests verify declared sandbox boundary refs and
+threat-model refs can produce architecture-review-only reports without sandbox
+execution, subprocess execution, shell execution, process spawn, file mutation,
+network access, tool execution, browser automation, plugin execution, remote
+execution, model/provider calls, memory writes, context injection, backend
+routes, dependencies, production authority, or M58 work.
+
+M58 remains planned/provisional as Dry-Run Execution Audit Harness.
 ```

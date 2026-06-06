@@ -12,22 +12,22 @@ allowed to become operational authority.
 
 | Field | Current state |
 |---|---|
-| Current active baseline | **v0.60.0** |
-| Current milestone | **M56 - Agent Eval Regression Harness** |
+| Current active baseline | **v0.61.0** |
+| Current milestone | **M57 - Runtime Sandbox Architecture Review** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **75** OpenAPI paths |
 | Production readiness | Not claimed |
 
-v0.60.0 implements M56 Agent Eval Regression Harness. It adds deterministic
-local contract-only eval regression harness contracts, safe policy checks, safe
-case/suite/observation/report generation, no-effect receipt plans, tests,
-documentation-integrity checks, static verification, and Foundation Gate
-coverage. It adds no model/provider calls, tool execution, shell execution,
-browser automation, network access, memory writes, context injection, raw
-prompt capture, raw provider payload capture, external dataset fetch, backend
-routes, Control Center controls, dependencies, production authority, or M57
-implementation.
+v0.61.0 implements M57 Runtime Sandbox Architecture Review. It adds
+deterministic local contract-only runtime sandbox architecture review contracts,
+safe policy checks, architecture request/decision/receipt-plan generation,
+tests, documentation-integrity checks, static verification, and Foundation Gate
+coverage. It adds no sandbox execution, subprocess execution, shell execution,
+process spawn, file mutation, network access, tool execution, browser
+automation, plugin execution, remote execution, model/provider calls, memory
+writes, context injection, backend routes, Control Center controls,
+dependencies, production authority, or M58 implementation.
 
 v0.29.5 is documentation policy polish. It remains the documentation
 organization cleanup baseline before the M26 and M27 implementation releases.
@@ -111,6 +111,10 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M56 Agent Eval Regression Policy](docs/evals/AGENT_EVAL_REGRESSION_POLICY.md)
 - [M56 Agent Eval Regression Authority Boundary](docs/evals/AGENT_EVAL_REGRESSION_AUTHORITY_BOUNDARY.md)
 - [M56 to M57 Boundary](docs/evals/M56_TO_M57_BOUNDARY.md)
+- [M57 Runtime Sandbox Architecture Review](docs/sandbox/RUNTIME_SANDBOX_ARCHITECTURE_REVIEW.md)
+- [M57 Runtime Sandbox Boundary Policy](docs/sandbox/RUNTIME_SANDBOX_BOUNDARY_POLICY.md)
+- [M57 Runtime Sandbox Authority Boundary](docs/sandbox/RUNTIME_SANDBOX_AUTHORITY_BOUNDARY.md)
+- [M57 to M58 Boundary](docs/sandbox/M57_TO_M58_BOUNDARY.md)
 - [M38 Context Proposal Receipt Plan](docs/context/CONTEXT_PROPOSAL_RECEIPT_PLAN.md)
 - [API route inventory](docs/api/route_inventory.md)
 - [Documentation organization policy](docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md)
@@ -129,8 +133,8 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M27 Tool Broker v2](docs/tools/TOOL_BROKER_V2.md)
 - [M26 Grounded Recall Router](docs/recall/GROUNDED_RECALL_ROUTER.md)
 - [v0.60.0 release notes](docs/release_notes/v0_60_0.md)
-- [v0.60.0 release packet](docs/archive/releases/v0_60_0/README_IMPORT.md)
-- [v0.60.0 master plan](docs/archive/releases/v0_60_0/master_plan.md)
+- [v0.61.0 release packet](docs/archive/releases/v0_61_0/README_IMPORT.md)
+- [v0.61.0 master plan](docs/archive/releases/v0_61_0/master_plan.md)
 
 ## What This Project Is
 
@@ -403,7 +407,7 @@ post-M33 supersession is
 | v0.58.0 | M54 - Safe Media Metadata Inspector | Implemented/released metadata-only |
 | v0.59.0 | M55 - Redacted Observability Export | Implemented/released redacted-only |
 | v0.60.0 | M56 - Agent Eval Regression Harness | Implemented/released contract-only |
-| v0.61.0 | M57 - Runtime Sandbox Architecture Review | Planned/provisional |
+| v0.61.0 | M57 - Runtime Sandbox Architecture Review | Implemented/released architecture-review-only |
 | v0.62.0 | M58 - Dry-Run Execution Audit Harness | Planned/provisional |
 | v0.63.0 | M59 - Public GitHub Readiness | Planned/provisional |
 | v0.64.0 | M60 - Local Developer Beta Freeze | Planned/provisional |

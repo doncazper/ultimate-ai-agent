@@ -1,7 +1,7 @@
 # Ultimate AI Agent Docs
 
 Status: active
-Current through: v0.60.0
+Current through: v0.61.0
 Purpose: Human-facing entrypoint for active documentation and historical archive navigation.
 
 Active docs are few, indexed, and current. Historical docs are preserved under
@@ -23,10 +23,14 @@ docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md
 Current release packet:
 
 ```text
-docs/archive/releases/v0_60_0/README_IMPORT.md
-docs/archive/releases/v0_60_0/master_plan.md
-docs/release_notes/v0_60_0.md
-docs/implementation/foundation_gate_implementation_plan_v0_60_0.md
+docs/archive/releases/v0_61_0/README_IMPORT.md
+docs/archive/releases/v0_61_0/master_plan.md
+docs/release_notes/v0_61_0.md
+docs/implementation/foundation_gate_implementation_plan_v0_61_0.md
+docs/sandbox/RUNTIME_SANDBOX_ARCHITECTURE_REVIEW.md
+docs/sandbox/RUNTIME_SANDBOX_BOUNDARY_POLICY.md
+docs/sandbox/RUNTIME_SANDBOX_AUTHORITY_BOUNDARY.md
+docs/sandbox/M57_TO_M58_BOUNDARY.md
 docs/observability/REDACTED_OBSERVABILITY_EXPORT.md
 docs/observability/REDACTED_OBSERVABILITY_EXPORT_POLICY.md
 docs/observability/REDACTED_OBSERVABILITY_EXPORT_AUTHORITY_BOUNDARY.md

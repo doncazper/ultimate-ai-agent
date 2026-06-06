@@ -90,6 +90,7 @@ SCAN_SEQUENCE = [
     ("M54 safe media metadata inspector scan", "verify_m54_safe_media_metadata_inspector"),
     ("M55 redacted observability export scan", "verify_m55_redacted_observability_export"),
     ("M56 agent eval regression harness scan", "verify_m56_agent_eval_regression_harness"),
+    ("M57 runtime sandbox architecture review scan", "verify_m57_runtime_sandbox_architecture_review"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -7644,6 +7645,210 @@ def verify_m56_agent_eval_regression_harness():
                     sys.exit(1)
 
     print("OK: M56 agent eval regression harness is deterministic, no-route, no-execution, and no-authority")
+
+
+def verify_m57_runtime_sandbox_architecture_review():
+    print("\n[Verifier] Running M57 runtime sandbox architecture review guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/sandbox/__init__.py",
+        "src/ultimate_ai_agent/core/sandbox/architecture.py",
+        "docs/sandbox/RUNTIME_SANDBOX_ARCHITECTURE_REVIEW.md",
+        "docs/sandbox/RUNTIME_SANDBOX_BOUNDARY_POLICY.md",
+        "docs/sandbox/RUNTIME_SANDBOX_AUTHORITY_BOUNDARY.md",
+        "docs/sandbox/M57_TO_M58_BOUNDARY.md",
+        "docs/release_notes/v0_61_0.md",
+        "docs/archive/releases/v0_61_0/README_IMPORT.md",
+        "docs/archive/releases/v0_61_0/master_plan.md",
+        "docs/implementation/foundation_gate_implementation_plan_v0_61_0.md",
+        "tests/test_m57_runtime_sandbox_architecture_review.py",
+        "tests/test_m57_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M57 runtime sandbox architecture file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = "\n".join(
+        (ROOT / rel_path).read_text(encoding="utf-8").lower()
+        for rel_path in required_files
+        if rel_path.startswith("docs/")
+    )
+    for fragment in [
+        "runtime sandbox architecture review",
+        "architecture review only",
+        "contract-only",
+        "no sandbox execution",
+        "no subprocess",
+        "no shell execution",
+        "no process spawn",
+        "no file mutation",
+        "no network access",
+        "no tool execution",
+        "no memory write",
+        "no context injection",
+        "no backend route",
+        "no control center control",
+        "no dependency",
+        "no production authority",
+        "m58 remains future",
+        "skill package security rule",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M57 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.evaluators import m57_openapi_route_failures
+        from ultimate_ai_agent.core.sandbox import (
+            RuntimeSandboxArchitecturePolicy,
+            RuntimeSandboxArchitectureRequest,
+            RuntimeSandboxArchitectureStatus,
+            build_runtime_sandbox_architecture_review,
+            validate_runtime_sandbox_architecture_policy,
+            validate_runtime_sandbox_architecture_request,
+        )
+    except Exception as exc:
+        print(f"FAIL: M57 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m57_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    request = RuntimeSandboxArchitectureRequest(
+        request_ref="sandbox-review-request:verify-all-m57",
+        review_ref="sandbox-review:verify-all-m57",
+        architecture_ref="sandbox-architecture:verify-all-m57",
+        boundary_refs=["boundary:no-subprocess", "boundary:no-shell-execution"],
+        threat_model_refs=["threat:process-spawn", "threat:network-egress"],
+        audit_requirement_refs=["audit:dry-run-before-execution"],
+        safe_summary="Verify-all runtime sandbox architecture review.",
+    )
+    review = build_runtime_sandbox_architecture_review(request)
+    if review.status != RuntimeSandboxArchitectureStatus.reviewed:
+        print(f"FAIL: M57 safe architecture review did not pass: {review.status}")
+        sys.exit(1)
+    if (
+        not review.architecture_review_only
+        or review.runtime_sandbox_enabled
+        or review.execution_performed
+        or review.subprocess_performed
+        or review.shell_execution_performed
+        or review.process_spawn_performed
+        or review.filesystem_mutation_performed
+        or review.network_access_performed
+        or review.memory_write_performed
+        or review.context_injection_performed
+    ):
+        print("FAIL: M57 review performed runtime sandbox execution or side effects")
+        sys.exit(1)
+    if review.receipt_plan is None or review.receipt_plan.side_effects_performed:
+        print("FAIL: M57 receipt plan did not remain no-effect")
+        sys.exit(1)
+
+    for request_update, reason in [
+        ({"sandbox_runtime_requested": True}, "SANDBOX_RUNTIME_DENIED"),
+        ({"subprocess_execution_requested": True}, "SUBPROCESS_EXECUTION_DENIED"),
+        ({"shell_execution_requested": True}, "SHELL_EXECUTION_DENIED"),
+        ({"process_spawn_requested": True}, "PROCESS_SPAWN_DENIED"),
+        ({"filesystem_mutation_requested": True}, "FILESYSTEM_MUTATION_DENIED"),
+        ({"network_access_requested": True}, "NETWORK_ACCESS_DENIED"),
+        ({"tool_execution_requested": True}, "TOOL_EXECUTION_DENIED"),
+        ({"browser_automation_requested": True}, "BROWSER_AUTOMATION_DENIED"),
+        ({"plugin_execution_requested": True}, "PLUGIN_EXECUTION_DENIED"),
+        ({"remote_execution_requested": True}, "REMOTE_EXECUTION_DENIED"),
+        ({"model_call_requested": True}, "MODEL_CALL_DENIED"),
+        ({"memory_write_requested": True}, "MEMORY_WRITE_DENIED"),
+        ({"context_injection_requested": True}, "CONTEXT_INJECTION_DENIED"),
+        ({"m58_dry_run_harness_requested": True}, "M58_DRY_RUN_HARNESS_DENIED"),
+    ]:
+        try:
+            validate_runtime_sandbox_architecture_request(request.model_copy(update=request_update))
+            print(f"FAIL: M57 unsafe request mutation was not denied: {reason}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M57 unsafe request reason drifted for {reason}: {exc}")
+                sys.exit(1)
+
+    try:
+        validate_runtime_sandbox_architecture_policy(RuntimeSandboxArchitecturePolicy(sandbox_runtime_enabled=True))
+        print("FAIL: M57 unsafe policy flag was not denied")
+        sys.exit(1)
+    except ValueError as exc:
+        if "SANDBOX_RUNTIME_DENIED" not in str(exc):
+            print(f"FAIL: M57 unsafe policy reason drifted: {exc}")
+            sys.exit(1)
+
+    forbidden_source_fragments = [
+        "sandbox_runtime_enabled=True",
+        "subprocess_execution_enabled=True",
+        "shell_execution_enabled=True",
+        "process_spawn_enabled=True",
+        "filesystem_mutation_enabled=True",
+        "network_access_enabled=True",
+        "tool_execution_enabled=True",
+        "browser_automation_enabled=True",
+        "plugin_execution_enabled=True",
+        "remote_execution_enabled=True",
+        "model_call_enabled=True",
+        "memory_write_enabled=True",
+        "context_injection_enabled=True",
+        "side_effects_enabled=True",
+        "production_authority_enabled=True",
+        "m58_dry_run_harness_enabled=True",
+        "subprocess_performed=True",
+        "shell_execution_performed=True",
+        "process_spawn_performed=True",
+        "filesystem_mutation_performed=True",
+        "network_access_performed=True",
+        "subprocess.run(",
+        "subprocess.Popen(",
+        "os.system(",
+        "shell=True",
+        "/sandbox/run",
+        "/sandbox/execute",
+        "/process/spawn",
+        "/subprocess/run",
+        "/shell/execute",
+        "/tools/execute",
+        "/tool-runtime/execute",
+        "/context/inject",
+        "/memory/write",
+    ]
+    allowed_files = {
+        "scripts/verify_all.py",
+        "src/ultimate_ai_agent/api/app.py",
+        "src/ultimate_ai_agent/api/openapi.py",
+        "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/sandbox/architecture.py",
+        "tests/test_m57_runtime_sandbox_architecture_review.py",
+        "tests/test_m57_gate_integration.py",
+    }
+    source_roots = [
+        ROOT / "src",
+        ROOT / "apps" / "control-center" / "src",
+        ROOT / "apps" / "ccc-ios",
+    ]
+    for root in source_roots:
+        if not root.exists():
+            continue
+        for path in root.rglob("*"):
+            if not path.is_file() or path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}:
+                continue
+            rel = path.relative_to(ROOT).as_posix()
+            if rel in allowed_files:
+                continue
+            text = path.read_text(encoding="utf-8")
+            for fragment in forbidden_source_fragments:
+                if fragment in text:
+                    print(f"FAIL: M57 forbidden runtime sandbox fragment in {rel}: {fragment}")
+                    sys.exit(1)
+
+    print("OK: M57 runtime sandbox architecture review is contract-only, no-route, no-execution, and no-authority")
 
 
 def verify_local_developer_launcher_safety():

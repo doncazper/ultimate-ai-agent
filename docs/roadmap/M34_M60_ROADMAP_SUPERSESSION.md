@@ -1,6 +1,6 @@
 # M34-M60 Roadmap Supersession
 
-Status: Active roadmap source of truth through v0.60.0.
+Status: Active roadmap source of truth through v0.61.0.
 
 v0.38.0 implements M34 Broader File Capability Review as planning,
 architecture review, documentation, verifier, and Foundation Gate work only.
@@ -38,7 +38,7 @@ implemented/released as contract-only Safe File Review Workflow Contracts and
 hardened by v0.39.1 for exact file/path binding. M36 is
 implemented/released as frontend-only CCC File Review Surface, Review-Only and
 hardened by v0.40.1 for read-only surface safety.
-M37 is implemented/released. M38 is implemented/released. M39 is implemented/released. M40 is implemented/released. M41 is implemented/released. M42 is implemented/released. M43 is implemented/released. M44 is implemented/released. M45 is implemented/released. M46 is implemented/released. M47 is implemented/released. M48 is implemented/released. M49 is implemented/released. M50 is implemented/released. M51 is implemented/released. M52 is implemented/released. M53 is implemented/released. M54 is implemented/released. M55 is implemented/released. M56 is implemented/released and M57-M60 remain planned/provisional. M42 resumes mobile planning. M44 is the first iOS
+M37 is implemented/released. M38 is implemented/released. M39 is implemented/released. M40 is implemented/released. M41 is implemented/released. M42 is implemented/released. M43 is implemented/released. M44 is implemented/released. M45 is implemented/released. M46 is implemented/released. M47 is implemented/released. M48 is implemented/released. M49 is implemented/released. M50 is implemented/released. M51 is implemented/released. M52 is implemented/released. M53 is implemented/released. M54 is implemented/released. M55 is implemented/released. M56 is implemented/released. M57 is implemented/released and M58-M60 remain planned/provisional. M42 resumes mobile planning. M44 is the first iOS
 skeleton milestone. M47 is the TestFlight-capable pipeline milestone. M48 is the
 first internal TestFlight build milestone. M49 and M50 are the first meaningful
 mobile approval capture and audit milestones.
@@ -73,7 +73,7 @@ mobile approval capture and audit milestones.
 | v0.58.0 | M54 | Safe Media Metadata Inspector | implemented/released | Metadata-only media inspection; no creative authority |
 | v0.59.0 | M55 | Redacted Observability Export | implemented/released | Redacted export contracts only; no external delivery |
 | v0.60.0 | M56 | Agent Eval Regression Harness | implemented/released | Contract-only eval regression harness; no model/tool execution |
-| v0.61.0 | M57 | Runtime Sandbox Architecture Review | planned/provisional | Architecture review only |
+| v0.61.0 | M57 | Runtime Sandbox Architecture Review | implemented/released | Architecture review only |
 | v0.62.0 | M58 | Dry-Run Execution Audit Harness | planned/provisional | Dry-run audit harness; no execution authority |
 | v0.63.0 | M59 | Public GitHub Readiness | planned/provisional | Public readiness review/docs only |
 | v0.64.0 | M60 | Local Developer Beta Freeze | planned/provisional | Local beta freeze and safety review |

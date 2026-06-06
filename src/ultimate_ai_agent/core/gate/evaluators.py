@@ -858,6 +858,17 @@ M56_FORBIDDEN_BACKEND_ROUTES = M55_FORBIDDEN_BACKEND_ROUTES + (
     "/models/call",
     "/provider/call",
 )
+EXPECTED_M57_OPENAPI_PATH_COUNT = 75
+M57_FORBIDDEN_BACKEND_ROUTES = M56_FORBIDDEN_BACKEND_ROUTES + (
+    "/sandbox/run",
+    "/sandbox/execute",
+    "/sandbox/subprocess",
+    "/sandbox/process",
+    "/process/spawn",
+    "/subprocess/run",
+    "/runtime/sandbox/run",
+    "/runtime/sandbox/execute",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -1452,6 +1463,19 @@ def m56_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
     return failures
 
 
+def m57_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M57_OPENAPI_PATH_COUNT) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+    if M37_ALLOWED_CAPTURE_ROUTE not in path_set:
+        failures.append("M37 capture route missing: /files/review/approvals/capture")
+    for route in M57_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(f"M57 forbidden runtime sandbox execution/backend route present: {route}")
+    return failures
+
+
 M36_SAFE_REF_PREFIXES = {
     "reviewPacketRef": "file-review-packet:",
     "previewResultRef": "redacted-file-preview-output:",
@@ -1906,6 +1930,12 @@ class FoundationGateEvaluator:
             "m56_eval_regression_static_safety": self.check_m56_eval_regression_static_safety,
             "m56_eval_regression_route_boundary": self.check_m56_eval_regression_route_boundary,
             "m56_roadmap_currentness": self.check_m56_roadmap_currentness,
+            "m57_runtime_sandbox_architecture_review": (
+                self.check_m57_runtime_sandbox_architecture_review
+            ),
+            "m57_runtime_sandbox_static_safety": self.check_m57_runtime_sandbox_static_safety,
+            "m57_runtime_sandbox_route_boundary": self.check_m57_runtime_sandbox_route_boundary,
+            "m57_roadmap_currentness": self.check_m57_roadmap_currentness,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -9234,7 +9264,7 @@ class FoundationGateEvaluator:
                 and "m54-m60 remain planned/provisional" not in text
                 and "m55-m60 remain planned/provisional" not in text
                 and "m56-m60 remain planned/provisional" not in text
-                and "m57-m60 remain planned/provisional" not in text
+                and "m57-m60 remain planned/provisional" not in text and "m58-m60 remain planned/provisional" not in text
             ):
                 failures.append("M42-M60 through M49-M60 planned/provisional marker missing after M41")
         elif current_tuple >= (0, 44, 0):
@@ -9542,7 +9572,7 @@ class FoundationGateEvaluator:
                 and "m54-m60 remain planned/provisional" not in text
                 and "m55-m60 remain planned/provisional" not in text
                 and "m56-m60 remain planned/provisional" not in text
-                and "m57-m60 remain planned/provisional" not in text
+                and "m57-m60 remain planned/provisional" not in text and "m58-m60 remain planned/provisional" not in text
             ):
                 failures.append("M42-M60 through M49-M60 planned/provisional marker missing after M41")
         elif version_tuple >= (0, 44, 0):
@@ -9723,7 +9753,7 @@ class FoundationGateEvaluator:
                 and "m54-m60 remain planned/provisional" not in text
                 and "m55-m60 remain planned/provisional" not in text
                 and "m56-m60 remain planned/provisional" not in text
-                and "m57-m60 remain planned/provisional" not in text
+                and "m57-m60 remain planned/provisional" not in text and "m58-m60 remain planned/provisional" not in text
             ):
                 failures.append("M42-M60 through M49-M60 planned/provisional marker missing after M41")
         elif version_tuple >= (0, 44, 0):
@@ -9880,7 +9910,7 @@ class FoundationGateEvaluator:
                 and "m54-m60 remain planned/provisional" not in text
                 and "m55-m60 remain planned/provisional" not in text
                 and "m56-m60 remain planned/provisional" not in text
-                and "m57-m60 remain planned/provisional" not in text
+                and "m57-m60 remain planned/provisional" not in text and "m58-m60 remain planned/provisional" not in text
             ):
                 failures.append("M42-M60 through M49-M60 planned/provisional marker missing after M41")
         elif version_tuple >= (0, 44, 0):
@@ -10153,7 +10183,7 @@ class FoundationGateEvaluator:
                 and "m54-m60 remain planned/provisional" not in text
                 and "m55-m60 remain planned/provisional" not in text
                 and "m56-m60 remain planned/provisional" not in text
-                and "m57-m60 remain planned/provisional" not in text
+                and "m57-m60 remain planned/provisional" not in text and "m58-m60 remain planned/provisional" not in text
             ):
                 failures.append("M42-M60 through M49-M60 planned/provisional marker missing after M41")
         elif current >= (0, 44, 0):
@@ -10311,7 +10341,7 @@ class FoundationGateEvaluator:
                 and "m54-m60 remain planned/provisional" not in text
                 and "m55-m60 remain planned/provisional" not in text
                 and "m56-m60 remain planned/provisional" not in text
-                and "m57-m60 remain planned/provisional" not in text
+                and "m57-m60 remain planned/provisional" not in text and "m58-m60 remain planned/provisional" not in text
             ):
                 failures.append("M42-M60 through M49-M60 planned/provisional marker missing after M41")
         elif m40_implemented:
@@ -10543,7 +10573,7 @@ class FoundationGateEvaluator:
                 and "m54-m60 remain planned/provisional" not in text
                 and "m55-m60 remain planned/provisional" not in text
                 and "m56-m60 remain planned/provisional" not in text
-                and "m57-m60 remain planned/provisional" not in text
+                and "m57-m60 remain planned/provisional" not in text and "m58-m60 remain planned/provisional" not in text
             ):
                 failures.append("M42-M60 through M49-M60 planned/provisional marker missing after M41")
         elif "m41 remains planned/provisional" not in text and "m41-m60 remain planned/provisional" not in text:
@@ -12220,7 +12250,7 @@ class FoundationGateEvaluator:
                 "m54-m60 remain planned/provisional" not in text
                 and "m55-m60 remain planned/provisional" not in text
                 and "m56-m60 remain planned/provisional" not in text
-                and "m57-m60 remain planned/provisional" not in text
+                and "m57-m60 remain planned/provisional" not in text and "m58-m60 remain planned/provisional" not in text
             ):
                 failures.append("M54-M60 must remain planned/provisional after M53")
         elif self._active_version_tuple() >= (0, 56, 0):
@@ -12481,7 +12511,7 @@ class FoundationGateEvaluator:
                 "m54-m60 remain planned/provisional" not in text
                 and "m55-m60 remain planned/provisional" not in text
                 and "m56-m60 remain planned/provisional" not in text
-                and "m57-m60 remain planned/provisional" not in text
+                and "m57-m60 remain planned/provisional" not in text and "m58-m60 remain planned/provisional" not in text
             ):
                 failures.append("M54-M60 must remain planned/provisional after M53")
         elif self._active_version_tuple() >= (0, 56, 0):
@@ -12726,7 +12756,7 @@ class FoundationGateEvaluator:
                 "m54-m60 remain planned/provisional" not in text
                 and "m55-m60 remain planned/provisional" not in text
                 and "m56-m60 remain planned/provisional" not in text
-                and "m57-m60 remain planned/provisional" not in text
+                and "m57-m60 remain planned/provisional" not in text and "m58-m60 remain planned/provisional" not in text
             ):
                 failures.append("M54-M60 must remain planned/provisional after M53")
         elif self._active_version_tuple() >= (0, 56, 0):
@@ -12989,7 +13019,7 @@ class FoundationGateEvaluator:
                 "m54-m60 remain planned/provisional" not in text
                 and "m55-m60 remain planned/provisional" not in text
                 and "m56-m60 remain planned/provisional" not in text
-                and "m57-m60 remain planned/provisional" not in text
+                and "m57-m60 remain planned/provisional" not in text and "m58-m60 remain planned/provisional" not in text
             ):
                 failures.append("M54-M60 must remain planned/provisional after M53")
         else:
@@ -13234,7 +13264,7 @@ class FoundationGateEvaluator:
             "m54-m60 remain planned/provisional" not in text
             and "m55-m60 remain planned/provisional" not in text
                 and "m56-m60 remain planned/provisional" not in text
-                and "m57-m60 remain planned/provisional" not in text
+                and "m57-m60 remain planned/provisional" not in text and "m58-m60 remain planned/provisional" not in text
         ):
             failures.append("M54-M60 must remain planned/provisional after M53")
         forbidden_fragments = [
@@ -13470,7 +13500,7 @@ class FoundationGateEvaluator:
                 failures.append("active docs do not mark M55 implemented/released")
             if "m56 is implemented/released" not in text and "v0.60.0 implements m56" not in text:
                 failures.append("active docs do not mark M56 implemented/released")
-            if "m57-m60 remain planned/provisional" not in text:
+            if "m57-m60 remain planned/provisional" not in text and "m58-m60 remain planned/provisional" not in text:
                 failures.append("M57-M60 must remain planned/provisional after M56")
         elif self._active_version_tuple() >= (0, 59, 0):
             if "m55 is implemented/released" not in text and "v0.59.0 implements m55" not in text:
@@ -13758,18 +13788,19 @@ class FoundationGateEvaluator:
         if self._active_version_tuple() >= (0, 60, 0):
             if "m56 is implemented/released" not in text and "v0.60.0 implements m56" not in text:
                 failures.append("active docs do not mark M56 implemented/released")
-            if "m57-m60 remain planned/provisional" not in text:
+            if "m57-m60 remain planned/provisional" not in text and "m58-m60 remain planned/provisional" not in text:
                 failures.append("M57-M60 must remain planned/provisional after M56")
         elif "m56-m60 remain planned/provisional" not in text:
             failures.append("M56-M60 must remain planned/provisional after M55")
         forbidden_fragments = [
-            "runtime sandbox architecture is implemented",
             "dry-run execution audit harness is implemented",
             "public github readiness is implemented",
             "production authority is implemented",
             "raw prompt export is implemented",
             "provider payload export is implemented",
         ]
+        if self._active_version_tuple() < (0, 61, 0):
+            forbidden_fragments.append("runtime sandbox architecture is implemented")
         if self._active_version_tuple() < (0, 60, 0):
             forbidden_fragments.extend(
                 [
@@ -14020,7 +14051,7 @@ class FoundationGateEvaluator:
             failures.append("active docs do not identify v0.60.0/M56 Agent Eval Regression Harness")
         if "m56 is implemented/released" not in text and "v0.60.0 implements m56" not in text:
             failures.append("active docs do not mark M56 implemented/released")
-        if "m57-m60 remain planned/provisional" not in text:
+        if "m57-m60 remain planned/provisional" not in text and "m58-m60 remain planned/provisional" not in text:
             failures.append("M57-M60 must remain planned/provisional after M56")
         for fragment in (
             "m57 is implemented",
@@ -14032,8 +14063,246 @@ class FoundationGateEvaluator:
             "eval execution api is implemented",
             "model evaluation calls are implemented",
         ):
+            if self._active_version_tuple() >= (0, 61, 0) and fragment in {
+                "m57 is implemented",
+                "v0.61.0 implements m57",
+                "runtime sandbox architecture is implemented",
+            }:
+                continue
             if fragment in text:
                 failures.append(f"M56 docs imply forbidden/future capability: {fragment}")
+        return self._result(criterion, failures, required_docs)
+
+    def check_m57_runtime_sandbox_architecture_review(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/sandbox/__init__.py",
+            "src/ultimate_ai_agent/core/sandbox/architecture.py",
+            "docs/sandbox/RUNTIME_SANDBOX_ARCHITECTURE_REVIEW.md",
+            "docs/sandbox/RUNTIME_SANDBOX_BOUNDARY_POLICY.md",
+            "docs/sandbox/RUNTIME_SANDBOX_AUTHORITY_BOUNDARY.md",
+            "docs/sandbox/M57_TO_M58_BOUNDARY.md",
+            "tests/test_m57_runtime_sandbox_architecture_review.py",
+            "tests/test_m57_gate_integration.py",
+        ]
+        failures = [
+            f"missing M57 runtime sandbox architecture review file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            from ultimate_ai_agent.core.sandbox import (
+                RuntimeSandboxArchitecturePolicy,
+                RuntimeSandboxArchitectureRequest,
+                RuntimeSandboxArchitectureStatus,
+                build_runtime_sandbox_architecture_review,
+                validate_runtime_sandbox_architecture_policy,
+                validate_runtime_sandbox_architecture_request,
+            )
+
+            request = RuntimeSandboxArchitectureRequest(
+                request_ref="sandbox-review-request:m57-gate",
+                review_ref="sandbox-review:m57-gate",
+                architecture_ref="sandbox-architecture:m57-gate",
+                boundary_refs=["boundary:no-shell-execution", "boundary:no-subprocess"],
+                threat_model_refs=["threat:process-spawn", "threat:filesystem-mutation"],
+                audit_requirement_refs=["audit:dry-run-before-execution"],
+                safe_summary="Gate safe runtime sandbox architecture review.",
+            )
+            review = build_runtime_sandbox_architecture_review(request)
+            if review.status != RuntimeSandboxArchitectureStatus.reviewed:
+                failures.append("M57 runtime sandbox architecture review did not return reviewed status")
+            if (
+                not review.architecture_review_only
+                or review.runtime_sandbox_enabled
+                or review.execution_performed
+                or review.subprocess_performed
+                or review.shell_execution_performed
+                or review.side_effects_performed
+            ):
+                failures.append("M57 runtime sandbox architecture review performed runtime side effects")
+            if review.receipt_plan is None:
+                failures.append("M57 runtime sandbox architecture review did not include no-effect receipt plan")
+            elif review.receipt_plan.side_effects_performed or review.receipt_plan.subprocess_performed:
+                failures.append("M57 runtime sandbox receipt performed side effects")
+            for request_update, reason in [
+                ({"sandbox_runtime_requested": True}, "SANDBOX_RUNTIME_DENIED"),
+                ({"subprocess_execution_requested": True}, "SUBPROCESS_EXECUTION_DENIED"),
+                ({"shell_execution_requested": True}, "SHELL_EXECUTION_DENIED"),
+                ({"process_spawn_requested": True}, "PROCESS_SPAWN_DENIED"),
+                ({"filesystem_mutation_requested": True}, "FILESYSTEM_MUTATION_DENIED"),
+                ({"network_access_requested": True}, "NETWORK_ACCESS_DENIED"),
+                ({"tool_execution_requested": True}, "TOOL_EXECUTION_DENIED"),
+                ({"memory_write_requested": True}, "MEMORY_WRITE_DENIED"),
+                ({"context_injection_requested": True}, "CONTEXT_INJECTION_DENIED"),
+                ({"m58_dry_run_harness_requested": True}, "M58_DRY_RUN_HARNESS_DENIED"),
+            ]:
+                try:
+                    validate_runtime_sandbox_architecture_request(request.model_copy(update=request_update))
+                    failures.append(f"M57 unsafe request mutation was not denied: {reason}")
+                except ValueError as exc:
+                    if reason not in str(exc):
+                        failures.append(f"M57 unsafe request reason drifted for {reason}: {exc}")
+            try:
+                validate_runtime_sandbox_architecture_policy(
+                    RuntimeSandboxArchitecturePolicy(sandbox_runtime_enabled=True)
+                )
+                failures.append("M57 unsafe policy flag was not denied")
+            except ValueError as exc:
+                if "SANDBOX_RUNTIME_DENIED" not in str(exc):
+                    failures.append(f"M57 unsafe policy reason drifted: {exc}")
+        except Exception as exc:
+            failures.append(f"M57 runtime sandbox architecture validation failed: {exc}")
+
+        docs_text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_files
+            if path.startswith("docs/") and (self.root / path).exists()
+        )
+        for fragment in [
+            "runtime sandbox architecture review",
+            "architecture review only",
+            "contract-only",
+            "no sandbox execution",
+            "no subprocess",
+            "no shell execution",
+            "no process spawn",
+            "no file mutation",
+            "no network access",
+            "no tool execution",
+            "no memory write",
+            "no context injection",
+            "no backend route",
+            "no dependency",
+            "no production authority",
+            "m58 remains future",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M57 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m57_runtime_sandbox_static_safety(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        forbidden_source_fragments = [
+            "sandbox_runtime_enabled=True",
+            "subprocess_execution_enabled=True",
+            "shell_execution_enabled=True",
+            "process_spawn_enabled=True",
+            "filesystem_mutation_enabled=True",
+            "network_access_enabled=True",
+            "tool_execution_enabled=True",
+            "browser_automation_enabled=True",
+            "plugin_execution_enabled=True",
+            "remote_execution_enabled=True",
+            "model_call_enabled=True",
+            "memory_write_enabled=True",
+            "context_injection_enabled=True",
+            "side_effects_enabled=True",
+            "production_authority_enabled=True",
+            "m58_dry_run_harness_enabled=True",
+            "subprocess_performed=True",
+            "shell_execution_performed=True",
+            "process_spawn_performed=True",
+            "filesystem_mutation_performed=True",
+            "network_access_performed=True",
+            "subprocess" + ".run(",
+            "subprocess" + ".Popen(",
+            "os.system(",
+            "shell=True",
+            "/sandbox/run",
+            "/sandbox/execute",
+            "/process/spawn",
+            "/subprocess/run",
+            "/shell/execute",
+            "/tools/execute",
+            "/tool-runtime/execute",
+            "/context/inject",
+            "/memory/write",
+        ]
+        allowed_files = {
+            "src/ultimate_ai_agent/api/app.py",
+            "src/ultimate_ai_agent/api/openapi.py",
+            "src/ultimate_ai_agent/core/gate/evaluators.py",
+            "src/ultimate_ai_agent/core/sandbox/architecture.py",
+            "tests/test_m57_runtime_sandbox_architecture_review.py",
+            "tests/test_m57_gate_integration.py",
+        }
+        source_roots = [
+            self.root / "src",
+            self.root / "apps" / "control-center" / "src",
+            self.root / "apps" / "ccc-ios",
+        ]
+        for root in source_roots:
+            if not root.exists():
+                continue
+            candidate_files = []
+            for pattern in ("*.py", "*.ts", "*.tsx", "*.js", "*.jsx", "*.swift", "*.yml", "*.yaml"):
+                candidate_files.extend(root.rglob(pattern))
+            for path in sorted(candidate_files):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(self.root).as_posix()
+                if rel in allowed_files:
+                    continue
+                text = path.read_text(encoding="utf-8")
+                for fragment in forbidden_source_fragments:
+                    if fragment in text:
+                        failures.append(f"M57 forbidden runtime sandbox fragment in {rel}: {fragment}")
+        return self._result(criterion, failures, [])
+
+    def check_m57_runtime_sandbox_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m57_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M57 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m57_roadmap_currentness(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        required_docs = [
+            "README.md",
+            "VERSION.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+            "docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md",
+            "docs/roadmap/MILESTONE_CHARTERS.md",
+        ]
+        failures = [
+            f"missing M57 roadmap doc: {path}"
+            for path in required_docs
+            if not (self.root / path).exists()
+        ]
+        text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_docs
+            if (self.root / path).exists()
+        )
+        if "v0.61.0" not in text or "m57" not in text or "runtime sandbox architecture review" not in text:
+            failures.append("active docs do not identify v0.61.0/M57 Runtime Sandbox Architecture Review")
+        if "m57 is implemented/released" not in text and "v0.61.0 implements m57" not in text:
+            failures.append("active docs do not mark M57 implemented/released")
+        if "m58-m60 remain planned/provisional" not in text:
+            failures.append("M58-M60 must remain planned/provisional after M57")
+        for fragment in (
+            "m58 is implemented",
+            "v0.62.0 implements m58",
+            "dry-run execution audit harness is implemented",
+            "shell execution is implemented",
+            "subprocess execution is implemented",
+            "process spawn is implemented",
+            "public github readiness is implemented",
+            "production authority is implemented",
+        ):
+            if fragment in text:
+                failures.append(f"M57 docs imply forbidden/future capability: {fragment}")
         return self._result(criterion, failures, required_docs)
 
     def check_v0292_local_dev_api_authority_and_preview_safe(
@@ -14475,7 +14744,7 @@ class FoundationGateEvaluator:
                 "m54-m60 remain planned/provisional" not in text
                 and "m55-m60 remain planned/provisional" not in text
                 and "m56-m60 remain planned/provisional" not in text
-                and "m57-m60 remain planned/provisional" not in text
+                and "m57-m60 remain planned/provisional" not in text and "m58-m60 remain planned/provisional" not in text
             ):
                 failures.append("M54-M60 must remain planned/provisional after M53")
         elif self._active_version_tuple() >= (0, 56, 0):
