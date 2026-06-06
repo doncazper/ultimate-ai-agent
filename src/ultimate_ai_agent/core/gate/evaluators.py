@@ -15073,6 +15073,7 @@ class FoundationGateEvaluator:
                 or not report.local_developer_beta_only
                 or report.production_authority_granted
                 or report.public_release_performed
+                or report.external_distribution_performed
                 or report.execution_performed
                 or report.post_m60_autonomy_enabled
                 or report.side_effects_performed
@@ -15120,12 +15121,25 @@ class FoundationGateEvaluator:
             "local developer beta freeze",
             "freeze-only",
             "local developer beta only",
+            "review-only",
             "no public release",
             "no external distribution",
             "no post-m60 autonomy",
             "no production authority",
             "no execution",
+            "no tool execution",
+            "no shell execution",
+            "no network tools",
+            "no browser automation",
+            "no plugin execution",
+            "no mobile sensor access",
+            "no remote execution",
+            "no credential handling",
+            "no memory writes",
+            "no context injection",
+            "no model/provider calls",
             "no backend route",
+            "no control center control",
             "no dependency",
             "m61+ remains future",
         ]:
@@ -15169,11 +15183,14 @@ class FoundationGateEvaluator:
         ]
         allowed_files = {
             "src/ultimate_ai_agent/core/gate/evaluators.py",
+            "src/ultimate_ai_agent/core/tools/runtime/invocation.py",
             "tests/test_m60_local_developer_beta_freeze.py",
             "tests/test_m60_gate_integration.py",
         }
         source_roots = [
-            self.root / "src" / "ultimate_ai_agent" / "core" / "beta_freeze",
+            self.root / "src" / "ultimate_ai_agent",
+            self.root / "apps" / "control-center" / "src",
+            self.root / "apps" / "ccc-ios",
         ]
         for root in source_roots:
             if not root.exists():

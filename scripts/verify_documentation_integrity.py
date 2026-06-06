@@ -3109,12 +3109,23 @@ def _verify_m60_local_developer_beta_freeze_docs(root: Path, version: str | None
         "M60 docs must say Local Developer Beta Freeze": "local developer beta freeze",
         "M60 docs must say freeze-only": "freeze-only",
         "M60 docs must say local developer beta only": "local developer beta only",
+        "M60 docs must say review-only": "review-only",
         "M60 docs must deny public release": "no public release",
         "M60 docs must deny external distribution": "no external distribution",
         "M60 docs must deny post-M60 autonomy": "no post-m60 autonomy",
         "M60 docs must deny production authority": "no production authority",
         "M60 docs must deny execution": "no execution",
+        "M60 docs must deny tool execution": "no tool execution",
+        "M60 docs must deny shell execution": "no shell execution",
+        "M60 docs must deny network tools": "no network tools",
+        "M60 docs must deny browser automation": "no browser automation",
+        "M60 docs must deny plugin execution": "no plugin execution",
+        "M60 docs must deny mobile sensor access": "no mobile sensor access",
+        "M60 docs must deny remote execution": "no remote execution",
         "M60 docs must deny credential handling": "no credential handling",
+        "M60 docs must deny memory writes": "no memory writes",
+        "M60 docs must deny context injection": "no context injection",
+        "M60 docs must deny model/provider calls": "no model/provider calls",
         "M60 docs must deny backend routes": "no backend route",
         "M60 docs must deny Control Center controls": "no control center control",
         "M60 docs must deny dependencies": "no dependency",
@@ -5924,9 +5935,15 @@ def _verify_post_m18_roadmap_status_labels(root: Path) -> list[str]:
             if "v0.63.0" not in active_capability_charters or "m59" not in active_capability_charters or "implemented/released" not in active_capability_charters:
                 failures.append("roadmap sequence must mark M59/v0.63.0 implemented")
             if active >= (0, 64, 0):
-                if "v0.64.0" not in active_capability_charters or "m60" not in active_capability_charters or "implemented/released" not in active_capability_charters:
+                if not re.search(
+                    r"(?:\|\s*)?v0\.64\.0[^\n]*m60[^\n]*implemented/released",
+                    active_capability_charters,
+                ):
                     failures.append("roadmap sequence must mark M60/v0.64.0 implemented")
-            elif "m60 remains planned/provisional" not in active_capability_charters:
+            elif not re.search(
+                r"(?:\|\s*)?v0\.64\.0[^\n]*m60[^\n]*planned/provisional",
+                active_capability_charters,
+            ) and "m60 remains planned/provisional" not in active_capability_charters:
                 failures.append("roadmap sequence must keep M60 planned/provisional")
         elif active >= (0, 62, 0):
             if "v0.53.0" not in active_capability_charters or "m49" not in active_capability_charters or "implemented/released" not in active_capability_charters:

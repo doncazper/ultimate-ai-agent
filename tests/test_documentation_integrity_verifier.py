@@ -216,6 +216,37 @@ def test_documentation_integrity_verifier_rejects_stale_m35_m40_projection(tmp_p
     )
 
 
+def test_documentation_integrity_verifier_requires_m60_status_on_m60_row(tmp_path: Path):
+    _write_minimal_repo(tmp_path, version="0.64.0")
+    charters = tmp_path / "docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md"
+    charters.write_text(
+        "v0.37.0 / M33 - First Safe Local File Read Proposal, Redacted Preview Only. "
+        "Status: implemented.\n"
+        "v0.37.1 / M33 hardening implemented/released.\n"
+        "v0.37.2 / Local Developer Launcher implemented/released.\n"
+        "v0.37.3 / Roadmap Label Alignment implemented/released.\n"
+        "v0.37.4 / Roadmap Supersession Through M60 implemented/released.\n"
+        "v0.53.0 / M49 - Mobile Review Approval Capture, implemented/released.\n"
+        "v0.54.0 / M50 - Mobile Approval Audit Hardening, implemented/released.\n"
+        "v0.55.0 / M51 - OpenWebUI Bridge Adapter Pilot, implemented/released.\n"
+        "v0.56.0 / M52 - OpenWebUI Safe Conversation Surface, implemented/released.\n"
+        "v0.57.0 / M53 - Controlled Tool Expansion Review, implemented/released.\n"
+        "v0.58.0 / M54 - Safe Media Metadata Inspector, implemented/released.\n"
+        "v0.59.0 / M55 - Redacted Observability Export, implemented/released.\n"
+        "v0.60.0 / M56 - Agent Eval Regression Harness, implemented/released.\n"
+        "v0.61.0 / M57 - Runtime Sandbox Architecture Review, implemented/released.\n"
+        "v0.62.0 / M58 - Dry-Run Execution Audit Harness, implemented/released.\n"
+        "v0.63.0 / M59 - Public GitHub Readiness, implemented/released.\n"
+        "v0.64.0 / M60 - Local Developer Beta Freeze, planned/provisional.\n"
+        "M60 implemented/released appears elsewhere but not on the row.\n",
+        encoding="utf-8",
+    )
+
+    failures = verifier._verify_post_m18_roadmap_status_labels(tmp_path)
+
+    assert "roadmap sequence must mark M60/v0.64.0 implemented" in failures
+
+
 def test_documentation_integrity_verifier_requires_m34_review_docs(tmp_path: Path):
     _write_minimal_repo(tmp_path, version="0.38.0")
     _write_m34_m60_active_docs(tmp_path, m34_released=True)

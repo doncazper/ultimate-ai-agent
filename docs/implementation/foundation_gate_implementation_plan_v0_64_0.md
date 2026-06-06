@@ -14,7 +14,7 @@ version pinning, revocation/disable support, and human approval for high-risk ca
 before any runtime use.
 
 M60 adds no public release, external distribution, post-M60 autonomy,
-production authority, execution, tool execution, shell execution, network tool,
+production authority, execution, tool execution, shell execution, network tools,
 browser automation, plugin execution, mobile sensor access, remote execution,
 credential handling, memory writes, context injection, model/provider calls,
 backend routes, Control Center controls, dependencies, M61 work, or production

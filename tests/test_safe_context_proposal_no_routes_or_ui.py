@@ -1,5 +1,6 @@
 from fastapi.testclient import TestClient
 
+from ultimate_ai_agent import __version__
 from ultimate_ai_agent.api.app import app
 
 
@@ -26,7 +27,7 @@ def test_openapi_path_count_remains_at_current_boundary():
     client = TestClient(app)
     data = client.get("/openapi.json").json()
 
-    assert data["info"]["version"] == "0.64.0"
+    assert data["info"]["version"] == __version__
     assert len(data.get("paths", {})) == 75
 
 

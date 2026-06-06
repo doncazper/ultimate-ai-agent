@@ -39,6 +39,7 @@ def test_local_developer_beta_freeze_report_is_review_only_and_no_effect() -> No
     assert report.local_developer_beta_only is True
     assert report.production_authority_granted is False
     assert report.public_release_performed is False
+    assert report.external_distribution_performed is False
     assert report.execution_performed is False
     assert report.post_m60_autonomy_enabled is False
     assert report.side_effects_performed == []

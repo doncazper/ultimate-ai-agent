@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.core.gate import default_foundation_gate_criteria
 from ultimate_ai_agent.core.gate.evaluators import (
@@ -60,3 +62,18 @@ def test_m60_openapi_route_guard_denies_public_and_autonomy_routes() -> None:
     ]:
         assert any(forbidden in failure for failure in failures)
     assert not m60_openapi_route_failures(app.openapi().get("paths", {}))
+
+
+def test_m60_static_gate_scans_broader_source_roots(tmp_path: Path) -> None:
+    src_file = tmp_path / "src/ultimate_ai_agent/post_m60_autonomy.py"
+    src_file.parent.mkdir(parents=True)
+    src_file.write_text("post_m60_autonomy_enabled=True\n", encoding="utf-8")
+
+    evaluator = FoundationGateEvaluator(root=tmp_path)
+    criteria = {criterion.criterion_id: criterion for criterion in default_foundation_gate_criteria()}
+
+    report = evaluator.evaluate([criteria["m60_local_developer_beta_freeze_static_safety"]])
+    result = report.results[0]
+
+    assert result.status == "failed"
+    assert any("post_m60_autonomy_enabled=True" in failure for failure in result.failures)

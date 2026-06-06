@@ -13,10 +13,10 @@ Required checklist refs:
 
 The policy denies all authority expansion. It has no public release, no
 external distribution, no post-M60 autonomy, no production authority, no
-execution, no tool execution, no shell execution, no network tool, no browser
+execution, no tool execution, no shell execution, no network tools, no browser
 automation, no plugin execution, no mobile sensor access, no remote execution,
-no credential handling, no memory write, no context injection, no
-model/provider call, no backend route, no Control Center control, and no
+no credential handling, no memory writes, no context injection, no
+model/provider calls, no backend route, no Control Center control, and no
 dependency.
 
 Policy metadata must be safe review metadata only. Secret-like keys, raw

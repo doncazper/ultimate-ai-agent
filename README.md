@@ -12,19 +12,20 @@ allowed to become operational authority.
 
 | Field | Current state |
 |---|---|
-| Current active baseline | **v0.64.0** |
+| Current active baseline | **v0.64.1** |
 | Current milestone | **M60 - Local Developer Beta Freeze** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **75** OpenAPI paths |
 | Production readiness | Not claimed |
 
-v0.64.0 implements M60 Local Developer Beta Freeze. It adds deterministic local
-developer beta freeze contracts, checklist validation, no-effect receipt-plan
-metadata, tests, documentation-integrity checks, static verification, and
-Foundation Gate coverage. It adds no public release, external distribution,
-post-M60 autonomy, production authority, execution, backend routes, Control
-Center controls, dependencies, M61 work, or production authority.
+v0.64.1 hardens the accepted M60 Local Developer Beta Freeze baseline after
+post-M60 review. It strengthens M60 verifier scope, external-distribution
+no-effect checks, roadmap row anchoring, explicit safety-boundary documentation,
+tests, documentation-integrity checks, static verification, and Foundation Gate
+coverage. It adds no public release, external distribution, post-M60 autonomy,
+production authority, execution, backend routes, Control Center controls,
+dependencies, M61 work, or production authority.
 
 v0.29.5 is documentation policy polish. It remains the documentation
 organization cleanup baseline before the M26 and M27 implementation releases.
@@ -142,8 +143,8 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M27 Tool Broker v2](docs/tools/TOOL_BROKER_V2.md)
 - [M26 Grounded Recall Router](docs/recall/GROUNDED_RECALL_ROUTER.md)
 - [v0.60.0 release notes](docs/release_notes/v0_60_0.md)
-- [v0.64.0 release packet](docs/archive/releases/v0_64_0/README_IMPORT.md)
-- [v0.64.0 master plan](docs/archive/releases/v0_64_0/master_plan.md)
+- [v0.64.1 release packet](docs/archive/releases/v0_64_1/README_IMPORT.md)
+- [v0.64.1 master plan](docs/archive/releases/v0_64_1/master_plan.md)
 
 ## What This Project Is
 
@@ -420,6 +421,7 @@ post-M33 supersession is
 | v0.62.0 | M58 - Dry-Run Execution Audit Harness | Implemented/released dry-run-only |
 | v0.63.0 | M59 - Public GitHub Readiness | Implemented/released review-only |
 | v0.64.0 | M60 - Local Developer Beta Freeze | Implemented/released freeze-only |
+| v0.64.1 | M60 hardening - Post-M60 Stabilization | Implemented/released verifier and documentation hardening |
 
 The roadmap intentionally separates contract planning, validation, preview,
 manual local execution, and future operational authority.
