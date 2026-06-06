@@ -710,5 +710,12 @@ model/provider calls, memory writes, context injection, browser automation,
 plugin execution, remote execution, backend routes, dependencies, production
 authority, or M59 work.
 
-M59 remains planned/provisional as Public GitHub Readiness.
+M59 is implemented/released as Public GitHub Readiness. It adds focused tests
+for deterministic review-only public-readiness policy, request, report, and
+receipt-plan contracts. The tests verify declared safe checklist refs can
+produce readiness reports without GitHub push, release automation, wiki
+automation, artifact upload, external service calls, credential handling,
+network access, backend routes, dependencies, production authority, or M60 work.
+
+M60 remains planned/provisional as Local Developer Beta Freeze.
 ```

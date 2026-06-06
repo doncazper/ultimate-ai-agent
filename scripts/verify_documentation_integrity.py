@@ -328,6 +328,17 @@ REQUIRED_M58_DRY_RUN_AUDIT_DOCS = [
     "docs/implementation/foundation_gate_implementation_plan_v0_62_0.md",
 ]
 
+REQUIRED_M59_PUBLIC_GITHUB_READINESS_DOCS = [
+    "docs/public_readiness/PUBLIC_GITHUB_READINESS.md",
+    "docs/public_readiness/PUBLIC_GITHUB_READINESS_POLICY.md",
+    "docs/public_readiness/PUBLIC_GITHUB_READINESS_AUTHORITY_BOUNDARY.md",
+    "docs/public_readiness/M59_TO_M60_BOUNDARY.md",
+    "docs/release_notes/v0_63_0.md",
+    "docs/archive/releases/v0_63_0/README_IMPORT.md",
+    "docs/archive/releases/v0_63_0/master_plan.md",
+    "docs/implementation/foundation_gate_implementation_plan_v0_63_0.md",
+]
+
 
 REQUIRED_ACTIVE_DOCS = [
     "docs/README.md",
@@ -846,6 +857,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_m56_agent_eval_docs(root, version))
     failures.extend(_verify_m57_runtime_sandbox_docs(root, version))
     failures.extend(_verify_m58_dry_run_audit_docs(root, version))
+    failures.extend(_verify_m59_public_github_readiness_docs(root, version))
     failures.extend(_verify_m19_roadmap_currentness(root, version))
     failures.extend(_verify_post_m18_roadmap_status_labels(root))
 
@@ -1025,8 +1037,21 @@ def _verify_m34_m60_roadmap_supersession(root: Path, version: str | None) -> lis
                                                 "M58 must be released as Dry-Run Execution Audit Harness": (
                                                     "m58 is implemented/released"
                                                 ),
-                                                "M59-M60 must remain planned/provisional": (
-                                                    "m59-m60 remain planned/provisional"
+                                                **(
+                                                    {
+                                                        "M59 must be released as Public GitHub Readiness": (
+                                                            "m59 is implemented/released"
+                                                        ),
+                                                        "M60 must remain planned/provisional": (
+                                                            "m60 remains planned/provisional"
+                                                        ),
+                                                    }
+                                                    if _version_tuple(version) >= (0, 63, 0)
+                                                    else {
+                                                        "M59-M60 must remain planned/provisional": (
+                                                            "m59-m60 remain planned/provisional"
+                                                        ),
+                                                    }
                                                 ),
                                             }
                                             if _version_tuple(version) >= (0, 62, 0)
@@ -2989,6 +3014,61 @@ def _verify_m58_dry_run_audit_docs(root: Path, version: str | None) -> list[str]
     return failures
 
 
+def _verify_m59_public_github_readiness_docs(root: Path, version: str | None) -> list[str]:
+    if _version_tuple(version) < (0, 63, 0):
+        return []
+
+    failures: list[str] = []
+    parts: list[str] = []
+    for rel_path in REQUIRED_M59_PUBLIC_GITHUB_READINESS_DOCS:
+        path = root / rel_path
+        if not path.exists():
+            failures.append(f"missing active M59 public GitHub readiness doc: {rel_path}")
+            continue
+        parts.append(_read(path).lower())
+    text = "\n".join(parts)
+    required_fragments = {
+        "M59 docs must say Public GitHub Readiness": "public github readiness",
+        "M59 docs must say review-only": "review-only",
+        "M59 docs must say contract-only": "contract-only",
+        "M59 docs must deny GitHub push": "no github push",
+        "M59 docs must deny GitHub release": "no github release",
+        "M59 docs must deny wiki automation": "no wiki automation",
+        "M59 docs must deny artifact upload": "no artifact upload",
+        "M59 docs must deny external service": "no external service",
+        "M59 docs must deny credential handling": "no credential handling",
+        "M59 docs must deny network access": "no network access",
+        "M59 docs must deny backend routes": "no backend route",
+        "M59 docs must deny Control Center controls": "no control center control",
+        "M59 docs must deny dependencies": "no dependency",
+        "M59 docs must deny production authority": "no production authority",
+        "M59 docs must keep M60 future": "m60 remains future",
+        "M59 Foundation Gate docs must mention Skill Package Security Rule": (
+            "skill package security rule"
+        ),
+    }
+    for message, fragment in required_fragments.items():
+        if fragment not in text:
+            failures.append(message)
+
+    forbidden_fragments = {
+        "M59 docs must not claim GitHub push implementation": "github push is implemented",
+        "M59 docs must not claim GitHub release automation": (
+            "github release automation is implemented"
+        ),
+        "M59 docs must not claim wiki automation": "wiki automation is implemented",
+        "M59 docs must not claim artifact upload": "artifact upload is implemented",
+        "M59 docs must not claim external service": "external service is implemented",
+        "M59 docs must not claim credential handling": "credential handling is implemented",
+        "M59 docs must not claim production authority": "production authority is implemented",
+        "M59 docs must not claim M60 implementation": "m60 is implemented",
+    }
+    for message, fragment in forbidden_fragments.items():
+        if fragment in text:
+            failures.append(f"{message}: {fragment}")
+    return failures
+
+
 def _verify_m19_roadmap_currentness(root: Path, version: str | None) -> list[str]:
     failures: list[str] = []
     if _version_tuple(version) < (0, 23, 1):
@@ -4761,7 +4841,65 @@ def _verify_post_m20_roadmap_projection(root: Path) -> list[str]:
         expectations["M40 must be Context Handoff Approval, No Injection"] = (
             "context handoff approval, no injection"
         )
-        if active_version_tuple >= (0, 62, 0):
+        if active_version_tuple >= (0, 63, 0):
+            expectations["Post-M20 roadmap docs must say M42 is implemented/released"] = (
+                "m42 is implemented/released"
+            )
+            expectations["Post-M20 roadmap docs must say M43 is implemented/released"] = (
+                "m43 is implemented/released"
+            )
+            expectations["Post-M20 roadmap docs must say M44 is implemented/released"] = (
+                "m44 is implemented/released"
+            )
+            expectations["Post-M20 roadmap docs must say M45 is implemented/released"] = (
+                "m45 is implemented/released"
+            )
+            expectations["Post-M20 roadmap docs must say M46 is implemented/released"] = (
+                "m46 is implemented/released"
+            )
+            expectations["Post-M20 roadmap docs must say M47 is implemented/released"] = (
+                "m47 is implemented/released"
+            )
+            expectations["Post-M20 roadmap docs must say M48 is implemented/released"] = (
+                "m48 is implemented/released"
+            )
+            expectations["Post-M20 roadmap docs must say M49 is implemented/released"] = (
+                "m49 is implemented/released"
+            )
+            expectations["Post-M20 roadmap docs must say M50 is implemented/released"] = (
+                "m50 is implemented/released"
+            )
+            expectations["Post-M20 roadmap docs must say M51 is implemented/released"] = (
+                "m51 is implemented/released"
+            )
+            expectations["Post-M20 roadmap docs must say M52 is implemented/released"] = (
+                "m52 is implemented/released"
+            )
+            expectations["Post-M20 roadmap docs must say M53 is implemented/released"] = (
+                "m53 is implemented/released"
+            )
+            expectations["Post-M20 roadmap docs must say M54 is implemented/released"] = (
+                "m54 is implemented/released"
+            )
+            expectations["Post-M20 roadmap docs must say M55 is implemented/released"] = (
+                "m55 is implemented/released"
+            )
+            expectations["Post-M20 roadmap docs must say M56 is implemented/released"] = (
+                "m56 is implemented/released"
+            )
+            expectations["Post-M20 roadmap docs must say M57 is implemented/released"] = (
+                "m57 is implemented/released"
+            )
+            expectations["Post-M20 roadmap docs must say M58 is implemented/released"] = (
+                "m58 is implemented/released"
+            )
+            expectations["Post-M20 roadmap docs must say M59 is implemented/released"] = (
+                "m59 is implemented/released"
+            )
+            expectations["Post-M20 roadmap docs must keep M60 planned/provisional"] = (
+                "m60 remains planned/provisional"
+            )
+        elif active_version_tuple >= (0, 62, 0):
             expectations["Post-M20 roadmap docs must say M42 is implemented/released"] = (
                 "m42 is implemented/released"
             )
@@ -5686,7 +5824,32 @@ def _verify_post_m18_roadmap_status_labels(root: Path) -> list[str]:
             or "redacted preview" not in active_capability_charters
         ):
             failures.append("roadmap sequence must define M33 as redacted file preview")
-        if active >= (0, 62, 0):
+        if active >= (0, 63, 0):
+            if "v0.53.0" not in active_capability_charters or "m49" not in active_capability_charters or "implemented/released" not in active_capability_charters:
+                failures.append("roadmap sequence must mark M49/v0.53.0 implemented")
+            if "v0.54.0" not in active_capability_charters or "m50" not in active_capability_charters or "implemented/released" not in active_capability_charters:
+                failures.append("roadmap sequence must mark M50/v0.54.0 implemented")
+            if "v0.55.0" not in active_capability_charters or "m51" not in active_capability_charters or "implemented/released" not in active_capability_charters:
+                failures.append("roadmap sequence must mark M51/v0.55.0 implemented")
+            if "v0.56.0" not in active_capability_charters or "m52" not in active_capability_charters or "implemented/released" not in active_capability_charters:
+                failures.append("roadmap sequence must mark M52/v0.56.0 implemented")
+            if "v0.57.0" not in active_capability_charters or "m53" not in active_capability_charters or "implemented/released" not in active_capability_charters:
+                failures.append("roadmap sequence must mark M53/v0.57.0 implemented")
+            if "v0.58.0" not in active_capability_charters or "m54" not in active_capability_charters or "implemented/released" not in active_capability_charters:
+                failures.append("roadmap sequence must mark M54/v0.58.0 implemented")
+            if "v0.59.0" not in active_capability_charters or "m55" not in active_capability_charters or "implemented/released" not in active_capability_charters:
+                failures.append("roadmap sequence must mark M55/v0.59.0 implemented")
+            if "v0.60.0" not in active_capability_charters or "m56" not in active_capability_charters or "implemented/released" not in active_capability_charters:
+                failures.append("roadmap sequence must mark M56/v0.60.0 implemented")
+            if "v0.61.0" not in active_capability_charters or "m57" not in active_capability_charters or "implemented/released" not in active_capability_charters:
+                failures.append("roadmap sequence must mark M57/v0.61.0 implemented")
+            if "v0.62.0" not in active_capability_charters or "m58" not in active_capability_charters or "implemented/released" not in active_capability_charters:
+                failures.append("roadmap sequence must mark M58/v0.62.0 implemented")
+            if "v0.63.0" not in active_capability_charters or "m59" not in active_capability_charters or "implemented/released" not in active_capability_charters:
+                failures.append("roadmap sequence must mark M59/v0.63.0 implemented")
+            if "m60 remains planned/provisional" not in active_capability_charters:
+                failures.append("roadmap sequence must keep M60 planned/provisional")
+        elif active >= (0, 62, 0):
             if "v0.53.0" not in active_capability_charters or "m49" not in active_capability_charters or "implemented/released" not in active_capability_charters:
                 failures.append("roadmap sequence must mark M49/v0.53.0 implemented")
             if "v0.54.0" not in active_capability_charters or "m50" not in active_capability_charters or "implemented/released" not in active_capability_charters:

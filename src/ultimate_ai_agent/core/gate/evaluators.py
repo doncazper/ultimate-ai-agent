@@ -880,6 +880,17 @@ M58_FORBIDDEN_BACKEND_ROUTES = M57_FORBIDDEN_BACKEND_ROUTES + (
     "/execution/dry-run/run",
     "/execution/dry-run/execute",
 )
+EXPECTED_M59_OPENAPI_PATH_COUNT = 75
+M59_FORBIDDEN_BACKEND_ROUTES = M58_FORBIDDEN_BACKEND_ROUTES + (
+    "/github/publish",
+    "/github/release",
+    "/github/wiki/update",
+    "/github/wiki/publish",
+    "/public/artifacts/upload",
+    "/public/release/publish",
+    "/public/github/publish",
+    "/release/upload",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -1500,6 +1511,19 @@ def m58_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
     return failures
 
 
+def m59_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M59_OPENAPI_PATH_COUNT) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+    if M37_ALLOWED_CAPTURE_ROUTE not in path_set:
+        failures.append("M37 capture route missing: /files/review/approvals/capture")
+    for route in M59_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(f"M59 forbidden public publication/backend route present: {route}")
+    return failures
+
+
 M36_SAFE_REF_PREFIXES = {
     "reviewPacketRef": "file-review-packet:",
     "previewResultRef": "redacted-file-preview-output:",
@@ -1966,6 +1990,14 @@ class FoundationGateEvaluator:
             "m58_dry_run_execution_static_safety": self.check_m58_dry_run_execution_static_safety,
             "m58_dry_run_execution_route_boundary": self.check_m58_dry_run_execution_route_boundary,
             "m58_roadmap_currentness": self.check_m58_roadmap_currentness,
+            "m59_public_github_readiness_review": self.check_m59_public_github_readiness_review,
+            "m59_public_github_readiness_static_safety": (
+                self.check_m59_public_github_readiness_static_safety
+            ),
+            "m59_public_github_readiness_route_boundary": (
+                self.check_m59_public_github_readiness_route_boundary
+            ),
+            "m59_roadmap_currentness": self.check_m59_roadmap_currentness,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -9297,6 +9329,7 @@ class FoundationGateEvaluator:
                 and "m57-m60 remain planned/provisional" not in text
                 and "m58-m60 remain planned/provisional" not in text
                 and "m59-m60 remain planned/provisional" not in text
+                and "m60 remains planned/provisional" not in text
             ):
                 failures.append("M42-M60 through M49-M60 planned/provisional marker missing after M41")
         elif current_tuple >= (0, 44, 0):
@@ -9607,6 +9640,7 @@ class FoundationGateEvaluator:
                 and "m57-m60 remain planned/provisional" not in text
                 and "m58-m60 remain planned/provisional" not in text
                 and "m59-m60 remain planned/provisional" not in text
+                and "m60 remains planned/provisional" not in text
             ):
                 failures.append("M42-M60 through M49-M60 planned/provisional marker missing after M41")
         elif version_tuple >= (0, 44, 0):
@@ -9790,6 +9824,7 @@ class FoundationGateEvaluator:
                 and "m57-m60 remain planned/provisional" not in text
                 and "m58-m60 remain planned/provisional" not in text
                 and "m59-m60 remain planned/provisional" not in text
+                and "m60 remains planned/provisional" not in text
             ):
                 failures.append("M42-M60 through M49-M60 planned/provisional marker missing after M41")
         elif version_tuple >= (0, 44, 0):
@@ -9949,6 +9984,7 @@ class FoundationGateEvaluator:
                 and "m57-m60 remain planned/provisional" not in text
                 and "m58-m60 remain planned/provisional" not in text
                 and "m59-m60 remain planned/provisional" not in text
+                and "m60 remains planned/provisional" not in text
             ):
                 failures.append("M42-M60 through M49-M60 planned/provisional marker missing after M41")
         elif version_tuple >= (0, 44, 0):
@@ -10224,6 +10260,7 @@ class FoundationGateEvaluator:
                 and "m57-m60 remain planned/provisional" not in text
                 and "m58-m60 remain planned/provisional" not in text
                 and "m59-m60 remain planned/provisional" not in text
+                and "m60 remains planned/provisional" not in text
             ):
                 failures.append("M42-M60 through M49-M60 planned/provisional marker missing after M41")
         elif current >= (0, 44, 0):
@@ -10384,6 +10421,7 @@ class FoundationGateEvaluator:
                 and "m57-m60 remain planned/provisional" not in text
                 and "m58-m60 remain planned/provisional" not in text
                 and "m59-m60 remain planned/provisional" not in text
+                and "m60 remains planned/provisional" not in text
             ):
                 failures.append("M42-M60 through M49-M60 planned/provisional marker missing after M41")
         elif m40_implemented:
@@ -10618,6 +10656,7 @@ class FoundationGateEvaluator:
                 and "m57-m60 remain planned/provisional" not in text
                 and "m58-m60 remain planned/provisional" not in text
                 and "m59-m60 remain planned/provisional" not in text
+                and "m60 remains planned/provisional" not in text
             ):
                 failures.append("M42-M60 through M49-M60 planned/provisional marker missing after M41")
         elif "m41 remains planned/provisional" not in text and "m41-m60 remain planned/provisional" not in text:
@@ -12297,6 +12336,7 @@ class FoundationGateEvaluator:
                 and "m57-m60 remain planned/provisional" not in text
                 and "m58-m60 remain planned/provisional" not in text
                 and "m59-m60 remain planned/provisional" not in text
+                and "m60 remains planned/provisional" not in text
             ):
                 failures.append("M54-M60 must remain planned/provisional after M53")
         elif self._active_version_tuple() >= (0, 56, 0):
@@ -12560,6 +12600,7 @@ class FoundationGateEvaluator:
                 and "m57-m60 remain planned/provisional" not in text
                 and "m58-m60 remain planned/provisional" not in text
                 and "m59-m60 remain planned/provisional" not in text
+                and "m60 remains planned/provisional" not in text
             ):
                 failures.append("M54-M60 must remain planned/provisional after M53")
         elif self._active_version_tuple() >= (0, 56, 0):
@@ -12807,6 +12848,7 @@ class FoundationGateEvaluator:
                 and "m57-m60 remain planned/provisional" not in text
                 and "m58-m60 remain planned/provisional" not in text
                 and "m59-m60 remain planned/provisional" not in text
+                and "m60 remains planned/provisional" not in text
             ):
                 failures.append("M54-M60 must remain planned/provisional after M53")
         elif self._active_version_tuple() >= (0, 56, 0):
@@ -13072,6 +13114,7 @@ class FoundationGateEvaluator:
                 and "m57-m60 remain planned/provisional" not in text
                 and "m58-m60 remain planned/provisional" not in text
                 and "m59-m60 remain planned/provisional" not in text
+                and "m60 remains planned/provisional" not in text
             ):
                 failures.append("M54-M60 must remain planned/provisional after M53")
         else:
@@ -13319,6 +13362,7 @@ class FoundationGateEvaluator:
                 and "m57-m60 remain planned/provisional" not in text
                 and "m58-m60 remain planned/provisional" not in text
                 and "m59-m60 remain planned/provisional" not in text
+                and "m60 remains planned/provisional" not in text
         ):
             failures.append("M54-M60 must remain planned/provisional after M53")
         forbidden_fragments = [
@@ -13549,7 +13593,20 @@ class FoundationGateEvaluator:
             failures.append("active docs do not identify v0.58.0/M54 Safe Media Metadata Inspector")
         if "m54 is implemented/released" not in text and "v0.58.0 implements m54" not in text:
             failures.append("active docs do not mark M54 implemented/released")
-        if self._active_version_tuple() >= (0, 62, 0):
+        if self._active_version_tuple() >= (0, 63, 0):
+            if "m55 is implemented/released" not in text and "v0.59.0 implements m55" not in text:
+                failures.append("active docs do not mark M55 implemented/released")
+            if "m56 is implemented/released" not in text and "v0.60.0 implements m56" not in text:
+                failures.append("active docs do not mark M56 implemented/released")
+            if "m57 is implemented/released" not in text and "v0.61.0 implements m57" not in text:
+                failures.append("active docs do not mark M57 implemented/released")
+            if "m58 is implemented/released" not in text and "v0.62.0 implements m58" not in text:
+                failures.append("active docs do not mark M58 implemented/released")
+            if "m59 is implemented/released" not in text and "v0.63.0 implements m59" not in text:
+                failures.append("active docs do not mark M59 implemented/released")
+            if "m60 remains planned/provisional" not in text:
+                failures.append("M60 must remain planned/provisional after M59")
+        elif self._active_version_tuple() >= (0, 62, 0):
             if "m55 is implemented/released" not in text and "v0.59.0 implements m55" not in text:
                 failures.append("active docs do not mark M55 implemented/released")
             if "m56 is implemented/released" not in text and "v0.60.0 implements m56" not in text:
@@ -13850,7 +13907,18 @@ class FoundationGateEvaluator:
             failures.append("active docs do not identify v0.59.0/M55 Redacted Observability Export")
         if "m55 is implemented/released" not in text and "v0.59.0 implements m55" not in text:
             failures.append("active docs do not mark M55 implemented/released")
-        if self._active_version_tuple() >= (0, 62, 0):
+        if self._active_version_tuple() >= (0, 63, 0):
+            if "m56 is implemented/released" not in text and "v0.60.0 implements m56" not in text:
+                failures.append("active docs do not mark M56 implemented/released")
+            if "m57 is implemented/released" not in text and "v0.61.0 implements m57" not in text:
+                failures.append("active docs do not mark M57 implemented/released")
+            if "m58 is implemented/released" not in text and "v0.62.0 implements m58" not in text:
+                failures.append("active docs do not mark M58 implemented/released")
+            if "m59 is implemented/released" not in text and "v0.63.0 implements m59" not in text:
+                failures.append("active docs do not mark M59 implemented/released")
+            if "m60 remains planned/provisional" not in text:
+                failures.append("M60 must remain planned/provisional after M59")
+        elif self._active_version_tuple() >= (0, 62, 0):
             if "m56 is implemented/released" not in text and "v0.60.0 implements m56" not in text:
                 failures.append("active docs do not mark M56 implemented/released")
             if "m57 is implemented/released" not in text and "v0.61.0 implements m57" not in text:
@@ -13873,6 +13941,8 @@ class FoundationGateEvaluator:
             "raw prompt export is implemented",
             "provider payload export is implemented",
         ]
+        if self._active_version_tuple() >= (0, 63, 0):
+            forbidden_fragments.remove("public github readiness is implemented")
         if self._active_version_tuple() < (0, 61, 0):
             forbidden_fragments.append("runtime sandbox architecture is implemented")
         if self._active_version_tuple() < (0, 60, 0):
@@ -14125,7 +14195,16 @@ class FoundationGateEvaluator:
             failures.append("active docs do not identify v0.60.0/M56 Agent Eval Regression Harness")
         if "m56 is implemented/released" not in text and "v0.60.0 implements m56" not in text:
             failures.append("active docs do not mark M56 implemented/released")
-        if self._active_version_tuple() >= (0, 62, 0):
+        if self._active_version_tuple() >= (0, 63, 0):
+            if "m57 is implemented/released" not in text and "v0.61.0 implements m57" not in text:
+                failures.append("active docs do not mark M57 implemented/released")
+            if "m58 is implemented/released" not in text and "v0.62.0 implements m58" not in text:
+                failures.append("active docs do not mark M58 implemented/released")
+            if "m59 is implemented/released" not in text and "v0.63.0 implements m59" not in text:
+                failures.append("active docs do not mark M59 implemented/released")
+            if "m60 remains planned/provisional" not in text:
+                failures.append("M60 must remain planned/provisional after M59")
+        elif self._active_version_tuple() >= (0, 62, 0):
             if "m57 is implemented/released" not in text and "v0.61.0 implements m57" not in text:
                 failures.append("active docs do not mark M57 implemented/released")
             if "m58 is implemented/released" not in text and "v0.62.0 implements m58" not in text:
@@ -14149,6 +14228,8 @@ class FoundationGateEvaluator:
                 "v0.61.0 implements m57",
                 "runtime sandbox architecture is implemented",
             }:
+                continue
+            if self._active_version_tuple() >= (0, 63, 0) and fragment == "public github readiness is implemented":
                 continue
             if fragment in text:
                 failures.append(f"M56 docs imply forbidden/future capability: {fragment}")
@@ -14370,7 +14451,20 @@ class FoundationGateEvaluator:
             failures.append("active docs do not identify v0.61.0/M57 Runtime Sandbox Architecture Review")
         if "m57 is implemented/released" not in text and "v0.61.0 implements m57" not in text:
             failures.append("active docs do not mark M57 implemented/released")
-        if self._active_version_tuple() >= (0, 62, 0):
+        if self._active_version_tuple() >= (0, 63, 0):
+            if "m58 is implemented/released" not in text and "v0.62.0 implements m58" not in text:
+                failures.append("active docs do not mark M58 implemented/released")
+            if "m59 is implemented/released" not in text and "v0.63.0 implements m59" not in text:
+                failures.append("active docs do not mark M59 implemented/released")
+            if "m60 remains planned/provisional" not in text:
+                failures.append("M60 must remain planned/provisional after M59")
+            forbidden_fragments = (
+                "shell execution is implemented",
+                "subprocess execution is implemented",
+                "process spawn is implemented",
+                "production authority is implemented",
+            )
+        elif self._active_version_tuple() >= (0, 62, 0):
             if "m58 is implemented/released" not in text and "v0.62.0 implements m58" not in text:
                 failures.append("active docs do not mark M58 implemented/released")
             if "m59-m60 remain planned/provisional" not in text:
@@ -14629,7 +14723,12 @@ class FoundationGateEvaluator:
             failures.append("active docs do not identify v0.62.0/M58 Dry-Run Execution Audit Harness")
         if "m58 is implemented/released" not in text and "v0.62.0 implements m58" not in text:
             failures.append("active docs do not mark M58 implemented/released")
-        if "m59-m60 remain planned/provisional" not in text:
+        if self._active_version_tuple() >= (0, 63, 0):
+            if "m59 is implemented/released" not in text and "v0.63.0 implements m59" not in text:
+                failures.append("active docs do not mark M59 implemented/released")
+            if "m60 remains planned/provisional" not in text:
+                failures.append("M60 must remain planned/provisional after M59")
+        elif "m59-m60 remain planned/provisional" not in text:
             failures.append("M59-M60 must remain planned/provisional after M58")
         for fragment in (
             "m59 is implemented",
@@ -14641,8 +14740,238 @@ class FoundationGateEvaluator:
             "production authority is implemented",
             "real execution is implemented",
         ):
+            if self._active_version_tuple() >= (0, 63, 0) and fragment in {
+                "m59 is implemented",
+                "v0.63.0 implements m59",
+                "public github readiness is implemented",
+            }:
+                continue
             if fragment in text:
                 failures.append(f"M58 docs imply forbidden/future capability: {fragment}")
+        return self._result(criterion, failures, required_docs)
+
+    def check_m59_public_github_readiness_review(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/public_readiness/__init__.py",
+            "src/ultimate_ai_agent/core/public_readiness/review.py",
+            "docs/public_readiness/PUBLIC_GITHUB_READINESS.md",
+            "docs/public_readiness/PUBLIC_GITHUB_READINESS_POLICY.md",
+            "docs/public_readiness/PUBLIC_GITHUB_READINESS_AUTHORITY_BOUNDARY.md",
+            "docs/public_readiness/M59_TO_M60_BOUNDARY.md",
+            "tests/test_m59_public_github_readiness.py",
+            "tests/test_m59_gate_integration.py",
+        ]
+        failures = [
+            f"missing M59 public GitHub readiness file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            from ultimate_ai_agent.core.public_readiness import (
+                PublicGitHubReadinessPolicy,
+                PublicGitHubReadinessRequest,
+                PublicGitHubReadinessStatus,
+                build_public_github_readiness_report,
+                validate_public_github_readiness_policy,
+                validate_public_github_readiness_request,
+            )
+
+            request = PublicGitHubReadinessRequest(
+                request_ref="public-readiness-request:m59-gate",
+                readiness_ref="public-readiness:m59-gate",
+                repository_ref="repo:ultimate-ai-agent",
+                baseline_ref="baseline:v0.63.0",
+                actor_ref="actor:gate-reviewer",
+                checklist_refs=[
+                    "readiness:docs-current",
+                    "readiness:secret-hygiene",
+                    "readiness:artifact-hygiene",
+                    "readiness:route-boundary",
+                    "readiness:dependency-boundary",
+                ],
+                safe_summary="Gate safe public GitHub readiness review.",
+            )
+            report = build_public_github_readiness_report(request)
+            if report.status != PublicGitHubReadinessStatus.reviewed:
+                failures.append("M59 public readiness report did not return reviewed status")
+            if (
+                not report.review_only
+                or report.publication_performed
+                or report.github_push_performed
+                or report.github_release_performed
+                or report.wiki_automation_performed
+                or report.external_service_performed
+                or report.production_authority_granted
+                or report.side_effects_performed
+            ):
+                failures.append("M59 public readiness report performed publication or authority side effects")
+            if report.receipt_plan is None:
+                failures.append("M59 public readiness report did not include no-effect receipt plan")
+            elif report.receipt_plan.publication_performed or report.receipt_plan.side_effects_performed:
+                failures.append("M59 public readiness receipt performed publication side effects")
+            for request_update, reason in [
+                ({"publication_requested": True}, "PUBLICATION_DENIED"),
+                ({"github_push_requested": True}, "GITHUB_PUSH_DENIED"),
+                ({"github_release_requested": True}, "GITHUB_RELEASE_DENIED"),
+                ({"wiki_automation_requested": True}, "WIKI_AUTOMATION_DENIED"),
+                ({"artifact_upload_requested": True}, "ARTIFACT_UPLOAD_DENIED"),
+                ({"credential_handling_requested": True}, "CREDENTIAL_HANDLING_DENIED"),
+                ({"production_authority_requested": True}, "PRODUCTION_AUTHORITY_DENIED"),
+            ]:
+                mutated_request = request.model_copy(update=request_update)
+                try:
+                    validate_public_github_readiness_request(mutated_request)
+                    failures.append(f"M59 unsafe public readiness mutation was not denied: {reason}")
+                except ValueError as exc:
+                    if reason not in str(exc):
+                        failures.append(f"M59 unsafe public readiness reason drifted for {reason}: {exc}")
+            try:
+                validate_public_github_readiness_policy(
+                    PublicGitHubReadinessPolicy(github_push_enabled=True)
+                )
+                failures.append("M59 unsafe public readiness policy flag was not denied")
+            except ValueError as exc:
+                if "GITHUB_PUSH_DENIED" not in str(exc):
+                    failures.append(f"M59 unsafe policy reason drifted: {exc}")
+        except Exception as exc:
+            failures.append(f"M59 public GitHub readiness validation failed: {exc}")
+
+        docs_text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_files
+            if path.startswith("docs/") and (self.root / path).exists()
+        )
+        for fragment in [
+            "public github readiness",
+            "review-only",
+            "contract-only",
+            "no github push",
+            "no github release",
+            "no wiki automation",
+            "no artifact upload",
+            "no external service",
+            "no credential handling",
+            "no production authority",
+            "no backend route",
+            "no dependency",
+            "m60 remains future",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M59 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m59_public_github_readiness_static_safety(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        forbidden_source_fragments = [
+            "publication_enabled=True",
+            "github_push_enabled=True",
+            "github_release_enabled=True",
+            "wiki_automation_enabled=True",
+            "artifact_upload_enabled=True",
+            "external_service_enabled=True",
+            "credential_handling_enabled=True",
+            "network_access_enabled=True",
+            "production_authority_enabled=True",
+            "m60_beta_freeze_enabled=True",
+            "publication_performed=True",
+            "github_push_performed=True",
+            "github_release_performed=True",
+            "wiki_automation_performed=True",
+            "artifact_upload_performed=True",
+            "external_service_performed=True",
+            "production_authority_granted=True",
+            "/github/publish",
+            "/github/release",
+            "/github/wiki/update",
+            "/public/artifacts/upload",
+            "/public/release/publish",
+            "/release/upload",
+            "subprocess" + ".run(",
+            "subprocess" + ".Popen(",
+            "os.system(",
+            "shell=True",
+        ]
+        allowed_files = {
+            "src/ultimate_ai_agent/core/gate/evaluators.py",
+            "src/ultimate_ai_agent/core/public_readiness/review.py",
+            "tests/test_m59_public_github_readiness.py",
+            "tests/test_m59_gate_integration.py",
+        }
+        source_roots = [
+            self.root / "src",
+            self.root / "apps" / "control-center" / "src",
+            self.root / "apps" / "ccc-ios",
+        ]
+        for root in source_roots:
+            if not root.exists():
+                continue
+            candidate_files = []
+            for pattern in ("*.py", "*.ts", "*.tsx", "*.js", "*.jsx", "*.swift", "*.yml", "*.yaml"):
+                candidate_files.extend(root.rglob(pattern))
+            for path in sorted(candidate_files):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(self.root).as_posix()
+                if rel in allowed_files:
+                    continue
+                text = path.read_text(encoding="utf-8")
+                for fragment in forbidden_source_fragments:
+                    if fragment in text:
+                        failures.append(f"M59 forbidden public readiness fragment in {rel}: {fragment}")
+        return self._result(criterion, failures, [])
+
+    def check_m59_public_github_readiness_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m59_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M59 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m59_roadmap_currentness(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        required_docs = [
+            "README.md",
+            "VERSION.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+            "docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md",
+            "docs/roadmap/MILESTONE_CHARTERS.md",
+        ]
+        failures = [
+            f"missing M59 roadmap doc: {path}"
+            for path in required_docs
+            if not (self.root / path).exists()
+        ]
+        text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_docs
+            if (self.root / path).exists()
+        )
+        if "v0.63.0" not in text or "m59" not in text or "public github readiness" not in text:
+            failures.append("active docs do not identify v0.63.0/M59 Public GitHub Readiness")
+        if "m59 is implemented/released" not in text and "v0.63.0 implements m59" not in text:
+            failures.append("active docs do not mark M59 implemented/released")
+        if "m60 remains planned/provisional" not in text:
+            failures.append("M60 must remain planned/provisional after M59")
+        for fragment in (
+            "m60 is implemented",
+            "v0.64.0 implements m60",
+            "local developer beta freeze is implemented",
+            "production authority is implemented",
+            "github publish automation is implemented",
+            "wiki automation is implemented",
+        ):
+            if fragment in text:
+                failures.append(f"M59 docs imply forbidden/future capability: {fragment}")
         return self._result(criterion, failures, required_docs)
 
     def check_v0292_local_dev_api_authority_and_preview_safe(
@@ -15087,6 +15416,7 @@ class FoundationGateEvaluator:
                 and "m57-m60 remain planned/provisional" not in text
                 and "m58-m60 remain planned/provisional" not in text
                 and "m59-m60 remain planned/provisional" not in text
+                and "m60 remains planned/provisional" not in text
             ):
                 failures.append("M54-M60 must remain planned/provisional after M53")
         elif self._active_version_tuple() >= (0, 56, 0):

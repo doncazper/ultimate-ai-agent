@@ -1,15 +1,14 @@
 # Ultimate AI Agent Version
 
-Current active baseline: **v0.62.0**
+Current active baseline: **v0.63.0**
 
-v0.62.0 implements M58 Dry-Run Execution Audit Harness. It adds deterministic
-local contract-only dry-run execution audit contracts, safe policy checks,
-intent/request/report/entry/receipt-plan generation, tests, documentation,
+v0.63.0 implements M59 Public GitHub Readiness. It adds deterministic local
+review-only public-readiness contracts, safe policy checks,
+request/report/receipt-plan generation, tests, documentation,
 documentation-integrity checks, static verification, and Foundation Gate
 coverage.
 
-It adds no real execution, tool execution, subprocess execution, shell
-execution, process spawn, file mutation, network access, model/provider calls,
-memory writes, context injection, browser automation, plugin execution, remote
-execution, backend routes, Control Center controls, dependencies, production
-authority, or M59 implementation.
+It adds no GitHub push, GitHub release automation, wiki automation, artifact
+upload, external service calls, credential handling, network access, backend
+routes, Control Center controls, dependencies, production authority, M60
+implementation, or post-M60 autonomy.

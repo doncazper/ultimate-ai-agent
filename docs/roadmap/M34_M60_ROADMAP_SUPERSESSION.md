@@ -1,6 +1,6 @@
 # M34-M60 Roadmap Supersession
 
-Status: Active roadmap source of truth through v0.62.0.
+Status: Active roadmap source of truth through v0.63.0.
 
 v0.38.0 implements M34 Broader File Capability Review as planning,
 architecture review, documentation, verifier, and Foundation Gate work only.
@@ -23,7 +23,7 @@ file review records. v0.43.0 implements M39 CCC Context Proposal Surface as a
 frontend-only review surface. v0.44.0 implements M40 Context Handoff Approval,
 No Injection as contract-only approval decisions with exact proposal binding.
 v0.45.0 implements M41 Local Prototype Safety Freeze as a docs/verifier/Gate
-safety freeze before mobile work resumes. v0.46.0 implements M42 Mobile Companion Product Contract Refresh as planning/docs/contracts/verifier work only. v0.47.0 implements M43 Mobile API Boundary, Read-Only as contract-only boundary work. v0.48.0 implements M44 CCC iOS Skeleton, No Authority as source-only, mock-only, read-only, non-authoritative SwiftUI skeleton work. v0.48.1 hardens the M44 verifier allowance for that reviewed source-only skeleton. v0.49.0 implements M45 CCC iOS Local Read-Only Connection as local-only, loopback-only, read-only contract/status work with no runtime network call. v0.50.0 implements M46 iOS Review/Receipt Read-Only Surfaces as source-only, read-only redacted summary display work. v0.51.0 implements M47 TestFlight Pipeline, Internal Only as internal-only, contract/checklist-only pipeline planning work. v0.52.0 implements M48 First Internal TestFlight Build as an internal-only, review-only build candidate record with no committed build artifact, upload, signing material, external beta, or production authority. v0.53.0 implements M49 Mobile Review Approval Capture as exact-scope, review-only, safe-ref-only core contracts with no backend mobile approval route, native approval capture UI, sensor access, context injection, memory write, export, execution, or production authority. v0.54.0 implements M50 Mobile Approval Audit Hardening as deterministic, review-only, safe-ref-only audit reports over M49 mobile review approval capture records with no raw content, context injection, memory write, export, execution, mobile sensor access, background collection, backend audit route, native audit UI, dependency, OpenWebUI bridge implementation, or production authority. v0.55.0 implements M51 OpenWebUI Bridge Adapter Pilot as a deterministic safe-summary adapter boundary. v0.56.0 implements M52 OpenWebUI Safe Conversation Surface as a deterministic safe-summary conversation surface with no OpenWebUI runtime call, provider/model call, model authority, tool execution, memory write, context injection, backend route, dependency, M53 implementation, or production authority.
+safety freeze before mobile work resumes. v0.46.0 implements M42 Mobile Companion Product Contract Refresh as planning/docs/contracts/verifier work only. v0.47.0 implements M43 Mobile API Boundary, Read-Only as contract-only boundary work. v0.48.0 implements M44 CCC iOS Skeleton, No Authority as source-only, mock-only, read-only, non-authoritative SwiftUI skeleton work. v0.48.1 hardens the M44 verifier allowance for that reviewed source-only skeleton. v0.49.0 implements M45 CCC iOS Local Read-Only Connection as local-only, loopback-only, read-only contract/status work with no runtime network call. v0.50.0 implements M46 iOS Review/Receipt Read-Only Surfaces as source-only, read-only redacted summary display work. v0.51.0 implements M47 TestFlight Pipeline, Internal Only as internal-only, contract/checklist-only pipeline planning work. v0.52.0 implements M48 First Internal TestFlight Build as an internal-only, review-only build candidate record with no committed build artifact, upload, signing material, external beta, or production authority. v0.53.0 implements M49 Mobile Review Approval Capture as exact-scope, review-only, safe-ref-only core contracts with no backend mobile approval route, native approval capture UI, sensor access, context injection, memory write, export, execution, or production authority. v0.54.0 implements M50 Mobile Approval Audit Hardening as deterministic, review-only, safe-ref-only audit reports over M49 mobile review approval capture records with no raw content, context injection, memory write, export, execution, mobile sensor access, background collection, backend audit route, native audit UI, dependency, OpenWebUI bridge implementation, or production authority. v0.55.0 implements M51 OpenWebUI Bridge Adapter Pilot as a deterministic safe-summary adapter boundary. v0.56.0 implements M52 OpenWebUI Safe Conversation Surface as a deterministic safe-summary conversation surface with no OpenWebUI runtime call, provider/model call, model authority, tool execution, memory write, context injection, backend route, dependency, M53 implementation, or production authority. v0.63.0 implements M59 Public GitHub Readiness as deterministic local review-only contracts with no GitHub push, release automation, wiki automation, artifact upload, credential handling, network access, backend route, dependency, production authority, or M60 implementation.
 
 ## Supersession Rule
 
@@ -38,7 +38,7 @@ implemented/released as contract-only Safe File Review Workflow Contracts and
 hardened by v0.39.1 for exact file/path binding. M36 is
 implemented/released as frontend-only CCC File Review Surface, Review-Only and
 hardened by v0.40.1 for read-only surface safety.
-M37 is implemented/released. M38 is implemented/released. M39 is implemented/released. M40 is implemented/released. M41 is implemented/released. M42 is implemented/released. M43 is implemented/released. M44 is implemented/released. M45 is implemented/released. M46 is implemented/released. M47 is implemented/released. M48 is implemented/released. M49 is implemented/released. M50 is implemented/released. M51 is implemented/released. M52 is implemented/released. M53 is implemented/released. M54 is implemented/released. M55 is implemented/released. M56 is implemented/released. M57 is implemented/released. M58 is implemented/released and M59-M60 remain planned/provisional. M42 resumes mobile planning. M44 is the first iOS
+M37 is implemented/released. M38 is implemented/released. M39 is implemented/released. M40 is implemented/released. M41 is implemented/released. M42 is implemented/released. M43 is implemented/released. M44 is implemented/released. M45 is implemented/released. M46 is implemented/released. M47 is implemented/released. M48 is implemented/released. M49 is implemented/released. M50 is implemented/released. M51 is implemented/released. M52 is implemented/released. M53 is implemented/released. M54 is implemented/released. M55 is implemented/released. M56 is implemented/released. M57 is implemented/released. M58 is implemented/released. M59 is implemented/released and M60 remains planned/provisional. M42 resumes mobile planning. M44 is the first iOS
 skeleton milestone. M47 is the TestFlight-capable pipeline milestone. M48 is the
 first internal TestFlight build milestone. M49 and M50 are the first meaningful
 mobile approval capture and audit milestones.
@@ -75,15 +75,15 @@ mobile approval capture and audit milestones.
 | v0.60.0 | M56 | Agent Eval Regression Harness | implemented/released | Contract-only eval regression harness; no model/tool execution |
 | v0.61.0 | M57 | Runtime Sandbox Architecture Review | implemented/released | Architecture review only |
 | v0.62.0 | M58 | Dry-Run Execution Audit Harness | implemented/released | Dry-run audit harness; no execution authority |
-| v0.63.0 | M59 | Public GitHub Readiness | planned/provisional | Public readiness review/docs only |
+| v0.63.0 | M59 | Public GitHub Readiness | implemented/released review-only | Public readiness review/contracts/docs only; no GitHub push, release automation, wiki automation, artifact upload, credential handling, network access, backend route, dependency, or production authority |
 | v0.64.0 | M60 | Local Developer Beta Freeze | planned/provisional | Local beta freeze and safety review |
 
 ## Prompt-Pack Strategy
 
-Recommended next prompt after v0.56.0:
+Recommended next prompt after v0.63.0:
 
 ```text
-v0.57.0 / M53 - Controlled Tool Expansion Review
+v0.64.0 / M60 - Local Developer Beta Freeze
 ```
 
 The first prompt packs after this patch are:
@@ -94,7 +94,7 @@ The first prompt packs after this patch are:
 4. M44 CCC iOS Skeleton, No Authority is implemented/released by v0.48.0.
 
 Extra-hard reviews are required for M37, M38, M40, M47, M48, M49, M51, M52,
-M57, and M58. Mandatory hardening is expected by default for M35-M40, M43-M50,
+M57, M58, and M59. Mandatory hardening is expected by default for M35-M40, M43-M50,
 M51-M52, and M54-M58. Docs/planning-only milestones are M34, M42, M53, M57, and
 M59. Browser smoke review belongs in M36, M39, M41, M45-M46, and M51-M52. Mobile
 simulator/device testing belongs only in M44-M50 and only after explicit native

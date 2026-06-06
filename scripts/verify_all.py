@@ -92,6 +92,7 @@ SCAN_SEQUENCE = [
     ("M56 agent eval regression harness scan", "verify_m56_agent_eval_regression_harness"),
     ("M57 runtime sandbox architecture review scan", "verify_m57_runtime_sandbox_architecture_review"),
     ("M58 dry-run execution audit harness scan", "verify_m58_dry_run_execution_audit_harness"),
+    ("M59 public GitHub readiness scan", "verify_m59_public_github_readiness"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -8065,6 +8066,199 @@ def verify_m58_dry_run_execution_audit_harness():
                     sys.exit(1)
 
     print("OK: M58 dry-run execution audit harness is dry-run-only, no-route, no-execution, and no-authority")
+
+
+def verify_m59_public_github_readiness():
+    print("\n[Verifier] Running M59 public GitHub readiness guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/public_readiness/__init__.py",
+        "src/ultimate_ai_agent/core/public_readiness/review.py",
+        "docs/public_readiness/PUBLIC_GITHUB_READINESS.md",
+        "docs/public_readiness/PUBLIC_GITHUB_READINESS_POLICY.md",
+        "docs/public_readiness/PUBLIC_GITHUB_READINESS_AUTHORITY_BOUNDARY.md",
+        "docs/public_readiness/M59_TO_M60_BOUNDARY.md",
+        "docs/release_notes/v0_63_0.md",
+        "docs/archive/releases/v0_63_0/README_IMPORT.md",
+        "docs/archive/releases/v0_63_0/master_plan.md",
+        "docs/implementation/foundation_gate_implementation_plan_v0_63_0.md",
+        "tests/test_m59_public_github_readiness.py",
+        "tests/test_m59_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M59 public GitHub readiness file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = "\n".join(
+        (ROOT / rel_path).read_text(encoding="utf-8").lower()
+        for rel_path in required_files
+        if rel_path.startswith("docs/")
+    )
+    for fragment in [
+        "public github readiness",
+        "review-only",
+        "contract-only",
+        "no github push",
+        "no github release",
+        "no wiki automation",
+        "no artifact upload",
+        "no external service",
+        "no credential handling",
+        "no network access",
+        "no backend route",
+        "no control center control",
+        "no dependency",
+        "no production authority",
+        "m60 remains future",
+        "skill package security rule",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M59 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.evaluators import m59_openapi_route_failures
+        from ultimate_ai_agent.core.public_readiness import (
+            PublicGitHubReadinessPolicy,
+            PublicGitHubReadinessRequest,
+            PublicGitHubReadinessStatus,
+            build_public_github_readiness_report,
+            validate_public_github_readiness_policy,
+            validate_public_github_readiness_request,
+        )
+    except Exception as exc:
+        print(f"FAIL: M59 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m59_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    request = PublicGitHubReadinessRequest(
+        request_ref="public-readiness-request:verify-all-m59",
+        readiness_ref="public-readiness:verify-all-m59",
+        repository_ref="repo:ultimate-ai-agent",
+        baseline_ref="baseline:v0.63.0",
+        actor_ref="actor:verify-all-reviewer",
+        checklist_refs=[
+            "readiness:docs-current",
+            "readiness:secret-hygiene",
+            "readiness:artifact-hygiene",
+            "readiness:route-boundary",
+            "readiness:dependency-boundary",
+        ],
+        safe_summary="Verify-all public GitHub readiness review.",
+    )
+    report = build_public_github_readiness_report(request)
+    if report.status != PublicGitHubReadinessStatus.reviewed:
+        print(f"FAIL: M59 safe public readiness report did not pass: {report.status}")
+        sys.exit(1)
+    if (
+        not report.review_only
+        or report.publication_performed
+        or report.github_push_performed
+        or report.github_release_performed
+        or report.wiki_automation_performed
+        or report.artifact_upload_performed
+        or report.external_service_performed
+        or report.credential_handling_performed
+        or report.network_access_performed
+        or report.production_authority_granted
+        or report.side_effects_performed
+    ):
+        print("FAIL: M59 public readiness report performed publication or authority side effects")
+        sys.exit(1)
+    if report.receipt_plan is None or report.receipt_plan.side_effects_performed:
+        print("FAIL: M59 receipt plan did not remain no-effect")
+        sys.exit(1)
+
+    for request_update, reason in [
+        ({"publication_requested": True}, "PUBLICATION_DENIED"),
+        ({"github_push_requested": True}, "GITHUB_PUSH_DENIED"),
+        ({"github_release_requested": True}, "GITHUB_RELEASE_DENIED"),
+        ({"wiki_automation_requested": True}, "WIKI_AUTOMATION_DENIED"),
+        ({"artifact_upload_requested": True}, "ARTIFACT_UPLOAD_DENIED"),
+        ({"external_service_requested": True}, "EXTERNAL_SERVICE_DENIED"),
+        ({"credential_handling_requested": True}, "CREDENTIAL_HANDLING_DENIED"),
+        ({"network_access_requested": True}, "NETWORK_ACCESS_DENIED"),
+        ({"production_authority_requested": True}, "PRODUCTION_AUTHORITY_DENIED"),
+        ({"m60_beta_freeze_requested": True}, "M60_BETA_FREEZE_DENIED"),
+    ]:
+        try:
+            validate_public_github_readiness_request(request.model_copy(update=request_update))
+            print(f"FAIL: M59 unsafe request mutation was not denied: {reason}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M59 unsafe request reason drifted for {reason}: {exc}")
+                sys.exit(1)
+
+    try:
+        validate_public_github_readiness_policy(PublicGitHubReadinessPolicy(github_push_enabled=True))
+        print("FAIL: M59 unsafe policy flag was not denied")
+        sys.exit(1)
+    except ValueError as exc:
+        if "GITHUB_PUSH_DENIED" not in str(exc):
+            print(f"FAIL: M59 unsafe policy reason drifted: {exc}")
+            sys.exit(1)
+
+    forbidden_source_fragments = [
+        "publication_enabled=True",
+        "github_push_enabled=True",
+        "github_release_enabled=True",
+        "wiki_automation_enabled=True",
+        "artifact_upload_enabled=True",
+        "external_service_enabled=True",
+        "credential_handling_enabled=True",
+        "network_access_enabled=True",
+        "production_authority_enabled=True",
+        "m60_beta_freeze_enabled=True",
+        "publication_performed=True",
+        "github_push_performed=True",
+        "github_release_performed=True",
+        "wiki_automation_performed=True",
+        "artifact_upload_performed=True",
+        "external_service_performed=True",
+        "credential_handling_performed=True",
+        "network_access_performed=True",
+        "production_authority_granted=True",
+        "/github/publish",
+        "/github/release",
+        "/github/wiki/update",
+        "/public/artifacts/upload",
+        "/public/release/publish",
+        "/release/upload",
+        "subprocess" + ".run(",
+        "subprocess" + ".Popen(",
+        "os.system(",
+        "shell=True",
+    ]
+    allowed_files = {
+        "scripts/verify_all.py",
+        "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/public_readiness/review.py",
+        "tests/test_m59_public_github_readiness.py",
+        "tests/test_m59_gate_integration.py",
+    }
+    for root in [ROOT / "src", ROOT / "apps" / "control-center" / "src", ROOT / "apps" / "ccc-ios"]:
+        if not root.exists():
+            continue
+        for path in root.rglob("*"):
+            if not path.is_file() or path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}:
+                continue
+            rel = path.relative_to(ROOT).as_posix()
+            if rel in allowed_files:
+                continue
+            text = path.read_text(encoding="utf-8")
+            for fragment in forbidden_source_fragments:
+                if fragment in text:
+                    print(f"FAIL: M59 forbidden public readiness fragment in {rel}: {fragment}")
+                    sys.exit(1)
+
+    print("OK: M59 public GitHub readiness is review-only, no-publication, no-route, and no-authority")
 
 
 def verify_local_developer_launcher_safety():
