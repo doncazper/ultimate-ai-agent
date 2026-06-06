@@ -12,23 +12,23 @@ allowed to become operational authority.
 
 | Field | Current state |
 |---|---|
-| Current active baseline | **v0.89.0** |
-| Current milestone | **M85 - Read-Only Command Allowlist** |
+| Current active baseline | **v0.90.0** |
+| Current milestone | **M86 - Shell Approval Gate v1** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **75** OpenAPI paths |
 | Production readiness | Not claimed |
 
-v0.89.0 implements M85 Read-Only Command Allowlist. It adds contract-only,
-review-only, deterministic, local-only read-only command allowlist contracts
-over exact M84 sandboxed echo/no-op command decisions, safe refs only receipt
-plans, evaluator revalidation, documentation-integrity checks, static
-verification, tests, and Foundation Gate coverage. It adds no shell string, raw
-command, raw output, command execution, subprocess execution, shell execution,
-process spawn, filesystem mutation, network access, tool execution, browser
-automation, plugin execution, remote execution, model call, memory write,
-context injection, background worker, backend routes, Control Center controls,
-dependency, M86 work, or production authority.
+v0.90.0 implements M86 Shell Approval Gate v1. It adds contract-only,
+review-only, deterministic, local-only shell approval gate contracts over exact
+M85 read-only command allowlist decisions and exact scoped approval bundles,
+safe refs only receipt plans, evaluator revalidation, documentation-integrity
+checks, static verification, tests, and Foundation Gate coverage. It adds no
+shell string, raw command, raw output, command execution, subprocess execution,
+shell execution, process spawn, filesystem mutation, network access, tool
+execution, browser automation, plugin execution, remote execution, model call,
+memory write, context injection, background worker, backend routes, Control
+Center controls, dependency, M87 work, or production authority.
 
 v0.29.5 is documentation policy polish. It remains the documentation
 organization cleanup baseline before the M26 and M27 implementation releases.
@@ -95,6 +95,7 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M83 Shell Dry-Run Classifier](docs/sandbox/SHELL_DRY_RUN_CLASSIFIER.md)
 - [M84 Sandboxed Echo/No-Op Command](docs/sandbox/SANDBOXED_ECHO_NOOP_COMMAND.md)
 - [M85 Read-Only Command Allowlist](docs/sandbox/READ_ONLY_COMMAND_ALLOWLIST.md)
+- [M86 Shell Approval Gate v1](docs/sandbox/SHELL_APPROVAL_GATE.md)
 - [M34 Broader File Capability Review](docs/files/BROADER_FILE_CAPABILITY_REVIEW.md)
 - [File capability boundary matrix](docs/files/FILE_CAPABILITY_BOUNDARY_MATRIX.md)
 - [File capability risk register](docs/files/FILE_CAPABILITY_RISK_REGISTER.md)
@@ -230,8 +231,8 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [v0.85.0 master plan](docs/archive/releases/v0_85_0/master_plan.md)
 - [v0.86.0 release packet](docs/archive/releases/v0_86_0/README_IMPORT.md)
 - [v0.86.0 master plan](docs/archive/releases/v0_86_0/master_plan.md)
-- [v0.89.0 release packet](docs/archive/releases/v0_89_0/README_IMPORT.md)
-- [v0.89.0 master plan](docs/archive/releases/v0_89_0/master_plan.md)
+- [v0.90.0 release packet](docs/archive/releases/v0_90_0/README_IMPORT.md)
+- [v0.90.0 master plan](docs/archive/releases/v0_90_0/master_plan.md)
 
 ## What This Project Is
 

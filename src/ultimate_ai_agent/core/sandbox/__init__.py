@@ -67,6 +67,17 @@ from ultimate_ai_agent.core.sandbox.read_only_command_allowlist import (
     validate_read_only_command_allowlist_policy,
     validate_read_only_command_allowlist_request,
 )
+from ultimate_ai_agent.core.sandbox.shell_approval_gate import (
+    ShellApprovalGateDecision,
+    ShellApprovalGatePolicy,
+    ShellApprovalGateReceiptPlan,
+    ShellApprovalGateRequest,
+    ShellApprovalGateStatus,
+    build_shell_approval_gate_decision,
+    validate_shell_approval_gate_decision,
+    validate_shell_approval_gate_policy,
+    validate_shell_approval_gate_request,
+)
 
 __all__ = [
     "RuntimeSandboxArchitectureDecision",
@@ -102,12 +113,18 @@ __all__ = [
     "ReadOnlyCommandAllowlistReceiptPlan",
     "ReadOnlyCommandAllowlistRequest",
     "ReadOnlyCommandAllowlistStatus",
+    "ShellApprovalGateDecision",
+    "ShellApprovalGatePolicy",
+    "ShellApprovalGateReceiptPlan",
+    "ShellApprovalGateRequest",
+    "ShellApprovalGateStatus",
     "build_runtime_sandbox_architecture_review",
     "build_command_proposal",
     "build_runtime_sandbox_spec",
     "build_shell_dry_run_classification",
     "build_sandboxed_echo_noop_command",
     "build_read_only_command_allowlist_decision",
+    "build_shell_approval_gate_decision",
     "validate_command_proposal_decision",
     "validate_command_proposal_policy",
     "validate_command_proposal_request",
@@ -126,4 +143,7 @@ __all__ = [
     "validate_read_only_command_allowlist_entry",
     "validate_read_only_command_allowlist_policy",
     "validate_read_only_command_allowlist_request",
+    "validate_shell_approval_gate_decision",
+    "validate_shell_approval_gate_policy",
+    "validate_shell_approval_gate_request",
 ]

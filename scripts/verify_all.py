@@ -119,6 +119,7 @@ SCAN_SEQUENCE = [
     ("M83 shell dry-run classifier scan", "verify_m83_shell_dry_run_classifier"),
     ("M84 sandboxed echo/no-op command scan", "verify_m84_sandboxed_echo_noop_command"),
     ("M85 read-only command allowlist scan", "verify_m85_read_only_command_allowlist"),
+    ("M86 shell approval gate scan", "verify_m86_shell_approval_gate"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -14160,6 +14161,238 @@ def verify_m85_read_only_command_allowlist():
             sys.exit(1)
 
     print("OK: M85 read-only command allowlist is contract-only, route-free, and no-authority")
+
+
+def verify_m86_shell_approval_gate():
+    print("\n[Verifier] Running M86 shell approval gate guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/sandbox/__init__.py",
+        "src/ultimate_ai_agent/core/sandbox/shell_approval_gate.py",
+        "docs/sandbox/SHELL_APPROVAL_GATE.md",
+        "docs/sandbox/SHELL_APPROVAL_GATE_POLICY.md",
+        "docs/sandbox/SHELL_APPROVAL_GATE_AUTHORITY_BOUNDARY.md",
+        "docs/sandbox/SHELL_APPROVAL_GATE_RECEIPT_PLAN.md",
+        "docs/sandbox/SHELL_APPROVAL_GATE_NON_GOALS.md",
+        "docs/sandbox/M86_TO_M87_BOUNDARY.md",
+        "docs/release_notes/v0_90_0.md",
+        "docs/archive/releases/v0_90_0/README_IMPORT.md",
+        "docs/archive/releases/v0_90_0/master_plan.md",
+        "docs/implementation/foundation_gate_implementation_plan_v0_90_0.md",
+        "tests/test_m86_shell_approval_gate.py",
+        "tests/test_m86_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M86 shell approval gate file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = "\n".join(
+        (ROOT / rel_path).read_text(encoding="utf-8").lower()
+        for rel_path in required_files
+        if rel_path.startswith("docs/")
+    )
+    for fragment in [
+        "shell approval gate",
+        "contract-only",
+        "review-only",
+        "deterministic",
+        "local-only",
+        "m85 read-only command allowlist",
+        "exact m85 binding",
+        "scoped approval bundle",
+        "approval refs are identifiers only",
+        "safe refs only",
+        "no shell string",
+        "no raw command",
+        "no raw output",
+        "no command execution",
+        "no subprocess execution",
+        "no shell execution",
+        "no process spawn",
+        "no filesystem mutation",
+        "no network access",
+        "no tool execution",
+        "no browser automation",
+        "no plugin execution",
+        "no remote execution",
+        "no model call",
+        "no memory write",
+        "no context injection",
+        "no background worker",
+        "no backend route",
+        "no control center control",
+        "no dependency",
+        "no production authority",
+        "safe summary only",
+        "evaluator boundaries revalidate",
+        "m87 remains future",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M86 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from tests.test_m86_shell_approval_gate import _request
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.evaluators import m86_openapi_route_failures
+        from ultimate_ai_agent.core.sandbox import (
+            ShellApprovalGateStatus,
+            build_shell_approval_gate_decision,
+            validate_shell_approval_gate_decision,
+        )
+    except Exception as exc:
+        print(f"FAIL: M86 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m86_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    request = _request()
+    decision = build_shell_approval_gate_decision(request)
+    if (
+        decision.status != ShellApprovalGateStatus.approved_for_review
+        or not decision.approval_valid_for_review
+        or not decision.contract_only
+        or not decision.review_only
+        or not decision.deterministic
+        or not decision.local_only
+        or not decision.read_only_only
+        or not decision.approval_ref_is_identifier_only
+        or not decision.approval_bound_to_allowlist
+        or not decision.approval_bound_to_command
+        or not decision.approval_bound_to_actor
+        or not decision.approval_bound_to_sandbox
+        or decision.command_execution_authorized
+        or decision.shell_execution_authorized
+        or decision.subprocess_execution_authorized
+        or decision.process_spawn_authorized
+        or decision.command_execution_performed
+        or decision.subprocess_execution_performed
+        or decision.shell_execution_performed
+        or decision.process_spawn_performed
+        or decision.filesystem_mutation_performed
+        or decision.network_access_performed
+        or decision.tool_execution_performed
+        or decision.browser_automation_performed
+        or decision.plugin_execution_performed
+        or decision.remote_execution_performed
+        or decision.model_call_performed
+        or decision.memory_write_performed
+        or decision.context_injection_performed
+        or decision.background_worker_started
+        or decision.backend_route_added
+        or decision.control_center_control_added
+        or decision.dependency_added
+        or decision.production_authority_granted
+        or decision.side_effects_performed
+        or not decision.receipt_plan.store_safe_summary_only
+        or not decision.receipt_plan.store_safe_refs_only
+        or decision.receipt_plan.store_raw_command
+        or decision.receipt_plan.store_shell_string
+        or decision.receipt_plan.store_raw_output
+        or "M86_SHELL_APPROVAL_GATE_REVIEW_ONLY" not in decision.reason_codes
+        or "M86_EXACT_M85_ALLOWLIST_BINDING_REQUIRED" not in decision.reason_codes
+        or "M86_APPROVAL_BUNDLE_EXACT_SCOPE_REQUIRED" not in decision.reason_codes
+        or "M86_NO_SHELL_EXECUTION" not in decision.reason_codes
+        or "M87_REMAINS_FUTURE" not in decision.reason_codes
+    ):
+        print("FAIL: M86 shell approval gate decision is unsafe or over-authoritative")
+        sys.exit(1)
+
+    for update, reason in [
+        ({"command_execution_requested": True}, "COMMAND_EXECUTION_DENIED"),
+        ({"shell_execution_requested": True}, "SHELL_EXECUTION_DENIED"),
+        ({"subprocess_execution_requested": True}, "SUBPROCESS_EXECUTION_DENIED"),
+        ({"process_spawn_requested": True}, "PROCESS_SPAWN_DENIED"),
+        ({"contains_shell_string": True}, "M86_SHELL_STRING_DENIED"),
+        ({"contains_raw_command": True}, "M86_RAW_COMMAND_DENIED"),
+        ({"contains_raw_output": True}, "M86_RAW_OUTPUT_DENIED"),
+        ({"contains_secret": True}, "SECRET_LIKE_SHELL_APPROVAL_GATE_CONTENT_DENIED"),
+    ]:
+        try:
+            build_shell_approval_gate_decision(request.model_copy(update=update))
+            print(f"FAIL: M86 unsafe shell approval gate request was not denied with {reason}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M86 unsafe shell approval gate raised {exc!s}, expected {reason}")
+                sys.exit(1)
+
+    try:
+        validate_shell_approval_gate_decision(
+            decision.model_copy(update={"shell_execution_authorized": True})
+        )
+        print("FAIL: M86 mutated shell execution authorization was not denied")
+        sys.exit(1)
+    except ValueError as exc:
+        if "SHELL_EXECUTION_DENIED" not in str(exc):
+            print(f"FAIL: M86 mutated decision raised {exc!s}, expected SHELL_EXECUTION_DENIED")
+            sys.exit(1)
+
+    allowed_scan_files = {
+        "scripts/verify_all.py",
+        "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/sandbox/__init__.py",
+        "src/ultimate_ai_agent/core/sandbox/command_proposal.py",
+        "src/ultimate_ai_agent/core/sandbox/runtime_spec.py",
+        "src/ultimate_ai_agent/core/sandbox/shell_dry_run_classifier.py",
+        "src/ultimate_ai_agent/core/sandbox/sandboxed_echo_noop_command.py",
+        "src/ultimate_ai_agent/core/sandbox/read_only_command_allowlist.py",
+        "src/ultimate_ai_agent/core/sandbox/shell_approval_gate.py",
+    }
+    source_text = "\n".join(
+        path.read_text(encoding="utf-8")
+        for root in [ROOT / "src" / "ultimate_ai_agent", ROOT / "apps" / "control-center" / "src"]
+        if root.exists()
+        for path in root.rglob("*")
+        if path.is_file()
+        and path.suffix in {".py", ".ts", ".tsx", ".js", ".jsx"}
+        and path.relative_to(ROOT).as_posix() not in allowed_scan_files
+    )
+    for fragment in [
+        "command_execution_enabled=True",
+        "command_execution_requested=True",
+        "subprocess_execution_enabled=True",
+        "subprocess_execution_requested=True",
+        "shell_execution_enabled=True",
+        "shell_execution_requested=True",
+        "process_spawn_enabled=True",
+        "process_spawn_requested=True",
+        "filesystem_mutation_enabled=True",
+        "network_access_enabled=True",
+        "tool_execution_enabled=True",
+        "browser_automation_enabled=True",
+        "plugin_execution_enabled=True",
+        "remote_execution_enabled=True",
+        "model_call_enabled=True",
+        "memory_write_enabled=True",
+        "context_injection_enabled=True",
+        "background_worker_enabled=True",
+        "backend_route_enabled=True",
+        "control_center_control_enabled=True",
+        "dependency_change_enabled=True",
+        "production_authority_enabled=True",
+        "command_execution_authorized=True",
+        "shell_execution_authorized=True",
+        "subprocess_execution_authorized=True",
+        "process_spawn_authorized=True",
+        "command_execution_performed=True",
+        "subprocess_execution_performed=True",
+        "shell_execution_performed=True",
+        "process_spawn_performed=True",
+        "production_authority_granted=True",
+        "store_raw_command=True",
+        "store_shell_string=True",
+        "store_raw_output=True",
+    ]:
+        if fragment in source_text:
+            print(f"FAIL: M86 forbidden source fragment present: {fragment}")
+            sys.exit(1)
+
+    print("OK: M86 shell approval gate is contract-only, route-free, and no-authority")
 
 
 def verify_local_developer_launcher_safety():
