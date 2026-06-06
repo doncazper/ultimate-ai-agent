@@ -48,6 +48,17 @@ from ultimate_ai_agent.core.autonomy.revocation import (
     build_revocation_kill_switch_record,
     validate_revocation_kill_switch_record,
 )
+from ultimate_ai_agent.core.autonomy.risk import (
+    AUTONOMY_RISK_CLASSIFIER_DOCS,
+    AutonomyRiskClassificationDecision,
+    AutonomyRiskClassificationRequest,
+    AutonomyRiskSignal,
+    AutonomyRiskSignalKind,
+    build_autonomy_risk_classification_decision,
+    validate_autonomy_risk_classification_decision,
+    validate_autonomy_risk_classification_request,
+    validate_autonomy_risk_signal,
+)
 from ultimate_ai_agent.core.autonomy.sessions import (
     M62_MAX_SESSION_DURATION_SECONDS,
     SCOPED_AUTONOMY_SESSION_DOCS,
@@ -82,6 +93,15 @@ __all__ = [
     "RevocationKillSwitchRecord",
     "build_revocation_kill_switch_record",
     "validate_revocation_kill_switch_record",
+    "AUTONOMY_RISK_CLASSIFIER_DOCS",
+    "AutonomyRiskClassificationDecision",
+    "AutonomyRiskClassificationRequest",
+    "AutonomyRiskSignal",
+    "AutonomyRiskSignalKind",
+    "build_autonomy_risk_classification_decision",
+    "validate_autonomy_risk_classification_decision",
+    "validate_autonomy_risk_classification_request",
+    "validate_autonomy_risk_signal",
     "AUTONOMY_POLICY_ENGINE_DOCS",
     "AutonomyPolicyDecision",
     "AutonomyPolicyEnginePolicy",

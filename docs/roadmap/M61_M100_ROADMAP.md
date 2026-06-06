@@ -1,6 +1,6 @@
 # M61-M100 Roadmap
 
-Status: Active roadmap maintained through M67 / v0.71.0.
+Status: Active roadmap maintained through M68 / v0.72.0.
 
 M61 is implemented/released by v0.65.0 as Autonomy Mode Charter + Authority
 Levels. M62 is implemented/released by v0.66.0 as Scoped Autonomy Session
@@ -9,7 +9,8 @@ M64 is implemented/released by v0.68.0 as Autonomous Plan Simulator.
 M65 is implemented/released by v0.69.0 as Autonomy Audit + Replay Viewer.
 M66 is implemented/released by v0.70.0 as Scoped Approval Bundles.
 M67 is implemented/released by v0.71.0 as Revocation + Kill Switch.
-M68-M100 remain planned/provisional. This roadmap adds no production
+M68 is implemented/released by v0.72.0 as Autonomy Risk Classifier.
+M69-M100 remain planned/provisional. This roadmap adds no production
 authority, no global autonomy switch, no broad autonomy, no tool execution, no
 shell execution, no browser automation, no network tools, no background worker,
 no revocation action, no kill-switch activation, no session stop, no process
@@ -24,7 +25,7 @@ kill, no policy activation, no autonomous session, no backend route, and no depe
 | v0.69.0 | M65 | Autonomy Audit + Replay Viewer | Implemented/released |
 | v0.70.0 | M66 | Scoped Approval Bundles | Implemented/released |
 | v0.71.0 | M67 | Revocation + Kill Switch | Implemented/released |
-| v0.72.0 | M68 | Autonomy Risk Classifier | Planned/provisional |
+| v0.72.0 | M68 | Autonomy Risk Classifier | Implemented/released |
 | v0.73.0 | M69 | Low-Risk Autonomous Dry Run | Planned/provisional |
 | v0.74.0 | M70 | Autonomy Foundation Freeze | Planned/provisional |
 | v0.75.0 | M71 | Network Tool Contract Review | Planned/provisional |

@@ -101,6 +101,7 @@ SCAN_SEQUENCE = [
     ("M65 autonomy audit replay viewer scan", "verify_m65_autonomy_audit_replay_viewer"),
     ("M66 scoped approval bundles scan", "verify_m66_scoped_approval_bundles"),
     ("M67 revocation kill switch scan", "verify_m67_revocation_kill_switch"),
+    ("M68 autonomy risk classifier scan", "verify_m68_autonomy_risk_classifier"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -10088,6 +10089,225 @@ def verify_m67_revocation_kill_switch():
                     sys.exit(1)
 
     print("OK: M67 revocation kill switch is contract-only, route-free, exact-bound, and no-authority")
+
+
+def verify_m68_autonomy_risk_classifier():
+    print("\n[Verifier] Running M68 autonomy risk classifier guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/autonomy/risk.py",
+        "docs/autonomy/AUTONOMY_RISK_CLASSIFIER.md",
+        "docs/autonomy/AUTONOMY_RISK_CLASSIFIER_CONTRACTS.md",
+        "docs/autonomy/AUTONOMY_RISK_CLASSIFIER_NON_GOALS.md",
+        "docs/autonomy/M68_TO_M69_BOUNDARY.md",
+        "docs/roadmap/M61_M100_ROADMAP.md",
+        "docs/release_notes/v0_72_0.md",
+        "docs/archive/releases/v0_72_0/README_IMPORT.md",
+        "docs/archive/releases/v0_72_0/master_plan.md",
+        "docs/implementation/foundation_gate_implementation_plan_v0_72_0.md",
+        "tests/test_m68_autonomy_risk_classifier.py",
+        "tests/test_m68_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M68 autonomy risk classifier file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = "\n".join(
+        (ROOT / rel_path).read_text(encoding="utf-8").lower()
+        for rel_path in required_files
+        if rel_path.startswith("docs/")
+    )
+    for fragment in [
+        "autonomy risk classifier",
+        "contract-only",
+        "review-only",
+        "deterministic",
+        "highest risk",
+        "declared risk",
+        "scoped approval bundle risk",
+        "explicit risk signals",
+        "risk downgrade is denied",
+        "revocation + kill switch",
+        "approval refs are identifiers",
+        "evaluator boundaries revalidate",
+        "no policy activation",
+        "no session start",
+        "no autonomous actions",
+        "no background worker",
+        "no execution",
+        "no tool execution",
+        "no shell execution",
+        "no network tools",
+        "no browser automation",
+        "no backend route",
+        "no dependency",
+        "m69 remains future",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M68 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.autonomy import (
+            AutonomyRiskClass,
+            AutonomyRiskSignal,
+            AutonomyRiskSignalKind,
+            build_autonomy_risk_classification_decision,
+            validate_autonomy_risk_classification_decision,
+        )
+        from ultimate_ai_agent.core.gate.evaluators import m68_openapi_route_failures
+
+        test_spec = importlib.util.spec_from_file_location(
+            "uaa_m68_contract_helpers",
+            ROOT / "tests" / "test_m68_autonomy_risk_classifier.py",
+        )
+        if test_spec is None or test_spec.loader is None:
+            print("FAIL: M68 contract helper test module could not be loaded")
+            sys.exit(1)
+        test_module = importlib.util.module_from_spec(test_spec)
+        sys.modules[test_spec.name] = test_module
+        test_spec.loader.exec_module(test_module)
+    except Exception as exc:
+        print(f"FAIL: M68 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m68_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    decision = build_autonomy_risk_classification_decision(
+        test_module._request(declared_risk_class=AutonomyRiskClass.low)
+    )
+    if (
+        decision.authority_granted
+        or decision.risk_authority_granted
+        or decision.policy_activation_requested
+        or decision.session_start_requested
+        or decision.execution_performed
+        or decision.side_effects_performed
+    ):
+        print("FAIL: M68 autonomy risk classifier granted authority or side effects")
+        sys.exit(1)
+    if decision.derived_risk_class != AutonomyRiskClass.low:
+        print("FAIL: M68 baseline classifier did not preserve low risk review result")
+        sys.exit(1)
+
+    elevated = build_autonomy_risk_classification_decision(
+        test_module._request(
+            declared_risk_class=AutonomyRiskClass.low,
+            risk_signals=[
+                AutonomyRiskSignal(
+                    signal_ref="autonomy-risk-signal:verify-all-m68-critical",
+                    signal_kind=AutonomyRiskSignalKind.shell_intent,
+                    risk_class=AutonomyRiskClass.critical,
+                    source_ref="intent:verify-all-shell-denied",
+                    reason_code="M68_SIGNAL_SHELL_INTENT_CRITICAL",
+                )
+            ],
+        )
+    )
+    if elevated.derived_risk_class != AutonomyRiskClass.critical:
+        print("FAIL: M68 classifier did not derive highest risk from risk signals")
+        sys.exit(1)
+
+    for update, reason in [
+        ({"derived_risk_class": AutonomyRiskClass.low}, "RISK_DOWNGRADE_DENIED"),
+        ({"approval_test_ref": "approval_test_:m68"}, "APPROVAL_TEST_REF_DENIED"),
+        ({"risk_authority_granted": True}, "AUTONOMY_RISK_CLASSIFIER_AUTHORITY_DENIED"),
+        ({"policy_activation_requested": True}, "POLICY_ACTIVATION_DENIED"),
+        ({"session_start_requested": True}, "AUTONOMY_SESSION_START_DENIED"),
+        ({"background_worker_enabled": True}, "BACKGROUND_WORKER_DENIED"),
+        ({"execution_requested": True}, "EXECUTION_DENIED"),
+        ({"context_injection_enabled": True}, "CONTEXT_INJECTION_DENIED"),
+        ({"memory_write_enabled": True}, "MEMORY_WRITE_DENIED"),
+        ({"metadata": {"api_key": "secret-value"}}, "SECRET_LIKE_AUTONOMY_RISK_CONTENT_DENIED"),
+    ]:
+        try:
+            validate_autonomy_risk_classification_decision(elevated.model_copy(update=update))
+            print(f"FAIL: M68 unsafe autonomy risk mutation was not denied: {reason}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M68 unsafe autonomy risk reason drifted for {reason}: {exc}")
+                sys.exit(1)
+
+    forbidden_source_fragments = [
+        "risk_authority_granted=True",
+        "policy_activation_enabled=True",
+        "policy_activation_requested=True",
+        "session_start_enabled=True",
+        "session_start_requested=True",
+        "session_active=True",
+        "execution_requested=True",
+        "execution_performed=True",
+        "autonomous_actions_enabled=True",
+        "background_worker_enabled=True",
+        "execution_enabled=True",
+        "tool_execution_enabled=True",
+        "shell_execution_enabled=True",
+        "network_tool_enabled=True",
+        "browser_automation_enabled=True",
+        "plugin_execution_enabled=True",
+        "mobile_sensor_enabled=True",
+        "remote_execution_enabled=True",
+        "memory_write_enabled=True",
+        "context_injection_enabled=True",
+        "model_provider_call_enabled=True",
+        "production_authority_enabled=True",
+        "authority_granted=True",
+        "/autonomy/risk/classify",
+        "/autonomy/risk/execute",
+        "/autonomy/risk/activate",
+        "/autonomy/session/start",
+        "/autonomy/policy/activate",
+        "/autonomy/execute",
+        "/background/start",
+        "/network/fetch",
+        "/shell/execute",
+        "/browser/click",
+        "subprocess" + ".run(",
+        "subprocess" + ".Popen(",
+        "os.system(",
+        "shell=True",
+    ]
+    allowed_files = {
+        "scripts/verify_all.py",
+        "src/ultimate_ai_agent/core/autonomy/risk.py",
+        "src/ultimate_ai_agent/core/autonomy/revocation.py",
+        "src/ultimate_ai_agent/core/autonomy/approvals.py",
+        "src/ultimate_ai_agent/core/autonomy/audit.py",
+        "src/ultimate_ai_agent/core/autonomy/policies.py",
+        "src/ultimate_ai_agent/core/autonomy/sessions.py",
+        "src/ultimate_ai_agent/core/autonomy/simulator.py",
+        "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/tools/runtime/invocation.py",
+        "tests/test_m68_autonomy_risk_classifier.py",
+        "tests/test_m68_gate_integration.py",
+    }
+    source_roots = [
+        ROOT / "src" / "ultimate_ai_agent",
+        ROOT / "apps" / "control-center" / "src",
+        ROOT / "apps" / "ccc-ios",
+    ]
+    for root in source_roots:
+        if not root.exists():
+            continue
+        for path in root.rglob("*"):
+            if not path.is_file() or path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}:
+                continue
+            rel = path.relative_to(ROOT).as_posix()
+            if rel in allowed_files:
+                continue
+            text = path.read_text(encoding="utf-8")
+            for fragment in forbidden_source_fragments:
+                if fragment in text:
+                    print(f"FAIL: M68 forbidden autonomy risk classifier fragment in {rel}: {fragment}")
+                    sys.exit(1)
+
+    print("OK: M68 autonomy risk classifier is contract-only, route-free, highest-risk, and no-authority")
 
 
 def verify_local_developer_launcher_safety():
