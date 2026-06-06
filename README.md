@@ -12,23 +12,23 @@ allowed to become operational authority.
 
 | Field | Current state |
 |---|---|
-| Current active baseline | **v0.86.0** |
-| Current milestone | **M82 - Command Proposal Contracts** |
+| Current active baseline | **v0.87.0** |
+| Current milestone | **M83 - Shell Dry-Run Classifier** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **75** OpenAPI paths |
 | Production readiness | Not claimed |
 
-v0.86.0 implements M82 Command Proposal Contracts. It adds proposal-only,
-review-only, deterministic, local command proposal contracts with structured
-argv preview metadata, safe command labels, safe purpose summaries, safe summary
-only receipt plans, evaluator revalidation, documentation-integrity checks,
-static verification, tests, and Foundation Gate coverage. It adds no shell
-string, command execution, subprocess execution, shell execution, process spawn,
-filesystem mutation, network access, tool execution, browser automation, plugin
-execution, remote execution, model call, memory write, context injection,
-background worker, backend routes, Control Center controls, dependency, M83
-work, or production authority.
+v0.87.0 implements M83 Shell Dry-Run Classifier. It adds classifier-only,
+review-only, deterministic, local-only shell dry-run classification contracts
+over M82 command proposals, safe summary only receipt plans, evaluator
+revalidation, documentation-integrity checks, static verification, tests, and
+Foundation Gate coverage. It adds no dry-run execution, shell string, command
+execution, subprocess execution, shell execution, process spawn, filesystem
+mutation, network access, tool execution, browser automation, plugin execution,
+remote execution, model call, memory write, context injection, background
+worker, backend routes, Control Center controls, dependency, M84 work, or
+production authority.
 
 v0.29.5 is documentation policy polish. It remains the documentation
 organization cleanup baseline before the M26 and M27 implementation releases.
@@ -226,6 +226,8 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [v0.85.0 master plan](docs/archive/releases/v0_85_0/master_plan.md)
 - [v0.86.0 release packet](docs/archive/releases/v0_86_0/README_IMPORT.md)
 - [v0.86.0 master plan](docs/archive/releases/v0_86_0/master_plan.md)
+- [v0.87.0 release packet](docs/archive/releases/v0_87_0/README_IMPORT.md)
+- [v0.87.0 master plan](docs/archive/releases/v0_87_0/master_plan.md)
 
 ## What This Project Is
 

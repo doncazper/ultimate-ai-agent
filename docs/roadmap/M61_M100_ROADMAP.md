@@ -1,6 +1,6 @@
 # M61-M100 Roadmap
 
-Status: Active roadmap maintained through M82 / v0.86.0.
+Status: Active roadmap maintained through M83 / v0.87.0.
 
 M61 is implemented/released by v0.65.0 as Autonomy Mode Charter + Authority
 Levels. M62 is implemented/released by v0.66.0 as Scoped Autonomy Session
@@ -24,7 +24,8 @@ M79 is implemented/released by v0.83.0 as Plugin Install Review, Disabled by
 Default. M80 is implemented/released by v0.84.0 as Network/Browser/OpenWebUI
 Hardening Freeze and currentness-repaired by v0.84.1. M81 is
 implemented/released by v0.85.0 as Runtime Sandbox Spec. M82 is
-implemented/released by v0.86.0 as Command Proposal Contracts. M83-M100 remain
+implemented/released by v0.86.0 as Command Proposal Contracts. M83 is
+implemented/released by v0.87.0 as Shell Dry-Run Classifier. M84-M100 remain
 planned/provisional. This roadmap adds no
 production authority, no global autonomy switch, no broad autonomy, no tool
 execution, no shell execution, no browser automation beyond the M74 injected
@@ -61,7 +62,7 @@ no dependency.
 | v0.84.0 | M80 | Network/Browser/OpenWebUI Hardening Freeze | Implemented/released |
 | v0.85.0 | M81 | Runtime Sandbox Spec | Implemented/released |
 | v0.86.0 | M82 | Command Proposal Contracts | Implemented/released |
-| v0.87.0 | M83 | Shell Dry-Run Classifier | Planned/provisional |
+| v0.87.0 | M83 | Shell Dry-Run Classifier | Implemented/released |
 | v0.88.0 | M84 | Sandboxed Echo/No-Op Command | Planned/provisional |
 | v0.89.0 | M85 | Read-Only Command Allowlist | Planned/provisional |
 | v0.90.0 | M86 | Shell Approval Gate v1 | Planned/provisional |
@@ -92,6 +93,17 @@ M82 is implemented/released as proposal-only, review-only, deterministic, and
 local-only Command Proposal Contracts with structured argv preview metadata,
 safe command labels, safe purpose summaries, safe summary only receipt plans,
 and evaluator revalidation. It adds no shell string, no command execution, no
+subprocess execution, no shell execution, no process spawn, no filesystem
+mutation, no network access, no tool execution, no browser automation, no plugin
+execution, no remote execution, no model call, no memory write, no context
+injection, no background worker, no backend route, no Control Center control, no
+dependency, and no production authority.
+
+M83 is implemented/released as classifier-only, review-only, deterministic, and
+local-only Shell Dry-Run Classifier contracts over already-validated M82 command
+proposal decisions. It validates exact command proposal refs, prior milestone
+refs, stable classification reason codes, and safe summary only receipt plans.
+It adds no dry-run execution, no shell string, no command execution, no
 subprocess execution, no shell execution, no process spawn, no filesystem
 mutation, no network access, no tool execution, no browser automation, no plugin
 execution, no remote execution, no model call, no memory write, no context

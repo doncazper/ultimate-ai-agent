@@ -1,6 +1,6 @@
 # Documentation Index
 
-Current active baseline: **v0.86.0**
+Current active baseline: **v0.87.0**
 
 This index is the active entrypoint for documentation navigation. Historical release documents remain in the repository for audit history, but active truth starts with the current baseline files listed here.
 
@@ -14,9 +14,9 @@ docs/canonical/CANONICAL_DOC_MAP.md
 docs/canonical/09_roadmap.md
 docs/roadmap/README.md
 docs/archive/README.md
-docs/archive/releases/v0_86_0/README_IMPORT.md
-docs/archive/releases/v0_86_0/master_plan.md
-docs/release_notes/v0_86_0.md
+docs/archive/releases/v0_87_0/README_IMPORT.md
+docs/archive/releases/v0_87_0/master_plan.md
+docs/release_notes/v0_87_0.md
 docs/developer/LOCAL_LAUNCHER.md
 scripts/dev/README.md
 docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md
@@ -87,6 +87,12 @@ docs/sandbox/COMMAND_PROPOSAL_AUTHORITY_BOUNDARY.md
 docs/sandbox/COMMAND_PROPOSAL_RECEIPT_PLAN.md
 docs/sandbox/COMMAND_PROPOSAL_NON_GOALS.md
 docs/sandbox/M82_TO_M83_BOUNDARY.md
+docs/sandbox/SHELL_DRY_RUN_CLASSIFIER.md
+docs/sandbox/SHELL_DRY_RUN_CLASSIFIER_POLICY.md
+docs/sandbox/SHELL_DRY_RUN_CLASSIFIER_AUTHORITY_BOUNDARY.md
+docs/sandbox/SHELL_DRY_RUN_CLASSIFIER_RECEIPT_PLAN.md
+docs/sandbox/SHELL_DRY_RUN_CLASSIFIER_NON_GOALS.md
+docs/sandbox/M83_TO_M84_BOUNDARY.md
 docs/dry_run_audit/DRY_RUN_EXECUTION_AUDIT_HARNESS.md
 docs/dry_run_audit/DRY_RUN_EXECUTION_AUDIT_POLICY.md
 docs/dry_run_audit/DRY_RUN_EXECUTION_AUTHORITY_BOUNDARY.md
@@ -600,21 +606,17 @@ scripts/dev/README.md
 ```
 
 v0.37.4 supersedes the old active M35-M40 roadmap projection and defines the
-active M34-M60 sequence. v0.71.0 is the current active baseline after
-implementing M67 Revocation + Kill Switch as contract-only, review-only,
-deterministic records over exact M66 scoped approval bundles.
-Active roadmap sources consistently
-keep v0.38.0 / M34 as Broader File Capability Review, keep M34
-planning/docs/verifier only, mark M36 through M43 implemented/released, mark
-M44, M45, M46, M47, M48, M49, M50, M51, M52, M53, M54, M55, M56, M57, M58, and M59 implemented/released,
-mark M60 implemented/released, and rely on documentation-integrity checks to guard
-against superseded-roadmap drift, stale current-baseline labels, mobile product
-contract drift, read-only mobile API boundary drift, and no-authority iOS
-skeleton/local connection/review receipt/TestFlight pipeline/build candidate/mobile approval/audit/OpenWebUI adapter/conversation-surface drift.
+active M34-M60 sequence. v0.87.0 is the current active baseline after
+implementing M83 Shell Dry-Run Classifier as classifier-only, review-only,
+deterministic, local-only contracts over M82 command proposals. Active roadmap
+sources consistently mark M34-M83 implemented/released, keep M84-M100
+planned/provisional, and rely on documentation-integrity checks to guard
+against superseded-roadmap drift, stale current-baseline labels, route drift,
+and authority-boundary drift.
 
 ## Release Notes Index
 
-Current release notes: `docs/release_notes/v0_86_0.md`
+Current release notes: `docs/release_notes/v0_87_0.md`
 
 Historical release notes remain under `docs/release_notes/`. Historical docs may mention old active baselines in historical context; they are not the current source of truth.
 

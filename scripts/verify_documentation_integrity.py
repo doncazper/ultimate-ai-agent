@@ -632,6 +632,20 @@ REQUIRED_M82_COMMAND_PROPOSAL_DOCS = [
     "docs/implementation/foundation_gate_implementation_plan_v0_86_0.md",
 ]
 
+REQUIRED_M83_SHELL_DRY_RUN_CLASSIFIER_DOCS = [
+    "docs/sandbox/SHELL_DRY_RUN_CLASSIFIER.md",
+    "docs/sandbox/SHELL_DRY_RUN_CLASSIFIER_POLICY.md",
+    "docs/sandbox/SHELL_DRY_RUN_CLASSIFIER_AUTHORITY_BOUNDARY.md",
+    "docs/sandbox/SHELL_DRY_RUN_CLASSIFIER_RECEIPT_PLAN.md",
+    "docs/sandbox/SHELL_DRY_RUN_CLASSIFIER_NON_GOALS.md",
+    "docs/sandbox/M83_TO_M84_BOUNDARY.md",
+    "docs/roadmap/M61_M100_ROADMAP.md",
+    "docs/release_notes/v0_87_0.md",
+    "docs/archive/releases/v0_87_0/README_IMPORT.md",
+    "docs/archive/releases/v0_87_0/master_plan.md",
+    "docs/implementation/foundation_gate_implementation_plan_v0_87_0.md",
+]
+
 
 REQUIRED_ACTIVE_DOCS = [
     "docs/README.md",
@@ -1174,6 +1188,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_m80_network_browser_openwebui_freeze_docs(root, version))
     failures.extend(_verify_m81_runtime_sandbox_spec_docs(root, version))
     failures.extend(_verify_m82_command_proposal_docs(root, version))
+    failures.extend(_verify_m83_shell_dry_run_classifier_docs(root, version))
     failures.extend(_verify_m19_roadmap_currentness(root, version))
     failures.extend(_verify_post_m18_roadmap_status_labels(root))
 
@@ -5100,6 +5115,87 @@ def _verify_m82_command_proposal_docs(root: Path, version: str | None) -> list[s
         "M82 docs must not claim browser click implementation": "browser click is implemented",
         "M82 docs must not claim plugin execution implementation": "plugin execution is implemented",
         "M82 docs must not claim production authority": "production authority is implemented",
+    }
+    for message, fragment in forbidden_fragments.items():
+        if fragment in text:
+            failures.append(f"{message}: {fragment}")
+    return failures
+
+
+def _verify_m83_shell_dry_run_classifier_docs(root: Path, version: str | None) -> list[str]:
+    failures: list[str] = []
+    if _version_tuple(version) < (0, 87, 0):
+        return failures
+
+    missing = [
+        rel_path
+        for rel_path in REQUIRED_M83_SHELL_DRY_RUN_CLASSIFIER_DOCS
+        if not (root / rel_path).exists()
+    ]
+    failures.extend(f"missing M83 shell dry-run classifier doc: {rel_path}" for rel_path in missing)
+    text = "\n".join(
+        _read(root / rel_path).lower()
+        for rel_path in REQUIRED_M83_SHELL_DRY_RUN_CLASSIFIER_DOCS
+        if (root / rel_path).exists()
+    )
+    required_fragments = {
+        "M83 docs must say shell dry-run classifier": "shell dry-run classifier",
+        "M83 docs must say classifier-only": "classifier-only",
+        "M83 docs must say review-only": "review-only",
+        "M83 docs must say deterministic": "deterministic",
+        "M83 docs must say local-only": "local-only",
+        "M83 docs must require M82 command proposal": "m82 command proposal",
+        "M83 docs must deny dry-run execution": "no dry-run execution",
+        "M83 docs must deny shell strings": "no shell string",
+        "M83 docs must deny command execution": "no command execution",
+        "M83 docs must deny subprocess execution": "no subprocess execution",
+        "M83 docs must deny shell execution": "no shell execution",
+        "M83 docs must deny process spawn": "no process spawn",
+        "M83 docs must deny filesystem mutation": "no filesystem mutation",
+        "M83 docs must deny network access": "no network access",
+        "M83 docs must deny tool execution": "no tool execution",
+        "M83 docs must deny browser automation": "no browser automation",
+        "M83 docs must deny plugin execution": "no plugin execution",
+        "M83 docs must deny remote execution": "no remote execution",
+        "M83 docs must deny model call": "no model call",
+        "M83 docs must deny memory write": "no memory write",
+        "M83 docs must deny context injection": "no context injection",
+        "M83 docs must deny background worker": "no background worker",
+        "M83 docs must deny backend routes": "no backend route",
+        "M83 docs must deny Control Center controls": "no control center control",
+        "M83 docs must deny dependencies": "no dependency",
+        "M83 docs must deny production authority": "no production authority",
+        "M83 docs must say safe summary only": "safe summary only",
+        "M83 docs must say evaluator boundaries revalidate": "evaluator boundaries revalidate",
+        "M83 docs must keep M84 future": "m84 remains future",
+    }
+    for message, fragment in required_fragments.items():
+        if fragment not in text:
+            failures.append(message)
+
+    for version_label, milestone, title in [
+        ("v0.87.0", "m83", "shell dry-run classifier"),
+        ("v0.88.0", "m84", "sandboxed echo/no-op command"),
+        ("v0.94.0", "m90", "shell/subprocess hardening freeze"),
+        ("v0.95.0", "m91", "autonomous tool execution contract"),
+        ("v1.4.0", "m100", "mobile permission model v1"),
+    ]:
+        if version_label not in text or milestone not in text or title not in text:
+            failures.append(
+                f"M83-M100 roadmap missing label: {version_label} / {milestone.upper()} - {title}"
+            )
+
+    forbidden_fragments = {
+        "M83 docs must not claim dry-run execution implementation": "dry-run execution is implemented",
+        "M83 docs must not claim command execution implementation": "command execution is implemented",
+        "M83 docs must not claim subprocess execution implementation": "subprocess execution is implemented",
+        "M83 docs must not claim shell execution implementation": "shell execution is implemented",
+        "M83 docs must not claim process spawn implementation": "process spawn is implemented",
+        "M83 docs must not claim filesystem mutation implementation": "filesystem mutation is implemented",
+        "M83 docs must not claim network access implementation": "network access is implemented",
+        "M83 docs must not claim browser click implementation": "browser click is implemented",
+        "M83 docs must not claim plugin execution implementation": "plugin execution is implemented",
+        "M83 docs must not claim production authority": "production authority is implemented",
     }
     for message, fragment in forbidden_fragments.items():
         if fragment in text:

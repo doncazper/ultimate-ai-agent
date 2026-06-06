@@ -153,6 +153,14 @@ contracts are core validation objects only. They do not expose
 `/remote/execute`, `/memory/write`, `/context/inject`, `/tools/execute`, or any
 production authority route. OpenAPI path count remains `75`.
 
+v0.87.0 M83 Shell Dry-Run Classifier adds no backend route. Shell dry-run
+classifier contracts are core validation objects only. They do not expose
+`/shell/dry-run/classify`, `/shell/dry-run/execute`, `/commands/execute`,
+`/shell/execute`, `/process/spawn`, `/filesystem/write`,
+`/network/fetch/unrestricted`, `/browser/click`, `/plugins/execute`,
+`/remote/execute`, `/memory/write`, `/context/inject`, `/tools/execute`, or any
+production authority route. OpenAPI path count remains `75`.
+
 v0.43.0 M39 CCC Context Proposal Surface adds no backend route. It adds the
 frontend-only `/context/proposals` Control Center surface for safe context
 proposal display. It does not expose context handoff, context injection,

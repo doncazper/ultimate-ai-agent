@@ -30,6 +30,18 @@ from ultimate_ai_agent.core.sandbox.runtime_spec import (
     validate_runtime_sandbox_spec_report,
     validate_runtime_sandbox_spec_request,
 )
+from ultimate_ai_agent.core.sandbox.shell_dry_run_classifier import (
+    ShellDryRunClassificationStatus,
+    ShellDryRunClass,
+    ShellDryRunClassifierDecision,
+    ShellDryRunClassifierPolicy,
+    ShellDryRunClassifierReceiptPlan,
+    ShellDryRunClassifierRequest,
+    build_shell_dry_run_classification,
+    validate_shell_dry_run_classifier_decision,
+    validate_shell_dry_run_classifier_policy,
+    validate_shell_dry_run_classifier_request,
+)
 
 __all__ = [
     "RuntimeSandboxArchitectureDecision",
@@ -47,9 +59,16 @@ __all__ = [
     "RuntimeSandboxSpecReport",
     "RuntimeSandboxSpecRequest",
     "RuntimeSandboxSpecStatus",
+    "ShellDryRunClassificationStatus",
+    "ShellDryRunClass",
+    "ShellDryRunClassifierDecision",
+    "ShellDryRunClassifierPolicy",
+    "ShellDryRunClassifierReceiptPlan",
+    "ShellDryRunClassifierRequest",
     "build_runtime_sandbox_architecture_review",
     "build_command_proposal",
     "build_runtime_sandbox_spec",
+    "build_shell_dry_run_classification",
     "validate_command_proposal_decision",
     "validate_command_proposal_policy",
     "validate_command_proposal_request",
@@ -58,4 +77,7 @@ __all__ = [
     "validate_runtime_sandbox_spec_policy",
     "validate_runtime_sandbox_spec_report",
     "validate_runtime_sandbox_spec_request",
+    "validate_shell_dry_run_classifier_decision",
+    "validate_shell_dry_run_classifier_policy",
+    "validate_shell_dry_run_classifier_request",
 ]
