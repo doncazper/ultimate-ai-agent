@@ -1,6 +1,6 @@
 # M61-M100 Roadmap
 
-Status: Active roadmap maintained through M84 / v0.88.0.
+Status: Active roadmap maintained through M85 / v0.89.0.
 
 M61 is implemented/released by v0.65.0 as Autonomy Mode Charter + Authority
 Levels. M62 is implemented/released by v0.66.0 as Scoped Autonomy Session
@@ -26,7 +26,8 @@ Hardening Freeze and currentness-repaired by v0.84.1. M81 is
 implemented/released by v0.85.0 as Runtime Sandbox Spec. M82 is
 implemented/released by v0.86.0 as Command Proposal Contracts. M83 is
 implemented/released by v0.87.0 as Shell Dry-Run Classifier. M84 is
-implemented/released by v0.88.0 as Sandboxed Echo/No-Op Command. M85-M100 remain
+implemented/released by v0.88.0 as Sandboxed Echo/No-Op Command. M85 is
+implemented/released by v0.89.0 as Read-Only Command Allowlist. M86-M100 remain
 planned/provisional. This roadmap adds no
 production authority, no global autonomy switch, no broad autonomy, no tool
 execution, no shell execution, no browser automation beyond the M74 injected
@@ -65,7 +66,7 @@ no dependency.
 | v0.86.0 | M82 | Command Proposal Contracts | Implemented/released |
 | v0.87.0 | M83 | Shell Dry-Run Classifier | Implemented/released |
 | v0.88.0 | M84 | Sandboxed Echo/No-Op Command | Implemented/released |
-| v0.89.0 | M85 | Read-Only Command Allowlist | Planned/provisional |
+| v0.89.0 | M85 | Read-Only Command Allowlist | Implemented/released |
 | v0.90.0 | M86 | Shell Approval Gate v1 | Planned/provisional |
 | v0.91.0 | M87 | Sandboxed Command Audit Replay | Planned/provisional |
 | v0.92.0 | M88 | Mutating Command Proposal, No Execution | Planned/provisional |

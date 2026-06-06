@@ -1141,6 +1141,13 @@ M84_FORBIDDEN_BACKEND_ROUTES = M83_FORBIDDEN_BACKEND_ROUTES + (
     "/sandbox/commands/run",
     "/sandbox/commands/execute",
 )
+EXPECTED_M85_OPENAPI_PATH_COUNT = 75
+M85_FORBIDDEN_BACKEND_ROUTES = M84_FORBIDDEN_BACKEND_ROUTES + (
+    "/commands/allowlist",
+    "/commands/allowlist/review",
+    "/commands/allowlist/execute",
+    "/sandbox/allowlist",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -2105,6 +2112,21 @@ def m84_openapi_route_failures(
     return failures
 
 
+def m85_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M85_OPENAPI_PATH_COUNT
+) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(
+            f"OpenAPI path count changed for M85: expected {expected_path_count}, got {len(path_set)}"
+        )
+    for route in M85_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(f"M85 forbidden command allowlist/backend route present: {route}")
+    return failures
+
+
 M36_SAFE_REF_PREFIXES = {
     "reviewPacketRef": "file-review-packet:",
     "previewResultRef": "redacted-file-preview-output:",
@@ -2811,6 +2833,16 @@ class FoundationGateEvaluator:
                 self.check_m84_sandboxed_echo_noop_route_boundary
             ),
             "m84_roadmap_currentness": self.check_m84_roadmap_currentness,
+            "m85_read_only_command_allowlist_contract": (
+                self.check_m85_read_only_command_allowlist_contract
+            ),
+            "m85_read_only_command_allowlist_static_safety": (
+                self.check_m85_read_only_command_allowlist_static_safety
+            ),
+            "m85_read_only_command_allowlist_route_boundary": (
+                self.check_m85_read_only_command_allowlist_route_boundary
+            ),
+            "m85_roadmap_currentness": self.check_m85_roadmap_currentness,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -23246,6 +23278,386 @@ class FoundationGateEvaluator:
         ):
             if fragment in text:
                 failures.append(f"M84 docs imply forbidden/future capability: {fragment}")
+        return self._result(criterion, failures, required_docs)
+
+    def check_m85_read_only_command_allowlist_contract(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/sandbox/__init__.py",
+            "src/ultimate_ai_agent/core/sandbox/read_only_command_allowlist.py",
+            "docs/sandbox/READ_ONLY_COMMAND_ALLOWLIST.md",
+            "docs/sandbox/READ_ONLY_COMMAND_ALLOWLIST_POLICY.md",
+            "docs/sandbox/READ_ONLY_COMMAND_ALLOWLIST_AUTHORITY_BOUNDARY.md",
+            "docs/sandbox/READ_ONLY_COMMAND_ALLOWLIST_RECEIPT_PLAN.md",
+            "docs/sandbox/READ_ONLY_COMMAND_ALLOWLIST_NON_GOALS.md",
+            "docs/sandbox/M85_TO_M86_BOUNDARY.md",
+            "docs/release_notes/v0_89_0.md",
+            "docs/archive/releases/v0_89_0/README_IMPORT.md",
+            "docs/archive/releases/v0_89_0/master_plan.md",
+            "docs/implementation/foundation_gate_implementation_plan_v0_89_0.md",
+            "tests/test_m85_read_only_command_allowlist.py",
+            "tests/test_m85_gate_integration.py",
+        ]
+        failures = [
+            f"missing M85 read-only command allowlist file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            from ultimate_ai_agent.core.sandbox import (
+                CommandProposalRequest,
+                ReadOnlyCommandAllowlistEntry,
+                ReadOnlyCommandAllowlistRequest,
+                ReadOnlyCommandAllowlistStatus,
+                SandboxedEchoNoOpCommandRequest,
+                ShellDryRunClassifierRequest,
+                build_command_proposal,
+                build_read_only_command_allowlist_decision,
+                build_sandboxed_echo_noop_command,
+                build_shell_dry_run_classification,
+            )
+
+            proposal = build_command_proposal(
+                CommandProposalRequest(
+                    request_ref="command-proposal-request:gate-m85",
+                    proposal_ref="command-proposal:gate-m85",
+                    sandbox_spec_ref="runtime-sandbox-spec:m81",
+                    baseline_ref="baseline:v0.88.0",
+                    actor_ref="actor:gate-m85",
+                    prior_milestone_refs=[
+                        "milestone:M57",
+                        "milestone:M58",
+                        "milestone:M80",
+                        "milestone:M81",
+                    ],
+                    command_ref="command-ref:gate-noop",
+                    safe_purpose="Gate verifies a no-effect command proposal for read-only allowlist review.",
+                    safe_command_label="gate noop review",
+                    argv_preview=["gate-noop", "--dry-summary"],
+                )
+            )
+            classification = build_shell_dry_run_classification(
+                ShellDryRunClassifierRequest(
+                    request_ref="shell-dry-run-classifier-request:gate-m85",
+                    classifier_ref="shell-dry-run-classifier:gate-m85",
+                    command_proposal_ref=proposal.proposal_ref,
+                    sandbox_spec_ref=proposal.sandbox_spec_ref,
+                    baseline_ref="baseline:v0.88.0",
+                    actor_ref=proposal.actor_ref,
+                    prior_milestone_refs=[
+                        "milestone:M57",
+                        "milestone:M58",
+                        "milestone:M80",
+                        "milestone:M81",
+                        "milestone:M82",
+                    ],
+                    command_proposal=proposal,
+                )
+            )
+            sandboxed = build_sandboxed_echo_noop_command(
+                SandboxedEchoNoOpCommandRequest(
+                    request_ref="sandboxed-echo-noop-command-request:gate-m85",
+                    sandboxed_command_ref="sandboxed-echo-noop-command:gate-m85",
+                    shell_dry_run_classifier_ref=classification.classifier_ref,
+                    shell_dry_run_decision_ref=classification.decision_ref,
+                    command_proposal_ref=classification.command_proposal_ref,
+                    sandbox_spec_ref=classification.sandbox_spec_ref,
+                    baseline_ref="baseline:v0.88.0",
+                    actor_ref=classification.actor_ref,
+                    prior_milestone_refs=[
+                        "milestone:M57",
+                        "milestone:M58",
+                        "milestone:M80",
+                        "milestone:M81",
+                        "milestone:M82",
+                        "milestone:M83",
+                    ],
+                    safe_echo_text="Gate verifies M85 upstream safe no-op text.",
+                    shell_dry_run_classification=classification,
+                )
+            )
+            request = ReadOnlyCommandAllowlistRequest(
+                request_ref="read-only-command-allowlist-request:gate-m85",
+                allowlist_ref="read-only-command-allowlist:gate-m85",
+                sandboxed_command_ref=sandboxed.sandboxed_command_ref,
+                sandboxed_echo_noop_decision_ref=sandboxed.decision_ref,
+                shell_dry_run_decision_ref=sandboxed.shell_dry_run_decision_ref,
+                command_proposal_ref=sandboxed.command_proposal_ref,
+                command_ref="command-ref:gate-noop",
+                sandbox_spec_ref=sandboxed.sandbox_spec_ref,
+                baseline_ref="baseline:v0.88.0",
+                actor_ref=sandboxed.actor_ref,
+                prior_milestone_refs=[
+                    "milestone:M57",
+                    "milestone:M58",
+                    "milestone:M80",
+                    "milestone:M81",
+                    "milestone:M82",
+                    "milestone:M83",
+                    "milestone:M84",
+                ],
+                sandboxed_echo_noop_decision=sandboxed,
+                entries=[
+                    ReadOnlyCommandAllowlistEntry(
+                        entry_ref="read-only-command-allowlist-entry:gate-m85",
+                        command_ref="command-ref:gate-noop",
+                        safe_command_label="gate noop review",
+                        safe_argument_profile_ref="safe-argument-profile:gate-m85",
+                        reviewed_by_actor_ref=sandboxed.actor_ref,
+                    )
+                ],
+                requested_command_ref="command-ref:gate-noop",
+                safe_purpose="Gate verifies read-only command allowlist contracts.",
+            )
+            decision = build_read_only_command_allowlist_decision(request)
+            if (
+                decision.status != ReadOnlyCommandAllowlistStatus.allowlisted_for_review
+                or not decision.allowlist_match_found
+                or not decision.contract_only
+                or not decision.review_only
+                or not decision.deterministic
+                or not decision.local_only
+                or not decision.read_only_only
+                or decision.command_execution_authorized
+                or decision.shell_execution_authorized
+                or decision.subprocess_execution_authorized
+                or decision.process_spawn_authorized
+                or decision.command_execution_performed
+                or decision.subprocess_execution_performed
+                or decision.shell_execution_performed
+                or decision.process_spawn_performed
+                or decision.filesystem_mutation_performed
+                or decision.network_access_performed
+                or decision.tool_execution_performed
+                or decision.browser_automation_performed
+                or decision.plugin_execution_performed
+                or decision.remote_execution_performed
+                or decision.model_call_performed
+                or decision.memory_write_performed
+                or decision.context_injection_performed
+                or decision.background_worker_started
+                or decision.backend_route_added
+                or decision.control_center_control_added
+                or decision.dependency_added
+                or decision.production_authority_granted
+                or decision.side_effects_performed
+                or not decision.receipt_plan.store_safe_summary_only
+                or not decision.receipt_plan.store_allowlist_refs_only
+                or decision.receipt_plan.store_raw_command
+                or decision.receipt_plan.store_shell_string
+                or decision.receipt_plan.store_raw_output
+                or "M85_READ_ONLY_COMMAND_ALLOWLIST_CONTRACT_ONLY" not in decision.reason_codes
+                or "M85_EXACT_M84_BINDING_REQUIRED" not in decision.reason_codes
+                or "M85_NO_COMMAND_EXECUTION" not in decision.reason_codes
+                or "M86_REMAINS_FUTURE" not in decision.reason_codes
+            ):
+                failures.append("M85 read-only command allowlist decision is unsafe or over-authoritative")
+            for update, reason in [
+                ({"command_execution_requested": True}, "COMMAND_EXECUTION_DENIED"),
+                ({"shell_execution_requested": True}, "SHELL_EXECUTION_DENIED"),
+                ({"subprocess_execution_requested": True}, "SUBPROCESS_EXECUTION_DENIED"),
+                ({"process_spawn_requested": True}, "PROCESS_SPAWN_DENIED"),
+                ({"contains_shell_string": True}, "M85_SHELL_STRING_DENIED"),
+                ({"contains_raw_command": True}, "M85_RAW_COMMAND_DENIED"),
+                ({"contains_raw_output": True}, "M85_RAW_OUTPUT_DENIED"),
+                ({"contains_secret": True}, "SECRET_LIKE_COMMAND_ALLOWLIST_CONTENT_DENIED"),
+            ]:
+                try:
+                    build_read_only_command_allowlist_decision(request.model_copy(update=update))
+                    failures.append(f"M85 unsafe command allowlist request was not denied with {reason}")
+                except ValueError as exc:
+                    if reason not in str(exc):
+                        failures.append(
+                            f"M85 unsafe command allowlist request raised {exc!s}, expected {reason}"
+                        )
+        except Exception as exc:
+            failures.append(f"M85 read-only command allowlist validation failed: {exc}")
+
+        docs_text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_files
+            if path.startswith("docs/") and (self.root / path).exists()
+        )
+        for fragment in [
+            "read-only command allowlist",
+            "contract-only",
+            "review-only",
+            "deterministic",
+            "local-only",
+            "m84 sandboxed echo/no-op command",
+            "exact m84 binding",
+            "safe refs only",
+            "no shell string",
+            "no raw command",
+            "no raw output",
+            "no command execution",
+            "no subprocess execution",
+            "no shell execution",
+            "no process spawn",
+            "no filesystem mutation",
+            "no network access",
+            "no tool execution",
+            "no browser automation",
+            "no plugin execution",
+            "no remote execution",
+            "no model call",
+            "no memory write",
+            "no context injection",
+            "no background worker",
+            "no backend route",
+            "no control center control",
+            "no dependency",
+            "no production authority",
+            "safe summary only",
+            "evaluator boundaries revalidate",
+            "m86 remains future",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M85 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m85_read_only_command_allowlist_static_safety(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        forbidden_source_fragments = [
+            "command_execution_enabled=True",
+            "command_execution_requested=True",
+            "subprocess_execution_enabled=True",
+            "subprocess_execution_requested=True",
+            "shell_execution_enabled=True",
+            "shell_execution_requested=True",
+            "process_spawn_enabled=True",
+            "process_spawn_requested=True",
+            "filesystem_mutation_enabled=True",
+            "network_access_enabled=True",
+            "tool_execution_enabled=True",
+            "browser_automation_enabled=True",
+            "plugin_execution_enabled=True",
+            "remote_execution_enabled=True",
+            "model_call_enabled=True",
+            "memory_write_enabled=True",
+            "context_injection_enabled=True",
+            "background_worker_enabled=True",
+            "backend_route_enabled=True",
+            "control_center_control_enabled=True",
+            "dependency_change_enabled=True",
+            "production_authority_enabled=True",
+            "command_execution_authorized=True",
+            "shell_execution_authorized=True",
+            "subprocess_execution_authorized=True",
+            "process_spawn_authorized=True",
+            "command_execution_performed=True",
+            "subprocess_execution_performed=True",
+            "shell_execution_performed=True",
+            "process_spawn_performed=True",
+            "filesystem_mutation_performed=True",
+            "network_access_performed=True",
+            "tool_execution_performed=True",
+            "browser_automation_performed=True",
+            "plugin_execution_performed=True",
+            "remote_execution_performed=True",
+            "model_call_performed=True",
+            "memory_write_performed=True",
+            "context_injection_performed=True",
+            "background_worker_started=True",
+            "production_authority_granted=True",
+            "store_raw_command=True",
+            "store_shell_string=True",
+            "store_raw_output=True",
+        ]
+        allowed_files = {
+            "scripts/verify_all.py",
+            "src/ultimate_ai_agent/core/sandbox/__init__.py",
+            "src/ultimate_ai_agent/core/sandbox/command_proposal.py",
+            "src/ultimate_ai_agent/core/sandbox/runtime_spec.py",
+            "src/ultimate_ai_agent/core/sandbox/shell_dry_run_classifier.py",
+            "src/ultimate_ai_agent/core/sandbox/sandboxed_echo_noop_command.py",
+            "src/ultimate_ai_agent/core/sandbox/read_only_command_allowlist.py",
+            "src/ultimate_ai_agent/core/gate/evaluators.py",
+            "src/ultimate_ai_agent/api/openapi.py",
+        }
+        for root in [
+            self.root / "src" / "ultimate_ai_agent",
+            self.root / "apps" / "control-center" / "src",
+            self.root / "apps" / "ccc-ios",
+        ]:
+            if not root.exists():
+                continue
+            candidate_files = []
+            for pattern in ("*.py", "*.ts", "*.tsx", "*.js", "*.jsx", "*.swift", "*.yml", "*.yaml"):
+                candidate_files.extend(root.rglob(pattern))
+            for path in sorted(candidate_files):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(self.root).as_posix()
+                if ".test." in rel:
+                    continue
+                if rel in allowed_files:
+                    continue
+                text = path.read_text(encoding="utf-8")
+                for fragment in forbidden_source_fragments:
+                    if fragment in text:
+                        failures.append(f"M85 forbidden read-only command allowlist fragment in {rel}: {fragment}")
+        return self._result(criterion, failures, [])
+
+    def check_m85_read_only_command_allowlist_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m85_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M85 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m85_roadmap_currentness(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        required_docs = [
+            "README.md",
+            "VERSION.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/roadmap/M61_M100_ROADMAP.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+            "docs/roadmap/MILESTONE_CHARTERS.md",
+        ]
+        failures = [
+            f"missing M85 roadmap doc: {path}"
+            for path in required_docs
+            if not (self.root / path).exists()
+        ]
+        text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_docs
+            if (self.root / path).exists()
+        )
+        if "v0.89.0" not in text or "m85" not in text or "read-only command allowlist" not in text:
+            failures.append("active docs do not identify v0.89.0/M85 Read-Only Command Allowlist")
+        if "m85 is implemented/released" not in text and "v0.89.0 implements m85" not in text:
+            failures.append("active docs do not mark M85 implemented/released")
+        for version_label, milestone, title in [
+            ("v0.90.0", "M86", "Shell Approval Gate v1"),
+            ("v0.94.0", "M90", "Shell/Subprocess Hardening Freeze"),
+            ("v0.95.0", "M91", "Autonomous Tool Execution Contract"),
+            ("v1.4.0", "M100", "Mobile Permission Model v1"),
+        ]:
+            if version_label.lower() not in text or milestone.lower() not in text or title.lower() not in text:
+                failures.append(f"active docs missing planned M86-M100 row: {version_label} / {milestone} — {title}")
+        for fragment in (
+            "subprocess execution is implemented",
+            "shell execution is implemented",
+            "process spawn is implemented",
+            "filesystem mutation is implemented",
+            "network access is implemented",
+            "browser click is implemented",
+            "plugin execution is implemented",
+            "production authority is implemented",
+            "broad autonomy is implemented",
+        ):
+            if fragment in text:
+                failures.append(f"M85 docs imply forbidden/future capability: {fragment}")
         return self._result(criterion, failures, required_docs)
 
     def check_v0292_local_dev_api_authority_and_preview_safe(
