@@ -104,6 +104,7 @@ SCAN_SEQUENCE = [
     ("M68 autonomy risk classifier scan", "verify_m68_autonomy_risk_classifier"),
     ("M69 low-risk autonomous dry run scan", "verify_m69_low_risk_autonomous_dry_run"),
     ("M70 autonomy foundation freeze scan", "verify_m70_autonomy_foundation_freeze"),
+    ("M71 network tool contract review scan", "verify_m71_network_tool_contract_review"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -10793,6 +10794,284 @@ def verify_m70_autonomy_foundation_freeze():
                     sys.exit(1)
 
     print("OK: M70 autonomy foundation freeze is contract-only, route-free, freeze-only, and no-authority")
+
+
+def verify_m71_network_tool_contract_review():
+    print("\n[Verifier] Running M71 network tool contract review guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/network/contract_review.py",
+        "src/ultimate_ai_agent/core/network/__init__.py",
+        "docs/network/NETWORK_TOOL_CONTRACT_REVIEW.md",
+        "docs/network/NETWORK_TOOL_CONTRACT_REVIEW_POLICY.md",
+        "docs/network/NETWORK_TOOL_CONTRACT_AUTHORITY_BOUNDARY.md",
+        "docs/network/M71_TO_M72_BOUNDARY.md",
+        "docs/roadmap/M61_M100_ROADMAP.md",
+        "docs/release_notes/v0_75_0.md",
+        "docs/archive/releases/v0_75_0/README_IMPORT.md",
+        "docs/archive/releases/v0_75_0/master_plan.md",
+        "docs/implementation/foundation_gate_implementation_plan_v0_75_0.md",
+        "tests/test_m71_network_tool_contract_review.py",
+        "tests/test_m71_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M71 network tool contract review file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = "\n".join(
+        (ROOT / rel_path).read_text(encoding="utf-8").lower()
+        for rel_path in required_files
+        if rel_path.startswith("docs/")
+    )
+    for fragment in [
+        "network tool contract review",
+        "contract-only",
+        "review-only",
+        "disabled by default",
+        "m72 remains future",
+        "no network call",
+        "no http fetch",
+        "no unrestricted network tool",
+        "no authenticated network action",
+        "no credentials or cookies",
+        "no request body",
+        "no non-get method",
+        "no download or export",
+        "no raw response body",
+        "no backend route",
+        "no control center control",
+        "no dependency",
+        "no production authority",
+        "evaluator boundaries revalidate",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M71 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.evaluators import m71_openapi_route_failures
+        from ultimate_ai_agent.core.network import (
+            NetworkToolCapabilityKind,
+            NetworkToolContractReviewPolicy,
+            NetworkToolContractReviewRequest,
+            NetworkToolContractReviewStatus,
+            build_network_tool_contract_review_decision,
+            validate_network_tool_contract_review_policy,
+            validate_network_tool_contract_review_request,
+        )
+    except Exception as exc:
+        print(f"FAIL: M71 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m71_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    request = NetworkToolContractReviewRequest(
+        review_ref="network-tool-contract-review:verify-all-m71",
+        candidate_ref="network-tool-candidate:verify-all-m71-read-only-http-fetch",
+        actor_ref="actor:verify-all",
+        proposed_tool_ref="tool:read-only-http-fetch-m72-candidate",
+        safe_name="Allowlisted read-only HTTP fetch contract review",
+        capability_kind=NetworkToolCapabilityKind.allowlisted_read_only_http_fetch,
+        safe_summary="Review a future M72 allowlisted read-only HTTP fetch contract without enabling network calls.",
+        allowed_host_policy_ref="network-allowlist-policy:m72-future",
+        risk_ref="risk:network-low-read-only-review",
+    )
+    decision = build_network_tool_contract_review_decision(request)
+    if (
+        decision.status != NetworkToolContractReviewStatus.review_ready
+        or not decision.review_allowed
+        or not decision.contract_only
+        or not decision.review_only
+        or not decision.disabled_by_default
+        or not decision.m72_candidate_only
+        or not decision.future_milestone_required
+        or decision.network_call_allowed
+        or decision.http_fetch_allowed
+        or decision.unrestricted_network_allowed
+        or decision.authenticated_network_allowed
+        or decision.credentials_or_cookies_allowed
+        or decision.request_body_allowed
+        or decision.non_get_method_allowed
+        or decision.download_or_export_allowed
+        or decision.browser_automation_allowed
+        or decision.provider_model_call_allowed
+        or decision.tool_execution_allowed
+        or decision.memory_write_allowed
+        or decision.context_injection_allowed
+        or decision.backend_route_allowed
+        or decision.control_center_control_allowed
+        or decision.dependency_change_allowed
+        or decision.production_authority_granted
+        or decision.receipt_plan.network_call_performed
+        or decision.receipt_plan.http_fetch_performed
+        or decision.receipt_plan.raw_response_body_stored
+        or decision.receipt_plan.credentials_or_cookies_used
+        or decision.receipt_plan.side_effects_performed
+    ):
+        print("FAIL: M71 network tool contract review granted authority or side effects")
+        sys.exit(1)
+
+    future_decision = build_network_tool_contract_review_decision(
+        request.model_copy(
+            update={
+                "candidate_ref": "network-tool-candidate:verify-all-m71-authenticated",
+                "capability_kind": NetworkToolCapabilityKind.authenticated_network_action,
+                "safe_name": "Future authenticated network action review",
+            }
+        )
+    )
+    if (
+        future_decision.status != NetworkToolContractReviewStatus.future_milestone
+        or future_decision.network_call_allowed
+        or future_decision.http_fetch_allowed
+        or "FUTURE_NETWORK_MILESTONE_REQUIRED" not in future_decision.reason_codes
+    ):
+        print("FAIL: M71 effectful network capability was not kept future-only")
+        sys.exit(1)
+
+    for update, reason in [
+        ({"network_call_requested": True}, "NETWORK_CALL_DENIED"),
+        ({"http_fetch_requested": True}, "HTTP_FETCH_DENIED"),
+        ({"unrestricted_network_requested": True}, "UNRESTRICTED_NETWORK_DENIED"),
+        ({"authenticated_network_requested": True}, "AUTHENTICATED_NETWORK_DENIED"),
+        ({"credentials_or_cookies_requested": True}, "CREDENTIAL_OR_COOKIE_HANDLING_DENIED"),
+        ({"request_body_requested": True}, "REQUEST_BODY_DENIED"),
+        ({"non_get_method_requested": True}, "NON_GET_METHOD_DENIED"),
+        ({"download_or_export_requested": True}, "DOWNLOAD_OR_EXPORT_DENIED"),
+        ({"browser_automation_requested": True}, "BROWSER_AUTOMATION_DENIED"),
+        ({"provider_model_call_requested": True}, "PROVIDER_MODEL_CALL_DENIED"),
+        ({"tool_execution_requested": True}, "TOOL_EXECUTION_DENIED"),
+        ({"backend_route_requested": True}, "BACKEND_ROUTE_DENIED"),
+        ({"control_center_control_requested": True}, "CONTROL_CENTER_CONTROL_DENIED"),
+        ({"dependency_requested": True}, "DEPENDENCY_CHANGE_DENIED"),
+        ({"production_authority_requested": True}, "PRODUCTION_AUTHORITY_DENIED"),
+        ({"contains_raw_response_body": True}, "RAW_RESPONSE_BODY_DENIED"),
+        ({"approval_ref": "approval:m71-verify-all"}, "APPROVAL_REF_NOT_AUTHORITY"),
+        ({"approval_test_ref": "approval_test_m71_verify_all"}, "APPROVAL_TEST_REF_DENIED"),
+        ({"metadata": {"api_key": "secret-value"}}, "SECRET_LIKE_NETWORK_TOOL_CONTENT_DENIED"),
+    ]:
+        try:
+            validate_network_tool_contract_review_request(request.model_copy(update=update))
+            print(f"FAIL: M71 unsafe network tool request was not denied: {reason}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M71 unsafe network tool reason drifted for {reason}: {exc}")
+                sys.exit(1)
+
+    try:
+        validate_network_tool_contract_review_policy(
+            NetworkToolContractReviewPolicy(network_call_enabled=True)
+        )
+        print("FAIL: M71 unsafe network tool policy was not denied: NETWORK_CALL_DENIED")
+        sys.exit(1)
+    except ValueError as exc:
+        if "NETWORK_CALL_DENIED" not in str(exc):
+            print(f"FAIL: M71 unsafe network tool policy reason drifted: {exc}")
+            sys.exit(1)
+
+    forbidden_source_fragments = [
+        "network_call_enabled=True",
+        "network_call_requested=True",
+        "http_fetch_enabled=True",
+        "http_fetch_requested=True",
+        "unrestricted_network_enabled=True",
+        "unrestricted_network_requested=True",
+        "authenticated_network_enabled=True",
+        "authenticated_network_requested=True",
+        "credentials_or_cookies_enabled=True",
+        "credentials_or_cookies_requested=True",
+        "request_body_enabled=True",
+        "request_body_requested=True",
+        "non_get_method_enabled=True",
+        "non_get_method_requested=True",
+        "download_or_export_enabled=True",
+        "download_or_export_requested=True",
+        "browser_automation_enabled=True",
+        "browser_automation_requested=True",
+        "provider_model_call_enabled=True",
+        "provider_model_call_requested=True",
+        "tool_execution_enabled=True",
+        "tool_execution_requested=True",
+        "memory_write_enabled=True",
+        "memory_write_requested=True",
+        "context_injection_enabled=True",
+        "context_injection_requested=True",
+        "backend_route_enabled=True",
+        "backend_route_requested=True",
+        "control_center_control_enabled=True",
+        "control_center_control_requested=True",
+        "dependency_change_enabled=True",
+        "dependency_requested=True",
+        "production_authority_enabled=True",
+        "production_authority_requested=True",
+        "production_authority_granted=True",
+        "raw_response_body_stored=True",
+        "credentials_or_cookies_used=True",
+        "/network/fetch",
+        "/network/request",
+        "/http/fetch",
+        "/http/request",
+        "/tools/network/execute",
+        "/tools/execute",
+        "/tool-runtime/execute",
+        "/browser/click",
+        "/plugins/execute",
+        "requests.get(",
+        "requests.post(",
+        "httpx.get(",
+        "httpx.post(",
+        "urllib.request.urlopen",
+        "websocket",
+        "socket.",
+    ]
+    allowed_files = {
+        "scripts/verify_all.py",
+        "src/ultimate_ai_agent/core/network/contract_review.py",
+        "src/ultimate_ai_agent/core/network/__init__.py",
+        "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/api/openapi.py",
+        "src/ultimate_ai_agent/core/autonomy/foundation_freeze.py",
+        "src/ultimate_ai_agent/core/autonomy/dry_run.py",
+        "src/ultimate_ai_agent/core/autonomy/risk.py",
+        "src/ultimate_ai_agent/core/autonomy/revocation.py",
+        "src/ultimate_ai_agent/core/autonomy/approvals.py",
+        "src/ultimate_ai_agent/core/autonomy/audit.py",
+        "src/ultimate_ai_agent/core/autonomy/policies.py",
+        "src/ultimate_ai_agent/core/autonomy/sessions.py",
+        "src/ultimate_ai_agent/core/autonomy/simulator.py",
+        "src/ultimate_ai_agent/core/tools/runtime/invocation.py",
+        "tests/test_m71_network_tool_contract_review.py",
+        "tests/test_m71_gate_integration.py",
+        "tests/test_m70_autonomy_foundation_freeze.py",
+        "tests/test_m70_gate_integration.py",
+    }
+    source_roots = [
+        ROOT / "src" / "ultimate_ai_agent",
+        ROOT / "apps" / "control-center" / "src",
+        ROOT / "apps" / "ccc-ios",
+    ]
+    for root in source_roots:
+        if not root.exists():
+            continue
+        for path in root.rglob("*"):
+            if not path.is_file() or path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}:
+                continue
+            rel = path.relative_to(ROOT).as_posix()
+            if rel in allowed_files:
+                continue
+            text = path.read_text(encoding="utf-8")
+            for fragment in forbidden_source_fragments:
+                if fragment in text:
+                    print(f"FAIL: M71 forbidden network tool contract fragment in {rel}: {fragment}")
+                    sys.exit(1)
+
+    print("OK: M71 network tool contract review is contract-only, route-free, disabled-by-default, and no-authority")
 
 
 def verify_local_developer_launcher_safety():

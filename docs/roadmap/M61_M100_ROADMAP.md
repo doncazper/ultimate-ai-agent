@@ -1,6 +1,6 @@
 # M61-M100 Roadmap
 
-Status: Active roadmap maintained through M70 / v0.74.0.
+Status: Active roadmap maintained through M71 / v0.75.0.
 
 M61 is implemented/released by v0.65.0 as Autonomy Mode Charter + Authority
 Levels. M62 is implemented/released by v0.66.0 as Scoped Autonomy Session
@@ -12,9 +12,11 @@ M67 is implemented/released by v0.71.0 as Revocation + Kill Switch.
 M68 is implemented/released by v0.72.0 as Autonomy Risk Classifier.
 M69 is implemented/released by v0.73.0 as Low-Risk Autonomous Dry Run.
 M70 is implemented/released by v0.74.0 as Autonomy Foundation Freeze.
-M71-M100 remain planned/provisional. This roadmap adds no production
+M71 is implemented/released by v0.75.0 as Network Tool Contract Review.
+M72-M100 remain planned/provisional. This roadmap adds no production
 authority, no global autonomy switch, no broad autonomy, no tool execution, no
-shell execution, no browser automation, no network tools, no background worker,
+shell execution, no browser automation, no network tools, no network calls, no
+HTTP fetches, no background worker,
 no revocation action, no kill-switch activation, no session stop, no process
 kill, no policy activation, no autonomous session, no backend route, and no dependency.
 
@@ -30,7 +32,7 @@ kill, no policy activation, no autonomous session, no backend route, and no depe
 | v0.72.0 | M68 | Autonomy Risk Classifier | Implemented/released |
 | v0.73.0 | M69 | Low-Risk Autonomous Dry Run | Implemented/released |
 | v0.74.0 | M70 | Autonomy Foundation Freeze | Implemented/released |
-| v0.75.0 | M71 | Network Tool Contract Review | Planned/provisional |
+| v0.75.0 | M71 | Network Tool Contract Review | Implemented/released |
 | v0.76.0 | M72 | Read-Only HTTP Fetch Tool, Allowlisted | Planned/provisional |
 | v0.77.0 | M73 | Browser Automation Contract Review | Planned/provisional |
 | v0.78.0 | M74 | Browser Observe-Only Adapter | Planned/provisional |

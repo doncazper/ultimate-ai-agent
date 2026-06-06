@@ -12,21 +12,22 @@ allowed to become operational authority.
 
 | Field | Current state |
 |---|---|
-| Current active baseline | **v0.74.0** |
-| Current milestone | **M70 - Autonomy Foundation Freeze** |
+| Current active baseline | **v0.75.0** |
+| Current milestone | **M71 - Network Tool Contract Review** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **75** OpenAPI paths |
 | Production readiness | Not claimed |
 
-v0.74.0 implements M70 Autonomy Foundation Freeze. It adds contract-only,
-review-only, freeze-only, deterministic Autonomy Foundation Freeze contracts
-over the accepted M61-M69 autonomy foundation. It requires accepted milestone
-refs, explicit checklist refs, evaluator revalidation of safety-critical
-fields, documentation-integrity checks, static verification, and Foundation
-Gate coverage. It adds no policy activation, session start, low-risk dry-run
-execution, autonomous actions, background worker, execution, backend routes,
-Control Center controls, dependency, or M71 work.
+v0.75.0 implements M71 Network Tool Contract Review. It adds contract-only,
+review-only, disabled-by-default, deterministic network tool contract review
+models for future M72 allowlisted read-only HTTP fetch work. It requires safe
+candidate refs, policy refs, stable reason codes, evaluator revalidation of
+safety-critical fields, documentation-integrity checks, static verification,
+and Foundation Gate coverage. It adds no network call, HTTP fetch,
+unrestricted network tool, authenticated network action, credentials or
+cookies, request body, non-GET method, download or export, raw response body,
+backend routes, Control Center controls, dependency, or M72 work.
 
 v0.29.5 is documentation policy polish. It remains the documentation
 organization cleanup baseline before the M26 and M27 implementation releases.
@@ -55,6 +56,9 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M69 Low-Risk Autonomous Dry Run Contracts](docs/autonomy/LOW_RISK_AUTONOMOUS_DRY_RUN_CONTRACTS.md)
 - [M70 Autonomy Foundation Freeze](docs/autonomy/AUTONOMY_FOUNDATION_FREEZE.md)
 - [M70 Autonomy Foundation Freeze Contracts](docs/autonomy/AUTONOMY_FOUNDATION_FREEZE_CONTRACTS.md)
+- [M71 Network Tool Contract Review](docs/network/NETWORK_TOOL_CONTRACT_REVIEW.md)
+- [M71 Network Tool Contract Review Policy](docs/network/NETWORK_TOOL_CONTRACT_REVIEW_POLICY.md)
+- [M71 Network Tool Authority Boundary](docs/network/NETWORK_TOOL_CONTRACT_AUTHORITY_BOUNDARY.md)
 - [M34 Broader File Capability Review](docs/files/BROADER_FILE_CAPABILITY_REVIEW.md)
 - [File capability boundary matrix](docs/files/FILE_CAPABILITY_BOUNDARY_MATRIX.md)
 - [File capability risk register](docs/files/FILE_CAPABILITY_RISK_REGISTER.md)
@@ -182,8 +186,8 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M27 Tool Broker v2](docs/tools/TOOL_BROKER_V2.md)
 - [M26 Grounded Recall Router](docs/recall/GROUNDED_RECALL_ROUTER.md)
 - [v0.60.0 release notes](docs/release_notes/v0_60_0.md)
-- [v0.74.0 release packet](docs/archive/releases/v0_74_0/README_IMPORT.md)
-- [v0.74.0 master plan](docs/archive/releases/v0_74_0/master_plan.md)
+- [v0.75.0 release packet](docs/archive/releases/v0_75_0/README_IMPORT.md)
+- [v0.75.0 master plan](docs/archive/releases/v0_75_0/master_plan.md)
 
 ## What This Project Is
 

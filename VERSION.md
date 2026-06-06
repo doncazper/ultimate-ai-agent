@@ -1,17 +1,16 @@
 # Ultimate AI Agent Version
 
-Current active baseline: **v0.74.0**
+Current active baseline: **v0.75.0**
 
-v0.74.0 implements M70 Autonomy Foundation Freeze. It adds contract-only,
-review-only, freeze-only, deterministic Autonomy Foundation Freeze contracts
-over the accepted M61-M69 autonomy foundation. M70 requires accepted milestone
-refs, explicit checklist refs, evaluator revalidation of safety-critical
-fields, documentation-integrity checks, static verification, and Foundation
-Gate coverage.
+v0.75.0 implements M71 Network Tool Contract Review. It adds contract-only,
+review-only, disabled-by-default, deterministic network tool contract review
+models for future M72 allowlisted read-only HTTP fetch work. M71 records safe
+network tool candidate refs, policy refs, decisions, receipt plans, stable
+reason codes, evaluator revalidation of safety-critical fields,
+documentation-integrity checks, static verification, and Foundation Gate
+coverage.
 
-It adds no policy activation, session start, low-risk dry-run execution,
-autonomous actions, background worker, execution, tool execution, shell
-execution, network tool, browser automation, plugin execution, mobile sensor
-access, remote execution, memory write, context injection, model/provider call,
-backend routes, Control Center controls, dependencies, M71 work, or production
-authority.
+It adds no network call, HTTP fetch, unrestricted network tool, authenticated
+network action, credentials or cookies, request body, non-GET method, download
+or export, raw response body, backend routes, Control Center controls,
+dependencies, M72 work, or production authority.

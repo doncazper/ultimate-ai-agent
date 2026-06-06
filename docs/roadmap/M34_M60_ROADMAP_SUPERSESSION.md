@@ -1,6 +1,6 @@
 # M34-M60 Roadmap Supersession
 
-Status: Active roadmap source of truth through v0.74.0. M61-M100 planning continues in `docs/roadmap/M61_M100_ROADMAP.md`; M64 is implemented/released by v0.68.0 as Autonomous Plan Simulator, M65 is implemented/released by v0.69.0 as Autonomy Audit + Replay Viewer, M66 is implemented/released by v0.70.0 as Scoped Approval Bundles, M67 is implemented/released by v0.71.0 as Revocation + Kill Switch, M68 is implemented/released by v0.72.0 as Autonomy Risk Classifier, M69 is implemented/released by v0.73.0 as Low-Risk Autonomous Dry Run, M70 is implemented/released by v0.74.0 as Autonomy Foundation Freeze, and M71-M100 remain planned/provisional.
+Status: Active roadmap source of truth through v0.75.0. M61-M100 planning continues in `docs/roadmap/M61_M100_ROADMAP.md`; M64 is implemented/released by v0.68.0 as Autonomous Plan Simulator, M65 is implemented/released by v0.69.0 as Autonomy Audit + Replay Viewer, M66 is implemented/released by v0.70.0 as Scoped Approval Bundles, M67 is implemented/released by v0.71.0 as Revocation + Kill Switch, M68 is implemented/released by v0.72.0 as Autonomy Risk Classifier, M69 is implemented/released by v0.73.0 as Low-Risk Autonomous Dry Run, M70 is implemented/released by v0.74.0 as Autonomy Foundation Freeze, M71 is implemented/released by v0.75.0 as Network Tool Contract Review, and M72-M100 remain planned/provisional.
 
 v0.38.0 implements M34 Broader File Capability Review as planning,
 architecture review, documentation, verifier, and Foundation Gate work only.

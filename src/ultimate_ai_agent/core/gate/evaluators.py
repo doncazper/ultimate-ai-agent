@@ -1002,6 +1002,22 @@ M70_FORBIDDEN_BACKEND_ROUTES = M69_FORBIDDEN_BACKEND_ROUTES + (
     "/browser/click",
     "/plugins/execute",
 )
+EXPECTED_M71_OPENAPI_PATH_COUNT = 75
+M71_FORBIDDEN_BACKEND_ROUTES = M70_FORBIDDEN_BACKEND_ROUTES + (
+    "/network/fetch",
+    "/network/request",
+    "/http/fetch",
+    "/http/request",
+    "/tools/network/execute",
+    "/network/tools/execute",
+    "/network/tools/review",
+    "/tools/execute",
+    "/tool-runtime/execute",
+    "/browser/click",
+    "/plugins/execute",
+    "/memory/write",
+    "/context/inject",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -1778,6 +1794,19 @@ def m70_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
     return failures
 
 
+def m71_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M71_OPENAPI_PATH_COUNT) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+    if M37_ALLOWED_CAPTURE_ROUTE not in path_set:
+        failures.append("M37 capture route missing: /files/review/approvals/capture")
+    for route in M71_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(f"M71 forbidden network/runtime/backend route present: {route}")
+    return failures
+
+
 M36_SAFE_REF_PREFIXES = {
     "reviewPacketRef": "file-review-packet:",
     "previewResultRef": "redacted-file-preview-output:",
@@ -2360,6 +2389,14 @@ class FoundationGateEvaluator:
                 self.check_m70_autonomy_foundation_freeze_route_boundary
             ),
             "m70_roadmap_currentness": self.check_m70_roadmap_currentness,
+            "m71_network_tool_contract_review": self.check_m71_network_tool_contract_review,
+            "m71_network_tool_contract_static_safety": (
+                self.check_m71_network_tool_contract_static_safety
+            ),
+            "m71_network_tool_contract_route_boundary": (
+                self.check_m71_network_tool_contract_route_boundary
+            ),
+            "m71_roadmap_currentness": self.check_m71_roadmap_currentness,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -18606,8 +18643,6 @@ class FoundationGateEvaluator:
             if version_label.lower() not in text or milestone.lower() not in text or title.lower() not in text:
                 failures.append(f"active docs missing planned M71-M100 row: {version_label} / {milestone} — {title}")
         for fragment in (
-            "m71 is implemented",
-            "network tool contract review is implemented",
             "production authority is implemented",
             "broad autonomy is implemented",
             "tool execution is implemented",
@@ -18616,6 +18651,319 @@ class FoundationGateEvaluator:
         ):
             if fragment in text:
                 failures.append(f"M70 docs imply forbidden/future capability: {fragment}")
+        return self._result(criterion, failures, required_docs)
+
+    def check_m71_network_tool_contract_review(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/network/contract_review.py",
+            "src/ultimate_ai_agent/core/network/__init__.py",
+            "docs/network/NETWORK_TOOL_CONTRACT_REVIEW.md",
+            "docs/network/NETWORK_TOOL_CONTRACT_REVIEW_POLICY.md",
+            "docs/network/NETWORK_TOOL_CONTRACT_AUTHORITY_BOUNDARY.md",
+            "docs/network/M71_TO_M72_BOUNDARY.md",
+            "docs/roadmap/M61_M100_ROADMAP.md",
+            "tests/test_m71_network_tool_contract_review.py",
+            "tests/test_m71_gate_integration.py",
+        ]
+        failures = [
+            f"missing M71 network tool contract review file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            from ultimate_ai_agent.core.network import (
+                NetworkToolCapabilityKind,
+                NetworkToolContractReviewPolicy,
+                NetworkToolContractReviewRequest,
+                NetworkToolContractReviewStatus,
+                build_network_tool_contract_review_decision,
+                validate_network_tool_contract_review_policy,
+                validate_network_tool_contract_review_request,
+            )
+
+            request = NetworkToolContractReviewRequest(
+                review_ref="network-tool-contract-review:m71-gate",
+                candidate_ref="network-tool-candidate:m71-read-only-http-fetch",
+                actor_ref="actor:foundation-gate",
+                proposed_tool_ref="tool:read-only-http-fetch-m72-candidate",
+                safe_name="Allowlisted read-only HTTP fetch contract review",
+                capability_kind=NetworkToolCapabilityKind.allowlisted_read_only_http_fetch,
+                safe_summary="Review a future M72 allowlisted read-only HTTP fetch contract without enabling network calls.",
+                allowed_host_policy_ref="network-allowlist-policy:m72-future",
+                risk_ref="risk:network-low-read-only-review",
+            )
+            decision = build_network_tool_contract_review_decision(request)
+            if (
+                decision.status != NetworkToolContractReviewStatus.review_ready
+                or not decision.review_allowed
+                or not decision.contract_only
+                or not decision.review_only
+                or not decision.disabled_by_default
+                or not decision.m72_candidate_only
+                or not decision.future_milestone_required
+                or decision.network_call_allowed
+                or decision.http_fetch_allowed
+                or decision.tool_execution_allowed
+                or decision.backend_route_allowed
+                or decision.control_center_control_allowed
+                or decision.production_authority_granted
+                or decision.receipt_plan.network_call_performed
+                or decision.receipt_plan.raw_response_body_stored
+                or decision.receipt_plan.credentials_or_cookies_used
+                or decision.receipt_plan.side_effects_performed
+            ):
+                failures.append("M71 network tool contract review granted network authority or side effects")
+
+            future_decision = build_network_tool_contract_review_decision(
+                request.model_copy(
+                    update={
+                        "candidate_ref": "network-tool-candidate:m71-authenticated-network-action",
+                        "capability_kind": NetworkToolCapabilityKind.authenticated_network_action,
+                        "safe_name": "Future authenticated network action review",
+                    }
+                )
+            )
+            if (
+                future_decision.status != NetworkToolContractReviewStatus.future_milestone
+                or future_decision.network_call_allowed
+                or future_decision.http_fetch_allowed
+                or "FUTURE_NETWORK_MILESTONE_REQUIRED" not in future_decision.reason_codes
+            ):
+                failures.append("M71 effectful network capability was not kept future-only")
+
+            for update, reason in [
+                ({"network_call_requested": True}, "NETWORK_CALL_DENIED"),
+                ({"http_fetch_requested": True}, "HTTP_FETCH_DENIED"),
+                ({"unrestricted_network_requested": True}, "UNRESTRICTED_NETWORK_DENIED"),
+                ({"authenticated_network_requested": True}, "AUTHENTICATED_NETWORK_DENIED"),
+                ({"credentials_or_cookies_requested": True}, "CREDENTIAL_OR_COOKIE_HANDLING_DENIED"),
+                ({"request_body_requested": True}, "REQUEST_BODY_DENIED"),
+                ({"non_get_method_requested": True}, "NON_GET_METHOD_DENIED"),
+                ({"download_or_export_requested": True}, "DOWNLOAD_OR_EXPORT_DENIED"),
+                ({"browser_automation_requested": True}, "BROWSER_AUTOMATION_DENIED"),
+                ({"provider_model_call_requested": True}, "PROVIDER_MODEL_CALL_DENIED"),
+                ({"tool_execution_requested": True}, "TOOL_EXECUTION_DENIED"),
+                ({"backend_route_requested": True}, "BACKEND_ROUTE_DENIED"),
+                ({"control_center_control_requested": True}, "CONTROL_CENTER_CONTROL_DENIED"),
+                ({"dependency_requested": True}, "DEPENDENCY_CHANGE_DENIED"),
+                ({"production_authority_requested": True}, "PRODUCTION_AUTHORITY_DENIED"),
+                ({"contains_raw_response_body": True}, "RAW_RESPONSE_BODY_DENIED"),
+                ({"approval_ref": "approval:m71-gate"}, "APPROVAL_REF_NOT_AUTHORITY"),
+                ({"approval_test_ref": "approval_test_m71_gate"}, "APPROVAL_TEST_REF_DENIED"),
+                ({"metadata": {"api_key": "secret-value"}}, "SECRET_LIKE_NETWORK_TOOL_CONTENT_DENIED"),
+            ]:
+                try:
+                    validate_network_tool_contract_review_request(request.model_copy(update=update))
+                    failures.append(f"M71 unsafe network tool request was not denied: {reason}")
+                except ValueError as exc:
+                    if reason not in str(exc):
+                        failures.append(f"M71 unsafe network tool reason drifted for {reason}: {exc}")
+
+            try:
+                validate_network_tool_contract_review_policy(
+                    NetworkToolContractReviewPolicy(network_call_enabled=True)
+                )
+                failures.append("M71 unsafe network tool policy was not denied: NETWORK_CALL_DENIED")
+            except ValueError as exc:
+                if "NETWORK_CALL_DENIED" not in str(exc):
+                    failures.append(f"M71 unsafe network tool policy reason drifted: {exc}")
+        except Exception as exc:
+            failures.append(f"M71 network tool contract review validation failed: {exc}")
+
+        docs_text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_files
+            if path.startswith("docs/") and (self.root / path).exists()
+        )
+        for fragment in [
+            "network tool contract review",
+            "contract-only",
+            "review-only",
+            "disabled by default",
+            "m72 remains future",
+            "no network call",
+            "no http fetch",
+            "no unrestricted network tool",
+            "no authenticated network action",
+            "no credentials or cookies",
+            "no request body",
+            "no non-get method",
+            "no download or export",
+            "no raw response body",
+            "no backend route",
+            "no control center control",
+            "no dependency",
+            "no production authority",
+            "evaluator boundaries revalidate",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M71 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m71_network_tool_contract_static_safety(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        forbidden_source_fragments = [
+            "network_call_enabled=True",
+            "network_call_requested=True",
+            "http_fetch_enabled=True",
+            "http_fetch_requested=True",
+            "unrestricted_network_enabled=True",
+            "unrestricted_network_requested=True",
+            "authenticated_network_enabled=True",
+            "authenticated_network_requested=True",
+            "credentials_or_cookies_enabled=True",
+            "credentials_or_cookies_requested=True",
+            "request_body_enabled=True",
+            "request_body_requested=True",
+            "non_get_method_enabled=True",
+            "non_get_method_requested=True",
+            "download_or_export_enabled=True",
+            "download_or_export_requested=True",
+            "browser_automation_enabled=True",
+            "browser_automation_requested=True",
+            "provider_model_call_enabled=True",
+            "provider_model_call_requested=True",
+            "tool_execution_enabled=True",
+            "tool_execution_requested=True",
+            "memory_write_enabled=True",
+            "memory_write_requested=True",
+            "context_injection_enabled=True",
+            "context_injection_requested=True",
+            "backend_route_enabled=True",
+            "backend_route_requested=True",
+            "control_center_control_enabled=True",
+            "control_center_control_requested=True",
+            "dependency_change_enabled=True",
+            "dependency_requested=True",
+            "production_authority_enabled=True",
+            "production_authority_requested=True",
+            "production_authority_granted=True",
+            "raw_response_body_stored=True",
+            "credentials_or_cookies_used=True",
+            "/network/fetch",
+            "/network/request",
+            "/http/fetch",
+            "/http/request",
+            "/tools/network/execute",
+            "/tools/execute",
+            "/tool-runtime/execute",
+            "/browser/click",
+            "/plugins/execute",
+            "requests.get(",
+            "requests.post(",
+            "httpx.get(",
+            "httpx.post(",
+            "urllib.request.urlopen",
+            "websocket",
+            "socket.",
+        ]
+        allowed_files = {
+            "scripts/verify_all.py",
+            "src/ultimate_ai_agent/core/network/contract_review.py",
+            "src/ultimate_ai_agent/core/network/__init__.py",
+            "src/ultimate_ai_agent/core/gate/evaluators.py",
+            "src/ultimate_ai_agent/api/openapi.py",
+            "src/ultimate_ai_agent/core/autonomy/foundation_freeze.py",
+            "src/ultimate_ai_agent/core/autonomy/dry_run.py",
+            "src/ultimate_ai_agent/core/autonomy/risk.py",
+            "src/ultimate_ai_agent/core/autonomy/revocation.py",
+            "src/ultimate_ai_agent/core/autonomy/approvals.py",
+            "src/ultimate_ai_agent/core/autonomy/audit.py",
+            "src/ultimate_ai_agent/core/autonomy/policies.py",
+            "src/ultimate_ai_agent/core/autonomy/sessions.py",
+            "src/ultimate_ai_agent/core/autonomy/simulator.py",
+            "src/ultimate_ai_agent/core/tools/runtime/invocation.py",
+            "tests/test_m71_network_tool_contract_review.py",
+            "tests/test_m71_gate_integration.py",
+            "tests/test_m70_autonomy_foundation_freeze.py",
+            "tests/test_m70_gate_integration.py",
+        }
+        source_roots = [
+            self.root / "src" / "ultimate_ai_agent",
+            self.root / "apps" / "control-center" / "src",
+            self.root / "apps" / "ccc-ios",
+        ]
+        for root in source_roots:
+            if not root.exists():
+                continue
+            candidate_files = []
+            for pattern in ("*.py", "*.ts", "*.tsx", "*.js", "*.jsx", "*.swift", "*.yml", "*.yaml"):
+                candidate_files.extend(root.rglob(pattern))
+            for path in sorted(candidate_files):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(self.root).as_posix()
+                if rel in allowed_files:
+                    continue
+                text = path.read_text(encoding="utf-8")
+                for fragment in forbidden_source_fragments:
+                    if fragment in text:
+                        failures.append(f"M71 forbidden network tool contract fragment in {rel}: {fragment}")
+        return self._result(criterion, failures, [])
+
+    def check_m71_network_tool_contract_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m71_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M71 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m71_roadmap_currentness(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        required_docs = [
+            "README.md",
+            "VERSION.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/roadmap/M61_M100_ROADMAP.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+            "docs/roadmap/MILESTONE_CHARTERS.md",
+        ]
+        failures = [
+            f"missing M71 roadmap doc: {path}"
+            for path in required_docs
+            if not (self.root / path).exists()
+        ]
+        text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_docs
+            if (self.root / path).exists()
+        )
+        if "v0.75.0" not in text or "m71" not in text or "network tool contract review" not in text:
+            failures.append("active docs do not identify v0.75.0/M71 Network Tool Contract Review")
+        if "m71 is implemented/released" not in text and "v0.75.0 implements m71" not in text:
+            failures.append("active docs do not mark M71 implemented/released")
+        for version_label, milestone, title in [
+            ("v0.76.0", "M72", "Read-Only HTTP Fetch Tool, Allowlisted"),
+            ("v0.80.0", "M76", "OpenWebUI Runtime Bridge v1"),
+            ("v0.94.0", "M90", "Shell/Subprocess Hardening Freeze"),
+            ("v0.95.0", "M91", "Autonomous Tool Execution Contract"),
+            ("v1.4.0", "M100", "Mobile Permission Model v1"),
+        ]:
+            if version_label.lower() not in text or milestone.lower() not in text or title.lower() not in text:
+                failures.append(f"active docs missing planned M72-M100 row: {version_label} / {milestone} — {title}")
+        for fragment in (
+            "m72 is implemented",
+            "read-only http fetch tool is implemented",
+            "network call is implemented",
+            "http fetch is implemented",
+            "unrestricted network tool is implemented",
+            "authenticated network action is implemented",
+            "production authority is implemented",
+            "broad autonomy is implemented",
+            "tool execution is implemented",
+            "shell execution is implemented",
+            "browser automation is implemented",
+        ):
+            if fragment in text:
+                failures.append(f"M71 docs imply forbidden/future capability: {fragment}")
         return self._result(criterion, failures, required_docs)
 
     def check_v0292_local_dev_api_authority_and_preview_safe(
