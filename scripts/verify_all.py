@@ -91,6 +91,7 @@ SCAN_SEQUENCE = [
     ("M55 redacted observability export scan", "verify_m55_redacted_observability_export"),
     ("M56 agent eval regression harness scan", "verify_m56_agent_eval_regression_harness"),
     ("M57 runtime sandbox architecture review scan", "verify_m57_runtime_sandbox_architecture_review"),
+    ("M58 dry-run execution audit harness scan", "verify_m58_dry_run_execution_audit_harness"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -7849,6 +7850,221 @@ def verify_m57_runtime_sandbox_architecture_review():
                     sys.exit(1)
 
     print("OK: M57 runtime sandbox architecture review is contract-only, no-route, no-execution, and no-authority")
+
+
+def verify_m58_dry_run_execution_audit_harness():
+    print("\n[Verifier] Running M58 dry-run execution audit harness guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/dry_run_audit/__init__.py",
+        "src/ultimate_ai_agent/core/dry_run_audit/harness.py",
+        "docs/dry_run_audit/DRY_RUN_EXECUTION_AUDIT_HARNESS.md",
+        "docs/dry_run_audit/DRY_RUN_EXECUTION_AUDIT_POLICY.md",
+        "docs/dry_run_audit/DRY_RUN_EXECUTION_AUTHORITY_BOUNDARY.md",
+        "docs/dry_run_audit/M58_TO_M59_BOUNDARY.md",
+        "docs/release_notes/v0_62_0.md",
+        "docs/archive/releases/v0_62_0/README_IMPORT.md",
+        "docs/archive/releases/v0_62_0/master_plan.md",
+        "docs/implementation/foundation_gate_implementation_plan_v0_62_0.md",
+        "tests/test_m58_dry_run_execution_audit_harness.py",
+        "tests/test_m58_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M58 dry-run execution audit file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = "\n".join(
+        (ROOT / rel_path).read_text(encoding="utf-8").lower()
+        for rel_path in required_files
+        if rel_path.startswith("docs/")
+    )
+    for fragment in [
+        "dry-run execution audit harness",
+        "dry-run-only",
+        "contract-only",
+        "no real execution",
+        "no tool execution",
+        "no subprocess",
+        "no shell execution",
+        "no process spawn",
+        "no file mutation",
+        "no network access",
+        "no memory write",
+        "no context injection",
+        "no backend route",
+        "no control center control",
+        "no dependency",
+        "no production authority",
+        "m59 remains future",
+        "skill package security rule",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M58 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.dry_run_audit import (
+            DryRunExecutionAuditIntent,
+            DryRunExecutionAuditPolicy,
+            DryRunExecutionAuditRequest,
+            DryRunExecutionAuditStatus,
+            build_dry_run_execution_audit_report,
+            validate_dry_run_execution_audit_policy,
+            validate_dry_run_execution_audit_request,
+        )
+        from ultimate_ai_agent.core.gate.evaluators import m58_openapi_route_failures
+    except Exception as exc:
+        print(f"FAIL: M58 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m58_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    intent = DryRunExecutionAuditIntent(
+        intent_ref="dry-run-intent:verify-all-m58",
+        operation_ref="operation:verify-all-preview",
+        target_ref="target:verify-all-contract",
+        requested_capability_refs=["capability:preview-only", "capability:no-side-effects"],
+        safe_summary="Verify-all dry-run audit intent.",
+    )
+    request = DryRunExecutionAuditRequest(
+        request_ref="dry-run-audit-request:verify-all-m58",
+        audit_ref="dry-run-audit:verify-all-m58",
+        sandbox_review_ref="sandbox-review:verify-all-m57",
+        intent_refs=[intent.intent_ref],
+        intents=[intent],
+        actor_ref="actor:verify-all-reviewer",
+        replay_key_ref="replay-key:verify-all-m58",
+    )
+    report = build_dry_run_execution_audit_report(request)
+    if report.status != DryRunExecutionAuditStatus.reviewed:
+        print(f"FAIL: M58 safe dry-run audit did not pass: {report.status}")
+        sys.exit(1)
+    if (
+        not report.dry_run_only
+        or report.execution_performed
+        or report.tool_execution_performed
+        or report.subprocess_performed
+        or report.shell_execution_performed
+        or report.process_spawn_performed
+        or report.filesystem_mutation_performed
+        or report.network_access_performed
+        or report.memory_write_performed
+        or report.context_injection_performed
+    ):
+        print("FAIL: M58 dry-run audit performed real execution or side effects")
+        sys.exit(1)
+    if report.receipt_plan is None or report.receipt_plan.side_effects_performed:
+        print("FAIL: M58 receipt plan did not remain no-effect")
+        sys.exit(1)
+
+    for intent_update, reason in [
+        ({"execution_requested": True}, "EXECUTION_DENIED"),
+        ({"tool_execution_requested": True}, "TOOL_EXECUTION_DENIED"),
+        ({"subprocess_execution_requested": True}, "SUBPROCESS_EXECUTION_DENIED"),
+        ({"shell_execution_requested": True}, "SHELL_EXECUTION_DENIED"),
+        ({"process_spawn_requested": True}, "PROCESS_SPAWN_DENIED"),
+        ({"filesystem_mutation_requested": True}, "FILESYSTEM_MUTATION_DENIED"),
+        ({"network_access_requested": True}, "NETWORK_ACCESS_DENIED"),
+        ({"model_call_requested": True}, "MODEL_CALL_DENIED"),
+        ({"memory_write_requested": True}, "MEMORY_WRITE_DENIED"),
+        ({"context_injection_requested": True}, "CONTEXT_INJECTION_DENIED"),
+        ({"contains_raw_prompt": True}, "RAW_PROMPT_CAPTURE_DENIED"),
+    ]:
+        mutated_request = request.model_copy(update={"intents": [intent.model_copy(update=intent_update)]})
+        try:
+            validate_dry_run_execution_audit_request(mutated_request)
+            print(f"FAIL: M58 unsafe intent mutation was not denied: {reason}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M58 unsafe intent reason drifted for {reason}: {exc}")
+                sys.exit(1)
+
+    try:
+        validate_dry_run_execution_audit_policy(DryRunExecutionAuditPolicy(execution_enabled=True))
+        print("FAIL: M58 unsafe policy flag was not denied")
+        sys.exit(1)
+    except ValueError as exc:
+        if "EXECUTION_DENIED" not in str(exc):
+            print(f"FAIL: M58 unsafe policy reason drifted: {exc}")
+            sys.exit(1)
+
+    forbidden_source_fragments = [
+        "execution_enabled=True",
+        "tool_execution_enabled=True",
+        "subprocess_execution_enabled=True",
+        "shell_execution_enabled=True",
+        "process_spawn_enabled=True",
+        "filesystem_mutation_enabled=True",
+        "network_access_enabled=True",
+        "model_call_enabled=True",
+        "memory_write_enabled=True",
+        "context_injection_enabled=True",
+        "browser_automation_enabled=True",
+        "plugin_execution_enabled=True",
+        "remote_execution_enabled=True",
+        "side_effects_enabled=True",
+        "production_authority_enabled=True",
+        "m59_public_readiness_enabled=True",
+        "execution_performed=True",
+        "tool_execution_performed=True",
+        "subprocess_performed=True",
+        "shell_execution_performed=True",
+        "process_spawn_performed=True",
+        "filesystem_mutation_performed=True",
+        "network_access_performed=True",
+        "subprocess.run(",
+        "subprocess.Popen(",
+        "os.system(",
+        "shell=True",
+        "/dry-run/run",
+        "/dry-run/execute",
+        "/execution/audit/run",
+        "/execution/audit/execute",
+        "/process/spawn",
+        "/subprocess/run",
+        "/shell/execute",
+        "/tools/execute",
+        "/tool-runtime/execute",
+        "/context/inject",
+        "/memory/write",
+    ]
+    allowed_files = {
+        "scripts/verify_all.py",
+        "src/ultimate_ai_agent/api/app.py",
+        "src/ultimate_ai_agent/api/openapi.py",
+        "src/ultimate_ai_agent/core/tools/runtime/invocation.py",
+        "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/dry_run_audit/harness.py",
+        "tests/test_m58_dry_run_execution_audit_harness.py",
+        "tests/test_m58_gate_integration.py",
+    }
+    source_roots = [
+        ROOT / "src",
+        ROOT / "apps" / "control-center" / "src",
+        ROOT / "apps" / "ccc-ios",
+    ]
+    for root in source_roots:
+        if not root.exists():
+            continue
+        for path in root.rglob("*"):
+            if not path.is_file() or path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}:
+                continue
+            rel = path.relative_to(ROOT).as_posix()
+            if rel in allowed_files:
+                continue
+            text = path.read_text(encoding="utf-8")
+            for fragment in forbidden_source_fragments:
+                if fragment in text:
+                    print(f"FAIL: M58 forbidden dry-run execution fragment in {rel}: {fragment}")
+                    sys.exit(1)
+
+    print("OK: M58 dry-run execution audit harness is dry-run-only, no-route, no-execution, and no-authority")
 
 
 def verify_local_developer_launcher_safety():

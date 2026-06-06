@@ -701,5 +701,14 @@ network access, tool execution, browser automation, plugin execution, remote
 execution, model/provider calls, memory writes, context injection, backend
 routes, dependencies, production authority, or M58 work.
 
-M58 remains planned/provisional as Dry-Run Execution Audit Harness.
+M58 is implemented/released as Dry-Run Execution Audit Harness. It adds focused
+tests for deterministic dry-run audit policy, intent, request, report, entry,
+and receipt-plan contracts. The tests verify declared intent refs can produce
+dry-run-only audit reports without real execution, tool execution, subprocess
+execution, shell execution, process spawn, file mutation, network access,
+model/provider calls, memory writes, context injection, browser automation,
+plugin execution, remote execution, backend routes, dependencies, production
+authority, or M59 work.
+
+M59 remains planned/provisional as Public GitHub Readiness.
 ```
