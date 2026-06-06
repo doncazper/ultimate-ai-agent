@@ -12,22 +12,24 @@ allowed to become operational authority.
 
 | Field | Current state |
 |---|---|
-| Current active baseline | **v0.70.0** |
-| Current milestone | **M66 - Scoped Approval Bundles** |
+| Current active baseline | **v0.71.0** |
+| Current milestone | **M67 - Revocation + Kill Switch** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **75** OpenAPI paths |
 | Production readiness | Not claimed |
 
-v0.70.0 implements M66 Scoped Approval Bundles. It adds contract-only,
-review-only, deterministic scoped approval bundle contracts that group exact
-approval refs as identifiers only and bind them to exact source scope refs,
-audit replay view refs, simulation result refs, actor refs, resource refs,
-capability refs, allowlist refs, duration ceilings, risk ceilings, revocation
-refs, audit refs, and replay refs. It adds tests, documentation-integrity
-checks, static verification, and Foundation Gate coverage. It adds no policy
-activation, session start, autonomous actions, background worker, execution,
-backend routes, Control Center controls, dependency, or M67 work.
+v0.71.0 implements M67 Revocation + Kill Switch. It adds contract-only,
+review-only, deterministic revocation and kill-switch records that bind
+revocation requested and kill-switch requested states to exact scoped approval
+bundle refs, source scope refs, audit replay view refs, simulation result refs,
+actor refs, resource refs, capability refs, allowlist refs, revocation refs,
+audit refs, replay refs, and approval refs as identifiers only. It adds tests,
+documentation-integrity checks, static verification, and Foundation Gate
+coverage. It adds no revocation action, kill-switch activation, session stop,
+process kill, policy activation, session start, autonomous actions, background
+worker, execution, backend routes, Control Center controls, dependency, or M68
+work.
 
 v0.29.5 is documentation policy polish. It remains the documentation
 organization cleanup baseline before the M26 and M27 implementation releases.
@@ -48,6 +50,8 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M65 Autonomy Audit Replay Contracts](docs/autonomy/AUTONOMY_AUDIT_REPLAY_CONTRACTS.md)
 - [M66 Scoped Approval Bundles](docs/autonomy/SCOPED_APPROVAL_BUNDLES.md)
 - [M66 Scoped Approval Bundle Contracts](docs/autonomy/SCOPED_APPROVAL_BUNDLE_CONTRACTS.md)
+- [M67 Revocation + Kill Switch](docs/autonomy/REVOCATION_KILL_SWITCH.md)
+- [M67 Revocation + Kill Switch Contracts](docs/autonomy/REVOCATION_KILL_SWITCH_CONTRACTS.md)
 - [M34 Broader File Capability Review](docs/files/BROADER_FILE_CAPABILITY_REVIEW.md)
 - [File capability boundary matrix](docs/files/FILE_CAPABILITY_BOUNDARY_MATRIX.md)
 - [File capability risk register](docs/files/FILE_CAPABILITY_RISK_REGISTER.md)
@@ -175,8 +179,8 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M27 Tool Broker v2](docs/tools/TOOL_BROKER_V2.md)
 - [M26 Grounded Recall Router](docs/recall/GROUNDED_RECALL_ROUTER.md)
 - [v0.60.0 release notes](docs/release_notes/v0_60_0.md)
-- [v0.70.0 release packet](docs/archive/releases/v0_70_0/README_IMPORT.md)
-- [v0.70.0 master plan](docs/archive/releases/v0_70_0/master_plan.md)
+- [v0.71.0 release packet](docs/archive/releases/v0_71_0/README_IMPORT.md)
+- [v0.71.0 master plan](docs/archive/releases/v0_71_0/master_plan.md)
 
 ## What This Project Is
 

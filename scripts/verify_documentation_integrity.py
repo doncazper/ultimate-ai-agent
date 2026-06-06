@@ -423,6 +423,18 @@ REQUIRED_M66_SCOPED_APPROVAL_BUNDLE_DOCS = [
     "docs/implementation/foundation_gate_implementation_plan_v0_70_0.md",
 ]
 
+REQUIRED_M67_REVOCATION_KILL_SWITCH_DOCS = [
+    "docs/autonomy/REVOCATION_KILL_SWITCH.md",
+    "docs/autonomy/REVOCATION_KILL_SWITCH_CONTRACTS.md",
+    "docs/autonomy/REVOCATION_KILL_SWITCH_NON_GOALS.md",
+    "docs/autonomy/M67_TO_M68_BOUNDARY.md",
+    "docs/roadmap/M61_M100_ROADMAP.md",
+    "docs/release_notes/v0_71_0.md",
+    "docs/archive/releases/v0_71_0/README_IMPORT.md",
+    "docs/archive/releases/v0_71_0/master_plan.md",
+    "docs/implementation/foundation_gate_implementation_plan_v0_71_0.md",
+]
+
 
 REQUIRED_ACTIVE_DOCS = [
     "docs/README.md",
@@ -949,6 +961,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_m64_autonomous_plan_simulator_docs(root, version))
     failures.extend(_verify_m65_autonomy_audit_replay_viewer_docs(root, version))
     failures.extend(_verify_m66_scoped_approval_bundle_docs(root, version))
+    failures.extend(_verify_m67_revocation_kill_switch_docs(root, version))
     failures.extend(_verify_m19_roadmap_currentness(root, version))
     failures.extend(_verify_post_m18_roadmap_status_labels(root))
 
@@ -3655,8 +3668,9 @@ def _verify_m66_scoped_approval_bundle_docs(root: Path, version: str | None) -> 
         "M66 docs must deny memory writes": "no memory write",
         "M66 docs must deny backend routes": "no backend route",
         "M66 docs must deny dependencies": "no dependency",
-        "M66 docs must keep M67 future": "m67 remains future",
     }
+    if _version_tuple(version) < (0, 71, 0):
+        required_fragments["M66 docs must keep M67 future"] = "m67 remains future"
     for message, fragment in required_fragments.items():
         if fragment not in text:
             failures.append(message)
@@ -3683,7 +3697,86 @@ def _verify_m66_scoped_approval_bundle_docs(root: Path, version: str | None) -> 
         "M66 docs must not claim shell execution": "shell execution is implemented",
         "M66 docs must not claim browser automation": "browser automation is implemented",
         "M66 docs must not claim production authority": "production authority is implemented",
-        "M66 docs must not claim M67 implementation": "m67 is implemented",
+    }
+    if _version_tuple(version) < (0, 71, 0):
+        forbidden_fragments["M66 docs must not claim M67 implementation"] = "m67 is implemented"
+    for message, fragment in forbidden_fragments.items():
+        if fragment in text:
+            failures.append(f"{message}: {fragment}")
+    return failures
+
+
+def _verify_m67_revocation_kill_switch_docs(root: Path, version: str | None) -> list[str]:
+    failures: list[str] = []
+    if _version_tuple(version) < (0, 71, 0):
+        return failures
+    parts: list[str] = []
+    for rel_path in REQUIRED_M67_REVOCATION_KILL_SWITCH_DOCS:
+        path = root / rel_path
+        if not path.exists():
+            failures.append(f"M67 revocation kill switch doc missing: {rel_path}")
+            continue
+        parts.append(_read(path).lower())
+    text = "\n".join(parts)
+    required_fragments = {
+        "M67 docs must say revocation + kill switch": "revocation + kill switch",
+        "M67 docs must say contract-only": "contract-only",
+        "M67 docs must say review-only": "review-only",
+        "M67 docs must say exact-bound": "exact-bound",
+        "M67 docs must say scoped approval bundle": "scoped approval bundle",
+        "M67 docs must say revocation requested": "revocation requested",
+        "M67 docs must say kill-switch requested": "kill-switch requested",
+        "M67 docs must say approval refs identifiers": "approval refs are identifiers",
+        "M67 docs must deny revocation action": "no revocation action",
+        "M67 docs must deny kill switch activation": "no kill-switch activation",
+        "M67 docs must deny session stop": "no session stop",
+        "M67 docs must deny process kill": "no process kill",
+        "M67 docs must deny policy activation": "no policy activation",
+        "M67 docs must deny session start": "no session start",
+        "M67 docs must deny autonomous actions": "no autonomous actions",
+        "M67 docs must deny background worker": "no background worker",
+        "M67 docs must deny execution": "no execution",
+        "M67 docs must deny tool execution": "no tool execution",
+        "M67 docs must deny shell execution": "no shell execution",
+        "M67 docs must deny network tools": "no network tools",
+        "M67 docs must deny browser automation": "no browser automation",
+        "M67 docs must deny context injection": "no context injection",
+        "M67 docs must deny memory writes": "no memory write",
+        "M67 docs must deny backend routes": "no backend route",
+        "M67 docs must deny dependencies": "no dependency",
+        "M67 docs must keep M68 future": "m68 remains future",
+    }
+    for message, fragment in required_fragments.items():
+        if fragment not in text:
+            failures.append(message)
+
+    for version_label, milestone, title in [
+        ("v0.72.0", "m68", "autonomy risk classifier"),
+        ("v0.73.0", "m69", "low-risk autonomous dry run"),
+        ("v0.74.0", "m70", "autonomy foundation freeze"),
+        ("v0.95.0", "m91", "autonomous tool execution contract"),
+        ("v1.4.0", "m100", "mobile permission model v1"),
+    ]:
+        if version_label not in text or milestone not in text or title not in text:
+            failures.append(
+                f"M67-M100 roadmap missing planned label: {version_label} / {milestone.upper()} - {title}"
+            )
+
+    forbidden_fragments = {
+        "M67 docs must not claim revocation action": "revocation action is implemented",
+        "M67 docs must not claim kill switch activation": "kill-switch activation is implemented",
+        "M67 docs must not claim session stop": "session stop is implemented",
+        "M67 docs must not claim process kill": "process kill is implemented",
+        "M67 docs must not claim policy activation": "policy activation is implemented",
+        "M67 docs must not claim session start": "session start is implemented",
+        "M67 docs must not claim autonomous actions": "autonomous actions are implemented",
+        "M67 docs must not claim background workers": "background workers are implemented",
+        "M67 docs must not claim execution": "execution is implemented",
+        "M67 docs must not claim tool execution": "tool execution is implemented",
+        "M67 docs must not claim shell execution": "shell execution is implemented",
+        "M67 docs must not claim browser automation": "browser automation is implemented",
+        "M67 docs must not claim production authority": "production authority is implemented",
+        "M67 docs must not claim M68 implementation": "m68 is implemented",
     }
     for message, fragment in forbidden_fragments.items():
         if fragment in text:

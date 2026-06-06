@@ -100,6 +100,7 @@ SCAN_SEQUENCE = [
     ("M64 autonomous plan simulator scan", "verify_m64_autonomous_plan_simulator"),
     ("M65 autonomy audit replay viewer scan", "verify_m65_autonomy_audit_replay_viewer"),
     ("M66 scoped approval bundles scan", "verify_m66_scoped_approval_bundles"),
+    ("M67 revocation kill switch scan", "verify_m67_revocation_kill_switch"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -9803,6 +9804,290 @@ def verify_m66_scoped_approval_bundles():
                     sys.exit(1)
 
     print("OK: M66 scoped approval bundles are contract-only, route-free, exact-scope, and no-authority")
+
+
+def verify_m67_revocation_kill_switch():
+    print("\n[Verifier] Running M67 revocation kill switch guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/autonomy/revocation.py",
+        "docs/autonomy/REVOCATION_KILL_SWITCH.md",
+        "docs/autonomy/REVOCATION_KILL_SWITCH_CONTRACTS.md",
+        "docs/autonomy/REVOCATION_KILL_SWITCH_NON_GOALS.md",
+        "docs/autonomy/M67_TO_M68_BOUNDARY.md",
+        "docs/roadmap/M61_M100_ROADMAP.md",
+        "docs/release_notes/v0_71_0.md",
+        "docs/archive/releases/v0_71_0/README_IMPORT.md",
+        "docs/archive/releases/v0_71_0/master_plan.md",
+        "docs/implementation/foundation_gate_implementation_plan_v0_71_0.md",
+        "tests/test_m67_revocation_kill_switch.py",
+        "tests/test_m67_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M67 revocation kill switch file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = "\n".join(
+        (ROOT / rel_path).read_text(encoding="utf-8").lower()
+        for rel_path in required_files
+        if rel_path.startswith("docs/")
+    )
+    for fragment in [
+        "revocation + kill switch",
+        "contract-only",
+        "review-only",
+        "exact-bound",
+        "scoped approval bundle",
+        "revocation requested",
+        "kill-switch requested",
+        "approval refs are identifiers",
+        "no revocation action",
+        "no kill-switch activation",
+        "no session stop",
+        "no process kill",
+        "no policy activation",
+        "no session start",
+        "no autonomous actions",
+        "no background worker",
+        "no execution",
+        "no tool execution",
+        "no shell execution",
+        "no network tools",
+        "no browser automation",
+        "no backend route",
+        "no dependency",
+        "m68 remains future",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M67 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.autonomy import (
+            AutonomyAuthorityMode,
+            AutonomyPolicyEvaluationRequest,
+            AutonomyPolicyEnginePolicy,
+            AutonomyPolicyRule,
+            AutonomyRiskClass,
+            AutonomousPlanSimulationRequest,
+            AutonomousPlanSimulationStep,
+            ScopedAutonomySessionRequest,
+            ScopedAutonomySessionScope,
+            build_autonomous_plan_simulation_result,
+            build_autonomy_audit_replay_view,
+            build_autonomy_policy_decision,
+            build_revocation_kill_switch_record,
+            build_scoped_approval_bundle,
+            validate_revocation_kill_switch_record,
+        )
+        from ultimate_ai_agent.core.gate.evaluators import m67_openapi_route_failures
+    except Exception as exc:
+        print(f"FAIL: M67 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m67_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    scope = ScopedAutonomySessionScope(
+        scope_ref="autonomy-session-scope:verify-all-m67",
+        actor_ref="actor:verify-all-reviewer",
+        resource_refs=["resource:local-prototype"],
+        capability_refs=["capability:observe-only-review"],
+        allowlist_refs=["allowlist:verify-all-m67"],
+        max_duration_seconds=900,
+        risk_class=AutonomyRiskClass.low,
+        revocation_ref="revocation:verify-all-m67",
+        audit_ref="audit:verify-all-m67",
+        replay_ref="replay:verify-all-m67",
+    )
+    policy_decision = build_autonomy_policy_decision(
+        AutonomyPolicyEvaluationRequest(
+            evaluation_request_ref="autonomy-policy-evaluation:verify-all-m67",
+            policy=AutonomyPolicyEnginePolicy(
+                policy_ref="autonomy-policy:verify-all-m67",
+                policy_version_ref="autonomy-policy-version:m67-v1",
+                rules=[
+                    AutonomyPolicyRule(
+                        rule_ref="autonomy-policy-rule:verify-all-m67",
+                        allowed_actor_refs=["actor:verify-all-reviewer"],
+                        allowed_resource_refs=["resource:local-prototype"],
+                        allowed_capability_refs=["capability:observe-only-review"],
+                        required_allowlist_refs=["allowlist:verify-all-m67"],
+                        max_mode=AutonomyAuthorityMode.dry_run_plan,
+                        max_risk_class=AutonomyRiskClass.low,
+                        max_duration_seconds=900,
+                    )
+                ],
+            ),
+            session_request=ScopedAutonomySessionRequest(
+                session_request_ref="autonomy-session-request:verify-all-m67",
+                requested_mode=AutonomyAuthorityMode.dry_run_plan,
+                scope=scope,
+            ),
+        )
+    )
+    simulation_result = build_autonomous_plan_simulation_result(
+        AutonomousPlanSimulationRequest(
+            simulation_request_ref="autonomy-plan-simulation-request:verify-all-m67",
+            policy_decision=policy_decision,
+            steps=[
+                AutonomousPlanSimulationStep(
+                    step_ref="autonomy-simulation-step:verify-all-m67",
+                    intent_ref="intent:inspect-redacted-review-packet",
+                    capability_ref="capability:observe-only-review",
+                    resource_ref="resource:local-prototype",
+                    simulated_outcome_ref="simulation-outcome:m67-review-only",
+                )
+            ],
+            actor_ref="actor:verify-all-reviewer",
+            resource_refs=["resource:local-prototype"],
+            capability_refs=["capability:observe-only-review"],
+            allowlist_refs=["allowlist:verify-all-m67"],
+            audit_ref="audit:verify-all-m67",
+            replay_ref="replay:verify-all-m67",
+        )
+    )
+    replay_view = build_autonomy_audit_replay_view(
+        audit_view_ref="autonomy-audit-replay-view:verify-all-m67",
+        simulation_result=simulation_result,
+        actor_ref="actor:verify-all-reviewer",
+        audit_ref="audit:verify-all-m67",
+        replay_ref="replay:verify-all-m67",
+    )
+    bundle = build_scoped_approval_bundle(
+        bundle_ref="scoped-approval-bundle:verify-all-m67",
+        source_scope=scope,
+        audit_replay_view=replay_view,
+        approval_refs=["approval:verify-all-m67-review", "approval:verify-all-m67-dry-run"],
+        actor_ref="actor:verify-all-reviewer",
+        resource_refs=["resource:local-prototype"],
+        capability_refs=["capability:observe-only-review"],
+        allowlist_refs=["allowlist:verify-all-m67"],
+        max_duration_seconds=900,
+        risk_class=AutonomyRiskClass.low,
+        revocation_ref="revocation:verify-all-m67",
+        audit_ref="audit:verify-all-m67",
+        replay_ref="replay:verify-all-m67",
+    )
+    record = build_revocation_kill_switch_record(
+        revocation_record_ref="revocation-kill-switch-record:verify-all-m67",
+        approval_bundle=bundle,
+        actor_ref="actor:verify-all-reviewer",
+        resource_refs=["resource:local-prototype"],
+        capability_refs=["capability:observe-only-review"],
+        allowlist_refs=["allowlist:verify-all-m67"],
+        bundle_ref="scoped-approval-bundle:verify-all-m67",
+        source_scope_ref="autonomy-session-scope:verify-all-m67",
+        audit_view_ref="autonomy-audit-replay-view:verify-all-m67",
+        simulation_result_ref="autonomy-plan-simulation-result:verify-all-m67",
+        revocation_ref="revocation:verify-all-m67",
+        audit_ref="audit:verify-all-m67",
+        replay_ref="replay:verify-all-m67",
+    )
+    if record.authority_granted or record.revocation_performed or record.kill_switch_activated or record.session_stopped or record.execution_performed or record.side_effects_performed:
+        print("FAIL: M67 revocation kill switch record granted authority or side effects")
+        sys.exit(1)
+    for update, reason in [
+        ({"approval_test_ref": "approval_test_:m67"}, "APPROVAL_TEST_REF_DENIED"),
+        ({"kill_switch_activated": True}, "KILL_SWITCH_ACTIVATION_DENIED"),
+        ({"revocation_performed": True}, "REVOCATION_ACTION_DENIED"),
+        ({"session_stopped": True}, "AUTONOMY_SESSION_STOP_DENIED"),
+        ({"authority_granted": True}, "AUTONOMY_POLICY_AUTHORITY_DENIED"),
+        ({"execution_requested": True}, "EXECUTION_DENIED"),
+        ({"context_injection_enabled": True}, "CONTEXT_INJECTION_DENIED"),
+        ({"memory_write_enabled": True}, "MEMORY_WRITE_DENIED"),
+        ({"metadata": {"api_key": "secret-value"}}, "SECRET_LIKE_REVOCATION_KILL_SWITCH_CONTENT_DENIED"),
+    ]:
+        try:
+            validate_revocation_kill_switch_record(record.model_copy(update=update))
+            print(f"FAIL: M67 unsafe revocation kill switch mutation was not denied: {reason}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M67 unsafe revocation kill switch reason drifted for {reason}: {exc}")
+                sys.exit(1)
+
+    forbidden_source_fragments = [
+        "kill_switch_activated=True",
+        "revocation_performed=True",
+        "session_stopped=True",
+        "policy_activation_enabled=True",
+        "policy_activation_requested=True",
+        "session_start_enabled=True",
+        "session_start_requested=True",
+        "session_active=True",
+        "execution_requested=True",
+        "execution_performed=True",
+        "autonomous_actions_enabled=True",
+        "background_worker_enabled=True",
+        "execution_enabled=True",
+        "tool_execution_enabled=True",
+        "shell_execution_enabled=True",
+        "network_tool_enabled=True",
+        "browser_automation_enabled=True",
+        "plugin_execution_enabled=True",
+        "mobile_sensor_enabled=True",
+        "remote_execution_enabled=True",
+        "memory_write_enabled=True",
+        "context_injection_enabled=True",
+        "model_provider_call_enabled=True",
+        "production_authority_enabled=True",
+        "authority_granted=True",
+        "/autonomy/revoke",
+        "/autonomy/revocation/execute",
+        "/autonomy/kill-switch",
+        "/autonomy/kill-switch/activate",
+        "/autonomy/session/stop",
+        "/autonomy/session/terminate",
+        "/process/kill",
+        "/autonomy/execute",
+        "/background/start",
+        "/network/fetch",
+        "/shell/execute",
+        "/browser/click",
+        "subprocess" + ".run(",
+        "subprocess" + ".Popen(",
+        "os.system(",
+        "shell=True",
+    ]
+    allowed_files = {
+        "scripts/verify_all.py",
+        "src/ultimate_ai_agent/core/autonomy/revocation.py",
+        "src/ultimate_ai_agent/core/autonomy/approvals.py",
+        "src/ultimate_ai_agent/core/autonomy/audit.py",
+        "src/ultimate_ai_agent/core/autonomy/policies.py",
+        "src/ultimate_ai_agent/core/autonomy/sessions.py",
+        "src/ultimate_ai_agent/core/autonomy/simulator.py",
+        "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/tools/runtime/invocation.py",
+        "tests/test_m67_revocation_kill_switch.py",
+        "tests/test_m67_gate_integration.py",
+    }
+    source_roots = [
+        ROOT / "src" / "ultimate_ai_agent",
+        ROOT / "apps" / "control-center" / "src",
+        ROOT / "apps" / "ccc-ios",
+    ]
+    for root in source_roots:
+        if not root.exists():
+            continue
+        for path in root.rglob("*"):
+            if not path.is_file() or path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}:
+                continue
+            rel = path.relative_to(ROOT).as_posix()
+            if rel in allowed_files:
+                continue
+            text = path.read_text(encoding="utf-8")
+            for fragment in forbidden_source_fragments:
+                if fragment in text:
+                    print(f"FAIL: M67 forbidden revocation kill switch fragment in {rel}: {fragment}")
+                    sys.exit(1)
+
+    print("OK: M67 revocation kill switch is contract-only, route-free, exact-bound, and no-authority")
 
 
 def verify_local_developer_launcher_safety():

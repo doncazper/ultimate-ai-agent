@@ -42,6 +42,12 @@ from ultimate_ai_agent.core.autonomy.approvals import (
     build_scoped_approval_bundle,
     validate_scoped_approval_bundle,
 )
+from ultimate_ai_agent.core.autonomy.revocation import (
+    REVOCATION_KILL_SWITCH_DOCS,
+    RevocationKillSwitchRecord,
+    build_revocation_kill_switch_record,
+    validate_revocation_kill_switch_record,
+)
 from ultimate_ai_agent.core.autonomy.sessions import (
     M62_MAX_SESSION_DURATION_SECONDS,
     SCOPED_AUTONOMY_SESSION_DOCS,
@@ -72,6 +78,10 @@ __all__ = [
     "ScopedApprovalBundle",
     "build_scoped_approval_bundle",
     "validate_scoped_approval_bundle",
+    "REVOCATION_KILL_SWITCH_DOCS",
+    "RevocationKillSwitchRecord",
+    "build_revocation_kill_switch_record",
+    "validate_revocation_kill_switch_record",
     "AUTONOMY_POLICY_ENGINE_DOCS",
     "AutonomyPolicyDecision",
     "AutonomyPolicyEnginePolicy",
