@@ -1,6 +1,6 @@
 # Documentation Index
 
-Current active baseline: **v0.73.0**
+Current active baseline: **v0.74.0**
 
 This index is the active entrypoint for documentation navigation. Historical release documents remain in the repository for audit history, but active truth starts with the current baseline files listed here.
 
@@ -14,9 +14,9 @@ docs/canonical/CANONICAL_DOC_MAP.md
 docs/canonical/09_roadmap.md
 docs/roadmap/README.md
 docs/archive/README.md
-docs/archive/releases/v0_73_0/README_IMPORT.md
-docs/archive/releases/v0_73_0/master_plan.md
-docs/release_notes/v0_73_0.md
+docs/archive/releases/v0_74_0/README_IMPORT.md
+docs/archive/releases/v0_74_0/master_plan.md
+docs/release_notes/v0_74_0.md
 docs/developer/LOCAL_LAUNCHER.md
 scripts/dev/README.md
 docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md
@@ -84,6 +84,10 @@ docs/autonomy/LOW_RISK_AUTONOMOUS_DRY_RUN.md
 docs/autonomy/LOW_RISK_AUTONOMOUS_DRY_RUN_CONTRACTS.md
 docs/autonomy/LOW_RISK_AUTONOMOUS_DRY_RUN_NON_GOALS.md
 docs/autonomy/M69_TO_M70_BOUNDARY.md
+docs/autonomy/AUTONOMY_FOUNDATION_FREEZE.md
+docs/autonomy/AUTONOMY_FOUNDATION_FREEZE_CONTRACTS.md
+docs/autonomy/AUTONOMY_FOUNDATION_FREEZE_NON_GOALS.md
+docs/autonomy/M70_TO_M71_BOUNDARY.md
 docs/roadmap/M61_M100_ROADMAP.md
 docs/files/FILE_REVIEW_RECEIPT_PLAN.md
 docs/files/FILE_REVIEW_NON_GOALS.md
@@ -544,7 +548,7 @@ skeleton/local connection/review receipt/TestFlight pipeline/build candidate/mob
 
 ## Release Notes Index
 
-Current release notes: `docs/release_notes/v0_73_0.md`
+Current release notes: `docs/release_notes/v0_74_0.md`
 
 Historical release notes remain under `docs/release_notes/`. Historical docs may mention old active baselines in historical context; they are not the current source of truth.
 

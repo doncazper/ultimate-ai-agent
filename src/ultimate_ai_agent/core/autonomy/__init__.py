@@ -69,6 +69,17 @@ from ultimate_ai_agent.core.autonomy.dry_run import (
     validate_low_risk_autonomous_dry_run_request,
     validate_low_risk_autonomous_dry_run_step,
 )
+from ultimate_ai_agent.core.autonomy.foundation_freeze import (
+    AUTONOMY_FOUNDATION_FREEZE_DOCS,
+    AutonomyFoundationFreezePolicy,
+    AutonomyFoundationFreezeReport,
+    AutonomyFoundationFreezeRequest,
+    AutonomyFoundationFreezeStatus,
+    build_autonomy_foundation_freeze_report,
+    validate_autonomy_foundation_freeze_policy,
+    validate_autonomy_foundation_freeze_report,
+    validate_autonomy_foundation_freeze_request,
+)
 from ultimate_ai_agent.core.autonomy.sessions import (
     M62_MAX_SESSION_DURATION_SECONDS,
     SCOPED_AUTONOMY_SESSION_DOCS,
@@ -120,6 +131,15 @@ __all__ = [
     "validate_low_risk_autonomous_dry_run_record",
     "validate_low_risk_autonomous_dry_run_request",
     "validate_low_risk_autonomous_dry_run_step",
+    "AUTONOMY_FOUNDATION_FREEZE_DOCS",
+    "AutonomyFoundationFreezePolicy",
+    "AutonomyFoundationFreezeReport",
+    "AutonomyFoundationFreezeRequest",
+    "AutonomyFoundationFreezeStatus",
+    "build_autonomy_foundation_freeze_report",
+    "validate_autonomy_foundation_freeze_policy",
+    "validate_autonomy_foundation_freeze_report",
+    "validate_autonomy_foundation_freeze_request",
     "AUTONOMY_POLICY_ENGINE_DOCS",
     "AutonomyPolicyDecision",
     "AutonomyPolicyEnginePolicy",

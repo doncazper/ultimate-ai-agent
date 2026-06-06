@@ -459,6 +459,18 @@ REQUIRED_M69_LOW_RISK_AUTONOMOUS_DRY_RUN_DOCS = [
     "docs/implementation/foundation_gate_implementation_plan_v0_73_0.md",
 ]
 
+REQUIRED_M70_AUTONOMY_FOUNDATION_FREEZE_DOCS = [
+    "docs/autonomy/AUTONOMY_FOUNDATION_FREEZE.md",
+    "docs/autonomy/AUTONOMY_FOUNDATION_FREEZE_CONTRACTS.md",
+    "docs/autonomy/AUTONOMY_FOUNDATION_FREEZE_NON_GOALS.md",
+    "docs/autonomy/M70_TO_M71_BOUNDARY.md",
+    "docs/roadmap/M61_M100_ROADMAP.md",
+    "docs/release_notes/v0_74_0.md",
+    "docs/archive/releases/v0_74_0/README_IMPORT.md",
+    "docs/archive/releases/v0_74_0/master_plan.md",
+    "docs/implementation/foundation_gate_implementation_plan_v0_74_0.md",
+]
+
 
 REQUIRED_ACTIVE_DOCS = [
     "docs/README.md",
@@ -988,6 +1000,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_m67_revocation_kill_switch_docs(root, version))
     failures.extend(_verify_m68_autonomy_risk_classifier_docs(root, version))
     failures.extend(_verify_m69_low_risk_autonomous_dry_run_docs(root, version))
+    failures.extend(_verify_m70_autonomy_foundation_freeze_docs(root, version))
     failures.extend(_verify_m19_roadmap_currentness(root, version))
     failures.extend(_verify_post_m18_roadmap_status_labels(root))
 
@@ -3932,8 +3945,9 @@ def _verify_m69_low_risk_autonomous_dry_run_docs(root: Path, version: str | None
         "M69 docs must deny Control Center controls": "no control center control",
         "M69 docs must deny dependencies": "no dependency",
         "M69 docs must deny production authority": "no production authority",
-        "M69 docs must keep M70 future": "m70 remains future",
     }
+    if _version_tuple(version) < (0, 74, 0):
+        required_fragments["M69 docs must keep M70 future"] = "m70 remains future"
     for message, fragment in required_fragments.items():
         if fragment not in text:
             failures.append(message)
@@ -3958,7 +3972,85 @@ def _verify_m69_low_risk_autonomous_dry_run_docs(root: Path, version: str | None
         "M69 docs must not claim shell execution": "shell execution is implemented",
         "M69 docs must not claim browser automation": "browser automation is implemented",
         "M69 docs must not claim production authority": "production authority is implemented",
-        "M69 docs must not claim M70 implementation": "m70 is implemented",
+    }
+    if _version_tuple(version) < (0, 74, 0):
+        forbidden_fragments["M69 docs must not claim M70 implementation"] = "m70 is implemented"
+    for message, fragment in forbidden_fragments.items():
+        if fragment in text:
+            failures.append(f"{message}: {fragment}")
+    return failures
+
+
+def _verify_m70_autonomy_foundation_freeze_docs(root: Path, version: str | None) -> list[str]:
+    failures: list[str] = []
+    if _version_tuple(version) < (0, 74, 0):
+        return failures
+    parts: list[str] = []
+    for rel_path in REQUIRED_M70_AUTONOMY_FOUNDATION_FREEZE_DOCS:
+        path = root / rel_path
+        if not path.exists():
+            failures.append(f"M70 autonomy foundation freeze doc missing: {rel_path}")
+            continue
+        parts.append(_read(path).lower())
+    text = "\n".join(parts)
+    required_fragments = {
+        "M70 docs must say autonomy foundation freeze": "autonomy foundation freeze",
+        "M70 docs must say M61-M69": "m61-m69",
+        "M70 docs must say contract-only": "contract-only",
+        "M70 docs must say review-only": "review-only",
+        "M70 docs must say freeze-only": "freeze-only",
+        "M70 docs must say deterministic": "deterministic",
+        "M70 docs must say accepted milestone refs": "accepted milestone refs",
+        "M70 docs must say checklist refs": "checklist refs",
+        "M70 docs must say evaluator revalidation": "evaluator boundaries revalidate",
+        "M70 docs must deny policy activation": "no policy activation",
+        "M70 docs must deny session start": "no session start",
+        "M70 docs must deny low-risk dry-run execution": "no low-risk dry-run execution",
+        "M70 docs must deny autonomous actions": "no autonomous actions",
+        "M70 docs must deny background worker": "no background worker",
+        "M70 docs must deny execution": "no execution",
+        "M70 docs must deny tool execution": "no tool execution",
+        "M70 docs must deny shell execution": "no shell execution",
+        "M70 docs must deny network tool": "no network tool",
+        "M70 docs must deny browser automation": "no browser automation",
+        "M70 docs must deny plugin execution": "no plugin execution",
+        "M70 docs must deny mobile sensors": "no mobile sensor",
+        "M70 docs must deny remote execution": "no remote execution",
+        "M70 docs must deny memory writes": "no memory write",
+        "M70 docs must deny context injection": "no context injection",
+        "M70 docs must deny model/provider calls": "no model/provider call",
+        "M70 docs must deny backend routes": "no backend route",
+        "M70 docs must deny Control Center controls": "no control center control",
+        "M70 docs must deny dependencies": "no dependency",
+        "M70 docs must deny production authority": "no production authority",
+        "M70 docs must keep M71 future": "m71 remains future",
+    }
+    for message, fragment in required_fragments.items():
+        if fragment not in text:
+            failures.append(message)
+
+    for version_label, milestone, title in [
+        ("v0.74.0", "m70", "autonomy foundation freeze"),
+        ("v0.75.0", "m71", "network tool contract review"),
+        ("v0.95.0", "m91", "autonomous tool execution contract"),
+        ("v1.4.0", "m100", "mobile permission model v1"),
+    ]:
+        if version_label not in text or milestone not in text or title not in text:
+            failures.append(
+                f"M70-M100 roadmap missing planned label: {version_label} / {milestone.upper()} - {title}"
+            )
+
+    forbidden_fragments = {
+        "M70 docs must not claim policy activation": "policy activation is implemented",
+        "M70 docs must not claim session start": "session start is implemented",
+        "M70 docs must not claim autonomous actions": "autonomous actions are implemented",
+        "M70 docs must not claim background workers": "background workers are implemented",
+        "M70 docs must not claim execution": "execution is implemented",
+        "M70 docs must not claim tool execution": "tool execution is implemented",
+        "M70 docs must not claim shell execution": "shell execution is implemented",
+        "M70 docs must not claim browser automation": "browser automation is implemented",
+        "M70 docs must not claim production authority": "production authority is implemented",
+        "M70 docs must not claim M71 implementation": "m71 is implemented",
     }
     for message, fragment in forbidden_fragments.items():
         if fragment in text:

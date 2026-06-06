@@ -986,6 +986,22 @@ M69_FORBIDDEN_BACKEND_ROUTES = M68_FORBIDDEN_BACKEND_ROUTES + (
     "/autonomy/dry-run/persist",
     "/autonomy/dry-run/session",
 )
+EXPECTED_M70_OPENAPI_PATH_COUNT = 75
+M70_FORBIDDEN_BACKEND_ROUTES = M69_FORBIDDEN_BACKEND_ROUTES + (
+    "/autonomy/freeze/activate",
+    "/autonomy/freeze/start",
+    "/autonomy/foundation/activate",
+    "/autonomy/session/start",
+    "/autonomy/policy/activate",
+    "/autonomy/dry-run/execute",
+    "/autonomy/dry-run/start",
+    "/context/inject",
+    "/memory/write",
+    "/tools/execute",
+    "/shell/execute",
+    "/browser/click",
+    "/plugins/execute",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -1749,6 +1765,19 @@ def m69_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
     return failures
 
 
+def m70_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M70_OPENAPI_PATH_COUNT) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+    if M37_ALLOWED_CAPTURE_ROUTE not in path_set:
+        failures.append("M37 capture route missing: /files/review/approvals/capture")
+    for route in M70_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(f"M70 forbidden freeze/execution/backend route present: {route}")
+    return failures
+
+
 M36_SAFE_REF_PREFIXES = {
     "reviewPacketRef": "file-review-packet:",
     "previewResultRef": "redacted-file-preview-output:",
@@ -2321,6 +2350,16 @@ class FoundationGateEvaluator:
                 self.check_m69_low_risk_autonomous_dry_run_route_boundary
             ),
             "m69_roadmap_currentness": self.check_m69_roadmap_currentness,
+            "m70_autonomy_foundation_freeze_review": (
+                self.check_m70_autonomy_foundation_freeze_review
+            ),
+            "m70_autonomy_foundation_freeze_static_safety": (
+                self.check_m70_autonomy_foundation_freeze_static_safety
+            ),
+            "m70_autonomy_foundation_freeze_route_boundary": (
+                self.check_m70_autonomy_foundation_freeze_route_boundary
+            ),
+            "m70_roadmap_currentness": self.check_m70_roadmap_currentness,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -18283,7 +18322,7 @@ class FoundationGateEvaluator:
         ]:
             if version_label.lower() not in text or milestone.lower() not in text or title.lower() not in text:
                 failures.append(f"active docs missing planned M70-M100 row: {version_label} / {milestone} — {title}")
-        for fragment in (
+        forbidden_fragments = [
             "m70 is implemented",
             "autonomy foundation freeze is implemented",
             "production authority is implemented",
@@ -18291,9 +18330,292 @@ class FoundationGateEvaluator:
             "tool execution is implemented",
             "shell execution is implemented",
             "browser automation is implemented",
-        ):
+        ]
+        if self._active_version_tuple() >= (0, 74, 0):
+            forbidden_fragments = [
+                fragment
+                for fragment in forbidden_fragments
+                if fragment
+                not in {
+                    "m70 is implemented",
+                    "autonomy foundation freeze is implemented",
+                }
+            ]
+        for fragment in forbidden_fragments:
             if fragment in text:
                 failures.append(f"M69 docs imply forbidden/future capability: {fragment}")
+        return self._result(criterion, failures, required_docs)
+
+    def check_m70_autonomy_foundation_freeze_review(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/autonomy/foundation_freeze.py",
+            "src/ultimate_ai_agent/core/autonomy/__init__.py",
+            "docs/autonomy/AUTONOMY_FOUNDATION_FREEZE.md",
+            "docs/autonomy/AUTONOMY_FOUNDATION_FREEZE_CONTRACTS.md",
+            "docs/autonomy/AUTONOMY_FOUNDATION_FREEZE_NON_GOALS.md",
+            "docs/autonomy/M70_TO_M71_BOUNDARY.md",
+            "docs/roadmap/M61_M100_ROADMAP.md",
+            "tests/test_m70_autonomy_foundation_freeze.py",
+            "tests/test_m70_gate_integration.py",
+        ]
+        failures = [
+            f"missing M70 autonomy foundation freeze file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            from ultimate_ai_agent.core.autonomy import (
+                AutonomyFoundationFreezeRequest,
+                AutonomyFoundationFreezeStatus,
+                build_autonomy_foundation_freeze_report,
+                validate_autonomy_foundation_freeze_request,
+            )
+
+            request = AutonomyFoundationFreezeRequest(
+                request_ref="autonomy-foundation-freeze-request:m70-gate",
+                freeze_ref="autonomy-foundation-freeze:m70-gate",
+                baseline_ref="baseline:v0.73.0",
+                actor_ref="actor:foundation-gate",
+                accepted_milestone_refs=[f"milestone:M{index}" for index in range(61, 70)],
+                checklist_refs=[
+                    "autonomy-freeze:m61-m69-reviewed",
+                    "autonomy-freeze:route-stable",
+                    "autonomy-freeze:dependency-stable",
+                    "autonomy-freeze:authority-frozen",
+                    "autonomy-freeze:docs-current",
+                    "autonomy-freeze:gate-green",
+                ],
+                safe_summary="Freeze the M61-M69 autonomy foundation without adding authority.",
+            )
+            report = build_autonomy_foundation_freeze_report(request)
+            if (
+                report.status != AutonomyFoundationFreezeStatus.frozen
+                or not report.freeze_only
+                or not report.review_only
+                or not report.autonomy_foundation_only
+                or report.policy_activation_performed
+                or report.session_start_performed
+                or report.execution_performed
+                or report.background_worker_started
+                or report.production_authority_granted
+                or report.side_effects_performed
+            ):
+                failures.append("M70 autonomy foundation freeze report did not remain review-only and no-authority")
+            for update, reason in [
+                ({"execution_requested": True}, "EXECUTION_DENIED"),
+                ({"policy_activation_requested": True}, "AUTONOMY_POLICY_ACTIVATION_DENIED"),
+                ({"session_start_requested": True}, "AUTONOMY_SESSION_START_DENIED"),
+                ({"low_risk_dry_run_execution_requested": True}, "LOW_RISK_DRY_RUN_EXECUTION_DENIED"),
+                ({"background_worker_requested": True}, "BACKGROUND_WORKER_DENIED"),
+                ({"context_injection_requested": True}, "CONTEXT_INJECTION_DENIED"),
+                ({"memory_write_requested": True}, "MEMORY_WRITE_DENIED"),
+                ({"model_provider_call_requested": True}, "MODEL_PROVIDER_CALL_DENIED"),
+                ({"backend_route_requested": True}, "BACKEND_ROUTE_DENIED"),
+                ({"dependency_requested": True}, "DEPENDENCY_CHANGE_DENIED"),
+                ({"production_authority_requested": True}, "PRODUCTION_AUTHORITY_DENIED"),
+                ({"metadata": {"api_key": "secret-value"}}, "SECRET_LIKE_AUTONOMY_FOUNDATION_FREEZE_CONTENT_DENIED"),
+            ]:
+                try:
+                    validate_autonomy_foundation_freeze_request(request.model_copy(update=update))
+                    failures.append(f"M70 unsafe autonomy foundation freeze mutation was not denied: {reason}")
+                except ValueError as exc:
+                    if reason not in str(exc):
+                        failures.append(f"M70 unsafe autonomy foundation freeze reason drifted for {reason}: {exc}")
+        except Exception as exc:
+            failures.append(f"M70 autonomy foundation freeze validation failed: {exc}")
+
+        docs_text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_files
+            if path.startswith("docs/") and (self.root / path).exists()
+        )
+        for fragment in [
+            "autonomy foundation freeze",
+            "m61-m69",
+            "contract-only",
+            "review-only",
+            "freeze-only",
+            "deterministic",
+            "no policy activation",
+            "no session start",
+            "no low-risk dry-run execution",
+            "no autonomous actions",
+            "no background worker",
+            "no execution",
+            "no tool execution",
+            "no shell execution",
+            "no network tool",
+            "no browser automation",
+            "no context injection",
+            "no memory write",
+            "no model/provider call",
+            "no backend route",
+            "no control center control",
+            "no dependency",
+            "no production authority",
+            "m71 remains future",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M70 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m70_autonomy_foundation_freeze_static_safety(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        forbidden_source_fragments = [
+            "autonomy_foundation_authority_granted=True",
+            "autonomy_foundation_freeze_authority_granted=True",
+            "policy_activation_enabled=True",
+            "policy_activation_requested=True",
+            "session_start_enabled=True",
+            "session_start_requested=True",
+            "low_risk_dry_run_execution_enabled=True",
+            "low_risk_dry_run_execution_requested=True",
+            "autonomous_actions_enabled=True",
+            "autonomous_actions_requested=True",
+            "background_worker_enabled=True",
+            "background_worker_requested=True",
+            "execution_enabled=True",
+            "execution_requested=True",
+            "execution_performed=True",
+            "tool_execution_enabled=True",
+            "tool_execution_requested=True",
+            "shell_execution_enabled=True",
+            "shell_execution_requested=True",
+            "network_tool_enabled=True",
+            "network_tool_requested=True",
+            "browser_automation_enabled=True",
+            "browser_automation_requested=True",
+            "plugin_execution_enabled=True",
+            "plugin_execution_requested=True",
+            "mobile_sensor_enabled=True",
+            "mobile_sensor_requested=True",
+            "remote_execution_enabled=True",
+            "remote_execution_requested=True",
+            "memory_write_enabled=True",
+            "memory_write_requested=True",
+            "context_injection_enabled=True",
+            "context_injection_requested=True",
+            "model_provider_call_enabled=True",
+            "model_provider_call_requested=True",
+            "backend_route_enabled=True",
+            "backend_route_requested=True",
+            "control_center_control_enabled=True",
+            "control_center_control_requested=True",
+            "dependency_change_enabled=True",
+            "dependency_requested=True",
+            "production_authority_enabled=True",
+            "production_authority_requested=True",
+            "production_authority_granted=True",
+            "/autonomy/freeze/activate",
+            "/autonomy/freeze/start",
+            "/autonomy/session/start",
+            "/autonomy/policy/activate",
+            "/autonomy/dry-run/execute",
+            "/network/fetch",
+            "/shell/execute",
+            "/browser/click",
+            "subprocess" + ".run(",
+            "subprocess" + ".Popen(",
+            "os.system(",
+            "shell=True",
+        ]
+        allowed_files = {
+            "src/ultimate_ai_agent/core/autonomy/foundation_freeze.py",
+            "src/ultimate_ai_agent/core/autonomy/dry_run.py",
+            "src/ultimate_ai_agent/core/autonomy/risk.py",
+            "src/ultimate_ai_agent/core/autonomy/revocation.py",
+            "src/ultimate_ai_agent/core/autonomy/approvals.py",
+            "src/ultimate_ai_agent/core/autonomy/audit.py",
+            "src/ultimate_ai_agent/core/autonomy/policies.py",
+            "src/ultimate_ai_agent/core/autonomy/sessions.py",
+            "src/ultimate_ai_agent/core/autonomy/simulator.py",
+            "src/ultimate_ai_agent/core/gate/evaluators.py",
+            "src/ultimate_ai_agent/core/tools/runtime/invocation.py",
+            "tests/test_m70_autonomy_foundation_freeze.py",
+            "tests/test_m70_gate_integration.py",
+        }
+        source_roots = [
+            self.root / "src" / "ultimate_ai_agent",
+            self.root / "apps" / "control-center" / "src",
+            self.root / "apps" / "ccc-ios",
+        ]
+        for root in source_roots:
+            if not root.exists():
+                continue
+            candidate_files = []
+            for pattern in ("*.py", "*.ts", "*.tsx", "*.js", "*.jsx", "*.swift", "*.yml", "*.yaml"):
+                candidate_files.extend(root.rglob(pattern))
+            for path in sorted(candidate_files):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(self.root).as_posix()
+                if rel in allowed_files:
+                    continue
+                text = path.read_text(encoding="utf-8")
+                for fragment in forbidden_source_fragments:
+                    if fragment in text:
+                        failures.append(f"M70 forbidden autonomy foundation freeze fragment in {rel}: {fragment}")
+        return self._result(criterion, failures, [])
+
+    def check_m70_autonomy_foundation_freeze_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m70_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M70 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m70_roadmap_currentness(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        required_docs = [
+            "README.md",
+            "VERSION.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/roadmap/M61_M100_ROADMAP.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+            "docs/roadmap/MILESTONE_CHARTERS.md",
+        ]
+        failures = [
+            f"missing M70 roadmap doc: {path}"
+            for path in required_docs
+            if not (self.root / path).exists()
+        ]
+        text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_docs
+            if (self.root / path).exists()
+        )
+        if "v0.74.0" not in text or "m70" not in text or "autonomy foundation freeze" not in text:
+            failures.append("active docs do not identify v0.74.0/M70 Autonomy Foundation Freeze")
+        if "m70 is implemented/released" not in text and "v0.74.0 implements m70" not in text:
+            failures.append("active docs do not mark M70 implemented/released")
+        for version_label, milestone, title in [
+            ("v0.75.0", "M71", "Network Tool Contract Review"),
+            ("v0.80.0", "M76", "OpenWebUI Runtime Bridge v1"),
+            ("v0.94.0", "M90", "Shell/Subprocess Hardening Freeze"),
+            ("v0.95.0", "M91", "Autonomous Tool Execution Contract"),
+            ("v1.4.0", "M100", "Mobile Permission Model v1"),
+        ]:
+            if version_label.lower() not in text or milestone.lower() not in text or title.lower() not in text:
+                failures.append(f"active docs missing planned M71-M100 row: {version_label} / {milestone} — {title}")
+        for fragment in (
+            "m71 is implemented",
+            "network tool contract review is implemented",
+            "production authority is implemented",
+            "broad autonomy is implemented",
+            "tool execution is implemented",
+            "shell execution is implemented",
+            "browser automation is implemented",
+        ):
+            if fragment in text:
+                failures.append(f"M70 docs imply forbidden/future capability: {fragment}")
         return self._result(criterion, failures, required_docs)
 
     def check_v0292_local_dev_api_authority_and_preview_safe(

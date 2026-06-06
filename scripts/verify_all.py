@@ -103,6 +103,7 @@ SCAN_SEQUENCE = [
     ("M67 revocation kill switch scan", "verify_m67_revocation_kill_switch"),
     ("M68 autonomy risk classifier scan", "verify_m68_autonomy_risk_classifier"),
     ("M69 low-risk autonomous dry run scan", "verify_m69_low_risk_autonomous_dry_run"),
+    ("M70 autonomy foundation freeze scan", "verify_m70_autonomy_foundation_freeze"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -10571,6 +10572,227 @@ def verify_m69_low_risk_autonomous_dry_run():
                     sys.exit(1)
 
     print("OK: M69 low-risk autonomous dry run is contract-only, route-free, low-risk-only, and no-authority")
+
+
+def verify_m70_autonomy_foundation_freeze():
+    print("\n[Verifier] Running M70 autonomy foundation freeze guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/autonomy/foundation_freeze.py",
+        "docs/autonomy/AUTONOMY_FOUNDATION_FREEZE.md",
+        "docs/autonomy/AUTONOMY_FOUNDATION_FREEZE_CONTRACTS.md",
+        "docs/autonomy/AUTONOMY_FOUNDATION_FREEZE_NON_GOALS.md",
+        "docs/autonomy/M70_TO_M71_BOUNDARY.md",
+        "docs/roadmap/M61_M100_ROADMAP.md",
+        "docs/release_notes/v0_74_0.md",
+        "docs/archive/releases/v0_74_0/README_IMPORT.md",
+        "docs/archive/releases/v0_74_0/master_plan.md",
+        "docs/implementation/foundation_gate_implementation_plan_v0_74_0.md",
+        "tests/test_m70_autonomy_foundation_freeze.py",
+        "tests/test_m70_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M70 autonomy foundation freeze file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = "\n".join(
+        (ROOT / rel_path).read_text(encoding="utf-8").lower()
+        for rel_path in required_files
+        if rel_path.startswith("docs/")
+    )
+    for fragment in [
+        "autonomy foundation freeze",
+        "m61-m69",
+        "contract-only",
+        "review-only",
+        "freeze-only",
+        "deterministic",
+        "accepted milestone refs",
+        "checklist refs",
+        "evaluator boundaries revalidate",
+        "no policy activation",
+        "no session start",
+        "no low-risk dry-run execution",
+        "no autonomous actions",
+        "no background worker",
+        "no execution",
+        "no tool execution",
+        "no shell execution",
+        "no network tool",
+        "no browser automation",
+        "no context injection",
+        "no memory write",
+        "no model/provider call",
+        "no backend route",
+        "no control center control",
+        "no dependency",
+        "no production authority",
+        "m71 remains future",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M70 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.autonomy import (
+            AutonomyFoundationFreezeRequest,
+            AutonomyFoundationFreezeStatus,
+            build_autonomy_foundation_freeze_report,
+            validate_autonomy_foundation_freeze_request,
+        )
+        from ultimate_ai_agent.core.gate.evaluators import m70_openapi_route_failures
+    except Exception as exc:
+        print(f"FAIL: M70 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m70_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    request = AutonomyFoundationFreezeRequest(
+        request_ref="autonomy-foundation-freeze-request:verify-all-m70",
+        freeze_ref="autonomy-foundation-freeze:verify-all-m70",
+        baseline_ref="baseline:v0.73.0",
+        actor_ref="actor:verify-all",
+        accepted_milestone_refs=[f"milestone:M{index}" for index in range(61, 70)],
+        checklist_refs=[
+            "autonomy-freeze:m61-m69-reviewed",
+            "autonomy-freeze:route-stable",
+            "autonomy-freeze:dependency-stable",
+            "autonomy-freeze:authority-frozen",
+            "autonomy-freeze:docs-current",
+            "autonomy-freeze:gate-green",
+        ],
+        safe_summary="Freeze the M61-M69 autonomy foundation without adding authority.",
+    )
+    report = build_autonomy_foundation_freeze_report(request)
+    if (
+        report.status != AutonomyFoundationFreezeStatus.frozen
+        or not report.freeze_only
+        or not report.review_only
+        or not report.autonomy_foundation_only
+        or report.policy_activation_performed
+        or report.session_start_performed
+        or report.execution_performed
+        or report.background_worker_started
+        or report.production_authority_granted
+        or report.side_effects_performed
+    ):
+        print("FAIL: M70 autonomy foundation freeze granted authority or side effects")
+        sys.exit(1)
+
+    for update, reason in [
+        ({"policy_activation_requested": True}, "AUTONOMY_POLICY_ACTIVATION_DENIED"),
+        ({"session_start_requested": True}, "AUTONOMY_SESSION_START_DENIED"),
+        ({"low_risk_dry_run_execution_requested": True}, "LOW_RISK_DRY_RUN_EXECUTION_DENIED"),
+        ({"autonomous_actions_requested": True}, "AUTONOMOUS_ACTIONS_DENIED"),
+        ({"background_worker_requested": True}, "BACKGROUND_WORKER_DENIED"),
+        ({"execution_requested": True}, "EXECUTION_DENIED"),
+        ({"tool_execution_requested": True}, "TOOL_EXECUTION_DENIED"),
+        ({"shell_execution_requested": True}, "SHELL_EXECUTION_DENIED"),
+        ({"network_tool_requested": True}, "NETWORK_TOOL_DENIED"),
+        ({"browser_automation_requested": True}, "BROWSER_AUTOMATION_DENIED"),
+        ({"context_injection_requested": True}, "CONTEXT_INJECTION_DENIED"),
+        ({"memory_write_requested": True}, "MEMORY_WRITE_DENIED"),
+        ({"model_provider_call_requested": True}, "MODEL_PROVIDER_CALL_DENIED"),
+        ({"backend_route_requested": True}, "BACKEND_ROUTE_DENIED"),
+        ({"dependency_requested": True}, "DEPENDENCY_CHANGE_DENIED"),
+        ({"production_authority_requested": True}, "PRODUCTION_AUTHORITY_DENIED"),
+        ({"metadata": {"api_key": "secret-value"}}, "SECRET_LIKE_AUTONOMY_FOUNDATION_FREEZE_CONTENT_DENIED"),
+    ]:
+        try:
+            validate_autonomy_foundation_freeze_request(request.model_copy(update=update))
+            print(f"FAIL: M70 unsafe autonomy foundation freeze mutation was not denied: {reason}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M70 unsafe autonomy foundation freeze reason drifted for {reason}: {exc}")
+                sys.exit(1)
+
+    forbidden_source_fragments = [
+        "autonomy_foundation_authority_granted=True",
+        "autonomy_foundation_freeze_authority_granted=True",
+        "policy_activation_enabled=True",
+        "policy_activation_requested=True",
+        "session_start_enabled=True",
+        "session_start_requested=True",
+        "low_risk_dry_run_execution_enabled=True",
+        "low_risk_dry_run_execution_requested=True",
+        "autonomous_actions_enabled=True",
+        "autonomous_actions_requested=True",
+        "background_worker_enabled=True",
+        "background_worker_requested=True",
+        "execution_enabled=True",
+        "execution_requested=True",
+        "execution_performed=True",
+        "tool_execution_enabled=True",
+        "shell_execution_enabled=True",
+        "network_tool_enabled=True",
+        "browser_automation_enabled=True",
+        "plugin_execution_enabled=True",
+        "mobile_sensor_enabled=True",
+        "remote_execution_enabled=True",
+        "memory_write_enabled=True",
+        "context_injection_enabled=True",
+        "model_provider_call_enabled=True",
+        "backend_route_enabled=True",
+        "control_center_control_enabled=True",
+        "dependency_change_enabled=True",
+        "production_authority_enabled=True",
+        "production_authority_granted=True",
+        "/autonomy/freeze/activate",
+        "/autonomy/freeze/start",
+        "/autonomy/session/start",
+        "/autonomy/policy/activate",
+        "/autonomy/dry-run/execute",
+        "/network/fetch",
+        "/shell/execute",
+        "/browser/click",
+        "subprocess" + ".run(",
+        "subprocess" + ".Popen(",
+        "os.system(",
+        "shell=True",
+    ]
+    allowed_files = {
+        "scripts/verify_all.py",
+        "src/ultimate_ai_agent/core/autonomy/foundation_freeze.py",
+        "src/ultimate_ai_agent/core/autonomy/dry_run.py",
+        "src/ultimate_ai_agent/core/autonomy/risk.py",
+        "src/ultimate_ai_agent/core/autonomy/revocation.py",
+        "src/ultimate_ai_agent/core/autonomy/approvals.py",
+        "src/ultimate_ai_agent/core/autonomy/audit.py",
+        "src/ultimate_ai_agent/core/autonomy/policies.py",
+        "src/ultimate_ai_agent/core/autonomy/sessions.py",
+        "src/ultimate_ai_agent/core/autonomy/simulator.py",
+        "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/tools/runtime/invocation.py",
+        "tests/test_m70_autonomy_foundation_freeze.py",
+        "tests/test_m70_gate_integration.py",
+    }
+    source_roots = [
+        ROOT / "src" / "ultimate_ai_agent",
+        ROOT / "apps" / "control-center" / "src",
+        ROOT / "apps" / "ccc-ios",
+    ]
+    for root in source_roots:
+        if not root.exists():
+            continue
+        for path in root.rglob("*"):
+            if not path.is_file() or path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}:
+                continue
+            rel = path.relative_to(ROOT).as_posix()
+            if rel in allowed_files:
+                continue
+            text = path.read_text(encoding="utf-8")
+            for fragment in forbidden_source_fragments:
+                if fragment in text:
+                    print(f"FAIL: M70 forbidden autonomy foundation freeze fragment in {rel}: {fragment}")
+                    sys.exit(1)
+
+    print("OK: M70 autonomy foundation freeze is contract-only, route-free, freeze-only, and no-authority")
 
 
 def verify_local_developer_launcher_safety():

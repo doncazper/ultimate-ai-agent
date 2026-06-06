@@ -1,7 +1,7 @@
 # Roadmap Docs
 
 Status: active
-Current through: v0.73.0
+Current through: v0.74.0
 Purpose: Entry point for active roadmap docs and historical roadmap references.
 
 Current roadmap source of truth:
