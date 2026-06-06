@@ -70,6 +70,12 @@ class OpenWebUIRuntimeBridgeStatus(str, Enum):
     blocked = "blocked"
 
 
+class OpenWebUISafeHandoffStatus(str, Enum):
+    safe_handoff_executed = "safe_handoff_executed"
+    denied = "denied"
+    blocked = "blocked"
+
+
 class OpenWebUIRiskLevel(str, Enum):
     safe = "safe"
     low = "low"

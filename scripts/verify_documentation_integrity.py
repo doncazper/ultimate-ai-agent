@@ -551,6 +551,20 @@ REQUIRED_M76_OPENWEBUI_RUNTIME_BRIDGE_DOCS = [
     "docs/implementation/foundation_gate_implementation_plan_v0_80_0.md",
 ]
 
+REQUIRED_M77_OPENWEBUI_SAFE_HANDOFF_DOCS = [
+    "docs/openwebui/OPENWEBUI_SAFE_HANDOFF_EXECUTION.md",
+    "docs/openwebui/OPENWEBUI_SAFE_HANDOFF_POLICY.md",
+    "docs/openwebui/OPENWEBUI_SAFE_HANDOFF_RESULT_CONTRACT.md",
+    "docs/openwebui/OPENWEBUI_SAFE_HANDOFF_AUTHORITY_BOUNDARY.md",
+    "docs/openwebui/OPENWEBUI_SAFE_HANDOFF_RECEIPT_PLAN.md",
+    "docs/openwebui/M77_TO_M78_BOUNDARY.md",
+    "docs/roadmap/M61_M100_ROADMAP.md",
+    "docs/release_notes/v0_81_0.md",
+    "docs/archive/releases/v0_81_0/README_IMPORT.md",
+    "docs/archive/releases/v0_81_0/master_plan.md",
+    "docs/implementation/foundation_gate_implementation_plan_v0_81_0.md",
+]
+
 
 REQUIRED_ACTIVE_DOCS = [
     "docs/README.md",
@@ -1087,6 +1101,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_m74_browser_observe_only_docs(root, version))
     failures.extend(_verify_m75_browser_action_dry_run_docs(root, version))
     failures.extend(_verify_m76_openwebui_runtime_bridge_docs(root, version))
+    failures.extend(_verify_m77_openwebui_safe_handoff_docs(root, version))
     failures.extend(_verify_m19_roadmap_currentness(root, version))
     failures.extend(_verify_post_m18_roadmap_status_labels(root))
 
@@ -3426,6 +3441,8 @@ def _verify_m61_autonomy_mode_charter_docs(root: Path, version: str | None) -> l
         ("v0.69.0", "m65", "autonomy audit + replay viewer"),
         ("v0.74.0", "m70", "autonomy foundation freeze"),
         ("v0.80.0", "m76", "openwebui runtime bridge v1"),
+        ("v0.81.0", "m77", "openwebui safe handoff execution"),
+        ("v0.82.0", "m78", "plugin manifest security model"),
         ("v0.94.0", "m90", "shell/subprocess hardening freeze"),
         ("v0.95.0", "m91", "autonomous tool execution contract"),
         ("v1.4.0", "m100", "mobile permission model v1"),
@@ -4516,8 +4533,9 @@ def _verify_m76_openwebui_runtime_bridge_docs(root: Path, version: str | None) -
         "M76 docs must deny dependencies": "no dependency",
         "M76 docs must deny production authority": "no production authority",
         "M76 docs must say evaluator boundaries revalidate": "evaluator boundaries revalidate",
-        "M76 docs must keep M77 future": "m77 remains future",
     }
+    if _version_tuple(version) < (0, 81, 0):
+        required_fragments["M76 docs must keep M77 future"] = "m77 remains future"
     for message, fragment in required_fragments.items():
         if fragment not in text:
             failures.append(message)
@@ -4535,14 +4553,87 @@ def _verify_m76_openwebui_runtime_bridge_docs(root: Path, version: str | None) -
             )
 
     forbidden_fragments = {
-        "M76 docs must not claim M77 implementation": "m77 is implemented",
-        "M76 docs must not claim OpenWebUI safe handoff execution implementation": (
-            "openwebui safe handoff execution is implemented"
-        ),
         "M76 docs must not claim OpenWebUI runtime calls": "openwebui runtime calls are implemented",
         "M76 docs must not claim model authority implementation": "model authority is implemented",
         "M76 docs must not claim tool execution implementation": "tool execution is implemented",
         "M76 docs must not claim production authority": "production authority is implemented",
+    }
+    if _version_tuple(version) < (0, 81, 0):
+        forbidden_fragments.update(
+            {
+                "M76 docs must not claim M77 implementation": "m77 is implemented",
+                "M76 docs must not claim OpenWebUI safe handoff execution implementation": (
+                    "openwebui safe handoff execution is implemented"
+                ),
+            }
+        )
+    for message, fragment in forbidden_fragments.items():
+        if fragment in text:
+            failures.append(f"{message}: {fragment}")
+    return failures
+
+
+def _verify_m77_openwebui_safe_handoff_docs(root: Path, version: str | None) -> list[str]:
+    failures: list[str] = []
+    if _version_tuple(version) < (0, 81, 0):
+        return failures
+
+    missing = [rel_path for rel_path in REQUIRED_M77_OPENWEBUI_SAFE_HANDOFF_DOCS if not (root / rel_path).exists()]
+    failures.extend(f"missing M77 OpenWebUI safe handoff doc: {rel_path}" for rel_path in missing)
+    text = "\n".join(
+        _read(root / rel_path).lower()
+        for rel_path in REQUIRED_M77_OPENWEBUI_SAFE_HANDOFF_DOCS
+        if (root / rel_path).exists()
+    )
+    required_fragments = {
+        "M77 docs must say OpenWebUI safe handoff execution": "openwebui safe handoff execution",
+        "M77 docs must say exact approval binding": "exact approval binding",
+        "M77 docs must say safe handoff result": "safe handoff result",
+        "M77 docs must say Agent Core remains authority": "agent core remains authority",
+        "M77 docs must say OpenWebUI is shell/bridge": "openwebui is a shell/bridge, not the brain",
+        "M77 docs must deny live OpenWebUI connection": "no live openwebui connection",
+        "M77 docs must deny OpenWebUI runtime call": "no openwebui runtime call",
+        "M77 docs must deny provider calls": "no provider call",
+        "M77 docs must deny model calls": "no model call",
+        "M77 docs must deny model authority": "no model authority",
+        "M77 docs must deny tool execution": "no tool execution",
+        "M77 docs must deny memory writes": "no memory write",
+        "M77 docs must deny context injection": "no context injection",
+        "M77 docs must deny network calls": "no network call",
+        "M77 docs must deny credentials/cookies": "no credentials or cookies",
+        "M77 docs must deny raw prompts": "no raw prompt",
+        "M77 docs must deny raw provider payloads": "no raw provider payload",
+        "M77 docs must deny raw content": "no raw content",
+        "M77 docs must deny backend routes": "no backend route",
+        "M77 docs must deny Control Center controls": "no control center control",
+        "M77 docs must deny dependencies": "no dependency",
+        "M77 docs must deny production authority": "no production authority",
+        "M77 docs must say evaluator boundaries revalidate": "evaluator boundaries revalidate",
+        "M77 docs must keep M78 future": "m78 remains future",
+    }
+    for message, fragment in required_fragments.items():
+        if fragment not in text:
+            failures.append(message)
+
+    for version_label, milestone, title in [
+        ("v0.81.0", "m77", "openwebui safe handoff execution"),
+        ("v0.82.0", "m78", "plugin manifest security model"),
+        ("v0.83.0", "m79", "plugin install review, disabled by default"),
+        ("v0.95.0", "m91", "autonomous tool execution contract"),
+        ("v1.4.0", "m100", "mobile permission model v1"),
+    ]:
+        if version_label not in text or milestone not in text or title not in text:
+            failures.append(
+                f"M77-M100 roadmap missing label: {version_label} / {milestone.upper()} - {title}"
+            )
+
+    forbidden_fragments = {
+        "M77 docs must not claim M78 implementation": "m78 is implemented",
+        "M77 docs must not claim plugin execution implementation": "plugin execution is implemented",
+        "M77 docs must not claim OpenWebUI runtime calls": "openwebui runtime calls are implemented",
+        "M77 docs must not claim model authority implementation": "model authority is implemented",
+        "M77 docs must not claim tool execution implementation": "tool execution is implemented",
+        "M77 docs must not claim production authority": "production authority is implemented",
     }
     for message, fragment in forbidden_fragments.items():
         if fragment in text:

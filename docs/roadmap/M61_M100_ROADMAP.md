@@ -1,6 +1,6 @@
 # M61-M100 Roadmap
 
-Status: Active roadmap maintained through M76 / v0.80.0.
+Status: Active roadmap maintained through M77 / v0.81.0.
 
 M61 is implemented/released by v0.65.0 as Autonomy Mode Charter + Authority
 Levels. M62 is implemented/released by v0.66.0 as Scoped Autonomy Session
@@ -18,7 +18,8 @@ Allowlisted. M73 is implemented/released by v0.77.0 as Browser Automation
 Contract Review. M74 is implemented/released by v0.78.0 as Browser Observe-Only
 Adapter. M75 is implemented/released by v0.79.0 as Browser Action Dry-Run
 Planner. M76 is implemented/released by v0.80.0 as OpenWebUI Runtime Bridge v1.
-M77-M100 remain planned/provisional. This roadmap adds no
+M77 is implemented/released by v0.81.0 as OpenWebUI Safe Handoff Execution.
+M78-M100 remain planned/provisional. This roadmap adds no
 production authority, no global autonomy switch, no broad autonomy, no tool
 execution, no shell execution, no browser automation beyond the M74 injected
 observation redacted preview boundary, no browser navigation, no browser click,
@@ -47,7 +48,7 @@ activation, no autonomous session, no backend route, and no dependency.
 | v0.78.0 | M74 | Browser Observe-Only Adapter | Implemented/released |
 | v0.79.0 | M75 | Browser Action Dry-Run Planner | Implemented/released |
 | v0.80.0 | M76 | OpenWebUI Runtime Bridge v1 | Implemented/released |
-| v0.81.0 | M77 | OpenWebUI Safe Handoff Execution | Planned/provisional |
+| v0.81.0 | M77 | OpenWebUI Safe Handoff Execution | Implemented/released |
 | v0.82.0 | M78 | Plugin Manifest Security Model | Planned/provisional |
 | v0.83.0 | M79 | Plugin Install Review, Disabled by Default | Planned/provisional |
 | v0.84.0 | M80 | Network/Browser/OpenWebUI Hardening Freeze | Planned/provisional |

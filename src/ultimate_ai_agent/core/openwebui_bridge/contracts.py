@@ -11,6 +11,7 @@ from ultimate_ai_agent.core.openwebui_bridge.enums import (
     OpenWebUIContentMode,
     OpenWebUIMessageDirection,
     OpenWebUIRuntimeBridgeStatus,
+    OpenWebUISafeHandoffStatus,
     OpenWebUISafeConversationSurfaceStatus,
     OpenWebUISurfaceRole,
 )
@@ -434,6 +435,132 @@ class OpenWebUIRuntimeBridgeEnvelope(_OpenWebUIBridgeContractModel):
     credential_cookie_accessed: bool = False
     approval_granted: bool = False
     handoff_executed: bool = False
+    production_authority_granted: bool = False
+    side_effects_performed: list[str] = Field(default_factory=list)
+    docs_refs: list[str] = Field(default_factory=list)
+    metadata_refs: list[str] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class OpenWebUISafeHandoffPolicy(_OpenWebUIBridgeContractModel):
+    safe_handoff_policy_ref: str = "openwebui-safe-handoff-policy:m77"
+    baseline_version: str = "0.81.0"
+    status: OpenWebUIBridgeStatus = OpenWebUIBridgeStatus.contract_only
+    safe_summary_only: bool = True
+    safe_handoff_execution_enabled: bool = True
+    exact_approval_binding_required: bool = True
+    agent_core_remains_authority: bool = True
+    openwebui_is_agent_brain: bool = False
+    live_openwebui_connection_enabled: bool = False
+    openwebui_runtime_call_enabled: bool = False
+    openwebui_network_call_enabled: bool = False
+    provider_call_enabled: bool = False
+    model_call_enabled: bool = False
+    model_authority_enabled: bool = False
+    tool_execution_enabled: bool = False
+    memory_write_enabled: bool = False
+    context_injection_enabled: bool = False
+    approval_ref_authority_enabled: bool = False
+    raw_prompt_exposure_enabled: bool = False
+    raw_provider_payload_exposure_enabled: bool = False
+    raw_content_allowed: bool = False
+    credential_cookie_access_enabled: bool = False
+    production_authority_enabled: bool = False
+    backend_route_enabled: bool = False
+    control_center_control_enabled: bool = False
+    docs_refs: list[str] = Field(default_factory=list)
+    metadata_refs: list[str] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class OpenWebUISafeHandoffRequest(_OpenWebUIBridgeContractModel):
+    handoff_request_ref: str = Field(..., min_length=1)
+    bridge_envelope_ref: str = Field(..., min_length=1)
+    session_ref: str = Field(..., min_length=1)
+    safe_conversation_ref: str = Field(..., min_length=1)
+    actor_ref: str = Field(..., min_length=1)
+    approval_ref: str | None = Field(..., min_length=1)
+    approved_bridge_envelope_ref: str = Field(..., min_length=1)
+    approved_session_ref: str = Field(..., min_length=1)
+    approved_safe_conversation_ref: str = Field(..., min_length=1)
+    approved_actor_ref: str = Field(..., min_length=1)
+    safe_handoff_summary: str = Field(..., min_length=1)
+    content_mode: OpenWebUIContentMode = OpenWebUIContentMode.summary_only
+    approval_expired: bool = False
+    approval_revoked: bool = False
+    approval_replayed: bool = False
+    raw_prompt_present: bool = False
+    raw_provider_payload_present: bool = False
+    raw_content_present: bool = False
+    secret_like_content_present: bool = False
+    openwebui_runtime_call_requested: bool = False
+    provider_call_requested: bool = False
+    model_call_requested: bool = False
+    model_authority_requested: bool = False
+    tool_execution_requested: bool = False
+    memory_write_requested: bool = False
+    context_injection_requested: bool = False
+    network_call_requested: bool = False
+    credential_cookie_access_requested: bool = False
+    production_authority_requested: bool = False
+    metadata_refs: list[str] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class OpenWebUISafeHandoffReceiptPlan(_OpenWebUIBridgeContractModel):
+    receipt_plan_ref: str = Field(..., min_length=1)
+    handoff_request_ref: str = Field(..., min_length=1)
+    safe_handoff_result_ref: str = Field(..., min_length=1)
+    bridge_envelope_ref: str = Field(..., min_length=1)
+    approval_ref: str = Field(..., min_length=1)
+    session_ref: str = Field(..., min_length=1)
+    safe_conversation_ref: str = Field(..., min_length=1)
+    actor_ref: str = Field(..., min_length=1)
+    safe_handoff_recorded: bool = True
+    redaction_required: bool = True
+    raw_prompt_stored: bool = False
+    raw_provider_payload_stored: bool = False
+    raw_content_stored: bool = False
+    openwebui_runtime_call_performed: bool = False
+    provider_call_performed: bool = False
+    model_call_performed: bool = False
+    tool_execution_performed: bool = False
+    memory_write_performed: bool = False
+    context_injection_performed: bool = False
+    network_call_performed: bool = False
+    credential_cookie_access_performed: bool = False
+    production_authority_granted: bool = False
+    safe_summary: str = Field(..., min_length=1)
+    metadata_refs: list[str] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class OpenWebUISafeHandoffResult(_OpenWebUIBridgeContractModel):
+    safe_handoff_result_ref: str = Field(..., min_length=1)
+    handoff_request_ref: str = Field(..., min_length=1)
+    bridge_envelope_ref: str = Field(..., min_length=1)
+    approval_ref: str = Field(..., min_length=1)
+    session_ref: str = Field(..., min_length=1)
+    safe_conversation_ref: str = Field(..., min_length=1)
+    actor_ref: str = Field(..., min_length=1)
+    status: OpenWebUISafeHandoffStatus = OpenWebUISafeHandoffStatus.safe_handoff_executed
+    content_mode: OpenWebUIContentMode = OpenWebUIContentMode.summary_only
+    safe_handoff_summary: str = Field(..., min_length=1)
+    reason_codes: list[str] = Field(default_factory=list)
+    receipt_plan: OpenWebUISafeHandoffReceiptPlan
+    safe_handoff_executed: bool = True
+    raw_prompt_returned: bool = False
+    raw_provider_payload_returned: bool = False
+    raw_content_returned: bool = False
+    model_output_authoritative: bool = False
+    openwebui_called: bool = False
+    provider_called: bool = False
+    model_called: bool = False
+    tool_executed: bool = False
+    memory_written: bool = False
+    context_injected: bool = False
+    network_called: bool = False
+    credential_cookie_accessed: bool = False
     production_authority_granted: bool = False
     side_effects_performed: list[str] = Field(default_factory=list)
     docs_refs: list[str] = Field(default_factory=list)

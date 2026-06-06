@@ -1068,6 +1068,10 @@ M76_FORBIDDEN_BACKEND_ROUTES = M75_FORBIDDEN_BACKEND_ROUTES + (
     "/openwebui/context/inject",
     "/openwebui/raw-payload",
 )
+EXPECTED_M77_OPENAPI_PATH_COUNT = 75
+M77_FORBIDDEN_BACKEND_ROUTES = M76_FORBIDDEN_BACKEND_ROUTES + (
+    "/openwebui/handoff/execute",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -1922,6 +1926,19 @@ def m76_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
     return failures
 
 
+def m77_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M77_OPENAPI_PATH_COUNT) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(
+            f"OpenAPI path count changed for M77: expected {expected_path_count}, got {len(path_set)}"
+        )
+    for route in M77_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(f"M77 forbidden OpenWebUI handoff/backend route present: {route}")
+    return failures
+
+
 M36_SAFE_REF_PREFIXES = {
     "reviewPacketRef": "file-review-packet:",
     "previewResultRef": "redacted-file-preview-output:",
@@ -2558,6 +2575,16 @@ class FoundationGateEvaluator:
                 self.check_m76_openwebui_runtime_bridge_route_boundary
             ),
             "m76_roadmap_currentness": self.check_m76_roadmap_currentness,
+            "m77_openwebui_safe_handoff_execution": (
+                self.check_m77_openwebui_safe_handoff_execution
+            ),
+            "m77_openwebui_safe_handoff_static_safety": (
+                self.check_m77_openwebui_safe_handoff_static_safety
+            ),
+            "m77_openwebui_safe_handoff_route_boundary": (
+                self.check_m77_openwebui_safe_handoff_route_boundary
+            ),
+            "m77_roadmap_currentness": self.check_m77_roadmap_currentness,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -20548,7 +20575,6 @@ class FoundationGateEvaluator:
             if version_label.lower() not in text or milestone.lower() not in text or title.lower() not in text:
                 failures.append(f"active docs missing planned M77-M100 row: {version_label} / {milestone} — {title}")
         for fragment in (
-            "m77 is implemented",
             "openwebui safe handoff execution is implemented",
             "openwebui runtime calls are implemented",
             "model authority is implemented",
@@ -20559,6 +20585,274 @@ class FoundationGateEvaluator:
         ):
             if fragment in text:
                 failures.append(f"M76 docs imply forbidden/future capability: {fragment}")
+        return self._result(criterion, failures, required_docs)
+
+    def check_m77_openwebui_safe_handoff_execution(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/openwebui_bridge/__init__.py",
+            "src/ultimate_ai_agent/core/openwebui_bridge/runtime.py",
+            "docs/openwebui/OPENWEBUI_SAFE_HANDOFF_EXECUTION.md",
+            "docs/openwebui/OPENWEBUI_SAFE_HANDOFF_POLICY.md",
+            "docs/openwebui/OPENWEBUI_SAFE_HANDOFF_RESULT_CONTRACT.md",
+            "docs/openwebui/OPENWEBUI_SAFE_HANDOFF_AUTHORITY_BOUNDARY.md",
+            "docs/openwebui/OPENWEBUI_SAFE_HANDOFF_RECEIPT_PLAN.md",
+            "docs/openwebui/M77_TO_M78_BOUNDARY.md",
+            "tests/test_m77_openwebui_safe_handoff_execution.py",
+            "tests/test_m77_openwebui_safe_handoff_gate_integration.py",
+        ]
+        failures = [
+            f"missing M77 OpenWebUI safe handoff file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            from ultimate_ai_agent.core.openwebui_bridge import (
+                OpenWebUIRuntimeBridgeRequest,
+                OpenWebUISafeHandoffRequest,
+                OpenWebUISafeHandoffStatus,
+                build_openwebui_runtime_bridge_envelope,
+                build_openwebui_safe_handoff_result,
+            )
+
+            envelope = build_openwebui_runtime_bridge_envelope(
+                OpenWebUIRuntimeBridgeRequest(
+                    bridge_request_ref="openwebui-runtime-bridge-request:m77-gate",
+                    session_ref="openwebui-session:m77-gate",
+                    safe_conversation_ref="openwebui-safe-conversation:m77-gate",
+                    actor_ref="actor:m77-gate",
+                    safe_intent_summary="Prepare a safe OpenWebUI handoff.",
+                )
+            )
+            request = OpenWebUISafeHandoffRequest(
+                handoff_request_ref="openwebui-safe-handoff-request:m77-gate",
+                bridge_envelope_ref=envelope.bridge_envelope_ref,
+                session_ref=envelope.session_ref,
+                safe_conversation_ref=envelope.safe_conversation_ref,
+                actor_ref=envelope.actor_ref,
+                approval_ref="approval:m77-gate",
+                approved_bridge_envelope_ref=envelope.bridge_envelope_ref,
+                approved_session_ref=envelope.session_ref,
+                approved_safe_conversation_ref=envelope.safe_conversation_ref,
+                approved_actor_ref=envelope.actor_ref,
+                safe_handoff_summary="Record an exact-bound safe handoff inside Agent Core.",
+            )
+            result = build_openwebui_safe_handoff_result(request)
+            if (
+                result.status != OpenWebUISafeHandoffStatus.safe_handoff_executed
+                or not result.safe_handoff_executed
+                or result.raw_prompt_returned
+                or result.raw_provider_payload_returned
+                or result.raw_content_returned
+                or result.model_output_authoritative
+                or result.openwebui_called
+                or result.provider_called
+                or result.model_called
+                or result.tool_executed
+                or result.memory_written
+                or result.context_injected
+                or result.network_called
+                or result.credential_cookie_accessed
+                or result.production_authority_granted
+                or result.side_effects_performed
+                or not result.receipt_plan.safe_handoff_recorded
+                or result.receipt_plan.openwebui_runtime_call_performed
+                or result.receipt_plan.raw_prompt_stored
+                or result.receipt_plan.raw_provider_payload_stored
+                or result.receipt_plan.raw_content_stored
+                or "M77_OPENWEBUI_SAFE_HANDOFF_EXECUTION" not in result.reason_codes
+                or "M78_REMAINS_FUTURE" not in result.reason_codes
+            ):
+                failures.append("M77 OpenWebUI safe handoff result is unsafe or over-authoritative")
+
+            for update, reason in [
+                ({"approval_ref": None}, "APPROVAL_REF_REQUIRED"),
+                ({"approval_ref": "approval_test_m77"}, "APPROVAL_TEST_REF_DENIED"),
+                ({"approved_bridge_envelope_ref": "openwebui-runtime-bridge-envelope:other"}, "APPROVAL_BINDING_MISMATCH"),
+                ({"approval_expired": True}, "APPROVAL_EXPIRED_DENIED"),
+                ({"approval_revoked": True}, "APPROVAL_REVOKED_DENIED"),
+                ({"approval_replayed": True}, "APPROVAL_REPLAY_DENIED"),
+                ({"raw_provider_payload_present": True}, "RAW_PROVIDER_PAYLOAD_DENIED"),
+                ({"openwebui_runtime_call_requested": True}, "OPENWEBUI_RUNTIME_CALL_DENIED"),
+                ({"model_call_requested": True}, "MODEL_CALL_DENIED"),
+                ({"model_authority_requested": True}, "MODEL_AUTHORITY_DENIED"),
+                ({"tool_execution_requested": True}, "TOOL_EXECUTION_DENIED"),
+                ({"memory_write_requested": True}, "MEMORY_WRITE_DENIED"),
+                ({"context_injection_requested": True}, "CONTEXT_INJECTION_DENIED"),
+                ({"network_call_requested": True}, "OPENWEBUI_NETWORK_CALL_DENIED"),
+                ({"credential_cookie_access_requested": True}, "CREDENTIAL_COOKIE_ACCESS_DENIED"),
+                ({"production_authority_requested": True}, "PRODUCTION_AUTHORITY_DENIED"),
+            ]:
+                try:
+                    build_openwebui_safe_handoff_result(request.model_copy(update=update))
+                    failures.append(f"M77 unsafe OpenWebUI handoff request was not denied with {reason}")
+                except ValueError as exc:
+                    if reason not in str(exc):
+                        failures.append(f"M77 unsafe OpenWebUI handoff request raised {exc!s}, expected {reason}")
+        except Exception as exc:
+            failures.append(f"M77 OpenWebUI safe handoff validation failed: {exc}")
+
+        docs_text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_files
+            if path.startswith("docs/") and (self.root / path).exists()
+        )
+        for fragment in [
+            "openwebui safe handoff execution",
+            "exact approval binding",
+            "safe handoff result",
+            "agent core remains authority",
+            "openwebui is a shell/bridge, not the brain",
+            "no live openwebui connection",
+            "no openwebui runtime call",
+            "no provider call",
+            "no model call",
+            "no model authority",
+            "no tool execution",
+            "no memory write",
+            "no context injection",
+            "no network call",
+            "no credentials or cookies",
+            "no raw prompt",
+            "no raw provider payload",
+            "no raw content",
+            "no backend route",
+            "no control center control",
+            "no dependency",
+            "no production authority",
+            "evaluator boundaries revalidate",
+            "m78 remains future",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M77 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m77_openwebui_safe_handoff_static_safety(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        forbidden_source_fragments = [
+            "openwebui_runtime_call_performed=True",
+            "openwebui_called=True",
+            "provider_called=True",
+            "provider_call_performed=True",
+            "model_called=True",
+            "model_call_performed=True",
+            "model_output_authoritative=True",
+            "tool_executed=True",
+            "tool_execution_performed=True",
+            "memory_written=True",
+            "memory_write_performed=True",
+            "context_injected=True",
+            "context_injection_performed=True",
+            "network_called=True",
+            "network_call_performed=True",
+            "credential_cookie_accessed=True",
+            "credential_cookie_access_performed=True",
+            "raw_prompt_returned=True",
+            "raw_provider_payload_returned=True",
+            "raw_content_returned=True",
+            "production_authority_granted=True",
+            "/openwebui/runtime/handoff",
+            "/openwebui/runtime/execute",
+            "/openwebui/handoff/execute",
+            "/openwebui/chat/send",
+            "/openwebui/model/call",
+            "/openwebui/provider/call",
+            "/openwebui/tools/execute",
+            "/openwebui/memory/write",
+            "/openwebui/context/inject",
+            "/openwebui/raw-payload",
+        ]
+        allowed_files = {
+            "scripts/verify_all.py",
+            "src/ultimate_ai_agent/core/openwebui_bridge/__init__.py",
+            "src/ultimate_ai_agent/core/openwebui_bridge/contracts.py",
+            "src/ultimate_ai_agent/core/openwebui_bridge/enums.py",
+            "src/ultimate_ai_agent/core/openwebui_bridge/runtime.py",
+            "src/ultimate_ai_agent/core/openwebui_bridge/validation.py",
+            "src/ultimate_ai_agent/core/gate/evaluators.py",
+            "src/ultimate_ai_agent/api/openapi.py",
+        }
+        for root in [
+            self.root / "src" / "ultimate_ai_agent",
+            self.root / "apps" / "control-center" / "src",
+            self.root / "apps" / "ccc-ios",
+        ]:
+            if not root.exists():
+                continue
+            candidate_files = []
+            for pattern in ("*.py", "*.ts", "*.tsx", "*.js", "*.jsx", "*.swift", "*.yml", "*.yaml"):
+                candidate_files.extend(root.rglob(pattern))
+            for path in sorted(candidate_files):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(self.root).as_posix()
+                if rel in allowed_files:
+                    continue
+                text = path.read_text(encoding="utf-8")
+                for fragment in forbidden_source_fragments:
+                    if fragment in text:
+                        failures.append(f"M77 forbidden OpenWebUI handoff fragment in {rel}: {fragment}")
+        return self._result(criterion, failures, [])
+
+    def check_m77_openwebui_safe_handoff_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m77_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M77 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m77_roadmap_currentness(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        required_docs = [
+            "README.md",
+            "VERSION.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/roadmap/M61_M100_ROADMAP.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+            "docs/roadmap/MILESTONE_CHARTERS.md",
+        ]
+        failures = [
+            f"missing M77 roadmap doc: {path}"
+            for path in required_docs
+            if not (self.root / path).exists()
+        ]
+        text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_docs
+            if (self.root / path).exists()
+        )
+        if "v0.81.0" not in text or "m77" not in text or "openwebui safe handoff execution" not in text:
+            failures.append("active docs do not identify v0.81.0/M77 OpenWebUI Safe Handoff Execution")
+        if "m77 is implemented/released" not in text and "v0.81.0 implements m77" not in text:
+            failures.append("active docs do not mark M77 implemented/released")
+        for version_label, milestone, title in [
+            ("v0.82.0", "M78", "Plugin Manifest Security Model"),
+            ("v0.83.0", "M79", "Plugin Install Review, Disabled by Default"),
+            ("v0.94.0", "M90", "Shell/Subprocess Hardening Freeze"),
+            ("v0.95.0", "M91", "Autonomous Tool Execution Contract"),
+            ("v1.4.0", "M100", "Mobile Permission Model v1"),
+        ]:
+            if version_label.lower() not in text or milestone.lower() not in text or title.lower() not in text:
+                failures.append(f"active docs missing planned M78-M100 row: {version_label} / {milestone} — {title}")
+        for fragment in (
+            "m78 is implemented",
+            "plugin execution is implemented",
+            "openwebui runtime calls are implemented",
+            "model authority is implemented",
+            "tool execution is implemented",
+            "shell execution is implemented",
+            "production authority is implemented",
+            "broad autonomy is implemented",
+        ):
+            if fragment in text:
+                failures.append(f"M77 docs imply forbidden/future capability: {fragment}")
         return self._result(criterion, failures, required_docs)
 
     def check_v0292_local_dev_api_authority_and_preview_safe(

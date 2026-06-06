@@ -110,6 +110,7 @@ SCAN_SEQUENCE = [
     ("M74 browser observe-only adapter scan", "verify_m74_browser_observe_only_adapter"),
     ("M75 browser action dry-run planner scan", "verify_m75_browser_action_dry_run_planner"),
     ("M76 OpenWebUI runtime bridge scan", "verify_m76_openwebui_runtime_bridge"),
+    ("M77 OpenWebUI safe handoff scan", "verify_m77_openwebui_safe_handoff"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -12181,6 +12182,162 @@ def verify_m76_openwebui_runtime_bridge():
                 sys.exit(1)
 
     print("OK: M76 OpenWebUI runtime bridge is review-only, route-free, and no-authority")
+
+
+def verify_m77_openwebui_safe_handoff():
+    print("\n[Verifier] Running M77 OpenWebUI safe handoff guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/openwebui_bridge/__init__.py",
+        "src/ultimate_ai_agent/core/openwebui_bridge/runtime.py",
+        "docs/openwebui/OPENWEBUI_SAFE_HANDOFF_EXECUTION.md",
+        "docs/openwebui/OPENWEBUI_SAFE_HANDOFF_POLICY.md",
+        "docs/openwebui/OPENWEBUI_SAFE_HANDOFF_RESULT_CONTRACT.md",
+        "docs/openwebui/OPENWEBUI_SAFE_HANDOFF_AUTHORITY_BOUNDARY.md",
+        "docs/openwebui/OPENWEBUI_SAFE_HANDOFF_RECEIPT_PLAN.md",
+        "docs/openwebui/M77_TO_M78_BOUNDARY.md",
+        "docs/release_notes/v0_81_0.md",
+        "docs/archive/releases/v0_81_0/README_IMPORT.md",
+        "docs/archive/releases/v0_81_0/master_plan.md",
+        "docs/implementation/foundation_gate_implementation_plan_v0_81_0.md",
+        "tests/test_m77_openwebui_safe_handoff_execution.py",
+        "tests/test_m77_openwebui_safe_handoff_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M77 OpenWebUI safe handoff file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = "\n".join(
+        (ROOT / rel_path).read_text(encoding="utf-8").lower()
+        for rel_path in required_files
+        if rel_path.startswith("docs/")
+    )
+    for fragment in [
+        "openwebui safe handoff execution",
+        "exact approval binding",
+        "safe handoff result",
+        "agent core remains authority",
+        "openwebui is a shell/bridge, not the brain",
+        "no live openwebui connection",
+        "no openwebui runtime call",
+        "no provider call",
+        "no model call",
+        "no model authority",
+        "no tool execution",
+        "no memory write",
+        "no context injection",
+        "no network call",
+        "no credentials or cookies",
+        "no raw prompt",
+        "no raw provider payload",
+        "no raw content",
+        "no backend route",
+        "no control center control",
+        "no dependency",
+        "no production authority",
+        "evaluator boundaries revalidate",
+        "m78 remains future",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M77 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.evaluators import m77_openapi_route_failures
+        from ultimate_ai_agent.core.openwebui_bridge import (
+            OpenWebUIRuntimeBridgeRequest,
+            OpenWebUISafeHandoffRequest,
+            OpenWebUISafeHandoffStatus,
+            build_openwebui_runtime_bridge_envelope,
+            build_openwebui_safe_handoff_result,
+        )
+    except Exception as exc:
+        print(f"FAIL: M77 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m77_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    envelope = build_openwebui_runtime_bridge_envelope(
+        OpenWebUIRuntimeBridgeRequest(
+            bridge_request_ref="openwebui-runtime-bridge-request:verify-all-m77",
+            session_ref="openwebui-session:verify-all-m77",
+            safe_conversation_ref="openwebui-safe-conversation:verify-all-m77",
+            actor_ref="actor:verify-all-m77",
+            safe_intent_summary="Prepare a safe OpenWebUI handoff.",
+        )
+    )
+    request = OpenWebUISafeHandoffRequest(
+        handoff_request_ref="openwebui-safe-handoff-request:verify-all-m77",
+        bridge_envelope_ref=envelope.bridge_envelope_ref,
+        session_ref=envelope.session_ref,
+        safe_conversation_ref=envelope.safe_conversation_ref,
+        actor_ref=envelope.actor_ref,
+        approval_ref="approval:verify-all-m77",
+        approved_bridge_envelope_ref=envelope.bridge_envelope_ref,
+        approved_session_ref=envelope.session_ref,
+        approved_safe_conversation_ref=envelope.safe_conversation_ref,
+        approved_actor_ref=envelope.actor_ref,
+        safe_handoff_summary="Record an exact-bound safe handoff inside Agent Core.",
+    )
+    result = build_openwebui_safe_handoff_result(request)
+    if (
+        result.status != OpenWebUISafeHandoffStatus.safe_handoff_executed
+        or not result.safe_handoff_executed
+        or result.raw_prompt_returned
+        or result.raw_provider_payload_returned
+        or result.raw_content_returned
+        or result.model_output_authoritative
+        or result.openwebui_called
+        or result.provider_called
+        or result.model_called
+        or result.tool_executed
+        or result.memory_written
+        or result.context_injected
+        or result.network_called
+        or result.credential_cookie_accessed
+        or result.production_authority_granted
+        or result.side_effects_performed
+        or not result.receipt_plan.safe_handoff_recorded
+        or result.receipt_plan.openwebui_runtime_call_performed
+        or "M77_OPENWEBUI_SAFE_HANDOFF_EXECUTION" not in result.reason_codes
+        or "M78_REMAINS_FUTURE" not in result.reason_codes
+    ):
+        print("FAIL: M77 OpenWebUI safe handoff result is unsafe or over-authoritative")
+        sys.exit(1)
+
+    for update, reason in [
+        ({"approval_ref": None}, "APPROVAL_REF_REQUIRED"),
+        ({"approval_ref": "approval_test_m77"}, "APPROVAL_TEST_REF_DENIED"),
+        ({"approved_bridge_envelope_ref": "openwebui-runtime-bridge-envelope:other"}, "APPROVAL_BINDING_MISMATCH"),
+        ({"approval_expired": True}, "APPROVAL_EXPIRED_DENIED"),
+        ({"approval_revoked": True}, "APPROVAL_REVOKED_DENIED"),
+        ({"approval_replayed": True}, "APPROVAL_REPLAY_DENIED"),
+        ({"raw_provider_payload_present": True}, "RAW_PROVIDER_PAYLOAD_DENIED"),
+        ({"openwebui_runtime_call_requested": True}, "OPENWEBUI_RUNTIME_CALL_DENIED"),
+        ({"model_call_requested": True}, "MODEL_CALL_DENIED"),
+        ({"model_authority_requested": True}, "MODEL_AUTHORITY_DENIED"),
+        ({"tool_execution_requested": True}, "TOOL_EXECUTION_DENIED"),
+        ({"memory_write_requested": True}, "MEMORY_WRITE_DENIED"),
+        ({"context_injection_requested": True}, "CONTEXT_INJECTION_DENIED"),
+        ({"network_call_requested": True}, "OPENWEBUI_NETWORK_CALL_DENIED"),
+        ({"credential_cookie_access_requested": True}, "CREDENTIAL_COOKIE_ACCESS_DENIED"),
+        ({"production_authority_requested": True}, "PRODUCTION_AUTHORITY_DENIED"),
+    ]:
+        try:
+            build_openwebui_safe_handoff_result(request.model_copy(update=update))
+            print(f"FAIL: M77 unsafe OpenWebUI handoff request was not denied with {reason}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M77 unsafe OpenWebUI handoff request raised {exc!s}, expected {reason}")
+                sys.exit(1)
+
+    print("OK: M77 OpenWebUI safe handoff is exact-bound, route-free, and no-authority")
 
 
 def verify_local_developer_launcher_safety():

@@ -18,6 +18,10 @@ from ultimate_ai_agent.core.openwebui_bridge.contracts import (
     OpenWebUIRuntimeBridgePolicy,
     OpenWebUIRuntimeBridgeReceiptPlan,
     OpenWebUIRuntimeBridgeRequest,
+    OpenWebUISafeHandoffPolicy,
+    OpenWebUISafeHandoffReceiptPlan,
+    OpenWebUISafeHandoffRequest,
+    OpenWebUISafeHandoffResult,
     OpenWebUISafeConversationSurface,
     OpenWebUISafeConversationSurfacePolicy,
     OpenWebUISafeConversationTurn,
@@ -28,6 +32,7 @@ from ultimate_ai_agent.core.openwebui_bridge.enums import (
     OpenWebUIBridgeDecisionStatus,
     OpenWebUIBridgeStatus,
     OpenWebUIContentMode,
+    OpenWebUISafeHandoffStatus,
 )
 
 
@@ -625,6 +630,199 @@ def validate_openwebui_runtime_bridge_envelope(
     if envelope.side_effects_performed:
         raise ValueError("SIDE_EFFECTS_DENIED")
     return envelope
+
+
+def validate_openwebui_safe_handoff_policy(
+    policy: OpenWebUISafeHandoffPolicy | None = None,
+) -> OpenWebUISafeHandoffPolicy:
+    active_policy = policy or OpenWebUISafeHandoffPolicy()
+    _assert_safe_text(active_policy.safe_handoff_policy_ref)
+    _assert_metadata_refs_only(active_policy.docs_refs)
+    _assert_metadata_refs_only(active_policy.metadata_refs)
+    _assert_safe_metadata(active_policy.metadata)
+    if active_policy.status != OpenWebUIBridgeStatus.contract_only:
+        raise ValueError("M77 OpenWebUI safe handoff policy must remain contract-only")
+    if not active_policy.safe_summary_only:
+        raise ValueError("SAFE_SUMMARY_ONLY_REQUIRED")
+    if not active_policy.safe_handoff_execution_enabled:
+        raise ValueError("SAFE_HANDOFF_EXECUTION_REQUIRED")
+    if not active_policy.exact_approval_binding_required:
+        raise ValueError("EXACT_APPROVAL_BINDING_REQUIRED")
+    if not active_policy.agent_core_remains_authority:
+        raise ValueError("AGENT_CORE_AUTHORITY_REQUIRED")
+    if active_policy.openwebui_is_agent_brain:
+        raise ValueError("OPENWEBUI_AGENT_BRAIN_DENIED")
+    flag_reasons = [
+        ("live_openwebui_connection_enabled", "LIVE_OPENWEBUI_CONNECTION_DENIED"),
+        ("openwebui_runtime_call_enabled", "OPENWEBUI_RUNTIME_CALL_DENIED"),
+        ("openwebui_network_call_enabled", "OPENWEBUI_NETWORK_CALL_DENIED"),
+        ("provider_call_enabled", "PROVIDER_CALL_DENIED"),
+        ("model_call_enabled", "MODEL_CALL_DENIED"),
+        ("model_authority_enabled", "MODEL_AUTHORITY_DENIED"),
+        ("tool_execution_enabled", "TOOL_EXECUTION_DENIED"),
+        ("memory_write_enabled", "MEMORY_WRITE_DENIED"),
+        ("context_injection_enabled", "CONTEXT_INJECTION_DENIED"),
+        ("approval_ref_authority_enabled", "APPROVAL_REF_NOT_AUTHORITY"),
+        ("raw_prompt_exposure_enabled", "RAW_PROMPT_DENIED"),
+        ("raw_provider_payload_exposure_enabled", "RAW_PROVIDER_PAYLOAD_DENIED"),
+        ("raw_content_allowed", "RAW_CONTENT_DENIED"),
+        ("credential_cookie_access_enabled", "CREDENTIAL_COOKIE_ACCESS_DENIED"),
+        ("production_authority_enabled", "PRODUCTION_AUTHORITY_DENIED"),
+        ("backend_route_enabled", "BACKEND_ROUTE_DENIED"),
+        ("control_center_control_enabled", "CONTROL_CENTER_CONTROL_DENIED"),
+    ]
+    for field_name, reason in flag_reasons:
+        if getattr(active_policy, field_name):
+            raise ValueError(reason)
+    return active_policy
+
+
+def validate_openwebui_safe_handoff_request(
+    request: OpenWebUISafeHandoffRequest,
+) -> OpenWebUISafeHandoffRequest:
+    _assert_safe_text(request.handoff_request_ref)
+    _assert_safe_text(request.bridge_envelope_ref)
+    _assert_safe_text(request.session_ref)
+    _assert_safe_text(request.safe_conversation_ref)
+    _assert_safe_text(request.actor_ref)
+    _assert_safe_text(request.approved_bridge_envelope_ref)
+    _assert_safe_text(request.approved_session_ref)
+    _assert_safe_text(request.approved_safe_conversation_ref)
+    _assert_safe_text(request.approved_actor_ref)
+    _assert_safe_text(request.safe_handoff_summary)
+    _assert_metadata_refs_only(request.metadata_refs)
+    _assert_safe_metadata(request.metadata)
+    _assert_allowed_content_mode(request.content_mode)
+    if request.approval_ref is None:
+        raise ValueError("APPROVAL_REF_REQUIRED")
+    _assert_safe_text(request.approval_ref)
+    if request.approval_ref.startswith("approval_test_"):
+        raise ValueError("APPROVAL_TEST_REF_DENIED")
+    if (
+        request.approved_bridge_envelope_ref != request.bridge_envelope_ref
+        or request.approved_session_ref != request.session_ref
+        or request.approved_safe_conversation_ref != request.safe_conversation_ref
+        or request.approved_actor_ref != request.actor_ref
+    ):
+        raise ValueError("APPROVAL_BINDING_MISMATCH")
+    if request.approval_expired:
+        raise ValueError("APPROVAL_EXPIRED_DENIED")
+    if request.approval_revoked:
+        raise ValueError("APPROVAL_REVOKED_DENIED")
+    if request.approval_replayed:
+        raise ValueError("APPROVAL_REPLAY_DENIED")
+    if request.raw_prompt_present:
+        raise ValueError("RAW_PROMPT_DENIED")
+    if request.raw_provider_payload_present:
+        raise ValueError("RAW_PROVIDER_PAYLOAD_DENIED")
+    if request.raw_content_present:
+        raise ValueError("RAW_CONTENT_DENIED")
+    if request.secret_like_content_present:
+        raise ValueError("SECRET_LIKE_CONTENT_DENIED")
+    if request.openwebui_runtime_call_requested:
+        raise ValueError("OPENWEBUI_RUNTIME_CALL_DENIED")
+    if request.provider_call_requested:
+        raise ValueError("PROVIDER_CALL_DENIED")
+    if request.model_call_requested:
+        raise ValueError("MODEL_CALL_DENIED")
+    if request.model_authority_requested:
+        raise ValueError("MODEL_AUTHORITY_DENIED")
+    if request.tool_execution_requested:
+        raise ValueError("TOOL_EXECUTION_DENIED")
+    if request.memory_write_requested:
+        raise ValueError("MEMORY_WRITE_DENIED")
+    if request.context_injection_requested:
+        raise ValueError("CONTEXT_INJECTION_DENIED")
+    if request.network_call_requested:
+        raise ValueError("OPENWEBUI_NETWORK_CALL_DENIED")
+    if request.credential_cookie_access_requested:
+        raise ValueError("CREDENTIAL_COOKIE_ACCESS_DENIED")
+    if request.production_authority_requested:
+        raise ValueError("PRODUCTION_AUTHORITY_DENIED")
+    return request
+
+
+def validate_openwebui_safe_handoff_receipt_plan(
+    plan: OpenWebUISafeHandoffReceiptPlan,
+) -> OpenWebUISafeHandoffReceiptPlan:
+    _assert_safe_text(plan.receipt_plan_ref)
+    _assert_safe_text(plan.handoff_request_ref)
+    _assert_safe_text(plan.safe_handoff_result_ref)
+    _assert_safe_text(plan.bridge_envelope_ref)
+    _assert_safe_text(plan.approval_ref)
+    _assert_safe_text(plan.session_ref)
+    _assert_safe_text(plan.safe_conversation_ref)
+    _assert_safe_text(plan.actor_ref)
+    _assert_safe_text(plan.safe_summary)
+    _assert_metadata_refs_only(plan.metadata_refs)
+    _assert_safe_metadata(plan.metadata)
+    if not plan.safe_handoff_recorded:
+        raise ValueError("SAFE_HANDOFF_RECORD_REQUIRED")
+    if not plan.redaction_required:
+        raise ValueError("REDACTION_REQUIRED")
+    flag_reasons = [
+        ("raw_prompt_stored", "RAW_PROMPT_DENIED"),
+        ("raw_provider_payload_stored", "RAW_PROVIDER_PAYLOAD_DENIED"),
+        ("raw_content_stored", "RAW_CONTENT_DENIED"),
+        ("openwebui_runtime_call_performed", "OPENWEBUI_RUNTIME_CALL_DENIED"),
+        ("provider_call_performed", "PROVIDER_CALL_DENIED"),
+        ("model_call_performed", "MODEL_CALL_DENIED"),
+        ("tool_execution_performed", "TOOL_EXECUTION_DENIED"),
+        ("memory_write_performed", "MEMORY_WRITE_DENIED"),
+        ("context_injection_performed", "CONTEXT_INJECTION_DENIED"),
+        ("network_call_performed", "OPENWEBUI_NETWORK_CALL_DENIED"),
+        ("credential_cookie_access_performed", "CREDENTIAL_COOKIE_ACCESS_DENIED"),
+        ("production_authority_granted", "PRODUCTION_AUTHORITY_DENIED"),
+    ]
+    for field_name, reason in flag_reasons:
+        if getattr(plan, field_name):
+            raise ValueError(reason)
+    return plan
+
+
+def validate_openwebui_safe_handoff_result(
+    result: OpenWebUISafeHandoffResult,
+) -> OpenWebUISafeHandoffResult:
+    _assert_safe_text(result.safe_handoff_result_ref)
+    _assert_safe_text(result.handoff_request_ref)
+    _assert_safe_text(result.bridge_envelope_ref)
+    _assert_safe_text(result.approval_ref)
+    _assert_safe_text(result.session_ref)
+    _assert_safe_text(result.safe_conversation_ref)
+    _assert_safe_text(result.actor_ref)
+    _assert_safe_text(result.safe_handoff_summary)
+    _assert_metadata_refs_only(result.reason_codes)
+    _assert_metadata_refs_only(result.side_effects_performed)
+    _assert_metadata_refs_only(result.docs_refs)
+    _assert_metadata_refs_only(result.metadata_refs)
+    _assert_safe_metadata(result.metadata)
+    _assert_allowed_content_mode(result.content_mode)
+    validate_openwebui_safe_handoff_receipt_plan(result.receipt_plan)
+    if result.status != OpenWebUISafeHandoffStatus.safe_handoff_executed:
+        raise ValueError("SAFE_HANDOFF_STATUS_REQUIRED")
+    if not result.safe_handoff_executed:
+        raise ValueError("SAFE_HANDOFF_EXECUTION_REQUIRED")
+    flag_reasons = [
+        ("raw_prompt_returned", "RAW_PROMPT_DENIED"),
+        ("raw_provider_payload_returned", "RAW_PROVIDER_PAYLOAD_DENIED"),
+        ("raw_content_returned", "RAW_CONTENT_DENIED"),
+        ("model_output_authoritative", "MODEL_AUTHORITY_DENIED"),
+        ("openwebui_called", "OPENWEBUI_RUNTIME_CALL_DENIED"),
+        ("provider_called", "PROVIDER_CALL_DENIED"),
+        ("model_called", "MODEL_CALL_DENIED"),
+        ("tool_executed", "TOOL_EXECUTION_DENIED"),
+        ("memory_written", "MEMORY_WRITE_DENIED"),
+        ("context_injected", "CONTEXT_INJECTION_DENIED"),
+        ("network_called", "OPENWEBUI_NETWORK_CALL_DENIED"),
+        ("credential_cookie_accessed", "CREDENTIAL_COOKIE_ACCESS_DENIED"),
+        ("production_authority_granted", "PRODUCTION_AUTHORITY_DENIED"),
+    ]
+    for field_name, reason in flag_reasons:
+        if getattr(result, field_name):
+            raise ValueError(reason)
+    if result.side_effects_performed:
+        raise ValueError("SIDE_EFFECTS_DENIED")
+    return result
 
 
 def assert_openwebui_contract_only(
