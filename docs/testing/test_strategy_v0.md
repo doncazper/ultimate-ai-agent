@@ -65,6 +65,20 @@ Advanced modules remain blocked by capability flags.
 
 Every bug fixed after M0 should produce either a regression test, an eval, or an explicit written reason why a test is not practical.
 
+## M81 Runtime Sandbox Spec Tests
+
+M81 adds contract, verifier, documentation-integrity, and Foundation Gate tests
+only:
+
+```text
+Runtime sandbox spec contracts are spec-only, review-only, deterministic, and local-only.
+Prior milestone refs, boundary refs, threat model refs, and audit requirement refs are validated.
+Runtime sandbox execution, command proposal, command execution, subprocess execution, shell execution, process spawn, filesystem mutation, network access, tool execution, browser automation, plugin execution, remote execution, model call, memory write, context injection, background worker, backend route, Control Center control, dependency, and production authority flags are denied.
+Evaluator boundaries revalidate model-copy mutated unsafe fields.
+OpenAPI path count remains 75 and no sandbox, command, shell, process, filesystem, network, browser, plugin, remote, memory, context, or tool execution routes are added.
+M82 remains future.
+```
+
 ## M12 Control Center Contract Tests
 
 M12 adds backend Control Center contract tests only:

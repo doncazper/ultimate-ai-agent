@@ -1,6 +1,6 @@
 # Post-M20 Capability Layer Roadmap
 
-Status: Active roadmap projection maintained through v0.84.1.
+Status: Active roadmap projection maintained through v0.85.0.
 
 v0.38.0 implements M34 Broader File Capability Review as planning,
 architecture review, documentation, verifier, and Foundation Gate work only.
@@ -117,13 +117,14 @@ The detailed post-M33 supersession source of truth is
 | v0.82.0 | M78 | Plugin Manifest Security Model | implemented/released disabled-only security model |
 | v0.83.0 | M79 | Plugin Install Review, Disabled by Default | implemented/released review-only disabled install candidate contracts |
 | v0.84.0 | M80 | Network/Browser/OpenWebUI Hardening Freeze | implemented/released freeze-only hardening contracts |
+| v0.85.0 | M81 | Runtime Sandbox Spec | implemented/released spec-only |
 
 ## Prompt-Pack Strategy
 
-Recommended next prompt after v0.84.1:
+Recommended next prompt after v0.85.0:
 
 ```text
-Start v0.85.0 / M81 - Runtime Sandbox Spec only after v0.84.1 / M80 is accepted Green.
+Start v0.86.0 / M82 - Command Proposal Contracts only after v0.85.0 / M81 is accepted Green.
 ```
 
 M61 is implemented/released by v0.65.0 as Autonomy Mode Charter + Authority
@@ -146,8 +147,8 @@ implemented/released by v0.81.0 as OpenWebUI Safe Handoff Execution. M78 is
 implemented/released by v0.82.0 as Plugin Manifest Security Model. M79 is
 implemented/released by v0.83.0 as Plugin Install Review, Disabled by Default.
 M80 is implemented/released by v0.84.0 as Network/Browser/OpenWebUI Hardening
-Freeze and currentness-repaired by v0.84.1. M81-M100 remain
-planned/provisional.
+Freeze and currentness-repaired by v0.84.1. M81 is implemented/released by
+v0.85.0 as Runtime Sandbox Spec. M82-M100 remain planned/provisional.
 
 Extra-hard reviews are required for M37, M38, M40, M47, M48, M49, M51, M52,
 M57, M58, and M59. Mandatory hardening is expected by default for M35-M40, M43-M50,

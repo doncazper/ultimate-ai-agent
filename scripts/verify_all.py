@@ -114,6 +114,7 @@ SCAN_SEQUENCE = [
     ("M78 plugin manifest security scan", "verify_m78_plugin_manifest_security_model"),
     ("M79 plugin install review scan", "verify_m79_plugin_install_review"),
     ("M80 network/browser/openwebui hardening freeze scan", "verify_m80_network_browser_openwebui_hardening_freeze"),
+    ("M81 runtime sandbox spec scan", "verify_m81_runtime_sandbox_spec"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -12957,6 +12958,224 @@ def verify_m80_network_browser_openwebui_hardening_freeze():
             sys.exit(1)
 
     print("OK: M80 network/browser/OpenWebUI hardening freeze is route-free and no-authority")
+
+
+def verify_m81_runtime_sandbox_spec():
+    print("\n[Verifier] Running M81 runtime sandbox spec guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/sandbox/__init__.py",
+        "src/ultimate_ai_agent/core/sandbox/runtime_spec.py",
+        "docs/sandbox/RUNTIME_SANDBOX_SPEC.md",
+        "docs/sandbox/RUNTIME_SANDBOX_SPEC_CONTRACTS.md",
+        "docs/sandbox/RUNTIME_SANDBOX_SPEC_AUTHORITY_BOUNDARY.md",
+        "docs/sandbox/RUNTIME_SANDBOX_SPEC_NON_GOALS.md",
+        "docs/sandbox/M81_TO_M82_BOUNDARY.md",
+        "docs/release_notes/v0_85_0.md",
+        "docs/archive/releases/v0_85_0/README_IMPORT.md",
+        "docs/archive/releases/v0_85_0/master_plan.md",
+        "docs/implementation/foundation_gate_implementation_plan_v0_85_0.md",
+        "tests/test_m81_runtime_sandbox_spec.py",
+        "tests/test_m81_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M81 runtime sandbox spec file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = "\n".join(
+        (ROOT / rel_path).read_text(encoding="utf-8").lower()
+        for rel_path in required_files
+        if rel_path.startswith("docs/")
+    )
+    for fragment in [
+        "runtime sandbox spec",
+        "spec-only",
+        "review-only",
+        "deterministic",
+        "local-only",
+        "prior milestone refs",
+        "boundary refs",
+        "threat model refs",
+        "audit requirement refs",
+        "no runtime sandbox execution",
+        "no command proposal",
+        "no command execution",
+        "no subprocess execution",
+        "no shell execution",
+        "no process spawn",
+        "no filesystem mutation",
+        "no network access",
+        "no tool execution",
+        "no browser automation",
+        "no plugin execution",
+        "no remote execution",
+        "no model call",
+        "no memory write",
+        "no context injection",
+        "no background worker",
+        "no backend route",
+        "no control center control",
+        "no dependency",
+        "no production authority",
+        "evaluator boundaries revalidate",
+        "m82 remains future",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M81 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.evaluators import m81_openapi_route_failures
+        from ultimate_ai_agent.core.sandbox import (
+            RuntimeSandboxSpecRequest,
+            RuntimeSandboxSpecStatus,
+            build_runtime_sandbox_spec,
+        )
+    except Exception as exc:
+        print(f"FAIL: M81 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m81_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    request = RuntimeSandboxSpecRequest(
+        request_ref="runtime-sandbox-spec-request:verify-all-m81",
+        spec_ref="runtime-sandbox-spec:verify-all-m81",
+        baseline_ref="baseline:v0.84.1",
+        actor_ref="actor:verify-all-m81",
+        prior_milestone_refs=["milestone:M57", "milestone:M58", "milestone:M80"],
+        boundary_refs=[
+            "sandbox-boundary:m57-architecture-review",
+            "sandbox-boundary:m58-dry-run-audit",
+            "sandbox-boundary:m80-freeze",
+        ],
+        threat_model_refs=[
+            "threat-model:no-process-spawn",
+            "threat-model:no-network-runtime",
+        ],
+        audit_requirement_refs=[
+            "audit-requirement:deterministic-spec",
+            "audit-requirement:no-side-effects",
+        ],
+        safe_summary="Runtime sandbox spec only no authority.",
+    )
+    report = build_runtime_sandbox_spec(request)
+    if (
+        report.status != RuntimeSandboxSpecStatus.specified
+        or not report.spec_only
+        or not report.review_only
+        or not report.deterministic
+        or report.runtime_sandbox_started
+        or report.command_proposal_created
+        or report.command_execution_performed
+        or report.subprocess_execution_performed
+        or report.shell_execution_performed
+        or report.process_spawn_performed
+        or report.filesystem_mutation_performed
+        or report.network_access_performed
+        or report.tool_execution_performed
+        or report.browser_automation_performed
+        or report.plugin_execution_performed
+        or report.remote_execution_performed
+        or report.model_call_performed
+        or report.memory_write_performed
+        or report.context_injection_performed
+        or report.background_worker_started
+        or report.backend_route_added
+        or report.dependency_added
+        or report.production_authority_granted
+        or report.side_effects_performed
+        or "M81_RUNTIME_SANDBOX_SPEC_ONLY" not in report.reason_codes
+        or "M81_NO_RUNTIME_SANDBOX_EXECUTION" not in report.reason_codes
+        or "M82_REMAINS_FUTURE" not in report.reason_codes
+    ):
+        print("FAIL: M81 runtime sandbox spec report is unsafe or over-authoritative")
+        sys.exit(1)
+
+    for update, reason in [
+        ({"runtime_sandbox_requested": True}, "RUNTIME_SANDBOX_EXECUTION_DENIED"),
+        ({"command_proposal_requested": True}, "COMMAND_PROPOSAL_DENIED"),
+        ({"command_execution_requested": True}, "COMMAND_EXECUTION_DENIED"),
+        ({"subprocess_execution_requested": True}, "SUBPROCESS_EXECUTION_DENIED"),
+        ({"shell_execution_requested": True}, "SHELL_EXECUTION_DENIED"),
+        ({"process_spawn_requested": True}, "PROCESS_SPAWN_DENIED"),
+        ({"filesystem_mutation_requested": True}, "FILESYSTEM_MUTATION_DENIED"),
+        ({"network_access_requested": True}, "NETWORK_ACCESS_DENIED"),
+        ({"tool_execution_requested": True}, "TOOL_EXECUTION_DENIED"),
+        ({"browser_automation_requested": True}, "BROWSER_AUTOMATION_DENIED"),
+        ({"plugin_execution_requested": True}, "PLUGIN_EXECUTION_DENIED"),
+        ({"remote_execution_requested": True}, "REMOTE_EXECUTION_DENIED"),
+        ({"model_call_requested": True}, "MODEL_CALL_DENIED"),
+        ({"memory_write_requested": True}, "MEMORY_WRITE_DENIED"),
+        ({"context_injection_requested": True}, "CONTEXT_INJECTION_DENIED"),
+        ({"background_worker_requested": True}, "BACKGROUND_WORKER_DENIED"),
+        ({"backend_route_requested": True}, "BACKEND_ROUTE_DENIED"),
+        ({"control_center_control_requested": True}, "CONTROL_CENTER_CONTROL_DENIED"),
+        ({"dependency_requested": True}, "DEPENDENCY_CHANGE_DENIED"),
+        ({"production_authority_requested": True}, "PRODUCTION_AUTHORITY_DENIED"),
+        ({"contains_raw_prompt": True}, "RAW_PROMPT_CAPTURE_DENIED"),
+        ({"contains_raw_provider_payload": True}, "RAW_PROVIDER_PAYLOAD_CAPTURE_DENIED"),
+        ({"contains_secret": True}, "SECRET_LIKE_SANDBOX_SPEC_CONTENT_DENIED"),
+    ]:
+        try:
+            build_runtime_sandbox_spec(request.model_copy(update=update))
+            print(f"FAIL: M81 unsafe runtime sandbox spec request was not denied with {reason}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M81 unsafe runtime sandbox spec request raised {exc!s}, expected {reason}")
+                sys.exit(1)
+
+    allowed_scan_files = {
+        "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/sandbox/__init__.py",
+        "src/ultimate_ai_agent/core/sandbox/runtime_spec.py",
+    }
+    source_text = "\n".join(
+        path.read_text(encoding="utf-8")
+        for root in [ROOT / "src" / "ultimate_ai_agent", ROOT / "apps" / "control-center" / "src"]
+        if root.exists()
+        for path in root.rglob("*")
+        if path.is_file()
+        and path.suffix in {".py", ".ts", ".tsx", ".js", ".jsx"}
+        and path.relative_to(ROOT).as_posix() not in allowed_scan_files
+    )
+    for fragment in [
+        "runtime_sandbox_enabled=True",
+        "command_proposal_enabled=True",
+        "command_execution_enabled=True",
+        "subprocess_execution_enabled=True",
+        "shell_execution_enabled=True",
+        "process_spawn_enabled=True",
+        "filesystem_mutation_enabled=True",
+        "network_access_enabled=True",
+        "tool_execution_enabled=True",
+        "browser_automation_enabled=True",
+        "plugin_execution_enabled=True",
+        "remote_execution_enabled=True",
+        "model_call_enabled=True",
+        "memory_write_enabled=True",
+        "context_injection_enabled=True",
+        "background_worker_enabled=True",
+        "production_authority_enabled=True",
+        "runtime_sandbox_started=True",
+        "command_proposal_created=True",
+        "command_execution_performed=True",
+        "subprocess_execution_performed=True",
+        "shell_execution_performed=True",
+        "process_spawn_performed=True",
+        "remote_execution_performed=True",
+        "production_authority_granted=True",
+    ]:
+        if fragment in source_text:
+            print(f"FAIL: M81 forbidden source fragment present: {fragment}")
+            sys.exit(1)
+
+    print("OK: M81 runtime sandbox spec is spec-only, route-free, and no-authority")
 
 
 def verify_local_developer_launcher_safety():

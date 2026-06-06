@@ -12,26 +12,23 @@ allowed to become operational authority.
 
 | Field | Current state |
 |---|---|
-| Current active baseline | **v0.84.1** |
-| Current milestone | **M80 - Network/Browser/OpenWebUI Hardening Freeze** |
+| Current active baseline | **v0.85.0** |
+| Current milestone | **M81 - Runtime Sandbox Spec** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **75** OpenAPI paths |
 | Production readiness | Not claimed |
 
-v0.84.1 repairs M80 Network/Browser/OpenWebUI Hardening Freeze active
-currentness wording after v0.84.0. It keeps freeze-only, review-only,
-deterministic contracts over accepted M71-M79 network, browser, OpenWebUI, and
-plugin-adjacent boundaries, with accepted milestone refs, checklist refs,
-stable reason codes, documentation-integrity checks, static verification,
-tests, and Foundation Gate coverage. It adds no
-unrestricted network access, authenticated network action, raw network response,
-browser navigation, browser click, browser screenshot, raw DOM, authenticated
-browser profile, OpenWebUI model authority, OpenWebUI tool execution,
-OpenWebUI memory write, OpenWebUI context injection, raw prompt, raw provider
-payload, plugin install, plugin enablement, plugin execution, runtime import,
-shell execution, background worker, remote execution, backend routes, Control
-Center controls, dependency, M81 work, or production authority.
+v0.85.0 implements M81 Runtime Sandbox Spec. It adds spec-only, review-only,
+deterministic, local-only runtime sandbox spec contracts with prior milestone
+refs, boundary refs, threat model refs, audit requirement refs, stable reason
+codes, documentation-integrity checks, static verification, tests, and
+Foundation Gate coverage. It adds no runtime sandbox execution, command
+proposal, command execution, subprocess execution, shell execution, process
+spawn, filesystem mutation, network access, tool execution, browser automation,
+plugin execution, remote execution, model call, memory write, context injection,
+background worker, backend routes, Control Center controls, dependency, M82
+work, or production authority.
 
 v0.29.5 is documentation policy polish. It remains the documentation
 organization cleanup baseline before the M26 and M27 implementation releases.
@@ -90,6 +87,10 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M80 Network/Browser/OpenWebUI Hardening Freeze](docs/hardening/NETWORK_BROWSER_OPENWEBUI_HARDENING_FREEZE.md)
 - [M80 Hardening Freeze Contracts](docs/hardening/NETWORK_BROWSER_OPENWEBUI_HARDENING_FREEZE_CONTRACTS.md)
 - [M80 Hardening Freeze Non-Goals](docs/hardening/NETWORK_BROWSER_OPENWEBUI_HARDENING_FREEZE_NON_GOALS.md)
+- [M81 Runtime Sandbox Spec](docs/sandbox/RUNTIME_SANDBOX_SPEC.md)
+- [M81 Runtime Sandbox Spec Contracts](docs/sandbox/RUNTIME_SANDBOX_SPEC_CONTRACTS.md)
+- [M81 Runtime Sandbox Spec Authority Boundary](docs/sandbox/RUNTIME_SANDBOX_SPEC_AUTHORITY_BOUNDARY.md)
+- [M81 Runtime Sandbox Spec Non-Goals](docs/sandbox/RUNTIME_SANDBOX_SPEC_NON_GOALS.md)
 - [M34 Broader File Capability Review](docs/files/BROADER_FILE_CAPABILITY_REVIEW.md)
 - [File capability boundary matrix](docs/files/FILE_CAPABILITY_BOUNDARY_MATRIX.md)
 - [File capability risk register](docs/files/FILE_CAPABILITY_RISK_REGISTER.md)
@@ -221,8 +222,8 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [v0.82.0 master plan](docs/archive/releases/v0_82_0/master_plan.md)
 - [v0.83.0 release packet](docs/archive/releases/v0_83_0/README_IMPORT.md)
 - [v0.83.0 master plan](docs/archive/releases/v0_83_0/master_plan.md)
-- [v0.84.1 release packet](docs/archive/releases/v0_84_1/README_IMPORT.md)
-- [v0.84.1 master plan](docs/archive/releases/v0_84_1/master_plan.md)
+- [v0.85.0 release packet](docs/archive/releases/v0_85_0/README_IMPORT.md)
+- [v0.85.0 master plan](docs/archive/releases/v0_85_0/master_plan.md)
 
 ## What This Project Is
 

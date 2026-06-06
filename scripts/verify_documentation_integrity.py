@@ -606,6 +606,19 @@ REQUIRED_M80_NETWORK_BROWSER_OPENWEBUI_FREEZE_DOCS = [
     "docs/implementation/foundation_gate_implementation_plan_v0_84_0.md",
 ]
 
+REQUIRED_M81_RUNTIME_SANDBOX_SPEC_DOCS = [
+    "docs/sandbox/RUNTIME_SANDBOX_SPEC.md",
+    "docs/sandbox/RUNTIME_SANDBOX_SPEC_CONTRACTS.md",
+    "docs/sandbox/RUNTIME_SANDBOX_SPEC_AUTHORITY_BOUNDARY.md",
+    "docs/sandbox/RUNTIME_SANDBOX_SPEC_NON_GOALS.md",
+    "docs/sandbox/M81_TO_M82_BOUNDARY.md",
+    "docs/roadmap/M61_M100_ROADMAP.md",
+    "docs/release_notes/v0_85_0.md",
+    "docs/archive/releases/v0_85_0/README_IMPORT.md",
+    "docs/archive/releases/v0_85_0/master_plan.md",
+    "docs/implementation/foundation_gate_implementation_plan_v0_85_0.md",
+]
+
 
 REQUIRED_ACTIVE_DOCS = [
     "docs/README.md",
@@ -1146,6 +1159,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_m78_plugin_manifest_security_docs(root, version))
     failures.extend(_verify_m79_plugin_install_review_docs(root, version))
     failures.extend(_verify_m80_network_browser_openwebui_freeze_docs(root, version))
+    failures.extend(_verify_m81_runtime_sandbox_spec_docs(root, version))
     failures.extend(_verify_m19_roadmap_currentness(root, version))
     failures.extend(_verify_post_m18_roadmap_status_labels(root))
 
@@ -4913,6 +4927,88 @@ def _verify_m80_network_browser_openwebui_freeze_docs(root: Path, version: str |
         "M80 docs must not claim shell execution implementation": "shell execution is implemented",
         "M80 docs must not claim remote execution implementation": "remote execution is implemented",
         "M80 docs must not claim production authority": "production authority is implemented",
+    }
+    for message, fragment in forbidden_fragments.items():
+        if fragment in text:
+            failures.append(f"{message}: {fragment}")
+    return failures
+
+
+def _verify_m81_runtime_sandbox_spec_docs(root: Path, version: str | None) -> list[str]:
+    failures: list[str] = []
+    if _version_tuple(version) < (0, 85, 0):
+        return failures
+
+    missing = [
+        rel_path
+        for rel_path in REQUIRED_M81_RUNTIME_SANDBOX_SPEC_DOCS
+        if not (root / rel_path).exists()
+    ]
+    failures.extend(f"missing M81 runtime sandbox spec doc: {rel_path}" for rel_path in missing)
+    text = "\n".join(
+        _read(root / rel_path).lower()
+        for rel_path in REQUIRED_M81_RUNTIME_SANDBOX_SPEC_DOCS
+        if (root / rel_path).exists()
+    )
+    required_fragments = {
+        "M81 docs must say runtime sandbox spec": "runtime sandbox spec",
+        "M81 docs must say spec-only": "spec-only",
+        "M81 docs must say review-only": "review-only",
+        "M81 docs must say deterministic": "deterministic",
+        "M81 docs must say local-only": "local-only",
+        "M81 docs must say prior milestone refs": "prior milestone refs",
+        "M81 docs must say boundary refs": "boundary refs",
+        "M81 docs must say threat model refs": "threat model refs",
+        "M81 docs must say audit requirement refs": "audit requirement refs",
+        "M81 docs must deny runtime sandbox execution": "no runtime sandbox execution",
+        "M81 docs must deny command proposal": "no command proposal",
+        "M81 docs must deny command execution": "no command execution",
+        "M81 docs must deny subprocess execution": "no subprocess execution",
+        "M81 docs must deny shell execution": "no shell execution",
+        "M81 docs must deny process spawn": "no process spawn",
+        "M81 docs must deny filesystem mutation": "no filesystem mutation",
+        "M81 docs must deny network access": "no network access",
+        "M81 docs must deny tool execution": "no tool execution",
+        "M81 docs must deny browser automation": "no browser automation",
+        "M81 docs must deny plugin execution": "no plugin execution",
+        "M81 docs must deny remote execution": "no remote execution",
+        "M81 docs must deny model call": "no model call",
+        "M81 docs must deny memory write": "no memory write",
+        "M81 docs must deny context injection": "no context injection",
+        "M81 docs must deny background worker": "no background worker",
+        "M81 docs must deny backend routes": "no backend route",
+        "M81 docs must deny Control Center controls": "no control center control",
+        "M81 docs must deny dependencies": "no dependency",
+        "M81 docs must deny production authority": "no production authority",
+        "M81 docs must say evaluator boundaries revalidate": "evaluator boundaries revalidate",
+        "M81 docs must keep M82 future": "m82 remains future",
+    }
+    for message, fragment in required_fragments.items():
+        if fragment not in text:
+            failures.append(message)
+
+    for version_label, milestone, title in [
+        ("v0.85.0", "m81", "runtime sandbox spec"),
+        ("v0.86.0", "m82", "command proposal contracts"),
+        ("v0.94.0", "m90", "shell/subprocess hardening freeze"),
+        ("v0.95.0", "m91", "autonomous tool execution contract"),
+        ("v1.4.0", "m100", "mobile permission model v1"),
+    ]:
+        if version_label not in text or milestone not in text or title not in text:
+            failures.append(
+                f"M81-M100 roadmap missing label: {version_label} / {milestone.upper()} - {title}"
+            )
+
+    forbidden_fragments = {
+        "M81 docs must not claim runtime sandbox execution implementation": "runtime sandbox execution is implemented",
+        "M81 docs must not claim command proposal implementation": "command proposal is implemented",
+        "M81 docs must not claim command execution implementation": "command execution is implemented",
+        "M81 docs must not claim subprocess execution implementation": "subprocess execution is implemented",
+        "M81 docs must not claim shell execution implementation": "shell execution is implemented",
+        "M81 docs must not claim process spawn implementation": "process spawn is implemented",
+        "M81 docs must not claim browser click implementation": "browser click is implemented",
+        "M81 docs must not claim plugin execution implementation": "plugin execution is implemented",
+        "M81 docs must not claim production authority": "production authority is implemented",
     }
     for message, fragment in forbidden_fragments.items():
         if fragment in text:
