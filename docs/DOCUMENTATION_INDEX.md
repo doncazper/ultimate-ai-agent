@@ -1,6 +1,6 @@
 # Documentation Index
 
-Current active baseline: **v1.0.0**
+Current active baseline: **v1.1.0**
 
 This index is the active entrypoint for documentation navigation. Historical release documents remain in the repository for audit history, but active truth starts with the current baseline files listed here.
 
@@ -14,9 +14,9 @@ docs/canonical/CANONICAL_DOC_MAP.md
 docs/canonical/09_roadmap.md
 docs/roadmap/README.md
 docs/archive/README.md
-docs/archive/releases/v1_0_0/README_IMPORT.md
-docs/archive/releases/v1_0_0/master_plan.md
-docs/release_notes/v1_0_0.md
+docs/archive/releases/v1_1_0/README_IMPORT.md
+docs/archive/releases/v1_1_0/master_plan.md
+docs/release_notes/v1_1_0.md
 docs/developer/LOCAL_LAUNCHER.md
 scripts/dev/README.md
 docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md
@@ -668,6 +668,18 @@ docs/canonical/66_external_tooling_and_codex_plugin_governance.md
 docs/backlog/codex_plugin_enablement_backlog.md
 ```
 
+## Recurring Automation Contracts
+
+```text
+docs/automation/RECURRING_AUTOMATION_CONTRACTS.md
+docs/automation/RECURRING_AUTOMATION_RENEWAL_POLICY.md
+docs/automation/RECURRING_AUTOMATION_STOP_CONDITIONS.md
+docs/automation/RECURRING_AUTOMATION_AUTHORITY_BOUNDARY.md
+docs/automation/RECURRING_AUTOMATION_RECEIPT_PLAN.md
+docs/automation/RECURRING_AUTOMATION_NON_GOALS.md
+docs/automation/M97_TO_M98_BOUNDARY.md
+```
+
 The Codex plugin capability inventory and risk policy record available development-assist tool classes and the approval boundaries for future UI, Mobile Companion, Desktop Companion, CI, security, and documentation milestones. They are guidance-only and do not enable plugins, activate build tools, add runtime behavior, or authorize credential-bearing workflows.
 
 ## Local Developer Launcher
@@ -678,20 +690,20 @@ scripts/dev/README.md
 ```
 
 v0.37.4 supersedes the old active M35-M40 roadmap projection and defines the
-active M34-M60 sequence. v1.0.0 is the current active baseline after
-implementing M96 Plugin Execution Sandbox, No External Plugins as a
-deterministic built-in test plugin sandbox contract with manifest permission
-checks, audit receipt, revocation, safe refs only, no external plugin loading,
-no marketplace plugin, no arbitrary plugin code, no runtime import, no
-networked plugin fetch, no backend routes, no dependencies, and no production
-authority. Active roadmap sources consistently mark M34-M96
-implemented/released, keep M97-M100 planned/provisional, and rely on
+active M34-M60 sequence. v1.1.0 is the current active baseline after
+implementing M97 Recurring Automation Contracts as disabled-by-default,
+contract-only metadata with approval renewal required, expiration required,
+stop conditions required, audit, revocation, safe refs only, no recurrence
+runtime, no background execution, no cron, no daemon, no scheduler, no backend
+routes, no dependencies, and no production authority. Active roadmap sources
+consistently mark M34-M97 implemented/released, keep M98-M100
+planned/provisional, and rely on
 documentation-integrity checks to guard against superseded-roadmap drift, stale
 current-baseline labels, route drift, and authority-boundary drift.
 
 ## Release Notes Index
 
-Current release notes: `docs/release_notes/v1_0_0.md`
+Current release notes: `docs/release_notes/v1_1_0.md`
 
 Historical release notes remain under `docs/release_notes/`. Historical docs may mention old active baselines in historical context; they are not the current source of truth.
 

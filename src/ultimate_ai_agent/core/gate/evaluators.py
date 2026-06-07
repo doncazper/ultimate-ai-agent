@@ -1262,6 +1262,20 @@ M96_FORBIDDEN_BACKEND_ROUTES = M95_FORBIDDEN_BACKEND_ROUTES + (
     "/tools/plugins/execute",
     "/autonomy/plugins/execute",
 )
+EXPECTED_M97_OPENAPI_PATH_COUNT = 75
+M97_FORBIDDEN_BACKEND_ROUTES = M96_FORBIDDEN_BACKEND_ROUTES + (
+    "/automation/recurring/run",
+    "/automation/recurring/start",
+    "/automation/recurring/execute",
+    "/automation/recurring/worker",
+    "/automation/recurring/schedule",
+    "/scheduler/start",
+    "/scheduler/run",
+    "/cron/run",
+    "/cron/start",
+    "/background-worker/start",
+    "/background-worker/run",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -2406,6 +2420,21 @@ def m96_openapi_route_failures(
     return failures
 
 
+def m97_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M97_OPENAPI_PATH_COUNT
+) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(
+            f"OpenAPI path count changed for M97: expected {expected_path_count}, got {len(path_set)}"
+        )
+    for route in M97_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(f"M97 forbidden recurring automation runtime route present: {route}")
+    return failures
+
+
 M36_SAFE_REF_PREFIXES = {
     "reviewPacketRef": "file-review-packet:",
     "previewResultRef": "redacted-file-preview-output:",
@@ -3228,6 +3257,16 @@ class FoundationGateEvaluator:
                 self.check_m96_plugin_execution_sandbox_route_boundary
             ),
             "m96_roadmap_currentness": self.check_m96_roadmap_currentness,
+            "m97_recurring_automation_contracts": (
+                self.check_m97_recurring_automation_contracts
+            ),
+            "m97_recurring_automation_static_safety": (
+                self.check_m97_recurring_automation_static_safety
+            ),
+            "m97_recurring_automation_route_boundary": (
+                self.check_m97_recurring_automation_route_boundary
+            ),
+            "m97_roadmap_currentness": self.check_m97_roadmap_currentness,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -27778,6 +27817,244 @@ class FoundationGateEvaluator:
         ):
             if fragment in text:
                 failures.append(f"M96 docs imply forbidden/future capability: {fragment}")
+        return self._result(criterion, failures, required_docs)
+
+    def check_m97_recurring_automation_contracts(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/recurring_automation_contracts/__init__.py",
+            "src/ultimate_ai_agent/core/recurring_automation_contracts/contracts.py",
+            "docs/automation/RECURRING_AUTOMATION_CONTRACTS.md",
+            "docs/automation/RECURRING_AUTOMATION_RENEWAL_POLICY.md",
+            "docs/automation/RECURRING_AUTOMATION_STOP_CONDITIONS.md",
+            "docs/automation/RECURRING_AUTOMATION_AUTHORITY_BOUNDARY.md",
+            "docs/automation/RECURRING_AUTOMATION_RECEIPT_PLAN.md",
+            "docs/automation/RECURRING_AUTOMATION_NON_GOALS.md",
+            "docs/automation/M97_TO_M98_BOUNDARY.md",
+            "tests/test_m97_recurring_automation_contracts.py",
+            "tests/test_m97_gate_integration.py",
+        ]
+        failures = [
+            f"missing M97 recurring automation contracts file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            sys.path.insert(0, str(self.root))
+            from tests.test_m97_recurring_automation_contracts import _request
+            from ultimate_ai_agent.core.recurring_automation_contracts import (
+                RecurringAutomationContractStatus,
+                build_recurring_automation_contract_decision,
+                validate_recurring_automation_contract_decision,
+            )
+
+            decision = build_recurring_automation_contract_decision(_request())
+            if (
+                decision.status != RecurringAutomationContractStatus.contract_ready_disabled
+                or not decision.capability_exists
+                or not decision.disabled_by_default
+                or not decision.contract_only
+                or not decision.approval_renewal_required
+                or not decision.expiration_required
+                or not decision.stop_conditions_required
+                or not decision.audit_required
+                or not decision.revocation_required
+                or not decision.safe_refs_only
+                or decision.recurrence_runtime_enabled
+                or decision.background_worker_enabled
+                or decision.cron_daemon_enabled
+                or decision.scheduler_enabled
+                or decision.recurring_execution_enabled
+                or decision.side_effects_allowed
+                or decision.shell_execution_allowed
+                or decision.network_access_allowed
+                or decision.browser_automation_allowed
+                or decision.plugin_execution_allowed
+                or decision.memory_write_allowed
+                or decision.context_injection_allowed
+                or decision.backend_route_added
+                or decision.control_center_control_added
+                or decision.dependency_added
+                or decision.production_authority_granted
+                or not decision.receipt_plan.store_safe_refs_only
+                or decision.receipt_plan.store_raw_payload
+                or decision.receipt_plan.recurrence_runtime_started
+                or decision.receipt_plan.background_worker_started
+                or decision.receipt_plan.cron_daemon_started
+                or decision.receipt_plan.scheduler_started
+                or decision.receipt_plan.recurring_execution_performed
+                or "M97_RECURRING_AUTOMATION_CONTRACT_READY_DISABLED" not in decision.reason_codes
+                or "M98_REMAINS_FUTURE" not in decision.reason_codes
+            ):
+                failures.append("M97 recurring automation decision is unsafe or over-authoritative")
+            for update, reason in [
+                ({"recurrence_runtime_enabled": True}, "RECURRENCE_RUNTIME_DENIED"),
+                ({"background_worker_enabled": True}, "BACKGROUND_WORKER_DENIED"),
+                ({"cron_daemon_enabled": True}, "CRON_DAEMON_DENIED"),
+                ({"scheduler_enabled": True}, "SCHEDULER_DENIED"),
+                ({"production_authority_granted": True}, "PRODUCTION_AUTHORITY_DENIED"),
+            ]:
+                try:
+                    validate_recurring_automation_contract_decision(
+                        decision.model_copy(update=update)
+                    )
+                    failures.append(f"M97 unsafe decision mutation was not denied with {reason}")
+                except ValueError as exc:
+                    if reason not in str(exc):
+                        failures.append(f"M97 unsafe decision mutation raised {exc!s}")
+        except Exception as exc:
+            failures.append(f"M97 recurring automation contract validation failed: {exc}")
+
+        docs_text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_files
+            if path.startswith("docs/") and (self.root / path).exists()
+        )
+        for fragment in [
+            "recurring automation contracts",
+            "contract-only",
+            "disabled by default",
+            "approval renewal required",
+            "expiration required",
+            "stop conditions required",
+            "no recurrence runtime",
+            "no background execution",
+            "no cron",
+            "no daemon",
+            "no scheduler",
+            "no side effects",
+            "no backend route",
+            "no control center control",
+            "no dependency",
+            "no production authority",
+            "evaluator boundaries revalidate",
+            "m98 remains future",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M97 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m97_recurring_automation_static_safety(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        forbidden_source_fragments = [
+            "recurrence_runtime_allowed=True",
+            "background_worker_allowed=True",
+            "cron_daemon_allowed=True",
+            "scheduler_allowed=True",
+            "actual_recurring_execution_allowed=True",
+            "side_effects_allowed=True",
+            "shell_execution_allowed=True",
+            "network_access_allowed=True",
+            "browser_automation_allowed=True",
+            "plugin_execution_allowed=True",
+            "memory_write_allowed=True",
+            "context_injection_allowed=True",
+            "backend_route_allowed=True",
+            "control_center_control_allowed=True",
+            "dependency_change_allowed=True",
+            "production_authority_allowed=True",
+            "recurrence_runtime_requested=True",
+            "background_worker_requested=True",
+            "cron_daemon_requested=True",
+            "scheduler_requested=True",
+            "actual_recurring_execution_requested=True",
+            "background_worker_enabled=True",
+            "cron_daemon_enabled=True",
+            "scheduler_enabled=True",
+            "recurring_execution_enabled=True",
+            "recurrence_runtime_started=True",
+            "background_worker_started=True",
+            "cron_daemon_started=True",
+            "scheduler_started=True",
+            "recurring_execution_performed=True",
+        ]
+        allowed_files = {
+            "scripts/verify_all.py",
+            "src/ultimate_ai_agent/core/gate/evaluators.py",
+            "src/ultimate_ai_agent/core/recurring_automation_contracts/__init__.py",
+            "src/ultimate_ai_agent/core/recurring_automation_contracts/contracts.py",
+        }
+        for root in [
+            self.root / "src" / "ultimate_ai_agent",
+            self.root / "apps" / "control-center" / "src",
+            self.root / "apps" / "ccc-ios",
+        ]:
+            if not root.exists():
+                continue
+            candidate_files = []
+            for pattern in ("*.py", "*.ts", "*.tsx", "*.js", "*.jsx", "*.swift", "*.yml", "*.yaml"):
+                candidate_files.extend(root.rglob(pattern))
+            for path in sorted(candidate_files):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(self.root).as_posix()
+                if ".test." in rel:
+                    continue
+                if rel in allowed_files:
+                    continue
+                text = path.read_text(encoding="utf-8")
+                for fragment in forbidden_source_fragments:
+                    if fragment in text:
+                        failures.append(f"M97 forbidden recurring automation fragment in {rel}: {fragment}")
+        return self._result(criterion, failures, [])
+
+    def check_m97_recurring_automation_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m97_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M97 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m97_roadmap_currentness(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        required_docs = [
+            "README.md",
+            "VERSION.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/roadmap/M61_M100_ROADMAP.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+            "docs/roadmap/MILESTONE_CHARTERS.md",
+        ]
+        failures = [
+            f"missing M97 roadmap doc: {path}"
+            for path in required_docs
+            if not (self.root / path).exists()
+        ]
+        text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_docs
+            if (self.root / path).exists()
+        )
+        if "v1.1.0" not in text or "m97" not in text or "recurring automation contracts" not in text:
+            failures.append("active docs do not identify v1.1.0/M97 Recurring Automation Contracts")
+        if "m97 is implemented/released" not in text and "v1.1.0 implements m97" not in text:
+            failures.append("active docs do not mark M97 implemented/released")
+        for version_label, milestone, title in [
+            ("v1.2.0", "M98", "Scoped Recurring Low-Risk Automation"),
+            ("v1.3.0", "M99", "Autonomy v1 Safety Freeze"),
+            ("v1.4.0", "M100", "Mobile Permission Model v1"),
+        ]:
+            if version_label.lower() not in text or milestone.lower() not in text or title.lower() not in text:
+                failures.append(f"active docs missing planned M98-M100 row: {version_label} / {milestone} — {title}")
+        for fragment in (
+            "recurrence runtime is implemented",
+            "background worker is implemented",
+            "cron daemon is implemented",
+            "scheduler is implemented",
+            "recurring execution is implemented",
+            "mobile permission runtime is implemented",
+            "production authority is implemented",
+            "broad autonomy is implemented",
+        ):
+            if fragment in text:
+                failures.append(f"M97 docs imply forbidden/future capability: {fragment}")
         return self._result(criterion, failures, required_docs)
 
     def check_v0292_local_dev_api_authority_and_preview_safe(

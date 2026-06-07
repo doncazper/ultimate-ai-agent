@@ -130,6 +130,7 @@ SCAN_SEQUENCE = [
     ("M94 low-risk browser clicks scan", "verify_m94_low_risk_browser_clicks"),
     ("M95 authless network tool expansion scan", "verify_m95_authless_network_tool_expansion"),
     ("M96 plugin execution sandbox scan", "verify_m96_plugin_execution_sandbox"),
+    ("M97 recurring automation contracts scan", "verify_m97_recurring_automation_contracts"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -16681,6 +16682,179 @@ def verify_m96_plugin_execution_sandbox():
             sys.exit(1)
 
     print("OK: M96 plugin execution sandbox is built-in-only, route-free, and no external plugin authority")
+
+
+def verify_m97_recurring_automation_contracts():
+    print("\n[Verifier] Running M97 recurring automation contracts guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/recurring_automation_contracts/__init__.py",
+        "src/ultimate_ai_agent/core/recurring_automation_contracts/contracts.py",
+        "docs/automation/RECURRING_AUTOMATION_CONTRACTS.md",
+        "docs/automation/RECURRING_AUTOMATION_RENEWAL_POLICY.md",
+        "docs/automation/RECURRING_AUTOMATION_STOP_CONDITIONS.md",
+        "docs/automation/RECURRING_AUTOMATION_AUTHORITY_BOUNDARY.md",
+        "docs/automation/RECURRING_AUTOMATION_RECEIPT_PLAN.md",
+        "docs/automation/RECURRING_AUTOMATION_NON_GOALS.md",
+        "docs/automation/M97_TO_M98_BOUNDARY.md",
+        "docs/release_notes/v1_1_0.md",
+        "docs/archive/releases/v1_1_0/README_IMPORT.md",
+        "docs/archive/releases/v1_1_0/master_plan.md",
+        "docs/implementation/foundation_gate_implementation_plan_v1_1_0.md",
+        "tests/test_m97_recurring_automation_contracts.py",
+        "tests/test_m97_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M97 recurring automation file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = "\n".join(
+        (ROOT / rel_path).read_text(encoding="utf-8").lower()
+        for rel_path in required_files
+        if rel_path.startswith("docs/")
+    )
+    for fragment in [
+        "recurring automation contracts",
+        "contract-only",
+        "disabled by default",
+        "approval renewal required",
+        "expiration required",
+        "stop conditions required",
+        "no recurrence runtime",
+        "no background execution",
+        "no cron",
+        "no daemon",
+        "no scheduler",
+        "no side effects",
+        "no backend route",
+        "no control center control",
+        "no dependency",
+        "no production authority",
+        "evaluator boundaries revalidate",
+        "m98 remains future",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M97 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from tests.test_m97_recurring_automation_contracts import _request
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.evaluators import m97_openapi_route_failures
+        from ultimate_ai_agent.core.recurring_automation_contracts import (
+            RecurringAutomationContractStatus,
+            build_recurring_automation_contract_decision,
+            validate_recurring_automation_contract_decision,
+        )
+    except Exception as exc:
+        print(f"FAIL: M97 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m97_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    decision = build_recurring_automation_contract_decision(_request())
+    if (
+        decision.status != RecurringAutomationContractStatus.contract_ready_disabled
+        or not decision.capability_exists
+        or not decision.disabled_by_default
+        or not decision.contract_only
+        or not decision.approval_renewal_required
+        or not decision.expiration_required
+        or not decision.stop_conditions_required
+        or not decision.audit_required
+        or not decision.revocation_required
+        or not decision.safe_refs_only
+        or decision.recurrence_runtime_enabled
+        or decision.background_worker_enabled
+        or decision.cron_daemon_enabled
+        or decision.scheduler_enabled
+        or decision.recurring_execution_enabled
+        or decision.side_effects_allowed
+        or decision.backend_route_added
+        or decision.control_center_control_added
+        or decision.dependency_added
+        or decision.production_authority_granted
+        or not decision.receipt_plan.store_safe_refs_only
+        or decision.receipt_plan.store_raw_payload
+        or decision.receipt_plan.recurrence_runtime_started
+        or decision.receipt_plan.background_worker_started
+        or decision.receipt_plan.cron_daemon_started
+        or decision.receipt_plan.scheduler_started
+        or decision.receipt_plan.recurring_execution_performed
+        or "M97_RECURRING_AUTOMATION_CONTRACT_READY_DISABLED" not in decision.reason_codes
+        or "M98_REMAINS_FUTURE" not in decision.reason_codes
+    ):
+        print("FAIL: M97 recurring automation decision is unsafe or over-authoritative")
+        sys.exit(1)
+
+    for update, reason in [
+        ({"recurrence_runtime_enabled": True}, "RECURRENCE_RUNTIME_DENIED"),
+        ({"background_worker_enabled": True}, "BACKGROUND_WORKER_DENIED"),
+        ({"cron_daemon_enabled": True}, "CRON_DAEMON_DENIED"),
+        ({"scheduler_enabled": True}, "SCHEDULER_DENIED"),
+        ({"production_authority_granted": True}, "PRODUCTION_AUTHORITY_DENIED"),
+    ]:
+        try:
+            validate_recurring_automation_contract_decision(decision.model_copy(update=update))
+            print(f"FAIL: M97 mutated authority flag was not denied: {update}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M97 mutated authority flag raised {exc!s}")
+                sys.exit(1)
+
+    allowed_scan_files = {
+        "scripts/verify_all.py",
+        "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/recurring_automation_contracts/__init__.py",
+        "src/ultimate_ai_agent/core/recurring_automation_contracts/contracts.py",
+    }
+    source_text = "\n".join(
+        path.read_text(encoding="utf-8")
+        for root in [ROOT / "src" / "ultimate_ai_agent", ROOT / "apps" / "control-center" / "src"]
+        if root.exists()
+        for path in root.rglob("*")
+        if path.is_file()
+        and path.suffix in {".py", ".ts", ".tsx", ".js", ".jsx"}
+        and path.relative_to(ROOT).as_posix() not in allowed_scan_files
+    )
+    for fragment in [
+        "recurrence_runtime_allowed=True",
+        "background_worker_allowed=True",
+        "cron_daemon_allowed=True",
+        "scheduler_allowed=True",
+        "actual_recurring_execution_allowed=True",
+        "background_worker_enabled=True",
+        "cron_daemon_enabled=True",
+        "scheduler_enabled=True",
+        "recurring_execution_enabled=True",
+        "recurrence_runtime_started=True",
+        "background_worker_started=True",
+        "cron_daemon_started=True",
+        "scheduler_started=True",
+        "recurring_execution_performed=True",
+    ]:
+        if fragment in source_text:
+            print(f"FAIL: M97 forbidden source fragment present: {fragment}")
+            sys.exit(1)
+
+    for forbidden_route in [
+        "/automation/recurring/run",
+        "/automation/recurring/start",
+        "/automation/recurring/execute",
+        "/scheduler/start",
+        "/cron/run",
+        "/background-worker/start",
+    ]:
+        if forbidden_route in source_text:
+            print(f"FAIL: M97 forbidden backend/frontend route fragment present: {forbidden_route}")
+            sys.exit(1)
+
+    print("OK: M97 recurring automation contracts are contract-only, route-free, and no runtime authority")
 
 
 def verify_local_developer_launcher_safety():

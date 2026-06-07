@@ -785,5 +785,17 @@ v1.0.0 adds focused built-in test plugin sandbox tests only:
 - model_copy-mutated input, decision, and receipt denial
 - Foundation Gate criteria, static safety, route boundary, and roadmap currentness
 
-M97 remains planned/provisional as Recurring Automation Contracts.
+## v1.1.0 M97 Recurring Automation Contracts Tests
+
+v1.1.0 adds focused recurring automation contract tests only:
+
+- recurring automation policy, cadence, request, decision, and receipt plan contracts exist
+- valid decisions are contract-only, disabled by default, safe-ref-only, and require approval renewal, expiration, stop conditions, audit, and revocation
+- recurrence runtime, actual recurring execution, background workers, cron, daemon, scheduler, side effects, shell execution, network access, browser automation, plugin execution, memory write, context injection, backend route, Control Center control, dependency, and production authority are denied
+- approval_ref alone, approval_test_* refs, and model/memory/context/tool-intent/task-plan/runtime/OpenWebUI refs cannot authorize recurring automation
+- model_copy-mutated unsafe request, decision, and receipt fields are revalidated at evaluator boundaries
+- Foundation Gate includes M97 recurring automation contracts, static safety, route boundary, and roadmap currentness criteria
+- OpenAPI path count remains unchanged at 75
+
+M98 remains planned/provisional as Scoped Recurring Low-Risk Automation.
 ```

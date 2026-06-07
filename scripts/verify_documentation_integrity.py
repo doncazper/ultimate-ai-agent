@@ -828,6 +828,21 @@ REQUIRED_M96_PLUGIN_EXECUTION_SANDBOX_DOCS = [
     "docs/implementation/foundation_gate_implementation_plan_v1_0_0.md",
 ]
 
+REQUIRED_M97_RECURRING_AUTOMATION_DOCS = [
+    "docs/automation/RECURRING_AUTOMATION_CONTRACTS.md",
+    "docs/automation/RECURRING_AUTOMATION_RENEWAL_POLICY.md",
+    "docs/automation/RECURRING_AUTOMATION_STOP_CONDITIONS.md",
+    "docs/automation/RECURRING_AUTOMATION_AUTHORITY_BOUNDARY.md",
+    "docs/automation/RECURRING_AUTOMATION_RECEIPT_PLAN.md",
+    "docs/automation/RECURRING_AUTOMATION_NON_GOALS.md",
+    "docs/automation/M97_TO_M98_BOUNDARY.md",
+    "docs/roadmap/M61_M100_ROADMAP.md",
+    "docs/release_notes/v1_1_0.md",
+    "docs/archive/releases/v1_1_0/README_IMPORT.md",
+    "docs/archive/releases/v1_1_0/master_plan.md",
+    "docs/implementation/foundation_gate_implementation_plan_v1_1_0.md",
+]
+
 
 REQUIRED_ACTIVE_DOCS = [
     "docs/README.md",
@@ -1384,6 +1399,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_m94_low_risk_browser_click_docs(root, version))
     failures.extend(_verify_m95_authless_network_expansion_docs(root, version))
     failures.extend(_verify_m96_plugin_execution_sandbox_docs(root, version))
+    failures.extend(_verify_m97_recurring_automation_docs(root, version))
     failures.extend(_verify_m19_roadmap_currentness(root, version))
     failures.extend(_verify_post_m18_roadmap_status_labels(root))
 
@@ -6520,6 +6536,76 @@ def _verify_m96_plugin_execution_sandbox_docs(
         "M96 docs must not claim recurring automation implementation": "recurring automation is implemented",
         "M96 docs must not claim mobile permission runtime implementation": "mobile permission runtime is implemented",
         "M96 docs must not claim production authority": "production authority is implemented",
+    }
+    for message, fragment in forbidden_fragments.items():
+        if fragment in text:
+            failures.append(f"{message}: {fragment}")
+    return failures
+
+
+def _verify_m97_recurring_automation_docs(
+    root: Path, version: str | None
+) -> list[str]:
+    failures: list[str] = []
+    if _version_tuple(version) < (1, 1, 0):
+        return failures
+
+    missing = [
+        rel_path
+        for rel_path in REQUIRED_M97_RECURRING_AUTOMATION_DOCS
+        if not (root / rel_path).exists()
+    ]
+    failures.extend(
+        f"missing M97 recurring automation doc: {rel_path}"
+        for rel_path in missing
+    )
+    text = "\n".join(
+        _read(root / rel_path).lower()
+        for rel_path in REQUIRED_M97_RECURRING_AUTOMATION_DOCS
+        if (root / rel_path).exists()
+    )
+    required_fragments = {
+        "M97 docs must say recurring automation contracts": "recurring automation contracts",
+        "M97 docs must say contract-only": "contract-only",
+        "M97 docs must say disabled by default": "disabled by default",
+        "M97 docs must say approval renewal required": "approval renewal required",
+        "M97 docs must say expiration required": "expiration required",
+        "M97 docs must say stop conditions required": "stop conditions required",
+        "M97 docs must deny recurrence runtime": "no recurrence runtime",
+        "M97 docs must deny background execution": "no background execution",
+        "M97 docs must deny cron": "no cron",
+        "M97 docs must deny daemon": "no daemon",
+        "M97 docs must deny scheduler": "no scheduler",
+        "M97 docs must deny side effects": "no side effects",
+        "M97 docs must deny backend route": "no backend route",
+        "M97 docs must deny Control Center control": "no control center control",
+        "M97 docs must deny dependency": "no dependency",
+        "M97 docs must deny production authority": "no production authority",
+        "M97 docs must say evaluator boundaries revalidate": "evaluator boundaries revalidate",
+        "M97 docs must keep M98 future": "m98 remains future",
+    }
+    for message, fragment in required_fragments.items():
+        if fragment not in text:
+            failures.append(message)
+
+    for version_label, milestone, title in [
+        ("v1.1.0", "m97", "recurring automation contracts"),
+        ("v1.2.0", "m98", "scoped recurring low-risk automation"),
+        ("v1.4.0", "m100", "mobile permission model v1"),
+    ]:
+        if version_label not in text or milestone not in text or title not in text:
+            failures.append(
+                f"M97-M100 roadmap missing label: {version_label} / {milestone.upper()} - {title}"
+            )
+
+    forbidden_fragments = {
+        "M97 docs must not claim recurrence runtime implementation": "recurrence runtime is implemented",
+        "M97 docs must not claim background worker implementation": "background worker is implemented",
+        "M97 docs must not claim cron implementation": "cron daemon is implemented",
+        "M97 docs must not claim scheduler implementation": "scheduler is implemented",
+        "M97 docs must not claim recurring execution implementation": "recurring execution is implemented",
+        "M97 docs must not claim mobile permission runtime implementation": "mobile permission runtime is implemented",
+        "M97 docs must not claim production authority": "production authority is implemented",
     }
     for message, fragment in forbidden_fragments.items():
         if fragment in text:
