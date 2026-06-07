@@ -121,6 +121,7 @@ SCAN_SEQUENCE = [
     ("M85 read-only command allowlist scan", "verify_m85_read_only_command_allowlist"),
     ("M86 shell approval gate scan", "verify_m86_shell_approval_gate"),
     ("M87 sandboxed command audit replay scan", "verify_m87_sandboxed_command_audit_replay"),
+    ("M88 mutating command proposal scan", "verify_m88_mutating_command_proposal"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -14615,6 +14616,212 @@ def verify_m87_sandboxed_command_audit_replay():
             sys.exit(1)
 
     print("OK: M87 sandboxed command audit replay is replay-view-only, route-free, and no-authority")
+
+
+def verify_m88_mutating_command_proposal():
+    print("\n[Verifier] Running M88 mutating command proposal guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/sandbox/__init__.py",
+        "src/ultimate_ai_agent/core/sandbox/mutating_command_proposal.py",
+        "docs/sandbox/MUTATING_COMMAND_PROPOSAL.md",
+        "docs/sandbox/MUTATING_COMMAND_PROPOSAL_POLICY.md",
+        "docs/sandbox/MUTATING_COMMAND_PROPOSAL_AUTHORITY_BOUNDARY.md",
+        "docs/sandbox/MUTATING_COMMAND_PROPOSAL_RECEIPT_PLAN.md",
+        "docs/sandbox/MUTATING_COMMAND_PROPOSAL_NON_GOALS.md",
+        "docs/sandbox/M88_TO_M89_BOUNDARY.md",
+        "docs/release_notes/v0_92_0.md",
+        "docs/archive/releases/v0_92_0/README_IMPORT.md",
+        "docs/archive/releases/v0_92_0/master_plan.md",
+        "docs/implementation/foundation_gate_implementation_plan_v0_92_0.md",
+        "tests/test_m88_mutating_command_proposal.py",
+        "tests/test_m88_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M88 mutating command proposal file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = "\n".join(
+        (ROOT / rel_path).read_text(encoding="utf-8").lower()
+        for rel_path in required_files
+        if rel_path.startswith("docs/")
+    )
+    for fragment in [
+        "mutating command proposal",
+        "contract-only",
+        "proposal-only",
+        "review-only",
+        "deterministic",
+        "local-only",
+        "m87 sandboxed command audit replay",
+        "exact m87",
+        "safe mutation scope",
+        "safe argument refs",
+        "safe refs only",
+        "no command execution",
+        "no subprocess execution",
+        "no shell execution",
+        "no process spawn",
+        "no filesystem mutation",
+        "no network access",
+        "no tool execution",
+        "no browser automation",
+        "no plugin execution",
+        "no remote execution",
+        "no model call",
+        "no memory write",
+        "no context injection",
+        "no background worker",
+        "no backend route",
+        "no control center control",
+        "no dependency",
+        "no production authority",
+        "safe summary only",
+        "evaluator boundaries revalidate",
+        "m89 remains future",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M88 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from tests.test_m88_mutating_command_proposal import _request
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.evaluators import m88_openapi_route_failures
+        from ultimate_ai_agent.core.sandbox import (
+            MutatingCommandProposalStatus,
+            build_mutating_command_proposal,
+            validate_mutating_command_proposal_decision,
+        )
+    except Exception as exc:
+        print(f"FAIL: M88 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m88_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    request = _request()
+    decision = build_mutating_command_proposal(request)
+    if (
+        decision.status != MutatingCommandProposalStatus.proposed_for_review
+        or not decision.contract_only
+        or not decision.proposal_only
+        or not decision.review_only
+        or not decision.mutating_command_review_only
+        or not decision.deterministic
+        or not decision.local_only
+        or not decision.safe_refs_only
+        or not decision.audit_replay_decision_revalidated
+        or not decision.mutation_scope_bound
+        or decision.command_execution_authorized
+        or decision.filesystem_mutation_authorized
+        or decision.command_execution_performed
+        or decision.filesystem_mutation_performed
+        or decision.network_access_performed
+        or decision.tool_execution_performed
+        or decision.browser_automation_performed
+        or decision.plugin_execution_performed
+        or decision.remote_execution_performed
+        or decision.model_call_performed
+        or decision.memory_write_performed
+        or decision.context_injection_performed
+        or decision.background_worker_started
+        or decision.backend_route_added
+        or decision.control_center_control_added
+        or decision.dependency_added
+        or decision.production_authority_granted
+        or decision.side_effects_performed
+        or not decision.receipt_plan.store_safe_summary_only
+        or not decision.receipt_plan.store_safe_refs_only
+        or not decision.receipt_plan.store_mutation_scope_ref_only
+        or decision.receipt_plan.store_raw_command
+        or decision.receipt_plan.store_shell_string
+        or decision.receipt_plan.store_raw_output
+        or "M88_MUTATING_COMMAND_PROPOSAL_REVIEW_ONLY" not in decision.reason_codes
+        or "M88_EXACT_M87_AUDIT_REPLAY_BINDING_REQUIRED" not in decision.reason_codes
+        or "M88_NO_COMMAND_EXECUTION" not in decision.reason_codes
+        or "M89_REMAINS_FUTURE" not in decision.reason_codes
+    ):
+        print("FAIL: M88 mutating command proposal decision is unsafe or over-authoritative")
+        sys.exit(1)
+
+    try:
+        validate_mutating_command_proposal_decision(
+            decision.model_copy(update={"filesystem_mutation_authorized": True})
+        )
+        print("FAIL: M88 mutated filesystem mutation authority flag was not denied")
+        sys.exit(1)
+    except ValueError as exc:
+        if "FILESYSTEM_MUTATION_DENIED" not in str(exc):
+            print(f"FAIL: M88 mutated filesystem mutation authority flag raised {exc!s}")
+            sys.exit(1)
+
+    allowed_scan_files = {
+        "scripts/verify_all.py",
+        "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/sandbox/__init__.py",
+        "src/ultimate_ai_agent/core/sandbox/command_proposal.py",
+        "src/ultimate_ai_agent/core/sandbox/runtime_spec.py",
+        "src/ultimate_ai_agent/core/sandbox/shell_dry_run_classifier.py",
+        "src/ultimate_ai_agent/core/sandbox/sandboxed_echo_noop_command.py",
+        "src/ultimate_ai_agent/core/sandbox/read_only_command_allowlist.py",
+        "src/ultimate_ai_agent/core/sandbox/shell_approval_gate.py",
+        "src/ultimate_ai_agent/core/sandbox/command_audit_replay.py",
+        "src/ultimate_ai_agent/core/sandbox/mutating_command_proposal.py",
+    }
+    source_text = "\n".join(
+        path.read_text(encoding="utf-8")
+        for root in [ROOT / "src" / "ultimate_ai_agent", ROOT / "apps" / "control-center" / "src"]
+        if root.exists()
+        for path in root.rglob("*")
+        if path.is_file()
+        and path.suffix in {".py", ".ts", ".tsx", ".js", ".jsx"}
+        and path.relative_to(ROOT).as_posix() not in allowed_scan_files
+    )
+    for fragment in [
+        "command_execution_enabled=True",
+        "command_execution_requested=True",
+        "subprocess_execution_enabled=True",
+        "subprocess_execution_requested=True",
+        "shell_execution_enabled=True",
+        "shell_execution_requested=True",
+        "process_spawn_enabled=True",
+        "process_spawn_requested=True",
+        "filesystem_mutation_enabled=True",
+        "filesystem_mutation_requested=True",
+        "filesystem_mutation_authorized=True",
+        "filesystem_mutation_performed=True",
+        "network_access_enabled=True",
+        "tool_execution_enabled=True",
+        "browser_automation_enabled=True",
+        "plugin_execution_enabled=True",
+        "remote_execution_enabled=True",
+        "model_call_enabled=True",
+        "memory_write_enabled=True",
+        "context_injection_enabled=True",
+        "background_worker_enabled=True",
+        "backend_route_enabled=True",
+        "control_center_control_enabled=True",
+        "dependency_change_enabled=True",
+        "production_authority_enabled=True",
+        "command_execution_authorized=True",
+        "command_execution_performed=True",
+        "subprocess_execution_performed=True",
+        "shell_execution_performed=True",
+        "process_spawn_performed=True",
+        "production_authority_granted=True",
+        "store_raw_command=True",
+        "store_shell_string=True",
+        "store_raw_output=True",
+    ]:
+        if fragment in source_text:
+            print(f"FAIL: M88 forbidden source fragment present: {fragment}")
+            sys.exit(1)
+
+    print("OK: M88 mutating command proposal is review-only, route-free, and no-authority")
 
 
 def verify_local_developer_launcher_safety():

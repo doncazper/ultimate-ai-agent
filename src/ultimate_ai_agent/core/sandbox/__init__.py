@@ -91,6 +91,17 @@ from ultimate_ai_agent.core.sandbox.command_audit_replay import (
     validate_sandboxed_command_audit_replay_request,
     validate_sandboxed_command_audit_replay_step,
 )
+from ultimate_ai_agent.core.sandbox.mutating_command_proposal import (
+    MutatingCommandProposalDecision,
+    MutatingCommandProposalPolicy,
+    MutatingCommandProposalReceiptPlan,
+    MutatingCommandProposalRequest,
+    MutatingCommandProposalStatus,
+    build_mutating_command_proposal,
+    validate_mutating_command_proposal_decision,
+    validate_mutating_command_proposal_policy,
+    validate_mutating_command_proposal_request,
+)
 
 __all__ = [
     "RuntimeSandboxArchitectureDecision",
@@ -137,6 +148,11 @@ __all__ = [
     "SandboxedCommandAuditReplayRequest",
     "SandboxedCommandAuditReplayStatus",
     "SandboxedCommandAuditReplayStep",
+    "MutatingCommandProposalDecision",
+    "MutatingCommandProposalPolicy",
+    "MutatingCommandProposalReceiptPlan",
+    "MutatingCommandProposalRequest",
+    "MutatingCommandProposalStatus",
     "build_runtime_sandbox_architecture_review",
     "build_command_proposal",
     "build_runtime_sandbox_spec",
@@ -145,6 +161,7 @@ __all__ = [
     "build_read_only_command_allowlist_decision",
     "build_shell_approval_gate_decision",
     "build_sandboxed_command_audit_replay",
+    "build_mutating_command_proposal",
     "validate_command_proposal_decision",
     "validate_command_proposal_policy",
     "validate_command_proposal_request",
@@ -170,4 +187,7 @@ __all__ = [
     "validate_sandboxed_command_audit_replay_policy",
     "validate_sandboxed_command_audit_replay_request",
     "validate_sandboxed_command_audit_replay_step",
+    "validate_mutating_command_proposal_decision",
+    "validate_mutating_command_proposal_policy",
+    "validate_mutating_command_proposal_request",
 ]

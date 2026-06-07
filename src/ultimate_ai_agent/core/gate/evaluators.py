@@ -1163,6 +1163,14 @@ M87_FORBIDDEN_BACKEND_ROUTES = M86_FORBIDDEN_BACKEND_ROUTES + (
     "/commands/audit/replay/run",
     "/sandbox/commands/replay",
 )
+EXPECTED_M88_OPENAPI_PATH_COUNT = 75
+M88_FORBIDDEN_BACKEND_ROUTES = M87_FORBIDDEN_BACKEND_ROUTES + (
+    "/commands/mutate",
+    "/commands/mutate/propose",
+    "/commands/mutate/run",
+    "/commands/mutate/execute",
+    "/sandbox/commands/mutate",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -2172,6 +2180,21 @@ def m87_openapi_route_failures(
     return failures
 
 
+def m88_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M88_OPENAPI_PATH_COUNT
+) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(
+            f"OpenAPI path count changed for M88: expected {expected_path_count}, got {len(path_set)}"
+        )
+    for route in M88_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(f"M88 forbidden mutating command/backend route present: {route}")
+    return failures
+
+
 M36_SAFE_REF_PREFIXES = {
     "reviewPacketRef": "file-review-packet:",
     "previewResultRef": "redacted-file-preview-output:",
@@ -2908,6 +2931,16 @@ class FoundationGateEvaluator:
                 self.check_m87_sandboxed_command_audit_replay_route_boundary
             ),
             "m87_roadmap_currentness": self.check_m87_roadmap_currentness,
+            "m88_mutating_command_proposal_contract": (
+                self.check_m88_mutating_command_proposal_contract
+            ),
+            "m88_mutating_command_proposal_static_safety": (
+                self.check_m88_mutating_command_proposal_static_safety
+            ),
+            "m88_mutating_command_proposal_route_boundary": (
+                self.check_m88_mutating_command_proposal_route_boundary
+            ),
+            "m88_roadmap_currentness": self.check_m88_roadmap_currentness,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -24667,6 +24700,427 @@ class FoundationGateEvaluator:
         ):
             if fragment in text:
                 failures.append(f"M87 docs imply forbidden/future capability: {fragment}")
+        return self._result(criterion, failures, required_docs)
+
+    def check_m88_mutating_command_proposal_contract(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/sandbox/mutating_command_proposal.py",
+            "src/ultimate_ai_agent/core/sandbox/command_audit_replay.py",
+            "docs/sandbox/MUTATING_COMMAND_PROPOSAL.md",
+            "docs/sandbox/MUTATING_COMMAND_PROPOSAL_POLICY.md",
+            "docs/sandbox/MUTATING_COMMAND_PROPOSAL_AUTHORITY_BOUNDARY.md",
+            "docs/sandbox/MUTATING_COMMAND_PROPOSAL_RECEIPT_PLAN.md",
+            "docs/sandbox/MUTATING_COMMAND_PROPOSAL_NON_GOALS.md",
+            "docs/sandbox/M88_TO_M89_BOUNDARY.md",
+            "tests/test_m88_mutating_command_proposal.py",
+            "tests/test_m88_gate_integration.py",
+        ]
+        failures = [
+            f"missing M88 mutating command proposal file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            from ultimate_ai_agent.core.sandbox import (
+                MutatingCommandProposalRequest,
+                MutatingCommandProposalStatus,
+                SandboxedCommandAuditReplayRequest,
+                SandboxedCommandAuditReplayStep,
+                ShellApprovalGateDecision,
+                ShellApprovalGateReceiptPlan,
+                build_mutating_command_proposal,
+                build_sandboxed_command_audit_replay,
+                validate_mutating_command_proposal_decision,
+                validate_shell_approval_gate_decision,
+            )
+
+            gate = validate_shell_approval_gate_decision(
+                ShellApprovalGateDecision(
+                    decision_ref="shell-approval-gate-decision:gate-m88",
+                    gate_ref="shell-approval-gate:gate-m88",
+                    request_ref="shell-approval-gate-request:gate-m88",
+                    read_only_command_allowlist_decision_ref=(
+                        "read-only-command-allowlist-decision:gate-m88"
+                    ),
+                    approval_bundle_ref="scoped-approval-bundle:gate-m88",
+                    approval_ref="approval:gate-m88",
+                    allowlist_ref="read-only-command-allowlist:gate-m88",
+                    sandboxed_command_ref="sandboxed-echo-noop-command:gate-m88",
+                    sandboxed_echo_noop_decision_ref=(
+                        "sandboxed-echo-noop-command-decision:gate-m88"
+                    ),
+                    shell_dry_run_decision_ref="shell-dry-run-decision:gate-m88",
+                    command_proposal_ref="command-proposal:gate-m88",
+                    command_ref="command-ref:gate-m88-noop",
+                    sandbox_spec_ref="runtime-sandbox-spec:gate-m88",
+                    baseline_ref="baseline:v0.90.0",
+                    actor_ref="actor:foundation-gate",
+                    reason_codes=[
+                        "M86_SHELL_APPROVAL_GATE_REVIEW_ONLY",
+                        "M86_EXACT_M85_ALLOWLIST_BINDING_REQUIRED",
+                        "M86_APPROVAL_BUNDLE_EXACT_SCOPE_REQUIRED",
+                        "M86_NO_SHELL_EXECUTION",
+                        "M87_REMAINS_FUTURE",
+                    ],
+                    safe_summary=(
+                        "Foundation Gate M88 fixture represents an M86 shell approval "
+                        "gate decision for review only and grants no execution or mutation."
+                    ),
+                    receipt_plan=ShellApprovalGateReceiptPlan(
+                        receipt_plan_ref="shell-approval-gate-receipt-plan:gate-m88",
+                        gate_ref="shell-approval-gate:gate-m88",
+                        read_only_command_allowlist_decision_ref=(
+                            "read-only-command-allowlist-decision:gate-m88"
+                        ),
+                        approval_bundle_ref="scoped-approval-bundle:gate-m88",
+                        approval_ref="approval:gate-m88",
+                        allowlist_ref="read-only-command-allowlist:gate-m88",
+                        command_ref="command-ref:gate-m88-noop",
+                        sandbox_spec_ref="runtime-sandbox-spec:gate-m88",
+                    ),
+                )
+            )
+            step = SandboxedCommandAuditReplayStep(
+                step_ref="sandboxed-command-audit-replay-step:gate-m88",
+                event_ref="audit-event:gate-m88-shell-gate-reviewed",
+                source_decision_ref=gate.decision_ref,
+                safe_summary="Foundation Gate M88 fixture records a safe replay view step only.",
+                reason_codes=["M87_REPLAY_VIEW_STEP_ONLY", "M87_NO_COMMAND_EXECUTION"],
+            )
+            replay = build_sandboxed_command_audit_replay(
+                SandboxedCommandAuditReplayRequest(
+                    request_ref="sandboxed-command-audit-replay-request:gate-m88",
+                    replay_view_ref="sandboxed-command-audit-replay:gate-m88",
+                    shell_approval_gate_decision_ref=gate.decision_ref,
+                    read_only_command_allowlist_decision_ref=(
+                        gate.read_only_command_allowlist_decision_ref
+                    ),
+                    approval_bundle_ref=gate.approval_bundle_ref,
+                    approval_ref=gate.approval_ref,
+                    allowlist_ref=gate.allowlist_ref,
+                    command_ref=gate.command_ref,
+                    sandbox_spec_ref=gate.sandbox_spec_ref,
+                    baseline_ref="baseline:v0.90.0",
+                    actor_ref=gate.actor_ref,
+                    audit_ref="audit:gate-m88",
+                    replay_ref="replay:gate-m88",
+                    replay_step_refs=[step.step_ref],
+                    prior_milestone_refs=[
+                        "milestone:M57",
+                        "milestone:M58",
+                        "milestone:M80",
+                        "milestone:M81",
+                        "milestone:M82",
+                        "milestone:M83",
+                        "milestone:M84",
+                        "milestone:M85",
+                        "milestone:M86",
+                    ],
+                    shell_approval_gate_decision=gate,
+                    replay_steps=[step],
+                    safe_purpose="Foundation Gate validates M87 replay contracts for M88.",
+                )
+            )
+            request = MutatingCommandProposalRequest(
+                request_ref="mutating-command-proposal-request:gate-m88",
+                mutating_proposal_ref="mutating-command-proposal:gate-m88",
+                sandboxed_command_audit_replay_decision_ref=replay.decision_ref,
+                shell_approval_gate_decision_ref=replay.shell_approval_gate_decision_ref,
+                approval_bundle_ref=replay.approval_bundle_ref,
+                approval_ref=replay.approval_ref,
+                command_ref=replay.command_ref,
+                sandbox_spec_ref=replay.sandbox_spec_ref,
+                baseline_ref="baseline:v0.91.0",
+                actor_ref=replay.actor_ref,
+                audit_ref=replay.audit_ref,
+                replay_ref=replay.replay_ref,
+                mutation_intent_ref="mutation-intent:gate-m88-review-only",
+                mutation_scope_ref="mutation-scope:gate-m88-safe-summary",
+                safe_mutation_summary="Foundation Gate reviews a mutating command proposal as safe metadata only.",
+                safe_argument_refs=["argument-ref:gate-m88-review-only"],
+                prior_milestone_refs=[
+                    "milestone:M57",
+                    "milestone:M58",
+                    "milestone:M80",
+                    "milestone:M81",
+                    "milestone:M82",
+                    "milestone:M83",
+                    "milestone:M84",
+                    "milestone:M85",
+                    "milestone:M86",
+                    "milestone:M87",
+                ],
+                sandboxed_command_audit_replay_decision=replay,
+            )
+            decision = build_mutating_command_proposal(request)
+            if (
+                decision.status != MutatingCommandProposalStatus.proposed_for_review
+                or not decision.contract_only
+                or not decision.proposal_only
+                or not decision.review_only
+                or not decision.mutating_command_review_only
+                or not decision.deterministic
+                or not decision.local_only
+                or not decision.safe_refs_only
+                or not decision.audit_replay_decision_revalidated
+                or not decision.mutation_scope_bound
+                or decision.command_execution_authorized
+                or decision.filesystem_mutation_authorized
+                or decision.command_execution_performed
+                or decision.filesystem_mutation_performed
+                or decision.network_access_performed
+                or decision.tool_execution_performed
+                or decision.browser_automation_performed
+                or decision.plugin_execution_performed
+                or decision.remote_execution_performed
+                or decision.model_call_performed
+                or decision.memory_write_performed
+                or decision.context_injection_performed
+                or decision.background_worker_started
+                or decision.backend_route_added
+                or decision.control_center_control_added
+                or decision.dependency_added
+                or decision.production_authority_granted
+                or decision.side_effects_performed
+                or not decision.receipt_plan.store_safe_summary_only
+                or not decision.receipt_plan.store_safe_refs_only
+                or not decision.receipt_plan.store_mutation_scope_ref_only
+                or decision.receipt_plan.store_raw_command
+                or decision.receipt_plan.store_raw_output
+                or "M88_MUTATING_COMMAND_PROPOSAL_REVIEW_ONLY" not in decision.reason_codes
+                or "M88_EXACT_M87_AUDIT_REPLAY_BINDING_REQUIRED" not in decision.reason_codes
+                or "M88_NO_COMMAND_EXECUTION" not in decision.reason_codes
+                or "M89_REMAINS_FUTURE" not in decision.reason_codes
+            ):
+                failures.append("M88 mutating command proposal decision is unsafe or over-authoritative")
+            for update, reason in [
+                ({"command_execution_requested": True}, "COMMAND_EXECUTION_DENIED"),
+                ({"shell_execution_requested": True}, "SHELL_EXECUTION_DENIED"),
+                ({"subprocess_execution_requested": True}, "SUBPROCESS_EXECUTION_DENIED"),
+                ({"process_spawn_requested": True}, "PROCESS_SPAWN_DENIED"),
+                ({"filesystem_mutation_requested": True}, "FILESYSTEM_MUTATION_DENIED"),
+                ({"contains_shell_string": True}, "M88_SHELL_STRING_DENIED"),
+                ({"contains_raw_command": True}, "M88_RAW_COMMAND_DENIED"),
+                ({"contains_raw_output": True}, "M88_RAW_OUTPUT_DENIED"),
+                ({"contains_secret": True}, "SECRET_LIKE_MUTATING_COMMAND_PROPOSAL_CONTENT_DENIED"),
+            ]:
+                try:
+                    build_mutating_command_proposal(request.model_copy(update=update))
+                    failures.append(f"M88 unsafe mutating proposal request was not denied with {reason}")
+                except ValueError as exc:
+                    if reason not in str(exc):
+                        failures.append(
+                            f"M88 unsafe mutating proposal request raised {exc!s}, expected {reason}"
+                        )
+            try:
+                validate_mutating_command_proposal_decision(
+                    decision.model_copy(update={"filesystem_mutation_authorized": True})
+                )
+                failures.append("M88 mutated filesystem mutation authority flag was not denied")
+            except ValueError as exc:
+                if "FILESYSTEM_MUTATION_DENIED" not in str(exc):
+                    failures.append(
+                        f"M88 mutated filesystem mutation authority flag raised {exc!s}"
+                    )
+        except Exception as exc:
+            failures.append(f"M88 mutating command proposal validation failed: {exc}")
+
+        docs_text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_files
+            if path.startswith("docs/") and (self.root / path).exists()
+        )
+        for fragment in [
+            "mutating command proposal",
+            "contract-only",
+            "proposal-only",
+            "review-only",
+            "deterministic",
+            "local-only",
+            "m87 sandboxed command audit replay",
+            "exact m87",
+            "safe mutation scope",
+            "safe refs only",
+            "no command execution",
+            "no subprocess execution",
+            "no shell execution",
+            "no process spawn",
+            "no filesystem mutation",
+            "no network access",
+            "no tool execution",
+            "no browser automation",
+            "no plugin execution",
+            "no remote execution",
+            "no model call",
+            "no memory write",
+            "no context injection",
+            "no background worker",
+            "no backend route",
+            "no control center control",
+            "no dependency",
+            "no production authority",
+            "safe summary only",
+            "evaluator boundaries revalidate",
+            "m89 remains future",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M88 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m88_mutating_command_proposal_static_safety(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        forbidden_source_fragments = [
+            "command_execution_enabled=True",
+            "command_execution_requested=True",
+            "subprocess_execution_enabled=True",
+            "subprocess_execution_requested=True",
+            "shell_execution_enabled=True",
+            "shell_execution_requested=True",
+            "process_spawn_enabled=True",
+            "process_spawn_requested=True",
+            "filesystem_mutation_enabled=True",
+            "filesystem_mutation_requested=True",
+            "network_access_enabled=True",
+            "tool_execution_enabled=True",
+            "browser_automation_enabled=True",
+            "plugin_execution_enabled=True",
+            "remote_execution_enabled=True",
+            "model_call_enabled=True",
+            "memory_write_enabled=True",
+            "context_injection_enabled=True",
+            "background_worker_enabled=True",
+            "backend_route_enabled=True",
+            "control_center_control_enabled=True",
+            "dependency_change_enabled=True",
+            "production_authority_enabled=True",
+            "command_execution_authorized=True",
+            "shell_execution_authorized=True",
+            "subprocess_execution_authorized=True",
+            "process_spawn_authorized=True",
+            "filesystem_mutation_authorized=True",
+            "command_execution_performed=True",
+            "subprocess_execution_performed=True",
+            "shell_execution_performed=True",
+            "process_spawn_performed=True",
+            "filesystem_mutation_performed=True",
+            "network_access_performed=True",
+            "tool_execution_performed=True",
+            "browser_automation_performed=True",
+            "plugin_execution_performed=True",
+            "remote_execution_performed=True",
+            "model_call_performed=True",
+            "memory_write_performed=True",
+            "context_injection_performed=True",
+            "background_worker_started=True",
+            "backend_route_added=True",
+            "control_center_control_added=True",
+            "dependency_added=True",
+            "production_authority_granted=True",
+            "store_raw_command=True",
+            "store_shell_string=True",
+            "store_raw_output=True",
+        ]
+        allowed_files = {
+            "scripts/verify_all.py",
+            "src/ultimate_ai_agent/core/sandbox/__init__.py",
+            "src/ultimate_ai_agent/core/sandbox/command_proposal.py",
+            "src/ultimate_ai_agent/core/sandbox/runtime_spec.py",
+            "src/ultimate_ai_agent/core/sandbox/shell_dry_run_classifier.py",
+            "src/ultimate_ai_agent/core/sandbox/sandboxed_echo_noop_command.py",
+            "src/ultimate_ai_agent/core/sandbox/read_only_command_allowlist.py",
+            "src/ultimate_ai_agent/core/sandbox/shell_approval_gate.py",
+            "src/ultimate_ai_agent/core/sandbox/command_audit_replay.py",
+            "src/ultimate_ai_agent/core/sandbox/mutating_command_proposal.py",
+            "src/ultimate_ai_agent/core/gate/evaluators.py",
+            "src/ultimate_ai_agent/api/openapi.py",
+        }
+        for root in [
+            self.root / "src" / "ultimate_ai_agent",
+            self.root / "apps" / "control-center" / "src",
+            self.root / "apps" / "ccc-ios",
+        ]:
+            if not root.exists():
+                continue
+            candidate_files = []
+            for pattern in ("*.py", "*.ts", "*.tsx", "*.js", "*.jsx", "*.swift", "*.yml", "*.yaml"):
+                candidate_files.extend(root.rglob(pattern))
+            for path in sorted(candidate_files):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(self.root).as_posix()
+                if ".test." in rel:
+                    continue
+                if rel in allowed_files:
+                    continue
+                text = path.read_text(encoding="utf-8")
+                for fragment in forbidden_source_fragments:
+                    if fragment in text:
+                        failures.append(
+                            f"M88 forbidden mutating command proposal fragment in {rel}: {fragment}"
+                        )
+        return self._result(criterion, failures, [])
+
+    def check_m88_mutating_command_proposal_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m88_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M88 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m88_roadmap_currentness(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        required_docs = [
+            "README.md",
+            "VERSION.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/roadmap/M61_M100_ROADMAP.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+            "docs/roadmap/MILESTONE_CHARTERS.md",
+        ]
+        failures = [
+            f"missing M88 roadmap doc: {path}"
+            for path in required_docs
+            if not (self.root / path).exists()
+        ]
+        text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_docs
+            if (self.root / path).exists()
+        )
+        if "v0.92.0" not in text or "m88" not in text or "mutating command proposal" not in text:
+            failures.append("active docs do not identify v0.92.0/M88 Mutating Command Proposal")
+        if "m88 is implemented/released" not in text and "v0.92.0 implements m88" not in text:
+            failures.append("active docs do not mark M88 implemented/released")
+        for version_label, milestone, title in [
+            ("v0.93.0", "M89", "Emergency Stop + Process Kill Safety"),
+            ("v0.94.0", "M90", "Shell/Subprocess Hardening Freeze"),
+            ("v0.95.0", "M91", "Autonomous Tool Execution Contract"),
+            ("v1.4.0", "M100", "Mobile Permission Model v1"),
+        ]:
+            if version_label.lower() not in text or milestone.lower() not in text or title.lower() not in text:
+                failures.append(f"active docs missing planned M89-M100 row: {version_label} / {milestone} — {title}")
+        for fragment in (
+            "command execution is implemented",
+            "filesystem mutation is implemented",
+            "subprocess execution is implemented",
+            "shell execution is implemented",
+            "process spawn is implemented",
+            "network access is implemented",
+            "browser click is implemented",
+            "plugin execution is implemented",
+            "production authority is implemented",
+            "broad autonomy is implemented",
+        ):
+            if fragment in text:
+                failures.append(f"M88 docs imply forbidden/future capability: {fragment}")
         return self._result(criterion, failures, required_docs)
 
     def check_v0292_local_dev_api_authority_and_preview_safe(
