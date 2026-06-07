@@ -1,6 +1,6 @@
 # Post-M20 Capability Layer Roadmap
 
-Status: Active roadmap projection maintained through v1.7.0.
+Status: Active roadmap projection maintained through v1.7.1.
 
 v0.38.0 implements M34 Broader File Capability Review as planning,
 architecture review, documentation, verifier, and Foundation Gate work only.
@@ -124,10 +124,11 @@ The detailed post-M33 supersession source of truth is
 
 ## Prompt-Pack Strategy
 
-Recommended next prompt after v1.7.0:
+Recommended next prompt after v1.7.1:
 
 ```text
-Run M104 implementation conveyor or M101-M150 active milestone prompt pack.
+Run M104 implementation conveyor using the v1.7.x internal snapshot sequence,
+with M150 reserved as the v1.0.0-alpha product target.
 ```
 
 M61 is implemented/released by v0.65.0 as Autonomy Mode Charter + Authority
@@ -175,7 +176,10 @@ planned/provisional only in `docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md`.
 M101 is implemented/released by v1.5.0 as Mobile Sensor Contract Review.
 M102 is implemented/released by v1.6.0 as Location Sensor, Off by Default.
 M103 is implemented/released by v1.7.0 as Camera/Photos Metadata-Only Contract.
-M104-M150 remain planned/provisional.
+v1.7.1 repairs post-M103 versioning/currentness only. M104-M149 remain
+planned/provisional as incremental v1.7.x internal snapshots, and M150 remains
+planned/provisional as the v1.0.0-alpha product target. Beta begins after the
+alpha UI and supporting safety/product work are reviewed and promoted.
 
 Extra-hard reviews are required for M37, M38, M40, M47, M48, M49, M51, M52,
 M57, M58, and M59. Mandatory hardening is expected by default for M35-M40, M43-M50,

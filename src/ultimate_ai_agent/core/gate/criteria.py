@@ -3666,8 +3666,8 @@ def default_foundation_gate_criteria() -> List[FoundationGateCriterion]:
             "Post-M100 Roadmap Reconciliation",
             FoundationGateCategory.documentation,
             "FoundationGateEvaluator.check_post_m100_roadmap_reconciliation",
-            "Active roadmap docs mark v1.4.1 as the post-M100 reconciliation baseline, keep M100 implemented/released, and mark M101-M150 planned/provisional only.",
-            "Post-M100 roadmap docs are stale, missing M101-M150 planned labels, or imply M101 implementation or production authority.",
+            "Active roadmap docs preserve post-M100 reconciliation, keep M101-M103 implemented/released, keep M104-M150 planned/provisional, and guard M150 as the v1.0.0-alpha product target.",
+            "Post-M100 roadmap docs are stale, missing M101-M150 planned labels, imply future implementation/production authority, or restore the old fast-version/M150 beta mapping.",
             "critical",
         ),
         _criterion(

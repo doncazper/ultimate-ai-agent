@@ -11,7 +11,7 @@ from ultimate_ai_agent.core.gate.evaluators import FoundationGateEvaluator
 def test_post_m100_documentation_integrity_guard_accepts_current_repo() -> None:
     failures = docs_verifier._verify_post_m100_roadmap_reconciliation_docs(
         docs_verifier.ROOT,
-        "1.7.0",
+        "1.7.1",
     )
 
     assert failures == []
@@ -46,8 +46,8 @@ def test_post_m100_documentation_integrity_guard_rejects_missing_row_status(
     roadmap = tmp_path / "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md"
     roadmap.write_text(
         roadmap.read_text(encoding="utf-8").replace(
-            "| v1.20.0 | M116 | Role-Based Authority Model | Planned/provisional |",
-            "| v1.20.0 | M116 | Role-Based Authority Model | Deferred |",
+            "| v1.7.14 | pre-alpha | M116 | Role-Based Authority Model | Planned/provisional |",
+            "| v1.7.14 | pre-alpha | M116 | Role-Based Authority Model | Deferred |",
         ),
         encoding="utf-8",
     )
@@ -78,7 +78,7 @@ def test_post_m100_documentation_integrity_guard_allows_negated_future_claim(
 
     failures = docs_verifier._verify_post_m100_roadmap_reconciliation_docs(
         tmp_path,
-        "1.7.0",
+        "1.7.1",
     )
 
     assert failures == []
@@ -96,8 +96,8 @@ def test_post_m100_static_verifier_rejects_missing_row_status(
     roadmap = tmp_path / "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md"
     roadmap.write_text(
         roadmap.read_text(encoding="utf-8").replace(
-            "| v1.40.0 | M136 | Cross-Tool Dependency Execution | Planned/provisional |",
-            "| v1.40.0 | M136 | Cross-Tool Dependency Execution | Deferred |",
+            "| v1.7.34 | pre-alpha | M136 | Cross-Tool Dependency Execution | Planned/provisional |",
+            "| v1.7.34 | pre-alpha | M136 | Cross-Tool Dependency Execution | Deferred |",
         ),
         encoding="utf-8",
     )
@@ -142,8 +142,8 @@ def test_post_m100_foundation_gate_rejects_missing_row_status(tmp_path: Path) ->
     roadmap = tmp_path / "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md"
     roadmap.write_text(
         roadmap.read_text(encoding="utf-8").replace(
-            "| v1.33.0 | M129 | Connector Audit + Revocation Hardening | Planned/provisional |",
-            "| v1.33.0 | M129 | Connector Audit + Revocation Hardening | Deferred |",
+            "| v1.7.27 | pre-alpha | M129 | Connector Audit + Revocation Hardening | Planned/provisional |",
+            "| v1.7.27 | pre-alpha | M129 | Connector Audit + Revocation Hardening | Deferred |",
         ),
         encoding="utf-8",
     )
@@ -181,6 +181,25 @@ def test_post_m100_foundation_gate_allows_negated_future_claim(tmp_path: Path) -
     ).results[0]
 
     assert result.status == "passed", result.failures
+
+
+def test_post_m100_documentation_integrity_guard_rejects_stale_beta_mapping(
+    tmp_path: Path,
+) -> None:
+    _copy_minimal_post_m100_docs(tmp_path)
+    roadmap = tmp_path / "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md"
+    roadmap.write_text(
+        roadmap.read_text(encoding="utf-8")
+        + "\n| v1.54.0 | M150 | Ultimate AI Agent Beta 1 | Planned/provisional |\n",
+        encoding="utf-8",
+    )
+
+    failures = docs_verifier._verify_post_m100_roadmap_reconciliation_docs(
+        tmp_path,
+        "1.7.1",
+    )
+
+    assert any("stale m150 beta" in failure.lower() for failure in failures)
 
 
 def _copy_minimal_post_m100_docs(root: Path) -> None:

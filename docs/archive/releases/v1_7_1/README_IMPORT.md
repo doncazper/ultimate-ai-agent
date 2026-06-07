@@ -1,0 +1,16 @@
+# v1.7.1 README Import
+
+v1.7.1 repairs post-M103 roadmap versioning/currentness only.
+
+The release keeps M103 as the latest implemented capability baseline, preserves
+already-pushed v1.0.0 through v1.7.0 tags as immutable historical internal
+milestone tags, moves future M104-M149 conveyor snapshots to incremental v1.7.x
+internal tags, and sets M150 as the public product target v1.0.0-alpha. Beta
+begins only after the alpha UI and supporting safety/product work are reviewed,
+accepted, and explicitly promoted by a later roadmap patch.
+
+It adds no capability implementation, M104 work, backend route, Control Center
+control, dependency, execution, tool execution, shell execution, browser
+automation, plugin execution, mobile sensor runtime, memory write, context
+injection, model/provider call, broad autonomy, production authority, or M151
+work.

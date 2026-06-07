@@ -12,23 +12,22 @@ allowed to become operational authority.
 
 | Field | Current state |
 |---|---|
-| Current active baseline | **v1.7.0** |
-| Current milestone | **M103 - Camera/Photos Metadata-Only Contract** |
+| Current active baseline | **v1.7.1** |
+| Current milestone | **Post-M103 versioning/currentness repair** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **75** OpenAPI paths |
 | Production readiness | Not claimed |
 
-v1.7.0 implements M103 Camera/Photos Metadata-Only Contract as contract-only
-mobile media governance. Camera and photos remain off by default. It defines
-safe media refs, safe metadata refs, exact-scope metadata contracts, raw-media
-denial, consent, revocation, and audit requirements. It adds no camera runtime
-access, no photo library runtime access, no image capture, no video capture, no
-raw media content, no precise EXIF location, no face recognition, no OCR, no
-media export, no native permission prompt, no background media collection, no
-backend routes, no Control Center controls, no dependencies, no broad autonomy,
-no broad unsandboxed autonomy, no mobile sensor runtime, and no production
-authority. M104-M150 remain planned/provisional.
+v1.7.1 repairs post-M103 roadmap versioning/currentness only. M103 remains the
+latest implemented capability baseline. Already-pushed v1.0.0 through v1.7.0
+tags remain immutable historical internal milestone tags, future M104-M149
+conveyor snapshots use incremental v1.7.x internal tags, and M150 is the public
+product target **v1.0.0-alpha**. Beta begins only after the alpha UI and
+supporting safety/product work are reviewed, accepted, and explicitly promoted
+by a later roadmap patch. v1.7.1 adds no capability implementation, backend
+routes, Control Center controls, dependencies, execution, broad autonomy, broad
+unsandboxed autonomy, mobile sensor runtime, M104 work, or production authority.
 
 v0.29.5 is documentation policy polish. It remains the documentation
 organization cleanup baseline before the M26 and M27 implementation releases.
@@ -281,6 +280,8 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [v1.6.0 master plan](docs/archive/releases/v1_6_0/master_plan.md)
 - [v1.7.0 release packet](docs/archive/releases/v1_7_0/README_IMPORT.md)
 - [v1.7.0 master plan](docs/archive/releases/v1_7_0/master_plan.md)
+- [v1.7.1 release packet](docs/archive/releases/v1_7_1/README_IMPORT.md)
+- [v1.7.1 master plan](docs/archive/releases/v1_7_1/master_plan.md)
 
 ## What This Project Is
 
