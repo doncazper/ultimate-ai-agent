@@ -11,7 +11,7 @@ from ultimate_ai_agent.core.gate.evaluators import FoundationGateEvaluator
 def test_post_m100_documentation_integrity_guard_accepts_current_repo() -> None:
     failures = docs_verifier._verify_post_m100_roadmap_reconciliation_docs(
         docs_verifier.ROOT,
-        "1.6.0",
+        "1.7.0",
     )
 
     assert failures == []
@@ -69,16 +69,16 @@ def test_post_m100_documentation_integrity_guard_allows_negated_future_claim(
     roadmap.write_text(
         roadmap.read_text(encoding="utf-8")
         + (
-                "\nNo M103 is implemented. Without any evidence, M103 backend route "
+                "\nNo M104 is implemented. Without any evidence, M104 backend route "
                 "appears only as a negated safety example. The docs do not say "
-                "M104 has started.\n"
+                "M105 has started.\n"
         ),
         encoding="utf-8",
     )
 
     failures = docs_verifier._verify_post_m100_roadmap_reconciliation_docs(
         tmp_path,
-        "1.6.0",
+        "1.7.0",
     )
 
     assert failures == []

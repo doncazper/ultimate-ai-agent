@@ -1,20 +1,22 @@
 # Ultimate AI Agent Version
 
-Current active baseline: **v1.6.0**
+Current active baseline: **v1.7.0**
 
-v1.6.0 implements M102 Location Sensor, Off by Default. It adds contract-only
-location sensor policy, scope contracts, foreground-only review requirements,
-separate precise-location approval requirements, consent, revocation, audit
-requirements, static verification, documentation-integrity checks, tests, and
-Foundation Gate coverage.
+v1.7.0 implements M103 Camera/Photos Metadata-Only Contract. It adds
+contract-only camera/photos metadata-only policy, safe media refs, safe metadata
+refs, exact-scope metadata contracts, raw-media denial, consent, revocation,
+audit requirements, static verification, documentation-integrity checks, tests,
+and Foundation Gate coverage.
 
-Location remains off by default.
+Camera and photos remain off by default.
 
-It adds no runtime location access, no native permission prompt, no background
-location, no raw coordinates, no location history, no geofence behavior, no
-location export, no backend route, no Control Center control, no dependency, no
-memory write, no context injection, no execution, no M103 implementation, no
-broad autonomy, no broad unsandboxed autonomy, no mobile sensor runtime, and no
-production authority.
+It adds no camera runtime access, no photo library runtime access, no image
+capture, no video capture, no raw media content, no precise EXIF location, no
+face recognition, no OCR, no media export, no native permission prompt, no
+background media collection, no backend route, no Control Center control, no
+dependency, no memory write, no context injection, no execution, no M104
+implementation, no broad autonomy, no broad unsandboxed autonomy, no mobile
+sensor runtime, and no production authority.
 
-M101 and M102 are implemented/released. M103-M150 are planned/provisional only.
+M101, M102, and M103 are implemented/released. M104-M150 are
+planned/provisional only.

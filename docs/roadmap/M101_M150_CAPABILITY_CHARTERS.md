@@ -1,10 +1,11 @@
 # M101-M150 Capability Charters
 
-Status: Active roadmap maintained through v1.6.0 after the accepted M102
+Status: Active roadmap maintained through v1.7.0 after the accepted M103
 baseline.
 
 M101 is implemented/released as Mobile Sensor Contract Review. M102 is
-implemented/released as Location Sensor, Off by Default. M103-M150 remain
+implemented/released as Location Sensor, Off by Default. M103 is
+implemented/released as Camera/Photos Metadata-Only Contract. M104-M150 remain
 planned/provisional. Future work must continue the authority-tier model:
 
 Capability exists -> disabled by default -> dry-run first -> limited allowlist
@@ -20,7 +21,7 @@ accepted Green.
 | --- | --- | --- | --- |
 | v1.5.0 | M101 | Mobile Sensor Contract Review | Implemented/released |
 | v1.6.0 | M102 | Location Sensor, Off by Default | Implemented/released |
-| v1.7.0 | M103 | Camera/Photos Metadata-Only Contract | Planned/provisional |
+| v1.7.0 | M103 | Camera/Photos Metadata-Only Contract | Implemented/released |
 | v1.8.0 | M104 | Notification Planning, No Push Execution | Planned/provisional |
 | v1.9.0 | M105 | Background Task Contract, No Execution | Planned/provisional |
 | v1.10.0 | M106 | Mobile Background Read-Only Status Sync | Planned/provisional |
@@ -92,6 +93,6 @@ autonomy only after prior scoped, auditable safety foundations. M141-M150 stage
 multi-user, beta, marketplace, billing, public docs, security review, and beta
 freeze readiness.
 
-No M151+ extension is required by the v1.6.0 M102 release. If future
+No M151+ extension is required by the v1.7.0 M103 release. If future
 review finds missed M1-M100 work that should not displace M101-M150, add a
 separate planned/provisional M151+ extension roadmap through a reviewed patch.

@@ -137,6 +137,7 @@ SCAN_SEQUENCE = [
     ("post-M100 roadmap reconciliation scan", "verify_post_m100_roadmap_reconciliation"),
     ("M101 mobile sensor contract review scan", "verify_m101_mobile_sensor_contract_review"),
     ("M102 location sensor off-by-default scan", "verify_m102_location_sensor_off_by_default"),
+    ("M103 camera/photos metadata-only scan", "verify_m103_camera_photos_metadata_only"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -17481,10 +17482,24 @@ def verify_post_m100_roadmap_reconciliation():
     ]
     active_version_text = (ROOT / "VERSION.md").read_text(encoding="utf-8").lower()
     implemented_milestones = set()
-    if "v1.5.0" in active_version_text or "v1.6.0" in active_version_text:
+    if (
+        "v1.5.0" in active_version_text
+        or "m101" in active_version_text
+        or "mobile sensor contract review" in active_version_text
+    ):
         implemented_milestones.add("m101")
-    if "v1.6.0" in active_version_text:
+    if (
+        "v1.6.0" in active_version_text
+        or "m102" in active_version_text
+        or "location sensor, off by default" in active_version_text
+    ):
         implemented_milestones.add("m102")
+    if (
+        "v1.7.0" in active_version_text
+        or "m103" in active_version_text
+        or "camera/photos metadata-only contract" in active_version_text
+    ):
+        implemented_milestones.add("m103")
     for version_label, milestone, title in expected_labels:
         if milestone in implemented_milestones:
             continue
@@ -17843,6 +17858,183 @@ def verify_m102_location_sensor_off_by_default():
             sys.exit(1)
 
     print("OK: M102 location sensor remains off-by-default, contract-only, and route-free")
+
+
+def verify_m103_camera_photos_metadata_only():
+    print("\n[Verifier] Running M103 camera/photos metadata-only guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/mobile_companion/camera_photos_metadata_only.py",
+        "docs/mobile/CAMERA_PHOTOS_METADATA_ONLY_CONTRACT.md",
+        "docs/mobile/CAMERA_PHOTOS_METADATA_ONLY_POLICY.md",
+        "docs/mobile/CAMERA_PHOTOS_METADATA_ONLY_AUTHORITY_BOUNDARY.md",
+        "docs/mobile/CAMERA_PHOTOS_METADATA_ONLY_RECEIPT_PLAN.md",
+        "docs/mobile/CAMERA_PHOTOS_METADATA_ONLY_NON_GOALS.md",
+        "docs/mobile/M103_TO_M104_BOUNDARY.md",
+        "docs/release_notes/v1_7_0.md",
+        "docs/archive/releases/v1_7_0/README_IMPORT.md",
+        "docs/archive/releases/v1_7_0/master_plan.md",
+        "docs/implementation/foundation_gate_implementation_plan_v1_7_0.md",
+        "tests/test_m103_camera_photos_metadata_only.py",
+        "tests/test_m103_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M103 camera/photos metadata-only file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = "\n".join(
+        (ROOT / rel_path).read_text(encoding="utf-8").lower()
+        for rel_path in required_files
+        if rel_path.startswith("docs/")
+    )
+    for fragment in [
+        "camera/photos metadata-only contract",
+        "contract-only",
+        "metadata-only",
+        "safe metadata refs",
+        "camera and photos remain off by default",
+        "consent",
+        "revocation",
+        "audit",
+        "no camera runtime access",
+        "no photo library runtime access",
+        "no image capture",
+        "no video capture",
+        "no raw media content",
+        "no precise exif location",
+        "no face recognition",
+        "no ocr",
+        "no media export",
+        "no native permission prompt",
+        "no background media collection",
+        "no backend route",
+        "no control center control",
+        "no dependency",
+        "no production authority",
+        "m104 remains future",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M103 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.evaluators import m103_openapi_route_failures
+        from ultimate_ai_agent.core.mobile_companion import (
+            CameraPhotosMetadataOnlyStatus,
+            build_camera_photos_metadata_only_report,
+            validate_camera_photos_metadata_only_report,
+        )
+    except Exception as exc:
+        print(f"FAIL: M103 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m103_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    report = build_camera_photos_metadata_only_report()
+    if (
+        report.status != CameraPhotosMetadataOnlyStatus.contract_only
+        or not report.contract_only
+        or not report.metadata_only
+        or not report.camera_photos_default_off
+        or not report.safe_metadata_refs_required
+        or not report.raw_media_denied
+        or report.camera_runtime_access_enabled
+        or report.photo_library_runtime_access_enabled
+        or report.image_capture_enabled
+        or report.video_capture_enabled
+        or report.raw_media_content_enabled
+        or report.exif_precise_location_enabled
+        or report.face_recognition_enabled
+        or report.ocr_enabled
+        or report.media_export_enabled
+        or report.native_permission_prompt_enabled
+        or report.background_media_collection_enabled
+        or report.backend_route_added
+        or report.control_center_control_added
+        or report.dependency_added
+        or report.production_authority_enabled
+        or report.side_effects_performed
+        or "M103_CAMERA_PHOTOS_METADATA_ONLY" not in report.reason_codes
+        or "M104_REMAINS_FUTURE" not in report.reason_codes
+    ):
+        print("FAIL: M103 camera/photos metadata-only report is unsafe or over-authoritative")
+        sys.exit(1)
+
+    for update, reason in [
+        ({"camera_runtime_access_enabled": True}, "CAMERA_RUNTIME_ACCESS_DENIED"),
+        (
+            {"photo_library_runtime_access_enabled": True},
+            "PHOTO_LIBRARY_RUNTIME_ACCESS_DENIED",
+        ),
+        ({"image_capture_enabled": True}, "IMAGE_CAPTURE_DENIED"),
+        ({"video_capture_enabled": True}, "VIDEO_CAPTURE_DENIED"),
+        ({"raw_media_content_enabled": True}, "RAW_MEDIA_CONTENT_DENIED"),
+        ({"exif_precise_location_enabled": True}, "EXIF_PRECISE_LOCATION_DENIED"),
+        ({"face_recognition_enabled": True}, "FACE_RECOGNITION_DENIED"),
+        ({"ocr_enabled": True}, "OCR_DENIED"),
+        ({"media_export_enabled": True}, "MEDIA_EXPORT_DENIED"),
+        ({"production_authority_enabled": True}, "PRODUCTION_AUTHORITY_DENIED"),
+    ]:
+        try:
+            validate_camera_photos_metadata_only_report(report.model_copy(update=update))
+            print(f"FAIL: M103 mutated authority flag was not denied: {update}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M103 mutated authority flag raised {exc!s}")
+                sys.exit(1)
+
+    allowed_scan_files = {
+        "scripts/verify_all.py",
+        "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/mobile_companion/__init__.py",
+        "src/ultimate_ai_agent/core/mobile_companion/camera_photos_metadata_only.py",
+        "src/ultimate_ai_agent/core/mobile_companion/location_sensor_off_by_default.py",
+        "src/ultimate_ai_agent/core/mobile_companion/permission_model_v1.py",
+        "src/ultimate_ai_agent/core/mobile_companion/sensor_contract_review.py",
+    }
+    source_text = "\n".join(
+        path.read_text(encoding="utf-8")
+        for root in [
+            ROOT / "src" / "ultimate_ai_agent",
+            ROOT / "apps" / "control-center" / "src",
+            ROOT / "apps" / "ccc-ios",
+        ]
+        if root.exists()
+        for path in root.rglob("*")
+        if path.is_file()
+        and path.suffix in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}
+        and path.relative_to(ROOT).as_posix() not in allowed_scan_files
+    )
+    for fragment in [
+        "camera_runtime_access_enabled=True",
+        "photo_library_runtime_access_enabled=True",
+        "image_capture_enabled=True",
+        "video_capture_enabled=True",
+        "raw_media_content_enabled=True",
+        "raw_absolute_path_enabled=True",
+        "exif_precise_location_enabled=True",
+        "face_recognition_enabled=True",
+        "ocr_enabled=True",
+        "media_export_enabled=True",
+        "native_permission_prompt_enabled=True",
+        "background_media_collection_enabled=True",
+        "backend_route_enabled=True",
+        "backend_route_added=True",
+        "control_center_control_enabled=True",
+        "control_center_control_added=True",
+        "production_authority_enabled=True",
+    ]:
+        if fragment in source_text:
+            print(f"FAIL: M103 forbidden source fragment present: {fragment}")
+            sys.exit(1)
+
+    print("OK: M103 camera/photos metadata-only is contract-only, media-off, and route-free")
 
 
 def verify_local_developer_launcher_safety():

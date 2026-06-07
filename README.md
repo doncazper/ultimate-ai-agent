@@ -12,22 +12,23 @@ allowed to become operational authority.
 
 | Field | Current state |
 |---|---|
-| Current active baseline | **v1.6.0** |
-| Current milestone | **M102 - Location Sensor, Off by Default** |
+| Current active baseline | **v1.7.0** |
+| Current milestone | **M103 - Camera/Photos Metadata-Only Contract** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **75** OpenAPI paths |
 | Production readiness | Not claimed |
 
-v1.6.0 implements M102 Location Sensor, Off by Default as contract-only mobile
-location governance. Location remains off by default. It defines safe location
-scope contracts, foreground-only review requirements, separate precise-location
-approval requirements, consent, revocation, and audit requirements. It adds no
-runtime location access, no native permission prompt, no background location, no
-raw coordinates, no location history, no geofence behavior, no location export,
-no backend routes, no Control Center controls, no dependencies, no broad
-autonomy, no broad unsandboxed autonomy, no mobile sensor runtime, and no production authority. M103-M150
-remain planned/provisional.
+v1.7.0 implements M103 Camera/Photos Metadata-Only Contract as contract-only
+mobile media governance. Camera and photos remain off by default. It defines
+safe media refs, safe metadata refs, exact-scope metadata contracts, raw-media
+denial, consent, revocation, and audit requirements. It adds no camera runtime
+access, no photo library runtime access, no image capture, no video capture, no
+raw media content, no precise EXIF location, no face recognition, no OCR, no
+media export, no native permission prompt, no background media collection, no
+backend routes, no Control Center controls, no dependencies, no broad autonomy,
+no broad unsandboxed autonomy, no mobile sensor runtime, and no production
+authority. M104-M150 remain planned/provisional.
 
 v0.29.5 is documentation policy polish. It remains the documentation
 organization cleanup baseline before the M26 and M27 implementation releases.
@@ -58,6 +59,7 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M100 Mobile Permission Model v1](docs/mobile/MOBILE_PERMISSION_MODEL_V1.md)
 - [M101 Mobile Sensor Contract Review](docs/mobile/MOBILE_SENSOR_CONTRACT_REVIEW.md)
 - [M102 Location Sensor, Off by Default](docs/mobile/LOCATION_SENSOR_OFF_BY_DEFAULT.md)
+- [M103 Camera/Photos Metadata-Only Contract](docs/mobile/CAMERA_PHOTOS_METADATA_ONLY_CONTRACT.md)
 - [M68 Autonomy Risk Classifier Contracts](docs/autonomy/AUTONOMY_RISK_CLASSIFIER_CONTRACTS.md)
 - [M69 Low-Risk Autonomous Dry Run](docs/autonomy/LOW_RISK_AUTONOMOUS_DRY_RUN.md)
 - [M69 Low-Risk Autonomous Dry Run Contracts](docs/autonomy/LOW_RISK_AUTONOMOUS_DRY_RUN_CONTRACTS.md)
@@ -277,6 +279,8 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [v1.5.0 master plan](docs/archive/releases/v1_5_0/master_plan.md)
 - [v1.6.0 release packet](docs/archive/releases/v1_6_0/README_IMPORT.md)
 - [v1.6.0 master plan](docs/archive/releases/v1_6_0/master_plan.md)
+- [v1.7.0 release packet](docs/archive/releases/v1_7_0/README_IMPORT.md)
+- [v1.7.0 master plan](docs/archive/releases/v1_7_0/master_plan.md)
 
 ## What This Project Is
 

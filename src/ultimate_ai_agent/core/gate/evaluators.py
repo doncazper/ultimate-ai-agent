@@ -1336,6 +1336,19 @@ M102_FORBIDDEN_BACKEND_ROUTES = M101_FORBIDDEN_BACKEND_ROUTES + (
     "/mobile/background/location",
     "/mobile/location/permission",
 )
+EXPECTED_M103_OPENAPI_PATH_COUNT = 75
+M103_FORBIDDEN_BACKEND_ROUTES = M102_FORBIDDEN_BACKEND_ROUTES + (
+    "/mobile/camera",
+    "/mobile/camera/capture",
+    "/mobile/photos",
+    "/mobile/photos/read",
+    "/mobile/photos/export",
+    "/mobile/media/raw",
+    "/mobile/media/export",
+    "/mobile/background/media",
+    "/mobile/media/metadata/extract",
+    "/mobile/media/permission",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -2570,6 +2583,21 @@ def m102_openapi_route_failures(
     return failures
 
 
+def m103_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M103_OPENAPI_PATH_COUNT
+) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(
+            f"OpenAPI path count changed for M103: expected {expected_path_count}, got {len(path_set)}"
+        )
+    for route in M103_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(f"M103 forbidden camera/photos runtime route present: {route}")
+    return failures
+
+
 M36_SAFE_REF_PREFIXES = {
     "reviewPacketRef": "file-review-packet:",
     "previewResultRef": "redacted-file-preview-output:",
@@ -3455,6 +3483,16 @@ class FoundationGateEvaluator:
                 self.check_m102_location_sensor_off_by_default_route_boundary
             ),
             "m102_roadmap_currentness": self.check_m102_roadmap_currentness,
+            "m103_camera_photos_metadata_only_contracts": (
+                self.check_m103_camera_photos_metadata_only_contracts
+            ),
+            "m103_camera_photos_metadata_only_static_safety": (
+                self.check_m103_camera_photos_metadata_only_static_safety
+            ),
+            "m103_camera_photos_metadata_only_route_boundary": (
+                self.check_m103_camera_photos_metadata_only_route_boundary
+            ),
+            "m103_roadmap_currentness": self.check_m103_roadmap_currentness,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -29071,10 +29109,24 @@ class FoundationGateEvaluator:
         ]
         active_version_text = self._read(self.root / "VERSION.md").lower()
         implemented_milestones = set()
-        if "v1.5.0" in active_version_text or "v1.6.0" in active_version_text:
+        if (
+            "v1.5.0" in active_version_text
+            or "m101" in active_version_text
+            or "mobile sensor contract review" in active_version_text
+        ):
             implemented_milestones.add("m101")
-        if "v1.6.0" in active_version_text:
+        if (
+            "v1.6.0" in active_version_text
+            or "m102" in active_version_text
+            or "location sensor, off by default" in active_version_text
+        ):
             implemented_milestones.add("m102")
+        if (
+            "v1.7.0" in active_version_text
+            or "m103" in active_version_text
+            or "camera/photos metadata-only contract" in active_version_text
+        ):
+            implemented_milestones.add("m103")
         for version_label, milestone, title in expected_labels:
             if milestone in implemented_milestones:
                 continue
@@ -29292,10 +29344,12 @@ class FoundationGateEvaluator:
         if "m101 is implemented/released" not in text and "v1.5.0 implements m101" not in text:
             failures.append("active docs do not mark M101 implemented/released")
         m102_implemented = "v1.6.0" in text and "m102" in text
+        m103_implemented = "v1.7.0" in text and "m103" in text
         planned_rows = [
-            ("v1.7.0", "m103", "camera/photos metadata-only contract"),
             ("v1.54.0", "m150", "ultimate ai agent beta 1"),
         ]
+        if not m103_implemented:
+            planned_rows.insert(0, ("v1.7.0", "m103", "camera/photos metadata-only contract"))
         if not m102_implemented:
             planned_rows.insert(0, ("v1.6.0", "m102", "location sensor, off by default"))
         for version_label, milestone, title in planned_rows:
@@ -29313,6 +29367,8 @@ class FoundationGateEvaluator:
         ]
         if not m102_implemented:
             forbidden_fragments.extend(["m102 is implemented", "v1.6.0 implements m102"])
+        if not m103_implemented:
+            forbidden_fragments.extend(["m103 is implemented", "v1.7.0 implements m103"])
         for fragment in forbidden_fragments:
             if fragment in text:
                 failures.append(f"M101 docs imply forbidden/future capability: {fragment}")
@@ -29512,28 +29568,277 @@ class FoundationGateEvaluator:
             failures.append("active docs do not identify v1.6.0/M102 Location Sensor, Off by Default")
         if "m102 is implemented/released" not in text and "v1.6.0 implements m102" not in text:
             failures.append("active docs do not mark M102 implemented/released")
-        for version_label, milestone, title in [
-            ("v1.7.0", "m103", "camera/photos metadata-only contract"),
+        m103_implemented = "v1.7.0" in text and "m103" in text
+        planned_rows = [
             ("v1.8.0", "m104", "notification planning, no push execution"),
             ("v1.54.0", "m150", "ultimate ai agent beta 1"),
-        ]:
+        ]
+        if not m103_implemented:
+            planned_rows.insert(0, ("v1.7.0", "m103", "camera/photos metadata-only contract"))
+        for version_label, milestone, title in planned_rows:
             row = f"| {version_label} | {milestone} | {title} | planned/provisional |"
             if row not in text:
                 failures.append(
                     f"active docs missing planned M103-M150 row: {version_label} / {milestone.upper()} - {title}"
                 )
-        for fragment in (
-            "m103 is implemented",
-            "v1.7.0 implements m103",
+        forbidden_fragments = [
             "camera runtime is implemented",
             "photos runtime is implemented",
             "native permission prompt is implemented",
             "background collection is implemented",
             "production authority is implemented",
             "broad autonomy is implemented",
-        ):
+        ]
+        if not m103_implemented:
+            forbidden_fragments.extend(["m103 is implemented", "v1.7.0 implements m103"])
+        for fragment in forbidden_fragments:
             if fragment in text:
                 failures.append(f"M102 docs imply forbidden/future capability: {fragment}")
+        return self._result(criterion, failures, required_docs)
+
+    def check_m103_camera_photos_metadata_only_contracts(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/mobile_companion/camera_photos_metadata_only.py",
+            "docs/mobile/CAMERA_PHOTOS_METADATA_ONLY_CONTRACT.md",
+            "docs/mobile/CAMERA_PHOTOS_METADATA_ONLY_POLICY.md",
+            "docs/mobile/CAMERA_PHOTOS_METADATA_ONLY_AUTHORITY_BOUNDARY.md",
+            "docs/mobile/CAMERA_PHOTOS_METADATA_ONLY_RECEIPT_PLAN.md",
+            "docs/mobile/CAMERA_PHOTOS_METADATA_ONLY_NON_GOALS.md",
+            "docs/mobile/M103_TO_M104_BOUNDARY.md",
+            "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            "tests/test_m103_camera_photos_metadata_only.py",
+            "tests/test_m103_gate_integration.py",
+        ]
+        failures = [
+            f"missing M103 camera/photos metadata-only file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            sys.path.insert(0, str(self.root))
+            from ultimate_ai_agent.core.mobile_companion import (
+                CameraPhotosMetadataOnlyStatus,
+                build_camera_photos_metadata_only_report,
+                validate_camera_photos_metadata_only_report,
+            )
+
+            report = build_camera_photos_metadata_only_report()
+            if (
+                report.status != CameraPhotosMetadataOnlyStatus.contract_only
+                or not report.contract_only
+                or not report.metadata_only
+                or not report.camera_photos_default_off
+                or not report.safe_metadata_refs_required
+                or not report.raw_media_denied
+                or not report.consent_required
+                or not report.revocation_required
+                or not report.audit_required
+                or report.camera_runtime_access_enabled
+                or report.photo_library_runtime_access_enabled
+                or report.image_capture_enabled
+                or report.video_capture_enabled
+                or report.raw_media_content_enabled
+                or report.exif_precise_location_enabled
+                or report.face_recognition_enabled
+                or report.ocr_enabled
+                or report.media_export_enabled
+                or report.native_permission_prompt_enabled
+                or report.background_media_collection_enabled
+                or report.backend_route_added
+                or report.control_center_control_added
+                or report.dependency_added
+                or report.memory_write_enabled
+                or report.context_injection_enabled
+                or report.execution_enabled
+                or report.production_authority_enabled
+                or report.side_effects_performed
+                or "M103_CAMERA_PHOTOS_METADATA_ONLY" not in report.reason_codes
+                or "M104_REMAINS_FUTURE" not in report.reason_codes
+            ):
+                failures.append("M103 camera/photos report is unsafe or over-authoritative")
+            for update, reason in [
+                ({"camera_runtime_access_enabled": True}, "CAMERA_RUNTIME_ACCESS_DENIED"),
+                (
+                    {"photo_library_runtime_access_enabled": True},
+                    "PHOTO_LIBRARY_RUNTIME_ACCESS_DENIED",
+                ),
+                ({"image_capture_enabled": True}, "IMAGE_CAPTURE_DENIED"),
+                ({"video_capture_enabled": True}, "VIDEO_CAPTURE_DENIED"),
+                ({"raw_media_content_enabled": True}, "RAW_MEDIA_CONTENT_DENIED"),
+                (
+                    {"exif_precise_location_enabled": True},
+                    "EXIF_PRECISE_LOCATION_DENIED",
+                ),
+                ({"face_recognition_enabled": True}, "FACE_RECOGNITION_DENIED"),
+                ({"ocr_enabled": True}, "OCR_DENIED"),
+                ({"media_export_enabled": True}, "MEDIA_EXPORT_DENIED"),
+                ({"production_authority_enabled": True}, "PRODUCTION_AUTHORITY_DENIED"),
+            ]:
+                try:
+                    validate_camera_photos_metadata_only_report(
+                        report.model_copy(update=update)
+                    )
+                    failures.append(f"M103 unsafe report mutation was not denied with {reason}")
+                except ValueError as exc:
+                    if reason not in str(exc):
+                        failures.append(f"M103 unsafe report mutation raised {exc!s}")
+        except Exception as exc:
+            failures.append(f"M103 camera/photos metadata validation failed: {exc}")
+
+        docs_text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_files
+            if path.startswith("docs/") and (self.root / path).exists()
+        )
+        for fragment in [
+            "camera/photos metadata-only contract",
+            "contract-only",
+            "metadata-only",
+            "safe metadata refs",
+            "camera and photos remain off by default",
+            "consent",
+            "revocation",
+            "audit",
+            "no camera runtime access",
+            "no photo library runtime access",
+            "no image capture",
+            "no video capture",
+            "no raw media content",
+            "no precise exif location",
+            "no face recognition",
+            "no ocr",
+            "no media export",
+            "no native permission prompt",
+            "no background media collection",
+            "no backend route",
+            "no control center control",
+            "no dependency",
+            "no production authority",
+            "m104 remains future",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M103 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m103_camera_photos_metadata_only_static_safety(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        forbidden_source_fragments = [
+            "camera_runtime_access_enabled=True",
+            "photo_library_runtime_access_enabled=True",
+            "image_capture_enabled=True",
+            "video_capture_enabled=True",
+            "raw_media_content_enabled=True",
+            "raw_absolute_path_enabled=True",
+            "exif_precise_location_enabled=True",
+            "face_recognition_enabled=True",
+            "ocr_enabled=True",
+            "media_export_enabled=True",
+            "native_permission_prompt_enabled=True",
+            "background_media_collection_enabled=True",
+            "backend_route_enabled=True",
+            "backend_route_added=True",
+            "control_center_control_enabled=True",
+            "control_center_control_added=True",
+            "production_authority_enabled=True",
+        ]
+        allowed_files = {
+            "scripts/verify_all.py",
+            "src/ultimate_ai_agent/core/gate/evaluators.py",
+            "src/ultimate_ai_agent/core/mobile_companion/__init__.py",
+            "src/ultimate_ai_agent/core/mobile_companion/camera_photos_metadata_only.py",
+            "src/ultimate_ai_agent/core/mobile_companion/location_sensor_off_by_default.py",
+            "src/ultimate_ai_agent/core/mobile_companion/permission_model_v1.py",
+            "src/ultimate_ai_agent/core/mobile_companion/sensor_contract_review.py",
+        }
+        for root in [
+            self.root / "src" / "ultimate_ai_agent",
+            self.root / "apps" / "control-center" / "src",
+            self.root / "apps" / "ccc-ios",
+        ]:
+            if not root.exists():
+                continue
+            candidate_files = []
+            for pattern in ("*.py", "*.ts", "*.tsx", "*.js", "*.jsx", "*.swift", "*.yml", "*.yaml"):
+                candidate_files.extend(root.rglob(pattern))
+            for path in sorted(candidate_files):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(self.root).as_posix()
+                if ".test." in rel:
+                    continue
+                if rel in allowed_files:
+                    continue
+                text = path.read_text(encoding="utf-8")
+                for fragment in forbidden_source_fragments:
+                    if fragment in text:
+                        failures.append(
+                            f"M103 forbidden camera/photos fragment in {rel}: {fragment}"
+                        )
+        return self._result(criterion, failures, [])
+
+    def check_m103_camera_photos_metadata_only_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m103_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M103 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m103_roadmap_currentness(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_docs = [
+            "README.md",
+            "VERSION.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            "docs/roadmap/MILESTONE_CHARTERS.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+        ]
+        failures = [
+            f"missing M103 roadmap doc: {path}"
+            for path in required_docs
+            if not (self.root / path).exists()
+        ]
+        text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_docs
+            if (self.root / path).exists()
+        )
+        if "v1.7.0" not in text or "m103" not in text or "camera/photos metadata-only contract" not in text:
+            failures.append("active docs do not identify v1.7.0/M103 Camera/Photos Metadata-Only Contract")
+        if "m103 is implemented/released" not in text and "v1.7.0 implements m103" not in text:
+            failures.append("active docs do not mark M103 implemented/released")
+        for version_label, milestone, title in [
+            ("v1.8.0", "m104", "notification planning, no push execution"),
+            ("v1.9.0", "m105", "background task contract, no execution"),
+            ("v1.54.0", "m150", "ultimate ai agent beta 1"),
+        ]:
+            row = f"| {version_label} | {milestone} | {title} | planned/provisional |"
+            if row not in text:
+                failures.append(
+                    f"active docs missing planned M104-M150 row: {version_label} / {milestone.upper()} - {title}"
+                )
+        for fragment in (
+            "m104 is implemented",
+            "v1.8.0 implements m104",
+            "push execution is implemented",
+            "background task execution is implemented",
+            "native permission prompt is implemented",
+            "background collection is implemented",
+            "production authority is implemented",
+            "broad autonomy is implemented",
+        ):
+            if fragment in text:
+                failures.append(f"M103 docs imply forbidden/future capability: {fragment}")
         return self._result(criterion, failures, required_docs)
 
     def check_v0292_local_dev_api_authority_and_preview_safe(

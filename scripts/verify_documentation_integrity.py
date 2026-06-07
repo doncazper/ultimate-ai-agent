@@ -923,6 +923,20 @@ REQUIRED_M102_LOCATION_SENSOR_OFF_BY_DEFAULT_DOCS = [
     "docs/implementation/foundation_gate_implementation_plan_v1_6_0.md",
 ]
 
+REQUIRED_M103_CAMERA_PHOTOS_METADATA_ONLY_DOCS = [
+    "docs/mobile/CAMERA_PHOTOS_METADATA_ONLY_CONTRACT.md",
+    "docs/mobile/CAMERA_PHOTOS_METADATA_ONLY_POLICY.md",
+    "docs/mobile/CAMERA_PHOTOS_METADATA_ONLY_AUTHORITY_BOUNDARY.md",
+    "docs/mobile/CAMERA_PHOTOS_METADATA_ONLY_RECEIPT_PLAN.md",
+    "docs/mobile/CAMERA_PHOTOS_METADATA_ONLY_NON_GOALS.md",
+    "docs/mobile/M103_TO_M104_BOUNDARY.md",
+    "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+    "docs/release_notes/v1_7_0.md",
+    "docs/archive/releases/v1_7_0/README_IMPORT.md",
+    "docs/archive/releases/v1_7_0/master_plan.md",
+    "docs/implementation/foundation_gate_implementation_plan_v1_7_0.md",
+]
+
 EXPECTED_M101_M150_LABELS = [
     ("v1.5.0", "m101", "mobile sensor contract review"),
     ("v1.6.0", "m102", "location sensor, off by default"),
@@ -1539,6 +1553,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_post_m100_roadmap_reconciliation_docs(root, version))
     failures.extend(_verify_m101_mobile_sensor_contract_review_docs(root, version))
     failures.extend(_verify_m102_location_sensor_off_by_default_docs(root, version))
+    failures.extend(_verify_m103_camera_photos_metadata_only_docs(root, version))
     failures.extend(_verify_m19_roadmap_currentness(root, version))
     failures.extend(_verify_post_m18_roadmap_status_labels(root))
 
@@ -7033,6 +7048,8 @@ def _verify_post_m100_roadmap_reconciliation_docs(root: Path, version: str | Non
         implemented_milestones.add("m101")
     if _version_tuple(version) >= (1, 6, 0):
         implemented_milestones.add("m102")
+    if _version_tuple(version) >= (1, 7, 0):
+        implemented_milestones.add("m103")
     for version_label, milestone, title in EXPECTED_M101_M150_LABELS:
         if milestone in implemented_milestones:
             continue
@@ -7178,10 +7195,12 @@ def _verify_m101_mobile_sensor_contract_review_docs(root: Path, version: str | N
     if "m101 is implemented/released" not in active_text and "v1.5.0 implements m101" not in active_text:
         failures.append("active docs do not mark M101 implemented/released")
     m102_implemented = _version_tuple(version) >= (1, 6, 0)
+    m103_implemented = _version_tuple(version) >= (1, 7, 0)
     planned_rows = [
-        ("v1.7.0", "m103", "camera/photos metadata-only contract"),
         ("v1.54.0", "m150", "ultimate ai agent beta 1"),
     ]
+    if not m103_implemented:
+        planned_rows.insert(0, ("v1.7.0", "m103", "camera/photos metadata-only contract"))
     if not m102_implemented:
         planned_rows.insert(0, ("v1.6.0", "m102", "location sensor, off by default"))
     for version_label, milestone, title in planned_rows:
@@ -7199,6 +7218,8 @@ def _verify_m101_mobile_sensor_contract_review_docs(root: Path, version: str | N
     }
     if not m102_implemented:
         forbidden_fragments.update({"m102 is implemented", "v1.6.0 implements m102"})
+    if not m103_implemented:
+        forbidden_fragments.update({"m103 is implemented", "v1.7.0 implements m103"})
     for fragment in forbidden_fragments:
         if fragment in active_text or fragment in text:
             failures.append(f"M101 docs imply forbidden/future capability: {fragment}")
@@ -7266,19 +7287,20 @@ def _verify_m102_location_sensor_off_by_default_docs(root: Path, version: str | 
         failures.append("active docs missing v1.6.0/M102 Location Sensor, Off by Default")
     if "m102 is implemented/released" not in active_text and "v1.6.0 implements m102" not in active_text:
         failures.append("active docs do not mark M102 implemented/released")
-    for version_label, milestone, title in [
-        ("v1.7.0", "m103", "camera/photos metadata-only contract"),
+    m103_implemented = _version_tuple(version) >= (1, 7, 0)
+    planned_rows = [
         ("v1.8.0", "m104", "notification planning, no push execution"),
         ("v1.54.0", "m150", "ultimate ai agent beta 1"),
-    ]:
+    ]
+    if not m103_implemented:
+        planned_rows.insert(0, ("v1.7.0", "m103", "camera/photos metadata-only contract"))
+    for version_label, milestone, title in planned_rows:
         row = f"| {version_label.lower()} | {milestone} | {title} | planned/provisional |"
         if row not in active_text:
             failures.append(
                 f"active docs missing planned M103-M150 row: {version_label} / {milestone.upper()} - {title}"
             )
     for fragment in {
-        "m103 is implemented",
-        "v1.7.0 implements m103",
         "camera runtime is implemented",
         "photos runtime is implemented",
         "native permission prompts are implemented",
@@ -7288,6 +7310,108 @@ def _verify_m102_location_sensor_off_by_default_docs(root: Path, version: str | 
     }:
         if fragment in active_text or fragment in text:
             failures.append(f"M102 docs imply forbidden/future capability: {fragment}")
+    if not m103_implemented:
+        for fragment in {"m103 is implemented", "v1.7.0 implements m103"}:
+            if fragment in active_text or fragment in text:
+                failures.append(f"M102 docs imply forbidden/future capability: {fragment}")
+    return failures
+
+
+def _verify_m103_camera_photos_metadata_only_docs(root: Path, version: str | None) -> list[str]:
+    failures: list[str] = []
+    if _version_tuple(version) < (1, 7, 0):
+        return failures
+
+    missing = [
+        rel_path
+        for rel_path in REQUIRED_M103_CAMERA_PHOTOS_METADATA_ONLY_DOCS
+        if not (root / rel_path).exists()
+    ]
+    failures.extend(f"missing M103 Camera/Photos Metadata-Only doc: {rel_path}" for rel_path in missing)
+    text = "\n".join(
+        _read(root / rel_path).lower()
+        for rel_path in REQUIRED_M103_CAMERA_PHOTOS_METADATA_ONLY_DOCS
+        if (root / rel_path).exists()
+    )
+    required_fragments = {
+        "M103 docs must say Camera/Photos Metadata-Only Contract": (
+            "camera/photos metadata-only contract"
+        ),
+        "M103 docs must say contract-only": "contract-only",
+        "M103 docs must say metadata-only": "metadata-only",
+        "M103 docs must say safe metadata refs": "safe metadata refs",
+        "M103 docs must say camera and photos remain off by default": (
+            "camera and photos remain off by default"
+        ),
+        "M103 docs must say consent": "consent",
+        "M103 docs must say revocation": "revocation",
+        "M103 docs must say audit": "audit",
+        "M103 docs must deny camera runtime access": "no camera runtime access",
+        "M103 docs must deny photo library runtime access": (
+            "no photo library runtime access"
+        ),
+        "M103 docs must deny image capture": "no image capture",
+        "M103 docs must deny video capture": "no video capture",
+        "M103 docs must deny raw media content": "no raw media content",
+        "M103 docs must deny precise EXIF location": "no precise exif location",
+        "M103 docs must deny face recognition": "no face recognition",
+        "M103 docs must deny OCR": "no ocr",
+        "M103 docs must deny media export": "no media export",
+        "M103 docs must deny native permission prompt": "no native permission prompt",
+        "M103 docs must deny background media collection": (
+            "no background media collection"
+        ),
+        "M103 docs must deny backend route": "no backend route",
+        "M103 docs must deny Control Center control": "no control center control",
+        "M103 docs must deny dependency": "no dependency",
+        "M103 docs must deny production authority": "no production authority",
+        "M103 docs must keep M104 future": "m104 remains future",
+    }
+    for message, fragment in required_fragments.items():
+        if fragment not in text:
+            failures.append(message)
+
+    active_paths = [
+        "README.md",
+        "VERSION.md",
+        "docs/canonical/09_roadmap.md",
+        "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+        "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+        "docs/roadmap/MILESTONE_CHARTERS.md",
+        "docs/DOCUMENTATION_INDEX.md",
+        "docs/canonical/CANONICAL_DOC_MAP.md",
+    ]
+    active_text = "\n".join(
+        _read(root / rel_path).lower()
+        for rel_path in active_paths
+        if (root / rel_path).exists()
+    )
+    if "v1.7.0" not in active_text or "m103" not in active_text or "camera/photos metadata-only contract" not in active_text:
+        failures.append("active docs missing v1.7.0/M103 Camera/Photos Metadata-Only Contract")
+    if "m103 is implemented/released" not in active_text and "v1.7.0 implements m103" not in active_text:
+        failures.append("active docs do not mark M103 implemented/released")
+    for version_label, milestone, title in [
+        ("v1.8.0", "m104", "notification planning, no push execution"),
+        ("v1.9.0", "m105", "background task contract, no execution"),
+        ("v1.54.0", "m150", "ultimate ai agent beta 1"),
+    ]:
+        row = f"| {version_label.lower()} | {milestone} | {title} | planned/provisional |"
+        if row not in active_text:
+            failures.append(
+                f"active docs missing planned M104-M150 row: {version_label} / {milestone.upper()} - {title}"
+            )
+    for fragment in {
+        "m104 is implemented",
+        "v1.8.0 implements m104",
+        "push execution is implemented",
+        "background task execution is implemented",
+        "native permission prompts are implemented",
+        "background collection is implemented",
+        "production authority is implemented",
+        "broad autonomy is implemented",
+    }:
+        if fragment in active_text or fragment in text:
+            failures.append(f"M103 docs imply forbidden/future capability: {fragment}")
     return failures
 
 
