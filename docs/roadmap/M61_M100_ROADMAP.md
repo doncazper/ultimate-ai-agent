@@ -1,6 +1,6 @@
 # M61-M100 Roadmap
 
-Status: Active roadmap maintained through M89 / v0.93.0.
+Status: Active roadmap maintained through M90 / v0.94.0.
 
 M61 is implemented/released by v0.65.0 as Autonomy Mode Charter + Authority
 Levels. M62 is implemented/released by v0.66.0 as Scoped Autonomy Session
@@ -31,7 +31,8 @@ implemented/released by v0.89.0 as Read-Only Command Allowlist. M86 is
 implemented/released by v0.90.0 as Shell Approval Gate v1. M87 is
 implemented/released by v0.91.0 as Sandboxed Command Audit Replay. M88 is
 implemented/released by v0.92.0 as Mutating Command Proposal, No Execution. M89 is
-implemented/released by v0.93.0 as Emergency Stop + Process Kill Safety. M90-M100 remain
+implemented/released by v0.93.0 as Emergency Stop + Process Kill Safety. M90 is
+implemented/released by v0.94.0 as Shell/Subprocess Hardening Freeze. M91-M100 remain
 planned/provisional. This roadmap adds no
 production authority, no global autonomy switch, no broad autonomy, no tool
 execution, no shell execution, no browser automation beyond the M74 injected
@@ -75,7 +76,7 @@ no dependency.
 | v0.91.0 | M87 | Sandboxed Command Audit Replay | Implemented/released |
 | v0.92.0 | M88 | Mutating Command Proposal, No Execution | Implemented/released |
 | v0.93.0 | M89 | Emergency Stop + Process Kill Safety | Implemented/released |
-| v0.94.0 | M90 | Shell/Subprocess Hardening Freeze | Planned/provisional |
+| v0.94.0 | M90 | Shell/Subprocess Hardening Freeze | Implemented/released |
 | v0.95.0 | M91 | Autonomous Tool Execution Contract | Planned/provisional |
 | v0.96.0 | M92 | Low-Risk Tool Autonomy, Single Session | Planned/provisional |
 | v0.97.0 | M93 | Multi-Tool Dry-Run to Real Run Promotion | Planned/provisional |

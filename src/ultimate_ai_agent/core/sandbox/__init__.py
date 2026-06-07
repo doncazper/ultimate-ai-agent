@@ -113,6 +113,17 @@ from ultimate_ai_agent.core.sandbox.emergency_stop_process_kill_safety import (
     validate_emergency_stop_process_kill_safety_policy,
     validate_emergency_stop_process_kill_safety_request,
 )
+from ultimate_ai_agent.core.sandbox.shell_subprocess_hardening_freeze import (
+    ShellSubprocessHardeningFreezeDecision,
+    ShellSubprocessHardeningFreezePolicy,
+    ShellSubprocessHardeningFreezeReceiptPlan,
+    ShellSubprocessHardeningFreezeRequest,
+    ShellSubprocessHardeningFreezeStatus,
+    build_shell_subprocess_hardening_freeze,
+    validate_shell_subprocess_hardening_freeze_decision,
+    validate_shell_subprocess_hardening_freeze_policy,
+    validate_shell_subprocess_hardening_freeze_request,
+)
 
 __all__ = [
     "RuntimeSandboxArchitectureDecision",
@@ -169,6 +180,11 @@ __all__ = [
     "EmergencyStopProcessKillSafetyReceiptPlan",
     "EmergencyStopProcessKillSafetyRequest",
     "EmergencyStopProcessKillSafetyStatus",
+    "ShellSubprocessHardeningFreezeDecision",
+    "ShellSubprocessHardeningFreezePolicy",
+    "ShellSubprocessHardeningFreezeReceiptPlan",
+    "ShellSubprocessHardeningFreezeRequest",
+    "ShellSubprocessHardeningFreezeStatus",
     "build_runtime_sandbox_architecture_review",
     "build_command_proposal",
     "build_runtime_sandbox_spec",
@@ -179,6 +195,7 @@ __all__ = [
     "build_sandboxed_command_audit_replay",
     "build_mutating_command_proposal",
     "build_emergency_stop_process_kill_safety",
+    "build_shell_subprocess_hardening_freeze",
     "validate_command_proposal_decision",
     "validate_command_proposal_policy",
     "validate_command_proposal_request",
@@ -210,4 +227,7 @@ __all__ = [
     "validate_emergency_stop_process_kill_safety_decision",
     "validate_emergency_stop_process_kill_safety_policy",
     "validate_emergency_stop_process_kill_safety_request",
+    "validate_shell_subprocess_hardening_freeze_decision",
+    "validate_shell_subprocess_hardening_freeze_policy",
+    "validate_shell_subprocess_hardening_freeze_request",
 ]

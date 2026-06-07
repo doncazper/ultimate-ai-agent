@@ -1,11 +1,11 @@
-# Ultimate AI Agent Version
+# v0.94.0 README Import
 
 Current active baseline: **v0.94.0**
 
 v0.94.0 implements M90 Shell/Subprocess Hardening Freeze. It adds
-contract-only, review-only, freeze-only shell/subprocess hardening contracts
-over exact M89 Emergency Stop + Process Kill Safety decisions, safe hardening
-refs, safe refs only receipt plans, evaluator revalidation,
+contract-only, review-only, freeze-only, deterministic, local-only hardening
+contracts over exact M89 Emergency Stop + Process Kill Safety decisions, safe
+hardening refs, safe refs only receipt plans, evaluator revalidation,
 documentation-integrity checks, static verification, tests, and Foundation Gate
 coverage.
 

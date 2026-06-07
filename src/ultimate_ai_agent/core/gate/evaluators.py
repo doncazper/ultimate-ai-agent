@@ -1184,6 +1184,16 @@ M89_FORBIDDEN_BACKEND_ROUTES = M88_FORBIDDEN_BACKEND_ROUTES + (
     "/shell/execute",
     "/filesystem/write",
 )
+EXPECTED_M90_OPENAPI_PATH_COUNT = 75
+M90_FORBIDDEN_BACKEND_ROUTES = M89_FORBIDDEN_BACKEND_ROUTES + (
+    "/subprocess/execute",
+    "/subprocess/run",
+    "/shell/run",
+    "/shell/subprocess",
+    "/commands/run",
+    "/process/terminate",
+    "/emergency/execute",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -2223,6 +2233,21 @@ def m89_openapi_route_failures(
     return failures
 
 
+def m90_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M90_OPENAPI_PATH_COUNT
+) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(
+            f"OpenAPI path count changed for M90: expected {expected_path_count}, got {len(path_set)}"
+        )
+    for route in M90_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(f"M90 forbidden shell/subprocess/process/backend route present: {route}")
+    return failures
+
+
 M36_SAFE_REF_PREFIXES = {
     "reviewPacketRef": "file-review-packet:",
     "previewResultRef": "redacted-file-preview-output:",
@@ -2979,6 +3004,16 @@ class FoundationGateEvaluator:
                 self.check_m89_emergency_stop_process_kill_route_boundary
             ),
             "m89_roadmap_currentness": self.check_m89_roadmap_currentness,
+            "m90_shell_subprocess_hardening_freeze_contract": (
+                self.check_m90_shell_subprocess_hardening_freeze_contract
+            ),
+            "m90_shell_subprocess_static_safety": (
+                self.check_m90_shell_subprocess_static_safety
+            ),
+            "m90_shell_subprocess_route_boundary": (
+                self.check_m90_shell_subprocess_route_boundary
+            ),
+            "m90_roadmap_currentness": self.check_m90_roadmap_currentness,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -25481,6 +25516,327 @@ class FoundationGateEvaluator:
         ):
             if fragment in text:
                 failures.append(f"M89 docs imply forbidden/future capability: {fragment}")
+        return self._result(criterion, failures, required_docs)
+
+    def check_m90_shell_subprocess_hardening_freeze_contract(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/sandbox/shell_subprocess_hardening_freeze.py",
+            "src/ultimate_ai_agent/core/sandbox/emergency_stop_process_kill_safety.py",
+            "docs/sandbox/SHELL_SUBPROCESS_HARDENING_FREEZE.md",
+            "docs/sandbox/SHELL_SUBPROCESS_HARDENING_FREEZE_POLICY.md",
+            "docs/sandbox/SHELL_SUBPROCESS_HARDENING_FREEZE_AUTHORITY_BOUNDARY.md",
+            "docs/sandbox/SHELL_SUBPROCESS_HARDENING_FREEZE_RECEIPT_PLAN.md",
+            "docs/sandbox/SHELL_SUBPROCESS_HARDENING_FREEZE_NON_GOALS.md",
+            "docs/sandbox/M90_TO_M91_BOUNDARY.md",
+            "tests/test_m90_shell_subprocess_hardening_freeze.py",
+            "tests/test_m90_gate_integration.py",
+        ]
+        failures = [
+            f"missing M90 shell/subprocess hardening freeze file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            sys.path.insert(0, str(self.root))
+            from tests.test_m90_shell_subprocess_hardening_freeze import _request
+            from ultimate_ai_agent.core.sandbox import (
+                ShellSubprocessHardeningFreezeStatus,
+                build_shell_subprocess_hardening_freeze,
+                validate_shell_subprocess_hardening_freeze_decision,
+            )
+
+            decision = build_shell_subprocess_hardening_freeze(_request())
+            if (
+                decision.status != ShellSubprocessHardeningFreezeStatus.frozen_for_review
+                or not decision.contract_only
+                or not decision.review_only
+                or not decision.freeze_only
+                or not decision.deterministic
+                or not decision.local_only
+                or not decision.safe_refs_only
+                or not decision.m89_safety_decision_revalidated
+                or not decision.shell_boundary_frozen
+                or not decision.subprocess_boundary_frozen
+                or not decision.process_spawn_boundary_frozen
+                or not decision.emergency_stop_boundary_frozen
+                or decision.command_execution_authorized
+                or decision.shell_execution_authorized
+                or decision.subprocess_execution_authorized
+                or decision.process_spawn_authorized
+                or decision.emergency_stop_authorized
+                or decision.process_kill_authorized
+                or decision.process_signal_authorized
+                or decision.command_execution_performed
+                or decision.shell_execution_performed
+                or decision.subprocess_execution_performed
+                or decision.process_spawn_performed
+                or decision.emergency_stop_performed
+                or decision.process_kill_performed
+                or decision.process_signal_performed
+                or decision.filesystem_mutation_performed
+                or decision.network_access_performed
+                or decision.tool_execution_performed
+                or decision.browser_automation_performed
+                or decision.plugin_execution_performed
+                or decision.remote_execution_performed
+                or decision.model_call_performed
+                or decision.memory_write_performed
+                or decision.context_injection_performed
+                or decision.background_worker_started
+                or decision.backend_route_added
+                or decision.control_center_control_added
+                or decision.dependency_added
+                or decision.production_authority_granted
+                or decision.side_effects_performed
+                or not decision.receipt_plan.store_safe_summary_only
+                or not decision.receipt_plan.store_safe_refs_only
+                or decision.receipt_plan.store_raw_command
+                or decision.receipt_plan.store_shell_string
+                or decision.receipt_plan.store_raw_pid
+                or "M90_SHELL_SUBPROCESS_HARDENING_FREEZE_REVIEW_ONLY" not in decision.reason_codes
+                or "M90_EXACT_M89_SAFETY_BINDING_REQUIRED" not in decision.reason_codes
+                or "M90_NO_SHELL_SUBPROCESS_EXECUTION" not in decision.reason_codes
+                or "M90_NO_PROCESS_OR_EMERGENCY_EXECUTION" not in decision.reason_codes
+                or "M91_REMAINS_FUTURE" not in decision.reason_codes
+            ):
+                failures.append("M90 shell/subprocess hardening freeze decision is unsafe or over-authoritative")
+            for update, reason in [
+                ({"command_execution_requested": True}, "COMMAND_EXECUTION_DENIED"),
+                ({"shell_execution_requested": True}, "SHELL_EXECUTION_DENIED"),
+                ({"subprocess_execution_requested": True}, "SUBPROCESS_EXECUTION_DENIED"),
+                ({"process_spawn_requested": True}, "PROCESS_SPAWN_DENIED"),
+                ({"emergency_stop_requested": True}, "M90_EMERGENCY_STOP_EXECUTION_DENIED"),
+                ({"process_kill_requested": True}, "M90_PROCESS_KILL_DENIED"),
+                ({"process_signal_requested": True}, "M90_PROCESS_SIGNAL_DENIED"),
+                ({"contains_shell_string": True}, "M90_SHELL_STRING_DENIED"),
+                ({"contains_raw_command": True}, "M90_RAW_COMMAND_DENIED"),
+                ({"contains_pid": True}, "M90_RAW_PID_DENIED"),
+            ]:
+                try:
+                    build_shell_subprocess_hardening_freeze(_request(**update))
+                    failures.append(f"M90 unsafe freeze request was not denied with {reason}")
+                except ValueError as exc:
+                    if reason not in str(exc):
+                        failures.append(f"M90 unsafe freeze request raised {exc!s}, expected {reason}")
+            try:
+                validate_shell_subprocess_hardening_freeze_decision(
+                    decision.model_copy(update={"shell_execution_authorized": True})
+                )
+                failures.append("M90 mutated shell execution authority flag was not denied")
+            except ValueError as exc:
+                if "SHELL_EXECUTION_DENIED" not in str(exc):
+                    failures.append(f"M90 mutated shell execution authority flag raised {exc!s}")
+        except Exception as exc:
+            failures.append(f"M90 shell/subprocess hardening freeze validation failed: {exc}")
+
+        docs_text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_files
+            if path.startswith("docs/") and (self.root / path).exists()
+        )
+        for fragment in [
+            "shell/subprocess hardening freeze",
+            "contract-only",
+            "review-only",
+            "freeze-only",
+            "deterministic",
+            "local-only",
+            "m89 emergency stop + process kill safety",
+            "exact m89",
+            "safe refs only",
+            "no command execution",
+            "no shell execution",
+            "no subprocess execution",
+            "no process spawn",
+            "no emergency stop execution",
+            "no process kill",
+            "no process signal",
+            "no filesystem mutation",
+            "no network access",
+            "no tool execution",
+            "no browser automation",
+            "no plugin execution",
+            "no remote execution",
+            "no model call",
+            "no memory write",
+            "no context injection",
+            "no background worker",
+            "no backend route",
+            "no control center control",
+            "no dependency",
+            "no production authority",
+            "no shell string",
+            "no raw command",
+            "no raw pid",
+            "safe summary only",
+            "evaluator boundaries revalidate",
+            "m91 remains future",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M90 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m90_shell_subprocess_static_safety(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        forbidden_source_fragments = [
+            "command_execution_enabled=True",
+            "command_execution_requested=True",
+            "command_execution_authorized=True",
+            "command_execution_performed=True",
+            "shell_execution_enabled=True",
+            "shell_execution_requested=True",
+            "shell_execution_authorized=True",
+            "shell_execution_performed=True",
+            "subprocess_execution_enabled=True",
+            "subprocess_execution_requested=True",
+            "subprocess_execution_authorized=True",
+            "subprocess_execution_performed=True",
+            "process_spawn_enabled=True",
+            "process_spawn_requested=True",
+            "process_spawn_authorized=True",
+            "process_spawn_performed=True",
+            "emergency_stop_execution_enabled=True",
+            "emergency_stop_requested=True",
+            "emergency_stop_authorized=True",
+            "emergency_stop_performed=True",
+            "process_kill_enabled=True",
+            "process_kill_requested=True",
+            "process_kill_authorized=True",
+            "process_kill_performed=True",
+            "process_signal_enabled=True",
+            "process_signal_requested=True",
+            "process_signal_authorized=True",
+            "process_signal_performed=True",
+            "filesystem_mutation_enabled=True",
+            "filesystem_mutation_requested=True",
+            "network_access_enabled=True",
+            "tool_execution_enabled=True",
+            "browser_automation_enabled=True",
+            "plugin_execution_enabled=True",
+            "remote_execution_enabled=True",
+            "model_call_enabled=True",
+            "memory_write_enabled=True",
+            "context_injection_enabled=True",
+            "background_worker_enabled=True",
+            "backend_route_enabled=True",
+            "control_center_control_enabled=True",
+            "dependency_change_enabled=True",
+            "production_authority_enabled=True",
+            "background_worker_started=True",
+            "backend_route_added=True",
+            "control_center_control_added=True",
+            "dependency_added=True",
+            "production_authority_granted=True",
+            "store_raw_pid=True",
+            "store_raw_signal=True",
+            "store_raw_command=True",
+            "store_shell_string=True",
+            "store_raw_output=True",
+        ]
+        allowed_files = {
+            "scripts/verify_all.py",
+            "src/ultimate_ai_agent/core/gate/evaluators.py",
+            "src/ultimate_ai_agent/core/sandbox/__init__.py",
+            "src/ultimate_ai_agent/core/sandbox/command_proposal.py",
+            "src/ultimate_ai_agent/core/sandbox/runtime_spec.py",
+            "src/ultimate_ai_agent/core/sandbox/shell_dry_run_classifier.py",
+            "src/ultimate_ai_agent/core/sandbox/sandboxed_echo_noop_command.py",
+            "src/ultimate_ai_agent/core/sandbox/read_only_command_allowlist.py",
+            "src/ultimate_ai_agent/core/sandbox/shell_approval_gate.py",
+            "src/ultimate_ai_agent/core/sandbox/command_audit_replay.py",
+            "src/ultimate_ai_agent/core/sandbox/mutating_command_proposal.py",
+            "src/ultimate_ai_agent/core/sandbox/emergency_stop_process_kill_safety.py",
+            "src/ultimate_ai_agent/core/sandbox/shell_subprocess_hardening_freeze.py",
+            "src/ultimate_ai_agent/api/openapi.py",
+        }
+        for root in [
+            self.root / "src" / "ultimate_ai_agent",
+            self.root / "apps" / "control-center" / "src",
+            self.root / "apps" / "ccc-ios",
+        ]:
+            if not root.exists():
+                continue
+            candidate_files = []
+            for pattern in ("*.py", "*.ts", "*.tsx", "*.js", "*.jsx", "*.swift", "*.yml", "*.yaml"):
+                candidate_files.extend(root.rglob(pattern))
+            for path in sorted(candidate_files):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(self.root).as_posix()
+                if ".test." in rel:
+                    continue
+                if rel in allowed_files:
+                    continue
+                text = path.read_text(encoding="utf-8")
+                for fragment in forbidden_source_fragments:
+                    if fragment in text:
+                        failures.append(
+                            f"M90 forbidden shell/subprocess hardening fragment in {rel}: {fragment}"
+                        )
+        return self._result(criterion, failures, [])
+
+    def check_m90_shell_subprocess_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m90_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M90 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m90_roadmap_currentness(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        required_docs = [
+            "README.md",
+            "VERSION.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/roadmap/M61_M100_ROADMAP.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+            "docs/roadmap/MILESTONE_CHARTERS.md",
+        ]
+        failures = [
+            f"missing M90 roadmap doc: {path}"
+            for path in required_docs
+            if not (self.root / path).exists()
+        ]
+        text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_docs
+            if (self.root / path).exists()
+        )
+        if "v0.94.0" not in text or "m90" not in text or "shell/subprocess hardening freeze" not in text:
+            failures.append("active docs do not identify v0.94.0/M90 Shell/Subprocess Hardening Freeze")
+        if "m90 is implemented/released" not in text and "v0.94.0 implements m90" not in text:
+            failures.append("active docs do not mark M90 implemented/released")
+        for version_label, milestone, title in [
+            ("v0.95.0", "M91", "Autonomous Tool Execution Contract"),
+            ("v0.96.0", "M92", "Low-Risk Tool Autonomy, Single Session"),
+            ("v1.4.0", "M100", "Mobile Permission Model v1"),
+        ]:
+            if version_label.lower() not in text or milestone.lower() not in text or title.lower() not in text:
+                failures.append(f"active docs missing planned M91-M100 row: {version_label} / {milestone} — {title}")
+        for fragment in (
+            "command execution is implemented",
+            "filesystem mutation is implemented",
+            "subprocess execution is implemented",
+            "shell execution is implemented",
+            "process spawn is implemented",
+            "process kill is implemented",
+            "emergency stop execution is implemented",
+            "network access is implemented",
+            "browser click is implemented",
+            "plugin execution is implemented",
+            "production authority is implemented",
+            "broad autonomy is implemented",
+        ):
+            if fragment in text:
+                failures.append(f"M90 docs imply forbidden/future capability: {fragment}")
         return self._result(criterion, failures, required_docs)
 
     def check_v0292_local_dev_api_authority_and_preview_safe(

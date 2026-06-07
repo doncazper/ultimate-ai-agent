@@ -730,6 +730,20 @@ REQUIRED_M89_EMERGENCY_STOP_PROCESS_KILL_SAFETY_DOCS = [
     "docs/implementation/foundation_gate_implementation_plan_v0_93_0.md",
 ]
 
+REQUIRED_M90_SHELL_SUBPROCESS_HARDENING_FREEZE_DOCS = [
+    "docs/sandbox/SHELL_SUBPROCESS_HARDENING_FREEZE.md",
+    "docs/sandbox/SHELL_SUBPROCESS_HARDENING_FREEZE_POLICY.md",
+    "docs/sandbox/SHELL_SUBPROCESS_HARDENING_FREEZE_AUTHORITY_BOUNDARY.md",
+    "docs/sandbox/SHELL_SUBPROCESS_HARDENING_FREEZE_RECEIPT_PLAN.md",
+    "docs/sandbox/SHELL_SUBPROCESS_HARDENING_FREEZE_NON_GOALS.md",
+    "docs/sandbox/M90_TO_M91_BOUNDARY.md",
+    "docs/roadmap/M61_M100_ROADMAP.md",
+    "docs/release_notes/v0_94_0.md",
+    "docs/archive/releases/v0_94_0/README_IMPORT.md",
+    "docs/archive/releases/v0_94_0/master_plan.md",
+    "docs/implementation/foundation_gate_implementation_plan_v0_94_0.md",
+]
+
 
 REQUIRED_ACTIVE_DOCS = [
     "docs/README.md",
@@ -1279,6 +1293,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_m87_sandboxed_command_audit_replay_docs(root, version))
     failures.extend(_verify_m88_mutating_command_proposal_docs(root, version))
     failures.extend(_verify_m89_emergency_stop_process_kill_safety_docs(root, version))
+    failures.extend(_verify_m90_shell_subprocess_hardening_freeze_docs(root, version))
     failures.extend(_verify_m19_roadmap_currentness(root, version))
     failures.extend(_verify_post_m18_roadmap_status_labels(root))
 
@@ -5794,6 +5809,98 @@ def _verify_m89_emergency_stop_process_kill_safety_docs(root: Path, version: str
         "M89 docs must not claim browser click implementation": "browser click is implemented",
         "M89 docs must not claim plugin execution implementation": "plugin execution is implemented",
         "M89 docs must not claim production authority": "production authority is implemented",
+    }
+    for message, fragment in forbidden_fragments.items():
+        if fragment in text:
+            failures.append(f"{message}: {fragment}")
+    return failures
+
+
+def _verify_m90_shell_subprocess_hardening_freeze_docs(root: Path, version: str | None) -> list[str]:
+    failures: list[str] = []
+    if _version_tuple(version) < (0, 94, 0):
+        return failures
+
+    missing = [
+        rel_path
+        for rel_path in REQUIRED_M90_SHELL_SUBPROCESS_HARDENING_FREEZE_DOCS
+        if not (root / rel_path).exists()
+    ]
+    failures.extend(
+        f"missing M90 shell/subprocess hardening freeze doc: {rel_path}"
+        for rel_path in missing
+    )
+    text = "\n".join(
+        _read(root / rel_path).lower()
+        for rel_path in REQUIRED_M90_SHELL_SUBPROCESS_HARDENING_FREEZE_DOCS
+        if (root / rel_path).exists()
+    )
+    required_fragments = {
+        "M90 docs must say shell/subprocess hardening freeze": "shell/subprocess hardening freeze",
+        "M90 docs must say contract-only": "contract-only",
+        "M90 docs must say review-only": "review-only",
+        "M90 docs must say freeze-only": "freeze-only",
+        "M90 docs must say deterministic": "deterministic",
+        "M90 docs must say local-only": "local-only",
+        "M90 docs must require M89 emergency stop + process kill safety": "m89 emergency stop + process kill safety",
+        "M90 docs must say exact M89 binding": "exact m89",
+        "M90 docs must say safe refs only": "safe refs only",
+        "M90 docs must deny command execution": "no command execution",
+        "M90 docs must deny shell execution": "no shell execution",
+        "M90 docs must deny subprocess execution": "no subprocess execution",
+        "M90 docs must deny process spawn": "no process spawn",
+        "M90 docs must deny emergency stop execution": "no emergency stop execution",
+        "M90 docs must deny process kill": "no process kill",
+        "M90 docs must deny process signal": "no process signal",
+        "M90 docs must deny filesystem mutation": "no filesystem mutation",
+        "M90 docs must deny network access": "no network access",
+        "M90 docs must deny tool execution": "no tool execution",
+        "M90 docs must deny browser automation": "no browser automation",
+        "M90 docs must deny plugin execution": "no plugin execution",
+        "M90 docs must deny remote execution": "no remote execution",
+        "M90 docs must deny model call": "no model call",
+        "M90 docs must deny memory write": "no memory write",
+        "M90 docs must deny context injection": "no context injection",
+        "M90 docs must deny background worker": "no background worker",
+        "M90 docs must deny backend routes": "no backend route",
+        "M90 docs must deny Control Center controls": "no control center control",
+        "M90 docs must deny dependencies": "no dependency",
+        "M90 docs must deny production authority": "no production authority",
+        "M90 docs must deny shell string": "no shell string",
+        "M90 docs must deny raw command": "no raw command",
+        "M90 docs must deny raw PID": "no raw pid",
+        "M90 docs must deny raw signal": "no raw signal",
+        "M90 docs must say safe summary only": "safe summary only",
+        "M90 docs must say evaluator boundaries revalidate": "evaluator boundaries revalidate",
+        "M90 docs must keep M91 future": "m91 remains future",
+    }
+    for message, fragment in required_fragments.items():
+        if fragment not in text:
+            failures.append(message)
+
+    for version_label, milestone, title in [
+        ("v0.94.0", "m90", "shell/subprocess hardening freeze"),
+        ("v0.95.0", "m91", "autonomous tool execution contract"),
+        ("v0.96.0", "m92", "low-risk tool autonomy, single session"),
+        ("v1.4.0", "m100", "mobile permission model v1"),
+    ]:
+        if version_label not in text or milestone not in text or title not in text:
+            failures.append(
+                f"M90-M100 roadmap missing label: {version_label} / {milestone.upper()} - {title}"
+            )
+
+    forbidden_fragments = {
+        "M90 docs must not claim command execution implementation": "command execution is implemented",
+        "M90 docs must not claim shell execution implementation": "shell execution is implemented",
+        "M90 docs must not claim subprocess execution implementation": "subprocess execution is implemented",
+        "M90 docs must not claim process spawn implementation": "process spawn is implemented",
+        "M90 docs must not claim process kill implementation": "process kill is implemented",
+        "M90 docs must not claim emergency stop execution implementation": "emergency stop execution is implemented",
+        "M90 docs must not claim filesystem mutation implementation": "filesystem mutation is implemented",
+        "M90 docs must not claim network access implementation": "network access is implemented",
+        "M90 docs must not claim browser click implementation": "browser click is implemented",
+        "M90 docs must not claim plugin execution implementation": "plugin execution is implemented",
+        "M90 docs must not claim production authority": "production authority is implemented",
     }
     for message, fragment in forbidden_fragments.items():
         if fragment in text:
