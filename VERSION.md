@@ -1,16 +1,15 @@
 # Ultimate AI Agent Version
 
-Current active baseline: **v1.2.0**
+Current active baseline: **v1.3.0**
 
-v1.2.0 implements M98 Scoped Recurring Low-Risk Automation. It adds scoped
-low-risk read-only recurrence contracts with strict cadence, approval renewal
-required, renewal expiry, stop conditions required, audit trail, revocation,
-kill switch, safe refs only, evaluator revalidation,
-documentation-integrity checks, static verification, tests, and Foundation Gate
-coverage.
+v1.3.0 implements M99 Autonomy v1 Safety Freeze. It adds a freeze-only,
+review-only M61-M98 autonomy v1 safety report with deep coverage, no broad
+unsandboxed autonomy, no global autonomy switch, no production authority,
+evaluator revalidation, documentation-integrity checks, static verification,
+tests, and Foundation Gate coverage.
 
-It adds no scheduler, background worker, cron daemon, recurring execution
-runtime, mutating tasks, credential or account actions, shell write, network
-write, browser write, silent background collection, secret access, memory write,
-context injection, export, backend route, Control Center control, dependency,
-M99 work, broad autonomy, or production authority.
+It adds no new capability, execution, shell execution, browser action, network
+mutation, plugin execution, scheduler, background worker, mobile sensor, memory
+write, context injection, raw prompt/provider payload exposure, raw file export,
+full-file read, backend route, Control Center control, dependency, M100 work,
+or production authority.

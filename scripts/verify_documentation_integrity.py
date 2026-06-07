@@ -857,6 +857,20 @@ REQUIRED_M98_SCOPED_RECURRING_LOW_RISK_AUTOMATION_DOCS = [
     "docs/implementation/foundation_gate_implementation_plan_v1_2_0.md",
 ]
 
+REQUIRED_M99_AUTONOMY_V1_SAFETY_FREEZE_DOCS = [
+    "docs/autonomy/AUTONOMY_V1_SAFETY_FREEZE.md",
+    "docs/autonomy/AUTONOMY_V1_SAFETY_FREEZE_POLICY.md",
+    "docs/autonomy/AUTONOMY_V1_SAFETY_FREEZE_AUTHORITY_BOUNDARY.md",
+    "docs/autonomy/AUTONOMY_V1_SAFETY_FREEZE_RECEIPT_PLAN.md",
+    "docs/autonomy/AUTONOMY_V1_SAFETY_FREEZE_NON_GOALS.md",
+    "docs/autonomy/M99_TO_M100_BOUNDARY.md",
+    "docs/roadmap/M61_M100_ROADMAP.md",
+    "docs/release_notes/v1_3_0.md",
+    "docs/archive/releases/v1_3_0/README_IMPORT.md",
+    "docs/archive/releases/v1_3_0/master_plan.md",
+    "docs/implementation/foundation_gate_implementation_plan_v1_3_0.md",
+]
+
 
 REQUIRED_ACTIVE_DOCS = [
     "docs/README.md",
@@ -1415,6 +1429,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_m96_plugin_execution_sandbox_docs(root, version))
     failures.extend(_verify_m97_recurring_automation_docs(root, version))
     failures.extend(_verify_m98_scoped_recurring_low_risk_automation_docs(root, version))
+    failures.extend(_verify_m99_autonomy_v1_safety_freeze_docs(root, version))
     failures.extend(_verify_m19_roadmap_currentness(root, version))
     failures.extend(_verify_post_m18_roadmap_status_labels(root))
 
@@ -6698,6 +6713,77 @@ def _verify_m98_scoped_recurring_low_risk_automation_docs(
         "M98 docs must not claim recurring execution runtime implementation": "recurring execution runtime is implemented",
         "M98 docs must not claim mutating recurring task implementation": "mutating recurring task is implemented",
         "M98 docs must not claim production authority": "production authority is implemented",
+    }
+    for message, fragment in forbidden_fragments.items():
+        if fragment in text:
+            failures.append(f"{message}: {fragment}")
+    return failures
+
+
+def _verify_m99_autonomy_v1_safety_freeze_docs(root: Path, version: str | None) -> list[str]:
+    failures: list[str] = []
+    if _version_tuple(version) < (1, 3, 0):
+        return failures
+
+    missing = [
+        rel_path
+        for rel_path in REQUIRED_M99_AUTONOMY_V1_SAFETY_FREEZE_DOCS
+        if not (root / rel_path).exists()
+    ]
+    failures.extend(f"missing M99 Autonomy v1 Safety Freeze doc: {rel_path}" for rel_path in missing)
+    text = "\n".join(
+        _read(root / rel_path).lower()
+        for rel_path in REQUIRED_M99_AUTONOMY_V1_SAFETY_FREEZE_DOCS
+        if (root / rel_path).exists()
+    )
+    required_fragments = {
+        "M99 docs must say Autonomy v1 Safety Freeze": "autonomy v1 safety freeze",
+        "M99 docs must say M61-M98 coverage": "m61-m98",
+        "M99 docs must say freeze-only": "freeze-only",
+        "M99 docs must say review-only": "review-only",
+        "M99 docs must deny broad unsandboxed autonomy": "no broad unsandboxed autonomy",
+        "M99 docs must deny global autonomy switch": "no global autonomy switch",
+        "M99 docs must deny production authority": "no production authority",
+        "M99 docs must deny shell execution": "no shell execution",
+        "M99 docs must deny browser action": "no browser action",
+        "M99 docs must deny network mutation": "no network mutation",
+        "M99 docs must deny plugin execution": "no plugin execution",
+        "M99 docs must deny scheduler": "no scheduler",
+        "M99 docs must deny background worker": "no background worker",
+        "M99 docs must deny mobile sensor": "no mobile sensor",
+        "M99 docs must deny memory write": "no memory write",
+        "M99 docs must deny context injection": "no context injection",
+        "M99 docs must deny raw prompt": "no raw prompt",
+        "M99 docs must deny raw file export": "no raw file export",
+        "M99 docs must deny full-file read": "no full-file read",
+        "M99 docs must deny backend route": "no backend route",
+        "M99 docs must deny dependency": "no dependency",
+        "M99 docs must say evaluator revalidation": "evaluator revalidation",
+        "M99 docs must keep M100 future": "m100 remains future",
+    }
+    for message, fragment in required_fragments.items():
+        if fragment not in text:
+            failures.append(message)
+
+    for version_label, milestone, title in [
+        ("v1.3.0", "m99", "autonomy v1 safety freeze"),
+        ("v1.4.0", "m100", "mobile permission model v1"),
+    ]:
+        if version_label not in text or milestone not in text or title not in text:
+            failures.append(
+                f"M99-M100 roadmap missing label: {version_label} / {milestone.upper()} - {title}"
+            )
+
+    forbidden_fragments = {
+        "M99 docs must not claim global autonomy switch implementation": "global autonomy switch is implemented",
+        "M99 docs must not claim broad autonomy implementation": "broad autonomy is implemented",
+        "M99 docs must not claim shell execution implementation": "shell execution is implemented",
+        "M99 docs must not claim browser action implementation": "browser action is implemented",
+        "M99 docs must not claim network mutation implementation": "network mutation is implemented",
+        "M99 docs must not claim plugin execution implementation": "plugin execution is implemented",
+        "M99 docs must not claim scheduler implementation": "scheduler is implemented",
+        "M99 docs must not claim background worker implementation": "background worker is implemented",
+        "M99 docs must not claim production authority": "production authority is implemented",
     }
     for message, fragment in forbidden_fragments.items():
         if fragment in text:

@@ -797,7 +797,8 @@ v1.1.0 adds focused recurring automation contract tests only:
 - Foundation Gate includes M97 recurring automation contracts, static safety, route boundary, and roadmap currentness criteria
 - OpenAPI path count remains unchanged at 75
 
-M98 remains planned/provisional as Scoped Recurring Low-Risk Automation.
+At the v1.1.0 baseline, M98 remained planned/provisional as Scoped Recurring
+Low-Risk Automation.
 
 ## v1.2.0 M98 Scoped Recurring Low-Risk Automation Tests
 
@@ -812,5 +813,16 @@ v1.2.0 adds focused scoped recurring low-risk automation contract tests only:
 - Foundation Gate includes M98 scoped recurring low-risk automation contracts, static safety, route boundary, and roadmap currentness criteria
 - OpenAPI path count remains unchanged at 75
 
-M99 remains planned/provisional as Autonomy v1 Safety Freeze.
+## v1.3.0 M99 Autonomy v1 Safety Freeze Tests
+
+v1.3.0 adds focused Autonomy v1 Safety Freeze tests only:
+
+- Autonomy v1 Safety Freeze policy, request, and report contracts exist
+- valid reports are freeze-only, review-only, and cover M61-M98
+- broad unsandboxed autonomy, global autonomy switch, shell execution, browser action, network mutation, plugin execution, scheduler, background worker, mobile sensor, memory write, context injection, raw prompt/provider payload exposure, raw file export, full-file read, backend route, dependency, and production authority are denied
+- model_copy-mutated unsafe request, policy, and report fields are revalidated at evaluator boundaries
+- Foundation Gate includes M99 Autonomy v1 Safety Freeze review, static safety, route boundary, and roadmap currentness criteria
+- OpenAPI path count remains unchanged at 75
+
+M100 remains planned/provisional as Mobile Permission Model v1.
 ```

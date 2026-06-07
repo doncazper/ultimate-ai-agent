@@ -80,6 +80,17 @@ from ultimate_ai_agent.core.autonomy.foundation_freeze import (
     validate_autonomy_foundation_freeze_report,
     validate_autonomy_foundation_freeze_request,
 )
+from ultimate_ai_agent.core.autonomy.v1_safety_freeze import (
+    AUTONOMY_V1_SAFETY_FREEZE_DOCS,
+    AutonomyV1SafetyFreezePolicy,
+    AutonomyV1SafetyFreezeReport,
+    AutonomyV1SafetyFreezeRequest,
+    AutonomyV1SafetyFreezeStatus,
+    build_autonomy_v1_safety_freeze_report,
+    validate_autonomy_v1_safety_freeze_policy,
+    validate_autonomy_v1_safety_freeze_report,
+    validate_autonomy_v1_safety_freeze_request,
+)
 from ultimate_ai_agent.core.autonomy.tool_autonomy_single_session import (
     LOW_RISK_TOOL_AUTONOMY_SINGLE_SESSION_DOCS,
     LowRiskToolAutonomySingleSessionDecision,
@@ -164,6 +175,15 @@ __all__ = [
     "validate_autonomy_foundation_freeze_policy",
     "validate_autonomy_foundation_freeze_report",
     "validate_autonomy_foundation_freeze_request",
+    "AUTONOMY_V1_SAFETY_FREEZE_DOCS",
+    "AutonomyV1SafetyFreezePolicy",
+    "AutonomyV1SafetyFreezeReport",
+    "AutonomyV1SafetyFreezeRequest",
+    "AutonomyV1SafetyFreezeStatus",
+    "build_autonomy_v1_safety_freeze_report",
+    "validate_autonomy_v1_safety_freeze_policy",
+    "validate_autonomy_v1_safety_freeze_report",
+    "validate_autonomy_v1_safety_freeze_request",
     "LOW_RISK_TOOL_AUTONOMY_SINGLE_SESSION_DOCS",
     "LowRiskToolAutonomySingleSessionDecision",
     "LowRiskToolAutonomySingleSessionPolicy",

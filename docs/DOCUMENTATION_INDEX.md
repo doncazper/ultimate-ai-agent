@@ -1,6 +1,6 @@
 # Documentation Index
 
-Current active baseline: **v1.2.0**
+Current active baseline: **v1.3.0**
 
 This index is the active entrypoint for documentation navigation. Historical release documents remain in the repository for audit history, but active truth starts with the current baseline files listed here.
 
@@ -684,6 +684,12 @@ docs/automation/SCOPED_RECURRING_LOW_RISK_AUTOMATION_AUTHORITY_BOUNDARY.md
 docs/automation/SCOPED_RECURRING_LOW_RISK_AUTOMATION_RECEIPT_PLAN.md
 docs/automation/SCOPED_RECURRING_LOW_RISK_AUTOMATION_NON_GOALS.md
 docs/automation/M98_TO_M99_BOUNDARY.md
+docs/autonomy/AUTONOMY_V1_SAFETY_FREEZE.md
+docs/autonomy/AUTONOMY_V1_SAFETY_FREEZE_POLICY.md
+docs/autonomy/AUTONOMY_V1_SAFETY_FREEZE_AUTHORITY_BOUNDARY.md
+docs/autonomy/AUTONOMY_V1_SAFETY_FREEZE_RECEIPT_PLAN.md
+docs/autonomy/AUTONOMY_V1_SAFETY_FREEZE_NON_GOALS.md
+docs/autonomy/M99_TO_M100_BOUNDARY.md
 ```
 
 The Codex plugin capability inventory and risk policy record available development-assist tool classes and the approval boundaries for future UI, Mobile Companion, Desktop Companion, CI, security, and documentation milestones. They are guidance-only and do not enable plugins, activate build tools, add runtime behavior, or authorize credential-bearing workflows.
@@ -696,22 +702,21 @@ scripts/dev/README.md
 ```
 
 v0.37.4 supersedes the old active M35-M40 roadmap projection and defines the
-active M34-M60 sequence. v1.2.0 is the current active baseline after
-implementing M98 Scoped Recurring Low-Risk Automation as scoped low-risk
-read-only recurrence contracts with strict cadence, approval renewal required,
-renewal expiry, stop conditions required, audit trail, revocation, kill switch,
-safe refs only, no scheduler, no background worker, no recurring execution
-runtime, no mutating tasks, no credential or account actions, no shell write, no
-network write, no browser write, no silent background collection, no backend
-routes, no dependencies, and no production authority. Active roadmap sources
-consistently mark M34-M98 implemented/released, keep M99-M100
-planned/provisional, and rely on
+active M34-M60 sequence. v1.3.0 is the current active baseline after
+implementing M99 Autonomy v1 Safety Freeze as freeze-only, review-only M61-M98
+autonomy v1 coverage with no broad unsandboxed autonomy, no global autonomy
+switch, no production authority, no shell execution, no browser action, no
+network mutation, no plugin execution, no scheduler, no background worker, no
+mobile sensor, no memory write, no context injection, no raw prompt exposure, no
+raw file export, no full-file read, no backend routes, no dependencies, and no
+production authority. Active roadmap sources consistently mark M34-M99
+implemented/released, keep M100 planned/provisional, and rely on
 documentation-integrity checks to guard against superseded-roadmap drift, stale
 current-baseline labels, route drift, and authority-boundary drift.
 
 ## Release Notes Index
 
-Current release notes: `docs/release_notes/v1_2_0.md`
+Current release notes: `docs/release_notes/v1_3_0.md`
 
 Historical release notes remain under `docs/release_notes/`. Historical docs may mention old active baselines in historical context; they are not the current source of truth.
 

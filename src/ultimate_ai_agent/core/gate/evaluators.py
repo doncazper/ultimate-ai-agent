@@ -1286,6 +1286,23 @@ M98_FORBIDDEN_BACKEND_ROUTES = M97_FORBIDDEN_BACKEND_ROUTES + (
     "/automation/recurring/mutate",
     "/automation/recurring/secrets",
 )
+EXPECTED_M99_OPENAPI_PATH_COUNT = 75
+M99_FORBIDDEN_BACKEND_ROUTES = M98_FORBIDDEN_BACKEND_ROUTES + (
+    "/autonomy/global/enable",
+    "/autonomy/global/autonomous",
+    "/autonomy/run",
+    "/autonomy/execute",
+    "/autonomy/tools/execute",
+    "/autonomy/browser/click",
+    "/autonomy/network/post",
+    "/autonomy/plugins/execute",
+    "/browser/form-submit",
+    "/network/post",
+    "/mobile/sensors",
+    "/mobile/background/collect",
+    "/files/export/raw",
+    "/files/read/full",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -2460,6 +2477,21 @@ def m98_openapi_route_failures(
     return failures
 
 
+def m99_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M99_OPENAPI_PATH_COUNT
+) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(
+            f"OpenAPI path count changed for M99: expected {expected_path_count}, got {len(path_set)}"
+        )
+    for route in M99_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(f"M99 forbidden autonomy/runtime route present: {route}")
+    return failures
+
+
 M36_SAFE_REF_PREFIXES = {
     "reviewPacketRef": "file-review-packet:",
     "previewResultRef": "redacted-file-preview-output:",
@@ -3302,6 +3334,16 @@ class FoundationGateEvaluator:
                 self.check_m98_scoped_recurring_low_risk_automation_route_boundary
             ),
             "m98_roadmap_currentness": self.check_m98_roadmap_currentness,
+            "m99_autonomy_v1_safety_freeze_review": (
+                self.check_m99_autonomy_v1_safety_freeze_review
+            ),
+            "m99_autonomy_v1_safety_freeze_static_safety": (
+                self.check_m99_autonomy_v1_safety_freeze_static_safety
+            ),
+            "m99_autonomy_v1_safety_freeze_route_boundary": (
+                self.check_m99_autonomy_v1_safety_freeze_route_boundary
+            ),
+            "m99_roadmap_currentness": self.check_m99_roadmap_currentness,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -28335,6 +28377,251 @@ class FoundationGateEvaluator:
         ):
             if fragment in text:
                 failures.append(f"M98 docs imply forbidden/future capability: {fragment}")
+        return self._result(criterion, failures, required_docs)
+
+    def check_m99_autonomy_v1_safety_freeze_review(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/autonomy/v1_safety_freeze.py",
+            "docs/autonomy/AUTONOMY_V1_SAFETY_FREEZE.md",
+            "docs/autonomy/AUTONOMY_V1_SAFETY_FREEZE_POLICY.md",
+            "docs/autonomy/AUTONOMY_V1_SAFETY_FREEZE_AUTHORITY_BOUNDARY.md",
+            "docs/autonomy/AUTONOMY_V1_SAFETY_FREEZE_RECEIPT_PLAN.md",
+            "docs/autonomy/AUTONOMY_V1_SAFETY_FREEZE_NON_GOALS.md",
+            "docs/autonomy/M99_TO_M100_BOUNDARY.md",
+            "docs/roadmap/M61_M100_ROADMAP.md",
+            "tests/test_m99_autonomy_v1_safety_freeze.py",
+            "tests/test_m99_gate_integration.py",
+        ]
+        failures = [
+            f"missing M99 Autonomy v1 Safety Freeze file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            sys.path.insert(0, str(self.root))
+            from tests.test_m99_autonomy_v1_safety_freeze import _request
+            from ultimate_ai_agent.core.autonomy import (
+                AutonomyV1SafetyFreezeStatus,
+                build_autonomy_v1_safety_freeze_report,
+                validate_autonomy_v1_safety_freeze_report,
+            )
+
+            report = build_autonomy_v1_safety_freeze_report(_request())
+            if (
+                report.status != AutonomyV1SafetyFreezeStatus.frozen_for_review
+                or not report.freeze_only
+                or not report.review_only
+                or not report.m61_m98_covered
+                or not report.no_broad_unsandboxed_autonomy
+                or not report.no_production_authority
+                or report.broad_autonomy_granted
+                or report.global_autonomy_switch_enabled
+                or report.execution_performed
+                or report.tool_execution_performed
+                or report.shell_execution_performed
+                or report.browser_action_performed
+                or report.network_mutation_performed
+                or report.plugin_execution_performed
+                or report.background_worker_started
+                or report.scheduler_started
+                or report.mobile_sensor_performed
+                or report.memory_write_performed
+                or report.context_injection_performed
+                or report.raw_prompt_payload_exposed
+                or report.raw_file_export_performed
+                or report.full_file_read_performed
+                or report.remote_execution_performed
+                or report.backend_route_added
+                or report.control_center_control_added
+                or report.dependency_added
+                or report.production_authority_granted
+                or "M99_AUTONOMY_V1_SAFETY_FREEZE_REVIEW_ONLY"
+                not in report.reason_codes
+                or "M100_REMAINS_FUTURE" not in report.reason_codes
+            ):
+                failures.append("M99 Autonomy v1 Safety Freeze report is unsafe or over-authoritative")
+            for update, reason in [
+                ({"shell_execution_performed": True}, "SHELL_EXECUTION_DENIED"),
+                ({"background_worker_started": True}, "BACKGROUND_WORKER_DENIED"),
+                ({"production_authority_granted": True}, "PRODUCTION_AUTHORITY_DENIED"),
+            ]:
+                try:
+                    validate_autonomy_v1_safety_freeze_report(
+                        report.model_copy(update=update)
+                    )
+                    failures.append(f"M99 unsafe report mutation was not denied with {reason}")
+                except ValueError as exc:
+                    if reason not in str(exc):
+                        failures.append(f"M99 unsafe report mutation raised {exc!s}")
+        except Exception as exc:
+            failures.append(f"M99 Autonomy v1 Safety Freeze validation failed: {exc}")
+
+        docs_text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_files
+            if path.startswith("docs/") and (self.root / path).exists()
+        )
+        for fragment in [
+            "autonomy v1 safety freeze",
+            "m61-m98",
+            "freeze-only",
+            "review-only",
+            "no broad unsandboxed autonomy",
+            "no global autonomy switch",
+            "no production authority",
+            "no shell execution",
+            "no browser action",
+            "no network mutation",
+            "no plugin execution",
+            "no scheduler",
+            "no background worker",
+            "no mobile sensor",
+            "no memory write",
+            "no context injection",
+            "no raw prompt",
+            "no raw file export",
+            "no full-file read",
+            "no backend route",
+            "no dependency",
+            "evaluator boundaries revalidate",
+            "m100 remains future",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M99 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m99_autonomy_v1_safety_freeze_static_safety(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        forbidden_source_fragments = [
+            "broad_autonomy_enabled=True",
+            "global_autonomy_switch_enabled=True",
+            "execution_enabled=True",
+            "tool_execution_enabled=True",
+            "shell_execution_enabled=True",
+            "browser_action_enabled=True",
+            "network_mutation_enabled=True",
+            "plugin_execution_enabled=True",
+            "background_worker_enabled=True",
+            "scheduler_enabled=True",
+            "mobile_sensor_enabled=True",
+            "memory_write_enabled=True",
+            "context_injection_enabled=True",
+            "credential_cookie_access_enabled=True",
+            "raw_prompt_payload_exposure_enabled=True",
+            "raw_file_export_enabled=True",
+            "full_file_read_enabled=True",
+            "remote_execution_enabled=True",
+            "production_authority_enabled=True",
+            "broad_autonomy_requested=True",
+            "global_autonomy_switch_requested=True",
+            "execution_requested=True",
+            "tool_execution_requested=True",
+            "shell_execution_requested=True",
+            "browser_action_requested=True",
+            "network_mutation_requested=True",
+            "plugin_execution_requested=True",
+            "background_worker_requested=True",
+            "scheduler_requested=True",
+            "mobile_sensor_requested=True",
+            "memory_write_requested=True",
+            "context_injection_requested=True",
+            "production_authority_requested=True",
+            "broad_autonomy_granted=True",
+            "tool_execution_performed=True",
+            "shell_execution_performed=True",
+            "browser_action_performed=True",
+            "network_mutation_performed=True",
+            "plugin_execution_performed=True",
+            "background_worker_started=True",
+            "scheduler_started=True",
+            "mobile_sensor_performed=True",
+            "memory_write_performed=True",
+            "context_injection_performed=True",
+            "production_authority_granted=True",
+        ]
+        allowed_files = {
+            "scripts/verify_all.py",
+            "src/ultimate_ai_agent/core/gate/evaluators.py",
+            "src/ultimate_ai_agent/core/autonomy/__init__.py",
+            "src/ultimate_ai_agent/core/autonomy/v1_safety_freeze.py",
+        }
+        for root in [
+            self.root / "src" / "ultimate_ai_agent",
+            self.root / "apps" / "control-center" / "src",
+            self.root / "apps" / "ccc-ios",
+        ]:
+            if not root.exists():
+                continue
+            candidate_files = []
+            for pattern in ("*.py", "*.ts", "*.tsx", "*.js", "*.jsx", "*.swift", "*.yml", "*.yaml"):
+                candidate_files.extend(root.rglob(pattern))
+            for path in sorted(candidate_files):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(self.root).as_posix()
+                if ".test." in rel:
+                    continue
+                if rel in allowed_files:
+                    continue
+                text = path.read_text(encoding="utf-8")
+                for fragment in forbidden_source_fragments:
+                    if fragment in text:
+                        failures.append(
+                            f"M99 forbidden autonomy freeze fragment in {rel}: {fragment}"
+                        )
+        return self._result(criterion, failures, [])
+
+    def check_m99_autonomy_v1_safety_freeze_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m99_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M99 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m99_roadmap_currentness(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        required_docs = [
+            "README.md",
+            "VERSION.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/roadmap/M61_M100_ROADMAP.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+            "docs/roadmap/MILESTONE_CHARTERS.md",
+        ]
+        failures = [
+            f"missing M99 roadmap doc: {path}"
+            for path in required_docs
+            if not (self.root / path).exists()
+        ]
+        text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_docs
+            if (self.root / path).exists()
+        )
+        if "v1.3.0" not in text or "m99" not in text or "autonomy v1 safety freeze" not in text:
+            failures.append("active docs do not identify v1.3.0/M99 Autonomy v1 Safety Freeze")
+        if "m99 is implemented/released" not in text and "v1.3.0 implements m99" not in text:
+            failures.append("active docs do not mark M99 implemented/released")
+        if "v1.4.0" not in text or "m100" not in text or "mobile permission model v1" not in text:
+            failures.append("active docs missing planned M100 row")
+        for fragment in (
+            "mobile permission runtime is implemented",
+            "mobile sensors are implemented",
+            "background collection is implemented",
+            "production authority is implemented",
+            "broad autonomy is implemented",
+            "global autonomy switch is implemented",
+        ):
+            if fragment in text:
+                failures.append(f"M99 docs imply forbidden/future capability: {fragment}")
         return self._result(criterion, failures, required_docs)
 
     def check_v0292_local_dev_api_authority_and_preview_safe(
