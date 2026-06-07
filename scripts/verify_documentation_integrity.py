@@ -772,6 +772,20 @@ REQUIRED_M92_LOW_RISK_TOOL_AUTONOMY_SINGLE_SESSION_DOCS = [
     "docs/implementation/foundation_gate_implementation_plan_v0_96_0.md",
 ]
 
+REQUIRED_M93_MULTI_TOOL_DRY_RUN_PROMOTION_DOCS = [
+    "docs/autonomy/MULTI_TOOL_DRY_RUN_PROMOTION.md",
+    "docs/autonomy/MULTI_TOOL_DRY_RUN_PROMOTION_POLICY.md",
+    "docs/autonomy/MULTI_TOOL_DRY_RUN_PROMOTION_AUTHORITY_BOUNDARY.md",
+    "docs/autonomy/MULTI_TOOL_DRY_RUN_PROMOTION_RECEIPT_PLAN.md",
+    "docs/autonomy/MULTI_TOOL_DRY_RUN_PROMOTION_NON_GOALS.md",
+    "docs/autonomy/M93_TO_M94_BOUNDARY.md",
+    "docs/roadmap/M61_M100_ROADMAP.md",
+    "docs/release_notes/v0_97_0.md",
+    "docs/archive/releases/v0_97_0/README_IMPORT.md",
+    "docs/archive/releases/v0_97_0/master_plan.md",
+    "docs/implementation/foundation_gate_implementation_plan_v0_97_0.md",
+]
+
 
 REQUIRED_ACTIVE_DOCS = [
     "docs/README.md",
@@ -1324,6 +1338,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_m90_shell_subprocess_hardening_freeze_docs(root, version))
     failures.extend(_verify_m91_autonomous_tool_execution_contract_docs(root, version))
     failures.extend(_verify_m92_low_risk_tool_autonomy_single_session_docs(root, version))
+    failures.extend(_verify_m93_multi_tool_dry_run_promotion_docs(root, version))
     failures.extend(_verify_m19_roadmap_currentness(root, version))
     failures.extend(_verify_post_m18_roadmap_status_labels(root))
 
@@ -6111,6 +6126,97 @@ def _verify_m92_low_risk_tool_autonomy_single_session_docs(
         "M92 docs must not claim browser click implementation": "browser click is implemented",
         "M92 docs must not claim plugin execution implementation": "plugin execution is implemented",
         "M92 docs must not claim production authority": "production authority is implemented",
+    }
+    for message, fragment in forbidden_fragments.items():
+        if fragment in text:
+            failures.append(f"{message}: {fragment}")
+    return failures
+
+
+def _verify_m93_multi_tool_dry_run_promotion_docs(
+    root: Path, version: str | None
+) -> list[str]:
+    failures: list[str] = []
+    if _version_tuple(version) < (0, 97, 0):
+        return failures
+
+    missing = [
+        rel_path
+        for rel_path in REQUIRED_M93_MULTI_TOOL_DRY_RUN_PROMOTION_DOCS
+        if not (root / rel_path).exists()
+    ]
+    failures.extend(
+        f"missing M93 multi-tool dry-run promotion doc: {rel_path}"
+        for rel_path in missing
+    )
+    text = "\n".join(
+        _read(root / rel_path).lower()
+        for rel_path in REQUIRED_M93_MULTI_TOOL_DRY_RUN_PROMOTION_DOCS
+        if (root / rel_path).exists()
+    )
+    required_fragments = {
+        "M93 docs must say multi-tool dry-run to real run promotion": "multi-tool dry-run to real run promotion",
+        "M93 docs must say review-only": "review-only",
+        "M93 docs must mention dry-run plan": "dry-run plan",
+        "M93 docs must mention real-run plan": "real-run plan",
+        "M93 docs must require exact M92 binding": "exact m92",
+        "M93 docs must require exact promotion approval": "exact promotion approval",
+        "M93 docs must deny wildcard approval": "wildcard approval denied",
+        "M93 docs must require plan hash binding": "plan hash",
+        "M93 docs must require equivalence": "dry-run and real-run equivalence",
+        "M93 docs must deny unapproved real execution": "no unapproved real execution",
+        "M93 docs must deny real-run execution": "no real-run execution",
+        "M93 docs must deny tool execution": "no tool execution",
+        "M93 docs must deny autonomous execution": "no autonomous execution",
+        "M93 docs must deny session start": "no session start",
+        "M93 docs must deny command execution": "no command execution",
+        "M93 docs must deny shell execution": "no shell execution",
+        "M93 docs must deny subprocess execution": "no subprocess execution",
+        "M93 docs must deny filesystem mutation": "no filesystem mutation",
+        "M93 docs must deny network access": "no network access",
+        "M93 docs must deny browser click": "no browser click",
+        "M93 docs must deny browser form": "no browser form",
+        "M93 docs must deny plugin execution": "no plugin execution",
+        "M93 docs must deny remote execution": "no remote execution",
+        "M93 docs must deny model call": "no model call",
+        "M93 docs must deny memory write": "no memory write",
+        "M93 docs must deny context injection": "no context injection",
+        "M93 docs must deny background worker": "no background worker",
+        "M93 docs must deny backend routes": "no backend route",
+        "M93 docs must deny Control Center controls": "no control center control",
+        "M93 docs must deny dependencies": "no dependency",
+        "M93 docs must deny production authority": "no production authority",
+        "M93 docs must say safe refs only": "safe refs only",
+        "M93 docs must say safe summary only": "safe summary only",
+        "M93 docs must say evaluator boundaries revalidate": "evaluator boundaries revalidate",
+        "M93 docs must keep M94 future": "m94 remains future",
+    }
+    for message, fragment in required_fragments.items():
+        if fragment not in text:
+            failures.append(message)
+
+    for version_label, milestone, title in [
+        ("v0.97.0", "m93", "multi-tool dry-run to real run promotion"),
+        ("v0.98.0", "m94", "autonomous browser clicks, low-risk only"),
+        ("v1.4.0", "m100", "mobile permission model v1"),
+    ]:
+        if version_label not in text or milestone not in text or title not in text:
+            failures.append(
+                f"M93-M100 roadmap missing label: {version_label} / {milestone.upper()} - {title}"
+            )
+
+    forbidden_fragments = {
+        "M93 docs must not claim real-run execution implementation": "real-run execution is implemented",
+        "M93 docs must not claim real tool execution implementation": "real tool execution is implemented",
+        "M93 docs must not claim browser click implementation": "browser click is implemented",
+        "M93 docs must not claim browser form implementation": "browser form is implemented",
+        "M93 docs must not claim command execution implementation": "command execution is implemented",
+        "M93 docs must not claim shell execution implementation": "shell execution is implemented",
+        "M93 docs must not claim subprocess execution implementation": "subprocess execution is implemented",
+        "M93 docs must not claim filesystem mutation implementation": "filesystem mutation is implemented",
+        "M93 docs must not claim network access implementation": "network access is implemented",
+        "M93 docs must not claim plugin execution implementation": "plugin execution is implemented",
+        "M93 docs must not claim production authority": "production authority is implemented",
     }
     for message, fragment in forbidden_fragments.items():
         if fragment in text:

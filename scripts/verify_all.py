@@ -126,6 +126,7 @@ SCAN_SEQUENCE = [
     ("M90 shell/subprocess hardening freeze scan", "verify_m90_shell_subprocess_hardening_freeze"),
     ("M91 autonomous tool execution contract scan", "verify_m91_autonomous_tool_execution_contract"),
     ("M92 low-risk tool autonomy single-session scan", "verify_m92_low_risk_tool_autonomy_single_session"),
+    ("M93 multi-tool dry-run promotion scan", "verify_m93_multi_tool_dry_run_promotion"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -15816,6 +15817,214 @@ def verify_m92_low_risk_tool_autonomy_single_session():
             sys.exit(1)
 
     print("OK: M92 low-risk tool autonomy single-session is review-only, route-free, and no-authority")
+
+
+def verify_m93_multi_tool_dry_run_promotion():
+    print("\n[Verifier] Running M93 multi-tool dry-run promotion guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/autonomy/__init__.py",
+        "src/ultimate_ai_agent/core/autonomy/dry_run_promotion.py",
+        "docs/autonomy/MULTI_TOOL_DRY_RUN_PROMOTION.md",
+        "docs/autonomy/MULTI_TOOL_DRY_RUN_PROMOTION_POLICY.md",
+        "docs/autonomy/MULTI_TOOL_DRY_RUN_PROMOTION_AUTHORITY_BOUNDARY.md",
+        "docs/autonomy/MULTI_TOOL_DRY_RUN_PROMOTION_RECEIPT_PLAN.md",
+        "docs/autonomy/MULTI_TOOL_DRY_RUN_PROMOTION_NON_GOALS.md",
+        "docs/autonomy/M93_TO_M94_BOUNDARY.md",
+        "docs/release_notes/v0_97_0.md",
+        "docs/archive/releases/v0_97_0/README_IMPORT.md",
+        "docs/archive/releases/v0_97_0/master_plan.md",
+        "docs/implementation/foundation_gate_implementation_plan_v0_97_0.md",
+        "tests/test_m93_multi_tool_dry_run_promotion.py",
+        "tests/test_m93_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M93 multi-tool dry-run promotion file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = "\n".join(
+        (ROOT / rel_path).read_text(encoding="utf-8").lower()
+        for rel_path in required_files
+        if rel_path.startswith("docs/")
+    )
+    for fragment in [
+        "multi-tool dry-run to real run promotion",
+        "review-only",
+        "dry-run plan",
+        "real-run plan",
+        "exact m92",
+        "exact promotion approval",
+        "wildcard approval denied",
+        "plan hash",
+        "dry-run and real-run equivalence",
+        "no unapproved real execution",
+        "no real-run execution",
+        "no tool execution",
+        "no autonomous execution",
+        "no session start",
+        "no command execution",
+        "no shell execution",
+        "no subprocess execution",
+        "no filesystem mutation",
+        "no network access",
+        "no browser click",
+        "no browser form",
+        "no plugin execution",
+        "no remote execution",
+        "no model call",
+        "no memory write",
+        "no context injection",
+        "no background worker",
+        "no backend route",
+        "no control center control",
+        "no dependency",
+        "no production authority",
+        "safe refs only",
+        "safe summary only",
+        "evaluator boundaries revalidate",
+        "m94 remains future",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M93 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from tests.test_m93_multi_tool_dry_run_promotion import _request
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.autonomy import (
+            MultiToolDryRunPromotionStatus,
+            build_multi_tool_dry_run_promotion_decision,
+            validate_multi_tool_dry_run_promotion_decision,
+        )
+        from ultimate_ai_agent.core.gate.evaluators import m93_openapi_route_failures
+    except Exception as exc:
+        print(f"FAIL: M93 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m93_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    decision = build_multi_tool_dry_run_promotion_decision(_request())
+    if (
+        decision.status != MultiToolDryRunPromotionStatus.promotion_ready_for_review
+        or not decision.review_only
+        or not decision.deterministic
+        or not decision.local_only
+        or not decision.safe_refs_only
+        or not decision.m92_single_session_revalidated
+        or not decision.dry_run_real_run_equivalent
+        or not decision.exact_promotion_approval_bound
+        or not decision.wildcard_approval_denied
+        or decision.execution_authorized
+        or decision.real_run_execution_authorized
+        or decision.tool_execution_authorized
+        or decision.execution_performed
+        or decision.real_run_execution_performed
+        or decision.tool_execution_performed
+        or decision.side_effects_performed
+        or not decision.receipt_plan.store_safe_summary_only
+        or not decision.receipt_plan.store_safe_refs_only
+        or not decision.receipt_plan.store_plan_hash_refs_only
+        or decision.receipt_plan.execution_performed
+        or "M93_MULTI_TOOL_DRY_RUN_REAL_RUN_PROMOTION_REVIEW_ONLY" not in decision.reason_codes
+        or "M93_DRY_RUN_REAL_RUN_EQUIVALENCE_REQUIRED" not in decision.reason_codes
+        or "M93_EXACT_PROMOTION_APPROVAL_REQUIRED" not in decision.reason_codes
+        or "M93_NO_UNAPPROVED_REAL_EXECUTION" not in decision.reason_codes
+        or "M94_REMAINS_FUTURE" not in decision.reason_codes
+    ):
+        print("FAIL: M93 multi-tool dry-run promotion decision is unsafe or over-authoritative")
+        sys.exit(1)
+
+    for update, reason in [
+        ({"execution_authorized": True}, "EXECUTION_DENIED"),
+        ({"real_run_execution_authorized": True}, "M93_REAL_RUN_EXECUTION_DENIED"),
+        ({"tool_execution_authorized": True}, "TOOL_EXECUTION_DENIED"),
+        ({"session_start_authorized": True}, "SESSION_START_DENIED"),
+        ({"backend_route_added": True}, "BACKEND_ROUTE_DENIED"),
+    ]:
+        try:
+            validate_multi_tool_dry_run_promotion_decision(decision.model_copy(update=update))
+            print(f"FAIL: M93 mutated authority flag was not denied: {update}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M93 mutated authority flag raised {exc!s}")
+                sys.exit(1)
+
+    allowed_scan_files = {
+        "scripts/verify_all.py",
+        "src/ultimate_ai_agent/api/openapi.py",
+        "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/autonomy/__init__.py",
+        "src/ultimate_ai_agent/core/autonomy/dry_run_promotion.py",
+        "src/ultimate_ai_agent/core/autonomy/tool_autonomy_single_session.py",
+        "src/ultimate_ai_agent/core/autonomy/dry_run.py",
+        "src/ultimate_ai_agent/core/tools/autonomous_execution_contract.py",
+        "src/ultimate_ai_agent/core/tools/runtime/invocation.py",
+    }
+    source_text = "\n".join(
+        path.read_text(encoding="utf-8")
+        for root in [ROOT / "src" / "ultimate_ai_agent", ROOT / "apps" / "control-center" / "src"]
+        if root.exists()
+        for path in root.rglob("*")
+        if path.is_file()
+        and path.suffix in {".py", ".ts", ".tsx", ".js", ".jsx"}
+        and path.relative_to(ROOT).as_posix() not in allowed_scan_files
+    )
+    for fragment in [
+        "real_run_promotion_enabled=True",
+        "real_run_execution_enabled=True",
+        "tool_execution_enabled=True",
+        "execution_enabled=True",
+        "session_start_enabled=True",
+        "background_worker_enabled=True",
+        "command_execution_enabled=True",
+        "shell_execution_enabled=True",
+        "subprocess_execution_enabled=True",
+        "filesystem_mutation_enabled=True",
+        "network_access_enabled=True",
+        "browser_click_enabled=True",
+        "browser_form_enabled=True",
+        "plugin_execution_enabled=True",
+        "remote_execution_enabled=True",
+        "model_call_enabled=True",
+        "memory_write_enabled=True",
+        "context_injection_enabled=True",
+        "backend_route_enabled=True",
+        "control_center_control_enabled=True",
+        "dependency_change_enabled=True",
+        "production_authority_enabled=True",
+        "real_run_execution_requested=True",
+        "real_run_execution_authorized=True",
+        "real_run_execution_performed=True",
+        "backend_route_added=True",
+        "control_center_control_added=True",
+        "dependency_added=True",
+        "production_authority_granted=True",
+        "store_raw_tool_payload=True",
+        "store_raw_provider_payload=True",
+        "store_raw_prompt=True",
+        "store_secret=True",
+    ]:
+        if fragment in source_text:
+            print(f"FAIL: M93 forbidden source fragment present: {fragment}")
+            sys.exit(1)
+
+    for forbidden_route in [
+        "/autonomy/promotion/approve",
+        "/autonomy/promotion/execute",
+        "/autonomy/real-run/execute",
+        "/autonomy/dry-run/promote",
+        "/tools/multi/execute",
+    ]:
+        if forbidden_route in source_text:
+            print(f"FAIL: M93 forbidden backend/frontend route fragment present: {forbidden_route}")
+            sys.exit(1)
+
+    print("OK: M93 multi-tool dry-run promotion is review-only, route-free, and no-authority")
 
 
 def verify_local_developer_launcher_safety():

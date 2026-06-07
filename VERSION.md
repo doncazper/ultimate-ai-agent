@@ -1,17 +1,17 @@
 # Ultimate AI Agent Version
 
-Current active baseline: **v0.96.0**
+Current active baseline: **v0.97.0**
 
-v0.96.0 implements M92 Low-Risk Tool Autonomy, Single Session. It adds
-review-only, low-risk only, single-session only, deterministic, local-only
-contracts over exact M91 Autonomous Tool Execution Contract decisions and exact
-M69 low-risk autonomous dry run records, safe refs only decisions, safe summary
+v0.97.0 implements M93 Multi-Tool Dry-Run to Real Run Promotion. It adds
+review-only, deterministic, local-only promotion contracts that require exact
+M92 binding, dry-run plan and real-run plan equivalence, matching plan hashes,
+exact non-wildcard promotion approval, safe refs only decisions, safe summary
 only receipt plans, evaluator revalidation, documentation-integrity checks,
 static verification, tests, and Foundation Gate coverage.
 
-It adds no real tool execution, autonomous execution, session start, additional
-session, multi-tool run, command execution, shell execution, subprocess
-execution, filesystem mutation, network access, browser automation, plugin
-execution, remote execution, model call, memory write, context injection,
-background worker, backend route, Control Center control, dependency, M93 work,
-or production authority.
+It adds no unapproved real execution, real-run execution, tool execution,
+autonomous execution, session start, command execution, shell execution,
+subprocess execution, filesystem mutation, network access, browser click,
+browser form, plugin execution, remote execution, model call, memory write,
+context injection, background worker, backend route, Control Center control,
+dependency, M94 work, broad autonomy, or production authority.

@@ -12,25 +12,25 @@ allowed to become operational authority.
 
 | Field | Current state |
 |---|---|
-| Current active baseline | **v0.96.0** |
-| Current milestone | **M92 - Low-Risk Tool Autonomy, Single Session** |
+| Current active baseline | **v0.97.0** |
+| Current milestone | **M93 - Multi-Tool Dry-Run to Real Run Promotion** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **75** OpenAPI paths |
 | Production readiness | Not claimed |
 
-v0.96.0 implements M92 Low-Risk Tool Autonomy, Single Session. It adds
-review-only, low-risk only, single-session only, deterministic, local-only
-contracts over exact M91 Autonomous Tool Execution Contract decisions and exact
-M69 low-risk autonomous dry run records, safe refs only decisions, safe summary
+v0.97.0 implements M93 Multi-Tool Dry-Run to Real Run Promotion. It adds
+review-only, deterministic, local-only promotion contracts that require exact
+M92 binding, dry-run plan and real-run plan equivalence, matching plan hashes,
+exact non-wildcard promotion approval, safe refs only decisions, safe summary
 only receipt plans, evaluator revalidation, documentation-integrity checks,
-static verification, tests, and Foundation Gate coverage. It adds no real tool
-execution, autonomous execution, session start, additional session, multi-tool
-run, command execution, shell execution, subprocess execution, filesystem
-mutation, network access, browser automation, plugin execution, remote
-execution, model call, memory write, context injection, background worker,
-backend routes, Control Center controls, dependency, M93 work, or production
-authority.
+static verification, tests, and Foundation Gate coverage. It adds no unapproved
+real execution, real-run execution, tool execution, autonomous execution,
+session start, command execution, shell execution, subprocess execution,
+filesystem mutation, network access, browser click, browser form, plugin
+execution, remote execution, model call, memory write, context injection,
+background worker, backend routes, Control Center controls, dependency, M94
+work, broad autonomy, or production authority.
 
 v0.29.5 is documentation policy polish. It remains the documentation
 organization cleanup baseline before the M26 and M27 implementation releases.
@@ -69,6 +69,8 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M91 Autonomous Tool Execution Authority Boundary](docs/tools/AUTONOMOUS_TOOL_EXECUTION_AUTHORITY_BOUNDARY.md)
 - [M92 Low-Risk Tool Autonomy, Single Session](docs/autonomy/LOW_RISK_TOOL_AUTONOMY_SINGLE_SESSION.md)
 - [M92 Low-Risk Tool Autonomy Authority Boundary](docs/autonomy/LOW_RISK_TOOL_AUTONOMY_SINGLE_SESSION_AUTHORITY_BOUNDARY.md)
+- [M93 Multi-Tool Dry-Run Promotion](docs/autonomy/MULTI_TOOL_DRY_RUN_PROMOTION.md)
+- [M93 Multi-Tool Dry-Run Promotion Authority Boundary](docs/autonomy/MULTI_TOOL_DRY_RUN_PROMOTION_AUTHORITY_BOUNDARY.md)
 - [M73 Browser Automation Contract Review](docs/browser/BROWSER_AUTOMATION_CONTRACT_REVIEW.md)
 - [M73 Browser Automation Contract Review Policy](docs/browser/BROWSER_AUTOMATION_CONTRACT_REVIEW_POLICY.md)
 - [M73 Browser Automation Authority Boundary](docs/browser/BROWSER_AUTOMATION_AUTHORITY_BOUNDARY.md)
@@ -249,6 +251,8 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [v0.95.0 master plan](docs/archive/releases/v0_95_0/master_plan.md)
 - [v0.96.0 release packet](docs/archive/releases/v0_96_0/README_IMPORT.md)
 - [v0.96.0 master plan](docs/archive/releases/v0_96_0/master_plan.md)
+- [v0.97.0 release packet](docs/archive/releases/v0_97_0/README_IMPORT.md)
+- [v0.97.0 master plan](docs/archive/releases/v0_97_0/master_plan.md)
 
 ## What This Project Is
 
