@@ -1,6 +1,6 @@
 # M61-M100 Roadmap
 
-Status: Active roadmap maintained through M96 / v1.0.0.
+Status: Active roadmap maintained through M98 / v1.2.0.
 
 M61 is implemented/released by v0.65.0 as Autonomy Mode Charter + Authority
 Levels. M62 is implemented/released by v0.66.0 as Scoped Autonomy Session
@@ -40,7 +40,8 @@ implemented/released by v0.98.0 as Autonomous Browser Clicks, Low-Risk Only.
 M95 is implemented/released by v0.99.0 as Network Tool Expansion, Authless
 Only. M96 is implemented/released by v1.0.0 as Plugin Execution Sandbox, No
 External Plugins. M97 is implemented/released by v1.1.0 as Recurring
-Automation Contracts. M98-M100 remain planned/provisional. This roadmap adds no
+Automation Contracts. M98 is implemented/released by v1.2.0 as Scoped Recurring
+Low-Risk Automation. M99-M100 remain planned/provisional. This roadmap adds no
 production authority, no global autonomy switch, no broad autonomy, no real tool
 execution, no shell execution, no browser automation beyond the M74 injected
 observation redacted preview boundary except the M94 exact-bound low-risk click
@@ -94,7 +95,7 @@ no dependency.
 | v0.99.0 | M95 | Network Tool Expansion, Authless Only | Implemented/released |
 | v1.0.0 | M96 | Plugin Execution Sandbox, No External Plugins | Implemented/released |
 | v1.1.0 | M97 | Recurring Automation Contracts | Implemented/released |
-| v1.2.0 | M98 | Scoped Recurring Low-Risk Automation | Planned/provisional |
+| v1.2.0 | M98 | Scoped Recurring Low-Risk Automation | Implemented/released |
 | v1.3.0 | M99 | Autonomy v1 Safety Freeze | Planned/provisional |
 | v1.4.0 | M100 | Mobile Permission Model v1 | Planned/provisional |
 
@@ -125,6 +126,17 @@ scheduler, no side effects, no shell execution, no network access, no browser
 automation, no plugin execution, no memory write, no context injection, no
 backend route, no Control Center control, no dependency, no broad autonomy, no
 production authority, and no M98 work.
+
+M98 is implemented/released as Scoped Recurring Low-Risk Automation with
+low-risk read-only recurrence contracts, strict cadence, approval renewal
+required, renewal expiry, stop conditions required, audit trail, revocation,
+kill switch, safe refs only, evaluator boundaries revalidate, and safe-ref-only
+receipt plans. It adds no scheduler, no background worker, no recurring
+execution runtime, no mutating tasks, no credential or account actions, no shell
+write, no network write, no browser write, no silent background collection, no
+secret access, no memory write, no context injection, no export, no backend
+route, no Control Center control, no dependency, no broad autonomy, no
+production authority, and no M99 work.
 
 M83 is implemented/released as classifier-only, review-only, deterministic, and
 local-only Shell Dry-Run Classifier contracts over already-validated M82 command

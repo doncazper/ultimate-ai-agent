@@ -798,4 +798,19 @@ v1.1.0 adds focused recurring automation contract tests only:
 - OpenAPI path count remains unchanged at 75
 
 M98 remains planned/provisional as Scoped Recurring Low-Risk Automation.
+
+## v1.2.0 M98 Scoped Recurring Low-Risk Automation Tests
+
+v1.2.0 adds focused scoped recurring low-risk automation contract tests only:
+
+- scoped recurring low-risk automation policy, cadence, request, decision, and receipt plan contracts exist
+- valid decisions are low-risk read-only, strict-cadence, safe-ref-only, renewal-bound, stop-condition-bound, audit-bound, revocation-bound, and kill-switch-bound
+- renewal expiry, revoked state, missing stop conditions, missing kill switch, unsafe authority refs, and approval_test_* refs are denied
+- scheduler, background worker, recurring execution runtime, mutating tasks, credential or account actions, shell write, network write, browser write, silent background collection, secret access, memory write, context injection, export, backend route, dependency, and production authority are denied
+- receipt plans store safe refs only and deny raw payloads, recurring execution, scheduler/worker start, write actions, memory/context/export, and side effects
+- model_copy-mutated unsafe request, decision, and receipt fields are revalidated at evaluator boundaries
+- Foundation Gate includes M98 scoped recurring low-risk automation contracts, static safety, route boundary, and roadmap currentness criteria
+- OpenAPI path count remains unchanged at 75
+
+M99 remains planned/provisional as Autonomy v1 Safety Freeze.
 ```

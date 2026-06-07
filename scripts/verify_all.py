@@ -131,6 +131,7 @@ SCAN_SEQUENCE = [
     ("M95 authless network tool expansion scan", "verify_m95_authless_network_tool_expansion"),
     ("M96 plugin execution sandbox scan", "verify_m96_plugin_execution_sandbox"),
     ("M97 recurring automation contracts scan", "verify_m97_recurring_automation_contracts"),
+    ("M98 scoped recurring low-risk automation scan", "verify_m98_scoped_recurring_low_risk_automation"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -16855,6 +16856,202 @@ def verify_m97_recurring_automation_contracts():
             sys.exit(1)
 
     print("OK: M97 recurring automation contracts are contract-only, route-free, and no runtime authority")
+
+
+def verify_m98_scoped_recurring_low_risk_automation():
+    print("\n[Verifier] Running M98 scoped recurring low-risk automation guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/scoped_recurring_low_risk_automation/__init__.py",
+        "src/ultimate_ai_agent/core/scoped_recurring_low_risk_automation/contracts.py",
+        "docs/automation/SCOPED_RECURRING_LOW_RISK_AUTOMATION.md",
+        "docs/automation/SCOPED_RECURRING_LOW_RISK_AUTOMATION_POLICY.md",
+        "docs/automation/SCOPED_RECURRING_LOW_RISK_AUTOMATION_AUTHORITY_BOUNDARY.md",
+        "docs/automation/SCOPED_RECURRING_LOW_RISK_AUTOMATION_RECEIPT_PLAN.md",
+        "docs/automation/SCOPED_RECURRING_LOW_RISK_AUTOMATION_NON_GOALS.md",
+        "docs/automation/M98_TO_M99_BOUNDARY.md",
+        "docs/release_notes/v1_2_0.md",
+        "docs/archive/releases/v1_2_0/README_IMPORT.md",
+        "docs/archive/releases/v1_2_0/master_plan.md",
+        "docs/implementation/foundation_gate_implementation_plan_v1_2_0.md",
+        "tests/test_m98_scoped_recurring_low_risk_automation.py",
+        "tests/test_m98_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M98 scoped recurring low-risk automation file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = "\n".join(
+        (ROOT / rel_path).read_text(encoding="utf-8").lower()
+        for rel_path in required_files
+        if rel_path.startswith("docs/")
+    )
+    for fragment in [
+        "scoped recurring low-risk automation",
+        "low-risk read-only",
+        "strict cadence",
+        "approval renewal required",
+        "renewal expiry",
+        "stop conditions required",
+        "kill switch",
+        "audit trail",
+        "revocation",
+        "no scheduler",
+        "no background worker",
+        "no recurring execution runtime",
+        "no mutating tasks",
+        "no credential or account actions",
+        "no shell write",
+        "no network write",
+        "no browser write",
+        "no silent background collection",
+        "no secret access",
+        "no backend route",
+        "no dependency",
+        "no production authority",
+        "evaluator boundaries revalidate",
+        "m99 remains future",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M98 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from tests.test_m98_scoped_recurring_low_risk_automation import _request
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.evaluators import m98_openapi_route_failures
+        from ultimate_ai_agent.core.scoped_recurring_low_risk_automation import (
+            ScopedRecurringLowRiskAutomationStatus,
+            build_scoped_recurring_low_risk_automation_decision,
+            validate_scoped_recurring_low_risk_automation_decision,
+        )
+    except Exception as exc:
+        print(f"FAIL: M98 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m98_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    decision = build_scoped_recurring_low_risk_automation_decision(_request())
+    if (
+        decision.status != ScopedRecurringLowRiskAutomationStatus.scoped_low_risk_ready_for_review
+        or not decision.low_risk_only
+        or not decision.read_only_only
+        or not decision.strict_cadence_required
+        or not decision.renewal_required
+        or not decision.renewal_not_expired
+        or not decision.stop_conditions_required
+        or not decision.audit_required
+        or not decision.revocation_required
+        or not decision.kill_switch_required
+        or not decision.kill_switch_available
+        or not decision.no_secret_access
+        or not decision.safe_refs_only
+        or decision.runtime_started
+        or decision.scheduler_enabled
+        or decision.background_worker_enabled
+        or decision.recurring_execution_performed
+        or decision.secret_access_performed
+        or decision.backend_route_added
+        or decision.control_center_control_added
+        or decision.dependency_added
+        or decision.production_authority_granted
+        or not decision.receipt_plan.store_safe_refs_only
+        or decision.receipt_plan.store_raw_payload
+        or decision.receipt_plan.scheduler_started
+        or decision.receipt_plan.background_worker_started
+        or decision.receipt_plan.recurring_execution_performed
+        or decision.receipt_plan.secret_access_performed
+        or "M98_SCOPED_RECURRING_LOW_RISK_READY_FOR_REVIEW" not in decision.reason_codes
+        or "M99_REMAINS_FUTURE" not in decision.reason_codes
+    ):
+        print("FAIL: M98 scoped recurring low-risk decision is unsafe or over-authoritative")
+        sys.exit(1)
+
+    for update, reason in [
+        ({"scheduler_enabled": True}, "SCHEDULER_DENIED"),
+        ({"background_worker_enabled": True}, "BACKGROUND_WORKER_DENIED"),
+        ({"secret_access_performed": True}, "SECRET_ACCESS_DENIED"),
+        ({"production_authority_granted": True}, "PRODUCTION_AUTHORITY_DENIED"),
+    ]:
+        try:
+            validate_scoped_recurring_low_risk_automation_decision(
+                decision.model_copy(update=update)
+            )
+            print(f"FAIL: M98 mutated authority flag was not denied: {update}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M98 mutated authority flag raised {exc!s}")
+                sys.exit(1)
+
+    allowed_scan_files = {
+        "scripts/verify_all.py",
+        "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/scoped_recurring_low_risk_automation/__init__.py",
+        "src/ultimate_ai_agent/core/scoped_recurring_low_risk_automation/contracts.py",
+    }
+    source_text = "\n".join(
+        path.read_text(encoding="utf-8")
+        for root in [ROOT / "src" / "ultimate_ai_agent", ROOT / "apps" / "control-center" / "src"]
+        if root.exists()
+        for path in root.rglob("*")
+        if path.is_file()
+        and path.suffix in {".py", ".ts", ".tsx", ".js", ".jsx"}
+        and path.relative_to(ROOT).as_posix() not in allowed_scan_files
+    )
+    for fragment in [
+        "scheduler_allowed=True",
+        "background_worker_allowed=True",
+        "recurring_execution_allowed=True",
+        "mutating_tasks_allowed=True",
+        "credential_access_allowed=True",
+        "secret_access_allowed=True",
+        "account_actions_allowed=True",
+        "shell_write_allowed=True",
+        "network_write_allowed=True",
+        "browser_write_allowed=True",
+        "silent_background_collection_allowed=True",
+        "scheduler_requested=True",
+        "background_worker_requested=True",
+        "recurring_execution_requested=True",
+        "mutating_task_requested=True",
+        "credential_access_requested=True",
+        "account_action_requested=True",
+        "shell_write_requested=True",
+        "network_write_requested=True",
+        "browser_write_requested=True",
+        "silent_background_collection_requested=True",
+        "scheduler_enabled=True",
+        "background_worker_enabled=True",
+        "scheduler_started=True",
+        "background_worker_started=True",
+        "recurring_execution_performed=True",
+        "secret_access_performed=True",
+        "production_authority_granted=True",
+    ]:
+        if fragment in source_text:
+            print(f"FAIL: M98 forbidden source fragment present: {fragment}")
+            sys.exit(1)
+
+    for forbidden_route in [
+        "/automation/recurring/run",
+        "/automation/recurring/start",
+        "/automation/recurring/execute",
+        "/automation/recurring/collect",
+        "/automation/recurring/worker",
+        "/scheduler/start",
+        "/cron/run",
+        "/background-worker/start",
+    ]:
+        if forbidden_route in source_text:
+            print(f"FAIL: M98 forbidden backend/frontend route fragment present: {forbidden_route}")
+            sys.exit(1)
+
+    print("OK: M98 scoped recurring low-risk automation is safe-ref-only and route-free")
 
 
 def verify_local_developer_launcher_safety():

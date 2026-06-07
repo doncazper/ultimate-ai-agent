@@ -843,6 +843,20 @@ REQUIRED_M97_RECURRING_AUTOMATION_DOCS = [
     "docs/implementation/foundation_gate_implementation_plan_v1_1_0.md",
 ]
 
+REQUIRED_M98_SCOPED_RECURRING_LOW_RISK_AUTOMATION_DOCS = [
+    "docs/automation/SCOPED_RECURRING_LOW_RISK_AUTOMATION.md",
+    "docs/automation/SCOPED_RECURRING_LOW_RISK_AUTOMATION_POLICY.md",
+    "docs/automation/SCOPED_RECURRING_LOW_RISK_AUTOMATION_AUTHORITY_BOUNDARY.md",
+    "docs/automation/SCOPED_RECURRING_LOW_RISK_AUTOMATION_RECEIPT_PLAN.md",
+    "docs/automation/SCOPED_RECURRING_LOW_RISK_AUTOMATION_NON_GOALS.md",
+    "docs/automation/M98_TO_M99_BOUNDARY.md",
+    "docs/roadmap/M61_M100_ROADMAP.md",
+    "docs/release_notes/v1_2_0.md",
+    "docs/archive/releases/v1_2_0/README_IMPORT.md",
+    "docs/archive/releases/v1_2_0/master_plan.md",
+    "docs/implementation/foundation_gate_implementation_plan_v1_2_0.md",
+]
+
 
 REQUIRED_ACTIVE_DOCS = [
     "docs/README.md",
@@ -1400,6 +1414,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_m95_authless_network_expansion_docs(root, version))
     failures.extend(_verify_m96_plugin_execution_sandbox_docs(root, version))
     failures.extend(_verify_m97_recurring_automation_docs(root, version))
+    failures.extend(_verify_m98_scoped_recurring_low_risk_automation_docs(root, version))
     failures.extend(_verify_m19_roadmap_currentness(root, version))
     failures.extend(_verify_post_m18_roadmap_status_labels(root))
 
@@ -6606,6 +6621,83 @@ def _verify_m97_recurring_automation_docs(
         "M97 docs must not claim recurring execution implementation": "recurring execution is implemented",
         "M97 docs must not claim mobile permission runtime implementation": "mobile permission runtime is implemented",
         "M97 docs must not claim production authority": "production authority is implemented",
+    }
+    for message, fragment in forbidden_fragments.items():
+        if fragment in text:
+            failures.append(f"{message}: {fragment}")
+    return failures
+
+
+def _verify_m98_scoped_recurring_low_risk_automation_docs(
+    root: Path, version: str | None
+) -> list[str]:
+    failures: list[str] = []
+    if _version_tuple(version) < (1, 2, 0):
+        return failures
+
+    missing = [
+        rel_path
+        for rel_path in REQUIRED_M98_SCOPED_RECURRING_LOW_RISK_AUTOMATION_DOCS
+        if not (root / rel_path).exists()
+    ]
+    failures.extend(
+        f"missing M98 scoped recurring low-risk automation doc: {rel_path}"
+        for rel_path in missing
+    )
+    text = "\n".join(
+        _read(root / rel_path).lower()
+        for rel_path in REQUIRED_M98_SCOPED_RECURRING_LOW_RISK_AUTOMATION_DOCS
+        if (root / rel_path).exists()
+    )
+    required_fragments = {
+        "M98 docs must say scoped recurring low-risk automation": "scoped recurring low-risk automation",
+        "M98 docs must say low-risk read-only": "low-risk read-only",
+        "M98 docs must say strict cadence": "strict cadence",
+        "M98 docs must say approval renewal required": "approval renewal required",
+        "M98 docs must say renewal expiry": "renewal expiry",
+        "M98 docs must say stop conditions required": "stop conditions required",
+        "M98 docs must say kill switch": "kill switch",
+        "M98 docs must say audit trail": "audit trail",
+        "M98 docs must say revocation": "revocation",
+        "M98 docs must deny scheduler": "no scheduler",
+        "M98 docs must deny background worker": "no background worker",
+        "M98 docs must deny recurring execution runtime": "no recurring execution runtime",
+        "M98 docs must deny mutating tasks": "no mutating tasks",
+        "M98 docs must deny credential/account actions": "no credential or account actions",
+        "M98 docs must deny shell write": "no shell write",
+        "M98 docs must deny network write": "no network write",
+        "M98 docs must deny browser write": "no browser write",
+        "M98 docs must deny silent background collection": "no silent background collection",
+        "M98 docs must deny secret access": "no secret access",
+        "M98 docs must deny memory write": "no memory write",
+        "M98 docs must deny context injection": "no context injection",
+        "M98 docs must deny export": "no export",
+        "M98 docs must deny backend route": "no backend route",
+        "M98 docs must deny dependency": "no dependency",
+        "M98 docs must deny production authority": "no production authority",
+        "M98 docs must say evaluator boundaries revalidate": "evaluator boundaries revalidate",
+        "M98 docs must keep M99 future": "m99 remains future",
+    }
+    for message, fragment in required_fragments.items():
+        if fragment not in text:
+            failures.append(message)
+
+    for version_label, milestone, title in [
+        ("v1.2.0", "m98", "scoped recurring low-risk automation"),
+        ("v1.3.0", "m99", "autonomy v1 safety freeze"),
+        ("v1.4.0", "m100", "mobile permission model v1"),
+    ]:
+        if version_label not in text or milestone not in text or title not in text:
+            failures.append(
+                f"M98-M100 roadmap missing label: {version_label} / {milestone.upper()} - {title}"
+            )
+
+    forbidden_fragments = {
+        "M98 docs must not claim scheduler implementation": "scheduler is implemented",
+        "M98 docs must not claim background worker implementation": "background worker is implemented",
+        "M98 docs must not claim recurring execution runtime implementation": "recurring execution runtime is implemented",
+        "M98 docs must not claim mutating recurring task implementation": "mutating recurring task is implemented",
+        "M98 docs must not claim production authority": "production authority is implemented",
     }
     for message, fragment in forbidden_fragments.items():
         if fragment in text:
