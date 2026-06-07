@@ -909,6 +909,20 @@ REQUIRED_M101_MOBILE_SENSOR_CONTRACT_REVIEW_DOCS = [
     "docs/implementation/foundation_gate_implementation_plan_v1_5_0.md",
 ]
 
+REQUIRED_M102_LOCATION_SENSOR_OFF_BY_DEFAULT_DOCS = [
+    "docs/mobile/LOCATION_SENSOR_OFF_BY_DEFAULT.md",
+    "docs/mobile/LOCATION_SENSOR_OFF_BY_DEFAULT_POLICY.md",
+    "docs/mobile/LOCATION_SENSOR_OFF_BY_DEFAULT_AUTHORITY_BOUNDARY.md",
+    "docs/mobile/LOCATION_SENSOR_OFF_BY_DEFAULT_RECEIPT_PLAN.md",
+    "docs/mobile/LOCATION_SENSOR_OFF_BY_DEFAULT_NON_GOALS.md",
+    "docs/mobile/M102_TO_M103_BOUNDARY.md",
+    "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+    "docs/release_notes/v1_6_0.md",
+    "docs/archive/releases/v1_6_0/README_IMPORT.md",
+    "docs/archive/releases/v1_6_0/master_plan.md",
+    "docs/implementation/foundation_gate_implementation_plan_v1_6_0.md",
+]
+
 EXPECTED_M101_M150_LABELS = [
     ("v1.5.0", "m101", "mobile sensor contract review"),
     ("v1.6.0", "m102", "location sensor, off by default"),
@@ -1524,6 +1538,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_m100_mobile_permission_model_v1_docs(root, version))
     failures.extend(_verify_post_m100_roadmap_reconciliation_docs(root, version))
     failures.extend(_verify_m101_mobile_sensor_contract_review_docs(root, version))
+    failures.extend(_verify_m102_location_sensor_off_by_default_docs(root, version))
     failures.extend(_verify_m19_roadmap_currentness(root, version))
     failures.extend(_verify_post_m18_roadmap_status_labels(root))
 
@@ -7013,7 +7028,11 @@ def _verify_post_m100_roadmap_reconciliation_docs(root: Path, version: str | Non
 
     roadmap_path = root / "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md"
     roadmap_text = _read(roadmap_path).lower() if roadmap_path.exists() else ""
-    implemented_milestones = {"m101"} if _version_tuple(version) >= (1, 5, 0) else set()
+    implemented_milestones = set()
+    if _version_tuple(version) >= (1, 5, 0):
+        implemented_milestones.add("m101")
+    if _version_tuple(version) >= (1, 6, 0):
+        implemented_milestones.add("m102")
     for version_label, milestone, title in EXPECTED_M101_M150_LABELS:
         if milestone in implemented_milestones:
             continue
@@ -7158,27 +7177,117 @@ def _verify_m101_mobile_sensor_contract_review_docs(root: Path, version: str | N
         failures.append("active docs missing v1.5.0/M101 Mobile Sensor Contract Review")
     if "m101 is implemented/released" not in active_text and "v1.5.0 implements m101" not in active_text:
         failures.append("active docs do not mark M101 implemented/released")
-    for version_label, milestone, title in [
-        ("v1.6.0", "m102", "location sensor, off by default"),
+    m102_implemented = _version_tuple(version) >= (1, 6, 0)
+    planned_rows = [
         ("v1.7.0", "m103", "camera/photos metadata-only contract"),
         ("v1.54.0", "m150", "ultimate ai agent beta 1"),
-    ]:
+    ]
+    if not m102_implemented:
+        planned_rows.insert(0, ("v1.6.0", "m102", "location sensor, off by default"))
+    for version_label, milestone, title in planned_rows:
         row = f"| {version_label.lower()} | {milestone} | {title} | planned/provisional |"
         if row not in active_text:
             failures.append(
                 f"active docs missing planned M102-M150 row: {version_label} / {milestone.upper()} - {title}"
             )
-    for fragment in {
-        "m102 is implemented",
-        "v1.6.0 implements m102",
+    forbidden_fragments = {
         "location sensor runtime is implemented",
+        "native permission prompts are implemented",
+        "background collection is implemented",
+        "production authority is implemented",
+        "broad autonomy is implemented",
+    }
+    if not m102_implemented:
+        forbidden_fragments.update({"m102 is implemented", "v1.6.0 implements m102"})
+    for fragment in forbidden_fragments:
+        if fragment in active_text or fragment in text:
+            failures.append(f"M101 docs imply forbidden/future capability: {fragment}")
+    return failures
+
+
+def _verify_m102_location_sensor_off_by_default_docs(root: Path, version: str | None) -> list[str]:
+    failures: list[str] = []
+    if _version_tuple(version) < (1, 6, 0):
+        return failures
+
+    missing = [
+        rel_path
+        for rel_path in REQUIRED_M102_LOCATION_SENSOR_OFF_BY_DEFAULT_DOCS
+        if not (root / rel_path).exists()
+    ]
+    failures.extend(f"missing M102 Location Sensor Off by Default doc: {rel_path}" for rel_path in missing)
+    text = "\n".join(
+        _read(root / rel_path).lower()
+        for rel_path in REQUIRED_M102_LOCATION_SENSOR_OFF_BY_DEFAULT_DOCS
+        if (root / rel_path).exists()
+    )
+    required_fragments = {
+        "M102 docs must say Location Sensor, Off by Default": "location sensor, off by default",
+        "M102 docs must say contract-only": "contract-only",
+        "M102 docs must say location remains off by default": "location remains off by default",
+        "M102 docs must say foreground-only review": "foreground-only review",
+        "M102 docs must say separate precise-location approval": "separate precise-location approval",
+        "M102 docs must say consent": "consent",
+        "M102 docs must say revocation": "revocation",
+        "M102 docs must say audit": "audit",
+        "M102 docs must deny runtime location access": "no runtime location access",
+        "M102 docs must deny native permission prompt": "no native permission prompt",
+        "M102 docs must deny background location": "no background location",
+        "M102 docs must deny raw coordinates": "no raw coordinates",
+        "M102 docs must deny location history": "no location history",
+        "M102 docs must deny geofence": "no geofence",
+        "M102 docs must deny location export": "no location export",
+        "M102 docs must deny backend route": "no backend route",
+        "M102 docs must deny Control Center control": "no control center control",
+        "M102 docs must deny dependency": "no dependency",
+        "M102 docs must deny production authority": "no production authority",
+        "M102 docs must keep M103 future": "m103 remains future",
+    }
+    for message, fragment in required_fragments.items():
+        if fragment not in text:
+            failures.append(message)
+
+    active_paths = [
+        "README.md",
+        "VERSION.md",
+        "docs/canonical/09_roadmap.md",
+        "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+        "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+        "docs/roadmap/MILESTONE_CHARTERS.md",
+        "docs/DOCUMENTATION_INDEX.md",
+        "docs/canonical/CANONICAL_DOC_MAP.md",
+    ]
+    active_text = "\n".join(
+        _read(root / rel_path).lower()
+        for rel_path in active_paths
+        if (root / rel_path).exists()
+    )
+    if "v1.6.0" not in active_text or "m102" not in active_text or "location sensor, off by default" not in active_text:
+        failures.append("active docs missing v1.6.0/M102 Location Sensor, Off by Default")
+    if "m102 is implemented/released" not in active_text and "v1.6.0 implements m102" not in active_text:
+        failures.append("active docs do not mark M102 implemented/released")
+    for version_label, milestone, title in [
+        ("v1.7.0", "m103", "camera/photos metadata-only contract"),
+        ("v1.8.0", "m104", "notification planning, no push execution"),
+        ("v1.54.0", "m150", "ultimate ai agent beta 1"),
+    ]:
+        row = f"| {version_label.lower()} | {milestone} | {title} | planned/provisional |"
+        if row not in active_text:
+            failures.append(
+                f"active docs missing planned M103-M150 row: {version_label} / {milestone.upper()} - {title}"
+            )
+    for fragment in {
+        "m103 is implemented",
+        "v1.7.0 implements m103",
+        "camera runtime is implemented",
+        "photos runtime is implemented",
         "native permission prompts are implemented",
         "background collection is implemented",
         "production authority is implemented",
         "broad autonomy is implemented",
     }:
         if fragment in active_text or fragment in text:
-            failures.append(f"M101 docs imply forbidden/future capability: {fragment}")
+            failures.append(f"M102 docs imply forbidden/future capability: {fragment}")
     return failures
 
 

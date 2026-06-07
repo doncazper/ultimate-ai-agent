@@ -1327,6 +1327,15 @@ M101_FORBIDDEN_BACKEND_ROUTES = M100_FORBIDDEN_BACKEND_ROUTES + (
     "/mobile/sensors/collect",
     "/mobile/sensors/runtime",
 )
+EXPECTED_M102_OPENAPI_PATH_COUNT = 75
+M102_FORBIDDEN_BACKEND_ROUTES = M101_FORBIDDEN_BACKEND_ROUTES + (
+    "/mobile/location/current",
+    "/mobile/location/history",
+    "/mobile/location/geofence",
+    "/mobile/location/export",
+    "/mobile/background/location",
+    "/mobile/location/permission",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -2546,6 +2555,21 @@ def m101_openapi_route_failures(
     return failures
 
 
+def m102_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M102_OPENAPI_PATH_COUNT
+) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(
+            f"OpenAPI path count changed for M102: expected {expected_path_count}, got {len(path_set)}"
+        )
+    for route in M102_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(f"M102 forbidden location runtime route present: {route}")
+    return failures
+
+
 M36_SAFE_REF_PREFIXES = {
     "reviewPacketRef": "file-review-packet:",
     "previewResultRef": "redacted-file-preview-output:",
@@ -3421,6 +3445,16 @@ class FoundationGateEvaluator:
                 self.check_m101_mobile_sensor_contract_review_route_boundary
             ),
             "m101_roadmap_currentness": self.check_m101_roadmap_currentness,
+            "m102_location_sensor_off_by_default_contracts": (
+                self.check_m102_location_sensor_off_by_default_contracts
+            ),
+            "m102_location_sensor_off_by_default_static_safety": (
+                self.check_m102_location_sensor_off_by_default_static_safety
+            ),
+            "m102_location_sensor_off_by_default_route_boundary": (
+                self.check_m102_location_sensor_off_by_default_route_boundary
+            ),
+            "m102_roadmap_currentness": self.check_m102_roadmap_currentness,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -29036,7 +29070,11 @@ class FoundationGateEvaluator:
             ("v1.54.0", "m150", "ultimate ai agent beta 1"),
         ]
         active_version_text = self._read(self.root / "VERSION.md").lower()
-        implemented_milestones = {"m101"} if "v1.5.0" in active_version_text else set()
+        implemented_milestones = set()
+        if "v1.5.0" in active_version_text or "v1.6.0" in active_version_text:
+            implemented_milestones.add("m101")
+        if "v1.6.0" in active_version_text:
+            implemented_milestones.add("m102")
         for version_label, milestone, title in expected_labels:
             if milestone in implemented_milestones:
                 continue
@@ -29253,27 +29291,249 @@ class FoundationGateEvaluator:
             failures.append("active docs do not identify v1.5.0/M101 Mobile Sensor Contract Review")
         if "m101 is implemented/released" not in text and "v1.5.0 implements m101" not in text:
             failures.append("active docs do not mark M101 implemented/released")
-        for version_label, milestone, title in [
-            ("v1.6.0", "m102", "location sensor, off by default"),
+        m102_implemented = "v1.6.0" in text and "m102" in text
+        planned_rows = [
             ("v1.7.0", "m103", "camera/photos metadata-only contract"),
             ("v1.54.0", "m150", "ultimate ai agent beta 1"),
-        ]:
+        ]
+        if not m102_implemented:
+            planned_rows.insert(0, ("v1.6.0", "m102", "location sensor, off by default"))
+        for version_label, milestone, title in planned_rows:
             row = f"| {version_label} | {milestone} | {title} | planned/provisional |"
             if row not in text:
                 failures.append(
                     f"active docs missing planned M102-M150 row: {version_label} / {milestone.upper()} - {title}"
                 )
-        for fragment in (
-            "m102 is implemented",
-            "v1.6.0 implements m102",
+        forbidden_fragments = [
             "location sensor runtime is implemented",
+            "native permission prompt is implemented",
+            "background collection is implemented",
+            "production authority is implemented",
+            "broad autonomy is implemented",
+        ]
+        if not m102_implemented:
+            forbidden_fragments.extend(["m102 is implemented", "v1.6.0 implements m102"])
+        for fragment in forbidden_fragments:
+            if fragment in text:
+                failures.append(f"M101 docs imply forbidden/future capability: {fragment}")
+        return self._result(criterion, failures, required_docs)
+
+    def check_m102_location_sensor_off_by_default_contracts(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/mobile_companion/location_sensor_off_by_default.py",
+            "docs/mobile/LOCATION_SENSOR_OFF_BY_DEFAULT.md",
+            "docs/mobile/LOCATION_SENSOR_OFF_BY_DEFAULT_POLICY.md",
+            "docs/mobile/LOCATION_SENSOR_OFF_BY_DEFAULT_AUTHORITY_BOUNDARY.md",
+            "docs/mobile/LOCATION_SENSOR_OFF_BY_DEFAULT_RECEIPT_PLAN.md",
+            "docs/mobile/LOCATION_SENSOR_OFF_BY_DEFAULT_NON_GOALS.md",
+            "docs/mobile/M102_TO_M103_BOUNDARY.md",
+            "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            "tests/test_m102_location_sensor_off_by_default.py",
+            "tests/test_m102_gate_integration.py",
+        ]
+        failures = [
+            f"missing M102 location sensor off-by-default file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            sys.path.insert(0, str(self.root))
+            from ultimate_ai_agent.core.mobile_companion import (
+                LocationSensorOffByDefaultStatus,
+                build_location_sensor_off_by_default_report,
+                validate_location_sensor_off_by_default_report,
+            )
+
+            report = build_location_sensor_off_by_default_report()
+            if (
+                report.status != LocationSensorOffByDefaultStatus.contract_only
+                or not report.contract_only
+                or not report.location_sensor_default_off
+                or not report.location_permission_scope_defined
+                or not report.foreground_only_review_defined
+                or not report.precise_location_separate_approval_required
+                or not report.consent_required
+                or not report.revocation_required
+                or not report.audit_required
+                or report.runtime_location_access_enabled
+                or report.native_permission_prompt_enabled
+                or report.background_location_enabled
+                or report.raw_coordinates_enabled
+                or report.location_history_enabled
+                or report.geofence_enabled
+                or report.location_export_enabled
+                or report.backend_route_added
+                or report.control_center_control_added
+                or report.dependency_added
+                or report.memory_write_enabled
+                or report.context_injection_enabled
+                or report.execution_enabled
+                or report.production_authority_enabled
+                or report.side_effects_performed
+                or "M102_LOCATION_SENSOR_OFF_BY_DEFAULT" not in report.reason_codes
+                or "M103_REMAINS_FUTURE" not in report.reason_codes
+            ):
+                failures.append("M102 location sensor report is unsafe or over-authoritative")
+            for update, reason in [
+                ({"runtime_location_access_enabled": True}, "RUNTIME_LOCATION_ACCESS_DENIED"),
+                ({"native_permission_prompt_enabled": True}, "NATIVE_PERMISSION_PROMPT_DENIED"),
+                ({"background_location_enabled": True}, "BACKGROUND_LOCATION_DENIED"),
+                ({"raw_coordinates_enabled": True}, "RAW_COORDINATES_DENIED"),
+                ({"production_authority_enabled": True}, "PRODUCTION_AUTHORITY_DENIED"),
+            ]:
+                try:
+                    validate_location_sensor_off_by_default_report(
+                        report.model_copy(update=update)
+                    )
+                    failures.append(f"M102 unsafe report mutation was not denied with {reason}")
+                except ValueError as exc:
+                    if reason not in str(exc):
+                        failures.append(f"M102 unsafe report mutation raised {exc!s}")
+        except Exception as exc:
+            failures.append(f"M102 location sensor validation failed: {exc}")
+
+        docs_text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_files
+            if path.startswith("docs/") and (self.root / path).exists()
+        )
+        for fragment in [
+            "location sensor, off by default",
+            "contract-only",
+            "location remains off by default",
+            "foreground-only review",
+            "separate precise-location approval",
+            "consent",
+            "revocation",
+            "audit",
+            "no runtime location access",
+            "no native permission prompt",
+            "no background location",
+            "no raw coordinates",
+            "no location history",
+            "no geofence",
+            "no location export",
+            "no backend route",
+            "no control center control",
+            "no dependency",
+            "no production authority",
+            "m103 remains future",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M102 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m102_location_sensor_off_by_default_static_safety(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        forbidden_source_fragments = [
+            "runtime_location_access_enabled=True",
+            "native_permission_prompt_enabled=True",
+            "background_location_enabled=True",
+            "raw_coordinates_enabled=True",
+            "location_history_enabled=True",
+            "geofence_enabled=True",
+            "location_export_enabled=True",
+            "backend_route_enabled=True",
+            "backend_route_added=True",
+            "control_center_control_enabled=True",
+            "control_center_control_added=True",
+            "production_authority_enabled=True",
+        ]
+        allowed_files = {
+            "scripts/verify_all.py",
+            "src/ultimate_ai_agent/core/gate/evaluators.py",
+            "src/ultimate_ai_agent/core/mobile_companion/__init__.py",
+            "src/ultimate_ai_agent/core/mobile_companion/location_sensor_off_by_default.py",
+            "src/ultimate_ai_agent/core/mobile_companion/permission_model_v1.py",
+            "src/ultimate_ai_agent/core/mobile_companion/sensor_contract_review.py",
+        }
+        for root in [
+            self.root / "src" / "ultimate_ai_agent",
+            self.root / "apps" / "control-center" / "src",
+            self.root / "apps" / "ccc-ios",
+        ]:
+            if not root.exists():
+                continue
+            candidate_files = []
+            for pattern in ("*.py", "*.ts", "*.tsx", "*.js", "*.jsx", "*.swift", "*.yml", "*.yaml"):
+                candidate_files.extend(root.rglob(pattern))
+            for path in sorted(candidate_files):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(self.root).as_posix()
+                if ".test." in rel:
+                    continue
+                if rel in allowed_files:
+                    continue
+                text = path.read_text(encoding="utf-8")
+                for fragment in forbidden_source_fragments:
+                    if fragment in text:
+                        failures.append(
+                            f"M102 forbidden location sensor fragment in {rel}: {fragment}"
+                        )
+        return self._result(criterion, failures, [])
+
+    def check_m102_location_sensor_off_by_default_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m102_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M102 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m102_roadmap_currentness(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        required_docs = [
+            "README.md",
+            "VERSION.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            "docs/roadmap/MILESTONE_CHARTERS.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+        ]
+        failures = [
+            f"missing M102 roadmap doc: {path}"
+            for path in required_docs
+            if not (self.root / path).exists()
+        ]
+        text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_docs
+            if (self.root / path).exists()
+        )
+        if "v1.6.0" not in text or "m102" not in text or "location sensor, off by default" not in text:
+            failures.append("active docs do not identify v1.6.0/M102 Location Sensor, Off by Default")
+        if "m102 is implemented/released" not in text and "v1.6.0 implements m102" not in text:
+            failures.append("active docs do not mark M102 implemented/released")
+        for version_label, milestone, title in [
+            ("v1.7.0", "m103", "camera/photos metadata-only contract"),
+            ("v1.8.0", "m104", "notification planning, no push execution"),
+            ("v1.54.0", "m150", "ultimate ai agent beta 1"),
+        ]:
+            row = f"| {version_label} | {milestone} | {title} | planned/provisional |"
+            if row not in text:
+                failures.append(
+                    f"active docs missing planned M103-M150 row: {version_label} / {milestone.upper()} - {title}"
+                )
+        for fragment in (
+            "m103 is implemented",
+            "v1.7.0 implements m103",
+            "camera runtime is implemented",
+            "photos runtime is implemented",
             "native permission prompt is implemented",
             "background collection is implemented",
             "production authority is implemented",
             "broad autonomy is implemented",
         ):
             if fragment in text:
-                failures.append(f"M101 docs imply forbidden/future capability: {fragment}")
+                failures.append(f"M102 docs imply forbidden/future capability: {fragment}")
         return self._result(criterion, failures, required_docs)
 
     def check_v0292_local_dev_api_authority_and_preview_safe(

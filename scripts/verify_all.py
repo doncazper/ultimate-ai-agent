@@ -136,6 +136,7 @@ SCAN_SEQUENCE = [
     ("M100 mobile permission model v1 scan", "verify_m100_mobile_permission_model_v1"),
     ("post-M100 roadmap reconciliation scan", "verify_post_m100_roadmap_reconciliation"),
     ("M101 mobile sensor contract review scan", "verify_m101_mobile_sensor_contract_review"),
+    ("M102 location sensor off-by-default scan", "verify_m102_location_sensor_off_by_default"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -17479,7 +17480,11 @@ def verify_post_m100_roadmap_reconciliation():
         ("v1.54.0", "m150", "ultimate ai agent beta 1"),
     ]
     active_version_text = (ROOT / "VERSION.md").read_text(encoding="utf-8").lower()
-    implemented_milestones = {"m101"} if "v1.5.0" in active_version_text else set()
+    implemented_milestones = set()
+    if "v1.5.0" in active_version_text or "v1.6.0" in active_version_text:
+        implemented_milestones.add("m101")
+    if "v1.6.0" in active_version_text:
+        implemented_milestones.add("m102")
     for version_label, milestone, title in expected_labels:
         if milestone in implemented_milestones:
             continue
@@ -17685,6 +17690,159 @@ def verify_m101_mobile_sensor_contract_review():
             sys.exit(1)
 
     print("OK: M101 mobile sensor contract review is contract-only, sensor-off, and route-free")
+
+
+def verify_m102_location_sensor_off_by_default():
+    print("\n[Verifier] Running M102 location sensor off-by-default guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/mobile_companion/location_sensor_off_by_default.py",
+        "docs/mobile/LOCATION_SENSOR_OFF_BY_DEFAULT.md",
+        "docs/mobile/LOCATION_SENSOR_OFF_BY_DEFAULT_POLICY.md",
+        "docs/mobile/LOCATION_SENSOR_OFF_BY_DEFAULT_AUTHORITY_BOUNDARY.md",
+        "docs/mobile/LOCATION_SENSOR_OFF_BY_DEFAULT_RECEIPT_PLAN.md",
+        "docs/mobile/LOCATION_SENSOR_OFF_BY_DEFAULT_NON_GOALS.md",
+        "docs/mobile/M102_TO_M103_BOUNDARY.md",
+        "docs/release_notes/v1_6_0.md",
+        "docs/archive/releases/v1_6_0/README_IMPORT.md",
+        "docs/archive/releases/v1_6_0/master_plan.md",
+        "docs/implementation/foundation_gate_implementation_plan_v1_6_0.md",
+        "tests/test_m102_location_sensor_off_by_default.py",
+        "tests/test_m102_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M102 location sensor off-by-default file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = "\n".join(
+        (ROOT / rel_path).read_text(encoding="utf-8").lower()
+        for rel_path in required_files
+        if rel_path.startswith("docs/")
+    )
+    for fragment in [
+        "location sensor, off by default",
+        "contract-only",
+        "location remains off by default",
+        "foreground-only review",
+        "separate precise-location approval",
+        "consent",
+        "revocation",
+        "audit",
+        "no runtime location access",
+        "no native permission prompt",
+        "no background location",
+        "no raw coordinates",
+        "no location history",
+        "no geofence",
+        "no location export",
+        "no backend route",
+        "no control center control",
+        "no dependency",
+        "no production authority",
+        "m103 remains future",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M102 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.evaluators import m102_openapi_route_failures
+        from ultimate_ai_agent.core.mobile_companion import (
+            LocationSensorOffByDefaultStatus,
+            build_location_sensor_off_by_default_report,
+            validate_location_sensor_off_by_default_report,
+        )
+    except Exception as exc:
+        print(f"FAIL: M102 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m102_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    report = build_location_sensor_off_by_default_report()
+    if (
+        report.status != LocationSensorOffByDefaultStatus.contract_only
+        or not report.contract_only
+        or not report.location_sensor_default_off
+        or not report.location_permission_scope_defined
+        or not report.foreground_only_review_defined
+        or not report.precise_location_separate_approval_required
+        or report.runtime_location_access_enabled
+        or report.native_permission_prompt_enabled
+        or report.background_location_enabled
+        or report.raw_coordinates_enabled
+        or report.location_export_enabled
+        or report.backend_route_added
+        or report.control_center_control_added
+        or report.dependency_added
+        or report.production_authority_enabled
+        or report.side_effects_performed
+        or "M102_LOCATION_SENSOR_OFF_BY_DEFAULT" not in report.reason_codes
+        or "M103_REMAINS_FUTURE" not in report.reason_codes
+    ):
+        print("FAIL: M102 location sensor report is unsafe or over-authoritative")
+        sys.exit(1)
+
+    for update, reason in [
+        ({"runtime_location_access_enabled": True}, "RUNTIME_LOCATION_ACCESS_DENIED"),
+        ({"native_permission_prompt_enabled": True}, "NATIVE_PERMISSION_PROMPT_DENIED"),
+        ({"background_location_enabled": True}, "BACKGROUND_LOCATION_DENIED"),
+        ({"raw_coordinates_enabled": True}, "RAW_COORDINATES_DENIED"),
+        ({"production_authority_enabled": True}, "PRODUCTION_AUTHORITY_DENIED"),
+    ]:
+        try:
+            validate_location_sensor_off_by_default_report(report.model_copy(update=update))
+            print(f"FAIL: M102 mutated authority flag was not denied: {update}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M102 mutated authority flag raised {exc!s}")
+                sys.exit(1)
+
+    allowed_scan_files = {
+        "scripts/verify_all.py",
+        "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/mobile_companion/__init__.py",
+        "src/ultimate_ai_agent/core/mobile_companion/location_sensor_off_by_default.py",
+        "src/ultimate_ai_agent/core/mobile_companion/permission_model_v1.py",
+        "src/ultimate_ai_agent/core/mobile_companion/sensor_contract_review.py",
+    }
+    source_text = "\n".join(
+        path.read_text(encoding="utf-8")
+        for root in [
+            ROOT / "src" / "ultimate_ai_agent",
+            ROOT / "apps" / "control-center" / "src",
+            ROOT / "apps" / "ccc-ios",
+        ]
+        if root.exists()
+        for path in root.rglob("*")
+        if path.is_file()
+        and path.suffix in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}
+        and path.relative_to(ROOT).as_posix() not in allowed_scan_files
+    )
+    for fragment in [
+        "runtime_location_access_enabled=True",
+        "native_permission_prompt_enabled=True",
+        "background_location_enabled=True",
+        "raw_coordinates_enabled=True",
+        "location_history_enabled=True",
+        "geofence_enabled=True",
+        "location_export_enabled=True",
+        "backend_route_enabled=True",
+        "backend_route_added=True",
+        "control_center_control_enabled=True",
+        "control_center_control_added=True",
+        "production_authority_enabled=True",
+    ]:
+        if fragment in source_text:
+            print(f"FAIL: M102 forbidden source fragment present: {fragment}")
+            sys.exit(1)
+
+    print("OK: M102 location sensor remains off-by-default, contract-only, and route-free")
 
 
 def verify_local_developer_launcher_safety():

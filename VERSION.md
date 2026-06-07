@@ -1,18 +1,20 @@
 # Ultimate AI Agent Version
 
-Current active baseline: **v1.5.0**
+Current active baseline: **v1.6.0**
 
-v1.5.0 implements M101 Mobile Sensor Contract Review. It adds contract-only
-mobile sensor capability classes, permission-state contracts, sensor risk
-classification, consent, revocation, audit requirements, static verification,
-documentation-integrity checks, tests, and Foundation Gate coverage.
+v1.6.0 implements M102 Location Sensor, Off by Default. It adds contract-only
+location sensor policy, scope contracts, foreground-only review requirements,
+separate precise-location approval requirements, consent, revocation, audit
+requirements, static verification, documentation-integrity checks, tests, and
+Foundation Gate coverage.
 
-Sensors default off and unknown sensor classes are denied.
+Location remains off by default.
 
-It adds no mobile sensor runtime, no runtime sensor access, no native
-permission prompt, no background collection, no raw sensor payload, no backend
-route, no Control Center control, no dependency, no memory write, no context
-injection, no execution, no M102 implementation, no broad autonomy, no broad
-unsandboxed autonomy, and no production authority.
+It adds no runtime location access, no native permission prompt, no background
+location, no raw coordinates, no location history, no geofence behavior, no
+location export, no backend route, no Control Center control, no dependency, no
+memory write, no context injection, no execution, no M103 implementation, no
+broad autonomy, no broad unsandboxed autonomy, no mobile sensor runtime, and no
+production authority.
 
-M101 is implemented/released. M102-M150 are planned/provisional only.
+M101 and M102 are implemented/released. M103-M150 are planned/provisional only.

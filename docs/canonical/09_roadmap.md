@@ -25,7 +25,7 @@ The original foundation sequence established runtime hygiene, local runtime/cont
 
 ## Current accepted baseline
 
-The active accepted baseline is v1.5.0. v1.5.0 implements M101 Mobile Sensor Contract Review as contract-only mobile sensor governance. It defines sensor capability classes, permission-state contracts, sensor risk classification, consent, revocation, and audit requirements. Sensors default off and unknown sensor classes are denied. It adds no mobile sensor runtime, no runtime sensor access, location/camera/photos/microphone runtime, native permission prompt, background collection, raw sensor payload, backend route, dependency, broad autonomy, or production authority. M100 remains implemented/released as Mobile Permission Model v1. M101 is implemented/released, and M102-M150 remain planned/provisional in `docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md`.
+The active accepted baseline is v1.6.0. v1.6.0 implements M102 Location Sensor, Off by Default as contract-only mobile location governance. Location remains off by default. It defines safe location scope contracts, foreground-only review requirements, separate precise-location approval requirements, consent, revocation, and audit requirements. It adds no runtime location access, native permission prompt, background location, raw coordinates, location history, geofence behavior, location export, backend route, Control Center control, dependency, broad autonomy, no mobile sensor runtime, or production authority. M100 remains implemented/released as Mobile Permission Model v1. M101 and M102 are implemented/released, and M103-M150 remain planned/provisional in `docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md`.
 
 v0.25.0 adds:
 

@@ -11,7 +11,7 @@ from ultimate_ai_agent.core.gate.evaluators import FoundationGateEvaluator
 def test_post_m100_documentation_integrity_guard_accepts_current_repo() -> None:
     failures = docs_verifier._verify_post_m100_roadmap_reconciliation_docs(
         docs_verifier.ROOT,
-        "1.5.0",
+        "1.6.0",
     )
 
     assert failures == []
@@ -33,7 +33,7 @@ def test_post_m100_documentation_integrity_guard_rejects_sensor_runtime_claim(
 
     failures = docs_verifier._verify_post_m100_roadmap_reconciliation_docs(
         tmp_path,
-        "1.5.0",
+        "1.6.0",
     )
 
     assert any("mobile sensor runtime is implemented" in failure.lower() for failure in failures)
@@ -54,7 +54,7 @@ def test_post_m100_documentation_integrity_guard_rejects_missing_row_status(
 
     failures = docs_verifier._verify_post_m100_roadmap_reconciliation_docs(
         tmp_path,
-        "1.5.0",
+        "1.6.0",
     )
 
     assert any("m116" in failure.lower() for failure in failures)
@@ -69,16 +69,16 @@ def test_post_m100_documentation_integrity_guard_allows_negated_future_claim(
     roadmap.write_text(
         roadmap.read_text(encoding="utf-8")
         + (
-            "\nNo M102 is implemented. Without any evidence, M102 backend route "
-            "appears only as a negated safety example. The docs do not say "
-            "M103 has started.\n"
+                "\nNo M103 is implemented. Without any evidence, M103 backend route "
+                "appears only as a negated safety example. The docs do not say "
+                "M104 has started.\n"
         ),
         encoding="utf-8",
     )
 
     failures = docs_verifier._verify_post_m100_roadmap_reconciliation_docs(
         tmp_path,
-        "1.5.0",
+        "1.6.0",
     )
 
     assert failures == []
@@ -166,8 +166,8 @@ def test_post_m100_foundation_gate_allows_negated_future_claim(tmp_path: Path) -
     roadmap.write_text(
         roadmap.read_text(encoding="utf-8")
         + (
-            "\nNo M101 is implemented. There is never evidence that M102 is "
-            "implemented. This does not say M103 has started.\n"
+            "\nNo M103 is implemented. There is never evidence that M104 is "
+            "implemented. This does not say M105 has started.\n"
         ),
         encoding="utf-8",
     )

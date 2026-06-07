@@ -1,6 +1,6 @@
 # Documentation Index
 
-Current active baseline: **v1.5.0**
+Current active baseline: **v1.6.0**
 
 This index is the active entrypoint for documentation navigation. Historical release documents remain in the repository for audit history, but active truth starts with the current baseline files listed here.
 
@@ -33,6 +33,12 @@ docs/mobile/MOBILE_SENSOR_CONTRACT_REVIEW_AUTHORITY_BOUNDARY.md
 docs/mobile/MOBILE_SENSOR_CONTRACT_REVIEW_RECEIPT_PLAN.md
 docs/mobile/MOBILE_SENSOR_CONTRACT_REVIEW_NON_GOALS.md
 docs/mobile/M101_TO_M102_BOUNDARY.md
+docs/mobile/LOCATION_SENSOR_OFF_BY_DEFAULT.md
+docs/mobile/LOCATION_SENSOR_OFF_BY_DEFAULT_POLICY.md
+docs/mobile/LOCATION_SENSOR_OFF_BY_DEFAULT_AUTHORITY_BOUNDARY.md
+docs/mobile/LOCATION_SENSOR_OFF_BY_DEFAULT_RECEIPT_PLAN.md
+docs/mobile/LOCATION_SENSOR_OFF_BY_DEFAULT_NON_GOALS.md
+docs/mobile/M102_TO_M103_BOUNDARY.md
 docs/files/BROADER_FILE_CAPABILITY_REVIEW.md
 docs/files/FILE_CAPABILITY_BOUNDARY_MATRIX.md
 docs/files/FILE_CAPABILITY_RISK_REGISTER.md
@@ -716,19 +722,20 @@ scripts/dev/README.md
 ```
 
 v0.37.4 supersedes the old active M35-M40 roadmap projection and defines the
-active M34-M60 sequence. v1.5.0 is the current active baseline after the M101
+active M34-M60 sequence. v1.6.0 is the current active baseline after the M102
 Mobile Sensor Contract Review release. M100 remains implemented/released as
 Mobile Permission Model v1. M101 is implemented/released as contract-only mobile
-sensor governance. M102-M150 are planned/provisional only in
+sensor governance. M102 is implemented/released as contract-only location
+sensor governance with location off by default. M103-M150 are planned/provisional only in
 `docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md`. Active roadmap sources
-consistently mark M34-M101 implemented/released and rely on
+consistently mark M34-M102 implemented/released and rely on
 documentation-integrity checks to guard against superseded-roadmap drift, stale
-current-baseline labels, route drift, authority-boundary drift, and M102-M150
+current-baseline labels, route drift, authority-boundary drift, and M103-M150
 future-status drift.
 
 ## Release Notes Index
 
-Current release notes: `docs/release_notes/v1_5_0.md`
+Current release notes: `docs/release_notes/v1_6_0.md`
 
 Historical release notes remain under `docs/release_notes/`. Historical docs may mention old active baselines in historical context; they are not the current source of truth.
 
