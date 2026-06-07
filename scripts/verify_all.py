@@ -124,6 +124,7 @@ SCAN_SEQUENCE = [
     ("M88 mutating command proposal scan", "verify_m88_mutating_command_proposal"),
     ("M89 emergency stop/process kill safety scan", "verify_m89_emergency_stop_process_kill_safety"),
     ("M90 shell/subprocess hardening freeze scan", "verify_m90_shell_subprocess_hardening_freeze"),
+    ("M91 autonomous tool execution contract scan", "verify_m91_autonomous_tool_execution_contract"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -5022,6 +5023,7 @@ def verify_m41_local_prototype_safety_freeze():
     source_roots = [ROOT / "src", ROOT / "apps" / "control-center" / "src"]
     allowed_files = {
         "scripts/verify_all.py",
+        "src/ultimate_ai_agent/api/openapi.py",
         "src/ultimate_ai_agent/core/gate/evaluators.py",
         "tests/test_m41_gate_integration.py",
         "tests/test_m41_local_prototype_safety_freeze.py",
@@ -15300,6 +15302,286 @@ def verify_m90_shell_subprocess_hardening_freeze():
             sys.exit(1)
 
     print("OK: M90 shell/subprocess hardening freeze is review-only, route-free, and no-authority")
+
+
+def verify_m91_autonomous_tool_execution_contract():
+    print("\n[Verifier] Running M91 autonomous tool execution contract guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/tools/__init__.py",
+        "src/ultimate_ai_agent/core/tools/autonomous_execution_contract.py",
+        "docs/tools/AUTONOMOUS_TOOL_EXECUTION_CONTRACT.md",
+        "docs/tools/AUTONOMOUS_TOOL_EXECUTION_CONTRACT_POLICY.md",
+        "docs/tools/AUTONOMOUS_TOOL_EXECUTION_AUTHORITY_BOUNDARY.md",
+        "docs/tools/AUTONOMOUS_TOOL_EXECUTION_RECEIPT_PLAN.md",
+        "docs/tools/AUTONOMOUS_TOOL_EXECUTION_NON_GOALS.md",
+        "docs/tools/M91_TO_M92_BOUNDARY.md",
+        "docs/release_notes/v0_95_0.md",
+        "docs/archive/releases/v0_95_0/README_IMPORT.md",
+        "docs/archive/releases/v0_95_0/master_plan.md",
+        "docs/implementation/foundation_gate_implementation_plan_v0_95_0.md",
+        "tests/test_m91_autonomous_tool_execution_contract.py",
+        "tests/test_m91_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M91 autonomous tool execution contract file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = "\n".join(
+        (ROOT / rel_path).read_text(encoding="utf-8").lower()
+        for rel_path in required_files
+        if rel_path.startswith("docs/")
+    )
+    for fragment in [
+        "autonomous tool execution contract",
+        "contract-only",
+        "review-only",
+        "deterministic",
+        "local-only",
+        "m90 shell/subprocess hardening freeze",
+        "exact m90",
+        "safe refs only",
+        "approval refs are identifiers only",
+        "dry-run plan only",
+        "no real tool execution",
+        "no autonomous execution",
+        "no autonomous session start",
+        "no command execution",
+        "no shell execution",
+        "no subprocess execution",
+        "no filesystem mutation",
+        "no network access",
+        "no browser automation",
+        "no plugin execution",
+        "no remote execution",
+        "no model call",
+        "no memory write",
+        "no context injection",
+        "no background worker",
+        "no backend route",
+        "no control center control",
+        "no dependency",
+        "no production authority",
+        "no raw tool payload",
+        "no raw provider payload",
+        "safe summary only",
+        "evaluator boundaries revalidate",
+        "m92 remains future",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M91 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from tests.test_m91_autonomous_tool_execution_contract import _request
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.evaluators import m91_openapi_route_failures
+        from ultimate_ai_agent.core.tools import (
+            AutonomousToolExecutionContractStatus,
+            build_autonomous_tool_execution_contract,
+            validate_autonomous_tool_execution_contract_decision,
+        )
+    except Exception as exc:
+        print(f"FAIL: M91 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m91_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    decision = build_autonomous_tool_execution_contract(_request())
+    if (
+        decision.status != AutonomousToolExecutionContractStatus.contract_ready_for_review
+        or not decision.autonomous_tool_execution_contract_defined
+        or not decision.contract_only
+        or not decision.review_only
+        or not decision.deterministic
+        or not decision.local_only
+        or not decision.safe_refs_only
+        or not decision.approval_refs_are_identifiers_only
+        or not decision.dry_run_plan_only
+        or not decision.m90_hardening_freeze_revalidated
+        or decision.execution_authorized
+        or decision.tool_execution_authorized
+        or decision.autonomous_execution_authorized
+        or decision.session_start_authorized
+        or decision.background_worker_authorized
+        or decision.execution_performed
+        or decision.tool_execution_performed
+        or decision.autonomous_execution_performed
+        or decision.session_start_performed
+        or decision.background_worker_started
+        or decision.command_execution_performed
+        or decision.shell_execution_performed
+        or decision.subprocess_execution_performed
+        or decision.filesystem_mutation_performed
+        or decision.network_access_performed
+        or decision.browser_automation_performed
+        or decision.plugin_execution_performed
+        or decision.remote_execution_performed
+        or decision.model_call_performed
+        or decision.memory_write_performed
+        or decision.context_injection_performed
+        or decision.backend_route_added
+        or decision.control_center_control_added
+        or decision.dependency_added
+        or decision.production_authority_granted
+        or decision.side_effects_performed
+        or not decision.receipt_plan.store_safe_summary_only
+        or not decision.receipt_plan.store_safe_refs_only
+        or decision.receipt_plan.store_raw_tool_payload
+        or decision.receipt_plan.store_raw_provider_payload
+        or decision.receipt_plan.store_raw_prompt
+        or decision.receipt_plan.store_secret
+        or decision.receipt_plan.execution_performed
+        or decision.receipt_plan.tool_execution_performed
+        or decision.receipt_plan.autonomous_execution_performed
+        or decision.receipt_plan.session_start_performed
+        or decision.receipt_plan.background_worker_started
+        or "M91_AUTONOMOUS_TOOL_EXECUTION_CONTRACT_REVIEW_ONLY" not in decision.reason_codes
+        or "M91_EXACT_M90_HARDENING_BINDING_REQUIRED" not in decision.reason_codes
+        or "M91_NO_REAL_TOOL_EXECUTION" not in decision.reason_codes
+        or "M91_NO_AUTONOMOUS_SESSION_START" not in decision.reason_codes
+        or "M92_REMAINS_FUTURE" not in decision.reason_codes
+    ):
+        print("FAIL: M91 autonomous tool execution contract decision is unsafe or over-authoritative")
+        sys.exit(1)
+
+    for update, reason in [
+        ({"tool_execution_authorized": True}, "TOOL_EXECUTION_DENIED"),
+        ({"autonomous_execution_authorized": True}, "AUTONOMOUS_EXECUTION_DENIED"),
+        ({"session_start_authorized": True}, "SESSION_START_DENIED"),
+        ({"background_worker_started": True}, "BACKGROUND_WORKER_DENIED"),
+        ({"backend_route_added": True}, "BACKEND_ROUTE_DENIED"),
+    ]:
+        try:
+            validate_autonomous_tool_execution_contract_decision(decision.model_copy(update=update))
+            print(f"FAIL: M91 mutated authority flag was not denied: {update}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M91 mutated authority flag raised {exc!s}")
+                sys.exit(1)
+
+    allowed_scan_files = {
+        "scripts/verify_all.py",
+        "src/ultimate_ai_agent/api/openapi.py",
+        "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/tools/__init__.py",
+        "src/ultimate_ai_agent/core/tools/autonomous_execution_contract.py",
+        "src/ultimate_ai_agent/core/tools/runtime/invocation.py",
+        "src/ultimate_ai_agent/core/sandbox/__init__.py",
+        "src/ultimate_ai_agent/core/sandbox/command_proposal.py",
+        "src/ultimate_ai_agent/core/sandbox/runtime_spec.py",
+        "src/ultimate_ai_agent/core/sandbox/shell_dry_run_classifier.py",
+        "src/ultimate_ai_agent/core/sandbox/sandboxed_echo_noop_command.py",
+        "src/ultimate_ai_agent/core/sandbox/read_only_command_allowlist.py",
+        "src/ultimate_ai_agent/core/sandbox/shell_approval_gate.py",
+        "src/ultimate_ai_agent/core/sandbox/command_audit_replay.py",
+        "src/ultimate_ai_agent/core/sandbox/mutating_command_proposal.py",
+        "src/ultimate_ai_agent/core/sandbox/emergency_stop_process_kill_safety.py",
+        "src/ultimate_ai_agent/core/sandbox/shell_subprocess_hardening_freeze.py",
+    }
+    source_text = "\n".join(
+        path.read_text(encoding="utf-8")
+        for root in [ROOT / "src" / "ultimate_ai_agent", ROOT / "apps" / "control-center" / "src"]
+        if root.exists()
+        for path in root.rglob("*")
+        if path.is_file()
+        and path.suffix in {".py", ".ts", ".tsx", ".js", ".jsx"}
+        and path.relative_to(ROOT).as_posix() not in allowed_scan_files
+    )
+    for fragment in [
+        "autonomous_tool_execution_enabled=True",
+        "autonomous_tool_execution_requested=True",
+        "autonomous_tool_execution_authorized=True",
+        "autonomous_tool_execution_performed=True",
+        "autonomous_execution_enabled=True",
+        "autonomous_execution_requested=True",
+        "autonomous_execution_authorized=True",
+        "autonomous_execution_performed=True",
+        "tool_execution_enabled=True",
+        "tool_execution_requested=True",
+        "tool_execution_authorized=True",
+        "tool_execution_performed=True",
+        "execution_enabled=True",
+        "execution_requested=True",
+        "execution_authorized=True",
+        "execution_performed=True",
+        "session_start_enabled=True",
+        "session_start_requested=True",
+        "session_start_authorized=True",
+        "session_start_performed=True",
+        "background_worker_enabled=True",
+        "background_worker_requested=True",
+        "background_worker_authorized=True",
+        "background_worker_started=True",
+        "command_execution_enabled=True",
+        "command_execution_requested=True",
+        "command_execution_performed=True",
+        "shell_execution_enabled=True",
+        "shell_execution_requested=True",
+        "shell_execution_performed=True",
+        "subprocess_execution_enabled=True",
+        "subprocess_execution_requested=True",
+        "subprocess_execution_performed=True",
+        "filesystem_mutation_enabled=True",
+        "filesystem_mutation_requested=True",
+        "network_access_enabled=True",
+        "network_access_requested=True",
+        "browser_automation_enabled=True",
+        "browser_automation_requested=True",
+        "plugin_execution_enabled=True",
+        "plugin_execution_requested=True",
+        "remote_execution_enabled=True",
+        "remote_execution_requested=True",
+        "model_call_enabled=True",
+        "model_call_requested=True",
+        "memory_write_enabled=True",
+        "memory_write_requested=True",
+        "context_injection_enabled=True",
+        "context_injection_requested=True",
+        "backend_route_enabled=True",
+        "backend_route_requested=True",
+        "backend_route_added=True",
+        "control_center_control_enabled=True",
+        "control_center_control_requested=True",
+        "control_center_control_added=True",
+        "dependency_change_enabled=True",
+        "dependency_requested=True",
+        "dependency_added=True",
+        "production_authority_enabled=True",
+        "production_authority_requested=True",
+        "production_authority_granted=True",
+        "store_raw_tool_payload=True",
+        "store_raw_provider_payload=True",
+        "store_raw_prompt=True",
+        "store_secret=True",
+        "contains_raw_tool_payload=True",
+        "contains_raw_provider_payload=True",
+        "contains_raw_prompt=True",
+        "contains_secret=True",
+    ]:
+        if fragment in source_text:
+            print(f"FAIL: M91 forbidden source fragment present: {fragment}")
+            sys.exit(1)
+
+    for forbidden_route in [
+        "/tools/execute",
+        "/tool-runtime/execute",
+        "/autonomy/tools/execute",
+        "/autonomy/tools/run",
+        "/autonomy/session/start",
+        "/autonomy/session/execute",
+        "/tools/autonomous/execute",
+    ]:
+        if forbidden_route in source_text:
+            print(f"FAIL: M91 forbidden backend/frontend route fragment present: {forbidden_route}")
+            sys.exit(1)
+
+    print("OK: M91 autonomous tool execution contract is review-only, route-free, and no-authority")
 
 
 def verify_local_developer_launcher_safety():

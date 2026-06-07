@@ -1194,6 +1194,16 @@ M90_FORBIDDEN_BACKEND_ROUTES = M89_FORBIDDEN_BACKEND_ROUTES + (
     "/process/terminate",
     "/emergency/execute",
 )
+EXPECTED_M91_OPENAPI_PATH_COUNT = 75
+M91_FORBIDDEN_BACKEND_ROUTES = M90_FORBIDDEN_BACKEND_ROUTES + (
+    "/tools/execute",
+    "/tool-runtime/execute",
+    "/autonomy/tools/execute",
+    "/autonomy/tools/run",
+    "/autonomy/session/start",
+    "/autonomy/session/execute",
+    "/tools/autonomous/execute",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -2248,6 +2258,21 @@ def m90_openapi_route_failures(
     return failures
 
 
+def m91_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M91_OPENAPI_PATH_COUNT
+) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(
+            f"OpenAPI path count changed for M91: expected {expected_path_count}, got {len(path_set)}"
+        )
+    for route in M91_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(f"M91 forbidden tool/autonomy execution backend route present: {route}")
+    return failures
+
+
 M36_SAFE_REF_PREFIXES = {
     "reviewPacketRef": "file-review-packet:",
     "previewResultRef": "redacted-file-preview-output:",
@@ -3014,6 +3039,16 @@ class FoundationGateEvaluator:
                 self.check_m90_shell_subprocess_route_boundary
             ),
             "m90_roadmap_currentness": self.check_m90_roadmap_currentness,
+            "m91_autonomous_tool_execution_contract": (
+                self.check_m91_autonomous_tool_execution_contract
+            ),
+            "m91_autonomous_tool_execution_static_safety": (
+                self.check_m91_autonomous_tool_execution_static_safety
+            ),
+            "m91_autonomous_tool_execution_route_boundary": (
+                self.check_m91_autonomous_tool_execution_route_boundary
+            ),
+            "m91_roadmap_currentness": self.check_m91_roadmap_currentness,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -25837,6 +25872,319 @@ class FoundationGateEvaluator:
         ):
             if fragment in text:
                 failures.append(f"M90 docs imply forbidden/future capability: {fragment}")
+        return self._result(criterion, failures, required_docs)
+
+    def check_m91_autonomous_tool_execution_contract(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/tools/autonomous_execution_contract.py",
+            "src/ultimate_ai_agent/core/tools/__init__.py",
+            "src/ultimate_ai_agent/core/sandbox/shell_subprocess_hardening_freeze.py",
+            "docs/tools/AUTONOMOUS_TOOL_EXECUTION_CONTRACT.md",
+            "docs/tools/AUTONOMOUS_TOOL_EXECUTION_CONTRACT_POLICY.md",
+            "docs/tools/AUTONOMOUS_TOOL_EXECUTION_AUTHORITY_BOUNDARY.md",
+            "docs/tools/AUTONOMOUS_TOOL_EXECUTION_RECEIPT_PLAN.md",
+            "docs/tools/AUTONOMOUS_TOOL_EXECUTION_NON_GOALS.md",
+            "docs/tools/M91_TO_M92_BOUNDARY.md",
+            "tests/test_m91_autonomous_tool_execution_contract.py",
+            "tests/test_m91_gate_integration.py",
+        ]
+        failures = [
+            f"missing M91 autonomous tool execution contract file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            sys.path.insert(0, str(self.root))
+            from tests.test_m91_autonomous_tool_execution_contract import _request
+            from ultimate_ai_agent.core.tools import (
+                AutonomousToolExecutionContractStatus,
+                build_autonomous_tool_execution_contract,
+                validate_autonomous_tool_execution_contract_decision,
+            )
+
+            decision = build_autonomous_tool_execution_contract(_request())
+            if (
+                decision.status != AutonomousToolExecutionContractStatus.contract_ready_for_review
+                or not decision.autonomous_tool_execution_contract_defined
+                or not decision.contract_only
+                or not decision.review_only
+                or not decision.deterministic
+                or not decision.local_only
+                or not decision.safe_refs_only
+                or not decision.approval_refs_are_identifiers_only
+                or not decision.dry_run_plan_only
+                or not decision.m90_hardening_freeze_revalidated
+                or decision.execution_authorized
+                or decision.tool_execution_authorized
+                or decision.autonomous_execution_authorized
+                or decision.session_start_authorized
+                or decision.background_worker_authorized
+                or decision.execution_performed
+                or decision.tool_execution_performed
+                or decision.autonomous_execution_performed
+                or decision.session_start_performed
+                or decision.background_worker_started
+                or decision.command_execution_performed
+                or decision.shell_execution_performed
+                or decision.subprocess_execution_performed
+                or decision.filesystem_mutation_performed
+                or decision.network_access_performed
+                or decision.browser_automation_performed
+                or decision.plugin_execution_performed
+                or decision.remote_execution_performed
+                or decision.model_call_performed
+                or decision.memory_write_performed
+                or decision.context_injection_performed
+                or decision.backend_route_added
+                or decision.control_center_control_added
+                or decision.dependency_added
+                or decision.production_authority_granted
+                or decision.side_effects_performed
+                or not decision.receipt_plan.store_safe_summary_only
+                or not decision.receipt_plan.store_safe_refs_only
+                or decision.receipt_plan.store_raw_tool_payload
+                or decision.receipt_plan.store_raw_provider_payload
+                or "M91_AUTONOMOUS_TOOL_EXECUTION_CONTRACT_REVIEW_ONLY" not in decision.reason_codes
+                or "M91_EXACT_M90_HARDENING_BINDING_REQUIRED" not in decision.reason_codes
+                or "M91_NO_REAL_TOOL_EXECUTION" not in decision.reason_codes
+                or "M91_NO_AUTONOMOUS_SESSION_START" not in decision.reason_codes
+                or "M92_REMAINS_FUTURE" not in decision.reason_codes
+            ):
+                failures.append("M91 autonomous tool execution contract decision is unsafe or over-authoritative")
+            for update, reason in [
+                ({"execution_requested": True}, "EXECUTION_DENIED"),
+                ({"tool_execution_requested": True}, "TOOL_EXECUTION_DENIED"),
+                ({"autonomous_execution_requested": True}, "AUTONOMOUS_EXECUTION_DENIED"),
+                ({"session_start_requested": True}, "SESSION_START_DENIED"),
+                ({"background_worker_requested": True}, "BACKGROUND_WORKER_DENIED"),
+                ({"contains_raw_tool_payload": True}, "M91_RAW_TOOL_PAYLOAD_DENIED"),
+                ({"contains_raw_provider_payload": True}, "M91_RAW_PROVIDER_PAYLOAD_DENIED"),
+            ]:
+                try:
+                    build_autonomous_tool_execution_contract(_request(**update))
+                    failures.append(f"M91 unsafe contract request was not denied with {reason}")
+                except ValueError as exc:
+                    if reason not in str(exc):
+                        failures.append(f"M91 unsafe contract request raised {exc!s}, expected {reason}")
+            try:
+                validate_autonomous_tool_execution_contract_decision(
+                    decision.model_copy(update={"tool_execution_authorized": True})
+                )
+                failures.append("M91 mutated tool execution authority flag was not denied")
+            except ValueError as exc:
+                if "TOOL_EXECUTION_DENIED" not in str(exc):
+                    failures.append(f"M91 mutated tool execution authority flag raised {exc!s}")
+        except Exception as exc:
+            failures.append(f"M91 autonomous tool execution contract validation failed: {exc}")
+
+        docs_text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_files
+            if path.startswith("docs/") and (self.root / path).exists()
+        )
+        for fragment in [
+            "autonomous tool execution contract",
+            "contract-only",
+            "review-only",
+            "deterministic",
+            "local-only",
+            "exact m90",
+            "shell/subprocess hardening freeze",
+            "safe refs only",
+            "approval refs are identifiers only",
+            "dry-run plan only",
+            "no real tool execution",
+            "no autonomous session start",
+            "no command execution",
+            "no shell execution",
+            "no subprocess execution",
+            "no filesystem mutation",
+            "no network access",
+            "no browser automation",
+            "no plugin execution",
+            "no remote execution",
+            "no model call",
+            "no memory write",
+            "no context injection",
+            "no background worker",
+            "no backend route",
+            "no control center control",
+            "no dependency",
+            "no production authority",
+            "no raw tool payload",
+            "no raw provider payload",
+            "safe summary only",
+            "evaluator boundaries revalidate",
+            "m92 remains future",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M91 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m91_autonomous_tool_execution_static_safety(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        forbidden_source_fragments = [
+            "autonomous_tool_execution_enabled=True",
+            "autonomous_execution_enabled=True",
+            "execution_enabled=True",
+            "tool_execution_enabled=True",
+            "session_start_enabled=True",
+            "background_worker_enabled=True",
+            "execution_requested=True",
+            "tool_execution_requested=True",
+            "autonomous_execution_requested=True",
+            "session_start_requested=True",
+            "background_worker_requested=True",
+            "execution_authorized=True",
+            "tool_execution_authorized=True",
+            "autonomous_execution_authorized=True",
+            "session_start_authorized=True",
+            "background_worker_authorized=True",
+            "execution_performed=True",
+            "tool_execution_performed=True",
+            "autonomous_execution_performed=True",
+            "session_start_performed=True",
+            "background_worker_started=True",
+            "command_execution_enabled=True",
+            "command_execution_requested=True",
+            "command_execution_performed=True",
+            "shell_execution_enabled=True",
+            "shell_execution_requested=True",
+            "shell_execution_performed=True",
+            "subprocess_execution_enabled=True",
+            "subprocess_execution_requested=True",
+            "subprocess_execution_performed=True",
+            "filesystem_mutation_enabled=True",
+            "filesystem_mutation_requested=True",
+            "network_access_enabled=True",
+            "network_access_requested=True",
+            "browser_automation_enabled=True",
+            "browser_automation_requested=True",
+            "plugin_execution_enabled=True",
+            "plugin_execution_requested=True",
+            "remote_execution_enabled=True",
+            "remote_execution_requested=True",
+            "model_call_enabled=True",
+            "memory_write_enabled=True",
+            "context_injection_enabled=True",
+            "backend_route_enabled=True",
+            "control_center_control_enabled=True",
+            "dependency_change_enabled=True",
+            "production_authority_enabled=True",
+            "backend_route_added=True",
+            "control_center_control_added=True",
+            "dependency_added=True",
+            "production_authority_granted=True",
+            "store_raw_tool_payload=True",
+            "store_raw_provider_payload=True",
+            "store_raw_prompt=True",
+            "store_secret=True",
+        ]
+        allowed_files = {
+            "scripts/verify_all.py",
+            "src/ultimate_ai_agent/core/gate/evaluators.py",
+            "src/ultimate_ai_agent/core/tools/__init__.py",
+            "src/ultimate_ai_agent/core/tools/autonomous_execution_contract.py",
+            "src/ultimate_ai_agent/core/tools/runtime/invocation.py",
+            "src/ultimate_ai_agent/core/sandbox/shell_subprocess_hardening_freeze.py",
+            "src/ultimate_ai_agent/core/sandbox/emergency_stop_process_kill_safety.py",
+            "src/ultimate_ai_agent/core/sandbox/mutating_command_proposal.py",
+            "src/ultimate_ai_agent/core/sandbox/command_audit_replay.py",
+            "src/ultimate_ai_agent/core/sandbox/shell_approval_gate.py",
+            "src/ultimate_ai_agent/core/sandbox/read_only_command_allowlist.py",
+            "src/ultimate_ai_agent/core/sandbox/sandboxed_echo_noop_command.py",
+            "src/ultimate_ai_agent/core/sandbox/shell_dry_run_classifier.py",
+            "src/ultimate_ai_agent/core/sandbox/command_proposal.py",
+            "src/ultimate_ai_agent/core/sandbox/runtime_spec.py",
+            "src/ultimate_ai_agent/api/openapi.py",
+        }
+        for root in [
+            self.root / "src" / "ultimate_ai_agent",
+            self.root / "apps" / "control-center" / "src",
+            self.root / "apps" / "ccc-ios",
+        ]:
+            if not root.exists():
+                continue
+            candidate_files = []
+            for pattern in ("*.py", "*.ts", "*.tsx", "*.js", "*.jsx", "*.swift", "*.yml", "*.yaml"):
+                candidate_files.extend(root.rglob(pattern))
+            for path in sorted(candidate_files):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(self.root).as_posix()
+                if ".test." in rel:
+                    continue
+                if rel in allowed_files:
+                    continue
+                text = path.read_text(encoding="utf-8")
+                for fragment in forbidden_source_fragments:
+                    if fragment in text:
+                        failures.append(
+                            f"M91 forbidden autonomous tool execution fragment in {rel}: {fragment}"
+                        )
+        return self._result(criterion, failures, [])
+
+    def check_m91_autonomous_tool_execution_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m91_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M91 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m91_roadmap_currentness(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        required_docs = [
+            "README.md",
+            "VERSION.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/roadmap/M61_M100_ROADMAP.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+            "docs/roadmap/MILESTONE_CHARTERS.md",
+        ]
+        failures = [
+            f"missing M91 roadmap doc: {path}"
+            for path in required_docs
+            if not (self.root / path).exists()
+        ]
+        text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_docs
+            if (self.root / path).exists()
+        )
+        if "v0.95.0" not in text or "m91" not in text or "autonomous tool execution contract" not in text:
+            failures.append("active docs do not identify v0.95.0/M91 Autonomous Tool Execution Contract")
+        if "m91 is implemented/released" not in text and "v0.95.0 implements m91" not in text:
+            failures.append("active docs do not mark M91 implemented/released")
+        for version_label, milestone, title in [
+            ("v0.96.0", "M92", "Low-Risk Tool Autonomy, Single Session"),
+            ("v0.97.0", "M93", "Multi-Tool Dry-Run to Real Run Promotion"),
+            ("v1.4.0", "M100", "Mobile Permission Model v1"),
+        ]:
+            if version_label.lower() not in text or milestone.lower() not in text or title.lower() not in text:
+                failures.append(f"active docs missing planned M92-M100 row: {version_label} / {milestone} — {title}")
+        for fragment in (
+            "real tool execution is implemented",
+            "autonomous session start is implemented",
+            "command execution is implemented",
+            "filesystem mutation is implemented",
+            "subprocess execution is implemented",
+            "shell execution is implemented",
+            "network access is implemented",
+            "browser click is implemented",
+            "plugin execution is implemented",
+            "production authority is implemented",
+            "broad autonomy is implemented",
+        ):
+            if fragment in text:
+                failures.append(f"M91 docs imply forbidden/future capability: {fragment}")
         return self._result(criterion, failures, required_docs)
 
     def check_v0292_local_dev_api_authority_and_preview_safe(

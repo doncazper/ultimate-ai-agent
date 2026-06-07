@@ -56,6 +56,17 @@ from ultimate_ai_agent.core.tools.expansion_review import (
     validate_controlled_tool_expansion_candidate,
     validate_controlled_tool_expansion_policy,
 )
+from ultimate_ai_agent.core.tools.autonomous_execution_contract import (
+    AutonomousToolExecutionContractDecision,
+    AutonomousToolExecutionContractPolicy,
+    AutonomousToolExecutionContractReceiptPlan,
+    AutonomousToolExecutionContractRequest,
+    AutonomousToolExecutionContractStatus,
+    build_autonomous_tool_execution_contract,
+    validate_autonomous_tool_execution_contract_decision,
+    validate_autonomous_tool_execution_contract_policy,
+    validate_autonomous_tool_execution_contract_request,
+)
 
 __all__ = [
     "ToolCategory",
@@ -104,4 +115,13 @@ __all__ = [
     "evaluate_controlled_tool_expansion_candidate",
     "validate_controlled_tool_expansion_candidate",
     "validate_controlled_tool_expansion_policy",
+    "AutonomousToolExecutionContractDecision",
+    "AutonomousToolExecutionContractPolicy",
+    "AutonomousToolExecutionContractReceiptPlan",
+    "AutonomousToolExecutionContractRequest",
+    "AutonomousToolExecutionContractStatus",
+    "build_autonomous_tool_execution_contract",
+    "validate_autonomous_tool_execution_contract_decision",
+    "validate_autonomous_tool_execution_contract_policy",
+    "validate_autonomous_tool_execution_contract_request",
 ]

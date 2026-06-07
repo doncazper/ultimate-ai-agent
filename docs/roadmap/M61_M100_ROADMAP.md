@@ -1,6 +1,6 @@
 # M61-M100 Roadmap
 
-Status: Active roadmap maintained through M90 / v0.94.0.
+Status: Active roadmap maintained through M91 / v0.95.0.
 
 M61 is implemented/released by v0.65.0 as Autonomy Mode Charter + Authority
 Levels. M62 is implemented/released by v0.66.0 as Scoped Autonomy Session
@@ -32,9 +32,10 @@ implemented/released by v0.90.0 as Shell Approval Gate v1. M87 is
 implemented/released by v0.91.0 as Sandboxed Command Audit Replay. M88 is
 implemented/released by v0.92.0 as Mutating Command Proposal, No Execution. M89 is
 implemented/released by v0.93.0 as Emergency Stop + Process Kill Safety. M90 is
-implemented/released by v0.94.0 as Shell/Subprocess Hardening Freeze. M91-M100 remain
+implemented/released by v0.94.0 as Shell/Subprocess Hardening Freeze. M91 is
+implemented/released by v0.95.0 as Autonomous Tool Execution Contract. M92-M100 remain
 planned/provisional. This roadmap adds no
-production authority, no global autonomy switch, no broad autonomy, no tool
+production authority, no global autonomy switch, no broad autonomy, no real tool
 execution, no shell execution, no browser automation beyond the M74 injected
 observation redacted preview boundary, no browser navigation, no browser click,
 no screenshot, no raw DOM, no
@@ -77,7 +78,7 @@ no dependency.
 | v0.92.0 | M88 | Mutating Command Proposal, No Execution | Implemented/released |
 | v0.93.0 | M89 | Emergency Stop + Process Kill Safety | Implemented/released |
 | v0.94.0 | M90 | Shell/Subprocess Hardening Freeze | Implemented/released |
-| v0.95.0 | M91 | Autonomous Tool Execution Contract | Planned/provisional |
+| v0.95.0 | M91 | Autonomous Tool Execution Contract | Implemented/released |
 | v0.96.0 | M92 | Low-Risk Tool Autonomy, Single Session | Planned/provisional |
 | v0.97.0 | M93 | Multi-Tool Dry-Run to Real Run Promotion | Planned/provisional |
 | v0.98.0 | M94 | Autonomous Browser Clicks, Low-Risk Only | Planned/provisional |
@@ -185,7 +186,31 @@ execution, no subprocess execution, no shell execution, no process spawn, no
 filesystem mutation, no network access, no tool execution, no browser
 automation, no plugin execution, no remote execution, no model call, no memory
 write, no context injection, no background worker, no backend route, no Control
-Center control, no dependency, and no production authority. M90 remains future.
+Center control, no dependency, and no production authority.
+
+M90 is implemented/released as contract-only, review-only, freeze-only,
+deterministic, and local-only Shell/Subprocess Hardening Freeze contracts over
+exact M89 Emergency Stop + Process Kill Safety decisions. It validates safe
+hardening refs, safe refs only receipt plans, stable reason codes, and evaluator
+boundaries revalidate safety-critical fields. It adds no command execution, no
+shell execution, no subprocess execution, no process spawn, no emergency stop
+execution, no process kill, no process signal, no filesystem mutation, no
+network access, no tool execution, no browser automation, no plugin execution,
+no remote execution, no model call, no memory write, no context injection, no
+background worker, no backend route, no Control Center control, no dependency,
+and no production authority.
+
+M91 is implemented/released as contract-only, review-only, deterministic, and
+local-only Autonomous Tool Execution Contract metadata over exact M90
+Shell/Subprocess Hardening Freeze decisions. It defines safe contract refs,
+dry-run plan only fields, safe refs only receipt plans, stable reason codes, and
+evaluator boundaries revalidate safety-critical fields. It adds no real tool
+execution, no autonomous execution, no autonomous session start, no command
+execution, no shell execution, no subprocess execution, no filesystem mutation,
+no network access, no browser automation, no plugin execution, no remote
+execution, no model call, no memory write, no context injection, no background
+worker, no backend route, no Control Center control, no dependency, and no
+production authority. M92 remains future.
 
 Production authority remains future beyond M100 unless a later reviewed roadmap
 promotion explicitly changes the boundary.

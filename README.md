@@ -12,24 +12,24 @@ allowed to become operational authority.
 
 | Field | Current state |
 |---|---|
-| Current active baseline | **v0.94.0** |
-| Current milestone | **M90 - Shell/Subprocess Hardening Freeze** |
+| Current active baseline | **v0.95.0** |
+| Current milestone | **M91 - Autonomous Tool Execution Contract** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **75** OpenAPI paths |
 | Production readiness | Not claimed |
 
-v0.94.0 implements M90 Shell/Subprocess Hardening Freeze. It adds
-contract-only, review-only, freeze-only shell/subprocess hardening contracts over
-exact M89 Emergency Stop + Process Kill Safety decisions, safe hardening refs,
-safe refs only receipt plans, evaluator revalidation, documentation-integrity
-checks, static verification, tests, and Foundation Gate coverage. It adds no
-command execution, shell execution, subprocess execution, process spawn,
-emergency stop execution, process kill, process signal, filesystem mutation,
-network access, tool execution, browser automation, plugin execution, remote
-execution, model call, memory write, context injection, background worker,
-backend routes, Control Center controls, dependency, M91 work, or production
-authority.
+v0.95.0 implements M91 Autonomous Tool Execution Contract. It adds
+contract-only, review-only, deterministic, local-only autonomous tool execution
+contract metadata over exact M90 Shell/Subprocess Hardening Freeze decisions,
+safe contract refs, dry-run plan only fields, safe refs only receipt plans,
+evaluator revalidation, documentation-integrity checks, static verification,
+tests, and Foundation Gate coverage. It adds no real tool execution,
+autonomous execution, autonomous session start, command execution, shell
+execution, subprocess execution, filesystem mutation, network access, browser
+automation, plugin execution, remote execution, model call, memory write,
+context injection, background worker, backend routes, Control Center controls,
+dependency, M92 work, or production authority.
 
 v0.29.5 is documentation policy polish. It remains the documentation
 organization cleanup baseline before the M26 and M27 implementation releases.
@@ -64,6 +64,8 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M72 Read-Only HTTP Fetch Tool](docs/network/READ_ONLY_HTTP_FETCH_TOOL.md)
 - [M72 Read-Only HTTP Fetch Policy](docs/network/READ_ONLY_HTTP_FETCH_POLICY.md)
 - [M72 Read-Only HTTP Fetch Authority Boundary](docs/network/READ_ONLY_HTTP_FETCH_AUTHORITY_BOUNDARY.md)
+- [M91 Autonomous Tool Execution Contract](docs/tools/AUTONOMOUS_TOOL_EXECUTION_CONTRACT.md)
+- [M91 Autonomous Tool Execution Authority Boundary](docs/tools/AUTONOMOUS_TOOL_EXECUTION_AUTHORITY_BOUNDARY.md)
 - [M73 Browser Automation Contract Review](docs/browser/BROWSER_AUTOMATION_CONTRACT_REVIEW.md)
 - [M73 Browser Automation Contract Review Policy](docs/browser/BROWSER_AUTOMATION_CONTRACT_REVIEW_POLICY.md)
 - [M73 Browser Automation Authority Boundary](docs/browser/BROWSER_AUTOMATION_AUTHORITY_BOUNDARY.md)
@@ -240,6 +242,8 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [v0.93.0 master plan](docs/archive/releases/v0_93_0/master_plan.md)
 - [v0.94.0 release packet](docs/archive/releases/v0_94_0/README_IMPORT.md)
 - [v0.94.0 master plan](docs/archive/releases/v0_94_0/master_plan.md)
+- [v0.95.0 release packet](docs/archive/releases/v0_95_0/README_IMPORT.md)
+- [v0.95.0 master plan](docs/archive/releases/v0_95_0/master_plan.md)
 
 ## What This Project Is
 
