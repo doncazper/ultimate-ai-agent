@@ -1,6 +1,6 @@
 # Post-M20 Capability Layer Roadmap
 
-Status: Active roadmap projection maintained through v1.7.1.
+Status: Active roadmap projection maintained through v1.7.2.
 
 v0.38.0 implements M34 Broader File Capability Review as planning,
 architecture review, documentation, verifier, and Foundation Gate work only.
@@ -124,10 +124,10 @@ The detailed post-M33 supersession source of truth is
 
 ## Prompt-Pack Strategy
 
-Recommended next prompt after v1.7.1:
+Recommended next prompt after v1.7.2:
 
 ```text
-Run M104 implementation conveyor using the v1.7.x internal snapshot sequence,
+Run M104 implementation conveyor using checkpoint milestones for M104-M149,
 with M150 reserved as the v1.0.0-alpha product target.
 ```
 
@@ -176,8 +176,8 @@ planned/provisional only in `docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md`.
 M101 is implemented/released by v1.5.0 as Mobile Sensor Contract Review.
 M102 is implemented/released by v1.6.0 as Location Sensor, Off by Default.
 M103 is implemented/released by v1.7.0 as Camera/Photos Metadata-Only Contract.
-v1.7.1 repairs post-M103 versioning/currentness only. M104-M149 remain
-planned/provisional as incremental v1.7.x internal snapshots, and M150 remains
+v1.7.2 repairs post-M103 versioning/currentness only. M104-M149 remain
+planned/provisional as checkpoint milestones instead of product SemVer tags, and M150 remains
 planned/provisional as the v1.0.0-alpha product target. Beta begins after the
 alpha UI and supporting safety/product work are reviewed and promoted.
 

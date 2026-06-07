@@ -1,11 +1,11 @@
 # M101-M150 Capability Charters
 
-Status: Active roadmap maintained through v1.7.1 after the accepted M103
-baseline and post-M103 versioning repair.
+Status: Active roadmap maintained through v1.7.2 after the accepted M103
+baseline and post-M103 versioning repair follow-up.
 
 M101 is implemented/released as Mobile Sensor Contract Review. M102 is
 implemented/released as Location Sensor, Off by Default. M103 is
-implemented/released as Camera/Photos Metadata-Only Contract. v1.7.1 repairs
+implemented/released as Camera/Photos Metadata-Only Contract. v1.7.2 repairs
 the post-M100 versioning policy only. M104-M150 remain planned/provisional.
 Future work must continue the authority-tier model:
 
@@ -20,67 +20,66 @@ accepted Green.
 
 ## Versioning Policy
 
-The already-pushed v1.0.0 through v1.7.0 tags remain immutable historical
+The already-pushed v1.0.0 through v1.7.1 tags remain immutable historical
 internal milestone tags. They are not the public product alpha/beta channel.
-Starting after v1.7.1, future M104-M149 conveyor snapshots use incremental
-v1.7.x internal tags so the version line stays boring and reviewable. M150 is
-the first public alpha target: **v1.0.0-alpha**. Beta begins only after the
-alpha UI and supporting safety/product work are reviewed, accepted, and
-explicitly promoted by a later roadmap patch. Do not rewrite, move, or reuse
-existing tags.
+Starting after v1.7.2, future M104-M149 conveyor milestones use checkpoint
+labels instead of product SemVer tags. M150 is the next product release target:
+**v1.0.0-alpha**. Beta begins only after the alpha UI and supporting
+safety/product work are reviewed, accepted, and explicitly promoted by a later
+roadmap patch. Do not rewrite, move, or reuse existing tags.
 
-| Internal snapshot | Product target | Milestone | Title | Status |
+| Checkpoint | Product target | Milestone | Title | Status |
 | --- | --- | --- | --- | --- |
 | v1.5.0 | pre-alpha internal | M101 | Mobile Sensor Contract Review | Implemented/released |
 | v1.6.0 | pre-alpha internal | M102 | Location Sensor, Off by Default | Implemented/released |
 | v1.7.0 | pre-alpha internal | M103 | Camera/Photos Metadata-Only Contract | Implemented/released |
-| v1.7.2 | pre-alpha | M104 | Notification Planning, No Push Execution | Planned/provisional |
-| v1.7.3 | pre-alpha | M105 | Background Task Contract, No Execution | Planned/provisional |
-| v1.7.4 | pre-alpha | M106 | Mobile Background Read-Only Status Sync | Planned/provisional |
-| v1.7.5 | pre-alpha | M107 | Mobile Approval Renewal UX | Planned/provisional |
-| v1.7.6 | pre-alpha | M108 | Mobile Kill Switch + Revocation | Planned/provisional |
-| v1.7.7 | pre-alpha | M109 | Mobile Sensor Audit Ledger | Planned/provisional |
-| v1.7.8 | pre-alpha | M110 | Mobile Sensor Hardening Freeze | Planned/provisional |
-| v1.7.9 | pre-alpha | M111 | Production Threat Model | Planned/provisional |
-| v1.7.10 | pre-alpha | M112 | User/Workspace Identity Model | Planned/provisional |
-| v1.7.11 | pre-alpha | M113 | Secrets Boundary + Credential Vault Contract | Planned/provisional |
-| v1.7.12 | pre-alpha | M114 | Account Connector Contract Review | Planned/provisional |
-| v1.7.13 | pre-alpha | M115 | Production Audit Retention Policy | Planned/provisional |
-| v1.7.14 | pre-alpha | M116 | Role-Based Authority Model | Planned/provisional |
-| v1.7.15 | pre-alpha | M117 | Remote Agent Coordination Contract | Planned/provisional |
-| v1.7.16 | pre-alpha | M118 | Deployment Mode Matrix | Planned/provisional |
-| v1.7.17 | pre-alpha | M119 | Production Red-Team Harness | Planned/provisional |
-| v1.7.18 | pre-alpha | M120 | Production Authority Readiness Review | Planned/provisional |
-| v1.7.19 | pre-alpha | M121 | Email Connector Contract Refresh | Planned/provisional |
-| v1.7.20 | pre-alpha | M122 | Calendar Connector Contract Refresh | Planned/provisional |
-| v1.7.21 | pre-alpha | M123 | Contacts Connector Contract Refresh | Planned/provisional |
-| v1.7.22 | pre-alpha | M124 | Messages Connector Contract Review | Planned/provisional |
-| v1.7.23 | pre-alpha | M125 | Connector Read-Only Runtime | Planned/provisional |
-| v1.7.24 | pre-alpha | M126 | Connector Approval Capture | Planned/provisional |
-| v1.7.25 | pre-alpha | M127 | Connector Write Dry-Run Planner | Planned/provisional |
-| v1.7.26 | pre-alpha | M128 | Connector Write Execution, Low-Risk Only | Planned/provisional |
-| v1.7.27 | pre-alpha | M129 | Connector Audit + Revocation Hardening | Planned/provisional |
-| v1.7.28 | pre-alpha | M130 | Connector Safety Freeze | Planned/provisional |
-| v1.7.29 | pre-alpha | M131 | Autonomy Mode 4, Scoped Work Session | Planned/provisional |
-| v1.7.30 | pre-alpha | M132 | Autonomy Mode 5, Trusted Recurring Workflow | Planned/provisional |
-| v1.7.31 | pre-alpha | M133 | Long-Running Task Supervisor | Planned/provisional |
-| v1.7.32 | pre-alpha | M134 | Human Checkpoint Scheduling | Planned/provisional |
-| v1.7.33 | pre-alpha | M135 | Autonomous Recovery Planner | Planned/provisional |
-| v1.7.34 | pre-alpha | M136 | Cross-Tool Dependency Execution | Planned/provisional |
-| v1.7.35 | pre-alpha | M137 | Autonomous Browser + Connector Combined Workflows | Planned/provisional |
-| v1.7.36 | pre-alpha | M138 | Autonomous Error Handling Guardrails | Planned/provisional |
-| v1.7.37 | pre-alpha | M139 | Autonomy Abuse/Loop Detection | Planned/provisional |
-| v1.7.38 | pre-alpha | M140 | Higher-Autonomy Red-Team Freeze | Planned/provisional |
-| v1.7.39 | pre-alpha | M141 | Multi-User Product Boundary | Planned/provisional |
-| v1.7.40 | pre-alpha | M142 | Alpha Privacy Review | Planned/provisional |
-| v1.7.41 | pre-alpha | M143 | Alpha UI and App Readiness | Planned/provisional |
-| v1.7.42 | pre-alpha | M144 | Plugin Marketplace Policy Draft | Planned/provisional |
-| v1.7.43 | pre-alpha | M145 | Enterprise/Pro Safety Modes | Planned/provisional |
-| v1.7.44 | pre-alpha | M146 | Billing/Plan Boundary, If Needed | Planned/provisional |
-| v1.7.45 | pre-alpha | M147 | Public Docs + Wiki Readiness | Planned/provisional |
-| v1.7.46 | pre-alpha | M148 | External Security Review | Planned/provisional |
-| v1.7.47 | pre-alpha | M149 | Alpha Release Candidate Freeze | Planned/provisional |
-| v1.7.48 | v1.0.0-alpha | M150 | Ultimate AI Agent v1.0.0-alpha | Planned/provisional |
+| Checkpoint M104 | pre-alpha checkpoint | M104 | Notification Planning, No Push Execution | Planned/provisional |
+| Checkpoint M105 | pre-alpha checkpoint | M105 | Background Task Contract, No Execution | Planned/provisional |
+| Checkpoint M106 | pre-alpha checkpoint | M106 | Mobile Background Read-Only Status Sync | Planned/provisional |
+| Checkpoint M107 | pre-alpha checkpoint | M107 | Mobile Approval Renewal UX | Planned/provisional |
+| Checkpoint M108 | pre-alpha checkpoint | M108 | Mobile Kill Switch + Revocation | Planned/provisional |
+| Checkpoint M109 | pre-alpha checkpoint | M109 | Mobile Sensor Audit Ledger | Planned/provisional |
+| Checkpoint M110 | pre-alpha checkpoint | M110 | Mobile Sensor Hardening Freeze | Planned/provisional |
+| Checkpoint M111 | pre-alpha checkpoint | M111 | Production Threat Model | Planned/provisional |
+| Checkpoint M112 | pre-alpha checkpoint | M112 | User/Workspace Identity Model | Planned/provisional |
+| Checkpoint M113 | pre-alpha checkpoint | M113 | Secrets Boundary + Credential Vault Contract | Planned/provisional |
+| Checkpoint M114 | pre-alpha checkpoint | M114 | Account Connector Contract Review | Planned/provisional |
+| Checkpoint M115 | pre-alpha checkpoint | M115 | Production Audit Retention Policy | Planned/provisional |
+| Checkpoint M116 | pre-alpha checkpoint | M116 | Role-Based Authority Model | Planned/provisional |
+| Checkpoint M117 | pre-alpha checkpoint | M117 | Remote Agent Coordination Contract | Planned/provisional |
+| Checkpoint M118 | pre-alpha checkpoint | M118 | Deployment Mode Matrix | Planned/provisional |
+| Checkpoint M119 | pre-alpha checkpoint | M119 | Production Red-Team Harness | Planned/provisional |
+| Checkpoint M120 | pre-alpha checkpoint | M120 | Production Authority Readiness Review | Planned/provisional |
+| Checkpoint M121 | pre-alpha checkpoint | M121 | Email Connector Contract Refresh | Planned/provisional |
+| Checkpoint M122 | pre-alpha checkpoint | M122 | Calendar Connector Contract Refresh | Planned/provisional |
+| Checkpoint M123 | pre-alpha checkpoint | M123 | Contacts Connector Contract Refresh | Planned/provisional |
+| Checkpoint M124 | pre-alpha checkpoint | M124 | Messages Connector Contract Review | Planned/provisional |
+| Checkpoint M125 | pre-alpha checkpoint | M125 | Connector Read-Only Runtime | Planned/provisional |
+| Checkpoint M126 | pre-alpha checkpoint | M126 | Connector Approval Capture | Planned/provisional |
+| Checkpoint M127 | pre-alpha checkpoint | M127 | Connector Write Dry-Run Planner | Planned/provisional |
+| Checkpoint M128 | pre-alpha checkpoint | M128 | Connector Write Execution, Low-Risk Only | Planned/provisional |
+| Checkpoint M129 | pre-alpha checkpoint | M129 | Connector Audit + Revocation Hardening | Planned/provisional |
+| Checkpoint M130 | pre-alpha checkpoint | M130 | Connector Safety Freeze | Planned/provisional |
+| Checkpoint M131 | pre-alpha checkpoint | M131 | Autonomy Mode 4, Scoped Work Session | Planned/provisional |
+| Checkpoint M132 | pre-alpha checkpoint | M132 | Autonomy Mode 5, Trusted Recurring Workflow | Planned/provisional |
+| Checkpoint M133 | pre-alpha checkpoint | M133 | Long-Running Task Supervisor | Planned/provisional |
+| Checkpoint M134 | pre-alpha checkpoint | M134 | Human Checkpoint Scheduling | Planned/provisional |
+| Checkpoint M135 | pre-alpha checkpoint | M135 | Autonomous Recovery Planner | Planned/provisional |
+| Checkpoint M136 | pre-alpha checkpoint | M136 | Cross-Tool Dependency Execution | Planned/provisional |
+| Checkpoint M137 | pre-alpha checkpoint | M137 | Autonomous Browser + Connector Combined Workflows | Planned/provisional |
+| Checkpoint M138 | pre-alpha checkpoint | M138 | Autonomous Error Handling Guardrails | Planned/provisional |
+| Checkpoint M139 | pre-alpha checkpoint | M139 | Autonomy Abuse/Loop Detection | Planned/provisional |
+| Checkpoint M140 | pre-alpha checkpoint | M140 | Higher-Autonomy Red-Team Freeze | Planned/provisional |
+| Checkpoint M141 | pre-alpha checkpoint | M141 | Multi-User Product Boundary | Planned/provisional |
+| Checkpoint M142 | pre-alpha checkpoint | M142 | Alpha Privacy Review | Planned/provisional |
+| Checkpoint M143 | pre-alpha checkpoint | M143 | Alpha UI and App Readiness | Planned/provisional |
+| Checkpoint M144 | pre-alpha checkpoint | M144 | Plugin Marketplace Policy Draft | Planned/provisional |
+| Checkpoint M145 | pre-alpha checkpoint | M145 | Enterprise/Pro Safety Modes | Planned/provisional |
+| Checkpoint M146 | pre-alpha checkpoint | M146 | Billing/Plan Boundary, If Needed | Planned/provisional |
+| Checkpoint M147 | pre-alpha checkpoint | M147 | Public Docs + Wiki Readiness | Planned/provisional |
+| Checkpoint M148 | pre-alpha checkpoint | M148 | External Security Review | Planned/provisional |
+| Checkpoint M149 | pre-alpha checkpoint | M149 | Alpha Release Candidate Freeze | Planned/provisional |
+| v1.0.0-alpha | alpha | M150 | Ultimate AI Agent v1.0.0-alpha | Planned/provisional |
 
 ## Shared Non-Goals
 
@@ -106,7 +105,7 @@ multi-user, alpha UI/product readiness, marketplace policy, billing boundaries,
 public docs, security review, alpha release candidate freeze, and the
 v1.0.0-alpha target.
 
-No M151+ extension is required by the v1.7.1 versioning repair. Beta begins
+No M151+ extension is required by the v1.7.2 versioning repair. Beta begins
 after the alpha UI and other alpha findings are ironed out through later
 reviewed roadmap promotion. If future review finds missed M1-M100 work that
 should not displace M101-M150, add a separate planned/provisional M151+

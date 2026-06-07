@@ -12,20 +12,20 @@ allowed to become operational authority.
 
 | Field | Current state |
 |---|---|
-| Current active baseline | **v1.7.1** |
+| Current active baseline | **v1.7.2** |
 | Current milestone | **Post-M103 versioning/currentness repair** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **75** OpenAPI paths |
 | Production readiness | Not claimed |
 
-v1.7.1 repairs post-M103 roadmap versioning/currentness only. M103 remains the
-latest implemented capability baseline. Already-pushed v1.0.0 through v1.7.0
-tags remain immutable historical internal milestone tags, future M104-M149
-conveyor snapshots use incremental v1.7.x internal tags, and M150 is the public
-product target **v1.0.0-alpha**. Beta begins only after the alpha UI and
+v1.7.2 repairs post-M103 roadmap versioning/currentness only. M103 remains the
+latest implemented capability baseline. Already-pushed tags remain immutable
+historical internal milestone tags, future M104-M149 conveyor milestones use
+checkpoint labels instead of product SemVer tags, and M150 is the next product
+release target **v1.0.0-alpha**. Beta begins only after the alpha UI and
 supporting safety/product work are reviewed, accepted, and explicitly promoted
-by a later roadmap patch. v1.7.1 adds no capability implementation, backend
+by a later roadmap patch. v1.7.2 adds no capability implementation, backend
 routes, Control Center controls, dependencies, execution, broad autonomy, broad
 unsandboxed autonomy, mobile sensor runtime, M104 work, or production authority.
 
@@ -282,6 +282,8 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [v1.7.0 master plan](docs/archive/releases/v1_7_0/master_plan.md)
 - [v1.7.1 release packet](docs/archive/releases/v1_7_1/README_IMPORT.md)
 - [v1.7.1 master plan](docs/archive/releases/v1_7_1/master_plan.md)
+- [v1.7.2 release packet](docs/archive/releases/v1_7_2/README_IMPORT.md)
+- [v1.7.2 master plan](docs/archive/releases/v1_7_2/master_plan.md)
 
 ## What This Project Is
 

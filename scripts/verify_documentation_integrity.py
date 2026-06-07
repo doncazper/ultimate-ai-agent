@@ -937,57 +937,64 @@ REQUIRED_M103_CAMERA_PHOTOS_METADATA_ONLY_DOCS = [
     "docs/implementation/foundation_gate_implementation_plan_v1_7_0.md",
 ]
 
+M104_M149_CHECKPOINT_TITLES = [
+    ("m104", "notification planning, no push execution"),
+    ("m105", "background task contract, no execution"),
+    ("m106", "mobile background read-only status sync"),
+    ("m107", "mobile approval renewal ux"),
+    ("m108", "mobile kill switch + revocation"),
+    ("m109", "mobile sensor audit ledger"),
+    ("m110", "mobile sensor hardening freeze"),
+    ("m111", "production threat model"),
+    ("m112", "user/workspace identity model"),
+    ("m113", "secrets boundary + credential vault contract"),
+    ("m114", "account connector contract review"),
+    ("m115", "production audit retention policy"),
+    ("m116", "role-based authority model"),
+    ("m117", "remote agent coordination contract"),
+    ("m118", "deployment mode matrix"),
+    ("m119", "production red-team harness"),
+    ("m120", "production authority readiness review"),
+    ("m121", "email connector contract refresh"),
+    ("m122", "calendar connector contract refresh"),
+    ("m123", "contacts connector contract refresh"),
+    ("m124", "messages connector contract review"),
+    ("m125", "connector read-only runtime"),
+    ("m126", "connector approval capture"),
+    ("m127", "connector write dry-run planner"),
+    ("m128", "connector write execution, low-risk only"),
+    ("m129", "connector audit + revocation hardening"),
+    ("m130", "connector safety freeze"),
+    ("m131", "autonomy mode 4, scoped work session"),
+    ("m132", "autonomy mode 5, trusted recurring workflow"),
+    ("m133", "long-running task supervisor"),
+    ("m134", "human checkpoint scheduling"),
+    ("m135", "autonomous recovery planner"),
+    ("m136", "cross-tool dependency execution"),
+    ("m137", "autonomous browser + connector combined workflows"),
+    ("m138", "autonomous error handling guardrails"),
+    ("m139", "autonomy abuse/loop detection"),
+    ("m140", "higher-autonomy red-team freeze"),
+    ("m141", "multi-user product boundary"),
+    ("m142", "alpha privacy review"),
+    ("m143", "alpha ui and app readiness"),
+    ("m144", "plugin marketplace policy draft"),
+    ("m145", "enterprise/pro safety modes"),
+    ("m146", "billing/plan boundary, if needed"),
+    ("m147", "public docs + wiki readiness"),
+    ("m148", "external security review"),
+    ("m149", "alpha release candidate freeze"),
+]
+
 EXPECTED_M101_M150_LABELS = [
     ("v1.5.0", "pre-alpha internal", "m101", "mobile sensor contract review"),
     ("v1.6.0", "pre-alpha internal", "m102", "location sensor, off by default"),
     ("v1.7.0", "pre-alpha internal", "m103", "camera/photos metadata-only contract"),
-    ("v1.7.2", "pre-alpha", "m104", "notification planning, no push execution"),
-    ("v1.7.3", "pre-alpha", "m105", "background task contract, no execution"),
-    ("v1.7.4", "pre-alpha", "m106", "mobile background read-only status sync"),
-    ("v1.7.5", "pre-alpha", "m107", "mobile approval renewal ux"),
-    ("v1.7.6", "pre-alpha", "m108", "mobile kill switch + revocation"),
-    ("v1.7.7", "pre-alpha", "m109", "mobile sensor audit ledger"),
-    ("v1.7.8", "pre-alpha", "m110", "mobile sensor hardening freeze"),
-    ("v1.7.9", "pre-alpha", "m111", "production threat model"),
-    ("v1.7.10", "pre-alpha", "m112", "user/workspace identity model"),
-    ("v1.7.11", "pre-alpha", "m113", "secrets boundary + credential vault contract"),
-    ("v1.7.12", "pre-alpha", "m114", "account connector contract review"),
-    ("v1.7.13", "pre-alpha", "m115", "production audit retention policy"),
-    ("v1.7.14", "pre-alpha", "m116", "role-based authority model"),
-    ("v1.7.15", "pre-alpha", "m117", "remote agent coordination contract"),
-    ("v1.7.16", "pre-alpha", "m118", "deployment mode matrix"),
-    ("v1.7.17", "pre-alpha", "m119", "production red-team harness"),
-    ("v1.7.18", "pre-alpha", "m120", "production authority readiness review"),
-    ("v1.7.19", "pre-alpha", "m121", "email connector contract refresh"),
-    ("v1.7.20", "pre-alpha", "m122", "calendar connector contract refresh"),
-    ("v1.7.21", "pre-alpha", "m123", "contacts connector contract refresh"),
-    ("v1.7.22", "pre-alpha", "m124", "messages connector contract review"),
-    ("v1.7.23", "pre-alpha", "m125", "connector read-only runtime"),
-    ("v1.7.24", "pre-alpha", "m126", "connector approval capture"),
-    ("v1.7.25", "pre-alpha", "m127", "connector write dry-run planner"),
-    ("v1.7.26", "pre-alpha", "m128", "connector write execution, low-risk only"),
-    ("v1.7.27", "pre-alpha", "m129", "connector audit + revocation hardening"),
-    ("v1.7.28", "pre-alpha", "m130", "connector safety freeze"),
-    ("v1.7.29", "pre-alpha", "m131", "autonomy mode 4, scoped work session"),
-    ("v1.7.30", "pre-alpha", "m132", "autonomy mode 5, trusted recurring workflow"),
-    ("v1.7.31", "pre-alpha", "m133", "long-running task supervisor"),
-    ("v1.7.32", "pre-alpha", "m134", "human checkpoint scheduling"),
-    ("v1.7.33", "pre-alpha", "m135", "autonomous recovery planner"),
-    ("v1.7.34", "pre-alpha", "m136", "cross-tool dependency execution"),
-    ("v1.7.35", "pre-alpha", "m137", "autonomous browser + connector combined workflows"),
-    ("v1.7.36", "pre-alpha", "m138", "autonomous error handling guardrails"),
-    ("v1.7.37", "pre-alpha", "m139", "autonomy abuse/loop detection"),
-    ("v1.7.38", "pre-alpha", "m140", "higher-autonomy red-team freeze"),
-    ("v1.7.39", "pre-alpha", "m141", "multi-user product boundary"),
-    ("v1.7.40", "pre-alpha", "m142", "alpha privacy review"),
-    ("v1.7.41", "pre-alpha", "m143", "alpha ui and app readiness"),
-    ("v1.7.42", "pre-alpha", "m144", "plugin marketplace policy draft"),
-    ("v1.7.43", "pre-alpha", "m145", "enterprise/pro safety modes"),
-    ("v1.7.44", "pre-alpha", "m146", "billing/plan boundary, if needed"),
-    ("v1.7.45", "pre-alpha", "m147", "public docs + wiki readiness"),
-    ("v1.7.46", "pre-alpha", "m148", "external security review"),
-    ("v1.7.47", "pre-alpha", "m149", "alpha release candidate freeze"),
-    ("v1.7.48", "v1.0.0-alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+    *[
+        (f"checkpoint {milestone}", "pre-alpha checkpoint", milestone, title)
+        for milestone, title in M104_M149_CHECKPOINT_TITLES
+    ],
+    ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
 ]
 
 
@@ -7136,6 +7143,12 @@ def _verify_post_m100_roadmap_reconciliation_docs(root: Path, version: str | Non
     for message, fragment in stale_active_fragments.items():
         if fragment in combined_text:
             failures.append(f"{message}: {fragment}")
+    for minor in range(2, 49):
+        future_semver_row = f"| v1.7.{minor} |"
+        if future_semver_row in combined_text:
+            failures.append(
+                f"post-M100 docs must not keep future milestone SemVer row: {future_semver_row}"
+            )
 
     for version_label, _product_target, milestone, _title in EXPECTED_M101_M150_LABELS:
         if milestone in implemented_milestones:
@@ -7212,7 +7225,7 @@ def _verify_m101_mobile_sensor_contract_review_docs(root: Path, version: str | N
     m102_implemented = _version_tuple(version) >= (1, 6, 0)
     m103_implemented = _version_tuple(version) >= (1, 7, 0)
     planned_rows = [
-        ("v1.7.48", "v1.0.0-alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+        ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
     ]
     if not m103_implemented:
         planned_rows.insert(
@@ -7313,8 +7326,8 @@ def _verify_m102_location_sensor_off_by_default_docs(root: Path, version: str | 
         failures.append("active docs do not mark M102 implemented/released")
     m103_implemented = _version_tuple(version) >= (1, 7, 0)
     planned_rows = [
-        ("v1.7.2", "pre-alpha", "m104", "notification planning, no push execution"),
-        ("v1.7.48", "v1.0.0-alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+        ("checkpoint m104", "pre-alpha checkpoint", "m104", "notification planning, no push execution"),
+        ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
     ]
     if not m103_implemented:
         planned_rows.insert(
@@ -7421,9 +7434,9 @@ def _verify_m103_camera_photos_metadata_only_docs(root: Path, version: str | Non
     if "m103 is implemented/released" not in active_text and "v1.7.0 implements m103" not in active_text:
         failures.append("active docs do not mark M103 implemented/released")
     for version_label, product_target, milestone, title in [
-        ("v1.7.2", "pre-alpha", "m104", "notification planning, no push execution"),
-        ("v1.7.3", "pre-alpha", "m105", "background task contract, no execution"),
-        ("v1.7.48", "v1.0.0-alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+        ("checkpoint m104", "pre-alpha checkpoint", "m104", "notification planning, no push execution"),
+        ("checkpoint m105", "pre-alpha checkpoint", "m105", "background task contract, no execution"),
+        ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
     ]:
         row = (
             f"| {version_label.lower()} | {product_target.lower()} | {milestone} | "
@@ -7435,6 +7448,7 @@ def _verify_m103_camera_photos_metadata_only_docs(root: Path, version: str | Non
             )
     for fragment in {
         "m104 is implemented",
+        "checkpoint m104 implements m104",
         "v1.7.2 implements m104",
         "push execution is implemented",
         "background task execution is implemented",
