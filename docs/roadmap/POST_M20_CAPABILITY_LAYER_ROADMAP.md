@@ -1,6 +1,6 @@
 # Post-M20 Capability Layer Roadmap
 
-Status: Active roadmap projection maintained through v0.90.0.
+Status: Active roadmap projection maintained through v0.91.0.
 
 v0.38.0 implements M34 Broader File Capability Review as planning,
 architecture review, documentation, verifier, and Foundation Gate work only.
@@ -124,10 +124,10 @@ The detailed post-M33 supersession source of truth is
 
 ## Prompt-Pack Strategy
 
-Recommended next prompt after v0.90.0:
+Recommended next prompt after v0.91.0:
 
 ```text
-Start v0.91.0 / M87 - Sandboxed Command Audit Replay only after v0.90.0 / M86 is accepted Green.
+Start v0.92.0 / M88 - Mutating Command Proposal, No Execution only after v0.91.0 / M87 is accepted Green.
 ```
 
 M61 is implemented/released by v0.65.0 as Autonomy Mode Charter + Authority
@@ -156,7 +156,8 @@ Command Proposal Contracts. M83 is implemented/released by v0.87.0 as Shell
 Dry-Run Classifier. M84 is implemented/released by v0.88.0 as Sandboxed
 Echo/No-Op Command. M85 is implemented/released by v0.89.0 as Read-Only Command
 Allowlist. M86 is implemented/released by v0.90.0 as Shell Approval Gate v1.
-M87-M100 remain planned/provisional.
+M87 is implemented/released by v0.91.0 as Sandboxed Command Audit Replay.
+M88-M100 remain planned/provisional.
 
 Extra-hard reviews are required for M37, M38, M40, M47, M48, M49, M51, M52,
 M57, M58, and M59. Mandatory hardening is expected by default for M35-M40, M43-M50,

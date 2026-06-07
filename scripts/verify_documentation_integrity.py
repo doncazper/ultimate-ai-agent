@@ -688,6 +688,20 @@ REQUIRED_M86_SHELL_APPROVAL_GATE_DOCS = [
     "docs/implementation/foundation_gate_implementation_plan_v0_90_0.md",
 ]
 
+REQUIRED_M87_SANDBOXED_COMMAND_AUDIT_REPLAY_DOCS = [
+    "docs/sandbox/SANDBOXED_COMMAND_AUDIT_REPLAY.md",
+    "docs/sandbox/SANDBOXED_COMMAND_AUDIT_REPLAY_POLICY.md",
+    "docs/sandbox/SANDBOXED_COMMAND_AUDIT_REPLAY_AUTHORITY_BOUNDARY.md",
+    "docs/sandbox/SANDBOXED_COMMAND_AUDIT_REPLAY_RECEIPT_PLAN.md",
+    "docs/sandbox/SANDBOXED_COMMAND_AUDIT_REPLAY_NON_GOALS.md",
+    "docs/sandbox/M87_TO_M88_BOUNDARY.md",
+    "docs/roadmap/M61_M100_ROADMAP.md",
+    "docs/release_notes/v0_91_0.md",
+    "docs/archive/releases/v0_91_0/README_IMPORT.md",
+    "docs/archive/releases/v0_91_0/master_plan.md",
+    "docs/implementation/foundation_gate_implementation_plan_v0_91_0.md",
+]
+
 
 REQUIRED_ACTIVE_DOCS = [
     "docs/README.md",
@@ -1234,6 +1248,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_m84_sandboxed_echo_noop_docs(root, version))
     failures.extend(_verify_m85_read_only_command_allowlist_docs(root, version))
     failures.extend(_verify_m86_shell_approval_gate_docs(root, version))
+    failures.extend(_verify_m87_sandboxed_command_audit_replay_docs(root, version))
     failures.extend(_verify_m19_roadmap_currentness(root, version))
     failures.extend(_verify_post_m18_roadmap_status_labels(root))
 
@@ -5486,6 +5501,94 @@ def _verify_m86_shell_approval_gate_docs(root: Path, version: str | None) -> lis
         "M86 docs must not claim browser click implementation": "browser click is implemented",
         "M86 docs must not claim plugin execution implementation": "plugin execution is implemented",
         "M86 docs must not claim production authority": "production authority is implemented",
+    }
+    for message, fragment in forbidden_fragments.items():
+        if fragment in text:
+            failures.append(f"{message}: {fragment}")
+    return failures
+
+
+def _verify_m87_sandboxed_command_audit_replay_docs(root: Path, version: str | None) -> list[str]:
+    failures: list[str] = []
+    if _version_tuple(version) < (0, 91, 0):
+        return failures
+
+    missing = [
+        rel_path
+        for rel_path in REQUIRED_M87_SANDBOXED_COMMAND_AUDIT_REPLAY_DOCS
+        if not (root / rel_path).exists()
+    ]
+    failures.extend(f"missing M87 sandboxed command audit replay doc: {rel_path}" for rel_path in missing)
+    text = "\n".join(
+        _read(root / rel_path).lower()
+        for rel_path in REQUIRED_M87_SANDBOXED_COMMAND_AUDIT_REPLAY_DOCS
+        if (root / rel_path).exists()
+    )
+    required_fragments = {
+        "M87 docs must say sandboxed command audit replay": "sandboxed command audit replay",
+        "M87 docs must say contract-only": "contract-only",
+        "M87 docs must say review-only": "review-only",
+        "M87 docs must say replay-view-only": "replay-view-only",
+        "M87 docs must say deterministic": "deterministic",
+        "M87 docs must say local-only": "local-only",
+        "M87 docs must require M86 shell approval gate": "m86 shell approval gate",
+        "M87 docs must say exact M86 binding": "exact m86",
+        "M87 docs must say exact replay step binding": "exact replay step",
+        "M87 docs must say safe refs only": "safe refs only",
+        "M87 docs must deny replay runner": "no replay runner",
+        "M87 docs must deny replay execution": "no replay execution",
+        "M87 docs must deny shell strings": "no shell string",
+        "M87 docs must deny raw commands": "no raw command",
+        "M87 docs must deny raw output": "no raw output",
+        "M87 docs must deny command execution": "no command execution",
+        "M87 docs must deny subprocess execution": "no subprocess execution",
+        "M87 docs must deny shell execution": "no shell execution",
+        "M87 docs must deny process spawn": "no process spawn",
+        "M87 docs must deny filesystem mutation": "no filesystem mutation",
+        "M87 docs must deny network access": "no network access",
+        "M87 docs must deny tool execution": "no tool execution",
+        "M87 docs must deny browser automation": "no browser automation",
+        "M87 docs must deny plugin execution": "no plugin execution",
+        "M87 docs must deny remote execution": "no remote execution",
+        "M87 docs must deny model call": "no model call",
+        "M87 docs must deny memory write": "no memory write",
+        "M87 docs must deny context injection": "no context injection",
+        "M87 docs must deny background worker": "no background worker",
+        "M87 docs must deny backend routes": "no backend route",
+        "M87 docs must deny Control Center controls": "no control center control",
+        "M87 docs must deny dependencies": "no dependency",
+        "M87 docs must deny production authority": "no production authority",
+        "M87 docs must say safe summary only": "safe summary only",
+        "M87 docs must say evaluator boundaries revalidate": "evaluator boundaries revalidate",
+        "M87 docs must keep M88 future": "m88 remains future",
+    }
+    for message, fragment in required_fragments.items():
+        if fragment not in text:
+            failures.append(message)
+
+    for version_label, milestone, title in [
+        ("v0.91.0", "m87", "sandboxed command audit replay"),
+        ("v0.92.0", "m88", "mutating command proposal, no execution"),
+        ("v0.94.0", "m90", "shell/subprocess hardening freeze"),
+        ("v0.95.0", "m91", "autonomous tool execution contract"),
+        ("v1.4.0", "m100", "mobile permission model v1"),
+    ]:
+        if version_label not in text or milestone not in text or title not in text:
+            failures.append(
+                f"M87-M100 roadmap missing label: {version_label} / {milestone.upper()} - {title}"
+            )
+
+    forbidden_fragments = {
+        "M87 docs must not claim replay runner implementation": "replay runner is implemented",
+        "M87 docs must not claim replay execution implementation": "replay execution is implemented",
+        "M87 docs must not claim subprocess execution implementation": "subprocess execution is implemented",
+        "M87 docs must not claim shell execution implementation": "shell execution is implemented",
+        "M87 docs must not claim process spawn implementation": "process spawn is implemented",
+        "M87 docs must not claim filesystem mutation implementation": "filesystem mutation is implemented",
+        "M87 docs must not claim network access implementation": "network access is implemented",
+        "M87 docs must not claim browser click implementation": "browser click is implemented",
+        "M87 docs must not claim plugin execution implementation": "plugin execution is implemented",
+        "M87 docs must not claim production authority": "production authority is implemented",
     }
     for message, fragment in forbidden_fragments.items():
         if fragment in text:

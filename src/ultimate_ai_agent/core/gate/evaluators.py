@@ -1154,6 +1154,15 @@ M86_FORBIDDEN_BACKEND_ROUTES = M85_FORBIDDEN_BACKEND_ROUTES + (
     "/shell/approval/review",
     "/shell/approval/execute",
 )
+EXPECTED_M87_OPENAPI_PATH_COUNT = 75
+M87_FORBIDDEN_BACKEND_ROUTES = M86_FORBIDDEN_BACKEND_ROUTES + (
+    "/shell/replay",
+    "/shell/replay/run",
+    "/shell/replay/execute",
+    "/commands/audit/replay",
+    "/commands/audit/replay/run",
+    "/sandbox/commands/replay",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -2148,6 +2157,21 @@ def m86_openapi_route_failures(
     return failures
 
 
+def m87_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M87_OPENAPI_PATH_COUNT
+) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(
+            f"OpenAPI path count changed for M87: expected {expected_path_count}, got {len(path_set)}"
+        )
+    for route in M87_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(f"M87 forbidden command audit replay/backend route present: {route}")
+    return failures
+
+
 M36_SAFE_REF_PREFIXES = {
     "reviewPacketRef": "file-review-packet:",
     "previewResultRef": "redacted-file-preview-output:",
@@ -2874,6 +2898,16 @@ class FoundationGateEvaluator:
                 self.check_m86_shell_approval_gate_route_boundary
             ),
             "m86_roadmap_currentness": self.check_m86_roadmap_currentness,
+            "m87_sandboxed_command_audit_replay_contract": (
+                self.check_m87_sandboxed_command_audit_replay_contract
+            ),
+            "m87_sandboxed_command_audit_replay_static_safety": (
+                self.check_m87_sandboxed_command_audit_replay_static_safety
+            ),
+            "m87_sandboxed_command_audit_replay_route_boundary": (
+                self.check_m87_sandboxed_command_audit_replay_route_boundary
+            ),
+            "m87_roadmap_currentness": self.check_m87_roadmap_currentness,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -24217,6 +24251,422 @@ class FoundationGateEvaluator:
         ):
             if fragment in text:
                 failures.append(f"M86 docs imply forbidden/future capability: {fragment}")
+        return self._result(criterion, failures, required_docs)
+
+    def check_m87_sandboxed_command_audit_replay_contract(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/sandbox/__init__.py",
+            "src/ultimate_ai_agent/core/sandbox/command_audit_replay.py",
+            "docs/sandbox/SANDBOXED_COMMAND_AUDIT_REPLAY.md",
+            "docs/sandbox/SANDBOXED_COMMAND_AUDIT_REPLAY_POLICY.md",
+            "docs/sandbox/SANDBOXED_COMMAND_AUDIT_REPLAY_AUTHORITY_BOUNDARY.md",
+            "docs/sandbox/SANDBOXED_COMMAND_AUDIT_REPLAY_RECEIPT_PLAN.md",
+            "docs/sandbox/SANDBOXED_COMMAND_AUDIT_REPLAY_NON_GOALS.md",
+            "docs/sandbox/M87_TO_M88_BOUNDARY.md",
+            "docs/release_notes/v0_91_0.md",
+            "docs/archive/releases/v0_91_0/README_IMPORT.md",
+            "docs/archive/releases/v0_91_0/master_plan.md",
+            "docs/implementation/foundation_gate_implementation_plan_v0_91_0.md",
+            "tests/test_m87_sandboxed_command_audit_replay.py",
+            "tests/test_m87_gate_integration.py",
+        ]
+        failures = [
+            f"missing M87 sandboxed command audit replay file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            from ultimate_ai_agent.core.sandbox import (
+                SandboxedCommandAuditReplayRequest,
+                SandboxedCommandAuditReplayStep,
+                SandboxedCommandAuditReplayStatus,
+                ShellApprovalGateDecision,
+                ShellApprovalGateReceiptPlan,
+                build_sandboxed_command_audit_replay,
+                validate_sandboxed_command_audit_replay_decision,
+                validate_shell_approval_gate_decision,
+            )
+
+            gate = validate_shell_approval_gate_decision(
+                ShellApprovalGateDecision(
+                    decision_ref="shell-approval-gate-decision:gate-m87",
+                    gate_ref="shell-approval-gate:gate-m87",
+                    request_ref="shell-approval-gate-request:gate-m87",
+                    read_only_command_allowlist_decision_ref=(
+                        "read-only-command-allowlist-decision:gate-m87"
+                    ),
+                    approval_bundle_ref="scoped-approval-bundle:gate-m87",
+                    approval_ref="approval:gate-m87",
+                    allowlist_ref="read-only-command-allowlist:gate-m87",
+                    sandboxed_command_ref="sandboxed-echo-noop-command:gate-m87",
+                    sandboxed_echo_noop_decision_ref=(
+                        "sandboxed-echo-noop-command-decision:gate-m87"
+                    ),
+                    shell_dry_run_decision_ref="shell-dry-run-decision:gate-m87",
+                    command_proposal_ref="command-proposal:gate-m87",
+                    command_ref="command-ref:gate-m87-noop",
+                    sandbox_spec_ref="runtime-sandbox-spec:gate-m87",
+                    baseline_ref="baseline:v0.90.0",
+                    actor_ref="actor:foundation-gate",
+                    reason_codes=[
+                        "M86_SHELL_APPROVAL_GATE_REVIEW_ONLY",
+                        "M86_EXACT_M85_ALLOWLIST_BINDING_REQUIRED",
+                        "M86_APPROVAL_BUNDLE_EXACT_SCOPE_REQUIRED",
+                        "M86_NO_SHELL_EXECUTION",
+                        "M87_REMAINS_FUTURE",
+                    ],
+                    safe_summary=(
+                        "Foundation Gate M87 fixture represents an M86 shell approval "
+                        "gate decision for review only and grants no command, shell, "
+                        "subprocess, process, filesystem, network, tool, browser, "
+                        "plugin, remote, model, memory, context, route, Control Center, "
+                        "dependency, or production authority."
+                    ),
+                    receipt_plan=ShellApprovalGateReceiptPlan(
+                        receipt_plan_ref="shell-approval-gate-receipt-plan:gate-m87",
+                        gate_ref="shell-approval-gate:gate-m87",
+                        read_only_command_allowlist_decision_ref=(
+                            "read-only-command-allowlist-decision:gate-m87"
+                        ),
+                        approval_bundle_ref="scoped-approval-bundle:gate-m87",
+                        approval_ref="approval:gate-m87",
+                        allowlist_ref="read-only-command-allowlist:gate-m87",
+                        command_ref="command-ref:gate-m87-noop",
+                        sandbox_spec_ref="runtime-sandbox-spec:gate-m87",
+                    ),
+                )
+            )
+            step = SandboxedCommandAuditReplayStep(
+                step_ref="sandboxed-command-audit-replay-step:gate-m87",
+                event_ref="audit-event:gate-m87-shell-gate-reviewed",
+                source_decision_ref=gate.decision_ref,
+                safe_summary=(
+                    "Foundation Gate M87 fixture records a replay view step over an "
+                    "M86 shell approval gate decision only."
+                ),
+                reason_codes=["M87_REPLAY_VIEW_STEP_ONLY", "M87_NO_COMMAND_EXECUTION"],
+            )
+            request = SandboxedCommandAuditReplayRequest(
+                request_ref="sandboxed-command-audit-replay-request:gate-m87",
+                replay_view_ref="sandboxed-command-audit-replay:gate-m87",
+                shell_approval_gate_decision_ref=gate.decision_ref,
+                read_only_command_allowlist_decision_ref=(
+                    gate.read_only_command_allowlist_decision_ref
+                ),
+                approval_bundle_ref=gate.approval_bundle_ref,
+                approval_ref=gate.approval_ref,
+                allowlist_ref=gate.allowlist_ref,
+                command_ref=gate.command_ref,
+                sandbox_spec_ref=gate.sandbox_spec_ref,
+                baseline_ref="baseline:v0.90.0",
+                actor_ref=gate.actor_ref,
+                audit_ref="audit:gate-m87",
+                replay_ref="replay:gate-m87",
+                replay_step_refs=[step.step_ref],
+                prior_milestone_refs=[
+                    "milestone:M57",
+                    "milestone:M58",
+                    "milestone:M80",
+                    "milestone:M81",
+                    "milestone:M82",
+                    "milestone:M83",
+                    "milestone:M84",
+                    "milestone:M85",
+                    "milestone:M86",
+                ],
+                shell_approval_gate_decision=gate,
+                replay_steps=[step],
+                safe_purpose=(
+                    "Foundation Gate validates M87 sandboxed command audit replay "
+                    "contracts without running or retrying commands."
+                ),
+            )
+            decision = build_sandboxed_command_audit_replay(request)
+            if (
+                decision.status != SandboxedCommandAuditReplayStatus.ready_for_review
+                or not decision.contract_only
+                or not decision.review_only
+                or not decision.replay_view_only
+                or not decision.deterministic
+                or not decision.local_only
+                or not decision.safe_refs_only
+                or not decision.shell_approval_gate_decision_revalidated
+                or not decision.replay_steps_bound
+                or decision.replay_runner_started
+                or decision.replay_execution_performed
+                or decision.command_execution_authorized
+                or decision.shell_execution_authorized
+                or decision.subprocess_execution_authorized
+                or decision.process_spawn_authorized
+                or decision.command_execution_performed
+                or decision.subprocess_execution_performed
+                or decision.shell_execution_performed
+                or decision.process_spawn_performed
+                or decision.filesystem_mutation_performed
+                or decision.network_access_performed
+                or decision.tool_execution_performed
+                or decision.browser_automation_performed
+                or decision.plugin_execution_performed
+                or decision.remote_execution_performed
+                or decision.model_call_performed
+                or decision.memory_write_performed
+                or decision.context_injection_performed
+                or decision.background_worker_started
+                or decision.backend_route_added
+                or decision.control_center_control_added
+                or decision.dependency_added
+                or decision.production_authority_granted
+                or decision.side_effects_performed
+                or not decision.receipt_plan.store_safe_summary_only
+                or not decision.receipt_plan.store_safe_refs_only
+                or not decision.receipt_plan.store_replay_step_refs_only
+                or decision.receipt_plan.store_raw_command
+                or decision.receipt_plan.store_shell_string
+                or decision.receipt_plan.store_raw_output
+                or "M87_SANDBOXED_COMMAND_AUDIT_REPLAY_VIEW_ONLY" not in decision.reason_codes
+                or "M87_EXACT_M86_SHELL_APPROVAL_GATE_BINDING_REQUIRED" not in decision.reason_codes
+                or "M87_NO_REPLAY_RUNNER" not in decision.reason_codes
+                or "M88_REMAINS_FUTURE" not in decision.reason_codes
+            ):
+                failures.append("M87 sandboxed command audit replay decision is unsafe or over-authoritative")
+            for update, reason in [
+                ({"command_execution_requested": True}, "COMMAND_EXECUTION_DENIED"),
+                ({"shell_execution_requested": True}, "SHELL_EXECUTION_DENIED"),
+                ({"subprocess_execution_requested": True}, "SUBPROCESS_EXECUTION_DENIED"),
+                ({"process_spawn_requested": True}, "PROCESS_SPAWN_DENIED"),
+                ({"replay_runner_requested": True}, "M87_REPLAY_RUNNER_DENIED"),
+                ({"replay_execution_requested": True}, "M87_REPLAY_EXECUTION_DENIED"),
+                ({"contains_shell_string": True}, "M87_SHELL_STRING_DENIED"),
+                ({"contains_raw_command": True}, "M87_RAW_COMMAND_DENIED"),
+                ({"contains_raw_output": True}, "M87_RAW_OUTPUT_DENIED"),
+                ({"contains_secret": True}, "SECRET_LIKE_SANDBOXED_COMMAND_AUDIT_REPLAY_CONTENT_DENIED"),
+            ]:
+                try:
+                    build_sandboxed_command_audit_replay(request.model_copy(update=update))
+                    failures.append(f"M87 unsafe audit replay request was not denied with {reason}")
+                except ValueError as exc:
+                    if reason not in str(exc):
+                        failures.append(
+                            f"M87 unsafe audit replay request raised {exc!s}, expected {reason}"
+                        )
+            try:
+                validate_sandboxed_command_audit_replay_decision(
+                    decision.model_copy(update={"replay_runner_started": True})
+                )
+                failures.append("M87 mutated replay runner flag was not denied")
+            except ValueError as exc:
+                if "M87_REPLAY_RUNNER_DENIED" not in str(exc):
+                    failures.append(
+                        f"M87 mutated replay runner flag raised {exc!s}, expected M87_REPLAY_RUNNER_DENIED"
+                    )
+        except Exception as exc:
+            failures.append(f"M87 sandboxed command audit replay validation failed: {exc}")
+
+        docs_text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_files
+            if path.startswith("docs/") and (self.root / path).exists()
+        )
+        for fragment in [
+            "sandboxed command audit replay",
+            "contract-only",
+            "review-only",
+            "replay-view-only",
+            "deterministic",
+            "local-only",
+            "m86 shell approval gate",
+            "exact m86",
+            "exact replay step",
+            "safe refs only",
+            "no replay runner",
+            "no replay execution",
+            "no shell string",
+            "no raw command",
+            "no raw output",
+            "no command execution",
+            "no subprocess execution",
+            "no shell execution",
+            "no process spawn",
+            "no filesystem mutation",
+            "no network access",
+            "no tool execution",
+            "no browser automation",
+            "no plugin execution",
+            "no remote execution",
+            "no model call",
+            "no memory write",
+            "no context injection",
+            "no background worker",
+            "no backend route",
+            "no control center control",
+            "no dependency",
+            "no production authority",
+            "safe summary only",
+            "evaluator boundaries revalidate",
+            "m88 remains future",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M87 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m87_sandboxed_command_audit_replay_static_safety(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        forbidden_source_fragments = [
+            "replay_runner_enabled=True",
+            "replay_runner_requested=True",
+            "replay_runner_started=True",
+            "replay_execution_enabled=True",
+            "replay_execution_requested=True",
+            "replay_execution_performed=True",
+            "command_execution_enabled=True",
+            "command_execution_requested=True",
+            "subprocess_execution_enabled=True",
+            "subprocess_execution_requested=True",
+            "shell_execution_enabled=True",
+            "shell_execution_requested=True",
+            "process_spawn_enabled=True",
+            "process_spawn_requested=True",
+            "filesystem_mutation_enabled=True",
+            "network_access_enabled=True",
+            "tool_execution_enabled=True",
+            "browser_automation_enabled=True",
+            "plugin_execution_enabled=True",
+            "remote_execution_enabled=True",
+            "model_call_enabled=True",
+            "memory_write_enabled=True",
+            "context_injection_enabled=True",
+            "background_worker_enabled=True",
+            "backend_route_enabled=True",
+            "control_center_control_enabled=True",
+            "dependency_change_enabled=True",
+            "production_authority_enabled=True",
+            "command_execution_authorized=True",
+            "shell_execution_authorized=True",
+            "subprocess_execution_authorized=True",
+            "process_spawn_authorized=True",
+            "command_execution_performed=True",
+            "subprocess_execution_performed=True",
+            "shell_execution_performed=True",
+            "process_spawn_performed=True",
+            "filesystem_mutation_performed=True",
+            "network_access_performed=True",
+            "tool_execution_performed=True",
+            "browser_automation_performed=True",
+            "plugin_execution_performed=True",
+            "remote_execution_performed=True",
+            "model_call_performed=True",
+            "memory_write_performed=True",
+            "context_injection_performed=True",
+            "background_worker_started=True",
+            "backend_route_added=True",
+            "control_center_control_added=True",
+            "dependency_added=True",
+            "production_authority_granted=True",
+            "store_raw_command=True",
+            "store_shell_string=True",
+            "store_raw_output=True",
+        ]
+        allowed_files = {
+            "scripts/verify_all.py",
+            "src/ultimate_ai_agent/core/sandbox/__init__.py",
+            "src/ultimate_ai_agent/core/sandbox/command_proposal.py",
+            "src/ultimate_ai_agent/core/sandbox/runtime_spec.py",
+            "src/ultimate_ai_agent/core/sandbox/shell_dry_run_classifier.py",
+            "src/ultimate_ai_agent/core/sandbox/sandboxed_echo_noop_command.py",
+            "src/ultimate_ai_agent/core/sandbox/read_only_command_allowlist.py",
+            "src/ultimate_ai_agent/core/sandbox/shell_approval_gate.py",
+            "src/ultimate_ai_agent/core/sandbox/command_audit_replay.py",
+            "src/ultimate_ai_agent/core/gate/evaluators.py",
+            "src/ultimate_ai_agent/api/openapi.py",
+        }
+        for root in [
+            self.root / "src" / "ultimate_ai_agent",
+            self.root / "apps" / "control-center" / "src",
+            self.root / "apps" / "ccc-ios",
+        ]:
+            if not root.exists():
+                continue
+            candidate_files = []
+            for pattern in ("*.py", "*.ts", "*.tsx", "*.js", "*.jsx", "*.swift", "*.yml", "*.yaml"):
+                candidate_files.extend(root.rglob(pattern))
+            for path in sorted(candidate_files):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(self.root).as_posix()
+                if ".test." in rel:
+                    continue
+                if rel in allowed_files:
+                    continue
+                text = path.read_text(encoding="utf-8")
+                for fragment in forbidden_source_fragments:
+                    if fragment in text:
+                        failures.append(
+                            f"M87 forbidden sandboxed command audit replay fragment in {rel}: {fragment}"
+                        )
+        return self._result(criterion, failures, [])
+
+    def check_m87_sandboxed_command_audit_replay_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m87_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M87 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m87_roadmap_currentness(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        required_docs = [
+            "README.md",
+            "VERSION.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/roadmap/M61_M100_ROADMAP.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+            "docs/roadmap/MILESTONE_CHARTERS.md",
+        ]
+        failures = [
+            f"missing M87 roadmap doc: {path}"
+            for path in required_docs
+            if not (self.root / path).exists()
+        ]
+        text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_docs
+            if (self.root / path).exists()
+        )
+        if "v0.91.0" not in text or "m87" not in text or "sandboxed command audit replay" not in text:
+            failures.append("active docs do not identify v0.91.0/M87 Sandboxed Command Audit Replay")
+        if "m87 is implemented/released" not in text and "v0.91.0 implements m87" not in text:
+            failures.append("active docs do not mark M87 implemented/released")
+        for version_label, milestone, title in [
+            ("v0.92.0", "M88", "Mutating Command Proposal, No Execution"),
+            ("v0.94.0", "M90", "Shell/Subprocess Hardening Freeze"),
+            ("v0.95.0", "M91", "Autonomous Tool Execution Contract"),
+            ("v1.4.0", "M100", "Mobile Permission Model v1"),
+        ]:
+            if version_label.lower() not in text or milestone.lower() not in text or title.lower() not in text:
+                failures.append(f"active docs missing planned M88-M100 row: {version_label} / {milestone} — {title}")
+        for fragment in (
+            "replay runner is implemented",
+            "replay execution is implemented",
+            "subprocess execution is implemented",
+            "shell execution is implemented",
+            "process spawn is implemented",
+            "filesystem mutation is implemented",
+            "network access is implemented",
+            "browser click is implemented",
+            "plugin execution is implemented",
+            "production authority is implemented",
+            "broad autonomy is implemented",
+        ):
+            if fragment in text:
+                failures.append(f"M87 docs imply forbidden/future capability: {fragment}")
         return self._result(criterion, failures, required_docs)
 
     def check_v0292_local_dev_api_authority_and_preview_safe(

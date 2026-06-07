@@ -78,6 +78,19 @@ from ultimate_ai_agent.core.sandbox.shell_approval_gate import (
     validate_shell_approval_gate_policy,
     validate_shell_approval_gate_request,
 )
+from ultimate_ai_agent.core.sandbox.command_audit_replay import (
+    SandboxedCommandAuditReplayDecision,
+    SandboxedCommandAuditReplayPolicy,
+    SandboxedCommandAuditReplayReceiptPlan,
+    SandboxedCommandAuditReplayRequest,
+    SandboxedCommandAuditReplayStatus,
+    SandboxedCommandAuditReplayStep,
+    build_sandboxed_command_audit_replay,
+    validate_sandboxed_command_audit_replay_decision,
+    validate_sandboxed_command_audit_replay_policy,
+    validate_sandboxed_command_audit_replay_request,
+    validate_sandboxed_command_audit_replay_step,
+)
 
 __all__ = [
     "RuntimeSandboxArchitectureDecision",
@@ -118,6 +131,12 @@ __all__ = [
     "ShellApprovalGateReceiptPlan",
     "ShellApprovalGateRequest",
     "ShellApprovalGateStatus",
+    "SandboxedCommandAuditReplayDecision",
+    "SandboxedCommandAuditReplayPolicy",
+    "SandboxedCommandAuditReplayReceiptPlan",
+    "SandboxedCommandAuditReplayRequest",
+    "SandboxedCommandAuditReplayStatus",
+    "SandboxedCommandAuditReplayStep",
     "build_runtime_sandbox_architecture_review",
     "build_command_proposal",
     "build_runtime_sandbox_spec",
@@ -125,6 +144,7 @@ __all__ = [
     "build_sandboxed_echo_noop_command",
     "build_read_only_command_allowlist_decision",
     "build_shell_approval_gate_decision",
+    "build_sandboxed_command_audit_replay",
     "validate_command_proposal_decision",
     "validate_command_proposal_policy",
     "validate_command_proposal_request",
@@ -146,4 +166,8 @@ __all__ = [
     "validate_shell_approval_gate_decision",
     "validate_shell_approval_gate_policy",
     "validate_shell_approval_gate_request",
+    "validate_sandboxed_command_audit_replay_decision",
+    "validate_sandboxed_command_audit_replay_policy",
+    "validate_sandboxed_command_audit_replay_request",
+    "validate_sandboxed_command_audit_replay_step",
 ]

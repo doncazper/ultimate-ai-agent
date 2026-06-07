@@ -12,23 +12,24 @@ allowed to become operational authority.
 
 | Field | Current state |
 |---|---|
-| Current active baseline | **v0.90.0** |
-| Current milestone | **M86 - Shell Approval Gate v1** |
+| Current active baseline | **v0.91.0** |
+| Current milestone | **M87 - Sandboxed Command Audit Replay** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **75** OpenAPI paths |
 | Production readiness | Not claimed |
 
-v0.90.0 implements M86 Shell Approval Gate v1. It adds contract-only,
-review-only, deterministic, local-only shell approval gate contracts over exact
-M85 read-only command allowlist decisions and exact scoped approval bundles,
-safe refs only receipt plans, evaluator revalidation, documentation-integrity
-checks, static verification, tests, and Foundation Gate coverage. It adds no
-shell string, raw command, raw output, command execution, subprocess execution,
-shell execution, process spawn, filesystem mutation, network access, tool
-execution, browser automation, plugin execution, remote execution, model call,
-memory write, context injection, background worker, backend routes, Control
-Center controls, dependency, M87 work, or production authority.
+v0.91.0 implements M87 Sandboxed Command Audit Replay. It adds contract-only,
+review-only, replay-view-only, deterministic, local-only sandboxed command
+audit replay contracts over exact M86 Shell Approval Gate v1 decisions, exact
+replay step binding, safe refs only receipt plans, evaluator revalidation,
+documentation-integrity checks, static verification, tests, and Foundation Gate
+coverage. It adds no replay runner, replay execution, command retry, shell
+string, raw command, raw output, command execution, subprocess execution, shell
+execution, process spawn, filesystem mutation, network access, tool execution,
+browser automation, plugin execution, remote execution, model call, memory
+write, context injection, background worker, backend routes, Control Center
+controls, dependency, M88 work, or production authority.
 
 v0.29.5 is documentation policy polish. It remains the documentation
 organization cleanup baseline before the M26 and M27 implementation releases.
@@ -233,6 +234,8 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [v0.86.0 master plan](docs/archive/releases/v0_86_0/master_plan.md)
 - [v0.90.0 release packet](docs/archive/releases/v0_90_0/README_IMPORT.md)
 - [v0.90.0 master plan](docs/archive/releases/v0_90_0/master_plan.md)
+- [v0.91.0 release packet](docs/archive/releases/v0_91_0/README_IMPORT.md)
+- [v0.91.0 master plan](docs/archive/releases/v0_91_0/master_plan.md)
 
 ## What This Project Is
 
