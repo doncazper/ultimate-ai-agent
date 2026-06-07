@@ -1,6 +1,6 @@
 # M61-M100 Roadmap
 
-Status: Active roadmap maintained through M93 / v0.97.0.
+Status: Active roadmap maintained through M94 / v0.98.0.
 
 M61 is implemented/released by v0.65.0 as Autonomy Mode Charter + Authority
 Levels. M62 is implemented/released by v0.66.0 as Scoped Autonomy Session
@@ -35,12 +35,14 @@ implemented/released by v0.93.0 as Emergency Stop + Process Kill Safety. M90 is
 implemented/released by v0.94.0 as Shell/Subprocess Hardening Freeze. M91 is
 implemented/released by v0.95.0 as Autonomous Tool Execution Contract. M92 is
 implemented/released by v0.96.0 as Low-Risk Tool Autonomy, Single Session. M93 is
-implemented/released by v0.97.0 as Multi-Tool Dry-Run to Real Run Promotion. M94-M100 remain
+implemented/released by v0.97.0 as Multi-Tool Dry-Run to Real Run Promotion. M94 is
+implemented/released by v0.98.0 as Autonomous Browser Clicks, Low-Risk Only. M95-M100 remain
 planned/provisional. This roadmap adds no
 production authority, no global autonomy switch, no broad autonomy, no real tool
 execution, no shell execution, no browser automation beyond the M74 injected
-observation redacted preview boundary, no browser navigation, no browser click,
-no screenshot, no raw DOM, no
+observation redacted preview boundary except the M94 exact-bound low-risk click
+contract, no browser form, no typing, no purchase, no download, no upload, no
+authentication, no account change, no screenshot, no raw DOM, no
 authenticated browser profile, no unrestricted network tools, no network tools
 outside the M72 allowlisted redacted fetch boundary, no authenticated network
 actions, no raw network responses, no background worker, no revocation action,
@@ -83,7 +85,7 @@ no dependency.
 | v0.95.0 | M91 | Autonomous Tool Execution Contract | Implemented/released |
 | v0.96.0 | M92 | Low-Risk Tool Autonomy, Single Session | Implemented/released |
 | v0.97.0 | M93 | Multi-Tool Dry-Run to Real Run Promotion | Implemented/released |
-| v0.98.0 | M94 | Autonomous Browser Clicks, Low-Risk Only | Planned/provisional |
+| v0.98.0 | M94 | Autonomous Browser Clicks, Low-Risk Only | Implemented/released |
 | v0.99.0 | M95 | Network Tool Expansion, Authless Only | Planned/provisional |
 | v1.0.0 | M96 | Plugin Execution Sandbox, No External Plugins | Planned/provisional |
 | v1.1.0 | M97 | Recurring Automation Contracts | Planned/provisional |
@@ -238,7 +240,20 @@ shell execution, no subprocess execution, no filesystem mutation, no network
 access, no browser click, no browser form, no plugin execution, no remote
 execution, no model call, no memory write, no context injection, no background
 worker, no backend route, no Control Center control, no dependency, and no
-production authority. M94 remains future.
+production authority.
+
+M94 is implemented/released as scoped, deterministic, local-only Autonomous
+Browser Clicks, Low-Risk Only contracts over exact M93 promotion decisions. It
+requires a scoped session, allowlisted page, allowlisted action, exact click
+approval, audit, revocation, injected transport, safe refs only, safe summary
+only receipt plans, and evaluator boundaries revalidate safety-critical fields.
+It adds no form submission, no typing, no purchase, no download, no upload, no
+authentication, no account change, no destructive action, no credential or
+cookie access, no raw DOM, no screenshot, no broad navigation, no unrestricted
+external network authority, no shell execution, no plugin execution, no model
+call, no memory write, no context injection, no backend route, no Control
+Center control, no dependency, no M95 work, no broad autonomy, and no production
+authority. M95 remains future.
 
 Production authority remains future beyond M100 unless a later reviewed roadmap
 promotion explicitly changes the boundary.

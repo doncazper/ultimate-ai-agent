@@ -786,6 +786,20 @@ REQUIRED_M93_MULTI_TOOL_DRY_RUN_PROMOTION_DOCS = [
     "docs/implementation/foundation_gate_implementation_plan_v0_97_0.md",
 ]
 
+REQUIRED_M94_LOW_RISK_BROWSER_CLICK_DOCS = [
+    "docs/browser/LOW_RISK_BROWSER_CLICKS.md",
+    "docs/browser/LOW_RISK_BROWSER_CLICK_POLICY.md",
+    "docs/browser/LOW_RISK_BROWSER_CLICK_AUTHORITY_BOUNDARY.md",
+    "docs/browser/LOW_RISK_BROWSER_CLICK_RECEIPT_PLAN.md",
+    "docs/browser/LOW_RISK_BROWSER_CLICK_NON_GOALS.md",
+    "docs/browser/M94_TO_M95_BOUNDARY.md",
+    "docs/roadmap/M61_M100_ROADMAP.md",
+    "docs/release_notes/v0_98_0.md",
+    "docs/archive/releases/v0_98_0/README_IMPORT.md",
+    "docs/archive/releases/v0_98_0/master_plan.md",
+    "docs/implementation/foundation_gate_implementation_plan_v0_98_0.md",
+]
+
 
 REQUIRED_ACTIVE_DOCS = [
     "docs/README.md",
@@ -1339,6 +1353,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_m91_autonomous_tool_execution_contract_docs(root, version))
     failures.extend(_verify_m92_low_risk_tool_autonomy_single_session_docs(root, version))
     failures.extend(_verify_m93_multi_tool_dry_run_promotion_docs(root, version))
+    failures.extend(_verify_m94_low_risk_browser_click_docs(root, version))
     failures.extend(_verify_m19_roadmap_currentness(root, version))
     failures.extend(_verify_post_m18_roadmap_status_labels(root))
 
@@ -6217,6 +6232,95 @@ def _verify_m93_multi_tool_dry_run_promotion_docs(
         "M93 docs must not claim network access implementation": "network access is implemented",
         "M93 docs must not claim plugin execution implementation": "plugin execution is implemented",
         "M93 docs must not claim production authority": "production authority is implemented",
+    }
+    for message, fragment in forbidden_fragments.items():
+        if fragment in text:
+            failures.append(f"{message}: {fragment}")
+    return failures
+
+
+def _verify_m94_low_risk_browser_click_docs(
+    root: Path, version: str | None
+) -> list[str]:
+    failures: list[str] = []
+    if _version_tuple(version) < (0, 98, 0):
+        return failures
+
+    missing = [
+        rel_path
+        for rel_path in REQUIRED_M94_LOW_RISK_BROWSER_CLICK_DOCS
+        if not (root / rel_path).exists()
+    ]
+    failures.extend(
+        f"missing M94 low-risk browser click doc: {rel_path}"
+        for rel_path in missing
+    )
+    text = "\n".join(
+        _read(root / rel_path).lower()
+        for rel_path in REQUIRED_M94_LOW_RISK_BROWSER_CLICK_DOCS
+        if (root / rel_path).exists()
+    )
+    required_fragments = {
+        "M94 docs must say autonomous browser clicks, low-risk only": "autonomous browser clicks, low-risk only",
+        "M94 docs must say low-risk click": "low-risk click",
+        "M94 docs must say scoped session": "scoped session",
+        "M94 docs must say allowlisted page": "allowlisted page",
+        "M94 docs must say allowlisted action": "allowlisted action",
+        "M94 docs must require exact M93 binding": "exact m93",
+        "M94 docs must require exact click approval": "exact click approval",
+        "M94 docs must say audit": "audit",
+        "M94 docs must say revocation": "revocation",
+        "M94 docs must say injected transport": "injected transport",
+        "M94 docs must say safe refs only": "safe refs only",
+        "M94 docs must say safe summary only": "safe summary only",
+        "M94 docs must deny form submission": "no form submission",
+        "M94 docs must deny typing": "no typing",
+        "M94 docs must deny purchase": "no purchase",
+        "M94 docs must deny download": "no download",
+        "M94 docs must deny upload": "no upload",
+        "M94 docs must deny authentication": "no authentication",
+        "M94 docs must deny account change": "no account change",
+        "M94 docs must deny destructive action": "no destructive action",
+        "M94 docs must deny credential or cookie access": "no credential or cookie access",
+        "M94 docs must deny raw DOM": "no raw dom",
+        "M94 docs must deny screenshot": "no screenshot",
+        "M94 docs must deny broad navigation": "no broad navigation",
+        "M94 docs must deny external network": "no external network",
+        "M94 docs must deny shell execution": "no shell execution",
+        "M94 docs must deny plugin execution": "no plugin execution",
+        "M94 docs must deny model call": "no model call",
+        "M94 docs must deny memory write": "no memory write",
+        "M94 docs must deny context injection": "no context injection",
+        "M94 docs must deny backend route": "no backend route",
+        "M94 docs must deny Control Center control": "no control center control",
+        "M94 docs must deny dependency": "no dependency",
+        "M94 docs must deny production authority": "no production authority",
+        "M94 docs must say evaluator boundaries revalidate": "evaluator boundaries revalidate",
+        "M94 docs must keep M95 future": "m95 remains future",
+    }
+    for message, fragment in required_fragments.items():
+        if fragment not in text:
+            failures.append(message)
+
+    for version_label, milestone, title in [
+        ("v0.98.0", "m94", "autonomous browser clicks, low-risk only"),
+        ("v0.99.0", "m95", "network tool expansion, authless only"),
+        ("v1.4.0", "m100", "mobile permission model v1"),
+    ]:
+        if version_label not in text or milestone not in text or title not in text:
+            failures.append(
+                f"M94-M100 roadmap missing label: {version_label} / {milestone.upper()} - {title}"
+            )
+
+    forbidden_fragments = {
+        "M94 docs must not claim browser form implementation": "browser form is implemented",
+        "M94 docs must not claim browser download implementation": "browser download is implemented",
+        "M94 docs must not claim browser authentication implementation": "browser authentication is implemented",
+        "M94 docs must not claim unrestricted network implementation": "unrestricted network is implemented",
+        "M94 docs must not claim network mutation implementation": "network mutation is implemented",
+        "M94 docs must not claim plugin execution implementation": "plugin execution is implemented",
+        "M94 docs must not claim recurring automation implementation": "recurring automation is implemented",
+        "M94 docs must not claim production authority": "production authority is implemented",
     }
     for message, fragment in forbidden_fragments.items():
         if fragment in text:

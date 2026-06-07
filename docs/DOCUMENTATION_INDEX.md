@@ -1,6 +1,6 @@
 # Documentation Index
 
-Current active baseline: **v0.97.0**
+Current active baseline: **v0.98.0**
 
 This index is the active entrypoint for documentation navigation. Historical release documents remain in the repository for audit history, but active truth starts with the current baseline files listed here.
 
@@ -14,9 +14,9 @@ docs/canonical/CANONICAL_DOC_MAP.md
 docs/canonical/09_roadmap.md
 docs/roadmap/README.md
 docs/archive/README.md
-docs/archive/releases/v0_97_0/README_IMPORT.md
-docs/archive/releases/v0_97_0/master_plan.md
-docs/release_notes/v0_97_0.md
+docs/archive/releases/v0_98_0/README_IMPORT.md
+docs/archive/releases/v0_98_0/master_plan.md
+docs/release_notes/v0_98_0.md
 docs/developer/LOCAL_LAUNCHER.md
 scripts/dev/README.md
 docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md
@@ -43,6 +43,12 @@ docs/browser/BROWSER_OBSERVE_ONLY_AUTHORITY_BOUNDARY.md
 docs/browser/BROWSER_OBSERVE_ONLY_RECEIPT_PLAN.md
 docs/browser/M74_TO_M75_BOUNDARY.md
 docs/browser/BROWSER_ACTION_DRY_RUN_PLANNER.md
+docs/browser/LOW_RISK_BROWSER_CLICKS.md
+docs/browser/LOW_RISK_BROWSER_CLICK_POLICY.md
+docs/browser/LOW_RISK_BROWSER_CLICK_AUTHORITY_BOUNDARY.md
+docs/browser/LOW_RISK_BROWSER_CLICK_RECEIPT_PLAN.md
+docs/browser/LOW_RISK_BROWSER_CLICK_NON_GOALS.md
+docs/browser/M94_TO_M95_BOUNDARY.md
 docs/browser/BROWSER_ACTION_DRY_RUN_POLICY.md
 docs/browser/BROWSER_ACTION_DRY_RUN_RESULT_CONTRACT.md
 docs/browser/BROWSER_ACTION_DRY_RUN_AUTHORITY_BOUNDARY.md
@@ -660,19 +666,20 @@ scripts/dev/README.md
 ```
 
 v0.37.4 supersedes the old active M35-M40 roadmap projection and defines the
-active M34-M60 sequence. v0.97.0 is the current active baseline after
-implementing M93 Multi-Tool Dry-Run to Real Run Promotion as review-only,
-deterministic, local-only contracts over exact M92 Low-Risk Tool Autonomy,
-Single Session decisions with dry-run plan and real-run plan equivalence,
-matching plan hashes, and exact non-wildcard promotion approval. Active roadmap sources
-consistently mark M34-M93 implemented/released, keep M94-M100
+active M34-M60 sequence. v0.98.0 is the current active baseline after
+implementing M94 Autonomous Browser Clicks, Low-Risk Only as scoped,
+allowlisted, exact-bound low-risk browser click contracts with no broad browser
+automation, no form submission, no typing, no purchase, no download, no upload,
+no authentication, no raw DOM, no screenshot, no backend routes, and no
+production authority. Active roadmap sources
+consistently mark M34-M94 implemented/released, keep M95-M100
 planned/provisional, and rely on documentation-integrity checks to guard
 against superseded-roadmap drift, stale current-baseline labels, route drift,
 and authority-boundary drift.
 
 ## Release Notes Index
 
-Current release notes: `docs/release_notes/v0_97_0.md`
+Current release notes: `docs/release_notes/v0_98_0.md`
 
 Historical release notes remain under `docs/release_notes/`. Historical docs may mention old active baselines in historical context; they are not the current source of truth.
 

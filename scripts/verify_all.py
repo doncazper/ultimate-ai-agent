@@ -127,6 +127,7 @@ SCAN_SEQUENCE = [
     ("M91 autonomous tool execution contract scan", "verify_m91_autonomous_tool_execution_contract"),
     ("M92 low-risk tool autonomy single-session scan", "verify_m92_low_risk_tool_autonomy_single_session"),
     ("M93 multi-tool dry-run promotion scan", "verify_m93_multi_tool_dry_run_promotion"),
+    ("M94 low-risk browser clicks scan", "verify_m94_low_risk_browser_clicks"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -16025,6 +16026,221 @@ def verify_m93_multi_tool_dry_run_promotion():
             sys.exit(1)
 
     print("OK: M93 multi-tool dry-run promotion is review-only, route-free, and no-authority")
+
+
+def verify_m94_low_risk_browser_clicks():
+    print("\n[Verifier] Running M94 low-risk browser clicks guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/browser/__init__.py",
+        "src/ultimate_ai_agent/core/browser/low_risk_click.py",
+        "docs/browser/LOW_RISK_BROWSER_CLICKS.md",
+        "docs/browser/LOW_RISK_BROWSER_CLICK_POLICY.md",
+        "docs/browser/LOW_RISK_BROWSER_CLICK_AUTHORITY_BOUNDARY.md",
+        "docs/browser/LOW_RISK_BROWSER_CLICK_RECEIPT_PLAN.md",
+        "docs/browser/LOW_RISK_BROWSER_CLICK_NON_GOALS.md",
+        "docs/browser/M94_TO_M95_BOUNDARY.md",
+        "docs/release_notes/v0_98_0.md",
+        "docs/archive/releases/v0_98_0/README_IMPORT.md",
+        "docs/archive/releases/v0_98_0/master_plan.md",
+        "docs/implementation/foundation_gate_implementation_plan_v0_98_0.md",
+        "tests/test_m94_low_risk_browser_clicks.py",
+        "tests/test_m94_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M94 low-risk browser click file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = "\n".join(
+        (ROOT / rel_path).read_text(encoding="utf-8").lower()
+        for rel_path in required_files
+        if rel_path.startswith("docs/")
+    )
+    for fragment in [
+        "autonomous browser clicks, low-risk only",
+        "low-risk click",
+        "scoped session",
+        "allowlisted page",
+        "allowlisted action",
+        "exact m93",
+        "exact click approval",
+        "audit",
+        "revocation",
+        "injected transport",
+        "safe refs only",
+        "safe summary only",
+        "no form submission",
+        "no typing",
+        "no purchase",
+        "no download",
+        "no upload",
+        "no authentication",
+        "no account change",
+        "no destructive action",
+        "no credential or cookie access",
+        "no raw dom",
+        "no screenshot",
+        "no broad navigation",
+        "no external network",
+        "no shell execution",
+        "no plugin execution",
+        "no model call",
+        "no memory write",
+        "no context injection",
+        "no backend route",
+        "no control center control",
+        "no dependency",
+        "no production authority",
+        "evaluator boundaries revalidate",
+        "m95 remains future",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M94 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from tests.test_m94_low_risk_browser_clicks import _request, _transport
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.browser import (
+            LowRiskBrowserClickStatus,
+            build_low_risk_browser_click_decision,
+            perform_low_risk_browser_click,
+            validate_low_risk_browser_click_decision,
+        )
+        from ultimate_ai_agent.core.gate.evaluators import m94_openapi_route_failures
+    except Exception as exc:
+        print(f"FAIL: M94 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m94_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    decision = build_low_risk_browser_click_decision(_request())
+    result = perform_low_risk_browser_click(decision, transport=_transport)
+    if (
+        decision.status != LowRiskBrowserClickStatus.click_allowed_for_scoped_session
+        or not decision.low_risk_click_allowed
+        or not decision.scoped_session_bound
+        or not decision.allowlisted_page_bound
+        or not decision.allowlisted_action_bound
+        or not decision.exact_m93_promotion_bound
+        or not decision.exact_click_approval_bound
+        or not decision.audit_bound
+        or not decision.revocation_bound
+        or decision.click_performed
+        or decision.form_submission_performed
+        or decision.typing_performed
+        or decision.purchase_performed
+        or decision.download_performed
+        or decision.authentication_performed
+        or decision.credential_or_cookie_access_performed
+        or decision.raw_dom_returned
+        or decision.screenshot_returned
+        or decision.external_network_performed
+        or decision.memory_write_performed
+        or decision.context_injection_performed
+        or decision.backend_route_added
+        or decision.production_authority_granted
+        or decision.side_effects_performed
+        or not decision.receipt_plan.store_safe_summary_only
+        or not decision.receipt_plan.store_safe_refs_only
+        or result.status != LowRiskBrowserClickStatus.click_completed
+        or not result.click_performed
+        or result.raw_dom_returned
+        or result.screenshot_returned
+        or result.form_submission_performed
+        or result.typing_performed
+        or result.purchase_performed
+        or result.download_performed
+        or result.authentication_performed
+        or result.credential_or_cookie_access_performed
+        or result.external_network_performed
+        or result.memory_write_performed
+        or result.context_injection_performed
+        or result.production_authority_granted
+        or result.side_effects_performed
+        or "M94_LOW_RISK_BROWSER_CLICK_ALLOWED" not in decision.reason_codes
+        or "M95_REMAINS_FUTURE" not in decision.reason_codes
+        or "M94_LOW_RISK_BROWSER_CLICK_COMPLETED" not in result.reason_codes
+    ):
+        print("FAIL: M94 low-risk browser click decision/result is unsafe or over-authoritative")
+        sys.exit(1)
+
+    for update, reason in [
+        ({"click_performed": True}, "M94_CLICK_NOT_ALLOWED_IN_DECISION"),
+        ({"form_submission_performed": True}, "FORM_SUBMISSION_DENIED"),
+        ({"raw_dom_returned": True}, "RAW_DOM_DENIED"),
+        ({"backend_route_added": True}, "BACKEND_ROUTE_DENIED"),
+        ({"production_authority_granted": True}, "PRODUCTION_AUTHORITY_DENIED"),
+    ]:
+        try:
+            validate_low_risk_browser_click_decision(decision.model_copy(update=update))
+            print(f"FAIL: M94 mutated authority flag was not denied: {update}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M94 mutated authority flag raised {exc!s}")
+                sys.exit(1)
+
+    allowed_scan_files = {
+        "scripts/verify_all.py",
+        "src/ultimate_ai_agent/api/openapi.py",
+        "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/browser/__init__.py",
+        "src/ultimate_ai_agent/core/browser/low_risk_click.py",
+    }
+    source_text = "\n".join(
+        path.read_text(encoding="utf-8")
+        for root in [ROOT / "src" / "ultimate_ai_agent", ROOT / "apps" / "control-center" / "src"]
+        if root.exists()
+        for path in root.rglob("*")
+        if path.is_file()
+        and path.suffix in {".py", ".ts", ".tsx", ".js", ".jsx"}
+        and path.relative_to(ROOT).as_posix() not in allowed_scan_files
+    )
+    for fragment in [
+        "form_submission_allowed=True",
+        "typing_allowed=True",
+        "purchase_allowed=True",
+        "download_allowed=True",
+        "authentication_allowed=True",
+        "credential_or_cookie_access_allowed=True",
+        "raw_dom_allowed=True",
+        "screenshot_allowed=True",
+        "browser_form_enabled=True",
+        "browser_click_enabled=True",
+        "browser_click_performed=True",
+        "backend_route_added=True",
+        "control_center_control_added=True",
+        "dependency_added=True",
+        "production_authority_granted=True",
+        "store_raw_dom=True",
+        "store_screenshot=True",
+        "store_credentials_or_cookies=True",
+        "store_raw_prompt=True",
+        "store_raw_provider_payload=True",
+        "store_secret=True",
+    ]:
+        if fragment in source_text:
+            print(f"FAIL: M94 forbidden source fragment present: {fragment}")
+            sys.exit(1)
+
+    for forbidden_route in [
+        "/browser/click",
+        "/browser/form-submit",
+        "/browser/download",
+        "/browser/auth",
+        "/autonomy/browser/click",
+        "/tools/browser/execute",
+    ]:
+        if forbidden_route in source_text:
+            print(f"FAIL: M94 forbidden backend/frontend route fragment present: {forbidden_route}")
+            sys.exit(1)
+
+    print("OK: M94 low-risk browser clicks are scoped, route-free, and no broad browser authority")
 
 
 def verify_local_developer_launcher_safety():

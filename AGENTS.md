@@ -1,6 +1,6 @@
 # Ultimate AI Agent Workspace Standards
 
-Active baseline: v0.97.0.
+Active baseline: v0.98.0.
 
 - v0.58.0 M54 Safe Media Metadata Inspector is metadata-only and contract-only. It may validate declared safe media refs and safe metadata refs, but it must not export or store raw media, perform full-file reads, mutate files, overwrite originals, run OCIO transforms, perform AI gamut expansion, call models or providers, inject context, write memory, add backend routes, add Control Center controls, add dependencies, add production authority, or implement M55.
 - v0.59.0 M55 Redacted Observability Export is redacted-only and contract-only. It may build safe local observability export bundles from safe refs and summaries, but it must not add external SaaS or analytics SDKs, network delivery, raw prompt export, raw provider payload export, raw private content export, secret export, forensic trace export, model/provider calls, memory writes, context injection, backend routes, Control Center controls, dependencies, production authority, or implement M56.
