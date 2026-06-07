@@ -1204,6 +1204,11 @@ M91_FORBIDDEN_BACKEND_ROUTES = M90_FORBIDDEN_BACKEND_ROUTES + (
     "/autonomy/session/execute",
     "/tools/autonomous/execute",
 )
+EXPECTED_M92_OPENAPI_PATH_COUNT = 75
+M92_FORBIDDEN_BACKEND_ROUTES = M91_FORBIDDEN_BACKEND_ROUTES + (
+    "/autonomy/session/run",
+    "/autonomy/sessions",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -2273,6 +2278,21 @@ def m91_openapi_route_failures(
     return failures
 
 
+def m92_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M92_OPENAPI_PATH_COUNT
+) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(
+            f"OpenAPI path count changed for M92: expected {expected_path_count}, got {len(path_set)}"
+        )
+    for route in M92_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(f"M92 forbidden low-risk tool autonomy backend route present: {route}")
+    return failures
+
+
 M36_SAFE_REF_PREFIXES = {
     "reviewPacketRef": "file-review-packet:",
     "previewResultRef": "redacted-file-preview-output:",
@@ -3049,6 +3069,16 @@ class FoundationGateEvaluator:
                 self.check_m91_autonomous_tool_execution_route_boundary
             ),
             "m91_roadmap_currentness": self.check_m91_roadmap_currentness,
+            "m92_low_risk_tool_autonomy_single_session": (
+                self.check_m92_low_risk_tool_autonomy_single_session
+            ),
+            "m92_low_risk_tool_autonomy_static_safety": (
+                self.check_m92_low_risk_tool_autonomy_static_safety
+            ),
+            "m92_low_risk_tool_autonomy_route_boundary": (
+                self.check_m92_low_risk_tool_autonomy_route_boundary
+            ),
+            "m92_roadmap_currentness": self.check_m92_roadmap_currentness,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -26185,6 +26215,288 @@ class FoundationGateEvaluator:
         ):
             if fragment in text:
                 failures.append(f"M91 docs imply forbidden/future capability: {fragment}")
+        return self._result(criterion, failures, required_docs)
+
+    def check_m92_low_risk_tool_autonomy_single_session(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/autonomy/tool_autonomy_single_session.py",
+            "src/ultimate_ai_agent/core/autonomy/__init__.py",
+            "src/ultimate_ai_agent/core/tools/autonomous_execution_contract.py",
+            "src/ultimate_ai_agent/core/autonomy/dry_run.py",
+            "docs/autonomy/LOW_RISK_TOOL_AUTONOMY_SINGLE_SESSION.md",
+            "docs/autonomy/LOW_RISK_TOOL_AUTONOMY_SINGLE_SESSION_POLICY.md",
+            "docs/autonomy/LOW_RISK_TOOL_AUTONOMY_SINGLE_SESSION_AUTHORITY_BOUNDARY.md",
+            "docs/autonomy/LOW_RISK_TOOL_AUTONOMY_SINGLE_SESSION_RECEIPT_PLAN.md",
+            "docs/autonomy/LOW_RISK_TOOL_AUTONOMY_SINGLE_SESSION_NON_GOALS.md",
+            "docs/autonomy/M92_TO_M93_BOUNDARY.md",
+            "tests/test_m92_low_risk_tool_autonomy_single_session.py",
+            "tests/test_m92_gate_integration.py",
+        ]
+        failures = [
+            f"missing M92 low-risk tool autonomy file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            sys.path.insert(0, str(self.root))
+            from tests.test_m92_low_risk_tool_autonomy_single_session import _request
+            from ultimate_ai_agent.core.autonomy import (
+                LowRiskToolAutonomySingleSessionStatus,
+                build_low_risk_tool_autonomy_single_session_decision,
+                validate_low_risk_tool_autonomy_single_session_decision,
+            )
+
+            decision = build_low_risk_tool_autonomy_single_session_decision(_request())
+            if (
+                decision.status
+                != LowRiskToolAutonomySingleSessionStatus.single_session_ready_for_review
+                or not decision.review_only
+                or not decision.low_risk_only
+                or not decision.single_session_only
+                or not decision.deterministic
+                or not decision.local_only
+                or not decision.safe_refs_only
+                or not decision.m91_contract_revalidated
+                or not decision.low_risk_dry_run_revalidated
+                or not decision.single_session_scope_defined
+                or decision.execution_authorized
+                or decision.tool_execution_authorized
+                or decision.autonomous_execution_authorized
+                or decision.session_start_authorized
+                or decision.background_worker_authorized
+                or decision.execution_performed
+                or decision.tool_execution_performed
+                or decision.session_start_performed
+                or decision.background_worker_started
+                or decision.side_effects_performed
+                or not decision.receipt_plan.store_safe_summary_only
+                or not decision.receipt_plan.store_safe_refs_only
+                or decision.receipt_plan.store_raw_tool_payload
+                or decision.receipt_plan.execution_performed
+                or "M92_LOW_RISK_TOOL_AUTONOMY_SINGLE_SESSION_REVIEW_ONLY"
+                not in decision.reason_codes
+                or "M92_EXACT_M91_CONTRACT_BINDING_REQUIRED" not in decision.reason_codes
+                or "M92_EXACT_LOW_RISK_DRY_RUN_BINDING_REQUIRED" not in decision.reason_codes
+                or "M92_SINGLE_SESSION_ONLY" not in decision.reason_codes
+                or "M92_NO_REAL_TOOL_EXECUTION" not in decision.reason_codes
+                or "M93_REMAINS_FUTURE" not in decision.reason_codes
+            ):
+                failures.append("M92 low-risk tool autonomy decision is unsafe or over-authoritative")
+            for update, reason in [
+                ({"execution_authorized": True}, "EXECUTION_DENIED"),
+                ({"tool_execution_authorized": True}, "TOOL_EXECUTION_DENIED"),
+                ({"session_start_authorized": True}, "SESSION_START_DENIED"),
+                ({"background_worker_started": True}, "BACKGROUND_WORKER_DENIED"),
+                ({"backend_route_added": True}, "BACKEND_ROUTE_DENIED"),
+            ]:
+                try:
+                    validate_low_risk_tool_autonomy_single_session_decision(
+                        decision.model_copy(update=update)
+                    )
+                    failures.append(f"M92 unsafe decision mutation was not denied with {reason}")
+                except ValueError as exc:
+                    if reason not in str(exc):
+                        failures.append(f"M92 unsafe decision mutation raised {exc!s}")
+        except Exception as exc:
+            failures.append(f"M92 low-risk tool autonomy validation failed: {exc}")
+
+        docs_text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_files
+            if path.startswith("docs/") and (self.root / path).exists()
+        )
+        for fragment in [
+            "low-risk tool autonomy, single session",
+            "review-only",
+            "low-risk only",
+            "single-session only",
+            "deterministic",
+            "local-only",
+            "safe refs only",
+            "exact m91",
+            "autonomous tool execution contract",
+            "exact low-risk autonomous dry run",
+            "no real tool execution",
+            "no autonomous execution",
+            "no session start",
+            "no additional session",
+            "no multi-tool",
+            "no command execution",
+            "no shell execution",
+            "no subprocess execution",
+            "no filesystem mutation",
+            "no network access",
+            "no browser automation",
+            "no plugin execution",
+            "no remote execution",
+            "no model call",
+            "no memory write",
+            "no context injection",
+            "no background worker",
+            "no backend route",
+            "no control center control",
+            "no dependency",
+            "no production authority",
+            "no raw tool payload",
+            "no raw provider payload",
+            "safe summary only",
+            "evaluator boundaries revalidate",
+            "m93 remains future",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M92 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m92_low_risk_tool_autonomy_static_safety(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        forbidden_source_fragments = [
+            "low_risk_tool_autonomy_enabled=True",
+            "real_tool_execution_enabled=True",
+            "execution_enabled=True",
+            "tool_execution_enabled=True",
+            "autonomous_execution_enabled=True",
+            "session_start_enabled=True",
+            "additional_session_enabled=True",
+            "background_worker_enabled=True",
+            "multi_tool_enabled=True",
+            "command_execution_enabled=True",
+            "shell_execution_enabled=True",
+            "subprocess_execution_enabled=True",
+            "filesystem_mutation_enabled=True",
+            "network_access_enabled=True",
+            "browser_automation_enabled=True",
+            "plugin_execution_enabled=True",
+            "remote_execution_enabled=True",
+            "model_call_enabled=True",
+            "memory_write_enabled=True",
+            "context_injection_enabled=True",
+            "backend_route_enabled=True",
+            "control_center_control_enabled=True",
+            "dependency_change_enabled=True",
+            "production_authority_enabled=True",
+            "execution_requested=True",
+            "tool_execution_requested=True",
+            "autonomous_execution_requested=True",
+            "session_start_requested=True",
+            "additional_session_requested=True",
+            "background_worker_requested=True",
+            "multi_tool_requested=True",
+            "execution_authorized=True",
+            "tool_execution_authorized=True",
+            "autonomous_execution_authorized=True",
+            "session_start_authorized=True",
+            "background_worker_authorized=True",
+            "execution_performed=True",
+            "tool_execution_performed=True",
+            "session_start_performed=True",
+            "background_worker_started=True",
+            "backend_route_added=True",
+            "control_center_control_added=True",
+            "dependency_added=True",
+            "production_authority_granted=True",
+            "store_raw_tool_payload=True",
+            "store_raw_provider_payload=True",
+            "store_raw_prompt=True",
+            "store_secret=True",
+        ]
+        allowed_files = {
+            "scripts/verify_all.py",
+            "src/ultimate_ai_agent/core/gate/evaluators.py",
+            "src/ultimate_ai_agent/core/autonomy/__init__.py",
+            "src/ultimate_ai_agent/core/autonomy/tool_autonomy_single_session.py",
+            "src/ultimate_ai_agent/core/autonomy/dry_run.py",
+            "src/ultimate_ai_agent/core/tools/autonomous_execution_contract.py",
+            "src/ultimate_ai_agent/core/tools/runtime/invocation.py",
+            "src/ultimate_ai_agent/api/openapi.py",
+        }
+        for root in [
+            self.root / "src" / "ultimate_ai_agent",
+            self.root / "apps" / "control-center" / "src",
+            self.root / "apps" / "ccc-ios",
+        ]:
+            if not root.exists():
+                continue
+            candidate_files = []
+            for pattern in ("*.py", "*.ts", "*.tsx", "*.js", "*.jsx", "*.swift", "*.yml", "*.yaml"):
+                candidate_files.extend(root.rglob(pattern))
+            for path in sorted(candidate_files):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(self.root).as_posix()
+                if ".test." in rel:
+                    continue
+                if rel in allowed_files:
+                    continue
+                text = path.read_text(encoding="utf-8")
+                for fragment in forbidden_source_fragments:
+                    if fragment in text:
+                        failures.append(
+                            f"M92 forbidden low-risk tool autonomy fragment in {rel}: {fragment}"
+                        )
+        return self._result(criterion, failures, [])
+
+    def check_m92_low_risk_tool_autonomy_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m92_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M92 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m92_roadmap_currentness(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        required_docs = [
+            "README.md",
+            "VERSION.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/roadmap/M61_M100_ROADMAP.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+            "docs/roadmap/MILESTONE_CHARTERS.md",
+        ]
+        failures = [
+            f"missing M92 roadmap doc: {path}"
+            for path in required_docs
+            if not (self.root / path).exists()
+        ]
+        text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_docs
+            if (self.root / path).exists()
+        )
+        if "v0.96.0" not in text or "m92" not in text or "low-risk tool autonomy, single session" not in text:
+            failures.append("active docs do not identify v0.96.0/M92 Low-Risk Tool Autonomy, Single Session")
+        if "m92 is implemented/released" not in text and "v0.96.0 implements m92" not in text:
+            failures.append("active docs do not mark M92 implemented/released")
+        for version_label, milestone, title in [
+            ("v0.97.0", "M93", "Multi-Tool Dry-Run to Real Run Promotion"),
+            ("v0.98.0", "M94", "Autonomous Browser Clicks, Low-Risk Only"),
+            ("v1.4.0", "M100", "Mobile Permission Model v1"),
+        ]:
+            if version_label.lower() not in text or milestone.lower() not in text or title.lower() not in text:
+                failures.append(f"active docs missing planned M93-M100 row: {version_label} / {milestone} — {title}")
+        for fragment in (
+            "real tool execution is implemented",
+            "autonomous session start is implemented",
+            "multi-tool real run is implemented",
+            "command execution is implemented",
+            "filesystem mutation is implemented",
+            "subprocess execution is implemented",
+            "shell execution is implemented",
+            "network access is implemented",
+            "browser click is implemented",
+            "plugin execution is implemented",
+            "production authority is implemented",
+            "broad autonomy is implemented",
+        ):
+            if fragment in text:
+                failures.append(f"M92 docs imply forbidden/future capability: {fragment}")
         return self._result(criterion, failures, required_docs)
 
     def check_v0292_local_dev_api_authority_and_preview_safe(

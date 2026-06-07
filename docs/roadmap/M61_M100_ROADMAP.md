@@ -1,6 +1,6 @@
 # M61-M100 Roadmap
 
-Status: Active roadmap maintained through M91 / v0.95.0.
+Status: Active roadmap maintained through M92 / v0.96.0.
 
 M61 is implemented/released by v0.65.0 as Autonomy Mode Charter + Authority
 Levels. M62 is implemented/released by v0.66.0 as Scoped Autonomy Session
@@ -33,7 +33,8 @@ implemented/released by v0.91.0 as Sandboxed Command Audit Replay. M88 is
 implemented/released by v0.92.0 as Mutating Command Proposal, No Execution. M89 is
 implemented/released by v0.93.0 as Emergency Stop + Process Kill Safety. M90 is
 implemented/released by v0.94.0 as Shell/Subprocess Hardening Freeze. M91 is
-implemented/released by v0.95.0 as Autonomous Tool Execution Contract. M92-M100 remain
+implemented/released by v0.95.0 as Autonomous Tool Execution Contract. M92 is
+implemented/released by v0.96.0 as Low-Risk Tool Autonomy, Single Session. M93-M100 remain
 planned/provisional. This roadmap adds no
 production authority, no global autonomy switch, no broad autonomy, no real tool
 execution, no shell execution, no browser automation beyond the M74 injected
@@ -79,7 +80,7 @@ no dependency.
 | v0.93.0 | M89 | Emergency Stop + Process Kill Safety | Implemented/released |
 | v0.94.0 | M90 | Shell/Subprocess Hardening Freeze | Implemented/released |
 | v0.95.0 | M91 | Autonomous Tool Execution Contract | Implemented/released |
-| v0.96.0 | M92 | Low-Risk Tool Autonomy, Single Session | Planned/provisional |
+| v0.96.0 | M92 | Low-Risk Tool Autonomy, Single Session | Implemented/released |
 | v0.97.0 | M93 | Multi-Tool Dry-Run to Real Run Promotion | Planned/provisional |
 | v0.98.0 | M94 | Autonomous Browser Clicks, Low-Risk Only | Planned/provisional |
 | v0.99.0 | M95 | Network Tool Expansion, Authless Only | Planned/provisional |
@@ -210,7 +211,20 @@ execution, no shell execution, no subprocess execution, no filesystem mutation,
 no network access, no browser automation, no plugin execution, no remote
 execution, no model call, no memory write, no context injection, no background
 worker, no backend route, no Control Center control, no dependency, and no
-production authority. M92 remains future.
+production authority.
+
+M92 is implemented/released as review-only, low-risk only, single-session only,
+deterministic, and local-only Low-Risk Tool Autonomy, Single Session contracts
+over exact M91 Autonomous Tool Execution Contract decisions and exact M69
+low-risk autonomous dry run records. It defines safe refs only decisions, safe
+summary only receipt plans, stable reason codes, and evaluator boundaries
+revalidate safety-critical fields. It adds no real tool execution, no
+autonomous execution, no session start, no additional session, no multi-tool
+run, no command execution, no shell execution, no subprocess execution, no
+filesystem mutation, no network access, no browser automation, no plugin
+execution, no remote execution, no model call, no memory write, no context
+injection, no background worker, no backend route, no Control Center control,
+no dependency, and no production authority. M93 remains future.
 
 Production authority remains future beyond M100 unless a later reviewed roadmap
 promotion explicitly changes the boundary.

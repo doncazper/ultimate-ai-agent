@@ -1,6 +1,6 @@
 # Post-M20 Capability Layer Roadmap
 
-Status: Active roadmap projection maintained through v0.95.0.
+Status: Active roadmap projection maintained through v0.96.0.
 
 v0.38.0 implements M34 Broader File Capability Review as planning,
 architecture review, documentation, verifier, and Foundation Gate work only.
@@ -124,10 +124,10 @@ The detailed post-M33 supersession source of truth is
 
 ## Prompt-Pack Strategy
 
-Recommended next prompt after v0.95.0:
+Recommended next prompt after v0.96.0:
 
 ```text
-Start v0.96.0 / M92 - Low-Risk Tool Autonomy, Single Session only after v0.95.0 / M91 is accepted Green.
+Start v0.97.0 / M93 - Multi-Tool Dry-Run to Real Run Promotion only after v0.96.0 / M92 is accepted Green.
 ```
 
 M61 is implemented/released by v0.65.0 as Autonomy Mode Charter + Authority
@@ -161,7 +161,8 @@ M88 is implemented/released by v0.92.0 as Mutating Command Proposal, No Executio
 M89 is implemented/released by v0.93.0 as Emergency Stop + Process Kill Safety.
 M90 is implemented/released by v0.94.0 as Shell/Subprocess Hardening Freeze.
 M91 is implemented/released by v0.95.0 as Autonomous Tool Execution Contract.
-M92-M100 remain planned/provisional.
+M92 is implemented/released by v0.96.0 as Low-Risk Tool Autonomy, Single Session.
+M93-M100 remain planned/provisional.
 
 Extra-hard reviews are required for M37, M38, M40, M47, M48, M49, M51, M52,
 M57, M58, and M59. Mandatory hardening is expected by default for M35-M40, M43-M50,

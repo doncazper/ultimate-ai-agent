@@ -758,6 +758,20 @@ REQUIRED_M91_AUTONOMOUS_TOOL_EXECUTION_CONTRACT_DOCS = [
     "docs/implementation/foundation_gate_implementation_plan_v0_95_0.md",
 ]
 
+REQUIRED_M92_LOW_RISK_TOOL_AUTONOMY_SINGLE_SESSION_DOCS = [
+    "docs/autonomy/LOW_RISK_TOOL_AUTONOMY_SINGLE_SESSION.md",
+    "docs/autonomy/LOW_RISK_TOOL_AUTONOMY_SINGLE_SESSION_POLICY.md",
+    "docs/autonomy/LOW_RISK_TOOL_AUTONOMY_SINGLE_SESSION_AUTHORITY_BOUNDARY.md",
+    "docs/autonomy/LOW_RISK_TOOL_AUTONOMY_SINGLE_SESSION_RECEIPT_PLAN.md",
+    "docs/autonomy/LOW_RISK_TOOL_AUTONOMY_SINGLE_SESSION_NON_GOALS.md",
+    "docs/autonomy/M92_TO_M93_BOUNDARY.md",
+    "docs/roadmap/M61_M100_ROADMAP.md",
+    "docs/release_notes/v0_96_0.md",
+    "docs/archive/releases/v0_96_0/README_IMPORT.md",
+    "docs/archive/releases/v0_96_0/master_plan.md",
+    "docs/implementation/foundation_gate_implementation_plan_v0_96_0.md",
+]
+
 
 REQUIRED_ACTIVE_DOCS = [
     "docs/README.md",
@@ -1309,6 +1323,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_m89_emergency_stop_process_kill_safety_docs(root, version))
     failures.extend(_verify_m90_shell_subprocess_hardening_freeze_docs(root, version))
     failures.extend(_verify_m91_autonomous_tool_execution_contract_docs(root, version))
+    failures.extend(_verify_m92_low_risk_tool_autonomy_single_session_docs(root, version))
     failures.extend(_verify_m19_roadmap_currentness(root, version))
     failures.extend(_verify_post_m18_roadmap_status_labels(root))
 
@@ -6004,6 +6019,98 @@ def _verify_m91_autonomous_tool_execution_contract_docs(root: Path, version: str
         "M91 docs must not claim browser click implementation": "browser click is implemented",
         "M91 docs must not claim plugin execution implementation": "plugin execution is implemented",
         "M91 docs must not claim production authority": "production authority is implemented",
+    }
+    for message, fragment in forbidden_fragments.items():
+        if fragment in text:
+            failures.append(f"{message}: {fragment}")
+    return failures
+
+
+def _verify_m92_low_risk_tool_autonomy_single_session_docs(
+    root: Path, version: str | None
+) -> list[str]:
+    failures: list[str] = []
+    if _version_tuple(version) < (0, 96, 0):
+        return failures
+
+    missing = [
+        rel_path
+        for rel_path in REQUIRED_M92_LOW_RISK_TOOL_AUTONOMY_SINGLE_SESSION_DOCS
+        if not (root / rel_path).exists()
+    ]
+    failures.extend(
+        f"missing M92 low-risk tool autonomy single-session doc: {rel_path}"
+        for rel_path in missing
+    )
+    text = "\n".join(
+        _read(root / rel_path).lower()
+        for rel_path in REQUIRED_M92_LOW_RISK_TOOL_AUTONOMY_SINGLE_SESSION_DOCS
+        if (root / rel_path).exists()
+    )
+    required_fragments = {
+        "M92 docs must say low-risk tool autonomy, single session": "low-risk tool autonomy, single session",
+        "M92 docs must say review-only": "review-only",
+        "M92 docs must say low-risk only": "low-risk only",
+        "M92 docs must say single-session only": "single-session only",
+        "M92 docs must say deterministic": "deterministic",
+        "M92 docs must say local-only": "local-only",
+        "M92 docs must say safe refs only": "safe refs only",
+        "M92 docs must require exact M91 binding": "exact m91",
+        "M92 docs must name autonomous tool execution contract": "autonomous tool execution contract",
+        "M92 docs must require exact dry-run binding": "exact low-risk autonomous dry run",
+        "M92 docs must deny real tool execution": "no real tool execution",
+        "M92 docs must deny autonomous execution": "no autonomous execution",
+        "M92 docs must deny session start": "no session start",
+        "M92 docs must deny additional sessions": "no additional session",
+        "M92 docs must deny multi-tool execution": "no multi-tool",
+        "M92 docs must deny command execution": "no command execution",
+        "M92 docs must deny shell execution": "no shell execution",
+        "M92 docs must deny subprocess execution": "no subprocess execution",
+        "M92 docs must deny filesystem mutation": "no filesystem mutation",
+        "M92 docs must deny network access": "no network access",
+        "M92 docs must deny browser automation": "no browser automation",
+        "M92 docs must deny plugin execution": "no plugin execution",
+        "M92 docs must deny remote execution": "no remote execution",
+        "M92 docs must deny model call": "no model call",
+        "M92 docs must deny memory write": "no memory write",
+        "M92 docs must deny context injection": "no context injection",
+        "M92 docs must deny background worker": "no background worker",
+        "M92 docs must deny backend routes": "no backend route",
+        "M92 docs must deny Control Center controls": "no control center control",
+        "M92 docs must deny dependencies": "no dependency",
+        "M92 docs must deny production authority": "no production authority",
+        "M92 docs must deny raw tool payload": "no raw tool payload",
+        "M92 docs must deny raw provider payload": "no raw provider payload",
+        "M92 docs must say safe summary only": "safe summary only",
+        "M92 docs must say evaluator boundaries revalidate": "evaluator boundaries revalidate",
+        "M92 docs must keep M93 future": "m93 remains future",
+    }
+    for message, fragment in required_fragments.items():
+        if fragment not in text:
+            failures.append(message)
+
+    for version_label, milestone, title in [
+        ("v0.96.0", "m92", "low-risk tool autonomy, single session"),
+        ("v0.97.0", "m93", "multi-tool dry-run to real run promotion"),
+        ("v1.4.0", "m100", "mobile permission model v1"),
+    ]:
+        if version_label not in text or milestone not in text or title not in text:
+            failures.append(
+                f"M92-M100 roadmap missing label: {version_label} / {milestone.upper()} - {title}"
+            )
+
+    forbidden_fragments = {
+        "M92 docs must not claim real tool execution implementation": "real tool execution is implemented",
+        "M92 docs must not claim autonomous session start implementation": "autonomous session start is implemented",
+        "M92 docs must not claim multi-tool real run implementation": "multi-tool real run is implemented",
+        "M92 docs must not claim command execution implementation": "command execution is implemented",
+        "M92 docs must not claim shell execution implementation": "shell execution is implemented",
+        "M92 docs must not claim subprocess execution implementation": "subprocess execution is implemented",
+        "M92 docs must not claim filesystem mutation implementation": "filesystem mutation is implemented",
+        "M92 docs must not claim network access implementation": "network access is implemented",
+        "M92 docs must not claim browser click implementation": "browser click is implemented",
+        "M92 docs must not claim plugin execution implementation": "plugin execution is implemented",
+        "M92 docs must not claim production authority": "production authority is implemented",
     }
     for message, fragment in forbidden_fragments.items():
         if fragment in text:
