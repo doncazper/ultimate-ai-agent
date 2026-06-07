@@ -1232,6 +1232,24 @@ M94_FORBIDDEN_BACKEND_ROUTES = M93_FORBIDDEN_BACKEND_ROUTES + (
     "/autonomy/browser/run",
     "/tools/browser/execute",
 )
+EXPECTED_M95_OPENAPI_PATH_COUNT = 75
+M95_FORBIDDEN_BACKEND_ROUTES = M94_FORBIDDEN_BACKEND_ROUTES + (
+    "/network/get",
+    "/network/fetch",
+    "/network/request",
+    "/network/post",
+    "/network/put",
+    "/network/patch",
+    "/network/delete",
+    "/network/auth",
+    "/network/account",
+    "/network/download",
+    "/http/fetch",
+    "/http/request",
+    "/http/post",
+    "/tools/network/execute",
+    "/autonomy/network/execute",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -2346,6 +2364,21 @@ def m94_openapi_route_failures(
     return failures
 
 
+def m95_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M95_OPENAPI_PATH_COUNT
+) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(
+            f"OpenAPI path count changed for M95: expected {expected_path_count}, got {len(path_set)}"
+        )
+    for route in M95_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(f"M95 forbidden network/backend execution route present: {route}")
+    return failures
+
+
 M36_SAFE_REF_PREFIXES = {
     "reviewPacketRef": "file-review-packet:",
     "previewResultRef": "redacted-file-preview-output:",
@@ -3150,6 +3183,16 @@ class FoundationGateEvaluator:
                 self.check_m94_low_risk_browser_clicks_route_boundary
             ),
             "m94_roadmap_currentness": self.check_m94_roadmap_currentness,
+            "m95_authless_network_tool_expansion": (
+                self.check_m95_authless_network_tool_expansion
+            ),
+            "m95_authless_network_tool_expansion_static_safety": (
+                self.check_m95_authless_network_tool_expansion_static_safety
+            ),
+            "m95_authless_network_tool_expansion_route_boundary": (
+                self.check_m95_authless_network_tool_expansion_route_boundary
+            ),
+            "m95_roadmap_currentness": self.check_m95_roadmap_currentness,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -27123,6 +27166,309 @@ class FoundationGateEvaluator:
         ):
             if fragment in text:
                 failures.append(f"M94 docs imply forbidden/future capability: {fragment}")
+        return self._result(criterion, failures, required_docs)
+
+    def check_m95_authless_network_tool_expansion(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/network/authless_expansion.py",
+            "src/ultimate_ai_agent/core/network/__init__.py",
+            "docs/network/AUTHLESS_NETWORK_TOOL_EXPANSION.md",
+            "docs/network/AUTHLESS_NETWORK_TOOL_EXPANSION_POLICY.md",
+            "docs/network/AUTHLESS_NETWORK_TOOL_EXPANSION_AUTHORITY_BOUNDARY.md",
+            "docs/network/AUTHLESS_NETWORK_TOOL_EXPANSION_RECEIPT_PLAN.md",
+            "docs/network/AUTHLESS_NETWORK_TOOL_EXPANSION_NON_GOALS.md",
+            "docs/network/M95_TO_M96_BOUNDARY.md",
+            "tests/test_m95_network_tool_expansion_authless.py",
+            "tests/test_m95_gate_integration.py",
+        ]
+        failures = [
+            f"missing M95 authless network expansion file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            sys.path.insert(0, str(self.root))
+            from tests.test_m95_network_tool_expansion_authless import _policy, _request
+            from ultimate_ai_agent.core.network import (
+                AuthlessNetworkExpansionStatus,
+                build_authless_network_expansion_decision,
+                validate_authless_network_expansion_decision,
+            )
+
+            decision = build_authless_network_expansion_decision(_request(), _policy())
+            if (
+                decision.status != AuthlessNetworkExpansionStatus.authless_read_only_allowed
+                or not decision.authless_read_only_allowed
+                or not decision.disabled_by_default
+                or not decision.exact_scope_bound
+                or not decision.exact_approval_bound
+                or not decision.allowlisted_domain_bound
+                or not decision.redirect_policy_bound
+                or not decision.bounded_output_bound
+                or not decision.redaction_bound
+                or not decision.audit_bound
+                or not decision.revocation_bound
+                or not decision.transport_injection_required
+                or decision.network_call_performed
+                or decision.unrestricted_network_allowed
+                or decision.authenticated_network_allowed
+                or decision.credential_headers_allowed
+                or decision.cookies_allowed
+                or decision.request_body_allowed
+                or decision.mutation_method_allowed
+                or decision.private_network_allowed
+                or decision.account_action_allowed
+                or decision.download_or_export_allowed
+                or decision.browser_form_allowed
+                or decision.provider_model_call_allowed
+                or decision.shell_execution_allowed
+                or decision.plugin_execution_allowed
+                or decision.memory_write_allowed
+                or decision.context_injection_allowed
+                or decision.backend_route_added
+                or decision.control_center_control_added
+                or decision.dependency_added
+                or decision.production_authority_granted
+                or not decision.receipt_plan.store_safe_refs_only
+                or not decision.receipt_plan.store_redacted_preview_only
+                or decision.receipt_plan.raw_response_stored
+                or decision.receipt_plan.raw_headers_stored
+                or decision.receipt_plan.credential_headers_stored
+                or decision.receipt_plan.cookies_stored
+                or decision.receipt_plan.query_string_stored
+                or decision.receipt_plan.side_effects_performed
+                or "M95_AUTHLESS_READ_ONLY_NETWORK_EXPANSION_ALLOWED" not in decision.reason_codes
+                or "M96_REMAINS_FUTURE" not in decision.reason_codes
+            ):
+                failures.append("M95 authless network expansion decision is unsafe or over-authoritative")
+            for update, reason in [
+                ({"network_call_performed": True}, "NETWORK_CALL_PERFORMED_DENIED_IN_DECISION"),
+                ({"authenticated_network_allowed": True}, "AUTHENTICATED_NETWORK_DENIED"),
+                ({"credential_headers_allowed": True}, "CREDENTIAL_HEADERS_DENIED"),
+                ({"request_body_allowed": True}, "REQUEST_BODY_DENIED"),
+                ({"mutation_method_allowed": True}, "MUTATION_METHOD_DENIED"),
+                ({"private_network_allowed": True}, "PRIVATE_NETWORK_DENIED"),
+                ({"backend_route_added": True}, "BACKEND_ROUTE_DENIED"),
+                ({"production_authority_granted": True}, "PRODUCTION_AUTHORITY_DENIED"),
+            ]:
+                try:
+                    validate_authless_network_expansion_decision(decision.model_copy(update=update))
+                    failures.append(f"M95 unsafe decision mutation was not denied with {reason}")
+                except ValueError as exc:
+                    if reason not in str(exc):
+                        failures.append(f"M95 unsafe decision mutation raised {exc!s}")
+            try:
+                validate_authless_network_expansion_decision(
+                    decision.model_copy(
+                        update={
+                            "receipt_plan": decision.receipt_plan.model_copy(
+                                update={"raw_response_stored": True}
+                            )
+                        }
+                    )
+                )
+                failures.append("M95 raw response receipt mutation was not denied")
+            except ValueError as exc:
+                if "RAW_RESPONSE_DENIED" not in str(exc):
+                    failures.append(f"M95 raw response receipt mutation raised {exc!s}")
+        except Exception as exc:
+            failures.append(f"M95 authless network expansion validation failed: {exc}")
+
+        docs_text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_files
+            if path.startswith("docs/") and (self.root / path).exists()
+        )
+        for fragment in [
+            "network tool expansion, authless only",
+            "authless",
+            "read-only",
+            "allowlisted domain",
+            "https",
+            "get only",
+            "redirect controls",
+            "bounded output",
+            "redaction",
+            "exact scope",
+            "audit",
+            "revocation",
+            "transport injection",
+            "safe refs only",
+            "redacted preview only",
+            "no credentials",
+            "no cookies",
+            "no credential headers",
+            "no request body",
+            "no post",
+            "no put",
+            "no patch",
+            "no delete",
+            "no account action",
+            "no private network",
+            "no download",
+            "no export",
+            "no browser form",
+            "no provider model call",
+            "no shell execution",
+            "no plugin execution",
+            "no memory write",
+            "no context injection",
+            "no backend route",
+            "no control center control",
+            "no dependency",
+            "no production authority",
+            "evaluator boundaries revalidate",
+            "m96 remains future",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M95 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m95_authless_network_tool_expansion_static_safety(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        forbidden_source_fragments = [
+            "unrestricted_network_allowed=True",
+            "authenticated_network_allowed=True",
+            "credential_headers_allowed=True",
+            "cookies_allowed=True",
+            "request_body_allowed=True",
+            "mutation_method_allowed=True",
+            "private_network_allowed=True",
+            "account_action_allowed=True",
+            "download_or_export_allowed=True",
+            "browser_form_allowed=True",
+            "provider_model_call_allowed=True",
+            "shell_execution_allowed=True",
+            "plugin_execution_allowed=True",
+            "memory_write_allowed=True",
+            "context_injection_allowed=True",
+            "backend_route_allowed=True",
+            "control_center_control_allowed=True",
+            "dependency_change_allowed=True",
+            "production_authority_allowed=True",
+            "unrestricted_network_requested=True",
+            "authenticated_network_requested=True",
+            "credentials_or_cookies_requested=True",
+            "credential_headers_requested=True",
+            "mutation_method_requested=True",
+            "private_network_requested=True",
+            "account_action_requested=True",
+            "download_or_export_requested=True",
+            "browser_form_requested=True",
+            "provider_model_call_requested=True",
+            "shell_execution_requested=True",
+            "plugin_execution_requested=True",
+            "memory_write_requested=True",
+            "context_injection_requested=True",
+            "backend_route_requested=True",
+            "control_center_control_requested=True",
+            "dependency_requested=True",
+            "production_authority_requested=True",
+            "network_call_performed=True",
+            "backend_route_added=True",
+            "control_center_control_added=True",
+            "dependency_added=True",
+            "production_authority_granted=True",
+            "network_post_enabled=True",
+            "network_mutation_enabled=True",
+            "credential_header_enabled=True",
+            "store_raw_response=True",
+            "store_raw_headers=True",
+            "store_credentials=True",
+            "store_cookies=True",
+            "store_raw_prompt=True",
+            "store_raw_provider_payload=True",
+            "store_secret=True",
+        ]
+        allowed_files = {
+            "scripts/verify_all.py",
+            "src/ultimate_ai_agent/api/openapi.py",
+            "src/ultimate_ai_agent/core/gate/evaluators.py",
+            "src/ultimate_ai_agent/core/network/__init__.py",
+            "src/ultimate_ai_agent/core/network/authless_expansion.py",
+        }
+        for root in [
+            self.root / "src" / "ultimate_ai_agent",
+            self.root / "apps" / "control-center" / "src",
+            self.root / "apps" / "ccc-ios",
+        ]:
+            if not root.exists():
+                continue
+            candidate_files = []
+            for pattern in ("*.py", "*.ts", "*.tsx", "*.js", "*.jsx", "*.swift", "*.yml", "*.yaml"):
+                candidate_files.extend(root.rglob(pattern))
+            for path in sorted(candidate_files):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(self.root).as_posix()
+                if ".test." in rel:
+                    continue
+                if rel in allowed_files:
+                    continue
+                text = path.read_text(encoding="utf-8")
+                for fragment in forbidden_source_fragments:
+                    if fragment in text:
+                        failures.append(f"M95 forbidden authless network fragment in {rel}: {fragment}")
+        return self._result(criterion, failures, [])
+
+    def check_m95_authless_network_tool_expansion_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m95_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M95 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m95_roadmap_currentness(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        required_docs = [
+            "README.md",
+            "VERSION.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/roadmap/M61_M100_ROADMAP.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+            "docs/roadmap/MILESTONE_CHARTERS.md",
+        ]
+        failures = [
+            f"missing M95 roadmap doc: {path}"
+            for path in required_docs
+            if not (self.root / path).exists()
+        ]
+        text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_docs
+            if (self.root / path).exists()
+        )
+        if "v0.99.0" not in text or "m95" not in text or "network tool expansion, authless only" not in text:
+            failures.append("active docs do not identify v0.99.0/M95 Network Tool Expansion, Authless Only")
+        if "m95 is implemented/released" not in text and "v0.99.0 implements m95" not in text:
+            failures.append("active docs do not mark M95 implemented/released")
+        for version_label, milestone, title in [
+            ("v1.0.0", "M96", "Plugin Execution Sandbox, No External Plugins"),
+            ("v1.1.0", "M97", "Recurring Automation Contracts"),
+            ("v1.4.0", "M100", "Mobile Permission Model v1"),
+        ]:
+            if version_label.lower() not in text or milestone.lower() not in text or title.lower() not in text:
+                failures.append(f"active docs missing planned M96-M100 row: {version_label} / {milestone} — {title}")
+        for fragment in (
+            "external plugin execution is implemented",
+            "recurring automation is implemented",
+            "mobile permission runtime is implemented",
+            "mobile sensor access is implemented",
+            "network mutation is implemented",
+            "authenticated network is implemented",
+            "production authority is implemented",
+            "broad autonomy is implemented",
+        ):
+            if fragment in text:
+                failures.append(f"M95 docs imply forbidden/future capability: {fragment}")
         return self._result(criterion, failures, required_docs)
 
     def check_v0292_local_dev_api_authority_and_preview_safe(

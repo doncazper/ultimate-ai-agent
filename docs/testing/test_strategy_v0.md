@@ -757,3 +757,20 @@ network access, backend routes, dependencies, production authority, or M60 work.
 
 M60 is implemented/released by v0.64.0 as Local Developer Beta Freeze.
 ```
+
+## v0.99.0 M95 Network Tool Expansion, Authless Only Tests
+
+v0.99.0 adds focused authless network expansion tests only:
+
+```text
+Authless network expansion policy, request, decision, and receipt plan contracts exist.
+Valid requests are exact scope, authless, read-only, allowlisted domain, HTTPS, GET only, redirect-controls-bound, bounded-output-bound, redaction-bound, audit-bound, revocation-bound, and transport-injection-bound.
+Receipt plans store safe refs only and redacted preview only.
+No network call is performed by the contract or evaluator.
+unrestricted network access, authenticated network access, credentials, cookies, credential headers, request body, POST, PUT, PATCH, DELETE, account action, private network, download, export, browser form, provider model call, shell execution, plugin execution, memory write, context injection, backend route, Control Center control, dependency, and production authority are denied.
+approval_ref alone, approval_test_* refs, and model/memory/context/tool-intent/task-plan/runtime/OpenWebUI refs cannot authorize network access.
+model_copy-mutated unsafe decision and receipt fields are revalidated at evaluator boundaries.
+Foundation Gate includes M95 authless network expansion, static safety, route boundary, and roadmap currentness criteria.
+OpenAPI path count remains unchanged at 75.
+M96 remains planned/provisional as Plugin Execution Sandbox, No External Plugins.
+```

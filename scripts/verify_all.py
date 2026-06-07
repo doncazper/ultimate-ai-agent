@@ -128,6 +128,7 @@ SCAN_SEQUENCE = [
     ("M92 low-risk tool autonomy single-session scan", "verify_m92_low_risk_tool_autonomy_single_session"),
     ("M93 multi-tool dry-run promotion scan", "verify_m93_multi_tool_dry_run_promotion"),
     ("M94 low-risk browser clicks scan", "verify_m94_low_risk_browser_clicks"),
+    ("M95 authless network tool expansion scan", "verify_m95_authless_network_tool_expansion"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -16241,6 +16242,245 @@ def verify_m94_low_risk_browser_clicks():
             sys.exit(1)
 
     print("OK: M94 low-risk browser clicks are scoped, route-free, and no broad browser authority")
+
+
+def verify_m95_authless_network_tool_expansion():
+    print("\n[Verifier] Running M95 authless network tool expansion guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/network/__init__.py",
+        "src/ultimate_ai_agent/core/network/authless_expansion.py",
+        "docs/network/AUTHLESS_NETWORK_TOOL_EXPANSION.md",
+        "docs/network/AUTHLESS_NETWORK_TOOL_EXPANSION_POLICY.md",
+        "docs/network/AUTHLESS_NETWORK_TOOL_EXPANSION_AUTHORITY_BOUNDARY.md",
+        "docs/network/AUTHLESS_NETWORK_TOOL_EXPANSION_RECEIPT_PLAN.md",
+        "docs/network/AUTHLESS_NETWORK_TOOL_EXPANSION_NON_GOALS.md",
+        "docs/network/M95_TO_M96_BOUNDARY.md",
+        "docs/release_notes/v0_99_0.md",
+        "docs/archive/releases/v0_99_0/README_IMPORT.md",
+        "docs/archive/releases/v0_99_0/master_plan.md",
+        "docs/implementation/foundation_gate_implementation_plan_v0_99_0.md",
+        "tests/test_m95_network_tool_expansion_authless.py",
+        "tests/test_m95_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M95 authless network expansion file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = "\n".join(
+        (ROOT / rel_path).read_text(encoding="utf-8").lower()
+        for rel_path in required_files
+        if rel_path.startswith("docs/")
+    )
+    for fragment in [
+        "network tool expansion, authless only",
+        "authless",
+        "read-only",
+        "allowlisted domain",
+        "https",
+        "get only",
+        "redirect controls",
+        "bounded output",
+        "redaction",
+        "exact scope",
+        "audit",
+        "revocation",
+        "transport injection",
+        "safe refs only",
+        "redacted preview only",
+        "no credentials",
+        "no cookies",
+        "no credential headers",
+        "no request body",
+        "no post",
+        "no put",
+        "no patch",
+        "no delete",
+        "no account action",
+        "no private network",
+        "no download",
+        "no export",
+        "no browser form",
+        "no provider model call",
+        "no shell execution",
+        "no plugin execution",
+        "no memory write",
+        "no context injection",
+        "no backend route",
+        "no control center control",
+        "no dependency",
+        "no production authority",
+        "evaluator boundaries revalidate",
+        "m96 remains future",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M95 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from tests.test_m95_network_tool_expansion_authless import _policy, _request
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.evaluators import m95_openapi_route_failures
+        from ultimate_ai_agent.core.network import (
+            AuthlessNetworkExpansionStatus,
+            build_authless_network_expansion_decision,
+            validate_authless_network_expansion_decision,
+        )
+    except Exception as exc:
+        print(f"FAIL: M95 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m95_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    decision = build_authless_network_expansion_decision(_request(), _policy())
+    if (
+        decision.status != AuthlessNetworkExpansionStatus.authless_read_only_allowed
+        or not decision.authless_read_only_allowed
+        or not decision.disabled_by_default
+        or not decision.exact_scope_bound
+        or not decision.exact_approval_bound
+        or not decision.allowlisted_domain_bound
+        or not decision.redirect_policy_bound
+        or not decision.bounded_output_bound
+        or not decision.redaction_bound
+        or not decision.audit_bound
+        or not decision.revocation_bound
+        or not decision.transport_injection_required
+        or decision.network_call_performed
+        or decision.unrestricted_network_allowed
+        or decision.authenticated_network_allowed
+        or decision.credential_headers_allowed
+        or decision.cookies_allowed
+        or decision.request_body_allowed
+        or decision.mutation_method_allowed
+        or decision.private_network_allowed
+        or decision.account_action_allowed
+        or decision.download_or_export_allowed
+        or decision.browser_form_allowed
+        or decision.provider_model_call_allowed
+        or decision.shell_execution_allowed
+        or decision.plugin_execution_allowed
+        or decision.memory_write_allowed
+        or decision.context_injection_allowed
+        or decision.backend_route_added
+        or decision.control_center_control_added
+        or decision.dependency_added
+        or decision.production_authority_granted
+        or not decision.receipt_plan.store_safe_refs_only
+        or not decision.receipt_plan.store_redacted_preview_only
+        or decision.receipt_plan.raw_response_stored
+        or decision.receipt_plan.raw_headers_stored
+        or decision.receipt_plan.credential_headers_stored
+        or decision.receipt_plan.cookies_stored
+        or decision.receipt_plan.query_string_stored
+        or decision.receipt_plan.side_effects_performed
+        or "M95_AUTHLESS_READ_ONLY_NETWORK_EXPANSION_ALLOWED" not in decision.reason_codes
+        or "M96_REMAINS_FUTURE" not in decision.reason_codes
+    ):
+        print("FAIL: M95 authless network decision is unsafe or over-authoritative")
+        sys.exit(1)
+
+    for update, reason in [
+        ({"network_call_performed": True}, "NETWORK_CALL_PERFORMED_DENIED_IN_DECISION"),
+        ({"authenticated_network_allowed": True}, "AUTHENTICATED_NETWORK_DENIED"),
+        ({"credential_headers_allowed": True}, "CREDENTIAL_HEADERS_DENIED"),
+        ({"request_body_allowed": True}, "REQUEST_BODY_DENIED"),
+        ({"mutation_method_allowed": True}, "MUTATION_METHOD_DENIED"),
+        ({"private_network_allowed": True}, "PRIVATE_NETWORK_DENIED"),
+        ({"backend_route_added": True}, "BACKEND_ROUTE_DENIED"),
+        ({"production_authority_granted": True}, "PRODUCTION_AUTHORITY_DENIED"),
+    ]:
+        try:
+            validate_authless_network_expansion_decision(decision.model_copy(update=update))
+            print(f"FAIL: M95 mutated authority flag was not denied: {update}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M95 mutated authority flag raised {exc!s}")
+                sys.exit(1)
+
+    allowed_scan_files = {
+        "scripts/verify_all.py",
+        "src/ultimate_ai_agent/api/openapi.py",
+        "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/network/__init__.py",
+        "src/ultimate_ai_agent/core/network/authless_expansion.py",
+    }
+    source_text = "\n".join(
+        path.read_text(encoding="utf-8")
+        for root in [ROOT / "src" / "ultimate_ai_agent", ROOT / "apps" / "control-center" / "src"]
+        if root.exists()
+        for path in root.rglob("*")
+        if path.is_file()
+        and path.suffix in {".py", ".ts", ".tsx", ".js", ".jsx"}
+        and path.relative_to(ROOT).as_posix() not in allowed_scan_files
+    )
+    for fragment in [
+        "unrestricted_network_allowed=True",
+        "authenticated_network_allowed=True",
+        "credential_headers_allowed=True",
+        "cookies_allowed=True",
+        "request_body_allowed=True",
+        "mutation_method_allowed=True",
+        "private_network_allowed=True",
+        "account_action_allowed=True",
+        "download_or_export_allowed=True",
+        "browser_form_allowed=True",
+        "provider_model_call_allowed=True",
+        "shell_execution_allowed=True",
+        "plugin_execution_allowed=True",
+        "memory_write_allowed=True",
+        "context_injection_allowed=True",
+        "backend_route_allowed=True",
+        "control_center_control_allowed=True",
+        "dependency_change_allowed=True",
+        "production_authority_allowed=True",
+        "network_call_performed=True",
+        "backend_route_added=True",
+        "control_center_control_added=True",
+        "dependency_added=True",
+        "production_authority_granted=True",
+        "network_post_enabled=True",
+        "network_mutation_enabled=True",
+        "credential_header_enabled=True",
+        "store_raw_response=True",
+        "store_raw_headers=True",
+        "store_credentials=True",
+        "store_cookies=True",
+        "store_raw_prompt=True",
+        "store_raw_provider_payload=True",
+        "store_secret=True",
+    ]:
+        if fragment in source_text:
+            print(f"FAIL: M95 forbidden source fragment present: {fragment}")
+            sys.exit(1)
+
+    for forbidden_route in [
+        "/network/get",
+        "/network/fetch",
+        "/network/request",
+        "/network/post",
+        "/network/put",
+        "/network/patch",
+        "/network/delete",
+        "/network/auth",
+        "/network/account",
+        "/network/download",
+        "/http/fetch",
+        "/http/request",
+        "/http/post",
+        "/tools/network/execute",
+        "/autonomy/network/execute",
+    ]:
+        if forbidden_route in source_text:
+            print(f"FAIL: M95 forbidden backend/frontend route fragment present: {forbidden_route}")
+            sys.exit(1)
+
+    print("OK: M95 authless network expansion is exact-scope, route-free, and no-authority")
 
 
 def verify_local_developer_launcher_safety():

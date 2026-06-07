@@ -800,6 +800,20 @@ REQUIRED_M94_LOW_RISK_BROWSER_CLICK_DOCS = [
     "docs/implementation/foundation_gate_implementation_plan_v0_98_0.md",
 ]
 
+REQUIRED_M95_AUTHLESS_NETWORK_EXPANSION_DOCS = [
+    "docs/network/AUTHLESS_NETWORK_TOOL_EXPANSION.md",
+    "docs/network/AUTHLESS_NETWORK_TOOL_EXPANSION_POLICY.md",
+    "docs/network/AUTHLESS_NETWORK_TOOL_EXPANSION_AUTHORITY_BOUNDARY.md",
+    "docs/network/AUTHLESS_NETWORK_TOOL_EXPANSION_RECEIPT_PLAN.md",
+    "docs/network/AUTHLESS_NETWORK_TOOL_EXPANSION_NON_GOALS.md",
+    "docs/network/M95_TO_M96_BOUNDARY.md",
+    "docs/roadmap/M61_M100_ROADMAP.md",
+    "docs/release_notes/v0_99_0.md",
+    "docs/archive/releases/v0_99_0/README_IMPORT.md",
+    "docs/archive/releases/v0_99_0/master_plan.md",
+    "docs/implementation/foundation_gate_implementation_plan_v0_99_0.md",
+]
+
 
 REQUIRED_ACTIVE_DOCS = [
     "docs/README.md",
@@ -1354,6 +1368,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_m92_low_risk_tool_autonomy_single_session_docs(root, version))
     failures.extend(_verify_m93_multi_tool_dry_run_promotion_docs(root, version))
     failures.extend(_verify_m94_low_risk_browser_click_docs(root, version))
+    failures.extend(_verify_m95_authless_network_expansion_docs(root, version))
     failures.extend(_verify_m19_roadmap_currentness(root, version))
     failures.extend(_verify_post_m18_roadmap_status_labels(root))
 
@@ -6321,6 +6336,96 @@ def _verify_m94_low_risk_browser_click_docs(
         "M94 docs must not claim plugin execution implementation": "plugin execution is implemented",
         "M94 docs must not claim recurring automation implementation": "recurring automation is implemented",
         "M94 docs must not claim production authority": "production authority is implemented",
+    }
+    for message, fragment in forbidden_fragments.items():
+        if fragment in text:
+            failures.append(f"{message}: {fragment}")
+    return failures
+
+
+def _verify_m95_authless_network_expansion_docs(
+    root: Path, version: str | None
+) -> list[str]:
+    failures: list[str] = []
+    if _version_tuple(version) < (0, 99, 0):
+        return failures
+
+    missing = [
+        rel_path
+        for rel_path in REQUIRED_M95_AUTHLESS_NETWORK_EXPANSION_DOCS
+        if not (root / rel_path).exists()
+    ]
+    failures.extend(
+        f"missing M95 authless network expansion doc: {rel_path}"
+        for rel_path in missing
+    )
+    text = "\n".join(
+        _read(root / rel_path).lower()
+        for rel_path in REQUIRED_M95_AUTHLESS_NETWORK_EXPANSION_DOCS
+        if (root / rel_path).exists()
+    )
+    required_fragments = {
+        "M95 docs must say network tool expansion, authless only": "network tool expansion, authless only",
+        "M95 docs must say authless": "authless",
+        "M95 docs must say read-only": "read-only",
+        "M95 docs must say allowlisted domain": "allowlisted domain",
+        "M95 docs must say HTTPS": "https",
+        "M95 docs must say GET only": "get only",
+        "M95 docs must say redirect controls": "redirect controls",
+        "M95 docs must say bounded output": "bounded output",
+        "M95 docs must say redaction": "redaction",
+        "M95 docs must say exact scope": "exact scope",
+        "M95 docs must say audit": "audit",
+        "M95 docs must say revocation": "revocation",
+        "M95 docs must say transport injection": "transport injection",
+        "M95 docs must say safe refs only": "safe refs only",
+        "M95 docs must say redacted preview only": "redacted preview only",
+        "M95 docs must deny credentials": "no credentials",
+        "M95 docs must deny cookies": "no cookies",
+        "M95 docs must deny credential headers": "no credential headers",
+        "M95 docs must deny request body": "no request body",
+        "M95 docs must deny POST": "no post",
+        "M95 docs must deny PUT": "no put",
+        "M95 docs must deny PATCH": "no patch",
+        "M95 docs must deny DELETE": "no delete",
+        "M95 docs must deny account action": "no account action",
+        "M95 docs must deny private network": "no private network",
+        "M95 docs must deny download": "no download",
+        "M95 docs must deny export": "no export",
+        "M95 docs must deny browser form": "no browser form",
+        "M95 docs must deny provider model call": "no provider model call",
+        "M95 docs must deny shell execution": "no shell execution",
+        "M95 docs must deny plugin execution": "no plugin execution",
+        "M95 docs must deny memory write": "no memory write",
+        "M95 docs must deny context injection": "no context injection",
+        "M95 docs must deny backend route": "no backend route",
+        "M95 docs must deny Control Center control": "no control center control",
+        "M95 docs must deny dependency": "no dependency",
+        "M95 docs must deny production authority": "no production authority",
+        "M95 docs must say evaluator boundaries revalidate": "evaluator boundaries revalidate",
+        "M95 docs must keep M96 future": "m96 remains future",
+    }
+    for message, fragment in required_fragments.items():
+        if fragment not in text:
+            failures.append(message)
+
+    for version_label, milestone, title in [
+        ("v0.99.0", "m95", "network tool expansion, authless only"),
+        ("v1.0.0", "m96", "plugin execution sandbox, no external plugins"),
+        ("v1.4.0", "m100", "mobile permission model v1"),
+    ]:
+        if version_label not in text or milestone not in text or title not in text:
+            failures.append(
+                f"M95-M100 roadmap missing label: {version_label} / {milestone.upper()} - {title}"
+            )
+
+    forbidden_fragments = {
+        "M95 docs must not claim authenticated network implementation": "authenticated network is implemented",
+        "M95 docs must not claim network mutation implementation": "network mutation is implemented",
+        "M95 docs must not claim external plugin execution implementation": "external plugin execution is implemented",
+        "M95 docs must not claim recurring automation implementation": "recurring automation is implemented",
+        "M95 docs must not claim mobile permission runtime implementation": "mobile permission runtime is implemented",
+        "M95 docs must not claim production authority": "production authority is implemented",
     }
     for message, fragment in forbidden_fragments.items():
         if fragment in text:

@@ -1,3 +1,15 @@
+from ultimate_ai_agent.core.network.authless_expansion import (
+    AUTHLESS_NETWORK_EXPANSION_DOCS,
+    AuthlessNetworkExpansionDecision,
+    AuthlessNetworkExpansionPolicy,
+    AuthlessNetworkExpansionReceiptPlan,
+    AuthlessNetworkExpansionRequest,
+    AuthlessNetworkExpansionStatus,
+    build_authless_network_expansion_decision,
+    validate_authless_network_expansion_decision,
+    validate_authless_network_expansion_policy,
+    validate_authless_network_expansion_request,
+)
 from ultimate_ai_agent.core.network.contract_review import (
     NETWORK_TOOL_CONTRACT_REVIEW_DOCS,
     NetworkToolCapabilityKind,
@@ -13,14 +25,24 @@ from ultimate_ai_agent.core.network.contract_review import (
 )
 
 __all__ = [
+    "AUTHLESS_NETWORK_EXPANSION_DOCS",
     "NETWORK_TOOL_CONTRACT_REVIEW_DOCS",
+    "AuthlessNetworkExpansionDecision",
+    "AuthlessNetworkExpansionPolicy",
+    "AuthlessNetworkExpansionReceiptPlan",
+    "AuthlessNetworkExpansionRequest",
+    "AuthlessNetworkExpansionStatus",
     "NetworkToolCapabilityKind",
     "NetworkToolContractReviewDecision",
     "NetworkToolContractReviewPolicy",
     "NetworkToolContractReviewReceiptPlan",
     "NetworkToolContractReviewRequest",
     "NetworkToolContractReviewStatus",
+    "build_authless_network_expansion_decision",
     "build_network_tool_contract_review_decision",
+    "validate_authless_network_expansion_decision",
+    "validate_authless_network_expansion_policy",
+    "validate_authless_network_expansion_request",
     "validate_network_tool_contract_review_decision",
     "validate_network_tool_contract_review_policy",
     "validate_network_tool_contract_review_request",

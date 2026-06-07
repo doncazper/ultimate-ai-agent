@@ -12,24 +12,25 @@ allowed to become operational authority.
 
 | Field | Current state |
 |---|---|
-| Current active baseline | **v0.98.0** |
-| Current milestone | **M94 - Autonomous Browser Clicks, Low-Risk Only** |
+| Current active baseline | **v0.99.0** |
+| Current milestone | **M95 - Network Tool Expansion, Authless Only** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **75** OpenAPI paths |
 | Production readiness | Not claimed |
 
-v0.98.0 implements M94 Autonomous Browser Clicks, Low-Risk Only. It adds
-scoped low-risk browser click contracts that require allowlisted page and
-action refs, exact M93 promotion binding, exact click approval, audit,
-revocation, injected transport, safe refs only decisions, safe summary only
-receipt plans, evaluator revalidation, documentation-integrity checks, static
-verification, tests, and Foundation Gate coverage. It adds no form submission,
-typing, purchase, download, upload, authentication, account change, destructive
-action, credential or cookie access, raw DOM, screenshot, broad navigation,
-unrestricted external network authority, shell execution, plugin execution,
-model call, memory write, context injection, backend routes, Control Center
-controls, dependency, M95 work, broad autonomy, or production authority.
+v0.99.0 implements M95 Network Tool Expansion, Authless Only. It adds
+exact-scope authless read-only network expansion contracts for allowlisted
+domain HTTPS GET only proposals with redirect controls, bounded output,
+redaction, audit, revocation, transport injection, safe refs only, redacted
+preview only receipt plans, evaluator revalidation, documentation-integrity
+checks, static verification, tests, and Foundation Gate coverage. It adds no
+unrestricted network access, authenticated network access, credentials,
+cookies, credential headers, request body, POST, PUT, PATCH, DELETE, account
+action, private network, download, export, browser form, provider model call,
+shell execution, plugin execution, memory write, context injection, backend
+routes, Control Center controls, dependency, M96 work, broad autonomy, or
+production authority.
 
 v0.29.5 is documentation policy polish. It remains the documentation
 organization cleanup baseline before the M26 and M27 implementation releases.
@@ -72,6 +73,9 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M93 Multi-Tool Dry-Run Promotion Authority Boundary](docs/autonomy/MULTI_TOOL_DRY_RUN_PROMOTION_AUTHORITY_BOUNDARY.md)
 - [M94 Low-Risk Browser Clicks](docs/browser/LOW_RISK_BROWSER_CLICKS.md)
 - [M94 Low-Risk Browser Click Authority Boundary](docs/browser/LOW_RISK_BROWSER_CLICK_AUTHORITY_BOUNDARY.md)
+- [M95 Authless Network Tool Expansion](docs/network/AUTHLESS_NETWORK_TOOL_EXPANSION.md)
+- [M95 Authless Network Tool Expansion Policy](docs/network/AUTHLESS_NETWORK_TOOL_EXPANSION_POLICY.md)
+- [M95 Authless Network Authority Boundary](docs/network/AUTHLESS_NETWORK_TOOL_EXPANSION_AUTHORITY_BOUNDARY.md)
 - [M73 Browser Automation Contract Review](docs/browser/BROWSER_AUTOMATION_CONTRACT_REVIEW.md)
 - [M73 Browser Automation Contract Review Policy](docs/browser/BROWSER_AUTOMATION_CONTRACT_REVIEW_POLICY.md)
 - [M73 Browser Automation Authority Boundary](docs/browser/BROWSER_AUTOMATION_AUTHORITY_BOUNDARY.md)
@@ -252,8 +256,8 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [v0.95.0 master plan](docs/archive/releases/v0_95_0/master_plan.md)
 - [v0.96.0 release packet](docs/archive/releases/v0_96_0/README_IMPORT.md)
 - [v0.96.0 master plan](docs/archive/releases/v0_96_0/master_plan.md)
-- [v0.98.0 release packet](docs/archive/releases/v0_98_0/README_IMPORT.md)
-- [v0.98.0 master plan](docs/archive/releases/v0_98_0/master_plan.md)
+- [v0.99.0 release packet](docs/archive/releases/v0_99_0/README_IMPORT.md)
+- [v0.99.0 master plan](docs/archive/releases/v0_99_0/master_plan.md)
 
 ## What This Project Is
 

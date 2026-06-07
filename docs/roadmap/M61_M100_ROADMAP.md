@@ -1,6 +1,6 @@
 # M61-M100 Roadmap
 
-Status: Active roadmap maintained through M94 / v0.98.0.
+Status: Active roadmap maintained through M95 / v0.99.0.
 
 M61 is implemented/released by v0.65.0 as Autonomy Mode Charter + Authority
 Levels. M62 is implemented/released by v0.66.0 as Scoped Autonomy Session
@@ -36,16 +36,19 @@ implemented/released by v0.94.0 as Shell/Subprocess Hardening Freeze. M91 is
 implemented/released by v0.95.0 as Autonomous Tool Execution Contract. M92 is
 implemented/released by v0.96.0 as Low-Risk Tool Autonomy, Single Session. M93 is
 implemented/released by v0.97.0 as Multi-Tool Dry-Run to Real Run Promotion. M94 is
-implemented/released by v0.98.0 as Autonomous Browser Clicks, Low-Risk Only. M95-M100 remain
-planned/provisional. This roadmap adds no
+implemented/released by v0.98.0 as Autonomous Browser Clicks, Low-Risk Only.
+M95 is implemented/released by v0.99.0 as Network Tool Expansion, Authless
+Only. M96-M100 remain planned/provisional. This roadmap adds no
 production authority, no global autonomy switch, no broad autonomy, no real tool
 execution, no shell execution, no browser automation beyond the M74 injected
 observation redacted preview boundary except the M94 exact-bound low-risk click
 contract, no browser form, no typing, no purchase, no download, no upload, no
 authentication, no account change, no screenshot, no raw DOM, no
 authenticated browser profile, no unrestricted network tools, no network tools
-outside the M72 allowlisted redacted fetch boundary, no authenticated network
-actions, no raw network responses, no background worker, no revocation action,
+outside the M72 allowlisted redacted fetch boundary and M95 exact-scope
+authless read-only network expansion contract, no authenticated network
+actions, no credentials, no cookies, no credential headers, no request body, no
+network mutation, no private network, no raw network responses, no background worker, no revocation action,
 no kill-switch activation, no session stop, no process kill, no policy
 activation, no autonomous session, no remote execution, no backend route, and
 no dependency.
@@ -86,7 +89,7 @@ no dependency.
 | v0.96.0 | M92 | Low-Risk Tool Autonomy, Single Session | Implemented/released |
 | v0.97.0 | M93 | Multi-Tool Dry-Run to Real Run Promotion | Implemented/released |
 | v0.98.0 | M94 | Autonomous Browser Clicks, Low-Risk Only | Implemented/released |
-| v0.99.0 | M95 | Network Tool Expansion, Authless Only | Planned/provisional |
+| v0.99.0 | M95 | Network Tool Expansion, Authless Only | Implemented/released |
 | v1.0.0 | M96 | Plugin Execution Sandbox, No External Plugins | Planned/provisional |
 | v1.1.0 | M97 | Recurring Automation Contracts | Planned/provisional |
 | v1.2.0 | M98 | Scoped Recurring Low-Risk Automation | Planned/provisional |
