@@ -895,6 +895,20 @@ REQUIRED_POST_M100_RECONCILIATION_DOCS = [
     "docs/implementation/foundation_gate_implementation_plan_v1_4_1.md",
 ]
 
+REQUIRED_M101_MOBILE_SENSOR_CONTRACT_REVIEW_DOCS = [
+    "docs/mobile/MOBILE_SENSOR_CONTRACT_REVIEW.md",
+    "docs/mobile/MOBILE_SENSOR_CONTRACT_REVIEW_POLICY.md",
+    "docs/mobile/MOBILE_SENSOR_CONTRACT_REVIEW_AUTHORITY_BOUNDARY.md",
+    "docs/mobile/MOBILE_SENSOR_CONTRACT_REVIEW_RECEIPT_PLAN.md",
+    "docs/mobile/MOBILE_SENSOR_CONTRACT_REVIEW_NON_GOALS.md",
+    "docs/mobile/M101_TO_M102_BOUNDARY.md",
+    "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+    "docs/release_notes/v1_5_0.md",
+    "docs/archive/releases/v1_5_0/README_IMPORT.md",
+    "docs/archive/releases/v1_5_0/master_plan.md",
+    "docs/implementation/foundation_gate_implementation_plan_v1_5_0.md",
+]
+
 EXPECTED_M101_M150_LABELS = [
     ("v1.5.0", "m101", "mobile sensor contract review"),
     ("v1.6.0", "m102", "location sensor, off by default"),
@@ -1509,6 +1523,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_m99_autonomy_v1_safety_freeze_docs(root, version))
     failures.extend(_verify_m100_mobile_permission_model_v1_docs(root, version))
     failures.extend(_verify_post_m100_roadmap_reconciliation_docs(root, version))
+    failures.extend(_verify_m101_mobile_sensor_contract_review_docs(root, version))
     failures.extend(_verify_m19_roadmap_currentness(root, version))
     failures.extend(_verify_post_m18_roadmap_status_labels(root))
 
@@ -6928,7 +6943,6 @@ def _verify_m100_mobile_permission_model_v1_docs(root: Path, version: str | None
     if "m100 is implemented/released" not in active_text and "v1.4.0 implements m100" not in active_text:
         failures.append("active docs do not mark M100 implemented/released")
     forbidden_fragments = {
-        "M100 docs must not claim M101 implementation": "m101 is implemented",
         "M100 docs must not claim mobile permission runtime": "mobile permission runtime is implemented",
         "M100 docs must not claim mobile sensors": "mobile sensors are implemented",
         "M100 docs must not claim runtime permission prompts": "runtime permission prompts are implemented",
@@ -6937,6 +6951,8 @@ def _verify_m100_mobile_permission_model_v1_docs(root: Path, version: str | None
         "M100 docs must not claim push execution": "push execution is implemented",
         "M100 docs must not claim production authority": "production authority is implemented",
     }
+    if _version_tuple(version) < (1, 5, 0):
+        forbidden_fragments["M100 docs must not claim M101 implementation"] = "m101 is implemented"
     combined_text = "\n".join([text, active_text])
     for message, fragment in forbidden_fragments.items():
         if fragment in combined_text:
@@ -6997,7 +7013,10 @@ def _verify_post_m100_roadmap_reconciliation_docs(root: Path, version: str | Non
 
     roadmap_path = root / "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md"
     roadmap_text = _read(roadmap_path).lower() if roadmap_path.exists() else ""
+    implemented_milestones = {"m101"} if _version_tuple(version) >= (1, 5, 0) else set()
     for version_label, milestone, title in EXPECTED_M101_M150_LABELS:
+        if milestone in implemented_milestones:
+            continue
         version_label = version_label.lower()
         row = f"| {version_label} | {milestone} | {title} | planned/provisional |"
         if row not in roadmap_text:
@@ -7006,7 +7025,6 @@ def _verify_post_m100_roadmap_reconciliation_docs(root: Path, version: str | Non
             )
 
     required_fragments = {
-        "post-M100 docs must say no M101 implementation": "no m101 implementation",
         "post-M100 docs must say M101-M150 planned/provisional": "m101-m150",
         "post-M100 docs must say production authority is absent": "no production authority",
         "post-M100 docs must say broad autonomy is absent": "no broad unsandboxed autonomy",
@@ -7016,6 +7034,8 @@ def _verify_post_m100_roadmap_reconciliation_docs(root: Path, version: str | Non
         "post-M100 docs must say no automatic context injection": "no automatic context injection",
         "post-M100 docs must say no unreviewed memory writes": "no unreviewed memory writes",
     }
+    if "m101" not in implemented_milestones:
+        required_fragments["post-M100 docs must say no M101 implementation"] = "no m101 implementation"
     docs_text = "\n".join(
         _read(root / rel_path).lower()
         for rel_path in REQUIRED_POST_M100_RECONCILIATION_DOCS
@@ -7046,9 +7066,6 @@ def _verify_post_m100_roadmap_reconciliation_docs(root: Path, version: str | Non
         failures.append("active docs missing M101-M150 roadmap link")
 
     forbidden_fragments = {
-        "post-M100 docs must not claim M101 implemented": "m101 is implemented",
-        "post-M100 docs must not claim v1.5.0 implements M101": "v1.5.0 implements m101",
-        "post-M100 docs must not claim M101 started": "m101 has started",
         "post-M100 docs must not claim production authority implementation": "production authority is implemented",
         "post-M100 docs must not claim broad autonomy implementation": "broad autonomy is implemented",
         "post-M100 docs must not claim mobile sensor runtime implementation": "mobile sensor runtime is implemented",
@@ -7057,11 +7074,21 @@ def _verify_post_m100_roadmap_reconciliation_docs(root: Path, version: str | Non
         ),
         "post-M100 docs must not claim backend routes for M101": "m101 backend route",
     }
+    if "m101" not in implemented_milestones:
+        forbidden_fragments.update(
+            {
+                "post-M100 docs must not claim M101 implemented": "m101 is implemented",
+                "post-M100 docs must not claim v1.5.0 implements M101": "v1.5.0 implements m101",
+                "post-M100 docs must not claim M101 started": "m101 has started",
+            }
+        )
     combined_text = "\n".join([roadmap_text, docs_text, active_text])
     for message, fragment in forbidden_fragments.items():
         if contains_affirmative_fragment(combined_text, fragment):
             failures.append(f"{message}: {fragment}")
     for version_label, milestone, _title in EXPECTED_M101_M150_LABELS:
+        if milestone in implemented_milestones:
+            continue
         for fragment in (
             f"{milestone} is implemented",
             f"{milestone} has started",
@@ -7069,6 +7096,89 @@ def _verify_post_m100_roadmap_reconciliation_docs(root: Path, version: str | Non
         ):
             if contains_affirmative_fragment(combined_text, fragment):
                 failures.append(f"post-M100 docs imply forbidden future milestone state: {fragment}")
+    return failures
+
+
+def _verify_m101_mobile_sensor_contract_review_docs(root: Path, version: str | None) -> list[str]:
+    failures: list[str] = []
+    if _version_tuple(version) < (1, 5, 0):
+        return failures
+
+    missing = [
+        rel_path
+        for rel_path in REQUIRED_M101_MOBILE_SENSOR_CONTRACT_REVIEW_DOCS
+        if not (root / rel_path).exists()
+    ]
+    failures.extend(f"missing M101 Mobile Sensor Contract Review doc: {rel_path}" for rel_path in missing)
+    text = "\n".join(
+        _read(root / rel_path).lower()
+        for rel_path in REQUIRED_M101_MOBILE_SENSOR_CONTRACT_REVIEW_DOCS
+        if (root / rel_path).exists()
+    )
+    required_fragments = {
+        "M101 docs must say Mobile Sensor Contract Review": "mobile sensor contract review",
+        "M101 docs must say contract-only": "contract-only",
+        "M101 docs must say sensor capability classes": "sensor capability classes",
+        "M101 docs must say permission-state contract": "permission-state contract",
+        "M101 docs must say sensor risk classification": "sensor risk classification",
+        "M101 docs must say consent": "consent",
+        "M101 docs must say revocation": "revocation",
+        "M101 docs must say audit": "audit",
+        "M101 docs must say sensors default off": "sensors default off",
+        "M101 docs must say unknown sensor denied": "unknown sensor denied",
+        "M101 docs must deny runtime sensor access": "no runtime sensor access",
+        "M101 docs must deny native permission prompts": "no native permission prompt",
+        "M101 docs must deny background collection": "no background collection",
+        "M101 docs must deny raw sensor payload": "no raw sensor payload",
+        "M101 docs must deny backend route": "no backend route",
+        "M101 docs must deny dependency": "no dependency",
+        "M101 docs must deny production authority": "no production authority",
+        "M101 docs must keep M102 future": "m102 remains future",
+    }
+    for message, fragment in required_fragments.items():
+        if fragment not in text:
+            failures.append(message)
+
+    active_paths = [
+        "README.md",
+        "VERSION.md",
+        "docs/canonical/09_roadmap.md",
+        "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+        "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+        "docs/roadmap/MILESTONE_CHARTERS.md",
+        "docs/DOCUMENTATION_INDEX.md",
+        "docs/canonical/CANONICAL_DOC_MAP.md",
+    ]
+    active_text = "\n".join(
+        _read(root / rel_path).lower()
+        for rel_path in active_paths
+        if (root / rel_path).exists()
+    )
+    if "v1.5.0" not in active_text or "m101" not in active_text or "mobile sensor contract review" not in active_text:
+        failures.append("active docs missing v1.5.0/M101 Mobile Sensor Contract Review")
+    if "m101 is implemented/released" not in active_text and "v1.5.0 implements m101" not in active_text:
+        failures.append("active docs do not mark M101 implemented/released")
+    for version_label, milestone, title in [
+        ("v1.6.0", "m102", "location sensor, off by default"),
+        ("v1.7.0", "m103", "camera/photos metadata-only contract"),
+        ("v1.54.0", "m150", "ultimate ai agent beta 1"),
+    ]:
+        row = f"| {version_label.lower()} | {milestone} | {title} | planned/provisional |"
+        if row not in active_text:
+            failures.append(
+                f"active docs missing planned M102-M150 row: {version_label} / {milestone.upper()} - {title}"
+            )
+    for fragment in {
+        "m102 is implemented",
+        "v1.6.0 implements m102",
+        "location sensor runtime is implemented",
+        "native permission prompts are implemented",
+        "background collection is implemented",
+        "production authority is implemented",
+        "broad autonomy is implemented",
+    }:
+        if fragment in active_text or fragment in text:
+            failures.append(f"M101 docs imply forbidden/future capability: {fragment}")
     return failures
 
 

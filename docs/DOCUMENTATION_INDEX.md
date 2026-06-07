@@ -1,6 +1,6 @@
 # Documentation Index
 
-Current active baseline: **v1.4.1**
+Current active baseline: **v1.5.0**
 
 This index is the active entrypoint for documentation navigation. Historical release documents remain in the repository for audit history, but active truth starts with the current baseline files listed here.
 
@@ -27,6 +27,12 @@ docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md
 docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md
 docs/roadmap/M61_M100_ROADMAP.md
 docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md
+docs/mobile/MOBILE_SENSOR_CONTRACT_REVIEW.md
+docs/mobile/MOBILE_SENSOR_CONTRACT_REVIEW_POLICY.md
+docs/mobile/MOBILE_SENSOR_CONTRACT_REVIEW_AUTHORITY_BOUNDARY.md
+docs/mobile/MOBILE_SENSOR_CONTRACT_REVIEW_RECEIPT_PLAN.md
+docs/mobile/MOBILE_SENSOR_CONTRACT_REVIEW_NON_GOALS.md
+docs/mobile/M101_TO_M102_BOUNDARY.md
 docs/files/BROADER_FILE_CAPABILITY_REVIEW.md
 docs/files/FILE_CAPABILITY_BOUNDARY_MATRIX.md
 docs/files/FILE_CAPABILITY_RISK_REGISTER.md
@@ -710,18 +716,19 @@ scripts/dev/README.md
 ```
 
 v0.37.4 supersedes the old active M35-M40 roadmap projection and defines the
-active M34-M60 sequence. v1.4.1 is the current active baseline after the
-post-M100 full-repository review, hardening, and roadmap reconciliation pass.
-M100 remains implemented/released as Mobile Permission Model v1. M101-M150 are
-planned/provisional only in `docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md`.
-Active roadmap sources consistently mark M34-M100 implemented/released and rely
-on documentation-integrity checks to guard against superseded-roadmap drift,
-stale current-baseline labels, route drift, authority-boundary drift, and
-M101-M150 future-status drift.
+active M34-M60 sequence. v1.5.0 is the current active baseline after the M101
+Mobile Sensor Contract Review release. M100 remains implemented/released as
+Mobile Permission Model v1. M101 is implemented/released as contract-only mobile
+sensor governance. M102-M150 are planned/provisional only in
+`docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md`. Active roadmap sources
+consistently mark M34-M101 implemented/released and rely on
+documentation-integrity checks to guard against superseded-roadmap drift, stale
+current-baseline labels, route drift, authority-boundary drift, and M102-M150
+future-status drift.
 
 ## Release Notes Index
 
-Current release notes: `docs/release_notes/v1_4_1.md`
+Current release notes: `docs/release_notes/v1_5_0.md`
 
 Historical release notes remain under `docs/release_notes/`. Historical docs may mention old active baselines in historical context; they are not the current source of truth.
 

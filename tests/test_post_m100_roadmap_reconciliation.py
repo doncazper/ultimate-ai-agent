@@ -11,29 +11,31 @@ from ultimate_ai_agent.core.gate.evaluators import FoundationGateEvaluator
 def test_post_m100_documentation_integrity_guard_accepts_current_repo() -> None:
     failures = docs_verifier._verify_post_m100_roadmap_reconciliation_docs(
         docs_verifier.ROOT,
-        "1.4.1",
+        "1.5.0",
     )
 
     assert failures == []
 
 
-def test_post_m100_documentation_integrity_guard_rejects_m101_implementation_claim(
+def test_post_m100_documentation_integrity_guard_rejects_sensor_runtime_claim(
     tmp_path: Path,
 ) -> None:
     _copy_minimal_post_m100_docs(tmp_path)
     roadmap = tmp_path / "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md"
     roadmap.write_text(
         roadmap.read_text(encoding="utf-8")
-        + "\nM101 is implemented. Mobile sensor runtime is implemented.\n",
+        + (
+            "\nThis sentence intentionally claims unsafe runtime. "
+            "Mobile sensor runtime is implemented.\n"
+        ),
         encoding="utf-8",
     )
 
     failures = docs_verifier._verify_post_m100_roadmap_reconciliation_docs(
         tmp_path,
-        "1.4.1",
+        "1.5.0",
     )
 
-    assert any("m101 is implemented" in failure.lower() for failure in failures)
     assert any("mobile sensor runtime is implemented" in failure.lower() for failure in failures)
 
 
@@ -52,7 +54,7 @@ def test_post_m100_documentation_integrity_guard_rejects_missing_row_status(
 
     failures = docs_verifier._verify_post_m100_roadmap_reconciliation_docs(
         tmp_path,
-        "1.4.1",
+        "1.5.0",
     )
 
     assert any("m116" in failure.lower() for failure in failures)
@@ -67,16 +69,16 @@ def test_post_m100_documentation_integrity_guard_allows_negated_future_claim(
     roadmap.write_text(
         roadmap.read_text(encoding="utf-8")
         + (
-            "\nNo M101 is implemented. Without any evidence, M101 backend route "
+            "\nNo M102 is implemented. Without any evidence, M102 backend route "
             "appears only as a negated safety example. The docs do not say "
-            "M102 has started.\n"
+            "M103 has started.\n"
         ),
         encoding="utf-8",
     )
 
     failures = docs_verifier._verify_post_m100_roadmap_reconciliation_docs(
         tmp_path,
-        "1.4.1",
+        "1.5.0",
     )
 
     assert failures == []

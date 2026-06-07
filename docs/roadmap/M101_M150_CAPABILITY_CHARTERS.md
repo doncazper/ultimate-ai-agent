@@ -1,10 +1,10 @@
 # M101-M150 Capability Charters
 
-Status: Planned/provisional roadmap promoted by v1.4.1 after the accepted
-M100 / v1.4.0 baseline.
+Status: Active roadmap maintained through v1.5.0 after the accepted M101
+baseline.
 
-This roadmap is planning only. It does not implement M101 or any later
-milestone. Future work must continue the authority-tier model:
+M101 is implemented/released as Mobile Sensor Contract Review. M102-M150 remain
+planned/provisional. Future work must continue the authority-tier model:
 
 Capability exists -> disabled by default -> dry-run first -> limited allowlist
 -> explicit approval -> scoped autonomy window -> audit/replay -> revocation ->
@@ -17,7 +17,7 @@ accepted Green.
 
 | Version | Milestone | Title | Status |
 | --- | --- | --- | --- |
-| v1.5.0 | M101 | Mobile Sensor Contract Review | Planned/provisional |
+| v1.5.0 | M101 | Mobile Sensor Contract Review | Implemented/released |
 | v1.6.0 | M102 | Location Sensor, Off by Default | Planned/provisional |
 | v1.7.0 | M103 | Camera/Photos Metadata-Only Contract | Planned/provisional |
 | v1.8.0 | M104 | Notification Planning, No Push Execution | Planned/provisional |
@@ -91,6 +91,6 @@ autonomy only after prior scoped, auditable safety foundations. M141-M150 stage
 multi-user, beta, marketplace, billing, public docs, security review, and beta
 freeze readiness.
 
-No M151+ extension is required by the v1.4.1 post-M100 review. If future
+No M151+ extension is required by the v1.5.0 M101 release. If future
 review finds missed M1-M100 work that should not displace M101-M150, add a
 separate planned/provisional M151+ extension roadmap through a reviewed patch.

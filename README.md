@@ -12,21 +12,21 @@ allowed to become operational authority.
 
 | Field | Current state |
 |---|---|
-| Current active baseline | **v1.4.1** |
-| Current milestone | **Post-M100 review + roadmap reconciliation** |
+| Current active baseline | **v1.5.0** |
+| Current milestone | **M101 - Mobile Sensor Contract Review** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **75** OpenAPI paths |
 | Production readiness | Not claimed |
 
-v1.4.1 completes the post-M100 full-repository review, hardening, and roadmap
-reconciliation pass. It preserves M100 as implemented/released, reconciles
-completed milestones through M100, promotes M101-M150 as planned/provisional
-roadmap work, and strengthens documentation-integrity, static verifier, test,
-and Foundation Gate currentness coverage. It adds no M101 implementation, no
-mobile sensor runtime, no runtime permission prompts, no native permission
-requests, no background collection, no backend routes, no dependencies, no broad
-autonomy, and no production authority.
+v1.5.0 implements M101 Mobile Sensor Contract Review as contract-only mobile
+sensor governance. It defines sensor capability classes, permission-state
+contracts, sensor risk classification, consent, revocation, and audit
+requirements. Sensors default off and unknown sensor classes are denied. It adds
+no mobile sensor runtime, no runtime sensor access, no native permission prompt,
+no background collection, no raw sensor payload, no backend routes, no
+dependencies, no broad autonomy, no broad unsandboxed autonomy, and no
+production authority. M102-M150 remain planned/provisional.
 
 v0.29.5 is documentation policy polish. It remains the documentation
 organization cleanup baseline before the M26 and M27 implementation releases.
@@ -55,6 +55,7 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M98 Scoped Recurring Low-Risk Automation](docs/automation/SCOPED_RECURRING_LOW_RISK_AUTOMATION.md)
 - [M99 Autonomy v1 Safety Freeze](docs/autonomy/AUTONOMY_V1_SAFETY_FREEZE.md)
 - [M100 Mobile Permission Model v1](docs/mobile/MOBILE_PERMISSION_MODEL_V1.md)
+- [M101 Mobile Sensor Contract Review](docs/mobile/MOBILE_SENSOR_CONTRACT_REVIEW.md)
 - [M68 Autonomy Risk Classifier Contracts](docs/autonomy/AUTONOMY_RISK_CLASSIFIER_CONTRACTS.md)
 - [M69 Low-Risk Autonomous Dry Run](docs/autonomy/LOW_RISK_AUTONOMOUS_DRY_RUN.md)
 - [M69 Low-Risk Autonomous Dry Run Contracts](docs/autonomy/LOW_RISK_AUTONOMOUS_DRY_RUN_CONTRACTS.md)
@@ -270,8 +271,8 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [v1.3.0 master plan](docs/archive/releases/v1_3_0/master_plan.md)
 - [v1.4.0 release packet](docs/archive/releases/v1_4_0/README_IMPORT.md)
 - [v1.4.0 master plan](docs/archive/releases/v1_4_0/master_plan.md)
-- [v1.4.1 release packet](docs/archive/releases/v1_4_1/README_IMPORT.md)
-- [v1.4.1 master plan](docs/archive/releases/v1_4_1/master_plan.md)
+- [v1.5.0 release packet](docs/archive/releases/v1_5_0/README_IMPORT.md)
+- [v1.5.0 master plan](docs/archive/releases/v1_5_0/master_plan.md)
 
 ## What This Project Is
 

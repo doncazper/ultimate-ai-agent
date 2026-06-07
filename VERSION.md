@@ -1,18 +1,18 @@
 # Ultimate AI Agent Version
 
-Current active baseline: **v1.4.1**
+Current active baseline: **v1.5.0**
 
-v1.4.1 is the post-M100 full-repository review, hardening, and roadmap
-reconciliation release. It incorporates a deep local review and read-only
-CodeRabbit advisory status, fixes all valid P0/P1/P2 issues found during the
-review, strengthens tests, documentation, static verifiers, and Foundation Gate
-coverage, reconciles completed milestones through M100 against the intended
-roadmap, and updates the planned M101-M150 roadmap.
+v1.5.0 implements M101 Mobile Sensor Contract Review. It adds contract-only
+mobile sensor capability classes, permission-state contracts, sensor risk
+classification, consent, revocation, audit requirements, static verification,
+documentation-integrity checks, tests, and Foundation Gate coverage.
 
-It adds no M101 implementation, no mobile sensor runtime, no production
-authority, no broad unsandboxed autonomy, no automatic context injection, no raw
-file export, no unreviewed memory writes, no backend route, no Control Center
-control, no dependency, or production authority.
+Sensors default off and unknown sensor classes are denied.
 
-M100 remains implemented/released as Mobile Permission Model v1. M101-M150 are
-planned/provisional only; do not start M101 from this patch.
+It adds no mobile sensor runtime, no runtime sensor access, no native
+permission prompt, no background collection, no raw sensor payload, no backend
+route, no Control Center control, no dependency, no memory write, no context
+injection, no execution, no M102 implementation, no broad autonomy, no broad
+unsandboxed autonomy, and no production authority.
+
+M101 is implemented/released. M102-M150 are planned/provisional only.

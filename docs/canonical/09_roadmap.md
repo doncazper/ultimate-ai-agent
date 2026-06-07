@@ -25,7 +25,7 @@ The original foundation sequence established runtime hygiene, local runtime/cont
 
 ## Current accepted baseline
 
-The active accepted baseline is v1.4.1. v1.4.1 is the post-M100 full-repository review, hardening, and roadmap reconciliation release. It preserves v1.4.0 / M100 Mobile Permission Model v1 as implemented/released, reconciles completed milestones through M100, promotes M101-M150 as planned/provisional in `docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md`, and strengthens documentation-integrity, static verifier, test, and Foundation Gate currentness coverage. It adds no M101 implementation, mobile sensors, location/camera/photos/microphone access, runtime permission prompts, native permission requests, background collection, push execution, backend route, dependency, broad autonomy, or production authority. v1.3.0 implements M99 Autonomy v1 Safety Freeze. M100 is implemented/released, and M101 remains planned/provisional.
+The active accepted baseline is v1.5.0. v1.5.0 implements M101 Mobile Sensor Contract Review as contract-only mobile sensor governance. It defines sensor capability classes, permission-state contracts, sensor risk classification, consent, revocation, and audit requirements. Sensors default off and unknown sensor classes are denied. It adds no mobile sensor runtime, no runtime sensor access, location/camera/photos/microphone runtime, native permission prompt, background collection, raw sensor payload, backend route, dependency, broad autonomy, or production authority. M100 remains implemented/released as Mobile Permission Model v1. M101 is implemented/released, and M102-M150 remain planned/provisional in `docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md`.
 
 v0.25.0 adds:
 

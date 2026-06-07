@@ -135,6 +135,7 @@ SCAN_SEQUENCE = [
     ("M99 autonomy v1 safety freeze scan", "verify_m99_autonomy_v1_safety_freeze"),
     ("M100 mobile permission model v1 scan", "verify_m100_mobile_permission_model_v1"),
     ("post-M100 roadmap reconciliation scan", "verify_post_m100_roadmap_reconciliation"),
+    ("M101 mobile sensor contract review scan", "verify_m101_mobile_sensor_contract_review"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -17477,7 +17478,11 @@ def verify_post_m100_roadmap_reconciliation():
         ("v1.53.0", "m149", "release candidate freeze"),
         ("v1.54.0", "m150", "ultimate ai agent beta 1"),
     ]
+    active_version_text = (ROOT / "VERSION.md").read_text(encoding="utf-8").lower()
+    implemented_milestones = {"m101"} if "v1.5.0" in active_version_text else set()
     for version_label, milestone, title in expected_labels:
+        if milestone in implemented_milestones:
+            continue
         row = f"| {version_label} | {milestone} | {title} | planned/provisional |"
         if row not in roadmap_text:
             print(
@@ -17504,6 +17509,8 @@ def verify_post_m100_roadmap_reconciliation():
         "broad autonomy is implemented",
     ]
     for version_label, milestone, _title in expected_labels:
+        if milestone in implemented_milestones:
+            continue
         forbidden_fragments.extend(
             [
                 f"{milestone} is implemented",
@@ -17518,17 +17525,166 @@ def verify_post_m100_roadmap_reconciliation():
         ):
             print(f"FAIL: Post-M100 docs imply forbidden future implementation: {fragment}")
             sys.exit(1)
-    for fragment in [
+    required_future_fragments = [
         "no m101 implementation",
         "no mobile sensor runtime",
         "no production authority",
         "no broad unsandboxed autonomy",
-    ]:
+    ]
+    if "m101" in implemented_milestones:
+        required_future_fragments.remove("no m101 implementation")
+    for fragment in required_future_fragments:
         if fragment not in active_text and fragment not in roadmap_text:
             print(f"FAIL: Post-M100 docs missing future-only safety fragment: {fragment}")
             sys.exit(1)
 
-    print("OK: Post-M100 roadmap reconciliation keeps M101-M150 planned/provisional only")
+    print("OK: Post-M100 roadmap reconciliation keeps future M101-M150 labels guarded")
+
+
+def verify_m101_mobile_sensor_contract_review():
+    print("\n[Verifier] Running M101 mobile sensor contract review guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/mobile_companion/sensor_contract_review.py",
+        "docs/mobile/MOBILE_SENSOR_CONTRACT_REVIEW.md",
+        "docs/mobile/MOBILE_SENSOR_CONTRACT_REVIEW_POLICY.md",
+        "docs/mobile/MOBILE_SENSOR_CONTRACT_REVIEW_AUTHORITY_BOUNDARY.md",
+        "docs/mobile/MOBILE_SENSOR_CONTRACT_REVIEW_RECEIPT_PLAN.md",
+        "docs/mobile/MOBILE_SENSOR_CONTRACT_REVIEW_NON_GOALS.md",
+        "docs/mobile/M101_TO_M102_BOUNDARY.md",
+        "docs/release_notes/v1_5_0.md",
+        "docs/archive/releases/v1_5_0/README_IMPORT.md",
+        "docs/archive/releases/v1_5_0/master_plan.md",
+        "docs/implementation/foundation_gate_implementation_plan_v1_5_0.md",
+        "tests/test_m101_mobile_sensor_contract_review.py",
+        "tests/test_m101_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M101 mobile sensor contract review file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = "\n".join(
+        (ROOT / rel_path).read_text(encoding="utf-8").lower()
+        for rel_path in required_files
+        if rel_path.startswith("docs/")
+    )
+    for fragment in [
+        "mobile sensor contract review",
+        "contract-only",
+        "sensor capability classes",
+        "permission-state contract",
+        "sensor risk classification",
+        "consent",
+        "revocation",
+        "audit",
+        "sensors default off",
+        "unknown sensor denied",
+        "no runtime sensor access",
+        "no native permission prompt",
+        "no background collection",
+        "no backend route",
+        "no dependency",
+        "no production authority",
+        "m102 remains future",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M101 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.evaluators import m101_openapi_route_failures
+        from ultimate_ai_agent.core.mobile_companion import (
+            MobileSensorContractReviewStatus,
+            build_mobile_sensor_contract_review_report,
+            validate_mobile_sensor_contract_review_report,
+        )
+    except Exception as exc:
+        print(f"FAIL: M101 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m101_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    report = build_mobile_sensor_contract_review_report()
+    if (
+        report.status != MobileSensorContractReviewStatus.contract_only
+        or not report.contract_only
+        or not report.sensor_taxonomy_defined
+        or not report.permission_state_contract_defined
+        or not report.sensor_risk_classification_defined
+        or not report.sensors_default_off
+        or not report.unknown_sensor_denied
+        or report.runtime_sensor_access_enabled
+        or report.native_permission_prompt_enabled
+        or report.background_collection_enabled
+        or report.raw_sensor_payload_enabled
+        or report.backend_route_added
+        or report.dependency_added
+        or report.production_authority_enabled
+        or report.side_effects_performed
+        or "M101_MOBILE_SENSOR_CONTRACT_REVIEW_ONLY" not in report.reason_codes
+        or "M102_REMAINS_FUTURE" not in report.reason_codes
+    ):
+        print("FAIL: M101 mobile sensor contract review report is unsafe or over-authoritative")
+        sys.exit(1)
+
+    for update, reason in [
+        ({"runtime_sensor_access_enabled": True}, "RUNTIME_SENSOR_ACCESS_DENIED"),
+        ({"native_permission_prompt_enabled": True}, "NATIVE_PERMISSION_PROMPT_DENIED"),
+        ({"background_collection_enabled": True}, "BACKGROUND_COLLECTION_DENIED"),
+        ({"production_authority_enabled": True}, "PRODUCTION_AUTHORITY_DENIED"),
+    ]:
+        try:
+            validate_mobile_sensor_contract_review_report(report.model_copy(update=update))
+            print(f"FAIL: M101 mutated authority flag was not denied: {update}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M101 mutated authority flag raised {exc!s}")
+                sys.exit(1)
+
+    allowed_scan_files = {
+        "scripts/verify_all.py",
+        "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/mobile_companion/__init__.py",
+        "src/ultimate_ai_agent/core/mobile_companion/permission_model_v1.py",
+        "src/ultimate_ai_agent/core/mobile_companion/sensor_contract_review.py",
+    }
+    source_text = "\n".join(
+        path.read_text(encoding="utf-8")
+        for root in [
+            ROOT / "src" / "ultimate_ai_agent",
+            ROOT / "apps" / "control-center" / "src",
+            ROOT / "apps" / "ccc-ios",
+        ]
+        if root.exists()
+        for path in root.rglob("*")
+        if path.is_file()
+        and path.suffix in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}
+        and path.relative_to(ROOT).as_posix() not in allowed_scan_files
+    )
+    for fragment in [
+        "runtime_sensor_access_enabled=True",
+        "native_permission_prompt_enabled=True",
+        "background_collection_enabled=True",
+        "location_sensor_enabled=True",
+        "camera_sensor_enabled=True",
+        "photos_sensor_enabled=True",
+        "microphone_sensor_enabled=True",
+        "raw_sensor_payload_enabled=True",
+        "backend_route_enabled=True",
+        "backend_route_added=True",
+        "production_authority_enabled=True",
+    ]:
+        if fragment in source_text:
+            print(f"FAIL: M101 forbidden source fragment present: {fragment}")
+            sys.exit(1)
+
+    print("OK: M101 mobile sensor contract review is contract-only, sensor-off, and route-free")
 
 
 def verify_local_developer_launcher_safety():
