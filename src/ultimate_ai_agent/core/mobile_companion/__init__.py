@@ -56,6 +56,20 @@ from ultimate_ai_agent.core.mobile_companion.enums import (
 from ultimate_ai_agent.core.mobile_companion.permissions import (
     build_default_mobile_permission_manifest,
 )
+from ultimate_ai_agent.core.mobile_companion.permission_model_v1 import (
+    MobilePermissionAuditPlan,
+    MobilePermissionCategory,
+    MobilePermissionConsentContract,
+    MobilePermissionModelV1Policy,
+    MobilePermissionModelV1Report,
+    MobilePermissionModelV1Status,
+    MobilePermissionRevocationContract,
+    MobilePermissionTaxonomyEntry,
+    build_mobile_permission_model_v1_report,
+    validate_mobile_permission_model_v1_policy,
+    validate_mobile_permission_model_v1_report,
+    validate_mobile_permission_taxonomy_entry,
+)
 from ultimate_ai_agent.core.mobile_companion.planning import (
     assert_ccc_ios_local_read_only_connection_safe,
     assert_ccc_ios_review_receipt_read_only_surfaces_safe,
@@ -119,6 +133,14 @@ __all__ = [
     "MobileDataClassification",
     "MobilePermissionDecision",
     "MobilePermissionManifest",
+    "MobilePermissionAuditPlan",
+    "MobilePermissionCategory",
+    "MobilePermissionConsentContract",
+    "MobilePermissionModelV1Policy",
+    "MobilePermissionModelV1Report",
+    "MobilePermissionModelV1Status",
+    "MobilePermissionRevocationContract",
+    "MobilePermissionTaxonomyEntry",
     "MobileProductContractRefresh",
     "MobileProductRole",
     "MobileProductSurfaceContract",
@@ -152,6 +174,7 @@ __all__ = [
     "build_default_mobile_read_only_api_boundary",
     "build_default_mobile_product_contract_refresh",
     "build_default_mobile_permission_manifest",
+    "build_mobile_permission_model_v1_report",
     "audit_mobile_review_approval_records",
     "audit_mobile_review_approval_store",
     "capture_mobile_review_approval",
@@ -164,4 +187,7 @@ __all__ = [
     "validate_mobile_capability_plan",
     "validate_mobile_capture_intent_plan",
     "validate_mobile_product_surface_contract",
+    "validate_mobile_permission_model_v1_policy",
+    "validate_mobile_permission_model_v1_report",
+    "validate_mobile_permission_taxonomy_entry",
 ]

@@ -133,6 +133,7 @@ SCAN_SEQUENCE = [
     ("M97 recurring automation contracts scan", "verify_m97_recurring_automation_contracts"),
     ("M98 scoped recurring low-risk automation scan", "verify_m98_scoped_recurring_low_risk_automation"),
     ("M99 autonomy v1 safety freeze scan", "verify_m99_autonomy_v1_safety_freeze"),
+    ("M100 mobile permission model v1 scan", "verify_m100_mobile_permission_model_v1"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -17212,6 +17213,156 @@ def verify_m99_autonomy_v1_safety_freeze():
             sys.exit(1)
 
     print("OK: M99 autonomy v1 safety freeze is freeze-only and route-free")
+
+
+def verify_m100_mobile_permission_model_v1():
+    print("\n[Verifier] Running M100 mobile permission model v1 guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/mobile_companion/permission_model_v1.py",
+        "docs/mobile/MOBILE_PERMISSION_MODEL_V1.md",
+        "docs/mobile/MOBILE_PERMISSION_MODEL_V1_POLICY.md",
+        "docs/mobile/MOBILE_PERMISSION_MODEL_V1_CONSENT_REVOCATION.md",
+        "docs/mobile/MOBILE_PERMISSION_MODEL_V1_PRIVACY_COPY.md",
+        "docs/mobile/MOBILE_PERMISSION_MODEL_V1_AUDIT.md",
+        "docs/mobile/MOBILE_PERMISSION_MODEL_V1_NON_GOALS.md",
+        "docs/mobile/M100_FINAL_BOUNDARY.md",
+        "docs/release_notes/v1_4_0.md",
+        "docs/archive/releases/v1_4_0/README_IMPORT.md",
+        "docs/archive/releases/v1_4_0/master_plan.md",
+        "docs/implementation/foundation_gate_implementation_plan_v1_4_0.md",
+        "tests/test_m100_mobile_permission_model_v1.py",
+        "tests/test_m100_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M100 mobile permission model v1 file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = "\n".join(
+        (ROOT / rel_path).read_text(encoding="utf-8").lower()
+        for rel_path in required_files
+        if rel_path.startswith("docs/")
+    )
+    for fragment in [
+        "mobile permission model v1",
+        "permission taxonomy",
+        "consent",
+        "revocation",
+        "privacy copy",
+        "permission audit",
+        "contract-only",
+        "sensors remain off",
+        "no background collection",
+        "no runtime permission prompts",
+        "no native permission request",
+        "no backend route",
+        "no dependency",
+        "no production authority",
+        "do not start m101",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M100 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.evaluators import m100_openapi_route_failures
+        from ultimate_ai_agent.core.mobile_companion import (
+            MobilePermissionModelV1Status,
+            build_mobile_permission_model_v1_report,
+            validate_mobile_permission_model_v1_report,
+        )
+    except Exception as exc:
+        print(f"FAIL: M100 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m100_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    report = build_mobile_permission_model_v1_report()
+    if (
+        report.status != MobilePermissionModelV1Status.contract_only
+        or not report.contract_only
+        or not report.permission_taxonomy_defined
+        or not report.consent_model_defined
+        or not report.revocation_model_defined
+        or not report.privacy_copy_defined
+        or not report.permission_audit_defined
+        or not report.sensors_remain_off
+        or not report.no_background_collection
+        or report.runtime_permission_prompts_enabled
+        or report.native_permission_requests_enabled
+        or report.mobile_sensor_enabled
+        or report.location_access_enabled
+        or report.camera_access_enabled
+        or report.photos_access_enabled
+        or report.microphone_access_enabled
+        or report.background_collection_enabled
+        or report.push_execution_enabled
+        or report.backend_route_added
+        or report.dependency_added
+        or report.production_authority_enabled
+        or report.side_effects_performed
+        or "M100_MOBILE_PERMISSION_MODEL_V1_CONTRACT_ONLY" not in report.reason_codes
+        or "POST_M100_REMAINS_FUTURE" not in report.reason_codes
+    ):
+        print("FAIL: M100 mobile permission model report is unsafe or over-authoritative")
+        sys.exit(1)
+
+    for update, reason in [
+        ({"mobile_sensor_enabled": True}, "MOBILE_SENSOR_DENIED"),
+        ({"background_collection_enabled": True}, "BACKGROUND_COLLECTION_DENIED"),
+        ({"production_authority_enabled": True}, "PRODUCTION_AUTHORITY_DENIED"),
+    ]:
+        try:
+            validate_mobile_permission_model_v1_report(report.model_copy(update=update))
+            print(f"FAIL: M100 mutated authority flag was not denied: {update}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M100 mutated authority flag raised {exc!s}")
+                sys.exit(1)
+
+    allowed_scan_files = {
+        "scripts/verify_all.py",
+        "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/mobile_companion/__init__.py",
+        "src/ultimate_ai_agent/core/mobile_companion/permission_model_v1.py",
+    }
+    source_text = "\n".join(
+        path.read_text(encoding="utf-8")
+        for root in [
+            ROOT / "src" / "ultimate_ai_agent",
+            ROOT / "apps" / "control-center" / "src",
+            ROOT / "apps" / "ccc-ios",
+        ]
+        if root.exists()
+        for path in root.rglob("*")
+        if path.is_file()
+        and path.suffix in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}
+        and path.relative_to(ROOT).as_posix() not in allowed_scan_files
+    )
+    for fragment in [
+        "runtime_permission_prompts_enabled=True",
+        "native_permission_requests_enabled=True",
+        "mobile_sensor_enabled=True",
+        "sensor_access_enabled=True",
+        "location_access_enabled=True",
+        "camera_access_enabled=True",
+        "photos_access_enabled=True",
+        "microphone_access_enabled=True",
+        "background_collection_enabled=True",
+        "push_execution_enabled=True",
+        "production_authority_enabled=True",
+    ]:
+        if fragment in source_text:
+            print(f"FAIL: M100 forbidden source fragment present: {fragment}")
+            sys.exit(1)
+
+    print("OK: M100 mobile permission model v1 is contract-only, sensor-free, and route-free")
 
 
 def verify_local_developer_launcher_safety():

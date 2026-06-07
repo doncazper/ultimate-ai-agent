@@ -25,7 +25,7 @@ The original foundation sequence established runtime hygiene, local runtime/cont
 
 ## Current accepted baseline
 
-The active accepted baseline is v1.3.0. v1.3.0 implements M99 Autonomy v1 Safety Freeze as a freeze-only, review-only M61-M98 autonomy v1 safety report with deep coverage, no broad unsandboxed autonomy, no global autonomy switch, no production authority, evaluator revalidation, stable reason codes, documentation-integrity checks, static verification, tests, and Foundation Gate coverage. It adds no new capability, execution, shell execution, browser action, network mutation, plugin execution, scheduler, background worker, mobile sensor, memory write, context injection, raw prompt/provider payload exposure, raw file export, full-file read, backend route, Control Center control, dependency, M100 work, broad autonomy, or production authority. v1.2.0 implements M98 Scoped Recurring Low-Risk Automation. M100 remains planned/provisional.
+The active accepted baseline is v1.4.0. v1.4.0 implements M100 Mobile Permission Model v1 as contract-only mobile permission taxonomy, consent, revocation, privacy copy, and permission audit contracts with documentation-integrity checks, static verification, tests, and Foundation Gate coverage. It adds no mobile sensors, location/camera/photos/microphone access, runtime permission prompts, native permission requests, background collection, push execution, backend route, dependency, M101 work, broad autonomy, or production authority. v1.3.0 implements M99 Autonomy v1 Safety Freeze. M100 is implemented/released, and post-M100 roadmap promotion requires a separate reviewed prompt.
 
 v0.25.0 adds:
 

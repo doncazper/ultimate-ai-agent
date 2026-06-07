@@ -1,6 +1,6 @@
 # Ultimate AI Agent Workspace Standards
 
-Active baseline: v1.3.0.
+Active baseline: v1.4.0.
 
 - v0.58.0 M54 Safe Media Metadata Inspector is metadata-only and contract-only. It may validate declared safe media refs and safe metadata refs, but it must not export or store raw media, perform full-file reads, mutate files, overwrite originals, run OCIO transforms, perform AI gamut expansion, call models or providers, inject context, write memory, add backend routes, add Control Center controls, add dependencies, add production authority, or implement M55.
 - v0.59.0 M55 Redacted Observability Export is redacted-only and contract-only. It may build safe local observability export bundles from safe refs and summaries, but it must not add external SaaS or analytics SDKs, network delivery, raw prompt export, raw provider payload export, raw private content export, secret export, forensic trace export, model/provider calls, memory writes, context injection, backend routes, Control Center controls, dependencies, production authority, or implement M56.
@@ -51,6 +51,7 @@ This repository is the Ultimate AI Agent foundation workspace. Treat it as a con
 - Do not add runtime model calls.
 - Do not add web fetching.
 - Do not add provider SDK calls, browser automation, production persistence, scanner runtimes, or runtime agent config loading.
+- v1.4.0 M100 Mobile Permission Model v1 is contract-only. It defines mobile permission taxonomy, consent, revocation, privacy copy, and permission audit contracts only. Do not use M100 to add mobile sensors, location/camera/photos/microphone access, runtime permission prompts, native permission requests, background collection, push execution, backend routes, dependencies, M101 work, or production authority.
 - M8 model runtime endpoints are simulated/dry-run only. Do not add live runtime URLs, tokenizers, billing APIs, network calls, or provider SDK calls.
 - M8.5 approval endpoints are local/dev validation-only. Do not treat arbitrary approval strings as authority, and do not add production auth, OAuth, persistence, or external actions.
 - M9 local loopback runtime support is dev-only, loopback-only, approval-gated, and must default to validation or simulated fallback. Caller policy cannot disable the loopback-only guard or use allowed host lists to authorize remote hosts; hostile policy inputs should fail validation before adapter execution. Tests and Foundation Gate must use fake transport and must not make real network/model calls.

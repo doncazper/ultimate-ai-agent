@@ -1,6 +1,6 @@
 # M61-M100 Roadmap
 
-Status: Active roadmap maintained through M99 / v1.3.0.
+Status: Active roadmap maintained through M100 / v1.4.0.
 
 M61 is implemented/released by v0.65.0 as Autonomy Mode Charter + Authority
 Levels. M62 is implemented/released by v0.66.0 as Scoped Autonomy Session
@@ -42,7 +42,8 @@ Only. M96 is implemented/released by v1.0.0 as Plugin Execution Sandbox, No
 External Plugins. M97 is implemented/released by v1.1.0 as Recurring
 Automation Contracts. M98 is implemented/released by v1.2.0 as Scoped Recurring
 Low-Risk Automation. M99 is implemented/released by v1.3.0 as Autonomy v1
-Safety Freeze. M100 remains planned/provisional. This roadmap adds no
+Safety Freeze. M100 is implemented/released by v1.4.0 as Mobile Permission
+Model v1. This roadmap adds no
 production authority, no global autonomy switch, no broad autonomy, no real tool
 execution, no shell execution, no browser automation beyond the M74 injected
 observation redacted preview boundary except the M94 exact-bound low-risk click
@@ -55,7 +56,9 @@ actions, no credentials, no cookies, no credential headers, no request body, no
 network mutation, no private network, no raw network responses, no background worker, no revocation action,
 no kill-switch activation, no session stop, no process kill, no policy
 activation, no autonomous session, no remote execution, no backend route, and
-no dependency.
+no dependency, no mobile sensor runtime, no runtime permission prompts, no
+native permission request, no background collection, no push execution, and no
+post-M100 implementation.
 
 | Version | Milestone | Title | Status |
 | --- | --- | --- | --- |
@@ -98,7 +101,7 @@ no dependency.
 | v1.1.0 | M97 | Recurring Automation Contracts | Implemented/released |
 | v1.2.0 | M98 | Scoped Recurring Low-Risk Automation | Implemented/released |
 | v1.3.0 | M99 | Autonomy v1 Safety Freeze | Implemented/released |
-| v1.4.0 | M100 | Mobile Permission Model v1 | Planned/provisional |
+| v1.4.0 | M100 | Mobile Permission Model v1 | Implemented/released |
 
 M81 is implemented/released as spec-only, review-only, deterministic, and
 local-only Runtime Sandbox Spec with no runtime sandbox execution, no command
@@ -290,3 +293,11 @@ authority. M95 remains future.
 
 Production authority remains future beyond M100 unless a later reviewed roadmap
 promotion explicitly changes the boundary.
+
+M100 is implemented/released as contract-only Mobile Permission Model v1. It
+defines mobile permission taxonomy, consent, revocation, privacy copy, and
+permission audit contracts with no runtime permission prompts, no native
+permission request, no mobile sensors, no background collection, no push
+execution, no backend route, no dependency, no M101 work, and no production
+authority. Do not start M101 from this roadmap without a separate reviewed
+roadmap promotion.

@@ -1303,6 +1303,19 @@ M99_FORBIDDEN_BACKEND_ROUTES = M98_FORBIDDEN_BACKEND_ROUTES + (
     "/files/export/raw",
     "/files/read/full",
 )
+EXPECTED_M100_OPENAPI_PATH_COUNT = 75
+M100_FORBIDDEN_BACKEND_ROUTES = M99_FORBIDDEN_BACKEND_ROUTES + (
+    "/mobile/location",
+    "/mobile/camera",
+    "/mobile/photos",
+    "/mobile/microphone",
+    "/mobile/background/collect",
+    "/mobile/push/execute",
+    "/mobile/permissions/request",
+    "/mobile/permissions/grant",
+    "/mobile/permissions/prompt",
+    "/mobile/native-permissions/request",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -2492,6 +2505,21 @@ def m99_openapi_route_failures(
     return failures
 
 
+def m100_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M100_OPENAPI_PATH_COUNT
+) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(
+            f"OpenAPI path count changed for M100: expected {expected_path_count}, got {len(path_set)}"
+        )
+    for route in M100_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(f"M100 forbidden mobile permission runtime route present: {route}")
+    return failures
+
+
 M36_SAFE_REF_PREFIXES = {
     "reviewPacketRef": "file-review-packet:",
     "previewResultRef": "redacted-file-preview-output:",
@@ -3344,6 +3372,16 @@ class FoundationGateEvaluator:
                 self.check_m99_autonomy_v1_safety_freeze_route_boundary
             ),
             "m99_roadmap_currentness": self.check_m99_roadmap_currentness,
+            "m100_mobile_permission_model_v1_contracts": (
+                self.check_m100_mobile_permission_model_v1_contracts
+            ),
+            "m100_mobile_permission_model_v1_static_safety": (
+                self.check_m100_mobile_permission_model_v1_static_safety
+            ),
+            "m100_mobile_permission_model_v1_route_boundary": (
+                self.check_m100_mobile_permission_model_v1_route_boundary
+            ),
+            "m100_roadmap_currentness": self.check_m100_roadmap_currentness,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -28622,6 +28660,213 @@ class FoundationGateEvaluator:
         ):
             if fragment in text:
                 failures.append(f"M99 docs imply forbidden/future capability: {fragment}")
+        return self._result(criterion, failures, required_docs)
+
+    def check_m100_mobile_permission_model_v1_contracts(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/mobile_companion/permission_model_v1.py",
+            "docs/mobile/MOBILE_PERMISSION_MODEL_V1.md",
+            "docs/mobile/MOBILE_PERMISSION_MODEL_V1_POLICY.md",
+            "docs/mobile/MOBILE_PERMISSION_MODEL_V1_CONSENT_REVOCATION.md",
+            "docs/mobile/MOBILE_PERMISSION_MODEL_V1_PRIVACY_COPY.md",
+            "docs/mobile/MOBILE_PERMISSION_MODEL_V1_AUDIT.md",
+            "docs/mobile/MOBILE_PERMISSION_MODEL_V1_NON_GOALS.md",
+            "docs/mobile/M100_FINAL_BOUNDARY.md",
+            "docs/roadmap/M61_M100_ROADMAP.md",
+            "tests/test_m100_mobile_permission_model_v1.py",
+            "tests/test_m100_gate_integration.py",
+        ]
+        failures = [
+            f"missing M100 Mobile Permission Model v1 file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            sys.path.insert(0, str(self.root))
+            from ultimate_ai_agent.core.mobile_companion import (
+                MobilePermissionModelV1Status,
+                build_mobile_permission_model_v1_report,
+                validate_mobile_permission_model_v1_report,
+            )
+
+            report = build_mobile_permission_model_v1_report()
+            if (
+                report.status != MobilePermissionModelV1Status.contract_only
+                or not report.contract_only
+                or not report.permission_taxonomy_defined
+                or not report.consent_model_defined
+                or not report.revocation_model_defined
+                or not report.privacy_copy_defined
+                or not report.permission_audit_defined
+                or not report.sensors_remain_off
+                or not report.no_background_collection
+                or report.runtime_permission_prompts_enabled
+                or report.native_permission_requests_enabled
+                or report.mobile_sensor_enabled
+                or report.location_access_enabled
+                or report.camera_access_enabled
+                or report.photos_access_enabled
+                or report.microphone_access_enabled
+                or report.background_collection_enabled
+                or report.push_execution_enabled
+                or report.memory_write_enabled
+                or report.context_injection_enabled
+                or report.execution_enabled
+                or report.backend_route_added
+                or report.dependency_added
+                or report.production_authority_enabled
+                or report.side_effects_performed
+                or "M100_MOBILE_PERMISSION_MODEL_V1_CONTRACT_ONLY"
+                not in report.reason_codes
+                or "POST_M100_REMAINS_FUTURE" not in report.reason_codes
+            ):
+                failures.append("M100 Mobile Permission Model v1 report is unsafe or over-authoritative")
+            for update, reason in [
+                ({"mobile_sensor_enabled": True}, "MOBILE_SENSOR_DENIED"),
+                ({"background_collection_enabled": True}, "BACKGROUND_COLLECTION_DENIED"),
+                ({"production_authority_enabled": True}, "PRODUCTION_AUTHORITY_DENIED"),
+            ]:
+                try:
+                    validate_mobile_permission_model_v1_report(
+                        report.model_copy(update=update)
+                    )
+                    failures.append(f"M100 unsafe report mutation was not denied with {reason}")
+                except ValueError as exc:
+                    if reason not in str(exc):
+                        failures.append(f"M100 unsafe report mutation raised {exc!s}")
+        except Exception as exc:
+            failures.append(f"M100 Mobile Permission Model v1 validation failed: {exc}")
+
+        docs_text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_files
+            if path.startswith("docs/") and (self.root / path).exists()
+        )
+        for fragment in [
+            "mobile permission model v1",
+            "permission taxonomy",
+            "consent",
+            "revocation",
+            "privacy copy",
+            "permission audit",
+            "contract-only",
+            "sensors remain off",
+            "no background collection",
+            "no runtime permission prompts",
+            "no native permission request",
+            "no production authority",
+            "no backend route",
+            "no dependency",
+            "m100 implemented/released",
+            "do not start m101",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M100 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m100_mobile_permission_model_v1_static_safety(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        forbidden_source_fragments = [
+            "runtime_permission_prompts_enabled=True",
+            "native_permission_requests_enabled=True",
+            "runtime_prompt_enabled=True",
+            "native_permission_request_enabled=True",
+            "mobile_sensor_enabled=True",
+            "sensor_access_enabled=True",
+            "location_access_enabled=True",
+            "camera_access_enabled=True",
+            "photos_access_enabled=True",
+            "microphone_access_enabled=True",
+            "background_collection_enabled=True",
+            "push_execution_enabled=True",
+            "production_authority_enabled=True",
+            "runtime_consent_granted=True",
+            "backend_route_enabled=True",
+            "backend_route_added=True",
+        ]
+        allowed_files = {
+            "scripts/verify_all.py",
+            "src/ultimate_ai_agent/core/gate/evaluators.py",
+            "src/ultimate_ai_agent/core/mobile_companion/__init__.py",
+            "src/ultimate_ai_agent/core/mobile_companion/permission_model_v1.py",
+        }
+        for root in [
+            self.root / "src" / "ultimate_ai_agent",
+            self.root / "apps" / "control-center" / "src",
+            self.root / "apps" / "ccc-ios",
+        ]:
+            if not root.exists():
+                continue
+            candidate_files = []
+            for pattern in ("*.py", "*.ts", "*.tsx", "*.js", "*.jsx", "*.swift", "*.yml", "*.yaml"):
+                candidate_files.extend(root.rglob(pattern))
+            for path in sorted(candidate_files):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(self.root).as_posix()
+                if ".test." in rel:
+                    continue
+                if rel in allowed_files:
+                    continue
+                text = path.read_text(encoding="utf-8")
+                for fragment in forbidden_source_fragments:
+                    if fragment in text:
+                        failures.append(
+                            f"M100 forbidden mobile permission fragment in {rel}: {fragment}"
+                        )
+        return self._result(criterion, failures, [])
+
+    def check_m100_mobile_permission_model_v1_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m100_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M100 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m100_roadmap_currentness(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
+        required_docs = [
+            "README.md",
+            "VERSION.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/roadmap/M61_M100_ROADMAP.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+            "docs/roadmap/MILESTONE_CHARTERS.md",
+        ]
+        failures = [
+            f"missing M100 roadmap doc: {path}"
+            for path in required_docs
+            if not (self.root / path).exists()
+        ]
+        text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_docs
+            if (self.root / path).exists()
+        )
+        if "v1.4.0" not in text or "m100" not in text or "mobile permission model v1" not in text:
+            failures.append("active docs do not identify v1.4.0/M100 Mobile Permission Model v1")
+        if "m100 is implemented/released" not in text and "v1.4.0 implements m100" not in text:
+            failures.append("active docs do not mark M100 implemented/released")
+        for fragment in (
+            "m101 is implemented",
+            "v1.5.0 implements m101",
+            "mobile permission runtime is implemented",
+            "mobile sensors are implemented",
+            "background collection is implemented",
+            "production authority is implemented",
+            "broad autonomy is implemented",
+            "global autonomy switch is implemented",
+        ):
+            if fragment in text:
+                failures.append(f"M100 docs imply forbidden/post-M100 capability: {fragment}")
         return self._result(criterion, failures, required_docs)
 
     def check_v0292_local_dev_api_authority_and_preview_safe(

@@ -871,6 +871,21 @@ REQUIRED_M99_AUTONOMY_V1_SAFETY_FREEZE_DOCS = [
     "docs/implementation/foundation_gate_implementation_plan_v1_3_0.md",
 ]
 
+REQUIRED_M100_MOBILE_PERMISSION_MODEL_V1_DOCS = [
+    "docs/mobile/MOBILE_PERMISSION_MODEL_V1.md",
+    "docs/mobile/MOBILE_PERMISSION_MODEL_V1_POLICY.md",
+    "docs/mobile/MOBILE_PERMISSION_MODEL_V1_CONSENT_REVOCATION.md",
+    "docs/mobile/MOBILE_PERMISSION_MODEL_V1_PRIVACY_COPY.md",
+    "docs/mobile/MOBILE_PERMISSION_MODEL_V1_AUDIT.md",
+    "docs/mobile/MOBILE_PERMISSION_MODEL_V1_NON_GOALS.md",
+    "docs/mobile/M100_FINAL_BOUNDARY.md",
+    "docs/roadmap/M61_M100_ROADMAP.md",
+    "docs/release_notes/v1_4_0.md",
+    "docs/archive/releases/v1_4_0/README_IMPORT.md",
+    "docs/archive/releases/v1_4_0/master_plan.md",
+    "docs/implementation/foundation_gate_implementation_plan_v1_4_0.md",
+]
+
 
 REQUIRED_ACTIVE_DOCS = [
     "docs/README.md",
@@ -1430,6 +1445,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_m97_recurring_automation_docs(root, version))
     failures.extend(_verify_m98_scoped_recurring_low_risk_automation_docs(root, version))
     failures.extend(_verify_m99_autonomy_v1_safety_freeze_docs(root, version))
+    failures.extend(_verify_m100_mobile_permission_model_v1_docs(root, version))
     failures.extend(_verify_m19_roadmap_currentness(root, version))
     failures.extend(_verify_post_m18_roadmap_status_labels(root))
 
@@ -6787,6 +6803,80 @@ def _verify_m99_autonomy_v1_safety_freeze_docs(root: Path, version: str | None) 
     }
     for message, fragment in forbidden_fragments.items():
         if fragment in text:
+            failures.append(f"{message}: {fragment}")
+    return failures
+
+
+def _verify_m100_mobile_permission_model_v1_docs(root: Path, version: str | None) -> list[str]:
+    failures: list[str] = []
+    if _version_tuple(version) < (1, 4, 0):
+        return failures
+
+    missing = [
+        rel_path
+        for rel_path in REQUIRED_M100_MOBILE_PERMISSION_MODEL_V1_DOCS
+        if not (root / rel_path).exists()
+    ]
+    failures.extend(f"missing M100 Mobile Permission Model v1 doc: {rel_path}" for rel_path in missing)
+    text = "\n".join(
+        _read(root / rel_path).lower()
+        for rel_path in REQUIRED_M100_MOBILE_PERMISSION_MODEL_V1_DOCS
+        if (root / rel_path).exists()
+    )
+    required_fragments = {
+        "M100 docs must say Mobile Permission Model v1": "mobile permission model v1",
+        "M100 docs must say permission taxonomy": "permission taxonomy",
+        "M100 docs must say consent": "consent",
+        "M100 docs must say revocation": "revocation",
+        "M100 docs must say privacy copy": "privacy copy",
+        "M100 docs must say permission audit": "permission audit",
+        "M100 docs must say contract-only": "contract-only",
+        "M100 docs must say sensors remain off": "sensors remain off",
+        "M100 docs must say no background collection": "no background collection",
+        "M100 docs must say no runtime permission prompts": "no runtime permission prompts",
+        "M100 docs must say no native permission request": "no native permission request",
+        "M100 docs must say no backend route": "no backend route",
+        "M100 docs must say no dependency": "no dependency",
+        "M100 docs must say no production authority": "no production authority",
+        "M100 docs must say implemented/released": "m100 implemented/released",
+        "M100 docs must say do not start M101": "do not start m101",
+    }
+    for message, fragment in required_fragments.items():
+        if fragment not in text:
+            failures.append(message)
+
+    active_paths = [
+        "README.md",
+        "VERSION.md",
+        "docs/canonical/09_roadmap.md",
+        "docs/roadmap/M61_M100_ROADMAP.md",
+        "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+        "docs/roadmap/MILESTONE_CHARTERS.md",
+        "docs/DOCUMENTATION_INDEX.md",
+        "docs/canonical/CANONICAL_DOC_MAP.md",
+    ]
+    active_text = "\n".join(
+        _read(root / rel_path).lower()
+        for rel_path in active_paths
+        if (root / rel_path).exists()
+    )
+    if "v1.4.0" not in active_text or "m100" not in active_text or "mobile permission model v1" not in active_text:
+        failures.append("active docs missing v1.4.0/M100 Mobile Permission Model v1")
+    if "m100 is implemented/released" not in active_text and "v1.4.0 implements m100" not in active_text:
+        failures.append("active docs do not mark M100 implemented/released")
+    forbidden_fragments = {
+        "M100 docs must not claim M101 implementation": "m101 is implemented",
+        "M100 docs must not claim mobile permission runtime": "mobile permission runtime is implemented",
+        "M100 docs must not claim mobile sensors": "mobile sensors are implemented",
+        "M100 docs must not claim runtime permission prompts": "runtime permission prompts are implemented",
+        "M100 docs must not claim native permission requests": "native permission requests are implemented",
+        "M100 docs must not claim background collection": "background collection is implemented",
+        "M100 docs must not claim push execution": "push execution is implemented",
+        "M100 docs must not claim production authority": "production authority is implemented",
+    }
+    combined_text = "\n".join([text, active_text])
+    for message, fragment in forbidden_fragments.items():
+        if fragment in combined_text:
             failures.append(f"{message}: {fragment}")
     return failures
 
