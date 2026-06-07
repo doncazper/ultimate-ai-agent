@@ -12,23 +12,24 @@ allowed to become operational authority.
 
 | Field | Current state |
 |---|---|
-| Current active baseline | **v0.92.0** |
-| Current milestone | **M88 - Mutating Command Proposal, No Execution** |
+| Current active baseline | **v0.93.0** |
+| Current milestone | **M89 - Emergency Stop + Process Kill Safety** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **75** OpenAPI paths |
 | Production readiness | Not claimed |
 
-v0.92.0 implements M88 Mutating Command Proposal, No Execution. It adds
-contract-only, proposal-only, review-only mutating command proposal contracts
-over exact M87 Sandboxed Command Audit Replay decisions, safe mutation scope
-binding, safe argument refs, safe refs only receipt plans, evaluator
+v0.93.0 implements M89 Emergency Stop + Process Kill Safety. It adds
+contract-only, review-only emergency stop and process kill safety contracts over
+exact M88 Mutating Command Proposal decisions, safe target process refs, safe
+emergency scope refs, safe reason refs, safe refs only receipt plans, evaluator
 revalidation, documentation-integrity checks, static verification, tests, and
-Foundation Gate coverage. It adds no command execution, subprocess execution,
-shell execution, process spawn, filesystem mutation, network access, tool
-execution, browser automation, plugin execution, remote execution, model call,
-memory write, context injection, background worker, backend routes, Control
-Center controls, dependency, M89 work, or production authority.
+Foundation Gate coverage. It adds no emergency stop execution, process kill,
+process signal, command execution, subprocess execution, shell execution,
+process spawn, filesystem mutation, network access, tool execution, browser
+automation, plugin execution, remote execution, model call, memory write,
+context injection, background worker, backend routes, Control Center controls,
+dependency, M90 work, or production authority.
 
 v0.29.5 is documentation policy polish. It remains the documentation
 organization cleanup baseline before the M26 and M27 implementation releases.
@@ -235,8 +236,8 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [v0.90.0 master plan](docs/archive/releases/v0_90_0/master_plan.md)
 - [v0.91.0 release packet](docs/archive/releases/v0_91_0/README_IMPORT.md)
 - [v0.91.0 master plan](docs/archive/releases/v0_91_0/master_plan.md)
-- [v0.92.0 release packet](docs/archive/releases/v0_92_0/README_IMPORT.md)
-- [v0.92.0 master plan](docs/archive/releases/v0_92_0/master_plan.md)
+- [v0.93.0 release packet](docs/archive/releases/v0_93_0/README_IMPORT.md)
+- [v0.93.0 master plan](docs/archive/releases/v0_93_0/master_plan.md)
 
 ## What This Project Is
 

@@ -1,6 +1,6 @@
 # Documentation Index
 
-Current active baseline: **v0.92.0**
+Current active baseline: **v0.93.0**
 
 This index is the active entrypoint for documentation navigation. Historical release documents remain in the repository for audit history, but active truth starts with the current baseline files listed here.
 
@@ -14,9 +14,9 @@ docs/canonical/CANONICAL_DOC_MAP.md
 docs/canonical/09_roadmap.md
 docs/roadmap/README.md
 docs/archive/README.md
-docs/archive/releases/v0_92_0/README_IMPORT.md
-docs/archive/releases/v0_92_0/master_plan.md
-docs/release_notes/v0_92_0.md
+docs/archive/releases/v0_93_0/README_IMPORT.md
+docs/archive/releases/v0_93_0/master_plan.md
+docs/release_notes/v0_93_0.md
 docs/developer/LOCAL_LAUNCHER.md
 scripts/dev/README.md
 docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md
@@ -123,6 +123,12 @@ docs/sandbox/MUTATING_COMMAND_PROPOSAL_AUTHORITY_BOUNDARY.md
 docs/sandbox/MUTATING_COMMAND_PROPOSAL_RECEIPT_PLAN.md
 docs/sandbox/MUTATING_COMMAND_PROPOSAL_NON_GOALS.md
 docs/sandbox/M88_TO_M89_BOUNDARY.md
+docs/sandbox/EMERGENCY_STOP_PROCESS_KILL_SAFETY.md
+docs/sandbox/EMERGENCY_STOP_PROCESS_KILL_SAFETY_POLICY.md
+docs/sandbox/EMERGENCY_STOP_PROCESS_KILL_SAFETY_AUTHORITY_BOUNDARY.md
+docs/sandbox/EMERGENCY_STOP_PROCESS_KILL_SAFETY_RECEIPT_PLAN.md
+docs/sandbox/EMERGENCY_STOP_PROCESS_KILL_SAFETY_NON_GOALS.md
+docs/sandbox/M89_TO_M90_BOUNDARY.md
 docs/dry_run_audit/DRY_RUN_EXECUTION_AUDIT_HARNESS.md
 docs/dry_run_audit/DRY_RUN_EXECUTION_AUDIT_POLICY.md
 docs/dry_run_audit/DRY_RUN_EXECUTION_AUTHORITY_BOUNDARY.md
@@ -636,18 +642,18 @@ scripts/dev/README.md
 ```
 
 v0.37.4 supersedes the old active M35-M40 roadmap projection and defines the
-active M34-M60 sequence. v0.92.0 is the current active baseline after
-implementing M88 Mutating Command Proposal, No Execution as contract-only,
-proposal-only, review-only, deterministic, local-only contracts over exact M87
-Sandboxed Command Audit Replay decisions. Active roadmap sources consistently
-mark M34-M88 implemented/released, keep M89-M100 planned/provisional, and rely
+active M34-M60 sequence. v0.93.0 is the current active baseline after
+implementing M89 Emergency Stop + Process Kill Safety as contract-only,
+review-only, deterministic, local-only contracts over exact M88 Mutating
+Command Proposal decisions. Active roadmap sources consistently
+mark M34-M89 implemented/released, keep M90-M100 planned/provisional, and rely
 on documentation-integrity checks to guard
 against superseded-roadmap drift, stale current-baseline labels, route drift,
 and authority-boundary drift.
 
 ## Release Notes Index
 
-Current release notes: `docs/release_notes/v0_92_0.md`
+Current release notes: `docs/release_notes/v0_93_0.md`
 
 Historical release notes remain under `docs/release_notes/`. Historical docs may mention old active baselines in historical context; they are not the current source of truth.
 

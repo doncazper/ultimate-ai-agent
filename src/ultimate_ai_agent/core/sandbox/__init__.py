@@ -102,6 +102,17 @@ from ultimate_ai_agent.core.sandbox.mutating_command_proposal import (
     validate_mutating_command_proposal_policy,
     validate_mutating_command_proposal_request,
 )
+from ultimate_ai_agent.core.sandbox.emergency_stop_process_kill_safety import (
+    EmergencyStopProcessKillSafetyDecision,
+    EmergencyStopProcessKillSafetyPolicy,
+    EmergencyStopProcessKillSafetyReceiptPlan,
+    EmergencyStopProcessKillSafetyRequest,
+    EmergencyStopProcessKillSafetyStatus,
+    build_emergency_stop_process_kill_safety,
+    validate_emergency_stop_process_kill_safety_decision,
+    validate_emergency_stop_process_kill_safety_policy,
+    validate_emergency_stop_process_kill_safety_request,
+)
 
 __all__ = [
     "RuntimeSandboxArchitectureDecision",
@@ -153,6 +164,11 @@ __all__ = [
     "MutatingCommandProposalReceiptPlan",
     "MutatingCommandProposalRequest",
     "MutatingCommandProposalStatus",
+    "EmergencyStopProcessKillSafetyDecision",
+    "EmergencyStopProcessKillSafetyPolicy",
+    "EmergencyStopProcessKillSafetyReceiptPlan",
+    "EmergencyStopProcessKillSafetyRequest",
+    "EmergencyStopProcessKillSafetyStatus",
     "build_runtime_sandbox_architecture_review",
     "build_command_proposal",
     "build_runtime_sandbox_spec",
@@ -162,6 +178,7 @@ __all__ = [
     "build_shell_approval_gate_decision",
     "build_sandboxed_command_audit_replay",
     "build_mutating_command_proposal",
+    "build_emergency_stop_process_kill_safety",
     "validate_command_proposal_decision",
     "validate_command_proposal_policy",
     "validate_command_proposal_request",
@@ -190,4 +207,7 @@ __all__ = [
     "validate_mutating_command_proposal_decision",
     "validate_mutating_command_proposal_policy",
     "validate_mutating_command_proposal_request",
+    "validate_emergency_stop_process_kill_safety_decision",
+    "validate_emergency_stop_process_kill_safety_policy",
+    "validate_emergency_stop_process_kill_safety_request",
 ]
