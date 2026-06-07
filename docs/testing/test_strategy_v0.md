@@ -772,5 +772,18 @@ approval_ref alone, approval_test_* refs, and model/memory/context/tool-intent/t
 model_copy-mutated unsafe decision and receipt fields are revalidated at evaluator boundaries.
 Foundation Gate includes M95 authless network expansion, static safety, route boundary, and roadmap currentness criteria.
 OpenAPI path count remains unchanged at 75.
-M96 remains planned/provisional as Plugin Execution Sandbox, No External Plugins.
+## v1.0.0 M96 Plugin Execution Sandbox, No External Plugins Tests
+
+v1.0.0 adds focused built-in test plugin sandbox tests only:
+
+- built-in test plugin happy path
+- exact plugin/action/permission binding
+- prior plugin review binding
+- manifest permission enforcement
+- denial of external plugin loading, marketplace plugins, arbitrary plugin code, runtime import, networked plugin fetch, plugin secret access, raw plugin payload, shell execution, network access, browser automation, filesystem mutation, model provider calls, memory writes, context injection, backend routes, Control Center controls, dependencies, and production authority
+- approval_ref/approval_test_/authority-ref denial
+- model_copy-mutated input, decision, and receipt denial
+- Foundation Gate criteria, static safety, route boundary, and roadmap currentness
+
+M97 remains planned/provisional as Recurring Automation Contracts.
 ```

@@ -814,6 +814,20 @@ REQUIRED_M95_AUTHLESS_NETWORK_EXPANSION_DOCS = [
     "docs/implementation/foundation_gate_implementation_plan_v0_99_0.md",
 ]
 
+REQUIRED_M96_PLUGIN_EXECUTION_SANDBOX_DOCS = [
+    "docs/tooling/PLUGIN_EXECUTION_SANDBOX.md",
+    "docs/tooling/PLUGIN_EXECUTION_SANDBOX_POLICY.md",
+    "docs/tooling/PLUGIN_EXECUTION_SANDBOX_AUTHORITY_BOUNDARY.md",
+    "docs/tooling/PLUGIN_EXECUTION_SANDBOX_RECEIPT_PLAN.md",
+    "docs/tooling/PLUGIN_EXECUTION_SANDBOX_NON_GOALS.md",
+    "docs/tooling/M96_TO_M97_BOUNDARY.md",
+    "docs/roadmap/M61_M100_ROADMAP.md",
+    "docs/release_notes/v1_0_0.md",
+    "docs/archive/releases/v1_0_0/README_IMPORT.md",
+    "docs/archive/releases/v1_0_0/master_plan.md",
+    "docs/implementation/foundation_gate_implementation_plan_v1_0_0.md",
+]
+
 
 REQUIRED_ACTIVE_DOCS = [
     "docs/README.md",
@@ -1369,6 +1383,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_m93_multi_tool_dry_run_promotion_docs(root, version))
     failures.extend(_verify_m94_low_risk_browser_click_docs(root, version))
     failures.extend(_verify_m95_authless_network_expansion_docs(root, version))
+    failures.extend(_verify_m96_plugin_execution_sandbox_docs(root, version))
     failures.extend(_verify_m19_roadmap_currentness(root, version))
     failures.extend(_verify_post_m18_roadmap_status_labels(root))
 
@@ -6426,6 +6441,85 @@ def _verify_m95_authless_network_expansion_docs(
         "M95 docs must not claim recurring automation implementation": "recurring automation is implemented",
         "M95 docs must not claim mobile permission runtime implementation": "mobile permission runtime is implemented",
         "M95 docs must not claim production authority": "production authority is implemented",
+    }
+    for message, fragment in forbidden_fragments.items():
+        if fragment in text:
+            failures.append(f"{message}: {fragment}")
+    return failures
+
+
+def _verify_m96_plugin_execution_sandbox_docs(
+    root: Path, version: str | None
+) -> list[str]:
+    failures: list[str] = []
+    if _version_tuple(version) < (1, 0, 0):
+        return failures
+
+    missing = [
+        rel_path
+        for rel_path in REQUIRED_M96_PLUGIN_EXECUTION_SANDBOX_DOCS
+        if not (root / rel_path).exists()
+    ]
+    failures.extend(
+        f"missing M96 plugin execution sandbox doc: {rel_path}"
+        for rel_path in missing
+    )
+    text = "\n".join(
+        _read(root / rel_path).lower()
+        for rel_path in REQUIRED_M96_PLUGIN_EXECUTION_SANDBOX_DOCS
+        if (root / rel_path).exists()
+    )
+    required_fragments = {
+        "M96 docs must say plugin execution sandbox, no external plugins": "plugin execution sandbox, no external plugins",
+        "M96 docs must say built-in test plugin": "built-in test plugin",
+        "M96 docs must say sandbox": "sandbox",
+        "M96 docs must say manifest permission": "manifest permission",
+        "M96 docs must say audit receipt": "audit receipt",
+        "M96 docs must say revocation": "revocation",
+        "M96 docs must say deterministic": "deterministic",
+        "M96 docs must say safe refs only": "safe refs only",
+        "M96 docs must deny external plugin loading": "no external plugin loading",
+        "M96 docs must deny marketplace plugin": "no marketplace plugin",
+        "M96 docs must deny arbitrary plugin code": "no arbitrary plugin code",
+        "M96 docs must deny runtime import": "no runtime import",
+        "M96 docs must deny networked plugin fetch": "no networked plugin fetch",
+        "M96 docs must deny plugin secret access": "no plugin secret access",
+        "M96 docs must deny raw plugin payload": "no raw plugin payload",
+        "M96 docs must deny shell execution": "no shell execution",
+        "M96 docs must deny network access": "no network access",
+        "M96 docs must deny browser automation": "no browser automation",
+        "M96 docs must deny filesystem mutation": "no filesystem mutation",
+        "M96 docs must deny model provider call": "no model provider call",
+        "M96 docs must deny memory write": "no memory write",
+        "M96 docs must deny context injection": "no context injection",
+        "M96 docs must deny backend route": "no backend route",
+        "M96 docs must deny Control Center control": "no control center control",
+        "M96 docs must deny dependency": "no dependency",
+        "M96 docs must deny production authority": "no production authority",
+        "M96 docs must say evaluator boundaries revalidate": "evaluator boundaries revalidate",
+        "M96 docs must keep M97 future": "m97 remains future",
+    }
+    for message, fragment in required_fragments.items():
+        if fragment not in text:
+            failures.append(message)
+
+    for version_label, milestone, title in [
+        ("v1.0.0", "m96", "plugin execution sandbox, no external plugins"),
+        ("v1.1.0", "m97", "recurring automation contracts"),
+        ("v1.4.0", "m100", "mobile permission model v1"),
+    ]:
+        if version_label not in text or milestone not in text or title not in text:
+            failures.append(
+                f"M96-M100 roadmap missing label: {version_label} / {milestone.upper()} - {title}"
+            )
+
+    forbidden_fragments = {
+        "M96 docs must not claim external plugin loading implementation": "external plugin loading is implemented",
+        "M96 docs must not claim marketplace plugin implementation": "marketplace plugin is implemented",
+        "M96 docs must not claim arbitrary plugin code implementation": "arbitrary plugin code is implemented",
+        "M96 docs must not claim recurring automation implementation": "recurring automation is implemented",
+        "M96 docs must not claim mobile permission runtime implementation": "mobile permission runtime is implemented",
+        "M96 docs must not claim production authority": "production authority is implemented",
     }
     for message, fragment in forbidden_fragments.items():
         if fragment in text:

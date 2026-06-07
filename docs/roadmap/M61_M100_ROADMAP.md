@@ -1,6 +1,6 @@
 # M61-M100 Roadmap
 
-Status: Active roadmap maintained through M95 / v0.99.0.
+Status: Active roadmap maintained through M96 / v1.0.0.
 
 M61 is implemented/released by v0.65.0 as Autonomy Mode Charter + Authority
 Levels. M62 is implemented/released by v0.66.0 as Scoped Autonomy Session
@@ -38,7 +38,8 @@ implemented/released by v0.96.0 as Low-Risk Tool Autonomy, Single Session. M93 i
 implemented/released by v0.97.0 as Multi-Tool Dry-Run to Real Run Promotion. M94 is
 implemented/released by v0.98.0 as Autonomous Browser Clicks, Low-Risk Only.
 M95 is implemented/released by v0.99.0 as Network Tool Expansion, Authless
-Only. M96-M100 remain planned/provisional. This roadmap adds no
+Only. M96 is implemented/released by v1.0.0 as Plugin Execution Sandbox, No
+External Plugins. M97-M100 remain planned/provisional. This roadmap adds no
 production authority, no global autonomy switch, no broad autonomy, no real tool
 execution, no shell execution, no browser automation beyond the M74 injected
 observation redacted preview boundary except the M94 exact-bound low-risk click
@@ -90,7 +91,7 @@ no dependency.
 | v0.97.0 | M93 | Multi-Tool Dry-Run to Real Run Promotion | Implemented/released |
 | v0.98.0 | M94 | Autonomous Browser Clicks, Low-Risk Only | Implemented/released |
 | v0.99.0 | M95 | Network Tool Expansion, Authless Only | Implemented/released |
-| v1.0.0 | M96 | Plugin Execution Sandbox, No External Plugins | Planned/provisional |
+| v1.0.0 | M96 | Plugin Execution Sandbox, No External Plugins | Implemented/released |
 | v1.1.0 | M97 | Recurring Automation Contracts | Planned/provisional |
 | v1.2.0 | M98 | Scoped Recurring Low-Risk Automation | Planned/provisional |
 | v1.3.0 | M99 | Autonomy v1 Safety Freeze | Planned/provisional |

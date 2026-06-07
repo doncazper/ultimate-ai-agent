@@ -1,6 +1,6 @@
 # Documentation Index
 
-Current active baseline: **v0.99.0**
+Current active baseline: **v1.0.0**
 
 This index is the active entrypoint for documentation navigation. Historical release documents remain in the repository for audit history, but active truth starts with the current baseline files listed here.
 
@@ -14,9 +14,9 @@ docs/canonical/CANONICAL_DOC_MAP.md
 docs/canonical/09_roadmap.md
 docs/roadmap/README.md
 docs/archive/README.md
-docs/archive/releases/v0_99_0/README_IMPORT.md
-docs/archive/releases/v0_99_0/master_plan.md
-docs/release_notes/v0_99_0.md
+docs/archive/releases/v1_0_0/README_IMPORT.md
+docs/archive/releases/v1_0_0/master_plan.md
+docs/release_notes/v1_0_0.md
 docs/developer/LOCAL_LAUNCHER.md
 scripts/dev/README.md
 docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md
@@ -219,6 +219,12 @@ docs/network/AUTHLESS_NETWORK_TOOL_EXPANSION_AUTHORITY_BOUNDARY.md
 docs/network/AUTHLESS_NETWORK_TOOL_EXPANSION_RECEIPT_PLAN.md
 docs/network/AUTHLESS_NETWORK_TOOL_EXPANSION_NON_GOALS.md
 docs/network/M95_TO_M96_BOUNDARY.md
+docs/tooling/PLUGIN_EXECUTION_SANDBOX.md
+docs/tooling/PLUGIN_EXECUTION_SANDBOX_POLICY.md
+docs/tooling/PLUGIN_EXECUTION_SANDBOX_AUTHORITY_BOUNDARY.md
+docs/tooling/PLUGIN_EXECUTION_SANDBOX_RECEIPT_PLAN.md
+docs/tooling/PLUGIN_EXECUTION_SANDBOX_NON_GOALS.md
+docs/tooling/M96_TO_M97_BOUNDARY.md
 docs/network/READ_ONLY_HTTP_FETCH_RECEIPT_PLAN.md
 docs/network/M72_TO_M73_BOUNDARY.md
 docs/browser/BROWSER_AUTOMATION_CONTRACT_REVIEW.md
@@ -672,21 +678,20 @@ scripts/dev/README.md
 ```
 
 v0.37.4 supersedes the old active M35-M40 roadmap projection and defines the
-active M34-M60 sequence. v0.99.0 is the current active baseline after
-implementing M95 Network Tool Expansion, Authless Only as exact-scope,
-authless, read-only network expansion contracts with allowlisted domain, HTTPS,
-GET only, redirect controls, bounded output, redaction, audit, revocation,
-transport injection, no credentials, no cookies, no credential headers, no
-request body, no network mutation, no private network, no backend routes, and
-no production authority. Active roadmap sources
-consistently mark M34-M95 implemented/released, keep M96-M100
-planned/provisional, and rely on documentation-integrity checks to guard
-against superseded-roadmap drift, stale current-baseline labels, route drift,
-and authority-boundary drift.
+active M34-M60 sequence. v1.0.0 is the current active baseline after
+implementing M96 Plugin Execution Sandbox, No External Plugins as a
+deterministic built-in test plugin sandbox contract with manifest permission
+checks, audit receipt, revocation, safe refs only, no external plugin loading,
+no marketplace plugin, no arbitrary plugin code, no runtime import, no
+networked plugin fetch, no backend routes, no dependencies, and no production
+authority. Active roadmap sources consistently mark M34-M96
+implemented/released, keep M97-M100 planned/provisional, and rely on
+documentation-integrity checks to guard against superseded-roadmap drift, stale
+current-baseline labels, route drift, and authority-boundary drift.
 
 ## Release Notes Index
 
-Current release notes: `docs/release_notes/v0_99_0.md`
+Current release notes: `docs/release_notes/v1_0_0.md`
 
 Historical release notes remain under `docs/release_notes/`. Historical docs may mention old active baselines in historical context; they are not the current source of truth.
 

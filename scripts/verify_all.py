@@ -129,6 +129,7 @@ SCAN_SEQUENCE = [
     ("M93 multi-tool dry-run promotion scan", "verify_m93_multi_tool_dry_run_promotion"),
     ("M94 low-risk browser clicks scan", "verify_m94_low_risk_browser_clicks"),
     ("M95 authless network tool expansion scan", "verify_m95_authless_network_tool_expansion"),
+    ("M96 plugin execution sandbox scan", "verify_m96_plugin_execution_sandbox"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -16481,6 +16482,205 @@ def verify_m95_authless_network_tool_expansion():
             sys.exit(1)
 
     print("OK: M95 authless network expansion is exact-scope, route-free, and no-authority")
+
+
+def verify_m96_plugin_execution_sandbox():
+    print("\n[Verifier] Running M96 plugin execution sandbox guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/plugin_execution_sandbox/__init__.py",
+        "src/ultimate_ai_agent/core/plugin_execution_sandbox/builtin_test_plugin.py",
+        "docs/tooling/PLUGIN_EXECUTION_SANDBOX.md",
+        "docs/tooling/PLUGIN_EXECUTION_SANDBOX_POLICY.md",
+        "docs/tooling/PLUGIN_EXECUTION_SANDBOX_AUTHORITY_BOUNDARY.md",
+        "docs/tooling/PLUGIN_EXECUTION_SANDBOX_RECEIPT_PLAN.md",
+        "docs/tooling/PLUGIN_EXECUTION_SANDBOX_NON_GOALS.md",
+        "docs/tooling/M96_TO_M97_BOUNDARY.md",
+        "docs/release_notes/v1_0_0.md",
+        "docs/archive/releases/v1_0_0/README_IMPORT.md",
+        "docs/archive/releases/v1_0_0/master_plan.md",
+        "docs/implementation/foundation_gate_implementation_plan_v1_0_0.md",
+        "tests/test_m96_plugin_execution_sandbox.py",
+        "tests/test_m96_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M96 plugin execution sandbox file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = "\n".join(
+        (ROOT / rel_path).read_text(encoding="utf-8").lower()
+        for rel_path in required_files
+        if rel_path.startswith("docs/")
+    )
+    for fragment in [
+        "plugin execution sandbox, no external plugins",
+        "built-in test plugin",
+        "sandbox",
+        "manifest permission",
+        "audit receipt",
+        "revocation",
+        "deterministic",
+        "safe refs only",
+        "no external plugin loading",
+        "no marketplace plugin",
+        "no arbitrary plugin code",
+        "no runtime import",
+        "no networked plugin fetch",
+        "no plugin secret access",
+        "no raw plugin payload",
+        "no shell execution",
+        "no network access",
+        "no browser automation",
+        "no filesystem mutation",
+        "no model provider call",
+        "no memory write",
+        "no context injection",
+        "no backend route",
+        "no control center control",
+        "no dependency",
+        "no production authority",
+        "evaluator boundaries revalidate",
+        "m97 remains future",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M96 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from tests.test_m96_plugin_execution_sandbox import _request
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.evaluators import m96_openapi_route_failures
+        from ultimate_ai_agent.core.plugin_execution_sandbox import (
+            BuiltInPluginExecutionSandboxStatus,
+            build_builtin_plugin_execution_sandbox_decision,
+            validate_builtin_plugin_execution_sandbox_decision,
+        )
+    except Exception as exc:
+        print(f"FAIL: M96 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m96_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    decision = build_builtin_plugin_execution_sandbox_decision(_request())
+    if (
+        decision.status != BuiltInPluginExecutionSandboxStatus.builtin_test_plugin_allowed
+        or not decision.builtin_test_plugin_only
+        or not decision.sandbox_enforced
+        or not decision.manifest_permissions_enforced
+        or not decision.audit_receipt_created
+        or not decision.revocation_bound
+        or not decision.deterministic_result
+        or not decision.safe_refs_only
+        or not decision.built_in_test_plugin_invoked
+        or decision.external_plugin_loading_allowed
+        or decision.marketplace_plugin_allowed
+        or decision.arbitrary_plugin_code_allowed
+        or decision.runtime_import_allowed
+        or decision.networked_plugin_fetch_allowed
+        or decision.plugin_secret_access_allowed
+        or decision.raw_plugin_payload_allowed
+        or decision.shell_execution_allowed
+        or decision.network_access_allowed
+        or decision.browser_automation_allowed
+        or decision.filesystem_mutation_allowed
+        or decision.model_provider_call_allowed
+        or decision.memory_write_allowed
+        or decision.context_injection_allowed
+        or decision.backend_route_added
+        or decision.control_center_control_added
+        or decision.dependency_added
+        or decision.production_authority_granted
+        or not decision.receipt_plan.store_safe_refs_only
+        or decision.receipt_plan.store_raw_plugin_payload
+        or decision.receipt_plan.store_secret_material
+        or decision.receipt_plan.external_plugin_loaded
+        or decision.receipt_plan.runtime_import_performed
+        or decision.receipt_plan.network_fetch_performed
+        or decision.receipt_plan.shell_execution_performed
+        or decision.receipt_plan.filesystem_mutation_performed
+        or decision.receipt_plan.side_effects_performed
+        or "M96_BUILTIN_TEST_PLUGIN_SANDBOX_ALLOWED" not in decision.reason_codes
+        or "M97_REMAINS_FUTURE" not in decision.reason_codes
+    ):
+        print("FAIL: M96 plugin execution sandbox decision is unsafe or over-authoritative")
+        sys.exit(1)
+
+    for update, reason in [
+        ({"external_plugin_loading_allowed": True}, "EXTERNAL_PLUGIN_LOADING_DENIED"),
+        ({"marketplace_plugin_allowed": True}, "MARKETPLACE_PLUGIN_DENIED"),
+        ({"arbitrary_plugin_code_allowed": True}, "ARBITRARY_PLUGIN_CODE_DENIED"),
+        ({"runtime_import_allowed": True}, "PLUGIN_RUNTIME_IMPORT_DENIED"),
+        ({"networked_plugin_fetch_allowed": True}, "NETWORKED_PLUGIN_FETCH_DENIED"),
+        ({"raw_plugin_payload_allowed": True}, "RAW_PLUGIN_PAYLOAD_DENIED"),
+        ({"backend_route_added": True}, "BACKEND_ROUTE_DENIED"),
+        ({"production_authority_granted": True}, "PRODUCTION_AUTHORITY_DENIED"),
+    ]:
+        try:
+            validate_builtin_plugin_execution_sandbox_decision(decision.model_copy(update=update))
+            print(f"FAIL: M96 mutated authority flag was not denied: {update}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M96 mutated authority flag raised {exc!s}")
+                sys.exit(1)
+
+    allowed_scan_files = {
+        "scripts/verify_all.py",
+        "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/plugin_execution_sandbox/__init__.py",
+        "src/ultimate_ai_agent/core/plugin_execution_sandbox/builtin_test_plugin.py",
+    }
+    source_text = "\n".join(
+        path.read_text(encoding="utf-8")
+        for root in [ROOT / "src" / "ultimate_ai_agent", ROOT / "apps" / "control-center" / "src"]
+        if root.exists()
+        for path in root.rglob("*")
+        if path.is_file()
+        and path.suffix in {".py", ".ts", ".tsx", ".js", ".jsx"}
+        and path.relative_to(ROOT).as_posix() not in allowed_scan_files
+    )
+    for fragment in [
+        "external_plugin_loading_allowed=True",
+        "marketplace_plugin_allowed=True",
+        "arbitrary_plugin_code_allowed=True",
+        "runtime_import_allowed=True",
+        "networked_plugin_fetch_allowed=True",
+        "plugin_secret_access_allowed=True",
+        "raw_plugin_payload_allowed=True",
+        "backend_route_allowed=True",
+        "control_center_control_allowed=True",
+        "dependency_change_allowed=True",
+        "production_authority_allowed=True",
+        "external_plugin_loaded=True",
+        "runtime_import_performed=True",
+        "network_fetch_performed=True",
+        "store_raw_plugin_payload=True",
+        "store_secret_material=True",
+    ]:
+        if fragment in source_text:
+            print(f"FAIL: M96 forbidden source fragment present: {fragment}")
+            sys.exit(1)
+
+    for forbidden_route in [
+        "/plugins/execute",
+        "/plugins/run",
+        "/plugins/load",
+        "/plugins/install",
+        "/plugins/marketplace",
+        "/plugin-runtime/execute",
+        "/plugin-runtime/load",
+        "/tools/plugins/execute",
+        "/autonomy/plugins/execute",
+    ]:
+        if forbidden_route in source_text:
+            print(f"FAIL: M96 forbidden backend/frontend route fragment present: {forbidden_route}")
+            sys.exit(1)
+
+    print("OK: M96 plugin execution sandbox is built-in-only, route-free, and no external plugin authority")
 
 
 def verify_local_developer_launcher_safety():
