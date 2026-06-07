@@ -1,6 +1,6 @@
 # Post-M20 Capability Layer Roadmap
 
-Status: Active roadmap projection maintained through v1.4.0.
+Status: Active roadmap projection maintained through v1.4.1.
 
 v0.38.0 implements M34 Broader File Capability Review as planning,
 architecture review, documentation, verifier, and Foundation Gate work only.
@@ -124,10 +124,10 @@ The detailed post-M33 supersession source of truth is
 
 ## Prompt-Pack Strategy
 
-Recommended next prompt after v1.4.0:
+Recommended next prompt after v1.4.1:
 
 ```text
-Run post-M100 full-repository CodeRabbit/local deep review and roadmap reconciliation prompt.
+Run M101 implementation conveyor or M101-M150 active milestone prompt pack.
 ```
 
 M61 is implemented/released by v0.65.0 as Autonomy Mode Charter + Authority
@@ -169,7 +169,7 @@ Authless Only. M96 is implemented/released by v1.0.0 as Plugin Execution
 Sandbox, No External Plugins. M97 is implemented/released by v1.1.0 as
 Recurring Automation Contracts. M98 is implemented/released by v1.2.0 as Scoped
 Recurring Low-Risk Automation. M99 is implemented/released by v1.3.0 as
-Autonomy v1 Safety Freeze. M100 is implemented/released by v1.4.0 as Mobile Permission Model v1.
+Autonomy v1 Safety Freeze. M100 is implemented/released by v1.4.0 as Mobile Permission Model v1. v1.4.1 adds post-M100 review and promotes M101-M150 as planned/provisional only in `docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md`.
 
 Extra-hard reviews are required for M37, M38, M40, M47, M48, M49, M51, M52,
 M57, M58, and M59. Mandatory hardening is expected by default for M35-M40, M43-M50,

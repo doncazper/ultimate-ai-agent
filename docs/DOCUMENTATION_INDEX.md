@@ -1,6 +1,6 @@
 # Documentation Index
 
-Current active baseline: **v1.4.0**
+Current active baseline: **v1.4.1**
 
 This index is the active entrypoint for documentation navigation. Historical release documents remain in the repository for audit history, but active truth starts with the current baseline files listed here.
 
@@ -26,6 +26,7 @@ docs/roadmap/CAPABILITY_LAYERING_STRATEGY.md
 docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md
 docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md
 docs/roadmap/M61_M100_ROADMAP.md
+docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md
 docs/files/BROADER_FILE_CAPABILITY_REVIEW.md
 docs/files/FILE_CAPABILITY_BOUNDARY_MATRIX.md
 docs/files/FILE_CAPABILITY_RISK_REGISTER.md
@@ -709,19 +710,18 @@ scripts/dev/README.md
 ```
 
 v0.37.4 supersedes the old active M35-M40 roadmap projection and defines the
-active M34-M60 sequence. v1.4.0 is the current active baseline after
-implementing M100 Mobile Permission Model v1 as contract-only mobile permission
-taxonomy, consent, revocation, privacy copy, and permission audit work with no
-runtime permission prompts, no native permission request, no mobile sensors, no
-background collection, no push execution, no backend routes, no dependencies,
-no M101 work, and no production authority. Active roadmap sources consistently
-mark M34-M100 implemented/released and rely on
-documentation-integrity checks to guard against superseded-roadmap drift, stale
-current-baseline labels, route drift, and authority-boundary drift.
+active M34-M60 sequence. v1.4.1 is the current active baseline after the
+post-M100 full-repository review, hardening, and roadmap reconciliation pass.
+M100 remains implemented/released as Mobile Permission Model v1. M101-M150 are
+planned/provisional only in `docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md`.
+Active roadmap sources consistently mark M34-M100 implemented/released and rely
+on documentation-integrity checks to guard against superseded-roadmap drift,
+stale current-baseline labels, route drift, authority-boundary drift, and
+M101-M150 future-status drift.
 
 ## Release Notes Index
 
-Current release notes: `docs/release_notes/v1_4_0.md`
+Current release notes: `docs/release_notes/v1_4_1.md`
 
 Historical release notes remain under `docs/release_notes/`. Historical docs may mention old active baselines in historical context; they are not the current source of truth.
 

@@ -1,6 +1,6 @@
 # M61-M100 Roadmap
 
-Status: Active roadmap maintained through M100 / v1.4.0.
+Status: Active historical roadmap maintained through M100 / v1.4.0 and reconciled by v1.4.1.
 
 M61 is implemented/released by v0.65.0 as Autonomy Mode Charter + Authority
 Levels. M62 is implemented/released by v0.66.0 as Scoped Autonomy Session
@@ -58,7 +58,7 @@ no kill-switch activation, no session stop, no process kill, no policy
 activation, no autonomous session, no remote execution, no backend route, and
 no dependency, no mobile sensor runtime, no runtime permission prompts, no
 native permission request, no background collection, no push execution, and no
-post-M100 implementation.
+post-M100 implementation. v1.4.1 promotes M101-M150 as planned/provisional only in `docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md`.
 
 | Version | Milestone | Title | Status |
 | --- | --- | --- | --- |

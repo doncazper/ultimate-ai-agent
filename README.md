@@ -12,20 +12,21 @@ allowed to become operational authority.
 
 | Field | Current state |
 |---|---|
-| Current active baseline | **v1.4.0** |
-| Current milestone | **M100 - Mobile Permission Model v1** |
+| Current active baseline | **v1.4.1** |
+| Current milestone | **Post-M100 review + roadmap reconciliation** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **75** OpenAPI paths |
 | Production readiness | Not claimed |
 
-v1.4.0 implements M100 Mobile Permission Model v1. It defines a contract-only
-mobile permission taxonomy, consent model, revocation model, privacy copy
-requirements, permission audit contracts, documentation-integrity checks,
-static verification, tests, and Foundation Gate coverage. It adds no mobile
-sensors, location/camera/photos/microphone access, runtime permission prompts,
-native permission requests, background collection, push execution, backend
-routes, dependencies, M101 work, or production authority.
+v1.4.1 completes the post-M100 full-repository review, hardening, and roadmap
+reconciliation pass. It preserves M100 as implemented/released, reconciles
+completed milestones through M100, promotes M101-M150 as planned/provisional
+roadmap work, and strengthens documentation-integrity, static verifier, test,
+and Foundation Gate currentness coverage. It adds no M101 implementation, no
+mobile sensor runtime, no runtime permission prompts, no native permission
+requests, no background collection, no backend routes, no dependencies, no broad
+autonomy, and no production authority.
 
 v0.29.5 is documentation policy polish. It remains the documentation
 organization cleanup baseline before the M26 and M27 implementation releases.
@@ -38,6 +39,7 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [Current roadmap](docs/canonical/09_roadmap.md)
 - [M34-M60 roadmap supersession](docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md)
 - [M61-M100 roadmap](docs/roadmap/M61_M100_ROADMAP.md)
+- [M101-M150 planned roadmap](docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md)
 - [M63 Autonomy Policy Engine v1](docs/autonomy/AUTONOMY_POLICY_ENGINE_V1.md)
 - [M63 Autonomy Policy Rule Contracts](docs/autonomy/AUTONOMY_POLICY_RULE_CONTRACTS.md)
 - [M64 Autonomous Plan Simulator](docs/autonomy/AUTONOMOUS_PLAN_SIMULATOR.md)
@@ -268,6 +270,8 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [v1.3.0 master plan](docs/archive/releases/v1_3_0/master_plan.md)
 - [v1.4.0 release packet](docs/archive/releases/v1_4_0/README_IMPORT.md)
 - [v1.4.0 master plan](docs/archive/releases/v1_4_0/master_plan.md)
+- [v1.4.1 release packet](docs/archive/releases/v1_4_1/README_IMPORT.md)
+- [v1.4.1 master plan](docs/archive/releases/v1_4_1/master_plan.md)
 
 ## What This Project Is
 

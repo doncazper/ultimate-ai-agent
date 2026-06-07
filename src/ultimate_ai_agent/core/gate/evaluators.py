@@ -3382,6 +3382,9 @@ class FoundationGateEvaluator:
                 self.check_m100_mobile_permission_model_v1_route_boundary
             ),
             "m100_roadmap_currentness": self.check_m100_roadmap_currentness,
+            "post_m100_roadmap_reconciliation": (
+                self.check_post_m100_roadmap_reconciliation
+            ),
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -28867,6 +28870,147 @@ class FoundationGateEvaluator:
         ):
             if fragment in text:
                 failures.append(f"M100 docs imply forbidden/post-M100 capability: {fragment}")
+        return self._result(criterion, failures, required_docs)
+
+    def check_post_m100_roadmap_reconciliation(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        def contains_affirmative_fragment(text: str, fragment: str) -> bool:
+            pattern = re.compile(
+                rf"\b{re.escape(fragment)}\b",
+                re.IGNORECASE,
+            )
+            negation_tokens = {
+                "absence",
+                "absent",
+                "cannot",
+                "cant",
+                "can't",
+                "didnt",
+                "didn't",
+                "doesnt",
+                "doesn't",
+                "dont",
+                "don't",
+                "never",
+                "no",
+                "none",
+                "not",
+                "without",
+            }
+            for match in pattern.finditer(text):
+                prefix = text[max(0, match.start() - 160) : match.start()]
+                tokens = re.findall(r"[a-z0-9']+", prefix.lower())[-8:]
+                if any(token in negation_tokens for token in tokens):
+                    continue
+                compound_negation = tokens[-2:] in (
+                    ["does", "not"],
+                    ["do", "not"],
+                    ["did", "not"],
+                    ["can", "not"],
+                )
+                if len(tokens) >= 2 and compound_negation:
+                    continue
+                return True
+            return False
+
+        required_docs = [
+            "README.md",
+            "VERSION.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/roadmap/README.md",
+            "docs/roadmap/MILESTONE_CHARTERS.md",
+            "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            "docs/reviews/post_m100_full_repository_review_v1_4_1.md",
+            "docs/release_notes/v1_4_1.md",
+        ]
+        failures = [
+            f"missing post-M100 roadmap doc: {path}"
+            for path in required_docs
+            if not (self.root / path).exists()
+        ]
+        text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_docs
+            if (self.root / path).exists()
+        )
+        if "v1.4.1" not in text or "post-m100" not in text:
+            failures.append("active docs do not identify v1.4.1 post-M100 reconciliation")
+        if "m100 remains implemented/released" not in text and "m100 is implemented/released" not in text:
+            failures.append("active docs do not preserve M100 implemented/released status")
+        expected_labels = [
+            ("v1.5.0", "m101", "mobile sensor contract review"),
+            ("v1.6.0", "m102", "location sensor, off by default"),
+            ("v1.7.0", "m103", "camera/photos metadata-only contract"),
+            ("v1.8.0", "m104", "notification planning, no push execution"),
+            ("v1.9.0", "m105", "background task contract, no execution"),
+            ("v1.10.0", "m106", "mobile background read-only status sync"),
+            ("v1.11.0", "m107", "mobile approval renewal ux"),
+            ("v1.12.0", "m108", "mobile kill switch + revocation"),
+            ("v1.13.0", "m109", "mobile sensor audit ledger"),
+            ("v1.14.0", "m110", "mobile sensor hardening freeze"),
+            ("v1.15.0", "m111", "production threat model"),
+            ("v1.16.0", "m112", "user/workspace identity model"),
+            ("v1.17.0", "m113", "secrets boundary + credential vault contract"),
+            ("v1.18.0", "m114", "account connector contract review"),
+            ("v1.19.0", "m115", "production audit retention policy"),
+            ("v1.20.0", "m116", "role-based authority model"),
+            ("v1.21.0", "m117", "remote agent coordination contract"),
+            ("v1.22.0", "m118", "deployment mode matrix"),
+            ("v1.23.0", "m119", "production red-team harness"),
+            ("v1.24.0", "m120", "production authority readiness review"),
+            ("v1.25.0", "m121", "email connector contract refresh"),
+            ("v1.26.0", "m122", "calendar connector contract refresh"),
+            ("v1.27.0", "m123", "contacts connector contract refresh"),
+            ("v1.28.0", "m124", "messages connector contract review"),
+            ("v1.29.0", "m125", "connector read-only runtime"),
+            ("v1.30.0", "m126", "connector approval capture"),
+            ("v1.31.0", "m127", "connector write dry-run planner"),
+            ("v1.32.0", "m128", "connector write execution, low-risk only"),
+            ("v1.33.0", "m129", "connector audit + revocation hardening"),
+            ("v1.34.0", "m130", "connector safety freeze"),
+            ("v1.35.0", "m131", "autonomy mode 4, scoped work session"),
+            ("v1.36.0", "m132", "autonomy mode 5, trusted recurring workflow"),
+            ("v1.37.0", "m133", "long-running task supervisor"),
+            ("v1.38.0", "m134", "human checkpoint scheduling"),
+            ("v1.39.0", "m135", "autonomous recovery planner"),
+            ("v1.40.0", "m136", "cross-tool dependency execution"),
+            ("v1.41.0", "m137", "autonomous browser + connector combined workflows"),
+            ("v1.42.0", "m138", "autonomous error handling guardrails"),
+            ("v1.43.0", "m139", "autonomy abuse/loop detection"),
+            ("v1.44.0", "m140", "higher-autonomy red-team freeze"),
+            ("v1.45.0", "m141", "multi-user product boundary"),
+            ("v1.46.0", "m142", "external beta privacy review"),
+            ("v1.47.0", "m143", "app store / public beta readiness"),
+            ("v1.48.0", "m144", "plugin marketplace policy draft"),
+            ("v1.49.0", "m145", "enterprise/pro safety modes"),
+            ("v1.50.0", "m146", "billing/plan boundary, if needed"),
+            ("v1.51.0", "m147", "public docs + wiki readiness"),
+            ("v1.52.0", "m148", "external security review"),
+            ("v1.53.0", "m149", "release candidate freeze"),
+            ("v1.54.0", "m150", "ultimate ai agent beta 1"),
+        ]
+        for version_label, milestone, title in expected_labels:
+            row = f"| {version_label} | {milestone} | {title} | planned/provisional |"
+            if row not in text:
+                failures.append(
+                    f"M101-M150 roadmap row must be planned/provisional: {version_label} / {milestone.upper()} - {title}"
+                )
+        for fragment in (
+            "mobile sensor runtime is implemented",
+            "production authority is implemented",
+            "broad autonomy is implemented",
+        ):
+            if contains_affirmative_fragment(text, fragment):
+                failures.append(f"post-M100 docs imply forbidden future capability: {fragment}")
+        for version_label, milestone, _title in expected_labels:
+            for fragment in (
+                f"{milestone} is implemented",
+                f"{version_label} implements {milestone}",
+                f"{milestone} has started",
+            ):
+                if contains_affirmative_fragment(text, fragment):
+                    failures.append(f"post-M100 docs imply forbidden future milestone state: {fragment}")
         return self._result(criterion, failures, required_docs)
 
     def check_v0292_local_dev_api_authority_and_preview_safe(

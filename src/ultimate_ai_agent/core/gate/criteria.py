@@ -3662,6 +3662,15 @@ def default_foundation_gate_criteria() -> List[FoundationGateCriterion]:
             "critical",
         ),
         _criterion(
+            "post_m100_roadmap_reconciliation",
+            "Post-M100 Roadmap Reconciliation",
+            FoundationGateCategory.documentation,
+            "FoundationGateEvaluator.check_post_m100_roadmap_reconciliation",
+            "Active roadmap docs mark v1.4.1 as the post-M100 reconciliation baseline, keep M100 implemented/released, and mark M101-M150 planned/provisional only.",
+            "Post-M100 roadmap docs are stale, missing M101-M150 planned labels, or imply M101 implementation or production authority.",
+            "critical",
+        ),
+        _criterion(
             "open_design_governance_docs_present",
             "Open Design Governance Docs Present",
             FoundationGateCategory.documentation,

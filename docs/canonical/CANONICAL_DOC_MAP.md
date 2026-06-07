@@ -1,6 +1,6 @@
 # Canonical Document Map
 
-Current active baseline: **v1.4.0**
+Current active baseline: **v1.4.1**
 
 This map links major systems to their canonical documentation. If a system has both canonical docs and runtime/API docs, canonical docs define principles and sequencing while runtime/API docs define current implementation boundaries.
 
@@ -31,7 +31,7 @@ This map links major systems to their canonical documentation. If a system has b
 | Model Router | `docs/canonical/26_model_routing_strategy.md` |
 | Cost Governor | `docs/canonical/25_cost_and_resource_governor.md` |
 | API Boundary | `docs/api/README.md`, `docs/api/openapi_contract.md`, `docs/api/route_inventory.md` |
-| Roadmap Sequencing | `docs/canonical/09_roadmap.md`, `docs/roadmap/MILESTONE_CHARTERS.md`, `docs/roadmap/NEXT_SEQUENCE_v0_17_5.md`, `docs/roadmap/CAPABILITY_LAYERING_STRATEGY.md`, `docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md`, `docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md`, `docs/roadmap/M61_M100_ROADMAP.md`, `docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md`, `docs/roadmap/ECOSYSTEM_WATCHLIST.md`, `docs/roadmap/STANDARDS_ALIGNMENT_WATCHLIST.md` |
+| Roadmap Sequencing | `docs/canonical/09_roadmap.md`, `docs/roadmap/MILESTONE_CHARTERS.md`, `docs/roadmap/NEXT_SEQUENCE_v0_17_5.md`, `docs/roadmap/CAPABILITY_LAYERING_STRATEGY.md`, `docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md`, `docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md`, `docs/roadmap/M61_M100_ROADMAP.md`, `docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md`, `docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md`, `docs/roadmap/ECOSYSTEM_WATCHLIST.md`, `docs/roadmap/STANDARDS_ALIGNMENT_WATCHLIST.md` |
 | Autonomy Mode Charter | `docs/autonomy/AUTONOMY_MODE_CHARTER.md`, `docs/autonomy/AUTHORITY_LEVELS.md`, `docs/canonical/42_autonomy_levels_and_standing_approvals.md`, `docs/roadmap/M61_M100_ROADMAP.md` |
 | Local Developer Launcher | `docs/developer/LOCAL_LAUNCHER.md`, `scripts/dev/README.md` |
 | Local Prototype Safety Freeze | `docs/prototype/LOCAL_PROTOTYPE_SAFETY_FREEZE.md`, `docs/prototype/LOCAL_PROTOTYPE_BROWSER_SMOKE_REVIEW.md`, `docs/prototype/LOCAL_PROTOTYPE_NO_AUTHORITY_BOUNDARY.md`, `docs/prototype/M41_TO_M42_BOUNDARY.md` |

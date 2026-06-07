@@ -25,7 +25,7 @@ The original foundation sequence established runtime hygiene, local runtime/cont
 
 ## Current accepted baseline
 
-The active accepted baseline is v1.4.0. v1.4.0 implements M100 Mobile Permission Model v1 as contract-only mobile permission taxonomy, consent, revocation, privacy copy, and permission audit contracts with documentation-integrity checks, static verification, tests, and Foundation Gate coverage. It adds no mobile sensors, location/camera/photos/microphone access, runtime permission prompts, native permission requests, background collection, push execution, backend route, dependency, M101 work, broad autonomy, or production authority. v1.3.0 implements M99 Autonomy v1 Safety Freeze. M100 is implemented/released, and post-M100 roadmap promotion requires a separate reviewed prompt.
+The active accepted baseline is v1.4.1. v1.4.1 is the post-M100 full-repository review, hardening, and roadmap reconciliation release. It preserves v1.4.0 / M100 Mobile Permission Model v1 as implemented/released, reconciles completed milestones through M100, promotes M101-M150 as planned/provisional in `docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md`, and strengthens documentation-integrity, static verifier, test, and Foundation Gate currentness coverage. It adds no M101 implementation, mobile sensors, location/camera/photos/microphone access, runtime permission prompts, native permission requests, background collection, push execution, backend route, dependency, broad autonomy, or production authority. v1.3.0 implements M99 Autonomy v1 Safety Freeze. M100 is implemented/released, and M101 remains planned/provisional.
 
 v0.25.0 adds:
 
