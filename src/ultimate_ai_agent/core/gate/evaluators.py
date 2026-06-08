@@ -1433,6 +1433,16 @@ M111_FORBIDDEN_BACKEND_ROUTES = M110_FORBIDDEN_BACKEND_ROUTES + (
     "/production/deploy",
     "/credentials/read",
 )
+EXPECTED_M112_OPENAPI_PATH_COUNT = 75
+M112_FORBIDDEN_BACKEND_ROUTES = M111_FORBIDDEN_BACKEND_ROUTES + (
+    "/identity/user",
+    "/identity/workspace",
+    "/identity/session",
+    "/identity/login",
+    "/identity/persist",
+    "/identity/auth",
+    "/identity/account",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -2802,6 +2812,21 @@ def m111_openapi_route_failures(
     return failures
 
 
+def m112_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M112_OPENAPI_PATH_COUNT
+) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(
+            f"OpenAPI path count changed for M112: expected {expected_path_count}, got {len(path_set)}"
+        )
+    for route in M112_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(f"M112 forbidden identity runtime route present: {route}")
+    return failures
+
+
 M36_SAFE_REF_PREFIXES = {
     "reviewPacketRef": "file-review-packet:",
     "previewResultRef": "redacted-file-preview-output:",
@@ -3777,6 +3802,16 @@ class FoundationGateEvaluator:
                 self.check_m111_production_threat_model_route_boundary
             ),
             "m111_roadmap_currentness": self.check_m111_roadmap_currentness,
+            "m112_user_workspace_identity_contracts": (
+                self.check_m112_user_workspace_identity_contracts
+            ),
+            "m112_user_workspace_identity_static_safety": (
+                self.check_m112_user_workspace_identity_static_safety
+            ),
+            "m112_user_workspace_identity_route_boundary": (
+                self.check_m112_user_workspace_identity_route_boundary
+            ),
+            "m112_roadmap_currentness": self.check_m112_roadmap_currentness,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -29464,6 +29499,12 @@ class FoundationGateEvaluator:
             or "production threat model" in active_version_text
         ):
             implemented_milestones.add("m111")
+        if (
+            "checkpoint m112" in active_version_text
+            or "m112" in active_version_text
+            or "user/workspace identity model" in active_version_text
+        ):
+            implemented_milestones.add("m112")
         for version_label, product_target, milestone, title in expected_labels:
             if milestone in implemented_milestones:
                 continue
@@ -31307,6 +31348,10 @@ class FoundationGateEvaluator:
             "| checkpoint m111 | pre-alpha checkpoint | m111 | "
             "production threat model | implemented/released |"
         )
+        implemented_m112_row = (
+            "| checkpoint m112 | pre-alpha checkpoint | m112 | "
+            "user/workspace identity model | implemented/released |"
+        )
         planned_rows = [
             ("checkpoint m110", "pre-alpha checkpoint", "m110", "mobile sensor hardening freeze"),
             ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
@@ -31321,7 +31366,17 @@ class FoundationGateEvaluator:
                 0,
                 ("checkpoint m109", "pre-alpha checkpoint", "m109", "mobile sensor audit ledger"),
             )
-        if implemented_m111_row in text:
+        if implemented_m112_row in text:
+            planned_rows = [
+                (
+                    "checkpoint m113",
+                    "pre-alpha checkpoint",
+                    "m113",
+                    "secrets boundary + credential vault contract",
+                ),
+                ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ]
+        elif implemented_m111_row in text:
             planned_rows = [
                 ("checkpoint m112", "pre-alpha checkpoint", "m112", "user/workspace identity model"),
                 ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
@@ -31635,6 +31690,10 @@ class FoundationGateEvaluator:
             "| checkpoint m111 | pre-alpha checkpoint | m111 | "
             "production threat model | implemented/released |"
         )
+        implemented_m112_row = (
+            "| checkpoint m112 | pre-alpha checkpoint | m112 | "
+            "user/workspace identity model | implemented/released |"
+        )
         planned_rows = [
             ("checkpoint m110", "pre-alpha checkpoint", "m110", "mobile sensor hardening freeze"),
             ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
@@ -31644,7 +31703,17 @@ class FoundationGateEvaluator:
                 0,
                 ("checkpoint m109", "pre-alpha checkpoint", "m109", "mobile sensor audit ledger"),
             )
-        if implemented_m111_row in text:
+        if implemented_m112_row in text:
+            planned_rows = [
+                (
+                    "checkpoint m113",
+                    "pre-alpha checkpoint",
+                    "m113",
+                    "secrets boundary + credential vault contract",
+                ),
+                ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ]
+        elif implemented_m111_row in text:
             planned_rows = [
                 ("checkpoint m112", "pre-alpha checkpoint", "m112", "user/workspace identity model"),
                 ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
@@ -31943,11 +32012,25 @@ class FoundationGateEvaluator:
             "| checkpoint m111 | pre-alpha checkpoint | m111 | "
             "production threat model | implemented/released |"
         )
+        implemented_m112_row = (
+            "| checkpoint m112 | pre-alpha checkpoint | m112 | "
+            "user/workspace identity model | implemented/released |"
+        )
         planned_rows = [
             ("checkpoint m110", "pre-alpha checkpoint", "m110", "mobile sensor hardening freeze"),
             ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
         ]
-        if implemented_m111_row in text:
+        if implemented_m112_row in text:
+            planned_rows = [
+                (
+                    "checkpoint m113",
+                    "pre-alpha checkpoint",
+                    "m113",
+                    "secrets boundary + credential vault contract",
+                ),
+                ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ]
+        elif implemented_m111_row in text:
             planned_rows = [
                 ("checkpoint m112", "pre-alpha checkpoint", "m112", "user/workspace identity model"),
                 ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
@@ -32582,22 +32665,31 @@ class FoundationGateEvaluator:
             failures.append("active docs do not identify Checkpoint M111 Production Threat Model")
         if "m111 is implemented/released" not in text and "checkpoint m111 is implemented/released" not in text:
             failures.append("active docs do not mark M111 implemented/released")
-        for version_label, product_target, milestone, title in [
-            ("checkpoint m112", "pre-alpha checkpoint", "m112", "user/workspace identity model"),
-            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+        for version_label, product_target, milestone, title, status in [
+            (
+                "checkpoint m112",
+                "pre-alpha checkpoint",
+                "m112",
+                "user/workspace identity model",
+                "implemented/released",
+            ),
+            (
+                "v1.0.0-alpha",
+                "alpha",
+                "m150",
+                "ultimate ai agent v1.0.0-alpha",
+                "planned/provisional",
+            ),
         ]:
             row = (
                 f"| {version_label} | {product_target} | {milestone} | "
-                f"{title} | planned/provisional |"
+                f"{title} | {status} |"
             )
             if row not in text:
                 failures.append(
-                    f"active docs missing planned M112-M150 row: {version_label} / {milestone.upper()} - {title}"
+                    f"active docs missing current M112-M150 row: {version_label} / {milestone.upper()} - {title}"
                 )
         for fragment in (
-            "m112 is implemented",
-            "checkpoint m112 implements m112",
-            "user/workspace identity model is implemented",
             "production runtime is implemented",
             "production authority is implemented",
             "credential handling is implemented",
@@ -32607,6 +32699,325 @@ class FoundationGateEvaluator:
         ):
             if fragment in text:
                 failures.append(f"active docs imply forbidden M111 future/currentness claim: {fragment}")
+        return self._result(criterion, failures, required_docs)
+
+    def check_m112_user_workspace_identity_contracts(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/production_readiness/user_workspace_identity.py",
+            "docs/production/USER_WORKSPACE_IDENTITY_MODEL.md",
+            "docs/production/USER_WORKSPACE_IDENTITY_POLICY.md",
+            "docs/production/USER_WORKSPACE_IDENTITY_AUTHORITY_BOUNDARY.md",
+            "docs/production/USER_WORKSPACE_IDENTITY_RECEIPT_PLAN.md",
+            "docs/production/USER_WORKSPACE_IDENTITY_NON_GOALS.md",
+            "docs/production/M112_TO_M113_BOUNDARY.md",
+            "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            "tests/test_m112_user_workspace_identity_model.py",
+            "tests/test_m112_gate_integration.py",
+        ]
+        failures = [
+            f"missing M112 user/workspace identity file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            sys.path.insert(0, str(self.root))
+            from ultimate_ai_agent.core.mobile_companion import (
+                build_mobile_approval_renewal_ux_report,
+                build_mobile_kill_switch_revocation_record,
+                build_mobile_sensor_audit_ledger_record,
+                build_mobile_sensor_hardening_freeze_record,
+            )
+            from ultimate_ai_agent.core.production_readiness import (
+                UserWorkspaceIdentityStatus,
+                build_production_threat_model_record,
+                build_user_workspace_identity_record,
+                validate_user_workspace_identity_record,
+            )
+
+            source_record = build_production_threat_model_record(
+                source_record=build_mobile_sensor_hardening_freeze_record(
+                    source_record=build_mobile_sensor_audit_ledger_record(
+                        source_record=build_mobile_kill_switch_revocation_record(
+                            source_report=build_mobile_approval_renewal_ux_report()
+                        )
+                    )
+                )
+            )
+            record = build_user_workspace_identity_record(source_record=source_record)
+            if (
+                record.status != UserWorkspaceIdentityStatus.identity_model_contract
+                or not record.contract_only
+                or not record.review_only
+                or not record.safe_refs_required
+                or not record.actor_bound
+                or not record.baseline_bound
+                or not record.source_threat_model_bound
+                or not record.audit_required
+                or not record.replay_safe
+                or record.source_threat_model_ref != source_record.threat_model_ref
+                or record.source_baseline_ref != source_record.source_baseline_ref
+                or record.actor_ref != source_record.actor_ref
+                or not record.user_ref.startswith("user-ref:")
+                or not record.workspace_ref.startswith("workspace-ref:")
+                or not record.identity_boundary_refs
+                or "checkpoint:m111" not in record.accepted_checkpoint_refs
+                or record.production_authority_enabled
+                or record.production_runtime_enabled
+                or record.auth_runtime_enabled
+                or record.login_enabled
+                or record.session_cookie_enabled
+                or record.credential_handling_enabled
+                or record.persistent_identity_store_enabled
+                or record.account_connector_enabled
+                or record.network_access_enabled
+                or record.model_call_enabled
+                or record.memory_write_enabled
+                or record.context_injection_enabled
+                or record.execution_enabled
+                or record.tool_execution_enabled
+                or record.shell_execution_enabled
+                or record.browser_automation_enabled
+                or record.plugin_execution_enabled
+                or record.mobile_sensor_enabled
+                or record.background_worker_enabled
+                or record.remote_execution_enabled
+                or record.backend_route_added
+                or record.control_center_control_added
+                or record.dependency_added
+                or record.side_effects_performed
+                or "M112_USER_WORKSPACE_IDENTITY_MODEL" not in record.reason_codes
+                or "M113_REMAINS_FUTURE" not in record.reason_codes
+            ):
+                failures.append(
+                    "M112 user/workspace identity model is unsafe or over-authoritative"
+                )
+            for update, reason in [
+                ({"review_only": False}, "M112_REVIEW_ONLY_REQUIRED"),
+                ({"production_authority_enabled": True}, "PRODUCTION_AUTHORITY_DENIED"),
+                ({"production_runtime_enabled": True}, "PRODUCTION_RUNTIME_DENIED"),
+                ({"auth_runtime_enabled": True}, "AUTH_RUNTIME_DENIED"),
+                ({"login_enabled": True}, "LOGIN_DENIED"),
+                ({"session_cookie_enabled": True}, "SESSION_COOKIE_DENIED"),
+                ({"credential_handling_enabled": True}, "CREDENTIAL_HANDLING_DENIED"),
+                (
+                    {"persistent_identity_store_enabled": True},
+                    "PERSISTENT_IDENTITY_STORE_DENIED",
+                ),
+                ({"account_connector_enabled": True}, "ACCOUNT_CONNECTOR_DENIED"),
+                ({"network_access_enabled": True}, "NETWORK_ACCESS_DENIED"),
+                ({"model_call_enabled": True}, "MODEL_CALL_DENIED"),
+                ({"memory_write_enabled": True}, "MEMORY_WRITE_DENIED"),
+                ({"context_injection_enabled": True}, "CONTEXT_INJECTION_DENIED"),
+                ({"execution_enabled": True}, "EXECUTION_DENIED"),
+                ({"tool_execution_enabled": True}, "TOOL_EXECUTION_DENIED"),
+                ({"shell_execution_enabled": True}, "SHELL_EXECUTION_DENIED"),
+                ({"browser_automation_enabled": True}, "BROWSER_AUTOMATION_DENIED"),
+                ({"plugin_execution_enabled": True}, "PLUGIN_EXECUTION_DENIED"),
+                ({"mobile_sensor_enabled": True}, "MOBILE_SENSOR_DENIED"),
+                ({"background_worker_enabled": True}, "BACKGROUND_WORKER_DENIED"),
+                ({"remote_execution_enabled": True}, "REMOTE_EXECUTION_DENIED"),
+                ({"dependency_added": True}, "DEPENDENCY_DENIED"),
+            ]:
+                try:
+                    validate_user_workspace_identity_record(
+                        record.model_copy(update=update)
+                    )
+                    failures.append(f"M112 unsafe record mutation was not denied with {reason}")
+                except ValueError as exc:
+                    if reason not in str(exc):
+                        failures.append(f"M112 unsafe record mutation raised {exc!s}")
+        except Exception as exc:
+            failures.append(f"M112 user/workspace identity validation failed: {exc}")
+
+        docs_text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_files
+            if path.startswith("docs/") and (self.root / path).exists()
+        )
+        for fragment in [
+            "user/workspace identity model",
+            "contract-only",
+            "review-only",
+            "safe refs",
+            "user refs",
+            "workspace refs",
+            "identity boundary refs",
+            "production threat model",
+            "actor-bound",
+            "baseline-bound",
+            "source-threat-model-bound",
+            "audit",
+            "replay",
+            "no-effect receipt plan",
+            "no production authority",
+            "no production runtime",
+            "no auth runtime",
+            "no login",
+            "no session cookie",
+            "no credential handling",
+            "no persistent identity store",
+            "no account connector",
+            "no network access",
+            "no model call",
+            "no memory write",
+            "no context injection",
+            "no execution",
+            "no tool execution",
+            "no shell execution",
+            "no browser automation",
+            "no plugin execution",
+            "no mobile sensor",
+            "no background worker",
+            "no remote execution",
+            "no backend route",
+            "no control center control",
+            "no dependency",
+            "m113 remains future",
+            "v1.0.0-alpha",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M112 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m112_user_workspace_identity_static_safety(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        forbidden_source_fragments = [
+            "production_authority_enabled=True",
+            "production_runtime_enabled=True",
+            "auth_runtime_enabled=True",
+            "login_enabled=True",
+            "session_cookie_enabled=True",
+            "credential_handling_enabled=True",
+            "persistent_identity_store_enabled=True",
+            "account_connector_enabled=True",
+            "network_access_enabled=True",
+            "model_call_enabled=True",
+            "memory_write_enabled=True",
+            "context_injection_enabled=True",
+            "execution_enabled=True",
+            "tool_execution_enabled=True",
+            "shell_execution_enabled=True",
+            "browser_automation_enabled=True",
+            "plugin_execution_enabled=True",
+            "mobile_sensor_enabled=True",
+            "background_worker_enabled=True",
+            "remote_execution_enabled=True",
+            "backend_route_enabled=True",
+            "backend_route_added=True",
+            "control_center_control_enabled=True",
+            "control_center_control_added=True",
+            "dependency_added=True",
+        ]
+        allowed_files = {
+            "scripts/verify_all.py",
+            "src/ultimate_ai_agent/core/gate/evaluators.py",
+            "src/ultimate_ai_agent/core/production_readiness/__init__.py",
+            "src/ultimate_ai_agent/core/production_readiness/user_workspace_identity.py",
+            "src/ultimate_ai_agent/core/production_readiness/production_threat_model.py",
+            "src/ultimate_ai_agent/core/mobile_companion/mobile_sensor_hardening_freeze.py",
+            "src/ultimate_ai_agent/core/mobile_companion/mobile_sensor_audit_ledger.py",
+            "src/ultimate_ai_agent/core/mobile_companion/mobile_kill_switch_revocation.py",
+            "src/ultimate_ai_agent/core/mobile_companion/mobile_approval_renewal_ux.py",
+        }
+        for root in [
+            self.root / "src" / "ultimate_ai_agent",
+            self.root / "apps" / "control-center" / "src",
+            self.root / "apps" / "ccc-ios",
+        ]:
+            if not root.exists():
+                continue
+            candidate_files = []
+            for pattern in ("*.py", "*.ts", "*.tsx", "*.js", "*.jsx", "*.swift", "*.yml", "*.yaml"):
+                candidate_files.extend(root.rglob(pattern))
+            for path in sorted(candidate_files):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(self.root).as_posix()
+                if ".test." in rel:
+                    continue
+                if rel in allowed_files:
+                    continue
+                text = path.read_text(encoding="utf-8")
+                for fragment in forbidden_source_fragments:
+                    if fragment in text:
+                        failures.append(
+                            f"M112 forbidden user/workspace identity fragment in {rel}: {fragment}"
+                        )
+        return self._result(criterion, failures, [])
+
+    def check_m112_user_workspace_identity_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m112_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M112 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m112_roadmap_currentness(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_docs = [
+            "README.md",
+            "VERSION.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            "docs/roadmap/MILESTONE_CHARTERS.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+        ]
+        failures = [
+            f"missing M112 roadmap doc: {path}"
+            for path in required_docs
+            if not (self.root / path).exists()
+        ]
+        text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_docs
+            if (self.root / path).exists()
+        )
+        if "checkpoint m112" not in text or "user/workspace identity model" not in text:
+            failures.append("active docs do not identify Checkpoint M112 User/Workspace Identity Model")
+        if "m112 is implemented/released" not in text and "checkpoint m112 is implemented/released" not in text:
+            failures.append("active docs do not mark M112 implemented/released")
+        for version_label, product_target, milestone, title in [
+            (
+                "checkpoint m113",
+                "pre-alpha checkpoint",
+                "m113",
+                "secrets boundary + credential vault contract",
+            ),
+            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+        ]:
+            row = (
+                f"| {version_label} | {product_target} | {milestone} | "
+                f"{title} | planned/provisional |"
+            )
+            if row not in text:
+                failures.append(
+                    f"active docs missing planned M113-M150 row: {version_label} / {milestone.upper()} - {title}"
+                )
+        for fragment in (
+            "m113 is implemented",
+            "checkpoint m113 implements m113",
+            "credential vault contract is implemented",
+            "auth runtime is implemented",
+            "login is implemented",
+            "session cookie is implemented",
+            "credential handling is implemented",
+            "persistent identity store is implemented",
+            "production authority is implemented",
+            "beta is released",
+            "broad autonomy is implemented",
+        ):
+            if fragment in text:
+                failures.append(f"active docs imply forbidden M112 future/currentness claim: {fragment}")
         return self._result(criterion, failures, required_docs)
 
     def check_v0292_local_dev_api_authority_and_preview_safe(

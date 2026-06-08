@@ -1569,6 +1569,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_m109_mobile_sensor_audit_ledger_docs(root, version))
     failures.extend(_verify_m110_mobile_sensor_hardening_freeze_docs(root, version))
     failures.extend(_verify_m111_production_threat_model_docs(root, version))
+    failures.extend(_verify_m112_user_workspace_identity_docs(root, version))
     failures.extend(_verify_m19_roadmap_currentness(root, version))
     failures.extend(_verify_post_m18_roadmap_status_labels(root))
 
@@ -7114,6 +7115,12 @@ def _verify_post_m100_roadmap_reconciliation_docs(root: Path, version: str | Non
         or "production threat model" in version_doc_text
     ):
         implemented_milestones.add("m111")
+    if (
+        "checkpoint m112" in version_doc_text
+        or "m112" in version_doc_text
+        or "user/workspace identity model" in version_doc_text
+    ):
+        implemented_milestones.add("m112")
     for version_label, product_target, milestone, title in EXPECTED_M101_M150_LABELS:
         if milestone in implemented_milestones:
             continue
@@ -8038,7 +8045,21 @@ def _verify_m107_mobile_approval_renewal_ux_docs(
         "| checkpoint m111 | pre-alpha checkpoint | m111 | "
         "production threat model | implemented/released |"
     )
-    if implemented_m111_row in active_text:
+    implemented_m112_row = (
+        "| checkpoint m112 | pre-alpha checkpoint | m112 | "
+        "user/workspace identity model | implemented/released |"
+    )
+    if implemented_m112_row in active_text:
+        planned_rows = [
+            (
+                "checkpoint m113",
+                "pre-alpha checkpoint",
+                "m113",
+                "secrets boundary + credential vault contract",
+            ),
+            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+        ]
+    elif implemented_m111_row in active_text:
         planned_rows = [
             ("checkpoint m112", "pre-alpha checkpoint", "m112", "user/workspace identity model"),
             ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
@@ -8202,7 +8223,21 @@ def _verify_m108_mobile_kill_switch_revocation_docs(
         "| checkpoint m111 | pre-alpha checkpoint | m111 | "
         "production threat model | implemented/released |"
     )
-    if implemented_m111_row in active_text:
+    implemented_m112_row = (
+        "| checkpoint m112 | pre-alpha checkpoint | m112 | "
+        "user/workspace identity model | implemented/released |"
+    )
+    if implemented_m112_row in active_text:
+        planned_rows = [
+            (
+                "checkpoint m113",
+                "pre-alpha checkpoint",
+                "m113",
+                "secrets boundary + credential vault contract",
+            ),
+            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+        ]
+    elif implemented_m111_row in active_text:
         planned_rows = [
             ("checkpoint m112", "pre-alpha checkpoint", "m112", "user/workspace identity model"),
             ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
@@ -8350,7 +8385,21 @@ def _verify_m109_mobile_sensor_audit_ledger_docs(
         "| checkpoint m111 | pre-alpha checkpoint | m111 | "
         "production threat model | implemented/released |"
     )
-    if implemented_m111_row in active_text:
+    implemented_m112_row = (
+        "| checkpoint m112 | pre-alpha checkpoint | m112 | "
+        "user/workspace identity model | implemented/released |"
+    )
+    if implemented_m112_row in active_text:
+        planned_rows = [
+            (
+                "checkpoint m113",
+                "pre-alpha checkpoint",
+                "m113",
+                "secrets boundary + credential vault contract",
+            ),
+            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+        ]
+    elif implemented_m111_row in active_text:
         planned_rows = [
             ("checkpoint m112", "pre-alpha checkpoint", "m112", "user/workspace identity model"),
             ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
@@ -8622,22 +8671,31 @@ def _verify_m111_production_threat_model_docs(
     )
     if implemented_m111_row not in active_text:
         failures.append("active docs missing implemented Checkpoint M111 row")
-    for version_label, product_target, milestone, title in [
-        ("checkpoint m112", "pre-alpha checkpoint", "m112", "user/workspace identity model"),
-        ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+    for version_label, product_target, milestone, title, status in [
+        (
+            "checkpoint m112",
+            "pre-alpha checkpoint",
+            "m112",
+            "user/workspace identity model",
+            "implemented/released",
+        ),
+        (
+            "v1.0.0-alpha",
+            "alpha",
+            "m150",
+            "ultimate ai agent v1.0.0-alpha",
+            "planned/provisional",
+        ),
     ]:
         row = (
             f"| {version_label} | {product_target} | {milestone} | "
-            f"{title} | planned/provisional |"
+            f"{title} | {status} |"
         )
         if row not in active_text:
             failures.append(
-                f"active docs missing planned M112-M150 row: {version_label} / {milestone.upper()} - {title}"
+                f"active docs missing current M112-M150 row: {version_label} / {milestone.upper()} - {title}"
             )
     for fragment in {
-        "m112 is implemented",
-        "checkpoint m112 implements m112",
-        "user/workspace identity model is implemented",
         "production runtime is implemented",
         "credential handling is implemented",
         "deployment is implemented",
@@ -8647,6 +8705,133 @@ def _verify_m111_production_threat_model_docs(
     }:
         if fragment in active_text or fragment in text:
             failures.append(f"M111 docs imply forbidden/future capability: {fragment}")
+    return failures
+
+
+def _verify_m112_user_workspace_identity_docs(
+    root: Path, version: str | None
+) -> list[str]:
+    failures: list[str] = []
+    if _version_tuple(version) < (1, 7, 2):
+        return failures
+    required_paths = [
+        "docs/production/USER_WORKSPACE_IDENTITY_MODEL.md",
+        "docs/production/USER_WORKSPACE_IDENTITY_POLICY.md",
+        "docs/production/USER_WORKSPACE_IDENTITY_AUTHORITY_BOUNDARY.md",
+        "docs/production/USER_WORKSPACE_IDENTITY_RECEIPT_PLAN.md",
+        "docs/production/USER_WORKSPACE_IDENTITY_NON_GOALS.md",
+        "docs/production/M112_TO_M113_BOUNDARY.md",
+        "docs/release_notes/checkpoint_m112.md",
+        "docs/archive/checkpoints/m112/README_IMPORT.md",
+        "docs/archive/checkpoints/m112/master_plan.md",
+        "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+    ]
+    for rel_path in required_paths:
+        if not (root / rel_path).exists():
+            failures.append(f"missing M112 user/workspace identity doc: {rel_path}")
+    text = "\n".join(
+        _read(root / rel_path).lower()
+        for rel_path in required_paths
+        if (root / rel_path).exists()
+    )
+    required_fragments = {
+        "M112 docs must say User/Workspace Identity Model": "user/workspace identity model",
+        "M112 docs must say contract-only": "contract-only",
+        "M112 docs must say review-only": "review-only",
+        "M112 docs must say safe refs": "safe refs",
+        "M112 docs must say user refs": "user refs",
+        "M112 docs must say workspace refs": "workspace refs",
+        "M112 docs must say identity boundary refs": "identity boundary refs",
+        "M112 docs must say Production Threat Model": "production threat model",
+        "M112 docs must say actor-bound": "actor-bound",
+        "M112 docs must say baseline-bound": "baseline-bound",
+        "M112 docs must say source-threat-model-bound": "source-threat-model-bound",
+        "M112 docs must say audit": "audit",
+        "M112 docs must say replay": "replay",
+        "M112 docs must say no-effect receipt plan": "no-effect receipt plan",
+        "M112 docs must deny production authority": "no production authority",
+        "M112 docs must deny production runtime": "no production runtime",
+        "M112 docs must deny auth runtime": "no auth runtime",
+        "M112 docs must deny login": "no login",
+        "M112 docs must deny session cookie": "no session cookie",
+        "M112 docs must deny credential handling": "no credential handling",
+        "M112 docs must deny persistent identity store": "no persistent identity store",
+        "M112 docs must deny account connector": "no account connector",
+        "M112 docs must deny network access": "no network access",
+        "M112 docs must deny model call": "no model call",
+        "M112 docs must deny memory write": "no memory write",
+        "M112 docs must deny context injection": "no context injection",
+        "M112 docs must deny execution": "no execution",
+        "M112 docs must deny tool execution": "no tool execution",
+        "M112 docs must deny shell execution": "no shell execution",
+        "M112 docs must deny browser automation": "no browser automation",
+        "M112 docs must deny plugin execution": "no plugin execution",
+        "M112 docs must deny mobile sensor": "no mobile sensor",
+        "M112 docs must deny background worker": "no background worker",
+        "M112 docs must deny remote execution": "no remote execution",
+        "M112 docs must deny backend route": "no backend route",
+        "M112 docs must deny Control Center control": "no control center control",
+        "M112 docs must deny dependency": "no dependency",
+        "M112 docs must keep M113 future": "m113 remains future",
+        "M112 docs must preserve alpha target": "v1.0.0-alpha",
+    }
+    for message, fragment in required_fragments.items():
+        if fragment not in text:
+            failures.append(message)
+
+    active_paths = [
+        "README.md",
+        "VERSION.md",
+        "docs/canonical/09_roadmap.md",
+        "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+        "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+        "docs/roadmap/MILESTONE_CHARTERS.md",
+        "docs/DOCUMENTATION_INDEX.md",
+        "docs/canonical/CANONICAL_DOC_MAP.md",
+    ]
+    active_text = "\n".join(
+        _read(root / rel_path).lower()
+        for rel_path in active_paths
+        if (root / rel_path).exists()
+    )
+    implemented_m112_row = (
+        "| checkpoint m112 | pre-alpha checkpoint | m112 | "
+        "user/workspace identity model | implemented/released |"
+    )
+    if implemented_m112_row not in active_text:
+        failures.append("active docs missing implemented Checkpoint M112 row")
+    for version_label, product_target, milestone, title in [
+        (
+            "checkpoint m113",
+            "pre-alpha checkpoint",
+            "m113",
+            "secrets boundary + credential vault contract",
+        ),
+        ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+    ]:
+        row = (
+            f"| {version_label} | {product_target} | {milestone} | "
+            f"{title} | planned/provisional |"
+        )
+        if row not in active_text:
+            failures.append(
+                f"active docs missing planned M113-M150 row: {version_label} / {milestone.upper()} - {title}"
+            )
+    for fragment in {
+        "m113 is implemented",
+        "checkpoint m113 implements m113",
+        "credential vault contract is implemented",
+        "auth runtime is implemented",
+        "login is implemented",
+        "session cookie is implemented",
+        "credential handling is implemented",
+        "persistent identity store is implemented",
+        "beta is released",
+        "production authority is implemented",
+        "broad autonomy is implemented",
+    }:
+        if fragment in active_text or fragment in text:
+            failures.append(f"M112 docs imply forbidden/future capability: {fragment}")
     return failures
 
 

@@ -146,6 +146,7 @@ SCAN_SEQUENCE = [
     ("M109 mobile sensor audit ledger scan", "verify_m109_mobile_sensor_audit_ledger"),
     ("M110 mobile sensor hardening freeze scan", "verify_m110_mobile_sensor_hardening_freeze"),
     ("M111 production threat model scan", "verify_m111_production_threat_model"),
+    ("M112 user/workspace identity model scan", "verify_m112_user_workspace_identity_model"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -17561,6 +17562,12 @@ def verify_post_m100_roadmap_reconciliation():
         or "production threat model" in active_version_text
     ):
         implemented_milestones.add("m111")
+    if (
+        "checkpoint m112" in active_version_text
+        or "m112" in active_version_text
+        or "user/workspace identity model" in active_version_text
+    ):
+        implemented_milestones.add("m112")
     for version_label, product_target, milestone, title in expected_labels:
         if milestone in implemented_milestones:
             continue
@@ -19611,6 +19618,194 @@ def verify_m111_production_threat_model():
                 sys.exit(1)
 
     print("OK: M111 production threat model is contract-only, no-runtime, and route-free")
+
+
+def verify_m112_user_workspace_identity_model():
+    print("\n[Verifier] Running M112 user/workspace identity model guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/production_readiness/user_workspace_identity.py",
+        "docs/production/USER_WORKSPACE_IDENTITY_MODEL.md",
+        "docs/production/USER_WORKSPACE_IDENTITY_POLICY.md",
+        "docs/production/USER_WORKSPACE_IDENTITY_AUTHORITY_BOUNDARY.md",
+        "docs/production/USER_WORKSPACE_IDENTITY_RECEIPT_PLAN.md",
+        "docs/production/USER_WORKSPACE_IDENTITY_NON_GOALS.md",
+        "docs/production/M112_TO_M113_BOUNDARY.md",
+        "docs/release_notes/checkpoint_m112.md",
+        "docs/archive/checkpoints/m112/README_IMPORT.md",
+        "docs/archive/checkpoints/m112/master_plan.md",
+        "tests/test_m112_user_workspace_identity_model.py",
+        "tests/test_m112_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M112 user/workspace identity file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = "\n".join(
+        (ROOT / rel_path).read_text(encoding="utf-8").lower()
+        for rel_path in required_files
+        if rel_path.startswith("docs/")
+    )
+    for fragment in [
+        "user/workspace identity model",
+        "contract-only",
+        "review-only",
+        "safe refs",
+        "user refs",
+        "workspace refs",
+        "identity boundary refs",
+        "production threat model",
+        "actor-bound",
+        "baseline-bound",
+        "source-threat-model-bound",
+        "audit",
+        "replay",
+        "no-effect receipt plan",
+        "no production authority",
+        "no production runtime",
+        "no auth runtime",
+        "no login",
+        "no session cookie",
+        "no credential handling",
+        "no persistent identity store",
+        "no account connector",
+        "no network access",
+        "no model call",
+        "no memory write",
+        "no context injection",
+        "no execution",
+        "no tool execution",
+        "no shell execution",
+        "no browser automation",
+        "no plugin execution",
+        "no mobile sensor",
+        "no background worker",
+        "no remote execution",
+        "no backend route",
+        "no control center control",
+        "no dependency",
+        "m113 remains future",
+        "v1.0.0-alpha",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M112 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.evaluators import m112_openapi_route_failures
+        from ultimate_ai_agent.core.mobile_companion import (
+            build_mobile_approval_renewal_ux_report,
+            build_mobile_kill_switch_revocation_record,
+            build_mobile_sensor_audit_ledger_record,
+            build_mobile_sensor_hardening_freeze_record,
+        )
+        from ultimate_ai_agent.core.production_readiness import (
+            UserWorkspaceIdentityStatus,
+            build_production_threat_model_record,
+            build_user_workspace_identity_record,
+            validate_user_workspace_identity_record,
+        )
+    except Exception as exc:
+        print(f"FAIL: M112 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m112_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    source_record = build_production_threat_model_record(
+        source_record=build_mobile_sensor_hardening_freeze_record(
+            source_record=build_mobile_sensor_audit_ledger_record(
+                source_record=build_mobile_kill_switch_revocation_record(
+                    source_report=build_mobile_approval_renewal_ux_report()
+                )
+            )
+        )
+    )
+    record = build_user_workspace_identity_record(source_record=source_record)
+    if (
+        record.status != UserWorkspaceIdentityStatus.identity_model_contract
+        or not record.contract_only
+        or not record.review_only
+        or not record.safe_refs_required
+        or not record.actor_bound
+        or not record.baseline_bound
+        or not record.source_threat_model_bound
+        or not record.user_ref.startswith("user-ref:")
+        or not record.workspace_ref.startswith("workspace-ref:")
+        or not record.identity_boundary_refs
+        or record.source_threat_model_ref != source_record.threat_model_ref
+        or record.source_baseline_ref != source_record.source_baseline_ref
+        or record.actor_ref != source_record.actor_ref
+        or "checkpoint:m111" not in record.accepted_checkpoint_refs
+        or record.production_authority_enabled
+        or record.production_runtime_enabled
+        or record.auth_runtime_enabled
+        or record.login_enabled
+        or record.session_cookie_enabled
+        or record.credential_handling_enabled
+        or record.persistent_identity_store_enabled
+        or record.account_connector_enabled
+        or record.network_access_enabled
+        or record.model_call_enabled
+        or record.memory_write_enabled
+        or record.context_injection_enabled
+        or record.execution_enabled
+        or record.tool_execution_enabled
+        or record.shell_execution_enabled
+        or record.browser_automation_enabled
+        or record.plugin_execution_enabled
+        or record.mobile_sensor_enabled
+        or record.background_worker_enabled
+        or record.remote_execution_enabled
+        or record.backend_route_added
+        or record.control_center_control_added
+        or record.dependency_added
+        or record.side_effects_performed
+        or "M112_USER_WORKSPACE_IDENTITY_MODEL" not in record.reason_codes
+        or "M113_REMAINS_FUTURE" not in record.reason_codes
+    ):
+        print("FAIL: M112 user/workspace identity record is unsafe or over-authoritative")
+        sys.exit(1)
+
+    for update, reason in [
+        ({"review_only": False}, "M112_REVIEW_ONLY_REQUIRED"),
+        ({"production_authority_enabled": True}, "PRODUCTION_AUTHORITY_DENIED"),
+        ({"production_runtime_enabled": True}, "PRODUCTION_RUNTIME_DENIED"),
+        ({"auth_runtime_enabled": True}, "AUTH_RUNTIME_DENIED"),
+        ({"login_enabled": True}, "LOGIN_DENIED"),
+        ({"session_cookie_enabled": True}, "SESSION_COOKIE_DENIED"),
+        ({"credential_handling_enabled": True}, "CREDENTIAL_HANDLING_DENIED"),
+        ({"persistent_identity_store_enabled": True}, "PERSISTENT_IDENTITY_STORE_DENIED"),
+        ({"account_connector_enabled": True}, "ACCOUNT_CONNECTOR_DENIED"),
+        ({"network_access_enabled": True}, "NETWORK_ACCESS_DENIED"),
+        ({"model_call_enabled": True}, "MODEL_CALL_DENIED"),
+        ({"memory_write_enabled": True}, "MEMORY_WRITE_DENIED"),
+        ({"context_injection_enabled": True}, "CONTEXT_INJECTION_DENIED"),
+        ({"execution_enabled": True}, "EXECUTION_DENIED"),
+        ({"tool_execution_enabled": True}, "TOOL_EXECUTION_DENIED"),
+        ({"shell_execution_enabled": True}, "SHELL_EXECUTION_DENIED"),
+        ({"browser_automation_enabled": True}, "BROWSER_AUTOMATION_DENIED"),
+        ({"plugin_execution_enabled": True}, "PLUGIN_EXECUTION_DENIED"),
+        ({"mobile_sensor_enabled": True}, "MOBILE_SENSOR_DENIED"),
+        ({"background_worker_enabled": True}, "BACKGROUND_WORKER_DENIED"),
+        ({"remote_execution_enabled": True}, "REMOTE_EXECUTION_DENIED"),
+        ({"dependency_added": True}, "DEPENDENCY_DENIED"),
+        ({"source_threat_model_ref": "production-threat-model:other"}, "M112_SOURCE_THREAT_MODEL_BINDING_MISMATCH"),
+    ]:
+        try:
+            validate_user_workspace_identity_record(record.model_copy(update=update))
+            print(f"FAIL: M112 mutated authority flag was not denied: {update}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M112 mutated authority flag raised {exc!s}")
+                sys.exit(1)
+
+    print("OK: M112 user/workspace identity is contract-only, no-runtime, and route-free")
 
 
 def verify_local_developer_launcher_safety():

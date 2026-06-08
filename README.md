@@ -13,23 +13,24 @@ allowed to become operational authority.
 | Field | Current state |
 |---|---|
 | Current active baseline | **v1.7.2** |
-| Current milestone | **Checkpoint M111 — Production Threat Model** |
+| Current milestone | **Checkpoint M112 — User/Workspace Identity Model** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **75** OpenAPI paths |
 | Production readiness | Not claimed |
 
-Checkpoint M111 implements Production Threat Model while the current
+Checkpoint M112 implements User/Workspace Identity Model while the current
 product baseline remains v1.7.2. Already-pushed tags remain immutable historical
-internal milestone tags, future M112-M149 conveyor milestones use checkpoint
+internal milestone tags, future M113-M149 conveyor milestones use checkpoint
 labels instead of product SemVer tags, and M150 is the next product release
 target **v1.0.0-alpha**. Beta begins only after the alpha UI and supporting
 safety/product work are reviewed, accepted, and explicitly promoted by a later
-roadmap patch. M111 adds no production authority, production runtime, external
-distribution, deployment, credential handling, network access, model call,
-memory write, context injection, execution, tool execution, shell execution,
-browser automation, plugin execution, mobile sensor, background worker, remote
-execution, backend route, Control Center control, dependency, M112 work, broad
+roadmap patch. M112 adds no production authority, production runtime, auth
+runtime, login, session cookie handling, credential handling, persistent
+identity store, account connector, network access, model call, memory write,
+context injection, execution, tool execution, shell execution, browser
+automation, plugin execution, mobile sensor, background worker, remote
+execution, backend route, Control Center control, dependency, M113 work, broad
 autonomy, beta release, or production authority.
 
 v0.29.5 is documentation policy polish. It remains the documentation
@@ -61,6 +62,7 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M100 Mobile Permission Model v1](docs/mobile/MOBILE_PERMISSION_MODEL_V1.md)
 - [M101 Mobile Sensor Contract Review](docs/mobile/MOBILE_SENSOR_CONTRACT_REVIEW.md)
 - [M102 Location Sensor, Off by Default](docs/mobile/LOCATION_SENSOR_OFF_BY_DEFAULT.md)
+- [M112 User/Workspace Identity Model](docs/production/USER_WORKSPACE_IDENTITY_MODEL.md)
 - [M111 Production Threat Model](docs/production/PRODUCTION_THREAT_MODEL.md)
 - [M110 Mobile Sensor Hardening Freeze](docs/mobile/MOBILE_SENSOR_HARDENING_FREEZE.md)
 - [M109 Mobile Sensor Audit Ledger](docs/mobile/MOBILE_SENSOR_AUDIT_LEDGER.md)

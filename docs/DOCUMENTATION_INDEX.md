@@ -794,15 +794,16 @@ revocation records. M109 is implemented/released as contract-only review-only
 mobile sensor audit ledger records. M110 is implemented/released as
 contract-only review-only freeze-only mobile sensor hardening freeze records.
 M111 is implemented/released as contract-only review-only production threat
-model records. M112-M150 are
+model records. M112 is implemented/released as contract-only review-only
+user/workspace identity model records. M113-M150 are
 planned/provisional only in `docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md`.
-Future M112-M149 conveyor milestones use checkpoint labels instead of product
+Future M113-M149 conveyor milestones use checkpoint labels instead of product
 SemVer tags, and M150 is
 planned as v1.0.0-alpha. Beta begins only after alpha UI and supporting
 safety/product work are reviewed and promoted. Active roadmap sources consistently mark
-M34-M111 implemented/released and rely on documentation-integrity checks to
+M34-M112 implemented/released and rely on documentation-integrity checks to
 guard against superseded-roadmap drift, stale current-baseline labels, route
-drift, authority-boundary drift, alpha/beta versioning drift, and M112-M150
+drift, authority-boundary drift, alpha/beta versioning drift, and M113-M150
 future-status drift.
 
 ## Release Notes Index

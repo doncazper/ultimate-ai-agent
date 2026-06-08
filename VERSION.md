@@ -2,9 +2,9 @@
 
 Current active baseline: **v1.7.2**
 
-Checkpoint M111 is implemented/released as Production Threat Model. The
+Checkpoint M112 is implemented/released as User/Workspace Identity Model. The
 current product baseline remains v1.7.2. Already-pushed tags
-remain immutable historical internal milestone tags. Future M112-M149 conveyor
+remain immutable historical internal milestone tags. Future M113-M149 conveyor
 milestones use checkpoint labels instead of product SemVer tags, and M150 is
 the next product release target **v1.0.0-alpha**. Beta begins only after the
 alpha UI and supporting safety/product work are reviewed, accepted, and
@@ -87,6 +87,16 @@ mobile sensor, no background worker, no remote execution, no backend route, no
 Control Center control, no dependency, no M112 work, no broad autonomy, no beta
 release, and no production authority.
 
-M101, M102, M103, M104, M105, M106, M107, M108, M109, M110, and M111 are implemented/released. M112-M150 are
+Checkpoint M112 adds contract-only review-only user/workspace identity model
+records. It adds no production authority, no production runtime, no auth
+runtime, no login, no session cookie handling, no credential handling, no
+persistent identity store, no account connector, no network access, no model
+call, no memory write, no context injection, no execution, no tool execution,
+no shell execution, no browser automation, no plugin execution, no mobile
+sensor, no background worker, no remote execution, no backend route, no Control
+Center control, no dependency, no M113 work, no broad autonomy, no beta
+release, and no production authority.
+
+M101, M102, M103, M104, M105, M106, M107, M108, M109, M110, M111, and M112 are implemented/released. M113-M150 are
 planned/provisional checkpoint milestones only. M150 is planned as
 v1.0.0-alpha, not beta.
