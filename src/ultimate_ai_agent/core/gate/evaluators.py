@@ -1578,6 +1578,20 @@ M120_FORBIDDEN_BACKEND_ROUTES = M119_FORBIDDEN_BACKEND_ROUTES + (
     "/tools/execute",
     "/network/post",
 )
+EXPECTED_M121_OPENAPI_PATH_COUNT = 75
+M121_FORBIDDEN_BACKEND_ROUTES = M120_FORBIDDEN_BACKEND_ROUTES + (
+    "/connectors/email/auth",
+    "/connectors/email/read",
+    "/connectors/email/search",
+    "/connectors/email/send",
+    "/connectors/email/write",
+    "/connectors/email/delete",
+    "/connectors/email/attachments/download",
+    "/email/send",
+    "/network/post",
+    "/memory/write",
+    "/context/inject",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -3090,6 +3104,23 @@ def m120_openapi_route_failures(
     return failures
 
 
+def m121_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M121_OPENAPI_PATH_COUNT
+) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(
+            f"OpenAPI path count changed for M121: expected {expected_path_count}, got {len(path_set)}"
+        )
+    for route in M121_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(
+                f"M121 forbidden email connector runtime route present: {route}"
+            )
+    return failures
+
+
 M36_SAFE_REF_PREFIXES = {
     "reviewPacketRef": "file-review-packet:",
     "previewResultRef": "redacted-file-preview-output:",
@@ -4155,6 +4186,16 @@ class FoundationGateEvaluator:
                 self.check_m120_production_authority_readiness_review_route_boundary
             ),
             "m120_roadmap_currentness": self.check_m120_roadmap_currentness,
+            "m121_email_connector_contract_refresh_contracts": (
+                self.check_m121_email_connector_contract_refresh_contracts
+            ),
+            "m121_email_connector_contract_refresh_static_safety": (
+                self.check_m121_email_connector_contract_refresh_static_safety
+            ),
+            "m121_email_connector_contract_refresh_route_boundary": (
+                self.check_m121_email_connector_contract_refresh_route_boundary
+            ),
+            "m121_roadmap_currentness": self.check_m121_roadmap_currentness,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -29900,6 +29941,12 @@ class FoundationGateEvaluator:
             or "production authority readiness review" in active_version_text
         ):
             implemented_milestones.add("m120")
+        if (
+            "checkpoint m121" in active_version_text
+            or "m121" in active_version_text
+            or "email connector contract refresh" in active_version_text
+        ):
+            implemented_milestones.add("m121")
         for version_label, product_target, milestone, title in expected_labels:
             if milestone in implemented_milestones:
                 continue
@@ -36702,12 +36749,6 @@ class FoundationGateEvaluator:
         ):
             failures.append("active docs do not mark M120 implemented/released")
         for version_label, product_target, milestone, title in [
-            (
-                "checkpoint m121",
-                "pre-alpha checkpoint",
-                "m121",
-                "email connector contract refresh",
-            ),
             ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
         ]:
             row = (
@@ -36719,9 +36760,6 @@ class FoundationGateEvaluator:
                     f"active docs missing planned M121-M150 row: {version_label} / {milestone.upper()} - {title}"
                 )
         for fragment in (
-            "m121 is implemented",
-            "checkpoint m121 implements m121",
-            "email connector contract refresh is implemented",
             "production authority is implemented",
             "go-live is implemented",
             "production runtime is implemented",
@@ -36735,6 +36773,387 @@ class FoundationGateEvaluator:
             if fragment in text:
                 failures.append(
                     f"active docs imply forbidden M120 future/currentness claim: {fragment}"
+                )
+        return self._result(criterion, failures, required_docs)
+
+    def check_m121_email_connector_contract_refresh_contracts(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/connectors/__init__.py",
+            "src/ultimate_ai_agent/core/connectors/email_connector_contract_refresh.py",
+            "docs/connectors/EMAIL_CONNECTOR_CONTRACT_REFRESH.md",
+            "docs/connectors/EMAIL_CONNECTOR_AUTHORITY_BOUNDARY.md",
+            "docs/connectors/EMAIL_CONNECTOR_RECEIPT_PLAN.md",
+            "docs/connectors/EMAIL_CONNECTOR_NON_GOALS.md",
+            "docs/connectors/M121_TO_M122_BOUNDARY.md",
+            "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            "tests/test_m121_email_connector_contract_refresh.py",
+            "tests/test_m121_gate_integration.py",
+        ]
+        failures = [
+            f"missing M121 email connector refresh file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            sys.path.insert(0, str(self.root))
+            from ultimate_ai_agent.core.connectors import (
+                EmailConnectorContractRefreshStatus,
+                build_email_connector_contract_refresh_record,
+                validate_email_connector_contract_refresh_record,
+            )
+            from ultimate_ai_agent.core.mobile_companion import (
+                build_mobile_approval_renewal_ux_report,
+                build_mobile_kill_switch_revocation_record,
+                build_mobile_sensor_audit_ledger_record,
+                build_mobile_sensor_hardening_freeze_record,
+            )
+            from ultimate_ai_agent.core.production_readiness import (
+                build_account_connector_contract_review_record,
+                build_deployment_mode_matrix_record,
+                build_production_audit_retention_policy_record,
+                build_production_authority_readiness_review_record,
+                build_production_red_team_harness_record,
+                build_production_threat_model_record,
+                build_remote_agent_coordination_contract_record,
+                build_role_based_authority_model_record,
+                build_secrets_boundary_record,
+                build_user_workspace_identity_record,
+            )
+
+            source_record = build_production_authority_readiness_review_record(
+                source_record=build_production_red_team_harness_record(
+                    source_record=build_deployment_mode_matrix_record(
+                        source_record=build_remote_agent_coordination_contract_record(
+                            source_record=build_role_based_authority_model_record(
+                                source_record=build_production_audit_retention_policy_record(
+                                    source_record=build_account_connector_contract_review_record(
+                                        source_record=build_secrets_boundary_record(
+                                            source_record=build_user_workspace_identity_record(
+                                                source_record=build_production_threat_model_record(
+                                                    source_record=build_mobile_sensor_hardening_freeze_record(
+                                                        source_record=build_mobile_sensor_audit_ledger_record(
+                                                            source_record=build_mobile_kill_switch_revocation_record(
+                                                                source_report=build_mobile_approval_renewal_ux_report()
+                                                            )
+                                                        )
+                                                    )
+                                                )
+                                            )
+                                        )
+                                    )
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+            record = build_email_connector_contract_refresh_record(
+                source_record=source_record
+            )
+            if (
+                record.status
+                != EmailConnectorContractRefreshStatus.email_connector_contract_refresh
+                or not record.contract_only
+                or not record.review_only
+                or not record.safe_refs_required
+                or not record.actor_bound
+                or not record.baseline_bound
+                or not record.source_production_authority_readiness_bound
+                or not record.user_bound
+                or not record.workspace_bound
+                or not record.email_scope_bound
+                or not record.mailbox_boundary_bound
+                or not record.consent_boundary_bound
+                or not record.data_classification_bound
+                or not record.retention_boundary_bound
+                or not record.audit_required
+                or not record.replay_safe
+                or record.source_production_authority_readiness_ref
+                != source_record.production_authority_readiness_review_ref
+                or record.source_baseline_ref != source_record.source_baseline_ref
+                or record.actor_ref != source_record.actor_ref
+                or record.user_ref != source_record.user_ref
+                or record.workspace_ref != source_record.workspace_ref
+                or "checkpoint:m120" not in record.accepted_checkpoint_refs
+                or not record.email_scope_refs
+                or not record.mailbox_boundary_refs
+                or not record.consent_boundary_refs
+                or not record.data_classification_refs
+                or not record.retention_boundary_refs
+                or record.email_connector_runtime_enabled
+                or record.email_account_auth_enabled
+                or record.email_read_enabled
+                or record.email_search_enabled
+                or record.email_send_enabled
+                or record.email_write_enabled
+                or record.email_delete_enabled
+                or record.email_attachment_download_enabled
+                or record.raw_email_content_enabled
+                or record.credential_handling_enabled
+                or record.network_access_enabled
+                or record.account_action_enabled
+                or record.model_call_enabled
+                or record.memory_write_enabled
+                or record.context_injection_enabled
+                or record.execution_enabled
+                or record.backend_route_added
+                or record.control_center_control_added
+                or record.dependency_added
+                or record.side_effects_performed
+                or "M121_EMAIL_CONNECTOR_CONTRACT_REFRESH" not in record.reason_codes
+                or "M122_REMAINS_FUTURE" not in record.reason_codes
+            ):
+                failures.append(
+                    "M121 email connector refresh contract is unsafe or over-authoritative"
+                )
+            for update, reason in [
+                ({"review_only": False}, "M121_REVIEW_ONLY_REQUIRED"),
+                ({"email_scope_refs": []}, "M121_EMAIL_SCOPE_REF_REQUIRED"),
+                ({"mailbox_boundary_refs": []}, "M121_MAILBOX_BOUNDARY_REF_REQUIRED"),
+                ({"consent_boundary_refs": []}, "M121_CONSENT_BOUNDARY_REF_REQUIRED"),
+                (
+                    {"email_connector_runtime_enabled": True},
+                    "EMAIL_CONNECTOR_RUNTIME_DENIED",
+                ),
+                ({"email_account_auth_enabled": True}, "EMAIL_ACCOUNT_AUTH_DENIED"),
+                ({"email_read_enabled": True}, "EMAIL_READ_DENIED"),
+                ({"email_send_enabled": True}, "EMAIL_SEND_DENIED"),
+                ({"raw_email_content_enabled": True}, "RAW_EMAIL_CONTENT_DENIED"),
+                ({"credential_handling_enabled": True}, "CREDENTIAL_HANDLING_DENIED"),
+                ({"network_access_enabled": True}, "NETWORK_ACCESS_DENIED"),
+                ({"backend_route_added": True}, "BACKEND_ROUTE_DENIED"),
+                (
+                    {"control_center_control_added": True},
+                    "CONTROL_CENTER_CONTROL_DENIED",
+                ),
+                ({"dependency_added": True}, "DEPENDENCY_DENIED"),
+            ]:
+                try:
+                    validate_email_connector_contract_refresh_record(
+                        record.model_copy(update=update)
+                    )
+                    failures.append(
+                        f"M121 unsafe record mutation was not denied with {reason}"
+                    )
+                except ValueError as exc:
+                    if reason not in str(exc):
+                        failures.append(f"M121 unsafe record mutation raised {exc!s}")
+        except Exception as exc:
+            failures.append(f"M121 email connector refresh validation failed: {exc}")
+
+        docs_text = " ".join(
+            "\n".join(
+                self._read(self.root / path).lower()
+                for path in required_files
+                if path.startswith("docs/") and (self.root / path).exists()
+            ).split()
+        )
+        for fragment in [
+            "email connector contract refresh",
+            "contract-only",
+            "review-only",
+            "safe refs",
+            "production authority readiness review",
+            "email scope refs",
+            "mailbox boundary refs",
+            "consent boundary refs",
+            "data classification refs",
+            "retention boundary refs",
+            "actor-bound",
+            "baseline-bound",
+            "source-production-authority-readiness-bound",
+            "audit",
+            "replay",
+            "no-effect receipt plan",
+            "no email connector runtime",
+            "no email account auth",
+            "no email read",
+            "no email search",
+            "no email send",
+            "no email write",
+            "no email delete",
+            "no raw email content",
+            "no credential handling",
+            "no network access",
+            "no backend route",
+            "no control center control",
+            "no dependency",
+            "m122 remains future",
+            "v1.0.0-alpha",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M121 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m121_email_connector_contract_refresh_static_safety(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        forbidden_source_fragments = [
+            "email_connector_runtime_enabled=True",
+            "email_account_auth_enabled=True",
+            "email_read_enabled=True",
+            "email_search_enabled=True",
+            "email_send_enabled=True",
+            "email_write_enabled=True",
+            "email_delete_enabled=True",
+            "email_attachment_download_enabled=True",
+            "raw_email_content_enabled=True",
+            "credential_handling_enabled=True",
+            "network_access_enabled=True",
+            "account_action_enabled=True",
+            "model_call_enabled=True",
+            "memory_write_enabled=True",
+            "context_injection_enabled=True",
+            "execution_enabled=True",
+            "backend_route_enabled=True",
+            "backend_route_added=True",
+            "control_center_control_enabled=True",
+            "control_center_control_added=True",
+            "dependency_added=True",
+            "/connectors/email/auth",
+            "/connectors/email/read",
+            "/connectors/email/search",
+            "/connectors/email/send",
+            "/connectors/email/write",
+            "/connectors/email/delete",
+            "/connectors/email/attachments/download",
+            "/email/send",
+        ]
+        allowed_files = {
+            "scripts/verify_all.py",
+            "src/ultimate_ai_agent/core/gate/evaluators.py",
+            "src/ultimate_ai_agent/core/connectors/__init__.py",
+            "src/ultimate_ai_agent/core/connectors/email_connector_contract_refresh.py",
+        }
+        for root in [
+            self.root / "src" / "ultimate_ai_agent",
+            self.root / "apps" / "control-center" / "src",
+            self.root / "apps" / "ccc-ios",
+        ]:
+            if not root.exists():
+                continue
+            candidate_files = []
+            for pattern in (
+                "*.py",
+                "*.ts",
+                "*.tsx",
+                "*.js",
+                "*.jsx",
+                "*.swift",
+                "*.yml",
+                "*.yaml",
+            ):
+                candidate_files.extend(root.rglob(pattern))
+            for path in sorted(candidate_files):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(self.root).as_posix()
+                if ".test." in rel:
+                    continue
+                if rel in allowed_files:
+                    continue
+                text = path.read_text(encoding="utf-8")
+                for fragment in forbidden_source_fragments:
+                    if fragment in text:
+                        failures.append(
+                            f"M121 forbidden email connector fragment in {rel}: {fragment}"
+                        )
+        return self._result(criterion, failures, [])
+
+    def check_m121_email_connector_contract_refresh_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m121_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M121 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m121_roadmap_currentness(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_docs = [
+            "README.md",
+            "VERSION.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            "docs/roadmap/MILESTONE_CHARTERS.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+        ]
+        failures = [
+            f"missing M121 roadmap doc: {path}"
+            for path in required_docs
+            if not (self.root / path).exists()
+        ]
+        text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_docs
+            if (self.root / path).exists()
+        )
+        if (
+            "checkpoint m121" not in text
+            or "email connector contract refresh" not in text
+        ):
+            failures.append(
+                "active docs do not identify Checkpoint M121 Email Connector Contract Refresh"
+            )
+        if (
+            "m121 is implemented/released" not in text
+            and "checkpoint m121 is implemented/released" not in text
+        ):
+            failures.append("active docs do not mark M121 implemented/released")
+        for version_label, product_target, milestone, title, status in [
+            (
+                "checkpoint m121",
+                "pre-alpha checkpoint",
+                "m121",
+                "email connector contract refresh",
+                "implemented/released",
+            ),
+            (
+                "checkpoint m122",
+                "pre-alpha checkpoint",
+                "m122",
+                "calendar connector contract refresh",
+                "planned/provisional",
+            ),
+            (
+                "v1.0.0-alpha",
+                "alpha",
+                "m150",
+                "ultimate ai agent v1.0.0-alpha",
+                "planned/provisional",
+            ),
+        ]:
+            row = (
+                f"| {version_label} | {product_target} | {milestone} | "
+                f"{title} | {status} |"
+            )
+            if not _roadmap_row_present(text, row):
+                failures.append(
+                    f"active docs missing expected M121-M150 row: {version_label} / {milestone.upper()} - {title}"
+                )
+        for fragment in (
+            "m122 is implemented",
+            "checkpoint m122 implements m122",
+            "calendar connector contract refresh is implemented",
+            "email connector runtime is implemented",
+            "email account auth is implemented",
+            "email read is implemented",
+            "email send is implemented",
+            "network access is implemented",
+            "beta is released",
+            "broad autonomy is implemented",
+        ):
+            if fragment in text:
+                failures.append(
+                    f"active docs imply forbidden M121 future/currentness claim: {fragment}"
                 )
         return self._result(criterion, failures, required_docs)
 

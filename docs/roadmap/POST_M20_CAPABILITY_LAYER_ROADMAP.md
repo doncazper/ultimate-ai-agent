@@ -194,7 +194,8 @@ Checkpoint M117 is implemented/released as Remote Agent Coordination Contract.
 Checkpoint M118 is implemented/released as Deployment Mode Matrix.
 Checkpoint M119 is implemented/released as Production Red-Team Harness.
 Checkpoint M120 is implemented/released as Production Authority Readiness Review.
-M121-M149
+Checkpoint M121 is implemented/released as Email Connector Contract Refresh.
+M122-M149
 remain planned/provisional as checkpoint milestones instead of product SemVer
 tags, and M150 remains planned/provisional as the v1.0.0-alpha product target.
 Beta begins after the alpha UI and supporting safety/product work are reviewed

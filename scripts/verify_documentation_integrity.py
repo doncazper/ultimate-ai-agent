@@ -1582,6 +1582,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_m118_deployment_mode_matrix_docs(root, version))
     failures.extend(_verify_m119_production_red_team_harness_docs(root, version))
     failures.extend(_verify_m120_production_authority_readiness_docs(root, version))
+    failures.extend(_verify_m121_email_connector_contract_refresh_docs(root, version))
     failures.extend(_verify_m19_roadmap_currentness(root, version))
     failures.extend(_verify_post_m18_roadmap_status_labels(root))
 
@@ -7181,6 +7182,12 @@ def _verify_post_m100_roadmap_reconciliation_docs(root: Path, version: str | Non
         or "production authority readiness review" in version_doc_text
     ):
         implemented_milestones.add("m120")
+    if _version_tuple(version) >= (1, 7, 2) and (
+        "checkpoint m121" in version_doc_text
+        or "m121" in version_doc_text
+        or "email connector contract refresh" in version_doc_text
+    ):
+        implemented_milestones.add("m121")
     for version_label, product_target, milestone, title in EXPECTED_M101_M150_LABELS:
         if milestone in implemented_milestones:
             continue
@@ -10241,16 +10248,7 @@ def _verify_m120_production_authority_readiness_docs(
     )
     if not _roadmap_row_present(current_text, implemented_m120_row):
         failures.append("active docs missing implemented Checkpoint M120 row")
-    planned_m121_row = (
-        "| checkpoint m121 | pre-alpha checkpoint | m121 | "
-        "email connector contract refresh | planned/provisional |"
-    )
-    if not _roadmap_row_present(current_text, planned_m121_row):
-        failures.append("active docs missing planned Checkpoint M121 row")
     for fragment in {
-        "m121 is implemented",
-        "checkpoint m121 implements m121",
-        "email connector contract refresh is implemented",
         "production authority is implemented",
         "production runtime is implemented",
         "go-live is implemented",
@@ -10264,6 +10262,134 @@ def _verify_m120_production_authority_readiness_docs(
     }:
         if fragment in current_text or fragment in text:
             failures.append(f"M120 docs imply forbidden/future capability: {fragment}")
+    return failures
+
+
+def _verify_m121_email_connector_contract_refresh_docs(
+    root: Path, version: str | None
+) -> list[str]:
+    failures: list[str] = []
+    if _version_tuple(version) < (1, 7, 2):
+        return failures
+    active_text = " ".join(
+        "\n".join(
+            _read(root / rel_path).lower()
+            for rel_path in [
+                "README.md",
+                "VERSION.md",
+                "docs/canonical/09_roadmap.md",
+                "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            ]
+            if (root / rel_path).exists()
+        ).split()
+    )
+    if (
+        "checkpoint m121 is implemented/released" not in active_text
+        and "m121 is implemented/released" not in active_text
+    ):
+        return failures
+    required_paths = [
+        "docs/connectors/EMAIL_CONNECTOR_CONTRACT_REFRESH.md",
+        "docs/connectors/EMAIL_CONNECTOR_AUTHORITY_BOUNDARY.md",
+        "docs/connectors/EMAIL_CONNECTOR_RECEIPT_PLAN.md",
+        "docs/connectors/EMAIL_CONNECTOR_NON_GOALS.md",
+        "docs/connectors/M121_TO_M122_BOUNDARY.md",
+        "docs/release_notes/checkpoint_m121.md",
+        "docs/archive/checkpoints/m121/README_IMPORT.md",
+        "docs/archive/checkpoints/m121/master_plan.md",
+        "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+    ]
+    for rel_path in required_paths:
+        if not (root / rel_path).exists():
+            failures.append(f"missing M121 email connector doc: {rel_path}")
+    text = " ".join(
+        "\n".join(
+            _read(root / rel_path).lower()
+            for rel_path in required_paths
+            if (root / rel_path).exists()
+        ).split()
+    )
+    required_fragments = {
+        "M121 docs must say email connector contract refresh": "email connector contract refresh",
+        "M121 docs must say contract-only": "contract-only",
+        "M121 docs must say review-only": "review-only",
+        "M121 docs must say safe refs": "safe refs",
+        "M121 docs must say production authority readiness review": "production authority readiness review",
+        "M121 docs must say email scope refs": "email scope refs",
+        "M121 docs must say mailbox boundary refs": "mailbox boundary refs",
+        "M121 docs must say consent boundary refs": "consent boundary refs",
+        "M121 docs must say data classification refs": "data classification refs",
+        "M121 docs must say retention boundary refs": "retention boundary refs",
+        "M121 docs must say actor-bound": "actor-bound",
+        "M121 docs must say baseline-bound": "baseline-bound",
+        "M121 docs must say source-production-authority-readiness-bound": "source-production-authority-readiness-bound",
+        "M121 docs must say audit": "audit",
+        "M121 docs must say replay": "replay",
+        "M121 docs must say no-effect receipt plan": "no-effect receipt plan",
+        "M121 docs must deny email connector runtime": "no email connector runtime",
+        "M121 docs must deny email account auth": "no email account auth",
+        "M121 docs must deny email read": "no email read",
+        "M121 docs must deny email search": "no email search",
+        "M121 docs must deny email send": "no email send",
+        "M121 docs must deny email write": "no email write",
+        "M121 docs must deny email delete": "no email delete",
+        "M121 docs must deny raw email content": "no raw email content",
+        "M121 docs must deny credential handling": "no credential handling",
+        "M121 docs must deny network access": "no network access",
+        "M121 docs must deny backend route": "no backend route",
+        "M121 docs must deny Control Center control": "no control center control",
+        "M121 docs must deny dependency": "no dependency",
+        "M121 docs must keep M122 future": "m122 remains future",
+        "M121 docs must preserve alpha target": "v1.0.0-alpha",
+    }
+    for message, fragment in required_fragments.items():
+        if fragment not in text:
+            failures.append(message)
+    active_paths = [
+        "README.md",
+        "VERSION.md",
+        "docs/canonical/09_roadmap.md",
+        "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+        "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+        "docs/roadmap/MILESTONE_CHARTERS.md",
+        "docs/DOCUMENTATION_INDEX.md",
+        "docs/canonical/CANONICAL_DOC_MAP.md",
+    ]
+    current_text = " ".join(
+        "\n".join(
+            _read(root / rel_path).lower()
+            for rel_path in active_paths
+            if (root / rel_path).exists()
+        ).split()
+    )
+    implemented_m121_row = (
+        "| checkpoint m121 | pre-alpha checkpoint | m121 | "
+        "email connector contract refresh | implemented/released |"
+    )
+    planned_m122_row = (
+        "| checkpoint m122 | pre-alpha checkpoint | m122 | "
+        "calendar connector contract refresh | planned/provisional |"
+    )
+    if not _roadmap_row_present(current_text, implemented_m121_row):
+        failures.append("active docs missing implemented Checkpoint M121 row")
+    if not _roadmap_row_present(current_text, planned_m122_row):
+        failures.append("active docs missing planned Checkpoint M122 row")
+    for fragment in {
+        "m122 is implemented",
+        "checkpoint m122 implements m122",
+        "calendar connector contract refresh is implemented",
+        "email connector runtime is implemented",
+        "email account auth is implemented",
+        "email read is implemented",
+        "email send is implemented",
+        "network access is implemented",
+        "credential handling is implemented",
+        "account action is implemented",
+        "beta is released",
+        "broad autonomy is implemented",
+    }:
+        if fragment in current_text or fragment in text:
+            failures.append(f"M121 docs imply forbidden/future capability: {fragment}")
     return failures
 
 

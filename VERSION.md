@@ -2,9 +2,9 @@
 
 Current active baseline: **v1.7.2**
 
-Checkpoint M120 is implemented/released as Production Authority Readiness Review.
+Checkpoint M121 is implemented/released as Email Connector Contract Refresh.
 The current product baseline remains v1.7.2. Already-pushed tags
-remain immutable historical internal milestone tags. Future M121-M149 conveyor
+remain immutable historical internal milestone tags. Future M122-M149 conveyor
 milestones use checkpoint labels instead of product SemVer tags, and M150 is
 the next product release target **v1.0.0-alpha**. Beta begins only after the
 alpha UI and supporting safety/product work are reviewed, accepted, and
@@ -180,6 +180,15 @@ execution, no shell execution, no browser automation, no plugin execution, no
 mobile sensor, no backend route, no Control Center control, no dependency, no
 M121 work, no broad autonomy, no beta release, and no production authority.
 
-M101, M102, M103, M104, M105, M106, M107, M108, M109, M110, M111, M112, M113, M114, M115, M116, M117, M118, M119, and M120 are implemented/released. M121-M150 are
+Checkpoint M121 adds contract-only review-only email connector contract refresh
+records. It adds no email connector runtime, no email account auth, no email
+read, no email search, no email send, no email write, no email delete, no raw
+email content, no attachment download, no credential handling, no network
+access, no account action, no model call, no memory write, no context
+injection, no execution, no backend route, no Control Center control, no
+dependency, no M122 work, no broad autonomy, no beta release, and no production
+authority.
+
+M101, M102, M103, M104, M105, M106, M107, M108, M109, M110, M111, M112, M113, M114, M115, M116, M117, M118, M119, M120, and M121 are implemented/released. M122-M150 are
 planned/provisional checkpoint milestones only. M150 is planned as
 v1.0.0-alpha, not beta.
