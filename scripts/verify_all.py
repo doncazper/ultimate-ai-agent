@@ -140,6 +140,7 @@ SCAN_SEQUENCE = [
     ("M103 camera/photos metadata-only scan", "verify_m103_camera_photos_metadata_only"),
     ("M104 notification planning no-push scan", "verify_m104_notification_planning_no_push"),
     ("M105 background task contract no-execution scan", "verify_m105_background_task_contract_no_execution"),
+    ("M106 mobile background read-only status sync scan", "verify_m106_mobile_background_read_only_status_sync"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -17519,6 +17520,12 @@ def verify_post_m100_roadmap_reconciliation():
         or "background task contract, no execution" in active_version_text
     ):
         implemented_milestones.add("m105")
+    if (
+        "checkpoint m106" in active_version_text
+        or "m106" in active_version_text
+        or "mobile background read-only status sync" in active_version_text
+    ):
+        implemented_milestones.add("m106")
     for version_label, product_target, milestone, title in expected_labels:
         if milestone in implemented_milestones:
             continue
@@ -18405,6 +18412,174 @@ def verify_m105_background_task_contract_no_execution():
             sys.exit(1)
 
     print("OK: M105 background task contract is contract-only, no-execution, and route-free")
+
+
+def verify_m106_mobile_background_read_only_status_sync():
+    print("\n[Verifier] Running M106 mobile background read-only status sync guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/mobile_companion/mobile_background_read_only_status_sync.py",
+        "docs/mobile/MOBILE_BACKGROUND_READ_ONLY_STATUS_SYNC.md",
+        "docs/mobile/MOBILE_BACKGROUND_READ_ONLY_STATUS_SYNC_POLICY.md",
+        "docs/mobile/MOBILE_BACKGROUND_READ_ONLY_STATUS_SYNC_AUTHORITY_BOUNDARY.md",
+        "docs/mobile/MOBILE_BACKGROUND_READ_ONLY_STATUS_SYNC_RECEIPT_PLAN.md",
+        "docs/mobile/MOBILE_BACKGROUND_READ_ONLY_STATUS_SYNC_NON_GOALS.md",
+        "docs/mobile/M106_TO_M107_BOUNDARY.md",
+        "docs/release_notes/checkpoint_m106.md",
+        "docs/archive/checkpoints/m106/README_IMPORT.md",
+        "docs/archive/checkpoints/m106/master_plan.md",
+        "tests/test_m106_mobile_background_read_only_status_sync.py",
+        "tests/test_m106_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M106 background status sync file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = "\n".join(
+        (ROOT / rel_path).read_text(encoding="utf-8").lower()
+        for rel_path in required_files
+        if rel_path.startswith("docs/")
+    )
+    for fragment in [
+        "mobile background read-only status sync",
+        "contract-only",
+        "read-only",
+        "safe refs",
+        "safe status refs",
+        "safe status summaries",
+        "safe observed-at refs",
+        "audit",
+        "no background collection",
+        "no background execution",
+        "no background worker",
+        "no scheduler",
+        "no daemon",
+        "no os background fetch",
+        "no os background permission prompt",
+        "no push trigger",
+        "no device token handling",
+        "no external service",
+        "no network sync",
+        "no raw status payload",
+        "no backend route",
+        "no control center control",
+        "no dependency",
+        "no production authority",
+        "m107 remains future",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M106 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.evaluators import m106_openapi_route_failures
+        from ultimate_ai_agent.core.mobile_companion import (
+            MobileBackgroundStatusSyncStatus,
+            build_mobile_background_read_only_status_sync_report,
+            validate_mobile_background_status_sync_report,
+        )
+    except Exception as exc:
+        print(f"FAIL: M106 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m106_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    report = build_mobile_background_read_only_status_sync_report()
+    if (
+        report.status != MobileBackgroundStatusSyncStatus.read_only_contract
+        or not report.contract_only
+        or not report.read_only
+        or not report.safe_refs_required
+        or not report.no_background_collection
+        or not report.no_background_execution
+        or report.background_worker_enabled
+        or report.scheduler_enabled
+        or report.daemon_enabled
+        or report.os_background_fetch_enabled
+        or report.os_background_permission_prompt_enabled
+        or report.push_trigger_enabled
+        or report.device_token_handling_enabled
+        or report.external_service_enabled
+        or report.network_sync_enabled
+        or report.raw_status_payload_enabled
+        or report.backend_route_added
+        or report.control_center_control_added
+        or report.dependency_added
+        or report.production_authority_enabled
+        or report.side_effects_performed
+        or "M106_MOBILE_BACKGROUND_READ_ONLY_STATUS_SYNC" not in report.reason_codes
+        or "M107_REMAINS_FUTURE" not in report.reason_codes
+    ):
+        print("FAIL: M106 background status sync report is unsafe or over-authoritative")
+        sys.exit(1)
+
+    for update, reason in [
+        ({"background_worker_enabled": True}, "BACKGROUND_WORKER_DENIED"),
+        ({"scheduler_enabled": True}, "SCHEDULER_DENIED"),
+        ({"daemon_enabled": True}, "DAEMON_DENIED"),
+        ({"os_background_fetch_enabled": True}, "OS_BACKGROUND_FETCH_DENIED"),
+        ({"push_trigger_enabled": True}, "PUSH_TRIGGER_DENIED"),
+        ({"network_sync_enabled": True}, "NETWORK_SYNC_DENIED"),
+        ({"raw_status_payload_enabled": True}, "RAW_STATUS_PAYLOAD_DENIED"),
+        ({"execution_enabled": True}, "EXECUTION_DENIED"),
+        ({"production_authority_enabled": True}, "PRODUCTION_AUTHORITY_DENIED"),
+    ]:
+        try:
+            validate_mobile_background_status_sync_report(report.model_copy(update=update))
+            print(f"FAIL: M106 mutated authority flag was not denied: {update}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M106 mutated authority flag raised {exc!s}")
+                sys.exit(1)
+
+    allowed_scan_files = {
+        "scripts/verify_all.py",
+        "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/mobile_companion/__init__.py",
+        "src/ultimate_ai_agent/core/mobile_companion/background_task_contract_no_execution.py",
+        "src/ultimate_ai_agent/core/mobile_companion/mobile_background_read_only_status_sync.py",
+    }
+    source_text = "\n".join(
+        path.read_text(encoding="utf-8")
+        for root in [
+            ROOT / "src" / "ultimate_ai_agent",
+            ROOT / "apps" / "control-center" / "src",
+            ROOT / "apps" / "ccc-ios",
+        ]
+        if root.exists()
+        for path in root.rglob("*")
+        if path.is_file()
+        and path.suffix in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}
+        and path.relative_to(ROOT).as_posix() not in allowed_scan_files
+    )
+    for fragment in [
+        "background_worker_enabled=True",
+        "scheduler_enabled=True",
+        "daemon_enabled=True",
+        "os_background_fetch_enabled=True",
+        "os_background_permission_prompt_enabled=True",
+        "push_trigger_enabled=True",
+        "device_token_handling_enabled=True",
+        "external_service_enabled=True",
+        "network_sync_enabled=True",
+        "raw_status_payload_enabled=True",
+        "backend_route_enabled=True",
+        "backend_route_added=True",
+        "control_center_control_enabled=True",
+        "control_center_control_added=True",
+        "production_authority_enabled=True",
+    ]:
+        if fragment in source_text:
+            print(f"FAIL: M106 forbidden source fragment present: {fragment}")
+            sys.exit(1)
+
+    print("OK: M106 background status sync is read-only, no-runtime, and route-free")
 
 
 def verify_local_developer_launcher_safety():
