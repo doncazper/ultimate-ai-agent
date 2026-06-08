@@ -1,6 +1,6 @@
 # M101-M150 Capability Charters
 
-Status: Active roadmap maintained through Checkpoint M121 after the accepted
+Status: Active roadmap maintained through Checkpoint M122 after the accepted
 v1.7.2 post-M103 versioning repair follow-up.
 
 M101 is implemented/released as Mobile Sensor Contract Review. M102 is
@@ -24,7 +24,8 @@ Agent Coordination Contract. Checkpoint M118 is implemented/released as
 Deployment Mode Matrix. Checkpoint M119 is implemented/released as Production
 Red-Team Harness. Checkpoint M120 is implemented/released as Production
 Authority Readiness Review. Checkpoint M121 is implemented/released as Email
-Connector Contract Refresh. M122-M150 remain planned/provisional.
+Connector Contract Refresh. Checkpoint M122 is implemented/released as Calendar
+Connector Contract Refresh. M123-M150 remain planned/provisional.
 Future work must continue the authority-tier model:
 
 Capability exists -> disabled by default -> dry-run first -> limited allowlist
@@ -69,7 +70,7 @@ roadmap patch. Do not rewrite, move, or reuse existing tags.
 | Checkpoint M119 | pre-alpha checkpoint | M119 | Production Red-Team Harness | Implemented/released |
 | Checkpoint M120 | pre-alpha checkpoint | M120 | Production Authority Readiness Review | Implemented/released |
 | Checkpoint M121 | pre-alpha checkpoint | M121 | Email Connector Contract Refresh | Implemented/released |
-| Checkpoint M122 | pre-alpha checkpoint | M122 | Calendar Connector Contract Refresh | Planned/provisional |
+| Checkpoint M122 | pre-alpha checkpoint | M122 | Calendar Connector Contract Refresh | Implemented/released |
 | Checkpoint M123 | pre-alpha checkpoint | M123 | Contacts Connector Contract Refresh | Planned/provisional |
 | Checkpoint M124 | pre-alpha checkpoint | M124 | Messages Connector Contract Review | Planned/provisional |
 | Checkpoint M125 | pre-alpha checkpoint | M125 | Connector Read-Only Runtime | Planned/provisional |

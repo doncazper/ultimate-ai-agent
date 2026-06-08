@@ -46,8 +46,8 @@ def test_post_m100_documentation_integrity_guard_rejects_missing_row_status(
     roadmap = tmp_path / "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md"
     roadmap.write_text(
         roadmap.read_text(encoding="utf-8").replace(
-            "| Checkpoint M122 | pre-alpha checkpoint | M122 | Calendar Connector Contract Refresh | Planned/provisional |",
-            "| Checkpoint M122 | pre-alpha checkpoint | M122 | Calendar Connector Contract Refresh | Deferred |",
+            "| Checkpoint M123 | pre-alpha checkpoint | M123 | Contacts Connector Contract Refresh | Planned/provisional |",
+            "| Checkpoint M123 | pre-alpha checkpoint | M123 | Contacts Connector Contract Refresh | Deferred |",
         ),
         encoding="utf-8",
     )

@@ -1592,6 +1592,21 @@ M121_FORBIDDEN_BACKEND_ROUTES = M120_FORBIDDEN_BACKEND_ROUTES + (
     "/memory/write",
     "/context/inject",
 )
+EXPECTED_M122_OPENAPI_PATH_COUNT = 75
+M122_FORBIDDEN_BACKEND_ROUTES = M121_FORBIDDEN_BACKEND_ROUTES + (
+    "/connectors/calendar/auth",
+    "/connectors/calendar/read",
+    "/connectors/calendar/search",
+    "/connectors/calendar/events/create",
+    "/connectors/calendar/events/update",
+    "/connectors/calendar/events/delete",
+    "/connectors/calendar/invites/send",
+    "/connectors/calendar/attachments/download",
+    "/calendar/events/create",
+    "/network/post",
+    "/memory/write",
+    "/context/inject",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -3121,6 +3136,23 @@ def m121_openapi_route_failures(
     return failures
 
 
+def m122_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M122_OPENAPI_PATH_COUNT
+) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(
+            f"OpenAPI path count changed for M122: expected {expected_path_count}, got {len(path_set)}"
+        )
+    for route in M122_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(
+                f"M122 forbidden calendar connector runtime route present: {route}"
+            )
+    return failures
+
+
 M36_SAFE_REF_PREFIXES = {
     "reviewPacketRef": "file-review-packet:",
     "previewResultRef": "redacted-file-preview-output:",
@@ -4196,6 +4228,16 @@ class FoundationGateEvaluator:
                 self.check_m121_email_connector_contract_refresh_route_boundary
             ),
             "m121_roadmap_currentness": self.check_m121_roadmap_currentness,
+            "m122_calendar_connector_contract_refresh_contracts": (
+                self.check_m122_calendar_connector_contract_refresh_contracts
+            ),
+            "m122_calendar_connector_contract_refresh_static_safety": (
+                self.check_m122_calendar_connector_contract_refresh_static_safety
+            ),
+            "m122_calendar_connector_contract_refresh_route_boundary": (
+                self.check_m122_calendar_connector_contract_refresh_route_boundary
+            ),
+            "m122_roadmap_currentness": self.check_m122_roadmap_currentness,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -29947,6 +29989,12 @@ class FoundationGateEvaluator:
             or "email connector contract refresh" in active_version_text
         ):
             implemented_milestones.add("m121")
+        if (
+            "checkpoint m122" in active_version_text
+            or "m122" in active_version_text
+            or "calendar connector contract refresh" in active_version_text
+        ):
+            implemented_milestones.add("m122")
         for version_label, product_target, milestone, title in expected_labels:
             if milestone in implemented_milestones:
                 continue
@@ -37135,11 +37183,17 @@ class FoundationGateEvaluator:
                 f"| {version_label} | {product_target} | {milestone} | "
                 f"{title} | {status} |"
             )
+            m122_is_current = (
+                "checkpoint m122 is implemented/released" in text
+                or "m122 is implemented/released" in text
+            )
+            if milestone == "m122" and m122_is_current:
+                continue
             if not _roadmap_row_present(text, row):
                 failures.append(
                     f"active docs missing expected M121-M150 row: {version_label} / {milestone.upper()} - {title}"
                 )
-        for fragment in (
+        forbidden_fragments = {
             "m122 is implemented",
             "checkpoint m122 implements m122",
             "calendar connector contract refresh is implemented",
@@ -37150,10 +37204,414 @@ class FoundationGateEvaluator:
             "network access is implemented",
             "beta is released",
             "broad autonomy is implemented",
+        }
+        if (
+            "checkpoint m122 is implemented/released" in text
+            or "m122 is implemented/released" in text
         ):
+            forbidden_fragments -= {
+                "m122 is implemented",
+                "calendar connector contract refresh is implemented",
+            }
+        for fragment in forbidden_fragments:
             if fragment in text:
                 failures.append(
                     f"active docs imply forbidden M121 future/currentness claim: {fragment}"
+                )
+        return self._result(criterion, failures, required_docs)
+
+    def check_m122_calendar_connector_contract_refresh_contracts(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/connectors/__init__.py",
+            "src/ultimate_ai_agent/core/connectors/calendar_connector_contract_refresh.py",
+            "docs/connectors/CALENDAR_CONNECTOR_CONTRACT_REFRESH.md",
+            "docs/connectors/CALENDAR_CONNECTOR_AUTHORITY_BOUNDARY.md",
+            "docs/connectors/CALENDAR_CONNECTOR_RECEIPT_PLAN.md",
+            "docs/connectors/CALENDAR_CONNECTOR_NON_GOALS.md",
+            "docs/connectors/M122_TO_M123_BOUNDARY.md",
+            "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            "tests/test_m122_calendar_connector_contract_refresh.py",
+            "tests/test_m122_gate_integration.py",
+        ]
+        failures = [
+            f"missing M122 calendar connector refresh file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            sys.path.insert(0, str(self.root))
+            from ultimate_ai_agent.core.connectors import (
+                CalendarConnectorContractRefreshStatus,
+                build_calendar_connector_contract_refresh_record,
+                build_email_connector_contract_refresh_record,
+                validate_calendar_connector_contract_refresh_record,
+            )
+            from ultimate_ai_agent.core.mobile_companion import (
+                build_mobile_approval_renewal_ux_report,
+                build_mobile_kill_switch_revocation_record,
+                build_mobile_sensor_audit_ledger_record,
+                build_mobile_sensor_hardening_freeze_record,
+            )
+            from ultimate_ai_agent.core.production_readiness import (
+                build_account_connector_contract_review_record,
+                build_deployment_mode_matrix_record,
+                build_production_audit_retention_policy_record,
+                build_production_authority_readiness_review_record,
+                build_production_red_team_harness_record,
+                build_production_threat_model_record,
+                build_remote_agent_coordination_contract_record,
+                build_role_based_authority_model_record,
+                build_secrets_boundary_record,
+                build_user_workspace_identity_record,
+            )
+
+            m120_record = build_production_authority_readiness_review_record(
+                source_record=build_production_red_team_harness_record(
+                    source_record=build_deployment_mode_matrix_record(
+                        source_record=build_remote_agent_coordination_contract_record(
+                            source_record=build_role_based_authority_model_record(
+                                source_record=build_production_audit_retention_policy_record(
+                                    source_record=build_account_connector_contract_review_record(
+                                        source_record=build_secrets_boundary_record(
+                                            source_record=build_user_workspace_identity_record(
+                                                source_record=build_production_threat_model_record(
+                                                    source_record=build_mobile_sensor_hardening_freeze_record(
+                                                        source_record=build_mobile_sensor_audit_ledger_record(
+                                                            source_record=build_mobile_kill_switch_revocation_record(
+                                                                source_report=build_mobile_approval_renewal_ux_report()
+                                                            )
+                                                        )
+                                                    )
+                                                )
+                                            )
+                                        )
+                                    )
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+            source_record = build_email_connector_contract_refresh_record(
+                source_record=m120_record
+            )
+            record = build_calendar_connector_contract_refresh_record(
+                source_record=source_record
+            )
+            if (
+                record.status
+                != CalendarConnectorContractRefreshStatus.calendar_connector_contract_refresh
+                or not record.contract_only
+                or not record.review_only
+                or not record.safe_refs_required
+                or not record.actor_bound
+                or not record.baseline_bound
+                or not record.source_email_connector_contract_refresh_bound
+                or not record.user_bound
+                or not record.workspace_bound
+                or not record.calendar_scope_bound
+                or not record.calendar_boundary_bound
+                or not record.event_boundary_bound
+                or not record.consent_boundary_bound
+                or not record.data_classification_bound
+                or not record.retention_boundary_bound
+                or not record.audit_required
+                or not record.replay_safe
+                or record.source_email_connector_contract_refresh_ref
+                != source_record.email_connector_contract_refresh_ref
+                or record.source_baseline_ref != source_record.source_baseline_ref
+                or record.actor_ref != source_record.actor_ref
+                or record.user_ref != source_record.user_ref
+                or record.workspace_ref != source_record.workspace_ref
+                or "checkpoint:m121" not in record.accepted_checkpoint_refs
+                or not record.calendar_scope_refs
+                or not record.calendar_boundary_refs
+                or not record.event_boundary_refs
+                or not record.consent_boundary_refs
+                or not record.data_classification_refs
+                or not record.retention_boundary_refs
+                or record.calendar_connector_runtime_enabled
+                or record.calendar_account_auth_enabled
+                or record.calendar_read_enabled
+                or record.calendar_search_enabled
+                or record.calendar_event_create_enabled
+                or record.calendar_event_update_enabled
+                or record.calendar_event_delete_enabled
+                or record.calendar_invite_send_enabled
+                or record.calendar_attachment_download_enabled
+                or record.raw_calendar_content_enabled
+                or record.credential_handling_enabled
+                or record.network_access_enabled
+                or record.account_action_enabled
+                or record.model_call_enabled
+                or record.memory_write_enabled
+                or record.context_injection_enabled
+                or record.execution_enabled
+                or record.backend_route_added
+                or record.control_center_control_added
+                or record.dependency_added
+                or record.side_effects_performed
+                or "M122_CALENDAR_CONNECTOR_CONTRACT_REFRESH" not in record.reason_codes
+                or "M123_REMAINS_FUTURE" not in record.reason_codes
+            ):
+                failures.append(
+                    "M122 calendar connector refresh contract is unsafe or over-authoritative"
+                )
+            for update, reason in [
+                ({"review_only": False}, "M122_REVIEW_ONLY_REQUIRED"),
+                ({"calendar_scope_refs": []}, "M122_CALENDAR_SCOPE_REF_REQUIRED"),
+                ({"calendar_boundary_refs": []}, "M122_CALENDAR_BOUNDARY_REF_REQUIRED"),
+                ({"event_boundary_refs": []}, "M122_EVENT_BOUNDARY_REF_REQUIRED"),
+                (
+                    {"calendar_connector_runtime_enabled": True},
+                    "CALENDAR_CONNECTOR_RUNTIME_DENIED",
+                ),
+                ({"calendar_account_auth_enabled": True}, "CALENDAR_ACCOUNT_AUTH_DENIED"),
+                ({"calendar_read_enabled": True}, "CALENDAR_READ_DENIED"),
+                (
+                    {"calendar_event_create_enabled": True},
+                    "CALENDAR_EVENT_CREATE_DENIED",
+                ),
+                ({"raw_calendar_content_enabled": True}, "RAW_CALENDAR_CONTENT_DENIED"),
+                ({"credential_handling_enabled": True}, "CREDENTIAL_HANDLING_DENIED"),
+                ({"network_access_enabled": True}, "NETWORK_ACCESS_DENIED"),
+                ({"backend_route_added": True}, "BACKEND_ROUTE_DENIED"),
+                (
+                    {"control_center_control_added": True},
+                    "CONTROL_CENTER_CONTROL_DENIED",
+                ),
+                ({"dependency_added": True}, "DEPENDENCY_DENIED"),
+            ]:
+                try:
+                    validate_calendar_connector_contract_refresh_record(
+                        record.model_copy(update=update)
+                    )
+                    failures.append(
+                        f"M122 unsafe record mutation was not denied with {reason}"
+                    )
+                except ValueError as exc:
+                    if reason not in str(exc):
+                        failures.append(f"M122 unsafe record mutation raised {exc!s}")
+        except Exception as exc:
+            failures.append(f"M122 calendar connector refresh validation failed: {exc}")
+
+        docs_text = " ".join(
+            "\n".join(
+                self._read(self.root / path).lower()
+                for path in required_files
+                if path.startswith("docs/") and (self.root / path).exists()
+            ).split()
+        )
+        for fragment in [
+            "calendar connector contract refresh",
+            "contract-only",
+            "review-only",
+            "safe refs",
+            "email connector contract refresh",
+            "calendar scope refs",
+            "calendar boundary refs",
+            "event boundary refs",
+            "consent boundary refs",
+            "data classification refs",
+            "retention boundary refs",
+            "actor-bound",
+            "baseline-bound",
+            "source-email-connector-contract-refresh-bound",
+            "audit",
+            "replay",
+            "no-effect receipt plan",
+            "no calendar connector runtime",
+            "no calendar account auth",
+            "no calendar read",
+            "no calendar search",
+            "no calendar event create",
+            "no calendar event update",
+            "no calendar event delete",
+            "no calendar invite send",
+            "no raw calendar content",
+            "no credential handling",
+            "no network access",
+            "no backend route",
+            "no control center control",
+            "no dependency",
+            "m123 remains future",
+            "v1.0.0-alpha",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M122 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m122_calendar_connector_contract_refresh_static_safety(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        forbidden_source_fragments = [
+            "calendar_connector_runtime_enabled=True",
+            "calendar_account_auth_enabled=True",
+            "calendar_read_enabled=True",
+            "calendar_search_enabled=True",
+            "calendar_event_create_enabled=True",
+            "calendar_event_update_enabled=True",
+            "calendar_event_delete_enabled=True",
+            "calendar_invite_send_enabled=True",
+            "calendar_attachment_download_enabled=True",
+            "raw_calendar_content_enabled=True",
+            "credential_handling_enabled=True",
+            "network_access_enabled=True",
+            "account_action_enabled=True",
+            "model_call_enabled=True",
+            "memory_write_enabled=True",
+            "context_injection_enabled=True",
+            "execution_enabled=True",
+            "backend_route_enabled=True",
+            "backend_route_added=True",
+            "control_center_control_enabled=True",
+            "control_center_control_added=True",
+            "dependency_added=True",
+            "/connectors/calendar/auth",
+            "/connectors/calendar/read",
+            "/connectors/calendar/search",
+            "/connectors/calendar/events/create",
+            "/connectors/calendar/events/update",
+            "/connectors/calendar/events/delete",
+            "/connectors/calendar/invites/send",
+            "/connectors/calendar/attachments/download",
+            "/calendar/events/create",
+        ]
+        allowed_files = {
+            "scripts/verify_all.py",
+            "src/ultimate_ai_agent/core/gate/evaluators.py",
+            "src/ultimate_ai_agent/core/connectors/__init__.py",
+            "src/ultimate_ai_agent/core/connectors/calendar_connector_contract_refresh.py",
+        }
+        for root in [
+            self.root / "src" / "ultimate_ai_agent",
+            self.root / "apps" / "control-center" / "src",
+            self.root / "apps" / "ccc-ios",
+        ]:
+            if not root.exists():
+                continue
+            candidate_files = []
+            for pattern in (
+                "*.py",
+                "*.ts",
+                "*.tsx",
+                "*.js",
+                "*.jsx",
+                "*.swift",
+                "*.yml",
+                "*.yaml",
+            ):
+                candidate_files.extend(root.rglob(pattern))
+            for path in sorted(candidate_files):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(self.root).as_posix()
+                if ".test." in rel:
+                    continue
+                if rel in allowed_files:
+                    continue
+                text = path.read_text(encoding="utf-8")
+                for fragment in forbidden_source_fragments:
+                    if fragment in text:
+                        failures.append(
+                            f"M122 forbidden calendar connector fragment in {rel}: {fragment}"
+                        )
+        return self._result(criterion, failures, [])
+
+    def check_m122_calendar_connector_contract_refresh_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m122_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M122 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m122_roadmap_currentness(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_docs = [
+            "README.md",
+            "VERSION.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            "docs/roadmap/MILESTONE_CHARTERS.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+        ]
+        failures = [
+            f"missing M122 roadmap doc: {path}"
+            for path in required_docs
+            if not (self.root / path).exists()
+        ]
+        text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_docs
+            if (self.root / path).exists()
+        )
+        if (
+            "checkpoint m122" not in text
+            or "calendar connector contract refresh" not in text
+        ):
+            failures.append(
+                "active docs do not identify Checkpoint M122 Calendar Connector Contract Refresh"
+            )
+        if (
+            "m122 is implemented/released" not in text
+            and "checkpoint m122 is implemented/released" not in text
+        ):
+            failures.append("active docs do not mark M122 implemented/released")
+        for version_label, product_target, milestone, title, status in [
+            (
+                "checkpoint m122",
+                "pre-alpha checkpoint",
+                "m122",
+                "calendar connector contract refresh",
+                "implemented/released",
+            ),
+            (
+                "checkpoint m123",
+                "pre-alpha checkpoint",
+                "m123",
+                "contacts connector contract refresh",
+                "planned/provisional",
+            ),
+            (
+                "v1.0.0-alpha",
+                "alpha",
+                "m150",
+                "ultimate ai agent v1.0.0-alpha",
+                "planned/provisional",
+            ),
+        ]:
+            row = (
+                f"| {version_label} | {product_target} | {milestone} | "
+                f"{title} | {status} |"
+            )
+            if not _roadmap_row_present(text, row):
+                failures.append(
+                    f"active docs missing expected M122-M150 row: {version_label} / {milestone.upper()} - {title}"
+                )
+        for fragment in (
+            "m123 is implemented",
+            "checkpoint m123 implements m123",
+            "contacts connector contract refresh is implemented",
+            "calendar connector runtime is implemented",
+            "calendar account auth is implemented",
+            "calendar read is implemented",
+            "calendar event create is implemented",
+            "network access is implemented",
+            "beta is released",
+            "broad autonomy is implemented",
+        ):
+            if fragment in text:
+                failures.append(
+                    f"active docs imply forbidden M122 future/currentness claim: {fragment}"
                 )
         return self._result(criterion, failures, required_docs)
 
