@@ -1565,6 +1565,19 @@ M119_FORBIDDEN_BACKEND_ROUTES = M118_FORBIDDEN_BACKEND_ROUTES + (
     "/tools/execute",
     "/network/post",
 )
+EXPECTED_M120_OPENAPI_PATH_COUNT = 75
+M120_FORBIDDEN_BACKEND_ROUTES = M119_FORBIDDEN_BACKEND_ROUTES + (
+    "/production/authority/enable",
+    "/production/go-live",
+    "/production/deploy",
+    "/production/traffic/route",
+    "/production/rollback/execute",
+    "/production/readiness/approve",
+    "/context/inject",
+    "/memory/write",
+    "/tools/execute",
+    "/network/post",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -3060,6 +3073,23 @@ def m119_openapi_route_failures(
     return failures
 
 
+def m120_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M120_OPENAPI_PATH_COUNT
+) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(
+            f"OpenAPI path count changed for M120: expected {expected_path_count}, got {len(path_set)}"
+        )
+    for route in M120_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(
+                f"M120 forbidden production authority readiness route present: {route}"
+            )
+    return failures
+
+
 M36_SAFE_REF_PREFIXES = {
     "reviewPacketRef": "file-review-packet:",
     "previewResultRef": "redacted-file-preview-output:",
@@ -4115,6 +4145,16 @@ class FoundationGateEvaluator:
                 self.check_m119_production_red_team_harness_route_boundary
             ),
             "m119_roadmap_currentness": self.check_m119_roadmap_currentness,
+            "m120_production_authority_readiness_review_contracts": (
+                self.check_m120_production_authority_readiness_review_contracts
+            ),
+            "m120_production_authority_readiness_review_static_safety": (
+                self.check_m120_production_authority_readiness_review_static_safety
+            ),
+            "m120_production_authority_readiness_review_route_boundary": (
+                self.check_m120_production_authority_readiness_review_route_boundary
+            ),
+            "m120_roadmap_currentness": self.check_m120_roadmap_currentness,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -29854,6 +29894,12 @@ class FoundationGateEvaluator:
             or "production red-team harness" in active_version_text
         ):
             implemented_milestones.add("m119")
+        if (
+            "checkpoint m120" in active_version_text
+            or "m120" in active_version_text
+            or "production authority readiness review" in active_version_text
+        ):
+            implemented_milestones.add("m120")
         for version_label, product_target, milestone, title in expected_labels:
             if milestone in implemented_milestones:
                 continue
@@ -36299,16 +36345,14 @@ class FoundationGateEvaluator:
         ]:
             row = (
                 f"| {version_label} | {product_target} | {milestone} | "
-                f"{title} | planned/provisional |"
+                f"{title} | "
+                f"{'implemented/released' if milestone == 'm120' else 'planned/provisional'} |"
             )
             if not _roadmap_row_present(text, row):
                 failures.append(
-                    f"active docs missing planned M120-M150 row: {version_label} / {milestone.upper()} - {title}"
+                    f"active docs missing expected M120-M150 row: {version_label} / {milestone.upper()} - {title}"
                 )
         for fragment in (
-            "m120 is implemented",
-            "checkpoint m120 implements m120",
-            "production authority readiness review is implemented",
             "red-team execution is implemented",
             "attack automation is implemented",
             "scanner runtime is implemented",
@@ -36320,6 +36364,378 @@ class FoundationGateEvaluator:
         ):
             if fragment in text:
                 failures.append(f"active docs imply forbidden M119 future/currentness claim: {fragment}")
+        return self._result(criterion, failures, required_docs)
+
+    def check_m120_production_authority_readiness_review_contracts(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/production_readiness/production_authority_readiness.py",
+            "docs/production/PRODUCTION_AUTHORITY_READINESS_REVIEW.md",
+            "docs/production/PRODUCTION_AUTHORITY_READINESS_BOUNDARY.md",
+            "docs/production/PRODUCTION_AUTHORITY_READINESS_RECEIPT_PLAN.md",
+            "docs/production/PRODUCTION_AUTHORITY_READINESS_NON_GOALS.md",
+            "docs/production/M120_TO_M121_BOUNDARY.md",
+            "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            "tests/test_m120_production_authority_readiness_review.py",
+            "tests/test_m120_gate_integration.py",
+        ]
+        failures = [
+            f"missing M120 production authority readiness file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            sys.path.insert(0, str(self.root))
+            from ultimate_ai_agent.core.mobile_companion import (
+                build_mobile_approval_renewal_ux_report,
+                build_mobile_kill_switch_revocation_record,
+                build_mobile_sensor_audit_ledger_record,
+                build_mobile_sensor_hardening_freeze_record,
+            )
+            from ultimate_ai_agent.core.production_readiness import (
+                ProductionAuthorityReadinessReviewStatus,
+                build_account_connector_contract_review_record,
+                build_deployment_mode_matrix_record,
+                build_production_audit_retention_policy_record,
+                build_production_authority_readiness_review_record,
+                build_production_red_team_harness_record,
+                build_production_threat_model_record,
+                build_remote_agent_coordination_contract_record,
+                build_role_based_authority_model_record,
+                build_secrets_boundary_record,
+                build_user_workspace_identity_record,
+                validate_production_authority_readiness_review_record,
+            )
+
+            source_record = build_production_red_team_harness_record(
+                source_record=build_deployment_mode_matrix_record(
+                    source_record=build_remote_agent_coordination_contract_record(
+                        source_record=build_role_based_authority_model_record(
+                            source_record=build_production_audit_retention_policy_record(
+                                source_record=build_account_connector_contract_review_record(
+                                    source_record=build_secrets_boundary_record(
+                                        source_record=build_user_workspace_identity_record(
+                                            source_record=build_production_threat_model_record(
+                                                source_record=build_mobile_sensor_hardening_freeze_record(
+                                                    source_record=build_mobile_sensor_audit_ledger_record(
+                                                        source_record=build_mobile_kill_switch_revocation_record(
+                                                            source_report=build_mobile_approval_renewal_ux_report()
+                                                        )
+                                                    )
+                                                )
+                                            )
+                                        )
+                                    )
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+            record = build_production_authority_readiness_review_record(
+                source_record=source_record
+            )
+            if (
+                record.status
+                != ProductionAuthorityReadinessReviewStatus.production_authority_readiness_review
+                or not record.contract_only
+                or not record.review_only
+                or not record.safe_refs_required
+                or not record.actor_bound
+                or not record.baseline_bound
+                or not record.source_production_red_team_harness_bound
+                or not record.user_bound
+                or not record.workspace_bound
+                or not record.deployment_mode_bound
+                or not record.environment_bound
+                or not record.authority_tier_bound
+                or not record.readiness_check_bound
+                or not record.launch_blocker_bound
+                or not record.rollback_readiness_bound
+                or not record.audit_required
+                or not record.replay_safe
+                or record.source_production_red_team_harness_ref
+                != source_record.production_red_team_harness_ref
+                or record.source_baseline_ref != source_record.source_baseline_ref
+                or record.actor_ref != source_record.actor_ref
+                or record.user_ref != source_record.user_ref
+                or record.workspace_ref != source_record.workspace_ref
+                or not record.readiness_check_refs
+                or not record.launch_blocker_refs
+                or not record.rollback_readiness_refs
+                or "checkpoint:m119" not in record.accepted_checkpoint_refs
+                or record.production_authority_enabled
+                or record.production_runtime_enabled
+                or record.go_live_enabled
+                or record.production_deployment_enabled
+                or record.external_distribution_enabled
+                or record.traffic_routing_enabled
+                or record.account_action_enabled
+                or record.credential_handling_enabled
+                or record.network_access_enabled
+                or record.model_call_enabled
+                or record.memory_write_enabled
+                or record.context_injection_enabled
+                or record.execution_enabled
+                or record.tool_execution_enabled
+                or record.shell_execution_enabled
+                or record.browser_automation_enabled
+                or record.plugin_execution_enabled
+                or record.mobile_sensor_enabled
+                or record.backend_route_added
+                or record.control_center_control_added
+                or record.dependency_added
+                or record.side_effects_performed
+                or "M120_PRODUCTION_AUTHORITY_READINESS_REVIEW"
+                not in record.reason_codes
+                or "M121_REMAINS_FUTURE" not in record.reason_codes
+            ):
+                failures.append(
+                    "M120 production authority readiness review contract is unsafe or over-authoritative"
+                )
+            for update, reason in [
+                ({"review_only": False}, "M120_REVIEW_ONLY_REQUIRED"),
+                (
+                    {"source_production_red_team_harness_bound": False},
+                    "M120_SOURCE_PRODUCTION_RED_TEAM_HARNESS_BINDING_REQUIRED",
+                ),
+                ({"readiness_check_refs": []}, "M120_READINESS_CHECK_REF_REQUIRED"),
+                ({"launch_blocker_refs": []}, "M120_LAUNCH_BLOCKER_REF_REQUIRED"),
+                (
+                    {"rollback_readiness_refs": []},
+                    "M120_ROLLBACK_READINESS_REF_REQUIRED",
+                ),
+                ({"production_authority_enabled": True}, "PRODUCTION_AUTHORITY_DENIED"),
+                ({"production_runtime_enabled": True}, "PRODUCTION_RUNTIME_DENIED"),
+                ({"go_live_enabled": True}, "GO_LIVE_DENIED"),
+                (
+                    {"production_deployment_enabled": True},
+                    "PRODUCTION_DEPLOYMENT_DENIED",
+                ),
+                ({"traffic_routing_enabled": True}, "TRAFFIC_ROUTING_DENIED"),
+                ({"credential_handling_enabled": True}, "CREDENTIAL_HANDLING_DENIED"),
+                ({"network_access_enabled": True}, "NETWORK_ACCESS_DENIED"),
+                ({"execution_enabled": True}, "EXECUTION_DENIED"),
+                ({"backend_route_added": True}, "BACKEND_ROUTE_DENIED"),
+                (
+                    {"control_center_control_added": True},
+                    "CONTROL_CENTER_CONTROL_DENIED",
+                ),
+                ({"dependency_added": True}, "DEPENDENCY_DENIED"),
+            ]:
+                try:
+                    validate_production_authority_readiness_review_record(
+                        record.model_copy(update=update)
+                    )
+                    failures.append(
+                        f"M120 unsafe record mutation was not denied with {reason}"
+                    )
+                except ValueError as exc:
+                    if reason not in str(exc):
+                        failures.append(f"M120 unsafe record mutation raised {exc!s}")
+        except Exception as exc:
+            failures.append(
+                f"M120 production authority readiness validation failed: {exc}"
+            )
+
+        docs_text = " ".join(
+            "\n".join(
+                self._read(self.root / path).lower()
+                for path in required_files
+                if path.startswith("docs/") and (self.root / path).exists()
+            ).split()
+        )
+        for fragment in [
+            "production authority readiness review",
+            "contract-only",
+            "review-only",
+            "safe refs",
+            "production red-team harness",
+            "readiness check refs",
+            "launch blocker refs",
+            "rollback readiness refs",
+            "actor-bound",
+            "baseline-bound",
+            "source-production-red-team-harness-bound",
+            "user-bound",
+            "workspace-bound",
+            "audit",
+            "replay",
+            "no-effect receipt plan",
+            "no production authority",
+            "no production runtime",
+            "no go-live",
+            "no production deployment",
+            "no traffic routing",
+            "no credential handling",
+            "no network access",
+            "no execution",
+            "no backend route",
+            "no control center control",
+            "no dependency",
+            "m121 remains future",
+            "v1.0.0-alpha",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M120 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m120_production_authority_readiness_review_static_safety(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        forbidden_source_fragments = [
+            "production_authority_enabled=True",
+            "production_runtime_enabled=True",
+            "go_live_enabled=True",
+            "production_deployment_enabled=True",
+            "traffic_routing_enabled=True",
+            "credential_handling_enabled=True",
+            "network_access_enabled=True",
+            "execution_enabled=True",
+            "backend_route_enabled=True",
+            "backend_route_added=True",
+            "control_center_control_enabled=True",
+            "control_center_control_added=True",
+            "dependency_added=True",
+            "/production/authority/enable",
+            "/production/go-live",
+            "/production/deploy",
+            "/production/traffic/route",
+            "/production/rollback/execute",
+            "/production/readiness/approve",
+        ]
+        allowed_files = {
+            "scripts/verify_all.py",
+            "src/ultimate_ai_agent/core/gate/evaluators.py",
+            "src/ultimate_ai_agent/core/production_readiness/__init__.py",
+            "src/ultimate_ai_agent/core/production_readiness/production_authority_readiness.py",
+            "src/ultimate_ai_agent/core/production_readiness/production_red_team_harness.py",
+            "src/ultimate_ai_agent/core/production_readiness/deployment_mode_matrix.py",
+            "src/ultimate_ai_agent/core/production_readiness/remote_agent_coordination.py",
+            "src/ultimate_ai_agent/core/production_readiness/role_based_authority.py",
+            "src/ultimate_ai_agent/core/production_readiness/production_audit_retention.py",
+            "src/ultimate_ai_agent/core/production_readiness/account_connector_review.py",
+            "src/ultimate_ai_agent/core/production_readiness/secrets_boundary.py",
+            "src/ultimate_ai_agent/core/production_readiness/user_workspace_identity.py",
+            "src/ultimate_ai_agent/core/production_readiness/production_threat_model.py",
+        }
+        for root in [
+            self.root / "src" / "ultimate_ai_agent",
+            self.root / "apps" / "control-center" / "src",
+            self.root / "apps" / "ccc-ios",
+        ]:
+            if not root.exists():
+                continue
+            candidate_files = []
+            for pattern in (
+                "*.py",
+                "*.ts",
+                "*.tsx",
+                "*.js",
+                "*.jsx",
+                "*.swift",
+                "*.yml",
+                "*.yaml",
+            ):
+                candidate_files.extend(root.rglob(pattern))
+            for path in sorted(candidate_files):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(self.root).as_posix()
+                if ".test." in rel:
+                    continue
+                if rel in allowed_files:
+                    continue
+                text = path.read_text(encoding="utf-8")
+                for fragment in forbidden_source_fragments:
+                    if fragment in text:
+                        failures.append(
+                            f"M120 forbidden production authority readiness fragment in {rel}: {fragment}"
+                        )
+        return self._result(criterion, failures, [])
+
+    def check_m120_production_authority_readiness_review_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m120_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M120 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m120_roadmap_currentness(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_docs = [
+            "README.md",
+            "VERSION.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            "docs/roadmap/MILESTONE_CHARTERS.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+        ]
+        failures = [
+            f"missing M120 roadmap doc: {path}"
+            for path in required_docs
+            if not (self.root / path).exists()
+        ]
+        text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_docs
+            if (self.root / path).exists()
+        )
+        if (
+            "checkpoint m120" not in text
+            or "production authority readiness review" not in text
+        ):
+            failures.append(
+                "active docs do not identify Checkpoint M120 Production Authority Readiness Review"
+            )
+        if (
+            "m120 is implemented/released" not in text
+            and "checkpoint m120 is implemented/released" not in text
+        ):
+            failures.append("active docs do not mark M120 implemented/released")
+        for version_label, product_target, milestone, title in [
+            (
+                "checkpoint m121",
+                "pre-alpha checkpoint",
+                "m121",
+                "email connector contract refresh",
+            ),
+            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+        ]:
+            row = (
+                f"| {version_label} | {product_target} | {milestone} | "
+                f"{title} | planned/provisional |"
+            )
+            if not _roadmap_row_present(text, row):
+                failures.append(
+                    f"active docs missing planned M121-M150 row: {version_label} / {milestone.upper()} - {title}"
+                )
+        for fragment in (
+            "m121 is implemented",
+            "checkpoint m121 implements m121",
+            "email connector contract refresh is implemented",
+            "production authority is implemented",
+            "go-live is implemented",
+            "production runtime is implemented",
+            "production deployment is implemented",
+            "traffic routing is implemented",
+            "credential handling is implemented",
+            "network access is implemented",
+            "beta is released",
+            "broad autonomy is implemented",
+        ):
+            if fragment in text:
+                failures.append(
+                    f"active docs imply forbidden M120 future/currentness claim: {fragment}"
+                )
         return self._result(criterion, failures, required_docs)
 
     def check_v0292_local_dev_api_authority_and_preview_safe(

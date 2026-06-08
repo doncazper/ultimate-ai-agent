@@ -2,9 +2,9 @@
 
 Current active baseline: **v1.7.2**
 
-Checkpoint M119 is implemented/released as Production Red-Team Harness.
+Checkpoint M120 is implemented/released as Production Authority Readiness Review.
 The current product baseline remains v1.7.2. Already-pushed tags
-remain immutable historical internal milestone tags. Future M120-M149 conveyor
+remain immutable historical internal milestone tags. Future M121-M149 conveyor
 milestones use checkpoint labels instead of product SemVer tags, and M150 is
 the next product release target **v1.0.0-alpha**. Beta begins only after the
 alpha UI and supporting safety/product work are reviewed, accepted, and
@@ -171,6 +171,15 @@ execution, no browser automation, no plugin execution, no mobile sensor, no
 backend route, no Control Center control, no dependency, no M120 work, no broad
 autonomy, no beta release, and no production authority.
 
-M101, M102, M103, M104, M105, M106, M107, M108, M109, M110, M111, M112, M113, M114, M115, M116, M117, M118, and M119 are implemented/released. M120-M150 are
+Checkpoint M120 adds contract-only review-only production authority readiness
+review records. It adds no production authority, no production runtime, no
+go-live, no production deployment, no external distribution, no traffic
+routing, no network access, no credential handling, no account action, no
+model call, no memory write, no context injection, no execution, no tool
+execution, no shell execution, no browser automation, no plugin execution, no
+mobile sensor, no backend route, no Control Center control, no dependency, no
+M121 work, no broad autonomy, no beta release, and no production authority.
+
+M101, M102, M103, M104, M105, M106, M107, M108, M109, M110, M111, M112, M113, M114, M115, M116, M117, M118, M119, and M120 are implemented/released. M121-M150 are
 planned/provisional checkpoint milestones only. M150 is planned as
 v1.0.0-alpha, not beta.

@@ -70,6 +70,14 @@ from ultimate_ai_agent.core.production_readiness.production_red_team_harness imp
     validate_production_red_team_harness_policy,
     validate_production_red_team_harness_record,
 )
+from ultimate_ai_agent.core.production_readiness.production_authority_readiness import (
+    ProductionAuthorityReadinessReviewPolicy,
+    ProductionAuthorityReadinessReviewRecord,
+    ProductionAuthorityReadinessReviewStatus,
+    build_production_authority_readiness_review_record,
+    validate_production_authority_readiness_review_policy,
+    validate_production_authority_readiness_review_record,
+)
 
 __all__ = [
     "AccountConnectorContractReviewPolicy",
@@ -81,6 +89,9 @@ __all__ = [
     "ProductionAuditRetentionPolicy",
     "ProductionAuditRetentionPolicyRecord",
     "ProductionAuditRetentionPolicyStatus",
+    "ProductionAuthorityReadinessReviewPolicy",
+    "ProductionAuthorityReadinessReviewRecord",
+    "ProductionAuthorityReadinessReviewStatus",
     "ProductionRedTeamHarnessPolicy",
     "ProductionRedTeamHarnessRecord",
     "ProductionRedTeamHarnessStatus",
@@ -102,6 +113,7 @@ __all__ = [
     "build_account_connector_contract_review_record",
     "build_deployment_mode_matrix_record",
     "build_production_audit_retention_policy_record",
+    "build_production_authority_readiness_review_record",
     "build_production_red_team_harness_record",
     "build_production_threat_model_record",
     "build_role_based_authority_model_record",
@@ -114,6 +126,8 @@ __all__ = [
     "validate_deployment_mode_matrix_record",
     "validate_production_audit_retention_policy",
     "validate_production_audit_retention_policy_record",
+    "validate_production_authority_readiness_review_policy",
+    "validate_production_authority_readiness_review_record",
     "validate_production_red_team_harness_policy",
     "validate_production_red_team_harness_record",
     "validate_production_threat_model_policy",

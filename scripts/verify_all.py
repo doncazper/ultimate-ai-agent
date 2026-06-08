@@ -158,6 +158,7 @@ SCAN_SEQUENCE = [
     ("M117 remote agent coordination contract scan", "verify_m117_remote_agent_coordination_contract"),
     ("M118 deployment mode matrix scan", "verify_m118_deployment_mode_matrix"),
     ("M119 production red-team harness scan", "verify_m119_production_red_team_harness"),
+    ("M120 production authority readiness review scan", "verify_m120_production_authority_readiness_review"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -17621,6 +17622,12 @@ def verify_post_m100_roadmap_reconciliation():
         or "production red-team harness" in active_version_text
     ):
         implemented_milestones.add("m119")
+    if (
+        "checkpoint m120" in active_version_text
+        or "m120" in active_version_text
+        or "production authority readiness review" in active_version_text
+    ):
+        implemented_milestones.add("m120")
     for version_label, product_target, milestone, title in expected_labels:
         if milestone in implemented_milestones:
             continue
@@ -21463,6 +21470,221 @@ def verify_m119_production_red_team_harness():
             sys.exit(1)
 
     print("OK: M119 production red-team harness is contract-only, no-runtime, and route-free")
+
+
+def verify_m120_production_authority_readiness_review():
+    print("\n[Verifier] Running M120 production authority readiness review guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/production_readiness/production_authority_readiness.py",
+        "docs/production/PRODUCTION_AUTHORITY_READINESS_REVIEW.md",
+        "docs/production/PRODUCTION_AUTHORITY_READINESS_BOUNDARY.md",
+        "docs/production/PRODUCTION_AUTHORITY_READINESS_RECEIPT_PLAN.md",
+        "docs/production/PRODUCTION_AUTHORITY_READINESS_NON_GOALS.md",
+        "docs/production/M120_TO_M121_BOUNDARY.md",
+        "docs/release_notes/checkpoint_m120.md",
+        "docs/archive/checkpoints/m120/README_IMPORT.md",
+        "docs/archive/checkpoints/m120/master_plan.md",
+        "tests/test_m120_production_authority_readiness_review.py",
+        "tests/test_m120_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M120 production authority readiness file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = " ".join(
+        "\n".join(
+            (ROOT / rel_path).read_text(encoding="utf-8").lower()
+            for rel_path in required_files
+            if rel_path.startswith("docs/")
+        ).split()
+    )
+    for fragment in [
+        "production authority readiness review",
+        "contract-only",
+        "review-only",
+        "safe refs",
+        "production red-team harness",
+        "readiness check refs",
+        "launch blocker refs",
+        "rollback readiness refs",
+        "no-effect receipt plan",
+        "no production authority",
+        "no production runtime",
+        "no go-live",
+        "no production deployment",
+        "no traffic routing",
+        "no network access",
+        "no credential handling",
+        "no account action",
+        "no model call",
+        "no memory write",
+        "no context injection",
+        "no execution",
+        "no backend route",
+        "no control center control",
+        "no dependency",
+        "m121 remains future",
+        "v1.0.0-alpha",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M120 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.criteria import (
+            default_foundation_gate_criteria,
+        )
+        from ultimate_ai_agent.core.gate.evaluators import (
+            FoundationGateEvaluator,
+            m120_openapi_route_failures,
+        )
+        from ultimate_ai_agent.core.mobile_companion import (
+            build_mobile_approval_renewal_ux_report,
+            build_mobile_kill_switch_revocation_record,
+            build_mobile_sensor_audit_ledger_record,
+            build_mobile_sensor_hardening_freeze_record,
+        )
+        from ultimate_ai_agent.core.production_readiness import (
+            ProductionAuthorityReadinessReviewStatus,
+            build_account_connector_contract_review_record,
+            build_deployment_mode_matrix_record,
+            build_production_audit_retention_policy_record,
+            build_production_authority_readiness_review_record,
+            build_production_red_team_harness_record,
+            build_production_threat_model_record,
+            build_remote_agent_coordination_contract_record,
+            build_role_based_authority_model_record,
+            build_secrets_boundary_record,
+            build_user_workspace_identity_record,
+            validate_production_authority_readiness_review_record,
+        )
+    except Exception as exc:
+        print(f"FAIL: M120 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m120_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    source_record = build_production_red_team_harness_record(
+        source_record=build_deployment_mode_matrix_record(
+            source_record=build_remote_agent_coordination_contract_record(
+                source_record=build_role_based_authority_model_record(
+                    source_record=build_production_audit_retention_policy_record(
+                        source_record=build_account_connector_contract_review_record(
+                            source_record=build_secrets_boundary_record(
+                                source_record=build_user_workspace_identity_record(
+                                    source_record=build_production_threat_model_record(
+                                        source_record=build_mobile_sensor_hardening_freeze_record(
+                                            source_record=build_mobile_sensor_audit_ledger_record(
+                                                source_record=build_mobile_kill_switch_revocation_record(
+                                                    source_report=build_mobile_approval_renewal_ux_report()
+                                                )
+                                            )
+                                        )
+                                    )
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+        )
+    )
+    record = build_production_authority_readiness_review_record(
+        source_record=source_record
+    )
+    if (
+        record.status
+        != ProductionAuthorityReadinessReviewStatus.production_authority_readiness_review
+        or not record.contract_only
+        or not record.review_only
+        or not record.safe_refs_required
+        or not record.source_production_red_team_harness_bound
+        or record.source_production_red_team_harness_ref
+        != source_record.production_red_team_harness_ref
+        or "checkpoint:m119" not in record.accepted_checkpoint_refs
+        or not record.readiness_check_refs
+        or not record.launch_blocker_refs
+        or not record.rollback_readiness_refs
+        or record.production_authority_enabled
+        or record.production_runtime_enabled
+        or record.go_live_enabled
+        or record.production_deployment_enabled
+        or record.external_distribution_enabled
+        or record.traffic_routing_enabled
+        or record.network_access_enabled
+        or record.credential_handling_enabled
+        or record.account_action_enabled
+        or record.model_call_enabled
+        or record.memory_write_enabled
+        or record.context_injection_enabled
+        or record.execution_enabled
+        or record.tool_execution_enabled
+        or record.shell_execution_enabled
+        or record.browser_automation_enabled
+        or record.plugin_execution_enabled
+        or record.mobile_sensor_enabled
+        or record.backend_route_added
+        or record.control_center_control_added
+        or record.dependency_added
+        or record.side_effects_performed
+        or "M120_PRODUCTION_AUTHORITY_READINESS_REVIEW" not in record.reason_codes
+        or "M121_REMAINS_FUTURE" not in record.reason_codes
+    ):
+        print("FAIL: M120 production authority readiness record is unsafe")
+        sys.exit(1)
+
+    for update, reason in [
+        ({"review_only": False}, "M120_REVIEW_ONLY_REQUIRED"),
+        ({"readiness_check_refs": []}, "M120_READINESS_CHECK_REF_REQUIRED"),
+        ({"launch_blocker_refs": []}, "M120_LAUNCH_BLOCKER_REF_REQUIRED"),
+        ({"rollback_readiness_refs": []}, "M120_ROLLBACK_READINESS_REF_REQUIRED"),
+        ({"production_authority_enabled": True}, "PRODUCTION_AUTHORITY_DENIED"),
+        ({"production_runtime_enabled": True}, "PRODUCTION_RUNTIME_DENIED"),
+        ({"go_live_enabled": True}, "GO_LIVE_DENIED"),
+        ({"production_deployment_enabled": True}, "PRODUCTION_DEPLOYMENT_DENIED"),
+        ({"traffic_routing_enabled": True}, "TRAFFIC_ROUTING_DENIED"),
+        ({"credential_handling_enabled": True}, "CREDENTIAL_HANDLING_DENIED"),
+        ({"network_access_enabled": True}, "NETWORK_ACCESS_DENIED"),
+        ({"execution_enabled": True}, "EXECUTION_DENIED"),
+        ({"backend_route_added": True}, "BACKEND_ROUTE_DENIED"),
+        ({"control_center_control_added": True}, "CONTROL_CENTER_CONTROL_DENIED"),
+        ({"dependency_added": True}, "DEPENDENCY_DENIED"),
+    ]:
+        try:
+            validate_production_authority_readiness_review_record(
+                record.model_copy(update=update)
+            )
+            print(f"FAIL: M120 mutated authority flag was not denied: {update}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M120 mutated authority flag raised {exc!s}")
+                sys.exit(1)
+
+    criteria = {
+        criterion.criterion_id: criterion
+        for criterion in default_foundation_gate_criteria()
+    }
+    evaluator = FoundationGateEvaluator(ROOT)
+    for criterion_id in [
+        "m120_production_authority_readiness_review_contracts",
+        "m120_production_authority_readiness_review_static_safety",
+        "m120_production_authority_readiness_review_route_boundary",
+        "m120_roadmap_currentness",
+    ]:
+        report = evaluator.evaluate([criteria[criterion_id]])
+        result = report.results[0]
+        if result.status != "passed":
+            print(f"FAIL: {criterion_id} failed: {result.failures}")
+            sys.exit(1)
+
+    print("OK: M120 production authority readiness review is contract-only, no-runtime, and route-free")
 
 
 def verify_local_developer_launcher_safety():

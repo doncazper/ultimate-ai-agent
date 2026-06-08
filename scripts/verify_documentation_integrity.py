@@ -1581,6 +1581,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_m117_remote_agent_coordination_docs(root, version))
     failures.extend(_verify_m118_deployment_mode_matrix_docs(root, version))
     failures.extend(_verify_m119_production_red_team_harness_docs(root, version))
+    failures.extend(_verify_m120_production_authority_readiness_docs(root, version))
     failures.extend(_verify_m19_roadmap_currentness(root, version))
     failures.extend(_verify_post_m18_roadmap_status_labels(root))
 
@@ -7174,6 +7175,12 @@ def _verify_post_m100_roadmap_reconciliation_docs(root: Path, version: str | Non
         or "production red-team harness" in version_doc_text
     ):
         implemented_milestones.add("m119")
+    if _version_tuple(version) >= (1, 7, 2) and (
+        "checkpoint m120" in version_doc_text
+        or "m120" in version_doc_text
+        or "production authority readiness review" in version_doc_text
+    ):
+        implemented_milestones.add("m120")
     for version_label, product_target, milestone, title in EXPECTED_M101_M150_LABELS:
         if milestone in implemented_milestones:
             continue
@@ -10099,16 +10106,20 @@ def _verify_m119_production_red_team_harness_docs(
     )
     if not _roadmap_row_present(current_text, implemented_m119_row):
         failures.append("active docs missing implemented Checkpoint M119 row")
+    implemented_m120_row = (
+        "| checkpoint m120 | pre-alpha checkpoint | m120 | "
+        "production authority readiness review | implemented/released |"
+    )
     planned_m120_row = (
         "| checkpoint m120 | pre-alpha checkpoint | m120 | "
         "production authority readiness review | planned/provisional |"
     )
-    if not _roadmap_row_present(current_text, planned_m120_row):
-        failures.append("active docs missing planned Checkpoint M120 row")
+    if not (
+        _roadmap_row_present(current_text, implemented_m120_row)
+        or _roadmap_row_present(current_text, planned_m120_row)
+    ):
+        failures.append("active docs missing planned or implemented Checkpoint M120 row")
     for fragment in {
-        "m120 is implemented",
-        "checkpoint m120 implements m120",
-        "production authority readiness review is implemented",
         "red-team execution is implemented",
         "attack automation is implemented",
         "scanner runtime is implemented",
@@ -10123,6 +10134,136 @@ def _verify_m119_production_red_team_harness_docs(
     }:
         if fragment in current_text or fragment in text:
             failures.append(f"M119 docs imply forbidden/future capability: {fragment}")
+    return failures
+
+
+def _verify_m120_production_authority_readiness_docs(
+    root: Path, version: str | None
+) -> list[str]:
+    failures: list[str] = []
+    if _version_tuple(version) < (1, 7, 2):
+        return failures
+    active_text = " ".join(
+        "\n".join(
+            _read(root / rel_path).lower()
+            for rel_path in [
+                "README.md",
+                "VERSION.md",
+                "docs/canonical/09_roadmap.md",
+                "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            ]
+            if (root / rel_path).exists()
+        ).split()
+    )
+    if (
+        "checkpoint m120 is implemented/released" not in active_text
+        and "m120 is implemented/released" not in active_text
+    ):
+        return failures
+    required_paths = [
+        "docs/production/PRODUCTION_AUTHORITY_READINESS_REVIEW.md",
+        "docs/production/PRODUCTION_AUTHORITY_READINESS_BOUNDARY.md",
+        "docs/production/PRODUCTION_AUTHORITY_READINESS_RECEIPT_PLAN.md",
+        "docs/production/PRODUCTION_AUTHORITY_READINESS_NON_GOALS.md",
+        "docs/production/M120_TO_M121_BOUNDARY.md",
+        "docs/release_notes/checkpoint_m120.md",
+        "docs/archive/checkpoints/m120/README_IMPORT.md",
+        "docs/archive/checkpoints/m120/master_plan.md",
+        "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+    ]
+    for rel_path in required_paths:
+        if not (root / rel_path).exists():
+            failures.append(
+                f"missing M120 production authority readiness doc: {rel_path}"
+            )
+    text = " ".join(
+        "\n".join(
+            _read(root / rel_path).lower()
+            for rel_path in required_paths
+            if (root / rel_path).exists()
+        ).split()
+    )
+    required_fragments = {
+        "M120 docs must say production authority readiness review": "production authority readiness review",
+        "M120 docs must say contract-only": "contract-only",
+        "M120 docs must say review-only": "review-only",
+        "M120 docs must say safe refs": "safe refs",
+        "M120 docs must say production red-team harness": "production red-team harness",
+        "M120 docs must say readiness check refs": "readiness check refs",
+        "M120 docs must say launch blocker refs": "launch blocker refs",
+        "M120 docs must say rollback readiness refs": "rollback readiness refs",
+        "M120 docs must say actor-bound": "actor-bound",
+        "M120 docs must say baseline-bound": "baseline-bound",
+        "M120 docs must say source-production-red-team-harness-bound": "source-production-red-team-harness-bound",
+        "M120 docs must say audit": "audit",
+        "M120 docs must say replay": "replay",
+        "M120 docs must say no-effect receipt plan": "no-effect receipt plan",
+        "M120 docs must deny production authority": "no production authority",
+        "M120 docs must deny production runtime": "no production runtime",
+        "M120 docs must deny go-live": "no go-live",
+        "M120 docs must deny production deployment": "no production deployment",
+        "M120 docs must deny traffic routing": "no traffic routing",
+        "M120 docs must deny network access": "no network access",
+        "M120 docs must deny credential handling": "no credential handling",
+        "M120 docs must deny model call": "no model call",
+        "M120 docs must deny memory write": "no memory write",
+        "M120 docs must deny context injection": "no context injection",
+        "M120 docs must deny execution": "no execution",
+        "M120 docs must deny backend route": "no backend route",
+        "M120 docs must deny Control Center control": "no control center control",
+        "M120 docs must deny dependency": "no dependency",
+        "M120 docs must keep M121 future": "m121 remains future",
+        "M120 docs must preserve alpha target": "v1.0.0-alpha",
+    }
+    for message, fragment in required_fragments.items():
+        if fragment not in text:
+            failures.append(message)
+    active_paths = [
+        "README.md",
+        "VERSION.md",
+        "docs/canonical/09_roadmap.md",
+        "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+        "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+        "docs/roadmap/MILESTONE_CHARTERS.md",
+        "docs/DOCUMENTATION_INDEX.md",
+        "docs/canonical/CANONICAL_DOC_MAP.md",
+    ]
+    current_text = " ".join(
+        "\n".join(
+            _read(root / rel_path).lower()
+            for rel_path in active_paths
+            if (root / rel_path).exists()
+        ).split()
+    )
+    implemented_m120_row = (
+        "| checkpoint m120 | pre-alpha checkpoint | m120 | "
+        "production authority readiness review | implemented/released |"
+    )
+    if not _roadmap_row_present(current_text, implemented_m120_row):
+        failures.append("active docs missing implemented Checkpoint M120 row")
+    planned_m121_row = (
+        "| checkpoint m121 | pre-alpha checkpoint | m121 | "
+        "email connector contract refresh | planned/provisional |"
+    )
+    if not _roadmap_row_present(current_text, planned_m121_row):
+        failures.append("active docs missing planned Checkpoint M121 row")
+    for fragment in {
+        "m121 is implemented",
+        "checkpoint m121 implements m121",
+        "email connector contract refresh is implemented",
+        "production authority is implemented",
+        "production runtime is implemented",
+        "go-live is implemented",
+        "production deployment is implemented",
+        "traffic routing is implemented",
+        "network access is implemented",
+        "credential handling is implemented",
+        "account action is implemented",
+        "beta is released",
+        "broad autonomy is implemented",
+    }:
+        if fragment in current_text or fragment in text:
+            failures.append(f"M120 docs imply forbidden/future capability: {fragment}")
     return failures
 
 
