@@ -93,6 +93,24 @@ docs/production/PRODUCTION_THREAT_MODEL_AUTHORITY_BOUNDARY.md
 docs/production/PRODUCTION_THREAT_MODEL_RECEIPT_PLAN.md
 docs/production/PRODUCTION_THREAT_MODEL_NON_GOALS.md
 docs/production/M111_TO_M112_BOUNDARY.md
+docs/production/USER_WORKSPACE_IDENTITY_MODEL.md
+docs/production/USER_WORKSPACE_IDENTITY_POLICY.md
+docs/production/USER_WORKSPACE_IDENTITY_AUTHORITY_BOUNDARY.md
+docs/production/USER_WORKSPACE_IDENTITY_RECEIPT_PLAN.md
+docs/production/USER_WORKSPACE_IDENTITY_NON_GOALS.md
+docs/production/M112_TO_M113_BOUNDARY.md
+docs/production/SECRETS_BOUNDARY_CREDENTIAL_VAULT_CONTRACT.md
+docs/production/SECRETS_BOUNDARY_POLICY.md
+docs/production/SECRETS_BOUNDARY_AUTHORITY_BOUNDARY.md
+docs/production/SECRETS_BOUNDARY_RECEIPT_PLAN.md
+docs/production/SECRETS_BOUNDARY_NON_GOALS.md
+docs/production/M113_TO_M114_BOUNDARY.md
+docs/production/ACCOUNT_CONNECTOR_CONTRACT_REVIEW.md
+docs/production/ACCOUNT_CONNECTOR_POLICY.md
+docs/production/ACCOUNT_CONNECTOR_AUTHORITY_BOUNDARY.md
+docs/production/ACCOUNT_CONNECTOR_RECEIPT_PLAN.md
+docs/production/ACCOUNT_CONNECTOR_NON_GOALS.md
+docs/production/M114_TO_M115_BOUNDARY.md
 docs/files/BROADER_FILE_CAPABILITY_REVIEW.md
 docs/files/FILE_CAPABILITY_BOUNDARY_MATRIX.md
 docs/files/FILE_CAPABILITY_RISK_REGISTER.md
@@ -797,15 +815,16 @@ M111 is implemented/released as contract-only review-only production threat
 model records. M112 is implemented/released as contract-only review-only
 user/workspace identity model records. M113 is implemented/released as
 contract-only review-only secrets boundary and credential vault contract
-records. M114-M150 are
+records. M114 is implemented/released as contract-only review-only account
+connector contract review records. M115-M150 are
 planned/provisional only in `docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md`.
-Future M114-M149 conveyor milestones use checkpoint labels instead of product
+Future M115-M149 conveyor milestones use checkpoint labels instead of product
 SemVer tags, and M150 is
 planned as v1.0.0-alpha. Beta begins only after alpha UI and supporting
 safety/product work are reviewed and promoted. Active roadmap sources consistently mark
-M34-M113 implemented/released and rely on documentation-integrity checks to
+M34-M114 implemented/released and rely on documentation-integrity checks to
 guard against superseded-roadmap drift, stale current-baseline labels, route
-drift, authority-boundary drift, alpha/beta versioning drift, and M114-M150
+drift, authority-boundary drift, alpha/beta versioning drift, and M115-M150
 future-status drift.
 
 ## Release Notes Index

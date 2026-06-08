@@ -1571,6 +1571,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_m111_production_threat_model_docs(root, version))
     failures.extend(_verify_m112_user_workspace_identity_docs(root, version))
     failures.extend(_verify_m113_secrets_boundary_docs(root, version))
+    failures.extend(_verify_m114_account_connector_docs(root, version))
     failures.extend(_verify_m19_roadmap_currentness(root, version))
     failures.extend(_verify_post_m18_roadmap_status_labels(root))
 
@@ -7128,6 +7129,12 @@ def _verify_post_m100_roadmap_reconciliation_docs(root: Path, version: str | Non
         or "secrets boundary + credential vault contract" in version_doc_text
     ):
         implemented_milestones.add("m113")
+    if (
+        "checkpoint m114" in version_doc_text
+        or "m114" in version_doc_text
+        or "account connector contract review" in version_doc_text
+    ):
+        implemented_milestones.add("m114")
     for version_label, product_target, milestone, title in EXPECTED_M101_M150_LABELS:
         if milestone in implemented_milestones:
             continue
@@ -8060,7 +8067,16 @@ def _verify_m107_mobile_approval_renewal_ux_docs(
         "| checkpoint m113 | pre-alpha checkpoint | m113 | "
         "secrets boundary + credential vault contract | implemented/released |"
     )
-    if implemented_m113_row in active_text:
+    implemented_m114_row = (
+        "| checkpoint m114 | pre-alpha checkpoint | m114 | "
+        "account connector contract review | implemented/released |"
+    )
+    if implemented_m114_row in active_text:
+        planned_rows = [
+            ("checkpoint m115", "pre-alpha checkpoint", "m115", "production audit retention policy"),
+            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+        ]
+    elif implemented_m113_row in active_text:
         planned_rows = [
             ("checkpoint m114", "pre-alpha checkpoint", "m114", "account connector contract review"),
             ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
@@ -8247,7 +8263,16 @@ def _verify_m108_mobile_kill_switch_revocation_docs(
         "| checkpoint m113 | pre-alpha checkpoint | m113 | "
         "secrets boundary + credential vault contract | implemented/released |"
     )
-    if implemented_m113_row in active_text:
+    implemented_m114_row = (
+        "| checkpoint m114 | pre-alpha checkpoint | m114 | "
+        "account connector contract review | implemented/released |"
+    )
+    if implemented_m114_row in active_text:
+        planned_rows = [
+            ("checkpoint m115", "pre-alpha checkpoint", "m115", "production audit retention policy"),
+            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+        ]
+    elif implemented_m113_row in active_text:
         planned_rows = [
             ("checkpoint m114", "pre-alpha checkpoint", "m114", "account connector contract review"),
             ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
@@ -8418,7 +8443,16 @@ def _verify_m109_mobile_sensor_audit_ledger_docs(
         "| checkpoint m113 | pre-alpha checkpoint | m113 | "
         "secrets boundary + credential vault contract | implemented/released |"
     )
-    if implemented_m113_row in active_text:
+    implemented_m114_row = (
+        "| checkpoint m114 | pre-alpha checkpoint | m114 | "
+        "account connector contract review | implemented/released |"
+    )
+    if implemented_m114_row in active_text:
+        planned_rows = [
+            ("checkpoint m115", "pre-alpha checkpoint", "m115", "production audit retention policy"),
+            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+        ]
+    elif implemented_m113_row in active_text:
         planned_rows = [
             ("checkpoint m114", "pre-alpha checkpoint", "m114", "account connector contract review"),
             ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
@@ -8838,10 +8872,23 @@ def _verify_m112_user_workspace_identity_docs(
         "| checkpoint m113 | pre-alpha checkpoint | m113 | "
         "secrets boundary + credential vault contract | implemented/released |"
     )
+    implemented_m114_row = (
+        "| checkpoint m114 | pre-alpha checkpoint | m114 | "
+        "account connector contract review | implemented/released |"
+    )
     planned_rows = [
         ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
     ]
-    if implemented_m113_row in active_text:
+    if implemented_m114_row in active_text:
+        planned_rows.append(
+            (
+                "checkpoint m115",
+                "pre-alpha checkpoint",
+                "m115",
+                "production audit retention policy",
+            )
+        )
+    elif implemented_m113_row in active_text:
         planned_rows.append(
             (
                 "checkpoint m114",
@@ -8989,15 +9036,23 @@ def _verify_m113_secrets_boundary_docs(
     )
     if implemented_m113_row not in active_text:
         failures.append("active docs missing implemented Checkpoint M113 row")
-    for version_label, product_target, milestone, title in [
-        (
-            "checkpoint m114",
-            "pre-alpha checkpoint",
-            "m114",
-            "account connector contract review",
-        ),
+    m114_is_current = (
+        "checkpoint m114 is implemented/released" in active_text
+        or "m114 is implemented/released" in active_text
+    )
+    planned_rows = [
         ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
-    ]:
+    ]
+    if not m114_is_current:
+        planned_rows.append(
+            (
+                "checkpoint m114",
+                "pre-alpha checkpoint",
+                "m114",
+                "account connector contract review",
+            )
+        )
+    for version_label, product_target, milestone, title in planned_rows:
         row = (
             f"| {version_label} | {product_target} | {milestone} | "
             f"{title} | planned/provisional |"
@@ -9006,10 +9061,7 @@ def _verify_m113_secrets_boundary_docs(
             failures.append(
                 f"active docs missing planned M114-M150 row: {version_label} / {milestone.upper()} - {title}"
             )
-    for fragment in {
-        "m114 is implemented",
-        "checkpoint m114 implements m114",
-        "account connector contract review is implemented",
+    forbidden_fragments = {
         "credential vault runtime is implemented",
         "credential handling is implemented",
         "credential storage is implemented",
@@ -9020,9 +9072,168 @@ def _verify_m113_secrets_boundary_docs(
         "beta is released",
         "production authority is implemented",
         "broad autonomy is implemented",
-    }:
+    }
+    if not m114_is_current:
+        forbidden_fragments.update(
+            {
+                "m114 is implemented",
+                "checkpoint m114 implements m114",
+                "account connector contract review is implemented",
+            }
+        )
+    for fragment in forbidden_fragments:
         if fragment in active_text or fragment in text:
             failures.append(f"M113 docs imply forbidden/future capability: {fragment}")
+    return failures
+
+
+def _verify_m114_account_connector_docs(
+    root: Path, version: str | None
+) -> list[str]:
+    failures: list[str] = []
+    if _version_tuple(version) < (1, 7, 2):
+        return failures
+    active_text = " ".join(
+        "\n".join(
+            _read(root / rel_path).lower()
+            for rel_path in [
+                "README.md",
+                "VERSION.md",
+                "docs/canonical/09_roadmap.md",
+                "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            ]
+            if (root / rel_path).exists()
+        ).split()
+    )
+    if (
+        "checkpoint m114 is implemented/released" not in active_text
+        and "m114 is implemented/released" not in active_text
+    ):
+        return failures
+    required_paths = [
+        "docs/production/ACCOUNT_CONNECTOR_CONTRACT_REVIEW.md",
+        "docs/production/ACCOUNT_CONNECTOR_POLICY.md",
+        "docs/production/ACCOUNT_CONNECTOR_AUTHORITY_BOUNDARY.md",
+        "docs/production/ACCOUNT_CONNECTOR_RECEIPT_PLAN.md",
+        "docs/production/ACCOUNT_CONNECTOR_NON_GOALS.md",
+        "docs/production/M114_TO_M115_BOUNDARY.md",
+        "docs/release_notes/checkpoint_m114.md",
+        "docs/archive/checkpoints/m114/README_IMPORT.md",
+        "docs/archive/checkpoints/m114/master_plan.md",
+        "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+    ]
+    for rel_path in required_paths:
+        if not (root / rel_path).exists():
+            failures.append(f"missing M114 account connector doc: {rel_path}")
+    text = " ".join(
+        "\n".join(
+            _read(root / rel_path).lower()
+            for rel_path in required_paths
+            if (root / rel_path).exists()
+        ).split()
+    )
+    required_fragments = {
+        "M114 docs must say account connector contract review": "account connector contract review",
+        "M114 docs must say contract-only": "contract-only",
+        "M114 docs must say review-only": "review-only",
+        "M114 docs must say safe refs": "safe refs",
+        "M114 docs must say secrets boundary": "secrets boundary",
+        "M114 docs must say connector contract refs": "connector contract refs",
+        "M114 docs must say connector scope refs": "connector scope refs",
+        "M114 docs must say credential boundary ref": "credential boundary ref",
+        "M114 docs must say auth boundary ref": "auth boundary ref",
+        "M114 docs must say data access boundary refs": "data access boundary refs",
+        "M114 docs must say actor-bound": "actor-bound",
+        "M114 docs must say baseline-bound": "baseline-bound",
+        "M114 docs must say source-secrets-boundary-bound": "source-secrets-boundary-bound",
+        "M114 docs must say user-bound": "user-bound",
+        "M114 docs must say workspace-bound": "workspace-bound",
+        "M114 docs must say credential-boundary-bound": "credential-boundary-bound",
+        "M114 docs must say auth-boundary-bound": "auth-boundary-bound",
+        "M114 docs must say audit": "audit",
+        "M114 docs must say replay": "replay",
+        "M114 docs must say no-effect receipt plan": "no-effect receipt plan",
+        "M114 docs must deny production authority": "no production authority",
+        "M114 docs must deny production runtime": "no production runtime",
+        "M114 docs must deny auth runtime": "no auth runtime",
+        "M114 docs must deny login": "no login",
+        "M114 docs must deny session cookie": "no session cookie",
+        "M114 docs must deny OAuth flow": "no oauth flow",
+        "M114 docs must deny token exchange": "no token exchange",
+        "M114 docs must deny credential handling": "no credential handling",
+        "M114 docs must deny credential storage": "no credential storage",
+        "M114 docs must deny credential read": "no credential read",
+        "M114 docs must deny credential write": "no credential write",
+        "M114 docs must deny secret material access": "no secret material access",
+        "M114 docs must deny secret export": "no secret export",
+        "M114 docs must deny vault runtime": "no vault runtime",
+        "M114 docs must deny account connector runtime": "no account connector runtime",
+        "M114 docs must deny account connector": "no account connector",
+        "M114 docs must deny network access": "no network access",
+        "M114 docs must deny account action": "no account action",
+        "M114 docs must deny model call": "no model call",
+        "M114 docs must deny memory write": "no memory write",
+        "M114 docs must deny context injection": "no context injection",
+        "M114 docs must deny execution": "no execution",
+        "M114 docs must deny tool execution": "no tool execution",
+        "M114 docs must deny shell execution": "no shell execution",
+        "M114 docs must deny browser automation": "no browser automation",
+        "M114 docs must deny plugin execution": "no plugin execution",
+        "M114 docs must deny mobile sensor": "no mobile sensor",
+        "M114 docs must deny background worker": "no background worker",
+        "M114 docs must deny remote execution": "no remote execution",
+        "M114 docs must deny backend route": "no backend route",
+        "M114 docs must deny Control Center control": "no control center control",
+        "M114 docs must deny dependency": "no dependency",
+        "M114 docs must keep M115 future": "m115 remains future",
+        "M114 docs must preserve alpha target": "v1.0.0-alpha",
+    }
+    for message, fragment in required_fragments.items():
+        if fragment not in text:
+            failures.append(message)
+    active_paths = [
+        "README.md",
+        "VERSION.md",
+        "docs/canonical/09_roadmap.md",
+        "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+        "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+        "docs/roadmap/MILESTONE_CHARTERS.md",
+        "docs/DOCUMENTATION_INDEX.md",
+        "docs/canonical/CANONICAL_DOC_MAP.md",
+    ]
+    current_text = " ".join(
+        "\n".join(
+            _read(root / rel_path).lower()
+            for rel_path in active_paths
+            if (root / rel_path).exists()
+        ).split()
+    )
+    implemented_m114_row = (
+        "| checkpoint m114 | pre-alpha checkpoint | m114 | "
+        "account connector contract review | implemented/released |"
+    )
+    if implemented_m114_row not in current_text:
+        failures.append("active docs missing implemented Checkpoint M114 row")
+    planned_m115_row = (
+        "| checkpoint m115 | pre-alpha checkpoint | m115 | "
+        "production audit retention policy | planned/provisional |"
+    )
+    if planned_m115_row not in current_text:
+        failures.append("active docs missing planned Checkpoint M115 row")
+    for fragment in {
+        "m115 is implemented",
+        "checkpoint m115 implements m115",
+        "production audit retention policy is implemented",
+        "account connector runtime is implemented",
+        "account action is implemented",
+        "credential handling is implemented",
+        "auth runtime is implemented",
+        "beta is released",
+        "production authority is implemented",
+        "broad autonomy is implemented",
+    }:
+        if fragment in current_text or fragment in text:
+            failures.append(f"M114 docs imply forbidden/future capability: {fragment}")
     return failures
 
 

@@ -1,6 +1,6 @@
 # M101-M150 Capability Charters
 
-Status: Active roadmap maintained through Checkpoint M113 after the accepted
+Status: Active roadmap maintained through Checkpoint M114 after the accepted
 v1.7.2 post-M103 versioning repair follow-up.
 
 M101 is implemented/released as Mobile Sensor Contract Review. M102 is
@@ -16,7 +16,8 @@ Sensor Audit Ledger. Checkpoint M110 is implemented/released as Mobile Sensor
 Hardening Freeze. Checkpoint M111 is implemented/released as Production Threat
 Model. Checkpoint M112 is implemented/released as User/Workspace Identity
 Model. Checkpoint M113 is implemented/released as Secrets Boundary +
-Credential Vault Contract. M114-M150 remain planned/provisional.
+Credential Vault Contract. Checkpoint M114 is implemented/released as Account
+Connector Contract Review. M115-M150 remain planned/provisional.
 Future work must continue the authority-tier model:
 
 Capability exists -> disabled by default -> dry-run first -> limited allowlist
@@ -53,7 +54,7 @@ roadmap patch. Do not rewrite, move, or reuse existing tags.
 | Checkpoint M111 | pre-alpha checkpoint | M111 | Production Threat Model | Implemented/released |
 | Checkpoint M112 | pre-alpha checkpoint | M112 | User/Workspace Identity Model | Implemented/released |
 | Checkpoint M113 | pre-alpha checkpoint | M113 | Secrets Boundary + Credential Vault Contract | Implemented/released |
-| Checkpoint M114 | pre-alpha checkpoint | M114 | Account Connector Contract Review | Planned/provisional |
+| Checkpoint M114 | pre-alpha checkpoint | M114 | Account Connector Contract Review | Implemented/released |
 | Checkpoint M115 | pre-alpha checkpoint | M115 | Production Audit Retention Policy | Planned/provisional |
 | Checkpoint M116 | pre-alpha checkpoint | M116 | Role-Based Authority Model | Planned/provisional |
 | Checkpoint M117 | pre-alpha checkpoint | M117 | Remote Agent Coordination Contract | Planned/provisional |

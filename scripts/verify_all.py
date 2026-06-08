@@ -148,6 +148,7 @@ SCAN_SEQUENCE = [
     ("M111 production threat model scan", "verify_m111_production_threat_model"),
     ("M112 user/workspace identity model scan", "verify_m112_user_workspace_identity_model"),
     ("M113 secrets boundary credential vault contract scan", "verify_m113_secrets_boundary_credential_vault"),
+    ("M114 account connector contract review scan", "verify_m114_account_connector_contract_review"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -17575,6 +17576,12 @@ def verify_post_m100_roadmap_reconciliation():
         or "secrets boundary + credential vault contract" in active_version_text
     ):
         implemented_milestones.add("m113")
+    if (
+        "checkpoint m114" in active_version_text
+        or "m114" in active_version_text
+        or "account connector contract review" in active_version_text
+    ):
+        implemented_milestones.add("m114")
     for version_label, product_target, milestone, title in expected_labels:
         if milestone in implemented_milestones:
             continue
@@ -20046,6 +20053,251 @@ def verify_m113_secrets_boundary_credential_vault():
             sys.exit(1)
 
     print("OK: M113 secrets boundary is contract-only, no-runtime, and route-free")
+
+
+def verify_m114_account_connector_contract_review():
+    print("\n[Verifier] Running M114 account connector contract review guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/production_readiness/account_connector_review.py",
+        "docs/production/ACCOUNT_CONNECTOR_CONTRACT_REVIEW.md",
+        "docs/production/ACCOUNT_CONNECTOR_POLICY.md",
+        "docs/production/ACCOUNT_CONNECTOR_AUTHORITY_BOUNDARY.md",
+        "docs/production/ACCOUNT_CONNECTOR_RECEIPT_PLAN.md",
+        "docs/production/ACCOUNT_CONNECTOR_NON_GOALS.md",
+        "docs/production/M114_TO_M115_BOUNDARY.md",
+        "docs/release_notes/checkpoint_m114.md",
+        "docs/archive/checkpoints/m114/README_IMPORT.md",
+        "docs/archive/checkpoints/m114/master_plan.md",
+        "tests/test_m114_account_connector_contract_review.py",
+        "tests/test_m114_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M114 account connector file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = " ".join(
+        "\n".join(
+            (ROOT / rel_path).read_text(encoding="utf-8").lower()
+            for rel_path in required_files
+            if rel_path.startswith("docs/")
+        ).split()
+    )
+    for fragment in [
+        "account connector contract review",
+        "contract-only",
+        "review-only",
+        "safe refs",
+        "secrets boundary",
+        "connector contract refs",
+        "connector scope refs",
+        "credential boundary ref",
+        "auth boundary ref",
+        "data access boundary refs",
+        "actor-bound",
+        "baseline-bound",
+        "source-secrets-boundary-bound",
+        "user-bound",
+        "workspace-bound",
+        "credential-boundary-bound",
+        "auth-boundary-bound",
+        "audit",
+        "replay",
+        "no-effect receipt plan",
+        "no production authority",
+        "no production runtime",
+        "no auth runtime",
+        "no login",
+        "no session cookie",
+        "no oauth flow",
+        "no token exchange",
+        "no credential handling",
+        "no credential storage",
+        "no credential read",
+        "no credential write",
+        "no secret material access",
+        "no secret export",
+        "no vault runtime",
+        "no account connector runtime",
+        "no account connector",
+        "no network access",
+        "no account action",
+        "no model call",
+        "no memory write",
+        "no context injection",
+        "no execution",
+        "no tool execution",
+        "no shell execution",
+        "no browser automation",
+        "no plugin execution",
+        "no mobile sensor",
+        "no background worker",
+        "no remote execution",
+        "no backend route",
+        "no control center control",
+        "no dependency",
+        "m115 remains future",
+        "v1.0.0-alpha",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M114 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.criteria import (
+            default_foundation_gate_criteria,
+        )
+        from ultimate_ai_agent.core.gate.evaluators import (
+            FoundationGateEvaluator,
+            m114_openapi_route_failures,
+        )
+        from ultimate_ai_agent.core.mobile_companion import (
+            build_mobile_approval_renewal_ux_report,
+            build_mobile_kill_switch_revocation_record,
+            build_mobile_sensor_audit_ledger_record,
+            build_mobile_sensor_hardening_freeze_record,
+        )
+        from ultimate_ai_agent.core.production_readiness import (
+            AccountConnectorContractReviewStatus,
+            build_account_connector_contract_review_record,
+            build_production_threat_model_record,
+            build_secrets_boundary_record,
+            build_user_workspace_identity_record,
+            validate_account_connector_contract_review_record,
+        )
+    except Exception as exc:
+        print(f"FAIL: M114 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m114_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    source_record = build_secrets_boundary_record(
+        source_record=build_user_workspace_identity_record(
+            source_record=build_production_threat_model_record(
+                source_record=build_mobile_sensor_hardening_freeze_record(
+                    source_record=build_mobile_sensor_audit_ledger_record(
+                        source_record=build_mobile_kill_switch_revocation_record(
+                            source_report=build_mobile_approval_renewal_ux_report()
+                        )
+                    )
+                )
+            )
+        )
+    )
+    record = build_account_connector_contract_review_record(source_record=source_record)
+    if (
+        record.status != AccountConnectorContractReviewStatus.contract_review
+        or not record.contract_only
+        or not record.review_only
+        or not record.safe_refs_required
+        or not record.source_secrets_boundary_bound
+        or record.source_secrets_boundary_ref != source_record.secrets_boundary_ref
+        or record.source_baseline_ref != source_record.source_baseline_ref
+        or record.actor_ref != source_record.actor_ref
+        or record.user_ref != source_record.user_ref
+        or record.workspace_ref != source_record.workspace_ref
+        or not record.connector_contract_refs
+        or not record.connector_scope_refs
+        or "checkpoint:m113" not in record.accepted_checkpoint_refs
+        or record.production_authority_enabled
+        or record.production_runtime_enabled
+        or record.auth_runtime_enabled
+        or record.login_enabled
+        or record.session_cookie_enabled
+        or record.oauth_flow_enabled
+        or record.token_exchange_enabled
+        or record.credential_handling_enabled
+        or record.credential_storage_enabled
+        or record.credential_read_enabled
+        or record.credential_write_enabled
+        or record.secret_material_access_enabled
+        or record.secret_export_enabled
+        or record.vault_runtime_enabled
+        or record.account_connector_runtime_enabled
+        or record.account_connector_enabled
+        or record.network_access_enabled
+        or record.account_action_enabled
+        or record.model_call_enabled
+        or record.memory_write_enabled
+        or record.context_injection_enabled
+        or record.execution_enabled
+        or record.tool_execution_enabled
+        or record.shell_execution_enabled
+        or record.browser_automation_enabled
+        or record.plugin_execution_enabled
+        or record.mobile_sensor_enabled
+        or record.background_worker_enabled
+        or record.remote_execution_enabled
+        or record.backend_route_added
+        or record.control_center_control_added
+        or record.dependency_added
+        or record.side_effects_performed
+        or "M114_ACCOUNT_CONNECTOR_CONTRACT_REVIEW" not in record.reason_codes
+        or "M115_REMAINS_FUTURE" not in record.reason_codes
+    ):
+        print("FAIL: M114 account connector record is unsafe or over-authoritative")
+        sys.exit(1)
+
+    for update, reason in [
+        ({"review_only": False}, "M114_REVIEW_ONLY_REQUIRED"),
+        ({"oauth_flow_enabled": True}, "OAUTH_FLOW_DENIED"),
+        ({"token_exchange_enabled": True}, "TOKEN_EXCHANGE_DENIED"),
+        ({"credential_handling_enabled": True}, "CREDENTIAL_HANDLING_DENIED"),
+        ({"credential_storage_enabled": True}, "CREDENTIAL_STORAGE_DENIED"),
+        ({"credential_read_enabled": True}, "CREDENTIAL_READ_DENIED"),
+        ({"credential_write_enabled": True}, "CREDENTIAL_WRITE_DENIED"),
+        ({"secret_material_access_enabled": True}, "SECRET_MATERIAL_ACCESS_DENIED"),
+        ({"secret_export_enabled": True}, "SECRET_EXPORT_DENIED"),
+        ({"vault_runtime_enabled": True}, "VAULT_RUNTIME_DENIED"),
+        (
+            {"account_connector_runtime_enabled": True},
+            "ACCOUNT_CONNECTOR_RUNTIME_DENIED",
+        ),
+        ({"account_connector_enabled": True}, "ACCOUNT_CONNECTOR_DENIED"),
+        ({"account_action_enabled": True}, "ACCOUNT_ACTION_DENIED"),
+        ({"network_access_enabled": True}, "NETWORK_ACCESS_DENIED"),
+        ({"model_call_enabled": True}, "MODEL_CALL_DENIED"),
+        ({"memory_write_enabled": True}, "MEMORY_WRITE_DENIED"),
+        ({"context_injection_enabled": True}, "CONTEXT_INJECTION_DENIED"),
+        ({"execution_enabled": True}, "EXECUTION_DENIED"),
+        ({"backend_route_added": True}, "BACKEND_ROUTE_DENIED"),
+        ({"control_center_control_added": True}, "CONTROL_CENTER_CONTROL_DENIED"),
+        ({"dependency_added": True}, "DEPENDENCY_DENIED"),
+    ]:
+        try:
+            validate_account_connector_contract_review_record(
+                record.model_copy(update=update)
+            )
+            print(f"FAIL: M114 mutated authority flag was not denied: {update}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M114 mutated authority flag raised {exc!s}")
+                sys.exit(1)
+
+    criteria = {
+        criterion.criterion_id: criterion
+        for criterion in default_foundation_gate_criteria()
+    }
+    evaluator = FoundationGateEvaluator(ROOT)
+    for criterion_id in [
+        "m114_account_connector_contracts",
+        "m114_account_connector_static_safety",
+        "m114_account_connector_route_boundary",
+        "m114_roadmap_currentness",
+    ]:
+        report = evaluator.evaluate([criteria[criterion_id]])
+        result = report.results[0]
+        if result.status != "passed":
+            print(f"FAIL: {criterion_id} failed: {result.failures}")
+            sys.exit(1)
+
+    print("OK: M114 account connector review is contract-only, no-runtime, and route-free")
 
 
 def verify_local_developer_launcher_safety():

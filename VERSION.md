@@ -2,9 +2,8 @@
 
 Current active baseline: **v1.7.2**
 
-Checkpoint M113 is implemented/released as Secrets Boundary + Credential Vault
-Contract. The
-current product baseline remains v1.7.2. Already-pushed tags
+Checkpoint M114 is implemented/released as Account Connector Contract Review.
+The current product baseline remains v1.7.2. Already-pushed tags
 remain immutable historical internal milestone tags. Future M114-M149 conveyor
 milestones use checkpoint labels instead of product SemVer tags, and M150 is
 the next product release target **v1.0.0-alpha**. Beta begins only after the
@@ -109,6 +108,18 @@ plugin execution, no mobile sensor, no background worker, no remote execution,
 no backend route, no Control Center control, no dependency, no M114 work, no
 broad autonomy, no beta release, and no production authority.
 
-M101, M102, M103, M104, M105, M106, M107, M108, M109, M110, M111, M112, and M113 are implemented/released. M114-M150 are
+Checkpoint M114 adds contract-only review-only account connector contract
+review records. It adds no production authority, no production runtime, no auth
+runtime, no login, no session cookie handling, no OAuth flow, no token
+exchange, no credential handling, no credential storage, no credential read, no
+credential write, no secret material access, no secret export, no vault
+runtime, no account connector runtime, no account connector, no network access,
+no account action, no model call, no memory write, no context injection, no
+execution, no tool execution, no shell execution, no browser automation, no
+plugin execution, no mobile sensor, no background worker, no remote execution,
+no backend route, no Control Center control, no dependency, no M115 work, no
+broad autonomy, no beta release, and no production authority.
+
+M101, M102, M103, M104, M105, M106, M107, M108, M109, M110, M111, M112, M113, and M114 are implemented/released. M115-M150 are
 planned/provisional checkpoint milestones only. M150 is planned as
 v1.0.0-alpha, not beta.
