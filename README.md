@@ -13,25 +13,24 @@ allowed to become operational authority.
 | Field | Current state |
 |---|---|
 | Current active baseline | **v1.7.2** |
-| Current milestone | **Checkpoint M122 — Calendar Connector Contract Refresh** |
+| Current milestone | **Checkpoint M123 — Contacts Connector Contract Refresh** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **75** OpenAPI paths |
 | Production readiness | Not claimed |
 
-Checkpoint M122 implements Calendar Connector Contract Refresh while the current
+Checkpoint M123 implements Contacts Connector Contract Refresh while the current
 product baseline remains v1.7.2. Already-pushed tags remain immutable historical
-internal milestone tags, future M123-M149 conveyor milestones use checkpoint
+internal milestone tags, future M124-M149 conveyor milestones use checkpoint
 labels instead of product SemVer tags, and M150 is the next product release
 target **v1.0.0-alpha**. Beta begins only after the alpha UI and supporting
 safety/product work are reviewed, accepted, and explicitly promoted by a later
-roadmap patch. M122 adds no calendar connector runtime, calendar account auth,
-calendar read, calendar search, calendar event create, calendar event update,
-calendar event delete, calendar invite send, attachment download, raw calendar
-content, credential handling, network access, account action, model call,
-memory write, context injection, execution, backend route, Control Center
-control, dependency, M123 work, broad autonomy, beta release, or production
-authority.
+roadmap patch. M123 adds no contacts connector runtime, contacts account auth,
+contacts read, contacts search, contacts lookup, contacts create, contacts
+update, contacts delete, contacts export, raw contacts content, credential
+handling, network access, account action, model call, memory write, context
+injection, execution, backend route, Control Center control, dependency, M124
+work, broad autonomy, beta release, or production authority.
 
 v0.29.5 is documentation policy polish. It remains the documentation
 organization cleanup baseline before the M26 and M27 implementation releases.
@@ -45,6 +44,7 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M34-M60 roadmap supersession](docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md)
 - [M61-M100 roadmap](docs/roadmap/M61_M100_ROADMAP.md)
 - [M101-M150 planned roadmap](docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md)
+- [M123 Contacts Connector Contract Refresh](docs/connectors/CONTACTS_CONNECTOR_CONTRACT_REFRESH.md)
 - [M122 Calendar Connector Contract Refresh](docs/connectors/CALENDAR_CONNECTOR_CONTRACT_REFRESH.md)
 - [M121 Email Connector Contract Refresh](docs/connectors/EMAIL_CONNECTOR_CONTRACT_REFRESH.md)
 - [M120 Production Authority Readiness Review](docs/production/PRODUCTION_AUTHORITY_READINESS_REVIEW.md)

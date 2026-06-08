@@ -1607,6 +1607,22 @@ M122_FORBIDDEN_BACKEND_ROUTES = M121_FORBIDDEN_BACKEND_ROUTES + (
     "/memory/write",
     "/context/inject",
 )
+EXPECTED_M123_OPENAPI_PATH_COUNT = 75
+M123_FORBIDDEN_BACKEND_ROUTES = M122_FORBIDDEN_BACKEND_ROUTES + (
+    "/connectors/contacts/auth",
+    "/connectors/contacts/read",
+    "/connectors/contacts/search",
+    "/connectors/contacts/lookup",
+    "/connectors/contacts/create",
+    "/connectors/contacts/update",
+    "/connectors/contacts/delete",
+    "/connectors/contacts/export",
+    "/connectors/contacts/bulk-export",
+    "/contacts/export",
+    "/network/post",
+    "/memory/write",
+    "/context/inject",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -3153,6 +3169,23 @@ def m122_openapi_route_failures(
     return failures
 
 
+def m123_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M123_OPENAPI_PATH_COUNT
+) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(
+            f"OpenAPI path count changed for M123: expected {expected_path_count}, got {len(path_set)}"
+        )
+    for route in M123_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(
+                f"M123 forbidden contacts connector runtime route present: {route}"
+            )
+    return failures
+
+
 M36_SAFE_REF_PREFIXES = {
     "reviewPacketRef": "file-review-packet:",
     "previewResultRef": "redacted-file-preview-output:",
@@ -4238,6 +4271,16 @@ class FoundationGateEvaluator:
                 self.check_m122_calendar_connector_contract_refresh_route_boundary
             ),
             "m122_roadmap_currentness": self.check_m122_roadmap_currentness,
+            "m123_contacts_connector_contract_refresh_contracts": (
+                self.check_m123_contacts_connector_contract_refresh_contracts
+            ),
+            "m123_contacts_connector_contract_refresh_static_safety": (
+                self.check_m123_contacts_connector_contract_refresh_static_safety
+            ),
+            "m123_contacts_connector_contract_refresh_route_boundary": (
+                self.check_m123_contacts_connector_contract_refresh_route_boundary
+            ),
+            "m123_roadmap_currentness": self.check_m123_roadmap_currentness,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -29995,6 +30038,12 @@ class FoundationGateEvaluator:
             or "calendar connector contract refresh" in active_version_text
         ):
             implemented_milestones.add("m122")
+        if (
+            "checkpoint m123" in active_version_text
+            or "m123" in active_version_text
+            or "contacts connector contract refresh" in active_version_text
+        ):
+            implemented_milestones.add("m123")
         for version_label, product_target, milestone, title in expected_labels:
             if milestone in implemented_milestones:
                 continue
@@ -37579,7 +37628,7 @@ class FoundationGateEvaluator:
                 "pre-alpha checkpoint",
                 "m123",
                 "contacts connector contract refresh",
-                "planned/provisional",
+                "implemented/released",
             ),
             (
                 "v1.0.0-alpha",
@@ -37598,9 +37647,9 @@ class FoundationGateEvaluator:
                     f"active docs missing expected M122-M150 row: {version_label} / {milestone.upper()} - {title}"
                 )
         for fragment in (
-            "m123 is implemented",
-            "checkpoint m123 implements m123",
-            "contacts connector contract refresh is implemented",
+            "m124 is implemented",
+            "checkpoint m124 implements m124",
+            "messages connector contract review is implemented",
             "calendar connector runtime is implemented",
             "calendar account auth is implemented",
             "calendar read is implemented",
@@ -37612,6 +37661,403 @@ class FoundationGateEvaluator:
             if fragment in text:
                 failures.append(
                     f"active docs imply forbidden M122 future/currentness claim: {fragment}"
+                )
+        return self._result(criterion, failures, required_docs)
+
+    def check_m123_contacts_connector_contract_refresh_contracts(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/connectors/__init__.py",
+            "src/ultimate_ai_agent/core/connectors/contacts_connector_contract_refresh.py",
+            "docs/connectors/CONTACTS_CONNECTOR_CONTRACT_REFRESH.md",
+            "docs/connectors/CONTACTS_CONNECTOR_AUTHORITY_BOUNDARY.md",
+            "docs/connectors/CONTACTS_CONNECTOR_RECEIPT_PLAN.md",
+            "docs/connectors/CONTACTS_CONNECTOR_NON_GOALS.md",
+            "docs/connectors/M123_TO_M124_BOUNDARY.md",
+            "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            "tests/test_m123_contacts_connector_contract_refresh.py",
+            "tests/test_m123_gate_integration.py",
+        ]
+        failures = [
+            f"missing M123 contacts connector refresh file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            from ultimate_ai_agent.core.connectors import (
+                ContactsConnectorContractRefreshStatus,
+                build_calendar_connector_contract_refresh_record,
+                build_contacts_connector_contract_refresh_record,
+                build_email_connector_contract_refresh_record,
+                validate_contacts_connector_contract_refresh_record,
+            )
+            from ultimate_ai_agent.core.mobile_companion import (
+                build_mobile_approval_renewal_ux_report,
+                build_mobile_kill_switch_revocation_record,
+                build_mobile_sensor_audit_ledger_record,
+                build_mobile_sensor_hardening_freeze_record,
+            )
+            from ultimate_ai_agent.core.production_readiness import (
+                build_account_connector_contract_review_record,
+                build_deployment_mode_matrix_record,
+                build_production_audit_retention_policy_record,
+                build_production_authority_readiness_review_record,
+                build_production_red_team_harness_record,
+                build_production_threat_model_record,
+                build_remote_agent_coordination_contract_record,
+                build_role_based_authority_model_record,
+                build_secrets_boundary_record,
+                build_user_workspace_identity_record,
+            )
+
+            m120_record = build_production_authority_readiness_review_record(
+                source_record=build_production_red_team_harness_record(
+                    source_record=build_deployment_mode_matrix_record(
+                        source_record=build_remote_agent_coordination_contract_record(
+                            source_record=build_role_based_authority_model_record(
+                                source_record=build_production_audit_retention_policy_record(
+                                    source_record=build_account_connector_contract_review_record(
+                                        source_record=build_secrets_boundary_record(
+                                            source_record=build_user_workspace_identity_record(
+                                                source_record=build_production_threat_model_record(
+                                                    source_record=build_mobile_sensor_hardening_freeze_record(
+                                                        source_record=build_mobile_sensor_audit_ledger_record(
+                                                            source_record=build_mobile_kill_switch_revocation_record(
+                                                                source_report=build_mobile_approval_renewal_ux_report()
+                                                            )
+                                                        )
+                                                    )
+                                                )
+                                            )
+                                        )
+                                    )
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+            email_record = build_email_connector_contract_refresh_record(
+                source_record=m120_record
+            )
+            source_record = build_calendar_connector_contract_refresh_record(
+                source_record=email_record
+            )
+            record = build_contacts_connector_contract_refresh_record(
+                source_record=source_record
+            )
+            if (
+                record.status
+                != ContactsConnectorContractRefreshStatus.contacts_connector_contract_refresh
+                or not record.contract_only
+                or not record.review_only
+                or not record.safe_refs_required
+                or not record.actor_bound
+                or not record.baseline_bound
+                or not record.source_calendar_connector_contract_refresh_bound
+                or not record.user_bound
+                or not record.workspace_bound
+                or not record.contacts_scope_bound
+                or not record.contacts_boundary_bound
+                or not record.contact_boundary_bound
+                or not record.consent_boundary_bound
+                or not record.data_classification_bound
+                or not record.retention_boundary_bound
+                or not record.audit_required
+                or not record.replay_safe
+                or record.source_calendar_connector_contract_refresh_ref
+                != source_record.calendar_connector_contract_refresh_ref
+                or "checkpoint:m122" not in record.accepted_checkpoint_refs
+                or not record.contacts_scope_refs
+                or not record.contacts_boundary_refs
+                or not record.contact_boundary_refs
+                or not record.consent_boundary_refs
+                or not record.data_classification_refs
+                or not record.retention_boundary_refs
+                or record.contacts_connector_runtime_enabled
+                or record.contacts_account_auth_enabled
+                or record.contacts_read_enabled
+                or record.contacts_search_enabled
+                or record.contacts_lookup_enabled
+                or record.contacts_create_enabled
+                or record.contacts_update_enabled
+                or record.contacts_delete_enabled
+                or record.contacts_export_enabled
+                or record.contacts_bulk_export_enabled
+                or record.raw_contacts_content_enabled
+                or record.credential_handling_enabled
+                or record.network_access_enabled
+                or record.account_action_enabled
+                or record.model_call_enabled
+                or record.memory_write_enabled
+                or record.context_injection_enabled
+                or record.execution_enabled
+                or record.backend_route_added
+                or record.control_center_control_added
+                or record.dependency_added
+                or record.side_effects_performed
+                or "M123_CONTACTS_CONNECTOR_CONTRACT_REFRESH" not in record.reason_codes
+                or "M124_REMAINS_FUTURE" not in record.reason_codes
+            ):
+                failures.append(
+                    "M123 contacts connector refresh contract is unsafe or over-authoritative"
+                )
+            for update, reason in [
+                ({"review_only": False}, "M123_REVIEW_ONLY_REQUIRED"),
+                ({"contacts_scope_refs": []}, "M123_CONTACTS_SCOPE_REF_REQUIRED"),
+                ({"contacts_boundary_refs": []}, "M123_CONTACTS_BOUNDARY_REF_REQUIRED"),
+                ({"contact_boundary_refs": []}, "M123_CONTACT_BOUNDARY_REF_REQUIRED"),
+                (
+                    {"contacts_connector_runtime_enabled": True},
+                    "CONTACTS_CONNECTOR_RUNTIME_DENIED",
+                ),
+                ({"contacts_account_auth_enabled": True}, "CONTACTS_ACCOUNT_AUTH_DENIED"),
+                ({"contacts_read_enabled": True}, "CONTACTS_READ_DENIED"),
+                ({"contacts_lookup_enabled": True}, "CONTACTS_LOOKUP_DENIED"),
+                ({"contacts_create_enabled": True}, "CONTACTS_CREATE_DENIED"),
+                ({"contacts_export_enabled": True}, "CONTACTS_EXPORT_DENIED"),
+                ({"raw_contacts_content_enabled": True}, "RAW_CONTACTS_CONTENT_DENIED"),
+                ({"credential_handling_enabled": True}, "CREDENTIAL_HANDLING_DENIED"),
+                ({"network_access_enabled": True}, "NETWORK_ACCESS_DENIED"),
+                ({"backend_route_added": True}, "BACKEND_ROUTE_DENIED"),
+                (
+                    {"control_center_control_added": True},
+                    "CONTROL_CENTER_CONTROL_DENIED",
+                ),
+                ({"dependency_added": True}, "DEPENDENCY_DENIED"),
+            ]:
+                try:
+                    validate_contacts_connector_contract_refresh_record(
+                        record.model_copy(update=update)
+                    )
+                    failures.append(
+                        f"M123 unsafe record mutation was not denied with {reason}"
+                    )
+                except ValueError as exc:
+                    if reason not in str(exc):
+                        failures.append(f"M123 unsafe record mutation raised {exc!s}")
+        except Exception as exc:
+            failures.append(f"M123 contacts connector refresh validation failed: {exc}")
+
+        docs_text = " ".join(
+            "\n".join(
+                self._read(self.root / path).lower()
+                for path in required_files
+                if path.startswith("docs/") and (self.root / path).exists()
+            ).split()
+        )
+        for fragment in [
+            "contacts connector contract refresh",
+            "contract-only",
+            "review-only",
+            "safe refs",
+            "calendar connector contract refresh",
+            "contacts scope refs",
+            "contacts boundary refs",
+            "contact boundary refs",
+            "consent boundary refs",
+            "data classification refs",
+            "retention boundary refs",
+            "actor-bound",
+            "baseline-bound",
+            "source-calendar-connector-contract-refresh-bound",
+            "audit",
+            "replay",
+            "no-effect receipt plan",
+            "no contacts connector runtime",
+            "no contacts account auth",
+            "no contacts read",
+            "no contacts search",
+            "no contacts lookup",
+            "no contacts create",
+            "no contacts update",
+            "no contacts delete",
+            "no contacts export",
+            "no raw contacts content",
+            "no credential handling",
+            "no network access",
+            "no backend route",
+            "no control center control",
+            "no dependency",
+            "m124 remains future",
+            "v1.0.0-alpha",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M123 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m123_contacts_connector_contract_refresh_static_safety(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        forbidden_source_fragments = [
+            "contacts_connector_runtime_enabled=True",
+            "contacts_account_auth_enabled=True",
+            "contacts_read_enabled=True",
+            "contacts_search_enabled=True",
+            "contacts_lookup_enabled=True",
+            "contacts_create_enabled=True",
+            "contacts_update_enabled=True",
+            "contacts_delete_enabled=True",
+            "contacts_export_enabled=True",
+            "contacts_bulk_export_enabled=True",
+            "raw_contacts_content_enabled=True",
+            "credential_handling_enabled=True",
+            "network_access_enabled=True",
+            "account_action_enabled=True",
+            "model_call_enabled=True",
+            "memory_write_enabled=True",
+            "context_injection_enabled=True",
+            "execution_enabled=True",
+            "backend_route_enabled=True",
+            "backend_route_added=True",
+            "control_center_control_enabled=True",
+            "control_center_control_added=True",
+            "dependency_added=True",
+            "/connectors/contacts/auth",
+            "/connectors/contacts/read",
+            "/connectors/contacts/search",
+            "/connectors/contacts/lookup",
+            "/connectors/contacts/create",
+            "/connectors/contacts/update",
+            "/connectors/contacts/delete",
+            "/connectors/contacts/export",
+            "/connectors/contacts/bulk-export",
+            "/contacts/export",
+        ]
+        allowed_files = {
+            "scripts/verify_all.py",
+            "src/ultimate_ai_agent/core/gate/evaluators.py",
+            "src/ultimate_ai_agent/core/connectors/__init__.py",
+            "src/ultimate_ai_agent/core/connectors/contacts_connector_contract_refresh.py",
+        }
+        for root in [
+            self.root / "src" / "ultimate_ai_agent",
+            self.root / "apps" / "control-center" / "src",
+            self.root / "apps" / "ccc-ios",
+        ]:
+            if not root.exists():
+                continue
+            candidate_files = []
+            for pattern in (
+                "*.py",
+                "*.ts",
+                "*.tsx",
+                "*.js",
+                "*.jsx",
+                "*.swift",
+                "*.yml",
+                "*.yaml",
+            ):
+                candidate_files.extend(root.rglob(pattern))
+            for path in sorted(candidate_files):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(self.root).as_posix()
+                if ".test." in rel:
+                    continue
+                if rel in allowed_files:
+                    continue
+                text = path.read_text(encoding="utf-8")
+                for fragment in forbidden_source_fragments:
+                    if fragment in text:
+                        failures.append(
+                            f"M123 forbidden contacts connector fragment in {rel}: {fragment}"
+                        )
+        return self._result(criterion, failures, [])
+
+    def check_m123_contacts_connector_contract_refresh_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m123_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M123 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m123_roadmap_currentness(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_docs = [
+            "README.md",
+            "VERSION.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            "docs/roadmap/MILESTONE_CHARTERS.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+        ]
+        failures = [
+            f"missing M123 roadmap doc: {path}"
+            for path in required_docs
+            if not (self.root / path).exists()
+        ]
+        text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_docs
+            if (self.root / path).exists()
+        )
+        if (
+            "checkpoint m123" not in text
+            or "contacts connector contract refresh" not in text
+        ):
+            failures.append(
+                "active docs do not identify Checkpoint M123 Contacts Connector Contract Refresh"
+            )
+        if (
+            "m123 is implemented/released" not in text
+            and "checkpoint m123 is implemented/released" not in text
+        ):
+            failures.append("active docs do not mark M123 implemented/released")
+        for version_label, product_target, milestone, title, status in [
+            (
+                "checkpoint m123",
+                "pre-alpha checkpoint",
+                "m123",
+                "contacts connector contract refresh",
+                "implemented/released",
+            ),
+            (
+                "checkpoint m124",
+                "pre-alpha checkpoint",
+                "m124",
+                "messages connector contract review",
+                "planned/provisional",
+            ),
+            (
+                "v1.0.0-alpha",
+                "alpha",
+                "m150",
+                "ultimate ai agent v1.0.0-alpha",
+                "planned/provisional",
+            ),
+        ]:
+            row = (
+                f"| {version_label} | {product_target} | {milestone} | "
+                f"{title} | {status} |"
+            )
+            if not _roadmap_row_present(text, row):
+                failures.append(
+                    f"active docs missing expected M123-M150 row: {version_label} / {milestone.upper()} - {title}"
+                )
+        for fragment in (
+            "m124 is implemented",
+            "checkpoint m124 implements m124",
+            "messages connector contract review is implemented",
+            "contacts connector runtime is implemented",
+            "contacts account auth is implemented",
+            "contacts read is implemented",
+            "contacts export is implemented",
+            "network access is implemented",
+            "beta is released",
+            "broad autonomy is implemented",
+        ):
+            if fragment in text:
+                failures.append(
+                    f"active docs imply forbidden M123 future/currentness claim: {fragment}"
                 )
         return self._result(criterion, failures, required_docs)
 

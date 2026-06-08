@@ -161,6 +161,7 @@ SCAN_SEQUENCE = [
     ("M120 production authority readiness review scan", "verify_m120_production_authority_readiness_review"),
     ("M121 email connector contract refresh scan", "verify_m121_email_connector_contract_refresh"),
     ("M122 calendar connector contract refresh scan", "verify_m122_calendar_connector_contract_refresh"),
+    ("M123 contacts connector contract refresh scan", "verify_m123_contacts_connector_contract_refresh"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -17642,6 +17643,12 @@ def verify_post_m100_roadmap_reconciliation():
         or "calendar connector contract refresh" in active_version_text
     ):
         implemented_milestones.add("m122")
+    if (
+        "checkpoint m123" in active_version_text
+        or "m123" in active_version_text
+        or "contacts connector contract refresh" in active_version_text
+    ):
+        implemented_milestones.add("m123")
     for version_label, product_target, milestone, title in expected_labels:
         if milestone in implemented_milestones:
             continue
@@ -22156,6 +22163,114 @@ def verify_m122_calendar_connector_contract_refresh():
             sys.exit(1)
 
     print("OK: M122 calendar connector contract refresh is contract-only, no-runtime, and route-free")
+
+
+def verify_m123_contacts_connector_contract_refresh():
+    print("\n[Verifier] Running M123 contacts connector contract refresh guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/connectors/__init__.py",
+        "src/ultimate_ai_agent/core/connectors/contacts_connector_contract_refresh.py",
+        "docs/connectors/CONTACTS_CONNECTOR_CONTRACT_REFRESH.md",
+        "docs/connectors/CONTACTS_CONNECTOR_AUTHORITY_BOUNDARY.md",
+        "docs/connectors/CONTACTS_CONNECTOR_RECEIPT_PLAN.md",
+        "docs/connectors/CONTACTS_CONNECTOR_NON_GOALS.md",
+        "docs/connectors/M123_TO_M124_BOUNDARY.md",
+        "docs/release_notes/checkpoint_m123.md",
+        "docs/archive/checkpoints/m123/README_IMPORT.md",
+        "docs/archive/checkpoints/m123/master_plan.md",
+        "tests/test_m123_contacts_connector_contract_refresh.py",
+        "tests/test_m123_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M123 contacts connector file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = " ".join(
+        "\n".join(
+            (ROOT / rel_path).read_text(encoding="utf-8").lower()
+            for rel_path in required_files
+            if rel_path.startswith("docs/")
+        ).split()
+    )
+    for fragment in [
+        "contacts connector contract refresh",
+        "contract-only",
+        "review-only",
+        "safe refs",
+        "calendar connector contract refresh",
+        "contacts scope refs",
+        "contacts boundary refs",
+        "contact boundary refs",
+        "consent boundary refs",
+        "data classification refs",
+        "retention boundary refs",
+        "source-calendar-connector-contract-refresh-bound",
+        "no-effect receipt plan",
+        "no contacts connector runtime",
+        "no contacts account auth",
+        "no contacts read",
+        "no contacts search",
+        "no contacts lookup",
+        "no contacts create",
+        "no contacts update",
+        "no contacts delete",
+        "no contacts export",
+        "no raw contacts content",
+        "no credential handling",
+        "no network access",
+        "no account action",
+        "no model call",
+        "no memory write",
+        "no context injection",
+        "no execution",
+        "no backend route",
+        "no control center control",
+        "no dependency",
+        "m124 remains future",
+        "v1.0.0-alpha",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M123 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.criteria import (
+            default_foundation_gate_criteria,
+        )
+        from ultimate_ai_agent.core.gate.evaluators import (
+            FoundationGateEvaluator,
+            m123_openapi_route_failures,
+        )
+    except Exception as exc:
+        print(f"FAIL: M123 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m123_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    criteria = {
+        criterion.criterion_id: criterion
+        for criterion in default_foundation_gate_criteria()
+    }
+    evaluator = FoundationGateEvaluator(ROOT)
+    for criterion_id in [
+        "m123_contacts_connector_contract_refresh_contracts",
+        "m123_contacts_connector_contract_refresh_static_safety",
+        "m123_contacts_connector_contract_refresh_route_boundary",
+        "m123_roadmap_currentness",
+    ]:
+        report = evaluator.evaluate([criteria[criterion_id]])
+        result = report.results[0]
+        if result.status != "passed":
+            print(f"FAIL: {criterion_id} failed: {result.failures}")
+            sys.exit(1)
+
+    print("OK: M123 contacts connector contract refresh is contract-only, no-runtime, and route-free")
 
 
 def verify_local_developer_launcher_safety():

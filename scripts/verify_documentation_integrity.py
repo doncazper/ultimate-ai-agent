@@ -1584,6 +1584,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_m120_production_authority_readiness_docs(root, version))
     failures.extend(_verify_m121_email_connector_contract_refresh_docs(root, version))
     failures.extend(_verify_m122_calendar_connector_contract_refresh_docs(root, version))
+    failures.extend(_verify_m123_contacts_connector_contract_refresh_docs(root, version))
     failures.extend(_verify_m19_roadmap_currentness(root, version))
     failures.extend(_verify_post_m18_roadmap_status_labels(root))
 
@@ -7195,6 +7196,12 @@ def _verify_post_m100_roadmap_reconciliation_docs(root: Path, version: str | Non
         or "calendar connector contract refresh" in version_doc_text
     ):
         implemented_milestones.add("m122")
+    if _version_tuple(version) >= (1, 7, 2) and (
+        "checkpoint m123" in version_doc_text
+        or "m123" in version_doc_text
+        or "contacts connector contract refresh" in version_doc_text
+    ):
+        implemented_milestones.add("m123")
     for version_label, product_target, milestone, title in EXPECTED_M101_M150_LABELS:
         if milestone in implemented_milestones:
             continue
@@ -10517,14 +10524,21 @@ def _verify_m122_calendar_connector_contract_refresh_docs(
         "| checkpoint m123 | pre-alpha checkpoint | m123 | "
         "contacts connector contract refresh | planned/provisional |"
     )
+    implemented_m123_row = (
+        "| checkpoint m123 | pre-alpha checkpoint | m123 | "
+        "contacts connector contract refresh | implemented/released |"
+    )
     if not _roadmap_row_present(current_text, implemented_m122_row):
         failures.append("active docs missing implemented Checkpoint M122 row")
-    if not _roadmap_row_present(current_text, planned_m123_row):
+    if not (
+        _roadmap_row_present(current_text, planned_m123_row)
+        or _roadmap_row_present(current_text, implemented_m123_row)
+    ):
         failures.append("active docs missing planned Checkpoint M123 row")
     for fragment in {
-        "m123 is implemented",
-        "checkpoint m123 implements m123",
-        "contacts connector contract refresh is implemented",
+        "m124 is implemented",
+        "checkpoint m124 implements m124",
+        "messages connector contract review is implemented",
         "calendar connector runtime is implemented",
         "calendar account auth is implemented",
         "calendar read is implemented",
@@ -10537,6 +10551,138 @@ def _verify_m122_calendar_connector_contract_refresh_docs(
     }:
         if fragment in current_text or fragment in text:
             failures.append(f"M122 docs imply forbidden/future capability: {fragment}")
+    return failures
+
+
+def _verify_m123_contacts_connector_contract_refresh_docs(
+    root: Path, version: str | None
+) -> list[str]:
+    failures: list[str] = []
+    if _version_tuple(version) < (1, 7, 2):
+        return failures
+    active_text = " ".join(
+        "\n".join(
+            _read(root / rel_path).lower()
+            for rel_path in [
+                "README.md",
+                "VERSION.md",
+                "docs/canonical/09_roadmap.md",
+                "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            ]
+            if (root / rel_path).exists()
+        ).split()
+    )
+    if (
+        "checkpoint m123 is implemented/released" not in active_text
+        and "m123 is implemented/released" not in active_text
+    ):
+        return failures
+    required_paths = [
+        "docs/connectors/CONTACTS_CONNECTOR_CONTRACT_REFRESH.md",
+        "docs/connectors/CONTACTS_CONNECTOR_AUTHORITY_BOUNDARY.md",
+        "docs/connectors/CONTACTS_CONNECTOR_RECEIPT_PLAN.md",
+        "docs/connectors/CONTACTS_CONNECTOR_NON_GOALS.md",
+        "docs/connectors/M123_TO_M124_BOUNDARY.md",
+        "docs/release_notes/checkpoint_m123.md",
+        "docs/archive/checkpoints/m123/README_IMPORT.md",
+        "docs/archive/checkpoints/m123/master_plan.md",
+        "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+    ]
+    for rel_path in required_paths:
+        if not (root / rel_path).exists():
+            failures.append(f"missing M123 contacts connector doc: {rel_path}")
+    text = " ".join(
+        "\n".join(
+            _read(root / rel_path).lower()
+            for rel_path in required_paths
+            if (root / rel_path).exists()
+        ).split()
+    )
+    required_fragments = {
+        "M123 docs must say contacts connector contract refresh": "contacts connector contract refresh",
+        "M123 docs must say contract-only": "contract-only",
+        "M123 docs must say review-only": "review-only",
+        "M123 docs must say safe refs": "safe refs",
+        "M123 docs must say calendar connector contract refresh": "calendar connector contract refresh",
+        "M123 docs must say contacts scope refs": "contacts scope refs",
+        "M123 docs must say contacts boundary refs": "contacts boundary refs",
+        "M123 docs must say contact boundary refs": "contact boundary refs",
+        "M123 docs must say consent boundary refs": "consent boundary refs",
+        "M123 docs must say data classification refs": "data classification refs",
+        "M123 docs must say retention boundary refs": "retention boundary refs",
+        "M123 docs must say actor-bound": "actor-bound",
+        "M123 docs must say baseline-bound": "baseline-bound",
+        "M123 docs must say source-calendar-connector-contract-refresh-bound": "source-calendar-connector-contract-refresh-bound",
+        "M123 docs must say audit": "audit",
+        "M123 docs must say replay": "replay",
+        "M123 docs must say no-effect receipt plan": "no-effect receipt plan",
+        "M123 docs must deny contacts connector runtime": "no contacts connector runtime",
+        "M123 docs must deny contacts account auth": "no contacts account auth",
+        "M123 docs must deny contacts read": "no contacts read",
+        "M123 docs must deny contacts search": "no contacts search",
+        "M123 docs must deny contacts lookup": "no contacts lookup",
+        "M123 docs must deny contacts create": "no contacts create",
+        "M123 docs must deny contacts update": "no contacts update",
+        "M123 docs must deny contacts delete": "no contacts delete",
+        "M123 docs must deny contacts export": "no contacts export",
+        "M123 docs must deny raw contacts content": "no raw contacts content",
+        "M123 docs must deny credential handling": "no credential handling",
+        "M123 docs must deny network access": "no network access",
+        "M123 docs must deny backend route": "no backend route",
+        "M123 docs must deny Control Center control": "no control center control",
+        "M123 docs must deny dependency": "no dependency",
+        "M123 docs must keep M124 future": "m124 remains future",
+        "M123 docs must preserve alpha target": "v1.0.0-alpha",
+    }
+    for message, fragment in required_fragments.items():
+        if fragment not in text:
+            failures.append(message)
+    active_paths = [
+        "README.md",
+        "VERSION.md",
+        "docs/canonical/09_roadmap.md",
+        "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+        "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+        "docs/roadmap/MILESTONE_CHARTERS.md",
+        "docs/DOCUMENTATION_INDEX.md",
+        "docs/canonical/CANONICAL_DOC_MAP.md",
+    ]
+    current_text = " ".join(
+        "\n".join(
+            _read(root / rel_path).lower()
+            for rel_path in active_paths
+            if (root / rel_path).exists()
+        ).split()
+    )
+    implemented_m123_row = (
+        "| checkpoint m123 | pre-alpha checkpoint | m123 | "
+        "contacts connector contract refresh | implemented/released |"
+    )
+    planned_m124_row = (
+        "| checkpoint m124 | pre-alpha checkpoint | m124 | "
+        "messages connector contract review | planned/provisional |"
+    )
+    if not _roadmap_row_present(current_text, implemented_m123_row):
+        failures.append("active docs missing implemented Checkpoint M123 row")
+    if not _roadmap_row_present(current_text, planned_m124_row):
+        failures.append("active docs missing planned Checkpoint M124 row")
+    for fragment in {
+        "m124 is implemented",
+        "checkpoint m124 implements m124",
+        "messages connector contract review is implemented",
+        "contacts connector runtime is implemented",
+        "contacts account auth is implemented",
+        "contacts read is implemented",
+        "contacts lookup is implemented",
+        "contacts export is implemented",
+        "network access is implemented",
+        "credential handling is implemented",
+        "account action is implemented",
+        "beta is released",
+        "broad autonomy is implemented",
+    }:
+        if fragment in current_text or fragment in text:
+            failures.append(f"M123 docs imply forbidden/future capability: {fragment}")
     return failures
 
 
