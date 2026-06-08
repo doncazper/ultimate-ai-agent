@@ -1478,6 +1478,24 @@ M114_FORBIDDEN_BACKEND_ROUTES = M113_FORBIDDEN_BACKEND_ROUTES + (
     "/memory/write",
     "/tools/execute",
 )
+EXPECTED_M115_OPENAPI_PATH_COUNT = 75
+M115_FORBIDDEN_BACKEND_ROUTES = M114_FORBIDDEN_BACKEND_ROUTES + (
+    "/audit/retention",
+    "/audit/export",
+    "/audit/logs/raw",
+    "/audit/logs/read",
+    "/audit/store",
+    "/audit/store/write",
+    "/audit/retention/apply",
+    "/logs/export",
+    "/logs/raw",
+    "/observability/export",
+    "/observability/ship",
+    "/siem/export",
+    "/siem/ship",
+    "/analytics/export",
+    "/network/post",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -2892,6 +2910,21 @@ def m114_openapi_route_failures(
     return failures
 
 
+def m115_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M115_OPENAPI_PATH_COUNT
+) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(
+            f"OpenAPI path count changed for M115: expected {expected_path_count}, got {len(path_set)}"
+        )
+    for route in M115_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(f"M115 forbidden audit retention route present: {route}")
+    return failures
+
+
 M36_SAFE_REF_PREFIXES = {
     "reviewPacketRef": "file-review-packet:",
     "previewResultRef": "redacted-file-preview-output:",
@@ -3897,6 +3930,16 @@ class FoundationGateEvaluator:
                 self.check_m114_account_connector_route_boundary
             ),
             "m114_roadmap_currentness": self.check_m114_roadmap_currentness,
+            "m115_production_audit_retention_contracts": (
+                self.check_m115_production_audit_retention_contracts
+            ),
+            "m115_production_audit_retention_static_safety": (
+                self.check_m115_production_audit_retention_static_safety
+            ),
+            "m115_production_audit_retention_route_boundary": (
+                self.check_m115_production_audit_retention_route_boundary
+            ),
+            "m115_roadmap_currentness": self.check_m115_roadmap_currentness,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -29606,6 +29649,12 @@ class FoundationGateEvaluator:
             or "account connector contract review" in active_version_text
         ):
             implemented_milestones.add("m114")
+        if (
+            "checkpoint m115" in active_version_text
+            or "m115" in active_version_text
+            or "production audit retention policy" in active_version_text
+        ):
+            implemented_milestones.add("m115")
         for version_label, product_target, milestone, title in expected_labels:
             if milestone in implemented_milestones:
                 continue
@@ -31475,7 +31524,16 @@ class FoundationGateEvaluator:
             "| checkpoint m114 | pre-alpha checkpoint | m114 | "
             "account connector contract review | implemented/released |"
         )
-        if implemented_m114_row in text:
+        implemented_m115_row = (
+            "| checkpoint m115 | pre-alpha checkpoint | m115 | "
+            "production audit retention policy | implemented/released |"
+        )
+        if implemented_m115_row in text:
+            planned_rows = [
+                ("checkpoint m116", "pre-alpha checkpoint", "m116", "role-based authority model"),
+                ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ]
+        elif implemented_m114_row in text:
             planned_rows = [
                 ("checkpoint m115", "pre-alpha checkpoint", "m115", "production audit retention policy"),
                 ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
@@ -31830,7 +31888,16 @@ class FoundationGateEvaluator:
             "| checkpoint m114 | pre-alpha checkpoint | m114 | "
             "account connector contract review | implemented/released |"
         )
-        if implemented_m114_row in text:
+        implemented_m115_row = (
+            "| checkpoint m115 | pre-alpha checkpoint | m115 | "
+            "production audit retention policy | implemented/released |"
+        )
+        if implemented_m115_row in text:
+            planned_rows = [
+                ("checkpoint m116", "pre-alpha checkpoint", "m116", "role-based authority model"),
+                ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ]
+        elif implemented_m114_row in text:
             planned_rows = [
                 ("checkpoint m115", "pre-alpha checkpoint", "m115", "production audit retention policy"),
                 ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
@@ -32165,7 +32232,16 @@ class FoundationGateEvaluator:
             "| checkpoint m114 | pre-alpha checkpoint | m114 | "
             "account connector contract review | implemented/released |"
         )
-        if implemented_m114_row in text:
+        implemented_m115_row = (
+            "| checkpoint m115 | pre-alpha checkpoint | m115 | "
+            "production audit retention policy | implemented/released |"
+        )
+        if implemented_m115_row in text:
+            planned_rows = [
+                ("checkpoint m116", "pre-alpha checkpoint", "m116", "role-based authority model"),
+                ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ]
+        elif implemented_m114_row in text:
             planned_rows = [
                 ("checkpoint m115", "pre-alpha checkpoint", "m115", "production audit retention policy"),
                 ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
@@ -33149,10 +33225,23 @@ class FoundationGateEvaluator:
             "| checkpoint m114 | pre-alpha checkpoint | m114 | "
             "account connector contract review | implemented/released |"
         )
+        implemented_m115_row = (
+            "| checkpoint m115 | pre-alpha checkpoint | m115 | "
+            "production audit retention policy | implemented/released |"
+        )
         planned_rows = [
             ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
         ]
-        if implemented_m114_row in text:
+        if implemented_m115_row in text:
+            planned_rows.append(
+                (
+                    "checkpoint m116",
+                    "pre-alpha checkpoint",
+                    "m116",
+                    "role-based authority model",
+                )
+            )
+        elif implemented_m114_row in text:
             planned_rows.append(
                 (
                     "checkpoint m115",
@@ -33966,27 +34055,19 @@ class FoundationGateEvaluator:
             and "checkpoint m114 is implemented/released" not in text
         ):
             failures.append("active docs do not mark M114 implemented/released")
-        for version_label, product_target, milestone, title in [
-            (
-                "checkpoint m115",
-                "pre-alpha checkpoint",
-                "m115",
-                "production audit retention policy",
-            ),
-            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
-        ]:
-            row = (
-                f"| {version_label} | {product_target} | {milestone} | "
-                f"{title} | planned/provisional |"
-            )
-            if row not in text:
-                failures.append(
-                    f"active docs missing planned M115-M150 row: {version_label} / {milestone.upper()} - {title}"
-                )
+        m115_row_fragment = (
+            "| checkpoint m115 | pre-alpha checkpoint | m115 | "
+            "production audit retention policy |"
+        )
+        if m115_row_fragment not in text:
+            failures.append("active docs missing Checkpoint M115 row")
+        m150_row = (
+            "| v1.0.0-alpha | alpha | m150 | ultimate ai agent v1.0.0-alpha | "
+            "planned/provisional |"
+        )
+        if m150_row not in text:
+            failures.append("active docs missing planned M150 alpha row")
         for fragment in (
-            "m115 is implemented",
-            "checkpoint m115 implements m115",
-            "production audit retention policy is implemented",
             "account connector runtime is implemented",
             "account connector is implemented",
             "account action is implemented",
@@ -33998,6 +34079,386 @@ class FoundationGateEvaluator:
         ):
             if fragment in text:
                 failures.append(f"active docs imply forbidden M114 future/currentness claim: {fragment}")
+        return self._result(criterion, failures, required_docs)
+
+    def check_m115_production_audit_retention_contracts(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/production_readiness/production_audit_retention.py",
+            "docs/production/PRODUCTION_AUDIT_RETENTION_POLICY.md",
+            "docs/production/PRODUCTION_AUDIT_RETENTION_AUTHORITY_BOUNDARY.md",
+            "docs/production/PRODUCTION_AUDIT_RETENTION_RECEIPT_PLAN.md",
+            "docs/production/PRODUCTION_AUDIT_RETENTION_NON_GOALS.md",
+            "docs/production/M115_TO_M116_BOUNDARY.md",
+            "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            "tests/test_m115_production_audit_retention_policy.py",
+            "tests/test_m115_gate_integration.py",
+        ]
+        failures = [
+            f"missing M115 production audit retention file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            sys.path.insert(0, str(self.root))
+            from ultimate_ai_agent.core.mobile_companion import (
+                build_mobile_approval_renewal_ux_report,
+                build_mobile_kill_switch_revocation_record,
+                build_mobile_sensor_audit_ledger_record,
+                build_mobile_sensor_hardening_freeze_record,
+            )
+            from ultimate_ai_agent.core.production_readiness import (
+                ProductionAuditRetentionPolicyStatus,
+                build_account_connector_contract_review_record,
+                build_production_audit_retention_policy_record,
+                build_production_threat_model_record,
+                build_secrets_boundary_record,
+                build_user_workspace_identity_record,
+                validate_production_audit_retention_policy_record,
+            )
+
+            source_record = build_account_connector_contract_review_record(
+                source_record=build_secrets_boundary_record(
+                    source_record=build_user_workspace_identity_record(
+                        source_record=build_production_threat_model_record(
+                            source_record=build_mobile_sensor_hardening_freeze_record(
+                                source_record=build_mobile_sensor_audit_ledger_record(
+                                    source_record=build_mobile_kill_switch_revocation_record(
+                                        source_report=build_mobile_approval_renewal_ux_report()
+                                    )
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+            record = build_production_audit_retention_policy_record(
+                source_record=source_record
+            )
+            if (
+                record.status
+                != ProductionAuditRetentionPolicyStatus.retention_policy
+                or not record.contract_only
+                or not record.review_only
+                or not record.safe_refs_required
+                or not record.actor_bound
+                or not record.baseline_bound
+                or not record.source_account_connector_review_bound
+                or not record.user_bound
+                or not record.workspace_bound
+                or not record.retention_schedule_bound
+                or not record.redaction_boundary_bound
+                or not record.deletion_window_bound
+                or not record.audit_required
+                or not record.replay_safe
+                or record.source_account_connector_review_ref
+                != source_record.account_connector_review_ref
+                or record.source_baseline_ref != source_record.source_baseline_ref
+                or record.actor_ref != source_record.actor_ref
+                or record.user_ref != source_record.user_ref
+                or record.workspace_ref != source_record.workspace_ref
+                or not record.retention_policy_refs
+                or not record.retention_schedule_refs
+                or not record.audit_data_class_refs
+                or not record.redaction_policy_ref.startswith("redaction-policy-ref:")
+                or not record.deletion_window_ref.startswith("deletion-window-ref:")
+                or not record.legal_hold_boundary_ref.startswith(
+                    "legal-hold-boundary-ref:"
+                )
+                or "checkpoint:m114" not in record.accepted_checkpoint_refs
+                or record.production_authority_enabled
+                or record.production_runtime_enabled
+                or record.audit_runtime_enabled
+                or record.audit_store_enabled
+                or record.audit_export_enabled
+                or record.raw_log_storage_enabled
+                or record.raw_prompt_storage_enabled
+                or record.raw_provider_payload_storage_enabled
+                or record.secret_storage_enabled
+                or record.external_saas_export_enabled
+                or record.network_delivery_enabled
+                or record.model_call_enabled
+                or record.memory_write_enabled
+                or record.context_injection_enabled
+                or record.execution_enabled
+                or record.tool_execution_enabled
+                or record.shell_execution_enabled
+                or record.browser_automation_enabled
+                or record.plugin_execution_enabled
+                or record.mobile_sensor_enabled
+                or record.background_worker_enabled
+                or record.remote_execution_enabled
+                or record.backend_route_added
+                or record.control_center_control_added
+                or record.dependency_added
+                or record.side_effects_performed
+                or "M115_PRODUCTION_AUDIT_RETENTION_POLICY"
+                not in record.reason_codes
+                or "M116_REMAINS_FUTURE" not in record.reason_codes
+            ):
+                failures.append(
+                    "M115 production audit retention policy is unsafe or over-authoritative"
+                )
+            for update, reason in [
+                ({"review_only": False}, "M115_REVIEW_ONLY_REQUIRED"),
+                ({"audit_runtime_enabled": True}, "AUDIT_RUNTIME_DENIED"),
+                ({"audit_store_enabled": True}, "AUDIT_STORE_DENIED"),
+                ({"audit_export_enabled": True}, "AUDIT_EXPORT_DENIED"),
+                ({"raw_log_storage_enabled": True}, "RAW_LOG_STORAGE_DENIED"),
+                ({"raw_prompt_storage_enabled": True}, "RAW_PROMPT_STORAGE_DENIED"),
+                (
+                    {"raw_provider_payload_storage_enabled": True},
+                    "RAW_PROVIDER_PAYLOAD_STORAGE_DENIED",
+                ),
+                ({"external_saas_export_enabled": True}, "EXTERNAL_SAAS_EXPORT_DENIED"),
+                ({"network_delivery_enabled": True}, "NETWORK_DELIVERY_DENIED"),
+                ({"model_call_enabled": True}, "MODEL_CALL_DENIED"),
+                ({"memory_write_enabled": True}, "MEMORY_WRITE_DENIED"),
+                ({"context_injection_enabled": True}, "CONTEXT_INJECTION_DENIED"),
+                ({"execution_enabled": True}, "EXECUTION_DENIED"),
+                ({"backend_route_added": True}, "BACKEND_ROUTE_DENIED"),
+                (
+                    {"control_center_control_added": True},
+                    "CONTROL_CENTER_CONTROL_DENIED",
+                ),
+                ({"dependency_added": True}, "DEPENDENCY_DENIED"),
+            ]:
+                try:
+                    validate_production_audit_retention_policy_record(
+                        record.model_copy(update=update)
+                    )
+                    failures.append(
+                        f"M115 unsafe record mutation was not denied with {reason}"
+                    )
+                except ValueError as exc:
+                    if reason not in str(exc):
+                        failures.append(f"M115 unsafe record mutation raised {exc!s}")
+        except Exception as exc:
+            failures.append(f"M115 production audit retention validation failed: {exc}")
+
+        docs_text = " ".join(
+            "\n".join(
+                self._read(self.root / path).lower()
+                for path in required_files
+                if path.startswith("docs/") and (self.root / path).exists()
+            ).split()
+        )
+        for fragment in [
+            "production audit retention policy",
+            "contract-only",
+            "review-only",
+            "safe refs",
+            "account connector contract review",
+            "retention policy refs",
+            "retention schedule refs",
+            "audit data class refs",
+            "redaction policy ref",
+            "deletion window ref",
+            "legal hold boundary ref",
+            "actor-bound",
+            "baseline-bound",
+            "source-account-connector-review-bound",
+            "user-bound",
+            "workspace-bound",
+            "retention-schedule-bound",
+            "redaction-boundary-bound",
+            "deletion-window-bound",
+            "audit",
+            "replay",
+            "no-effect receipt plan",
+            "no production authority",
+            "no production runtime",
+            "no audit runtime",
+            "no audit store",
+            "no audit export",
+            "no raw log storage",
+            "no raw prompt storage",
+            "no raw provider payload storage",
+            "no secret storage",
+            "no external saas export",
+            "no network delivery",
+            "no model call",
+            "no memory write",
+            "no context injection",
+            "no execution",
+            "no tool execution",
+            "no shell execution",
+            "no browser automation",
+            "no plugin execution",
+            "no mobile sensor",
+            "no background worker",
+            "no remote execution",
+            "no backend route",
+            "no control center control",
+            "no dependency",
+            "m116 remains future",
+            "v1.0.0-alpha",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M115 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m115_production_audit_retention_static_safety(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        forbidden_source_fragments = [
+            "production_authority_enabled=True",
+            "production_runtime_enabled=True",
+            "audit_runtime_enabled=True",
+            "audit_store_enabled=True",
+            "audit_export_enabled=True",
+            "raw_log_storage_enabled=True",
+            "raw_prompt_storage_enabled=True",
+            "raw_provider_payload_storage_enabled=True",
+            "secret_storage_enabled=True",
+            "external_saas_export_enabled=True",
+            "network_delivery_enabled=True",
+            "model_call_enabled=True",
+            "memory_write_enabled=True",
+            "context_injection_enabled=True",
+            "execution_enabled=True",
+            "tool_execution_enabled=True",
+            "shell_execution_enabled=True",
+            "browser_automation_enabled=True",
+            "plugin_execution_enabled=True",
+            "mobile_sensor_enabled=True",
+            "background_worker_enabled=True",
+            "remote_execution_enabled=True",
+            "backend_route_enabled=True",
+            "backend_route_added=True",
+            "control_center_control_enabled=True",
+            "control_center_control_added=True",
+            "dependency_added=True",
+            "/audit/retention",
+            "/audit/export",
+            "/audit/logs/raw",
+            "/logs/export",
+            "/observability/export",
+            "/siem/export",
+            "/network/post",
+        ]
+        allowed_files = {
+            "scripts/verify_all.py",
+            "src/ultimate_ai_agent/core/gate/evaluators.py",
+            "src/ultimate_ai_agent/core/production_readiness/__init__.py",
+            "src/ultimate_ai_agent/core/production_readiness/production_audit_retention.py",
+            "src/ultimate_ai_agent/core/production_readiness/account_connector_review.py",
+            "src/ultimate_ai_agent/core/production_readiness/secrets_boundary.py",
+            "src/ultimate_ai_agent/core/production_readiness/user_workspace_identity.py",
+            "src/ultimate_ai_agent/core/production_readiness/production_threat_model.py",
+        }
+        for root in [
+            self.root / "src" / "ultimate_ai_agent",
+            self.root / "apps" / "control-center" / "src",
+            self.root / "apps" / "ccc-ios",
+        ]:
+            if not root.exists():
+                continue
+            candidate_files = []
+            for pattern in (
+                "*.py",
+                "*.ts",
+                "*.tsx",
+                "*.js",
+                "*.jsx",
+                "*.swift",
+                "*.yml",
+                "*.yaml",
+            ):
+                candidate_files.extend(root.rglob(pattern))
+            for path in sorted(candidate_files):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(self.root).as_posix()
+                if ".test." in rel:
+                    continue
+                if rel in allowed_files:
+                    continue
+                text = path.read_text(encoding="utf-8")
+                for fragment in forbidden_source_fragments:
+                    if fragment in text:
+                        failures.append(
+                            f"M115 forbidden audit retention fragment in {rel}: {fragment}"
+                        )
+        return self._result(criterion, failures, [])
+
+    def check_m115_production_audit_retention_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m115_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M115 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m115_roadmap_currentness(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_docs = [
+            "README.md",
+            "VERSION.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            "docs/roadmap/MILESTONE_CHARTERS.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+        ]
+        failures = [
+            f"missing M115 roadmap doc: {path}"
+            for path in required_docs
+            if not (self.root / path).exists()
+        ]
+        text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_docs
+            if (self.root / path).exists()
+        )
+        if (
+            "checkpoint m115" not in text
+            or "production audit retention policy" not in text
+        ):
+            failures.append(
+                "active docs do not identify Checkpoint M115 Production Audit Retention Policy"
+            )
+        if (
+            "m115 is implemented/released" not in text
+            and "checkpoint m115 is implemented/released" not in text
+        ):
+            failures.append("active docs do not mark M115 implemented/released")
+        for version_label, product_target, milestone, title in [
+            (
+                "checkpoint m116",
+                "pre-alpha checkpoint",
+                "m116",
+                "role-based authority model",
+            ),
+            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+        ]:
+            row = (
+                f"| {version_label} | {product_target} | {milestone} | "
+                f"{title} | planned/provisional |"
+            )
+            if row not in text:
+                failures.append(
+                    f"active docs missing planned M116-M150 row: {version_label} / {milestone.upper()} - {title}"
+                )
+        for fragment in (
+            "m116 is implemented",
+            "checkpoint m116 implements m116",
+            "role-based authority model is implemented",
+            "audit runtime is implemented",
+            "audit export is implemented",
+            "raw log storage is implemented",
+            "production authority is implemented",
+            "beta is released",
+            "broad autonomy is implemented",
+        ):
+            if fragment in text:
+                failures.append(f"active docs imply forbidden M115 future/currentness claim: {fragment}")
         return self._result(criterion, failures, required_docs)
 
     def check_v0292_local_dev_api_authority_and_preview_safe(

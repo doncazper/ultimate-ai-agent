@@ -149,6 +149,7 @@ SCAN_SEQUENCE = [
     ("M112 user/workspace identity model scan", "verify_m112_user_workspace_identity_model"),
     ("M113 secrets boundary credential vault contract scan", "verify_m113_secrets_boundary_credential_vault"),
     ("M114 account connector contract review scan", "verify_m114_account_connector_contract_review"),
+    ("M115 production audit retention policy scan", "verify_m115_production_audit_retention_policy"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -17582,6 +17583,12 @@ def verify_post_m100_roadmap_reconciliation():
         or "account connector contract review" in active_version_text
     ):
         implemented_milestones.add("m114")
+    if (
+        "checkpoint m115" in active_version_text
+        or "m115" in active_version_text
+        or "production audit retention policy" in active_version_text
+    ):
+        implemented_milestones.add("m115")
     for version_label, product_target, milestone, title in expected_labels:
         if milestone in implemented_milestones:
             continue
@@ -20298,6 +20305,240 @@ def verify_m114_account_connector_contract_review():
             sys.exit(1)
 
     print("OK: M114 account connector review is contract-only, no-runtime, and route-free")
+
+
+def verify_m115_production_audit_retention_policy():
+    print("\n[Verifier] Running M115 production audit retention policy guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/production_readiness/production_audit_retention.py",
+        "docs/production/PRODUCTION_AUDIT_RETENTION_POLICY.md",
+        "docs/production/PRODUCTION_AUDIT_RETENTION_AUTHORITY_BOUNDARY.md",
+        "docs/production/PRODUCTION_AUDIT_RETENTION_RECEIPT_PLAN.md",
+        "docs/production/PRODUCTION_AUDIT_RETENTION_NON_GOALS.md",
+        "docs/production/M115_TO_M116_BOUNDARY.md",
+        "docs/release_notes/checkpoint_m115.md",
+        "docs/archive/checkpoints/m115/README_IMPORT.md",
+        "docs/archive/checkpoints/m115/master_plan.md",
+        "tests/test_m115_production_audit_retention_policy.py",
+        "tests/test_m115_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M115 production audit retention file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = " ".join(
+        "\n".join(
+            (ROOT / rel_path).read_text(encoding="utf-8").lower()
+            for rel_path in required_files
+            if rel_path.startswith("docs/")
+        ).split()
+    )
+    for fragment in [
+        "production audit retention policy",
+        "contract-only",
+        "review-only",
+        "safe refs",
+        "account connector contract review",
+        "retention policy refs",
+        "retention schedule refs",
+        "audit data class refs",
+        "redaction policy ref",
+        "deletion window ref",
+        "legal hold boundary ref",
+        "actor-bound",
+        "baseline-bound",
+        "source-account-connector-review-bound",
+        "user-bound",
+        "workspace-bound",
+        "retention-schedule-bound",
+        "redaction-boundary-bound",
+        "deletion-window-bound",
+        "audit",
+        "replay",
+        "no-effect receipt plan",
+        "no production authority",
+        "no production runtime",
+        "no audit runtime",
+        "no audit store",
+        "no audit export",
+        "no raw log storage",
+        "no raw prompt storage",
+        "no raw provider payload storage",
+        "no secret storage",
+        "no external saas export",
+        "no network delivery",
+        "no model call",
+        "no memory write",
+        "no context injection",
+        "no execution",
+        "no tool execution",
+        "no shell execution",
+        "no browser automation",
+        "no plugin execution",
+        "no mobile sensor",
+        "no background worker",
+        "no remote execution",
+        "no backend route",
+        "no control center control",
+        "no dependency",
+        "m116 remains future",
+        "v1.0.0-alpha",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M115 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.criteria import (
+            default_foundation_gate_criteria,
+        )
+        from ultimate_ai_agent.core.gate.evaluators import (
+            FoundationGateEvaluator,
+            m115_openapi_route_failures,
+        )
+        from ultimate_ai_agent.core.mobile_companion import (
+            build_mobile_approval_renewal_ux_report,
+            build_mobile_kill_switch_revocation_record,
+            build_mobile_sensor_audit_ledger_record,
+            build_mobile_sensor_hardening_freeze_record,
+        )
+        from ultimate_ai_agent.core.production_readiness import (
+            ProductionAuditRetentionPolicyStatus,
+            build_account_connector_contract_review_record,
+            build_production_audit_retention_policy_record,
+            build_production_threat_model_record,
+            build_secrets_boundary_record,
+            build_user_workspace_identity_record,
+            validate_production_audit_retention_policy_record,
+        )
+    except Exception as exc:
+        print(f"FAIL: M115 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m115_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    source_record = build_account_connector_contract_review_record(
+        source_record=build_secrets_boundary_record(
+            source_record=build_user_workspace_identity_record(
+                source_record=build_production_threat_model_record(
+                    source_record=build_mobile_sensor_hardening_freeze_record(
+                        source_record=build_mobile_sensor_audit_ledger_record(
+                            source_record=build_mobile_kill_switch_revocation_record(
+                                source_report=build_mobile_approval_renewal_ux_report()
+                            )
+                        )
+                    )
+                )
+            )
+        )
+    )
+    record = build_production_audit_retention_policy_record(
+        source_record=source_record
+    )
+    if (
+        record.status != ProductionAuditRetentionPolicyStatus.retention_policy
+        or not record.contract_only
+        or not record.review_only
+        or not record.safe_refs_required
+        or not record.source_account_connector_review_bound
+        or record.source_account_connector_review_ref
+        != source_record.account_connector_review_ref
+        or record.source_baseline_ref != source_record.source_baseline_ref
+        or record.actor_ref != source_record.actor_ref
+        or record.user_ref != source_record.user_ref
+        or record.workspace_ref != source_record.workspace_ref
+        or not record.retention_policy_refs
+        or not record.retention_schedule_refs
+        or not record.audit_data_class_refs
+        or "checkpoint:m114" not in record.accepted_checkpoint_refs
+        or record.production_authority_enabled
+        or record.production_runtime_enabled
+        or record.audit_runtime_enabled
+        or record.audit_store_enabled
+        or record.audit_export_enabled
+        or record.raw_log_storage_enabled
+        or record.raw_prompt_storage_enabled
+        or record.raw_provider_payload_storage_enabled
+        or record.secret_storage_enabled
+        or record.external_saas_export_enabled
+        or record.network_delivery_enabled
+        or record.model_call_enabled
+        or record.memory_write_enabled
+        or record.context_injection_enabled
+        or record.execution_enabled
+        or record.tool_execution_enabled
+        or record.shell_execution_enabled
+        or record.browser_automation_enabled
+        or record.plugin_execution_enabled
+        or record.mobile_sensor_enabled
+        or record.background_worker_enabled
+        or record.remote_execution_enabled
+        or record.backend_route_added
+        or record.control_center_control_added
+        or record.dependency_added
+        or record.side_effects_performed
+        or "M115_PRODUCTION_AUDIT_RETENTION_POLICY" not in record.reason_codes
+        or "M116_REMAINS_FUTURE" not in record.reason_codes
+    ):
+        print("FAIL: M115 production audit retention record is unsafe")
+        sys.exit(1)
+
+    for update, reason in [
+        ({"review_only": False}, "M115_REVIEW_ONLY_REQUIRED"),
+        ({"audit_runtime_enabled": True}, "AUDIT_RUNTIME_DENIED"),
+        ({"audit_store_enabled": True}, "AUDIT_STORE_DENIED"),
+        ({"audit_export_enabled": True}, "AUDIT_EXPORT_DENIED"),
+        ({"raw_log_storage_enabled": True}, "RAW_LOG_STORAGE_DENIED"),
+        ({"raw_prompt_storage_enabled": True}, "RAW_PROMPT_STORAGE_DENIED"),
+        (
+            {"raw_provider_payload_storage_enabled": True},
+            "RAW_PROVIDER_PAYLOAD_STORAGE_DENIED",
+        ),
+        ({"external_saas_export_enabled": True}, "EXTERNAL_SAAS_EXPORT_DENIED"),
+        ({"network_delivery_enabled": True}, "NETWORK_DELIVERY_DENIED"),
+        ({"model_call_enabled": True}, "MODEL_CALL_DENIED"),
+        ({"memory_write_enabled": True}, "MEMORY_WRITE_DENIED"),
+        ({"context_injection_enabled": True}, "CONTEXT_INJECTION_DENIED"),
+        ({"execution_enabled": True}, "EXECUTION_DENIED"),
+        ({"backend_route_added": True}, "BACKEND_ROUTE_DENIED"),
+        ({"control_center_control_added": True}, "CONTROL_CENTER_CONTROL_DENIED"),
+        ({"dependency_added": True}, "DEPENDENCY_DENIED"),
+    ]:
+        try:
+            validate_production_audit_retention_policy_record(
+                record.model_copy(update=update)
+            )
+            print(f"FAIL: M115 mutated authority flag was not denied: {update}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M115 mutated authority flag raised {exc!s}")
+                sys.exit(1)
+
+    criteria = {
+        criterion.criterion_id: criterion
+        for criterion in default_foundation_gate_criteria()
+    }
+    evaluator = FoundationGateEvaluator(ROOT)
+    for criterion_id in [
+        "m115_production_audit_retention_contracts",
+        "m115_production_audit_retention_static_safety",
+        "m115_production_audit_retention_route_boundary",
+        "m115_roadmap_currentness",
+    ]:
+        report = evaluator.evaluate([criteria[criterion_id]])
+        result = report.results[0]
+        if result.status != "passed":
+            print(f"FAIL: {criterion_id} failed: {result.failures}")
+            sys.exit(1)
+
+    print("OK: M115 production audit retention is contract-only, no-runtime, and route-free")
 
 
 def verify_local_developer_launcher_safety():

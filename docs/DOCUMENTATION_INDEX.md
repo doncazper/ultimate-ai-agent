@@ -111,6 +111,11 @@ docs/production/ACCOUNT_CONNECTOR_AUTHORITY_BOUNDARY.md
 docs/production/ACCOUNT_CONNECTOR_RECEIPT_PLAN.md
 docs/production/ACCOUNT_CONNECTOR_NON_GOALS.md
 docs/production/M114_TO_M115_BOUNDARY.md
+docs/production/PRODUCTION_AUDIT_RETENTION_POLICY.md
+docs/production/PRODUCTION_AUDIT_RETENTION_AUTHORITY_BOUNDARY.md
+docs/production/PRODUCTION_AUDIT_RETENTION_RECEIPT_PLAN.md
+docs/production/PRODUCTION_AUDIT_RETENTION_NON_GOALS.md
+docs/production/M115_TO_M116_BOUNDARY.md
 docs/files/BROADER_FILE_CAPABILITY_REVIEW.md
 docs/files/FILE_CAPABILITY_BOUNDARY_MATRIX.md
 docs/files/FILE_CAPABILITY_RISK_REGISTER.md
@@ -816,13 +821,14 @@ model records. M112 is implemented/released as contract-only review-only
 user/workspace identity model records. M113 is implemented/released as
 contract-only review-only secrets boundary and credential vault contract
 records. M114 is implemented/released as contract-only review-only account
-connector contract review records. M115-M150 are
+connector contract review records. M115 is implemented/released as
+contract-only review-only production audit retention policy records. M116-M150 are
 planned/provisional only in `docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md`.
-Future M115-M149 conveyor milestones use checkpoint labels instead of product
+Future M116-M149 conveyor milestones use checkpoint labels instead of product
 SemVer tags, and M150 is
 planned as v1.0.0-alpha. Beta begins only after alpha UI and supporting
 safety/product work are reviewed and promoted. Active roadmap sources consistently mark
-M34-M114 implemented/released and rely on documentation-integrity checks to
+M34-M115 implemented/released and rely on documentation-integrity checks to
 guard against superseded-roadmap drift, stale current-baseline labels, route
 drift, authority-boundary drift, alpha/beta versioning drift, and M115-M150
 future-status drift.
