@@ -1570,6 +1570,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_m110_mobile_sensor_hardening_freeze_docs(root, version))
     failures.extend(_verify_m111_production_threat_model_docs(root, version))
     failures.extend(_verify_m112_user_workspace_identity_docs(root, version))
+    failures.extend(_verify_m113_secrets_boundary_docs(root, version))
     failures.extend(_verify_m19_roadmap_currentness(root, version))
     failures.extend(_verify_post_m18_roadmap_status_labels(root))
 
@@ -7121,6 +7122,12 @@ def _verify_post_m100_roadmap_reconciliation_docs(root: Path, version: str | Non
         or "user/workspace identity model" in version_doc_text
     ):
         implemented_milestones.add("m112")
+    if (
+        "checkpoint m113" in version_doc_text
+        or "m113" in version_doc_text
+        or "secrets boundary + credential vault contract" in version_doc_text
+    ):
+        implemented_milestones.add("m113")
     for version_label, product_target, milestone, title in EXPECTED_M101_M150_LABELS:
         if milestone in implemented_milestones:
             continue
@@ -8049,7 +8056,16 @@ def _verify_m107_mobile_approval_renewal_ux_docs(
         "| checkpoint m112 | pre-alpha checkpoint | m112 | "
         "user/workspace identity model | implemented/released |"
     )
-    if implemented_m112_row in active_text:
+    implemented_m113_row = (
+        "| checkpoint m113 | pre-alpha checkpoint | m113 | "
+        "secrets boundary + credential vault contract | implemented/released |"
+    )
+    if implemented_m113_row in active_text:
+        planned_rows = [
+            ("checkpoint m114", "pre-alpha checkpoint", "m114", "account connector contract review"),
+            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+        ]
+    elif implemented_m112_row in active_text:
         planned_rows = [
             (
                 "checkpoint m113",
@@ -8227,7 +8243,16 @@ def _verify_m108_mobile_kill_switch_revocation_docs(
         "| checkpoint m112 | pre-alpha checkpoint | m112 | "
         "user/workspace identity model | implemented/released |"
     )
-    if implemented_m112_row in active_text:
+    implemented_m113_row = (
+        "| checkpoint m113 | pre-alpha checkpoint | m113 | "
+        "secrets boundary + credential vault contract | implemented/released |"
+    )
+    if implemented_m113_row in active_text:
+        planned_rows = [
+            ("checkpoint m114", "pre-alpha checkpoint", "m114", "account connector contract review"),
+            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+        ]
+    elif implemented_m112_row in active_text:
         planned_rows = [
             (
                 "checkpoint m113",
@@ -8389,7 +8414,16 @@ def _verify_m109_mobile_sensor_audit_ledger_docs(
         "| checkpoint m112 | pre-alpha checkpoint | m112 | "
         "user/workspace identity model | implemented/released |"
     )
-    if implemented_m112_row in active_text:
+    implemented_m113_row = (
+        "| checkpoint m113 | pre-alpha checkpoint | m113 | "
+        "secrets boundary + credential vault contract | implemented/released |"
+    )
+    if implemented_m113_row in active_text:
+        planned_rows = [
+            ("checkpoint m114", "pre-alpha checkpoint", "m114", "account connector contract review"),
+            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+        ]
+    elif implemented_m112_row in active_text:
         planned_rows = [
             (
                 "checkpoint m113",
@@ -8800,15 +8834,32 @@ def _verify_m112_user_workspace_identity_docs(
     )
     if implemented_m112_row not in active_text:
         failures.append("active docs missing implemented Checkpoint M112 row")
-    for version_label, product_target, milestone, title in [
-        (
-            "checkpoint m113",
-            "pre-alpha checkpoint",
-            "m113",
-            "secrets boundary + credential vault contract",
-        ),
+    implemented_m113_row = (
+        "| checkpoint m113 | pre-alpha checkpoint | m113 | "
+        "secrets boundary + credential vault contract | implemented/released |"
+    )
+    planned_rows = [
         ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
-    ]:
+    ]
+    if implemented_m113_row in active_text:
+        planned_rows.append(
+            (
+                "checkpoint m114",
+                "pre-alpha checkpoint",
+                "m114",
+                "account connector contract review",
+            )
+        )
+    else:
+        planned_rows.append(
+            (
+                "checkpoint m113",
+                "pre-alpha checkpoint",
+                "m113",
+                "secrets boundary + credential vault contract",
+            )
+        )
+    for version_label, product_target, milestone, title in planned_rows:
         row = (
             f"| {version_label} | {product_target} | {milestone} | "
             f"{title} | planned/provisional |"
@@ -8818,9 +8869,6 @@ def _verify_m112_user_workspace_identity_docs(
                 f"active docs missing planned M113-M150 row: {version_label} / {milestone.upper()} - {title}"
             )
     for fragment in {
-        "m113 is implemented",
-        "checkpoint m113 implements m113",
-        "credential vault contract is implemented",
         "auth runtime is implemented",
         "login is implemented",
         "session cookie is implemented",
@@ -8830,8 +8878,151 @@ def _verify_m112_user_workspace_identity_docs(
         "production authority is implemented",
         "broad autonomy is implemented",
     }:
-        if fragment in active_text or fragment in text:
+        if fragment in text:
             failures.append(f"M112 docs imply forbidden/future capability: {fragment}")
+    return failures
+
+
+def _verify_m113_secrets_boundary_docs(
+    root: Path, version: str | None
+) -> list[str]:
+    failures: list[str] = []
+    if _version_tuple(version) < (1, 7, 2):
+        return failures
+    required_paths = [
+        "docs/production/SECRETS_BOUNDARY_CREDENTIAL_VAULT_CONTRACT.md",
+        "docs/production/SECRETS_BOUNDARY_POLICY.md",
+        "docs/production/SECRETS_BOUNDARY_AUTHORITY_BOUNDARY.md",
+        "docs/production/SECRETS_BOUNDARY_RECEIPT_PLAN.md",
+        "docs/production/SECRETS_BOUNDARY_NON_GOALS.md",
+        "docs/production/M113_TO_M114_BOUNDARY.md",
+        "docs/release_notes/checkpoint_m113.md",
+        "docs/archive/checkpoints/m113/README_IMPORT.md",
+        "docs/archive/checkpoints/m113/master_plan.md",
+        "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+    ]
+    for rel_path in required_paths:
+        if not (root / rel_path).exists():
+            failures.append(f"missing M113 secrets boundary doc: {rel_path}")
+    text = " ".join(
+        "\n".join(
+            _read(root / rel_path).lower()
+            for rel_path in required_paths
+            if (root / rel_path).exists()
+        ).split()
+    )
+    required_fragments = {
+        "M113 docs must say secrets boundary": "secrets boundary",
+        "M113 docs must say credential vault contract": "credential vault contract",
+        "M113 docs must say contract-only": "contract-only",
+        "M113 docs must say review-only": "review-only",
+        "M113 docs must say safe refs": "safe refs",
+        "M113 docs must say User/Workspace Identity Model": "user/workspace identity model",
+        "M113 docs must say user refs": "user refs",
+        "M113 docs must say workspace refs": "workspace refs",
+        "M113 docs must say secret boundary refs": "secret boundary refs",
+        "M113 docs must say credential scope refs": "credential scope refs",
+        "M113 docs must say redaction policy ref": "redaction policy ref",
+        "M113 docs must say actor-bound": "actor-bound",
+        "M113 docs must say baseline-bound": "baseline-bound",
+        "M113 docs must say source-identity-model-bound": "source-identity-model-bound",
+        "M113 docs must say user-bound": "user-bound",
+        "M113 docs must say workspace-bound": "workspace-bound",
+        "M113 docs must say audit": "audit",
+        "M113 docs must say replay": "replay",
+        "M113 docs must say no-effect receipt plan": "no-effect receipt plan",
+        "M113 docs must deny production authority": "no production authority",
+        "M113 docs must deny production runtime": "no production runtime",
+        "M113 docs must deny auth runtime": "no auth runtime",
+        "M113 docs must deny login": "no login",
+        "M113 docs must deny session cookie": "no session cookie",
+        "M113 docs must deny credential handling": "no credential handling",
+        "M113 docs must deny credential storage": "no credential storage",
+        "M113 docs must deny credential read": "no credential read",
+        "M113 docs must deny credential write": "no credential write",
+        "M113 docs must deny secret material access": "no secret material access",
+        "M113 docs must deny secret export": "no secret export",
+        "M113 docs must deny vault runtime": "no vault runtime",
+        "M113 docs must deny account connector": "no account connector",
+        "M113 docs must deny network access": "no network access",
+        "M113 docs must deny model call": "no model call",
+        "M113 docs must deny memory write": "no memory write",
+        "M113 docs must deny context injection": "no context injection",
+        "M113 docs must deny execution": "no execution",
+        "M113 docs must deny tool execution": "no tool execution",
+        "M113 docs must deny shell execution": "no shell execution",
+        "M113 docs must deny browser automation": "no browser automation",
+        "M113 docs must deny plugin execution": "no plugin execution",
+        "M113 docs must deny mobile sensor": "no mobile sensor",
+        "M113 docs must deny background worker": "no background worker",
+        "M113 docs must deny remote execution": "no remote execution",
+        "M113 docs must deny backend route": "no backend route",
+        "M113 docs must deny Control Center control": "no control center control",
+        "M113 docs must deny dependency": "no dependency",
+        "M113 docs must keep M114 future": "m114 remains future",
+        "M113 docs must preserve alpha target": "v1.0.0-alpha",
+    }
+    for message, fragment in required_fragments.items():
+        if fragment not in text:
+            failures.append(message)
+
+    active_paths = [
+        "README.md",
+        "VERSION.md",
+        "docs/canonical/09_roadmap.md",
+        "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+        "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+        "docs/roadmap/MILESTONE_CHARTERS.md",
+        "docs/DOCUMENTATION_INDEX.md",
+        "docs/canonical/CANONICAL_DOC_MAP.md",
+    ]
+    active_text = " ".join(
+        "\n".join(
+            _read(root / rel_path).lower()
+            for rel_path in active_paths
+            if (root / rel_path).exists()
+        ).split()
+    )
+    implemented_m113_row = (
+        "| checkpoint m113 | pre-alpha checkpoint | m113 | "
+        "secrets boundary + credential vault contract | implemented/released |"
+    )
+    if implemented_m113_row not in active_text:
+        failures.append("active docs missing implemented Checkpoint M113 row")
+    for version_label, product_target, milestone, title in [
+        (
+            "checkpoint m114",
+            "pre-alpha checkpoint",
+            "m114",
+            "account connector contract review",
+        ),
+        ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+    ]:
+        row = (
+            f"| {version_label} | {product_target} | {milestone} | "
+            f"{title} | planned/provisional |"
+        )
+        if row not in active_text:
+            failures.append(
+                f"active docs missing planned M114-M150 row: {version_label} / {milestone.upper()} - {title}"
+            )
+    for fragment in {
+        "m114 is implemented",
+        "checkpoint m114 implements m114",
+        "account connector contract review is implemented",
+        "credential vault runtime is implemented",
+        "credential handling is implemented",
+        "credential storage is implemented",
+        "credential read is implemented",
+        "secret material access is implemented",
+        "secret export is implemented",
+        "auth runtime is implemented",
+        "beta is released",
+        "production authority is implemented",
+        "broad autonomy is implemented",
+    }:
+        if fragment in active_text or fragment in text:
+            failures.append(f"M113 docs imply forbidden/future capability: {fragment}")
     return failures
 
 

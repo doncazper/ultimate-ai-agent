@@ -127,8 +127,8 @@ The detailed post-M33 supersession source of truth is
 Recommended next prompt after Checkpoint M112:
 
 ```text
-Continue with M113 implementation conveyor using checkpoint milestones for
-M113-M149, with M150 reserved as the v1.0.0-alpha product target.
+Continue with M114 implementation conveyor using checkpoint milestones for
+M114-M149, with M150 reserved as the v1.0.0-alpha product target.
 ```
 
 M61 is implemented/released by v0.65.0 as Autonomy Mode Charter + Authority

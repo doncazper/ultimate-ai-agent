@@ -1443,6 +1443,20 @@ M112_FORBIDDEN_BACKEND_ROUTES = M111_FORBIDDEN_BACKEND_ROUTES + (
     "/identity/auth",
     "/identity/account",
 )
+EXPECTED_M113_OPENAPI_PATH_COUNT = 75
+M113_FORBIDDEN_BACKEND_ROUTES = M112_FORBIDDEN_BACKEND_ROUTES + (
+    "/credentials/write",
+    "/credentials/vault",
+    "/credentials/vault/read",
+    "/credentials/vault/write",
+    "/credentials/vault/store",
+    "/credentials/vault/export",
+    "/secrets/read",
+    "/secrets/write",
+    "/secrets/export",
+    "/vault/runtime",
+    "/vault/unlock",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -2827,6 +2841,21 @@ def m112_openapi_route_failures(
     return failures
 
 
+def m113_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M113_OPENAPI_PATH_COUNT
+) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(
+            f"OpenAPI path count changed for M113: expected {expected_path_count}, got {len(path_set)}"
+        )
+    for route in M113_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(f"M113 forbidden secrets/credential route present: {route}")
+    return failures
+
+
 M36_SAFE_REF_PREFIXES = {
     "reviewPacketRef": "file-review-packet:",
     "previewResultRef": "redacted-file-preview-output:",
@@ -3812,6 +3841,16 @@ class FoundationGateEvaluator:
                 self.check_m112_user_workspace_identity_route_boundary
             ),
             "m112_roadmap_currentness": self.check_m112_roadmap_currentness,
+            "m113_secrets_boundary_contracts": (
+                self.check_m113_secrets_boundary_contracts
+            ),
+            "m113_secrets_boundary_static_safety": (
+                self.check_m113_secrets_boundary_static_safety
+            ),
+            "m113_secrets_boundary_route_boundary": (
+                self.check_m113_secrets_boundary_route_boundary
+            ),
+            "m113_roadmap_currentness": self.check_m113_roadmap_currentness,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -11267,10 +11306,12 @@ class FoundationGateEvaluator:
             "tests/test_m35_gate_integration.py",
         ]
         failures = [f"missing M35 file review workflow file: {path}" for path in required_files if not (self.root / path).exists()]
-        docs_text = "\n".join(
-            self._read(self.root / path).lower()
-            for path in required_files
-            if path.startswith("docs/") and (self.root / path).exists()
+        docs_text = " ".join(
+            "\n".join(
+                self._read(self.root / path).lower()
+                for path in required_files
+                if path.startswith("docs/") and (self.root / path).exists()
+            ).split()
         )
         current_version = self._active_version() or "0.0.0"
         version_tuple = tuple(int(part) for part in current_version.split(".")[:3])
@@ -12178,10 +12219,12 @@ class FoundationGateEvaluator:
             if forbidden in app_text:
                 failures.append(f"M39 Control Center references forbidden route/control: {forbidden}")
 
-        docs_text = "\n".join(
-            self._read(self.root / path).lower()
-            for path in required_files
-            if path.startswith("docs/") and (self.root / path).exists()
+        docs_text = " ".join(
+            "\n".join(
+                self._read(self.root / path).lower()
+                for path in required_files
+                if path.startswith("docs/") and (self.root / path).exists()
+            ).split()
         )
         for fragment in [
             "read-only",
@@ -29505,6 +29548,12 @@ class FoundationGateEvaluator:
             or "user/workspace identity model" in active_version_text
         ):
             implemented_milestones.add("m112")
+        if (
+            "checkpoint m113" in active_version_text
+            or "m113" in active_version_text
+            or "secrets boundary + credential vault contract" in active_version_text
+        ):
+            implemented_milestones.add("m113")
         for version_label, product_target, milestone, title in expected_labels:
             if milestone in implemented_milestones:
                 continue
@@ -31366,7 +31415,16 @@ class FoundationGateEvaluator:
                 0,
                 ("checkpoint m109", "pre-alpha checkpoint", "m109", "mobile sensor audit ledger"),
             )
-        if implemented_m112_row in text:
+        implemented_m113_row = (
+            "| checkpoint m113 | pre-alpha checkpoint | m113 | "
+            "secrets boundary + credential vault contract | implemented/released |"
+        )
+        if implemented_m113_row in text:
+            planned_rows = [
+                ("checkpoint m114", "pre-alpha checkpoint", "m114", "account connector contract review"),
+                ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ]
+        elif implemented_m112_row in text:
             planned_rows = [
                 (
                     "checkpoint m113",
@@ -31703,7 +31761,16 @@ class FoundationGateEvaluator:
                 0,
                 ("checkpoint m109", "pre-alpha checkpoint", "m109", "mobile sensor audit ledger"),
             )
-        if implemented_m112_row in text:
+        implemented_m113_row = (
+            "| checkpoint m113 | pre-alpha checkpoint | m113 | "
+            "secrets boundary + credential vault contract | implemented/released |"
+        )
+        if implemented_m113_row in text:
+            planned_rows = [
+                ("checkpoint m114", "pre-alpha checkpoint", "m114", "account connector contract review"),
+                ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ]
+        elif implemented_m112_row in text:
             planned_rows = [
                 (
                     "checkpoint m113",
@@ -32020,7 +32087,16 @@ class FoundationGateEvaluator:
             ("checkpoint m110", "pre-alpha checkpoint", "m110", "mobile sensor hardening freeze"),
             ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
         ]
-        if implemented_m112_row in text:
+        implemented_m113_row = (
+            "| checkpoint m113 | pre-alpha checkpoint | m113 | "
+            "secrets boundary + credential vault contract | implemented/released |"
+        )
+        if implemented_m113_row in text:
+            planned_rows = [
+                ("checkpoint m114", "pre-alpha checkpoint", "m114", "account connector contract review"),
+                ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ]
+        elif implemented_m112_row in text:
             planned_rows = [
                 (
                     "checkpoint m113",
@@ -32986,15 +33062,32 @@ class FoundationGateEvaluator:
             failures.append("active docs do not identify Checkpoint M112 User/Workspace Identity Model")
         if "m112 is implemented/released" not in text and "checkpoint m112 is implemented/released" not in text:
             failures.append("active docs do not mark M112 implemented/released")
-        for version_label, product_target, milestone, title in [
-            (
-                "checkpoint m113",
-                "pre-alpha checkpoint",
-                "m113",
-                "secrets boundary + credential vault contract",
-            ),
+        implemented_m113_row = (
+            "| checkpoint m113 | pre-alpha checkpoint | m113 | "
+            "secrets boundary + credential vault contract | implemented/released |"
+        )
+        planned_rows = [
             ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
-        ]:
+        ]
+        if implemented_m113_row in text:
+            planned_rows.append(
+                (
+                    "checkpoint m114",
+                    "pre-alpha checkpoint",
+                    "m114",
+                    "account connector contract review",
+                )
+            )
+        else:
+            planned_rows.append(
+                (
+                    "checkpoint m113",
+                    "pre-alpha checkpoint",
+                    "m113",
+                    "secrets boundary + credential vault contract",
+                )
+            )
+        for version_label, product_target, milestone, title in planned_rows:
             row = (
                 f"| {version_label} | {product_target} | {milestone} | "
                 f"{title} | planned/provisional |"
@@ -33004,9 +33097,6 @@ class FoundationGateEvaluator:
                     f"active docs missing planned M113-M150 row: {version_label} / {milestone.upper()} - {title}"
                 )
         for fragment in (
-            "m113 is implemented",
-            "checkpoint m113 implements m113",
-            "credential vault contract is implemented",
             "auth runtime is implemented",
             "login is implemented",
             "session cookie is implemented",
@@ -33018,6 +33108,386 @@ class FoundationGateEvaluator:
         ):
             if fragment in text:
                 failures.append(f"active docs imply forbidden M112 future/currentness claim: {fragment}")
+        return self._result(criterion, failures, required_docs)
+
+    def check_m113_secrets_boundary_contracts(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/production_readiness/secrets_boundary.py",
+            "docs/production/SECRETS_BOUNDARY_CREDENTIAL_VAULT_CONTRACT.md",
+            "docs/production/SECRETS_BOUNDARY_POLICY.md",
+            "docs/production/SECRETS_BOUNDARY_AUTHORITY_BOUNDARY.md",
+            "docs/production/SECRETS_BOUNDARY_RECEIPT_PLAN.md",
+            "docs/production/SECRETS_BOUNDARY_NON_GOALS.md",
+            "docs/production/M113_TO_M114_BOUNDARY.md",
+            "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            "tests/test_m113_secrets_boundary_credential_vault.py",
+            "tests/test_m113_gate_integration.py",
+        ]
+        failures = [
+            f"missing M113 secrets boundary file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            sys.path.insert(0, str(self.root))
+            from ultimate_ai_agent.core.mobile_companion import (
+                build_mobile_approval_renewal_ux_report,
+                build_mobile_kill_switch_revocation_record,
+                build_mobile_sensor_audit_ledger_record,
+                build_mobile_sensor_hardening_freeze_record,
+            )
+            from ultimate_ai_agent.core.production_readiness import (
+                SecretsBoundaryStatus,
+                build_production_threat_model_record,
+                build_secrets_boundary_record,
+                build_user_workspace_identity_record,
+                validate_secrets_boundary_record,
+            )
+
+            source_record = build_user_workspace_identity_record(
+                source_record=build_production_threat_model_record(
+                    source_record=build_mobile_sensor_hardening_freeze_record(
+                        source_record=build_mobile_sensor_audit_ledger_record(
+                            source_record=build_mobile_kill_switch_revocation_record(
+                                source_report=build_mobile_approval_renewal_ux_report()
+                            )
+                        )
+                    )
+                )
+            )
+            record = build_secrets_boundary_record(source_record=source_record)
+            if (
+                record.status != SecretsBoundaryStatus.credential_vault_contract
+                or not record.contract_only
+                or not record.review_only
+                or not record.safe_refs_required
+                or not record.actor_bound
+                or not record.baseline_bound
+                or not record.source_identity_model_bound
+                or not record.user_bound
+                or not record.workspace_bound
+                or not record.credential_vault_contract_bound
+                or not record.audit_required
+                or not record.replay_safe
+                or record.source_identity_model_ref != source_record.identity_model_ref
+                or record.source_baseline_ref != source_record.source_baseline_ref
+                or record.actor_ref != source_record.actor_ref
+                or record.user_ref != source_record.user_ref
+                or record.workspace_ref != source_record.workspace_ref
+                or not record.credential_vault_contract_ref.startswith(
+                    "credential-vault-contract:"
+                )
+                or not record.secret_boundary_refs
+                or not record.credential_scope_refs
+                or "checkpoint:m112" not in record.accepted_checkpoint_refs
+                or record.production_authority_enabled
+                or record.production_runtime_enabled
+                or record.auth_runtime_enabled
+                or record.login_enabled
+                or record.session_cookie_enabled
+                or record.credential_handling_enabled
+                or record.credential_storage_enabled
+                or record.credential_read_enabled
+                or record.credential_write_enabled
+                or record.secret_material_access_enabled
+                or record.secret_export_enabled
+                or record.vault_runtime_enabled
+                or record.account_connector_enabled
+                or record.network_access_enabled
+                or record.model_call_enabled
+                or record.memory_write_enabled
+                or record.context_injection_enabled
+                or record.execution_enabled
+                or record.tool_execution_enabled
+                or record.shell_execution_enabled
+                or record.browser_automation_enabled
+                or record.plugin_execution_enabled
+                or record.mobile_sensor_enabled
+                or record.background_worker_enabled
+                or record.remote_execution_enabled
+                or record.backend_route_added
+                or record.control_center_control_added
+                or record.dependency_added
+                or record.side_effects_performed
+                or "M113_SECRETS_BOUNDARY_CREDENTIAL_VAULT_CONTRACT"
+                not in record.reason_codes
+                or "M114_REMAINS_FUTURE" not in record.reason_codes
+            ):
+                failures.append(
+                    "M113 secrets boundary contract is unsafe or over-authoritative"
+                )
+            for update, reason in [
+                ({"review_only": False}, "M113_REVIEW_ONLY_REQUIRED"),
+                ({"production_authority_enabled": True}, "PRODUCTION_AUTHORITY_DENIED"),
+                ({"production_runtime_enabled": True}, "PRODUCTION_RUNTIME_DENIED"),
+                ({"auth_runtime_enabled": True}, "AUTH_RUNTIME_DENIED"),
+                ({"login_enabled": True}, "LOGIN_DENIED"),
+                ({"session_cookie_enabled": True}, "SESSION_COOKIE_DENIED"),
+                ({"credential_handling_enabled": True}, "CREDENTIAL_HANDLING_DENIED"),
+                ({"credential_storage_enabled": True}, "CREDENTIAL_STORAGE_DENIED"),
+                ({"credential_read_enabled": True}, "CREDENTIAL_READ_DENIED"),
+                ({"credential_write_enabled": True}, "CREDENTIAL_WRITE_DENIED"),
+                (
+                    {"secret_material_access_enabled": True},
+                    "SECRET_MATERIAL_ACCESS_DENIED",
+                ),
+                ({"secret_export_enabled": True}, "SECRET_EXPORT_DENIED"),
+                ({"vault_runtime_enabled": True}, "VAULT_RUNTIME_DENIED"),
+                ({"account_connector_enabled": True}, "ACCOUNT_CONNECTOR_DENIED"),
+                ({"network_access_enabled": True}, "NETWORK_ACCESS_DENIED"),
+                ({"model_call_enabled": True}, "MODEL_CALL_DENIED"),
+                ({"memory_write_enabled": True}, "MEMORY_WRITE_DENIED"),
+                ({"context_injection_enabled": True}, "CONTEXT_INJECTION_DENIED"),
+                ({"execution_enabled": True}, "EXECUTION_DENIED"),
+                ({"tool_execution_enabled": True}, "TOOL_EXECUTION_DENIED"),
+                ({"shell_execution_enabled": True}, "SHELL_EXECUTION_DENIED"),
+                ({"browser_automation_enabled": True}, "BROWSER_AUTOMATION_DENIED"),
+                ({"plugin_execution_enabled": True}, "PLUGIN_EXECUTION_DENIED"),
+                ({"mobile_sensor_enabled": True}, "MOBILE_SENSOR_DENIED"),
+                ({"background_worker_enabled": True}, "BACKGROUND_WORKER_DENIED"),
+                ({"remote_execution_enabled": True}, "REMOTE_EXECUTION_DENIED"),
+                ({"dependency_added": True}, "DEPENDENCY_DENIED"),
+            ]:
+                try:
+                    validate_secrets_boundary_record(record.model_copy(update=update))
+                    failures.append(
+                        f"M113 unsafe record mutation was not denied with {reason}"
+                    )
+                except ValueError as exc:
+                    if reason not in str(exc):
+                        failures.append(f"M113 unsafe record mutation raised {exc!s}")
+        except Exception as exc:
+            failures.append(f"M113 secrets boundary validation failed: {exc}")
+
+        docs_text = " ".join(
+            "\n".join(
+                self._read(self.root / path).lower()
+                for path in required_files
+                if path.startswith("docs/") and (self.root / path).exists()
+            ).split()
+        )
+        for fragment in [
+            "secrets boundary",
+            "credential vault contract",
+            "contract-only",
+            "review-only",
+            "safe refs",
+            "user/workspace identity model",
+            "user refs",
+            "workspace refs",
+            "secret boundary refs",
+            "credential scope refs",
+            "redaction policy ref",
+            "actor-bound",
+            "baseline-bound",
+            "source-identity-model-bound",
+            "user-bound",
+            "workspace-bound",
+            "audit",
+            "replay",
+            "no-effect receipt plan",
+            "no production authority",
+            "no production runtime",
+            "no auth runtime",
+            "no login",
+            "no session cookie",
+            "no credential handling",
+            "no credential storage",
+            "no credential read",
+            "no credential write",
+            "no secret material access",
+            "no secret export",
+            "no vault runtime",
+            "no account connector",
+            "no network access",
+            "no model call",
+            "no memory write",
+            "no context injection",
+            "no execution",
+            "no tool execution",
+            "no shell execution",
+            "no browser automation",
+            "no plugin execution",
+            "no mobile sensor",
+            "no background worker",
+            "no remote execution",
+            "no backend route",
+            "no control center control",
+            "no dependency",
+            "m114 remains future",
+            "v1.0.0-alpha",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M113 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m113_secrets_boundary_static_safety(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        forbidden_source_fragments = [
+            "production_authority_enabled=True",
+            "production_runtime_enabled=True",
+            "auth_runtime_enabled=True",
+            "login_enabled=True",
+            "session_cookie_enabled=True",
+            "credential_handling_enabled=True",
+            "credential_storage_enabled=True",
+            "credential_read_enabled=True",
+            "credential_write_enabled=True",
+            "secret_material_access_enabled=True",
+            "secret_export_enabled=True",
+            "vault_runtime_enabled=True",
+            "account_connector_enabled=True",
+            "network_access_enabled=True",
+            "model_call_enabled=True",
+            "memory_write_enabled=True",
+            "context_injection_enabled=True",
+            "execution_enabled=True",
+            "tool_execution_enabled=True",
+            "shell_execution_enabled=True",
+            "browser_automation_enabled=True",
+            "plugin_execution_enabled=True",
+            "mobile_sensor_enabled=True",
+            "background_worker_enabled=True",
+            "remote_execution_enabled=True",
+            "backend_route_enabled=True",
+            "backend_route_added=True",
+            "control_center_control_enabled=True",
+            "control_center_control_added=True",
+            "dependency_added=True",
+            "/credentials/read",
+            "/credentials/write",
+            "/credentials/vault",
+            "/secrets/read",
+            "/secrets/write",
+            "/secrets/export",
+            "/vault/runtime",
+        ]
+        allowed_files = {
+            "scripts/verify_all.py",
+            "src/ultimate_ai_agent/core/gate/evaluators.py",
+            "src/ultimate_ai_agent/core/production_readiness/__init__.py",
+            "src/ultimate_ai_agent/core/production_readiness/secrets_boundary.py",
+            "src/ultimate_ai_agent/core/production_readiness/user_workspace_identity.py",
+            "src/ultimate_ai_agent/core/production_readiness/production_threat_model.py",
+        }
+        for root in [
+            self.root / "src" / "ultimate_ai_agent",
+            self.root / "apps" / "control-center" / "src",
+            self.root / "apps" / "ccc-ios",
+        ]:
+            if not root.exists():
+                continue
+            candidate_files = []
+            for pattern in (
+                "*.py",
+                "*.ts",
+                "*.tsx",
+                "*.js",
+                "*.jsx",
+                "*.swift",
+                "*.yml",
+                "*.yaml",
+            ):
+                candidate_files.extend(root.rglob(pattern))
+            for path in sorted(candidate_files):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(self.root).as_posix()
+                if ".test." in rel:
+                    continue
+                if rel in allowed_files:
+                    continue
+                text = path.read_text(encoding="utf-8")
+                for fragment in forbidden_source_fragments:
+                    if fragment in text:
+                        failures.append(
+                            f"M113 forbidden secrets boundary fragment in {rel}: {fragment}"
+                        )
+        return self._result(criterion, failures, [])
+
+    def check_m113_secrets_boundary_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m113_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M113 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m113_roadmap_currentness(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_docs = [
+            "README.md",
+            "VERSION.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            "docs/roadmap/MILESTONE_CHARTERS.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+        ]
+        failures = [
+            f"missing M113 roadmap doc: {path}"
+            for path in required_docs
+            if not (self.root / path).exists()
+        ]
+        text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_docs
+            if (self.root / path).exists()
+        )
+        if (
+            "checkpoint m113" not in text
+            or "secrets boundary + credential vault contract" not in text
+        ):
+            failures.append(
+                "active docs do not identify Checkpoint M113 Secrets Boundary + Credential Vault Contract"
+            )
+        if (
+            "m113 is implemented/released" not in text
+            and "checkpoint m113 is implemented/released" not in text
+        ):
+            failures.append("active docs do not mark M113 implemented/released")
+        for version_label, product_target, milestone, title in [
+            (
+                "checkpoint m114",
+                "pre-alpha checkpoint",
+                "m114",
+                "account connector contract review",
+            ),
+            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+        ]:
+            row = (
+                f"| {version_label} | {product_target} | {milestone} | "
+                f"{title} | planned/provisional |"
+            )
+            if row not in text:
+                failures.append(
+                    f"active docs missing planned M114-M150 row: {version_label} / {milestone.upper()} - {title}"
+                )
+        for fragment in (
+            "m114 is implemented",
+            "checkpoint m114 implements m114",
+            "account connector contract review is implemented",
+            "credential vault runtime is implemented",
+            "credential handling is implemented",
+            "credential storage is implemented",
+            "credential read is implemented",
+            "secret material access is implemented",
+            "secret export is implemented",
+            "auth runtime is implemented",
+            "production authority is implemented",
+            "beta is released",
+            "broad autonomy is implemented",
+        ):
+            if fragment in text:
+                failures.append(f"active docs imply forbidden M113 future/currentness claim: {fragment}")
         return self._result(criterion, failures, required_docs)
 
     def check_v0292_local_dev_api_authority_and_preview_safe(
