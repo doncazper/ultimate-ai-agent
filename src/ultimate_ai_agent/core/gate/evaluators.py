@@ -1423,6 +1423,16 @@ M110_FORBIDDEN_BACKEND_ROUTES = M109_FORBIDDEN_BACKEND_ROUTES + (
     "/mobile/sensor-hardening/freeze",
     "/mobile/sensor-hardening/execute",
 )
+EXPECTED_M111_OPENAPI_PATH_COUNT = 75
+M111_FORBIDDEN_BACKEND_ROUTES = M110_FORBIDDEN_BACKEND_ROUTES + (
+    "/production/threat-model",
+    "/production/threat-model/run",
+    "/production/threat-model/approve",
+    "/production/runtime",
+    "/production/authority",
+    "/production/deploy",
+    "/credentials/read",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -2777,6 +2787,21 @@ def m110_openapi_route_failures(
     return failures
 
 
+def m111_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M111_OPENAPI_PATH_COUNT
+) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(
+            f"OpenAPI path count changed for M111: expected {expected_path_count}, got {len(path_set)}"
+        )
+    for route in M111_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(f"M111 forbidden production threat model route present: {route}")
+    return failures
+
+
 M36_SAFE_REF_PREFIXES = {
     "reviewPacketRef": "file-review-packet:",
     "previewResultRef": "redacted-file-preview-output:",
@@ -3742,6 +3767,16 @@ class FoundationGateEvaluator:
                 self.check_m110_mobile_sensor_hardening_freeze_route_boundary
             ),
             "m110_roadmap_currentness": self.check_m110_roadmap_currentness,
+            "m111_production_threat_model_contracts": (
+                self.check_m111_production_threat_model_contracts
+            ),
+            "m111_production_threat_model_static_safety": (
+                self.check_m111_production_threat_model_static_safety
+            ),
+            "m111_production_threat_model_route_boundary": (
+                self.check_m111_production_threat_model_route_boundary
+            ),
+            "m111_roadmap_currentness": self.check_m111_roadmap_currentness,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -29423,6 +29458,12 @@ class FoundationGateEvaluator:
             or "mobile sensor hardening freeze" in active_version_text
         ):
             implemented_milestones.add("m110")
+        if (
+            "checkpoint m111" in active_version_text
+            or "m111" in active_version_text
+            or "production threat model" in active_version_text
+        ):
+            implemented_milestones.add("m111")
         for version_label, product_target, milestone, title in expected_labels:
             if milestone in implemented_milestones:
                 continue
@@ -31262,6 +31303,10 @@ class FoundationGateEvaluator:
             "| checkpoint m110 | pre-alpha checkpoint | m110 | "
             "mobile sensor hardening freeze | implemented/released |"
         )
+        implemented_m111_row = (
+            "| checkpoint m111 | pre-alpha checkpoint | m111 | "
+            "production threat model | implemented/released |"
+        )
         planned_rows = [
             ("checkpoint m110", "pre-alpha checkpoint", "m110", "mobile sensor hardening freeze"),
             ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
@@ -31276,7 +31321,12 @@ class FoundationGateEvaluator:
                 0,
                 ("checkpoint m109", "pre-alpha checkpoint", "m109", "mobile sensor audit ledger"),
             )
-        if implemented_m110_row in text:
+        if implemented_m111_row in text:
+            planned_rows = [
+                ("checkpoint m112", "pre-alpha checkpoint", "m112", "user/workspace identity model"),
+                ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ]
+        elif implemented_m110_row in text:
             planned_rows = [
                 ("checkpoint m111", "pre-alpha checkpoint", "m111", "production threat model"),
                 ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
@@ -31581,6 +31631,10 @@ class FoundationGateEvaluator:
             "| checkpoint m110 | pre-alpha checkpoint | m110 | "
             "mobile sensor hardening freeze | implemented/released |"
         )
+        implemented_m111_row = (
+            "| checkpoint m111 | pre-alpha checkpoint | m111 | "
+            "production threat model | implemented/released |"
+        )
         planned_rows = [
             ("checkpoint m110", "pre-alpha checkpoint", "m110", "mobile sensor hardening freeze"),
             ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
@@ -31590,7 +31644,12 @@ class FoundationGateEvaluator:
                 0,
                 ("checkpoint m109", "pre-alpha checkpoint", "m109", "mobile sensor audit ledger"),
             )
-        if implemented_m110_row in text:
+        if implemented_m111_row in text:
+            planned_rows = [
+                ("checkpoint m112", "pre-alpha checkpoint", "m112", "user/workspace identity model"),
+                ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ]
+        elif implemented_m110_row in text:
             planned_rows = [
                 ("checkpoint m111", "pre-alpha checkpoint", "m111", "production threat model"),
                 ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
@@ -31880,11 +31939,20 @@ class FoundationGateEvaluator:
             "| checkpoint m110 | pre-alpha checkpoint | m110 | "
             "mobile sensor hardening freeze | implemented/released |"
         )
+        implemented_m111_row = (
+            "| checkpoint m111 | pre-alpha checkpoint | m111 | "
+            "production threat model | implemented/released |"
+        )
         planned_rows = [
             ("checkpoint m110", "pre-alpha checkpoint", "m110", "mobile sensor hardening freeze"),
             ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
         ]
-        if implemented_m110_row in text:
+        if implemented_m111_row in text:
+            planned_rows = [
+                ("checkpoint m112", "pre-alpha checkpoint", "m112", "user/workspace identity model"),
+                ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ]
+        elif implemented_m110_row in text:
             planned_rows = [
                 ("checkpoint m111", "pre-alpha checkpoint", "m111", "production threat model"),
                 ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
@@ -32204,8 +32272,318 @@ class FoundationGateEvaluator:
             )
         if "m110 is implemented/released" not in text and "checkpoint m110 is implemented/released" not in text:
             failures.append("active docs do not mark M110 implemented/released")
+        implemented_m111_row = (
+            "| checkpoint m111 | pre-alpha checkpoint | m111 | "
+            "production threat model | implemented/released |"
+        )
+        expected_rows = [
+            (
+                "checkpoint m111",
+                "pre-alpha checkpoint",
+                "m111",
+                "production threat model",
+                "implemented/released" if implemented_m111_row in text else "planned/provisional",
+            ),
+            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha", "planned/provisional"),
+        ]
+        for version_label, product_target, milestone, title, status in expected_rows:
+            row = (
+                f"| {version_label} | {product_target} | {milestone} | "
+                f"{title} | {status} |"
+            )
+            if row not in text:
+                failures.append(
+                    f"active docs missing planned M111-M150 row: {version_label} / {milestone.upper()} - {title}"
+                )
+        forbidden_fragments = {
+            "m111 is implemented",
+            "checkpoint m111 implements m111",
+            "production threat model is implemented",
+        }
+        if implemented_m111_row in text:
+            forbidden_fragments = set()
+        forbidden_fragments.update(
+            {
+            "sensor access is implemented",
+            "sensor read is implemented",
+            "raw sensor payload is implemented",
+            "background collection is implemented",
+            "production authority is implemented",
+            "beta is released",
+            "broad autonomy is implemented",
+            }
+        )
+        for fragment in forbidden_fragments:
+            if fragment in text:
+                failures.append(f"M110 docs imply forbidden/future capability: {fragment}")
+        return self._result(criterion, failures, required_docs)
+
+    def check_m111_production_threat_model_contracts(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/production_readiness/production_threat_model.py",
+            "docs/production/PRODUCTION_THREAT_MODEL.md",
+            "docs/production/PRODUCTION_THREAT_MODEL_POLICY.md",
+            "docs/production/PRODUCTION_THREAT_MODEL_AUTHORITY_BOUNDARY.md",
+            "docs/production/PRODUCTION_THREAT_MODEL_RECEIPT_PLAN.md",
+            "docs/production/PRODUCTION_THREAT_MODEL_NON_GOALS.md",
+            "docs/production/M111_TO_M112_BOUNDARY.md",
+            "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            "tests/test_m111_production_threat_model.py",
+            "tests/test_m111_gate_integration.py",
+        ]
+        failures = [
+            f"missing M111 production threat model file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            sys.path.insert(0, str(self.root))
+            from ultimate_ai_agent.core.mobile_companion import (
+                build_mobile_approval_renewal_ux_report,
+                build_mobile_kill_switch_revocation_record,
+                build_mobile_sensor_audit_ledger_record,
+                build_mobile_sensor_hardening_freeze_record,
+            )
+            from ultimate_ai_agent.core.production_readiness import (
+                ProductionThreatModelStatus,
+                build_production_threat_model_record,
+                validate_production_threat_model_record,
+            )
+
+            source_record = build_mobile_sensor_hardening_freeze_record(
+                source_record=build_mobile_sensor_audit_ledger_record(
+                    source_record=build_mobile_kill_switch_revocation_record(
+                        source_report=build_mobile_approval_renewal_ux_report()
+                    )
+                )
+            )
+            record = build_production_threat_model_record(source_record=source_record)
+            if (
+                record.status != ProductionThreatModelStatus.threat_model_contract
+                or not record.contract_only
+                or not record.review_only
+                or not record.safe_refs_required
+                or not record.actor_bound
+                or not record.baseline_bound
+                or not record.source_freeze_bound
+                or not record.audit_required
+                or not record.replay_safe
+                or record.source_freeze_ref != source_record.freeze_ref
+                or record.source_baseline_ref != source_record.source_baseline_ref
+                or record.actor_ref != source_record.actor_ref
+                or not record.threat_surface_refs
+                or not record.mitigation_plan_refs
+                or "checkpoint:m110" not in record.accepted_checkpoint_refs
+                or record.production_authority_enabled
+                or record.production_runtime_enabled
+                or record.external_distribution_enabled
+                or record.deployment_enabled
+                or record.credential_handling_enabled
+                or record.network_access_enabled
+                or record.model_call_enabled
+                or record.memory_write_enabled
+                or record.context_injection_enabled
+                or record.execution_enabled
+                or record.tool_execution_enabled
+                or record.shell_execution_enabled
+                or record.browser_automation_enabled
+                or record.plugin_execution_enabled
+                or record.mobile_sensor_enabled
+                or record.background_worker_enabled
+                or record.remote_execution_enabled
+                or record.backend_route_added
+                or record.control_center_control_added
+                or record.dependency_added
+                or record.side_effects_performed
+                or "M111_PRODUCTION_THREAT_MODEL" not in record.reason_codes
+                or "M112_REMAINS_FUTURE" not in record.reason_codes
+            ):
+                failures.append(
+                    "M111 production threat model is unsafe or over-authoritative"
+                )
+            for update, reason in [
+                ({"review_only": False}, "M111_REVIEW_ONLY_REQUIRED"),
+                ({"production_authority_enabled": True}, "PRODUCTION_AUTHORITY_DENIED"),
+                ({"production_runtime_enabled": True}, "PRODUCTION_RUNTIME_DENIED"),
+                ({"external_distribution_enabled": True}, "EXTERNAL_DISTRIBUTION_DENIED"),
+                ({"deployment_enabled": True}, "DEPLOYMENT_DENIED"),
+                ({"credential_handling_enabled": True}, "CREDENTIAL_HANDLING_DENIED"),
+                ({"network_access_enabled": True}, "NETWORK_ACCESS_DENIED"),
+                ({"model_call_enabled": True}, "MODEL_CALL_DENIED"),
+                ({"memory_write_enabled": True}, "MEMORY_WRITE_DENIED"),
+                ({"context_injection_enabled": True}, "CONTEXT_INJECTION_DENIED"),
+                ({"execution_enabled": True}, "EXECUTION_DENIED"),
+                ({"tool_execution_enabled": True}, "TOOL_EXECUTION_DENIED"),
+                ({"shell_execution_enabled": True}, "SHELL_EXECUTION_DENIED"),
+                ({"browser_automation_enabled": True}, "BROWSER_AUTOMATION_DENIED"),
+                ({"plugin_execution_enabled": True}, "PLUGIN_EXECUTION_DENIED"),
+                ({"mobile_sensor_enabled": True}, "MOBILE_SENSOR_DENIED"),
+                ({"background_worker_enabled": True}, "BACKGROUND_WORKER_DENIED"),
+                ({"remote_execution_enabled": True}, "REMOTE_EXECUTION_DENIED"),
+                ({"dependency_added": True}, "DEPENDENCY_DENIED"),
+            ]:
+                try:
+                    validate_production_threat_model_record(
+                        record.model_copy(update=update)
+                    )
+                    failures.append(f"M111 unsafe record mutation was not denied with {reason}")
+                except ValueError as exc:
+                    if reason not in str(exc):
+                        failures.append(f"M111 unsafe record mutation raised {exc!s}")
+        except Exception as exc:
+            failures.append(f"M111 production threat model validation failed: {exc}")
+
+        docs_text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_files
+            if path.startswith("docs/") and (self.root / path).exists()
+        )
+        for fragment in [
+            "production threat model",
+            "contract-only",
+            "review-only",
+            "safe refs",
+            "threat surface refs",
+            "mitigation plan refs",
+            "mobile sensor hardening freeze",
+            "actor-bound",
+            "baseline-bound",
+            "source-freeze-bound",
+            "audit",
+            "replay",
+            "no-effect receipt plan",
+            "no production authority",
+            "no production runtime",
+            "no external distribution",
+            "no deployment",
+            "no credential handling",
+            "no network access",
+            "no model call",
+            "no memory write",
+            "no context injection",
+            "no execution",
+            "no tool execution",
+            "no shell execution",
+            "no browser automation",
+            "no plugin execution",
+            "no mobile sensor",
+            "no background worker",
+            "no remote execution",
+            "no backend route",
+            "no control center control",
+            "no dependency",
+            "m112 remains future",
+            "v1.0.0-alpha",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M111 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m111_production_threat_model_static_safety(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        forbidden_source_fragments = [
+            "production_authority_enabled=True",
+            "production_runtime_enabled=True",
+            "external_distribution_enabled=True",
+            "deployment_enabled=True",
+            "credential_handling_enabled=True",
+            "network_access_enabled=True",
+            "model_call_enabled=True",
+            "memory_write_enabled=True",
+            "context_injection_enabled=True",
+            "execution_enabled=True",
+            "tool_execution_enabled=True",
+            "shell_execution_enabled=True",
+            "browser_automation_enabled=True",
+            "plugin_execution_enabled=True",
+            "mobile_sensor_enabled=True",
+            "background_worker_enabled=True",
+            "remote_execution_enabled=True",
+            "backend_route_enabled=True",
+            "backend_route_added=True",
+            "control_center_control_enabled=True",
+            "control_center_control_added=True",
+            "dependency_added=True",
+        ]
+        allowed_files = {
+            "scripts/verify_all.py",
+            "src/ultimate_ai_agent/core/gate/evaluators.py",
+            "src/ultimate_ai_agent/core/production_readiness/__init__.py",
+            "src/ultimate_ai_agent/core/production_readiness/production_threat_model.py",
+            "src/ultimate_ai_agent/core/mobile_companion/mobile_sensor_hardening_freeze.py",
+            "src/ultimate_ai_agent/core/mobile_companion/mobile_sensor_audit_ledger.py",
+            "src/ultimate_ai_agent/core/mobile_companion/mobile_kill_switch_revocation.py",
+            "src/ultimate_ai_agent/core/mobile_companion/mobile_approval_renewal_ux.py",
+        }
+        for root in [
+            self.root / "src" / "ultimate_ai_agent",
+            self.root / "apps" / "control-center" / "src",
+            self.root / "apps" / "ccc-ios",
+        ]:
+            if not root.exists():
+                continue
+            candidate_files = []
+            for pattern in ("*.py", "*.ts", "*.tsx", "*.js", "*.jsx", "*.swift", "*.yml", "*.yaml"):
+                candidate_files.extend(root.rglob(pattern))
+            for path in sorted(candidate_files):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(self.root).as_posix()
+                if ".test." in rel:
+                    continue
+                if rel in allowed_files:
+                    continue
+                text = path.read_text(encoding="utf-8")
+                for fragment in forbidden_source_fragments:
+                    if fragment in text:
+                        failures.append(
+                            f"M111 forbidden production threat model fragment in {rel}: {fragment}"
+                        )
+        return self._result(criterion, failures, [])
+
+    def check_m111_production_threat_model_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m111_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M111 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m111_roadmap_currentness(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_docs = [
+            "README.md",
+            "VERSION.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            "docs/roadmap/MILESTONE_CHARTERS.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+        ]
+        failures = [
+            f"missing M111 roadmap doc: {path}"
+            for path in required_docs
+            if not (self.root / path).exists()
+        ]
+        text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_docs
+            if (self.root / path).exists()
+        )
+        if "checkpoint m111" not in text or "production threat model" not in text:
+            failures.append("active docs do not identify Checkpoint M111 Production Threat Model")
+        if "m111 is implemented/released" not in text and "checkpoint m111 is implemented/released" not in text:
+            failures.append("active docs do not mark M111 implemented/released")
         for version_label, product_target, milestone, title in [
-            ("checkpoint m111", "pre-alpha checkpoint", "m111", "production threat model"),
+            ("checkpoint m112", "pre-alpha checkpoint", "m112", "user/workspace identity model"),
             ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
         ]:
             row = (
@@ -32214,22 +32592,21 @@ class FoundationGateEvaluator:
             )
             if row not in text:
                 failures.append(
-                    f"active docs missing planned M111-M150 row: {version_label} / {milestone.upper()} - {title}"
+                    f"active docs missing planned M112-M150 row: {version_label} / {milestone.upper()} - {title}"
                 )
         for fragment in (
-            "m111 is implemented",
-            "checkpoint m111 implements m111",
-            "production threat model is implemented",
-            "sensor access is implemented",
-            "sensor read is implemented",
-            "raw sensor payload is implemented",
-            "background collection is implemented",
+            "m112 is implemented",
+            "checkpoint m112 implements m112",
+            "user/workspace identity model is implemented",
+            "production runtime is implemented",
             "production authority is implemented",
+            "credential handling is implemented",
+            "deployment is implemented",
             "beta is released",
             "broad autonomy is implemented",
         ):
             if fragment in text:
-                failures.append(f"M110 docs imply forbidden/future capability: {fragment}")
+                failures.append(f"active docs imply forbidden M111 future/currentness claim: {fragment}")
         return self._result(criterion, failures, required_docs)
 
     def check_v0292_local_dev_api_authority_and_preview_safe(

@@ -1568,6 +1568,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_m108_mobile_kill_switch_revocation_docs(root, version))
     failures.extend(_verify_m109_mobile_sensor_audit_ledger_docs(root, version))
     failures.extend(_verify_m110_mobile_sensor_hardening_freeze_docs(root, version))
+    failures.extend(_verify_m111_production_threat_model_docs(root, version))
     failures.extend(_verify_m19_roadmap_currentness(root, version))
     failures.extend(_verify_post_m18_roadmap_status_labels(root))
 
@@ -7107,6 +7108,12 @@ def _verify_post_m100_roadmap_reconciliation_docs(root: Path, version: str | Non
         or "mobile sensor hardening freeze" in version_doc_text
     ):
         implemented_milestones.add("m110")
+    if (
+        "checkpoint m111" in version_doc_text
+        or "m111" in version_doc_text
+        or "production threat model" in version_doc_text
+    ):
+        implemented_milestones.add("m111")
     for version_label, product_target, milestone, title in EXPECTED_M101_M150_LABELS:
         if milestone in implemented_milestones:
             continue
@@ -8027,7 +8034,16 @@ def _verify_m107_mobile_approval_renewal_ux_docs(
             0,
             ("checkpoint m109", "pre-alpha checkpoint", "m109", "mobile sensor audit ledger"),
         )
-    if implemented_m110_row in active_text:
+    implemented_m111_row = (
+        "| checkpoint m111 | pre-alpha checkpoint | m111 | "
+        "production threat model | implemented/released |"
+    )
+    if implemented_m111_row in active_text:
+        planned_rows = [
+            ("checkpoint m112", "pre-alpha checkpoint", "m112", "user/workspace identity model"),
+            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+        ]
+    elif implemented_m110_row in active_text:
         planned_rows = [
             ("checkpoint m111", "pre-alpha checkpoint", "m111", "production threat model"),
             ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
@@ -8182,7 +8198,16 @@ def _verify_m108_mobile_kill_switch_revocation_docs(
             0,
             ("checkpoint m109", "pre-alpha checkpoint", "m109", "mobile sensor audit ledger"),
         )
-    if implemented_m110_row in active_text:
+    implemented_m111_row = (
+        "| checkpoint m111 | pre-alpha checkpoint | m111 | "
+        "production threat model | implemented/released |"
+    )
+    if implemented_m111_row in active_text:
+        planned_rows = [
+            ("checkpoint m112", "pre-alpha checkpoint", "m112", "user/workspace identity model"),
+            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+        ]
+    elif implemented_m110_row in active_text:
         planned_rows = [
             ("checkpoint m111", "pre-alpha checkpoint", "m111", "production threat model"),
             ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
@@ -8321,7 +8346,16 @@ def _verify_m109_mobile_sensor_audit_ledger_docs(
         ("checkpoint m110", "pre-alpha checkpoint", "m110", "mobile sensor hardening freeze"),
         ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
     ]
-    if implemented_m110_row in active_text:
+    implemented_m111_row = (
+        "| checkpoint m111 | pre-alpha checkpoint | m111 | "
+        "production threat model | implemented/released |"
+    )
+    if implemented_m111_row in active_text:
+        planned_rows = [
+            ("checkpoint m112", "pre-alpha checkpoint", "m112", "user/workspace identity model"),
+            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+        ]
+    elif implemented_m110_row in active_text:
         planned_rows = [
             ("checkpoint m111", "pre-alpha checkpoint", "m111", "production threat model"),
             ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
@@ -8450,24 +8484,42 @@ def _verify_m110_mobile_sensor_hardening_freeze_docs(
         "| checkpoint m110 | pre-alpha checkpoint | m110 | "
         "mobile sensor hardening freeze | implemented/released |"
     )
+    implemented_m111_row = (
+        "| checkpoint m111 | pre-alpha checkpoint | m111 | "
+        "production threat model | implemented/released |"
+    )
     if implemented_m110_row not in active_text:
         failures.append("active docs missing implemented Checkpoint M110 row")
-    for version_label, product_target, milestone, title in [
-        ("checkpoint m111", "pre-alpha checkpoint", "m111", "production threat model"),
-        ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
-    ]:
+    expected_rows = [
+        (
+            "checkpoint m111",
+            "pre-alpha checkpoint",
+            "m111",
+            "production threat model",
+            "implemented/released"
+            if implemented_m111_row in active_text
+            else "planned/provisional",
+        ),
+        ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha", "planned/provisional"),
+    ]
+    for version_label, product_target, milestone, title, status in expected_rows:
         row = (
             f"| {version_label} | {product_target} | {milestone} | "
-            f"{title} | planned/provisional |"
+            f"{title} | {status} |"
         )
         if row not in active_text:
             failures.append(
                 f"active docs missing planned M111-M150 row: {version_label} / {milestone.upper()} - {title}"
             )
-    for fragment in {
+    forbidden_fragments = {
         "m111 is implemented",
         "checkpoint m111 implements m111",
         "production threat model is implemented",
+    }
+    if implemented_m111_row in active_text:
+        forbidden_fragments = set()
+    forbidden_fragments.update(
+        {
         "sensor access is implemented",
         "sensor read is implemented",
         "raw sensor payload is implemented",
@@ -8476,9 +8528,125 @@ def _verify_m110_mobile_sensor_hardening_freeze_docs(
         "beta is released",
         "production authority is implemented",
         "broad autonomy is implemented",
-    }:
+        }
+    )
+    for fragment in forbidden_fragments:
         if fragment in active_text or fragment in text:
             failures.append(f"M110 docs imply forbidden/future capability: {fragment}")
+    return failures
+
+
+def _verify_m111_production_threat_model_docs(
+    root: Path, version: str | None
+) -> list[str]:
+    failures: list[str] = []
+    required_paths = [
+        "docs/production/PRODUCTION_THREAT_MODEL.md",
+        "docs/production/PRODUCTION_THREAT_MODEL_POLICY.md",
+        "docs/production/PRODUCTION_THREAT_MODEL_AUTHORITY_BOUNDARY.md",
+        "docs/production/PRODUCTION_THREAT_MODEL_RECEIPT_PLAN.md",
+        "docs/production/PRODUCTION_THREAT_MODEL_NON_GOALS.md",
+        "docs/production/M111_TO_M112_BOUNDARY.md",
+        "docs/release_notes/checkpoint_m111.md",
+        "docs/archive/checkpoints/m111/README_IMPORT.md",
+        "docs/archive/checkpoints/m111/master_plan.md",
+        "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+    ]
+    for rel_path in required_paths:
+        if not (root / rel_path).exists():
+            failures.append(f"missing M111 production threat model doc: {rel_path}")
+    text = "\n".join(
+        _read(root / rel_path).lower()
+        for rel_path in required_paths
+        if (root / rel_path).exists()
+    )
+    required_fragments = {
+        "M111 docs must say Production Threat Model": "production threat model",
+        "M111 docs must say contract-only": "contract-only",
+        "M111 docs must say review-only": "review-only",
+        "M111 docs must say safe refs": "safe refs",
+        "M111 docs must say threat surface refs": "threat surface refs",
+        "M111 docs must say mitigation plan refs": "mitigation plan refs",
+        "M111 docs must say Mobile Sensor Hardening Freeze": "mobile sensor hardening freeze",
+        "M111 docs must say actor-bound": "actor-bound",
+        "M111 docs must say baseline-bound": "baseline-bound",
+        "M111 docs must say source-freeze-bound": "source-freeze-bound",
+        "M111 docs must say audit": "audit",
+        "M111 docs must say replay": "replay",
+        "M111 docs must say no-effect receipt plan": "no-effect receipt plan",
+        "M111 docs must deny production authority": "no production authority",
+        "M111 docs must deny production runtime": "no production runtime",
+        "M111 docs must deny external distribution": "no external distribution",
+        "M111 docs must deny deployment": "no deployment",
+        "M111 docs must deny credential handling": "no credential handling",
+        "M111 docs must deny network access": "no network access",
+        "M111 docs must deny model call": "no model call",
+        "M111 docs must deny memory write": "no memory write",
+        "M111 docs must deny context injection": "no context injection",
+        "M111 docs must deny execution": "no execution",
+        "M111 docs must deny tool execution": "no tool execution",
+        "M111 docs must deny shell execution": "no shell execution",
+        "M111 docs must deny browser automation": "no browser automation",
+        "M111 docs must deny plugin execution": "no plugin execution",
+        "M111 docs must deny mobile sensor": "no mobile sensor",
+        "M111 docs must deny background worker": "no background worker",
+        "M111 docs must deny remote execution": "no remote execution",
+        "M111 docs must deny backend route": "no backend route",
+        "M111 docs must deny Control Center control": "no control center control",
+        "M111 docs must deny dependency": "no dependency",
+        "M111 docs must keep M112 future": "m112 remains future",
+        "M111 docs must preserve alpha target": "v1.0.0-alpha",
+    }
+    for message, fragment in required_fragments.items():
+        if fragment not in text:
+            failures.append(message)
+
+    active_paths = [
+        "README.md",
+        "VERSION.md",
+        "docs/canonical/09_roadmap.md",
+        "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+        "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+        "docs/roadmap/MILESTONE_CHARTERS.md",
+        "docs/DOCUMENTATION_INDEX.md",
+        "docs/canonical/CANONICAL_DOC_MAP.md",
+    ]
+    active_text = "\n".join(
+        _read(root / rel_path).lower()
+        for rel_path in active_paths
+        if (root / rel_path).exists()
+    )
+    implemented_m111_row = (
+        "| checkpoint m111 | pre-alpha checkpoint | m111 | "
+        "production threat model | implemented/released |"
+    )
+    if implemented_m111_row not in active_text:
+        failures.append("active docs missing implemented Checkpoint M111 row")
+    for version_label, product_target, milestone, title in [
+        ("checkpoint m112", "pre-alpha checkpoint", "m112", "user/workspace identity model"),
+        ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+    ]:
+        row = (
+            f"| {version_label} | {product_target} | {milestone} | "
+            f"{title} | planned/provisional |"
+        )
+        if row not in active_text:
+            failures.append(
+                f"active docs missing planned M112-M150 row: {version_label} / {milestone.upper()} - {title}"
+            )
+    for fragment in {
+        "m112 is implemented",
+        "checkpoint m112 implements m112",
+        "user/workspace identity model is implemented",
+        "production runtime is implemented",
+        "credential handling is implemented",
+        "deployment is implemented",
+        "beta is released",
+        "production authority is implemented",
+        "broad autonomy is implemented",
+    }:
+        if fragment in active_text or fragment in text:
+            failures.append(f"M111 docs imply forbidden/future capability: {fragment}")
     return failures
 
 

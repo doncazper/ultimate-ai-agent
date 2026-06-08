@@ -2,9 +2,9 @@
 
 Current active baseline: **v1.7.2**
 
-Checkpoint M110 is implemented/released as Mobile Sensor Hardening Freeze. The
+Checkpoint M111 is implemented/released as Production Threat Model. The
 current product baseline remains v1.7.2. Already-pushed tags
-remain immutable historical internal milestone tags. Future M111-M149 conveyor
+remain immutable historical internal milestone tags. Future M112-M149 conveyor
 milestones use checkpoint labels instead of product SemVer tags, and M150 is
 the next product release target **v1.0.0-alpha**. Beta begins only after the
 alpha UI and supporting safety/product work are reviewed, accepted, and
@@ -78,6 +78,15 @@ dependency, no memory write, no context injection, no execution, no M111 work,
 no broad autonomy, no mobile sensor runtime, no broad unsandboxed autonomy, no
 beta release, and no production authority.
 
-M101, M102, M103, M104, M105, M106, M107, M108, M109, and M110 are implemented/released. M111-M150 are
+Checkpoint M111 adds contract-only review-only production threat model records.
+It adds no production authority, no production runtime, no external
+distribution, no deployment, no credential handling, no network access, no
+model call, no memory write, no context injection, no execution, no tool
+execution, no shell execution, no browser automation, no plugin execution, no
+mobile sensor, no background worker, no remote execution, no backend route, no
+Control Center control, no dependency, no M112 work, no broad autonomy, no beta
+release, and no production authority.
+
+M101, M102, M103, M104, M105, M106, M107, M108, M109, M110, and M111 are implemented/released. M112-M150 are
 planned/provisional checkpoint milestones only. M150 is planned as
 v1.0.0-alpha, not beta.
