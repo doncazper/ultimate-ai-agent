@@ -54,11 +54,22 @@ from ultimate_ai_agent.core.production_readiness.remote_agent_coordination impor
     validate_remote_agent_coordination_contract_policy,
     validate_remote_agent_coordination_contract_record,
 )
+from ultimate_ai_agent.core.production_readiness.deployment_mode_matrix import (
+    DeploymentModeMatrixPolicy,
+    DeploymentModeMatrixRecord,
+    DeploymentModeMatrixStatus,
+    build_deployment_mode_matrix_record,
+    validate_deployment_mode_matrix_policy,
+    validate_deployment_mode_matrix_record,
+)
 
 __all__ = [
     "AccountConnectorContractReviewPolicy",
     "AccountConnectorContractReviewRecord",
     "AccountConnectorContractReviewStatus",
+    "DeploymentModeMatrixPolicy",
+    "DeploymentModeMatrixRecord",
+    "DeploymentModeMatrixStatus",
     "ProductionAuditRetentionPolicy",
     "ProductionAuditRetentionPolicyRecord",
     "ProductionAuditRetentionPolicyStatus",
@@ -78,6 +89,7 @@ __all__ = [
     "UserWorkspaceIdentityRecord",
     "UserWorkspaceIdentityStatus",
     "build_account_connector_contract_review_record",
+    "build_deployment_mode_matrix_record",
     "build_production_audit_retention_policy_record",
     "build_production_threat_model_record",
     "build_role_based_authority_model_record",
@@ -86,6 +98,8 @@ __all__ = [
     "build_user_workspace_identity_record",
     "validate_account_connector_contract_review_policy",
     "validate_account_connector_contract_review_record",
+    "validate_deployment_mode_matrix_policy",
+    "validate_deployment_mode_matrix_record",
     "validate_production_audit_retention_policy",
     "validate_production_audit_retention_policy_record",
     "validate_production_threat_model_policy",

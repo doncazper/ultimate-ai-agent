@@ -830,15 +830,16 @@ connector contract review records. M115 is implemented/released as
 contract-only review-only production audit retention policy records. M116 is
 implemented/released as contract-only review-only role-based authority model
 records. M117 is implemented/released as contract-only review-only remote agent
-coordination contract records. M118-M150 are
+coordination contract records. M118 is implemented/released as contract-only
+review-only deployment mode matrix records. M119-M150 are
 planned/provisional only in `docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md`.
-Future M118-M149 conveyor milestones use checkpoint labels instead of product
+Future M119-M149 conveyor milestones use checkpoint labels instead of product
 SemVer tags, and M150 is
 planned as v1.0.0-alpha. Beta begins only after alpha UI and supporting
 safety/product work are reviewed and promoted. Active roadmap sources consistently mark
-M34-M117 implemented/released and rely on documentation-integrity checks to
+M34-M118 implemented/released and rely on documentation-integrity checks to
 guard against superseded-roadmap drift, stale current-baseline labels, route
-drift, authority-boundary drift, alpha/beta versioning drift, and M117-M150
+drift, authority-boundary drift, alpha/beta versioning drift, and M118-M150
 future-status drift.
 
 ## Release Notes Index

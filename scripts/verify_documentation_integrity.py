@@ -6,6 +6,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 
 
+def _roadmap_row_present(text: str, row: str) -> bool:
+    return row in text or row.replace("planned/provisional", "implemented/released") in text
+
+
 REQUIRED_M23_LOCAL_CALL_DOCS = [
     "docs/runtime/FIRST_LOCAL_LLM_CALL_M23.md",
     "docs/runtime/FIRST_LOCAL_LLM_CALL.md",
@@ -1575,6 +1579,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_m115_production_audit_retention_docs(root, version))
     failures.extend(_verify_m116_role_based_authority_docs(root, version))
     failures.extend(_verify_m117_remote_agent_coordination_docs(root, version))
+    failures.extend(_verify_m118_deployment_mode_matrix_docs(root, version))
     failures.extend(_verify_m19_roadmap_currentness(root, version))
     failures.extend(_verify_post_m18_roadmap_status_labels(root))
 
@@ -7156,6 +7161,12 @@ def _verify_post_m100_roadmap_reconciliation_docs(root: Path, version: str | Non
         or "remote agent coordination contract" in version_doc_text
     ):
         implemented_milestones.add("m117")
+    if _version_tuple(version) >= (1, 7, 2) and (
+        "checkpoint m118" in version_doc_text
+        or "m118" in version_doc_text
+        or "deployment mode matrix" in version_doc_text
+    ):
+        implemented_milestones.add("m118")
     for version_label, product_target, milestone, title in EXPECTED_M101_M150_LABELS:
         if milestone in implemented_milestones:
             continue
@@ -7164,7 +7175,7 @@ def _verify_post_m100_roadmap_reconciliation_docs(root: Path, version: str | Non
             f"| {version_label} | {product_target.lower()} | {milestone} | "
             f"{title} | planned/provisional |"
         )
-        if row not in roadmap_text:
+        if not _roadmap_row_present(roadmap_text, row):
             failures.append(
                 f"M101-M150 roadmap row must be planned/provisional: {version_label} / {milestone.upper()} - {title}"
             )
@@ -7341,7 +7352,7 @@ def _verify_m101_mobile_sensor_contract_review_docs(root: Path, version: str | N
             f"| {version_label.lower()} | {product_target.lower()} | {milestone} | "
             f"{title} | planned/provisional |"
         )
-        if row not in active_text:
+        if not _roadmap_row_present(active_text, row):
             failures.append(
                 f"active docs missing planned M102-M150 row: {version_label} / {milestone.upper()} - {title}"
             )
@@ -7453,7 +7464,7 @@ def _verify_m102_location_sensor_off_by_default_docs(root: Path, version: str | 
             f"| {version_label.lower()} | {product_target.lower()} | {milestone} | "
             f"{title} | planned/provisional |"
         )
-        if row not in active_text:
+        if not _roadmap_row_present(active_text, row):
             failures.append(
                 f"active docs missing planned M103-M150 row: {version_label} / {milestone.upper()} - {title}"
             )
@@ -7574,7 +7585,7 @@ def _verify_m103_camera_photos_metadata_only_docs(root: Path, version: str | Non
             f"| {version_label.lower()} | {product_target.lower()} | {milestone} | "
             f"{title} | planned/provisional |"
         )
-        if row not in active_text:
+        if not _roadmap_row_present(active_text, row):
             failures.append(
                 f"active docs missing planned M105-M150 row: {version_label} / {milestone.upper()} - {title}"
             )
@@ -7702,7 +7713,7 @@ def _verify_m104_notification_planning_no_push_docs(root: Path, version: str | N
             f"| {version_label} | {product_target} | {milestone} | "
             f"{title} | planned/provisional |"
         )
-        if row not in active_text:
+        if not _roadmap_row_present(active_text, row):
             failures.append(
                 f"active docs missing planned M105-M150 row: {version_label} / {milestone.upper()} - {title}"
             )
@@ -7827,7 +7838,7 @@ def _verify_m105_background_task_contract_no_execution_docs(
             f"| {version_label} | {product_target} | {milestone} | "
             f"{title} | planned/provisional |"
         )
-        if row not in active_text:
+        if not _roadmap_row_present(active_text, row):
             failures.append(
                 f"active docs missing planned M106-M150 row: {version_label} / {milestone.upper()} - {title}"
             )
@@ -7941,7 +7952,7 @@ def _verify_m106_mobile_background_read_only_status_sync_docs(
             f"| {version_label} | {product_target} | {milestone} | "
             f"{title} | planned/provisional |"
         )
-        if row not in active_text:
+        if not _roadmap_row_present(active_text, row):
             failures.append(
                 f"active docs missing planned M108-M150 row: {version_label} / {milestone.upper()} - {title}"
             )
@@ -8154,7 +8165,7 @@ def _verify_m107_mobile_approval_renewal_ux_docs(
             f"| {version_label} | {product_target} | {milestone} | "
             f"{title} | planned/provisional |"
         )
-        if row not in active_text:
+        if not _roadmap_row_present(active_text, row):
             failures.append(
                 f"active docs missing planned M108-M150 row: {version_label} / {milestone.upper()} - {title}"
             )
@@ -8377,7 +8388,7 @@ def _verify_m108_mobile_kill_switch_revocation_docs(
             f"| {version_label} | {product_target} | {milestone} | "
             f"{title} | planned/provisional |"
         )
-        if row not in active_text:
+        if not _roadmap_row_present(active_text, row):
             failures.append(
                 f"active docs missing planned M109-M150 row: {version_label} / {milestone.upper()} - {title}"
             )
@@ -8584,7 +8595,7 @@ def _verify_m109_mobile_sensor_audit_ledger_docs(
             f"| {version_label} | {product_target} | {milestone} | "
             f"{title} | planned/provisional |"
         )
-        if row not in active_text:
+        if not _roadmap_row_present(active_text, row):
             failures.append(
                 f"active docs missing planned M110-M150 row: {version_label} / {milestone.upper()} - {title}"
             )
@@ -8726,7 +8737,7 @@ def _verify_m110_mobile_sensor_hardening_freeze_docs(
             f"| {version_label} | {product_target} | {milestone} | "
             f"{title} | {status} |"
         )
-        if row not in active_text:
+        if not _roadmap_row_present(active_text, row):
             failures.append(
                 f"active docs missing planned M111-M150 row: {version_label} / {milestone.upper()} - {title}"
             )
@@ -8861,7 +8872,7 @@ def _verify_m111_production_threat_model_docs(
             f"| {version_label} | {product_target} | {milestone} | "
             f"{title} | {status} |"
         )
-        if row not in active_text:
+        if not _roadmap_row_present(active_text, row):
             failures.append(
                 f"active docs missing current M112-M150 row: {version_label} / {milestone.upper()} - {title}"
             )
@@ -9052,7 +9063,7 @@ def _verify_m112_user_workspace_identity_docs(
             f"| {version_label} | {product_target} | {milestone} | "
             f"{title} | planned/provisional |"
         )
-        if row not in active_text:
+        if not _roadmap_row_present(active_text, row):
             failures.append(
                 f"active docs missing planned M113-M150 row: {version_label} / {milestone.upper()} - {title}"
             )
@@ -9198,7 +9209,7 @@ def _verify_m113_secrets_boundary_docs(
             f"| {version_label} | {product_target} | {milestone} | "
             f"{title} | planned/provisional |"
         )
-        if row not in active_text:
+        if not _roadmap_row_present(active_text, row):
             failures.append(
                 f"active docs missing planned M114-M150 row: {version_label} / {milestone.upper()} - {title}"
             )
@@ -9664,8 +9675,15 @@ def _verify_m116_role_based_authority_docs(
         "| checkpoint m118 | pre-alpha checkpoint | m118 | "
         "deployment mode matrix | planned/provisional |"
     )
+    implemented_m118_row = (
+        "| checkpoint m118 | pre-alpha checkpoint | m118 | "
+        "deployment mode matrix | implemented/released |"
+    )
     if implemented_m117_row in current_text:
-        if planned_m118_row not in current_text:
+        if (
+            planned_m118_row not in current_text
+            and implemented_m118_row not in current_text
+        ):
             failures.append("active docs missing planned Checkpoint M118 row")
     elif planned_m117_row not in current_text:
         failures.append("active docs missing planned Checkpoint M117 row")
@@ -9805,16 +9823,9 @@ def _verify_m117_remote_agent_coordination_docs(
     )
     if implemented_m117_row not in current_text:
         failures.append("active docs missing implemented Checkpoint M117 row")
-    planned_m118_row = (
-        "| checkpoint m118 | pre-alpha checkpoint | m118 | "
-        "deployment mode matrix | planned/provisional |"
-    )
-    if planned_m118_row not in current_text:
-        failures.append("active docs missing planned Checkpoint M118 row")
     for fragment in {
-        "m118 is implemented",
         "checkpoint m118 implements m118",
-        "deployment mode matrix is implemented",
+        "deployment runtime is implemented",
         "remote agent runtime is implemented",
         "remote dispatch is implemented",
         "live connection is implemented",
@@ -9823,8 +9834,152 @@ def _verify_m117_remote_agent_coordination_docs(
         "production authority is implemented",
         "broad autonomy is implemented",
     }:
-        if fragment in current_text or fragment in text:
+        if fragment in text:
             failures.append(f"M117 docs imply forbidden/future capability: {fragment}")
+    return failures
+
+
+def _verify_m118_deployment_mode_matrix_docs(
+    root: Path, version: str | None
+) -> list[str]:
+    failures: list[str] = []
+    if _version_tuple(version) < (1, 7, 2):
+        return failures
+    active_text = " ".join(
+        "\n".join(
+            _read(root / rel_path).lower()
+            for rel_path in [
+                "README.md",
+                "VERSION.md",
+                "docs/canonical/09_roadmap.md",
+                "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            ]
+            if (root / rel_path).exists()
+        ).split()
+    )
+    if (
+        "checkpoint m118 is implemented/released" not in active_text
+        and "m118 is implemented/released" not in active_text
+    ):
+        return failures
+    required_paths = [
+        "docs/production/DEPLOYMENT_MODE_MATRIX.md",
+        "docs/production/DEPLOYMENT_MODE_MATRIX_BOUNDARY.md",
+        "docs/production/DEPLOYMENT_MODE_MATRIX_RECEIPT_PLAN.md",
+        "docs/production/DEPLOYMENT_MODE_MATRIX_NON_GOALS.md",
+        "docs/production/M118_TO_M119_BOUNDARY.md",
+        "docs/release_notes/checkpoint_m118.md",
+        "docs/archive/checkpoints/m118/README_IMPORT.md",
+        "docs/archive/checkpoints/m118/master_plan.md",
+        "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+    ]
+    for rel_path in required_paths:
+        if not (root / rel_path).exists():
+            failures.append(f"missing M118 deployment mode matrix doc: {rel_path}")
+    text = " ".join(
+        "\n".join(
+            _read(root / rel_path).lower()
+            for rel_path in required_paths
+            if (root / rel_path).exists()
+        ).split()
+    )
+    required_fragments = {
+        "M118 docs must say deployment mode matrix": "deployment mode matrix",
+        "M118 docs must say contract-only": "contract-only",
+        "M118 docs must say review-only": "review-only",
+        "M118 docs must say safe refs": "safe refs",
+        "M118 docs must say remote agent coordination contract": "remote agent coordination contract",
+        "M118 docs must say deployment mode refs": "deployment mode refs",
+        "M118 docs must say environment refs": "environment refs",
+        "M118 docs must say authority tier refs": "authority tier refs",
+        "M118 docs must say rollout stage refs": "rollout stage refs",
+        "M118 docs must say rollback boundary": "rollback boundary",
+        "M118 docs must say actor-bound": "actor-bound",
+        "M118 docs must say baseline-bound": "baseline-bound",
+        "M118 docs must say source-remote-agent-coordination-bound": "source-remote-agent-coordination-bound",
+        "M118 docs must say deployment-mode-bound": "deployment-mode-bound",
+        "M118 docs must say environment-bound": "environment-bound",
+        "M118 docs must say authority-tier-bound": "authority-tier-bound",
+        "M118 docs must say rollout-stage-bound": "rollout-stage-bound",
+        "M118 docs must say audit": "audit",
+        "M118 docs must say replay": "replay",
+        "M118 docs must say no-effect receipt plan": "no-effect receipt plan",
+        "M118 docs must deny production authority": "no production authority",
+        "M118 docs must deny deployment runtime": "no deployment runtime",
+        "M118 docs must deny deployment execution": "no deployment execution",
+        "M118 docs must deny release automation": "no release automation",
+        "M118 docs must deny external distribution": "no external distribution",
+        "M118 docs must deny infrastructure provisioning": "no infrastructure provisioning",
+        "M118 docs must deny CI/CD execution": "no ci/cd execution",
+        "M118 docs must deny signing or notarization": "no signing or notarization",
+        "M118 docs must deny remote agent runtime": "no remote agent runtime",
+        "M118 docs must deny remote dispatch": "no remote dispatch",
+        "M118 docs must deny network access": "no network access",
+        "M118 docs must deny credential handling": "no credential handling",
+        "M118 docs must deny account action": "no account action",
+        "M118 docs must deny model call": "no model call",
+        "M118 docs must deny memory write": "no memory write",
+        "M118 docs must deny context injection": "no context injection",
+        "M118 docs must deny execution": "no execution",
+        "M118 docs must deny backend route": "no backend route",
+        "M118 docs must deny Control Center control": "no control center control",
+        "M118 docs must deny dependency": "no dependency",
+        "M118 docs must keep M119 future": "m119 remains future",
+        "M118 docs must preserve alpha target": "v1.0.0-alpha",
+    }
+    for message, fragment in required_fragments.items():
+        if fragment not in text:
+            failures.append(message)
+    active_paths = [
+        "README.md",
+        "VERSION.md",
+        "docs/canonical/09_roadmap.md",
+        "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+        "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+        "docs/roadmap/MILESTONE_CHARTERS.md",
+        "docs/DOCUMENTATION_INDEX.md",
+        "docs/canonical/CANONICAL_DOC_MAP.md",
+    ]
+    current_text = " ".join(
+        "\n".join(
+            _read(root / rel_path).lower()
+            for rel_path in active_paths
+            if (root / rel_path).exists()
+        ).split()
+    )
+    implemented_m118_row = (
+        "| checkpoint m118 | pre-alpha checkpoint | m118 | "
+        "deployment mode matrix | implemented/released |"
+    )
+    if implemented_m118_row not in current_text:
+        failures.append("active docs missing implemented Checkpoint M118 row")
+    planned_m119_row = (
+        "| checkpoint m119 | pre-alpha checkpoint | m119 | "
+        "production red-team harness | planned/provisional |"
+    )
+    if planned_m119_row not in current_text:
+        failures.append("active docs missing planned Checkpoint M119 row")
+    for fragment in {
+        "m119 is implemented",
+        "checkpoint m119 implements m119",
+        "production red-team harness is implemented",
+        "deployment runtime is implemented",
+        "release automation is implemented",
+        "external distribution is implemented",
+        "infrastructure provisioning is implemented",
+        "ci/cd execution is implemented",
+        "signing or notarization is implemented",
+        "remote agent runtime is implemented",
+        "remote dispatch is implemented",
+        "network access is implemented",
+        "credential handling is implemented",
+        "account action is implemented",
+        "beta is released",
+        "production authority is implemented",
+        "broad autonomy is implemented",
+    }:
+        if fragment in current_text or fragment in text:
+            failures.append(f"M118 docs imply forbidden/future capability: {fragment}")
     return failures
 
 

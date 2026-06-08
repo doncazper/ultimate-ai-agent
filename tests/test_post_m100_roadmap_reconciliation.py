@@ -46,8 +46,8 @@ def test_post_m100_documentation_integrity_guard_rejects_missing_row_status(
     roadmap = tmp_path / "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md"
     roadmap.write_text(
         roadmap.read_text(encoding="utf-8").replace(
-            "| Checkpoint M116 | pre-alpha checkpoint | M116 | Role-Based Authority Model | Planned/provisional |",
-            "| Checkpoint M116 | pre-alpha checkpoint | M116 | Role-Based Authority Model | Deferred |",
+            "| Checkpoint M119 | pre-alpha checkpoint | M119 | Production Red-Team Harness | Planned/provisional |",
+            "| Checkpoint M119 | pre-alpha checkpoint | M119 | Production Red-Team Harness | Deferred |",
         ),
         encoding="utf-8",
     )
@@ -57,7 +57,7 @@ def test_post_m100_documentation_integrity_guard_rejects_missing_row_status(
         "1.6.0",
     )
 
-    assert any("m116" in failure.lower() for failure in failures)
+    assert any("m119" in failure.lower() for failure in failures)
     assert any("planned/provisional" in failure.lower() for failure in failures)
 
 

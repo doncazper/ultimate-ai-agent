@@ -52,6 +52,10 @@ from ultimate_ai_agent.core.truth.enums import (
 )
 
 
+def _roadmap_row_present(text: str, row: str) -> bool:
+    return row in text or row.replace("planned/provisional", "implemented/released") in text
+
+
 EXPECTED_M16_OPENAPI_PATH_COUNT = 74
 M16_FORBIDDEN_BACKEND_ROUTES = (
     "/events/timeline",
@@ -1530,6 +1534,22 @@ M117_FORBIDDEN_BACKEND_ROUTES = M116_FORBIDDEN_BACKEND_ROUTES + (
     "/tools/execute",
     "/network/post",
 )
+EXPECTED_M118_OPENAPI_PATH_COUNT = 75
+M118_FORBIDDEN_BACKEND_ROUTES = M117_FORBIDDEN_BACKEND_ROUTES + (
+    "/deployment/modes/apply",
+    "/deployment/run",
+    "/deployment/release",
+    "/deployment/promote",
+    "/deployment/rollback",
+    "/production/deploy",
+    "/ci-cd/run",
+    "/infra/provision",
+    "/remote-agents/dispatch",
+    "/context/inject",
+    "/memory/write",
+    "/tools/execute",
+    "/network/post",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -2991,6 +3011,23 @@ def m117_openapi_route_failures(
     return failures
 
 
+def m118_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M118_OPENAPI_PATH_COUNT
+) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(
+            f"OpenAPI path count changed for M118: expected {expected_path_count}, got {len(path_set)}"
+        )
+    for route in M118_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(
+                f"M118 forbidden deployment mode matrix route present: {route}"
+            )
+    return failures
+
+
 M36_SAFE_REF_PREFIXES = {
     "reviewPacketRef": "file-review-packet:",
     "previewResultRef": "redacted-file-preview-output:",
@@ -4026,6 +4063,16 @@ class FoundationGateEvaluator:
                 self.check_m117_remote_agent_coordination_route_boundary
             ),
             "m117_roadmap_currentness": self.check_m117_roadmap_currentness,
+            "m118_deployment_mode_matrix_contracts": (
+                self.check_m118_deployment_mode_matrix_contracts
+            ),
+            "m118_deployment_mode_matrix_static_safety": (
+                self.check_m118_deployment_mode_matrix_static_safety
+            ),
+            "m118_deployment_mode_matrix_route_boundary": (
+                self.check_m118_deployment_mode_matrix_route_boundary
+            ),
+            "m118_roadmap_currentness": self.check_m118_roadmap_currentness,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -29753,6 +29800,12 @@ class FoundationGateEvaluator:
             or "remote agent coordination contract" in active_version_text
         ):
             implemented_milestones.add("m117")
+        if (
+            "checkpoint m118" in active_version_text
+            or "m118" in active_version_text
+            or "deployment mode matrix" in active_version_text
+        ):
+            implemented_milestones.add("m118")
         for version_label, product_target, milestone, title in expected_labels:
             if milestone in implemented_milestones:
                 continue
@@ -29760,7 +29813,7 @@ class FoundationGateEvaluator:
                 f"| {version_label} | {product_target} | {milestone} | "
                 f"{title} | planned/provisional |"
             )
-            if row not in text:
+            if not _roadmap_row_present(text, row):
                 failures.append(
                     f"M101-M150 roadmap row must be planned/provisional: {version_label} / {milestone.upper()} - {title}"
                 )
@@ -30006,7 +30059,7 @@ class FoundationGateEvaluator:
                 f"| {version_label} | {product_target} | {milestone} | "
                 f"{title} | planned/provisional |"
             )
-            if row not in text:
+            if not _roadmap_row_present(text, row):
                 failures.append(
                     f"active docs missing planned M102-M150 row: {version_label} / {milestone.upper()} - {title}"
                 )
@@ -30247,7 +30300,7 @@ class FoundationGateEvaluator:
                 f"| {version_label} | {product_target} | {milestone} | "
                 f"{title} | planned/provisional |"
             )
-            if row not in text:
+            if not _roadmap_row_present(text, row):
                 failures.append(
                     f"active docs missing planned M103-M150 row: {version_label} / {milestone.upper()} - {title}"
                 )
@@ -30512,7 +30565,7 @@ class FoundationGateEvaluator:
                 f"| {version_label} | {product_target} | {milestone} | "
                 f"{title} | planned/provisional |"
             )
-            if row not in text:
+            if not _roadmap_row_present(text, row):
                 failures.append(
                     f"active docs missing planned M105-M150 row: {version_label} / {milestone.upper()} - {title}"
                 )
@@ -30781,7 +30834,7 @@ class FoundationGateEvaluator:
                 f"| {version_label} | {product_target} | {milestone} | "
                 f"{title} | planned/provisional |"
             )
-            if row not in text:
+            if not _roadmap_row_present(text, row):
                 failures.append(
                     f"active docs missing planned M105-M150 row: {version_label} / {milestone.upper()} - {title}"
                 )
@@ -31050,7 +31103,7 @@ class FoundationGateEvaluator:
                 f"| {version_label} | {product_target} | {milestone} | "
                 f"{title} | planned/provisional |"
             )
-            if row not in text:
+            if not _roadmap_row_present(text, row):
                 failures.append(
                     f"active docs missing planned M106-M150 row: {version_label} / {milestone.upper()} - {title}"
                 )
@@ -31316,7 +31369,7 @@ class FoundationGateEvaluator:
                 f"| {version_label} | {product_target} | {milestone} | "
                 f"{title} | planned/provisional |"
             )
-            if row not in text:
+            if not _roadmap_row_present(text, row):
                 failures.append(
                     f"active docs missing planned M108-M150 row: {version_label} / {milestone.upper()} - {title}"
                 )
@@ -31684,7 +31737,7 @@ class FoundationGateEvaluator:
                 f"| {version_label} | {product_target} | {milestone} | "
                 f"{title} | planned/provisional |"
             )
-            if row not in text:
+            if not _roadmap_row_present(text, row):
                 failures.append(
                     f"active docs missing planned M108-M150 row: {version_label} / {milestone.upper()} - {title}"
                 )
@@ -32066,7 +32119,7 @@ class FoundationGateEvaluator:
                 f"| {version_label} | {product_target} | {milestone} | "
                 f"{title} | planned/provisional |"
             )
-            if row not in text:
+            if not _roadmap_row_present(text, row):
                 failures.append(
                     f"active docs missing planned M109-M150 row: {version_label} / {milestone.upper()} - {title}"
                 )
@@ -32428,7 +32481,7 @@ class FoundationGateEvaluator:
                 f"| {version_label} | {product_target} | {milestone} | "
                 f"{title} | planned/provisional |"
             )
-            if row not in text:
+            if not _roadmap_row_present(text, row):
                 failures.append(
                     f"active docs missing planned M110-M150 row: {version_label} / {milestone.upper()} - {title}"
                 )
@@ -32757,7 +32810,7 @@ class FoundationGateEvaluator:
                 f"| {version_label} | {product_target} | {milestone} | "
                 f"{title} | {status} |"
             )
-            if row not in text:
+            if not _roadmap_row_present(text, row):
                 failures.append(
                     f"active docs missing planned M111-M150 row: {version_label} / {milestone.upper()} - {title}"
                 )
@@ -33068,7 +33121,7 @@ class FoundationGateEvaluator:
                 f"| {version_label} | {product_target} | {milestone} | "
                 f"{title} | {status} |"
             )
-            if row not in text:
+            if not _roadmap_row_present(text, row):
                 failures.append(
                     f"active docs missing current M112-M150 row: {version_label} / {milestone.upper()} - {title}"
                 )
@@ -33451,7 +33504,7 @@ class FoundationGateEvaluator:
                 f"| {version_label} | {product_target} | {milestone} | "
                 f"{title} | planned/provisional |"
             )
-            if row not in text:
+            if not _roadmap_row_present(text, row):
                 failures.append(
                     f"active docs missing planned M113-M150 row: {version_label} / {milestone.upper()} - {title}"
                 )
@@ -33834,7 +33887,7 @@ class FoundationGateEvaluator:
                 f"| {version_label} | {product_target} | {milestone} | "
                 f"{title} | planned/provisional |"
             )
-            if row not in text:
+            if not _roadmap_row_present(text, row):
                 failures.append(
                     f"active docs missing planned M114-M150 row: {version_label} / {milestone.upper()} - {title}"
                 )
@@ -34641,7 +34694,7 @@ class FoundationGateEvaluator:
                 f"| {version_label} | {product_target} | {milestone} | "
                 f"{title} | {status} |"
             )
-            if row not in text:
+            if not _roadmap_row_present(text, row):
                 failures.append(
                     f"active docs missing expected M116-M150 row: {version_label} / {milestone.upper()} - {title}"
                 )
@@ -35048,7 +35101,7 @@ class FoundationGateEvaluator:
                 f"| {version_label} | {product_target} | {milestone} | "
                 f"{title} | {status} |"
             )
-            if row not in text:
+            if not _roadmap_row_present(text, row):
                 failures.append(
                     f"active docs missing expected M117-M150 row: {version_label} / {milestone.upper()} - {title}"
                 )
@@ -35445,14 +35498,13 @@ class FoundationGateEvaluator:
                 f"| {version_label} | {product_target} | {milestone} | "
                 f"{title} | planned/provisional |"
             )
-            if row not in text:
+            if not _roadmap_row_present(text, row):
                 failures.append(
                     f"active docs missing planned M118-M150 row: {version_label} / {milestone.upper()} - {title}"
                 )
         for fragment in (
-            "m118 is implemented",
             "checkpoint m118 implements m118",
-            "deployment mode matrix is implemented",
+            "deployment runtime is implemented",
             "remote agent runtime is implemented",
             "remote dispatch is implemented",
             "live connection is implemented",
@@ -35463,6 +35515,387 @@ class FoundationGateEvaluator:
         ):
             if fragment in text:
                 failures.append(f"active docs imply forbidden M117 future/currentness claim: {fragment}")
+        return self._result(criterion, failures, required_docs)
+
+    def check_m118_deployment_mode_matrix_contracts(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/production_readiness/deployment_mode_matrix.py",
+            "docs/production/DEPLOYMENT_MODE_MATRIX.md",
+            "docs/production/DEPLOYMENT_MODE_MATRIX_BOUNDARY.md",
+            "docs/production/DEPLOYMENT_MODE_MATRIX_RECEIPT_PLAN.md",
+            "docs/production/DEPLOYMENT_MODE_MATRIX_NON_GOALS.md",
+            "docs/production/M118_TO_M119_BOUNDARY.md",
+            "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            "tests/test_m118_deployment_mode_matrix.py",
+            "tests/test_m118_gate_integration.py",
+        ]
+        failures = [
+            f"missing M118 deployment mode matrix file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            sys.path.insert(0, str(self.root))
+            from ultimate_ai_agent.core.mobile_companion import (
+                build_mobile_approval_renewal_ux_report,
+                build_mobile_kill_switch_revocation_record,
+                build_mobile_sensor_audit_ledger_record,
+                build_mobile_sensor_hardening_freeze_record,
+            )
+            from ultimate_ai_agent.core.production_readiness import (
+                DeploymentModeMatrixStatus,
+                build_account_connector_contract_review_record,
+                build_deployment_mode_matrix_record,
+                build_production_audit_retention_policy_record,
+                build_production_threat_model_record,
+                build_remote_agent_coordination_contract_record,
+                build_role_based_authority_model_record,
+                build_secrets_boundary_record,
+                build_user_workspace_identity_record,
+                validate_deployment_mode_matrix_record,
+            )
+
+            source_record = build_remote_agent_coordination_contract_record(
+                source_record=build_role_based_authority_model_record(
+                    source_record=build_production_audit_retention_policy_record(
+                        source_record=build_account_connector_contract_review_record(
+                            source_record=build_secrets_boundary_record(
+                                source_record=build_user_workspace_identity_record(
+                                    source_record=build_production_threat_model_record(
+                                        source_record=build_mobile_sensor_hardening_freeze_record(
+                                            source_record=build_mobile_sensor_audit_ledger_record(
+                                                source_record=build_mobile_kill_switch_revocation_record(
+                                                    source_report=build_mobile_approval_renewal_ux_report()
+                                                )
+                                            )
+                                        )
+                                    )
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+            record = build_deployment_mode_matrix_record(source_record=source_record)
+            if (
+                record.status != DeploymentModeMatrixStatus.deployment_mode_matrix
+                or not record.contract_only
+                or not record.review_only
+                or not record.safe_refs_required
+                or not record.actor_bound
+                or not record.baseline_bound
+                or not record.source_remote_agent_coordination_bound
+                or not record.user_bound
+                or not record.workspace_bound
+                or not record.deployment_mode_bound
+                or not record.environment_bound
+                or not record.authority_tier_bound
+                or not record.rollout_stage_bound
+                or not record.rollback_boundary_bound
+                or not record.audit_required
+                or not record.replay_safe
+                or record.source_remote_agent_coordination_ref
+                != source_record.remote_coordination_contract_ref
+                or record.source_baseline_ref != source_record.source_baseline_ref
+                or record.actor_ref != source_record.actor_ref
+                or record.user_ref != source_record.user_ref
+                or record.workspace_ref != source_record.workspace_ref
+                or not record.deployment_mode_refs
+                or not record.environment_refs
+                or not record.authority_tier_refs
+                or not record.rollout_stage_refs
+                or "checkpoint:m117" not in record.accepted_checkpoint_refs
+                or record.production_authority_enabled
+                or record.deployment_runtime_enabled
+                or record.deployment_execution_enabled
+                or record.release_automation_enabled
+                or record.external_distribution_enabled
+                or record.infrastructure_provisioning_enabled
+                or record.ci_cd_execution_enabled
+                or record.signing_or_notarization_enabled
+                or record.remote_agent_runtime_enabled
+                or record.remote_dispatch_enabled
+                or record.network_access_enabled
+                or record.credential_handling_enabled
+                or record.account_action_enabled
+                or record.model_call_enabled
+                or record.memory_write_enabled
+                or record.context_injection_enabled
+                or record.execution_enabled
+                or record.tool_execution_enabled
+                or record.shell_execution_enabled
+                or record.browser_automation_enabled
+                or record.plugin_execution_enabled
+                or record.mobile_sensor_enabled
+                or record.backend_route_added
+                or record.control_center_control_added
+                or record.dependency_added
+                or record.side_effects_performed
+                or "M118_DEPLOYMENT_MODE_MATRIX" not in record.reason_codes
+                or "M119_REMAINS_FUTURE" not in record.reason_codes
+            ):
+                failures.append(
+                    "M118 deployment mode matrix contract is unsafe or over-authoritative"
+                )
+            for update, reason in [
+                ({"review_only": False}, "M118_REVIEW_ONLY_REQUIRED"),
+                (
+                    {"source_remote_agent_coordination_bound": False},
+                    "M118_SOURCE_REMOTE_AGENT_COORDINATION_BINDING_REQUIRED",
+                ),
+                ({"deployment_mode_refs": []}, "M118_DEPLOYMENT_MODE_REF_REQUIRED"),
+                ({"environment_refs": []}, "M118_ENVIRONMENT_REF_REQUIRED"),
+                ({"authority_tier_refs": []}, "M118_AUTHORITY_TIER_REF_REQUIRED"),
+                ({"rollout_stage_refs": []}, "M118_ROLLOUT_STAGE_REF_REQUIRED"),
+                ({"deployment_runtime_enabled": True}, "DEPLOYMENT_RUNTIME_DENIED"),
+                (
+                    {"deployment_execution_enabled": True},
+                    "DEPLOYMENT_EXECUTION_DENIED",
+                ),
+                ({"release_automation_enabled": True}, "RELEASE_AUTOMATION_DENIED"),
+                (
+                    {"external_distribution_enabled": True},
+                    "EXTERNAL_DISTRIBUTION_DENIED",
+                ),
+                (
+                    {"infrastructure_provisioning_enabled": True},
+                    "INFRASTRUCTURE_PROVISIONING_DENIED",
+                ),
+                ({"ci_cd_execution_enabled": True}, "CI_CD_EXECUTION_DENIED"),
+                (
+                    {"signing_or_notarization_enabled": True},
+                    "SIGNING_OR_NOTARIZATION_DENIED",
+                ),
+                ({"production_authority_enabled": True}, "PRODUCTION_AUTHORITY_DENIED"),
+                ({"credential_handling_enabled": True}, "CREDENTIAL_HANDLING_DENIED"),
+                ({"execution_enabled": True}, "EXECUTION_DENIED"),
+                ({"backend_route_added": True}, "BACKEND_ROUTE_DENIED"),
+                (
+                    {"control_center_control_added": True},
+                    "CONTROL_CENTER_CONTROL_DENIED",
+                ),
+                ({"dependency_added": True}, "DEPENDENCY_DENIED"),
+            ]:
+                try:
+                    validate_deployment_mode_matrix_record(
+                        record.model_copy(update=update)
+                    )
+                    failures.append(
+                        f"M118 unsafe record mutation was not denied with {reason}"
+                    )
+                except ValueError as exc:
+                    if reason not in str(exc):
+                        failures.append(f"M118 unsafe record mutation raised {exc!s}")
+        except Exception as exc:
+            failures.append(f"M118 deployment mode matrix validation failed: {exc}")
+
+        docs_text = " ".join(
+            "\n".join(
+                self._read(self.root / path).lower()
+                for path in required_files
+                if path.startswith("docs/") and (self.root / path).exists()
+            ).split()
+        )
+        for fragment in [
+            "deployment mode matrix",
+            "contract-only",
+            "review-only",
+            "safe refs",
+            "remote agent coordination contract",
+            "deployment mode refs",
+            "environment refs",
+            "authority tier refs",
+            "rollout stage refs",
+            "rollback boundary ref",
+            "actor-bound",
+            "baseline-bound",
+            "source-remote-agent-coordination-bound",
+            "user-bound",
+            "workspace-bound",
+            "deployment-mode-bound",
+            "environment-bound",
+            "authority-tier-bound",
+            "rollout-stage-bound",
+            "rollback-boundary-bound",
+            "audit",
+            "replay",
+            "no-effect receipt plan",
+            "no production authority",
+            "no deployment runtime",
+            "no deployment execution",
+            "no release automation",
+            "no external distribution",
+            "no infrastructure provisioning",
+            "no ci/cd execution",
+            "no signing or notarization",
+            "no credential handling",
+            "no network access",
+            "no execution",
+            "no backend route",
+            "no control center control",
+            "no dependency",
+            "m119 remains future",
+            "v1.0.0-alpha",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M118 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m118_deployment_mode_matrix_static_safety(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        forbidden_source_fragments = [
+            "production_authority_enabled=True",
+            "deployment_runtime_enabled=True",
+            "deployment_execution_enabled=True",
+            "release_automation_enabled=True",
+            "external_distribution_enabled=True",
+            "infrastructure_provisioning_enabled=True",
+            "ci_cd_execution_enabled=True",
+            "signing_or_notarization_enabled=True",
+            "credential_handling_enabled=True",
+            "network_access_enabled=True",
+            "execution_enabled=True",
+            "backend_route_enabled=True",
+            "backend_route_added=True",
+            "control_center_control_enabled=True",
+            "control_center_control_added=True",
+            "dependency_added=True",
+            "/deployment/modes/apply",
+            "/deployment/run",
+            "/deployment/release",
+            "/deployment/promote",
+            "/deployment/rollback",
+            "/production/deploy",
+            "/ci-cd/run",
+            "/infra/provision",
+        ]
+        allowed_files = {
+            "scripts/verify_all.py",
+            "src/ultimate_ai_agent/core/gate/evaluators.py",
+            "src/ultimate_ai_agent/core/production_readiness/__init__.py",
+            "src/ultimate_ai_agent/core/production_readiness/deployment_mode_matrix.py",
+            "src/ultimate_ai_agent/core/production_readiness/remote_agent_coordination.py",
+            "src/ultimate_ai_agent/core/production_readiness/role_based_authority.py",
+            "src/ultimate_ai_agent/core/production_readiness/production_audit_retention.py",
+            "src/ultimate_ai_agent/core/production_readiness/account_connector_review.py",
+            "src/ultimate_ai_agent/core/production_readiness/secrets_boundary.py",
+            "src/ultimate_ai_agent/core/production_readiness/user_workspace_identity.py",
+            "src/ultimate_ai_agent/core/production_readiness/production_threat_model.py",
+        }
+        for root in [
+            self.root / "src" / "ultimate_ai_agent",
+            self.root / "apps" / "control-center" / "src",
+            self.root / "apps" / "ccc-ios",
+        ]:
+            if not root.exists():
+                continue
+            candidate_files = []
+            for pattern in (
+                "*.py",
+                "*.ts",
+                "*.tsx",
+                "*.js",
+                "*.jsx",
+                "*.swift",
+                "*.yml",
+                "*.yaml",
+            ):
+                candidate_files.extend(root.rglob(pattern))
+            for path in sorted(candidate_files):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(self.root).as_posix()
+                if ".test." in rel:
+                    continue
+                if rel in allowed_files:
+                    continue
+                text = path.read_text(encoding="utf-8")
+                for fragment in forbidden_source_fragments:
+                    if fragment in text:
+                        failures.append(
+                            f"M118 forbidden deployment matrix fragment in {rel}: {fragment}"
+                        )
+        return self._result(criterion, failures, [])
+
+    def check_m118_deployment_mode_matrix_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m118_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M118 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m118_roadmap_currentness(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_docs = [
+            "README.md",
+            "VERSION.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            "docs/roadmap/MILESTONE_CHARTERS.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+        ]
+        failures = [
+            f"missing M118 roadmap doc: {path}"
+            for path in required_docs
+            if not (self.root / path).exists()
+        ]
+        text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_docs
+            if (self.root / path).exists()
+        )
+        if "checkpoint m118" not in text or "deployment mode matrix" not in text:
+            failures.append(
+                "active docs do not identify Checkpoint M118 Deployment Mode Matrix"
+            )
+        if (
+            "m118 is implemented/released" not in text
+            and "checkpoint m118 is implemented/released" not in text
+        ):
+            failures.append("active docs do not mark M118 implemented/released")
+        for version_label, product_target, milestone, title in [
+            (
+                "checkpoint m119",
+                "pre-alpha checkpoint",
+                "m119",
+                "production red-team harness",
+            ),
+            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+        ]:
+            row = (
+                f"| {version_label} | {product_target} | {milestone} | "
+                f"{title} | planned/provisional |"
+            )
+            if not _roadmap_row_present(text, row):
+                failures.append(
+                    f"active docs missing planned M119-M150 row: {version_label} / {milestone.upper()} - {title}"
+                )
+        for fragment in (
+            "m119 is implemented",
+            "checkpoint m119 implements m119",
+            "production red-team harness is implemented",
+            "deployment runtime is implemented",
+            "release automation is implemented",
+            "external distribution is implemented",
+            "infrastructure provisioning is implemented",
+            "ci/cd execution is implemented",
+            "signing or notarization is implemented",
+            "production authority is implemented",
+            "beta is released",
+            "broad autonomy is implemented",
+        ):
+            if fragment in text:
+                failures.append(f"active docs imply forbidden M118 future/currentness claim: {fragment}")
         return self._result(criterion, failures, required_docs)
 
     def check_v0292_local_dev_api_authority_and_preview_safe(

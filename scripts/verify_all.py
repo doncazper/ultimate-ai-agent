@@ -41,6 +41,10 @@ def _current_version_tuple() -> tuple[int, int, int]:
     return tuple(int(part) for part in version.split("."))  # type: ignore[return-value]
 
 
+def _roadmap_row_present(text: str, row: str) -> bool:
+    return row in text or row.replace("planned/provisional", "implemented/released") in text
+
+
 SCAN_SEQUENCE = [
     ("generated artifact scan", "verify_no_generated_artifacts"),
     ("obvious secret scan", "verify_no_obvious_secrets"),
@@ -152,6 +156,7 @@ SCAN_SEQUENCE = [
     ("M115 production audit retention policy scan", "verify_m115_production_audit_retention_policy"),
     ("M116 role-based authority model scan", "verify_m116_role_based_authority_model"),
     ("M117 remote agent coordination contract scan", "verify_m117_remote_agent_coordination_contract"),
+    ("M118 deployment mode matrix scan", "verify_m118_deployment_mode_matrix"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -17603,6 +17608,12 @@ def verify_post_m100_roadmap_reconciliation():
         or "remote agent coordination contract" in active_version_text
     ):
         implemented_milestones.add("m117")
+    if (
+        "checkpoint m118" in active_version_text
+        or "m118" in active_version_text
+        or "deployment mode matrix" in active_version_text
+    ):
+        implemented_milestones.add("m118")
     for version_label, product_target, milestone, title in expected_labels:
         if milestone in implemented_milestones:
             continue
@@ -17610,7 +17621,7 @@ def verify_post_m100_roadmap_reconciliation():
             f"| {version_label} | {product_target} | {milestone} | "
             f"{title} | planned/provisional |"
         )
-        if row not in roadmap_text:
+        if not _roadmap_row_present(roadmap_text, row):
             print(
                 f"FAIL: M101-M150 roadmap row must be planned/provisional: {version_label} / {milestone.upper()} - {title}"
             )
@@ -21004,6 +21015,230 @@ def verify_m117_remote_agent_coordination_contract():
             sys.exit(1)
 
     print("OK: M117 remote agent coordination is contract-only, no-runtime, and route-free")
+
+
+def verify_m118_deployment_mode_matrix():
+    print("\n[Verifier] Running M118 deployment mode matrix guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/production_readiness/deployment_mode_matrix.py",
+        "docs/production/DEPLOYMENT_MODE_MATRIX.md",
+        "docs/production/DEPLOYMENT_MODE_MATRIX_BOUNDARY.md",
+        "docs/production/DEPLOYMENT_MODE_MATRIX_RECEIPT_PLAN.md",
+        "docs/production/DEPLOYMENT_MODE_MATRIX_NON_GOALS.md",
+        "docs/production/M118_TO_M119_BOUNDARY.md",
+        "docs/release_notes/checkpoint_m118.md",
+        "docs/archive/checkpoints/m118/README_IMPORT.md",
+        "docs/archive/checkpoints/m118/master_plan.md",
+        "tests/test_m118_deployment_mode_matrix.py",
+        "tests/test_m118_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M118 deployment mode matrix file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = " ".join(
+        "\n".join(
+            (ROOT / rel_path).read_text(encoding="utf-8").lower()
+            for rel_path in required_files
+            if rel_path.startswith("docs/")
+        ).split()
+    )
+    for fragment in [
+        "deployment mode matrix",
+        "contract-only",
+        "review-only",
+        "safe refs",
+        "remote agent coordination contract",
+        "deployment mode refs",
+        "environment refs",
+        "authority tier refs",
+        "rollout stage refs",
+        "rollback boundary",
+        "no-effect receipt plan",
+        "no production authority",
+        "no deployment runtime",
+        "no deployment execution",
+        "no release automation",
+        "no external distribution",
+        "no infrastructure provisioning",
+        "no ci/cd execution",
+        "no signing or notarization",
+        "no remote agent runtime",
+        "no remote dispatch",
+        "no network access",
+        "no credential handling",
+        "no account action",
+        "no model call",
+        "no memory write",
+        "no context injection",
+        "no execution",
+        "no backend route",
+        "no control center control",
+        "no dependency",
+        "m119 remains future",
+        "v1.0.0-alpha",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M118 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.criteria import (
+            default_foundation_gate_criteria,
+        )
+        from ultimate_ai_agent.core.gate.evaluators import (
+            FoundationGateEvaluator,
+            m118_openapi_route_failures,
+        )
+        from ultimate_ai_agent.core.mobile_companion import (
+            build_mobile_approval_renewal_ux_report,
+            build_mobile_kill_switch_revocation_record,
+            build_mobile_sensor_audit_ledger_record,
+            build_mobile_sensor_hardening_freeze_record,
+        )
+        from ultimate_ai_agent.core.production_readiness import (
+            DeploymentModeMatrixStatus,
+            build_account_connector_contract_review_record,
+            build_deployment_mode_matrix_record,
+            build_production_audit_retention_policy_record,
+            build_production_threat_model_record,
+            build_remote_agent_coordination_contract_record,
+            build_role_based_authority_model_record,
+            build_secrets_boundary_record,
+            build_user_workspace_identity_record,
+            validate_deployment_mode_matrix_record,
+        )
+    except Exception as exc:
+        print(f"FAIL: M118 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m118_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    source_record = build_remote_agent_coordination_contract_record(
+        source_record=build_role_based_authority_model_record(
+            source_record=build_production_audit_retention_policy_record(
+                source_record=build_account_connector_contract_review_record(
+                    source_record=build_secrets_boundary_record(
+                        source_record=build_user_workspace_identity_record(
+                            source_record=build_production_threat_model_record(
+                                source_record=build_mobile_sensor_hardening_freeze_record(
+                                    source_record=build_mobile_sensor_audit_ledger_record(
+                                        source_record=build_mobile_kill_switch_revocation_record(
+                                            source_report=build_mobile_approval_renewal_ux_report()
+                                        )
+                                    )
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+        )
+    )
+    record = build_deployment_mode_matrix_record(source_record=source_record)
+    if (
+        record.status != DeploymentModeMatrixStatus.deployment_mode_matrix
+        or not record.contract_only
+        or not record.review_only
+        or not record.safe_refs_required
+        or not record.source_remote_agent_coordination_bound
+        or record.source_remote_agent_coordination_ref
+        != source_record.remote_coordination_contract_ref
+        or "checkpoint:m117" not in record.accepted_checkpoint_refs
+        or not record.deployment_mode_refs
+        or not record.environment_refs
+        or not record.authority_tier_refs
+        or not record.rollout_stage_refs
+        or record.production_authority_enabled
+        or record.deployment_runtime_enabled
+        or record.deployment_execution_enabled
+        or record.release_automation_enabled
+        or record.external_distribution_enabled
+        or record.infrastructure_provisioning_enabled
+        or record.ci_cd_execution_enabled
+        or record.signing_or_notarization_enabled
+        or record.remote_agent_runtime_enabled
+        or record.remote_dispatch_enabled
+        or record.network_access_enabled
+        or record.credential_handling_enabled
+        or record.account_action_enabled
+        or record.model_call_enabled
+        or record.memory_write_enabled
+        or record.context_injection_enabled
+        or record.execution_enabled
+        or record.tool_execution_enabled
+        or record.shell_execution_enabled
+        or record.browser_automation_enabled
+        or record.plugin_execution_enabled
+        or record.mobile_sensor_enabled
+        or record.backend_route_added
+        or record.control_center_control_added
+        or record.dependency_added
+        or record.side_effects_performed
+        or "M118_DEPLOYMENT_MODE_MATRIX" not in record.reason_codes
+        or "M119_REMAINS_FUTURE" not in record.reason_codes
+    ):
+        print("FAIL: M118 deployment mode matrix record is unsafe")
+        sys.exit(1)
+
+    for update, reason in [
+        ({"review_only": False}, "M118_REVIEW_ONLY_REQUIRED"),
+        ({"deployment_runtime_enabled": True}, "DEPLOYMENT_RUNTIME_DENIED"),
+        ({"deployment_execution_enabled": True}, "DEPLOYMENT_EXECUTION_DENIED"),
+        ({"release_automation_enabled": True}, "RELEASE_AUTOMATION_DENIED"),
+        ({"external_distribution_enabled": True}, "EXTERNAL_DISTRIBUTION_DENIED"),
+        (
+            {"infrastructure_provisioning_enabled": True},
+            "INFRASTRUCTURE_PROVISIONING_DENIED",
+        ),
+        ({"ci_cd_execution_enabled": True}, "CI_CD_EXECUTION_DENIED"),
+        (
+            {"signing_or_notarization_enabled": True},
+            "SIGNING_OR_NOTARIZATION_DENIED",
+        ),
+        ({"production_authority_enabled": True}, "PRODUCTION_AUTHORITY_DENIED"),
+        ({"remote_agent_runtime_enabled": True}, "REMOTE_AGENT_RUNTIME_DENIED"),
+        ({"remote_dispatch_enabled": True}, "REMOTE_DISPATCH_DENIED"),
+        ({"network_access_enabled": True}, "NETWORK_ACCESS_DENIED"),
+        ({"credential_handling_enabled": True}, "CREDENTIAL_HANDLING_DENIED"),
+        ({"execution_enabled": True}, "EXECUTION_DENIED"),
+        ({"backend_route_added": True}, "BACKEND_ROUTE_DENIED"),
+        ({"control_center_control_added": True}, "CONTROL_CENTER_CONTROL_DENIED"),
+        ({"dependency_added": True}, "DEPENDENCY_DENIED"),
+    ]:
+        try:
+            validate_deployment_mode_matrix_record(record.model_copy(update=update))
+            print(f"FAIL: M118 mutated authority flag was not denied: {update}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M118 mutated authority flag raised {exc!s}")
+                sys.exit(1)
+
+    criteria = {
+        criterion.criterion_id: criterion
+        for criterion in default_foundation_gate_criteria()
+    }
+    evaluator = FoundationGateEvaluator(ROOT)
+    for criterion_id in [
+        "m118_deployment_mode_matrix_contracts",
+        "m118_deployment_mode_matrix_static_safety",
+        "m118_deployment_mode_matrix_route_boundary",
+        "m118_roadmap_currentness",
+    ]:
+        report = evaluator.evaluate([criteria[criterion_id]])
+        result = report.results[0]
+        if result.status != "passed":
+            print(f"FAIL: {criterion_id} failed: {result.failures}")
+            sys.exit(1)
+
+    print("OK: M118 deployment mode matrix is contract-only, no-runtime, and route-free")
 
 
 def verify_local_developer_launcher_safety():

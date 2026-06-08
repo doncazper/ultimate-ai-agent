@@ -191,7 +191,8 @@ Checkpoint M114 is implemented/released as Account Connector Contract Review.
 Checkpoint M115 is implemented/released as Production Audit Retention Policy.
 Checkpoint M116 is implemented/released as Role-Based Authority Model.
 Checkpoint M117 is implemented/released as Remote Agent Coordination Contract.
-M118-M149
+Checkpoint M118 is implemented/released as Deployment Mode Matrix.
+M119-M149
 remain planned/provisional as checkpoint milestones instead of product SemVer
 tags, and M150 remains planned/provisional as the v1.0.0-alpha product target.
 Beta begins after the alpha UI and supporting safety/product work are reviewed

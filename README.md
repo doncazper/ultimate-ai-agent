@@ -13,25 +13,26 @@ allowed to become operational authority.
 | Field | Current state |
 |---|---|
 | Current active baseline | **v1.7.2** |
-| Current milestone | **Checkpoint M117 — Remote Agent Coordination Contract** |
+| Current milestone | **Checkpoint M118 — Deployment Mode Matrix** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **75** OpenAPI paths |
 | Production readiness | Not claimed |
 
-Checkpoint M117 implements Remote Agent Coordination Contract while the current
+Checkpoint M118 implements Deployment Mode Matrix while the current
 product baseline remains v1.7.2. Already-pushed tags remain immutable historical
-internal milestone tags, future M118-M149 conveyor milestones use checkpoint
+internal milestone tags, future M119-M149 conveyor milestones use checkpoint
 labels instead of product SemVer tags, and M150 is the next product release
 target **v1.0.0-alpha**. Beta begins only after the alpha UI and supporting
 safety/product work are reviewed, accepted, and explicitly promoted by a later
-roadmap patch. M117 adds no production authority, remote agent runtime, remote
-dispatch, remote execution, live connection, network access, agent spawn,
-background worker, credential handling, account action, model call, memory
-write, context injection, execution, tool execution, shell execution, browser
-automation, plugin execution, mobile sensor, backend route, Control Center
-control, dependency, M118 work, broad autonomy, beta release, or production
-authority.
+roadmap patch. M118 adds no production authority, deployment runtime,
+deployment execution, release automation, external distribution, infrastructure
+provisioning, CI/CD execution, signing or notarization, remote agent runtime,
+remote dispatch, network access, credential handling, account action, model
+call, memory write, context injection, execution, tool execution, shell
+execution, browser automation, plugin execution, mobile sensor, backend route,
+Control Center control, dependency, M119 work, broad autonomy, beta release, or
+production authority.
 
 v0.29.5 is documentation policy polish. It remains the documentation
 organization cleanup baseline before the M26 and M27 implementation releases.
@@ -45,6 +46,7 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M34-M60 roadmap supersession](docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md)
 - [M61-M100 roadmap](docs/roadmap/M61_M100_ROADMAP.md)
 - [M101-M150 planned roadmap](docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md)
+- [M118 Deployment Mode Matrix](docs/production/DEPLOYMENT_MODE_MATRIX.md)
 - [M117 Remote Agent Coordination Contract](docs/production/REMOTE_AGENT_COORDINATION_CONTRACT.md)
 - [M116 Role-Based Authority Model](docs/production/ROLE_BASED_AUTHORITY_MODEL.md)
 - [M115 Production Audit Retention Policy](docs/production/PRODUCTION_AUDIT_RETENTION_POLICY.md)
