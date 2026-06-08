@@ -45,6 +45,12 @@ docs/mobile/CAMERA_PHOTOS_METADATA_ONLY_AUTHORITY_BOUNDARY.md
 docs/mobile/CAMERA_PHOTOS_METADATA_ONLY_RECEIPT_PLAN.md
 docs/mobile/CAMERA_PHOTOS_METADATA_ONLY_NON_GOALS.md
 docs/mobile/M103_TO_M104_BOUNDARY.md
+docs/mobile/NOTIFICATION_PLANNING_NO_PUSH.md
+docs/mobile/NOTIFICATION_PLANNING_NO_PUSH_POLICY.md
+docs/mobile/NOTIFICATION_PLANNING_NO_PUSH_AUTHORITY_BOUNDARY.md
+docs/mobile/NOTIFICATION_PLANNING_NO_PUSH_RECEIPT_PLAN.md
+docs/mobile/NOTIFICATION_PLANNING_NO_PUSH_NON_GOALS.md
+docs/mobile/M104_TO_M105_BOUNDARY.md
 docs/files/BROADER_FILE_CAPABILITY_REVIEW.md
 docs/files/FILE_CAPABILITY_BOUNDARY_MATRIX.md
 docs/files/FILE_CAPABILITY_RISK_REGISTER.md
@@ -728,21 +734,24 @@ scripts/dev/README.md
 ```
 
 v0.37.4 supersedes the old active M35-M40 roadmap projection and defines the
-active M34-M60 sequence. v1.7.2 is the current active baseline after the M103
-Camera/Photos Metadata-Only Contract release and post-M103 versioning repair
-follow-up.
+active M34-M60 sequence. v1.7.2 is the current active product baseline.
+Checkpoint M104 is implemented/released as Notification Planning, No Push
+Execution after the M103 Camera/Photos Metadata-Only Contract release and
+post-M103 versioning repair follow-up.
 M100 remains implemented/released as Mobile Permission Model v1. M101 is
 implemented/released as contract-only mobile sensor governance. M102 is
 implemented/released as contract-only location sensor governance with location
 off by default. M103 is implemented/released as contract-only camera/photos
-metadata-only governance. M104-M150 are planned/provisional only in
-`docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md`. Future M104-M149 conveyor
-milestones use checkpoint labels instead of product SemVer tags, and M150 is
+metadata-only governance. M104 is implemented/released as contract-only
+notification planning with no push execution. M105-M150 are
+planned/provisional only in `docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md`.
+Future M105-M149 conveyor milestones use checkpoint labels instead of product
+SemVer tags, and M150 is
 planned as v1.0.0-alpha. Beta begins only after alpha UI and supporting
 safety/product work are reviewed and promoted. Active roadmap sources consistently mark
 M34-M103 implemented/released and rely on documentation-integrity checks to
 guard against superseded-roadmap drift, stale current-baseline labels, route
-drift, authority-boundary drift, alpha/beta versioning drift, and M104-M150
+drift, authority-boundary drift, alpha/beta versioning drift, and M105-M150
 future-status drift.
 
 ## Release Notes Index

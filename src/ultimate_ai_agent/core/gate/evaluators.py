@@ -1349,6 +1349,18 @@ M103_FORBIDDEN_BACKEND_ROUTES = M102_FORBIDDEN_BACKEND_ROUTES + (
     "/mobile/media/metadata/extract",
     "/mobile/media/permission",
 )
+EXPECTED_M104_OPENAPI_PATH_COUNT = 75
+M104_FORBIDDEN_BACKEND_ROUTES = M103_FORBIDDEN_BACKEND_ROUTES + (
+    "/mobile/notifications",
+    "/mobile/notifications/send",
+    "/mobile/notifications/push",
+    "/mobile/notifications/schedule",
+    "/mobile/notifications/token",
+    "/mobile/notifications/provider",
+    "/mobile/background/tasks",
+    "/mobile/background/notifications",
+    "/mobile/permissions/prompt",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -2598,6 +2610,21 @@ def m103_openapi_route_failures(
     return failures
 
 
+def m104_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M104_OPENAPI_PATH_COUNT
+) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(
+            f"OpenAPI path count changed for M104: expected {expected_path_count}, got {len(path_set)}"
+        )
+    for route in M104_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(f"M104 forbidden notification runtime route present: {route}")
+    return failures
+
+
 M36_SAFE_REF_PREFIXES = {
     "reviewPacketRef": "file-review-packet:",
     "previewResultRef": "redacted-file-preview-output:",
@@ -3493,6 +3520,16 @@ class FoundationGateEvaluator:
                 self.check_m103_camera_photos_metadata_only_route_boundary
             ),
             "m103_roadmap_currentness": self.check_m103_roadmap_currentness,
+            "m104_notification_planning_no_push_contracts": (
+                self.check_m104_notification_planning_no_push_contracts
+            ),
+            "m104_notification_planning_no_push_static_safety": (
+                self.check_m104_notification_planning_no_push_static_safety
+            ),
+            "m104_notification_planning_no_push_route_boundary": (
+                self.check_m104_notification_planning_no_push_route_boundary
+            ),
+            "m104_roadmap_currentness": self.check_m104_roadmap_currentness,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -29132,6 +29169,12 @@ class FoundationGateEvaluator:
             or "camera/photos metadata-only contract" in active_version_text
         ):
             implemented_milestones.add("m103")
+        if (
+            "checkpoint m104" in active_version_text
+            or "m104" in active_version_text
+            or "notification planning, no push execution" in active_version_text
+        ):
+            implemented_milestones.add("m104")
         for version_label, product_target, milestone, title in expected_labels:
             if milestone in implemented_milestones:
                 continue
@@ -29600,10 +29643,22 @@ class FoundationGateEvaluator:
         if "m102 is implemented/released" not in text and "v1.6.0 implements m102" not in text:
             failures.append("active docs do not mark M102 implemented/released")
         m103_implemented = "v1.7.0" in text and "m103" in text
+        m104_implemented = "checkpoint m104" in text and "notification planning, no push execution" in text
         planned_rows = [
-            ("checkpoint m104", "pre-alpha checkpoint", "m104", "notification planning, no push execution"),
             ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
         ]
+        if not m104_implemented:
+            planned_rows.insert(
+                0,
+                ("checkpoint m104", "pre-alpha checkpoint", "m104", "notification planning, no push execution"),
+            )
+        else:
+            implemented_m104_row = (
+                "| checkpoint m104 | pre-alpha checkpoint | m104 | "
+                "notification planning, no push execution | implemented/released |"
+            )
+            if implemented_m104_row not in text:
+                failures.append("active docs missing implemented Checkpoint M104 row")
         if not m103_implemented:
             planned_rows.insert(
                 0,
@@ -29628,6 +29683,8 @@ class FoundationGateEvaluator:
         ]
         if not m103_implemented:
             forbidden_fragments.extend(["m103 is implemented", "v1.7.0 implements m103"])
+        if not m104_implemented:
+            forbidden_fragments.extend(["m104 is implemented", "checkpoint m104 implements m104"])
         for fragment in forbidden_fragments:
             if fragment in text:
                 failures.append(f"M102 docs imply forbidden/future capability: {fragment}")
@@ -29854,8 +29911,13 @@ class FoundationGateEvaluator:
             failures.append("active docs do not identify v1.7.0/M103 Camera/Photos Metadata-Only Contract")
         if "m103 is implemented/released" not in text and "v1.7.0 implements m103" not in text:
             failures.append("active docs do not mark M103 implemented/released")
+        implemented_m104_row = (
+            "| checkpoint m104 | pre-alpha checkpoint | m104 | "
+            "notification planning, no push execution | implemented/released |"
+        )
+        if implemented_m104_row not in text:
+            failures.append("active docs missing implemented Checkpoint M104 row")
         for version_label, product_target, milestone, title in [
-            ("checkpoint m104", "pre-alpha checkpoint", "m104", "notification planning, no push execution"),
             ("checkpoint m105", "pre-alpha checkpoint", "m105", "background task contract, no execution"),
             ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
         ]:
@@ -29865,11 +29927,9 @@ class FoundationGateEvaluator:
             )
             if row not in text:
                 failures.append(
-                    f"active docs missing planned M104-M150 row: {version_label} / {milestone.upper()} - {title}"
+                    f"active docs missing planned M105-M150 row: {version_label} / {milestone.upper()} - {title}"
                 )
         for fragment in (
-            "m104 is implemented",
-            "checkpoint m104 implements m104",
             "v1.7.2 implements m104",
             "push execution is implemented",
             "background task execution is implemented",
@@ -29880,6 +29940,246 @@ class FoundationGateEvaluator:
         ):
             if fragment in text:
                 failures.append(f"M103 docs imply forbidden/future capability: {fragment}")
+        return self._result(criterion, failures, required_docs)
+
+    def check_m104_notification_planning_no_push_contracts(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/mobile_companion/notification_planning_no_push.py",
+            "docs/mobile/NOTIFICATION_PLANNING_NO_PUSH.md",
+            "docs/mobile/NOTIFICATION_PLANNING_NO_PUSH_POLICY.md",
+            "docs/mobile/NOTIFICATION_PLANNING_NO_PUSH_AUTHORITY_BOUNDARY.md",
+            "docs/mobile/NOTIFICATION_PLANNING_NO_PUSH_RECEIPT_PLAN.md",
+            "docs/mobile/NOTIFICATION_PLANNING_NO_PUSH_NON_GOALS.md",
+            "docs/mobile/M104_TO_M105_BOUNDARY.md",
+            "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            "tests/test_m104_notification_planning_no_push.py",
+            "tests/test_m104_gate_integration.py",
+        ]
+        failures = [
+            f"missing M104 notification planning file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            sys.path.insert(0, str(self.root))
+            from ultimate_ai_agent.core.mobile_companion import (
+                MobileNotificationPlanningStatus,
+                build_mobile_notification_planning_report,
+                validate_mobile_notification_planning_report,
+            )
+
+            report = build_mobile_notification_planning_report()
+            if (
+                report.status != MobileNotificationPlanningStatus.contract_only
+                or not report.contract_only
+                or not report.planning_only
+                or not report.safe_refs_required
+                or not report.no_push_execution
+                or not report.consent_required
+                or not report.revocation_required
+                or not report.audit_required
+                or report.push_delivery_enabled
+                or report.notification_permission_prompt_enabled
+                or report.notification_scheduling_enabled
+                or report.background_task_execution_enabled
+                or report.device_token_handling_enabled
+                or report.external_push_provider_enabled
+                or report.raw_notification_body_enabled
+                or report.backend_route_added
+                or report.control_center_control_added
+                or report.dependency_added
+                or report.memory_write_enabled
+                or report.context_injection_enabled
+                or report.execution_enabled
+                or report.production_authority_enabled
+                or report.side_effects_performed
+                or "M104_NOTIFICATION_PLANNING_NO_PUSH" not in report.reason_codes
+                or "M105_REMAINS_FUTURE" not in report.reason_codes
+            ):
+                failures.append("M104 notification planning report is unsafe or over-authoritative")
+            for update, reason in [
+                ({"push_delivery_enabled": True}, "PUSH_DELIVERY_DENIED"),
+                (
+                    {"notification_permission_prompt_enabled": True},
+                    "NOTIFICATION_PERMISSION_PROMPT_DENIED",
+                ),
+                ({"notification_scheduling_enabled": True}, "NOTIFICATION_SCHEDULING_DENIED"),
+                (
+                    {"background_task_execution_enabled": True},
+                    "BACKGROUND_TASK_EXECUTION_DENIED",
+                ),
+                ({"device_token_handling_enabled": True}, "DEVICE_TOKEN_HANDLING_DENIED"),
+                ({"external_push_provider_enabled": True}, "EXTERNAL_PUSH_PROVIDER_DENIED"),
+                ({"raw_notification_body_enabled": True}, "RAW_NOTIFICATION_BODY_DENIED"),
+                ({"execution_enabled": True}, "EXECUTION_DENIED"),
+                ({"production_authority_enabled": True}, "PRODUCTION_AUTHORITY_DENIED"),
+            ]:
+                try:
+                    validate_mobile_notification_planning_report(
+                        report.model_copy(update=update)
+                    )
+                    failures.append(f"M104 unsafe report mutation was not denied with {reason}")
+                except ValueError as exc:
+                    if reason not in str(exc):
+                        failures.append(f"M104 unsafe report mutation raised {exc!s}")
+        except Exception as exc:
+            failures.append(f"M104 notification planning validation failed: {exc}")
+
+        docs_text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_files
+            if path.startswith("docs/") and (self.root / path).exists()
+        )
+        for fragment in [
+            "notification planning, no push execution",
+            "contract-only",
+            "planning-only",
+            "safe refs",
+            "safe message summaries",
+            "consent",
+            "revocation",
+            "audit",
+            "no push delivery",
+            "no notification permission prompt",
+            "no notification scheduling",
+            "no background task execution",
+            "no device token handling",
+            "no external push provider",
+            "no raw notification body",
+            "no backend route",
+            "no control center control",
+            "no dependency",
+            "no production authority",
+            "m105 remains future",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M104 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m104_notification_planning_no_push_static_safety(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        forbidden_source_fragments = [
+            "push_delivery_enabled=True",
+            "notification_permission_prompt_enabled=True",
+            "notification_scheduling_enabled=True",
+            "background_task_execution_enabled=True",
+            "device_token_handling_enabled=True",
+            "external_push_provider_enabled=True",
+            "raw_notification_body_enabled=True",
+            "backend_route_enabled=True",
+            "backend_route_added=True",
+            "control_center_control_enabled=True",
+            "control_center_control_added=True",
+            "dependency_change_enabled=True",
+            "dependency_added=True",
+            "memory_write_enabled=True",
+            "context_injection_enabled=True",
+            "execution_enabled=True",
+            "production_authority_enabled=True",
+        ]
+        allowed_files = {
+            "scripts/verify_all.py",
+            "src/ultimate_ai_agent/core/gate/evaluators.py",
+            "src/ultimate_ai_agent/core/mobile_companion/__init__.py",
+            "src/ultimate_ai_agent/core/mobile_companion/camera_photos_metadata_only.py",
+            "src/ultimate_ai_agent/core/mobile_companion/location_sensor_off_by_default.py",
+            "src/ultimate_ai_agent/core/mobile_companion/notification_planning_no_push.py",
+            "src/ultimate_ai_agent/core/mobile_companion/permission_model_v1.py",
+            "src/ultimate_ai_agent/core/mobile_companion/sensor_contract_review.py",
+        }
+        for root in [
+            self.root / "src" / "ultimate_ai_agent",
+            self.root / "apps" / "control-center" / "src",
+            self.root / "apps" / "ccc-ios",
+        ]:
+            if not root.exists():
+                continue
+            candidate_files = []
+            for pattern in ("*.py", "*.ts", "*.tsx", "*.js", "*.jsx", "*.swift", "*.yml", "*.yaml"):
+                candidate_files.extend(root.rglob(pattern))
+            for path in sorted(candidate_files):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(self.root).as_posix()
+                if ".test." in rel:
+                    continue
+                if rel in allowed_files:
+                    continue
+                text = path.read_text(encoding="utf-8")
+                for fragment in forbidden_source_fragments:
+                    if fragment in text:
+                        failures.append(
+                            f"M104 forbidden notification fragment in {rel}: {fragment}"
+                        )
+        return self._result(criterion, failures, [])
+
+    def check_m104_notification_planning_no_push_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m104_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M104 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m104_roadmap_currentness(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_docs = [
+            "README.md",
+            "VERSION.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            "docs/roadmap/MILESTONE_CHARTERS.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+        ]
+        failures = [
+            f"missing M104 roadmap doc: {path}"
+            for path in required_docs
+            if not (self.root / path).exists()
+        ]
+        text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_docs
+            if (self.root / path).exists()
+        )
+        if "checkpoint m104" not in text or "notification planning, no push execution" not in text:
+            failures.append("active docs do not identify Checkpoint M104 Notification Planning, No Push Execution")
+        if "m104 is implemented/released" not in text and "checkpoint m104 is implemented/released" not in text:
+            failures.append("active docs do not mark M104 implemented/released")
+        for version_label, product_target, milestone, title in [
+            ("checkpoint m105", "pre-alpha checkpoint", "m105", "background task contract, no execution"),
+            ("checkpoint m106", "pre-alpha checkpoint", "m106", "mobile background read-only status sync"),
+            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+        ]:
+            row = (
+                f"| {version_label} | {product_target} | {milestone} | "
+                f"{title} | planned/provisional |"
+            )
+            if row not in text:
+                failures.append(
+                    f"active docs missing planned M105-M150 row: {version_label} / {milestone.upper()} - {title}"
+                )
+        for fragment in (
+            "m105 is implemented",
+            "checkpoint m105 implements m105",
+            "background task execution is implemented",
+            "push execution is implemented",
+            "push delivery is implemented",
+            "notification permission prompt is implemented",
+            "production authority is implemented",
+            "beta is released",
+            "broad autonomy is implemented",
+        ):
+            if fragment in text:
+                failures.append(f"M104 docs imply forbidden/future capability: {fragment}")
         return self._result(criterion, failures, required_docs)
 
     def check_v0292_local_dev_api_authority_and_preview_safe(

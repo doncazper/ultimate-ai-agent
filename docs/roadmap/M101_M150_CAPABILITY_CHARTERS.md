@@ -1,12 +1,13 @@
 # M101-M150 Capability Charters
 
-Status: Active roadmap maintained through v1.7.2 after the accepted M103
-baseline and post-M103 versioning repair follow-up.
+Status: Active roadmap maintained through Checkpoint M104 after the accepted
+v1.7.2 post-M103 versioning repair follow-up.
 
 M101 is implemented/released as Mobile Sensor Contract Review. M102 is
 implemented/released as Location Sensor, Off by Default. M103 is
-implemented/released as Camera/Photos Metadata-Only Contract. v1.7.2 repairs
-the post-M100 versioning policy only. M104-M150 remain planned/provisional.
+implemented/released as Camera/Photos Metadata-Only Contract. Checkpoint M104
+is implemented/released as Notification Planning, No Push Execution. v1.7.2 is
+the current product baseline. M105-M150 remain planned/provisional.
 Future work must continue the authority-tier model:
 
 Capability exists -> disabled by default -> dry-run first -> limited allowlist
@@ -14,15 +15,15 @@ Capability exists -> disabled by default -> dry-run first -> limited allowlist
 only then broader autonomy.
 
 There is no global "be autonomous" switch, no jump from Mode 0 to broad
-autonomy, and no production authority in this roadmap. Every milestone remains
-planned/provisional until implemented, validated, pushed, strictly reviewed, and
-accepted Green.
+autonomy, no broad unsandboxed autonomy, and no production authority in this
+roadmap. Every milestone remains planned/provisional until implemented,
+validated, pushed, strictly reviewed, and accepted Green.
 
 ## Versioning Policy
 
 The already-pushed v1.0.0 through v1.7.1 tags remain immutable historical
 internal milestone tags. They are not the public product alpha/beta channel.
-Starting after v1.7.2, future M104-M149 conveyor milestones use checkpoint
+Starting after v1.7.2, M104-M149 conveyor milestones use checkpoint
 labels instead of product SemVer tags. M150 is the next product release target:
 **v1.0.0-alpha**. Beta begins only after the alpha UI and supporting
 safety/product work are reviewed, accepted, and explicitly promoted by a later
@@ -33,7 +34,7 @@ roadmap patch. Do not rewrite, move, or reuse existing tags.
 | v1.5.0 | pre-alpha internal | M101 | Mobile Sensor Contract Review | Implemented/released |
 | v1.6.0 | pre-alpha internal | M102 | Location Sensor, Off by Default | Implemented/released |
 | v1.7.0 | pre-alpha internal | M103 | Camera/Photos Metadata-Only Contract | Implemented/released |
-| Checkpoint M104 | pre-alpha checkpoint | M104 | Notification Planning, No Push Execution | Planned/provisional |
+| Checkpoint M104 | pre-alpha checkpoint | M104 | Notification Planning, No Push Execution | Implemented/released |
 | Checkpoint M105 | pre-alpha checkpoint | M105 | Background Task Contract, No Execution | Planned/provisional |
 | Checkpoint M106 | pre-alpha checkpoint | M106 | Mobile Background Read-Only Status Sync | Planned/provisional |
 | Checkpoint M107 | pre-alpha checkpoint | M107 | Mobile Approval Renewal UX | Planned/provisional |

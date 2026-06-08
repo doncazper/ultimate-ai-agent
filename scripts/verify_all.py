@@ -138,6 +138,7 @@ SCAN_SEQUENCE = [
     ("M101 mobile sensor contract review scan", "verify_m101_mobile_sensor_contract_review"),
     ("M102 location sensor off-by-default scan", "verify_m102_location_sensor_off_by_default"),
     ("M103 camera/photos metadata-only scan", "verify_m103_camera_photos_metadata_only"),
+    ("M104 notification planning no-push scan", "verify_m104_notification_planning_no_push"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -17505,6 +17506,12 @@ def verify_post_m100_roadmap_reconciliation():
         or "camera/photos metadata-only contract" in active_version_text
     ):
         implemented_milestones.add("m103")
+    if (
+        "checkpoint m104" in active_version_text
+        or "m104" in active_version_text
+        or "notification planning, no push execution" in active_version_text
+    ):
+        implemented_milestones.add("m104")
     for version_label, product_target, milestone, title in expected_labels:
         if milestone in implemented_milestones:
             continue
@@ -18062,6 +18069,169 @@ def verify_m103_camera_photos_metadata_only():
             sys.exit(1)
 
     print("OK: M103 camera/photos metadata-only is contract-only, media-off, and route-free")
+
+
+def verify_m104_notification_planning_no_push():
+    print("\n[Verifier] Running M104 notification planning no-push guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/mobile_companion/notification_planning_no_push.py",
+        "docs/mobile/NOTIFICATION_PLANNING_NO_PUSH.md",
+        "docs/mobile/NOTIFICATION_PLANNING_NO_PUSH_POLICY.md",
+        "docs/mobile/NOTIFICATION_PLANNING_NO_PUSH_AUTHORITY_BOUNDARY.md",
+        "docs/mobile/NOTIFICATION_PLANNING_NO_PUSH_RECEIPT_PLAN.md",
+        "docs/mobile/NOTIFICATION_PLANNING_NO_PUSH_NON_GOALS.md",
+        "docs/mobile/M104_TO_M105_BOUNDARY.md",
+        "docs/release_notes/checkpoint_m104.md",
+        "docs/archive/checkpoints/m104/README_IMPORT.md",
+        "docs/archive/checkpoints/m104/master_plan.md",
+        "tests/test_m104_notification_planning_no_push.py",
+        "tests/test_m104_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M104 notification planning file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = "\n".join(
+        (ROOT / rel_path).read_text(encoding="utf-8").lower()
+        for rel_path in required_files
+        if rel_path.startswith("docs/")
+    )
+    for fragment in [
+        "notification planning, no push execution",
+        "contract-only",
+        "planning-only",
+        "safe refs",
+        "safe message summaries",
+        "consent",
+        "revocation",
+        "audit",
+        "no push delivery",
+        "no notification permission prompt",
+        "no notification scheduling",
+        "no background task execution",
+        "no device token handling",
+        "no external push provider",
+        "no raw notification body",
+        "no backend route",
+        "no control center control",
+        "no dependency",
+        "no production authority",
+        "m105 remains future",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M104 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.evaluators import m104_openapi_route_failures
+        from ultimate_ai_agent.core.mobile_companion import (
+            MobileNotificationPlanningStatus,
+            build_mobile_notification_planning_report,
+            validate_mobile_notification_planning_report,
+        )
+    except Exception as exc:
+        print(f"FAIL: M104 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m104_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    report = build_mobile_notification_planning_report()
+    if (
+        report.status != MobileNotificationPlanningStatus.contract_only
+        or not report.contract_only
+        or not report.planning_only
+        or not report.safe_refs_required
+        or not report.no_push_execution
+        or not report.consent_required
+        or not report.revocation_required
+        or not report.audit_required
+        or report.push_delivery_enabled
+        or report.notification_permission_prompt_enabled
+        or report.notification_scheduling_enabled
+        or report.background_task_execution_enabled
+        or report.device_token_handling_enabled
+        or report.external_push_provider_enabled
+        or report.raw_notification_body_enabled
+        or report.backend_route_added
+        or report.control_center_control_added
+        or report.dependency_added
+        or report.production_authority_enabled
+        or report.side_effects_performed
+        or "M104_NOTIFICATION_PLANNING_NO_PUSH" not in report.reason_codes
+        or "M105_REMAINS_FUTURE" not in report.reason_codes
+    ):
+        print("FAIL: M104 notification planning no-push report is unsafe or over-authoritative")
+        sys.exit(1)
+
+    for update, reason in [
+        ({"push_delivery_enabled": True}, "PUSH_DELIVERY_DENIED"),
+        (
+            {"notification_permission_prompt_enabled": True},
+            "NOTIFICATION_PERMISSION_PROMPT_DENIED",
+        ),
+        ({"notification_scheduling_enabled": True}, "NOTIFICATION_SCHEDULING_DENIED"),
+        (
+            {"background_task_execution_enabled": True},
+            "BACKGROUND_TASK_EXECUTION_DENIED",
+        ),
+        ({"device_token_handling_enabled": True}, "DEVICE_TOKEN_HANDLING_DENIED"),
+        ({"external_push_provider_enabled": True}, "EXTERNAL_PUSH_PROVIDER_DENIED"),
+        ({"raw_notification_body_enabled": True}, "RAW_NOTIFICATION_BODY_DENIED"),
+        ({"production_authority_enabled": True}, "PRODUCTION_AUTHORITY_DENIED"),
+    ]:
+        try:
+            validate_mobile_notification_planning_report(report.model_copy(update=update))
+            print(f"FAIL: M104 mutated authority flag was not denied: {update}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M104 mutated authority flag raised {exc!s}")
+                sys.exit(1)
+
+    allowed_scan_files = {
+        "scripts/verify_all.py",
+        "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/mobile_companion/__init__.py",
+        "src/ultimate_ai_agent/core/mobile_companion/notification_planning_no_push.py",
+    }
+    source_text = "\n".join(
+        path.read_text(encoding="utf-8")
+        for root in [
+            ROOT / "src" / "ultimate_ai_agent",
+            ROOT / "apps" / "control-center" / "src",
+            ROOT / "apps" / "ccc-ios",
+        ]
+        if root.exists()
+        for path in root.rglob("*")
+        if path.is_file()
+        and path.suffix in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}
+        and path.relative_to(ROOT).as_posix() not in allowed_scan_files
+    )
+    for fragment in [
+        "push_delivery_enabled=True",
+        "notification_permission_prompt_enabled=True",
+        "notification_scheduling_enabled=True",
+        "background_task_execution_enabled=True",
+        "device_token_handling_enabled=True",
+        "external_push_provider_enabled=True",
+        "raw_notification_body_enabled=True",
+        "backend_route_enabled=True",
+        "backend_route_added=True",
+        "control_center_control_enabled=True",
+        "control_center_control_added=True",
+        "production_authority_enabled=True",
+    ]:
+        if fragment in source_text:
+            print(f"FAIL: M104 forbidden source fragment present: {fragment}")
+            sys.exit(1)
+
+    print("OK: M104 notification planning is contract-only, no-push, and route-free")
 
 
 def verify_local_developer_launcher_safety():

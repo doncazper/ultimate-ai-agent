@@ -1561,6 +1561,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_m101_mobile_sensor_contract_review_docs(root, version))
     failures.extend(_verify_m102_location_sensor_off_by_default_docs(root, version))
     failures.extend(_verify_m103_camera_photos_metadata_only_docs(root, version))
+    failures.extend(_verify_m104_notification_planning_no_push_docs(root, version))
     failures.extend(_verify_m19_roadmap_currentness(root, version))
     failures.extend(_verify_post_m18_roadmap_status_labels(root))
 
@@ -7057,6 +7058,13 @@ def _verify_post_m100_roadmap_reconciliation_docs(root: Path, version: str | Non
         implemented_milestones.add("m102")
     if _version_tuple(version) >= (1, 7, 0):
         implemented_milestones.add("m103")
+    version_doc_text = _read(root / "VERSION.md").lower()
+    if (
+        "checkpoint m104" in version_doc_text
+        or "m104" in version_doc_text
+        or "notification planning, no push execution" in version_doc_text
+    ):
+        implemented_milestones.add("m104")
     for version_label, product_target, milestone, title in EXPECTED_M101_M150_LABELS:
         if milestone in implemented_milestones:
             continue
@@ -7325,10 +7333,25 @@ def _verify_m102_location_sensor_off_by_default_docs(root: Path, version: str | 
     if "m102 is implemented/released" not in active_text and "v1.6.0 implements m102" not in active_text:
         failures.append("active docs do not mark M102 implemented/released")
     m103_implemented = _version_tuple(version) >= (1, 7, 0)
+    m104_implemented = (
+        "checkpoint m104" in active_text
+        and "notification planning, no push execution" in active_text
+    )
     planned_rows = [
-        ("checkpoint m104", "pre-alpha checkpoint", "m104", "notification planning, no push execution"),
         ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
     ]
+    if not m104_implemented:
+        planned_rows.insert(
+            0,
+            ("checkpoint m104", "pre-alpha checkpoint", "m104", "notification planning, no push execution"),
+        )
+    else:
+        implemented_m104_row = (
+            "| checkpoint m104 | pre-alpha checkpoint | m104 | "
+            "notification planning, no push execution | implemented/released |"
+        )
+        if implemented_m104_row not in active_text:
+            failures.append("active docs missing implemented Checkpoint M104 row")
     if not m103_implemented:
         planned_rows.insert(
             0,
@@ -7355,6 +7378,10 @@ def _verify_m102_location_sensor_off_by_default_docs(root: Path, version: str | 
             failures.append(f"M102 docs imply forbidden/future capability: {fragment}")
     if not m103_implemented:
         for fragment in {"m103 is implemented", "v1.7.0 implements m103"}:
+            if fragment in active_text or fragment in text:
+                failures.append(f"M102 docs imply forbidden/future capability: {fragment}")
+    if not m104_implemented:
+        for fragment in {"m104 is implemented", "checkpoint m104 implements m104"}:
             if fragment in active_text or fragment in text:
                 failures.append(f"M102 docs imply forbidden/future capability: {fragment}")
     return failures
@@ -7433,8 +7460,13 @@ def _verify_m103_camera_photos_metadata_only_docs(root: Path, version: str | Non
         failures.append("active docs missing v1.7.0/M103 Camera/Photos Metadata-Only Contract")
     if "m103 is implemented/released" not in active_text and "v1.7.0 implements m103" not in active_text:
         failures.append("active docs do not mark M103 implemented/released")
+    implemented_m104_row = (
+        "| checkpoint m104 | pre-alpha checkpoint | m104 | "
+        "notification planning, no push execution | implemented/released |"
+    )
+    if implemented_m104_row not in active_text:
+        failures.append("active docs missing implemented Checkpoint M104 row")
     for version_label, product_target, milestone, title in [
-        ("checkpoint m104", "pre-alpha checkpoint", "m104", "notification planning, no push execution"),
         ("checkpoint m105", "pre-alpha checkpoint", "m105", "background task contract, no execution"),
         ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
     ]:
@@ -7444,11 +7476,9 @@ def _verify_m103_camera_photos_metadata_only_docs(root: Path, version: str | Non
         )
         if row not in active_text:
             failures.append(
-                f"active docs missing planned M104-M150 row: {version_label} / {milestone.upper()} - {title}"
+                f"active docs missing planned M105-M150 row: {version_label} / {milestone.upper()} - {title}"
             )
     for fragment in {
-        "m104 is implemented",
-        "checkpoint m104 implements m104",
         "v1.7.2 implements m104",
         "push execution is implemented",
         "background task execution is implemented",
@@ -7459,6 +7489,109 @@ def _verify_m103_camera_photos_metadata_only_docs(root: Path, version: str | Non
     }:
         if fragment in active_text or fragment in text:
             failures.append(f"M103 docs imply forbidden/future capability: {fragment}")
+    return failures
+
+
+def _verify_m104_notification_planning_no_push_docs(root: Path, version: str | None) -> list[str]:
+    failures: list[str] = []
+    required_paths = [
+        "docs/mobile/NOTIFICATION_PLANNING_NO_PUSH.md",
+        "docs/mobile/NOTIFICATION_PLANNING_NO_PUSH_POLICY.md",
+        "docs/mobile/NOTIFICATION_PLANNING_NO_PUSH_AUTHORITY_BOUNDARY.md",
+        "docs/mobile/NOTIFICATION_PLANNING_NO_PUSH_RECEIPT_PLAN.md",
+        "docs/mobile/NOTIFICATION_PLANNING_NO_PUSH_NON_GOALS.md",
+        "docs/mobile/M104_TO_M105_BOUNDARY.md",
+        "docs/release_notes/checkpoint_m104.md",
+        "docs/archive/checkpoints/m104/README_IMPORT.md",
+        "docs/archive/checkpoints/m104/master_plan.md",
+        "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+    ]
+    for rel_path in required_paths:
+        if not (root / rel_path).exists():
+            failures.append(f"missing M104 notification planning doc: {rel_path}")
+    text = "\n".join(
+        _read(root / rel_path).lower()
+        for rel_path in required_paths
+        if (root / rel_path).exists()
+    )
+    required_fragments = {
+        "M104 docs must say Notification Planning, No Push Execution": (
+            "notification planning, no push execution"
+        ),
+        "M104 docs must say contract-only": "contract-only",
+        "M104 docs must say planning-only": "planning-only",
+        "M104 docs must say safe refs": "safe refs",
+        "M104 docs must say safe message summaries": "safe message summaries",
+        "M104 docs must say consent": "consent",
+        "M104 docs must say revocation": "revocation",
+        "M104 docs must say audit": "audit",
+        "M104 docs must deny push delivery": "no push delivery",
+        "M104 docs must deny notification permission prompt": (
+            "no notification permission prompt"
+        ),
+        "M104 docs must deny notification scheduling": "no notification scheduling",
+        "M104 docs must deny background task execution": (
+            "no background task execution"
+        ),
+        "M104 docs must deny device token handling": "no device token handling",
+        "M104 docs must deny external push provider": "no external push provider",
+        "M104 docs must deny raw notification body": "no raw notification body",
+        "M104 docs must deny backend route": "no backend route",
+        "M104 docs must deny Control Center control": "no control center control",
+        "M104 docs must deny dependency": "no dependency",
+        "M104 docs must deny production authority": "no production authority",
+        "M104 docs must keep M105 future": "m105 remains future",
+    }
+    for message, fragment in required_fragments.items():
+        if fragment not in text:
+            failures.append(message)
+
+    active_paths = [
+        "README.md",
+        "VERSION.md",
+        "docs/canonical/09_roadmap.md",
+        "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+        "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+        "docs/roadmap/MILESTONE_CHARTERS.md",
+        "docs/DOCUMENTATION_INDEX.md",
+        "docs/canonical/CANONICAL_DOC_MAP.md",
+    ]
+    active_text = "\n".join(
+        _read(root / rel_path).lower()
+        for rel_path in active_paths
+        if (root / rel_path).exists()
+    )
+    implemented_m104_row = (
+        "| checkpoint m104 | pre-alpha checkpoint | m104 | "
+        "notification planning, no push execution | implemented/released |"
+    )
+    if implemented_m104_row not in active_text:
+        failures.append("active docs missing implemented Checkpoint M104 row")
+    for version_label, product_target, milestone, title in [
+        ("checkpoint m105", "pre-alpha checkpoint", "m105", "background task contract, no execution"),
+        ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+    ]:
+        row = (
+            f"| {version_label} | {product_target} | {milestone} | "
+            f"{title} | planned/provisional |"
+        )
+        if row not in active_text:
+            failures.append(
+                f"active docs missing planned M105-M150 row: {version_label} / {milestone.upper()} - {title}"
+            )
+    for fragment in {
+        "checkpoint m105 implements m105",
+        "m105 is implemented",
+        "push execution is implemented",
+        "push delivery is implemented",
+        "background task execution is implemented",
+        "notification permission prompts are implemented",
+        "beta is released",
+        "production authority is implemented",
+        "broad autonomy is implemented",
+    }:
+        if fragment in active_text or fragment in text:
+            failures.append(f"M104 docs imply forbidden/future capability: {fragment}")
     return failures
 
 
