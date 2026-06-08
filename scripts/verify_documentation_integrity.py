@@ -1566,6 +1566,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_m106_mobile_background_read_only_status_sync_docs(root, version))
     failures.extend(_verify_m107_mobile_approval_renewal_ux_docs(root, version))
     failures.extend(_verify_m108_mobile_kill_switch_revocation_docs(root, version))
+    failures.extend(_verify_m109_mobile_sensor_audit_ledger_docs(root, version))
     failures.extend(_verify_m19_roadmap_currentness(root, version))
     failures.extend(_verify_post_m18_roadmap_status_labels(root))
 
@@ -7093,6 +7094,12 @@ def _verify_post_m100_roadmap_reconciliation_docs(root: Path, version: str | Non
         or "mobile kill switch + revocation" in version_doc_text
     ):
         implemented_milestones.add("m108")
+    if (
+        "checkpoint m109" in version_doc_text
+        or "m109" in version_doc_text
+        or "mobile sensor audit ledger" in version_doc_text
+    ):
+        implemented_milestones.add("m109")
     for version_label, product_target, milestone, title in EXPECTED_M101_M150_LABELS:
         if milestone in implemented_milestones:
             continue
@@ -7989,16 +7996,25 @@ def _verify_m107_mobile_approval_renewal_ux_docs(
         "| checkpoint m108 | pre-alpha checkpoint | m108 | "
         "mobile kill switch + revocation | implemented/released |"
     )
+    implemented_m109_row = (
+        "| checkpoint m109 | pre-alpha checkpoint | m109 | "
+        "mobile sensor audit ledger | implemented/released |"
+    )
     if implemented_m107_row not in active_text:
         failures.append("active docs missing implemented Checkpoint M107 row")
     planned_rows = [
-        ("checkpoint m109", "pre-alpha checkpoint", "m109", "mobile sensor audit ledger"),
+        ("checkpoint m110", "pre-alpha checkpoint", "m110", "mobile sensor hardening freeze"),
         ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
     ]
     if implemented_m108_row not in active_text:
         planned_rows.insert(
             0,
             ("checkpoint m108", "pre-alpha checkpoint", "m108", "mobile kill switch + revocation"),
+        )
+    if implemented_m109_row not in active_text:
+        planned_rows.insert(
+            0,
+            ("checkpoint m109", "pre-alpha checkpoint", "m109", "mobile sensor audit ledger"),
         )
     for version_label, product_target, milestone, title in planned_rows:
         row = (
@@ -8025,6 +8041,13 @@ def _verify_m107_mobile_approval_renewal_ux_docs(
                 "checkpoint m108 implements m108",
                 "m108 is implemented",
                 "kill switch is implemented",
+            }
+        )
+    if implemented_m109_row not in active_text:
+        forbidden_fragments.update(
+            {
+                "checkpoint m109 implements m109",
+                "m109 is implemented",
             }
         )
     for fragment in forbidden_fragments:
@@ -8124,12 +8147,22 @@ def _verify_m108_mobile_kill_switch_revocation_docs(
         "| checkpoint m108 | pre-alpha checkpoint | m108 | "
         "mobile kill switch + revocation | implemented/released |"
     )
+    implemented_m109_row = (
+        "| checkpoint m109 | pre-alpha checkpoint | m109 | "
+        "mobile sensor audit ledger | implemented/released |"
+    )
     if implemented_m108_row not in active_text:
         failures.append("active docs missing implemented Checkpoint M108 row")
-    for version_label, product_target, milestone, title in [
-        ("checkpoint m109", "pre-alpha checkpoint", "m109", "mobile sensor audit ledger"),
+    planned_rows = [
+        ("checkpoint m110", "pre-alpha checkpoint", "m110", "mobile sensor hardening freeze"),
         ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
-    ]:
+    ]
+    if implemented_m109_row not in active_text:
+        planned_rows.insert(
+            0,
+            ("checkpoint m109", "pre-alpha checkpoint", "m109", "mobile sensor audit ledger"),
+        )
+    for version_label, product_target, milestone, title in planned_rows:
         row = (
             f"| {version_label} | {product_target} | {milestone} | "
             f"{title} | planned/provisional |"
@@ -8138,9 +8171,7 @@ def _verify_m108_mobile_kill_switch_revocation_docs(
             failures.append(
                 f"active docs missing planned M109-M150 row: {version_label} / {milestone.upper()} - {title}"
             )
-    for fragment in {
-        "m109 is implemented",
-        "checkpoint m109 implements m109",
+    forbidden_fragments = {
         "kill switch execution is implemented",
         "revocation execution is implemented",
         "approval revocation runtime is implemented",
@@ -8148,9 +8179,141 @@ def _verify_m108_mobile_kill_switch_revocation_docs(
         "beta is released",
         "production authority is implemented",
         "broad autonomy is implemented",
-    }:
+    }
+    if implemented_m109_row not in active_text:
+        forbidden_fragments.update(
+            {
+                "m109 is implemented",
+                "checkpoint m109 implements m109",
+            }
+        )
+    for fragment in forbidden_fragments:
         if fragment in active_text or fragment in text:
             failures.append(f"M108 docs imply forbidden/future capability: {fragment}")
+    return failures
+
+
+def _verify_m109_mobile_sensor_audit_ledger_docs(
+    root: Path, version: str | None
+) -> list[str]:
+    failures: list[str] = []
+    required_paths = [
+        "docs/mobile/MOBILE_SENSOR_AUDIT_LEDGER.md",
+        "docs/mobile/MOBILE_SENSOR_AUDIT_LEDGER_POLICY.md",
+        "docs/mobile/MOBILE_SENSOR_AUDIT_LEDGER_AUTHORITY_BOUNDARY.md",
+        "docs/mobile/MOBILE_SENSOR_AUDIT_LEDGER_RECEIPT_PLAN.md",
+        "docs/mobile/MOBILE_SENSOR_AUDIT_LEDGER_NON_GOALS.md",
+        "docs/mobile/M109_TO_M110_BOUNDARY.md",
+        "docs/release_notes/checkpoint_m109.md",
+        "docs/archive/checkpoints/m109/README_IMPORT.md",
+        "docs/archive/checkpoints/m109/master_plan.md",
+        "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+    ]
+    for rel_path in required_paths:
+        if not (root / rel_path).exists():
+            failures.append(f"missing M109 sensor audit ledger doc: {rel_path}")
+    text = "\n".join(
+        _read(root / rel_path).lower()
+        for rel_path in required_paths
+        if (root / rel_path).exists()
+    )
+    required_fragments = {
+        "M109 docs must say Mobile Sensor Audit Ledger": "mobile sensor audit ledger",
+        "M109 docs must say contract-only": "contract-only",
+        "M109 docs must say review-only": "review-only",
+        "M109 docs must say safe refs": "safe refs",
+        "M109 docs must say safe sensor refs": "safe sensor refs",
+        "M109 docs must say safe sensor scope refs": "safe sensor scope refs",
+        "M109 docs must say safe sensor audit entry refs": (
+            "safe sensor audit entry refs"
+        ),
+        "M109 docs must say Mobile Kill Switch + Revocation": (
+            "mobile kill switch + revocation"
+        ),
+        "M109 docs must say actor-bound": "actor-bound",
+        "M109 docs must say device-bound": "device-bound",
+        "M109 docs must say sensor-scope-bound": "sensor-scope-bound",
+        "M109 docs must say audit": "audit",
+        "M109 docs must say replay": "replay",
+        "M109 docs must deny sensor access": "no sensor access",
+        "M109 docs must deny sensor read": "no sensor read",
+        "M109 docs must deny raw sensor payload": "no raw sensor payload",
+        "M109 docs must deny location access": "no location access",
+        "M109 docs must deny camera access": "no camera access",
+        "M109 docs must deny photos access": "no photos access",
+        "M109 docs must deny microphone access": "no microphone access",
+        "M109 docs must deny background collection": "no background collection",
+        "M109 docs must deny native mobile UI": "no native mobile ui",
+        "M109 docs must deny backend route": "no backend route",
+        "M109 docs must deny Control Center control": "no control center control",
+        "M109 docs must deny notification delivery": "no notification delivery",
+        "M109 docs must deny push trigger": "no push trigger",
+        "M109 docs must deny background worker": "no background worker",
+        "M109 docs must deny scheduler": "no scheduler",
+        "M109 docs must deny daemon": "no daemon",
+        "M109 docs must deny device token handling": "no device token handling",
+        "M109 docs must deny external service": "no external service",
+        "M109 docs must deny network sync": "no network sync",
+        "M109 docs must deny raw audit payload": "no raw audit payload",
+        "M109 docs must deny dependency": "no dependency",
+        "M109 docs must deny memory write": "no memory write",
+        "M109 docs must deny context injection": "no context injection",
+        "M109 docs must deny execution": "no execution",
+        "M109 docs must deny production authority": "no production authority",
+        "M109 docs must keep M110 future": "m110 remains future",
+        "M109 docs must preserve alpha target": "v1.0.0-alpha",
+    }
+    for message, fragment in required_fragments.items():
+        if fragment not in text:
+            failures.append(message)
+
+    active_paths = [
+        "README.md",
+        "VERSION.md",
+        "docs/canonical/09_roadmap.md",
+        "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+        "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+        "docs/roadmap/MILESTONE_CHARTERS.md",
+        "docs/DOCUMENTATION_INDEX.md",
+        "docs/canonical/CANONICAL_DOC_MAP.md",
+    ]
+    active_text = "\n".join(
+        _read(root / rel_path).lower()
+        for rel_path in active_paths
+        if (root / rel_path).exists()
+    )
+    implemented_m109_row = (
+        "| checkpoint m109 | pre-alpha checkpoint | m109 | "
+        "mobile sensor audit ledger | implemented/released |"
+    )
+    if implemented_m109_row not in active_text:
+        failures.append("active docs missing implemented Checkpoint M109 row")
+    for version_label, product_target, milestone, title in [
+        ("checkpoint m110", "pre-alpha checkpoint", "m110", "mobile sensor hardening freeze"),
+        ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+    ]:
+        row = (
+            f"| {version_label} | {product_target} | {milestone} | "
+            f"{title} | planned/provisional |"
+        )
+        if row not in active_text:
+            failures.append(
+                f"active docs missing planned M110-M150 row: {version_label} / {milestone.upper()} - {title}"
+            )
+    for fragment in {
+        "m110 is implemented",
+        "checkpoint m110 implements m110",
+        "sensor access is implemented",
+        "sensor read is implemented",
+        "raw sensor payload is implemented",
+        "background collection is implemented",
+        "native mobile ui is implemented",
+        "beta is released",
+        "production authority is implemented",
+        "broad autonomy is implemented",
+    }:
+        if fragment in active_text or fragment in text:
+            failures.append(f"M109 docs imply forbidden/future capability: {fragment}")
     return failures
 
 

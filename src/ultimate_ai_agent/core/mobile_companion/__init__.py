@@ -159,6 +159,14 @@ from ultimate_ai_agent.core.mobile_companion.mobile_kill_switch_revocation impor
     validate_mobile_kill_switch_revocation_policy,
     validate_mobile_kill_switch_revocation_record,
 )
+from ultimate_ai_agent.core.mobile_companion.mobile_sensor_audit_ledger import (
+    MobileSensorAuditLedgerPolicy,
+    MobileSensorAuditLedgerRecord,
+    MobileSensorAuditLedgerStatus,
+    build_mobile_sensor_audit_ledger_record,
+    validate_mobile_sensor_audit_ledger_policy,
+    validate_mobile_sensor_audit_ledger_record,
+)
 from ultimate_ai_agent.core.mobile_companion.planning import (
     assert_ccc_ios_local_read_only_connection_safe,
     assert_ccc_ios_review_receipt_read_only_surfaces_safe,
@@ -249,6 +257,9 @@ __all__ = [
     "MobileKillSwitchRevocationPolicy",
     "MobileKillSwitchRevocationRecord",
     "MobileKillSwitchRevocationStatus",
+    "MobileSensorAuditLedgerPolicy",
+    "MobileSensorAuditLedgerRecord",
+    "MobileSensorAuditLedgerStatus",
     "MobileNotificationChannel",
     "MobileNotificationPlan",
     "MobileNotificationPlanningPolicy",
@@ -313,6 +324,7 @@ __all__ = [
     "build_mobile_background_read_only_status_sync_report",
     "build_mobile_approval_renewal_ux_report",
     "build_mobile_kill_switch_revocation_record",
+    "build_mobile_sensor_audit_ledger_record",
     "audit_mobile_review_approval_records",
     "audit_mobile_review_approval_store",
     "capture_mobile_review_approval",
@@ -348,6 +360,8 @@ __all__ = [
     "validate_mobile_approval_renewal_ux_report",
     "validate_mobile_kill_switch_revocation_policy",
     "validate_mobile_kill_switch_revocation_record",
+    "validate_mobile_sensor_audit_ledger_policy",
+    "validate_mobile_sensor_audit_ledger_record",
     "validate_mobile_sensor_capability_contract",
     "validate_mobile_sensor_contract_review_policy",
     "validate_mobile_sensor_contract_review_report",

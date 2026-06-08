@@ -13,24 +13,25 @@ allowed to become operational authority.
 | Field | Current state |
 |---|---|
 | Current active baseline | **v1.7.2** |
-| Current milestone | **Checkpoint M108 — Mobile Kill Switch + Revocation** |
+| Current milestone | **Checkpoint M109 — Mobile Sensor Audit Ledger** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **75** OpenAPI paths |
 | Production readiness | Not claimed |
 
-Checkpoint M108 implements Mobile Kill Switch + Revocation while the
+Checkpoint M109 implements Mobile Sensor Audit Ledger while the
 current product baseline remains v1.7.2. Already-pushed tags remain immutable
-historical internal milestone tags, future M109-M149 conveyor milestones use
+historical internal milestone tags, future M110-M149 conveyor milestones use
 checkpoint labels instead of product SemVer tags, and M150 is the next product
 release target **v1.0.0-alpha**. Beta begins only after the alpha UI and
 supporting safety/product work are reviewed, accepted, and explicitly promoted by
-a later roadmap patch. M108 adds no revocation execution, kill switch execution,
-approval revocation, session stop, native mobile UI, backend route, Control
-Center control, notification delivery, push trigger, background worker,
-scheduler, daemon, device token handling, external service, network sync, raw
-approval payload, dependency, memory write, context injection, execution, M109
-work, broad autonomy, or production authority.
+a later roadmap patch. M109 adds no sensor access, sensor read, raw sensor
+payload, location access, camera access, photos access, microphone access,
+background collection, native mobile UI, backend route, Control Center control,
+notification delivery, push trigger, background worker, scheduler, daemon,
+device token handling, external service, network sync, raw audit payload,
+dependency, memory write, context injection, execution, M110 work, broad
+autonomy, or production authority.
 
 v0.29.5 is documentation policy polish. It remains the documentation
 organization cleanup baseline before the M26 and M27 implementation releases.
@@ -61,6 +62,7 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M100 Mobile Permission Model v1](docs/mobile/MOBILE_PERMISSION_MODEL_V1.md)
 - [M101 Mobile Sensor Contract Review](docs/mobile/MOBILE_SENSOR_CONTRACT_REVIEW.md)
 - [M102 Location Sensor, Off by Default](docs/mobile/LOCATION_SENSOR_OFF_BY_DEFAULT.md)
+- [M109 Mobile Sensor Audit Ledger](docs/mobile/MOBILE_SENSOR_AUDIT_LEDGER.md)
 - [M108 Mobile Kill Switch + Revocation](docs/mobile/MOBILE_KILL_SWITCH_REVOCATION.md)
 - [M107 Mobile Approval Renewal UX](docs/mobile/MOBILE_APPROVAL_RENEWAL_UX.md)
 - [M106 Mobile Background Read-Only Status Sync](docs/mobile/MOBILE_BACKGROUND_READ_ONLY_STATUS_SYNC.md)

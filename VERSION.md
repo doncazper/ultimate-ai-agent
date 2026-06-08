@@ -2,9 +2,9 @@
 
 Current active baseline: **v1.7.2**
 
-Checkpoint M108 is implemented/released as Mobile Kill Switch + Revocation. The
+Checkpoint M109 is implemented/released as Mobile Sensor Audit Ledger. The
 current product baseline remains v1.7.2. Already-pushed tags
-remain immutable historical internal milestone tags. Future M109-M149 conveyor
+remain immutable historical internal milestone tags. Future M110-M149 conveyor
 milestones use checkpoint labels instead of product SemVer tags, and M150 is
 the next product release target **v1.0.0-alpha**. Beta begins only after the
 alpha UI and supporting safety/product work are reviewed, accepted, and
@@ -57,6 +57,16 @@ no network sync, no raw approval payload, no dependency, no memory write, no
 context injection, no execution, no M109 work, no broad autonomy, no mobile
 background runtime, no broad unsandboxed autonomy, and no production authority.
 
-M101, M102, M103, M104, M105, M106, M107, and M108 are implemented/released. M109-M150 are
+Checkpoint M109 adds contract-only review-only mobile sensor audit ledger
+records. It adds no sensor access, no sensor read, no raw sensor payload, no
+location access, no camera access, no photos access, no microphone access, no
+background collection, no native mobile UI, no backend route, no Control Center
+control, no notification delivery, no push trigger, no background worker, no
+scheduler, no daemon, no device token handling, no external service, no network
+sync, no raw audit payload, no dependency, no memory write, no context
+injection, no execution, no M110 work, no broad autonomy, no mobile background
+runtime, no broad unsandboxed autonomy, and no production authority.
+
+M101, M102, M103, M104, M105, M106, M107, M108, and M109 are implemented/released. M110-M150 are
 planned/provisional checkpoint milestones only. M150 is planned as
 v1.0.0-alpha, not beta.

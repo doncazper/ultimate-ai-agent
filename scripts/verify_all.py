@@ -143,6 +143,7 @@ SCAN_SEQUENCE = [
     ("M106 mobile background read-only status sync scan", "verify_m106_mobile_background_read_only_status_sync"),
     ("M107 mobile approval renewal UX scan", "verify_m107_mobile_approval_renewal_ux"),
     ("M108 mobile kill switch revocation scan", "verify_m108_mobile_kill_switch_revocation"),
+    ("M109 mobile sensor audit ledger scan", "verify_m109_mobile_sensor_audit_ledger"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -17540,6 +17541,12 @@ def verify_post_m100_roadmap_reconciliation():
         or "mobile kill switch + revocation" in active_version_text
     ):
         implemented_milestones.add("m108")
+    if (
+        "checkpoint m109" in active_version_text
+        or "m109" in active_version_text
+        or "mobile sensor audit ledger" in active_version_text
+    ):
+        implemented_milestones.add("m109")
     for version_label, product_target, milestone, title in expected_labels:
         if milestone in implemented_milestones:
             continue
@@ -18963,6 +18970,228 @@ def verify_m108_mobile_kill_switch_revocation():
             sys.exit(1)
 
     print("OK: M108 kill-switch/revocation is contract-only, no-runtime, and route-free")
+
+
+def verify_m109_mobile_sensor_audit_ledger():
+    print("\n[Verifier] Running M109 mobile sensor audit ledger guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/mobile_companion/mobile_sensor_audit_ledger.py",
+        "docs/mobile/MOBILE_SENSOR_AUDIT_LEDGER.md",
+        "docs/mobile/MOBILE_SENSOR_AUDIT_LEDGER_POLICY.md",
+        "docs/mobile/MOBILE_SENSOR_AUDIT_LEDGER_AUTHORITY_BOUNDARY.md",
+        "docs/mobile/MOBILE_SENSOR_AUDIT_LEDGER_RECEIPT_PLAN.md",
+        "docs/mobile/MOBILE_SENSOR_AUDIT_LEDGER_NON_GOALS.md",
+        "docs/mobile/M109_TO_M110_BOUNDARY.md",
+        "docs/release_notes/checkpoint_m109.md",
+        "docs/archive/checkpoints/m109/README_IMPORT.md",
+        "docs/archive/checkpoints/m109/master_plan.md",
+        "tests/test_m109_mobile_sensor_audit_ledger.py",
+        "tests/test_m109_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M109 sensor audit ledger file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = "\n".join(
+        (ROOT / rel_path).read_text(encoding="utf-8").lower()
+        for rel_path in required_files
+        if rel_path.startswith("docs/")
+    )
+    for fragment in [
+        "mobile sensor audit ledger",
+        "contract-only",
+        "review-only",
+        "safe refs",
+        "safe sensor refs",
+        "safe sensor scope refs",
+        "safe sensor audit entry refs",
+        "mobile kill switch + revocation",
+        "actor-bound",
+        "device-bound",
+        "sensor-scope-bound",
+        "audit",
+        "replay",
+        "no sensor access",
+        "no sensor read",
+        "no raw sensor payload",
+        "no location access",
+        "no camera access",
+        "no photos access",
+        "no microphone access",
+        "no background collection",
+        "no native mobile ui",
+        "no backend route",
+        "no control center control",
+        "no notification delivery",
+        "no push trigger",
+        "no background worker",
+        "no scheduler",
+        "no daemon",
+        "no device token handling",
+        "no external service",
+        "no network sync",
+        "no raw audit payload",
+        "no dependency",
+        "no memory write",
+        "no context injection",
+        "no execution",
+        "no production authority",
+        "m110 remains future",
+        "v1.0.0-alpha",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M109 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.evaluators import m109_openapi_route_failures
+        from ultimate_ai_agent.core.mobile_companion import (
+            MobileSensorAuditLedgerStatus,
+            build_mobile_approval_renewal_ux_report,
+            build_mobile_kill_switch_revocation_record,
+            build_mobile_sensor_audit_ledger_record,
+            validate_mobile_sensor_audit_ledger_record,
+        )
+    except Exception as exc:
+        print(f"FAIL: M109 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m109_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    source_report = build_mobile_approval_renewal_ux_report()
+    source_record = build_mobile_kill_switch_revocation_record(
+        source_report=source_report
+    )
+    record = build_mobile_sensor_audit_ledger_record(source_record=source_record)
+    if (
+        record.status != MobileSensorAuditLedgerStatus.review_only_contract
+        or not record.contract_only
+        or not record.review_only
+        or not record.safe_refs_required
+        or not record.actor_bound
+        or not record.device_bound
+        or not record.sensor_scope_bound
+        or not record.audit_required
+        or not record.replay_safe
+        or record.source_record_ref != source_record.record_ref
+        or record.source_baseline_ref != source_record.source_baseline_ref
+        or record.actor_ref != source_record.actor_ref
+        or record.sensor_access_performed
+        or record.sensor_access_enabled
+        or record.sensor_read_enabled
+        or record.raw_sensor_payload_enabled
+        or record.location_access_enabled
+        or record.camera_access_enabled
+        or record.photos_access_enabled
+        or record.microphone_access_enabled
+        or record.background_collection_enabled
+        or record.notification_delivery_enabled
+        or record.push_trigger_enabled
+        or record.background_worker_enabled
+        or record.scheduler_enabled
+        or record.daemon_enabled
+        or record.device_token_handling_enabled
+        or record.external_service_enabled
+        or record.network_sync_enabled
+        or record.raw_audit_payload_enabled
+        or record.memory_write_enabled
+        or record.context_injection_enabled
+        or record.execution_enabled
+        or record.production_authority_enabled
+        or record.native_mobile_ui_enabled
+        or record.backend_route_added
+        or record.control_center_control_added
+        or record.side_effects_performed
+        or "M109_MOBILE_SENSOR_AUDIT_LEDGER" not in record.reason_codes
+        or "M110_REMAINS_FUTURE" not in record.reason_codes
+    ):
+        print("FAIL: M109 mobile sensor audit ledger record is unsafe or over-authoritative")
+        sys.exit(1)
+
+    for update, reason in [
+        ({"sensor_access_performed": True}, "SENSOR_ACCESS_DENIED"),
+        ({"sensor_access_enabled": True}, "SENSOR_ACCESS_DENIED"),
+        ({"sensor_read_enabled": True}, "SENSOR_READ_DENIED"),
+        ({"raw_sensor_payload_enabled": True}, "RAW_SENSOR_PAYLOAD_DENIED"),
+        ({"location_access_enabled": True}, "LOCATION_ACCESS_DENIED"),
+        ({"camera_access_enabled": True}, "CAMERA_ACCESS_DENIED"),
+        ({"photos_access_enabled": True}, "PHOTOS_ACCESS_DENIED"),
+        ({"microphone_access_enabled": True}, "MICROPHONE_ACCESS_DENIED"),
+        ({"background_collection_enabled": True}, "BACKGROUND_COLLECTION_DENIED"),
+        ({"raw_audit_payload_enabled": True}, "RAW_AUDIT_PAYLOAD_DENIED"),
+        ({"memory_write_enabled": True}, "MEMORY_WRITE_DENIED"),
+        ({"context_injection_enabled": True}, "CONTEXT_INJECTION_DENIED"),
+        ({"execution_enabled": True}, "EXECUTION_DENIED"),
+        ({"production_authority_enabled": True}, "PRODUCTION_AUTHORITY_DENIED"),
+        ({"source_record_ref": "mobile-kill-switch-revocation-record:other"}, "M109_SOURCE_RECORD_BINDING_MISMATCH"),
+    ]:
+        try:
+            validate_mobile_sensor_audit_ledger_record(record.model_copy(update=update))
+            print(f"FAIL: M109 mutated authority flag was not denied: {update}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M109 mutated authority flag raised {exc!s}")
+                sys.exit(1)
+
+    allowed_scan_files = {
+        "scripts/verify_all.py",
+        "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/mobile_companion/__init__.py",
+        "src/ultimate_ai_agent/core/mobile_companion/mobile_approval_renewal_ux.py",
+        "src/ultimate_ai_agent/core/mobile_companion/mobile_kill_switch_revocation.py",
+        "src/ultimate_ai_agent/core/mobile_companion/mobile_sensor_audit_ledger.py",
+    }
+    source_text = "\n".join(
+        path.read_text(encoding="utf-8")
+        for root in [
+            ROOT / "src" / "ultimate_ai_agent",
+            ROOT / "apps" / "control-center" / "src",
+            ROOT / "apps" / "ccc-ios",
+        ]
+        if root.exists()
+        for path in root.rglob("*")
+        if path.is_file()
+        and path.suffix in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}
+        and path.relative_to(ROOT).as_posix() not in allowed_scan_files
+    )
+    for fragment in [
+        "sensor_access_enabled=True",
+        "sensor_access_performed=True",
+        "sensor_read_enabled=True",
+        "raw_sensor_payload_enabled=True",
+        "location_access_enabled=True",
+        "camera_access_enabled=True",
+        "photos_access_enabled=True",
+        "microphone_access_enabled=True",
+        "background_collection_enabled=True",
+        "native_mobile_ui_enabled=True",
+        "notification_delivery_enabled=True",
+        "push_trigger_enabled=True",
+        "background_worker_enabled=True",
+        "scheduler_enabled=True",
+        "daemon_enabled=True",
+        "device_token_handling_enabled=True",
+        "external_service_enabled=True",
+        "network_sync_enabled=True",
+        "raw_audit_payload_enabled=True",
+        "backend_route_enabled=True",
+        "backend_route_added=True",
+        "control_center_control_enabled=True",
+        "control_center_control_added=True",
+        "production_authority_enabled=True",
+    ]:
+        if fragment in source_text:
+            print(f"FAIL: M109 forbidden source fragment present: {fragment}")
+            sys.exit(1)
+
+    print("OK: M109 sensor audit ledger is contract-only, no-runtime, and route-free")
 
 
 def verify_local_developer_launcher_safety():
