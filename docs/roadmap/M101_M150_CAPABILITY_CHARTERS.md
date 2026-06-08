@@ -1,6 +1,6 @@
 # M101-M150 Capability Charters
 
-Status: Active roadmap maintained through Checkpoint M116 after the accepted
+Status: Active roadmap maintained through Checkpoint M117 after the accepted
 v1.7.2 post-M103 versioning repair follow-up.
 
 M101 is implemented/released as Mobile Sensor Contract Review. M102 is
@@ -19,7 +19,8 @@ Model. Checkpoint M113 is implemented/released as Secrets Boundary +
 Credential Vault Contract. Checkpoint M114 is implemented/released as Account
 Connector Contract Review. Checkpoint M115 is implemented/released as
 Production Audit Retention Policy. Checkpoint M116 is implemented/released as
-Role-Based Authority Model. M117-M150 remain planned/provisional.
+Role-Based Authority Model. Checkpoint M117 is implemented/released as Remote
+Agent Coordination Contract. M118-M150 remain planned/provisional.
 Future work must continue the authority-tier model:
 
 Capability exists -> disabled by default -> dry-run first -> limited allowlist
@@ -59,7 +60,7 @@ roadmap patch. Do not rewrite, move, or reuse existing tags.
 | Checkpoint M114 | pre-alpha checkpoint | M114 | Account Connector Contract Review | Implemented/released |
 | Checkpoint M115 | pre-alpha checkpoint | M115 | Production Audit Retention Policy | Implemented/released |
 | Checkpoint M116 | pre-alpha checkpoint | M116 | Role-Based Authority Model | Implemented/released |
-| Checkpoint M117 | pre-alpha checkpoint | M117 | Remote Agent Coordination Contract | Planned/provisional |
+| Checkpoint M117 | pre-alpha checkpoint | M117 | Remote Agent Coordination Contract | Implemented/released |
 | Checkpoint M118 | pre-alpha checkpoint | M118 | Deployment Mode Matrix | Planned/provisional |
 | Checkpoint M119 | pre-alpha checkpoint | M119 | Production Red-Team Harness | Planned/provisional |
 | Checkpoint M120 | pre-alpha checkpoint | M120 | Production Authority Readiness Review | Planned/provisional |

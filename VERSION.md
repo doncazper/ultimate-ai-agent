@@ -2,9 +2,9 @@
 
 Current active baseline: **v1.7.2**
 
-Checkpoint M116 is implemented/released as Role-Based Authority Model.
+Checkpoint M117 is implemented/released as Remote Agent Coordination Contract.
 The current product baseline remains v1.7.2. Already-pushed tags
-remain immutable historical internal milestone tags. Future M117-M149 conveyor
+remain immutable historical internal milestone tags. Future M118-M149 conveyor
 milestones use checkpoint labels instead of product SemVer tags, and M150 is
 the next product release target **v1.0.0-alpha**. Beta begins only after the
 alpha UI and supporting safety/product work are reviewed, accepted, and
@@ -142,6 +142,15 @@ background worker, no remote execution, no backend route, no Control Center
 control, no dependency, no M117 work, no broad autonomy, no beta release, and
 no production authority.
 
-M101, M102, M103, M104, M105, M106, M107, M108, M109, M110, M111, M112, M113, M114, M115, and M116 are implemented/released. M117-M150 are
+Checkpoint M117 adds contract-only review-only remote agent coordination
+contract records. It adds no production authority, no remote agent runtime, no
+remote dispatch, no remote execution, no live connection, no network access, no
+agent spawn, no background worker, no credential handling, no account action,
+no model call, no memory write, no context injection, no execution, no tool
+execution, no shell execution, no browser automation, no plugin execution, no
+mobile sensor, no backend route, no Control Center control, no dependency, no
+M118 work, no broad autonomy, no beta release, and no production authority.
+
+M101, M102, M103, M104, M105, M106, M107, M108, M109, M110, M111, M112, M113, M114, M115, M116, and M117 are implemented/released. M118-M150 are
 planned/provisional checkpoint milestones only. M150 is planned as
 v1.0.0-alpha, not beta.

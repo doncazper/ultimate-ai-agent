@@ -1574,6 +1574,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_m114_account_connector_docs(root, version))
     failures.extend(_verify_m115_production_audit_retention_docs(root, version))
     failures.extend(_verify_m116_role_based_authority_docs(root, version))
+    failures.extend(_verify_m117_remote_agent_coordination_docs(root, version))
     failures.extend(_verify_m19_roadmap_currentness(root, version))
     failures.extend(_verify_post_m18_roadmap_status_labels(root))
 
@@ -7149,6 +7150,12 @@ def _verify_post_m100_roadmap_reconciliation_docs(root: Path, version: str | Non
         or "role-based authority model" in version_doc_text
     ):
         implemented_milestones.add("m116")
+    if _version_tuple(version) >= (1, 7, 2) and (
+        "checkpoint m117" in version_doc_text
+        or "m117" in version_doc_text
+        or "remote agent coordination contract" in version_doc_text
+    ):
+        implemented_milestones.add("m117")
     for version_label, product_target, milestone, title in EXPECTED_M101_M150_LABELS:
         if milestone in implemented_milestones:
             continue
@@ -8093,7 +8100,16 @@ def _verify_m107_mobile_approval_renewal_ux_docs(
         "| checkpoint m116 | pre-alpha checkpoint | m116 | "
         "role-based authority model | implemented/released |"
     )
-    if implemented_m116_row in active_text:
+    implemented_m117_row = (
+        "| checkpoint m117 | pre-alpha checkpoint | m117 | "
+        "remote agent coordination contract | implemented/released |"
+    )
+    if implemented_m117_row in active_text:
+        planned_rows = [
+            ("checkpoint m118", "pre-alpha checkpoint", "m118", "deployment mode matrix"),
+            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+        ]
+    elif implemented_m116_row in active_text:
         planned_rows = [
             ("checkpoint m117", "pre-alpha checkpoint", "m117", "remote agent coordination contract"),
             ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
@@ -8307,7 +8323,16 @@ def _verify_m108_mobile_kill_switch_revocation_docs(
         "| checkpoint m116 | pre-alpha checkpoint | m116 | "
         "role-based authority model | implemented/released |"
     )
-    if implemented_m116_row in active_text:
+    implemented_m117_row = (
+        "| checkpoint m117 | pre-alpha checkpoint | m117 | "
+        "remote agent coordination contract | implemented/released |"
+    )
+    if implemented_m117_row in active_text:
+        planned_rows = [
+            ("checkpoint m118", "pre-alpha checkpoint", "m118", "deployment mode matrix"),
+            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+        ]
+    elif implemented_m116_row in active_text:
         planned_rows = [
             ("checkpoint m117", "pre-alpha checkpoint", "m117", "remote agent coordination contract"),
             ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
@@ -8505,7 +8530,16 @@ def _verify_m109_mobile_sensor_audit_ledger_docs(
         "| checkpoint m116 | pre-alpha checkpoint | m116 | "
         "role-based authority model | implemented/released |"
     )
-    if implemented_m116_row in active_text:
+    implemented_m117_row = (
+        "| checkpoint m117 | pre-alpha checkpoint | m117 | "
+        "remote agent coordination contract | implemented/released |"
+    )
+    if implemented_m117_row in active_text:
+        planned_rows = [
+            ("checkpoint m118", "pre-alpha checkpoint", "m118", "deployment mode matrix"),
+            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+        ]
+    elif implemented_m116_row in active_text:
         planned_rows = [
             ("checkpoint m117", "pre-alpha checkpoint", "m117", "remote agent coordination contract"),
             ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
@@ -8955,7 +8989,20 @@ def _verify_m112_user_workspace_identity_docs(
         "| checkpoint m116 | pre-alpha checkpoint | m116 | "
         "role-based authority model | implemented/released |"
     )
-    if implemented_m116_row in active_text:
+    implemented_m117_row = (
+        "| checkpoint m117 | pre-alpha checkpoint | m117 | "
+        "remote agent coordination contract | implemented/released |"
+    )
+    if implemented_m117_row in active_text:
+        planned_rows.append(
+            (
+                "checkpoint m118",
+                "pre-alpha checkpoint",
+                "m118",
+                "deployment mode matrix",
+            )
+        )
+    elif implemented_m116_row in active_text:
         planned_rows.append(
             (
                 "checkpoint m117",
@@ -9455,16 +9502,17 @@ def _verify_m115_production_audit_retention_docs(
     )
     if implemented_m116_row not in current_text:
         failures.append("active docs missing implemented Checkpoint M116 row")
+    implemented_m117_row = (
+        "| checkpoint m117 | pre-alpha checkpoint | m117 | "
+        "remote agent coordination contract | implemented/released |"
+    )
     planned_m117_row = (
         "| checkpoint m117 | pre-alpha checkpoint | m117 | "
         "remote agent coordination contract | planned/provisional |"
     )
-    if planned_m117_row not in current_text:
+    if implemented_m117_row not in current_text and planned_m117_row not in current_text:
         failures.append("active docs missing planned Checkpoint M117 row")
-    for fragment in {
-        "m117 is implemented",
-        "checkpoint m117 implements m117",
-        "remote agent coordination contract is implemented",
+    future_fragments = {
         "audit runtime is implemented",
         "audit export is implemented",
         "raw log storage is implemented",
@@ -9473,7 +9521,16 @@ def _verify_m115_production_audit_retention_docs(
         "beta is released",
         "production authority is implemented",
         "broad autonomy is implemented",
-    }:
+    }
+    if implemented_m117_row not in current_text:
+        future_fragments.update(
+            {
+                "m117 is implemented",
+                "checkpoint m117 implements m117",
+                "remote agent coordination contract is implemented",
+            }
+        )
+    for fragment in future_fragments:
         if fragment in current_text or fragment in text:
             failures.append(f"M115 docs imply forbidden/future capability: {fragment}")
     return failures
@@ -9595,16 +9652,24 @@ def _verify_m116_role_based_authority_docs(
     )
     if implemented_m116_row not in current_text:
         failures.append("active docs missing implemented Checkpoint M116 row")
+    implemented_m117_row = (
+        "| checkpoint m117 | pre-alpha checkpoint | m117 | "
+        "remote agent coordination contract | implemented/released |"
+    )
     planned_m117_row = (
         "| checkpoint m117 | pre-alpha checkpoint | m117 | "
         "remote agent coordination contract | planned/provisional |"
     )
-    if planned_m117_row not in current_text:
+    planned_m118_row = (
+        "| checkpoint m118 | pre-alpha checkpoint | m118 | "
+        "deployment mode matrix | planned/provisional |"
+    )
+    if implemented_m117_row in current_text:
+        if planned_m118_row not in current_text:
+            failures.append("active docs missing planned Checkpoint M118 row")
+    elif planned_m117_row not in current_text:
         failures.append("active docs missing planned Checkpoint M117 row")
-    for fragment in {
-        "m117 is implemented",
-        "checkpoint m117 implements m117",
-        "remote agent coordination contract is implemented",
+    future_fragments = {
         "role enforcement is implemented",
         "permission enforcement is implemented",
         "auth runtime is implemented",
@@ -9612,9 +9677,154 @@ def _verify_m116_role_based_authority_docs(
         "beta is released",
         "production authority is implemented",
         "broad autonomy is implemented",
-    }:
+    }
+    if implemented_m117_row not in current_text:
+        future_fragments.update(
+            {
+                "m117 is implemented",
+                "checkpoint m117 implements m117",
+                "remote agent coordination contract is implemented",
+            }
+        )
+    for fragment in future_fragments:
         if fragment in current_text or fragment in text:
             failures.append(f"M116 docs imply forbidden/future capability: {fragment}")
+    return failures
+
+
+def _verify_m117_remote_agent_coordination_docs(
+    root: Path, version: str | None
+) -> list[str]:
+    failures: list[str] = []
+    if _version_tuple(version) < (1, 7, 2):
+        return failures
+    active_text = " ".join(
+        "\n".join(
+            _read(root / rel_path).lower()
+            for rel_path in [
+                "README.md",
+                "VERSION.md",
+                "docs/canonical/09_roadmap.md",
+                "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            ]
+            if (root / rel_path).exists()
+        ).split()
+    )
+    if (
+        "checkpoint m117 is implemented/released" not in active_text
+        and "m117 is implemented/released" not in active_text
+    ):
+        return failures
+    required_paths = [
+        "docs/production/REMOTE_AGENT_COORDINATION_CONTRACT.md",
+        "docs/production/REMOTE_AGENT_COORDINATION_BOUNDARY.md",
+        "docs/production/REMOTE_AGENT_COORDINATION_RECEIPT_PLAN.md",
+        "docs/production/REMOTE_AGENT_COORDINATION_NON_GOALS.md",
+        "docs/production/M117_TO_M118_BOUNDARY.md",
+        "docs/release_notes/checkpoint_m117.md",
+        "docs/archive/checkpoints/m117/README_IMPORT.md",
+        "docs/archive/checkpoints/m117/master_plan.md",
+        "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+    ]
+    for rel_path in required_paths:
+        if not (root / rel_path).exists():
+            failures.append(f"missing M117 remote agent coordination doc: {rel_path}")
+    text = " ".join(
+        "\n".join(
+            _read(root / rel_path).lower()
+            for rel_path in required_paths
+            if (root / rel_path).exists()
+        ).split()
+    )
+    required_fragments = {
+        "M117 docs must say remote agent coordination contract": "remote agent coordination contract",
+        "M117 docs must say contract-only": "contract-only",
+        "M117 docs must say review-only": "review-only",
+        "M117 docs must say safe refs": "safe refs",
+        "M117 docs must say role-based authority model": "role-based authority model",
+        "M117 docs must say remote agent refs": "remote agent refs",
+        "M117 docs must say coordination scope refs": "coordination scope refs",
+        "M117 docs must say trust boundary refs": "trust boundary refs",
+        "M117 docs must say handoff protocol refs": "handoff protocol refs",
+        "M117 docs must say communication channel refs": "communication channel refs",
+        "M117 docs must say actor-bound": "actor-bound",
+        "M117 docs must say baseline-bound": "baseline-bound",
+        "M117 docs must say source-role-authority-model-bound": "source-role-authority-model-bound",
+        "M117 docs must say user-bound": "user-bound",
+        "M117 docs must say workspace-bound": "workspace-bound",
+        "M117 docs must say remote-agent-bound": "remote-agent-bound",
+        "M117 docs must say coordination-scope-bound": "coordination-scope-bound",
+        "M117 docs must say trust-boundary-bound": "trust-boundary-bound",
+        "M117 docs must say handoff-protocol-bound": "handoff-protocol-bound",
+        "M117 docs must say audit": "audit",
+        "M117 docs must say replay": "replay",
+        "M117 docs must say no-effect receipt plan": "no-effect receipt plan",
+        "M117 docs must deny production authority": "no production authority",
+        "M117 docs must deny remote agent runtime": "no remote agent runtime",
+        "M117 docs must deny remote dispatch": "no remote dispatch",
+        "M117 docs must deny remote execution": "no remote execution",
+        "M117 docs must deny live connection": "no live connection",
+        "M117 docs must deny network access": "no network access",
+        "M117 docs must deny agent spawn": "no agent spawn",
+        "M117 docs must deny background worker": "no background worker",
+        "M117 docs must deny credential handling": "no credential handling",
+        "M117 docs must deny account action": "no account action",
+        "M117 docs must deny model call": "no model call",
+        "M117 docs must deny memory write": "no memory write",
+        "M117 docs must deny context injection": "no context injection",
+        "M117 docs must deny execution": "no execution",
+        "M117 docs must deny backend route": "no backend route",
+        "M117 docs must deny Control Center control": "no control center control",
+        "M117 docs must deny dependency": "no dependency",
+        "M117 docs must keep M118 future": "m118 remains future",
+        "M117 docs must preserve alpha target": "v1.0.0-alpha",
+    }
+    for message, fragment in required_fragments.items():
+        if fragment not in text:
+            failures.append(message)
+    active_paths = [
+        "README.md",
+        "VERSION.md",
+        "docs/canonical/09_roadmap.md",
+        "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+        "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+        "docs/roadmap/MILESTONE_CHARTERS.md",
+        "docs/DOCUMENTATION_INDEX.md",
+        "docs/canonical/CANONICAL_DOC_MAP.md",
+    ]
+    current_text = " ".join(
+        "\n".join(
+            _read(root / rel_path).lower()
+            for rel_path in active_paths
+            if (root / rel_path).exists()
+        ).split()
+    )
+    implemented_m117_row = (
+        "| checkpoint m117 | pre-alpha checkpoint | m117 | "
+        "remote agent coordination contract | implemented/released |"
+    )
+    if implemented_m117_row not in current_text:
+        failures.append("active docs missing implemented Checkpoint M117 row")
+    planned_m118_row = (
+        "| checkpoint m118 | pre-alpha checkpoint | m118 | "
+        "deployment mode matrix | planned/provisional |"
+    )
+    if planned_m118_row not in current_text:
+        failures.append("active docs missing planned Checkpoint M118 row")
+    for fragment in {
+        "m118 is implemented",
+        "checkpoint m118 implements m118",
+        "deployment mode matrix is implemented",
+        "remote agent runtime is implemented",
+        "remote dispatch is implemented",
+        "live connection is implemented",
+        "agent spawn is implemented",
+        "beta is released",
+        "production authority is implemented",
+        "broad autonomy is implemented",
+    }:
+        if fragment in current_text or fragment in text:
+            failures.append(f"M117 docs imply forbidden/future capability: {fragment}")
     return failures
 
 

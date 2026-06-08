@@ -182,7 +182,16 @@ implemented/released as Background Task Contract, No Execution. Checkpoint M106
 is implemented/released as Mobile Background Read-Only Status Sync. Checkpoint
 M107 is implemented/released as Mobile Approval Renewal UX. Checkpoint M108 is
 implemented/released as Mobile Kill Switch + Revocation. Checkpoint M109 is
-implemented/released as Mobile Sensor Audit Ledger. M110-M149
+implemented/released as Mobile Sensor Audit Ledger. Checkpoint M110 is
+implemented/released as Mobile Sensor Hardening Freeze. Checkpoint M111 is
+implemented/released as Production Threat Model. Checkpoint M112 is
+implemented/released as User/Workspace Identity Model. Checkpoint M113 is
+implemented/released as Secrets Boundary + Credential Vault Contract.
+Checkpoint M114 is implemented/released as Account Connector Contract Review.
+Checkpoint M115 is implemented/released as Production Audit Retention Policy.
+Checkpoint M116 is implemented/released as Role-Based Authority Model.
+Checkpoint M117 is implemented/released as Remote Agent Coordination Contract.
+M118-M149
 remain planned/provisional as checkpoint milestones instead of product SemVer
 tags, and M150 remains planned/provisional as the v1.0.0-alpha product target.
 Beta begins after the alpha UI and supporting safety/product work are reviewed
