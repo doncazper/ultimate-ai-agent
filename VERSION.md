@@ -2,9 +2,9 @@
 
 Current active baseline: **v1.7.2**
 
-Checkpoint M106 is implemented/released as Mobile Background Read-Only Status
-Sync. The current product baseline remains v1.7.2. Already-pushed tags
-remain immutable historical internal milestone tags. Future M107-M149 conveyor
+Checkpoint M107 is implemented/released as Mobile Approval Renewal UX. The
+current product baseline remains v1.7.2. Already-pushed tags
+remain immutable historical internal milestone tags. Future M108-M149 conveyor
 milestones use checkpoint labels instead of product SemVer tags, and M150 is
 the next product release target **v1.0.0-alpha**. Beta begins only after the
 alpha UI and supporting safety/product work are reviewed, accepted, and
@@ -38,6 +38,16 @@ control, no dependency, no memory write, no context injection, no execution, no
 M107 work, no broad autonomy, no mobile background runtime, no broad
 unsandboxed autonomy, and no production authority.
 
-M101, M102, M103, M104, M105, and M106 are implemented/released. M107-M150 are
+Checkpoint M107 adds contract-only review-only mobile approval renewal UX
+records. It adds no approval capture, no approval persistence, no approval
+renewal execution, no runtime prompt, no native mobile UI, no backend route, no
+Control Center control, no notification delivery, no push trigger, no
+background worker, no scheduler, no daemon, no device token handling, no
+external service, no network sync, no raw approval payload, no dependency, no
+memory write, no context injection, no execution, no kill switch execution, no
+M108 work, no broad autonomy, no mobile background runtime, no broad
+unsandboxed autonomy, and no production authority.
+
+M101, M102, M103, M104, M105, M106, and M107 are implemented/released. M108-M150 are
 planned/provisional checkpoint milestones only. M150 is planned as
 v1.0.0-alpha, not beta.

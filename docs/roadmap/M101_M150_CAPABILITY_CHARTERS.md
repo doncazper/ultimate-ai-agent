@@ -1,6 +1,6 @@
 # M101-M150 Capability Charters
 
-Status: Active roadmap maintained through Checkpoint M106 after the accepted
+Status: Active roadmap maintained through Checkpoint M107 after the accepted
 v1.7.2 post-M103 versioning repair follow-up.
 
 M101 is implemented/released as Mobile Sensor Contract Review. M102 is
@@ -9,7 +9,8 @@ implemented/released as Camera/Photos Metadata-Only Contract. Checkpoint M104
 is implemented/released as Notification Planning, No Push Execution. Checkpoint
 M105 is implemented/released as Background Task Contract, No Execution. v1.7.2
 is the current product baseline. Checkpoint M106 is implemented/released as
-Mobile Background Read-Only Status Sync. M107-M150 remain planned/provisional.
+Mobile Background Read-Only Status Sync. Checkpoint M107 is implemented/released
+as Mobile Approval Renewal UX. M108-M150 remain planned/provisional.
 Future work must continue the authority-tier model:
 
 Capability exists -> disabled by default -> dry-run first -> limited allowlist
@@ -39,7 +40,7 @@ roadmap patch. Do not rewrite, move, or reuse existing tags.
 | Checkpoint M104 | pre-alpha checkpoint | M104 | Notification Planning, No Push Execution | Implemented/released |
 | Checkpoint M105 | pre-alpha checkpoint | M105 | Background Task Contract, No Execution | Implemented/released |
 | Checkpoint M106 | pre-alpha checkpoint | M106 | Mobile Background Read-Only Status Sync | Implemented/released |
-| Checkpoint M107 | pre-alpha checkpoint | M107 | Mobile Approval Renewal UX | Planned/provisional |
+| Checkpoint M107 | pre-alpha checkpoint | M107 | Mobile Approval Renewal UX | Implemented/released |
 | Checkpoint M108 | pre-alpha checkpoint | M108 | Mobile Kill Switch + Revocation | Planned/provisional |
 | Checkpoint M109 | pre-alpha checkpoint | M109 | Mobile Sensor Audit Ledger | Planned/provisional |
 | Checkpoint M110 | pre-alpha checkpoint | M110 | Mobile Sensor Hardening Freeze | Planned/provisional |

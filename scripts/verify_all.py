@@ -141,6 +141,7 @@ SCAN_SEQUENCE = [
     ("M104 notification planning no-push scan", "verify_m104_notification_planning_no_push"),
     ("M105 background task contract no-execution scan", "verify_m105_background_task_contract_no_execution"),
     ("M106 mobile background read-only status sync scan", "verify_m106_mobile_background_read_only_status_sync"),
+    ("M107 mobile approval renewal UX scan", "verify_m107_mobile_approval_renewal_ux"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -17526,6 +17527,12 @@ def verify_post_m100_roadmap_reconciliation():
         or "mobile background read-only status sync" in active_version_text
     ):
         implemented_milestones.add("m106")
+    if (
+        "checkpoint m107" in active_version_text
+        or "m107" in active_version_text
+        or "mobile approval renewal ux" in active_version_text
+    ):
+        implemented_milestones.add("m107")
     for version_label, product_target, milestone, title in expected_labels:
         if milestone in implemented_milestones:
             continue
@@ -18580,6 +18587,186 @@ def verify_m106_mobile_background_read_only_status_sync():
             sys.exit(1)
 
     print("OK: M106 background status sync is read-only, no-runtime, and route-free")
+
+
+def verify_m107_mobile_approval_renewal_ux():
+    print("\n[Verifier] Running M107 mobile approval renewal UX guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/mobile_companion/mobile_approval_renewal_ux.py",
+        "docs/mobile/MOBILE_APPROVAL_RENEWAL_UX.md",
+        "docs/mobile/MOBILE_APPROVAL_RENEWAL_UX_POLICY.md",
+        "docs/mobile/MOBILE_APPROVAL_RENEWAL_UX_AUTHORITY_BOUNDARY.md",
+        "docs/mobile/MOBILE_APPROVAL_RENEWAL_UX_RECEIPT_PLAN.md",
+        "docs/mobile/MOBILE_APPROVAL_RENEWAL_UX_NON_GOALS.md",
+        "docs/mobile/M107_TO_M108_BOUNDARY.md",
+        "docs/release_notes/checkpoint_m107.md",
+        "docs/archive/checkpoints/m107/README_IMPORT.md",
+        "docs/archive/checkpoints/m107/master_plan.md",
+        "tests/test_m107_mobile_approval_renewal_ux.py",
+        "tests/test_m107_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M107 approval renewal UX file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = "\n".join(
+        (ROOT / rel_path).read_text(encoding="utf-8").lower()
+        for rel_path in required_files
+        if rel_path.startswith("docs/")
+    )
+    for fragment in [
+        "mobile approval renewal ux",
+        "contract-only",
+        "review-only",
+        "safe refs",
+        "safe renewal refs",
+        "safe renewal copy refs",
+        "safe renewal window refs",
+        "safe expiration refs",
+        "consent",
+        "revocation",
+        "audit",
+        "no approval capture",
+        "no approval persistence",
+        "no approval renewal execution",
+        "no runtime prompt",
+        "no native mobile ui",
+        "no backend route",
+        "no control center control",
+        "no notification delivery",
+        "no push trigger",
+        "no background worker",
+        "no scheduler",
+        "no daemon",
+        "no device token handling",
+        "no external service",
+        "no network sync",
+        "no raw approval payload",
+        "no dependency",
+        "no production authority",
+        "m108 remains future",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M107 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.evaluators import m107_openapi_route_failures
+        from ultimate_ai_agent.core.mobile_companion import (
+            MobileApprovalRenewalUxStatus,
+            build_mobile_approval_renewal_ux_report,
+            validate_mobile_approval_renewal_ux_report,
+        )
+    except Exception as exc:
+        print(f"FAIL: M107 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m107_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    report = build_mobile_approval_renewal_ux_report()
+    if (
+        report.status != MobileApprovalRenewalUxStatus.review_only_contract
+        or not report.contract_only
+        or not report.review_only
+        or not report.safe_refs_required
+        or report.approval_capture_enabled
+        or report.approval_persistence_enabled
+        or report.approval_renewal_execution_enabled
+        or report.approval_renewal_runtime_prompt_enabled
+        or report.native_mobile_ui_enabled
+        or report.backend_route_added
+        or report.control_center_control_added
+        or report.notification_delivery_enabled
+        or report.push_trigger_enabled
+        or report.background_worker_enabled
+        or report.scheduler_enabled
+        or report.daemon_enabled
+        or report.device_token_handling_enabled
+        or report.external_service_enabled
+        or report.network_sync_enabled
+        or report.raw_approval_payload_enabled
+        or report.production_authority_enabled
+        or report.kill_switch_enabled
+        or report.side_effects_performed
+        or "M107_MOBILE_APPROVAL_RENEWAL_UX" not in report.reason_codes
+        or "M108_REMAINS_FUTURE" not in report.reason_codes
+    ):
+        print("FAIL: M107 approval renewal UX report is unsafe or over-authoritative")
+        sys.exit(1)
+
+    for update, reason in [
+        ({"approval_capture_enabled": True}, "APPROVAL_CAPTURE_DENIED"),
+        ({"approval_persistence_enabled": True}, "APPROVAL_PERSISTENCE_DENIED"),
+        ({"approval_renewal_execution_enabled": True}, "APPROVAL_RENEWAL_EXECUTION_DENIED"),
+        ({"notification_delivery_enabled": True}, "NOTIFICATION_DELIVERY_DENIED"),
+        ({"push_trigger_enabled": True}, "PUSH_TRIGGER_DENIED"),
+        ({"raw_approval_payload_enabled": True}, "RAW_APPROVAL_PAYLOAD_DENIED"),
+        ({"execution_enabled": True}, "EXECUTION_DENIED"),
+        ({"kill_switch_enabled": True}, "KILL_SWITCH_DENIED"),
+        ({"production_authority_enabled": True}, "PRODUCTION_AUTHORITY_DENIED"),
+    ]:
+        try:
+            validate_mobile_approval_renewal_ux_report(report.model_copy(update=update))
+            print(f"FAIL: M107 mutated authority flag was not denied: {update}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M107 mutated authority flag raised {exc!s}")
+                sys.exit(1)
+
+    allowed_scan_files = {
+        "scripts/verify_all.py",
+        "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/mobile_companion/__init__.py",
+        "src/ultimate_ai_agent/core/mobile_companion/mobile_approval_renewal_ux.py",
+        "src/ultimate_ai_agent/core/mobile_companion/mobile_background_read_only_status_sync.py",
+    }
+    source_text = "\n".join(
+        path.read_text(encoding="utf-8")
+        for root in [
+            ROOT / "src" / "ultimate_ai_agent",
+            ROOT / "apps" / "control-center" / "src",
+            ROOT / "apps" / "ccc-ios",
+        ]
+        if root.exists()
+        for path in root.rglob("*")
+        if path.is_file()
+        and path.suffix in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}
+        and path.relative_to(ROOT).as_posix() not in allowed_scan_files
+    )
+    for fragment in [
+        "approval_capture_enabled=True",
+        "approval_persistence_enabled=True",
+        "approval_renewal_execution_enabled=True",
+        "approval_renewal_runtime_prompt_enabled=True",
+        "native_mobile_ui_enabled=True",
+        "notification_delivery_enabled=True",
+        "push_trigger_enabled=True",
+        "background_worker_enabled=True",
+        "scheduler_enabled=True",
+        "daemon_enabled=True",
+        "device_token_handling_enabled=True",
+        "external_service_enabled=True",
+        "network_sync_enabled=True",
+        "raw_approval_payload_enabled=True",
+        "backend_route_enabled=True",
+        "backend_route_added=True",
+        "control_center_control_enabled=True",
+        "control_center_control_added=True",
+        "production_authority_enabled=True",
+        "kill_switch_enabled=True",
+    ]:
+        if fragment in source_text:
+            print(f"FAIL: M107 forbidden source fragment present: {fragment}")
+            sys.exit(1)
+
+    print("OK: M107 approval renewal UX is contract-only, no-runtime, and route-free")
 
 
 def verify_local_developer_launcher_safety():

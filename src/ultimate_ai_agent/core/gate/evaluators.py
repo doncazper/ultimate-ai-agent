@@ -1385,6 +1385,17 @@ M106_FORBIDDEN_BACKEND_ROUTES = M105_FORBIDDEN_BACKEND_ROUTES + (
     "/mobile/background/status",
     "/mobile/background/status/raw",
 )
+EXPECTED_M107_OPENAPI_PATH_COUNT = 75
+M107_FORBIDDEN_BACKEND_ROUTES = M106_FORBIDDEN_BACKEND_ROUTES + (
+    "/mobile/approvals/renew",
+    "/mobile/approvals/renew/start",
+    "/mobile/approvals/renew/capture",
+    "/mobile/approvals/renew/persist",
+    "/mobile/approvals/renew/prompt",
+    "/mobile/approvals/renew/execute",
+    "/mobile/approvals/kill-switch",
+    "/mobile/revocation/execute",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -2679,6 +2690,21 @@ def m106_openapi_route_failures(
     return failures
 
 
+def m107_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M107_OPENAPI_PATH_COUNT
+) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(
+            f"OpenAPI path count changed for M107: expected {expected_path_count}, got {len(path_set)}"
+        )
+    for route in M107_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(f"M107 forbidden approval renewal UX route present: {route}")
+    return failures
+
+
 M36_SAFE_REF_PREFIXES = {
     "reviewPacketRef": "file-review-packet:",
     "previewResultRef": "redacted-file-preview-output:",
@@ -3604,6 +3630,16 @@ class FoundationGateEvaluator:
                 self.check_m106_mobile_background_read_only_status_sync_route_boundary
             ),
             "m106_roadmap_currentness": self.check_m106_roadmap_currentness,
+            "m107_mobile_approval_renewal_ux_contracts": (
+                self.check_m107_mobile_approval_renewal_ux_contracts
+            ),
+            "m107_mobile_approval_renewal_ux_static_safety": (
+                self.check_m107_mobile_approval_renewal_ux_static_safety
+            ),
+            "m107_mobile_approval_renewal_ux_route_boundary": (
+                self.check_m107_mobile_approval_renewal_ux_route_boundary
+            ),
+            "m107_roadmap_currentness": self.check_m107_roadmap_currentness,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -29261,6 +29297,12 @@ class FoundationGateEvaluator:
             or "mobile background read-only status sync" in active_version_text
         ):
             implemented_milestones.add("m106")
+        if (
+            "checkpoint m107" in active_version_text
+            or "m107" in active_version_text
+            or "mobile approval renewal ux" in active_version_text
+        ):
+            implemented_milestones.add("m107")
         for version_label, product_target, milestone, title in expected_labels:
             if milestone in implemented_milestones:
                 continue
@@ -30257,8 +30299,11 @@ class FoundationGateEvaluator:
             "| checkpoint m106 | pre-alpha checkpoint | m106 | "
             "mobile background read-only status sync | implemented/released |"
         )
+        implemented_m107_row = (
+            "| checkpoint m107 | pre-alpha checkpoint | m107 | "
+            "mobile approval renewal ux | implemented/released |"
+        )
         planned_rows = [
-            ("checkpoint m107", "pre-alpha checkpoint", "m107", "mobile approval renewal ux"),
             ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
         ]
         if implemented_m105_row not in text:
@@ -30275,6 +30320,11 @@ class FoundationGateEvaluator:
                     "m106",
                     "mobile background read-only status sync",
                 ),
+            )
+        if implemented_m107_row not in text:
+            planned_rows.insert(
+                2,
+                ("checkpoint m107", "pre-alpha checkpoint", "m107", "mobile approval renewal ux"),
             )
         for version_label, product_target, milestone, title in planned_rows:
             row = (
@@ -30523,8 +30573,11 @@ class FoundationGateEvaluator:
             "| checkpoint m106 | pre-alpha checkpoint | m106 | "
             "mobile background read-only status sync | implemented/released |"
         )
+        implemented_m107_row = (
+            "| checkpoint m107 | pre-alpha checkpoint | m107 | "
+            "mobile approval renewal ux | implemented/released |"
+        )
         planned_rows = [
-            ("checkpoint m107", "pre-alpha checkpoint", "m107", "mobile approval renewal ux"),
             ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
         ]
         if implemented_m106_row not in text:
@@ -30536,6 +30589,11 @@ class FoundationGateEvaluator:
                     "m106",
                     "mobile background read-only status sync",
                 ),
+            )
+        if implemented_m107_row not in text:
+            planned_rows.insert(
+                1,
+                ("checkpoint m107", "pre-alpha checkpoint", "m107", "mobile approval renewal ux"),
             )
         for version_label, product_target, milestone, title in planned_rows:
             row = (
@@ -30785,8 +30843,13 @@ class FoundationGateEvaluator:
             )
         if "m106 is implemented/released" not in text and "checkpoint m106 is implemented/released" not in text:
             failures.append("active docs do not mark M106 implemented/released")
+        implemented_m107_row = (
+            "| checkpoint m107 | pre-alpha checkpoint | m107 | "
+            "mobile approval renewal ux | implemented/released |"
+        )
+        if implemented_m107_row not in text:
+            failures.append("active docs missing implemented Checkpoint M107 row")
         for version_label, product_target, milestone, title in [
-            ("checkpoint m107", "pre-alpha checkpoint", "m107", "mobile approval renewal ux"),
             ("checkpoint m108", "pre-alpha checkpoint", "m108", "mobile kill switch + revocation"),
             ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
         ]:
@@ -30796,11 +30859,9 @@ class FoundationGateEvaluator:
             )
             if row not in text:
                 failures.append(
-                    f"active docs missing planned M107-M150 row: {version_label} / {milestone.upper()} - {title}"
+                    f"active docs missing planned M108-M150 row: {version_label} / {milestone.upper()} - {title}"
                 )
         for fragment in (
-            "m107 is implemented",
-            "checkpoint m107 implements m107",
             "background task execution is implemented",
             "background worker is implemented",
             "scheduler is implemented",
@@ -30813,6 +30874,281 @@ class FoundationGateEvaluator:
         ):
             if fragment in text:
                 failures.append(f"M106 docs imply forbidden/future capability: {fragment}")
+        return self._result(criterion, failures, required_docs)
+
+    def check_m107_mobile_approval_renewal_ux_contracts(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/mobile_companion/mobile_approval_renewal_ux.py",
+            "docs/mobile/MOBILE_APPROVAL_RENEWAL_UX.md",
+            "docs/mobile/MOBILE_APPROVAL_RENEWAL_UX_POLICY.md",
+            "docs/mobile/MOBILE_APPROVAL_RENEWAL_UX_AUTHORITY_BOUNDARY.md",
+            "docs/mobile/MOBILE_APPROVAL_RENEWAL_UX_RECEIPT_PLAN.md",
+            "docs/mobile/MOBILE_APPROVAL_RENEWAL_UX_NON_GOALS.md",
+            "docs/mobile/M107_TO_M108_BOUNDARY.md",
+            "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            "tests/test_m107_mobile_approval_renewal_ux.py",
+            "tests/test_m107_gate_integration.py",
+        ]
+        failures = [
+            f"missing M107 approval renewal UX file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            sys.path.insert(0, str(self.root))
+            from ultimate_ai_agent.core.mobile_companion import (
+                MobileApprovalRenewalUxStatus,
+                build_mobile_approval_renewal_ux_report,
+                validate_mobile_approval_renewal_ux_report,
+            )
+
+            report = build_mobile_approval_renewal_ux_report()
+            if (
+                report.status != MobileApprovalRenewalUxStatus.review_only_contract
+                or not report.contract_only
+                or not report.review_only
+                or not report.safe_refs_required
+                or not report.audit_required
+                or not report.revocation_required
+                or not report.consent_required
+                or report.approval_capture_enabled
+                or report.approval_persistence_enabled
+                or report.approval_renewal_execution_enabled
+                or report.approval_renewal_runtime_prompt_enabled
+                or report.native_mobile_ui_enabled
+                or report.control_center_control_added
+                or report.backend_route_added
+                or report.notification_delivery_enabled
+                or report.push_trigger_enabled
+                or report.background_worker_enabled
+                or report.scheduler_enabled
+                or report.daemon_enabled
+                or report.device_token_handling_enabled
+                or report.external_service_enabled
+                or report.network_sync_enabled
+                or report.raw_approval_payload_enabled
+                or report.memory_write_enabled
+                or report.context_injection_enabled
+                or report.execution_enabled
+                or report.production_authority_enabled
+                or report.kill_switch_enabled
+                or report.side_effects_performed
+                or "M107_MOBILE_APPROVAL_RENEWAL_UX" not in report.reason_codes
+                or "M108_REMAINS_FUTURE" not in report.reason_codes
+            ):
+                failures.append("M107 approval renewal UX report is unsafe or over-authoritative")
+            for update, reason in [
+                ({"approval_capture_enabled": True}, "APPROVAL_CAPTURE_DENIED"),
+                ({"approval_persistence_enabled": True}, "APPROVAL_PERSISTENCE_DENIED"),
+                (
+                    {"approval_renewal_execution_enabled": True},
+                    "APPROVAL_RENEWAL_EXECUTION_DENIED",
+                ),
+                (
+                    {"approval_renewal_runtime_prompt_enabled": True},
+                    "APPROVAL_RENEWAL_RUNTIME_PROMPT_DENIED",
+                ),
+                ({"native_mobile_ui_enabled": True}, "NATIVE_MOBILE_UI_DENIED"),
+                ({"push_trigger_enabled": True}, "PUSH_TRIGGER_DENIED"),
+                ({"network_sync_enabled": True}, "NETWORK_SYNC_DENIED"),
+                ({"raw_approval_payload_enabled": True}, "RAW_APPROVAL_PAYLOAD_DENIED"),
+                ({"execution_enabled": True}, "EXECUTION_DENIED"),
+                ({"kill_switch_enabled": True}, "KILL_SWITCH_DENIED"),
+                ({"production_authority_enabled": True}, "PRODUCTION_AUTHORITY_DENIED"),
+            ]:
+                try:
+                    validate_mobile_approval_renewal_ux_report(
+                        report.model_copy(update=update)
+                    )
+                    failures.append(f"M107 unsafe report mutation was not denied with {reason}")
+                except ValueError as exc:
+                    if reason not in str(exc):
+                        failures.append(f"M107 unsafe report mutation raised {exc!s}")
+        except Exception as exc:
+            failures.append(f"M107 approval renewal UX validation failed: {exc}")
+
+        docs_text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_files
+            if path.startswith("docs/") and (self.root / path).exists()
+        )
+        for fragment in [
+            "mobile approval renewal ux",
+            "contract-only",
+            "review-only",
+            "safe refs",
+            "safe renewal refs",
+            "safe renewal copy refs",
+            "safe renewal window refs",
+            "safe expiration refs",
+            "consent",
+            "revocation",
+            "audit",
+            "no approval capture",
+            "no approval persistence",
+            "no approval renewal execution",
+            "no runtime prompt",
+            "no native mobile ui",
+            "no backend route",
+            "no control center control",
+            "no notification delivery",
+            "no push trigger",
+            "no background worker",
+            "no scheduler",
+            "no daemon",
+            "no device token handling",
+            "no external service",
+            "no network sync",
+            "no raw approval payload",
+            "no dependency",
+            "no memory write",
+            "no context injection",
+            "no execution",
+            "no kill switch execution",
+            "no production authority",
+            "m108 remains future",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M107 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m107_mobile_approval_renewal_ux_static_safety(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        forbidden_source_fragments = [
+            "approval_capture_enabled=True",
+            "approval_persistence_enabled=True",
+            "approval_renewal_execution_enabled=True",
+            "approval_renewal_runtime_prompt_enabled=True",
+            "native_mobile_ui_enabled=True",
+            "control_center_control_enabled=True",
+            "control_center_control_added=True",
+            "backend_route_enabled=True",
+            "backend_route_added=True",
+            "notification_delivery_enabled=True",
+            "push_trigger_enabled=True",
+            "background_worker_enabled=True",
+            "scheduler_enabled=True",
+            "daemon_enabled=True",
+            "device_token_handling_enabled=True",
+            "external_service_enabled=True",
+            "network_sync_enabled=True",
+            "raw_approval_payload_enabled=True",
+            "memory_write_enabled=True",
+            "context_injection_enabled=True",
+            "execution_enabled=True",
+            "production_authority_enabled=True",
+            "kill_switch_enabled=True",
+        ]
+        allowed_files = {
+            "scripts/verify_all.py",
+            "src/ultimate_ai_agent/core/gate/evaluators.py",
+            "src/ultimate_ai_agent/core/mobile_companion/__init__.py",
+            "src/ultimate_ai_agent/core/mobile_companion/mobile_approval_renewal_ux.py",
+            "src/ultimate_ai_agent/core/mobile_companion/mobile_background_read_only_status_sync.py",
+            "src/ultimate_ai_agent/core/mobile_companion/background_task_contract_no_execution.py",
+            "src/ultimate_ai_agent/core/mobile_companion/camera_photos_metadata_only.py",
+            "src/ultimate_ai_agent/core/mobile_companion/location_sensor_off_by_default.py",
+            "src/ultimate_ai_agent/core/mobile_companion/notification_planning_no_push.py",
+            "src/ultimate_ai_agent/core/mobile_companion/permission_model_v1.py",
+            "src/ultimate_ai_agent/core/mobile_companion/sensor_contract_review.py",
+        }
+        for root in [
+            self.root / "src" / "ultimate_ai_agent",
+            self.root / "apps" / "control-center" / "src",
+            self.root / "apps" / "ccc-ios",
+        ]:
+            if not root.exists():
+                continue
+            candidate_files = []
+            for pattern in ("*.py", "*.ts", "*.tsx", "*.js", "*.jsx", "*.swift", "*.yml", "*.yaml"):
+                candidate_files.extend(root.rglob(pattern))
+            for path in sorted(candidate_files):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(self.root).as_posix()
+                if ".test." in rel:
+                    continue
+                if rel in allowed_files:
+                    continue
+                text = path.read_text(encoding="utf-8")
+                for fragment in forbidden_source_fragments:
+                    if fragment in text:
+                        failures.append(
+                            f"M107 forbidden approval renewal UX fragment in {rel}: {fragment}"
+                        )
+        return self._result(criterion, failures, [])
+
+    def check_m107_mobile_approval_renewal_ux_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m107_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M107 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m107_roadmap_currentness(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_docs = [
+            "README.md",
+            "VERSION.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            "docs/roadmap/MILESTONE_CHARTERS.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+        ]
+        failures = [
+            f"missing M107 roadmap doc: {path}"
+            for path in required_docs
+            if not (self.root / path).exists()
+        ]
+        text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_docs
+            if (self.root / path).exists()
+        )
+        if "checkpoint m107" not in text or "mobile approval renewal ux" not in text:
+            failures.append(
+                "active docs do not identify Checkpoint M107 Mobile Approval Renewal UX"
+            )
+        if "m107 is implemented/released" not in text and "checkpoint m107 is implemented/released" not in text:
+            failures.append("active docs do not mark M107 implemented/released")
+        for version_label, product_target, milestone, title in [
+            ("checkpoint m108", "pre-alpha checkpoint", "m108", "mobile kill switch + revocation"),
+            ("checkpoint m109", "pre-alpha checkpoint", "m109", "mobile sensor audit ledger"),
+            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+        ]:
+            row = (
+                f"| {version_label} | {product_target} | {milestone} | "
+                f"{title} | planned/provisional |"
+            )
+            if row not in text:
+                failures.append(
+                    f"active docs missing planned M108-M150 row: {version_label} / {milestone.upper()} - {title}"
+                )
+        for fragment in (
+            "m108 is implemented",
+            "checkpoint m108 implements m108",
+            "approval renewal execution is implemented",
+            "approval persistence runtime is implemented",
+            "approval capture runtime is implemented",
+            "runtime prompt is implemented",
+            "kill switch is implemented",
+            "revocation execution is implemented",
+            "production authority is implemented",
+            "beta is released",
+            "broad autonomy is implemented",
+        ):
+            if fragment in text:
+                failures.append(f"M107 docs imply forbidden/future capability: {fragment}")
         return self._result(criterion, failures, required_docs)
 
     def check_v0292_local_dev_api_authority_and_preview_safe(

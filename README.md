@@ -13,24 +13,24 @@ allowed to become operational authority.
 | Field | Current state |
 |---|---|
 | Current active baseline | **v1.7.2** |
-| Current milestone | **Checkpoint M106 — Mobile Background Read-Only Status Sync** |
+| Current milestone | **Checkpoint M107 — Mobile Approval Renewal UX** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **75** OpenAPI paths |
 | Production readiness | Not claimed |
 
-Checkpoint M106 implements Mobile Background Read-Only Status Sync while the
+Checkpoint M107 implements Mobile Approval Renewal UX while the
 current product baseline remains v1.7.2. Already-pushed tags remain immutable
-historical internal milestone tags, future M107-M149 conveyor milestones use
+historical internal milestone tags, future M108-M149 conveyor milestones use
 checkpoint labels instead of product SemVer tags, and M150 is the next product
 release target **v1.0.0-alpha**. Beta begins only after the alpha UI and
 supporting safety/product work are reviewed, accepted, and explicitly promoted
-by a later roadmap patch. M106 adds no background collection, background
-execution, background worker, scheduler, daemon, OS background fetch, OS
-background permission prompt, push trigger, device token handling, external
-service, network sync, raw status payload, backend route, Control Center
-control, dependency, memory write, context injection, execution, M107 work,
-broad autonomy, mobile background runtime, or production authority.
+by a later roadmap patch. M107 adds no approval capture, approval persistence,
+approval renewal execution, runtime prompt, native mobile UI, backend route,
+Control Center control, notification delivery, push trigger, background worker,
+scheduler, daemon, device token handling, external service, network sync, raw
+approval payload, dependency, memory write, context injection, execution, kill
+switch execution, M108 work, broad autonomy, or production authority.
 
 v0.29.5 is documentation policy polish. It remains the documentation
 organization cleanup baseline before the M26 and M27 implementation releases.
@@ -61,6 +61,7 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M100 Mobile Permission Model v1](docs/mobile/MOBILE_PERMISSION_MODEL_V1.md)
 - [M101 Mobile Sensor Contract Review](docs/mobile/MOBILE_SENSOR_CONTRACT_REVIEW.md)
 - [M102 Location Sensor, Off by Default](docs/mobile/LOCATION_SENSOR_OFF_BY_DEFAULT.md)
+- [M107 Mobile Approval Renewal UX](docs/mobile/MOBILE_APPROVAL_RENEWAL_UX.md)
 - [M106 Mobile Background Read-Only Status Sync](docs/mobile/MOBILE_BACKGROUND_READ_ONLY_STATUS_SYNC.md)
 - [M105 Background Task Contract, No Execution](docs/mobile/BACKGROUND_TASK_CONTRACT_NO_EXECUTION.md)
 - [M104 Notification Planning, No Push Execution](docs/mobile/NOTIFICATION_PLANNING_NO_PUSH.md)

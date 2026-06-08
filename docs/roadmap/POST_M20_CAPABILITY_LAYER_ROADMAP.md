@@ -124,11 +124,11 @@ The detailed post-M33 supersession source of truth is
 
 ## Prompt-Pack Strategy
 
-Recommended next prompt after Checkpoint M106:
+Recommended next prompt after Checkpoint M107:
 
 ```text
-Continue with M107 implementation conveyor using checkpoint milestones for
-M107-M149, with M150 reserved as the v1.0.0-alpha product target.
+Continue with M108 implementation conveyor using checkpoint milestones for
+M108-M149, with M150 reserved as the v1.0.0-alpha product target.
 ```
 
 M61 is implemented/released by v0.65.0 as Autonomy Mode Charter + Authority
@@ -179,7 +179,8 @@ M103 is implemented/released by v1.7.0 as Camera/Photos Metadata-Only Contract.
 Checkpoint M104 is implemented/released as Notification Planning, No Push
 Execution while the product baseline remains v1.7.2. Checkpoint M105 is
 implemented/released as Background Task Contract, No Execution. Checkpoint M106
-is implemented/released as Mobile Background Read-Only Status Sync. M107-M149
+is implemented/released as Mobile Background Read-Only Status Sync. Checkpoint
+M107 is implemented/released as Mobile Approval Renewal UX. M108-M149
 remain planned/provisional as checkpoint milestones instead of product SemVer
 tags, and M150 remains planned/provisional as the v1.0.0-alpha product target.
 Beta begins after the alpha UI and supporting safety/product work are reviewed
