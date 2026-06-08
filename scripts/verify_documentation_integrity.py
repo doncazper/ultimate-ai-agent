@@ -1565,6 +1565,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_m105_background_task_contract_no_execution_docs(root, version))
     failures.extend(_verify_m106_mobile_background_read_only_status_sync_docs(root, version))
     failures.extend(_verify_m107_mobile_approval_renewal_ux_docs(root, version))
+    failures.extend(_verify_m108_mobile_kill_switch_revocation_docs(root, version))
     failures.extend(_verify_m19_roadmap_currentness(root, version))
     failures.extend(_verify_post_m18_roadmap_status_labels(root))
 
@@ -7086,6 +7087,12 @@ def _verify_post_m100_roadmap_reconciliation_docs(root: Path, version: str | Non
         or "mobile approval renewal ux" in version_doc_text
     ):
         implemented_milestones.add("m107")
+    if (
+        "checkpoint m108" in version_doc_text
+        or "m108" in version_doc_text
+        or "mobile kill switch + revocation" in version_doc_text
+    ):
+        implemented_milestones.add("m108")
     for version_label, product_target, milestone, title in EXPECTED_M101_M150_LABELS:
         if milestone in implemented_milestones:
             continue
@@ -7978,10 +7985,148 @@ def _verify_m107_mobile_approval_renewal_ux_docs(
         "| checkpoint m107 | pre-alpha checkpoint | m107 | "
         "mobile approval renewal ux | implemented/released |"
     )
+    implemented_m108_row = (
+        "| checkpoint m108 | pre-alpha checkpoint | m108 | "
+        "mobile kill switch + revocation | implemented/released |"
+    )
     if implemented_m107_row not in active_text:
         failures.append("active docs missing implemented Checkpoint M107 row")
+    planned_rows = [
+        ("checkpoint m109", "pre-alpha checkpoint", "m109", "mobile sensor audit ledger"),
+        ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+    ]
+    if implemented_m108_row not in active_text:
+        planned_rows.insert(
+            0,
+            ("checkpoint m108", "pre-alpha checkpoint", "m108", "mobile kill switch + revocation"),
+        )
+    for version_label, product_target, milestone, title in planned_rows:
+        row = (
+            f"| {version_label} | {product_target} | {milestone} | "
+            f"{title} | planned/provisional |"
+        )
+        if row not in active_text:
+            failures.append(
+                f"active docs missing planned M108-M150 row: {version_label} / {milestone.upper()} - {title}"
+            )
+    forbidden_fragments = {
+        "approval renewal execution is implemented",
+        "approval persistence runtime is implemented",
+        "approval capture runtime is implemented",
+        "runtime prompt is implemented",
+        "revocation execution is implemented",
+        "beta is released",
+        "production authority is implemented",
+        "broad autonomy is implemented",
+    }
+    if implemented_m108_row not in active_text:
+        forbidden_fragments.update(
+            {
+                "checkpoint m108 implements m108",
+                "m108 is implemented",
+                "kill switch is implemented",
+            }
+        )
+    for fragment in forbidden_fragments:
+        if fragment in active_text or fragment in text:
+            failures.append(f"M107 docs imply forbidden/future capability: {fragment}")
+    return failures
+
+
+def _verify_m108_mobile_kill_switch_revocation_docs(
+    root: Path, version: str | None
+) -> list[str]:
+    failures: list[str] = []
+    required_paths = [
+        "docs/mobile/MOBILE_KILL_SWITCH_REVOCATION.md",
+        "docs/mobile/MOBILE_KILL_SWITCH_REVOCATION_POLICY.md",
+        "docs/mobile/MOBILE_KILL_SWITCH_REVOCATION_AUTHORITY_BOUNDARY.md",
+        "docs/mobile/MOBILE_KILL_SWITCH_REVOCATION_RECEIPT_PLAN.md",
+        "docs/mobile/MOBILE_KILL_SWITCH_REVOCATION_NON_GOALS.md",
+        "docs/mobile/M108_TO_M109_BOUNDARY.md",
+        "docs/release_notes/checkpoint_m108.md",
+        "docs/archive/checkpoints/m108/README_IMPORT.md",
+        "docs/archive/checkpoints/m108/master_plan.md",
+        "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+    ]
+    for rel_path in required_paths:
+        if not (root / rel_path).exists():
+            failures.append(f"missing M108 kill-switch/revocation doc: {rel_path}")
+    text = "\n".join(
+        _read(root / rel_path).lower()
+        for rel_path in required_paths
+        if (root / rel_path).exists()
+    )
+    required_fragments = {
+        "M108 docs must say Mobile Kill Switch + Revocation": (
+            "mobile kill switch + revocation"
+        ),
+        "M108 docs must say contract-only": "contract-only",
+        "M108 docs must say review-only": "review-only",
+        "M108 docs must say safe refs": "safe refs",
+        "M108 docs must say safe revocation refs": "safe revocation refs",
+        "M108 docs must say safe kill switch refs": "safe kill switch refs",
+        "M108 docs must say safe revocation reason refs": (
+            "safe revocation reason refs"
+        ),
+        "M108 docs must say safe kill switch reason refs": (
+            "safe kill switch reason refs"
+        ),
+        "M108 docs must say approval renewal UX": "approval renewal ux",
+        "M108 docs must say actor-bound": "actor-bound",
+        "M108 docs must say device-bound": "device-bound",
+        "M108 docs must say approval-bound": "approval-bound",
+        "M108 docs must say revocation-bound": "revocation-bound",
+        "M108 docs must say audit": "audit",
+        "M108 docs must say replay": "replay",
+        "M108 docs must deny revocation execution": "no revocation execution",
+        "M108 docs must deny kill switch execution": "no kill switch execution",
+        "M108 docs must deny approval revocation": "no approval revocation",
+        "M108 docs must deny session stop": "no session stop",
+        "M108 docs must deny notification delivery": "no notification delivery",
+        "M108 docs must deny push trigger": "no push trigger",
+        "M108 docs must deny background worker": "no background worker",
+        "M108 docs must deny scheduler": "no scheduler",
+        "M108 docs must deny daemon": "no daemon",
+        "M108 docs must deny device token handling": "no device token handling",
+        "M108 docs must deny external service": "no external service",
+        "M108 docs must deny network sync": "no network sync",
+        "M108 docs must deny raw approval payload": "no raw approval payload",
+        "M108 docs must deny dependency": "no dependency",
+        "M108 docs must deny memory write": "no memory write",
+        "M108 docs must deny context injection": "no context injection",
+        "M108 docs must deny execution": "no execution",
+        "M108 docs must deny backend route": "no backend route",
+        "M108 docs must deny Control Center control": "no control center control",
+        "M108 docs must deny production authority": "no production authority",
+        "M108 docs must keep M109 future": "m109 remains future",
+    }
+    for message, fragment in required_fragments.items():
+        if fragment not in text:
+            failures.append(message)
+
+    active_paths = [
+        "README.md",
+        "VERSION.md",
+        "docs/canonical/09_roadmap.md",
+        "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+        "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+        "docs/roadmap/MILESTONE_CHARTERS.md",
+        "docs/DOCUMENTATION_INDEX.md",
+        "docs/canonical/CANONICAL_DOC_MAP.md",
+    ]
+    active_text = "\n".join(
+        _read(root / rel_path).lower()
+        for rel_path in active_paths
+        if (root / rel_path).exists()
+    )
+    implemented_m108_row = (
+        "| checkpoint m108 | pre-alpha checkpoint | m108 | "
+        "mobile kill switch + revocation | implemented/released |"
+    )
+    if implemented_m108_row not in active_text:
+        failures.append("active docs missing implemented Checkpoint M108 row")
     for version_label, product_target, milestone, title in [
-        ("checkpoint m108", "pre-alpha checkpoint", "m108", "mobile kill switch + revocation"),
         ("checkpoint m109", "pre-alpha checkpoint", "m109", "mobile sensor audit ledger"),
         ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
     ]:
@@ -7991,23 +8136,21 @@ def _verify_m107_mobile_approval_renewal_ux_docs(
         )
         if row not in active_text:
             failures.append(
-                f"active docs missing planned M108-M150 row: {version_label} / {milestone.upper()} - {title}"
+                f"active docs missing planned M109-M150 row: {version_label} / {milestone.upper()} - {title}"
             )
     for fragment in {
-        "checkpoint m108 implements m108",
-        "m108 is implemented",
-        "approval renewal execution is implemented",
-        "approval persistence runtime is implemented",
-        "approval capture runtime is implemented",
-        "runtime prompt is implemented",
-        "kill switch is implemented",
+        "m109 is implemented",
+        "checkpoint m109 implements m109",
+        "kill switch execution is implemented",
         "revocation execution is implemented",
+        "approval revocation runtime is implemented",
+        "session stop is implemented",
         "beta is released",
         "production authority is implemented",
         "broad autonomy is implemented",
     }:
         if fragment in active_text or fragment in text:
-            failures.append(f"M107 docs imply forbidden/future capability: {fragment}")
+            failures.append(f"M108 docs imply forbidden/future capability: {fragment}")
     return failures
 
 

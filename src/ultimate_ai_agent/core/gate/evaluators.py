@@ -1396,6 +1396,15 @@ M107_FORBIDDEN_BACKEND_ROUTES = M106_FORBIDDEN_BACKEND_ROUTES + (
     "/mobile/approvals/kill-switch",
     "/mobile/revocation/execute",
 )
+EXPECTED_M108_OPENAPI_PATH_COUNT = 75
+M108_FORBIDDEN_BACKEND_ROUTES = M107_FORBIDDEN_BACKEND_ROUTES + (
+    "/mobile/kill-switch",
+    "/mobile/kill-switch/activate",
+    "/mobile/kill-switch/execute",
+    "/mobile/revocation",
+    "/mobile/approvals/revoke",
+    "/mobile/session/stop",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -2705,6 +2714,21 @@ def m107_openapi_route_failures(
     return failures
 
 
+def m108_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M108_OPENAPI_PATH_COUNT
+) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(
+            f"OpenAPI path count changed for M108: expected {expected_path_count}, got {len(path_set)}"
+        )
+    for route in M108_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(f"M108 forbidden kill-switch/revocation route present: {route}")
+    return failures
+
+
 M36_SAFE_REF_PREFIXES = {
     "reviewPacketRef": "file-review-packet:",
     "previewResultRef": "redacted-file-preview-output:",
@@ -3640,6 +3664,16 @@ class FoundationGateEvaluator:
                 self.check_m107_mobile_approval_renewal_ux_route_boundary
             ),
             "m107_roadmap_currentness": self.check_m107_roadmap_currentness,
+            "m108_mobile_kill_switch_revocation_contracts": (
+                self.check_m108_mobile_kill_switch_revocation_contracts
+            ),
+            "m108_mobile_kill_switch_revocation_static_safety": (
+                self.check_m108_mobile_kill_switch_revocation_static_safety
+            ),
+            "m108_mobile_kill_switch_revocation_route_boundary": (
+                self.check_m108_mobile_kill_switch_revocation_route_boundary
+            ),
+            "m108_roadmap_currentness": self.check_m108_roadmap_currentness,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -29303,6 +29337,12 @@ class FoundationGateEvaluator:
             or "mobile approval renewal ux" in active_version_text
         ):
             implemented_milestones.add("m107")
+        if (
+            "checkpoint m108" in active_version_text
+            or "m108" in active_version_text
+            or "mobile kill switch + revocation" in active_version_text
+        ):
+            implemented_milestones.add("m108")
         for version_label, product_target, milestone, title in expected_labels:
             if milestone in implemented_milestones:
                 continue
@@ -30847,12 +30887,21 @@ class FoundationGateEvaluator:
             "| checkpoint m107 | pre-alpha checkpoint | m107 | "
             "mobile approval renewal ux | implemented/released |"
         )
+        implemented_m108_row = (
+            "| checkpoint m108 | pre-alpha checkpoint | m108 | "
+            "mobile kill switch + revocation | implemented/released |"
+        )
         if implemented_m107_row not in text:
             failures.append("active docs missing implemented Checkpoint M107 row")
-        for version_label, product_target, milestone, title in [
-            ("checkpoint m108", "pre-alpha checkpoint", "m108", "mobile kill switch + revocation"),
+        planned_rows = [
             ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
-        ]:
+        ]
+        if implemented_m108_row not in text:
+            planned_rows.insert(
+                0,
+                ("checkpoint m108", "pre-alpha checkpoint", "m108", "mobile kill switch + revocation"),
+            )
+        for version_label, product_target, milestone, title in planned_rows:
             row = (
                 f"| {version_label} | {product_target} | {milestone} | "
                 f"{title} | planned/provisional |"
@@ -31121,8 +31170,305 @@ class FoundationGateEvaluator:
             )
         if "m107 is implemented/released" not in text and "checkpoint m107 is implemented/released" not in text:
             failures.append("active docs do not mark M107 implemented/released")
+        implemented_m108_row = (
+            "| checkpoint m108 | pre-alpha checkpoint | m108 | "
+            "mobile kill switch + revocation | implemented/released |"
+        )
+        planned_rows = [
+            ("checkpoint m109", "pre-alpha checkpoint", "m109", "mobile sensor audit ledger"),
+            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+        ]
+        if implemented_m108_row not in text:
+            planned_rows.insert(
+                0,
+                ("checkpoint m108", "pre-alpha checkpoint", "m108", "mobile kill switch + revocation"),
+            )
+        for version_label, product_target, milestone, title in planned_rows:
+            row = (
+                f"| {version_label} | {product_target} | {milestone} | "
+                f"{title} | planned/provisional |"
+            )
+            if row not in text:
+                failures.append(
+                    f"active docs missing planned M108-M150 row: {version_label} / {milestone.upper()} - {title}"
+                )
+        forbidden_fragments = [
+            "approval renewal execution is implemented",
+            "approval persistence runtime is implemented",
+            "approval capture runtime is implemented",
+            "runtime prompt is implemented",
+            "revocation execution is implemented",
+            "production authority is implemented",
+            "beta is released",
+            "broad autonomy is implemented",
+        ]
+        if implemented_m108_row not in text:
+            forbidden_fragments.extend(
+                [
+                    "m108 is implemented",
+                    "checkpoint m108 implements m108",
+                    "kill switch is implemented",
+                ]
+            )
+        for fragment in forbidden_fragments:
+            if fragment in text:
+                failures.append(f"M107 docs imply forbidden/future capability: {fragment}")
+        return self._result(criterion, failures, required_docs)
+
+    def check_m108_mobile_kill_switch_revocation_contracts(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/mobile_companion/mobile_kill_switch_revocation.py",
+            "docs/mobile/MOBILE_KILL_SWITCH_REVOCATION.md",
+            "docs/mobile/MOBILE_KILL_SWITCH_REVOCATION_POLICY.md",
+            "docs/mobile/MOBILE_KILL_SWITCH_REVOCATION_AUTHORITY_BOUNDARY.md",
+            "docs/mobile/MOBILE_KILL_SWITCH_REVOCATION_RECEIPT_PLAN.md",
+            "docs/mobile/MOBILE_KILL_SWITCH_REVOCATION_NON_GOALS.md",
+            "docs/mobile/M108_TO_M109_BOUNDARY.md",
+            "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            "tests/test_m108_mobile_kill_switch_revocation.py",
+            "tests/test_m108_gate_integration.py",
+        ]
+        failures = [
+            f"missing M108 kill-switch/revocation file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            sys.path.insert(0, str(self.root))
+            from ultimate_ai_agent.core.mobile_companion import (
+                MobileKillSwitchRevocationStatus,
+                build_mobile_approval_renewal_ux_report,
+                build_mobile_kill_switch_revocation_record,
+                validate_mobile_kill_switch_revocation_record,
+            )
+
+            source_report = build_mobile_approval_renewal_ux_report()
+            record = build_mobile_kill_switch_revocation_record(
+                source_report=source_report
+            )
+            if (
+                record.status != MobileKillSwitchRevocationStatus.review_only_contract
+                or not record.contract_only
+                or not record.review_only
+                or not record.safe_refs_required
+                or not record.actor_bound
+                or not record.device_bound
+                or not record.approval_bound
+                or not record.revocation_bound
+                or not record.audit_required
+                or not record.replay_safe
+                or record.source_report_ref != source_report.report_ref
+                or record.source_baseline_ref != source_report.baseline_ref
+                or record.actor_ref != source_report.actor_ref
+                or not record.revocation_requested
+                or not record.kill_switch_requested
+                or record.revocation_performed
+                or record.kill_switch_activated
+                or record.session_stopped
+                or record.approval_revoked
+                or record.notification_delivery_enabled
+                or record.push_trigger_enabled
+                or record.background_worker_enabled
+                or record.scheduler_enabled
+                or record.daemon_enabled
+                or record.device_token_handling_enabled
+                or record.external_service_enabled
+                or record.network_sync_enabled
+                or record.raw_approval_payload_enabled
+                or record.memory_write_enabled
+                or record.context_injection_enabled
+                or record.execution_enabled
+                or record.production_authority_enabled
+                or record.side_effects_performed
+                or "M108_MOBILE_KILL_SWITCH_REVOCATION" not in record.reason_codes
+                or "M109_REMAINS_FUTURE" not in record.reason_codes
+            ):
+                failures.append(
+                    "M108 kill-switch/revocation record is unsafe or over-authoritative"
+                )
+            for update, reason in [
+                ({"revocation_performed": True}, "REVOCATION_ACTION_DENIED"),
+                ({"kill_switch_activated": True}, "KILL_SWITCH_ACTIVATION_DENIED"),
+                ({"session_stopped": True}, "SESSION_STOP_DENIED"),
+                ({"approval_revoked": True}, "APPROVAL_REVOCATION_DENIED"),
+                ({"revocation_execution_enabled": True}, "REVOCATION_EXECUTION_DENIED"),
+                ({"kill_switch_execution_enabled": True}, "KILL_SWITCH_EXECUTION_DENIED"),
+                ({"raw_approval_payload_enabled": True}, "RAW_APPROVAL_PAYLOAD_DENIED"),
+                ({"execution_enabled": True}, "EXECUTION_DENIED"),
+                ({"production_authority_enabled": True}, "PRODUCTION_AUTHORITY_DENIED"),
+            ]:
+                try:
+                    validate_mobile_kill_switch_revocation_record(
+                        record.model_copy(update=update)
+                    )
+                    failures.append(f"M108 unsafe record mutation was not denied with {reason}")
+                except ValueError as exc:
+                    if reason not in str(exc):
+                        failures.append(f"M108 unsafe record mutation raised {exc!s}")
+        except Exception as exc:
+            failures.append(f"M108 kill-switch/revocation validation failed: {exc}")
+
+        docs_text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_files
+            if path.startswith("docs/") and (self.root / path).exists()
+        )
+        for fragment in [
+            "mobile kill switch + revocation",
+            "contract-only",
+            "review-only",
+            "safe refs",
+            "safe revocation refs",
+            "safe kill switch refs",
+            "safe revocation reason refs",
+            "safe kill switch reason refs",
+            "approval renewal ux",
+            "actor-bound",
+            "device-bound",
+            "approval-bound",
+            "revocation-bound",
+            "audit",
+            "replay",
+            "no revocation execution",
+            "no kill switch execution",
+            "no approval revocation",
+            "no session stop",
+            "no notification delivery",
+            "no push trigger",
+            "no background worker",
+            "no scheduler",
+            "no daemon",
+            "no device token handling",
+            "no external service",
+            "no network sync",
+            "no raw approval payload",
+            "no dependency",
+            "no memory write",
+            "no context injection",
+            "no execution",
+            "no backend route",
+            "no control center control",
+            "no production authority",
+            "m109 remains future",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M108 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m108_mobile_kill_switch_revocation_static_safety(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        forbidden_source_fragments = [
+            "revocation_execution_enabled=True",
+            "kill_switch_execution_enabled=True",
+            "approval_revocation_enabled=True",
+            "session_stop_enabled=True",
+            "revocation_performed=True",
+            "kill_switch_activated=True",
+            "session_stopped=True",
+            "approval_revoked=True",
+            "native_mobile_ui_enabled=True",
+            "control_center_control_enabled=True",
+            "control_center_control_added=True",
+            "backend_route_enabled=True",
+            "backend_route_added=True",
+            "notification_delivery_enabled=True",
+            "push_trigger_enabled=True",
+            "background_worker_enabled=True",
+            "scheduler_enabled=True",
+            "daemon_enabled=True",
+            "device_token_handling_enabled=True",
+            "external_service_enabled=True",
+            "network_sync_enabled=True",
+            "raw_approval_payload_enabled=True",
+            "memory_write_enabled=True",
+            "context_injection_enabled=True",
+            "execution_enabled=True",
+            "production_authority_enabled=True",
+        ]
+        allowed_files = {
+            "scripts/verify_all.py",
+            "src/ultimate_ai_agent/core/gate/evaluators.py",
+            "src/ultimate_ai_agent/core/mobile_companion/__init__.py",
+            "src/ultimate_ai_agent/core/mobile_companion/mobile_kill_switch_revocation.py",
+            "src/ultimate_ai_agent/core/mobile_companion/mobile_approval_renewal_ux.py",
+            "src/ultimate_ai_agent/core/mobile_companion/mobile_background_read_only_status_sync.py",
+            "src/ultimate_ai_agent/core/mobile_companion/background_task_contract_no_execution.py",
+            "src/ultimate_ai_agent/core/mobile_companion/camera_photos_metadata_only.py",
+            "src/ultimate_ai_agent/core/mobile_companion/location_sensor_off_by_default.py",
+            "src/ultimate_ai_agent/core/mobile_companion/notification_planning_no_push.py",
+            "src/ultimate_ai_agent/core/mobile_companion/permission_model_v1.py",
+            "src/ultimate_ai_agent/core/mobile_companion/sensor_contract_review.py",
+        }
+        for root in [
+            self.root / "src" / "ultimate_ai_agent",
+            self.root / "apps" / "control-center" / "src",
+            self.root / "apps" / "ccc-ios",
+        ]:
+            if not root.exists():
+                continue
+            candidate_files = []
+            for pattern in ("*.py", "*.ts", "*.tsx", "*.js", "*.jsx", "*.swift", "*.yml", "*.yaml"):
+                candidate_files.extend(root.rglob(pattern))
+            for path in sorted(candidate_files):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(self.root).as_posix()
+                if ".test." in rel:
+                    continue
+                if rel in allowed_files:
+                    continue
+                text = path.read_text(encoding="utf-8")
+                for fragment in forbidden_source_fragments:
+                    if fragment in text:
+                        failures.append(
+                            f"M108 forbidden kill-switch/revocation fragment in {rel}: {fragment}"
+                        )
+        return self._result(criterion, failures, [])
+
+    def check_m108_mobile_kill_switch_revocation_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m108_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M108 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m108_roadmap_currentness(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_docs = [
+            "README.md",
+            "VERSION.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            "docs/roadmap/MILESTONE_CHARTERS.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+        ]
+        failures = [
+            f"missing M108 roadmap doc: {path}"
+            for path in required_docs
+            if not (self.root / path).exists()
+        ]
+        text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_docs
+            if (self.root / path).exists()
+        )
+        if "checkpoint m108" not in text or "mobile kill switch + revocation" not in text:
+            failures.append(
+                "active docs do not identify Checkpoint M108 Mobile Kill Switch + Revocation"
+            )
+        if "m108 is implemented/released" not in text and "checkpoint m108 is implemented/released" not in text:
+            failures.append("active docs do not mark M108 implemented/released")
         for version_label, product_target, milestone, title in [
-            ("checkpoint m108", "pre-alpha checkpoint", "m108", "mobile kill switch + revocation"),
             ("checkpoint m109", "pre-alpha checkpoint", "m109", "mobile sensor audit ledger"),
             ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
         ]:
@@ -31132,23 +31478,21 @@ class FoundationGateEvaluator:
             )
             if row not in text:
                 failures.append(
-                    f"active docs missing planned M108-M150 row: {version_label} / {milestone.upper()} - {title}"
+                    f"active docs missing planned M109-M150 row: {version_label} / {milestone.upper()} - {title}"
                 )
         for fragment in (
-            "m108 is implemented",
-            "checkpoint m108 implements m108",
-            "approval renewal execution is implemented",
-            "approval persistence runtime is implemented",
-            "approval capture runtime is implemented",
-            "runtime prompt is implemented",
-            "kill switch is implemented",
+            "m109 is implemented",
+            "checkpoint m109 implements m109",
+            "kill switch execution is implemented",
             "revocation execution is implemented",
+            "approval revocation runtime is implemented",
+            "session stop is implemented",
             "production authority is implemented",
             "beta is released",
             "broad autonomy is implemented",
         ):
             if fragment in text:
-                failures.append(f"M107 docs imply forbidden/future capability: {fragment}")
+                failures.append(f"M108 docs imply forbidden/future capability: {fragment}")
         return self._result(criterion, failures, required_docs)
 
     def check_v0292_local_dev_api_authority_and_preview_safe(

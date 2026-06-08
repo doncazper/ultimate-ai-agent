@@ -142,6 +142,7 @@ SCAN_SEQUENCE = [
     ("M105 background task contract no-execution scan", "verify_m105_background_task_contract_no_execution"),
     ("M106 mobile background read-only status sync scan", "verify_m106_mobile_background_read_only_status_sync"),
     ("M107 mobile approval renewal UX scan", "verify_m107_mobile_approval_renewal_ux"),
+    ("M108 mobile kill switch revocation scan", "verify_m108_mobile_kill_switch_revocation"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -17533,6 +17534,12 @@ def verify_post_m100_roadmap_reconciliation():
         or "mobile approval renewal ux" in active_version_text
     ):
         implemented_milestones.add("m107")
+    if (
+        "checkpoint m108" in active_version_text
+        or "m108" in active_version_text
+        or "mobile kill switch + revocation" in active_version_text
+    ):
+        implemented_milestones.add("m108")
     for version_label, product_target, milestone, title in expected_labels:
         if milestone in implemented_milestones:
             continue
@@ -18767,6 +18774,195 @@ def verify_m107_mobile_approval_renewal_ux():
             sys.exit(1)
 
     print("OK: M107 approval renewal UX is contract-only, no-runtime, and route-free")
+
+
+def verify_m108_mobile_kill_switch_revocation():
+    print("\n[Verifier] Running M108 mobile kill switch revocation guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/mobile_companion/mobile_kill_switch_revocation.py",
+        "docs/mobile/MOBILE_KILL_SWITCH_REVOCATION.md",
+        "docs/mobile/MOBILE_KILL_SWITCH_REVOCATION_POLICY.md",
+        "docs/mobile/MOBILE_KILL_SWITCH_REVOCATION_AUTHORITY_BOUNDARY.md",
+        "docs/mobile/MOBILE_KILL_SWITCH_REVOCATION_RECEIPT_PLAN.md",
+        "docs/mobile/MOBILE_KILL_SWITCH_REVOCATION_NON_GOALS.md",
+        "docs/mobile/M108_TO_M109_BOUNDARY.md",
+        "docs/release_notes/checkpoint_m108.md",
+        "docs/archive/checkpoints/m108/README_IMPORT.md",
+        "docs/archive/checkpoints/m108/master_plan.md",
+        "tests/test_m108_mobile_kill_switch_revocation.py",
+        "tests/test_m108_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M108 kill-switch/revocation file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = "\n".join(
+        (ROOT / rel_path).read_text(encoding="utf-8").lower()
+        for rel_path in required_files
+        if rel_path.startswith("docs/")
+    )
+    for fragment in [
+        "mobile kill switch + revocation",
+        "contract-only",
+        "review-only",
+        "safe refs",
+        "safe revocation refs",
+        "safe kill switch refs",
+        "safe revocation reason refs",
+        "safe kill switch reason refs",
+        "approval renewal ux",
+        "actor-bound",
+        "device-bound",
+        "approval-bound",
+        "revocation-bound",
+        "audit",
+        "replay",
+        "no revocation execution",
+        "no kill switch execution",
+        "no approval revocation",
+        "no session stop",
+        "no notification delivery",
+        "no push trigger",
+        "no background worker",
+        "no scheduler",
+        "no daemon",
+        "no device token handling",
+        "no external service",
+        "no network sync",
+        "no raw approval payload",
+        "no dependency",
+        "no production authority",
+        "m109 remains future",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M108 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.evaluators import m108_openapi_route_failures
+        from ultimate_ai_agent.core.mobile_companion import (
+            MobileKillSwitchRevocationStatus,
+            build_mobile_approval_renewal_ux_report,
+            build_mobile_kill_switch_revocation_record,
+            validate_mobile_kill_switch_revocation_record,
+        )
+    except Exception as exc:
+        print(f"FAIL: M108 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m108_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    source_report = build_mobile_approval_renewal_ux_report()
+    record = build_mobile_kill_switch_revocation_record(source_report=source_report)
+    if (
+        record.status != MobileKillSwitchRevocationStatus.review_only_contract
+        or not record.contract_only
+        or not record.review_only
+        or not record.safe_refs_required
+        or not record.actor_bound
+        or not record.device_bound
+        or not record.approval_bound
+        or not record.revocation_bound
+        or record.source_report_ref != source_report.report_ref
+        or record.source_baseline_ref != source_report.baseline_ref
+        or record.actor_ref != source_report.actor_ref
+        or record.revocation_performed
+        or record.kill_switch_activated
+        or record.session_stopped
+        or record.approval_revoked
+        or record.notification_delivery_enabled
+        or record.push_trigger_enabled
+        or record.background_worker_enabled
+        or record.scheduler_enabled
+        or record.daemon_enabled
+        or record.device_token_handling_enabled
+        or record.external_service_enabled
+        or record.network_sync_enabled
+        or record.raw_approval_payload_enabled
+        or record.production_authority_enabled
+        or record.side_effects_performed
+        or "M108_MOBILE_KILL_SWITCH_REVOCATION" not in record.reason_codes
+        or "M109_REMAINS_FUTURE" not in record.reason_codes
+    ):
+        print("FAIL: M108 kill-switch/revocation record is unsafe or over-authoritative")
+        sys.exit(1)
+
+    for update, reason in [
+        ({"revocation_performed": True}, "REVOCATION_ACTION_DENIED"),
+        ({"kill_switch_activated": True}, "KILL_SWITCH_ACTIVATION_DENIED"),
+        ({"approval_revoked": True}, "APPROVAL_REVOCATION_DENIED"),
+        ({"session_stopped": True}, "SESSION_STOP_DENIED"),
+        ({"revocation_execution_enabled": True}, "REVOCATION_EXECUTION_DENIED"),
+        ({"kill_switch_execution_enabled": True}, "KILL_SWITCH_EXECUTION_DENIED"),
+        ({"raw_approval_payload_enabled": True}, "RAW_APPROVAL_PAYLOAD_DENIED"),
+        ({"execution_enabled": True}, "EXECUTION_DENIED"),
+        ({"production_authority_enabled": True}, "PRODUCTION_AUTHORITY_DENIED"),
+    ]:
+        try:
+            validate_mobile_kill_switch_revocation_record(record.model_copy(update=update))
+            print(f"FAIL: M108 mutated authority flag was not denied: {update}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M108 mutated authority flag raised {exc!s}")
+                sys.exit(1)
+
+    allowed_scan_files = {
+        "scripts/verify_all.py",
+        "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/mobile_companion/__init__.py",
+        "src/ultimate_ai_agent/core/mobile_companion/mobile_kill_switch_revocation.py",
+        "src/ultimate_ai_agent/core/mobile_companion/mobile_approval_renewal_ux.py",
+    }
+    source_text = "\n".join(
+        path.read_text(encoding="utf-8")
+        for root in [
+            ROOT / "src" / "ultimate_ai_agent",
+            ROOT / "apps" / "control-center" / "src",
+            ROOT / "apps" / "ccc-ios",
+        ]
+        if root.exists()
+        for path in root.rglob("*")
+        if path.is_file()
+        and path.suffix in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}
+        and path.relative_to(ROOT).as_posix() not in allowed_scan_files
+    )
+    for fragment in [
+        "revocation_execution_enabled=True",
+        "kill_switch_execution_enabled=True",
+        "approval_revocation_enabled=True",
+        "session_stop_enabled=True",
+        "revocation_performed=True",
+        "kill_switch_activated=True",
+        "session_stopped=True",
+        "approval_revoked=True",
+        "native_mobile_ui_enabled=True",
+        "notification_delivery_enabled=True",
+        "push_trigger_enabled=True",
+        "background_worker_enabled=True",
+        "scheduler_enabled=True",
+        "daemon_enabled=True",
+        "device_token_handling_enabled=True",
+        "external_service_enabled=True",
+        "network_sync_enabled=True",
+        "raw_approval_payload_enabled=True",
+        "backend_route_enabled=True",
+        "backend_route_added=True",
+        "control_center_control_enabled=True",
+        "control_center_control_added=True",
+        "production_authority_enabled=True",
+    ]:
+        if fragment in source_text:
+            print(f"FAIL: M108 forbidden source fragment present: {fragment}")
+            sys.exit(1)
+
+    print("OK: M108 kill-switch/revocation is contract-only, no-runtime, and route-free")
 
 
 def verify_local_developer_launcher_safety():

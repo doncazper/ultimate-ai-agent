@@ -69,6 +69,12 @@ docs/mobile/MOBILE_APPROVAL_RENEWAL_UX_AUTHORITY_BOUNDARY.md
 docs/mobile/MOBILE_APPROVAL_RENEWAL_UX_RECEIPT_PLAN.md
 docs/mobile/MOBILE_APPROVAL_RENEWAL_UX_NON_GOALS.md
 docs/mobile/M107_TO_M108_BOUNDARY.md
+docs/mobile/MOBILE_KILL_SWITCH_REVOCATION.md
+docs/mobile/MOBILE_KILL_SWITCH_REVOCATION_POLICY.md
+docs/mobile/MOBILE_KILL_SWITCH_REVOCATION_AUTHORITY_BOUNDARY.md
+docs/mobile/MOBILE_KILL_SWITCH_REVOCATION_RECEIPT_PLAN.md
+docs/mobile/MOBILE_KILL_SWITCH_REVOCATION_NON_GOALS.md
+docs/mobile/M108_TO_M109_BOUNDARY.md
 docs/files/BROADER_FILE_CAPABILITY_REVIEW.md
 docs/files/FILE_CAPABILITY_BOUNDARY_MATRIX.md
 docs/files/FILE_CAPABILITY_RISK_REGISTER.md
@@ -753,9 +759,9 @@ scripts/dev/README.md
 
 v0.37.4 supersedes the old active M35-M40 roadmap projection and defines the
 active M34-M60 sequence. v1.7.2 is the current active product baseline.
-Checkpoint M107 is implemented/released as Mobile Approval Renewal UX after
-the Checkpoint M106 Mobile Background Read-Only Status Sync release and
-post-M103 versioning repair follow-up.
+Checkpoint M108 is implemented/released as Mobile Kill Switch + Revocation
+after the Checkpoint M107 Mobile Approval Renewal UX release and post-M103
+versioning repair follow-up.
 M100 remains implemented/released as Mobile Permission Model v1. M101 is
 implemented/released as contract-only mobile sensor governance. M102 is
 implemented/released as contract-only location sensor governance with location
@@ -765,15 +771,16 @@ notification planning with no push execution. M105 is implemented/released as
 contract-only background task planning with no execution. M106 is
 implemented/released as contract-only read-only background status sync. M107 is
 implemented/released as contract-only review-only mobile approval renewal UX.
-M108-M150 are
+M108 is implemented/released as contract-only review-only mobile kill switch +
+revocation records. M109-M150 are
 planned/provisional only in `docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md`.
-Future M108-M149 conveyor milestones use checkpoint labels instead of product
+Future M109-M149 conveyor milestones use checkpoint labels instead of product
 SemVer tags, and M150 is
 planned as v1.0.0-alpha. Beta begins only after alpha UI and supporting
 safety/product work are reviewed and promoted. Active roadmap sources consistently mark
-M34-M107 implemented/released and rely on documentation-integrity checks to
+M34-M108 implemented/released and rely on documentation-integrity checks to
 guard against superseded-roadmap drift, stale current-baseline labels, route
-drift, authority-boundary drift, alpha/beta versioning drift, and M108-M150
+drift, authority-boundary drift, alpha/beta versioning drift, and M109-M150
 future-status drift.
 
 ## Release Notes Index
