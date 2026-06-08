@@ -150,6 +150,7 @@ SCAN_SEQUENCE = [
     ("M113 secrets boundary credential vault contract scan", "verify_m113_secrets_boundary_credential_vault"),
     ("M114 account connector contract review scan", "verify_m114_account_connector_contract_review"),
     ("M115 production audit retention policy scan", "verify_m115_production_audit_retention_policy"),
+    ("M116 role-based authority model scan", "verify_m116_role_based_authority_model"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -17589,6 +17590,12 @@ def verify_post_m100_roadmap_reconciliation():
         or "production audit retention policy" in active_version_text
     ):
         implemented_milestones.add("m115")
+    if (
+        "checkpoint m116" in active_version_text
+        or "m116" in active_version_text
+        or "role-based authority model" in active_version_text
+    ):
+        implemented_milestones.add("m116")
     for version_label, product_target, milestone, title in expected_labels:
         if milestone in implemented_milestones:
             continue
@@ -20539,6 +20546,252 @@ def verify_m115_production_audit_retention_policy():
             sys.exit(1)
 
     print("OK: M115 production audit retention is contract-only, no-runtime, and route-free")
+
+
+def verify_m116_role_based_authority_model():
+    print("\n[Verifier] Running M116 role-based authority model guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/production_readiness/role_based_authority.py",
+        "docs/production/ROLE_BASED_AUTHORITY_MODEL.md",
+        "docs/production/ROLE_BASED_AUTHORITY_BOUNDARY.md",
+        "docs/production/ROLE_BASED_AUTHORITY_RECEIPT_PLAN.md",
+        "docs/production/ROLE_BASED_AUTHORITY_NON_GOALS.md",
+        "docs/production/M116_TO_M117_BOUNDARY.md",
+        "docs/release_notes/checkpoint_m116.md",
+        "docs/archive/checkpoints/m116/README_IMPORT.md",
+        "docs/archive/checkpoints/m116/master_plan.md",
+        "tests/test_m116_role_based_authority_model.py",
+        "tests/test_m116_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M116 role-based authority file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = " ".join(
+        "\n".join(
+            (ROOT / rel_path).read_text(encoding="utf-8").lower()
+            for rel_path in required_files
+            if rel_path.startswith("docs/")
+        ).split()
+    )
+    for fragment in [
+        "role-based authority model",
+        "contract-only",
+        "review-only",
+        "safe refs",
+        "production audit retention policy",
+        "role refs",
+        "authority scope refs",
+        "permission boundary refs",
+        "separation-of-duty refs",
+        "break-glass boundary ref",
+        "actor-bound",
+        "baseline-bound",
+        "source-production-audit-retention-bound",
+        "user-bound",
+        "workspace-bound",
+        "role-bound",
+        "authority-scope-bound",
+        "permission-boundary-bound",
+        "separation-of-duty-bound",
+        "audit",
+        "replay",
+        "no-effect receipt plan",
+        "no production authority",
+        "no production runtime",
+        "no authority runtime",
+        "no role enforcement",
+        "no permission enforcement",
+        "no auth runtime",
+        "no login",
+        "no session cookie handling",
+        "no oauth flow",
+        "no token exchange",
+        "no credential handling",
+        "no account action",
+        "no network access",
+        "no model call",
+        "no memory write",
+        "no context injection",
+        "no execution",
+        "no tool execution",
+        "no shell execution",
+        "no browser automation",
+        "no plugin execution",
+        "no mobile sensor",
+        "no background worker",
+        "no remote execution",
+        "no backend route",
+        "no control center control",
+        "no dependency",
+        "m117 remains future",
+        "v1.0.0-alpha",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M116 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.criteria import (
+            default_foundation_gate_criteria,
+        )
+        from ultimate_ai_agent.core.gate.evaluators import (
+            FoundationGateEvaluator,
+            m116_openapi_route_failures,
+        )
+        from ultimate_ai_agent.core.mobile_companion import (
+            build_mobile_approval_renewal_ux_report,
+            build_mobile_kill_switch_revocation_record,
+            build_mobile_sensor_audit_ledger_record,
+            build_mobile_sensor_hardening_freeze_record,
+        )
+        from ultimate_ai_agent.core.production_readiness import (
+            RoleBasedAuthorityModelStatus,
+            build_account_connector_contract_review_record,
+            build_production_audit_retention_policy_record,
+            build_production_threat_model_record,
+            build_role_based_authority_model_record,
+            build_secrets_boundary_record,
+            build_user_workspace_identity_record,
+            validate_role_based_authority_model_record,
+        )
+    except Exception as exc:
+        print(f"FAIL: M116 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m116_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    source_record = build_production_audit_retention_policy_record(
+        source_record=build_account_connector_contract_review_record(
+            source_record=build_secrets_boundary_record(
+                source_record=build_user_workspace_identity_record(
+                    source_record=build_production_threat_model_record(
+                        source_record=build_mobile_sensor_hardening_freeze_record(
+                            source_record=build_mobile_sensor_audit_ledger_record(
+                                source_record=build_mobile_kill_switch_revocation_record(
+                                    source_report=build_mobile_approval_renewal_ux_report()
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+        )
+    )
+    record = build_role_based_authority_model_record(source_record=source_record)
+    if (
+        record.status != RoleBasedAuthorityModelStatus.authority_model
+        or not record.contract_only
+        or not record.review_only
+        or not record.safe_refs_required
+        or not record.source_production_audit_retention_bound
+        or record.source_production_audit_retention_ref
+        != source_record.audit_retention_policy_ref
+        or record.source_baseline_ref != source_record.source_baseline_ref
+        or record.actor_ref != source_record.actor_ref
+        or record.user_ref != source_record.user_ref
+        or record.workspace_ref != source_record.workspace_ref
+        or not record.role_refs
+        or not record.authority_scope_refs
+        or not record.permission_boundary_refs
+        or not record.separation_of_duty_refs
+        or "checkpoint:m115" not in record.accepted_checkpoint_refs
+        or record.production_authority_enabled
+        or record.production_runtime_enabled
+        or record.authority_runtime_enabled
+        or record.role_enforcement_enabled
+        or record.permission_enforcement_enabled
+        or record.auth_runtime_enabled
+        or record.login_enabled
+        or record.session_cookie_handling_enabled
+        or record.oauth_flow_enabled
+        or record.token_exchange_enabled
+        or record.credential_handling_enabled
+        or record.account_action_enabled
+        or record.network_access_enabled
+        or record.model_call_enabled
+        or record.memory_write_enabled
+        or record.context_injection_enabled
+        or record.execution_enabled
+        or record.tool_execution_enabled
+        or record.shell_execution_enabled
+        or record.browser_automation_enabled
+        or record.plugin_execution_enabled
+        or record.mobile_sensor_enabled
+        or record.background_worker_enabled
+        or record.remote_execution_enabled
+        or record.backend_route_added
+        or record.control_center_control_added
+        or record.dependency_added
+        or record.side_effects_performed
+        or "M116_ROLE_BASED_AUTHORITY_MODEL" not in record.reason_codes
+        or "M117_REMAINS_FUTURE" not in record.reason_codes
+    ):
+        print("FAIL: M116 role-based authority record is unsafe")
+        sys.exit(1)
+
+    for update, reason in [
+        ({"review_only": False}, "M116_REVIEW_ONLY_REQUIRED"),
+        ({"authority_runtime_enabled": True}, "AUTHORITY_RUNTIME_DENIED"),
+        ({"role_enforcement_enabled": True}, "ROLE_ENFORCEMENT_DENIED"),
+        (
+            {"permission_enforcement_enabled": True},
+            "PERMISSION_ENFORCEMENT_DENIED",
+        ),
+        ({"auth_runtime_enabled": True}, "AUTH_RUNTIME_DENIED"),
+        ({"login_enabled": True}, "LOGIN_DENIED"),
+        (
+            {"session_cookie_handling_enabled": True},
+            "SESSION_COOKIE_HANDLING_DENIED",
+        ),
+        ({"oauth_flow_enabled": True}, "OAUTH_FLOW_DENIED"),
+        ({"token_exchange_enabled": True}, "TOKEN_EXCHANGE_DENIED"),
+        ({"credential_handling_enabled": True}, "CREDENTIAL_HANDLING_DENIED"),
+        ({"account_action_enabled": True}, "ACCOUNT_ACTION_DENIED"),
+        ({"network_access_enabled": True}, "NETWORK_ACCESS_DENIED"),
+        ({"model_call_enabled": True}, "MODEL_CALL_DENIED"),
+        ({"memory_write_enabled": True}, "MEMORY_WRITE_DENIED"),
+        ({"context_injection_enabled": True}, "CONTEXT_INJECTION_DENIED"),
+        ({"execution_enabled": True}, "EXECUTION_DENIED"),
+        ({"backend_route_added": True}, "BACKEND_ROUTE_DENIED"),
+        ({"control_center_control_added": True}, "CONTROL_CENTER_CONTROL_DENIED"),
+        ({"dependency_added": True}, "DEPENDENCY_DENIED"),
+    ]:
+        try:
+            validate_role_based_authority_model_record(
+                record.model_copy(update=update)
+            )
+            print(f"FAIL: M116 mutated authority flag was not denied: {update}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M116 mutated authority flag raised {exc!s}")
+                sys.exit(1)
+
+    criteria = {
+        criterion.criterion_id: criterion
+        for criterion in default_foundation_gate_criteria()
+    }
+    evaluator = FoundationGateEvaluator(ROOT)
+    for criterion_id in [
+        "m116_role_based_authority_contracts",
+        "m116_role_based_authority_static_safety",
+        "m116_role_based_authority_route_boundary",
+        "m116_roadmap_currentness",
+    ]:
+        report = evaluator.evaluate([criteria[criterion_id]])
+        result = report.results[0]
+        if result.status != "passed":
+            print(f"FAIL: {criterion_id} failed: {result.failures}")
+            sys.exit(1)
+
+    print("OK: M116 role-based authority model is contract-only, no-runtime, and route-free")
 
 
 def verify_local_developer_launcher_safety():

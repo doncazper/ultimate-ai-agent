@@ -1496,6 +1496,26 @@ M115_FORBIDDEN_BACKEND_ROUTES = M114_FORBIDDEN_BACKEND_ROUTES + (
     "/analytics/export",
     "/network/post",
 )
+EXPECTED_M116_OPENAPI_PATH_COUNT = 75
+M116_FORBIDDEN_BACKEND_ROUTES = M115_FORBIDDEN_BACKEND_ROUTES + (
+    "/authority/roles",
+    "/authority/enforce",
+    "/authority/permissions",
+    "/authority/scopes",
+    "/authority/runtime",
+    "/rbac/enforce",
+    "/rbac/roles",
+    "/roles/assign",
+    "/roles/enforce",
+    "/permissions/enforce",
+    "/auth/login",
+    "/auth/session",
+    "/auth/oauth",
+    "/auth/token",
+    "/credentials/read",
+    "/credentials/write",
+    "/account/action",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -2925,6 +2945,21 @@ def m115_openapi_route_failures(
     return failures
 
 
+def m116_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M116_OPENAPI_PATH_COUNT
+) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(
+            f"OpenAPI path count changed for M116: expected {expected_path_count}, got {len(path_set)}"
+        )
+    for route in M116_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(f"M116 forbidden role authority route present: {route}")
+    return failures
+
+
 M36_SAFE_REF_PREFIXES = {
     "reviewPacketRef": "file-review-packet:",
     "previewResultRef": "redacted-file-preview-output:",
@@ -3940,6 +3975,16 @@ class FoundationGateEvaluator:
                 self.check_m115_production_audit_retention_route_boundary
             ),
             "m115_roadmap_currentness": self.check_m115_roadmap_currentness,
+            "m116_role_based_authority_contracts": (
+                self.check_m116_role_based_authority_contracts
+            ),
+            "m116_role_based_authority_static_safety": (
+                self.check_m116_role_based_authority_static_safety
+            ),
+            "m116_role_based_authority_route_boundary": (
+                self.check_m116_role_based_authority_route_boundary
+            ),
+            "m116_roadmap_currentness": self.check_m116_roadmap_currentness,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -29655,6 +29700,12 @@ class FoundationGateEvaluator:
             or "production audit retention policy" in active_version_text
         ):
             implemented_milestones.add("m115")
+        if (
+            "checkpoint m116" in active_version_text
+            or "m116" in active_version_text
+            or "role-based authority model" in active_version_text
+        ):
+            implemented_milestones.add("m116")
         for version_label, product_target, milestone, title in expected_labels:
             if milestone in implemented_milestones:
                 continue
@@ -31528,7 +31579,16 @@ class FoundationGateEvaluator:
             "| checkpoint m115 | pre-alpha checkpoint | m115 | "
             "production audit retention policy | implemented/released |"
         )
-        if implemented_m115_row in text:
+        implemented_m116_row = (
+            "| checkpoint m116 | pre-alpha checkpoint | m116 | "
+            "role-based authority model | implemented/released |"
+        )
+        if implemented_m116_row in text:
+            planned_rows = [
+                ("checkpoint m117", "pre-alpha checkpoint", "m117", "remote agent coordination contract"),
+                ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ]
+        elif implemented_m115_row in text:
             planned_rows = [
                 ("checkpoint m116", "pre-alpha checkpoint", "m116", "role-based authority model"),
                 ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
@@ -31892,7 +31952,16 @@ class FoundationGateEvaluator:
             "| checkpoint m115 | pre-alpha checkpoint | m115 | "
             "production audit retention policy | implemented/released |"
         )
-        if implemented_m115_row in text:
+        implemented_m116_row = (
+            "| checkpoint m116 | pre-alpha checkpoint | m116 | "
+            "role-based authority model | implemented/released |"
+        )
+        if implemented_m116_row in text:
+            planned_rows = [
+                ("checkpoint m117", "pre-alpha checkpoint", "m117", "remote agent coordination contract"),
+                ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ]
+        elif implemented_m115_row in text:
             planned_rows = [
                 ("checkpoint m116", "pre-alpha checkpoint", "m116", "role-based authority model"),
                 ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
@@ -32236,7 +32305,16 @@ class FoundationGateEvaluator:
             "| checkpoint m115 | pre-alpha checkpoint | m115 | "
             "production audit retention policy | implemented/released |"
         )
-        if implemented_m115_row in text:
+        implemented_m116_row = (
+            "| checkpoint m116 | pre-alpha checkpoint | m116 | "
+            "role-based authority model | implemented/released |"
+        )
+        if implemented_m116_row in text:
+            planned_rows = [
+                ("checkpoint m117", "pre-alpha checkpoint", "m117", "remote agent coordination contract"),
+                ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ]
+        elif implemented_m115_row in text:
             planned_rows = [
                 ("checkpoint m116", "pre-alpha checkpoint", "m116", "role-based authority model"),
                 ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
@@ -33232,7 +33310,20 @@ class FoundationGateEvaluator:
         planned_rows = [
             ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
         ]
-        if implemented_m115_row in text:
+        implemented_m116_row = (
+            "| checkpoint m116 | pre-alpha checkpoint | m116 | "
+            "role-based authority model | implemented/released |"
+        )
+        if implemented_m116_row in text:
+            planned_rows.append(
+                (
+                    "checkpoint m117",
+                    "pre-alpha checkpoint",
+                    "m117",
+                    "remote agent coordination contract",
+                )
+            )
+        elif implemented_m115_row in text:
             planned_rows.append(
                 (
                     "checkpoint m116",
@@ -34429,12 +34520,422 @@ class FoundationGateEvaluator:
             and "checkpoint m115 is implemented/released" not in text
         ):
             failures.append("active docs do not mark M115 implemented/released")
-        for version_label, product_target, milestone, title in [
+        for version_label, product_target, milestone, title, status in [
             (
                 "checkpoint m116",
                 "pre-alpha checkpoint",
                 "m116",
                 "role-based authority model",
+                "implemented/released",
+            ),
+            (
+                "checkpoint m117",
+                "pre-alpha checkpoint",
+                "m117",
+                "remote agent coordination contract",
+                "planned/provisional",
+            ),
+            (
+                "v1.0.0-alpha",
+                "alpha",
+                "m150",
+                "ultimate ai agent v1.0.0-alpha",
+                "planned/provisional",
+            ),
+        ]:
+            row = (
+                f"| {version_label} | {product_target} | {milestone} | "
+                f"{title} | {status} |"
+            )
+            if row not in text:
+                failures.append(
+                    f"active docs missing expected M116-M150 row: {version_label} / {milestone.upper()} - {title}"
+                )
+        for fragment in (
+            "m117 is implemented",
+            "checkpoint m117 implements m117",
+            "remote agent coordination contract is implemented",
+            "audit runtime is implemented",
+            "audit export is implemented",
+            "raw log storage is implemented",
+            "role enforcement is implemented",
+            "permission enforcement is implemented",
+            "production authority is implemented",
+            "beta is released",
+            "broad autonomy is implemented",
+        ):
+            if fragment in text:
+                failures.append(f"active docs imply forbidden M115 future/currentness claim: {fragment}")
+        return self._result(criterion, failures, required_docs)
+
+    def check_m116_role_based_authority_contracts(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/production_readiness/role_based_authority.py",
+            "docs/production/ROLE_BASED_AUTHORITY_MODEL.md",
+            "docs/production/ROLE_BASED_AUTHORITY_BOUNDARY.md",
+            "docs/production/ROLE_BASED_AUTHORITY_RECEIPT_PLAN.md",
+            "docs/production/ROLE_BASED_AUTHORITY_NON_GOALS.md",
+            "docs/production/M116_TO_M117_BOUNDARY.md",
+            "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            "tests/test_m116_role_based_authority_model.py",
+            "tests/test_m116_gate_integration.py",
+        ]
+        failures = [
+            f"missing M116 role-based authority file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            sys.path.insert(0, str(self.root))
+            from ultimate_ai_agent.core.mobile_companion import (
+                build_mobile_approval_renewal_ux_report,
+                build_mobile_kill_switch_revocation_record,
+                build_mobile_sensor_audit_ledger_record,
+                build_mobile_sensor_hardening_freeze_record,
+            )
+            from ultimate_ai_agent.core.production_readiness import (
+                RoleBasedAuthorityModelStatus,
+                build_account_connector_contract_review_record,
+                build_production_audit_retention_policy_record,
+                build_production_threat_model_record,
+                build_role_based_authority_model_record,
+                build_secrets_boundary_record,
+                build_user_workspace_identity_record,
+                validate_role_based_authority_model_record,
+            )
+
+            source_record = build_production_audit_retention_policy_record(
+                source_record=build_account_connector_contract_review_record(
+                    source_record=build_secrets_boundary_record(
+                        source_record=build_user_workspace_identity_record(
+                            source_record=build_production_threat_model_record(
+                                source_record=build_mobile_sensor_hardening_freeze_record(
+                                    source_record=build_mobile_sensor_audit_ledger_record(
+                                        source_record=build_mobile_kill_switch_revocation_record(
+                                            source_report=build_mobile_approval_renewal_ux_report()
+                                        )
+                                    )
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+            record = build_role_based_authority_model_record(
+                source_record=source_record
+            )
+            if (
+                record.status != RoleBasedAuthorityModelStatus.authority_model
+                or not record.contract_only
+                or not record.review_only
+                or not record.safe_refs_required
+                or not record.actor_bound
+                or not record.baseline_bound
+                or not record.source_production_audit_retention_bound
+                or not record.user_bound
+                or not record.workspace_bound
+                or not record.role_bound
+                or not record.authority_scope_bound
+                or not record.permission_boundary_bound
+                or not record.separation_of_duty_bound
+                or not record.audit_required
+                or not record.replay_safe
+                or record.source_production_audit_retention_ref
+                != source_record.audit_retention_policy_ref
+                or record.source_baseline_ref != source_record.source_baseline_ref
+                or record.actor_ref != source_record.actor_ref
+                or record.user_ref != source_record.user_ref
+                or record.workspace_ref != source_record.workspace_ref
+                or not record.role_refs
+                or not record.authority_scope_refs
+                or not record.permission_boundary_refs
+                or not record.separation_of_duty_refs
+                or not record.break_glass_boundary_ref.startswith(
+                    "break-glass-boundary-ref:"
+                )
+                or "checkpoint:m115" not in record.accepted_checkpoint_refs
+                or record.production_authority_enabled
+                or record.production_runtime_enabled
+                or record.authority_runtime_enabled
+                or record.role_enforcement_enabled
+                or record.permission_enforcement_enabled
+                or record.auth_runtime_enabled
+                or record.login_enabled
+                or record.session_cookie_handling_enabled
+                or record.oauth_flow_enabled
+                or record.token_exchange_enabled
+                or record.credential_handling_enabled
+                or record.account_action_enabled
+                or record.network_access_enabled
+                or record.model_call_enabled
+                or record.memory_write_enabled
+                or record.context_injection_enabled
+                or record.execution_enabled
+                or record.tool_execution_enabled
+                or record.shell_execution_enabled
+                or record.browser_automation_enabled
+                or record.plugin_execution_enabled
+                or record.mobile_sensor_enabled
+                or record.background_worker_enabled
+                or record.remote_execution_enabled
+                or record.backend_route_added
+                or record.control_center_control_added
+                or record.dependency_added
+                or record.side_effects_performed
+                or "M116_ROLE_BASED_AUTHORITY_MODEL" not in record.reason_codes
+                or "M117_REMAINS_FUTURE" not in record.reason_codes
+            ):
+                failures.append(
+                    "M116 role-based authority model is unsafe or over-authoritative"
+                )
+            for update, reason in [
+                ({"review_only": False}, "M116_REVIEW_ONLY_REQUIRED"),
+                ({"authority_runtime_enabled": True}, "AUTHORITY_RUNTIME_DENIED"),
+                ({"role_enforcement_enabled": True}, "ROLE_ENFORCEMENT_DENIED"),
+                (
+                    {"permission_enforcement_enabled": True},
+                    "PERMISSION_ENFORCEMENT_DENIED",
+                ),
+                ({"auth_runtime_enabled": True}, "AUTH_RUNTIME_DENIED"),
+                ({"login_enabled": True}, "LOGIN_DENIED"),
+                (
+                    {"session_cookie_handling_enabled": True},
+                    "SESSION_COOKIE_HANDLING_DENIED",
+                ),
+                ({"oauth_flow_enabled": True}, "OAUTH_FLOW_DENIED"),
+                ({"token_exchange_enabled": True}, "TOKEN_EXCHANGE_DENIED"),
+                ({"credential_handling_enabled": True}, "CREDENTIAL_HANDLING_DENIED"),
+                ({"account_action_enabled": True}, "ACCOUNT_ACTION_DENIED"),
+                ({"network_access_enabled": True}, "NETWORK_ACCESS_DENIED"),
+                ({"model_call_enabled": True}, "MODEL_CALL_DENIED"),
+                ({"memory_write_enabled": True}, "MEMORY_WRITE_DENIED"),
+                ({"context_injection_enabled": True}, "CONTEXT_INJECTION_DENIED"),
+                ({"execution_enabled": True}, "EXECUTION_DENIED"),
+                ({"backend_route_added": True}, "BACKEND_ROUTE_DENIED"),
+                (
+                    {"control_center_control_added": True},
+                    "CONTROL_CENTER_CONTROL_DENIED",
+                ),
+                ({"dependency_added": True}, "DEPENDENCY_DENIED"),
+            ]:
+                try:
+                    validate_role_based_authority_model_record(
+                        record.model_copy(update=update)
+                    )
+                    failures.append(
+                        f"M116 unsafe record mutation was not denied with {reason}"
+                    )
+                except ValueError as exc:
+                    if reason not in str(exc):
+                        failures.append(f"M116 unsafe record mutation raised {exc!s}")
+        except Exception as exc:
+            failures.append(f"M116 role-based authority validation failed: {exc}")
+
+        docs_text = " ".join(
+            "\n".join(
+                self._read(self.root / path).lower()
+                for path in required_files
+                if path.startswith("docs/") and (self.root / path).exists()
+            ).split()
+        )
+        for fragment in [
+            "role-based authority model",
+            "contract-only",
+            "review-only",
+            "safe refs",
+            "production audit retention policy",
+            "role refs",
+            "authority scope refs",
+            "permission boundary refs",
+            "separation-of-duty refs",
+            "break-glass boundary ref",
+            "actor-bound",
+            "baseline-bound",
+            "source-production-audit-retention-bound",
+            "user-bound",
+            "workspace-bound",
+            "role-bound",
+            "authority-scope-bound",
+            "permission-boundary-bound",
+            "separation-of-duty-bound",
+            "audit",
+            "replay",
+            "no-effect receipt plan",
+            "no production authority",
+            "no production runtime",
+            "no authority runtime",
+            "no role enforcement",
+            "no permission enforcement",
+            "no auth runtime",
+            "no login",
+            "no session cookie handling",
+            "no oauth flow",
+            "no token exchange",
+            "no credential handling",
+            "no account action",
+            "no network access",
+            "no model call",
+            "no memory write",
+            "no context injection",
+            "no execution",
+            "no tool execution",
+            "no shell execution",
+            "no browser automation",
+            "no plugin execution",
+            "no mobile sensor",
+            "no background worker",
+            "no remote execution",
+            "no backend route",
+            "no control center control",
+            "no dependency",
+            "m117 remains future",
+            "v1.0.0-alpha",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M116 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m116_role_based_authority_static_safety(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        forbidden_source_fragments = [
+            "production_authority_enabled=True",
+            "production_runtime_enabled=True",
+            "authority_runtime_enabled=True",
+            "role_enforcement_enabled=True",
+            "permission_enforcement_enabled=True",
+            "auth_runtime_enabled=True",
+            "login_enabled=True",
+            "session_cookie_handling_enabled=True",
+            "oauth_flow_enabled=True",
+            "token_exchange_enabled=True",
+            "credential_handling_enabled=True",
+            "account_action_enabled=True",
+            "network_access_enabled=True",
+            "model_call_enabled=True",
+            "memory_write_enabled=True",
+            "context_injection_enabled=True",
+            "execution_enabled=True",
+            "tool_execution_enabled=True",
+            "shell_execution_enabled=True",
+            "browser_automation_enabled=True",
+            "plugin_execution_enabled=True",
+            "mobile_sensor_enabled=True",
+            "background_worker_enabled=True",
+            "remote_execution_enabled=True",
+            "backend_route_enabled=True",
+            "backend_route_added=True",
+            "control_center_control_enabled=True",
+            "control_center_control_added=True",
+            "dependency_added=True",
+            "/authority/roles",
+            "/authority/enforce",
+            "/authority/permissions",
+            "/rbac/enforce",
+            "/roles/assign",
+            "/auth/login",
+            "/auth/session",
+            "/auth/oauth",
+            "/credentials/read",
+            "/account/action",
+        ]
+        allowed_files = {
+            "scripts/verify_all.py",
+            "src/ultimate_ai_agent/core/gate/evaluators.py",
+            "src/ultimate_ai_agent/core/production_readiness/__init__.py",
+            "src/ultimate_ai_agent/core/production_readiness/role_based_authority.py",
+            "src/ultimate_ai_agent/core/production_readiness/production_audit_retention.py",
+            "src/ultimate_ai_agent/core/production_readiness/account_connector_review.py",
+            "src/ultimate_ai_agent/core/production_readiness/secrets_boundary.py",
+            "src/ultimate_ai_agent/core/production_readiness/user_workspace_identity.py",
+            "src/ultimate_ai_agent/core/production_readiness/production_threat_model.py",
+        }
+        for root in [
+            self.root / "src" / "ultimate_ai_agent",
+            self.root / "apps" / "control-center" / "src",
+            self.root / "apps" / "ccc-ios",
+        ]:
+            if not root.exists():
+                continue
+            candidate_files = []
+            for pattern in (
+                "*.py",
+                "*.ts",
+                "*.tsx",
+                "*.js",
+                "*.jsx",
+                "*.swift",
+                "*.yml",
+                "*.yaml",
+            ):
+                candidate_files.extend(root.rglob(pattern))
+            for path in sorted(candidate_files):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(self.root).as_posix()
+                if ".test." in rel:
+                    continue
+                if rel in allowed_files:
+                    continue
+                text = path.read_text(encoding="utf-8")
+                for fragment in forbidden_source_fragments:
+                    if fragment in text:
+                        failures.append(
+                            f"M116 forbidden role authority fragment in {rel}: {fragment}"
+                        )
+        return self._result(criterion, failures, [])
+
+    def check_m116_role_based_authority_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m116_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M116 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m116_roadmap_currentness(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_docs = [
+            "README.md",
+            "VERSION.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            "docs/roadmap/MILESTONE_CHARTERS.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+        ]
+        failures = [
+            f"missing M116 roadmap doc: {path}"
+            for path in required_docs
+            if not (self.root / path).exists()
+        ]
+        text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_docs
+            if (self.root / path).exists()
+        )
+        if "checkpoint m116" not in text or "role-based authority model" not in text:
+            failures.append(
+                "active docs do not identify Checkpoint M116 Role-Based Authority Model"
+            )
+        if (
+            "m116 is implemented/released" not in text
+            and "checkpoint m116 is implemented/released" not in text
+        ):
+            failures.append("active docs do not mark M116 implemented/released")
+        for version_label, product_target, milestone, title in [
+            (
+                "checkpoint m117",
+                "pre-alpha checkpoint",
+                "m117",
+                "remote agent coordination contract",
             ),
             ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
         ]:
@@ -34444,21 +34945,23 @@ class FoundationGateEvaluator:
             )
             if row not in text:
                 failures.append(
-                    f"active docs missing planned M116-M150 row: {version_label} / {milestone.upper()} - {title}"
+                    f"active docs missing planned M117-M150 row: {version_label} / {milestone.upper()} - {title}"
                 )
         for fragment in (
-            "m116 is implemented",
-            "checkpoint m116 implements m116",
-            "role-based authority model is implemented",
-            "audit runtime is implemented",
-            "audit export is implemented",
-            "raw log storage is implemented",
+            "m117 is implemented",
+            "checkpoint m117 implements m117",
+            "remote agent coordination contract is implemented",
+            "role enforcement is implemented",
+            "permission enforcement is implemented",
+            "auth runtime is implemented",
+            "login is implemented",
+            "account action is implemented",
             "production authority is implemented",
             "beta is released",
             "broad autonomy is implemented",
         ):
             if fragment in text:
-                failures.append(f"active docs imply forbidden M115 future/currentness claim: {fragment}")
+                failures.append(f"active docs imply forbidden M116 future/currentness claim: {fragment}")
         return self._result(criterion, failures, required_docs)
 
     def check_v0292_local_dev_api_authority_and_preview_safe(
