@@ -157,6 +157,7 @@ SCAN_SEQUENCE = [
     ("M116 role-based authority model scan", "verify_m116_role_based_authority_model"),
     ("M117 remote agent coordination contract scan", "verify_m117_remote_agent_coordination_contract"),
     ("M118 deployment mode matrix scan", "verify_m118_deployment_mode_matrix"),
+    ("M119 production red-team harness scan", "verify_m119_production_red_team_harness"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -17614,6 +17615,12 @@ def verify_post_m100_roadmap_reconciliation():
         or "deployment mode matrix" in active_version_text
     ):
         implemented_milestones.add("m118")
+    if (
+        "checkpoint m119" in active_version_text
+        or "m119" in active_version_text
+        or "production red-team harness" in active_version_text
+    ):
+        implemented_milestones.add("m119")
     for version_label, product_target, milestone, title in expected_labels:
         if milestone in implemented_milestones:
             continue
@@ -21239,6 +21246,223 @@ def verify_m118_deployment_mode_matrix():
             sys.exit(1)
 
     print("OK: M118 deployment mode matrix is contract-only, no-runtime, and route-free")
+
+
+def verify_m119_production_red_team_harness():
+    print("\n[Verifier] Running M119 production red-team harness guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/production_readiness/production_red_team_harness.py",
+        "docs/production/PRODUCTION_RED_TEAM_HARNESS.md",
+        "docs/production/PRODUCTION_RED_TEAM_HARNESS_BOUNDARY.md",
+        "docs/production/PRODUCTION_RED_TEAM_HARNESS_RECEIPT_PLAN.md",
+        "docs/production/PRODUCTION_RED_TEAM_HARNESS_NON_GOALS.md",
+        "docs/production/M119_TO_M120_BOUNDARY.md",
+        "docs/release_notes/checkpoint_m119.md",
+        "docs/archive/checkpoints/m119/README_IMPORT.md",
+        "docs/archive/checkpoints/m119/master_plan.md",
+        "tests/test_m119_production_red_team_harness.py",
+        "tests/test_m119_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M119 production red-team harness file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = " ".join(
+        "\n".join(
+            (ROOT / rel_path).read_text(encoding="utf-8").lower()
+            for rel_path in required_files
+            if rel_path.startswith("docs/")
+        ).split()
+    )
+    for fragment in [
+        "production red-team harness",
+        "contract-only",
+        "review-only",
+        "safe refs",
+        "deployment mode matrix",
+        "red-team scenario refs",
+        "abuse case refs",
+        "threat model refs",
+        "safety control refs",
+        "mitigation plan refs",
+        "no-effect receipt plan",
+        "no production authority",
+        "no red-team execution",
+        "no attack automation",
+        "no scanner runtime",
+        "no external probing",
+        "no exploit generation",
+        "no network access",
+        "no credential handling",
+        "no account action",
+        "no model call",
+        "no memory write",
+        "no context injection",
+        "no execution",
+        "no backend route",
+        "no control center control",
+        "no dependency",
+        "m120 remains future",
+        "v1.0.0-alpha",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M119 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.criteria import (
+            default_foundation_gate_criteria,
+        )
+        from ultimate_ai_agent.core.gate.evaluators import (
+            FoundationGateEvaluator,
+            m119_openapi_route_failures,
+        )
+        from ultimate_ai_agent.core.mobile_companion import (
+            build_mobile_approval_renewal_ux_report,
+            build_mobile_kill_switch_revocation_record,
+            build_mobile_sensor_audit_ledger_record,
+            build_mobile_sensor_hardening_freeze_record,
+        )
+        from ultimate_ai_agent.core.production_readiness import (
+            ProductionRedTeamHarnessStatus,
+            build_account_connector_contract_review_record,
+            build_deployment_mode_matrix_record,
+            build_production_audit_retention_policy_record,
+            build_production_red_team_harness_record,
+            build_production_threat_model_record,
+            build_remote_agent_coordination_contract_record,
+            build_role_based_authority_model_record,
+            build_secrets_boundary_record,
+            build_user_workspace_identity_record,
+            validate_production_red_team_harness_record,
+        )
+    except Exception as exc:
+        print(f"FAIL: M119 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m119_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    source_record = build_deployment_mode_matrix_record(
+        source_record=build_remote_agent_coordination_contract_record(
+            source_record=build_role_based_authority_model_record(
+                source_record=build_production_audit_retention_policy_record(
+                    source_record=build_account_connector_contract_review_record(
+                        source_record=build_secrets_boundary_record(
+                            source_record=build_user_workspace_identity_record(
+                                source_record=build_production_threat_model_record(
+                                    source_record=build_mobile_sensor_hardening_freeze_record(
+                                        source_record=build_mobile_sensor_audit_ledger_record(
+                                            source_record=build_mobile_kill_switch_revocation_record(
+                                                source_report=build_mobile_approval_renewal_ux_report()
+                                            )
+                                        )
+                                    )
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+        )
+    )
+    record = build_production_red_team_harness_record(source_record=source_record)
+    if (
+        record.status != ProductionRedTeamHarnessStatus.production_red_team_harness
+        or not record.contract_only
+        or not record.review_only
+        or not record.safe_refs_required
+        or not record.source_deployment_mode_matrix_bound
+        or record.source_deployment_mode_matrix_ref
+        != source_record.deployment_mode_matrix_ref
+        or "checkpoint:m118" not in record.accepted_checkpoint_refs
+        or not record.red_team_scenario_refs
+        or not record.abuse_case_refs
+        or not record.threat_model_refs
+        or not record.safety_control_refs
+        or not record.mitigation_plan_refs
+        or record.production_authority_enabled
+        or record.red_team_execution_enabled
+        or record.attack_automation_enabled
+        or record.external_probe_enabled
+        or record.exploit_generation_enabled
+        or record.security_scan_runtime_enabled
+        or record.network_access_enabled
+        or record.credential_handling_enabled
+        or record.account_action_enabled
+        or record.model_call_enabled
+        or record.memory_write_enabled
+        or record.context_injection_enabled
+        or record.execution_enabled
+        or record.tool_execution_enabled
+        or record.shell_execution_enabled
+        or record.browser_automation_enabled
+        or record.plugin_execution_enabled
+        or record.mobile_sensor_enabled
+        or record.backend_route_added
+        or record.control_center_control_added
+        or record.dependency_added
+        or record.side_effects_performed
+        or "M119_PRODUCTION_RED_TEAM_HARNESS" not in record.reason_codes
+        or "M120_REMAINS_FUTURE" not in record.reason_codes
+    ):
+        print("FAIL: M119 production red-team harness record is unsafe")
+        sys.exit(1)
+
+    for update, reason in [
+        ({"review_only": False}, "M119_REVIEW_ONLY_REQUIRED"),
+        ({"red_team_scenario_refs": []}, "M119_RED_TEAM_SCENARIO_REF_REQUIRED"),
+        ({"abuse_case_refs": []}, "M119_ABUSE_CASE_REF_REQUIRED"),
+        ({"threat_model_refs": []}, "M119_THREAT_MODEL_REF_REQUIRED"),
+        ({"safety_control_refs": []}, "M119_SAFETY_CONTROL_REF_REQUIRED"),
+        ({"mitigation_plan_refs": []}, "M119_MITIGATION_PLAN_REF_REQUIRED"),
+        ({"red_team_execution_enabled": True}, "RED_TEAM_EXECUTION_DENIED"),
+        ({"attack_automation_enabled": True}, "ATTACK_AUTOMATION_DENIED"),
+        ({"external_probe_enabled": True}, "EXTERNAL_PROBE_DENIED"),
+        ({"exploit_generation_enabled": True}, "EXPLOIT_GENERATION_DENIED"),
+        ({"security_scan_runtime_enabled": True}, "SECURITY_SCAN_RUNTIME_DENIED"),
+        ({"production_authority_enabled": True}, "PRODUCTION_AUTHORITY_DENIED"),
+        ({"credential_handling_enabled": True}, "CREDENTIAL_HANDLING_DENIED"),
+        ({"network_access_enabled": True}, "NETWORK_ACCESS_DENIED"),
+        ({"execution_enabled": True}, "EXECUTION_DENIED"),
+        ({"backend_route_added": True}, "BACKEND_ROUTE_DENIED"),
+        ({"control_center_control_added": True}, "CONTROL_CENTER_CONTROL_DENIED"),
+        ({"dependency_added": True}, "DEPENDENCY_DENIED"),
+    ]:
+        try:
+            validate_production_red_team_harness_record(
+                record.model_copy(update=update)
+            )
+            print(f"FAIL: M119 mutated authority flag was not denied: {update}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M119 mutated authority flag raised {exc!s}")
+                sys.exit(1)
+
+    criteria = {
+        criterion.criterion_id: criterion
+        for criterion in default_foundation_gate_criteria()
+    }
+    evaluator = FoundationGateEvaluator(ROOT)
+    for criterion_id in [
+        "m119_production_red_team_harness_contracts",
+        "m119_production_red_team_harness_static_safety",
+        "m119_production_red_team_harness_route_boundary",
+        "m119_roadmap_currentness",
+    ]:
+        report = evaluator.evaluate([criteria[criterion_id]])
+        result = report.results[0]
+        if result.status != "passed":
+            print(f"FAIL: {criterion_id} failed: {result.failures}")
+            sys.exit(1)
+
+    print("OK: M119 production red-team harness is contract-only, no-runtime, and route-free")
 
 
 def verify_local_developer_launcher_safety():

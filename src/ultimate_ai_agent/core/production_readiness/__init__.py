@@ -62,6 +62,14 @@ from ultimate_ai_agent.core.production_readiness.deployment_mode_matrix import (
     validate_deployment_mode_matrix_policy,
     validate_deployment_mode_matrix_record,
 )
+from ultimate_ai_agent.core.production_readiness.production_red_team_harness import (
+    ProductionRedTeamHarnessPolicy,
+    ProductionRedTeamHarnessRecord,
+    ProductionRedTeamHarnessStatus,
+    build_production_red_team_harness_record,
+    validate_production_red_team_harness_policy,
+    validate_production_red_team_harness_record,
+)
 
 __all__ = [
     "AccountConnectorContractReviewPolicy",
@@ -73,6 +81,9 @@ __all__ = [
     "ProductionAuditRetentionPolicy",
     "ProductionAuditRetentionPolicyRecord",
     "ProductionAuditRetentionPolicyStatus",
+    "ProductionRedTeamHarnessPolicy",
+    "ProductionRedTeamHarnessRecord",
+    "ProductionRedTeamHarnessStatus",
     "ProductionThreatModelPolicy",
     "ProductionThreatModelRecord",
     "ProductionThreatModelStatus",
@@ -91,6 +102,7 @@ __all__ = [
     "build_account_connector_contract_review_record",
     "build_deployment_mode_matrix_record",
     "build_production_audit_retention_policy_record",
+    "build_production_red_team_harness_record",
     "build_production_threat_model_record",
     "build_role_based_authority_model_record",
     "build_remote_agent_coordination_contract_record",
@@ -102,6 +114,8 @@ __all__ = [
     "validate_deployment_mode_matrix_record",
     "validate_production_audit_retention_policy",
     "validate_production_audit_retention_policy_record",
+    "validate_production_red_team_harness_policy",
+    "validate_production_red_team_harness_record",
     "validate_production_threat_model_policy",
     "validate_production_threat_model_record",
     "validate_role_based_authority_model_policy",
