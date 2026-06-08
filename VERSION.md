@@ -2,9 +2,9 @@
 
 Current active baseline: **v1.7.2**
 
-Checkpoint M109 is implemented/released as Mobile Sensor Audit Ledger. The
+Checkpoint M110 is implemented/released as Mobile Sensor Hardening Freeze. The
 current product baseline remains v1.7.2. Already-pushed tags
-remain immutable historical internal milestone tags. Future M110-M149 conveyor
+remain immutable historical internal milestone tags. Future M111-M149 conveyor
 milestones use checkpoint labels instead of product SemVer tags, and M150 is
 the next product release target **v1.0.0-alpha**. Beta begins only after the
 alpha UI and supporting safety/product work are reviewed, accepted, and
@@ -67,6 +67,17 @@ sync, no raw audit payload, no dependency, no memory write, no context
 injection, no execution, no M110 work, no broad autonomy, no mobile background
 runtime, no broad unsandboxed autonomy, and no production authority.
 
-M101, M102, M103, M104, M105, M106, M107, M108, and M109 are implemented/released. M110-M150 are
+Checkpoint M110 adds contract-only review-only freeze-only mobile sensor
+hardening freeze records. It adds no hardening runtime, no sensor access, no
+sensor read, no raw sensor payload, no location access, no camera access, no
+photos access, no microphone access, no background collection, no native mobile
+UI, no backend route, no Control Center control, no notification delivery, no
+push trigger, no background worker, no scheduler, no daemon, no device token
+handling, no external service, no network sync, no raw audit payload, no
+dependency, no memory write, no context injection, no execution, no M111 work,
+no broad autonomy, no mobile sensor runtime, no broad unsandboxed autonomy, no
+beta release, and no production authority.
+
+M101, M102, M103, M104, M105, M106, M107, M108, M109, and M110 are implemented/released. M111-M150 are
 planned/provisional checkpoint milestones only. M150 is planned as
 v1.0.0-alpha, not beta.

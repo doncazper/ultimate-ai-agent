@@ -124,10 +124,10 @@ The detailed post-M33 supersession source of truth is
 
 ## Prompt-Pack Strategy
 
-Recommended next prompt after Checkpoint M109:
+Recommended next prompt after Checkpoint M110:
 
 ```text
-Continue with M110 implementation conveyor using checkpoint milestones for
+Continue with M111 implementation conveyor using checkpoint milestones for
 M110-M149, with M150 reserved as the v1.0.0-alpha product target.
 ```
 

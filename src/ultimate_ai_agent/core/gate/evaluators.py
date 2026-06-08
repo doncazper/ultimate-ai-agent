@@ -1416,6 +1416,13 @@ M109_FORBIDDEN_BACKEND_ROUTES = M108_FORBIDDEN_BACKEND_ROUTES + (
     "/mobile/sensors/microphone",
     "/mobile/background/collect",
 )
+EXPECTED_M110_OPENAPI_PATH_COUNT = 75
+M110_FORBIDDEN_BACKEND_ROUTES = M109_FORBIDDEN_BACKEND_ROUTES + (
+    "/mobile/sensor-hardening",
+    "/mobile/sensor-hardening/run",
+    "/mobile/sensor-hardening/freeze",
+    "/mobile/sensor-hardening/execute",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -2755,6 +2762,21 @@ def m109_openapi_route_failures(
     return failures
 
 
+def m110_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M110_OPENAPI_PATH_COUNT
+) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(
+            f"OpenAPI path count changed for M110: expected {expected_path_count}, got {len(path_set)}"
+        )
+    for route in M110_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(f"M110 forbidden sensor hardening route present: {route}")
+    return failures
+
+
 M36_SAFE_REF_PREFIXES = {
     "reviewPacketRef": "file-review-packet:",
     "previewResultRef": "redacted-file-preview-output:",
@@ -3710,6 +3732,16 @@ class FoundationGateEvaluator:
                 self.check_m109_mobile_sensor_audit_ledger_route_boundary
             ),
             "m109_roadmap_currentness": self.check_m109_roadmap_currentness,
+            "m110_mobile_sensor_hardening_freeze_contracts": (
+                self.check_m110_mobile_sensor_hardening_freeze_contracts
+            ),
+            "m110_mobile_sensor_hardening_freeze_static_safety": (
+                self.check_m110_mobile_sensor_hardening_freeze_static_safety
+            ),
+            "m110_mobile_sensor_hardening_freeze_route_boundary": (
+                self.check_m110_mobile_sensor_hardening_freeze_route_boundary
+            ),
+            "m110_roadmap_currentness": self.check_m110_roadmap_currentness,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -29385,6 +29417,12 @@ class FoundationGateEvaluator:
             or "mobile sensor audit ledger" in active_version_text
         ):
             implemented_milestones.add("m109")
+        if (
+            "checkpoint m110" in active_version_text
+            or "m110" in active_version_text
+            or "mobile sensor hardening freeze" in active_version_text
+        ):
+            implemented_milestones.add("m110")
         for version_label, product_target, milestone, title in expected_labels:
             if milestone in implemented_milestones:
                 continue
@@ -31220,6 +31258,10 @@ class FoundationGateEvaluator:
             "| checkpoint m109 | pre-alpha checkpoint | m109 | "
             "mobile sensor audit ledger | implemented/released |"
         )
+        implemented_m110_row = (
+            "| checkpoint m110 | pre-alpha checkpoint | m110 | "
+            "mobile sensor hardening freeze | implemented/released |"
+        )
         planned_rows = [
             ("checkpoint m110", "pre-alpha checkpoint", "m110", "mobile sensor hardening freeze"),
             ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
@@ -31234,6 +31276,11 @@ class FoundationGateEvaluator:
                 0,
                 ("checkpoint m109", "pre-alpha checkpoint", "m109", "mobile sensor audit ledger"),
             )
+        if implemented_m110_row in text:
+            planned_rows = [
+                ("checkpoint m111", "pre-alpha checkpoint", "m111", "production threat model"),
+                ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ]
         for version_label, product_target, milestone, title in planned_rows:
             row = (
                 f"| {version_label} | {product_target} | {milestone} | "
@@ -31530,6 +31577,10 @@ class FoundationGateEvaluator:
             "| checkpoint m109 | pre-alpha checkpoint | m109 | "
             "mobile sensor audit ledger | implemented/released |"
         )
+        implemented_m110_row = (
+            "| checkpoint m110 | pre-alpha checkpoint | m110 | "
+            "mobile sensor hardening freeze | implemented/released |"
+        )
         planned_rows = [
             ("checkpoint m110", "pre-alpha checkpoint", "m110", "mobile sensor hardening freeze"),
             ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
@@ -31539,6 +31590,11 @@ class FoundationGateEvaluator:
                 0,
                 ("checkpoint m109", "pre-alpha checkpoint", "m109", "mobile sensor audit ledger"),
             )
+        if implemented_m110_row in text:
+            planned_rows = [
+                ("checkpoint m111", "pre-alpha checkpoint", "m111", "production threat model"),
+                ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ]
         for version_label, product_target, milestone, title in planned_rows:
             row = (
                 f"| {version_label} | {product_target} | {milestone} | "
@@ -31820,10 +31876,20 @@ class FoundationGateEvaluator:
             failures.append("active docs do not identify Checkpoint M109 Mobile Sensor Audit Ledger")
         if "m109 is implemented/released" not in text and "checkpoint m109 is implemented/released" not in text:
             failures.append("active docs do not mark M109 implemented/released")
-        for version_label, product_target, milestone, title in [
+        implemented_m110_row = (
+            "| checkpoint m110 | pre-alpha checkpoint | m110 | "
+            "mobile sensor hardening freeze | implemented/released |"
+        )
+        planned_rows = [
             ("checkpoint m110", "pre-alpha checkpoint", "m110", "mobile sensor hardening freeze"),
             ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
-        ]:
+        ]
+        if implemented_m110_row in text:
+            planned_rows = [
+                ("checkpoint m111", "pre-alpha checkpoint", "m111", "production threat model"),
+                ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ]
+        for version_label, product_target, milestone, title in planned_rows:
             row = (
                 f"| {version_label} | {product_target} | {milestone} | "
                 f"{title} | planned/provisional |"
@@ -31832,9 +31898,328 @@ class FoundationGateEvaluator:
                 failures.append(
                     f"active docs missing planned M110-M150 row: {version_label} / {milestone.upper()} - {title}"
                 )
+        forbidden_fragments = [
+            "sensor access is implemented",
+            "sensor read is implemented",
+            "raw sensor payload is implemented",
+            "background collection is implemented",
+            "production authority is implemented",
+            "beta is released",
+            "broad autonomy is implemented",
+        ]
+        if implemented_m110_row not in text:
+            forbidden_fragments.extend(
+                [
+                    "m110 is implemented",
+                    "checkpoint m110 implements m110",
+                ]
+            )
+        for fragment in forbidden_fragments:
+            if fragment in text:
+                failures.append(f"M109 docs imply forbidden/future capability: {fragment}")
+        return self._result(criterion, failures, required_docs)
+
+    def check_m110_mobile_sensor_hardening_freeze_contracts(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/mobile_companion/mobile_sensor_hardening_freeze.py",
+            "docs/mobile/MOBILE_SENSOR_HARDENING_FREEZE.md",
+            "docs/mobile/MOBILE_SENSOR_HARDENING_FREEZE_POLICY.md",
+            "docs/mobile/MOBILE_SENSOR_HARDENING_FREEZE_AUTHORITY_BOUNDARY.md",
+            "docs/mobile/MOBILE_SENSOR_HARDENING_FREEZE_RECEIPT_PLAN.md",
+            "docs/mobile/MOBILE_SENSOR_HARDENING_FREEZE_NON_GOALS.md",
+            "docs/mobile/M110_TO_M111_BOUNDARY.md",
+            "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            "tests/test_m110_mobile_sensor_hardening_freeze.py",
+            "tests/test_m110_gate_integration.py",
+        ]
+        failures = [
+            f"missing M110 sensor hardening file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            sys.path.insert(0, str(self.root))
+            from ultimate_ai_agent.core.mobile_companion import (
+                MobileSensorHardeningFreezeStatus,
+                build_mobile_approval_renewal_ux_report,
+                build_mobile_kill_switch_revocation_record,
+                build_mobile_sensor_audit_ledger_record,
+                build_mobile_sensor_hardening_freeze_record,
+                validate_mobile_sensor_hardening_freeze_record,
+            )
+
+            source_record = build_mobile_sensor_audit_ledger_record(
+                source_record=build_mobile_kill_switch_revocation_record(
+                    source_report=build_mobile_approval_renewal_ux_report()
+                )
+            )
+            record = build_mobile_sensor_hardening_freeze_record(
+                source_record=source_record
+            )
+            if (
+                record.status != MobileSensorHardeningFreezeStatus.freeze_only_contract
+                or not record.contract_only
+                or not record.review_only
+                or not record.freeze_only
+                or not record.safe_refs_required
+                or not record.actor_bound
+                or not record.device_bound
+                or not record.sensor_scope_bound
+                or not record.audit_required
+                or not record.replay_safe
+                or record.source_ledger_ref != source_record.ledger_ref
+                or record.source_baseline_ref != source_record.source_baseline_ref
+                or record.actor_ref != source_record.actor_ref
+                or record.safe_device_ref != source_record.safe_device_ref
+                or record.sensor_scope_ref != source_record.sensor_scope_ref
+                or not record.accepted_checkpoint_refs
+                or record.hardening_runtime_enabled
+                or record.sensor_access_performed
+                or record.sensor_read_enabled
+                or record.raw_sensor_payload_enabled
+                or record.location_access_enabled
+                or record.camera_access_enabled
+                or record.photos_access_enabled
+                or record.microphone_access_enabled
+                or record.background_collection_enabled
+                or record.native_mobile_ui_enabled
+                or record.notification_delivery_enabled
+                or record.push_trigger_enabled
+                or record.background_worker_enabled
+                or record.scheduler_enabled
+                or record.daemon_enabled
+                or record.device_token_handling_enabled
+                or record.external_service_enabled
+                or record.network_sync_enabled
+                or record.raw_audit_payload_enabled
+                or record.memory_write_enabled
+                or record.context_injection_enabled
+                or record.execution_enabled
+                or record.production_authority_enabled
+                or record.backend_route_added
+                or record.control_center_control_added
+                or record.dependency_added
+                or record.side_effects_performed
+                or "M110_MOBILE_SENSOR_HARDENING_FREEZE" not in record.reason_codes
+                or "M111_REMAINS_FUTURE" not in record.reason_codes
+            ):
+                failures.append(
+                    "M110 sensor hardening freeze is unsafe or over-authoritative"
+                )
+            for update, reason in [
+                ({"freeze_only": False}, "M110_FREEZE_ONLY_REQUIRED"),
+                ({"hardening_runtime_enabled": True}, "HARDENING_RUNTIME_DENIED"),
+                ({"sensor_access_performed": True}, "SENSOR_ACCESS_DENIED"),
+                ({"sensor_read_enabled": True}, "SENSOR_READ_DENIED"),
+                ({"raw_sensor_payload_enabled": True}, "RAW_SENSOR_PAYLOAD_DENIED"),
+                ({"location_access_enabled": True}, "LOCATION_ACCESS_DENIED"),
+                ({"camera_access_enabled": True}, "CAMERA_ACCESS_DENIED"),
+                ({"background_collection_enabled": True}, "BACKGROUND_COLLECTION_DENIED"),
+                ({"native_mobile_ui_enabled": True}, "NATIVE_MOBILE_UI_DENIED"),
+                ({"raw_audit_payload_enabled": True}, "RAW_AUDIT_PAYLOAD_DENIED"),
+                ({"execution_enabled": True}, "EXECUTION_DENIED"),
+                ({"production_authority_enabled": True}, "PRODUCTION_AUTHORITY_DENIED"),
+                ({"dependency_added": True}, "DEPENDENCY_DENIED"),
+            ]:
+                try:
+                    validate_mobile_sensor_hardening_freeze_record(
+                        record.model_copy(update=update)
+                    )
+                    failures.append(f"M110 unsafe record mutation was not denied with {reason}")
+                except ValueError as exc:
+                    if reason not in str(exc):
+                        failures.append(f"M110 unsafe record mutation raised {exc!s}")
+        except Exception as exc:
+            failures.append(f"M110 sensor hardening freeze validation failed: {exc}")
+
+        docs_text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_files
+            if path.startswith("docs/") and (self.root / path).exists()
+        )
+        for fragment in [
+            "mobile sensor hardening freeze",
+            "contract-only",
+            "review-only",
+            "freeze-only",
+            "safe refs",
+            "safe sensor refs",
+            "safe sensor scope refs",
+            "hardening checklist refs",
+            "mobile sensor audit ledger",
+            "actor-bound",
+            "device-bound",
+            "sensor-scope-bound",
+            "audit",
+            "replay",
+            "no-effect receipt plan",
+            "no hardening runtime",
+            "no sensor access",
+            "no sensor read",
+            "no raw sensor payload",
+            "no location access",
+            "no camera access",
+            "no photos access",
+            "no microphone access",
+            "no background collection",
+            "no native mobile ui",
+            "no backend route",
+            "no control center control",
+            "no notification delivery",
+            "no push trigger",
+            "no background worker",
+            "no scheduler",
+            "no daemon",
+            "no device token handling",
+            "no external service",
+            "no network sync",
+            "no raw audit payload",
+            "no dependency",
+            "no memory write",
+            "no context injection",
+            "no execution",
+            "no production authority",
+            "m111 remains future",
+            "v1.0.0-alpha",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M110 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m110_mobile_sensor_hardening_freeze_static_safety(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        forbidden_source_fragments = [
+            "hardening_runtime_enabled=True",
+            "sensor_access_enabled=True",
+            "sensor_access_performed=True",
+            "sensor_read_enabled=True",
+            "raw_sensor_payload_enabled=True",
+            "location_access_enabled=True",
+            "camera_access_enabled=True",
+            "photos_access_enabled=True",
+            "microphone_access_enabled=True",
+            "background_collection_enabled=True",
+            "native_mobile_ui_enabled=True",
+            "control_center_control_enabled=True",
+            "control_center_control_added=True",
+            "backend_route_enabled=True",
+            "backend_route_added=True",
+            "notification_delivery_enabled=True",
+            "push_trigger_enabled=True",
+            "background_worker_enabled=True",
+            "scheduler_enabled=True",
+            "daemon_enabled=True",
+            "device_token_handling_enabled=True",
+            "external_service_enabled=True",
+            "network_sync_enabled=True",
+            "raw_audit_payload_enabled=True",
+            "memory_write_enabled=True",
+            "context_injection_enabled=True",
+            "execution_enabled=True",
+            "production_authority_enabled=True",
+            "dependency_added=True",
+        ]
+        allowed_files = {
+            "scripts/verify_all.py",
+            "src/ultimate_ai_agent/core/gate/evaluators.py",
+            "src/ultimate_ai_agent/core/mobile_companion/__init__.py",
+            "src/ultimate_ai_agent/core/mobile_companion/mobile_sensor_hardening_freeze.py",
+            "src/ultimate_ai_agent/core/mobile_companion/mobile_sensor_audit_ledger.py",
+            "src/ultimate_ai_agent/core/mobile_companion/mobile_kill_switch_revocation.py",
+            "src/ultimate_ai_agent/core/mobile_companion/mobile_approval_renewal_ux.py",
+            "src/ultimate_ai_agent/core/mobile_companion/mobile_background_read_only_status_sync.py",
+            "src/ultimate_ai_agent/core/mobile_companion/background_task_contract_no_execution.py",
+            "src/ultimate_ai_agent/core/mobile_companion/camera_photos_metadata_only.py",
+            "src/ultimate_ai_agent/core/mobile_companion/location_sensor_off_by_default.py",
+            "src/ultimate_ai_agent/core/mobile_companion/notification_planning_no_push.py",
+            "src/ultimate_ai_agent/core/mobile_companion/permission_model_v1.py",
+            "src/ultimate_ai_agent/core/mobile_companion/sensor_contract_review.py",
+        }
+        for root in [
+            self.root / "src" / "ultimate_ai_agent",
+            self.root / "apps" / "control-center" / "src",
+            self.root / "apps" / "ccc-ios",
+        ]:
+            if not root.exists():
+                continue
+            candidate_files = []
+            for pattern in ("*.py", "*.ts", "*.tsx", "*.js", "*.jsx", "*.swift", "*.yml", "*.yaml"):
+                candidate_files.extend(root.rglob(pattern))
+            for path in sorted(candidate_files):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(self.root).as_posix()
+                if ".test." in rel:
+                    continue
+                if rel in allowed_files:
+                    continue
+                text = path.read_text(encoding="utf-8")
+                for fragment in forbidden_source_fragments:
+                    if fragment in text:
+                        failures.append(
+                            f"M110 forbidden sensor hardening fragment in {rel}: {fragment}"
+                        )
+        return self._result(criterion, failures, [])
+
+    def check_m110_mobile_sensor_hardening_freeze_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m110_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M110 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m110_roadmap_currentness(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_docs = [
+            "README.md",
+            "VERSION.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            "docs/roadmap/MILESTONE_CHARTERS.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+        ]
+        failures = [
+            f"missing M110 roadmap doc: {path}"
+            for path in required_docs
+            if not (self.root / path).exists()
+        ]
+        text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_docs
+            if (self.root / path).exists()
+        )
+        if "checkpoint m110" not in text or "mobile sensor hardening freeze" not in text:
+            failures.append(
+                "active docs do not identify Checkpoint M110 Mobile Sensor Hardening Freeze"
+            )
+        if "m110 is implemented/released" not in text and "checkpoint m110 is implemented/released" not in text:
+            failures.append("active docs do not mark M110 implemented/released")
+        for version_label, product_target, milestone, title in [
+            ("checkpoint m111", "pre-alpha checkpoint", "m111", "production threat model"),
+            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+        ]:
+            row = (
+                f"| {version_label} | {product_target} | {milestone} | "
+                f"{title} | planned/provisional |"
+            )
+            if row not in text:
+                failures.append(
+                    f"active docs missing planned M111-M150 row: {version_label} / {milestone.upper()} - {title}"
+                )
         for fragment in (
-            "m110 is implemented",
-            "checkpoint m110 implements m110",
+            "m111 is implemented",
+            "checkpoint m111 implements m111",
+            "production threat model is implemented",
             "sensor access is implemented",
             "sensor read is implemented",
             "raw sensor payload is implemented",
@@ -31844,7 +32229,7 @@ class FoundationGateEvaluator:
             "broad autonomy is implemented",
         ):
             if fragment in text:
-                failures.append(f"M109 docs imply forbidden/future capability: {fragment}")
+                failures.append(f"M110 docs imply forbidden/future capability: {fragment}")
         return self._result(criterion, failures, required_docs)
 
     def check_v0292_local_dev_api_authority_and_preview_safe(

@@ -81,6 +81,12 @@ docs/mobile/MOBILE_SENSOR_AUDIT_LEDGER_AUTHORITY_BOUNDARY.md
 docs/mobile/MOBILE_SENSOR_AUDIT_LEDGER_RECEIPT_PLAN.md
 docs/mobile/MOBILE_SENSOR_AUDIT_LEDGER_NON_GOALS.md
 docs/mobile/M109_TO_M110_BOUNDARY.md
+docs/mobile/MOBILE_SENSOR_HARDENING_FREEZE.md
+docs/mobile/MOBILE_SENSOR_HARDENING_FREEZE_POLICY.md
+docs/mobile/MOBILE_SENSOR_HARDENING_FREEZE_AUTHORITY_BOUNDARY.md
+docs/mobile/MOBILE_SENSOR_HARDENING_FREEZE_RECEIPT_PLAN.md
+docs/mobile/MOBILE_SENSOR_HARDENING_FREEZE_NON_GOALS.md
+docs/mobile/M110_TO_M111_BOUNDARY.md
 docs/files/BROADER_FILE_CAPABILITY_REVIEW.md
 docs/files/FILE_CAPABILITY_BOUNDARY_MATRIX.md
 docs/files/FILE_CAPABILITY_RISK_REGISTER.md
@@ -779,15 +785,17 @@ implemented/released as contract-only read-only background status sync. M107 is
 implemented/released as contract-only review-only mobile approval renewal UX.
 M108 is implemented/released as contract-only review-only mobile kill switch +
 revocation records. M109 is implemented/released as contract-only review-only
-mobile sensor audit ledger records. M110-M150 are
+mobile sensor audit ledger records. M110 is implemented/released as
+contract-only review-only freeze-only mobile sensor hardening freeze records.
+M111-M150 are
 planned/provisional only in `docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md`.
-Future M110-M149 conveyor milestones use checkpoint labels instead of product
+Future M111-M149 conveyor milestones use checkpoint labels instead of product
 SemVer tags, and M150 is
 planned as v1.0.0-alpha. Beta begins only after alpha UI and supporting
 safety/product work are reviewed and promoted. Active roadmap sources consistently mark
-M34-M109 implemented/released and rely on documentation-integrity checks to
+M34-M110 implemented/released and rely on documentation-integrity checks to
 guard against superseded-roadmap drift, stale current-baseline labels, route
-drift, authority-boundary drift, alpha/beta versioning drift, and M110-M150
+drift, authority-boundary drift, alpha/beta versioning drift, and M111-M150
 future-status drift.
 
 ## Release Notes Index
