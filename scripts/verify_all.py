@@ -139,6 +139,7 @@ SCAN_SEQUENCE = [
     ("M102 location sensor off-by-default scan", "verify_m102_location_sensor_off_by_default"),
     ("M103 camera/photos metadata-only scan", "verify_m103_camera_photos_metadata_only"),
     ("M104 notification planning no-push scan", "verify_m104_notification_planning_no_push"),
+    ("M105 background task contract no-execution scan", "verify_m105_background_task_contract_no_execution"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -17512,6 +17513,12 @@ def verify_post_m100_roadmap_reconciliation():
         or "notification planning, no push execution" in active_version_text
     ):
         implemented_milestones.add("m104")
+    if (
+        "checkpoint m105" in active_version_text
+        or "m105" in active_version_text
+        or "background task contract, no execution" in active_version_text
+    ):
+        implemented_milestones.add("m105")
     for version_label, product_target, milestone, title in expected_labels:
         if milestone in implemented_milestones:
             continue
@@ -18232,6 +18239,172 @@ def verify_m104_notification_planning_no_push():
             sys.exit(1)
 
     print("OK: M104 notification planning is contract-only, no-push, and route-free")
+
+
+def verify_m105_background_task_contract_no_execution():
+    print("\n[Verifier] Running M105 background task contract no-execution guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/mobile_companion/background_task_contract_no_execution.py",
+        "docs/mobile/BACKGROUND_TASK_CONTRACT_NO_EXECUTION.md",
+        "docs/mobile/BACKGROUND_TASK_CONTRACT_NO_EXECUTION_POLICY.md",
+        "docs/mobile/BACKGROUND_TASK_CONTRACT_NO_EXECUTION_AUTHORITY_BOUNDARY.md",
+        "docs/mobile/BACKGROUND_TASK_CONTRACT_NO_EXECUTION_RECEIPT_PLAN.md",
+        "docs/mobile/BACKGROUND_TASK_CONTRACT_NO_EXECUTION_NON_GOALS.md",
+        "docs/mobile/M105_TO_M106_BOUNDARY.md",
+        "docs/release_notes/checkpoint_m105.md",
+        "docs/archive/checkpoints/m105/README_IMPORT.md",
+        "docs/archive/checkpoints/m105/master_plan.md",
+        "tests/test_m105_background_task_contract_no_execution.py",
+        "tests/test_m105_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M105 background task contract file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = "\n".join(
+        (ROOT / rel_path).read_text(encoding="utf-8").lower()
+        for rel_path in required_files
+        if rel_path.startswith("docs/")
+    )
+    for fragment in [
+        "background task contract, no execution",
+        "contract-only",
+        "planning-only",
+        "safe refs",
+        "safe task summaries",
+        "safe cadence refs",
+        "consent",
+        "revocation",
+        "audit",
+        "no background worker",
+        "no scheduler",
+        "no daemon",
+        "no os background permission prompt",
+        "no push trigger",
+        "no device token handling",
+        "no external service",
+        "no raw task payload",
+        "no backend route",
+        "no control center control",
+        "no dependency",
+        "no production authority",
+        "m106 remains future",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M105 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.evaluators import m105_openapi_route_failures
+        from ultimate_ai_agent.core.mobile_companion import (
+            MobileBackgroundTaskContractStatus,
+            build_mobile_background_task_contract_report,
+            validate_mobile_background_task_contract_report,
+        )
+    except Exception as exc:
+        print(f"FAIL: M105 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m105_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    report = build_mobile_background_task_contract_report()
+    if (
+        report.status != MobileBackgroundTaskContractStatus.contract_only
+        or not report.contract_only
+        or not report.planning_only
+        or not report.safe_refs_required
+        or not report.no_background_execution
+        or not report.consent_required
+        or not report.revocation_required
+        or not report.audit_required
+        or report.background_worker_enabled
+        or report.scheduler_enabled
+        or report.daemon_enabled
+        or report.os_background_permission_prompt_enabled
+        or report.push_trigger_enabled
+        or report.device_token_handling_enabled
+        or report.external_service_enabled
+        or report.raw_task_payload_enabled
+        or report.backend_route_added
+        or report.control_center_control_added
+        or report.dependency_added
+        or report.production_authority_enabled
+        or report.side_effects_performed
+        or "M105_BACKGROUND_TASK_CONTRACT_NO_EXECUTION" not in report.reason_codes
+        or "M106_REMAINS_FUTURE" not in report.reason_codes
+    ):
+        print("FAIL: M105 background task contract report is unsafe or over-authoritative")
+        sys.exit(1)
+
+    for update, reason in [
+        ({"background_worker_enabled": True}, "BACKGROUND_WORKER_DENIED"),
+        ({"scheduler_enabled": True}, "SCHEDULER_DENIED"),
+        ({"daemon_enabled": True}, "DAEMON_DENIED"),
+        (
+            {"os_background_permission_prompt_enabled": True},
+            "OS_BACKGROUND_PERMISSION_PROMPT_DENIED",
+        ),
+        ({"push_trigger_enabled": True}, "PUSH_TRIGGER_DENIED"),
+        ({"device_token_handling_enabled": True}, "DEVICE_TOKEN_HANDLING_DENIED"),
+        ({"external_service_enabled": True}, "EXTERNAL_SERVICE_DENIED"),
+        ({"raw_task_payload_enabled": True}, "RAW_TASK_PAYLOAD_DENIED"),
+        ({"execution_enabled": True}, "EXECUTION_DENIED"),
+        ({"production_authority_enabled": True}, "PRODUCTION_AUTHORITY_DENIED"),
+    ]:
+        try:
+            validate_mobile_background_task_contract_report(report.model_copy(update=update))
+            print(f"FAIL: M105 mutated authority flag was not denied: {update}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M105 mutated authority flag raised {exc!s}")
+                sys.exit(1)
+
+    allowed_scan_files = {
+        "scripts/verify_all.py",
+        "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/mobile_companion/__init__.py",
+        "src/ultimate_ai_agent/core/mobile_companion/background_task_contract_no_execution.py",
+    }
+    source_text = "\n".join(
+        path.read_text(encoding="utf-8")
+        for root in [
+            ROOT / "src" / "ultimate_ai_agent",
+            ROOT / "apps" / "control-center" / "src",
+            ROOT / "apps" / "ccc-ios",
+        ]
+        if root.exists()
+        for path in root.rglob("*")
+        if path.is_file()
+        and path.suffix in {".py", ".ts", ".tsx", ".js", ".jsx", ".swift"}
+        and path.relative_to(ROOT).as_posix() not in allowed_scan_files
+    )
+    for fragment in [
+        "background_worker_enabled=True",
+        "scheduler_enabled=True",
+        "daemon_enabled=True",
+        "os_background_permission_prompt_enabled=True",
+        "push_trigger_enabled=True",
+        "device_token_handling_enabled=True",
+        "external_service_enabled=True",
+        "raw_task_payload_enabled=True",
+        "backend_route_enabled=True",
+        "backend_route_added=True",
+        "control_center_control_enabled=True",
+        "control_center_control_added=True",
+        "production_authority_enabled=True",
+    ]:
+        if fragment in source_text:
+            print(f"FAIL: M105 forbidden source fragment present: {fragment}")
+            sys.exit(1)
+
+    print("OK: M105 background task contract is contract-only, no-execution, and route-free")
 
 
 def verify_local_developer_launcher_safety():

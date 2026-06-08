@@ -124,11 +124,11 @@ The detailed post-M33 supersession source of truth is
 
 ## Prompt-Pack Strategy
 
-Recommended next prompt after v1.7.2:
+Recommended next prompt after Checkpoint M105:
 
 ```text
-Continue with M105 implementation conveyor using checkpoint milestones for
-M105-M149, with M150 reserved as the v1.0.0-alpha product target.
+Continue with M106 implementation conveyor using checkpoint milestones for
+M106-M149, with M150 reserved as the v1.0.0-alpha product target.
 ```
 
 M61 is implemented/released by v0.65.0 as Autonomy Mode Charter + Authority
@@ -177,11 +177,12 @@ M101 is implemented/released by v1.5.0 as Mobile Sensor Contract Review.
 M102 is implemented/released by v1.6.0 as Location Sensor, Off by Default.
 M103 is implemented/released by v1.7.0 as Camera/Photos Metadata-Only Contract.
 Checkpoint M104 is implemented/released as Notification Planning, No Push
-Execution while the product baseline remains v1.7.2. M105-M149 remain
-planned/provisional as checkpoint milestones instead of product SemVer tags,
-and M150 remains planned/provisional as the v1.0.0-alpha product target. Beta
-begins after the alpha UI and supporting safety/product work are reviewed and
-promoted.
+Execution while the product baseline remains v1.7.2. Checkpoint M105 is
+implemented/released as Background Task Contract, No Execution. M106-M149
+remain planned/provisional as checkpoint milestones instead of product SemVer
+tags, and M150 remains planned/provisional as the v1.0.0-alpha product target.
+Beta begins after the alpha UI and supporting safety/product work are reviewed
+and promoted.
 
 Extra-hard reviews are required for M37, M38, M40, M47, M48, M49, M51, M52,
 M57, M58, and M59. Mandatory hardening is expected by default for M35-M40, M43-M50,

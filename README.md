@@ -13,23 +13,23 @@ allowed to become operational authority.
 | Field | Current state |
 |---|---|
 | Current active baseline | **v1.7.2** |
-| Current milestone | **Checkpoint M104 — Notification Planning, No Push Execution** |
+| Current milestone | **Checkpoint M105 — Background Task Contract, No Execution** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **75** OpenAPI paths |
 | Production readiness | Not claimed |
 
-Checkpoint M104 implements Notification Planning, No Push Execution while the
+Checkpoint M105 implements Background Task Contract, No Execution while the
 current product baseline remains v1.7.2. Already-pushed tags remain immutable
-historical internal milestone tags, future M105-M149 conveyor milestones use
+historical internal milestone tags, future M106-M149 conveyor milestones use
 checkpoint labels instead of product SemVer tags, and M150 is the next product
 release target **v1.0.0-alpha**. Beta begins only after the alpha UI and
 supporting safety/product work are reviewed, accepted, and explicitly promoted
-by a later roadmap patch. M104 adds no push delivery, notification permission
-prompt, notification scheduling, background task execution, device token
-handling, external push provider, raw notification body, backend route, Control
-Center control, dependency, memory write, context injection, execution, M105
-work, broad autonomy, mobile sensor runtime, or production authority.
+by a later roadmap patch. M105 adds no background worker, scheduler, daemon, OS
+background permission prompt, push trigger, device token handling, external
+service, raw task payload, backend route, Control Center control, dependency,
+memory write, context injection, execution, M106 work, broad autonomy, mobile
+background runtime, or production authority.
 
 v0.29.5 is documentation policy polish. It remains the documentation
 organization cleanup baseline before the M26 and M27 implementation releases.
@@ -60,6 +60,7 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M100 Mobile Permission Model v1](docs/mobile/MOBILE_PERMISSION_MODEL_V1.md)
 - [M101 Mobile Sensor Contract Review](docs/mobile/MOBILE_SENSOR_CONTRACT_REVIEW.md)
 - [M102 Location Sensor, Off by Default](docs/mobile/LOCATION_SENSOR_OFF_BY_DEFAULT.md)
+- [M105 Background Task Contract, No Execution](docs/mobile/BACKGROUND_TASK_CONTRACT_NO_EXECUTION.md)
 - [M104 Notification Planning, No Push Execution](docs/mobile/NOTIFICATION_PLANNING_NO_PUSH.md)
 - [M103 Camera/Photos Metadata-Only Contract](docs/mobile/CAMERA_PHOTOS_METADATA_ONLY_CONTRACT.md)
 - [M68 Autonomy Risk Classifier Contracts](docs/autonomy/AUTONOMY_RISK_CLASSIFIER_CONTRACTS.md)

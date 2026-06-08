@@ -2,9 +2,9 @@
 
 Current active baseline: **v1.7.2**
 
-Checkpoint M104 is implemented/released as Notification Planning, No Push
+Checkpoint M105 is implemented/released as Background Task Contract, No
 Execution. The current product baseline remains v1.7.2. Already-pushed tags
-remain immutable historical internal milestone tags. Future M105-M149 conveyor
+remain immutable historical internal milestone tags. Future M106-M149 conveyor
 milestones use checkpoint labels instead of product SemVer tags, and M150 is
 the next product release target **v1.0.0-alpha**. Beta begins only after the
 alpha UI and supporting safety/product work are reviewed, accepted, and
@@ -21,6 +21,14 @@ Control Center control, no dependency, no memory write, no context injection, no
 execution, no M105 work, no broad autonomy, no mobile sensor runtime, no broad
 unsandboxed autonomy, and no production authority.
 
-M101, M102, M103, and M104 are implemented/released. M105-M150 are
+Checkpoint M105 adds contract-only background task planning records and no
+execution. It adds no background worker, no scheduler, no daemon, no OS
+background permission prompt, no push trigger, no device token handling, no
+external service, no raw task payload, no backend route, no Control Center
+control, no dependency, no memory write, no context injection, no execution, no
+M106 work, no broad autonomy, no mobile background runtime, no broad
+unsandboxed autonomy, and no production authority.
+
+M101, M102, M103, M104, and M105 are implemented/released. M106-M150 are
 planned/provisional checkpoint milestones only. M150 is planned as
 v1.0.0-alpha, not beta.
