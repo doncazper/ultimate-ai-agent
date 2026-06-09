@@ -163,6 +163,7 @@ SCAN_SEQUENCE = [
     ("M122 calendar connector contract refresh scan", "verify_m122_calendar_connector_contract_refresh"),
     ("M123 contacts connector contract refresh scan", "verify_m123_contacts_connector_contract_refresh"),
     ("M124 messages connector contract review scan", "verify_m124_messages_connector_contract_review"),
+    ("M125 connector read-only runtime scan", "verify_m125_connector_read_only_runtime"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -17656,6 +17657,12 @@ def verify_post_m100_roadmap_reconciliation():
         or "messages connector contract review" in active_version_text
     ):
         implemented_milestones.add("m124")
+    if (
+        "checkpoint m125" in active_version_text
+        or "m125" in active_version_text
+        or "connector read-only runtime" in active_version_text
+    ):
+        implemented_milestones.add("m125")
     for version_label, product_target, milestone, title in expected_labels:
         if milestone in implemented_milestones:
             continue
@@ -22389,6 +22396,111 @@ def verify_m124_messages_connector_contract_review():
             sys.exit(1)
 
     print("OK: M124 messages connector contract review is contract-only, no-runtime, and route-free")
+
+
+def verify_m125_connector_read_only_runtime():
+    print("\n[Verifier] Running M125 connector read-only runtime guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/connectors/__init__.py",
+        "src/ultimate_ai_agent/core/connectors/connector_read_only_runtime.py",
+        "src/ultimate_ai_agent/core/connectors/messages_connector_contract_review.py",
+        "docs/connectors/CONNECTOR_READ_ONLY_RUNTIME.md",
+        "docs/connectors/CONNECTOR_READ_ONLY_RUNTIME_AUTHORITY_BOUNDARY.md",
+        "docs/connectors/CONNECTOR_READ_ONLY_RUNTIME_RECEIPT_PLAN.md",
+        "docs/connectors/CONNECTOR_READ_ONLY_RUNTIME_NON_GOALS.md",
+        "docs/connectors/M125_TO_M126_BOUNDARY.md",
+        "docs/release_notes/checkpoint_m125.md",
+        "docs/archive/checkpoints/m125/README_IMPORT.md",
+        "docs/archive/checkpoints/m125/master_plan.md",
+        "tests/test_m125_connector_read_only_runtime.py",
+        "tests/test_m125_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M125 connector read-only runtime file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = " ".join(
+        "\n".join(
+            (ROOT / rel_path).read_text(encoding="utf-8").lower()
+            for rel_path in required_files
+            if rel_path.startswith("docs/")
+        ).split()
+    )
+    for fragment in [
+        "connector read-only runtime",
+        "safe metadata preview refs",
+        "safe refs",
+        "messages connector contract review",
+        "source-messages-connector-contract-review-bound",
+        "connector scope refs",
+        "connector allowlist refs",
+        "operation allowlist refs",
+        "data minimization refs",
+        "redaction refs",
+        "no-effect receipt plan",
+        "no live connector runtime",
+        "no account auth",
+        "no network access",
+        "no credential handling",
+        "no raw connector content",
+        "no full content read",
+        "no connector write",
+        "no connector send",
+        "no connector delete",
+        "no connector export",
+        "no attachment download",
+        "no model call",
+        "no memory write",
+        "no context injection",
+        "no execution",
+        "no backend route",
+        "no control center control",
+        "no dependency",
+        "m126 remains future",
+        "v1.0.0-alpha",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M125 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.criteria import (
+            default_foundation_gate_criteria,
+        )
+        from ultimate_ai_agent.core.gate.evaluators import (
+            FoundationGateEvaluator,
+            m125_openapi_route_failures,
+        )
+    except Exception as exc:
+        print(f"FAIL: M125 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m125_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    criteria = {
+        criterion.criterion_id: criterion
+        for criterion in default_foundation_gate_criteria()
+    }
+    evaluator = FoundationGateEvaluator(ROOT)
+    for criterion_id in [
+        "m125_connector_read_only_runtime_contracts",
+        "m125_connector_read_only_runtime_static_safety",
+        "m125_connector_read_only_runtime_route_boundary",
+        "m125_roadmap_currentness",
+    ]:
+        report = evaluator.evaluate([criteria[criterion_id]])
+        result = report.results[0]
+        if result.status != "passed":
+            print(f"FAIL: {criterion_id} failed: {result.failures}")
+            sys.exit(1)
+
+    print("OK: M125 connector read-only runtime is safe-ref-only, no-live-runtime, and route-free")
 
 
 def verify_local_developer_launcher_safety():

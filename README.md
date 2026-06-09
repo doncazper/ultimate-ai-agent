@@ -13,25 +13,24 @@ allowed to become operational authority.
 | Field | Current state |
 |---|---|
 | Current active baseline | **v1.7.2** |
-| Current milestone | **Checkpoint M124 — Messages Connector Contract Review** |
+| Current milestone | **Checkpoint M125 — Connector Read-Only Runtime** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **75** OpenAPI paths |
 | Production readiness | Not claimed |
 
-Checkpoint M124 implements Messages Connector Contract Review while the current
+Checkpoint M125 implements Connector Read-Only Runtime while the current
 product baseline remains v1.7.2. Already-pushed tags remain immutable historical
-internal milestone tags, future M125-M149 conveyor milestones use checkpoint
+internal milestone tags, future M126-M149 conveyor milestones use checkpoint
 labels instead of product SemVer tags, and M150 is the next product release
 target **v1.0.0-alpha**. Beta begins only after the alpha UI and supporting
 safety/product work are reviewed, accepted, and explicitly promoted by a later
-roadmap patch. M124 adds no messages connector runtime, messages account auth,
-messages read, messages search, messages lookup, messages send, message thread
-access, messages create, messages update, messages delete, messages export,
-attachment download, raw messages content, credential handling, network access,
-account action, model call, memory write, context injection, execution, backend
-route, Control Center control, dependency, M125
-work, broad autonomy, beta release, or production authority.
+roadmap patch. M125 adds no live connector runtime, account auth, network
+access, credential handling, raw connector content, full content read, connector
+write, connector send, connector delete, connector export, connector bulk
+export, attachment download, model call, memory write, context injection,
+execution, backend route, Control Center control, dependency, M126 work, broad
+autonomy, beta release, or production authority.
 
 v0.29.5 is documentation policy polish. It remains the documentation
 organization cleanup baseline before the M26 and M27 implementation releases.

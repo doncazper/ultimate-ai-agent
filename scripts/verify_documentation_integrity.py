@@ -1586,6 +1586,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_m122_calendar_connector_contract_refresh_docs(root, version))
     failures.extend(_verify_m123_contacts_connector_contract_refresh_docs(root, version))
     failures.extend(_verify_m124_messages_connector_contract_review_docs(root, version))
+    failures.extend(_verify_m125_connector_read_only_runtime_docs(root, version))
     failures.extend(_verify_m19_roadmap_currentness(root, version))
     failures.extend(_verify_post_m18_roadmap_status_labels(root))
 
@@ -7209,6 +7210,12 @@ def _verify_post_m100_roadmap_reconciliation_docs(root: Path, version: str | Non
         or "messages connector contract review" in version_doc_text
     ):
         implemented_milestones.add("m124")
+    if _version_tuple(version) >= (1, 7, 2) and (
+        "checkpoint m125" in version_doc_text
+        or "m125" in version_doc_text
+        or "connector read-only runtime" in version_doc_text
+    ):
+        implemented_milestones.add("m125")
     for version_label, product_target, milestone, title in EXPECTED_M101_M150_LABELS:
         if milestone in implemented_milestones:
             continue
@@ -10829,14 +10836,18 @@ def _verify_m124_messages_connector_contract_review_docs(
         "| checkpoint m125 | pre-alpha checkpoint | m125 | "
         "connector read-only runtime | planned/provisional |"
     )
+    implemented_m125_row = (
+        "| checkpoint m125 | pre-alpha checkpoint | m125 | "
+        "connector read-only runtime | implemented/released |"
+    )
     if not _roadmap_row_present(current_text, implemented_m124_row):
         failures.append("active docs missing implemented Checkpoint M124 row")
-    if not _roadmap_row_present(current_text, planned_m125_row):
-        failures.append("active docs missing planned Checkpoint M125 row")
+    if not (
+        _roadmap_row_present(current_text, planned_m125_row)
+        or _roadmap_row_present(current_text, implemented_m125_row)
+    ):
+        failures.append("active docs missing Checkpoint M125 row")
     for fragment in {
-        "m125 is implemented",
-        "checkpoint m125 implements m125",
-        "connector read-only runtime is implemented",
         "messages connector runtime is implemented",
         "messages account auth is implemented",
         "messages read is implemented",
@@ -10849,8 +10860,133 @@ def _verify_m124_messages_connector_contract_review_docs(
         "beta is released",
         "broad autonomy is implemented",
     }:
-        if fragment in current_text or fragment in text:
+        if fragment in text:
             failures.append(f"M124 docs imply forbidden/future capability: {fragment}")
+    return failures
+
+
+def _verify_m125_connector_read_only_runtime_docs(
+    root: Path, version: str | None
+) -> list[str]:
+    failures: list[str] = []
+    if _version_tuple(version) < (1, 7, 2):
+        return failures
+    active_text = " ".join(
+        "\n".join(
+            _read(root / rel_path).lower()
+            for rel_path in [
+                "README.md",
+                "VERSION.md",
+                "docs/canonical/09_roadmap.md",
+                "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            ]
+            if (root / rel_path).exists()
+        ).split()
+    )
+    if (
+        "checkpoint m125 is implemented/released" not in active_text
+        and "m125 is implemented/released" not in active_text
+    ):
+        return failures
+    required_paths = [
+        "docs/connectors/CONNECTOR_READ_ONLY_RUNTIME.md",
+        "docs/connectors/CONNECTOR_READ_ONLY_RUNTIME_AUTHORITY_BOUNDARY.md",
+        "docs/connectors/CONNECTOR_READ_ONLY_RUNTIME_RECEIPT_PLAN.md",
+        "docs/connectors/CONNECTOR_READ_ONLY_RUNTIME_NON_GOALS.md",
+        "docs/connectors/M125_TO_M126_BOUNDARY.md",
+        "docs/release_notes/checkpoint_m125.md",
+        "docs/archive/checkpoints/m125/README_IMPORT.md",
+        "docs/archive/checkpoints/m125/master_plan.md",
+        "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+    ]
+    for rel_path in required_paths:
+        if not (root / rel_path).exists():
+            failures.append(f"missing M125 connector read-only runtime doc: {rel_path}")
+    text = " ".join(
+        "\n".join(
+            _read(root / rel_path).lower()
+            for rel_path in required_paths
+            if (root / rel_path).exists()
+        ).split()
+    )
+    required_fragments = {
+        "M125 docs must say connector read-only runtime": "connector read-only runtime",
+        "M125 docs must say safe metadata preview refs": "safe metadata preview refs",
+        "M125 docs must say safe refs": "safe refs",
+        "M125 docs must say messages connector contract review": "messages connector contract review",
+        "M125 docs must say source-messages-connector-contract-review-bound": "source-messages-connector-contract-review-bound",
+        "M125 docs must say connector scope refs": "connector scope refs",
+        "M125 docs must say connector allowlist refs": "connector allowlist refs",
+        "M125 docs must say operation allowlist refs": "operation allowlist refs",
+        "M125 docs must say data minimization refs": "data minimization refs",
+        "M125 docs must say redaction refs": "redaction refs",
+        "M125 docs must say audit": "audit",
+        "M125 docs must say replay": "replay",
+        "M125 docs must say no-effect receipt plan": "no-effect receipt plan",
+        "M125 docs must deny live connector runtime": "no live connector runtime",
+        "M125 docs must deny account auth": "no account auth",
+        "M125 docs must deny network access": "no network access",
+        "M125 docs must deny credential handling": "no credential handling",
+        "M125 docs must deny raw connector content": "no raw connector content",
+        "M125 docs must deny full content read": "no full content read",
+        "M125 docs must deny connector write": "no connector write",
+        "M125 docs must deny connector send": "no connector send",
+        "M125 docs must deny connector delete": "no connector delete",
+        "M125 docs must deny connector export": "no connector export",
+        "M125 docs must deny attachment download": "no attachment download",
+        "M125 docs must deny backend route": "no backend route",
+        "M125 docs must deny Control Center control": "no control center control",
+        "M125 docs must deny dependency": "no dependency",
+        "M125 docs must keep M126 future": "m126 remains future",
+        "M125 docs must preserve alpha target": "v1.0.0-alpha",
+    }
+    for message, fragment in required_fragments.items():
+        if fragment not in text:
+            failures.append(message)
+    active_paths = [
+        "README.md",
+        "VERSION.md",
+        "docs/canonical/09_roadmap.md",
+        "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+        "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+        "docs/roadmap/MILESTONE_CHARTERS.md",
+        "docs/DOCUMENTATION_INDEX.md",
+        "docs/canonical/CANONICAL_DOC_MAP.md",
+    ]
+    current_text = " ".join(
+        "\n".join(
+            _read(root / rel_path).lower()
+            for rel_path in active_paths
+            if (root / rel_path).exists()
+        ).split()
+    )
+    implemented_m125_row = (
+        "| checkpoint m125 | pre-alpha checkpoint | m125 | "
+        "connector read-only runtime | implemented/released |"
+    )
+    planned_m126_row = (
+        "| checkpoint m126 | pre-alpha checkpoint | m126 | "
+        "connector approval capture | planned/provisional |"
+    )
+    if not _roadmap_row_present(current_text, implemented_m125_row):
+        failures.append("active docs missing implemented Checkpoint M125 row")
+    if not _roadmap_row_present(current_text, planned_m126_row):
+        failures.append("active docs missing planned Checkpoint M126 row")
+    for fragment in {
+        "m126 is implemented",
+        "checkpoint m126 implements m126",
+        "connector approval capture is implemented",
+        "connector write dry-run planner is implemented",
+        "connector write execution is implemented",
+        "live connector runtime is implemented",
+        "account auth is implemented",
+        "network access is implemented",
+        "connector export is implemented",
+        "beta is released",
+        "production authority is implemented",
+    }:
+        if fragment in current_text or fragment in text:
+            failures.append(f"M125 docs imply forbidden/future capability: {fragment}")
     return failures
 
 

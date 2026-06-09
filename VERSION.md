@@ -2,9 +2,9 @@
 
 Current active baseline: **v1.7.2**
 
-Checkpoint M124 is implemented/released as Messages Connector Contract Review.
+Checkpoint M125 is implemented/released as Connector Read-Only Runtime.
 The current product baseline remains v1.7.2. Already-pushed tags
-remain immutable historical internal milestone tags. Future M125-M149 conveyor
+remain immutable historical internal milestone tags. Future M126-M149 conveyor
 milestones use checkpoint labels instead of product SemVer tags, and M150 is
 the next product release target **v1.0.0-alpha**. Beta begins only after the
 alpha UI and supporting safety/product work are reviewed, accepted, and
@@ -219,6 +219,19 @@ call, no memory write, no context injection, no execution, no backend route, no
 Control Center control, no dependency, no M125 work, no broad autonomy, no beta
 release, and no production authority.
 
-M101, M102, M103, M104, M105, M106, M107, M108, M109, M110, M111, M112, M113, M114, M115, M116, M117, M118, M119, M120, M121, M122, M123, and M124 are implemented/released. M125-M150 are
+Checkpoint M125 adds deterministic local connector read-only runtime records
+bound to M124 messages connector contract review records. It records safe
+metadata preview refs, connector scope refs, connector allowlist refs, operation
+allowlist refs, data minimization refs, redaction refs, audit refs, replay
+refs, accepted checkpoint refs, and no-effect receipt plan refs. It adds no
+live connector runtime, no account auth, no network access, no credential
+handling, no raw connector content, no full content read, no connector write,
+no connector send, no connector delete, no connector export, no connector bulk
+export, no attachment download, no model call, no memory write, no context
+injection, no execution, no backend route, no Control Center control, no
+dependency, no M126 work, no broad autonomy, no beta release, and no production
+authority.
+
+M101, M102, M103, M104, M105, M106, M107, M108, M109, M110, M111, M112, M113, M114, M115, M116, M117, M118, M119, M120, M121, M122, M123, M124, and M125 are implemented/released. M126-M150 are
 planned/provisional checkpoint milestones only. M150 is planned as
 v1.0.0-alpha, not beta.

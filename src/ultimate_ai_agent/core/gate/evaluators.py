@@ -1643,6 +1643,22 @@ M124_FORBIDDEN_BACKEND_ROUTES = M123_FORBIDDEN_BACKEND_ROUTES + (
     "/memory/write",
     "/context/inject",
 )
+EXPECTED_M125_OPENAPI_PATH_COUNT = 75
+M125_FORBIDDEN_BACKEND_ROUTES = M124_FORBIDDEN_BACKEND_ROUTES + (
+    "/connectors/read",
+    "/connectors/runtime/read",
+    "/connectors/email/read",
+    "/connectors/calendar/read",
+    "/connectors/contacts/read",
+    "/connectors/messages/read",
+    "/connectors/messages/send",
+    "/connectors/export",
+    "/connectors/attachments/download",
+    "/network/post",
+    "/memory/write",
+    "/context/inject",
+    "/tools/execute",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -3223,6 +3239,23 @@ def m124_openapi_route_failures(
     return failures
 
 
+def m125_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M125_OPENAPI_PATH_COUNT
+) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(
+            f"OpenAPI path count changed for M125: expected {expected_path_count}, got {len(path_set)}"
+        )
+    for route in M125_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(
+                f"M125 forbidden connector read-only runtime route present: {route}"
+            )
+    return failures
+
+
 M36_SAFE_REF_PREFIXES = {
     "reviewPacketRef": "file-review-packet:",
     "previewResultRef": "redacted-file-preview-output:",
@@ -4328,6 +4361,16 @@ class FoundationGateEvaluator:
                 self.check_m124_messages_connector_contract_review_route_boundary
             ),
             "m124_roadmap_currentness": self.check_m124_roadmap_currentness,
+            "m125_connector_read_only_runtime_contracts": (
+                self.check_m125_connector_read_only_runtime_contracts
+            ),
+            "m125_connector_read_only_runtime_static_safety": (
+                self.check_m125_connector_read_only_runtime_static_safety
+            ),
+            "m125_connector_read_only_runtime_route_boundary": (
+                self.check_m125_connector_read_only_runtime_route_boundary
+            ),
+            "m125_roadmap_currentness": self.check_m125_roadmap_currentness,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -30097,6 +30140,12 @@ class FoundationGateEvaluator:
             or "messages connector contract review" in active_version_text
         ):
             implemented_milestones.add("m124")
+        if (
+            "checkpoint m125" in active_version_text
+            or "m125" in active_version_text
+            or "connector read-only runtime" in active_version_text
+        ):
+            implemented_milestones.add("m125")
         for version_label, product_target, milestone, title in expected_labels:
             if milestone in implemented_milestones:
                 continue
@@ -38539,14 +38588,24 @@ class FoundationGateEvaluator:
                 f"| {version_label} | {product_target} | {milestone} | "
                 f"{title} | {status} |"
             )
+            if version_label == "checkpoint m125":
+                implemented_row = (
+                    "| checkpoint m125 | pre-alpha checkpoint | m125 | "
+                    "connector read-only runtime | implemented/released |"
+                )
+                if not (
+                    _roadmap_row_present(text, row)
+                    or _roadmap_row_present(text, implemented_row)
+                ):
+                    failures.append(
+                        f"active docs missing expected M124-M150 row: {version_label} / {milestone.upper()} - {title}"
+                    )
+                continue
             if not _roadmap_row_present(text, row):
                 failures.append(
                     f"active docs missing expected M124-M150 row: {version_label} / {milestone.upper()} - {title}"
                 )
         for fragment in (
-            "m125 is implemented",
-            "checkpoint m125 implements m125",
-            "connector read-only runtime is implemented",
             "messages connector runtime is implemented",
             "messages account auth is implemented",
             "messages read is implemented",
@@ -38560,6 +38619,389 @@ class FoundationGateEvaluator:
             if fragment in text:
                 failures.append(
                     f"active docs imply forbidden M124 future/currentness claim: {fragment}"
+                )
+        return self._result(criterion, failures, required_docs)
+
+    def check_m125_connector_read_only_runtime_contracts(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/connectors/connector_read_only_runtime.py",
+            "src/ultimate_ai_agent/core/connectors/messages_connector_contract_review.py",
+            "tests/test_m125_connector_read_only_runtime.py",
+            "docs/connectors/CONNECTOR_READ_ONLY_RUNTIME.md",
+            "docs/connectors/CONNECTOR_READ_ONLY_RUNTIME_AUTHORITY_BOUNDARY.md",
+            "docs/connectors/CONNECTOR_READ_ONLY_RUNTIME_RECEIPT_PLAN.md",
+            "docs/connectors/CONNECTOR_READ_ONLY_RUNTIME_NON_GOALS.md",
+            "docs/connectors/M125_TO_M126_BOUNDARY.md",
+            "docs/release_notes/checkpoint_m125.md",
+            "docs/archive/checkpoints/m125/README_IMPORT.md",
+            "docs/archive/checkpoints/m125/master_plan.md",
+        ]
+        failures = [
+            f"missing M125 connector read-only runtime file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            from ultimate_ai_agent.core.connectors import (
+                build_calendar_connector_contract_refresh_record,
+                build_connector_read_only_runtime_record,
+                build_contacts_connector_contract_refresh_record,
+                build_email_connector_contract_refresh_record,
+                build_messages_connector_contract_review_record,
+                validate_connector_read_only_runtime_record,
+            )
+            from ultimate_ai_agent.core.mobile_companion import (
+                build_mobile_approval_renewal_ux_report,
+                build_mobile_kill_switch_revocation_record,
+                build_mobile_sensor_audit_ledger_record,
+                build_mobile_sensor_hardening_freeze_record,
+            )
+            from ultimate_ai_agent.core.production_readiness import (
+                build_account_connector_contract_review_record,
+                build_deployment_mode_matrix_record,
+                build_production_audit_retention_policy_record,
+                build_production_authority_readiness_review_record,
+                build_production_red_team_harness_record,
+                build_production_threat_model_record,
+                build_remote_agent_coordination_contract_record,
+                build_role_based_authority_model_record,
+                build_secrets_boundary_record,
+                build_user_workspace_identity_record,
+            )
+
+            source_record = build_messages_connector_contract_review_record(
+                source_record=build_contacts_connector_contract_refresh_record(
+                    source_record=build_calendar_connector_contract_refresh_record(
+                        source_record=build_email_connector_contract_refresh_record(
+                            source_record=build_production_authority_readiness_review_record(
+                                source_record=build_production_red_team_harness_record(
+                                    source_record=build_deployment_mode_matrix_record(
+                                        source_record=build_remote_agent_coordination_contract_record(
+                                            source_record=build_role_based_authority_model_record(
+                                                source_record=build_production_audit_retention_policy_record(
+                                                    source_record=build_account_connector_contract_review_record(
+                                                        source_record=build_secrets_boundary_record(
+                                                            source_record=build_user_workspace_identity_record(
+                                                                source_record=build_production_threat_model_record(
+                                                                    source_record=build_mobile_sensor_hardening_freeze_record(
+                                                                        source_record=build_mobile_sensor_audit_ledger_record(
+                                                                            source_record=build_mobile_kill_switch_revocation_record(
+                                                                                source_report=build_mobile_approval_renewal_ux_report()
+                                                                            )
+                                                                        )
+                                                                    )
+                                                                )
+                                                            )
+                                                        )
+                                                    )
+                                                )
+                                            )
+                                        )
+                                    )
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+            record = build_connector_read_only_runtime_record(source_record=source_record)
+            if (
+                not record.read_only_runtime
+                or not record.safe_refs_required
+                or not record.source_messages_connector_contract_review_bound
+                or record.source_messages_connector_contract_review_ref
+                != source_record.messages_connector_contract_review_ref
+                or "checkpoint:m124" not in record.accepted_checkpoint_refs
+                or record.live_connector_runtime_enabled
+                or record.account_auth_enabled
+                or record.network_access_enabled
+                or record.credential_handling_enabled
+                or record.raw_connector_content_enabled
+                or record.full_content_read_enabled
+                or record.connector_write_enabled
+                or record.connector_send_enabled
+                or record.connector_delete_enabled
+                or record.connector_export_enabled
+                or record.connector_bulk_export_enabled
+                or record.attachment_download_enabled
+                or record.backend_route_added
+                or record.control_center_control_added
+                or record.dependency_added
+                or "M126_REMAINS_FUTURE" not in record.reason_codes
+            ):
+                failures.append(
+                    "M125 connector read-only runtime contract is unsafe or over-authoritative"
+                )
+            for update, reason in [
+                ({"read_only_runtime": False}, "M125_READ_ONLY_RUNTIME_REQUIRED"),
+                (
+                    {"source_messages_connector_contract_review_ref": "messages-connector-contract-review:mismatch"},
+                    "M125_SOURCE_MESSAGES_CONNECTOR_CONTRACT_REVIEW_REF_MISMATCH",
+                ),
+                ({"connector_scope_refs": []}, "M125_CONNECTOR_SCOPE_REF_REQUIRED"),
+                (
+                    {"connector_allowlist_refs": []},
+                    "M125_CONNECTOR_ALLOWLIST_REF_REQUIRED",
+                ),
+                (
+                    {"operation_allowlist_refs": []},
+                    "M125_OPERATION_ALLOWLIST_REF_REQUIRED",
+                ),
+                (
+                    {"data_minimization_refs": []},
+                    "M125_DATA_MINIMIZATION_REF_REQUIRED",
+                ),
+                ({"redaction_refs": []}, "M125_REDACTION_REF_REQUIRED"),
+                (
+                    {"live_connector_runtime_enabled": True},
+                    "LIVE_CONNECTOR_RUNTIME_DENIED",
+                ),
+                ({"account_auth_enabled": True}, "ACCOUNT_AUTH_DENIED"),
+                ({"network_access_enabled": True}, "NETWORK_ACCESS_DENIED"),
+                ({"credential_handling_enabled": True}, "CREDENTIAL_HANDLING_DENIED"),
+                ({"raw_connector_content_enabled": True}, "RAW_CONNECTOR_CONTENT_DENIED"),
+                ({"full_content_read_enabled": True}, "FULL_CONTENT_READ_DENIED"),
+                ({"connector_write_enabled": True}, "CONNECTOR_WRITE_DENIED"),
+                ({"connector_send_enabled": True}, "CONNECTOR_SEND_DENIED"),
+                ({"connector_delete_enabled": True}, "CONNECTOR_DELETE_DENIED"),
+                ({"connector_export_enabled": True}, "CONNECTOR_EXPORT_DENIED"),
+                (
+                    {"connector_bulk_export_enabled": True},
+                    "CONNECTOR_BULK_EXPORT_DENIED",
+                ),
+                ({"attachment_download_enabled": True}, "ATTACHMENT_DOWNLOAD_DENIED"),
+                ({"backend_route_added": True}, "BACKEND_ROUTE_DENIED"),
+                (
+                    {"control_center_control_added": True},
+                    "CONTROL_CENTER_CONTROL_DENIED",
+                ),
+                ({"dependency_added": True}, "DEPENDENCY_DENIED"),
+            ]:
+                try:
+                    validate_connector_read_only_runtime_record(
+                        record.model_copy(update=update)
+                    )
+                    failures.append(
+                        f"M125 unsafe record mutation was not denied with {reason}"
+                    )
+                except ValueError as exc:
+                    if reason not in str(exc):
+                        failures.append(f"M125 unsafe record mutation raised {exc!s}")
+        except Exception as exc:
+            failures.append(f"M125 connector read-only runtime validation failed: {exc}")
+
+        docs_text = " ".join(
+            "\n".join(
+                self._read(self.root / path).lower()
+                for path in required_files
+                if path.startswith("docs/") and (self.root / path).exists()
+            ).split()
+        )
+        for fragment in [
+            "connector read-only runtime",
+            "safe metadata preview refs",
+            "safe refs",
+            "messages connector contract review",
+            "source-messages-connector-contract-review-bound",
+            "connector scope refs",
+            "connector allowlist refs",
+            "operation allowlist refs",
+            "data minimization refs",
+            "redaction refs",
+            "audit",
+            "replay",
+            "no-effect receipt plan",
+            "no live connector runtime",
+            "no account auth",
+            "no network access",
+            "no credential handling",
+            "no raw connector content",
+            "no full content read",
+            "no connector write",
+            "no connector send",
+            "no connector delete",
+            "no connector export",
+            "no attachment download",
+            "no backend route",
+            "no control center control",
+            "no dependency",
+            "m126 remains future",
+            "v1.0.0-alpha",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M125 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m125_connector_read_only_runtime_static_safety(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        forbidden_source_fragments = [
+            "live_connector_runtime_enabled=True",
+            "account_auth_enabled=True",
+            "network_access_enabled=True",
+            "credential_handling_enabled=True",
+            "raw_connector_content_enabled=True",
+            "full_content_read_enabled=True",
+            "connector_write_enabled=True",
+            "connector_send_enabled=True",
+            "connector_delete_enabled=True",
+            "connector_export_enabled=True",
+            "connector_bulk_export_enabled=True",
+            "attachment_download_enabled=True",
+            "model_call_enabled=True",
+            "memory_write_enabled=True",
+            "context_injection_enabled=True",
+            "execution_enabled=True",
+            "backend_route_enabled=True",
+            "backend_route_added=True",
+            "control_center_control_enabled=True",
+            "control_center_control_added=True",
+            "dependency_added=True",
+            "/connectors/read",
+            "/connectors/runtime/read",
+            "/connectors/email/read",
+            "/connectors/calendar/read",
+            "/connectors/contacts/read",
+            "/connectors/messages/read",
+            "/connectors/messages/send",
+            "/connectors/export",
+            "/connectors/attachments/download",
+        ]
+        allowed_files = {
+            "src/ultimate_ai_agent/core/gate/evaluators.py",
+            "src/ultimate_ai_agent/core/connectors/__init__.py",
+            "src/ultimate_ai_agent/core/connectors/connector_read_only_runtime.py",
+        }
+        for root in [
+            self.root / "src" / "ultimate_ai_agent",
+            self.root / "apps" / "control-center" / "src",
+            self.root / "apps" / "ccc-ios",
+        ]:
+            if not root.exists():
+                continue
+            candidate_files = []
+            for pattern in (
+                "*.py",
+                "*.ts",
+                "*.tsx",
+                "*.js",
+                "*.jsx",
+                "*.swift",
+                "*.yml",
+                "*.yaml",
+            ):
+                candidate_files.extend(root.rglob(pattern))
+            for path in sorted(candidate_files):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(self.root).as_posix()
+                if ".test." in rel:
+                    continue
+                if rel in allowed_files:
+                    continue
+                text = path.read_text(encoding="utf-8")
+                for fragment in forbidden_source_fragments:
+                    if fragment in text:
+                        failures.append(
+                            f"M125 forbidden connector read-only runtime fragment in {rel}: {fragment}"
+                        )
+        return self._result(criterion, failures, [])
+
+    def check_m125_connector_read_only_runtime_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m125_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M125 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m125_roadmap_currentness(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_docs = [
+            "README.md",
+            "VERSION.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            "docs/roadmap/MILESTONE_CHARTERS.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+        ]
+        failures = [
+            f"missing M125 roadmap doc: {path}"
+            for path in required_docs
+            if not (self.root / path).exists()
+        ]
+        text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_docs
+            if (self.root / path).exists()
+        )
+        if (
+            "checkpoint m125" not in text
+            or "connector read-only runtime" not in text
+        ):
+            failures.append(
+                "active docs do not identify Checkpoint M125 Connector Read-Only Runtime"
+            )
+        if (
+            "m125 is implemented/released" not in text
+            and "checkpoint m125 is implemented/released" not in text
+        ):
+            failures.append("active docs do not mark M125 implemented/released")
+        for version_label, product_target, milestone, title, status in [
+            (
+                "checkpoint m125",
+                "pre-alpha checkpoint",
+                "m125",
+                "connector read-only runtime",
+                "implemented/released",
+            ),
+            (
+                "checkpoint m126",
+                "pre-alpha checkpoint",
+                "m126",
+                "connector approval capture",
+                "planned/provisional",
+            ),
+            (
+                "v1.0.0-alpha",
+                "alpha",
+                "m150",
+                "ultimate ai agent v1.0.0-alpha",
+                "planned/provisional",
+            ),
+        ]:
+            row = (
+                f"| {version_label} | {product_target} | {milestone} | "
+                f"{title} | {status} |"
+            )
+            if not _roadmap_row_present(text, row):
+                failures.append(
+                    f"active docs missing expected M125-M150 row: {version_label} / {milestone.upper()} - {title}"
+                )
+        for fragment in (
+            "m126 is implemented",
+            "checkpoint m126 implements m126",
+            "connector approval capture is implemented",
+            "connector write dry-run planner is implemented",
+            "connector write execution is implemented",
+            "live connector runtime is implemented",
+            "account auth is implemented",
+            "network access is implemented",
+            "connector export is implemented",
+            "beta is released",
+            "production authority is implemented",
+        ):
+            if fragment in text:
+                failures.append(
+                    f"active docs imply forbidden M125 future/currentness claim: {fragment}"
                 )
         return self._result(criterion, failures, required_docs)
 
