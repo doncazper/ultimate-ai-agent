@@ -162,6 +162,7 @@ SCAN_SEQUENCE = [
     ("M121 email connector contract refresh scan", "verify_m121_email_connector_contract_refresh"),
     ("M122 calendar connector contract refresh scan", "verify_m122_calendar_connector_contract_refresh"),
     ("M123 contacts connector contract refresh scan", "verify_m123_contacts_connector_contract_refresh"),
+    ("M124 messages connector contract review scan", "verify_m124_messages_connector_contract_review"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -17649,6 +17650,12 @@ def verify_post_m100_roadmap_reconciliation():
         or "contacts connector contract refresh" in active_version_text
     ):
         implemented_milestones.add("m123")
+    if (
+        "checkpoint m124" in active_version_text
+        or "m124" in active_version_text
+        or "messages connector contract review" in active_version_text
+    ):
+        implemented_milestones.add("m124")
     for version_label, product_target, milestone, title in expected_labels:
         if milestone in implemented_milestones:
             continue
@@ -22271,6 +22278,117 @@ def verify_m123_contacts_connector_contract_refresh():
             sys.exit(1)
 
     print("OK: M123 contacts connector contract refresh is contract-only, no-runtime, and route-free")
+
+
+def verify_m124_messages_connector_contract_review():
+    print("\n[Verifier] Running M124 messages connector contract review guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/connectors/__init__.py",
+        "src/ultimate_ai_agent/core/connectors/messages_connector_contract_review.py",
+        "docs/connectors/MESSAGES_CONNECTOR_CONTRACT_REVIEW.md",
+        "docs/connectors/MESSAGES_CONNECTOR_AUTHORITY_BOUNDARY.md",
+        "docs/connectors/MESSAGES_CONNECTOR_RECEIPT_PLAN.md",
+        "docs/connectors/MESSAGES_CONNECTOR_NON_GOALS.md",
+        "docs/connectors/M124_TO_M125_BOUNDARY.md",
+        "docs/release_notes/checkpoint_m124.md",
+        "docs/archive/checkpoints/m124/README_IMPORT.md",
+        "docs/archive/checkpoints/m124/master_plan.md",
+        "tests/test_m124_messages_connector_contract_review.py",
+        "tests/test_m124_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M124 messages connector file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = " ".join(
+        "\n".join(
+            (ROOT / rel_path).read_text(encoding="utf-8").lower()
+            for rel_path in required_files
+            if rel_path.startswith("docs/")
+        ).split()
+    )
+    for fragment in [
+        "messages connector contract review",
+        "contract-only",
+        "review-only",
+        "safe refs",
+        "contacts connector contract refresh",
+        "messages scope refs",
+        "messages boundary refs",
+        "message thread boundary refs",
+        "consent boundary refs",
+        "data classification refs",
+        "retention boundary refs",
+        "source-contacts-connector-contract-refresh-bound",
+        "no-effect receipt plan",
+        "no messages connector runtime",
+        "no messages account auth",
+        "no messages read",
+        "no messages search",
+        "no messages lookup",
+        "no messages send",
+        "no message thread access",
+        "no messages create",
+        "no messages update",
+        "no messages delete",
+        "no messages export",
+        "no attachment download",
+        "no raw messages content",
+        "no credential handling",
+        "no network access",
+        "no account action",
+        "no model call",
+        "no memory write",
+        "no context injection",
+        "no execution",
+        "no backend route",
+        "no control center control",
+        "no dependency",
+        "m125 remains future",
+        "v1.0.0-alpha",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M124 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.criteria import (
+            default_foundation_gate_criteria,
+        )
+        from ultimate_ai_agent.core.gate.evaluators import (
+            FoundationGateEvaluator,
+            m124_openapi_route_failures,
+        )
+    except Exception as exc:
+        print(f"FAIL: M124 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m124_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    criteria = {
+        criterion.criterion_id: criterion
+        for criterion in default_foundation_gate_criteria()
+    }
+    evaluator = FoundationGateEvaluator(ROOT)
+    for criterion_id in [
+        "m124_messages_connector_contract_review_contracts",
+        "m124_messages_connector_contract_review_static_safety",
+        "m124_messages_connector_contract_review_route_boundary",
+        "m124_roadmap_currentness",
+    ]:
+        report = evaluator.evaluate([criteria[criterion_id]])
+        result = report.results[0]
+        if result.status != "passed":
+            print(f"FAIL: {criterion_id} failed: {result.failures}")
+            sys.exit(1)
+
+    print("OK: M124 messages connector contract review is contract-only, no-runtime, and route-free")
 
 
 def verify_local_developer_launcher_safety():

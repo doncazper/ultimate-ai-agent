@@ -25,11 +25,21 @@ from ultimate_ai_agent.core.connectors.contacts_connector_contract_refresh impor
     validate_contacts_connector_contract_refresh_policy,
     validate_contacts_connector_contract_refresh_record,
 )
+from ultimate_ai_agent.core.connectors.messages_connector_contract_review import (
+    MESSAGES_CONNECTOR_CONTRACT_REVIEW_DOCS,
+    MessagesConnectorContractReviewPolicy,
+    MessagesConnectorContractReviewRecord,
+    MessagesConnectorContractReviewStatus,
+    build_messages_connector_contract_review_record,
+    validate_messages_connector_contract_review_policy,
+    validate_messages_connector_contract_review_record,
+)
 
 __all__ = [
     "CALENDAR_CONNECTOR_CONTRACT_REFRESH_DOCS",
     "CONTACTS_CONNECTOR_CONTRACT_REFRESH_DOCS",
     "EMAIL_CONNECTOR_CONTRACT_REFRESH_DOCS",
+    "MESSAGES_CONNECTOR_CONTRACT_REVIEW_DOCS",
     "CalendarConnectorContractRefreshPolicy",
     "CalendarConnectorContractRefreshRecord",
     "CalendarConnectorContractRefreshStatus",
@@ -39,13 +49,19 @@ __all__ = [
     "EmailConnectorContractRefreshPolicy",
     "EmailConnectorContractRefreshRecord",
     "EmailConnectorContractRefreshStatus",
+    "MessagesConnectorContractReviewPolicy",
+    "MessagesConnectorContractReviewRecord",
+    "MessagesConnectorContractReviewStatus",
     "build_calendar_connector_contract_refresh_record",
     "build_contacts_connector_contract_refresh_record",
     "build_email_connector_contract_refresh_record",
+    "build_messages_connector_contract_review_record",
     "validate_calendar_connector_contract_refresh_policy",
     "validate_calendar_connector_contract_refresh_record",
     "validate_contacts_connector_contract_refresh_policy",
     "validate_contacts_connector_contract_refresh_record",
     "validate_email_connector_contract_refresh_policy",
     "validate_email_connector_contract_refresh_record",
+    "validate_messages_connector_contract_review_policy",
+    "validate_messages_connector_contract_review_record",
 ]

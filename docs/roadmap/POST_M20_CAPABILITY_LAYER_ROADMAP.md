@@ -197,7 +197,8 @@ Checkpoint M120 is implemented/released as Production Authority Readiness Review
 Checkpoint M121 is implemented/released as Email Connector Contract Refresh.
 Checkpoint M122 is implemented/released as Calendar Connector Contract Refresh.
 Checkpoint M123 is implemented/released as Contacts Connector Contract Refresh.
-M124-M149
+Checkpoint M124 is implemented/released as Messages Connector Contract Review.
+M125-M149
 remain planned/provisional as checkpoint milestones instead of product SemVer
 tags, and M150 remains planned/provisional as the v1.0.0-alpha product target.
 Beta begins after the alpha UI and supporting safety/product work are reviewed

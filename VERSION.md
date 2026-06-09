@@ -2,9 +2,9 @@
 
 Current active baseline: **v1.7.2**
 
-Checkpoint M123 is implemented/released as Contacts Connector Contract Refresh.
+Checkpoint M124 is implemented/released as Messages Connector Contract Review.
 The current product baseline remains v1.7.2. Already-pushed tags
-remain immutable historical internal milestone tags. Future M124-M149 conveyor
+remain immutable historical internal milestone tags. Future M125-M149 conveyor
 milestones use checkpoint labels instead of product SemVer tags, and M150 is
 the next product release target **v1.0.0-alpha**. Beta begins only after the
 alpha UI and supporting safety/product work are reviewed, accepted, and
@@ -208,6 +208,17 @@ call, no memory write, no context injection, no execution, no backend route, no
 Control Center control, no dependency, no M124 work, no broad autonomy, no beta
 release, and no production authority.
 
-M101, M102, M103, M104, M105, M106, M107, M108, M109, M110, M111, M112, M113, M114, M115, M116, M117, M118, M119, M120, M121, M122, and M123 are implemented/released. M124-M150 are
+Checkpoint M124 adds contract-only review-only messages connector contract
+review records bound to M123 contacts connector contract refresh records. It
+adds no messages connector runtime, no messages account auth, no messages read,
+no messages search, no messages lookup, no messages send, no message thread
+access, no messages create, no messages update, no messages delete, no messages
+export, no messages bulk export, no attachment download, no raw messages
+content, no credential handling, no network access, no account action, no model
+call, no memory write, no context injection, no execution, no backend route, no
+Control Center control, no dependency, no M125 work, no broad autonomy, no beta
+release, and no production authority.
+
+M101, M102, M103, M104, M105, M106, M107, M108, M109, M110, M111, M112, M113, M114, M115, M116, M117, M118, M119, M120, M121, M122, M123, and M124 are implemented/released. M125-M150 are
 planned/provisional checkpoint milestones only. M150 is planned as
 v1.0.0-alpha, not beta.

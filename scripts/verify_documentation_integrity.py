@@ -1585,6 +1585,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_m121_email_connector_contract_refresh_docs(root, version))
     failures.extend(_verify_m122_calendar_connector_contract_refresh_docs(root, version))
     failures.extend(_verify_m123_contacts_connector_contract_refresh_docs(root, version))
+    failures.extend(_verify_m124_messages_connector_contract_review_docs(root, version))
     failures.extend(_verify_m19_roadmap_currentness(root, version))
     failures.extend(_verify_post_m18_roadmap_status_labels(root))
 
@@ -7202,6 +7203,12 @@ def _verify_post_m100_roadmap_reconciliation_docs(root: Path, version: str | Non
         or "contacts connector contract refresh" in version_doc_text
     ):
         implemented_milestones.add("m123")
+    if _version_tuple(version) >= (1, 7, 2) and (
+        "checkpoint m124" in version_doc_text
+        or "m124" in version_doc_text
+        or "messages connector contract review" in version_doc_text
+    ):
+        implemented_milestones.add("m124")
     for version_label, product_target, milestone, title in EXPECTED_M101_M150_LABELS:
         if milestone in implemented_milestones:
             continue
@@ -10535,7 +10542,7 @@ def _verify_m122_calendar_connector_contract_refresh_docs(
         or _roadmap_row_present(current_text, implemented_m123_row)
     ):
         failures.append("active docs missing planned Checkpoint M123 row")
-    for fragment in {
+    forbidden_fragments = {
         "m124 is implemented",
         "checkpoint m124 implements m124",
         "messages connector contract review is implemented",
@@ -10548,7 +10555,16 @@ def _verify_m122_calendar_connector_contract_refresh_docs(
         "account action is implemented",
         "beta is released",
         "broad autonomy is implemented",
-    }:
+    }
+    if (
+        "checkpoint m124 is implemented/released" in current_text
+        or "m124 is implemented/released" in current_text
+    ):
+        forbidden_fragments -= {
+            "m124 is implemented",
+            "messages connector contract review is implemented",
+        }
+    for fragment in forbidden_fragments:
         if fragment in current_text or fragment in text:
             failures.append(f"M122 docs imply forbidden/future capability: {fragment}")
     return failures
@@ -10662,11 +10678,18 @@ def _verify_m123_contacts_connector_contract_refresh_docs(
         "| checkpoint m124 | pre-alpha checkpoint | m124 | "
         "messages connector contract review | planned/provisional |"
     )
+    implemented_m124_row = (
+        "| checkpoint m124 | pre-alpha checkpoint | m124 | "
+        "messages connector contract review | implemented/released |"
+    )
     if not _roadmap_row_present(current_text, implemented_m123_row):
         failures.append("active docs missing implemented Checkpoint M123 row")
-    if not _roadmap_row_present(current_text, planned_m124_row):
+    if not (
+        _roadmap_row_present(current_text, planned_m124_row)
+        or _roadmap_row_present(current_text, implemented_m124_row)
+    ):
         failures.append("active docs missing planned Checkpoint M124 row")
-    for fragment in {
+    forbidden_fragments = {
         "m124 is implemented",
         "checkpoint m124 implements m124",
         "messages connector contract review is implemented",
@@ -10680,9 +10703,154 @@ def _verify_m123_contacts_connector_contract_refresh_docs(
         "account action is implemented",
         "beta is released",
         "broad autonomy is implemented",
-    }:
+    }
+    if (
+        "checkpoint m124 is implemented/released" in current_text
+        or "m124 is implemented/released" in current_text
+    ):
+        forbidden_fragments -= {
+            "m124 is implemented",
+            "messages connector contract review is implemented",
+        }
+    for fragment in forbidden_fragments:
         if fragment in current_text or fragment in text:
             failures.append(f"M123 docs imply forbidden/future capability: {fragment}")
+    return failures
+
+
+def _verify_m124_messages_connector_contract_review_docs(
+    root: Path, version: str | None
+) -> list[str]:
+    failures: list[str] = []
+    if _version_tuple(version) < (1, 7, 2):
+        return failures
+    active_text = " ".join(
+        "\n".join(
+            _read(root / rel_path).lower()
+            for rel_path in [
+                "README.md",
+                "VERSION.md",
+                "docs/canonical/09_roadmap.md",
+                "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            ]
+            if (root / rel_path).exists()
+        ).split()
+    )
+    if (
+        "checkpoint m124 is implemented/released" not in active_text
+        and "m124 is implemented/released" not in active_text
+    ):
+        return failures
+    required_paths = [
+        "docs/connectors/MESSAGES_CONNECTOR_CONTRACT_REVIEW.md",
+        "docs/connectors/MESSAGES_CONNECTOR_AUTHORITY_BOUNDARY.md",
+        "docs/connectors/MESSAGES_CONNECTOR_RECEIPT_PLAN.md",
+        "docs/connectors/MESSAGES_CONNECTOR_NON_GOALS.md",
+        "docs/connectors/M124_TO_M125_BOUNDARY.md",
+        "docs/release_notes/checkpoint_m124.md",
+        "docs/archive/checkpoints/m124/README_IMPORT.md",
+        "docs/archive/checkpoints/m124/master_plan.md",
+        "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+    ]
+    for rel_path in required_paths:
+        if not (root / rel_path).exists():
+            failures.append(f"missing M124 messages connector doc: {rel_path}")
+    text = " ".join(
+        "\n".join(
+            _read(root / rel_path).lower()
+            for rel_path in required_paths
+            if (root / rel_path).exists()
+        ).split()
+    )
+    required_fragments = {
+        "M124 docs must say messages connector contract review": "messages connector contract review",
+        "M124 docs must say contract-only": "contract-only",
+        "M124 docs must say review-only": "review-only",
+        "M124 docs must say safe refs": "safe refs",
+        "M124 docs must say contacts connector contract refresh": "contacts connector contract refresh",
+        "M124 docs must say messages scope refs": "messages scope refs",
+        "M124 docs must say messages boundary refs": "messages boundary refs",
+        "M124 docs must say message thread boundary refs": "message thread boundary refs",
+        "M124 docs must say consent boundary refs": "consent boundary refs",
+        "M124 docs must say data classification refs": "data classification refs",
+        "M124 docs must say retention boundary refs": "retention boundary refs",
+        "M124 docs must say actor-bound": "actor-bound",
+        "M124 docs must say baseline-bound": "baseline-bound",
+        "M124 docs must say source-contacts-connector-contract-refresh-bound": "source-contacts-connector-contract-refresh-bound",
+        "M124 docs must say audit": "audit",
+        "M124 docs must say replay": "replay",
+        "M124 docs must say no-effect receipt plan": "no-effect receipt plan",
+        "M124 docs must deny messages connector runtime": "no messages connector runtime",
+        "M124 docs must deny messages account auth": "no messages account auth",
+        "M124 docs must deny messages read": "no messages read",
+        "M124 docs must deny messages search": "no messages search",
+        "M124 docs must deny messages lookup": "no messages lookup",
+        "M124 docs must deny messages send": "no messages send",
+        "M124 docs must deny message thread access": "no message thread access",
+        "M124 docs must deny messages create": "no messages create",
+        "M124 docs must deny messages update": "no messages update",
+        "M124 docs must deny messages delete": "no messages delete",
+        "M124 docs must deny messages export": "no messages export",
+        "M124 docs must deny attachment download": "no attachment download",
+        "M124 docs must deny raw messages content": "no raw messages content",
+        "M124 docs must deny credential handling": "no credential handling",
+        "M124 docs must deny network access": "no network access",
+        "M124 docs must deny backend route": "no backend route",
+        "M124 docs must deny Control Center control": "no control center control",
+        "M124 docs must deny dependency": "no dependency",
+        "M124 docs must keep M125 future": "m125 remains future",
+        "M124 docs must preserve alpha target": "v1.0.0-alpha",
+    }
+    for message, fragment in required_fragments.items():
+        if fragment not in text:
+            failures.append(message)
+    active_paths = [
+        "README.md",
+        "VERSION.md",
+        "docs/canonical/09_roadmap.md",
+        "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+        "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+        "docs/roadmap/MILESTONE_CHARTERS.md",
+        "docs/DOCUMENTATION_INDEX.md",
+        "docs/canonical/CANONICAL_DOC_MAP.md",
+    ]
+    current_text = " ".join(
+        "\n".join(
+            _read(root / rel_path).lower()
+            for rel_path in active_paths
+            if (root / rel_path).exists()
+        ).split()
+    )
+    implemented_m124_row = (
+        "| checkpoint m124 | pre-alpha checkpoint | m124 | "
+        "messages connector contract review | implemented/released |"
+    )
+    planned_m125_row = (
+        "| checkpoint m125 | pre-alpha checkpoint | m125 | "
+        "connector read-only runtime | planned/provisional |"
+    )
+    if not _roadmap_row_present(current_text, implemented_m124_row):
+        failures.append("active docs missing implemented Checkpoint M124 row")
+    if not _roadmap_row_present(current_text, planned_m125_row):
+        failures.append("active docs missing planned Checkpoint M125 row")
+    for fragment in {
+        "m125 is implemented",
+        "checkpoint m125 implements m125",
+        "connector read-only runtime is implemented",
+        "messages connector runtime is implemented",
+        "messages account auth is implemented",
+        "messages read is implemented",
+        "messages send is implemented",
+        "messages export is implemented",
+        "message thread access is implemented",
+        "network access is implemented",
+        "credential handling is implemented",
+        "account action is implemented",
+        "beta is released",
+        "broad autonomy is implemented",
+    }:
+        if fragment in current_text or fragment in text:
+            failures.append(f"M124 docs imply forbidden/future capability: {fragment}")
     return failures
 
 

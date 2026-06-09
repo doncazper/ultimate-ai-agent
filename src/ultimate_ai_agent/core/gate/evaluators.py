@@ -1623,6 +1623,26 @@ M123_FORBIDDEN_BACKEND_ROUTES = M122_FORBIDDEN_BACKEND_ROUTES + (
     "/memory/write",
     "/context/inject",
 )
+EXPECTED_M124_OPENAPI_PATH_COUNT = 75
+M124_FORBIDDEN_BACKEND_ROUTES = M123_FORBIDDEN_BACKEND_ROUTES + (
+    "/connectors/messages/auth",
+    "/connectors/messages/read",
+    "/connectors/messages/search",
+    "/connectors/messages/lookup",
+    "/connectors/messages/send",
+    "/connectors/messages/thread",
+    "/connectors/messages/threads",
+    "/connectors/messages/attachments/download",
+    "/connectors/messages/create",
+    "/connectors/messages/update",
+    "/connectors/messages/delete",
+    "/connectors/messages/export",
+    "/connectors/messages/bulk-export",
+    "/messages/export",
+    "/network/post",
+    "/memory/write",
+    "/context/inject",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -3186,6 +3206,23 @@ def m123_openapi_route_failures(
     return failures
 
 
+def m124_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M124_OPENAPI_PATH_COUNT
+) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(
+            f"OpenAPI path count changed for M124: expected {expected_path_count}, got {len(path_set)}"
+        )
+    for route in M124_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(
+                f"M124 forbidden messages connector runtime route present: {route}"
+            )
+    return failures
+
+
 M36_SAFE_REF_PREFIXES = {
     "reviewPacketRef": "file-review-packet:",
     "previewResultRef": "redacted-file-preview-output:",
@@ -4281,6 +4318,16 @@ class FoundationGateEvaluator:
                 self.check_m123_contacts_connector_contract_refresh_route_boundary
             ),
             "m123_roadmap_currentness": self.check_m123_roadmap_currentness,
+            "m124_messages_connector_contract_review_contracts": (
+                self.check_m124_messages_connector_contract_review_contracts
+            ),
+            "m124_messages_connector_contract_review_static_safety": (
+                self.check_m124_messages_connector_contract_review_static_safety
+            ),
+            "m124_messages_connector_contract_review_route_boundary": (
+                self.check_m124_messages_connector_contract_review_route_boundary
+            ),
+            "m124_roadmap_currentness": self.check_m124_roadmap_currentness,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -30044,6 +30091,12 @@ class FoundationGateEvaluator:
             or "contacts connector contract refresh" in active_version_text
         ):
             implemented_milestones.add("m123")
+        if (
+            "checkpoint m124" in active_version_text
+            or "m124" in active_version_text
+            or "messages connector contract review" in active_version_text
+        ):
+            implemented_milestones.add("m124")
         for version_label, product_target, milestone, title in expected_labels:
             if milestone in implemented_milestones:
                 continue
@@ -37646,7 +37699,7 @@ class FoundationGateEvaluator:
                 failures.append(
                     f"active docs missing expected M122-M150 row: {version_label} / {milestone.upper()} - {title}"
                 )
-        for fragment in (
+        forbidden_fragments = {
             "m124 is implemented",
             "checkpoint m124 implements m124",
             "messages connector contract review is implemented",
@@ -37657,7 +37710,16 @@ class FoundationGateEvaluator:
             "network access is implemented",
             "beta is released",
             "broad autonomy is implemented",
+        }
+        if (
+            "checkpoint m124 is implemented/released" in text
+            or "m124 is implemented/released" in text
         ):
+            forbidden_fragments -= {
+                "m124 is implemented",
+                "messages connector contract review is implemented",
+            }
+        for fragment in forbidden_fragments:
             if fragment in text:
                 failures.append(
                     f"active docs imply forbidden M122 future/currentness claim: {fragment}"
@@ -38043,7 +38105,7 @@ class FoundationGateEvaluator:
                 failures.append(
                     f"active docs missing expected M123-M150 row: {version_label} / {milestone.upper()} - {title}"
                 )
-        for fragment in (
+        forbidden_fragments = {
             "m124 is implemented",
             "checkpoint m124 implements m124",
             "messages connector contract review is implemented",
@@ -38054,10 +38116,450 @@ class FoundationGateEvaluator:
             "network access is implemented",
             "beta is released",
             "broad autonomy is implemented",
+        }
+        if (
+            "checkpoint m124 is implemented/released" in text
+            or "m124 is implemented/released" in text
         ):
+            forbidden_fragments -= {
+                "m124 is implemented",
+                "messages connector contract review is implemented",
+            }
+        for fragment in forbidden_fragments:
             if fragment in text:
                 failures.append(
                     f"active docs imply forbidden M123 future/currentness claim: {fragment}"
+                )
+        return self._result(criterion, failures, required_docs)
+
+    def check_m124_messages_connector_contract_review_contracts(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/connectors/__init__.py",
+            "src/ultimate_ai_agent/core/connectors/messages_connector_contract_review.py",
+            "docs/connectors/MESSAGES_CONNECTOR_CONTRACT_REVIEW.md",
+            "docs/connectors/MESSAGES_CONNECTOR_AUTHORITY_BOUNDARY.md",
+            "docs/connectors/MESSAGES_CONNECTOR_RECEIPT_PLAN.md",
+            "docs/connectors/MESSAGES_CONNECTOR_NON_GOALS.md",
+            "docs/connectors/M124_TO_M125_BOUNDARY.md",
+            "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            "tests/test_m124_messages_connector_contract_review.py",
+            "tests/test_m124_gate_integration.py",
+        ]
+        failures = [
+            f"missing M124 messages connector review file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            from ultimate_ai_agent.core.connectors import (
+                MessagesConnectorContractReviewStatus,
+                build_calendar_connector_contract_refresh_record,
+                build_contacts_connector_contract_refresh_record,
+                build_email_connector_contract_refresh_record,
+                build_messages_connector_contract_review_record,
+                validate_messages_connector_contract_review_record,
+            )
+            from ultimate_ai_agent.core.mobile_companion import (
+                build_mobile_approval_renewal_ux_report,
+                build_mobile_kill_switch_revocation_record,
+                build_mobile_sensor_audit_ledger_record,
+                build_mobile_sensor_hardening_freeze_record,
+            )
+            from ultimate_ai_agent.core.production_readiness import (
+                build_account_connector_contract_review_record,
+                build_deployment_mode_matrix_record,
+                build_production_audit_retention_policy_record,
+                build_production_authority_readiness_review_record,
+                build_production_red_team_harness_record,
+                build_production_threat_model_record,
+                build_remote_agent_coordination_contract_record,
+                build_role_based_authority_model_record,
+                build_secrets_boundary_record,
+                build_user_workspace_identity_record,
+            )
+
+            m120_record = build_production_authority_readiness_review_record(
+                source_record=build_production_red_team_harness_record(
+                    source_record=build_deployment_mode_matrix_record(
+                        source_record=build_remote_agent_coordination_contract_record(
+                            source_record=build_role_based_authority_model_record(
+                                source_record=build_production_audit_retention_policy_record(
+                                    source_record=build_account_connector_contract_review_record(
+                                        source_record=build_secrets_boundary_record(
+                                            source_record=build_user_workspace_identity_record(
+                                                source_record=build_production_threat_model_record(
+                                                    source_record=build_mobile_sensor_hardening_freeze_record(
+                                                        source_record=build_mobile_sensor_audit_ledger_record(
+                                                            source_record=build_mobile_kill_switch_revocation_record(
+                                                                source_report=build_mobile_approval_renewal_ux_report()
+                                                            )
+                                                        )
+                                                    )
+                                                )
+                                            )
+                                        )
+                                    )
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+            email_record = build_email_connector_contract_refresh_record(
+                source_record=m120_record
+            )
+            calendar_record = build_calendar_connector_contract_refresh_record(
+                source_record=email_record
+            )
+            source_record = build_contacts_connector_contract_refresh_record(
+                source_record=calendar_record
+            )
+            record = build_messages_connector_contract_review_record(
+                source_record=source_record
+            )
+            if (
+                record.status
+                != MessagesConnectorContractReviewStatus.messages_connector_contract_review
+                or not record.contract_only
+                or not record.review_only
+                or not record.safe_refs_required
+                or not record.actor_bound
+                or not record.baseline_bound
+                or not record.source_contacts_connector_contract_refresh_bound
+                or not record.user_bound
+                or not record.workspace_bound
+                or not record.messages_scope_bound
+                or not record.messages_boundary_bound
+                or not record.message_thread_boundary_bound
+                or not record.consent_boundary_bound
+                or not record.data_classification_bound
+                or not record.retention_boundary_bound
+                or not record.audit_required
+                or not record.replay_safe
+                or record.source_contacts_connector_contract_refresh_ref
+                != source_record.contacts_connector_contract_refresh_ref
+                or record.source_baseline_ref != source_record.source_baseline_ref
+                or record.actor_ref != source_record.actor_ref
+                or record.user_ref != source_record.user_ref
+                or record.workspace_ref != source_record.workspace_ref
+                or "checkpoint:m123" not in record.accepted_checkpoint_refs
+                or not record.messages_scope_refs
+                or not record.messages_boundary_refs
+                or not record.message_thread_boundary_refs
+                or not record.consent_boundary_refs
+                or not record.data_classification_refs
+                or not record.retention_boundary_refs
+                or record.messages_connector_runtime_enabled
+                or record.messages_account_auth_enabled
+                or record.messages_read_enabled
+                or record.messages_search_enabled
+                or record.messages_lookup_enabled
+                or record.messages_send_enabled
+                or record.message_thread_access_enabled
+                or record.messages_create_enabled
+                or record.messages_update_enabled
+                or record.messages_delete_enabled
+                or record.messages_export_enabled
+                or record.messages_bulk_export_enabled
+                or record.attachment_download_enabled
+                or record.raw_messages_content_enabled
+                or record.credential_handling_enabled
+                or record.network_access_enabled
+                or record.account_action_enabled
+                or record.model_call_enabled
+                or record.memory_write_enabled
+                or record.context_injection_enabled
+                or record.execution_enabled
+                or record.backend_route_added
+                or record.control_center_control_added
+                or record.dependency_added
+                or record.side_effects_performed
+                or "M124_MESSAGES_CONNECTOR_CONTRACT_REVIEW" not in record.reason_codes
+                or "M125_REMAINS_FUTURE" not in record.reason_codes
+            ):
+                failures.append(
+                    "M124 messages connector review contract is unsafe or over-authoritative"
+                )
+            for update, reason in [
+                ({"review_only": False}, "M124_REVIEW_ONLY_REQUIRED"),
+                ({"messages_scope_refs": []}, "M124_MESSAGES_SCOPE_REF_REQUIRED"),
+                ({"messages_boundary_refs": []}, "M124_MESSAGES_BOUNDARY_REF_REQUIRED"),
+                (
+                    {"message_thread_boundary_refs": []},
+                    "M124_MESSAGE_THREAD_BOUNDARY_REF_REQUIRED",
+                ),
+                (
+                    {"messages_connector_runtime_enabled": True},
+                    "MESSAGES_CONNECTOR_RUNTIME_DENIED",
+                ),
+                ({"messages_account_auth_enabled": True}, "MESSAGES_ACCOUNT_AUTH_DENIED"),
+                ({"messages_read_enabled": True}, "MESSAGES_READ_DENIED"),
+                ({"messages_lookup_enabled": True}, "MESSAGES_LOOKUP_DENIED"),
+                ({"messages_send_enabled": True}, "MESSAGES_SEND_DENIED"),
+                (
+                    {"message_thread_access_enabled": True},
+                    "MESSAGE_THREAD_ACCESS_DENIED",
+                ),
+                ({"messages_create_enabled": True}, "MESSAGES_CREATE_DENIED"),
+                ({"messages_export_enabled": True}, "MESSAGES_EXPORT_DENIED"),
+                (
+                    {"attachment_download_enabled": True},
+                    "ATTACHMENT_DOWNLOAD_DENIED",
+                ),
+                ({"raw_messages_content_enabled": True}, "RAW_MESSAGES_CONTENT_DENIED"),
+                ({"credential_handling_enabled": True}, "CREDENTIAL_HANDLING_DENIED"),
+                ({"network_access_enabled": True}, "NETWORK_ACCESS_DENIED"),
+                ({"backend_route_added": True}, "BACKEND_ROUTE_DENIED"),
+                (
+                    {"control_center_control_added": True},
+                    "CONTROL_CENTER_CONTROL_DENIED",
+                ),
+                ({"dependency_added": True}, "DEPENDENCY_DENIED"),
+            ]:
+                try:
+                    validate_messages_connector_contract_review_record(
+                        record.model_copy(update=update)
+                    )
+                    failures.append(
+                        f"M124 unsafe record mutation was not denied with {reason}"
+                    )
+                except ValueError as exc:
+                    if reason not in str(exc):
+                        failures.append(f"M124 unsafe record mutation raised {exc!s}")
+        except Exception as exc:
+            failures.append(f"M124 messages connector review validation failed: {exc}")
+
+        docs_text = " ".join(
+            "\n".join(
+                self._read(self.root / path).lower()
+                for path in required_files
+                if path.startswith("docs/") and (self.root / path).exists()
+            ).split()
+        )
+        for fragment in [
+            "messages connector contract review",
+            "contract-only",
+            "review-only",
+            "safe refs",
+            "contacts connector contract refresh",
+            "messages scope refs",
+            "messages boundary refs",
+            "message thread boundary refs",
+            "consent boundary refs",
+            "data classification refs",
+            "retention boundary refs",
+            "actor-bound",
+            "baseline-bound",
+            "source-contacts-connector-contract-refresh-bound",
+            "audit",
+            "replay",
+            "no-effect receipt plan",
+            "no messages connector runtime",
+            "no messages account auth",
+            "no messages read",
+            "no messages search",
+            "no messages lookup",
+            "no messages send",
+            "no message thread access",
+            "no messages create",
+            "no messages update",
+            "no messages delete",
+            "no messages export",
+            "no attachment download",
+            "no raw messages content",
+            "no credential handling",
+            "no network access",
+            "no backend route",
+            "no control center control",
+            "no dependency",
+            "m125 remains future",
+            "v1.0.0-alpha",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M124 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m124_messages_connector_contract_review_static_safety(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        forbidden_source_fragments = [
+            "messages_connector_runtime_enabled=True",
+            "messages_account_auth_enabled=True",
+            "messages_read_enabled=True",
+            "messages_search_enabled=True",
+            "messages_lookup_enabled=True",
+            "messages_send_enabled=True",
+            "message_thread_access_enabled=True",
+            "messages_create_enabled=True",
+            "messages_update_enabled=True",
+            "messages_delete_enabled=True",
+            "messages_export_enabled=True",
+            "messages_bulk_export_enabled=True",
+            "attachment_download_enabled=True",
+            "raw_messages_content_enabled=True",
+            "credential_handling_enabled=True",
+            "network_access_enabled=True",
+            "account_action_enabled=True",
+            "model_call_enabled=True",
+            "memory_write_enabled=True",
+            "context_injection_enabled=True",
+            "execution_enabled=True",
+            "backend_route_enabled=True",
+            "backend_route_added=True",
+            "control_center_control_enabled=True",
+            "control_center_control_added=True",
+            "dependency_added=True",
+            "/connectors/messages/auth",
+            "/connectors/messages/read",
+            "/connectors/messages/search",
+            "/connectors/messages/lookup",
+            "/connectors/messages/send",
+            "/connectors/messages/thread",
+            "/connectors/messages/attachments/download",
+            "/connectors/messages/create",
+            "/connectors/messages/update",
+            "/connectors/messages/delete",
+            "/connectors/messages/export",
+            "/connectors/messages/bulk-export",
+            "/messages/export",
+        ]
+        allowed_files = {
+            "scripts/verify_all.py",
+            "src/ultimate_ai_agent/core/gate/evaluators.py",
+            "src/ultimate_ai_agent/core/connectors/__init__.py",
+            "src/ultimate_ai_agent/core/connectors/messages_connector_contract_review.py",
+        }
+        for root in [
+            self.root / "src" / "ultimate_ai_agent",
+            self.root / "apps" / "control-center" / "src",
+            self.root / "apps" / "ccc-ios",
+        ]:
+            if not root.exists():
+                continue
+            candidate_files = []
+            for pattern in (
+                "*.py",
+                "*.ts",
+                "*.tsx",
+                "*.js",
+                "*.jsx",
+                "*.swift",
+                "*.yml",
+                "*.yaml",
+            ):
+                candidate_files.extend(root.rglob(pattern))
+            for path in sorted(candidate_files):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(self.root).as_posix()
+                if ".test." in rel:
+                    continue
+                if rel in allowed_files:
+                    continue
+                text = path.read_text(encoding="utf-8")
+                for fragment in forbidden_source_fragments:
+                    if fragment in text:
+                        failures.append(
+                            f"M124 forbidden messages connector fragment in {rel}: {fragment}"
+                        )
+        return self._result(criterion, failures, [])
+
+    def check_m124_messages_connector_contract_review_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m124_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M124 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m124_roadmap_currentness(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_docs = [
+            "README.md",
+            "VERSION.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            "docs/roadmap/MILESTONE_CHARTERS.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+        ]
+        failures = [
+            f"missing M124 roadmap doc: {path}"
+            for path in required_docs
+            if not (self.root / path).exists()
+        ]
+        text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_docs
+            if (self.root / path).exists()
+        )
+        if (
+            "checkpoint m124" not in text
+            or "messages connector contract review" not in text
+        ):
+            failures.append(
+                "active docs do not identify Checkpoint M124 Messages Connector Contract Review"
+            )
+        if (
+            "m124 is implemented/released" not in text
+            and "checkpoint m124 is implemented/released" not in text
+        ):
+            failures.append("active docs do not mark M124 implemented/released")
+        for version_label, product_target, milestone, title, status in [
+            (
+                "checkpoint m124",
+                "pre-alpha checkpoint",
+                "m124",
+                "messages connector contract review",
+                "implemented/released",
+            ),
+            (
+                "checkpoint m125",
+                "pre-alpha checkpoint",
+                "m125",
+                "connector read-only runtime",
+                "planned/provisional",
+            ),
+            (
+                "v1.0.0-alpha",
+                "alpha",
+                "m150",
+                "ultimate ai agent v1.0.0-alpha",
+                "planned/provisional",
+            ),
+        ]:
+            row = (
+                f"| {version_label} | {product_target} | {milestone} | "
+                f"{title} | {status} |"
+            )
+            if not _roadmap_row_present(text, row):
+                failures.append(
+                    f"active docs missing expected M124-M150 row: {version_label} / {milestone.upper()} - {title}"
+                )
+        for fragment in (
+            "m125 is implemented",
+            "checkpoint m125 implements m125",
+            "connector read-only runtime is implemented",
+            "messages connector runtime is implemented",
+            "messages account auth is implemented",
+            "messages read is implemented",
+            "messages send is implemented",
+            "messages export is implemented",
+            "message thread access is implemented",
+            "network access is implemented",
+            "beta is released",
+            "broad autonomy is implemented",
+        ):
+            if fragment in text:
+                failures.append(
+                    f"active docs imply forbidden M124 future/currentness claim: {fragment}"
                 )
         return self._result(criterion, failures, required_docs)
 
