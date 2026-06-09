@@ -2,9 +2,9 @@
 
 Current active baseline: **v1.7.2**
 
-Checkpoint M125 is implemented/released as Connector Read-Only Runtime.
+Checkpoint M126 is implemented/released as Connector Approval Capture.
 The current product baseline remains v1.7.2. Already-pushed tags
-remain immutable historical internal milestone tags. Future M126-M149 conveyor
+remain immutable historical internal milestone tags. Future M127-M149 conveyor
 milestones use checkpoint labels instead of product SemVer tags, and M150 is
 the next product release target **v1.0.0-alpha**. Beta begins only after the
 alpha UI and supporting safety/product work are reviewed, accepted, and
@@ -232,6 +232,24 @@ injection, no execution, no backend route, no Control Center control, no
 dependency, no M126 work, no broad autonomy, no beta release, and no production
 authority.
 
-M101, M102, M103, M104, M105, M106, M107, M108, M109, M110, M111, M112, M113, M114, M115, M116, M117, M118, M119, M120, M121, M122, M123, M124, and M125 are implemented/released. M126-M150 are
+Checkpoint M126 adds deterministic local connector approval capture records
+bound to M125 connector read-only runtime records. It records safe approval
+refs, connector read-only runtime refs, source messages connector contract
+review refs, actor refs, user refs, workspace refs, connector scope refs,
+connector allowlist refs, operation allowlist refs, redacted metadata preview
+refs, audit refs, replay refs, idempotency keys, and no-effect receipt plan
+refs. It denies approval_test_ refs, expired approvals, revoked approvals,
+replayed approval nonces, actor mismatch, user mismatch, workspace mismatch,
+runtime ref mismatch, source review ref mismatch, allowlist mismatch, operation
+mismatch, and metadata preview mismatch. Approval refs remain identifiers, not
+authority. It adds no live connector runtime, no account auth, no network
+access, no credential handling, no raw connector content, no full content read,
+no connector write, no connector send, no connector delete, no connector
+export, no connector bulk export, no attachment download, no model call, no
+memory write, no context injection, no execution, no backend route, no Control
+Center control, no dependency, no M127 work, no broad autonomy, no beta release,
+and no production authority.
+
+M101, M102, M103, M104, M105, M106, M107, M108, M109, M110, M111, M112, M113, M114, M115, M116, M117, M118, M119, M120, M121, M122, M123, M124, M125, and M126 are implemented/released. M127-M150 are
 planned/provisional checkpoint milestones only. M150 is planned as
 v1.0.0-alpha, not beta.

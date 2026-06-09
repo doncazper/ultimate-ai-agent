@@ -164,6 +164,7 @@ SCAN_SEQUENCE = [
     ("M123 contacts connector contract refresh scan", "verify_m123_contacts_connector_contract_refresh"),
     ("M124 messages connector contract review scan", "verify_m124_messages_connector_contract_review"),
     ("M125 connector read-only runtime scan", "verify_m125_connector_read_only_runtime"),
+    ("M126 connector approval capture scan", "verify_m126_connector_approval_capture"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -17663,6 +17664,12 @@ def verify_post_m100_roadmap_reconciliation():
         or "connector read-only runtime" in active_version_text
     ):
         implemented_milestones.add("m125")
+    if (
+        "checkpoint m126" in active_version_text
+        or "m126" in active_version_text
+        or "connector approval capture" in active_version_text
+    ):
+        implemented_milestones.add("m126")
     for version_label, product_target, milestone, title in expected_labels:
         if milestone in implemented_milestones:
             continue
@@ -22501,6 +22508,112 @@ def verify_m125_connector_read_only_runtime():
             sys.exit(1)
 
     print("OK: M125 connector read-only runtime is safe-ref-only, no-live-runtime, and route-free")
+
+
+def verify_m126_connector_approval_capture():
+    print("\n[Verifier] Running M126 connector approval capture guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/connectors/__init__.py",
+        "src/ultimate_ai_agent/core/connectors/connector_approval_capture.py",
+        "src/ultimate_ai_agent/core/connectors/connector_read_only_runtime.py",
+        "docs/connectors/CONNECTOR_APPROVAL_CAPTURE.md",
+        "docs/connectors/CONNECTOR_APPROVAL_CAPTURE_AUTHORITY_BOUNDARY.md",
+        "docs/connectors/CONNECTOR_APPROVAL_CAPTURE_RECEIPT_PLAN.md",
+        "docs/connectors/CONNECTOR_APPROVAL_CAPTURE_NON_GOALS.md",
+        "docs/connectors/M126_TO_M127_BOUNDARY.md",
+        "docs/release_notes/checkpoint_m126.md",
+        "docs/archive/checkpoints/m126/README_IMPORT.md",
+        "docs/archive/checkpoints/m126/master_plan.md",
+        "tests/test_m126_connector_approval_capture.py",
+        "tests/test_m126_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M126 connector approval capture file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = " ".join(
+        "\n".join(
+            (ROOT / rel_path).read_text(encoding="utf-8").lower()
+            for rel_path in required_files
+            if rel_path.startswith("docs/")
+        ).split()
+    )
+    for fragment in [
+        "connector approval capture",
+        "exact-bound",
+        "review-only",
+        "safe refs only",
+        "approval refs remain identifiers, not authority",
+        "approval_test_",
+        "m125 connector read-only runtime",
+        "actor-bound",
+        "user-bound",
+        "workspace-bound",
+        "replay-safe",
+        "revocable",
+        "no live connector runtime",
+        "no account auth",
+        "no network access",
+        "no credential handling",
+        "no raw connector content",
+        "no full content read",
+        "no connector write",
+        "no connector send",
+        "no connector delete",
+        "no connector export",
+        "no attachment download",
+        "no model call",
+        "no memory write",
+        "no context injection",
+        "no execution",
+        "no backend route",
+        "no control center control",
+        "no dependency",
+        "m127 remains future",
+        "v1.0.0-alpha",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M126 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.criteria import (
+            default_foundation_gate_criteria,
+        )
+        from ultimate_ai_agent.core.gate.evaluators import (
+            FoundationGateEvaluator,
+            m126_openapi_route_failures,
+        )
+    except Exception as exc:
+        print(f"FAIL: M126 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m126_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    criteria = {
+        criterion.criterion_id: criterion
+        for criterion in default_foundation_gate_criteria()
+    }
+    evaluator = FoundationGateEvaluator(ROOT)
+    for criterion_id in [
+        "m126_connector_approval_capture_contracts",
+        "m126_connector_approval_capture_static_safety",
+        "m126_connector_approval_capture_route_boundary",
+        "m126_roadmap_currentness",
+    ]:
+        report = evaluator.evaluate([criteria[criterion_id]])
+        result = report.results[0]
+        if result.status != "passed":
+            print(f"FAIL: {criterion_id} failed: {result.failures}")
+            sys.exit(1)
+
+    print("OK: M126 connector approval capture is exact-bound, review-only, and route-free")
 
 
 def verify_local_developer_launcher_safety():

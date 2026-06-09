@@ -1659,6 +1659,17 @@ M125_FORBIDDEN_BACKEND_ROUTES = M124_FORBIDDEN_BACKEND_ROUTES + (
     "/context/inject",
     "/tools/execute",
 )
+EXPECTED_M126_OPENAPI_PATH_COUNT = 75
+M126_FORBIDDEN_BACKEND_ROUTES = M125_FORBIDDEN_BACKEND_ROUTES + (
+    "/connectors/approvals/capture",
+    "/connectors/approve",
+    "/connectors/approval",
+    "/connectors/approval/capture",
+    "/connectors/write",
+    "/connectors/send",
+    "/connectors/delete",
+    "/connectors/bulk-export",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -3256,6 +3267,23 @@ def m125_openapi_route_failures(
     return failures
 
 
+def m126_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M126_OPENAPI_PATH_COUNT
+) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(
+            f"OpenAPI path count changed for M126: expected {expected_path_count}, got {len(path_set)}"
+        )
+    for route in M126_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(
+                f"M126 forbidden connector approval capture route present: {route}"
+            )
+    return failures
+
+
 M36_SAFE_REF_PREFIXES = {
     "reviewPacketRef": "file-review-packet:",
     "previewResultRef": "redacted-file-preview-output:",
@@ -4371,6 +4399,16 @@ class FoundationGateEvaluator:
                 self.check_m125_connector_read_only_runtime_route_boundary
             ),
             "m125_roadmap_currentness": self.check_m125_roadmap_currentness,
+            "m126_connector_approval_capture_contracts": (
+                self.check_m126_connector_approval_capture_contracts
+            ),
+            "m126_connector_approval_capture_static_safety": (
+                self.check_m126_connector_approval_capture_static_safety
+            ),
+            "m126_connector_approval_capture_route_boundary": (
+                self.check_m126_connector_approval_capture_route_boundary
+            ),
+            "m126_roadmap_currentness": self.check_m126_roadmap_currentness,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -30146,6 +30184,12 @@ class FoundationGateEvaluator:
             or "connector read-only runtime" in active_version_text
         ):
             implemented_milestones.add("m125")
+        if (
+            "checkpoint m126" in active_version_text
+            or "m126" in active_version_text
+            or "connector approval capture" in active_version_text
+        ):
+            implemented_milestones.add("m126")
         for version_label, product_target, milestone, title in expected_labels:
             if milestone in implemented_milestones:
                 continue
@@ -38968,6 +39012,13 @@ class FoundationGateEvaluator:
                 "pre-alpha checkpoint",
                 "m126",
                 "connector approval capture",
+                "implemented/released",
+            ),
+            (
+                "checkpoint m127",
+                "pre-alpha checkpoint",
+                "m127",
+                "connector write dry-run planner",
                 "planned/provisional",
             ),
             (
@@ -38987,9 +39038,6 @@ class FoundationGateEvaluator:
                     f"active docs missing expected M125-M150 row: {version_label} / {milestone.upper()} - {title}"
                 )
         for fragment in (
-            "m126 is implemented",
-            "checkpoint m126 implements m126",
-            "connector approval capture is implemented",
             "connector write dry-run planner is implemented",
             "connector write execution is implemented",
             "live connector runtime is implemented",
@@ -39002,6 +39050,433 @@ class FoundationGateEvaluator:
             if fragment in text:
                 failures.append(
                     f"active docs imply forbidden M125 future/currentness claim: {fragment}"
+                )
+        return self._result(criterion, failures, required_docs)
+
+    def check_m126_connector_approval_capture_contracts(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/connectors/connector_approval_capture.py",
+            "src/ultimate_ai_agent/core/connectors/connector_read_only_runtime.py",
+            "tests/test_m126_connector_approval_capture.py",
+            "docs/connectors/CONNECTOR_APPROVAL_CAPTURE.md",
+            "docs/connectors/CONNECTOR_APPROVAL_CAPTURE_AUTHORITY_BOUNDARY.md",
+            "docs/connectors/CONNECTOR_APPROVAL_CAPTURE_RECEIPT_PLAN.md",
+            "docs/connectors/CONNECTOR_APPROVAL_CAPTURE_NON_GOALS.md",
+            "docs/connectors/M126_TO_M127_BOUNDARY.md",
+            "docs/release_notes/checkpoint_m126.md",
+            "docs/archive/checkpoints/m126/README_IMPORT.md",
+            "docs/archive/checkpoints/m126/master_plan.md",
+        ]
+        failures = [
+            f"missing M126 connector approval capture file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            from datetime import timedelta
+
+            from ultimate_ai_agent.core.connectors import (
+                ConnectorApprovalDecisionKind,
+                ConnectorApprovalCaptureDecisionStatus,
+                ConnectorApprovalCaptureRequest,
+                build_calendar_connector_contract_refresh_record,
+                build_connector_read_only_runtime_record,
+                build_contacts_connector_contract_refresh_record,
+                build_email_connector_contract_refresh_record,
+                build_messages_connector_contract_review_record,
+                capture_connector_approval,
+                validate_connector_approval_capture_record,
+            )
+            from ultimate_ai_agent.core.mobile_companion import (
+                build_mobile_approval_renewal_ux_report,
+                build_mobile_kill_switch_revocation_record,
+                build_mobile_sensor_audit_ledger_record,
+                build_mobile_sensor_hardening_freeze_record,
+            )
+            from ultimate_ai_agent.core.production_readiness import (
+                build_account_connector_contract_review_record,
+                build_deployment_mode_matrix_record,
+                build_production_audit_retention_policy_record,
+                build_production_authority_readiness_review_record,
+                build_production_red_team_harness_record,
+                build_production_threat_model_record,
+                build_remote_agent_coordination_contract_record,
+                build_role_based_authority_model_record,
+                build_secrets_boundary_record,
+                build_user_workspace_identity_record,
+            )
+            from ultimate_ai_agent.core.time import utc_now
+
+            source_record = build_messages_connector_contract_review_record(
+                source_record=build_contacts_connector_contract_refresh_record(
+                    source_record=build_calendar_connector_contract_refresh_record(
+                        source_record=build_email_connector_contract_refresh_record(
+                            source_record=build_production_authority_readiness_review_record(
+                                source_record=build_production_red_team_harness_record(
+                                    source_record=build_deployment_mode_matrix_record(
+                                        source_record=build_remote_agent_coordination_contract_record(
+                                            source_record=build_role_based_authority_model_record(
+                                                source_record=build_production_audit_retention_policy_record(
+                                                    source_record=build_account_connector_contract_review_record(
+                                                        source_record=build_secrets_boundary_record(
+                                                            source_record=build_user_workspace_identity_record(
+                                                                source_record=build_production_threat_model_record(
+                                                                    source_record=build_mobile_sensor_hardening_freeze_record(
+                                                                        source_record=build_mobile_sensor_audit_ledger_record(
+                                                                            source_record=build_mobile_kill_switch_revocation_record(
+                                                                                source_report=build_mobile_approval_renewal_ux_report()
+                                                                            )
+                                                                        )
+                                                                    )
+                                                                )
+                                                            )
+                                                        )
+                                                    )
+                                                )
+                                            )
+                                        )
+                                    )
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+            runtime_record = build_connector_read_only_runtime_record(
+                source_record=source_record
+            )
+            request = ConnectorApprovalCaptureRequest(
+                approval_ref="connector-approval-capture:m126:gate",
+                actor_ref=runtime_record.actor_ref,
+                user_ref=runtime_record.user_ref,
+                workspace_ref=runtime_record.workspace_ref,
+                connector_read_only_runtime_ref=(
+                    runtime_record.connector_read_only_runtime_ref
+                ),
+                source_messages_connector_contract_review_ref=(
+                    runtime_record.source_messages_connector_contract_review_ref
+                ),
+                source_baseline_ref=runtime_record.source_baseline_ref,
+                connector_scope_refs=runtime_record.connector_scope_refs,
+                connector_allowlist_refs=runtime_record.connector_allowlist_refs,
+                operation_allowlist_refs=runtime_record.operation_allowlist_refs,
+                redacted_metadata_preview_refs=(
+                    runtime_record.redacted_metadata_preview_refs
+                ),
+                audit_ref="audit-ref:m126:gate",
+                replay_ref="replay-ref:m126:gate",
+                no_effect_receipt_plan_ref="receipt-plan-ref:m126:gate:no-effect",
+                decision=ConnectorApprovalDecisionKind.approve_review_only,
+                idempotency_key="idempotency-ref:m126:gate",
+                expires_at=utc_now() + timedelta(minutes=5),
+                safe_reason="Gate reviewed safe connector metadata refs only.",
+            )
+            decision = capture_connector_approval(
+                runtime_record, request, current_time=utc_now()
+            )
+            if (
+                decision.status
+                != ConnectorApprovalCaptureDecisionStatus.approved_for_review_only
+                or not decision.captured
+                or not decision.persisted
+                or not decision.review_only
+                or decision.record is None
+                or decision.receipt_plan is None
+                or decision.live_connector_runtime_authorized
+                or decision.account_auth_authorized
+                or decision.network_access_authorized
+                or decision.credential_handling_authorized
+                or decision.raw_connector_content_authorized
+                or decision.full_content_read_authorized
+                or decision.connector_write_authorized
+                or decision.connector_send_authorized
+                or decision.connector_delete_authorized
+                or decision.connector_export_authorized
+                or decision.attachment_download_authorized
+                or decision.memory_write_authorized
+                or decision.context_injection_authorized
+                or decision.execution_authorized
+                or decision.backend_route_added
+                or decision.control_center_control_added
+                or decision.dependency_added
+            ):
+                failures.append(
+                    "M126 connector approval capture decision is unsafe or over-authoritative"
+                )
+            for update, reason in [
+                (
+                    {"connector_read_only_runtime_ref": "connector-read-only-runtime:mismatch"},
+                    "M126_CONNECTOR_APPROVAL_RUNTIME_REF_MISMATCH",
+                ),
+                (
+                    {"approval_ref": "approval_test_m126"},
+                    "M126_CONNECTOR_APPROVAL_TEST_REF_DENIED",
+                ),
+                ({"expires_at": utc_now() - timedelta(minutes=1)}, "M126_CONNECTOR_APPROVAL_EXPIRED"),
+                ({"revoked_at": utc_now()}, "M126_CONNECTOR_APPROVAL_REVOKED"),
+                ({"live_connector_runtime_enabled": True}, "M126_LIVE_CONNECTOR_RUNTIME_DENIED"),
+                ({"raw_connector_content_enabled": True}, "M126_RAW_CONNECTOR_CONTENT_DENIED"),
+                ({"full_content_read_enabled": True}, "M126_FULL_CONTENT_READ_DENIED"),
+                ({"connector_write_enabled": True}, "M126_CONNECTOR_WRITE_DENIED"),
+                ({"connector_send_enabled": True}, "M126_CONNECTOR_SEND_DENIED"),
+                ({"connector_delete_enabled": True}, "M126_CONNECTOR_DELETE_DENIED"),
+                ({"connector_export_enabled": True}, "M126_CONNECTOR_EXPORT_DENIED"),
+                ({"attachment_download_enabled": True}, "M126_ATTACHMENT_DOWNLOAD_DENIED"),
+                ({"memory_write_enabled": True}, "M126_MEMORY_WRITE_DENIED"),
+                ({"context_injection_enabled": True}, "M126_CONTEXT_INJECTION_DENIED"),
+                ({"execution_enabled": True}, "M126_EXECUTION_DENIED"),
+            ]:
+                mutated = request.model_copy(update=update)
+                rejected = capture_connector_approval(
+                    runtime_record, mutated, current_time=utc_now()
+                )
+                if (
+                    rejected.status != ConnectorApprovalCaptureDecisionStatus.rejected
+                    or reason not in rejected.reason_codes
+                    or rejected.captured
+                    or rejected.persisted
+                    or rejected.execution_authorized
+                ):
+                    failures.append(
+                        f"M126 unsafe approval mutation was not denied with {reason}"
+                    )
+            if decision.record is not None:
+                for update, reason in [
+                    ({"raw_connector_content": True}, "M126_RAW_CONNECTOR_CONTENT_DENIED"),
+                    ({"full_connector_content": True}, "M126_FULL_CONTENT_READ_DENIED"),
+                    ({"connector_export_enabled": True}, "M126_CONNECTOR_EXPORT_DENIED"),
+                    ({"execution_enabled": True}, "M126_EXECUTION_DENIED"),
+                ]:
+                    try:
+                        validate_connector_approval_capture_record(
+                            decision.record.model_copy(update=update)
+                        )
+                        failures.append(
+                            f"M126 unsafe record mutation was not denied with {reason}"
+                        )
+                    except ValueError as exc:
+                        if reason not in str(exc):
+                            failures.append(
+                                f"M126 unsafe record mutation raised {exc!s}"
+                            )
+        except Exception as exc:
+            failures.append(f"M126 connector approval capture validation failed: {exc}")
+
+        docs_text = " ".join(
+            "\n".join(
+                self._read(self.root / path).lower()
+                for path in required_files
+                if path.startswith("docs/") and (self.root / path).exists()
+            ).split()
+        )
+        for fragment in [
+            "connector approval capture",
+            "exact-bound",
+            "review-only",
+            "safe refs only",
+            "approval refs remain identifiers, not authority",
+            "approval_test_",
+            "m125 connector read-only runtime",
+            "actor-bound",
+            "user-bound",
+            "workspace-bound",
+            "replay-safe",
+            "revocable",
+            "no live connector runtime",
+            "no account auth",
+            "no network access",
+            "no credential handling",
+            "no raw connector content",
+            "no full content read",
+            "no connector write",
+            "no connector send",
+            "no connector delete",
+            "no connector export",
+            "no attachment download",
+            "no model call",
+            "no memory write",
+            "no context injection",
+            "no execution",
+            "no backend route",
+            "no control center control",
+            "no dependency",
+            "m127 remains future",
+            "v1.0.0-alpha",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M126 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m126_connector_approval_capture_static_safety(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        forbidden_source_fragments = [
+            "live_connector_runtime_enabled=True",
+            "account_auth_enabled=True",
+            "network_access_enabled=True",
+            "credential_handling_enabled=True",
+            "raw_connector_content_enabled=True",
+            "full_content_read_enabled=True",
+            "connector_write_enabled=True",
+            "connector_send_enabled=True",
+            "connector_delete_enabled=True",
+            "connector_export_enabled=True",
+            "connector_bulk_export_enabled=True",
+            "attachment_download_enabled=True",
+            "model_call_enabled=True",
+            "memory_write_enabled=True",
+            "context_injection_enabled=True",
+            "execution_enabled=True",
+            "backend_route_enabled=True",
+            "backend_route_added=True",
+            "control_center_control_enabled=True",
+            "control_center_control_added=True",
+            "dependency_added=True",
+            "/connectors/approvals/capture",
+            "/connectors/approve",
+            "/connectors/read",
+            "/connectors/runtime/read",
+            "/connectors/messages/read",
+            "/connectors/messages/send",
+            "/connectors/export",
+            "/connectors/attachments/download",
+        ]
+        allowed_files = {
+            "src/ultimate_ai_agent/core/gate/evaluators.py",
+            "src/ultimate_ai_agent/core/connectors/__init__.py",
+            "src/ultimate_ai_agent/core/connectors/connector_approval_capture.py",
+            "src/ultimate_ai_agent/core/connectors/connector_read_only_runtime.py",
+        }
+        for root in [
+            self.root / "src" / "ultimate_ai_agent",
+            self.root / "apps" / "control-center" / "src",
+            self.root / "apps" / "ccc-ios",
+        ]:
+            if not root.exists():
+                continue
+            candidate_files = []
+            for pattern in (
+                "*.py",
+                "*.ts",
+                "*.tsx",
+                "*.js",
+                "*.jsx",
+                "*.swift",
+                "*.yml",
+                "*.yaml",
+            ):
+                candidate_files.extend(root.rglob(pattern))
+            for path in sorted(candidate_files):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(self.root).as_posix()
+                if ".test." in rel:
+                    continue
+                if rel in allowed_files:
+                    continue
+                text = path.read_text(encoding="utf-8")
+                for fragment in forbidden_source_fragments:
+                    if fragment in text:
+                        failures.append(
+                            f"M126 forbidden connector approval capture fragment in {rel}: {fragment}"
+                        )
+        return self._result(criterion, failures, [])
+
+    def check_m126_connector_approval_capture_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m126_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M126 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m126_roadmap_currentness(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_docs = [
+            "README.md",
+            "VERSION.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            "docs/roadmap/MILESTONE_CHARTERS.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+        ]
+        failures = [
+            f"missing M126 roadmap doc: {path}"
+            for path in required_docs
+            if not (self.root / path).exists()
+        ]
+        text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_docs
+            if (self.root / path).exists()
+        )
+        if (
+            "checkpoint m126" not in text
+            or "connector approval capture" not in text
+        ):
+            failures.append(
+                "active docs do not identify Checkpoint M126 Connector Approval Capture"
+            )
+        if (
+            "m126 is implemented/released" not in text
+            and "checkpoint m126 is implemented/released" not in text
+        ):
+            failures.append("active docs do not mark M126 implemented/released")
+        for version_label, product_target, milestone, title, status in [
+            (
+                "checkpoint m126",
+                "pre-alpha checkpoint",
+                "m126",
+                "connector approval capture",
+                "implemented/released",
+            ),
+            (
+                "checkpoint m127",
+                "pre-alpha checkpoint",
+                "m127",
+                "connector write dry-run planner",
+                "planned/provisional",
+            ),
+            (
+                "v1.0.0-alpha",
+                "alpha",
+                "m150",
+                "ultimate ai agent v1.0.0-alpha",
+                "planned/provisional",
+            ),
+        ]:
+            row = (
+                f"| {version_label} | {product_target} | {milestone} | "
+                f"{title} | {status} |"
+            )
+            if not _roadmap_row_present(text, row):
+                failures.append(
+                    f"active docs missing expected M126/M127-M150 row: {version_label} / {milestone.upper()} - {title}"
+                )
+        for fragment in (
+            "m127 is implemented",
+            "checkpoint m127 implements m127",
+            "connector write dry-run planner is implemented",
+            "connector write execution is implemented",
+            "connector send execution is implemented",
+            "live connector runtime is implemented",
+            "account auth is implemented",
+            "network access is implemented",
+            "connector export is implemented",
+            "beta is released",
+            "production authority is implemented",
+        ):
+            if fragment in text:
+                failures.append(
+                    f"active docs imply forbidden M126 future/currentness claim: {fragment}"
                 )
         return self._result(criterion, failures, required_docs)
 

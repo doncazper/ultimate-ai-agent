@@ -46,8 +46,8 @@ def test_post_m100_documentation_integrity_guard_rejects_missing_row_status(
     roadmap = tmp_path / "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md"
     roadmap.write_text(
         roadmap.read_text(encoding="utf-8").replace(
-            "| Checkpoint M126 | pre-alpha checkpoint | M126 | Connector Approval Capture | Planned/provisional |",
-            "| Checkpoint M126 | pre-alpha checkpoint | M126 | Connector Approval Capture | Deferred |",
+            "| Checkpoint M127 | pre-alpha checkpoint | M127 | Connector Write Dry-Run Planner | Planned/provisional |",
+            "| Checkpoint M127 | pre-alpha checkpoint | M127 | Connector Write Dry-Run Planner | Deferred |",
         ),
         encoding="utf-8",
     )
@@ -57,7 +57,7 @@ def test_post_m100_documentation_integrity_guard_rejects_missing_row_status(
         "1.6.0",
     )
 
-    assert any("m126" in failure.lower() for failure in failures)
+    assert any("m127" in failure.lower() for failure in failures)
     assert any("planned/provisional" in failure.lower() for failure in failures)
 
 
