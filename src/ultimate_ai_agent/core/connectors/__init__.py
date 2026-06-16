@@ -100,6 +100,15 @@ from ultimate_ai_agent.core.connectors.connector_audit_revocation_hardening impo
     validate_connector_audit_revocation_hardening_request,
     validate_connector_revocation_hardening_record,
 )
+from ultimate_ai_agent.core.connectors.connector_safety_freeze import (
+    CONNECTOR_SAFETY_FREEZE_DOCS,
+    ConnectorSafetyFreezePolicy,
+    ConnectorSafetyFreezeRecord,
+    ConnectorSafetyFreezeStatus,
+    build_connector_safety_freeze_record,
+    validate_connector_safety_freeze_policy,
+    validate_connector_safety_freeze_record,
+)
 
 __all__ = [
     "CALENDAR_CONNECTOR_CONTRACT_REFRESH_DOCS",
@@ -107,6 +116,7 @@ __all__ = [
     "CONTACTS_CONNECTOR_CONTRACT_REFRESH_DOCS",
     "CONNECTOR_READ_ONLY_RUNTIME_DOCS",
     "CONNECTOR_APPROVAL_CAPTURE_DOCS",
+    "CONNECTOR_SAFETY_FREEZE_DOCS",
     "CONNECTOR_WRITE_DRY_RUN_PLANNER_DOCS",
     "CONNECTOR_WRITE_EXECUTION_LOW_RISK_DOCS",
     "EMAIL_CONNECTOR_CONTRACT_REFRESH_DOCS",
@@ -129,6 +139,9 @@ __all__ = [
     "ConnectorAuditRevocationHardeningRequest",
     "ConnectorAuditRevocationHardeningStatus",
     "ConnectorRevocationHardeningRecord",
+    "ConnectorSafetyFreezePolicy",
+    "ConnectorSafetyFreezeRecord",
+    "ConnectorSafetyFreezeStatus",
     "ConnectorWriteDryRunActionKind",
     "ConnectorWriteDryRunDecision",
     "ConnectorWriteDryRunPlan",
@@ -155,6 +168,7 @@ __all__ = [
     "build_calendar_connector_contract_refresh_record",
     "build_connector_audit_revocation_hardening_report",
     "build_connector_read_only_runtime_record",
+    "build_connector_safety_freeze_record",
     "capture_connector_approval",
     "plan_connector_write_dry_run",
     "build_connector_write_execution_decision",
@@ -172,6 +186,8 @@ __all__ = [
     "validate_connector_audit_revocation_hardening_report",
     "validate_connector_audit_revocation_hardening_request",
     "validate_connector_revocation_hardening_record",
+    "validate_connector_safety_freeze_policy",
+    "validate_connector_safety_freeze_record",
     "validate_connector_write_dry_run_plan",
     "validate_connector_write_dry_run_policy",
     "validate_connector_write_dry_run_request",

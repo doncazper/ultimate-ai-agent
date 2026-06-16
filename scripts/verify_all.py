@@ -168,6 +168,7 @@ SCAN_SEQUENCE = [
     ("M127 connector write dry-run planner scan", "verify_m127_connector_write_dry_run_planner"),
     ("M128 connector write execution low-risk scan", "verify_m128_connector_write_execution_low_risk"),
     ("M129 connector audit revocation hardening scan", "verify_m129_connector_audit_revocation_hardening"),
+    ("M130 connector safety freeze scan", "verify_m130_connector_safety_freeze"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -17691,6 +17692,12 @@ def verify_post_m100_roadmap_reconciliation():
         or "connector audit + revocation hardening" in active_version_text
     ):
         implemented_milestones.add("m129")
+    if (
+        "checkpoint m130" in active_version_text
+        or "m130" in active_version_text
+        or "connector safety freeze" in active_version_text
+    ):
+        implemented_milestones.add("m130")
     for version_label, product_target, milestone, title in expected_labels:
         if milestone in implemented_milestones:
             continue
@@ -23216,6 +23223,232 @@ def verify_m129_connector_audit_revocation_hardening():
             sys.exit(1)
 
     print("OK: M129 connector audit revocation hardening is review-only, safe-ref-only, and route-free")
+
+
+def verify_m130_connector_safety_freeze():
+    print("\n[Verifier] Running M130 connector safety freeze guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/connectors/__init__.py",
+        "src/ultimate_ai_agent/core/connectors/connector_safety_freeze.py",
+        "src/ultimate_ai_agent/core/connectors/connector_audit_revocation_hardening.py",
+        "src/ultimate_ai_agent/core/connectors/connector_write_execution_low_risk.py",
+        "docs/connectors/CONNECTOR_SAFETY_FREEZE.md",
+        "docs/connectors/CONNECTOR_SAFETY_FREEZE_POLICY.md",
+        "docs/connectors/CONNECTOR_SAFETY_FREEZE_AUTHORITY_BOUNDARY.md",
+        "docs/connectors/CONNECTOR_SAFETY_FREEZE_RECEIPT_PLAN.md",
+        "docs/connectors/CONNECTOR_SAFETY_FREEZE_NON_GOALS.md",
+        "docs/connectors/M130_TO_M131_BOUNDARY.md",
+        "docs/release_notes/checkpoint_m130.md",
+        "docs/archive/checkpoints/m130/README_IMPORT.md",
+        "docs/archive/checkpoints/m130/master_plan.md",
+        "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+        "tests/test_m130_connector_safety_freeze.py",
+        "tests/test_m130_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M130 connector safety freeze file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = " ".join(
+        "\n".join(
+            (ROOT / rel_path).read_text(encoding="utf-8").lower()
+            for rel_path in required_files
+            if rel_path.startswith("docs/")
+        ).split()
+    )
+    for fragment in [
+        "connector safety freeze",
+        "contract-only",
+        "review-only",
+        "freeze-only",
+        "deterministic",
+        "local-only",
+        "safe-ref-only",
+        "exact m129",
+        "accepted checkpoint refs",
+        "safety checklist ref",
+        "audit ref",
+        "replay ref",
+        "revocation ref",
+        "kill-switch ref",
+        "no-effect receipt",
+        "no live connector runtime",
+        "no account auth",
+        "no network access",
+        "no credential handling",
+        "no raw connector content",
+        "no full content read",
+        "no connector write execution",
+        "no connector send execution",
+        "no connector delete execution",
+        "no connector export",
+        "no connector bulk export",
+        "no attachment download",
+        "no audit export",
+        "no revocation execution",
+        "no kill-switch execution",
+        "no approval revocation",
+        "no session stop",
+        "no backend route",
+        "no control center control",
+        "no dependency",
+        "m131 remains future",
+        "v1.0.0-alpha",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M130 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from tests.test_m130_connector_safety_freeze import _source_report
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.connectors import (
+            ConnectorSafetyFreezeStatus,
+            build_connector_safety_freeze_record,
+            validate_connector_safety_freeze_record,
+        )
+        from ultimate_ai_agent.core.gate.criteria import (
+            default_foundation_gate_criteria,
+        )
+        from ultimate_ai_agent.core.gate.evaluators import (
+            FoundationGateEvaluator,
+            m130_openapi_route_failures,
+        )
+    except Exception as exc:
+        print(f"FAIL: M130 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m130_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    record = build_connector_safety_freeze_record(source_report=_source_report())
+    if (
+        record.status != ConnectorSafetyFreezeStatus.frozen_for_review
+        or not record.contract_only
+        or not record.review_only
+        or not record.freeze_only
+        or not record.deterministic
+        or not record.local_only
+        or not record.safe_refs_only
+        or not record.exact_m129_hardening_bound
+        or not record.connector_surface_frozen
+        or not record.audit_replay_bound
+        or not record.revocation_readiness_bound
+        or not record.no_effect_receipt_required
+        or record.accepted_checkpoint_refs
+        != [
+            "checkpoint:m121",
+            "checkpoint:m122",
+            "checkpoint:m123",
+            "checkpoint:m124",
+            "checkpoint:m125",
+            "checkpoint:m126",
+            "checkpoint:m127",
+            "checkpoint:m128",
+            "checkpoint:m129",
+        ]
+        or record.live_connector_runtime_enabled
+        or record.live_connector_runtime_performed
+        or record.account_auth_enabled
+        or record.account_auth_performed
+        or record.network_access_enabled
+        or record.network_access_performed
+        or record.credential_handling_enabled
+        or record.credential_handling_performed
+        or record.raw_connector_content_enabled
+        or record.raw_connector_content_returned
+        or record.full_content_read_enabled
+        or record.full_connector_content_returned
+        or record.connector_write_enabled
+        or record.connector_write_performed
+        or record.connector_send_enabled
+        or record.connector_send_performed
+        or record.connector_delete_enabled
+        or record.connector_delete_performed
+        or record.connector_export_enabled
+        or record.connector_export_performed
+        or record.connector_bulk_export_enabled
+        or record.connector_bulk_export_performed
+        or record.attachment_download_enabled
+        or record.attachment_download_performed
+        or record.audit_export_enabled
+        or record.audit_export_performed
+        or record.revocation_execution_enabled
+        or record.revocation_executed
+        or record.kill_switch_execution_enabled
+        or record.kill_switch_executed
+        or record.connector_approval_revoked
+        or record.connector_session_stopped
+        or record.background_worker_started
+        or record.scheduler_started
+        or record.external_service_called
+        or record.model_call_performed
+        or record.memory_write_performed
+        or record.context_injection_performed
+        or record.backend_route_added
+        or record.control_center_control_added
+        or record.dependency_added
+        or record.beta_release_enabled
+        or record.production_authority_granted
+        or record.side_effects_performed
+        or "M130_CONNECTOR_SAFETY_FREEZE" not in record.reason_codes
+        or "M131_REMAINS_FUTURE" not in record.reason_codes
+    ):
+        print("FAIL: M130 connector safety freeze record is unsafe or over-authoritative")
+        sys.exit(1)
+
+    for update, reason in [
+        ({"revocation_executed": True}, "M130_REVOCATION_EXECUTION_DENIED"),
+        ({"kill_switch_executed": True}, "M130_KILL_SWITCH_EXECUTION_DENIED"),
+        ({"connector_export_performed": True}, "M130_CONNECTOR_EXPORT_DENIED"),
+        ({"audit_export_performed": True}, "M130_AUDIT_EXPORT_DENIED"),
+        ({"backend_route_added": True}, "M130_BACKEND_ROUTE_DENIED"),
+        ({"beta_release_enabled": True}, "M130_BETA_RELEASE_DENIED"),
+        (
+            {"production_authority_granted": True},
+            "M130_PRODUCTION_AUTHORITY_DENIED",
+        ),
+    ]:
+        try:
+            validate_connector_safety_freeze_record(record.model_copy(update=update))
+            print(f"FAIL: M130 mutated authority flag was not denied: {update}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M130 mutated authority flag raised {exc!s}")
+                sys.exit(1)
+
+    criteria = {
+        criterion.criterion_id: criterion
+        for criterion in default_foundation_gate_criteria()
+    }
+    for criterion_id in [
+        "m130_connector_safety_freeze_contracts",
+        "m130_connector_safety_freeze_static_safety",
+        "m130_connector_safety_freeze_route_boundary",
+        "m130_roadmap_currentness",
+    ]:
+        if criterion_id not in criteria:
+            print(f"FAIL: Missing M130 Foundation Gate criterion: {criterion_id}")
+            sys.exit(1)
+    evaluator = FoundationGateEvaluator(ROOT)
+    for criterion_id in [
+        "m130_connector_safety_freeze_contracts",
+        "m130_connector_safety_freeze_static_safety",
+        "m130_connector_safety_freeze_route_boundary",
+        "m130_roadmap_currentness",
+    ]:
+        gate_report = evaluator.evaluate([criteria[criterion_id]])
+        result = gate_report.results[0]
+        if result.status != "passed":
+            print(f"FAIL: {criterion_id} failed: {result.failures}")
+            sys.exit(1)
+
+    print("OK: M130 connector safety freeze is freeze-only, safe-ref-only, and route-free")
 
 
 def verify_local_developer_launcher_safety():
