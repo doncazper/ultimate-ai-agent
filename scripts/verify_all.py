@@ -170,6 +170,7 @@ SCAN_SEQUENCE = [
     ("M129 connector audit revocation hardening scan", "verify_m129_connector_audit_revocation_hardening"),
     ("M130 connector safety freeze scan", "verify_m130_connector_safety_freeze"),
     ("M131 autonomy mode4 scoped work session scan", "verify_m131_autonomy_mode4_scoped_work_session"),
+    ("M132 trusted recurring workflow scan", "verify_m132_trusted_recurring_workflow"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -17705,6 +17706,12 @@ def verify_post_m100_roadmap_reconciliation():
         or "autonomy mode 4, scoped work session" in active_version_text
     ):
         implemented_milestones.add("m131")
+    if (
+        "checkpoint m132" in active_version_text
+        or "m132" in active_version_text
+        or "autonomy mode 5, trusted recurring workflow" in active_version_text
+    ):
+        implemented_milestones.add("m132")
     for version_label, product_target, milestone, title in expected_labels:
         if milestone in implemented_milestones:
             continue
@@ -23697,6 +23704,253 @@ def verify_m131_autonomy_mode4_scoped_work_session():
             sys.exit(1)
 
     print("OK: M131 autonomy mode4 scoped work session is review-only, safe-ref-only, and route-free")
+
+
+def verify_m132_trusted_recurring_workflow():
+    print("\n[Verifier] Running M132 trusted recurring workflow guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/autonomy/__init__.py",
+        "src/ultimate_ai_agent/core/autonomy/trusted_recurring_workflow.py",
+        "docs/autonomy/TRUSTED_RECURRING_WORKFLOW.md",
+        "docs/autonomy/TRUSTED_RECURRING_WORKFLOW_POLICY.md",
+        "docs/autonomy/TRUSTED_RECURRING_WORKFLOW_AUTHORITY_BOUNDARY.md",
+        "docs/autonomy/TRUSTED_RECURRING_WORKFLOW_RECEIPT_PLAN.md",
+        "docs/autonomy/TRUSTED_RECURRING_WORKFLOW_NON_GOALS.md",
+        "docs/autonomy/M132_TO_M133_BOUNDARY.md",
+        "docs/release_notes/checkpoint_m132.md",
+        "docs/archive/checkpoints/m132/README_IMPORT.md",
+        "docs/archive/checkpoints/m132/master_plan.md",
+        "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+        "tests/test_m132_trusted_recurring_workflow.py",
+        "tests/test_m132_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M132 trusted recurring workflow file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = " ".join(
+        "\n".join(
+            (ROOT / rel_path).read_text(encoding="utf-8").lower()
+            for rel_path in required_files
+            if rel_path.startswith("docs/")
+        ).split()
+    )
+    for fragment in [
+        "autonomy mode 5",
+        "trusted recurring workflow",
+        "contract-only",
+        "review-only",
+        "trusted-recurring-workflow-only",
+        "deterministic",
+        "local-only",
+        "safe-ref-only",
+        "exact scope",
+        "mode 5",
+        "m131 scoped work-session decision",
+        "m97 recurring automation contract",
+        "m98 scoped low-risk recurring",
+        "cadence",
+        "approval bundle",
+        "approval renewal",
+        "expiration",
+        "stop condition",
+        "risk decision",
+        "audit",
+        "replay",
+        "revocation",
+        "kill-switch",
+        "no-effect receipt",
+        "no workflow start",
+        "no active recurrence",
+        "no recurring runtime",
+        "no scheduler",
+        "no background worker",
+        "no long-running supervisor",
+        "no autonomous actions",
+        "no execution",
+        "no tool execution",
+        "no shell execution",
+        "no network access",
+        "no browser automation",
+        "no plugin execution",
+        "no connector runtime",
+        "no account auth",
+        "no model call",
+        "no memory write",
+        "no context injection",
+        "no backend route",
+        "no control center control",
+        "no dependency",
+        "m133 remains future",
+        "v1.0.0-alpha",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M132 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from tests.test_m132_trusted_recurring_workflow import _request
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.autonomy import (
+            AutonomyAuthorityMode,
+            AutonomyRiskClass,
+            TrustedRecurringWorkflowStatus,
+            build_trusted_recurring_workflow_decision,
+            validate_trusted_recurring_workflow_decision,
+        )
+        from ultimate_ai_agent.core.gate.criteria import (
+            default_foundation_gate_criteria,
+        )
+        from ultimate_ai_agent.core.gate.evaluators import (
+            FoundationGateEvaluator,
+            m132_openapi_route_failures,
+        )
+    except Exception as exc:
+        print(f"FAIL: M132 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m132_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    decision = build_trusted_recurring_workflow_decision(_request())
+    if (
+        decision.status != TrustedRecurringWorkflowStatus.ready_for_review
+        or decision.selected_mode != AutonomyAuthorityMode.trusted_recurring_automation
+        or not decision.contract_only
+        or not decision.review_only
+        or not decision.trusted_recurring_workflow_only
+        or not decision.deterministic
+        or not decision.local_only
+        or not decision.safe_refs_only
+        or not decision.exact_scope_bound
+        or not decision.mode5_bound
+        or not decision.m131_work_session_bound
+        or not decision.recurring_contract_bound
+        or not decision.scoped_low_risk_recurring_bound
+        or not decision.cadence_bound
+        or not decision.approval_bundle_bound
+        or not decision.approval_renewal_bound
+        or not decision.expiration_bound
+        or not decision.stop_conditions_bound
+        or not decision.audit_replay_bound
+        or not decision.revocation_bound
+        or not decision.kill_switch_bound
+        or not decision.no_effect_receipt_required
+        or decision.max_risk_class != AutonomyRiskClass.low
+        or decision.mode5_runtime_authorized
+        or decision.trusted_recurring_workflow_start_authorized
+        or decision.workflow_started
+        or decision.recurrence_active
+        or decision.recurring_runtime_started
+        or decision.scheduler_started
+        or decision.background_worker_started
+        or decision.long_running_supervisor_started
+        or decision.autonomous_actions_authorized
+        or decision.autonomous_actions_performed
+        or decision.execution_authorized
+        or decision.execution_performed
+        or decision.tool_execution_authorized
+        or decision.tool_execution_performed
+        or decision.shell_execution_performed
+        or decision.command_execution_performed
+        or decision.subprocess_execution_performed
+        or decision.filesystem_mutation_performed
+        or decision.network_access_performed
+        or decision.browser_automation_performed
+        or decision.browser_form_performed
+        or decision.authenticated_browser_performed
+        or decision.download_performed
+        or decision.upload_performed
+        or decision.plugin_execution_performed
+        or decision.connector_runtime_performed
+        or decision.account_auth_performed
+        or decision.mobile_sensor_performed
+        or decision.remote_execution_performed
+        or decision.model_call_performed
+        or decision.memory_write_performed
+        or decision.context_injection_performed
+        or decision.backend_route_added
+        or decision.control_center_control_added
+        or decision.dependency_added
+        or decision.beta_release_enabled
+        or decision.production_authority_granted
+        or decision.side_effects_performed
+        or not decision.receipt_plan.store_safe_summary_only
+        or not decision.receipt_plan.store_safe_refs_only
+        or decision.receipt_plan.store_raw_prompt
+        or decision.receipt_plan.store_raw_provider_payload
+        or decision.receipt_plan.workflow_started
+        or decision.receipt_plan.recurring_runtime_started
+        or decision.receipt_plan.scheduler_started
+        or decision.receipt_plan.execution_performed
+        or "M132_TRUSTED_RECURRING_WORKFLOW_CONTRACT_ONLY"
+        not in decision.reason_codes
+        or "M132_NO_SCHEDULER_OR_RUNTIME" not in decision.reason_codes
+        or "M133_REMAINS_FUTURE" not in decision.reason_codes
+    ):
+        print("FAIL: M132 trusted recurring workflow decision is unsafe or over-authoritative")
+        sys.exit(1)
+
+    for update, reason in [
+        ({"mode5_runtime_authorized": True}, "M132_MODE5_RUNTIME_DENIED"),
+        ({"trusted_recurring_workflow_start_authorized": True}, "M132_WORKFLOW_START_DENIED"),
+        ({"workflow_started": True}, "M132_WORKFLOW_START_DENIED"),
+        ({"recurrence_active": True}, "M132_RECURRENCE_ACTIVE_DENIED"),
+        ({"recurring_runtime_started": True}, "M132_RECURRING_RUNTIME_DENIED"),
+        ({"scheduler_started": True}, "M132_SCHEDULER_DENIED"),
+        ({"background_worker_started": True}, "M132_BACKGROUND_WORKER_DENIED"),
+        ({"long_running_supervisor_started": True}, "M133_LONG_RUNNING_SUPERVISOR_DENIED"),
+        ({"autonomous_actions_performed": True}, "M132_AUTONOMOUS_ACTIONS_DENIED"),
+        ({"execution_performed": True}, "M132_EXECUTION_DENIED"),
+        ({"tool_execution_performed": True}, "M132_TOOL_EXECUTION_DENIED"),
+        ({"backend_route_added": True}, "M132_BACKEND_ROUTE_DENIED"),
+        (
+            {"production_authority_granted": True},
+            "M132_PRODUCTION_AUTHORITY_DENIED",
+        ),
+    ]:
+        try:
+            validate_trusted_recurring_workflow_decision(
+                decision.model_copy(update=update)
+            )
+            print(f"FAIL: M132 mutated authority flag was not denied: {update}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M132 mutated authority flag raised {exc!s}")
+                sys.exit(1)
+
+    criteria = {
+        criterion.criterion_id: criterion
+        for criterion in default_foundation_gate_criteria()
+    }
+    for criterion_id in [
+        "m132_trusted_recurring_workflow_contracts",
+        "m132_trusted_recurring_workflow_static_safety",
+        "m132_trusted_recurring_workflow_route_boundary",
+        "m132_roadmap_currentness",
+    ]:
+        if criterion_id not in criteria:
+            print(f"FAIL: Missing M132 Foundation Gate criterion: {criterion_id}")
+            sys.exit(1)
+    evaluator = FoundationGateEvaluator(ROOT)
+    for criterion_id in [
+        "m132_trusted_recurring_workflow_contracts",
+        "m132_trusted_recurring_workflow_static_safety",
+        "m132_trusted_recurring_workflow_route_boundary",
+        "m132_roadmap_currentness",
+    ]:
+        gate_report = evaluator.evaluate([criteria[criterion_id]])
+        result = gate_report.results[0]
+        if result.status != "passed":
+            print(f"FAIL: {criterion_id} failed: {result.failures}")
+            sys.exit(1)
+
+    print("OK: M132 trusted recurring workflow is review-only, safe-ref-only, and route-free")
 
 
 def verify_local_developer_launcher_safety():

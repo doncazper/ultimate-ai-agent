@@ -205,7 +205,8 @@ Checkpoint M128 is implemented/released as Connector Write Execution, Low-Risk O
 Checkpoint M129 is implemented/released as Connector Audit + Revocation Hardening.
 Checkpoint M130 is implemented/released as Connector Safety Freeze.
 Checkpoint M131 is implemented/released as Autonomy Mode 4, Scoped Work Session.
-M132-M149
+Checkpoint M132 is implemented/released as Autonomy Mode 5, Trusted Recurring Workflow.
+M133-M149
 remain planned/provisional as checkpoint milestones instead of product SemVer
 tags, and M150 remains planned/provisional as the v1.0.0-alpha product target.
 Beta begins after the alpha UI and supporting safety/product work are reviewed

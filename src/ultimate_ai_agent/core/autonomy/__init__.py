@@ -138,6 +138,20 @@ from ultimate_ai_agent.core.autonomy.mode4_scoped_work_session import (
     validate_mode4_scoped_work_session_policy,
     validate_mode4_scoped_work_session_request,
 )
+from ultimate_ai_agent.core.autonomy.trusted_recurring_workflow import (
+    M132_MAX_RECURRENCE_OCCURRENCES,
+    M132_MIN_CADENCE_SECONDS,
+    TRUSTED_RECURRING_WORKFLOW_DOCS,
+    TrustedRecurringWorkflowDecision,
+    TrustedRecurringWorkflowPolicy,
+    TrustedRecurringWorkflowReceiptPlan,
+    TrustedRecurringWorkflowRequest,
+    TrustedRecurringWorkflowStatus,
+    build_trusted_recurring_workflow_decision,
+    validate_trusted_recurring_workflow_decision,
+    validate_trusted_recurring_workflow_policy,
+    validate_trusted_recurring_workflow_request,
+)
 
 __all__ = [
     "AUTONOMY_MODE_CHARTER_DOCS",
@@ -252,4 +266,16 @@ __all__ = [
     "validate_mode4_scoped_work_session_decision",
     "validate_mode4_scoped_work_session_policy",
     "validate_mode4_scoped_work_session_request",
+    "M132_MAX_RECURRENCE_OCCURRENCES",
+    "M132_MIN_CADENCE_SECONDS",
+    "TRUSTED_RECURRING_WORKFLOW_DOCS",
+    "TrustedRecurringWorkflowDecision",
+    "TrustedRecurringWorkflowPolicy",
+    "TrustedRecurringWorkflowReceiptPlan",
+    "TrustedRecurringWorkflowRequest",
+    "TrustedRecurringWorkflowStatus",
+    "build_trusted_recurring_workflow_decision",
+    "validate_trusted_recurring_workflow_decision",
+    "validate_trusted_recurring_workflow_policy",
+    "validate_trusted_recurring_workflow_request",
 ]

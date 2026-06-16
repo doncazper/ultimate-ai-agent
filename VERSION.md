@@ -2,10 +2,10 @@
 
 Current active baseline: **v1.7.2**
 
-Checkpoint M131 is implemented/released as Autonomy Mode 4, Scoped Work
-Session.
+Checkpoint M132 is implemented/released as Autonomy Mode 5, Trusted Recurring
+Workflow.
 The current product baseline remains v1.7.2. Already-pushed tags
-remain immutable historical internal milestone tags. Future M132-M149 conveyor
+remain immutable historical internal milestone tags. Future M133-M149 conveyor
 milestones use checkpoint labels instead of product SemVer tags, and M150 is
 the next product release target **v1.0.0-alpha**. Beta begins only after the
 alpha UI and supporting safety/product work are reviewed, accepted, and
@@ -323,6 +323,23 @@ execution, background workers, schedulers, model calls, memory writes, context
 injection, backend routes, Control Center controls, dependencies, beta release,
 M132 work, broad autonomy, and production authority.
 
-M101, M102, M103, M104, M105, M106, M107, M108, M109, M110, M111, M112, M113, M114, M115, M116, M117, M118, M119, M120, M121, M122, M123, M124, M125, M126, M127, M128, M129, M130, and M131 are implemented/released. M132-M150 are
+Checkpoint M132 adds deterministic local Autonomy Mode 5 trusted recurring
+workflow records. It records exact scope refs, Mode 5 refs, M131 scoped
+work-session decision refs, M97 recurring automation contract refs, M98 scoped
+low-risk recurring refs, cadence refs, approval bundle refs, approval renewal
+refs, expiration refs, stop condition refs, policy decision refs, risk decision
+refs, audit refs, replay refs, revocation refs, kill-switch refs, and no-effect
+receipt plan refs. It keeps trusted recurring workflows review-only and
+no-effect. It denies workflow start, active recurrence, recurring runtime,
+schedulers, background workers, long-running supervisors, autonomous actions,
+execution, tool execution, shell execution, command execution, subprocess
+execution, filesystem mutation, network access, browser automation, browser
+forms, authenticated browser access, download, upload, plugin execution,
+connector runtime, account auth, mobile sensor access, remote execution, model
+calls, memory writes, context injection, backend routes, Control Center
+controls, dependencies, beta release, M133 work, broad autonomy, and production
+authority.
+
+M101, M102, M103, M104, M105, M106, M107, M108, M109, M110, M111, M112, M113, M114, M115, M116, M117, M118, M119, M120, M121, M122, M123, M124, M125, M126, M127, M128, M129, M130, M131, and M132 are implemented/released. M133-M150 are
 planned/provisional checkpoint milestones only. M150 is planned as
 v1.0.0-alpha, not beta.
