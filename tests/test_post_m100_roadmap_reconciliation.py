@@ -46,8 +46,8 @@ def test_post_m100_documentation_integrity_guard_rejects_missing_row_status(
     roadmap = tmp_path / "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md"
     roadmap.write_text(
         roadmap.read_text(encoding="utf-8").replace(
-            "| Checkpoint M128 | pre-alpha checkpoint | M128 | Connector Write Execution, Low-Risk Only | Planned/provisional |",
-            "| Checkpoint M128 | pre-alpha checkpoint | M128 | Connector Write Execution, Low-Risk Only | Deferred |",
+            "| Checkpoint M129 | pre-alpha checkpoint | M129 | Connector Audit + Revocation Hardening | Planned/provisional |",
+            "| Checkpoint M129 | pre-alpha checkpoint | M129 | Connector Audit + Revocation Hardening | Deferred |",
         ),
         encoding="utf-8",
     )
@@ -57,7 +57,7 @@ def test_post_m100_documentation_integrity_guard_rejects_missing_row_status(
         "1.6.0",
     )
 
-    assert any("m128" in failure.lower() for failure in failures)
+    assert any("m129" in failure.lower() for failure in failures)
     assert any("planned/provisional" in failure.lower() for failure in failures)
 
 

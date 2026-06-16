@@ -1682,6 +1682,18 @@ M127_FORBIDDEN_BACKEND_ROUTES = M126_FORBIDDEN_BACKEND_ROUTES + (
     "/connectors/calendar/events/create",
     "/connectors/contacts/update",
 )
+EXPECTED_M128_OPENAPI_PATH_COUNT = 75
+M128_FORBIDDEN_BACKEND_ROUTES = M127_FORBIDDEN_BACKEND_ROUTES + (
+    "/connectors/write/low-risk",
+    "/connectors/write/result",
+    "/connectors/write/status",
+    "/connectors/send",
+    "/connectors/delete",
+    "/connectors/export",
+    "/connectors/audit/hardening",
+    "/connectors/revocation/execute",
+    "/connectors/kill-switch/execute",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -3313,6 +3325,23 @@ def m127_openapi_route_failures(
     return failures
 
 
+def m128_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M128_OPENAPI_PATH_COUNT
+) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(
+            f"OpenAPI path count changed for M128: expected {expected_path_count}, got {len(path_set)}"
+        )
+    for route in M128_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(
+                f"M128 forbidden connector write execution or audit route present: {route}"
+            )
+    return failures
+
+
 M36_SAFE_REF_PREFIXES = {
     "reviewPacketRef": "file-review-packet:",
     "previewResultRef": "redacted-file-preview-output:",
@@ -4448,6 +4477,16 @@ class FoundationGateEvaluator:
                 self.check_m127_connector_write_dry_run_planner_route_boundary
             ),
             "m127_roadmap_currentness": self.check_m127_roadmap_currentness,
+            "m128_connector_write_execution_low_risk_contracts": (
+                self.check_m128_connector_write_execution_low_risk_contracts
+            ),
+            "m128_connector_write_execution_low_risk_static_safety": (
+                self.check_m128_connector_write_execution_low_risk_static_safety
+            ),
+            "m128_connector_write_execution_low_risk_route_boundary": (
+                self.check_m128_connector_write_execution_low_risk_route_boundary
+            ),
+            "m128_roadmap_currentness": self.check_m128_roadmap_currentness,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -30235,6 +30274,12 @@ class FoundationGateEvaluator:
             or "connector write dry-run planner" in active_version_text
         ):
             implemented_milestones.add("m127")
+        if (
+            "checkpoint m128" in active_version_text
+            or "m128" in active_version_text
+            or "connector write execution, low-risk only" in active_version_text
+        ):
+            implemented_milestones.add("m128")
         for version_label, product_target, milestone, title in expected_labels:
             if milestone in implemented_milestones:
                 continue
@@ -39071,6 +39116,13 @@ class FoundationGateEvaluator:
                 "pre-alpha checkpoint",
                 "m128",
                 "connector write execution, low-risk only",
+                "implemented/released",
+            ),
+            (
+                "checkpoint m129",
+                "pre-alpha checkpoint",
+                "m129",
+                "connector audit + revocation hardening",
                 "planned/provisional",
             ),
             (
@@ -39090,9 +39142,9 @@ class FoundationGateEvaluator:
                     f"active docs missing expected M125-M150 row: {version_label} / {milestone.upper()} - {title}"
                 )
         for fragment in (
-            "connector write execution is implemented",
-            "checkpoint m128 implements m128",
-            "m128 is implemented",
+            "connector audit + revocation hardening is implemented",
+            "checkpoint m129 implements m129",
+            "m129 is implemented",
             "live connector runtime is implemented",
             "account auth is implemented",
             "network access is implemented",
@@ -39503,6 +39555,13 @@ class FoundationGateEvaluator:
                 "pre-alpha checkpoint",
                 "m128",
                 "connector write execution, low-risk only",
+                "implemented/released",
+            ),
+            (
+                "checkpoint m129",
+                "pre-alpha checkpoint",
+                "m129",
+                "connector audit + revocation hardening",
                 "planned/provisional",
             ),
             (
@@ -39522,10 +39581,9 @@ class FoundationGateEvaluator:
                     f"active docs missing expected M126/M127-M150 row: {version_label} / {milestone.upper()} - {title}"
                 )
         for fragment in (
-            "connector write execution is implemented",
-            "connector send execution is implemented",
-            "m128 is implemented",
-            "checkpoint m128 implements m128",
+            "connector audit + revocation hardening is implemented",
+            "m129 is implemented",
+            "checkpoint m129 implements m129",
             "live connector runtime is implemented",
             "account auth is implemented",
             "network access is implemented",
@@ -40036,6 +40094,13 @@ class FoundationGateEvaluator:
                 "pre-alpha checkpoint",
                 "m128",
                 "connector write execution, low-risk only",
+                "implemented/released",
+            ),
+            (
+                "checkpoint m129",
+                "pre-alpha checkpoint",
+                "m129",
+                "connector audit + revocation hardening",
                 "planned/provisional",
             ),
             (
@@ -40052,14 +40117,14 @@ class FoundationGateEvaluator:
             )
             if not _roadmap_row_present(text, row):
                 failures.append(
-                    f"active docs missing expected M127/M128-M150 row: {version_label} / {milestone.upper()} - {title}"
+                    f"active docs missing expected M127/M128-M129 row: {version_label} / {milestone.upper()} - {title}"
                 )
         for fragment in (
-            "connector write execution is implemented",
-            "connector send execution is implemented",
-            "connector delete execution is implemented",
-            "m128 is implemented",
-            "checkpoint m128 implements m128",
+            "connector audit + revocation hardening is implemented",
+            "revocation execution is implemented",
+            "kill switch execution is implemented",
+            "m129 is implemented",
+            "checkpoint m129 implements m129",
             "live connector runtime is implemented",
             "account auth is implemented",
             "network access is implemented",
@@ -40076,6 +40141,420 @@ class FoundationGateEvaluator:
             if fragment in text:
                 failures.append(
                     f"active docs imply forbidden M127 future/currentness claim: {fragment}"
+                )
+        return self._result(criterion, failures, required_docs)
+
+    def check_m128_connector_write_execution_low_risk_contracts(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/connectors/connector_write_execution_low_risk.py",
+            "src/ultimate_ai_agent/core/connectors/connector_write_dry_run_planner.py",
+            "src/ultimate_ai_agent/core/connectors/connector_approval_capture.py",
+            "src/ultimate_ai_agent/core/connectors/connector_read_only_runtime.py",
+            "tests/test_m128_connector_write_execution_low_risk.py",
+            "tests/test_m128_gate_integration.py",
+            "docs/connectors/CONNECTOR_WRITE_EXECUTION_LOW_RISK.md",
+            "docs/connectors/CONNECTOR_WRITE_EXECUTION_LOW_RISK_AUTHORITY_BOUNDARY.md",
+            "docs/connectors/CONNECTOR_WRITE_EXECUTION_LOW_RISK_RECEIPT_PLAN.md",
+            "docs/connectors/CONNECTOR_WRITE_EXECUTION_LOW_RISK_NON_GOALS.md",
+            "docs/connectors/M128_TO_M129_BOUNDARY.md",
+            "docs/release_notes/checkpoint_m128.md",
+            "docs/archive/checkpoints/m128/README_IMPORT.md",
+            "docs/archive/checkpoints/m128/master_plan.md",
+        ]
+        failures = [
+            f"missing M128 connector write execution low-risk file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            sys.path.insert(0, str(self.root))
+            from tests.test_m128_connector_write_execution_low_risk import (
+                _request,
+                _transport,
+            )
+            from ultimate_ai_agent.core.connectors import (
+                ConnectorWriteExecutionLowRiskStatus,
+                build_connector_write_execution_decision,
+                perform_low_risk_connector_write,
+                validate_connector_write_execution_decision,
+                validate_connector_write_execution_result,
+            )
+
+            decision = build_connector_write_execution_decision(_request())
+            result = perform_low_risk_connector_write(decision, transport=_transport)
+            if (
+                decision.status
+                != ConnectorWriteExecutionLowRiskStatus.write_allowed_for_low_risk_transport
+                or not decision.low_risk_write_allowed
+                or not decision.exact_m127_dry_run_bound
+                or not decision.exact_connector_write_approval_bound
+                or not decision.transport_required
+                or not decision.safe_refs_only
+                or not decision.local_only
+                or not decision.audit_bound
+                or not decision.replay_bound
+                or not decision.revocation_bound
+                or decision.write_performed
+                or decision.live_connector_runtime_performed
+                or decision.account_auth_performed
+                or decision.network_access_performed
+                or decision.credential_handling_performed
+                or decision.raw_connector_content_returned
+                or decision.full_connector_content_returned
+                or decision.connector_send_performed
+                or decision.connector_delete_performed
+                or decision.connector_export_performed
+                or decision.connector_bulk_export_performed
+                or decision.attachment_download_performed
+                or decision.model_call_performed
+                or decision.memory_write_performed
+                or decision.context_injection_performed
+                or decision.backend_route_added
+                or decision.control_center_control_added
+                or decision.dependency_added
+                or decision.production_authority_granted
+                or decision.side_effects_performed
+                or not decision.receipt_plan.store_safe_summary_only
+                or not decision.receipt_plan.store_safe_refs_only
+                or result.status != ConnectorWriteExecutionLowRiskStatus.write_completed
+                or not result.write_performed
+                or result.safe_result_ref != decision.safe_result_ref
+                or result.live_connector_runtime_performed
+                or result.account_auth_performed
+                or result.network_access_performed
+                or result.credential_handling_performed
+                or result.raw_connector_content_returned
+                or result.full_connector_content_returned
+                or result.connector_send_performed
+                or result.connector_delete_performed
+                or result.connector_export_performed
+                or result.connector_bulk_export_performed
+                or result.attachment_download_performed
+                or result.model_call_performed
+                or result.memory_write_performed
+                or result.context_injection_performed
+                or result.backend_route_added
+                or result.control_center_control_added
+                or result.dependency_added
+                or result.production_authority_granted
+                or result.side_effects_performed
+                or "M128_LOW_RISK_CONNECTOR_WRITE_ALLOWED"
+                not in decision.reason_codes
+                or "M129_REMAINS_FUTURE" not in decision.reason_codes
+                or "M128_LOW_RISK_CONNECTOR_WRITE_COMPLETED"
+                not in result.reason_codes
+            ):
+                failures.append(
+                    "M128 connector write execution decision/result is unsafe or over-authoritative"
+                )
+            for update, reason in [
+                ({"write_performed": True}, "M128_WRITE_NOT_ALLOWED_IN_DECISION"),
+                ({"network_access_performed": True}, "M128_NETWORK_ACCESS_DENIED"),
+                ({"connector_send_performed": True}, "M128_CONNECTOR_SEND_DENIED"),
+                ({"connector_delete_performed": True}, "M128_CONNECTOR_DELETE_DENIED"),
+                ({"backend_route_added": True}, "M128_BACKEND_ROUTE_DENIED"),
+                (
+                    {"production_authority_granted": True},
+                    "M128_PRODUCTION_AUTHORITY_DENIED",
+                ),
+            ]:
+                try:
+                    validate_connector_write_execution_decision(
+                        decision.model_copy(update=update)
+                    )
+                    failures.append(
+                        f"M128 unsafe decision mutation was not denied with {reason}"
+                    )
+                except ValueError as exc:
+                    if reason not in str(exc):
+                        failures.append(
+                            f"M128 unsafe decision mutation raised {exc!s}"
+                        )
+            for update, reason in [
+                ({"network_access_performed": True}, "M128_NETWORK_ACCESS_DENIED"),
+                ({"raw_connector_content_returned": True}, "M128_RAW_CONNECTOR_CONTENT_DENIED"),
+                ({"connector_export_performed": True}, "M128_CONNECTOR_EXPORT_DENIED"),
+                ({"backend_route_added": True}, "M128_BACKEND_ROUTE_DENIED"),
+            ]:
+                try:
+                    validate_connector_write_execution_result(
+                        result.model_copy(update=update)
+                    )
+                    failures.append(
+                        f"M128 unsafe result mutation was not denied with {reason}"
+                    )
+                except ValueError as exc:
+                    if reason not in str(exc):
+                        failures.append(f"M128 unsafe result mutation raised {exc!s}")
+        except Exception as exc:
+            failures.append(f"M128 connector write execution validation failed: {exc}")
+
+        docs_text = " ".join(
+            "\n".join(
+                self._read(self.root / path).lower()
+                for path in required_files
+                if path.startswith("docs/") and (self.root / path).exists()
+            ).split()
+        )
+        for fragment in [
+            "connector write execution",
+            "low-risk-only",
+            "local-only",
+            "safe-ref-only",
+            "exact-bound",
+            "injected safe transport",
+            "safe result ref",
+            "safe summary",
+            "exact connector write approval",
+            "approval refs remain identifiers, not authority",
+            "m127 connector write dry-run planner",
+            "m126 connector approval capture",
+            "m125 connector read-only runtime",
+            "audit",
+            "replay",
+            "revocation",
+            "kill-switch",
+            "no live connector runtime",
+            "no account auth",
+            "no network access",
+            "no credential handling",
+            "no raw connector content",
+            "no full content read",
+            "no connector send execution",
+            "no connector delete execution",
+            "no connector export",
+            "no connector bulk export",
+            "no attachment download",
+            "no model call",
+            "no memory write",
+            "no context injection",
+            "no backend route",
+            "no control center control",
+            "no dependency",
+            "no production authority",
+            "m129 remains future",
+            "v1.0.0-alpha",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M128 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m128_connector_write_execution_low_risk_static_safety(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        forbidden_source_fragments = [
+            "live_connector_runtime_enabled=True",
+            "account_auth_enabled=True",
+            "network_access_enabled=True",
+            "credential_handling_enabled=True",
+            "raw_connector_content_enabled=True",
+            "full_content_read_enabled=True",
+            "connector_send_enabled=True",
+            "connector_delete_enabled=True",
+            "connector_export_enabled=True",
+            "connector_bulk_export_enabled=True",
+            "attachment_download_enabled=True",
+            "model_call_enabled=True",
+            "memory_write_enabled=True",
+            "context_injection_enabled=True",
+            "backend_route_enabled=True",
+            "backend_route_added=True",
+            "control_center_control_enabled=True",
+            "control_center_control_added=True",
+            "dependency_added=True",
+            "production_authority_granted=True",
+            "live_connector_runtime_requested=True",
+            "account_auth_requested=True",
+            "network_access_requested=True",
+            "credential_handling_requested=True",
+            "raw_connector_content_requested=True",
+            "full_content_read_requested=True",
+            "connector_send_requested=True",
+            "connector_delete_requested=True",
+            "connector_export_requested=True",
+            "connector_bulk_export_requested=True",
+            "attachment_download_requested=True",
+            "model_call_requested=True",
+            "memory_write_requested=True",
+            "context_injection_requested=True",
+            "backend_route_requested=True",
+            "control_center_control_requested=True",
+            "dependency_requested=True",
+            "production_authority_requested=True",
+            "high_risk_write_requested=True",
+            "live_connector_runtime_performed=True",
+            "account_auth_performed=True",
+            "network_access_performed=True",
+            "credential_handling_performed=True",
+            "raw_connector_content_returned=True",
+            "full_connector_content_returned=True",
+            "connector_send_performed=True",
+            "connector_delete_performed=True",
+            "connector_export_performed=True",
+            "connector_bulk_export_performed=True",
+            "attachment_download_performed=True",
+            "model_call_performed=True",
+            "memory_write_performed=True",
+            "context_injection_performed=True",
+            "store_raw_connector_content=True",
+            "store_full_connector_content=True",
+            "store_credential_material=True",
+            "/connectors/write/execute",
+            "/connectors/write/low-risk",
+            "/connectors/write/result",
+            "/connectors/send",
+            "/connectors/delete",
+            "/connectors/export",
+            "/connectors/audit/hardening",
+            "/connectors/revocation/execute",
+            "/connectors/kill-switch/execute",
+        ]
+        allowed_files = {
+            "src/ultimate_ai_agent/core/gate/evaluators.py",
+            "src/ultimate_ai_agent/core/connectors/__init__.py",
+            "src/ultimate_ai_agent/core/connectors/connector_write_execution_low_risk.py",
+            "src/ultimate_ai_agent/core/connectors/connector_write_dry_run_planner.py",
+            "src/ultimate_ai_agent/core/connectors/connector_approval_capture.py",
+            "src/ultimate_ai_agent/core/connectors/connector_read_only_runtime.py",
+        }
+        for root in [
+            self.root / "src" / "ultimate_ai_agent",
+            self.root / "apps" / "control-center" / "src",
+            self.root / "apps" / "ccc-ios",
+        ]:
+            if not root.exists():
+                continue
+            candidate_files = []
+            for pattern in (
+                "*.py",
+                "*.ts",
+                "*.tsx",
+                "*.js",
+                "*.jsx",
+                "*.swift",
+                "*.yml",
+                "*.yaml",
+            ):
+                candidate_files.extend(root.rglob(pattern))
+            for path in sorted(candidate_files):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(self.root).as_posix()
+                if ".test." in rel:
+                    continue
+                if rel in allowed_files:
+                    continue
+                text = path.read_text(encoding="utf-8")
+                for fragment in forbidden_source_fragments:
+                    if fragment in text:
+                        failures.append(
+                            f"M128 forbidden connector write execution fragment in {rel}: {fragment}"
+                        )
+        return self._result(criterion, failures, [])
+
+    def check_m128_connector_write_execution_low_risk_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m128_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M128 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m128_roadmap_currentness(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_docs = [
+            "README.md",
+            "VERSION.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            "docs/roadmap/MILESTONE_CHARTERS.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+        ]
+        failures = [
+            f"missing M128 roadmap doc: {path}"
+            for path in required_docs
+            if not (self.root / path).exists()
+        ]
+        text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_docs
+            if (self.root / path).exists()
+        )
+        if (
+            "checkpoint m128" not in text
+            or "connector write execution, low-risk only" not in text
+        ):
+            failures.append(
+                "active docs do not identify Checkpoint M128 Connector Write Execution, Low-Risk Only"
+            )
+        if (
+            "m128 is implemented/released" not in text
+            and "checkpoint m128 is implemented/released" not in text
+        ):
+            failures.append("active docs do not mark M128 implemented/released")
+        for version_label, product_target, milestone, title, status in [
+            (
+                "checkpoint m128",
+                "pre-alpha checkpoint",
+                "m128",
+                "connector write execution, low-risk only",
+                "implemented/released",
+            ),
+            (
+                "checkpoint m129",
+                "pre-alpha checkpoint",
+                "m129",
+                "connector audit + revocation hardening",
+                "planned/provisional",
+            ),
+            (
+                "v1.0.0-alpha",
+                "alpha",
+                "m150",
+                "ultimate ai agent v1.0.0-alpha",
+                "planned/provisional",
+            ),
+        ]:
+            row = (
+                f"| {version_label} | {product_target} | {milestone} | "
+                f"{title} | {status} |"
+            )
+            if not _roadmap_row_present(text, row):
+                failures.append(
+                    f"active docs missing expected M128/M129-M150 row: {version_label} / {milestone.upper()} - {title}"
+                )
+        for fragment in (
+            "connector audit + revocation hardening is implemented",
+            "revocation execution is implemented",
+            "kill switch execution is implemented",
+            "connector export is implemented",
+            "connector send execution is implemented",
+            "connector delete execution is implemented",
+            "m129 is implemented",
+            "checkpoint m129 implements m129",
+            "live connector runtime is implemented",
+            "account auth is implemented",
+            "network access is implemented",
+            "credential handling is implemented",
+            "raw connector content is implemented",
+            "full content read is implemented",
+            "attachment download is implemented",
+            "backend route is implemented",
+            "control center control is implemented",
+            "beta is released",
+            "production authority is implemented",
+        ):
+            if fragment in text:
+                failures.append(
+                    f"active docs imply forbidden M128 future/currentness claim: {fragment}"
                 )
         return self._result(criterion, failures, required_docs)
 

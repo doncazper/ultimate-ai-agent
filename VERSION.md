@@ -2,9 +2,9 @@
 
 Current active baseline: **v1.7.2**
 
-Checkpoint M127 is implemented/released as Connector Write Dry-Run Planner.
+Checkpoint M128 is implemented/released as Connector Write Execution, Low-Risk Only.
 The current product baseline remains v1.7.2. Already-pushed tags
-remain immutable historical internal milestone tags. Future M128-M149 conveyor
+remain immutable historical internal milestone tags. Future M129-M149 conveyor
 milestones use checkpoint labels instead of product SemVer tags, and M150 is
 the next product release target **v1.0.0-alpha**. Beta begins only after the
 alpha UI and supporting safety/product work are reviewed, accepted, and
@@ -269,6 +269,19 @@ download, no model call, no memory write, no context injection, no execution, no
 backend route, no Control Center control, no dependency, no M128 work, no broad
 autonomy, no beta release, and no production authority.
 
-M101, M102, M103, M104, M105, M106, M107, M108, M109, M110, M111, M112, M113, M114, M115, M116, M117, M118, M119, M120, M121, M122, M123, M124, M125, M126, and M127 are implemented/released. M128-M150 are
+Checkpoint M128 adds deterministic local low-risk connector write execution
+contracts bound to M127 connector write dry-run planner decisions and plans. It
+requires exact connector write approval refs, safe execution scope refs,
+low-risk classification refs, audit refs, replay refs, revocation refs,
+kill-switch refs, idempotency keys, injected safe transport, safe result refs,
+and safe summaries. It denies test/wildcard approvals, mismatched M127 refs,
+high-risk write requests, live connector runtime, account auth, network access,
+credential handling, raw connector content, full content reads, connector send
+execution, connector delete execution, connector export, connector bulk export,
+attachment download, model calls, memory writes, context injection, backend
+routes, Control Center controls, dependencies, M129 work, broad autonomy, beta
+release, and production authority.
+
+M101, M102, M103, M104, M105, M106, M107, M108, M109, M110, M111, M112, M113, M114, M115, M116, M117, M118, M119, M120, M121, M122, M123, M124, M125, M126, M127, and M128 are implemented/released. M129-M150 are
 planned/provisional checkpoint milestones only. M150 is planned as
 v1.0.0-alpha, not beta.

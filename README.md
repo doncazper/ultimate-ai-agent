@@ -13,28 +13,28 @@ allowed to become operational authority.
 | Field | Current state |
 |---|---|
 | Current active baseline | **v1.7.2** |
-| Current milestone | **Checkpoint M127 — Connector Write Dry-Run Planner** |
+| Current milestone | **Checkpoint M128 — Connector Write Execution, Low-Risk Only** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **75** OpenAPI paths |
 | Production readiness | Not claimed |
 
-Checkpoint M127 implements Connector Write Dry-Run Planner while the current
+Checkpoint M128 implements Connector Write Execution, Low-Risk Only while the current
 product baseline remains v1.7.2. Already-pushed tags remain immutable historical
-internal milestone tags, future M128-M149 conveyor milestones use checkpoint
+internal milestone tags, future M129-M149 conveyor milestones use checkpoint
 labels instead of product SemVer tags, and M150 is the next product release
 target **v1.0.0-alpha**. Beta begins only after the alpha UI and supporting
 safety/product work are reviewed, accepted, and explicitly promoted by a later
-roadmap patch. M127 is review-only, dry-run-only, exact-bound, actor-bound,
-user-bound, workspace-bound, replay-safe, revocable, and safe refs only. It
-records connector write dry-run plans from M126 connector approval capture
-records and M125 connector read-only runtime records. It adds no live connector
-runtime, account auth, network access, credential handling, raw connector
-content, full content read, connector write execution, connector send
-execution, connector delete execution, connector export, connector bulk export,
-attachment download, model call, memory write, context injection, execution,
-backend route, Control Center control, dependency, M128 work, broad autonomy,
-beta release, or production authority.
+roadmap patch. M128 is low-risk-only, local-only, safe-ref-only, exact-bound to
+M127 dry-run plans, exact connector-write-approval-bound, audit-bound,
+replay-bound, and revocable. It permits only an injected safe transport to
+complete one exact low-risk connector write and record a safe result ref. It
+adds no live connector runtime, account auth, network access, credential
+handling, raw connector content, full content read, connector send execution,
+connector delete execution, connector export, connector bulk export, attachment
+download, model call, memory write, context injection, backend route, Control
+Center control, dependency, M129 work, broad autonomy, beta release, or
+production authority.
 
 v0.29.5 is documentation policy polish. It remains the documentation
 organization cleanup baseline before the M26 and M27 implementation releases.
@@ -48,6 +48,7 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M34-M60 roadmap supersession](docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md)
 - [M61-M100 roadmap](docs/roadmap/M61_M100_ROADMAP.md)
 - [M101-M150 planned roadmap](docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md)
+- [M128 Connector Write Execution, Low-Risk Only](docs/connectors/CONNECTOR_WRITE_EXECUTION_LOW_RISK.md)
 - [M127 Connector Write Dry-Run Planner](docs/connectors/CONNECTOR_WRITE_DRY_RUN_PLANNER.md)
 - [M126 Connector Approval Capture](docs/connectors/CONNECTOR_APPROVAL_CAPTURE.md)
 - [M125 Connector Read-Only Runtime](docs/connectors/CONNECTOR_READ_ONLY_RUNTIME.md)
