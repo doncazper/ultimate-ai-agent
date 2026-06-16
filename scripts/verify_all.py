@@ -192,6 +192,7 @@ SCAN_SEQUENCE = [
     ("M142 alpha privacy review scan", "verify_m142_alpha_privacy_review"),
     ("M143 alpha UI/app readiness scan", "verify_m143_alpha_ui_app_readiness"),
     ("M144 plugin marketplace policy draft scan", "verify_m144_plugin_marketplace_policy_draft"),
+    ("M145 enterprise/pro safety modes scan", "verify_m145_enterprise_pro_safety_modes"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -17801,6 +17802,10 @@ def verify_post_m100_roadmap_reconciliation():
         _version_doc_marks_milestone_implemented(active_version_text, "m144")
     ):
         implemented_milestones.add("m144")
+    if (
+        _version_doc_marks_milestone_implemented(active_version_text, "m145")
+    ):
+        implemented_milestones.add("m145")
     for version_label, product_target, milestone, title in expected_labels:
         if milestone in implemented_milestones:
             continue
@@ -26886,6 +26891,198 @@ def verify_m144_plugin_marketplace_policy_draft():
 
     print(
         "OK: M144 plugin marketplace policy draft is review-only, disabled-by-default, safe-ref-only, and route-free"
+    )
+
+
+def verify_m145_enterprise_pro_safety_modes():
+    print("\n[Verifier] Running M145 enterprise/pro safety modes guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/productization/enterprise_pro_safety_modes.py",
+        "docs/productization/ENTERPRISE_PRO_SAFETY_MODES.md",
+        "docs/productization/ENTERPRISE_PRO_SAFETY_MODES_POLICY.md",
+        "docs/productization/ENTERPRISE_PRO_SAFETY_MODES_AUTHORITY_BOUNDARY.md",
+        "docs/productization/ENTERPRISE_PRO_SAFETY_MODES_RECEIPT_PLAN.md",
+        "docs/productization/ENTERPRISE_PRO_SAFETY_MODES_NON_GOALS.md",
+        "docs/productization/M145_TO_M146_BOUNDARY.md",
+        "docs/release_notes/checkpoint_m145.md",
+        "docs/archive/checkpoints/m145/README_IMPORT.md",
+        "docs/archive/checkpoints/m145/master_plan.md",
+        "tests/test_m145_enterprise_pro_safety_modes.py",
+        "tests/test_m145_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M145 enterprise/pro safety modes file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = " ".join(
+        "\n".join(
+            (ROOT / rel_path).read_text(encoding="utf-8").lower()
+            for rel_path in required_files
+            if rel_path.startswith("docs/")
+        ).split()
+    )
+    for fragment in [
+        "enterprise/pro safety modes",
+        "contract-only",
+        "review-only",
+        "deterministic",
+        "local-only",
+        "safe-ref-only",
+        "safety-modes-only",
+        "disabled by default",
+        "route-free",
+        "no-effect",
+        "accepted m101-m144",
+        "enterprise safety mode refs",
+        "pro safety mode refs",
+        "workspace boundary refs",
+        "role policy refs",
+        "authority ceiling refs",
+        "feature availability refs",
+        "escalation policy refs",
+        "no enterprise runtime",
+        "no pro runtime",
+        "no plan enforcement",
+        "no billing runtime",
+        "no billing plan boundary",
+        "no account tenant runtime",
+        "no auth runtime",
+        "no backend route",
+        "no control center control",
+        "no dependency",
+        "no beta release",
+        "no production authority",
+        "m146 remains future",
+        "v1.0.0-alpha",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M145 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from tests.test_m145_enterprise_pro_safety_modes import _request
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.criteria import (
+            default_foundation_gate_criteria,
+        )
+        from ultimate_ai_agent.core.gate.evaluators import (
+            FoundationGateEvaluator,
+            m145_openapi_route_failures,
+        )
+        from ultimate_ai_agent.core.productization import (
+            EnterpriseProSafetyModesStatus,
+            build_enterprise_pro_safety_modes_record,
+            validate_enterprise_pro_safety_modes_record,
+        )
+    except Exception as exc:
+        print(f"FAIL: M145 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m145_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    record = build_enterprise_pro_safety_modes_record(_request())
+    if (
+        record.status != EnterpriseProSafetyModesStatus.safety_modes_recorded
+        or not record.contract_only
+        or not record.review_only
+        or not record.safe_refs_only
+        or not record.safety_modes_only
+        or not record.disabled_by_default
+        or not record.m101_m144_covered
+        or not record.no_enterprise_runtime
+        or not record.no_pro_runtime
+        or not record.no_plan_enforcement
+        or not record.no_billing_runtime
+        or not record.no_account_tenant_runtime
+        or not record.no_auth_runtime
+        or not record.no_backend_route
+        or not record.no_dependency
+        or not record.no_production_authority
+        or record.enterprise_runtime_started
+        or record.pro_runtime_started
+        or record.plan_enforcement_performed
+        or record.billing_runtime_started
+        or record.account_tenant_runtime_started
+        or record.auth_runtime_started
+        or record.backend_route_added
+        or record.dependency_added
+        or record.beta_release_enabled
+        or record.production_authority_granted
+        or "M145_ENTERPRISE_PRO_SAFETY_MODES_REVIEW_ONLY"
+        not in record.reason_codes
+        or "M145_M101_M144_COVERED" not in record.reason_codes
+        or "M145_DISABLED_BY_DEFAULT" not in record.reason_codes
+        or "M145_NO_ENTERPRISE_RUNTIME" not in record.reason_codes
+        or "M145_NO_PRO_RUNTIME" not in record.reason_codes
+        or "M145_NO_PLAN_ENFORCEMENT" not in record.reason_codes
+        or "M145_NO_BILLING_RUNTIME" not in record.reason_codes
+        or "M145_NO_ACCOUNT_TENANT_RUNTIME" not in record.reason_codes
+        or "M145_NO_AUTH_RUNTIME" not in record.reason_codes
+        or "M145_NO_BACKEND_ROUTE" not in record.reason_codes
+        or "M145_NO_PRODUCTION_AUTHORITY" not in record.reason_codes
+        or "M146_REMAINS_FUTURE" not in record.reason_codes
+    ):
+        print("FAIL: M145 enterprise/pro safety modes record is unsafe")
+        sys.exit(1)
+
+    for update, reason in [
+        ({"enterprise_runtime_started": True}, "M145_ENTERPRISE_RUNTIME_DENIED"),
+        ({"pro_runtime_started": True}, "M145_PRO_RUNTIME_DENIED"),
+        ({"plan_enforcement_performed": True}, "M145_PLAN_ENFORCEMENT_DENIED"),
+        ({"billing_runtime_started": True}, "M145_BILLING_RUNTIME_DENIED"),
+        (
+            {"account_tenant_runtime_started": True},
+            "M145_ACCOUNT_TENANT_RUNTIME_DENIED",
+        ),
+        ({"auth_runtime_started": True}, "M145_AUTH_RUNTIME_DENIED"),
+        ({"backend_route_added": True}, "M145_BACKEND_ROUTE_DENIED"),
+        ({"dependency_added": True}, "M145_DEPENDENCY_DENIED"),
+        ({"production_authority_granted": True}, "M145_PRODUCTION_AUTHORITY_DENIED"),
+    ]:
+        try:
+            validate_enterprise_pro_safety_modes_record(
+                record.model_copy(update=update)
+            )
+            print(f"FAIL: M145 mutated authority flag was not denied: {update}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M145 mutated authority flag raised {exc!s}")
+                sys.exit(1)
+
+    criteria = {
+        criterion.criterion_id: criterion
+        for criterion in default_foundation_gate_criteria()
+    }
+    for criterion_id in [
+        "m145_enterprise_pro_safety_modes_contracts",
+        "m145_enterprise_pro_safety_modes_static_safety",
+        "m145_enterprise_pro_safety_modes_route_boundary",
+        "m145_roadmap_currentness",
+    ]:
+        if criterion_id not in criteria:
+            print(f"FAIL: Missing M145 Foundation Gate criterion: {criterion_id}")
+            sys.exit(1)
+    evaluator = FoundationGateEvaluator(ROOT)
+    for criterion_id in [
+        "m145_enterprise_pro_safety_modes_contracts",
+        "m145_enterprise_pro_safety_modes_static_safety",
+        "m145_enterprise_pro_safety_modes_route_boundary",
+        "m145_roadmap_currentness",
+    ]:
+        gate_report = evaluator.evaluate([criteria[criterion_id]])
+        result = gate_report.results[0]
+        if result.status != "passed":
+            print(f"FAIL: {criterion_id} failed: {result.failures}")
+            sys.exit(1)
+
+    print(
+        "OK: M145 enterprise/pro safety modes are review-only, disabled-by-default, safe-ref-only, and route-free"
     )
 
 

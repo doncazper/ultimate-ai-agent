@@ -2036,6 +2036,27 @@ M144_FORBIDDEN_BACKEND_ROUTES = M143_FORBIDDEN_BACKEND_ROUTES + (
     "/network/request",
     "/production/authority/enable",
 )
+EXPECTED_M145_OPENAPI_PATH_COUNT = 75
+M145_FORBIDDEN_BACKEND_ROUTES = M144_FORBIDDEN_BACKEND_ROUTES + (
+    "/enterprise/runtime",
+    "/enterprise/pro/enable",
+    "/enterprise/safety-modes",
+    "/pro/runtime",
+    "/pro/enable",
+    "/safety-modes/enable",
+    "/safety-modes/enforce",
+    "/plans/enforce",
+    "/plans/upgrade",
+    "/plans/downgrade",
+    "/billing/runtime",
+    "/billing/plans",
+    "/billing/checkout",
+    "/accounts/tenants",
+    "/roles/runtime",
+    "/workspace/share",
+    "/auth/login",
+    "/production/authority/enable",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -3956,6 +3977,23 @@ def m144_openapi_route_failures(
     return failures
 
 
+def m145_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M145_OPENAPI_PATH_COUNT
+) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(
+            f"OpenAPI path count changed for M145: expected {expected_path_count}, got {len(path_set)}"
+        )
+    for route in M145_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(
+                f"M145 forbidden enterprise/pro runtime, plan enforcement, billing, account/auth, or authority route present: {route}"
+            )
+    return failures
+
+
 M36_SAFE_REF_PREFIXES = {
     "reviewPacketRef": "file-review-packet:",
     "previewResultRef": "redacted-file-preview-output:",
@@ -5261,6 +5299,16 @@ class FoundationGateEvaluator:
                 self.check_m144_plugin_marketplace_policy_draft_route_boundary
             ),
             "m144_roadmap_currentness": self.check_m144_roadmap_currentness,
+            "m145_enterprise_pro_safety_modes_contracts": (
+                self.check_m145_enterprise_pro_safety_modes_contracts
+            ),
+            "m145_enterprise_pro_safety_modes_static_safety": (
+                self.check_m145_enterprise_pro_safety_modes_static_safety
+            ),
+            "m145_enterprise_pro_safety_modes_route_boundary": (
+                self.check_m145_enterprise_pro_safety_modes_route_boundary
+            ),
+            "m145_roadmap_currentness": self.check_m145_roadmap_currentness,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -31146,6 +31194,10 @@ class FoundationGateEvaluator:
             _version_doc_marks_milestone_implemented(active_version_text, "m144")
         ):
             implemented_milestones.add("m144")
+        if (
+            _version_doc_marks_milestone_implemented(active_version_text, "m145")
+        ):
+            implemented_milestones.add("m145")
         for version_label, product_target, milestone, title in expected_labels:
             if milestone in implemented_milestones:
                 continue
@@ -48573,6 +48625,13 @@ class FoundationGateEvaluator:
                 "pre-alpha checkpoint",
                 "m145",
                 "enterprise/pro safety modes",
+                "implemented/released",
+            ),
+            (
+                "checkpoint m146",
+                "pre-alpha checkpoint",
+                "m146",
+                "billing/plan boundary, if needed",
                 "planned/provisional",
             ),
             (
@@ -48589,7 +48648,7 @@ class FoundationGateEvaluator:
             )
             if not _roadmap_row_present(text, row):
                 failures.append(
-                    f"active docs missing expected M143/M144-M145-M150 row: {version_label} / {milestone.upper()} - {title}"
+                    f"active docs missing expected M143/M144/M145-M146-M150 row: {version_label} / {milestone.upper()} - {title}"
                 )
         for fragment in (
             "alpha ui runtime is implemented",
@@ -48974,6 +49033,13 @@ class FoundationGateEvaluator:
                 "pre-alpha checkpoint",
                 "m145",
                 "enterprise/pro safety modes",
+                "implemented/released",
+            ),
+            (
+                "checkpoint m146",
+                "pre-alpha checkpoint",
+                "m146",
+                "billing/plan boundary, if needed",
                 "planned/provisional",
             ),
             (
@@ -48990,7 +49056,7 @@ class FoundationGateEvaluator:
             )
             if not _roadmap_row_present(text, row):
                 failures.append(
-                    f"active docs missing expected M144/M145-M150 row: {version_label} / {milestone.upper()} - {title}"
+                    f"active docs missing expected M144/M145-M146-M150 row: {version_label} / {milestone.upper()} - {title}"
                 )
         for fragment in (
             "enterprise/pro safety runtime is implemented",
@@ -49011,6 +49077,374 @@ class FoundationGateEvaluator:
             if fragment in text:
                 failures.append(
                     f"active docs imply forbidden M144 future/currentness claim: {fragment}"
+                )
+        return self._result(criterion, failures, required_docs)
+
+    def check_m145_enterprise_pro_safety_modes_contracts(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/productization/enterprise_pro_safety_modes.py",
+            "docs/productization/ENTERPRISE_PRO_SAFETY_MODES.md",
+            "docs/productization/ENTERPRISE_PRO_SAFETY_MODES_POLICY.md",
+            "docs/productization/ENTERPRISE_PRO_SAFETY_MODES_AUTHORITY_BOUNDARY.md",
+            "docs/productization/ENTERPRISE_PRO_SAFETY_MODES_RECEIPT_PLAN.md",
+            "docs/productization/ENTERPRISE_PRO_SAFETY_MODES_NON_GOALS.md",
+            "docs/productization/M145_TO_M146_BOUNDARY.md",
+            "docs/release_notes/checkpoint_m145.md",
+            "docs/archive/checkpoints/m145/README_IMPORT.md",
+            "docs/archive/checkpoints/m145/master_plan.md",
+            "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            "tests/test_m145_enterprise_pro_safety_modes.py",
+            "tests/test_m145_gate_integration.py",
+        ]
+        failures = [
+            f"missing M145 Enterprise/Pro safety modes file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            from tests.test_m145_enterprise_pro_safety_modes import _request
+            from ultimate_ai_agent.core.productization import (
+                EnterpriseProSafetyModesStatus,
+                build_enterprise_pro_safety_modes_record,
+                validate_enterprise_pro_safety_modes_record,
+            )
+
+            record = build_enterprise_pro_safety_modes_record(_request())
+            if (
+                record.status != EnterpriseProSafetyModesStatus.safety_modes_recorded
+                or not record.contract_only
+                or not record.review_only
+                or not record.deterministic
+                or not record.local_only
+                or not record.safe_refs_only
+                or not record.safety_modes_only
+                or not record.disabled_by_default
+                or not record.m101_m144_covered
+                or not record.enterprise_safety_modes_bound
+                or not record.pro_safety_modes_bound
+                or not record.workspace_boundaries_bound
+                or not record.role_policies_bound
+                or not record.authority_ceilings_bound
+                or not record.feature_availability_bound
+                or not record.escalation_policies_bound
+                or not record.audit_replay_bound
+                or not record.revocation_bound
+                or not record.no_effect_receipt_required
+                or not record.no_enterprise_runtime
+                or not record.no_pro_runtime
+                or not record.no_plan_enforcement
+                or not record.no_billing_runtime
+                or not record.no_account_tenant_runtime
+                or not record.no_auth_runtime
+                or not record.no_backend_route
+                or not record.no_control_center_control
+                or not record.no_dependency
+                or not record.no_production_authority
+                or record.enterprise_runtime_started
+                or record.pro_runtime_started
+                or record.plan_enforcement_performed
+                or record.billing_runtime_started
+                or record.account_tenant_runtime_started
+                or record.auth_runtime_started
+                or record.backend_route_added
+                or record.control_center_control_added
+                or record.dependency_added
+                or record.beta_release_enabled
+                or record.production_authority_granted
+                or "M145_ENTERPRISE_PRO_SAFETY_MODES_REVIEW_ONLY"
+                not in record.reason_codes
+                or "M145_M101_M144_COVERED" not in record.reason_codes
+                or "M145_DISABLED_BY_DEFAULT" not in record.reason_codes
+                or "M145_NO_ENTERPRISE_RUNTIME" not in record.reason_codes
+                or "M145_NO_PRO_RUNTIME" not in record.reason_codes
+                or "M145_NO_PLAN_ENFORCEMENT" not in record.reason_codes
+                or "M145_NO_BILLING_RUNTIME" not in record.reason_codes
+                or "M145_NO_ACCOUNT_TENANT_RUNTIME" not in record.reason_codes
+                or "M145_NO_AUTH_RUNTIME" not in record.reason_codes
+                or "M145_NO_BACKEND_ROUTE" not in record.reason_codes
+                or "M145_NO_PRODUCTION_AUTHORITY" not in record.reason_codes
+                or "M146_REMAINS_FUTURE" not in record.reason_codes
+            ):
+                failures.append(
+                    "M145 Enterprise/Pro safety modes record is unsafe or over-authoritative"
+                )
+            for update, reason in [
+                ({"enterprise_runtime_started": True}, "M145_ENTERPRISE_RUNTIME_DENIED"),
+                ({"pro_runtime_started": True}, "M145_PRO_RUNTIME_DENIED"),
+                (
+                    {"plan_enforcement_performed": True},
+                    "M145_PLAN_ENFORCEMENT_DENIED",
+                ),
+                ({"billing_runtime_started": True}, "M145_BILLING_RUNTIME_DENIED"),
+                (
+                    {"account_tenant_runtime_started": True},
+                    "M145_ACCOUNT_TENANT_RUNTIME_DENIED",
+                ),
+                ({"auth_runtime_started": True}, "M145_AUTH_RUNTIME_DENIED"),
+                ({"backend_route_added": True}, "M145_BACKEND_ROUTE_DENIED"),
+                ({"dependency_added": True}, "M145_DEPENDENCY_DENIED"),
+                (
+                    {"production_authority_granted": True},
+                    "M145_PRODUCTION_AUTHORITY_DENIED",
+                ),
+            ]:
+                try:
+                    validate_enterprise_pro_safety_modes_record(
+                        record.model_copy(update=update)
+                    )
+                    failures.append(
+                        f"M145 unsafe safety mode mutation was not denied with {reason}"
+                    )
+                except ValueError as exc:
+                    if reason not in str(exc):
+                        failures.append(
+                            f"M145 unsafe safety mode mutation raised {exc!s}"
+                        )
+        except Exception as exc:
+            failures.append(f"M145 safety mode validation failed: {exc}")
+
+        docs_text = " ".join(
+            "\n".join(
+                self._read(self.root / path).lower()
+                for path in required_files
+                if path.startswith("docs/") and (self.root / path).exists()
+            ).split()
+        )
+        for fragment in [
+            "enterprise/pro safety modes",
+            "contract-only",
+            "review-only",
+            "deterministic",
+            "local-only",
+            "safe-ref-only",
+            "safety-modes-only",
+            "disabled by default",
+            "route-free",
+            "no-effect",
+            "accepted m101-m144",
+            "enterprise safety mode refs",
+            "pro safety mode refs",
+            "workspace boundary refs",
+            "role policy refs",
+            "authority ceiling refs",
+            "feature availability refs",
+            "escalation policy refs",
+            "audit",
+            "replay",
+            "revocation",
+            "kill-switch",
+            "no-effect receipt",
+            "no enterprise runtime",
+            "no pro runtime",
+            "no plan enforcement",
+            "no billing runtime",
+            "no billing plan boundary",
+            "no account tenant runtime",
+            "no auth runtime",
+            "no backend route",
+            "no control center control",
+            "no dependency",
+            "no beta release",
+            "no production authority",
+            "m146 remains future",
+            "v1.0.0-alpha",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M145 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m145_enterprise_pro_safety_modes_static_safety(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        forbidden_source_fragments = [
+            "enterprise_runtime_enabled=True",
+            "pro_runtime_enabled=True",
+            "safety_mode_runtime_enabled=True",
+            "plan_enforcement_enabled=True",
+            "billing_runtime_enabled=True",
+            "billing_plan_boundary_enabled=True",
+            "account_tenant_runtime_enabled=True",
+            "role_runtime_enabled=True",
+            "workspace_sharing_enabled=True",
+            "auth_runtime_enabled=True",
+            "login_enabled=True",
+            "connector_runtime_enabled=True",
+            "plugin_marketplace_runtime_enabled=True",
+            "execution_enabled=True",
+            "tool_execution_enabled=True",
+            "shell_execution_enabled=True",
+            "browser_action_enabled=True",
+            "connector_action_enabled=True",
+            "network_access_enabled=True",
+            "model_call_enabled=True",
+            "memory_write_enabled=True",
+            "context_injection_enabled=True",
+            "backend_route_enabled=True",
+            "dependency_added=True",
+            "beta_release_enabled=True",
+            "production_authority_granted=True",
+            "enterprise_runtime_started=True",
+            "pro_runtime_started=True",
+            "plan_enforcement_performed=True",
+            "billing_runtime_started=True",
+            "account_tenant_runtime_started=True",
+            "auth_runtime_started=True",
+            "/enterprise/runtime",
+            "/enterprise/pro/enable",
+            "/safety-modes/enable",
+            "/safety-modes/enforce",
+            "/plans/enforce",
+            "/billing/runtime",
+            "/billing/plans",
+            "/accounts/tenants",
+            "/auth/login",
+            "/workspace/share",
+        ]
+        allowed_files = {
+            "src/ultimate_ai_agent/core/gate/evaluators.py",
+            "src/ultimate_ai_agent/api/app.py",
+            "src/ultimate_ai_agent/api/openapi.py",
+            "src/ultimate_ai_agent/core/gate/criteria.py",
+            "src/ultimate_ai_agent/core/productization/__init__.py",
+            "src/ultimate_ai_agent/core/productization/enterprise_pro_safety_modes.py",
+            "src/ultimate_ai_agent/core/productization/plugin_marketplace_policy_draft.py",
+            "src/ultimate_ai_agent/core/productization/alpha_ui_app_readiness.py",
+            "src/ultimate_ai_agent/core/productization/alpha_privacy_review.py",
+            "src/ultimate_ai_agent/core/productization/multi_user_product_boundary.py",
+        }
+        for root in [
+            self.root / "src" / "ultimate_ai_agent",
+            self.root / "apps" / "control-center" / "src",
+            self.root / "apps" / "ccc-ios",
+        ]:
+            if not root.exists():
+                continue
+            candidate_files = []
+            for pattern in (
+                "*.py",
+                "*.ts",
+                "*.tsx",
+                "*.js",
+                "*.jsx",
+                "*.swift",
+                "*.yml",
+                "*.yaml",
+            ):
+                candidate_files.extend(root.rglob(pattern))
+            for path in sorted(candidate_files):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(self.root).as_posix()
+                if ".test." in rel or rel in allowed_files:
+                    continue
+                text = path.read_text(encoding="utf-8")
+                for fragment in forbidden_source_fragments:
+                    if fragment in text:
+                        failures.append(
+                            f"M145 forbidden safety mode fragment in {rel}: {fragment}"
+                        )
+        return self._result(criterion, failures, [])
+
+    def check_m145_enterprise_pro_safety_modes_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m145_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M145 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m145_roadmap_currentness(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_docs = [
+            "README.md",
+            "VERSION.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            "docs/roadmap/MILESTONE_CHARTERS.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+            "docs/DOCUMENTATION_INDEX.md",
+            "docs/canonical/CANONICAL_DOC_MAP.md",
+        ]
+        failures = [
+            f"missing M145 roadmap doc: {path}"
+            for path in required_docs
+            if not (self.root / path).exists()
+        ]
+        text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_docs
+            if (self.root / path).exists()
+        )
+        if "checkpoint m145" not in text or "enterprise/pro safety modes" not in text:
+            failures.append("active docs do not identify Checkpoint M145")
+        if (
+            "m145 is implemented/released" not in text
+            and "checkpoint m145 is implemented/released" not in text
+        ):
+            failures.append("active docs do not mark M145 implemented/released")
+        for version_label, product_target, milestone, title, status in [
+            (
+                "checkpoint m144",
+                "pre-alpha checkpoint",
+                "m144",
+                "plugin marketplace policy draft",
+                "implemented/released",
+            ),
+            (
+                "checkpoint m145",
+                "pre-alpha checkpoint",
+                "m145",
+                "enterprise/pro safety modes",
+                "implemented/released",
+            ),
+            (
+                "checkpoint m146",
+                "pre-alpha checkpoint",
+                "m146",
+                "billing/plan boundary, if needed",
+                "planned/provisional",
+            ),
+            (
+                "v1.0.0-alpha",
+                "alpha",
+                "m150",
+                "ultimate ai agent v1.0.0-alpha",
+                "planned/provisional",
+            ),
+        ]:
+            row = (
+                f"| {version_label} | {product_target} | {milestone} | "
+                f"{title} | {status} |"
+            )
+            if not _roadmap_row_present(text, row):
+                failures.append(
+                    f"active docs missing expected M145/M146-M150 row: {version_label} / {milestone.upper()} - {title}"
+                )
+        for fragment in (
+            "billing runtime is implemented",
+            "billing plan boundary is implemented",
+            "plan enforcement is implemented",
+            "enterprise runtime is implemented",
+            "pro runtime is implemented",
+            "account tenant runtime is implemented",
+            "auth runtime is implemented",
+            "beta is released",
+            "production authority is implemented",
+            "backend route is implemented",
+            "control center control is implemented",
+            "m146 dependency is added",
+        ):
+            if fragment in text:
+                failures.append(
+                    f"active docs imply forbidden M145 future/currentness claim: {fragment}"
                 )
         return self._result(criterion, failures, required_docs)
 

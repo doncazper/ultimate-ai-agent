@@ -45,19 +45,19 @@ def test_post_m100_documentation_integrity_guard_rejects_missing_row_status(
     _copy_minimal_post_m100_docs(tmp_path)
     roadmap = tmp_path / "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md"
     roadmap.write_text(
-            roadmap.read_text(encoding="utf-8").replace(
-                "| Checkpoint M145 | pre-alpha checkpoint | M145 | Enterprise/Pro Safety Modes | Planned/provisional |",
-                "| Checkpoint M145 | pre-alpha checkpoint | M145 | Enterprise/Pro Safety Modes | Deferred |",
-            ),
-            encoding="utf-8",
-        )
+        roadmap.read_text(encoding="utf-8").replace(
+            "| Checkpoint M146 | pre-alpha checkpoint | M146 | Billing/Plan Boundary, If Needed | Planned/provisional |",
+            "| Checkpoint M146 | pre-alpha checkpoint | M146 | Billing/Plan Boundary, If Needed | Deferred |",
+        ),
+        encoding="utf-8",
+    )
 
     failures = docs_verifier._verify_post_m100_roadmap_reconciliation_docs(
         tmp_path,
         "1.6.0",
     )
 
-    assert any("m145" in failure.lower() for failure in failures)
+    assert any("m146" in failure.lower() for failure in failures)
     assert any("planned/provisional" in failure.lower() for failure in failures)
 
 
@@ -69,9 +69,9 @@ def test_post_m100_documentation_integrity_guard_allows_negated_future_claim(
     roadmap.write_text(
         roadmap.read_text(encoding="utf-8")
         + (
-                "\nNo M104 is implemented. Without any evidence, M104 backend route "
-                "appears only as a negated safety example. The docs do not say "
-                "M105 has started.\n"
+            "\nNo M104 is implemented. Without any evidence, M104 backend route "
+            "appears only as a negated safety example. The docs do not say "
+            "M105 has started.\n"
         ),
         encoding="utf-8",
     )
@@ -95,12 +95,12 @@ def test_post_m100_static_verifier_rejects_missing_row_status(
     _copy_minimal_post_m100_docs(tmp_path)
     roadmap = tmp_path / "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md"
     roadmap.write_text(
-            roadmap.read_text(encoding="utf-8").replace(
-                "| Checkpoint M145 | pre-alpha checkpoint | M145 | Enterprise/Pro Safety Modes | Planned/provisional |",
-                "| Checkpoint M145 | pre-alpha checkpoint | M145 | Enterprise/Pro Safety Modes | Deferred |",
-            ),
-            encoding="utf-8",
-        )
+        roadmap.read_text(encoding="utf-8").replace(
+            "| Checkpoint M146 | pre-alpha checkpoint | M146 | Billing/Plan Boundary, If Needed | Planned/provisional |",
+            "| Checkpoint M146 | pre-alpha checkpoint | M146 | Billing/Plan Boundary, If Needed | Deferred |",
+        ),
+        encoding="utf-8",
+    )
     monkeypatch.setattr(static_verifier, "ROOT", tmp_path)
 
     with pytest.raises(SystemExit):
@@ -115,7 +115,7 @@ def test_post_m100_static_verifier_allows_negated_future_claim(
     roadmap = tmp_path / "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md"
     roadmap.write_text(
         roadmap.read_text(encoding="utf-8")
-        + "\nThere is never evidence that M145 has started in v1.4.1.\n",
+        + "\nThere is never evidence that M146 has started in v1.4.1.\n",
         encoding="utf-8",
     )
     monkeypatch.setattr(static_verifier, "ROOT", tmp_path)
@@ -141,12 +141,12 @@ def test_post_m100_foundation_gate_rejects_missing_row_status(tmp_path: Path) ->
     _copy_minimal_post_m100_docs(tmp_path)
     roadmap = tmp_path / "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md"
     roadmap.write_text(
-            roadmap.read_text(encoding="utf-8").replace(
-                "| Checkpoint M145 | pre-alpha checkpoint | M145 | Enterprise/Pro Safety Modes | Planned/provisional |",
-                "| Checkpoint M145 | pre-alpha checkpoint | M145 | Enterprise/Pro Safety Modes | Deferred |",
-            ),
-            encoding="utf-8",
-        )
+        roadmap.read_text(encoding="utf-8").replace(
+            "| Checkpoint M146 | pre-alpha checkpoint | M146 | Billing/Plan Boundary, If Needed | Planned/provisional |",
+            "| Checkpoint M146 | pre-alpha checkpoint | M146 | Billing/Plan Boundary, If Needed | Deferred |",
+        ),
+        encoding="utf-8",
+    )
     criteria = {
         criterion.criterion_id: criterion
         for criterion in default_foundation_gate_criteria()
@@ -157,7 +157,7 @@ def test_post_m100_foundation_gate_rejects_missing_row_status(tmp_path: Path) ->
     ).results[0]
 
     assert result.status == "failed"
-    assert any("m145" in failure.lower() for failure in result.failures)
+    assert any("m146" in failure.lower() for failure in result.failures)
 
 
 def test_post_m100_foundation_gate_allows_negated_future_claim(tmp_path: Path) -> None:
