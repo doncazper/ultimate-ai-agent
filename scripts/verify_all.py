@@ -195,6 +195,7 @@ SCAN_SEQUENCE = [
     ("M145 enterprise/pro safety modes scan", "verify_m145_enterprise_pro_safety_modes"),
     ("M146 billing/plan boundary scan", "verify_m146_billing_plan_boundary"),
     ("M147 public docs + wiki readiness scan", "verify_m147_public_docs_wiki_readiness"),
+    ("M148 external security review scan", "verify_m148_external_security_review"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -17816,6 +17817,10 @@ def verify_post_m100_roadmap_reconciliation():
         _version_doc_marks_milestone_implemented(active_version_text, "m147")
     ):
         implemented_milestones.add("m147")
+    if (
+        _version_doc_marks_milestone_implemented(active_version_text, "m148")
+    ):
+        implemented_milestones.add("m148")
     for version_label, product_target, milestone, title in expected_labels:
         if milestone in implemented_milestones:
             continue
@@ -27528,6 +27533,223 @@ def verify_m147_public_docs_wiki_readiness():
 
     print(
         "OK: M147 public docs + wiki readiness is review-only, disabled-by-default, safe-ref-only, and route-free"
+    )
+
+
+def verify_m148_external_security_review():
+    print("\n[Verifier] Running M148 external security review guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/productization/external_security_review.py",
+        "docs/productization/EXTERNAL_SECURITY_REVIEW.md",
+        "docs/productization/EXTERNAL_SECURITY_REVIEW_POLICY.md",
+        "docs/productization/EXTERNAL_SECURITY_REVIEW_AUTHORITY_BOUNDARY.md",
+        "docs/productization/EXTERNAL_SECURITY_REVIEW_RECEIPT_PLAN.md",
+        "docs/productization/EXTERNAL_SECURITY_REVIEW_NON_GOALS.md",
+        "docs/productization/M148_TO_M149_BOUNDARY.md",
+        "docs/release_notes/checkpoint_m148.md",
+        "docs/archive/checkpoints/m148/README_IMPORT.md",
+        "docs/archive/checkpoints/m148/master_plan.md",
+        "tests/test_m148_external_security_review.py",
+        "tests/test_m148_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M148 external security review file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = " ".join(
+        "\n".join(
+            (ROOT / rel_path).read_text(encoding="utf-8").lower()
+            for rel_path in required_files
+            if rel_path.startswith("docs/")
+        ).split()
+    )
+    for fragment in [
+        "external security review",
+        "contract-only",
+        "review-only",
+        "deterministic",
+        "local-only",
+        "safe-ref-only",
+        "external-security-review-only",
+        "disabled by default",
+        "route-free",
+        "no-effect",
+        "accepted m101-m147",
+        "security review refs",
+        "threat model refs",
+        "review scope refs",
+        "evidence index refs",
+        "finding summary refs",
+        "disclosure review refs",
+        "remediation plan refs",
+        "audit",
+        "replay",
+        "revocation",
+        "kill-switch",
+        "no-effect receipt",
+        "no external vendor handoff",
+        "no security vendor handoff",
+        "no external review automation",
+        "no scanner runtime",
+        "no vulnerability scan",
+        "no repository export",
+        "no artifact export",
+        "no issue export",
+        "no security review runtime",
+        "no auth runtime",
+        "no backend route",
+        "no control center control",
+        "no dependency",
+        "no beta release",
+        "no production authority",
+        "m149 remains future",
+        "v1.0.0-alpha",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M148 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from tests.test_m148_external_security_review import _request
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.criteria import (
+            default_foundation_gate_criteria,
+        )
+        from ultimate_ai_agent.core.gate.evaluators import (
+            FoundationGateEvaluator,
+            m148_openapi_route_failures,
+        )
+        from ultimate_ai_agent.core.productization import (
+            ExternalSecurityReviewStatus,
+            build_external_security_review_record,
+            validate_external_security_review_record,
+        )
+    except Exception as exc:
+        print(f"FAIL: M148 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m148_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    record = build_external_security_review_record(_request())
+    if (
+        record.status != ExternalSecurityReviewStatus.readiness_recorded
+        or not record.contract_only
+        or not record.review_only
+        or not record.safe_refs_only
+        or not record.external_security_review_only
+        or not record.disabled_by_default
+        or not record.m101_m147_covered
+        or not record.security_reviews_bound
+        or not record.threat_model_bound
+        or not record.review_scopes_bound
+        or not record.evidence_indexes_bound
+        or not record.finding_summaries_bound
+        or not record.disclosure_reviews_bound
+        or not record.remediation_plans_bound
+        or not record.no_external_vendor_handoff
+        or not record.no_security_vendor_handoff
+        or not record.no_external_review_automation
+        or not record.no_scanner_runtime
+        or not record.no_vulnerability_scan
+        or not record.no_repository_export
+        or not record.no_artifact_export
+        or not record.no_issue_export
+        or not record.no_security_review_runtime
+        or not record.no_auth_runtime
+        or not record.no_backend_route
+        or not record.no_dependency
+        or not record.no_production_authority
+        or record.external_vendor_handoff_started
+        or record.security_vendor_handoff_started
+        or record.external_review_automation_started
+        or record.scanner_runtime_performed
+        or record.vulnerability_scan_started
+        or record.repository_export_performed
+        or record.artifact_export_started
+        or record.issue_export_started
+        or record.security_review_runtime_performed
+        or record.auth_runtime_started
+        or record.backend_route_added
+        or record.dependency_added
+        or record.beta_release_enabled
+        or record.production_authority_granted
+        or "M148_EXTERNAL_SECURITY_REVIEW_REVIEW_ONLY" not in record.reason_codes
+        or "M148_M101_M147_COVERED" not in record.reason_codes
+        or "M148_DISABLED_BY_DEFAULT" not in record.reason_codes
+        or "M148_NO_EXTERNAL_VENDOR_HANDOFF" not in record.reason_codes
+        or "M148_NO_SECURITY_VENDOR_HANDOFF" not in record.reason_codes
+        or "M148_NO_EXTERNAL_REVIEW_AUTOMATION" not in record.reason_codes
+        or "M148_NO_SCANNER_RUNTIME" not in record.reason_codes
+        or "M148_NO_VULNERABILITY_SCAN" not in record.reason_codes
+        or "M148_NO_REPOSITORY_EXPORT" not in record.reason_codes
+        or "M148_NO_ARTIFACT_EXPORT" not in record.reason_codes
+        or "M148_NO_ISSUE_EXPORT" not in record.reason_codes
+        or "M148_NO_SECURITY_REVIEW_RUNTIME" not in record.reason_codes
+        or "M148_NO_AUTH_RUNTIME" not in record.reason_codes
+        or "M148_NO_BACKEND_ROUTE" not in record.reason_codes
+        or "M148_NO_PRODUCTION_AUTHORITY" not in record.reason_codes
+        or "M149_REMAINS_FUTURE" not in record.reason_codes
+    ):
+        print("FAIL: M148 external security review record is unsafe")
+        sys.exit(1)
+
+    for update, reason in [
+        ({"external_vendor_handoff_started": True}, "M148_EXTERNAL_VENDOR_HANDOFF_DENIED"),
+        ({"security_vendor_handoff_started": True}, "M148_SECURITY_VENDOR_HANDOFF_DENIED"),
+        ({"external_review_automation_started": True}, "M148_EXTERNAL_REVIEW_AUTOMATION_DENIED"),
+        ({"scanner_runtime_performed": True}, "M148_SCANNER_RUNTIME_DENIED"),
+        ({"vulnerability_scan_started": True}, "M148_VULNERABILITY_SCAN_DENIED"),
+        ({"repository_export_performed": True}, "M148_REPOSITORY_EXPORT_DENIED"),
+        ({"artifact_export_started": True}, "M148_ARTIFACT_EXPORT_DENIED"),
+        ({"issue_export_started": True}, "M148_ISSUE_EXPORT_DENIED"),
+        ({"security_review_runtime_performed": True}, "M148_SECURITY_REVIEW_RUNTIME_DENIED"),
+        ({"auth_runtime_started": True}, "M148_AUTH_RUNTIME_DENIED"),
+        ({"backend_route_added": True}, "M148_BACKEND_ROUTE_DENIED"),
+        ({"dependency_added": True}, "M148_DEPENDENCY_DENIED"),
+        ({"production_authority_granted": True}, "M148_PRODUCTION_AUTHORITY_DENIED"),
+    ]:
+        try:
+            validate_external_security_review_record(record.model_copy(update=update))
+            print(f"FAIL: M148 mutated authority flag was not denied: {update}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M148 mutated authority flag raised {exc!s}")
+                sys.exit(1)
+
+    criteria = {
+        criterion.criterion_id: criterion
+        for criterion in default_foundation_gate_criteria()
+    }
+    for criterion_id in [
+        "m148_external_security_review_contracts",
+        "m148_external_security_review_static_safety",
+        "m148_external_security_review_route_boundary",
+        "m148_roadmap_currentness",
+    ]:
+        if criterion_id not in criteria:
+            print(f"FAIL: Missing M148 Foundation Gate criterion: {criterion_id}")
+            sys.exit(1)
+    evaluator = FoundationGateEvaluator(ROOT)
+    for criterion_id in [
+        "m148_external_security_review_contracts",
+        "m148_external_security_review_static_safety",
+        "m148_external_security_review_route_boundary",
+        "m148_roadmap_currentness",
+    ]:
+        gate_report = evaluator.evaluate([criteria[criterion_id]])
+        result = gate_report.results[0]
+        if result.status != "passed":
+            print(f"FAIL: {criterion_id} failed: {result.failures}")
+            sys.exit(1)
+
+    print(
+        "OK: M148 external security review is review-only, disabled-by-default, safe-ref-only, and route-free"
     )
 
 

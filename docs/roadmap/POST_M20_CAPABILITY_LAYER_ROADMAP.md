@@ -219,7 +219,7 @@ Privacy Review. Checkpoint M143 is implemented/released as Alpha UI and App
 Readiness. Checkpoint M144 is implemented/released as Plugin Marketplace Policy
 Draft. Checkpoint M146 is implemented/released as Billing/Plan Boundary.
 Checkpoint M147 is implemented/released as Public Docs + Wiki Readiness.
-M148-M149 remain planned/provisional as checkpoint milestones instead of product
+M149 remains planned/provisional as a checkpoint milestone instead of product
 SemVer tags, and M150 remains planned/provisional as the v1.0.0-alpha product
 target.
 Beta begins after the alpha UI and supporting safety/product work are reviewed

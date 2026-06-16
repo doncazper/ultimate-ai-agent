@@ -1,6 +1,6 @@
 # M101-M150 Capability Charters
 
-Status: Active roadmap maintained through Checkpoint M147 after the accepted
+Status: Active roadmap maintained through Checkpoint M148 after the accepted
 v1.7.2 post-M103 versioning repair follow-up.
 
 M101 is implemented/released as Mobile Sensor Contract Review. M102 is
@@ -50,7 +50,8 @@ implemented/released as Alpha UI and App Readiness. Checkpoint M144 is
 implemented/released as Plugin Marketplace Policy Draft. Checkpoint M145 is
 implemented/released as Enterprise/Pro Safety Modes. Checkpoint M146 is
 implemented/released as Billing/Plan Boundary. Checkpoint M147 is
-implemented/released as Public Docs + Wiki Readiness. M148-M150 remain
+implemented/released as Public Docs + Wiki Readiness. Checkpoint M148 is
+implemented/released as External Security Review. M149-M150 remain
 planned/provisional.
 Future work must continue the authority-tier model:
 
@@ -122,7 +123,7 @@ roadmap patch. Do not rewrite, move, or reuse existing tags.
 | Checkpoint M145 | pre-alpha checkpoint | M145 | Enterprise/Pro Safety Modes | Implemented/released |
 | Checkpoint M146 | pre-alpha checkpoint | M146 | Billing/Plan Boundary, If Needed | Implemented/released |
 | Checkpoint M147 | pre-alpha checkpoint | M147 | Public Docs + Wiki Readiness | Implemented/released |
-| Checkpoint M148 | pre-alpha checkpoint | M148 | External Security Review | Planned/provisional |
+| Checkpoint M148 | pre-alpha checkpoint | M148 | External Security Review | Implemented/released |
 | Checkpoint M149 | pre-alpha checkpoint | M149 | Alpha Release Candidate Freeze | Planned/provisional |
 | v1.0.0-alpha | alpha | M150 | Ultimate AI Agent v1.0.0-alpha | Planned/provisional |
 
@@ -153,8 +154,9 @@ records plugin marketplace policy draft as contract-only product-readiness work.
 M145 records enterprise/pro safety modes as contract-only product-readiness
 work. M146 records billing/plan boundary as contract-only product-readiness
 work. M147 records public docs + wiki readiness as contract-only
-product-readiness work. M148-M150 stage security review, alpha release
-candidate freeze, and the v1.0.0-alpha target.
+product-readiness work. M148 records external security review as contract-only
+product-readiness work. M149-M150 stage alpha release candidate freeze and the
+v1.0.0-alpha target.
 
 No M151+ extension is required by the v1.7.2 versioning repair. Beta begins
 after the alpha UI and other alpha findings are ironed out through later

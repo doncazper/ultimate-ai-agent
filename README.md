@@ -13,29 +13,29 @@ allowed to become operational authority.
 | Field | Current state |
 |---|---|
 | Current active baseline | **v1.7.2** |
-| Current milestone | **Checkpoint M147 - Public Docs + Wiki Readiness** |
+| Current milestone | **Checkpoint M148 - External Security Review** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **75** OpenAPI paths |
 | Production readiness | Not claimed |
 
-Checkpoint M147 implements Public Docs + Wiki Readiness while the current
+Checkpoint M148 implements External Security Review while the current
 product baseline remains v1.7.2. Already-pushed tags remain immutable historical
-internal milestone tags, future M148-M149 conveyor milestones use checkpoint
+internal milestone tags, future M149 conveyor milestones use checkpoint
 labels instead of product SemVer tags, and M150 is the next product release
 target **v1.0.0-alpha**. Beta begins only after the alpha UI and supporting
 safety/product work are reviewed, accepted, and explicitly promoted by a later
-roadmap patch. M147 is contract-only, review-only, deterministic, local-only,
-safe-ref-only, docs-readiness-only, disabled by default, route-free, and
-no-effect. It records accepted M101-M146 checkpoint refs, public doc refs, wiki
-readiness refs, docs index refs, canonical map refs, release note refs,
-disclosure review refs, publishing checklist refs, audit, replay, revocation,
-kill-switch, and no-effect receipt refs for governed review. It adds no public
-publishing, wiki publishing, wiki automation, GitHub wiki runtime, docs-site
-deploy, external distribution, artifact upload, release publishing, docs
-runtime, auth runtime, backend route, Control Center control, dependency, beta
-release, or production authority. M148 remains future External Security Review
-work.
+roadmap patch. M148 is contract-only, review-only, deterministic, local-only,
+safe-ref-only, external-security-review-only, disabled by default, route-free,
+and no-effect. It records accepted M101-M147 checkpoint refs, security review
+refs, threat model refs, review scope refs, evidence index refs, finding summary
+refs, disclosure review refs, remediation plan refs, audit, replay, revocation,
+kill-switch, and no-effect receipt refs for governed review. It adds no external
+vendor handoff, security vendor handoff, external review automation, scanner
+runtime, vulnerability scan, repository export, artifact export, issue export,
+security review runtime, auth runtime, backend route, Control Center control,
+dependency, beta release, or production authority. M149 remains future Alpha
+Release Candidate Freeze work.
 
 v0.29.5 is documentation policy polish. It remains the documentation
 organization cleanup baseline before the M26 and M27 implementation releases.
@@ -49,6 +49,7 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M34-M60 roadmap supersession](docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md)
 - [M61-M100 roadmap](docs/roadmap/M61_M100_ROADMAP.md)
 - [M101-M150 planned roadmap](docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md)
+- [M148 External Security Review](docs/productization/EXTERNAL_SECURITY_REVIEW.md)
 - [M147 Public Docs + Wiki Readiness](docs/productization/PUBLIC_DOCS_WIKI_READINESS.md)
 - [M146 Billing/Plan Boundary](docs/productization/BILLING_PLAN_BOUNDARY.md)
 - [M145 Enterprise/Pro Safety Modes](docs/productization/ENTERPRISE_PRO_SAFETY_MODES.md)

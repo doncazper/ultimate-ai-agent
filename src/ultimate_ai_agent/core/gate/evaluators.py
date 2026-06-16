@@ -2101,6 +2101,26 @@ M147_FORBIDDEN_BACKEND_ROUTES = M146_FORBIDDEN_BACKEND_ROUTES + (
     "/external-distribution",
     "/production/authority/enable",
 )
+EXPECTED_M148_OPENAPI_PATH_COUNT = 75
+M148_FORBIDDEN_BACKEND_ROUTES = M147_FORBIDDEN_BACKEND_ROUTES + (
+    "/external-security-review",
+    "/external-security-review/start",
+    "/external-security-review/export",
+    "/security/review/start",
+    "/security/review/export",
+    "/security/review/runtime",
+    "/security/vendor",
+    "/security/vendor/handoff",
+    "/security/scanner/run",
+    "/security/vulnerability-scan",
+    "/security/findings/export",
+    "/security/audit/upload",
+    "/repository/export",
+    "/source/export",
+    "/issues/export",
+    "/artifacts/export",
+    "/production/authority/enable",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -4072,6 +4092,23 @@ def m147_openapi_route_failures(
     return failures
 
 
+def m148_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M148_OPENAPI_PATH_COUNT
+) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(
+            f"OpenAPI path count changed for M148: expected {expected_path_count}, got {len(path_set)}"
+        )
+    for route in M148_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(
+                f"M148 forbidden external security review, vendor handoff, scanner, vulnerability scan, repository export, artifact export, issue export, auth, or authority route present: {route}"
+            )
+    return failures
+
+
 M36_SAFE_REF_PREFIXES = {
     "reviewPacketRef": "file-review-packet:",
     "previewResultRef": "redacted-file-preview-output:",
@@ -5407,6 +5444,16 @@ class FoundationGateEvaluator:
                 self.check_m147_public_docs_wiki_readiness_route_boundary
             ),
             "m147_roadmap_currentness": self.check_m147_roadmap_currentness,
+            "m148_external_security_review_contracts": (
+                self.check_m148_external_security_review_contracts
+            ),
+            "m148_external_security_review_static_safety": (
+                self.check_m148_external_security_review_static_safety
+            ),
+            "m148_external_security_review_route_boundary": (
+                self.check_m148_external_security_review_route_boundary
+            ),
+            "m148_roadmap_currentness": self.check_m148_roadmap_currentness,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -31304,6 +31351,10 @@ class FoundationGateEvaluator:
             _version_doc_marks_milestone_implemented(active_version_text, "m147")
         ):
             implemented_milestones.add("m147")
+        if (
+            _version_doc_marks_milestone_implemented(active_version_text, "m148")
+        ):
+            implemented_milestones.add("m148")
         for version_label, product_target, milestone, title in expected_labels:
             if milestone in implemented_milestones:
                 continue
@@ -48752,7 +48803,7 @@ class FoundationGateEvaluator:
                 "pre-alpha checkpoint",
                 "m148",
                 "external security review",
-                "planned/provisional",
+                "implemented/released",
             ),
             (
                 "v1.0.0-alpha",
@@ -49174,7 +49225,7 @@ class FoundationGateEvaluator:
                 "pre-alpha checkpoint",
                 "m148",
                 "external security review",
-                "planned/provisional",
+                "implemented/released",
             ),
             (
                 "v1.0.0-alpha",
@@ -49558,7 +49609,7 @@ class FoundationGateEvaluator:
                 "pre-alpha checkpoint",
                 "m148",
                 "external security review",
-                "planned/provisional",
+                "implemented/released",
             ),
             (
                 "v1.0.0-alpha",
@@ -49957,7 +50008,7 @@ class FoundationGateEvaluator:
                 "pre-alpha checkpoint",
                 "m148",
                 "external security review",
-                "planned/provisional",
+                "implemented/released",
             ),
             (
                 "v1.0.0-alpha",
@@ -50351,7 +50402,7 @@ class FoundationGateEvaluator:
                 "pre-alpha checkpoint",
                 "m148",
                 "external security review",
-                "planned/provisional",
+                "implemented/released",
             ),
             (
                 "v1.0.0-alpha",
@@ -50388,6 +50439,408 @@ class FoundationGateEvaluator:
             if fragment in text:
                 failures.append(
                     f"active docs imply forbidden M147 future/currentness claim: {fragment}"
+                )
+        return self._result(criterion, failures, required_docs)
+
+    def check_m148_external_security_review_contracts(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/productization/external_security_review.py",
+            "docs/productization/EXTERNAL_SECURITY_REVIEW.md",
+            "docs/productization/EXTERNAL_SECURITY_REVIEW_POLICY.md",
+            "docs/productization/EXTERNAL_SECURITY_REVIEW_AUTHORITY_BOUNDARY.md",
+            "docs/productization/EXTERNAL_SECURITY_REVIEW_RECEIPT_PLAN.md",
+            "docs/productization/EXTERNAL_SECURITY_REVIEW_NON_GOALS.md",
+            "docs/productization/M148_TO_M149_BOUNDARY.md",
+            "docs/release_notes/checkpoint_m148.md",
+            "docs/archive/checkpoints/m148/README_IMPORT.md",
+            "docs/archive/checkpoints/m148/master_plan.md",
+            "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            "tests/test_m148_external_security_review.py",
+            "tests/test_m148_gate_integration.py",
+        ]
+        failures = [
+            f"missing M148 external security review file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            from tests.test_m148_external_security_review import _request
+            from ultimate_ai_agent.core.productization import (
+                ExternalSecurityReviewStatus,
+                build_external_security_review_record,
+                validate_external_security_review_record,
+            )
+
+            record = build_external_security_review_record(_request())
+            if (
+                record.status != ExternalSecurityReviewStatus.readiness_recorded
+                or not record.contract_only
+                or not record.review_only
+                or not record.deterministic
+                or not record.local_only
+                or not record.safe_refs_only
+                or not record.external_security_review_only
+                or not record.disabled_by_default
+                or not record.m101_m147_covered
+                or not record.security_reviews_bound
+                or not record.threat_model_bound
+                or not record.review_scopes_bound
+                or not record.evidence_indexes_bound
+                or not record.finding_summaries_bound
+                or not record.disclosure_reviews_bound
+                or not record.remediation_plans_bound
+                or not record.no_external_vendor_handoff
+                or not record.no_security_vendor_handoff
+                or not record.no_external_review_automation
+                or not record.no_scanner_runtime
+                or not record.no_vulnerability_scan
+                or not record.no_repository_export
+                or not record.no_artifact_export
+                or not record.no_issue_export
+                or not record.no_security_review_runtime
+                or not record.no_auth_runtime
+                or not record.no_backend_route
+                or not record.no_control_center_control
+                or not record.no_dependency
+                or not record.no_production_authority
+                or record.external_vendor_handoff_started
+                or record.security_vendor_handoff_started
+                or record.external_review_automation_started
+                or record.scanner_runtime_performed
+                or record.vulnerability_scan_started
+                or record.repository_export_performed
+                or record.artifact_export_started
+                or record.issue_export_started
+                or record.security_review_runtime_performed
+                or record.auth_runtime_started
+                or record.backend_route_added
+                or record.control_center_control_added
+                or record.dependency_added
+                or record.beta_release_enabled
+                or record.production_authority_granted
+                or "M148_EXTERNAL_SECURITY_REVIEW_REVIEW_ONLY"
+                not in record.reason_codes
+                or "M148_M101_M147_COVERED" not in record.reason_codes
+                or "M148_DISABLED_BY_DEFAULT" not in record.reason_codes
+                or "M148_NO_EXTERNAL_VENDOR_HANDOFF" not in record.reason_codes
+                or "M148_NO_SECURITY_VENDOR_HANDOFF" not in record.reason_codes
+                or "M148_NO_EXTERNAL_REVIEW_AUTOMATION" not in record.reason_codes
+                or "M148_NO_SCANNER_RUNTIME" not in record.reason_codes
+                or "M148_NO_VULNERABILITY_SCAN" not in record.reason_codes
+                or "M148_NO_REPOSITORY_EXPORT" not in record.reason_codes
+                or "M148_NO_ARTIFACT_EXPORT" not in record.reason_codes
+                or "M148_NO_ISSUE_EXPORT" not in record.reason_codes
+                or "M148_NO_SECURITY_REVIEW_RUNTIME" not in record.reason_codes
+                or "M148_NO_AUTH_RUNTIME" not in record.reason_codes
+                or "M148_NO_BACKEND_ROUTE" not in record.reason_codes
+                or "M148_NO_PRODUCTION_AUTHORITY" not in record.reason_codes
+                or "M149_REMAINS_FUTURE" not in record.reason_codes
+            ):
+                failures.append(
+                    "M148 external security review record is unsafe or over-authoritative"
+                )
+            for update, reason in [
+                (
+                    {"external_vendor_handoff_started": True},
+                    "M148_EXTERNAL_VENDOR_HANDOFF_DENIED",
+                ),
+                (
+                    {"security_vendor_handoff_started": True},
+                    "M148_SECURITY_VENDOR_HANDOFF_DENIED",
+                ),
+                (
+                    {"external_review_automation_started": True},
+                    "M148_EXTERNAL_REVIEW_AUTOMATION_DENIED",
+                ),
+                ({"scanner_runtime_performed": True}, "M148_SCANNER_RUNTIME_DENIED"),
+                ({"vulnerability_scan_started": True}, "M148_VULNERABILITY_SCAN_DENIED"),
+                ({"repository_export_performed": True}, "M148_REPOSITORY_EXPORT_DENIED"),
+                ({"artifact_export_started": True}, "M148_ARTIFACT_EXPORT_DENIED"),
+                ({"issue_export_started": True}, "M148_ISSUE_EXPORT_DENIED"),
+                (
+                    {"security_review_runtime_performed": True},
+                    "M148_SECURITY_REVIEW_RUNTIME_DENIED",
+                ),
+                ({"auth_runtime_started": True}, "M148_AUTH_RUNTIME_DENIED"),
+                ({"backend_route_added": True}, "M148_BACKEND_ROUTE_DENIED"),
+                ({"dependency_added": True}, "M148_DEPENDENCY_DENIED"),
+                (
+                    {"production_authority_granted": True},
+                    "M148_PRODUCTION_AUTHORITY_DENIED",
+                ),
+            ]:
+                try:
+                    validate_external_security_review_record(
+                        record.model_copy(update=update)
+                    )
+                    failures.append(
+                        f"M148 unsafe security-review mutation was not denied with {reason}"
+                    )
+                except ValueError as exc:
+                    if reason not in str(exc):
+                        failures.append(
+                            f"M148 unsafe security-review mutation raised {exc!s}"
+                        )
+        except Exception as exc:
+            failures.append(f"M148 external security review validation failed: {exc}")
+
+        docs_text = " ".join(
+            "\n".join(
+                self._read(self.root / path).lower()
+                for path in required_files
+                if path.startswith("docs/") and (self.root / path).exists()
+            ).split()
+        )
+        for fragment in [
+            "external security review",
+            "contract-only",
+            "review-only",
+            "deterministic",
+            "local-only",
+            "safe-ref-only",
+            "external-security-review-only",
+            "disabled by default",
+            "route-free",
+            "no-effect",
+            "accepted m101-m147",
+            "security review refs",
+            "threat model refs",
+            "review scope refs",
+            "evidence index refs",
+            "finding summary refs",
+            "disclosure review refs",
+            "remediation plan refs",
+            "audit",
+            "replay",
+            "revocation",
+            "kill-switch",
+            "no-effect receipt",
+            "no external vendor handoff",
+            "no security vendor handoff",
+            "no external review automation",
+            "no scanner runtime",
+            "no vulnerability scan",
+            "no repository export",
+            "no artifact export",
+            "no issue export",
+            "no security review runtime",
+            "no auth runtime",
+            "no backend route",
+            "no control center control",
+            "no dependency",
+            "no beta release",
+            "no production authority",
+            "m149 remains future",
+            "v1.0.0-alpha",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M148 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m148_external_security_review_static_safety(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        forbidden_source_fragments = [
+            "external_vendor_handoff_enabled=True",
+            "security_vendor_handoff_enabled=True",
+            "external_review_automation_enabled=True",
+            "scanner_runtime_enabled=True",
+            "vulnerability_scan_enabled=True",
+            "repository_export_enabled=True",
+            "artifact_export_enabled=True",
+            "issue_export_enabled=True",
+            "security_review_runtime_enabled=True",
+            "auth_runtime_enabled=True",
+            "login_enabled=True",
+            "connector_runtime_enabled=True",
+            "plugin_marketplace_runtime_enabled=True",
+            "execution_enabled=True",
+            "tool_execution_enabled=True",
+            "shell_execution_enabled=True",
+            "browser_action_enabled=True",
+            "connector_action_enabled=True",
+            "network_access_enabled=True",
+            "model_call_enabled=True",
+            "memory_write_enabled=True",
+            "context_injection_enabled=True",
+            "backend_route_enabled=True",
+            "dependency_added=True",
+            "beta_release_enabled=True",
+            "production_authority_granted=True",
+            "external_vendor_handoff_started=True",
+            "security_vendor_handoff_started=True",
+            "external_review_automation_started=True",
+            "scanner_runtime_performed=True",
+            "vulnerability_scan_started=True",
+            "repository_export_performed=True",
+            "artifact_export_started=True",
+            "issue_export_started=True",
+            "security_review_runtime_performed=True",
+            "auth_runtime_started=True",
+            "/external-security-review",
+            "/security/review/start",
+            "/security/review/export",
+            "/security/review/runtime",
+            "/security/vendor",
+            "/security/scanner/run",
+            "/security/vulnerability-scan",
+            "/security/findings/export",
+            "/security/audit/upload",
+            "/repository/export",
+            "/source/export",
+            "/issues/export",
+            "/artifacts/export",
+        ]
+        allowed_files = {
+            "src/ultimate_ai_agent/core/gate/evaluators.py",
+            "src/ultimate_ai_agent/api/app.py",
+            "src/ultimate_ai_agent/api/openapi.py",
+            "src/ultimate_ai_agent/core/gate/criteria.py",
+            "src/ultimate_ai_agent/core/productization/__init__.py",
+            "src/ultimate_ai_agent/core/productization/external_security_review.py",
+            "src/ultimate_ai_agent/core/productization/public_docs_wiki_readiness.py",
+            "src/ultimate_ai_agent/core/productization/billing_plan_boundary.py",
+            "src/ultimate_ai_agent/core/productization/enterprise_pro_safety_modes.py",
+            "src/ultimate_ai_agent/core/productization/plugin_marketplace_policy_draft.py",
+            "src/ultimate_ai_agent/core/productization/alpha_ui_app_readiness.py",
+            "src/ultimate_ai_agent/core/productization/alpha_privacy_review.py",
+            "src/ultimate_ai_agent/core/productization/multi_user_product_boundary.py",
+        }
+        for root in [
+            self.root / "src" / "ultimate_ai_agent",
+            self.root / "apps" / "control-center" / "src",
+            self.root / "apps" / "ccc-ios",
+        ]:
+            if not root.exists():
+                continue
+            candidate_files = []
+            for pattern in (
+                "*.py",
+                "*.ts",
+                "*.tsx",
+                "*.js",
+                "*.jsx",
+                "*.swift",
+                "*.yml",
+                "*.yaml",
+            ):
+                candidate_files.extend(root.rglob(pattern))
+            for path in sorted(candidate_files):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(self.root).as_posix()
+                if ".test." in rel or rel in allowed_files:
+                    continue
+                text = path.read_text(encoding="utf-8")
+                for fragment in forbidden_source_fragments:
+                    if fragment in text:
+                        failures.append(
+                            f"M148 forbidden external-security fragment in {rel}: {fragment}"
+                        )
+        return self._result(criterion, failures, [])
+
+    def check_m148_external_security_review_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m148_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M148 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m148_roadmap_currentness(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_docs = [
+            "README.md",
+            "VERSION.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            "docs/roadmap/MILESTONE_CHARTERS.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+            "docs/DOCUMENTATION_INDEX.md",
+            "docs/canonical/CANONICAL_DOC_MAP.md",
+        ]
+        failures = [
+            f"missing M148 roadmap doc: {path}"
+            for path in required_docs
+            if not (self.root / path).exists()
+        ]
+        text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_docs
+            if (self.root / path).exists()
+        )
+        if "checkpoint m148" not in text or "external security review" not in text:
+            failures.append("active docs do not identify Checkpoint M148")
+        if (
+            "m148 is implemented/released" not in text
+            and "checkpoint m148 is implemented/released" not in text
+        ):
+            failures.append("active docs do not mark M148 implemented/released")
+        for version_label, product_target, milestone, title, status in [
+            (
+                "checkpoint m147",
+                "pre-alpha checkpoint",
+                "m147",
+                "public docs + wiki readiness",
+                "implemented/released",
+            ),
+            (
+                "checkpoint m148",
+                "pre-alpha checkpoint",
+                "m148",
+                "external security review",
+                "implemented/released",
+            ),
+            (
+                "checkpoint m149",
+                "pre-alpha checkpoint",
+                "m149",
+                "alpha release candidate freeze",
+                "planned/provisional",
+            ),
+            (
+                "v1.0.0-alpha",
+                "alpha",
+                "m150",
+                "ultimate ai agent v1.0.0-alpha",
+                "planned/provisional",
+            ),
+        ]:
+            row = (
+                f"| {version_label} | {product_target} | {milestone} | "
+                f"{title} | {status} |"
+            )
+            if not _roadmap_row_present(text, row):
+                failures.append(
+                    f"active docs missing expected M148/M149-M150 row: {version_label} / {milestone.upper()} - {title}"
+                )
+        for fragment in (
+            "external vendor handoff is implemented",
+            "security vendor handoff is implemented",
+            "external review automation is implemented",
+            "scanner runtime is implemented",
+            "vulnerability scan is implemented",
+            "repository export is implemented",
+            "artifact export is implemented",
+            "issue export is implemented",
+            "security review runtime is implemented",
+            "beta is released",
+            "production authority is implemented",
+            "backend route is implemented",
+            "control center control is implemented",
+            "m149 dependency is added",
+        ):
+            if fragment in text:
+                failures.append(
+                    f"active docs imply forbidden M148 future/currentness claim: {fragment}"
                 )
         return self._result(criterion, failures, required_docs)
 
