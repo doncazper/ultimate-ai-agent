@@ -45,6 +45,15 @@ def _roadmap_row_present(text: str, row: str) -> bool:
     return row in text or row.replace("planned/provisional", "implemented/released") in text
 
 
+def _version_doc_marks_milestone_implemented(text: str, milestone: str) -> bool:
+    return (
+        f"checkpoint {milestone} is implemented/released" in text
+        or f"{milestone} is implemented/released" in text
+        or re.search(rf"\b{re.escape(milestone)}\b[^.\n]*\bare implemented/released\b", text)
+        is not None
+    )
+
+
 SCAN_SEQUENCE = [
     ("generated artifact scan", "verify_no_generated_artifacts"),
     ("obvious secret scan", "verify_no_obvious_secrets"),
@@ -180,6 +189,7 @@ SCAN_SEQUENCE = [
     ("M139 autonomy abuse loop detection scan", "verify_m139_autonomy_abuse_loop_detection"),
     ("M140 higher autonomy red-team freeze scan", "verify_m140_higher_autonomy_red_team_freeze"),
     ("M141 multi-user product boundary scan", "verify_m141_multi_user_product_boundary"),
+    ("M142 alpha privacy review scan", "verify_m142_alpha_privacy_review"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -17774,10 +17784,13 @@ def verify_post_m100_roadmap_reconciliation():
     ):
         implemented_milestones.add("m140")
     if (
-        "checkpoint m141 is implemented/released" in active_version_text
-        or "m141 is implemented/released" in active_version_text
+        _version_doc_marks_milestone_implemented(active_version_text, "m141")
     ):
         implemented_milestones.add("m141")
+    if (
+        _version_doc_marks_milestone_implemented(active_version_text, "m142")
+    ):
+        implemented_milestones.add("m142")
     for version_label, product_target, milestone, title in expected_labels:
         if milestone in implemented_milestones:
             continue
@@ -26308,6 +26321,176 @@ def verify_m141_multi_user_product_boundary():
             sys.exit(1)
 
     print("OK: M141 product boundary is review-only, safe-ref-only, and route-free")
+
+
+def verify_m142_alpha_privacy_review():
+    print("\n[Verifier] Running M142 alpha privacy review guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/productization/alpha_privacy_review.py",
+        "docs/productization/ALPHA_PRIVACY_REVIEW.md",
+        "docs/productization/ALPHA_PRIVACY_REVIEW_POLICY.md",
+        "docs/productization/ALPHA_PRIVACY_REVIEW_AUTHORITY_BOUNDARY.md",
+        "docs/productization/ALPHA_PRIVACY_REVIEW_RECEIPT_PLAN.md",
+        "docs/productization/ALPHA_PRIVACY_REVIEW_NON_GOALS.md",
+        "docs/productization/M142_TO_M143_BOUNDARY.md",
+        "docs/release_notes/checkpoint_m142.md",
+        "docs/archive/checkpoints/m142/README_IMPORT.md",
+        "docs/archive/checkpoints/m142/master_plan.md",
+        "tests/test_m142_alpha_privacy_review.py",
+        "tests/test_m142_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M142 alpha privacy review file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = " ".join(
+        "\n".join(
+            (ROOT / rel_path).read_text(encoding="utf-8").lower()
+            for rel_path in required_files
+            if rel_path.startswith("docs/")
+        ).split()
+    )
+    for fragment in [
+        "alpha privacy review",
+        "contract-only",
+        "review-only",
+        "deterministic",
+        "local-only",
+        "safe-ref-only",
+        "alpha-privacy-review-only",
+        "route-free",
+        "no-effect",
+        "accepted m101-m141",
+        "privacy review refs",
+        "data boundary refs",
+        "disclosure review refs",
+        "consent review refs",
+        "retention review refs",
+        "no privacy review execution",
+        "no alpha privacy sign-off",
+        "no alpha ui runtime",
+        "no raw private content access",
+        "no backend route",
+        "no control center control",
+        "no dependency",
+        "no beta release",
+        "no production authority",
+        "m143 remains future",
+        "v1.0.0-alpha",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M142 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from tests.test_m142_alpha_privacy_review import _request
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.criteria import (
+            default_foundation_gate_criteria,
+        )
+        from ultimate_ai_agent.core.gate.evaluators import (
+            FoundationGateEvaluator,
+            m142_openapi_route_failures,
+        )
+        from ultimate_ai_agent.core.productization import (
+            AlphaPrivacyReviewStatus,
+            build_alpha_privacy_review_record,
+            validate_alpha_privacy_review_record,
+        )
+    except Exception as exc:
+        print(f"FAIL: M142 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m142_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    record = build_alpha_privacy_review_record(_request())
+    if (
+        record.status != AlphaPrivacyReviewStatus.privacy_review_recorded
+        or not record.contract_only
+        or not record.review_only
+        or not record.safe_refs_only
+        or not record.alpha_privacy_review_only
+        or not record.m101_m141_covered
+        or not record.no_privacy_review_execution
+        or not record.no_alpha_signoff
+        or not record.no_alpha_ui_runtime
+        or not record.no_production_authority
+        or record.privacy_review_execution_performed
+        or record.alpha_privacy_signoff_enabled
+        or record.alpha_ui_runtime_started
+        or record.raw_private_content_accessed
+        or record.backend_route_added
+        or record.dependency_added
+        or record.beta_release_enabled
+        or record.production_authority_granted
+        or "M142_ALPHA_PRIVACY_REVIEW_REVIEW_ONLY" not in record.reason_codes
+        or "M142_M101_M141_COVERED" not in record.reason_codes
+        or "M142_NO_PRIVACY_REVIEW_EXECUTION" not in record.reason_codes
+        or "M142_NO_ALPHA_PRIVACY_SIGNOFF" not in record.reason_codes
+        or "M142_NO_ALPHA_UI_RUNTIME" not in record.reason_codes
+        or "M142_NO_RAW_PRIVATE_CONTENT" not in record.reason_codes
+        or "M142_NO_PRODUCTION_AUTHORITY" not in record.reason_codes
+        or "M143_REMAINS_FUTURE" not in record.reason_codes
+    ):
+        print("FAIL: M142 alpha privacy review record is unsafe")
+        sys.exit(1)
+
+    for update, reason in [
+        (
+            {"privacy_review_execution_performed": True},
+            "M142_PRIVACY_REVIEW_EXECUTION_DENIED",
+        ),
+        ({"alpha_privacy_signoff_enabled": True}, "M142_ALPHA_PRIVACY_SIGNOFF_DENIED"),
+        ({"alpha_ui_runtime_started": True}, "M142_ALPHA_UI_RUNTIME_DENIED"),
+        ({"raw_private_content_accessed": True}, "M142_RAW_PRIVATE_CONTENT_DENIED"),
+        ({"backend_route_added": True}, "M142_BACKEND_ROUTE_DENIED"),
+        ({"dependency_added": True}, "M142_DEPENDENCY_DENIED"),
+        (
+            {"production_authority_granted": True},
+            "M142_PRODUCTION_AUTHORITY_DENIED",
+        ),
+    ]:
+        try:
+            validate_alpha_privacy_review_record(record.model_copy(update=update))
+            print(f"FAIL: M142 mutated authority flag was not denied: {update}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M142 mutated authority flag raised {exc!s}")
+                sys.exit(1)
+
+    criteria = {
+        criterion.criterion_id: criterion
+        for criterion in default_foundation_gate_criteria()
+    }
+    for criterion_id in [
+        "m142_alpha_privacy_review_contracts",
+        "m142_alpha_privacy_review_static_safety",
+        "m142_alpha_privacy_review_route_boundary",
+        "m142_roadmap_currentness",
+    ]:
+        if criterion_id not in criteria:
+            print(f"FAIL: Missing M142 Foundation Gate criterion: {criterion_id}")
+            sys.exit(1)
+    evaluator = FoundationGateEvaluator(ROOT)
+    for criterion_id in [
+        "m142_alpha_privacy_review_contracts",
+        "m142_alpha_privacy_review_static_safety",
+        "m142_alpha_privacy_review_route_boundary",
+        "m142_roadmap_currentness",
+    ]:
+        gate_report = evaluator.evaluate([criteria[criterion_id]])
+        result = gate_report.results[0]
+        if result.status != "passed":
+            print(f"FAIL: {criterion_id} failed: {result.failures}")
+            sys.exit(1)
+
+    print("OK: M142 alpha privacy review is review-only, safe-ref-only, and route-free")
 
 
 def verify_local_developer_launcher_safety():

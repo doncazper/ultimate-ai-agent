@@ -33,6 +33,12 @@ docs/productization/MULTI_USER_PRODUCT_BOUNDARY_AUTHORITY_BOUNDARY.md
 docs/productization/MULTI_USER_PRODUCT_BOUNDARY_RECEIPT_PLAN.md
 docs/productization/MULTI_USER_PRODUCT_BOUNDARY_NON_GOALS.md
 docs/productization/M141_TO_M142_BOUNDARY.md
+docs/productization/ALPHA_PRIVACY_REVIEW.md
+docs/productization/ALPHA_PRIVACY_REVIEW_POLICY.md
+docs/productization/ALPHA_PRIVACY_REVIEW_AUTHORITY_BOUNDARY.md
+docs/productization/ALPHA_PRIVACY_REVIEW_RECEIPT_PLAN.md
+docs/productization/ALPHA_PRIVACY_REVIEW_NON_GOALS.md
+docs/productization/M142_TO_M143_BOUNDARY.md
 docs/autonomy/HIGHER_AUTONOMY_RED_TEAM_FREEZE.md
 docs/autonomy/HIGHER_AUTONOMY_RED_TEAM_FREEZE_POLICY.md
 docs/autonomy/HIGHER_AUTONOMY_RED_TEAM_FREEZE_AUTHORITY_BOUNDARY.md
@@ -912,16 +918,17 @@ Error Handling Guardrails records. M139 is implemented/released as
 deterministic local review-only Autonomy Abuse/Loop Detection records. M140 is
 implemented/released as deterministic local review-only Higher-Autonomy
 Red-Team Freeze records. M141 is implemented/released as deterministic local
-review-only Multi-User Product Boundary records. M142-M150 are
+review-only Multi-User Product Boundary records. M142 is implemented/released as
+deterministic local review-only Alpha Privacy Review records. M143-M150 are
 planned/provisional only in
 `docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md`.
-Future M142-M149 conveyor milestones use checkpoint labels instead of product
+Future M143-M149 conveyor milestones use checkpoint labels instead of product
 SemVer tags, and M150 is
 planned as v1.0.0-alpha. Beta begins only after alpha UI and supporting
 safety/product work are reviewed and promoted. Active roadmap sources consistently mark
-M34-M141 implemented/released and rely on documentation-integrity checks to
+M34-M142 implemented/released and rely on documentation-integrity checks to
 guard against superseded-roadmap drift, stale current-baseline labels, route
-drift, authority-boundary drift, alpha/beta versioning drift, and M142-M150
+drift, authority-boundary drift, alpha/beta versioning drift, and M143-M150
 future-status drift.
 
 ## Release Notes Index

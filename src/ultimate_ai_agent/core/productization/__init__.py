@@ -1,3 +1,15 @@
+from ultimate_ai_agent.core.productization.alpha_privacy_review import (
+    ALPHA_PRIVACY_REVIEW_DOCS,
+    REQUIRED_M142_ACCEPTED_CHECKPOINT_REFS,
+    AlphaPrivacyReviewPolicy,
+    AlphaPrivacyReviewRecord,
+    AlphaPrivacyReviewRequest,
+    AlphaPrivacyReviewStatus,
+    build_alpha_privacy_review_record,
+    validate_alpha_privacy_review_policy,
+    validate_alpha_privacy_review_record,
+    validate_alpha_privacy_review_request,
+)
 from ultimate_ai_agent.core.productization.multi_user_product_boundary import (
     MULTI_USER_PRODUCT_BOUNDARY_DOCS,
     REQUIRED_M141_ACCEPTED_CHECKPOINT_REFS,
@@ -12,13 +24,23 @@ from ultimate_ai_agent.core.productization.multi_user_product_boundary import (
 )
 
 __all__ = [
+    "ALPHA_PRIVACY_REVIEW_DOCS",
     "MULTI_USER_PRODUCT_BOUNDARY_DOCS",
     "REQUIRED_M141_ACCEPTED_CHECKPOINT_REFS",
+    "REQUIRED_M142_ACCEPTED_CHECKPOINT_REFS",
+    "AlphaPrivacyReviewPolicy",
+    "AlphaPrivacyReviewRecord",
+    "AlphaPrivacyReviewRequest",
+    "AlphaPrivacyReviewStatus",
     "MultiUserProductBoundaryPolicy",
     "MultiUserProductBoundaryRecord",
     "MultiUserProductBoundaryRequest",
     "MultiUserProductBoundaryStatus",
+    "build_alpha_privacy_review_record",
     "build_multi_user_product_boundary_record",
+    "validate_alpha_privacy_review_policy",
+    "validate_alpha_privacy_review_record",
+    "validate_alpha_privacy_review_request",
     "validate_multi_user_product_boundary_policy",
     "validate_multi_user_product_boundary_record",
     "validate_multi_user_product_boundary_request",

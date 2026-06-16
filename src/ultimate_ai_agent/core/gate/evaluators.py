@@ -56,6 +56,15 @@ def _roadmap_row_present(text: str, row: str) -> bool:
     return row in text or row.replace("planned/provisional", "implemented/released") in text
 
 
+def _version_doc_marks_milestone_implemented(text: str, milestone: str) -> bool:
+    return (
+        f"checkpoint {milestone} is implemented/released" in text
+        or f"{milestone} is implemented/released" in text
+        or re.search(rf"\b{re.escape(milestone)}\b[^.\n]*\bare implemented/released\b", text)
+        is not None
+    )
+
+
 EXPECTED_M16_OPENAPI_PATH_COUNT = 74
 M16_FORBIDDEN_BACKEND_ROUTES = (
     "/events/timeline",
@@ -1963,6 +1972,24 @@ M141_FORBIDDEN_BACKEND_ROUTES = M140_FORBIDDEN_BACKEND_ROUTES + (
     "/browser/click",
     "/connectors/write",
 )
+EXPECTED_M142_OPENAPI_PATH_COUNT = 75
+M142_FORBIDDEN_BACKEND_ROUTES = M141_FORBIDDEN_BACKEND_ROUTES + (
+    "/alpha/privacy-review",
+    "/alpha/privacy-review/start",
+    "/alpha/privacy-review/run",
+    "/alpha/privacy-review/signoff",
+    "/alpha/ui",
+    "/alpha/ui/start",
+    "/alpha/app-readiness/run",
+    "/privacy-review/execute",
+    "/privacy-review/run",
+    "/privacy/raw-content",
+    "/privacy/export",
+    "/production/authority/enable",
+    "/tools/execute",
+    "/browser/click",
+    "/connectors/write",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -3832,6 +3859,23 @@ def m141_openapi_route_failures(
     return failures
 
 
+def m142_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M142_OPENAPI_PATH_COUNT
+) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(
+            f"OpenAPI path count changed for M142: expected {expected_path_count}, got {len(path_set)}"
+        )
+    for route in M142_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(
+                f"M142 forbidden alpha privacy review, alpha UI, raw privacy, execution, browser, connector, or authority route present: {route}"
+            )
+    return failures
+
+
 M36_SAFE_REF_PREFIXES = {
     "reviewPacketRef": "file-review-packet:",
     "previewResultRef": "redacted-file-preview-output:",
@@ -5107,6 +5151,16 @@ class FoundationGateEvaluator:
                 self.check_m141_multi_user_product_boundary_route_boundary
             ),
             "m141_roadmap_currentness": self.check_m141_roadmap_currentness,
+            "m142_alpha_privacy_review_contracts": (
+                self.check_m142_alpha_privacy_review_contracts
+            ),
+            "m142_alpha_privacy_review_static_safety": (
+                self.check_m142_alpha_privacy_review_static_safety
+            ),
+            "m142_alpha_privacy_review_route_boundary": (
+                self.check_m142_alpha_privacy_review_route_boundary
+            ),
+            "m142_roadmap_currentness": self.check_m142_roadmap_currentness,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -30977,10 +31031,13 @@ class FoundationGateEvaluator:
         ):
             implemented_milestones.add("m140")
         if (
-            "checkpoint m141 is implemented/released" in active_version_text
-            or "m141 is implemented/released" in active_version_text
+            _version_doc_marks_milestone_implemented(active_version_text, "m141")
         ):
             implemented_milestones.add("m141")
+        if (
+            _version_doc_marks_milestone_implemented(active_version_text, "m142")
+        ):
+            implemented_milestones.add("m142")
         for version_label, product_target, milestone, title in expected_labels:
             if milestone in implemented_milestones:
                 continue
@@ -47746,6 +47803,339 @@ class FoundationGateEvaluator:
             if fragment in text:
                 failures.append(
                     f"active docs imply forbidden M141 future/currentness claim: {fragment}"
+                )
+        return self._result(criterion, failures, required_docs)
+
+    def check_m142_alpha_privacy_review_contracts(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/productization/alpha_privacy_review.py",
+            "docs/productization/ALPHA_PRIVACY_REVIEW.md",
+            "docs/productization/ALPHA_PRIVACY_REVIEW_POLICY.md",
+            "docs/productization/ALPHA_PRIVACY_REVIEW_AUTHORITY_BOUNDARY.md",
+            "docs/productization/ALPHA_PRIVACY_REVIEW_RECEIPT_PLAN.md",
+            "docs/productization/ALPHA_PRIVACY_REVIEW_NON_GOALS.md",
+            "docs/productization/M142_TO_M143_BOUNDARY.md",
+            "docs/release_notes/checkpoint_m142.md",
+            "docs/archive/checkpoints/m142/README_IMPORT.md",
+            "docs/archive/checkpoints/m142/master_plan.md",
+            "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            "tests/test_m142_alpha_privacy_review.py",
+            "tests/test_m142_gate_integration.py",
+        ]
+        failures = [
+            f"missing M142 alpha privacy review file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            from tests.test_m142_alpha_privacy_review import _request
+            from ultimate_ai_agent.core.productization import (
+                AlphaPrivacyReviewStatus,
+                build_alpha_privacy_review_record,
+                validate_alpha_privacy_review_record,
+            )
+
+            record = build_alpha_privacy_review_record(_request())
+            if (
+                record.status != AlphaPrivacyReviewStatus.privacy_review_recorded
+                or not record.contract_only
+                or not record.review_only
+                or not record.deterministic
+                or not record.local_only
+                or not record.safe_refs_only
+                or not record.alpha_privacy_review_only
+                or not record.m101_m141_covered
+                or not record.privacy_review_bound
+                or not record.data_boundary_bound
+                or not record.disclosure_review_bound
+                or not record.consent_review_bound
+                or not record.retention_review_bound
+                or not record.audit_replay_bound
+                or not record.revocation_readiness_bound
+                or not record.no_effect_receipt_required
+                or not record.no_privacy_review_execution
+                or not record.no_alpha_signoff
+                or not record.no_alpha_ui_runtime
+                or not record.no_production_authority
+                or record.privacy_review_execution_performed
+                or record.alpha_privacy_signoff_enabled
+                or record.alpha_ui_runtime_started
+                or record.raw_private_content_accessed
+                or record.execution_performed
+                or record.tool_execution_performed
+                or record.browser_action_performed
+                or record.connector_action_performed
+                or record.backend_route_added
+                or record.control_center_control_added
+                or record.dependency_added
+                or record.beta_release_enabled
+                or record.production_authority_granted
+                or "M142_ALPHA_PRIVACY_REVIEW_REVIEW_ONLY"
+                not in record.reason_codes
+                or "M142_M101_M141_COVERED" not in record.reason_codes
+                or "M142_NO_PRIVACY_REVIEW_EXECUTION" not in record.reason_codes
+                or "M142_NO_ALPHA_PRIVACY_SIGNOFF" not in record.reason_codes
+                or "M142_NO_ALPHA_UI_RUNTIME" not in record.reason_codes
+                or "M142_NO_RAW_PRIVATE_CONTENT" not in record.reason_codes
+                or "M142_NO_PRODUCTION_AUTHORITY" not in record.reason_codes
+                or "M143_REMAINS_FUTURE" not in record.reason_codes
+            ):
+                failures.append(
+                    "M142 alpha privacy review record is unsafe or over-authoritative"
+                )
+            for update, reason in [
+                (
+                    {"privacy_review_execution_performed": True},
+                    "M142_PRIVACY_REVIEW_EXECUTION_DENIED",
+                ),
+                (
+                    {"alpha_privacy_signoff_enabled": True},
+                    "M142_ALPHA_PRIVACY_SIGNOFF_DENIED",
+                ),
+                ({"alpha_ui_runtime_started": True}, "M142_ALPHA_UI_RUNTIME_DENIED"),
+                (
+                    {"raw_private_content_accessed": True},
+                    "M142_RAW_PRIVATE_CONTENT_DENIED",
+                ),
+                ({"backend_route_added": True}, "M142_BACKEND_ROUTE_DENIED"),
+                ({"dependency_added": True}, "M142_DEPENDENCY_DENIED"),
+                (
+                    {"production_authority_granted": True},
+                    "M142_PRODUCTION_AUTHORITY_DENIED",
+                ),
+            ]:
+                try:
+                    validate_alpha_privacy_review_record(
+                        record.model_copy(update=update)
+                    )
+                    failures.append(
+                        f"M142 unsafe privacy review mutation was not denied with {reason}"
+                    )
+                except ValueError as exc:
+                    if reason not in str(exc):
+                        failures.append(
+                            f"M142 unsafe privacy review mutation raised {exc!s}"
+                        )
+        except Exception as exc:
+            failures.append(f"M142 privacy review validation failed: {exc}")
+
+        docs_text = " ".join(
+            "\n".join(
+                self._read(self.root / path).lower()
+                for path in required_files
+                if path.startswith("docs/") and (self.root / path).exists()
+            ).split()
+        )
+        for fragment in [
+            "alpha privacy review",
+            "contract-only",
+            "review-only",
+            "deterministic",
+            "local-only",
+            "safe-ref-only",
+            "alpha-privacy-review-only",
+            "route-free",
+            "no-effect",
+            "accepted m101-m141",
+            "privacy review refs",
+            "data boundary refs",
+            "disclosure review refs",
+            "consent review refs",
+            "retention review refs",
+            "audit",
+            "replay",
+            "revocation",
+            "kill-switch",
+            "no-effect receipt",
+            "no privacy review execution",
+            "no alpha privacy sign-off",
+            "no alpha ui runtime",
+            "no raw private content access",
+            "no raw prompt",
+            "no backend route",
+            "no control center control",
+            "no dependency",
+            "no beta release",
+            "no production authority",
+            "m143 remains future",
+            "v1.0.0-alpha",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M142 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m142_alpha_privacy_review_static_safety(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        forbidden_source_fragments = [
+            "privacy_review_execution_enabled=True",
+            "alpha_privacy_signoff_enabled=True",
+            "alpha_ui_runtime_enabled=True",
+            "alpha_release_enabled=True",
+            "beta_release_enabled=True",
+            "production_authority_granted=True",
+            "raw_private_content_access_enabled=True",
+            "execution_enabled=True",
+            "tool_execution_enabled=True",
+            "shell_execution_enabled=True",
+            "browser_action_enabled=True",
+            "connector_action_enabled=True",
+            "network_access_enabled=True",
+            "plugin_execution_enabled=True",
+            "model_call_enabled=True",
+            "memory_write_enabled=True",
+            "context_injection_enabled=True",
+            "backend_route_enabled=True",
+            "dependency_added=True",
+            "privacy_review_execution_performed=True",
+            "alpha_ui_runtime_started=True",
+            "raw_private_content_accessed=True",
+            "/alpha/privacy-review/start",
+            "/alpha/privacy-review/signoff",
+            "/alpha/ui/start",
+            "/privacy-review/execute",
+            "/privacy/raw-content",
+        ]
+        allowed_files = {
+            "src/ultimate_ai_agent/core/gate/evaluators.py",
+            "src/ultimate_ai_agent/api/app.py",
+            "src/ultimate_ai_agent/api/openapi.py",
+            "src/ultimate_ai_agent/core/gate/criteria.py",
+            "src/ultimate_ai_agent/core/productization/__init__.py",
+            "src/ultimate_ai_agent/core/productization/alpha_privacy_review.py",
+            "src/ultimate_ai_agent/core/productization/multi_user_product_boundary.py",
+        }
+        for root in [
+            self.root / "src" / "ultimate_ai_agent",
+            self.root / "apps" / "control-center" / "src",
+            self.root / "apps" / "ccc-ios",
+        ]:
+            if not root.exists():
+                continue
+            candidate_files = []
+            for pattern in (
+                "*.py",
+                "*.ts",
+                "*.tsx",
+                "*.js",
+                "*.jsx",
+                "*.swift",
+                "*.yml",
+                "*.yaml",
+            ):
+                candidate_files.extend(root.rglob(pattern))
+            for path in sorted(candidate_files):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(self.root).as_posix()
+                if ".test." in rel or rel in allowed_files:
+                    continue
+                text = path.read_text(encoding="utf-8")
+                for fragment in forbidden_source_fragments:
+                    if fragment in text:
+                        failures.append(
+                            f"M142 forbidden alpha privacy fragment in {rel}: {fragment}"
+                        )
+        return self._result(criterion, failures, [])
+
+    def check_m142_alpha_privacy_review_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m142_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M142 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m142_roadmap_currentness(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_docs = [
+            "README.md",
+            "VERSION.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            "docs/roadmap/MILESTONE_CHARTERS.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+            "docs/DOCUMENTATION_INDEX.md",
+            "docs/canonical/CANONICAL_DOC_MAP.md",
+        ]
+        failures = [
+            f"missing M142 roadmap doc: {path}"
+            for path in required_docs
+            if not (self.root / path).exists()
+        ]
+        text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_docs
+            if (self.root / path).exists()
+        )
+        if "checkpoint m142" not in text or "alpha privacy review" not in text:
+            failures.append("active docs do not identify Checkpoint M142")
+        if (
+            "m142 is implemented/released" not in text
+            and "checkpoint m142 is implemented/released" not in text
+        ):
+            failures.append("active docs do not mark M142 implemented/released")
+        for version_label, product_target, milestone, title, status in [
+            (
+                "checkpoint m141",
+                "pre-alpha checkpoint",
+                "m141",
+                "multi-user product boundary",
+                "implemented/released",
+            ),
+            (
+                "checkpoint m142",
+                "pre-alpha checkpoint",
+                "m142",
+                "alpha privacy review",
+                "implemented/released",
+            ),
+            (
+                "checkpoint m143",
+                "pre-alpha checkpoint",
+                "m143",
+                "alpha ui and app readiness",
+                "planned/provisional",
+            ),
+            (
+                "v1.0.0-alpha",
+                "alpha",
+                "m150",
+                "ultimate ai agent v1.0.0-alpha",
+                "planned/provisional",
+            ),
+        ]:
+            row = (
+                f"| {version_label} | {product_target} | {milestone} | "
+                f"{title} | {status} |"
+            )
+            if not _roadmap_row_present(text, row):
+                failures.append(
+                    f"active docs missing expected M142/M143-M150 row: {version_label} / {milestone.upper()} - {title}"
+                )
+        for fragment in (
+            "alpha ui runtime is implemented",
+            "alpha app readiness runtime is implemented",
+            "alpha release is implemented",
+            "beta is released",
+            "production authority is implemented",
+            "privacy review execution is implemented",
+            "raw private content access is implemented",
+            "backend route is implemented",
+            "control center control is implemented",
+            "m143 dependency is added",
+        ):
+            if fragment in text:
+                failures.append(
+                    f"active docs imply forbidden M142 future/currentness claim: {fragment}"
                 )
         return self._result(criterion, failures, required_docs)
 

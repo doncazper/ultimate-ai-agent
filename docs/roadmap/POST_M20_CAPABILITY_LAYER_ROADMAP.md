@@ -214,7 +214,8 @@ Combined Workflows. Checkpoint M138 is implemented/released as Autonomous Error
 Handling Guardrails. Checkpoint M139 is implemented/released as Autonomy
 Abuse/Loop Detection. Checkpoint M140 is implemented/released as
 Higher-Autonomy Red-Team Freeze. Checkpoint M141 is implemented/released as
-Multi-User Product Boundary. M142-M149 remain planned/provisional as checkpoint milestones instead of product SemVer
+Multi-User Product Boundary. Checkpoint M142 is implemented/released as Alpha
+Privacy Review. M143-M149 remain planned/provisional as checkpoint milestones instead of product SemVer
 tags, and M150 remains planned/provisional as the v1.0.0-alpha product target.
 Beta begins after the alpha UI and supporting safety/product work are reviewed
 and promoted.

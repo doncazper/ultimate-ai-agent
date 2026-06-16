@@ -10,6 +10,15 @@ def _roadmap_row_present(text: str, row: str) -> bool:
     return row in text or row.replace("planned/provisional", "implemented/released") in text
 
 
+def _version_doc_marks_milestone_implemented(text: str, milestone: str) -> bool:
+    return (
+        f"checkpoint {milestone} is implemented/released" in text
+        or f"{milestone} is implemented/released" in text
+        or re.search(rf"\b{re.escape(milestone)}\b[^.\n]*\bare implemented/released\b", text)
+        is not None
+    )
+
+
 REQUIRED_M23_LOCAL_CALL_DOCS = [
     "docs/runtime/FIRST_LOCAL_LLM_CALL_M23.md",
     "docs/runtime/FIRST_LOCAL_LLM_CALL.md",
@@ -1603,6 +1612,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_m139_autonomy_abuse_loop_detection_docs(root, version))
     failures.extend(_verify_m140_higher_autonomy_red_team_freeze_docs(root, version))
     failures.extend(_verify_m141_multi_user_product_boundary_docs(root, version))
+    failures.extend(_verify_m142_alpha_privacy_review_docs(root, version))
     failures.extend(_verify_m19_roadmap_currentness(root, version))
     failures.extend(_verify_post_m18_roadmap_status_labels(root))
 
@@ -7324,10 +7334,13 @@ def _verify_post_m100_roadmap_reconciliation_docs(root: Path, version: str | Non
     ):
         implemented_milestones.add("m140")
     if _version_tuple(version) >= (1, 7, 2) and (
-        "checkpoint m141 is implemented/released" in version_doc_text
-        or "m141 is implemented/released" in version_doc_text
+        _version_doc_marks_milestone_implemented(version_doc_text, "m141")
     ):
         implemented_milestones.add("m141")
+    if _version_tuple(version) >= (1, 7, 2) and (
+        _version_doc_marks_milestone_implemented(version_doc_text, "m142")
+    ):
+        implemented_milestones.add("m142")
     for version_label, product_target, milestone, title in EXPECTED_M101_M150_LABELS:
         if milestone in implemented_milestones:
             continue
@@ -13780,6 +13793,130 @@ def _verify_m141_multi_user_product_boundary_docs(
     }:
         if fragment in current_text or fragment in text:
             failures.append(f"M141 docs imply forbidden/future capability: {fragment}")
+    return failures
+
+
+def _verify_m142_alpha_privacy_review_docs(
+    root: Path, version: str | None
+) -> list[str]:
+    failures: list[str] = []
+    if _version_tuple(version) < (1, 7, 2):
+        return failures
+    active_text = " ".join(
+        "\n".join(
+            _read(root / rel_path).lower()
+            for rel_path in [
+                "README.md",
+                "VERSION.md",
+                "docs/canonical/09_roadmap.md",
+                "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            ]
+            if (root / rel_path).exists()
+        ).split()
+    )
+    if (
+        "checkpoint m142 is implemented/released" not in active_text
+        and "m142 is implemented/released" not in active_text
+    ):
+        return failures
+    required_paths = [
+        "docs/productization/ALPHA_PRIVACY_REVIEW.md",
+        "docs/productization/ALPHA_PRIVACY_REVIEW_POLICY.md",
+        "docs/productization/ALPHA_PRIVACY_REVIEW_AUTHORITY_BOUNDARY.md",
+        "docs/productization/ALPHA_PRIVACY_REVIEW_RECEIPT_PLAN.md",
+        "docs/productization/ALPHA_PRIVACY_REVIEW_NON_GOALS.md",
+        "docs/productization/M142_TO_M143_BOUNDARY.md",
+        "docs/release_notes/checkpoint_m142.md",
+        "docs/archive/checkpoints/m142/README_IMPORT.md",
+        "docs/archive/checkpoints/m142/master_plan.md",
+        "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+    ]
+    for rel_path in required_paths:
+        if not (root / rel_path).exists():
+            failures.append(f"missing M142 alpha privacy review doc: {rel_path}")
+    text = " ".join(
+        "\n".join(
+            _read(root / rel_path).lower()
+            for rel_path in required_paths
+            if (root / rel_path).exists()
+        ).split()
+    )
+    required_fragments = {
+        "M142 docs must say alpha privacy review": "alpha privacy review",
+        "M142 docs must say contract-only": "contract-only",
+        "M142 docs must say review-only": "review-only",
+        "M142 docs must say deterministic": "deterministic",
+        "M142 docs must say local-only": "local-only",
+        "M142 docs must say safe-ref-only": "safe-ref-only",
+        "M142 docs must say alpha-privacy-review-only": "alpha-privacy-review-only",
+        "M142 docs must say route-free": "route-free",
+        "M142 docs must say no-effect": "no-effect",
+        "M142 docs must say accepted M101-M141": "accepted m101-m141",
+        "M142 docs must say privacy review refs": "privacy review refs",
+        "M142 docs must say data boundary refs": "data boundary refs",
+        "M142 docs must say disclosure review refs": "disclosure review refs",
+        "M142 docs must say consent review refs": "consent review refs",
+        "M142 docs must say retention review refs": "retention review refs",
+        "M142 docs must deny privacy review execution": "no privacy review execution",
+        "M142 docs must deny alpha sign-off": "no alpha privacy sign-off",
+        "M142 docs must deny alpha UI runtime": "no alpha ui runtime",
+        "M142 docs must deny raw private content": "no raw private content access",
+        "M142 docs must deny raw prompt": "no raw prompt",
+        "M142 docs must deny backend route": "no backend route",
+        "M142 docs must deny Control Center control": "no control center control",
+        "M142 docs must deny dependency": "no dependency",
+        "M142 docs must deny beta release": "no beta release",
+        "M142 docs must deny production authority": "no production authority",
+        "M142 docs must keep M143 future": "m143 remains future",
+        "M142 docs must preserve alpha target": "v1.0.0-alpha",
+    }
+    for message, fragment in required_fragments.items():
+        if fragment not in text:
+            failures.append(message)
+
+    active_paths = [
+        "README.md",
+        "VERSION.md",
+        "docs/canonical/09_roadmap.md",
+        "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+        "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+        "docs/roadmap/MILESTONE_CHARTERS.md",
+        "docs/DOCUMENTATION_INDEX.md",
+        "docs/canonical/CANONICAL_DOC_MAP.md",
+    ]
+    current_text = " ".join(
+        "\n".join(
+            _read(root / rel_path).lower()
+            for rel_path in active_paths
+            if (root / rel_path).exists()
+        ).split()
+    )
+    implemented_m142_row = (
+        "| checkpoint m142 | pre-alpha checkpoint | m142 | "
+        "alpha privacy review | implemented/released |"
+    )
+    planned_m143_row = (
+        "| checkpoint m143 | pre-alpha checkpoint | m143 | "
+        "alpha ui and app readiness | planned/provisional |"
+    )
+    if not _roadmap_row_present(current_text, implemented_m142_row):
+        failures.append("active docs missing implemented Checkpoint M142 row")
+    if not _roadmap_row_present(current_text, planned_m143_row):
+        failures.append("active docs missing planned Checkpoint M143 row")
+    for fragment in {
+        "alpha ui runtime is implemented",
+        "alpha app readiness runtime is implemented",
+        "alpha release is implemented",
+        "beta is released",
+        "production authority is implemented",
+        "privacy review execution is implemented",
+        "raw private content access is implemented",
+        "backend route is implemented",
+        "control center control is implemented",
+        "m143 dependency is added",
+    }:
+        if fragment in current_text or fragment in text:
+            failures.append(f"M142 docs imply forbidden/future capability: {fragment}")
     return failures
 
 
