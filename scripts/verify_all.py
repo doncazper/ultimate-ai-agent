@@ -172,6 +172,7 @@ SCAN_SEQUENCE = [
     ("M131 autonomy mode4 scoped work session scan", "verify_m131_autonomy_mode4_scoped_work_session"),
     ("M132 trusted recurring workflow scan", "verify_m132_trusted_recurring_workflow"),
     ("M133 long-running task supervisor scan", "verify_m133_long_running_task_supervisor"),
+    ("M134 human checkpoint scheduling scan", "verify_m134_human_checkpoint_scheduling"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -17719,6 +17720,12 @@ def verify_post_m100_roadmap_reconciliation():
         or "long-running task supervisor" in active_version_text
     ):
         implemented_milestones.add("m133")
+    if (
+        "checkpoint m134" in active_version_text
+        or "m134" in active_version_text
+        or "human checkpoint scheduling" in active_version_text
+    ):
+        implemented_milestones.add("m134")
     for version_label, product_target, milestone, title in expected_labels:
         if milestone in implemented_milestones:
             continue
@@ -24225,6 +24232,278 @@ def verify_m133_long_running_task_supervisor():
             sys.exit(1)
 
     print("OK: M133 long-running task supervisor is review-only, safe-ref-only, and route-free")
+
+
+def verify_m134_human_checkpoint_scheduling():
+    print("\n[Verifier] Running M134 human checkpoint scheduling guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/autonomy/__init__.py",
+        "src/ultimate_ai_agent/core/autonomy/human_checkpoint_scheduling.py",
+        "docs/autonomy/HUMAN_CHECKPOINT_SCHEDULING.md",
+        "docs/autonomy/HUMAN_CHECKPOINT_SCHEDULING_POLICY.md",
+        "docs/autonomy/HUMAN_CHECKPOINT_SCHEDULING_AUTHORITY_BOUNDARY.md",
+        "docs/autonomy/HUMAN_CHECKPOINT_SCHEDULING_RECEIPT_PLAN.md",
+        "docs/autonomy/HUMAN_CHECKPOINT_SCHEDULING_NON_GOALS.md",
+        "docs/autonomy/M134_TO_M135_BOUNDARY.md",
+        "docs/release_notes/checkpoint_m134.md",
+        "docs/archive/checkpoints/m134/README_IMPORT.md",
+        "docs/archive/checkpoints/m134/master_plan.md",
+        "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+        "tests/test_m134_human_checkpoint_scheduling.py",
+        "tests/test_m134_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M134 human checkpoint scheduling file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = " ".join(
+        "\n".join(
+            (ROOT / rel_path).read_text(encoding="utf-8").lower()
+            for rel_path in required_files
+            if rel_path.startswith("docs/")
+        ).split()
+    )
+    for fragment in [
+        "human checkpoint scheduling",
+        "contract-only",
+        "review-only",
+        "human-checkpoint-scheduling-only",
+        "deterministic",
+        "local-only",
+        "safe-ref-only",
+        "exact scope",
+        "mode 5",
+        "m133 supervisor decision",
+        "m132 trusted workflow decision",
+        "checkpoint plan",
+        "schedule plan",
+        "checkpoint window",
+        "reviewer ref",
+        "consent",
+        "expiration",
+        "reminder plan",
+        "escalation plan",
+        "pause condition",
+        "stop condition",
+        "risk decision",
+        "audit",
+        "replay",
+        "revocation",
+        "kill-switch",
+        "no-effect receipt",
+        "no checkpoint scheduled",
+        "no scheduling",
+        "no prompt",
+        "no notification delivery",
+        "no reminder runtime",
+        "no calendar write",
+        "no approval capture",
+        "no escalation runtime",
+        "no supervisor runtime",
+        "no recovery execution",
+        "no scheduler",
+        "no background worker",
+        "no autonomous actions",
+        "no execution",
+        "no tool execution",
+        "no shell execution",
+        "no network access",
+        "no browser automation",
+        "no plugin execution",
+        "no connector runtime",
+        "no account auth",
+        "no model call",
+        "no memory write",
+        "no context injection",
+        "no backend route",
+        "no control center control",
+        "no dependency",
+        "m135 remains future",
+        "v1.0.0-alpha",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M134 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from tests.test_m134_human_checkpoint_scheduling import _request
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.autonomy import (
+            AutonomyAuthorityMode,
+            AutonomyRiskClass,
+            HumanCheckpointSchedulingStatus,
+            build_human_checkpoint_scheduling_decision,
+            validate_human_checkpoint_scheduling_decision,
+        )
+        from ultimate_ai_agent.core.gate.criteria import (
+            default_foundation_gate_criteria,
+        )
+        from ultimate_ai_agent.core.gate.evaluators import (
+            FoundationGateEvaluator,
+            m134_openapi_route_failures,
+        )
+    except Exception as exc:
+        print(f"FAIL: M134 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m134_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    decision = build_human_checkpoint_scheduling_decision(_request())
+    if (
+        decision.status != HumanCheckpointSchedulingStatus.ready_for_review
+        or decision.selected_mode != AutonomyAuthorityMode.trusted_recurring_automation
+        or not decision.contract_only
+        or not decision.review_only
+        or not decision.human_checkpoint_scheduling_only
+        or not decision.deterministic
+        or not decision.local_only
+        or not decision.safe_refs_only
+        or not decision.exact_scope_bound
+        or not decision.mode5_bound
+        or not decision.m133_supervisor_bound
+        or not decision.m132_trusted_workflow_bound
+        or not decision.checkpoint_plan_bound
+        or not decision.schedule_plan_bound
+        or not decision.checkpoint_window_bound
+        or not decision.reviewer_bound
+        or not decision.consent_bound
+        or not decision.expiration_bound
+        or not decision.reminder_plan_bound
+        or not decision.escalation_plan_bound
+        or not decision.pause_stop_bound
+        or not decision.audit_replay_bound
+        or not decision.revocation_bound
+        or not decision.kill_switch_bound
+        or not decision.no_effect_receipt_required
+        or decision.max_risk_class != AutonomyRiskClass.low
+        or decision.mode5_runtime_authorized
+        or decision.human_checkpoint_scheduler_authorized
+        or decision.checkpoint_scheduled
+        or decision.human_checkpoint_prompt_sent
+        or decision.notification_delivered
+        or decision.reminder_runtime_started
+        or decision.calendar_written
+        or decision.approval_captured
+        or decision.escalation_runtime_started
+        or decision.supervisor_runtime_started
+        or decision.recovery_execution_performed
+        or decision.scheduler_started
+        or decision.background_worker_started
+        or decision.autonomous_actions_authorized
+        or decision.autonomous_actions_performed
+        or decision.execution_authorized
+        or decision.execution_performed
+        or decision.tool_execution_authorized
+        or decision.tool_execution_performed
+        or decision.shell_execution_performed
+        or decision.command_execution_performed
+        or decision.subprocess_execution_performed
+        or decision.filesystem_mutation_performed
+        or decision.network_access_performed
+        or decision.browser_automation_performed
+        or decision.browser_form_performed
+        or decision.authenticated_browser_performed
+        or decision.download_performed
+        or decision.upload_performed
+        or decision.plugin_execution_performed
+        or decision.connector_runtime_performed
+        or decision.account_auth_performed
+        or decision.mobile_sensor_performed
+        or decision.remote_execution_performed
+        or decision.model_call_performed
+        or decision.memory_write_performed
+        or decision.context_injection_performed
+        or decision.backend_route_added
+        or decision.control_center_control_added
+        or decision.dependency_added
+        or decision.beta_release_enabled
+        or decision.production_authority_granted
+        or decision.side_effects_performed
+        or not decision.receipt_plan.store_safe_summary_only
+        or not decision.receipt_plan.store_safe_refs_only
+        or decision.receipt_plan.store_raw_prompt
+        or decision.receipt_plan.store_raw_provider_payload
+        or decision.receipt_plan.checkpoint_scheduled
+        or decision.receipt_plan.prompt_sent
+        or decision.receipt_plan.notification_delivered
+        or decision.receipt_plan.calendar_written
+        or decision.receipt_plan.approval_captured
+        or decision.receipt_plan.escalation_started
+        or decision.receipt_plan.execution_performed
+        or "M134_HUMAN_CHECKPOINT_SCHEDULING_CONTRACT_ONLY"
+        not in decision.reason_codes
+        or "M134_NO_SCHEDULER_OR_PROMPT_RUNTIME" not in decision.reason_codes
+        or "M135_REMAINS_FUTURE" not in decision.reason_codes
+    ):
+        print("FAIL: M134 human checkpoint scheduling decision is unsafe or over-authoritative")
+        sys.exit(1)
+
+    for update, reason in [
+        ({"mode5_runtime_authorized": True}, "M134_MODE5_RUNTIME_DENIED"),
+        (
+            {"human_checkpoint_scheduler_authorized": True},
+            "M134_CHECKPOINT_SCHEDULER_DENIED",
+        ),
+        ({"checkpoint_scheduled": True}, "M134_CHECKPOINT_SCHEDULER_DENIED"),
+        ({"human_checkpoint_prompt_sent": True}, "M134_PROMPT_RUNTIME_DENIED"),
+        ({"notification_delivered": True}, "M134_NOTIFICATION_DELIVERY_DENIED"),
+        ({"reminder_runtime_started": True}, "M134_REMINDER_RUNTIME_DENIED"),
+        ({"calendar_written": True}, "M134_CALENDAR_WRITE_DENIED"),
+        ({"approval_captured": True}, "M134_APPROVAL_CAPTURE_DENIED"),
+        ({"escalation_runtime_started": True}, "M134_ESCALATION_RUNTIME_DENIED"),
+        ({"supervisor_runtime_started": True}, "M134_SUPERVISOR_RUNTIME_DENIED"),
+        ({"recovery_execution_performed": True}, "M135_RECOVERY_EXECUTION_DENIED"),
+        ({"execution_performed": True}, "M134_EXECUTION_DENIED"),
+        ({"tool_execution_performed": True}, "M134_TOOL_EXECUTION_DENIED"),
+        ({"backend_route_added": True}, "M134_BACKEND_ROUTE_DENIED"),
+        (
+            {"production_authority_granted": True},
+            "M134_PRODUCTION_AUTHORITY_DENIED",
+        ),
+    ]:
+        try:
+            validate_human_checkpoint_scheduling_decision(
+                decision.model_copy(update=update)
+            )
+            print(f"FAIL: M134 mutated authority flag was not denied: {update}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M134 mutated authority flag raised {exc!s}")
+                sys.exit(1)
+
+    criteria = {
+        criterion.criterion_id: criterion
+        for criterion in default_foundation_gate_criteria()
+    }
+    for criterion_id in [
+        "m134_human_checkpoint_scheduling_contracts",
+        "m134_human_checkpoint_scheduling_static_safety",
+        "m134_human_checkpoint_scheduling_route_boundary",
+        "m134_roadmap_currentness",
+    ]:
+        if criterion_id not in criteria:
+            print(f"FAIL: Missing M134 Foundation Gate criterion: {criterion_id}")
+            sys.exit(1)
+    evaluator = FoundationGateEvaluator(ROOT)
+    for criterion_id in [
+        "m134_human_checkpoint_scheduling_contracts",
+        "m134_human_checkpoint_scheduling_static_safety",
+        "m134_human_checkpoint_scheduling_route_boundary",
+        "m134_roadmap_currentness",
+    ]:
+        gate_report = evaluator.evaluate([criteria[criterion_id]])
+        result = gate_report.results[0]
+        if result.status != "passed":
+            print(f"FAIL: {criterion_id} failed: {result.failures}")
+            sys.exit(1)
+
+    print("OK: M134 human checkpoint scheduling is review-only, safe-ref-only, and route-free")
 
 
 def verify_local_developer_launcher_safety():

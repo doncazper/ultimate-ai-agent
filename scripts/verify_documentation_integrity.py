@@ -1595,6 +1595,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_m131_autonomy_mode4_scoped_work_session_docs(root, version))
     failures.extend(_verify_m132_trusted_recurring_workflow_docs(root, version))
     failures.extend(_verify_m133_long_running_task_supervisor_docs(root, version))
+    failures.extend(_verify_m134_human_checkpoint_scheduling_docs(root, version))
     failures.extend(_verify_m19_roadmap_currentness(root, version))
     failures.extend(_verify_post_m18_roadmap_status_labels(root))
 
@@ -7272,6 +7273,12 @@ def _verify_post_m100_roadmap_reconciliation_docs(root: Path, version: str | Non
         or "long-running task supervisor" in version_doc_text
     ):
         implemented_milestones.add("m133")
+    if _version_tuple(version) >= (1, 7, 2) and (
+        "checkpoint m134" in version_doc_text
+        or "m134" in version_doc_text
+        or "human checkpoint scheduling" in version_doc_text
+    ):
+        implemented_milestones.add("m134")
     for version_label, product_target, milestone, title in EXPECTED_M101_M150_LABELS:
         if milestone in implemented_milestones:
             continue
@@ -11947,7 +11954,11 @@ def _verify_m131_autonomy_mode4_scoped_work_session_docs(
     )
     planned_m134_row = (
         "| checkpoint m134 | pre-alpha checkpoint | m134 | "
-        "human checkpoint scheduling | planned/provisional |"
+        "human checkpoint scheduling | implemented/released |"
+    )
+    planned_m135_row = (
+        "| checkpoint m135 | pre-alpha checkpoint | m135 | "
+        "autonomous recovery planner | planned/provisional |"
     )
     if not _roadmap_row_present(current_text, implemented_m131_row):
         failures.append("active docs missing implemented Checkpoint M131 row")
@@ -11956,12 +11967,14 @@ def _verify_m131_autonomy_mode4_scoped_work_session_docs(
     if not _roadmap_row_present(current_text, implemented_m133_row):
         failures.append("active docs missing implemented Checkpoint M133 row")
     if not _roadmap_row_present(current_text, planned_m134_row):
-        failures.append("active docs missing planned Checkpoint M134 row")
+        failures.append("active docs missing implemented Checkpoint M134 row")
+    if not _roadmap_row_present(current_text, planned_m135_row):
+        failures.append("active docs missing planned Checkpoint M135 row")
     for fragment in {
         "recurring workflow runtime is implemented",
-        "human checkpoint scheduling is implemented",
-        "m134 is implemented",
-        "checkpoint m134 implements m134",
+        "recovery execution is implemented",
+        "m135 recovery is implemented",
+        "autonomous recovery planner is implemented",
         "session start is implemented",
         "autonomous actions are implemented",
         "tool execution is implemented",
@@ -12103,20 +12116,24 @@ def _verify_m132_trusted_recurring_workflow_docs(
     )
     planned_m134_row = (
         "| checkpoint m134 | pre-alpha checkpoint | m134 | "
-        "human checkpoint scheduling | planned/provisional |"
+        "human checkpoint scheduling | implemented/released |"
+    )
+    planned_m135_row = (
+        "| checkpoint m135 | pre-alpha checkpoint | m135 | "
+        "autonomous recovery planner | planned/provisional |"
     )
     if not _roadmap_row_present(current_text, implemented_m132_row):
         failures.append("active docs missing implemented Checkpoint M132 row")
     if not _roadmap_row_present(current_text, implemented_m133_row):
         failures.append("active docs missing implemented Checkpoint M133 row")
     if not _roadmap_row_present(current_text, planned_m134_row):
-        failures.append("active docs missing planned Checkpoint M134 row")
+        failures.append("active docs missing implemented Checkpoint M134 row")
+    if not _roadmap_row_present(current_text, planned_m135_row):
+        failures.append("active docs missing planned Checkpoint M135 row")
     for fragment in {
-        "human checkpoint scheduling is implemented",
-        "m134 is implemented",
-        "checkpoint m134 implements m134",
         "recovery execution is implemented",
         "m135 recovery is implemented",
+        "autonomous recovery planner is implemented",
         "workflow start is implemented",
         "recurrence activation is implemented",
         "recurring runtime is implemented",
@@ -12269,18 +12286,22 @@ def _verify_m133_long_running_task_supervisor_docs(
     )
     planned_m134_row = (
         "| checkpoint m134 | pre-alpha checkpoint | m134 | "
-        "human checkpoint scheduling | planned/provisional |"
+        "human checkpoint scheduling | implemented/released |"
+    )
+    planned_m135_row = (
+        "| checkpoint m135 | pre-alpha checkpoint | m135 | "
+        "autonomous recovery planner | planned/provisional |"
     )
     if not _roadmap_row_present(current_text, implemented_m133_row):
         failures.append("active docs missing implemented Checkpoint M133 row")
     if not _roadmap_row_present(current_text, planned_m134_row):
-        failures.append("active docs missing planned Checkpoint M134 row")
+        failures.append("active docs missing implemented Checkpoint M134 row")
+    if not _roadmap_row_present(current_text, planned_m135_row):
+        failures.append("active docs missing planned Checkpoint M135 row")
     for fragment in {
-        "human checkpoint scheduling is implemented",
-        "m134 is implemented",
-        "checkpoint m134 implements m134",
         "recovery execution is implemented",
         "m135 recovery is implemented",
+        "autonomous recovery planner is implemented",
         "supervisor runtime is implemented",
         "supervisor start is implemented",
         "task supervision is implemented",
@@ -12306,6 +12327,175 @@ def _verify_m133_long_running_task_supervisor_docs(
     }:
         if fragment in current_text or fragment in text:
             failures.append(f"M133 docs imply forbidden/future capability: {fragment}")
+    return failures
+
+
+def _verify_m134_human_checkpoint_scheduling_docs(
+    root: Path, version: str | None
+) -> list[str]:
+    failures: list[str] = []
+    if _version_tuple(version) < (1, 7, 2):
+        return failures
+    active_text = " ".join(
+        "\n".join(
+            _read(root / rel_path).lower()
+            for rel_path in [
+                "README.md",
+                "VERSION.md",
+                "docs/canonical/09_roadmap.md",
+                "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            ]
+            if (root / rel_path).exists()
+        ).split()
+    )
+    if (
+        "checkpoint m134 is implemented/released" not in active_text
+        and "m134 is implemented/released" not in active_text
+    ):
+        return failures
+    required_paths = [
+        "docs/autonomy/HUMAN_CHECKPOINT_SCHEDULING.md",
+        "docs/autonomy/HUMAN_CHECKPOINT_SCHEDULING_POLICY.md",
+        "docs/autonomy/HUMAN_CHECKPOINT_SCHEDULING_AUTHORITY_BOUNDARY.md",
+        "docs/autonomy/HUMAN_CHECKPOINT_SCHEDULING_RECEIPT_PLAN.md",
+        "docs/autonomy/HUMAN_CHECKPOINT_SCHEDULING_NON_GOALS.md",
+        "docs/autonomy/M134_TO_M135_BOUNDARY.md",
+        "docs/release_notes/checkpoint_m134.md",
+        "docs/archive/checkpoints/m134/README_IMPORT.md",
+        "docs/archive/checkpoints/m134/master_plan.md",
+        "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+    ]
+    for rel_path in required_paths:
+        if not (root / rel_path).exists():
+            failures.append(f"missing M134 human checkpoint scheduling doc: {rel_path}")
+    text = " ".join(
+        "\n".join(
+            _read(root / rel_path).lower()
+            for rel_path in required_paths
+            if (root / rel_path).exists()
+        ).split()
+    )
+    required_fragments = {
+        "M134 docs must say human checkpoint scheduling": "human checkpoint scheduling",
+        "M134 docs must say contract-only": "contract-only",
+        "M134 docs must say review-only": "review-only",
+        "M134 docs must say human-checkpoint-scheduling-only": "human-checkpoint-scheduling-only",
+        "M134 docs must say deterministic": "deterministic",
+        "M134 docs must say local-only": "local-only",
+        "M134 docs must say safe-ref-only": "safe-ref-only",
+        "M134 docs must say exact scope": "exact scope",
+        "M134 docs must say Mode 5": "mode 5",
+        "M134 docs must say M133 supervisor decision": "m133 supervisor decision",
+        "M134 docs must say M132 trusted workflow decision": "m132 trusted workflow decision",
+        "M134 docs must say checkpoint plan": "checkpoint plan",
+        "M134 docs must say schedule plan": "schedule plan",
+        "M134 docs must say checkpoint window": "checkpoint window",
+        "M134 docs must say reviewer ref": "reviewer ref",
+        "M134 docs must say consent": "consent",
+        "M134 docs must say expiration": "expiration",
+        "M134 docs must say reminder plan": "reminder plan",
+        "M134 docs must say escalation plan": "escalation plan",
+        "M134 docs must say pause condition": "pause condition",
+        "M134 docs must say stop condition": "stop condition",
+        "M134 docs must say risk decision": "risk decision",
+        "M134 docs must say audit": "audit",
+        "M134 docs must say replay": "replay",
+        "M134 docs must say revocation": "revocation",
+        "M134 docs must say kill-switch": "kill-switch",
+        "M134 docs must say no-effect receipt": "no-effect receipt",
+        "M134 docs must deny checkpoint scheduled state": "no checkpoint scheduled",
+        "M134 docs must deny scheduling": "no scheduling",
+        "M134 docs must deny prompt": "no prompt",
+        "M134 docs must deny notification delivery": "no notification delivery",
+        "M134 docs must deny reminder runtime": "no reminder runtime",
+        "M134 docs must deny calendar write": "no calendar write",
+        "M134 docs must deny approval capture": "no approval capture",
+        "M134 docs must deny escalation runtime": "no escalation runtime",
+        "M134 docs must deny supervisor runtime": "no supervisor runtime",
+        "M134 docs must deny recovery execution": "no recovery execution",
+        "M134 docs must deny scheduler": "no scheduler",
+        "M134 docs must deny background worker": "no background worker",
+        "M134 docs must deny autonomous actions": "no autonomous actions",
+        "M134 docs must deny execution": "no execution",
+        "M134 docs must deny tool execution": "no tool execution",
+        "M134 docs must deny shell execution": "no shell execution",
+        "M134 docs must deny network access": "no network access",
+        "M134 docs must deny browser automation": "no browser automation",
+        "M134 docs must deny plugin execution": "no plugin execution",
+        "M134 docs must deny connector runtime": "no connector runtime",
+        "M134 docs must deny account auth": "no account auth",
+        "M134 docs must deny model call": "no model call",
+        "M134 docs must deny memory write": "no memory write",
+        "M134 docs must deny context injection": "no context injection",
+        "M134 docs must deny backend route": "no backend route",
+        "M134 docs must deny Control Center control": "no control center control",
+        "M134 docs must deny dependency": "no dependency",
+        "M134 docs must keep M135 future": "m135 remains future",
+        "M134 docs must preserve alpha target": "v1.0.0-alpha",
+    }
+    for message, fragment in required_fragments.items():
+        if fragment not in text:
+            failures.append(message)
+    active_paths = [
+        "README.md",
+        "VERSION.md",
+        "docs/canonical/09_roadmap.md",
+        "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+        "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+        "docs/roadmap/MILESTONE_CHARTERS.md",
+        "docs/DOCUMENTATION_INDEX.md",
+        "docs/canonical/CANONICAL_DOC_MAP.md",
+    ]
+    current_text = " ".join(
+        "\n".join(
+            _read(root / rel_path).lower()
+            for rel_path in active_paths
+            if (root / rel_path).exists()
+        ).split()
+    )
+    implemented_m134_row = (
+        "| checkpoint m134 | pre-alpha checkpoint | m134 | "
+        "human checkpoint scheduling | implemented/released |"
+    )
+    planned_m135_row = (
+        "| checkpoint m135 | pre-alpha checkpoint | m135 | "
+        "autonomous recovery planner | planned/provisional |"
+    )
+    if not _roadmap_row_present(current_text, implemented_m134_row):
+        failures.append("active docs missing implemented Checkpoint M134 row")
+    if not _roadmap_row_present(current_text, planned_m135_row):
+        failures.append("active docs missing planned Checkpoint M135 row")
+    for fragment in {
+        "recovery execution is implemented",
+        "m135 recovery is implemented",
+        "autonomous recovery planner is implemented",
+        "checkpoint scheduler runtime is implemented",
+        "prompt runtime is implemented",
+        "notification delivery is implemented",
+        "reminder runtime is implemented",
+        "calendar write is implemented",
+        "approval capture is implemented",
+        "escalation runtime is implemented",
+        "supervisor runtime is implemented",
+        "scheduler is implemented",
+        "background worker is implemented",
+        "autonomous actions are implemented",
+        "tool execution is implemented",
+        "shell execution is implemented",
+        "network access is implemented",
+        "browser automation is implemented",
+        "plugin execution is implemented",
+        "connector runtime is implemented",
+        "model call is implemented",
+        "memory write is implemented",
+        "context injection is implemented",
+        "backend route is implemented",
+        "control center control is implemented",
+        "beta is released",
+        "production authority is implemented",
+    }:
+        if fragment in current_text or fragment in text:
+            failures.append(f"M134 docs imply forbidden/future capability: {fragment}")
     return failures
 
 

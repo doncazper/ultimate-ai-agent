@@ -1,6 +1,6 @@
 # M101-M150 Capability Charters
 
-Status: Active roadmap maintained through Checkpoint M133 after the accepted
+Status: Active roadmap maintained through Checkpoint M134 after the accepted
 v1.7.2 post-M103 versioning repair follow-up.
 
 M101 is implemented/released as Mobile Sensor Contract Review. M102 is
@@ -36,7 +36,8 @@ Audit + Revocation Hardening. Checkpoint M130 is implemented/released as
 Connector Safety Freeze. Checkpoint M131 is implemented/released as Autonomy
 Mode 4, Scoped Work Session. Checkpoint M132 is implemented/released as Autonomy
 Mode 5, Trusted Recurring Workflow. Checkpoint M133 is implemented/released as
-Long-Running Task Supervisor. M134-M150 remain planned/provisional.
+Long-Running Task Supervisor. Checkpoint M134 is implemented/released as Human
+Checkpoint Scheduling. M135-M150 remain planned/provisional.
 Future work must continue the authority-tier model:
 
 Capability exists -> disabled by default -> dry-run first -> limited allowlist
@@ -93,7 +94,7 @@ roadmap patch. Do not rewrite, move, or reuse existing tags.
 | Checkpoint M131 | pre-alpha checkpoint | M131 | Autonomy Mode 4, Scoped Work Session | Implemented/released |
 | Checkpoint M132 | pre-alpha checkpoint | M132 | Autonomy Mode 5, Trusted Recurring Workflow | Implemented/released |
 | Checkpoint M133 | pre-alpha checkpoint | M133 | Long-Running Task Supervisor | Implemented/released |
-| Checkpoint M134 | pre-alpha checkpoint | M134 | Human Checkpoint Scheduling | Planned/provisional |
+| Checkpoint M134 | pre-alpha checkpoint | M134 | Human Checkpoint Scheduling | Implemented/released |
 | Checkpoint M135 | pre-alpha checkpoint | M135 | Autonomous Recovery Planner | Planned/provisional |
 | Checkpoint M136 | pre-alpha checkpoint | M136 | Cross-Tool Dependency Execution | Planned/provisional |
 | Checkpoint M137 | pre-alpha checkpoint | M137 | Autonomous Browser + Connector Combined Workflows | Planned/provisional |

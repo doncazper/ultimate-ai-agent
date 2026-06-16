@@ -207,7 +207,8 @@ Checkpoint M130 is implemented/released as Connector Safety Freeze.
 Checkpoint M131 is implemented/released as Autonomy Mode 4, Scoped Work Session.
 Checkpoint M132 is implemented/released as Autonomy Mode 5, Trusted Recurring Workflow.
 Checkpoint M133 is implemented/released as Long-Running Task Supervisor.
-M134-M149
+Checkpoint M134 is implemented/released as Human Checkpoint Scheduling.
+M135-M149
 remain planned/provisional as checkpoint milestones instead of product SemVer
 tags, and M150 remains planned/provisional as the v1.0.0-alpha product target.
 Beta begins after the alpha UI and supporting safety/product work are reviewed

@@ -2,9 +2,9 @@
 
 Current active baseline: **v1.7.2**
 
-Checkpoint M133 is implemented/released as Long-Running Task Supervisor.
+Checkpoint M134 is implemented/released as Human Checkpoint Scheduling.
 The current product baseline remains v1.7.2. Already-pushed tags
-remain immutable historical internal milestone tags. Future M134-M149 conveyor
+remain immutable historical internal milestone tags. Future M135-M149 conveyor
 milestones use checkpoint labels instead of product SemVer tags, and M150 is
 the next product release target **v1.0.0-alpha**. Beta begins only after the
 alpha UI and supporting safety/product work are reviewed, accepted, and
@@ -358,6 +358,25 @@ context injection, backend routes, Control Center controls, dependencies, beta
 release, M134 work, M135 recovery work, broad autonomy, and production
 authority.
 
-M101, M102, M103, M104, M105, M106, M107, M108, M109, M110, M111, M112, M113, M114, M115, M116, M117, M118, M119, M120, M121, M122, M123, M124, M125, M126, M127, M128, M129, M130, M131, M132, and M133 are implemented/released. M134-M150 are
+Checkpoint M134 adds deterministic local Human Checkpoint Scheduling records.
+It records exact scope refs, Mode 5 refs, M133 supervisor decision refs, M132
+trusted workflow decision refs, checkpoint plan refs, schedule plan refs,
+checkpoint window refs, reviewer refs, consent refs, expiration refs, reminder
+plan refs, escalation plan refs, pause condition refs, stop condition refs,
+policy decision refs, risk decision refs, audit refs, replay refs, revocation
+refs, kill-switch refs, and no-effect receipt plan refs. It keeps human
+checkpoint scheduling review-only and no-effect. It denies checkpoint scheduled
+state, scheduling, prompt runtime, notification delivery, reminder runtime,
+calendar write, approval capture, escalation runtime, supervisor runtime,
+recovery execution, schedulers, background workers, autonomous actions,
+execution, tool execution, shell execution, command execution, subprocess
+execution, filesystem mutation, network access, browser automation, browser
+forms, authenticated browser access, download, upload, plugin execution,
+connector runtime, account auth, mobile sensor access, remote execution, model
+calls, memory writes, context injection, backend routes, Control Center
+controls, dependencies, beta release, M135 recovery work, broad autonomy, and
+production authority.
+
+M101, M102, M103, M104, M105, M106, M107, M108, M109, M110, M111, M112, M113, M114, M115, M116, M117, M118, M119, M120, M121, M122, M123, M124, M125, M126, M127, M128, M129, M130, M131, M132, M133, and M134 are implemented/released. M135-M150 are
 planned/provisional checkpoint milestones only. M150 is planned as
 v1.0.0-alpha, not beta.

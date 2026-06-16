@@ -27,6 +27,12 @@ docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md
 docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md
 docs/roadmap/M61_M100_ROADMAP.md
 docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md
+docs/autonomy/HUMAN_CHECKPOINT_SCHEDULING.md
+docs/autonomy/HUMAN_CHECKPOINT_SCHEDULING_POLICY.md
+docs/autonomy/HUMAN_CHECKPOINT_SCHEDULING_AUTHORITY_BOUNDARY.md
+docs/autonomy/HUMAN_CHECKPOINT_SCHEDULING_RECEIPT_PLAN.md
+docs/autonomy/HUMAN_CHECKPOINT_SCHEDULING_NON_GOALS.md
+docs/autonomy/M134_TO_M135_BOUNDARY.md
 docs/mobile/MOBILE_SENSOR_CONTRACT_REVIEW.md
 docs/mobile/MOBILE_SENSOR_CONTRACT_REVIEW_POLICY.md
 docs/mobile/MOBILE_SENSOR_CONTRACT_REVIEW_AUTHORITY_BOUNDARY.md
@@ -853,15 +859,17 @@ implemented/released as deterministic local review-only Autonomy Mode 4 scoped
 work-session records. M132 is implemented/released as deterministic local
 review-only Autonomy Mode 5 trusted recurring workflow records. M133 is
 implemented/released as deterministic local review-only Long-Running Task
-Supervisor records. M134-M150 are planned/provisional only in
+Supervisor records. M134 is implemented/released as deterministic local
+review-only Human Checkpoint Scheduling records. M135-M150 are
+planned/provisional only in
 `docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md`.
-Future M134-M149 conveyor milestones use checkpoint labels instead of product
+Future M135-M149 conveyor milestones use checkpoint labels instead of product
 SemVer tags, and M150 is
 planned as v1.0.0-alpha. Beta begins only after alpha UI and supporting
 safety/product work are reviewed and promoted. Active roadmap sources consistently mark
-M34-M133 implemented/released and rely on documentation-integrity checks to
+M34-M134 implemented/released and rely on documentation-integrity checks to
 guard against superseded-roadmap drift, stale current-baseline labels, route
-drift, authority-boundary drift, alpha/beta versioning drift, and M134-M150
+drift, authority-boundary drift, alpha/beta versioning drift, and M135-M150
 future-status drift.
 
 ## Release Notes Index

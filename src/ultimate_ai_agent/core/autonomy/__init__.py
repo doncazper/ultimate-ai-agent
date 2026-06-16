@@ -166,6 +166,20 @@ from ultimate_ai_agent.core.autonomy.long_running_task_supervisor import (
     validate_long_running_task_supervisor_policy,
     validate_long_running_task_supervisor_request,
 )
+from ultimate_ai_agent.core.autonomy.human_checkpoint_scheduling import (
+    HUMAN_CHECKPOINT_SCHEDULING_DOCS,
+    M134_MAX_CHECKPOINT_WINDOW_SECONDS,
+    M134_MAX_REVIEWER_REFS,
+    HumanCheckpointSchedulingDecision,
+    HumanCheckpointSchedulingPolicy,
+    HumanCheckpointSchedulingReceiptPlan,
+    HumanCheckpointSchedulingRequest,
+    HumanCheckpointSchedulingStatus,
+    build_human_checkpoint_scheduling_decision,
+    validate_human_checkpoint_scheduling_decision,
+    validate_human_checkpoint_scheduling_policy,
+    validate_human_checkpoint_scheduling_request,
+)
 
 __all__ = [
     "AUTONOMY_MODE_CHARTER_DOCS",
@@ -304,4 +318,16 @@ __all__ = [
     "validate_long_running_task_supervisor_decision",
     "validate_long_running_task_supervisor_policy",
     "validate_long_running_task_supervisor_request",
+    "HUMAN_CHECKPOINT_SCHEDULING_DOCS",
+    "M134_MAX_CHECKPOINT_WINDOW_SECONDS",
+    "M134_MAX_REVIEWER_REFS",
+    "HumanCheckpointSchedulingDecision",
+    "HumanCheckpointSchedulingPolicy",
+    "HumanCheckpointSchedulingReceiptPlan",
+    "HumanCheckpointSchedulingRequest",
+    "HumanCheckpointSchedulingStatus",
+    "build_human_checkpoint_scheduling_decision",
+    "validate_human_checkpoint_scheduling_decision",
+    "validate_human_checkpoint_scheduling_policy",
+    "validate_human_checkpoint_scheduling_request",
 ]
