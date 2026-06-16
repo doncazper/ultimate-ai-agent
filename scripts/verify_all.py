@@ -191,6 +191,7 @@ SCAN_SEQUENCE = [
     ("M141 multi-user product boundary scan", "verify_m141_multi_user_product_boundary"),
     ("M142 alpha privacy review scan", "verify_m142_alpha_privacy_review"),
     ("M143 alpha UI/app readiness scan", "verify_m143_alpha_ui_app_readiness"),
+    ("M144 plugin marketplace policy draft scan", "verify_m144_plugin_marketplace_policy_draft"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -17796,6 +17797,10 @@ def verify_post_m100_roadmap_reconciliation():
         _version_doc_marks_milestone_implemented(active_version_text, "m143")
     ):
         implemented_milestones.add("m143")
+    if (
+        _version_doc_marks_milestone_implemented(active_version_text, "m144")
+    ):
+        implemented_milestones.add("m144")
     for version_label, product_target, milestone, title in expected_labels:
         if milestone in implemented_milestones:
             continue
@@ -26677,6 +26682,211 @@ def verify_m143_alpha_ui_app_readiness():
             sys.exit(1)
 
     print("OK: M143 alpha UI/app readiness is review-only, safe-ref-only, and route-free")
+
+
+def verify_m144_plugin_marketplace_policy_draft():
+    print("\n[Verifier] Running M144 plugin marketplace policy draft guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/productization/plugin_marketplace_policy_draft.py",
+        "docs/productization/PLUGIN_MARKETPLACE_POLICY_DRAFT.md",
+        "docs/productization/PLUGIN_MARKETPLACE_POLICY_DRAFT_POLICY.md",
+        "docs/productization/PLUGIN_MARKETPLACE_POLICY_DRAFT_AUTHORITY_BOUNDARY.md",
+        "docs/productization/PLUGIN_MARKETPLACE_POLICY_DRAFT_RECEIPT_PLAN.md",
+        "docs/productization/PLUGIN_MARKETPLACE_POLICY_DRAFT_NON_GOALS.md",
+        "docs/productization/M144_TO_M145_BOUNDARY.md",
+        "docs/release_notes/checkpoint_m144.md",
+        "docs/archive/checkpoints/m144/README_IMPORT.md",
+        "docs/archive/checkpoints/m144/master_plan.md",
+        "tests/test_m144_plugin_marketplace_policy_draft.py",
+        "tests/test_m144_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M144 plugin marketplace policy draft file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = " ".join(
+        "\n".join(
+            (ROOT / rel_path).read_text(encoding="utf-8").lower()
+            for rel_path in required_files
+            if rel_path.startswith("docs/")
+        ).split()
+    )
+    for fragment in [
+        "plugin marketplace policy draft",
+        "contract-only",
+        "review-only",
+        "deterministic",
+        "local-only",
+        "safe-ref-only",
+        "policy-draft-only",
+        "disabled by default",
+        "route-free",
+        "no-effect",
+        "accepted m101-m143",
+        "marketplace policy refs",
+        "publisher policy refs",
+        "listing review refs",
+        "provenance review refs",
+        "signature review refs",
+        "sandbox review refs",
+        "permission mapping refs",
+        "approval policy refs",
+        "no plugin marketplace runtime",
+        "no marketplace publish",
+        "no plugin install",
+        "no plugin enablement",
+        "no plugin execution",
+        "no external plugin authority",
+        "no package import",
+        "no network plugin fetch",
+        "no backend route",
+        "no control center control",
+        "no dependency",
+        "no beta release",
+        "no production authority",
+        "m145 remains future",
+        "v1.0.0-alpha",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M144 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from tests.test_m144_plugin_marketplace_policy_draft import _request
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.criteria import (
+            default_foundation_gate_criteria,
+        )
+        from ultimate_ai_agent.core.gate.evaluators import (
+            FoundationGateEvaluator,
+            m144_openapi_route_failures,
+        )
+        from ultimate_ai_agent.core.productization import (
+            PluginMarketplacePolicyDraftStatus,
+            build_plugin_marketplace_policy_draft_record,
+            validate_plugin_marketplace_policy_draft_record,
+        )
+    except Exception as exc:
+        print(f"FAIL: M144 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m144_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    record = build_plugin_marketplace_policy_draft_record(_request())
+    if (
+        record.status != PluginMarketplacePolicyDraftStatus.policy_draft_recorded
+        or not record.contract_only
+        or not record.review_only
+        or not record.safe_refs_only
+        or not record.policy_draft_only
+        or not record.disabled_by_default
+        or not record.m101_m143_covered
+        or not record.no_plugin_install
+        or not record.no_plugin_enablement
+        or not record.no_plugin_execution
+        or not record.no_marketplace_runtime
+        or not record.no_marketplace_publish
+        or not record.no_external_plugin_authority
+        or not record.no_package_import
+        or not record.no_network_plugin_fetch
+        or not record.no_dependency
+        or not record.no_production_authority
+        or record.plugin_marketplace_runtime_started
+        or record.marketplace_publish_performed
+        or record.plugin_install_performed
+        or record.plugin_enablement_performed
+        or record.plugin_execution_performed
+        or record.external_plugin_authority_granted
+        or record.external_plugin_loaded
+        or record.package_import_performed
+        or record.network_plugin_fetch_performed
+        or record.package_download_performed
+        or record.artifact_upload_performed
+        or record.backend_route_added
+        or record.dependency_added
+        or record.production_authority_granted
+        or "M144_PLUGIN_MARKETPLACE_POLICY_DRAFT_REVIEW_ONLY"
+        not in record.reason_codes
+        or "M144_M101_M143_COVERED" not in record.reason_codes
+        or "M144_DISABLED_BY_DEFAULT" not in record.reason_codes
+        or "M144_NO_PLUGIN_INSTALL" not in record.reason_codes
+        or "M144_NO_PLUGIN_ENABLEMENT" not in record.reason_codes
+        or "M144_NO_PLUGIN_EXECUTION" not in record.reason_codes
+        or "M144_NO_MARKETPLACE_RUNTIME" not in record.reason_codes
+        or "M144_NO_MARKETPLACE_PUBLISH" not in record.reason_codes
+        or "M144_NO_EXTERNAL_PLUGIN_AUTHORITY" not in record.reason_codes
+        or "M144_NO_PACKAGE_IMPORT" not in record.reason_codes
+        or "M144_NO_NETWORK_PLUGIN_FETCH" not in record.reason_codes
+        or "M144_NO_PRODUCTION_AUTHORITY" not in record.reason_codes
+        or "M145_REMAINS_FUTURE" not in record.reason_codes
+    ):
+        print("FAIL: M144 plugin marketplace policy draft record is unsafe")
+        sys.exit(1)
+
+    for update, reason in [
+        (
+            {"plugin_marketplace_runtime_started": True},
+            "M144_MARKETPLACE_RUNTIME_DENIED",
+        ),
+        ({"marketplace_publish_performed": True}, "M144_MARKETPLACE_PUBLISH_DENIED"),
+        ({"plugin_install_performed": True}, "M144_PLUGIN_INSTALL_DENIED"),
+        ({"plugin_enablement_performed": True}, "M144_PLUGIN_ENABLEMENT_DENIED"),
+        ({"plugin_execution_performed": True}, "M144_PLUGIN_EXECUTION_DENIED"),
+        (
+            {"external_plugin_authority_granted": True},
+            "M144_EXTERNAL_PLUGIN_AUTHORITY_DENIED",
+        ),
+        ({"package_import_performed": True}, "M144_PACKAGE_IMPORT_DENIED"),
+        ({"network_plugin_fetch_performed": True}, "M144_NETWORK_PLUGIN_FETCH_DENIED"),
+        ({"backend_route_added": True}, "M144_BACKEND_ROUTE_DENIED"),
+        ({"dependency_added": True}, "M144_DEPENDENCY_DENIED"),
+        ({"production_authority_granted": True}, "M144_PRODUCTION_AUTHORITY_DENIED"),
+    ]:
+        try:
+            validate_plugin_marketplace_policy_draft_record(
+                record.model_copy(update=update)
+            )
+            print(f"FAIL: M144 mutated authority flag was not denied: {update}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M144 mutated authority flag raised {exc!s}")
+                sys.exit(1)
+
+    criteria = {
+        criterion.criterion_id: criterion
+        for criterion in default_foundation_gate_criteria()
+    }
+    for criterion_id in [
+        "m144_plugin_marketplace_policy_draft_contracts",
+        "m144_plugin_marketplace_policy_draft_static_safety",
+        "m144_plugin_marketplace_policy_draft_route_boundary",
+        "m144_roadmap_currentness",
+    ]:
+        if criterion_id not in criteria:
+            print(f"FAIL: Missing M144 Foundation Gate criterion: {criterion_id}")
+            sys.exit(1)
+    evaluator = FoundationGateEvaluator(ROOT)
+    for criterion_id in [
+        "m144_plugin_marketplace_policy_draft_contracts",
+        "m144_plugin_marketplace_policy_draft_static_safety",
+        "m144_plugin_marketplace_policy_draft_route_boundary",
+        "m144_roadmap_currentness",
+    ]:
+        gate_report = evaluator.evaluate([criteria[criterion_id]])
+        result = gate_report.results[0]
+        if result.status != "passed":
+            print(f"FAIL: {criterion_id} failed: {result.failures}")
+            sys.exit(1)
+
+    print(
+        "OK: M144 plugin marketplace policy draft is review-only, disabled-by-default, safe-ref-only, and route-free"
+    )
 
 
 def verify_local_developer_launcher_safety():

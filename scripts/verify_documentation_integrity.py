@@ -1614,6 +1614,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_m141_multi_user_product_boundary_docs(root, version))
     failures.extend(_verify_m142_alpha_privacy_review_docs(root, version))
     failures.extend(_verify_m143_alpha_ui_app_readiness_docs(root, version))
+    failures.extend(_verify_m144_plugin_marketplace_policy_draft_docs(root, version))
     failures.extend(_verify_m19_roadmap_currentness(root, version))
     failures.extend(_verify_post_m18_roadmap_status_labels(root))
 
@@ -7346,6 +7347,10 @@ def _verify_post_m100_roadmap_reconciliation_docs(root: Path, version: str | Non
         _version_doc_marks_milestone_implemented(version_doc_text, "m143")
     ):
         implemented_milestones.add("m143")
+    if _version_tuple(version) >= (1, 7, 2) and (
+        _version_doc_marks_milestone_implemented(version_doc_text, "m144")
+    ):
+        implemented_milestones.add("m144")
     for version_label, product_target, milestone, title in EXPECTED_M101_M150_LABELS:
         if milestone in implemented_milestones:
             continue
@@ -14025,14 +14030,20 @@ def _verify_m143_alpha_ui_app_readiness_docs(
         "| checkpoint m143 | pre-alpha checkpoint | m143 | "
         "alpha ui and app readiness | implemented/released |"
     )
-    planned_m144_row = (
+    implemented_m144_row = (
         "| checkpoint m144 | pre-alpha checkpoint | m144 | "
-        "plugin marketplace policy draft | planned/provisional |"
+        "plugin marketplace policy draft | implemented/released |"
+    )
+    planned_m145_row = (
+        "| checkpoint m145 | pre-alpha checkpoint | m145 | "
+        "enterprise/pro safety modes | planned/provisional |"
     )
     if not _roadmap_row_present(current_text, implemented_m143_row):
         failures.append("active docs missing implemented Checkpoint M143 row")
-    if not _roadmap_row_present(current_text, planned_m144_row):
-        failures.append("active docs missing planned Checkpoint M144 row")
+    if not _roadmap_row_present(current_text, implemented_m144_row):
+        failures.append("active docs missing implemented Checkpoint M144 row")
+    if not _roadmap_row_present(current_text, planned_m145_row):
+        failures.append("active docs missing planned Checkpoint M145 row")
     for fragment in {
         "alpha ui runtime is implemented",
         "app readiness execution is implemented",
@@ -14050,6 +14061,143 @@ def _verify_m143_alpha_ui_app_readiness_docs(
     }:
         if fragment in current_text or fragment in text:
             failures.append(f"M143 docs imply forbidden/future capability: {fragment}")
+    return failures
+
+
+def _verify_m144_plugin_marketplace_policy_draft_docs(
+    root: Path, version: str | None
+) -> list[str]:
+    failures: list[str] = []
+    if _version_tuple(version) < (1, 7, 2):
+        return failures
+    active_text = " ".join(
+        "\n".join(
+            _read(root / rel_path).lower()
+            for rel_path in [
+                "README.md",
+                "VERSION.md",
+                "docs/canonical/09_roadmap.md",
+                "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            ]
+            if (root / rel_path).exists()
+        ).split()
+    )
+    if (
+        "checkpoint m144 is implemented/released" not in active_text
+        and "m144 is implemented/released" not in active_text
+    ):
+        return failures
+    required_paths = [
+        "docs/productization/PLUGIN_MARKETPLACE_POLICY_DRAFT.md",
+        "docs/productization/PLUGIN_MARKETPLACE_POLICY_DRAFT_POLICY.md",
+        "docs/productization/PLUGIN_MARKETPLACE_POLICY_DRAFT_AUTHORITY_BOUNDARY.md",
+        "docs/productization/PLUGIN_MARKETPLACE_POLICY_DRAFT_RECEIPT_PLAN.md",
+        "docs/productization/PLUGIN_MARKETPLACE_POLICY_DRAFT_NON_GOALS.md",
+        "docs/productization/M144_TO_M145_BOUNDARY.md",
+        "docs/release_notes/checkpoint_m144.md",
+        "docs/archive/checkpoints/m144/README_IMPORT.md",
+        "docs/archive/checkpoints/m144/master_plan.md",
+        "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+    ]
+    for rel_path in required_paths:
+        if not (root / rel_path).exists():
+            failures.append(
+                f"missing M144 plugin marketplace policy draft doc: {rel_path}"
+            )
+    text = " ".join(
+        "\n".join(
+            _read(root / rel_path).lower()
+            for rel_path in required_paths
+            if (root / rel_path).exists()
+        ).split()
+    )
+    required_fragments = {
+        "M144 docs must say plugin marketplace policy draft": "plugin marketplace policy draft",
+        "M144 docs must say contract-only": "contract-only",
+        "M144 docs must say review-only": "review-only",
+        "M144 docs must say deterministic": "deterministic",
+        "M144 docs must say local-only": "local-only",
+        "M144 docs must say safe-ref-only": "safe-ref-only",
+        "M144 docs must say policy-draft-only": "policy-draft-only",
+        "M144 docs must say disabled by default": "disabled by default",
+        "M144 docs must say route-free": "route-free",
+        "M144 docs must say no-effect": "no-effect",
+        "M144 docs must say accepted M101-M143": "accepted m101-m143",
+        "M144 docs must say marketplace policy refs": "marketplace policy refs",
+        "M144 docs must say publisher policy refs": "publisher policy refs",
+        "M144 docs must say listing review refs": "listing review refs",
+        "M144 docs must say provenance review refs": "provenance review refs",
+        "M144 docs must say signature review refs": "signature review refs",
+        "M144 docs must say sandbox review refs": "sandbox review refs",
+        "M144 docs must say permission mapping refs": "permission mapping refs",
+        "M144 docs must say approval policy refs": "approval policy refs",
+        "M144 docs must deny marketplace runtime": "no plugin marketplace runtime",
+        "M144 docs must deny marketplace publish": "no marketplace publish",
+        "M144 docs must deny plugin install": "no plugin install",
+        "M144 docs must deny plugin enablement": "no plugin enablement",
+        "M144 docs must deny plugin execution": "no plugin execution",
+        "M144 docs must deny external plugin authority": "no external plugin authority",
+        "M144 docs must deny package import": "no package import",
+        "M144 docs must deny network plugin fetch": "no network plugin fetch",
+        "M144 docs must deny backend route": "no backend route",
+        "M144 docs must deny Control Center control": "no control center control",
+        "M144 docs must deny dependency": "no dependency",
+        "M144 docs must deny beta release": "no beta release",
+        "M144 docs must deny production authority": "no production authority",
+        "M144 docs must keep M145 future": "m145 remains future",
+        "M144 docs must preserve alpha target": "v1.0.0-alpha",
+    }
+    for message, fragment in required_fragments.items():
+        if fragment not in text:
+            failures.append(message)
+
+    active_paths = [
+        "README.md",
+        "VERSION.md",
+        "docs/canonical/09_roadmap.md",
+        "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+        "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+        "docs/roadmap/MILESTONE_CHARTERS.md",
+        "docs/DOCUMENTATION_INDEX.md",
+        "docs/canonical/CANONICAL_DOC_MAP.md",
+    ]
+    current_text = " ".join(
+        "\n".join(
+            _read(root / rel_path).lower()
+            for rel_path in active_paths
+            if (root / rel_path).exists()
+        ).split()
+    )
+    implemented_m144_row = (
+        "| checkpoint m144 | pre-alpha checkpoint | m144 | "
+        "plugin marketplace policy draft | implemented/released |"
+    )
+    planned_m145_row = (
+        "| checkpoint m145 | pre-alpha checkpoint | m145 | "
+        "enterprise/pro safety modes | planned/provisional |"
+    )
+    if not _roadmap_row_present(current_text, implemented_m144_row):
+        failures.append("active docs missing implemented Checkpoint M144 row")
+    if not _roadmap_row_present(current_text, planned_m145_row):
+        failures.append("active docs missing planned Checkpoint M145 row")
+    for fragment in {
+        "enterprise/pro safety runtime is implemented",
+        "plan enforcement is implemented",
+        "plugin marketplace runtime is implemented",
+        "marketplace publish is implemented",
+        "plugin install is implemented",
+        "plugin enablement is implemented",
+        "plugin execution is implemented",
+        "package import is implemented",
+        "network plugin fetch is implemented",
+        "beta is released",
+        "production authority is implemented",
+        "backend route is implemented",
+        "control center control is implemented",
+        "m145 dependency is added",
+    }:
+        if fragment in current_text or fragment in text:
+            failures.append(f"M144 docs imply forbidden/future capability: {fragment}")
     return failures
 
 

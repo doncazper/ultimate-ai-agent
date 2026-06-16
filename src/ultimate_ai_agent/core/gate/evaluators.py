@@ -2012,6 +2012,30 @@ M143_FORBIDDEN_BACKEND_ROUTES = M142_FORBIDDEN_BACKEND_ROUTES + (
     "/browser/click",
     "/connectors/write",
 )
+EXPECTED_M144_OPENAPI_PATH_COUNT = 75
+M144_FORBIDDEN_BACKEND_ROUTES = M143_FORBIDDEN_BACKEND_ROUTES + (
+    "/plugin-marketplace",
+    "/plugin-marketplace/policy",
+    "/plugin-marketplace/publish",
+    "/plugin-marketplace/install",
+    "/plugin-marketplace/enable",
+    "/plugin-marketplace/execute",
+    "/plugins/marketplace",
+    "/plugins/install",
+    "/plugins/enable",
+    "/plugins/execute",
+    "/plugins/load",
+    "/plugin-runtime/import",
+    "/plugin-runtime/load",
+    "/plugin-runtime/execute",
+    "/plugin-package/download",
+    "/plugin-package/upload",
+    "/marketplace/listings/write",
+    "/tools/plugins/execute",
+    "/network/fetch",
+    "/network/request",
+    "/production/authority/enable",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -3915,6 +3939,23 @@ def m143_openapi_route_failures(
     return failures
 
 
+def m144_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M144_OPENAPI_PATH_COUNT
+) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(
+            f"OpenAPI path count changed for M144: expected {expected_path_count}, got {len(path_set)}"
+        )
+    for route in M144_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(
+                f"M144 forbidden marketplace runtime, publishing, plugin install/enable/execute, package import/download/upload, network, or authority route present: {route}"
+            )
+    return failures
+
+
 M36_SAFE_REF_PREFIXES = {
     "reviewPacketRef": "file-review-packet:",
     "previewResultRef": "redacted-file-preview-output:",
@@ -5210,6 +5251,16 @@ class FoundationGateEvaluator:
                 self.check_m143_alpha_ui_app_readiness_route_boundary
             ),
             "m143_roadmap_currentness": self.check_m143_roadmap_currentness,
+            "m144_plugin_marketplace_policy_draft_contracts": (
+                self.check_m144_plugin_marketplace_policy_draft_contracts
+            ),
+            "m144_plugin_marketplace_policy_draft_static_safety": (
+                self.check_m144_plugin_marketplace_policy_draft_static_safety
+            ),
+            "m144_plugin_marketplace_policy_draft_route_boundary": (
+                self.check_m144_plugin_marketplace_policy_draft_route_boundary
+            ),
+            "m144_roadmap_currentness": self.check_m144_roadmap_currentness,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -31091,6 +31142,10 @@ class FoundationGateEvaluator:
             _version_doc_marks_milestone_implemented(active_version_text, "m143")
         ):
             implemented_milestones.add("m143")
+        if (
+            _version_doc_marks_milestone_implemented(active_version_text, "m144")
+        ):
+            implemented_milestones.add("m144")
         for version_label, product_target, milestone, title in expected_labels:
             if milestone in implemented_milestones:
                 continue
@@ -48511,6 +48566,13 @@ class FoundationGateEvaluator:
                 "pre-alpha checkpoint",
                 "m144",
                 "plugin marketplace policy draft",
+                "implemented/released",
+            ),
+            (
+                "checkpoint m145",
+                "pre-alpha checkpoint",
+                "m145",
+                "enterprise/pro safety modes",
                 "planned/provisional",
             ),
             (
@@ -48527,7 +48589,7 @@ class FoundationGateEvaluator:
             )
             if not _roadmap_row_present(text, row):
                 failures.append(
-                    f"active docs missing expected M143/M144-M150 row: {version_label} / {milestone.upper()} - {title}"
+                    f"active docs missing expected M143/M144-M145-M150 row: {version_label} / {milestone.upper()} - {title}"
                 )
         for fragment in (
             "alpha ui runtime is implemented",
@@ -48547,6 +48609,408 @@ class FoundationGateEvaluator:
             if fragment in text:
                 failures.append(
                     f"active docs imply forbidden M143 future/currentness claim: {fragment}"
+                )
+        return self._result(criterion, failures, required_docs)
+
+    def check_m144_plugin_marketplace_policy_draft_contracts(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/productization/plugin_marketplace_policy_draft.py",
+            "docs/productization/PLUGIN_MARKETPLACE_POLICY_DRAFT.md",
+            "docs/productization/PLUGIN_MARKETPLACE_POLICY_DRAFT_POLICY.md",
+            "docs/productization/PLUGIN_MARKETPLACE_POLICY_DRAFT_AUTHORITY_BOUNDARY.md",
+            "docs/productization/PLUGIN_MARKETPLACE_POLICY_DRAFT_RECEIPT_PLAN.md",
+            "docs/productization/PLUGIN_MARKETPLACE_POLICY_DRAFT_NON_GOALS.md",
+            "docs/productization/M144_TO_M145_BOUNDARY.md",
+            "docs/release_notes/checkpoint_m144.md",
+            "docs/archive/checkpoints/m144/README_IMPORT.md",
+            "docs/archive/checkpoints/m144/master_plan.md",
+            "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            "tests/test_m144_plugin_marketplace_policy_draft.py",
+            "tests/test_m144_gate_integration.py",
+        ]
+        failures = [
+            f"missing M144 plugin marketplace policy draft file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            from tests.test_m144_plugin_marketplace_policy_draft import _request
+            from ultimate_ai_agent.core.productization import (
+                PluginMarketplacePolicyDraftStatus,
+                build_plugin_marketplace_policy_draft_record,
+                validate_plugin_marketplace_policy_draft_record,
+            )
+
+            record = build_plugin_marketplace_policy_draft_record(_request())
+            if (
+                record.status
+                != PluginMarketplacePolicyDraftStatus.policy_draft_recorded
+                or not record.contract_only
+                or not record.review_only
+                or not record.deterministic
+                or not record.local_only
+                or not record.safe_refs_only
+                or not record.policy_draft_only
+                or not record.disabled_by_default
+                or not record.m101_m143_covered
+                or not record.marketplace_policy_bound
+                or not record.publisher_policy_bound
+                or not record.listing_review_bound
+                or not record.provenance_review_bound
+                or not record.signature_review_bound
+                or not record.sandbox_review_bound
+                or not record.permission_mapping_bound
+                or not record.approval_policy_bound
+                or not record.audit_replay_bound
+                or not record.revocation_bound
+                or not record.no_effect_receipt_required
+                or not record.no_plugin_install
+                or not record.no_plugin_enablement
+                or not record.no_plugin_execution
+                or not record.no_marketplace_runtime
+                or not record.no_marketplace_publish
+                or not record.no_external_plugin_authority
+                or not record.no_package_import
+                or not record.no_network_plugin_fetch
+                or not record.no_dependency
+                or not record.no_production_authority
+                or record.plugin_marketplace_runtime_started
+                or record.marketplace_publish_performed
+                or record.plugin_install_performed
+                or record.plugin_enablement_performed
+                or record.plugin_execution_performed
+                or record.external_plugin_authority_granted
+                or record.external_plugin_loaded
+                or record.package_import_performed
+                or record.runtime_import_performed
+                or record.network_plugin_fetch_performed
+                or record.package_download_performed
+                or record.artifact_upload_performed
+                or record.execution_performed
+                or record.tool_execution_performed
+                or record.backend_route_added
+                or record.control_center_control_added
+                or record.dependency_added
+                or record.production_authority_granted
+                or "M144_PLUGIN_MARKETPLACE_POLICY_DRAFT_REVIEW_ONLY"
+                not in record.reason_codes
+                or "M144_M101_M143_COVERED" not in record.reason_codes
+                or "M144_DISABLED_BY_DEFAULT" not in record.reason_codes
+                or "M144_NO_PLUGIN_INSTALL" not in record.reason_codes
+                or "M144_NO_PLUGIN_ENABLEMENT" not in record.reason_codes
+                or "M144_NO_PLUGIN_EXECUTION" not in record.reason_codes
+                or "M144_NO_MARKETPLACE_RUNTIME" not in record.reason_codes
+                or "M144_NO_MARKETPLACE_PUBLISH" not in record.reason_codes
+                or "M144_NO_EXTERNAL_PLUGIN_AUTHORITY" not in record.reason_codes
+                or "M144_NO_PACKAGE_IMPORT" not in record.reason_codes
+                or "M144_NO_NETWORK_PLUGIN_FETCH" not in record.reason_codes
+                or "M144_NO_PRODUCTION_AUTHORITY" not in record.reason_codes
+                or "M145_REMAINS_FUTURE" not in record.reason_codes
+            ):
+                failures.append(
+                    "M144 plugin marketplace policy draft record is unsafe or over-authoritative"
+                )
+            for update, reason in [
+                (
+                    {"plugin_marketplace_runtime_started": True},
+                    "M144_MARKETPLACE_RUNTIME_DENIED",
+                ),
+                (
+                    {"marketplace_publish_performed": True},
+                    "M144_MARKETPLACE_PUBLISH_DENIED",
+                ),
+                ({"plugin_install_performed": True}, "M144_PLUGIN_INSTALL_DENIED"),
+                (
+                    {"plugin_enablement_performed": True},
+                    "M144_PLUGIN_ENABLEMENT_DENIED",
+                ),
+                ({"plugin_execution_performed": True}, "M144_PLUGIN_EXECUTION_DENIED"),
+                (
+                    {"external_plugin_authority_granted": True},
+                    "M144_EXTERNAL_PLUGIN_AUTHORITY_DENIED",
+                ),
+                (
+                    {"package_import_performed": True},
+                    "M144_PACKAGE_IMPORT_DENIED",
+                ),
+                (
+                    {"network_plugin_fetch_performed": True},
+                    "M144_NETWORK_PLUGIN_FETCH_DENIED",
+                ),
+                ({"backend_route_added": True}, "M144_BACKEND_ROUTE_DENIED"),
+                ({"dependency_added": True}, "M144_DEPENDENCY_DENIED"),
+                (
+                    {"production_authority_granted": True},
+                    "M144_PRODUCTION_AUTHORITY_DENIED",
+                ),
+            ]:
+                try:
+                    validate_plugin_marketplace_policy_draft_record(
+                        record.model_copy(update=update)
+                    )
+                    failures.append(
+                        f"M144 unsafe marketplace mutation was not denied with {reason}"
+                    )
+                except ValueError as exc:
+                    if reason not in str(exc):
+                        failures.append(
+                            f"M144 unsafe marketplace mutation raised {exc!s}"
+                        )
+        except Exception as exc:
+            failures.append(f"M144 marketplace policy validation failed: {exc}")
+
+        docs_text = " ".join(
+            "\n".join(
+                self._read(self.root / path).lower()
+                for path in required_files
+                if path.startswith("docs/") and (self.root / path).exists()
+            ).split()
+        )
+        for fragment in [
+            "plugin marketplace policy draft",
+            "contract-only",
+            "review-only",
+            "deterministic",
+            "local-only",
+            "safe-ref-only",
+            "policy-draft-only",
+            "disabled by default",
+            "route-free",
+            "no-effect",
+            "accepted m101-m143",
+            "marketplace policy refs",
+            "publisher policy refs",
+            "listing review refs",
+            "provenance review refs",
+            "signature review refs",
+            "sandbox review refs",
+            "permission mapping refs",
+            "approval policy refs",
+            "audit",
+            "replay",
+            "revocation",
+            "kill-switch",
+            "no-effect receipt",
+            "no plugin marketplace runtime",
+            "no marketplace publish",
+            "no plugin install",
+            "no plugin enablement",
+            "no plugin execution",
+            "no external plugin authority",
+            "no package import",
+            "no network plugin fetch",
+            "no backend route",
+            "no control center control",
+            "no dependency",
+            "no beta release",
+            "no production authority",
+            "m145 remains future",
+            "v1.0.0-alpha",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M144 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m144_plugin_marketplace_policy_draft_static_safety(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        forbidden_source_fragments = [
+            "plugin_marketplace_runtime_enabled=True",
+            "marketplace_publish_enabled=True",
+            "plugin_install_enabled=True",
+            "plugin_enablement_enabled=True",
+            "plugin_execution_enabled=True",
+            "external_plugin_authority_enabled=True",
+            "external_plugin_loading_enabled=True",
+            "marketplace_listing_mutation_enabled=True",
+            "package_import_enabled=True",
+            "runtime_import_enabled=True",
+            "network_plugin_fetch_enabled=True",
+            "package_download_enabled=True",
+            "artifact_upload_enabled=True",
+            "signature_verification_runtime_enabled=True",
+            "credential_handling_enabled=True",
+            "execution_enabled=True",
+            "tool_execution_enabled=True",
+            "shell_execution_enabled=True",
+            "browser_action_enabled=True",
+            "connector_action_enabled=True",
+            "network_access_enabled=True",
+            "model_call_enabled=True",
+            "memory_write_enabled=True",
+            "context_injection_enabled=True",
+            "backend_route_enabled=True",
+            "dependency_added=True",
+            "production_authority_granted=True",
+            "plugin_marketplace_runtime_started=True",
+            "marketplace_publish_performed=True",
+            "plugin_install_performed=True",
+            "plugin_enablement_performed=True",
+            "plugin_execution_performed=True",
+            "external_plugin_authority_granted=True",
+            "external_plugin_loaded=True",
+            "package_import_performed=True",
+            "network_plugin_fetch_performed=True",
+            "package_download_performed=True",
+            "artifact_upload_performed=True",
+            "/plugin-marketplace/publish",
+            "/plugin-marketplace/install",
+            "/plugin-marketplace/enable",
+            "/plugins/install",
+            "/plugins/execute",
+            "/plugins/load",
+            "/plugin-runtime/import",
+            "/plugin-runtime/execute",
+            "/plugin-package/download",
+            "/plugin-package/upload",
+            "/marketplace/listings/write",
+        ]
+        allowed_files = {
+            "src/ultimate_ai_agent/core/gate/evaluators.py",
+            "src/ultimate_ai_agent/api/app.py",
+            "src/ultimate_ai_agent/api/openapi.py",
+            "src/ultimate_ai_agent/core/gate/criteria.py",
+            "src/ultimate_ai_agent/core/productization/__init__.py",
+            "src/ultimate_ai_agent/core/productization/plugin_marketplace_policy_draft.py",
+            "src/ultimate_ai_agent/core/productization/alpha_ui_app_readiness.py",
+            "src/ultimate_ai_agent/core/productization/alpha_privacy_review.py",
+            "src/ultimate_ai_agent/core/productization/multi_user_product_boundary.py",
+        }
+        for root in [
+            self.root / "src" / "ultimate_ai_agent",
+            self.root / "apps" / "control-center" / "src",
+            self.root / "apps" / "ccc-ios",
+        ]:
+            if not root.exists():
+                continue
+            candidate_files = []
+            for pattern in (
+                "*.py",
+                "*.ts",
+                "*.tsx",
+                "*.js",
+                "*.jsx",
+                "*.swift",
+                "*.yml",
+                "*.yaml",
+            ):
+                candidate_files.extend(root.rglob(pattern))
+            for path in sorted(candidate_files):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(self.root).as_posix()
+                if ".test." in rel or rel in allowed_files:
+                    continue
+                text = path.read_text(encoding="utf-8")
+                for fragment in forbidden_source_fragments:
+                    if fragment in text:
+                        failures.append(
+                            f"M144 forbidden marketplace policy fragment in {rel}: {fragment}"
+                        )
+        return self._result(criterion, failures, [])
+
+    def check_m144_plugin_marketplace_policy_draft_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m144_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M144 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m144_roadmap_currentness(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_docs = [
+            "README.md",
+            "VERSION.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            "docs/roadmap/MILESTONE_CHARTERS.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+            "docs/DOCUMENTATION_INDEX.md",
+            "docs/canonical/CANONICAL_DOC_MAP.md",
+        ]
+        failures = [
+            f"missing M144 roadmap doc: {path}"
+            for path in required_docs
+            if not (self.root / path).exists()
+        ]
+        text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_docs
+            if (self.root / path).exists()
+        )
+        if "checkpoint m144" not in text or "plugin marketplace policy draft" not in text:
+            failures.append("active docs do not identify Checkpoint M144")
+        if (
+            "m144 is implemented/released" not in text
+            and "checkpoint m144 is implemented/released" not in text
+        ):
+            failures.append("active docs do not mark M144 implemented/released")
+        for version_label, product_target, milestone, title, status in [
+            (
+                "checkpoint m143",
+                "pre-alpha checkpoint",
+                "m143",
+                "alpha ui and app readiness",
+                "implemented/released",
+            ),
+            (
+                "checkpoint m144",
+                "pre-alpha checkpoint",
+                "m144",
+                "plugin marketplace policy draft",
+                "implemented/released",
+            ),
+            (
+                "checkpoint m145",
+                "pre-alpha checkpoint",
+                "m145",
+                "enterprise/pro safety modes",
+                "planned/provisional",
+            ),
+            (
+                "v1.0.0-alpha",
+                "alpha",
+                "m150",
+                "ultimate ai agent v1.0.0-alpha",
+                "planned/provisional",
+            ),
+        ]:
+            row = (
+                f"| {version_label} | {product_target} | {milestone} | "
+                f"{title} | {status} |"
+            )
+            if not _roadmap_row_present(text, row):
+                failures.append(
+                    f"active docs missing expected M144/M145-M150 row: {version_label} / {milestone.upper()} - {title}"
+                )
+        for fragment in (
+            "enterprise/pro safety runtime is implemented",
+            "plan enforcement is implemented",
+            "plugin marketplace runtime is implemented",
+            "marketplace publish is implemented",
+            "plugin install is implemented",
+            "plugin enablement is implemented",
+            "plugin execution is implemented",
+            "package import is implemented",
+            "network plugin fetch is implemented",
+            "beta is released",
+            "production authority is implemented",
+            "backend route is implemented",
+            "control center control is implemented",
+            "m145 dependency is added",
+        ):
+            if fragment in text:
+                failures.append(
+                    f"active docs imply forbidden M144 future/currentness claim: {fragment}"
                 )
         return self._result(criterion, failures, required_docs)
 

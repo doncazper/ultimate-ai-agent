@@ -46,7 +46,8 @@ implemented/released as Autonomy Abuse/Loop Detection. Checkpoint M140 is
 implemented/released as Higher-Autonomy Red-Team Freeze. Checkpoint M141 is
 implemented/released as Multi-User Product Boundary. Checkpoint M142 is
 implemented/released as Alpha Privacy Review. Checkpoint M143 is
-implemented/released as Alpha UI and App Readiness. M144-M150 remain
+implemented/released as Alpha UI and App Readiness. Checkpoint M144 is
+implemented/released as Plugin Marketplace Policy Draft. M145-M150 remain
 planned/provisional.
 Future work must continue the authority-tier model:
 
@@ -114,7 +115,7 @@ roadmap patch. Do not rewrite, move, or reuse existing tags.
 | Checkpoint M141 | pre-alpha checkpoint | M141 | Multi-User Product Boundary | Implemented/released |
 | Checkpoint M142 | pre-alpha checkpoint | M142 | Alpha Privacy Review | Implemented/released |
 | Checkpoint M143 | pre-alpha checkpoint | M143 | Alpha UI and App Readiness | Implemented/released |
-| Checkpoint M144 | pre-alpha checkpoint | M144 | Plugin Marketplace Policy Draft | Planned/provisional |
+| Checkpoint M144 | pre-alpha checkpoint | M144 | Plugin Marketplace Policy Draft | Implemented/released |
 | Checkpoint M145 | pre-alpha checkpoint | M145 | Enterprise/Pro Safety Modes | Planned/provisional |
 | Checkpoint M146 | pre-alpha checkpoint | M146 | Billing/Plan Boundary, If Needed | Planned/provisional |
 | Checkpoint M147 | pre-alpha checkpoint | M147 | Public Docs + Wiki Readiness | Planned/provisional |
@@ -142,8 +143,8 @@ hardening freeze. M111-M120 stage production-readiness contracts without
 granting production authority. M121-M130 stage connector safety from contract
 refresh through low-risk write execution and freeze. M131-M140 stage higher
 autonomy only after prior scoped, auditable safety foundations. M141 records the
-multi-user product boundary as contract-only product-readiness work. M142 records alpha privacy review as contract-only product-readiness work. M143 records alpha UI and app readiness as contract-only product-readiness work. M144-M150
-stage marketplace policy,
+multi-user product boundary as contract-only product-readiness work. M142 records alpha privacy review as contract-only product-readiness work. M143 records alpha UI and app readiness as contract-only product-readiness work. M144 records plugin marketplace policy draft as contract-only product-readiness work. M145-M150
+stage enterprise/pro safety modes,
 billing boundaries, public docs, security review, alpha release candidate
 freeze, and the v1.0.0-alpha target.
 

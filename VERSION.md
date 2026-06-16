@@ -2,13 +2,25 @@
 
 Current active baseline: **v1.7.2**
 
-Checkpoint M143 is implemented/released as Alpha UI and App Readiness.
+Checkpoint M144 is implemented/released as Plugin Marketplace Policy Draft.
 The current product baseline remains v1.7.2. Already-pushed tags
-remain immutable historical internal milestone tags. Future M144-M149 conveyor
+remain immutable historical internal milestone tags. Future M145-M149 conveyor
 milestones use checkpoint labels instead of product SemVer tags, and M150 is
 the next product release target **v1.0.0-alpha**. Beta begins only after the
 alpha UI and supporting safety/product work are reviewed, accepted, and
 explicitly promoted by a later roadmap patch.
+
+Checkpoint M144 is contract-only, review-only, deterministic, local-only,
+safe-ref-only, policy-draft-only, disabled by default, route-free, and
+no-effect. It records accepted M101-M143 checkpoint refs, marketplace policy
+refs, publisher policy refs, listing review refs, provenance review refs,
+signature review refs, sandbox review refs, permission mapping refs, approval
+policy refs, audit, replay, revocation, kill-switch, and no-effect receipt refs.
+It denies plugin marketplace runtime, marketplace publish, plugin install,
+plugin enablement, plugin execution, external plugin authority, package import,
+network plugin fetch, package download, artifact upload, raw manifest content
+access, raw package content access, backend route, Control Center control,
+dependency, beta release, and production authority.
 
 v1.7.0 implements M103 Camera/Photos Metadata-Only Contract. Camera and photos
 remain off by default.
@@ -511,6 +523,6 @@ backend routes, Control Center controls, dependencies, alpha privacy review,
 alpha release, beta release, M142 alpha privacy review work, broad autonomy,
 and production authority.
 
-M101, M102, M103, M104, M105, M106, M107, M108, M109, M110, M111, M112, M113, M114, M115, M116, M117, M118, M119, M120, M121, M122, M123, M124, M125, M126, M127, M128, M129, M130, M131, M132, M133, M134, M135, M136, M137, M138, M139, M140, M141, M142, and M143 are implemented/released. M144-M150 are
+M101, M102, M103, M104, M105, M106, M107, M108, M109, M110, M111, M112, M113, M114, M115, M116, M117, M118, M119, M120, M121, M122, M123, M124, M125, M126, M127, M128, M129, M130, M131, M132, M133, M134, M135, M136, M137, M138, M139, M140, M141, M142, M143, and M144 are implemented/released. M145-M150 are
 planned/provisional checkpoint milestones only. M150 is planned as
 v1.0.0-alpha, not beta.
