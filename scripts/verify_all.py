@@ -175,6 +175,7 @@ SCAN_SEQUENCE = [
     ("M134 human checkpoint scheduling scan", "verify_m134_human_checkpoint_scheduling"),
     ("M135 autonomous recovery planner scan", "verify_m135_autonomous_recovery_planner"),
     ("M136 cross-tool dependency execution scan", "verify_m136_cross_tool_dependency_execution"),
+    ("M137 browser connector combined workflow scan", "verify_m137_browser_connector_combined_workflow"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -11636,6 +11637,7 @@ def verify_m73_browser_automation_contract_review():
         "src/ultimate_ai_agent/core/autonomy/policies.py",
         "src/ultimate_ai_agent/core/autonomy/sessions.py",
         "src/ultimate_ai_agent/core/autonomy/simulator.py",
+        "src/ultimate_ai_agent/core/autonomy/browser_connector_combined_workflow.py",
     }
     source_roots = [
         ROOT / "src" / "ultimate_ai_agent",
@@ -11868,6 +11870,7 @@ def verify_m74_browser_observe_only_adapter():
         "src/ultimate_ai_agent/core/autonomy/policies.py",
         "src/ultimate_ai_agent/core/autonomy/sessions.py",
         "src/ultimate_ai_agent/core/autonomy/simulator.py",
+        "src/ultimate_ai_agent/core/autonomy/browser_connector_combined_workflow.py",
     }
     for root in [ROOT / "src" / "ultimate_ai_agent", ROOT / "apps" / "control-center" / "src", ROOT / "apps" / "ccc-ios"]:
         if not root.exists():
@@ -12092,6 +12095,7 @@ def verify_m75_browser_action_dry_run_planner():
         "src/ultimate_ai_agent/core/autonomy/policies.py",
         "src/ultimate_ai_agent/core/autonomy/sessions.py",
         "src/ultimate_ai_agent/core/autonomy/simulator.py",
+        "src/ultimate_ai_agent/core/autonomy/browser_connector_combined_workflow.py",
     }
     for root in [ROOT / "src" / "ultimate_ai_agent", ROOT / "apps" / "control-center" / "src", ROOT / "apps" / "ccc-ios"]:
         if not root.exists():
@@ -17740,6 +17744,13 @@ def verify_post_m100_roadmap_reconciliation():
         or "cross-tool dependency execution" in active_version_text
     ):
         implemented_milestones.add("m136")
+    if (
+        "checkpoint m137" in active_version_text
+        or "m137" in active_version_text
+        or "autonomous browser + connector combined workflows"
+        in active_version_text
+    ):
+        implemented_milestones.add("m137")
     for version_label, product_target, milestone, title in expected_labels:
         if milestone in implemented_milestones:
             continue
@@ -25025,6 +25036,262 @@ def verify_m136_cross_tool_dependency_execution():
             sys.exit(1)
 
     print("OK: M136 cross-tool dependency execution is review-only, safe-ref-only, and route-free")
+
+
+def verify_m137_browser_connector_combined_workflow():
+    print("\n[Verifier] Running M137 browser connector combined workflow guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/autonomy/__init__.py",
+        "src/ultimate_ai_agent/core/autonomy/browser_connector_combined_workflow.py",
+        "docs/autonomy/BROWSER_CONNECTOR_COMBINED_WORKFLOW.md",
+        "docs/autonomy/BROWSER_CONNECTOR_COMBINED_WORKFLOW_POLICY.md",
+        "docs/autonomy/BROWSER_CONNECTOR_COMBINED_WORKFLOW_AUTHORITY_BOUNDARY.md",
+        "docs/autonomy/BROWSER_CONNECTOR_COMBINED_WORKFLOW_RECEIPT_PLAN.md",
+        "docs/autonomy/BROWSER_CONNECTOR_COMBINED_WORKFLOW_NON_GOALS.md",
+        "docs/autonomy/M137_TO_M138_BOUNDARY.md",
+        "docs/release_notes/checkpoint_m137.md",
+        "docs/archive/checkpoints/m137/README_IMPORT.md",
+        "docs/archive/checkpoints/m137/master_plan.md",
+        "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+        "tests/test_m137_browser_connector_combined_workflow.py",
+        "tests/test_m137_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M137 browser connector workflow file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = " ".join(
+        "\n".join(
+            (ROOT / rel_path).read_text(encoding="utf-8").lower()
+            for rel_path in required_files
+            if rel_path.startswith("docs/")
+        ).split()
+    )
+    for fragment in [
+        "autonomous browser + connector combined workflows",
+        "contract-only",
+        "review-only",
+        "browser-connector-combined-workflow-only",
+        "deterministic",
+        "local-only",
+        "safe-ref-only",
+        "exact scope",
+        "mode 5",
+        "m136 cross-tool dependency execution decision",
+        "m135 autonomous recovery planner decision",
+        "m134 human checkpoint scheduling decision",
+        "m133 supervisor decision",
+        "m132 trusted workflow decision",
+        "browser workflow",
+        "browser observation",
+        "browser action plan refs",
+        "connector workflow",
+        "connector account scope",
+        "connector action plan refs",
+        "workflow step refs",
+        "combined dependency graph",
+        "dependency order refs",
+        "safe handoff",
+        "dry-run plan",
+        "approval bundle",
+        "human checkpoint",
+        "audit",
+        "replay",
+        "revocation",
+        "kill-switch",
+        "no-effect receipt",
+        "no browser action",
+        "no connector action",
+        "no account auth",
+        "no dependency execution",
+        "no tool execution",
+        "no shell execution",
+        "no network access",
+        "no plugin execution",
+        "no model call",
+        "no memory write",
+        "no context injection",
+        "no backend route",
+        "no control center control",
+        "no dependency",
+        "m138 remains future",
+        "v1.0.0-alpha",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M137 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from tests.test_m137_browser_connector_combined_workflow import _request
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.autonomy import (
+            AutonomyAuthorityMode,
+            AutonomyRiskClass,
+            BrowserConnectorCombinedWorkflowStatus,
+            build_browser_connector_combined_workflow_decision,
+            validate_browser_connector_combined_workflow_decision,
+        )
+        from ultimate_ai_agent.core.gate.criteria import (
+            default_foundation_gate_criteria,
+        )
+        from ultimate_ai_agent.core.gate.evaluators import (
+            FoundationGateEvaluator,
+            m137_openapi_route_failures,
+        )
+    except Exception as exc:
+        print(f"FAIL: M137 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m137_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    decision = build_browser_connector_combined_workflow_decision(_request())
+    if (
+        decision.status != BrowserConnectorCombinedWorkflowStatus.ready_for_review
+        or decision.selected_mode != AutonomyAuthorityMode.trusted_recurring_automation
+        or decision.max_risk_class != AutonomyRiskClass.low
+        or not decision.contract_only
+        or not decision.review_only
+        or not decision.browser_connector_combined_workflow_only
+        or not decision.deterministic
+        or not decision.local_only
+        or not decision.safe_refs_only
+        or not decision.exact_scope_bound
+        or not decision.mode5_bound
+        or not decision.m136_dependency_execution_bound
+        or not decision.m135_recovery_planner_bound
+        or not decision.m134_human_checkpoint_bound
+        or not decision.m133_supervisor_bound
+        or not decision.m132_trusted_workflow_bound
+        or not decision.browser_plan_bound
+        or not decision.connector_plan_bound
+        or not decision.combined_dependency_graph_bound
+        or not decision.dry_run_plan_bound
+        or not decision.approval_bundle_bound
+        or not decision.human_checkpoint_bound
+        or not decision.audit_replay_bound
+        or not decision.revocation_bound
+        or not decision.kill_switch_bound
+        or not decision.no_effect_receipt_required
+        or decision.mode5_runtime_authorized
+        or decision.combined_workflow_runtime_authorized
+        or decision.browser_action_authorized
+        or decision.browser_action_performed
+        or decision.browser_click_performed
+        or decision.browser_form_performed
+        or decision.connector_runtime_authorized
+        or decision.connector_action_authorized
+        or decision.connector_write_performed
+        or decision.account_auth_performed
+        or decision.dependency_execution_authorized
+        or decision.dependency_execution_performed
+        or decision.tool_execution_performed
+        or decision.execution_performed
+        or decision.backend_route_added
+        or decision.dependency_added
+        or decision.beta_release_enabled
+        or decision.production_authority_granted
+        or not decision.receipt_plan.store_safe_summary_only
+        or not decision.receipt_plan.store_safe_refs_only
+        or decision.receipt_plan.store_raw_browser_dom
+        or decision.receipt_plan.store_raw_connector_payload
+        or decision.receipt_plan.browser_action_performed
+        or decision.receipt_plan.connector_action_performed
+        or decision.receipt_plan.combined_workflow_runtime_started
+        or "M137_BROWSER_CONNECTOR_COMBINED_WORKFLOW_CONTRACT_ONLY"
+        not in decision.reason_codes
+        or "M137_EXACT_BROWSER_CONNECTOR_SCOPE_REQUIRED"
+        not in decision.reason_codes
+        or "M137_NO_BROWSER_OR_CONNECTOR_RUNTIME" not in decision.reason_codes
+        or "M137_NO_COMBINED_WORKFLOW_EXECUTION" not in decision.reason_codes
+        or "M138_REMAINS_FUTURE" not in decision.reason_codes
+    ):
+        print("FAIL: M137 browser connector workflow decision is unsafe or over-authoritative")
+        sys.exit(1)
+
+    for update, reason in [
+        (
+            {"combined_workflow_runtime_authorized": True},
+            "M137_COMBINED_WORKFLOW_RUNTIME_DENIED",
+        ),
+        ({"browser_action_authorized": True}, "M137_BROWSER_ACTION_DENIED"),
+        ({"browser_action_performed": True}, "M137_BROWSER_ACTION_DENIED"),
+        ({"browser_click_performed": True}, "M137_BROWSER_CLICK_DENIED"),
+        ({"browser_form_performed": True}, "M137_BROWSER_FORM_DENIED"),
+        ({"connector_runtime_authorized": True}, "M137_CONNECTOR_RUNTIME_DENIED"),
+        ({"connector_action_authorized": True}, "M137_CONNECTOR_ACTION_DENIED"),
+        ({"connector_write_performed": True}, "M137_CONNECTOR_WRITE_DENIED"),
+        ({"account_auth_performed": True}, "M137_ACCOUNT_AUTH_DENIED"),
+        (
+            {"dependency_execution_performed": True},
+            "M137_DEPENDENCY_EXECUTION_DENIED",
+        ),
+        ({"tool_execution_performed": True}, "M137_TOOL_EXECUTION_DENIED"),
+        ({"backend_route_added": True}, "M137_BACKEND_ROUTE_DENIED"),
+        (
+            {"production_authority_granted": True},
+            "M137_PRODUCTION_AUTHORITY_DENIED",
+        ),
+    ]:
+        try:
+            validate_browser_connector_combined_workflow_decision(
+                decision.model_copy(update=update)
+            )
+            print(f"FAIL: M137 mutated authority flag was not denied: {update}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M137 mutated authority flag raised {exc!s}")
+                sys.exit(1)
+
+    try:
+        validate_browser_connector_combined_workflow_decision(
+            decision.model_copy(
+                update={
+                    "receipt_plan": decision.receipt_plan.model_copy(
+                        update={"store_raw_browser_dom": True}
+                    )
+                }
+            )
+        )
+        print("FAIL: M137 receipt plan allowed raw browser DOM storage")
+        sys.exit(1)
+    except ValueError as exc:
+        if "M137_RAW_BROWSER_DOM_DENIED" not in str(exc):
+            print(f"FAIL: M137 raw browser DOM receipt mutation raised {exc!s}")
+            sys.exit(1)
+
+    criteria = {
+        criterion.criterion_id: criterion
+        for criterion in default_foundation_gate_criteria()
+    }
+    for criterion_id in [
+        "m137_browser_connector_combined_workflow_contracts",
+        "m137_browser_connector_combined_workflow_static_safety",
+        "m137_browser_connector_combined_workflow_route_boundary",
+        "m137_roadmap_currentness",
+    ]:
+        if criterion_id not in criteria:
+            print(f"FAIL: Missing M137 Foundation Gate criterion: {criterion_id}")
+            sys.exit(1)
+    evaluator = FoundationGateEvaluator(ROOT)
+    for criterion_id in [
+        "m137_browser_connector_combined_workflow_contracts",
+        "m137_browser_connector_combined_workflow_static_safety",
+        "m137_browser_connector_combined_workflow_route_boundary",
+        "m137_roadmap_currentness",
+    ]:
+        gate_report = evaluator.evaluate([criteria[criterion_id]])
+        result = gate_report.results[0]
+        if result.status != "passed":
+            print(f"FAIL: {criterion_id} failed: {result.failures}")
+            sys.exit(1)
+
+    print("OK: M137 browser connector workflow is review-only, safe-ref-only, and route-free")
 
 
 def verify_local_developer_launcher_safety():

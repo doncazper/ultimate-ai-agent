@@ -209,7 +209,8 @@ Checkpoint M132 is implemented/released as Autonomy Mode 5, Trusted Recurring Wo
 Checkpoint M133 is implemented/released as Long-Running Task Supervisor.
 Checkpoint M134 is implemented/released as Human Checkpoint Scheduling.
 Checkpoint M136 is implemented/released as Cross-Tool Dependency Execution.
-M137-M149
+Checkpoint M137 is implemented/released as Autonomous Browser + Connector
+Combined Workflows. M138-M149
 remain planned/provisional as checkpoint milestones instead of product SemVer
 tags, and M150 remains planned/provisional as the v1.0.0-alpha product target.
 Beta begins after the alpha UI and supporting safety/product work are reviewed

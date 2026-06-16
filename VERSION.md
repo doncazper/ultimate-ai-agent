@@ -2,9 +2,10 @@
 
 Current active baseline: **v1.7.2**
 
-Checkpoint M136 is implemented/released as Cross-Tool Dependency Execution.
+Checkpoint M137 is implemented/released as Autonomous Browser + Connector
+Combined Workflows.
 The current product baseline remains v1.7.2. Already-pushed tags
-remain immutable historical internal milestone tags. Future M137-M149 conveyor
+remain immutable historical internal milestone tags. Future M138-M149 conveyor
 milestones use checkpoint labels instead of product SemVer tags, and M150 is
 the next product release target **v1.0.0-alpha**. Beta begins only after the
 alpha UI and supporting safety/product work are reviewed, accepted, and
@@ -418,6 +419,28 @@ injection, backend routes, Control Center controls, dependencies, beta release,
 M137 browser + connector combined workflow work, broad autonomy, and production
 authority.
 
-M101, M102, M103, M104, M105, M106, M107, M108, M109, M110, M111, M112, M113, M114, M115, M116, M117, M118, M119, M120, M121, M122, M123, M124, M125, M126, M127, M128, M129, M130, M131, M132, M133, M134, M135, and M136 are implemented/released. M137-M150 are
+Checkpoint M137 adds deterministic local Autonomous Browser + Connector
+Combined Workflows records. It records exact scope refs, Mode 5 refs, M136
+cross-tool dependency execution decision refs, M135 recovery planner decision
+refs, M134 human checkpoint scheduling decision refs, M133 supervisor decision
+refs, M132 trusted workflow decision refs, browser workflow refs, browser
+observation refs, browser action plan refs, connector workflow refs, connector
+account scope refs, connector action plan refs, workflow step refs, combined
+dependency graph refs, dependency order refs, safe handoff refs, dry-run plan
+refs, approval bundle refs, checkpoint refs, human checkpoint refs, policy
+decision refs, risk decision refs, audit refs, replay refs, revocation refs,
+kill-switch refs, and no-effect receipt plan refs. It keeps combined browser
+and connector workflows review-only and no-effect. It denies combined workflow
+runtime, browser action, browser navigation, browser click, browser form,
+browser download, browser upload, authenticated browser use, connector runtime,
+connector read runtime, connector write, connector send, connector delete,
+account auth, dependency execution, dependency resolver runtime, cross-tool
+runtime, tool execution, shell execution, command execution, subprocess
+execution, filesystem mutation, network access, plugin execution, mobile sensor
+access, remote execution, model calls, memory writes, context injection,
+backend routes, Control Center controls, dependencies, beta release, M138 error
+handling guardrail work, broad autonomy, and production authority.
+
+M101, M102, M103, M104, M105, M106, M107, M108, M109, M110, M111, M112, M113, M114, M115, M116, M117, M118, M119, M120, M121, M122, M123, M124, M125, M126, M127, M128, M129, M130, M131, M132, M133, M134, M135, M136, and M137 are implemented/released. M138-M150 are
 planned/provisional checkpoint milestones only. M150 is planned as
 v1.0.0-alpha, not beta.

@@ -27,6 +27,12 @@ docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md
 docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md
 docs/roadmap/M61_M100_ROADMAP.md
 docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md
+docs/autonomy/BROWSER_CONNECTOR_COMBINED_WORKFLOW.md
+docs/autonomy/BROWSER_CONNECTOR_COMBINED_WORKFLOW_POLICY.md
+docs/autonomy/BROWSER_CONNECTOR_COMBINED_WORKFLOW_AUTHORITY_BOUNDARY.md
+docs/autonomy/BROWSER_CONNECTOR_COMBINED_WORKFLOW_RECEIPT_PLAN.md
+docs/autonomy/BROWSER_CONNECTOR_COMBINED_WORKFLOW_NON_GOALS.md
+docs/autonomy/M137_TO_M138_BOUNDARY.md
 docs/autonomy/CROSS_TOOL_DEPENDENCY_EXECUTION.md
 docs/autonomy/CROSS_TOOL_DEPENDENCY_EXECUTION_POLICY.md
 docs/autonomy/CROSS_TOOL_DEPENDENCY_EXECUTION_AUTHORITY_BOUNDARY.md
@@ -875,16 +881,18 @@ Supervisor records. M134 is implemented/released as deterministic local
 review-only Human Checkpoint Scheduling records. M135 is implemented/released
 as deterministic local review-only Autonomous Recovery Planner records. M136 is
 implemented/released as deterministic local review-only Cross-Tool Dependency
-Execution records. M137-M150 are
+Execution records. M137 is implemented/released as deterministic local
+review-only Autonomous Browser + Connector Combined Workflows records.
+M138-M150 are
 planned/provisional only in
 `docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md`.
-Future M137-M149 conveyor milestones use checkpoint labels instead of product
+Future M138-M149 conveyor milestones use checkpoint labels instead of product
 SemVer tags, and M150 is
 planned as v1.0.0-alpha. Beta begins only after alpha UI and supporting
 safety/product work are reviewed and promoted. Active roadmap sources consistently mark
-M34-M136 implemented/released and rely on documentation-integrity checks to
+M34-M137 implemented/released and rely on documentation-integrity checks to
 guard against superseded-roadmap drift, stale current-baseline labels, route
-drift, authority-boundary drift, alpha/beta versioning drift, and M137-M150
+drift, authority-boundary drift, alpha/beta versioning drift, and M138-M150
 future-status drift.
 
 ## Release Notes Index

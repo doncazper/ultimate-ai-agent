@@ -1855,6 +1855,34 @@ M136_FORBIDDEN_BACKEND_ROUTES = M135_FORBIDDEN_BACKEND_ROUTES + (
     "/background/start",
     "/workers/start",
 )
+EXPECTED_M137_OPENAPI_PATH_COUNT = 75
+M137_FORBIDDEN_BACKEND_ROUTES = M136_FORBIDDEN_BACKEND_ROUTES + (
+    "/autonomy/browser-connector-combined-workflow",
+    "/autonomy/browser-connector-combined-workflow/start",
+    "/autonomy/browser-connector-combined-workflow/run",
+    "/combined-workflows/run",
+    "/combined-workflows/execute",
+    "/browser/actions/run",
+    "/browser/actions/execute",
+    "/browser/navigate",
+    "/browser/click",
+    "/browser/form",
+    "/browser/download",
+    "/browser/upload",
+    "/browser/authenticated",
+    "/connectors/runtime",
+    "/connectors/read",
+    "/connectors/write",
+    "/connectors/send",
+    "/connectors/delete",
+    "/connectors/auth",
+    "/accounts/auth",
+    "/dependency-execution/execute",
+    "/dependency-resolver/start",
+    "/tools/execute",
+    "/network/post",
+    "/plugins/execute",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -3639,6 +3667,23 @@ def m136_openapi_route_failures(
     return failures
 
 
+def m137_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M137_OPENAPI_PATH_COUNT
+) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(
+            f"OpenAPI path count changed for M137: expected {expected_path_count}, got {len(path_set)}"
+        )
+    for route in M137_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(
+                f"M137 forbidden browser, connector, combined workflow, execution, runtime, or authority route present: {route}"
+            )
+    return failures
+
+
 M36_SAFE_REF_PREFIXES = {
     "reviewPacketRef": "file-review-packet:",
     "previewResultRef": "redacted-file-preview-output:",
@@ -4864,6 +4909,16 @@ class FoundationGateEvaluator:
                 self.check_m136_cross_tool_dependency_execution_route_boundary
             ),
             "m136_roadmap_currentness": self.check_m136_roadmap_currentness,
+            "m137_browser_connector_combined_workflow_contracts": (
+                self.check_m137_browser_connector_combined_workflow_contracts
+            ),
+            "m137_browser_connector_combined_workflow_static_safety": (
+                self.check_m137_browser_connector_combined_workflow_static_safety
+            ),
+            "m137_browser_connector_combined_workflow_route_boundary": (
+                self.check_m137_browser_connector_combined_workflow_route_boundary
+            ),
+            "m137_roadmap_currentness": self.check_m137_roadmap_currentness,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -21965,6 +22020,7 @@ class FoundationGateEvaluator:
             "src/ultimate_ai_agent/core/autonomy/policies.py",
             "src/ultimate_ai_agent/core/autonomy/sessions.py",
             "src/ultimate_ai_agent/core/autonomy/simulator.py",
+            "src/ultimate_ai_agent/core/autonomy/browser_connector_combined_workflow.py",
         }
         source_roots = [
             self.root / "src" / "ultimate_ai_agent",
@@ -22253,6 +22309,7 @@ class FoundationGateEvaluator:
             "src/ultimate_ai_agent/core/autonomy/policies.py",
             "src/ultimate_ai_agent/core/autonomy/sessions.py",
             "src/ultimate_ai_agent/core/autonomy/simulator.py",
+            "src/ultimate_ai_agent/core/autonomy/browser_connector_combined_workflow.py",
         }
         for root in [
             self.root / "src" / "ultimate_ai_agent",
@@ -22529,6 +22586,7 @@ class FoundationGateEvaluator:
             "src/ultimate_ai_agent/core/autonomy/policies.py",
             "src/ultimate_ai_agent/core/autonomy/sessions.py",
             "src/ultimate_ai_agent/core/autonomy/simulator.py",
+            "src/ultimate_ai_agent/core/autonomy/browser_connector_combined_workflow.py",
         }
         for root in [
             self.root / "src" / "ultimate_ai_agent",
@@ -30705,6 +30763,13 @@ class FoundationGateEvaluator:
             or "cross-tool dependency execution" in active_version_text
         ):
             implemented_milestones.add("m136")
+        if (
+            "checkpoint m137" in active_version_text
+            or "m137" in active_version_text
+            or "autonomous browser + connector combined workflows"
+            in active_version_text
+        ):
+            implemented_milestones.add("m137")
         for version_label, product_target, milestone, title in expected_labels:
             if milestone in implemented_milestones:
                 continue
@@ -41836,6 +41901,20 @@ class FoundationGateEvaluator:
                 "pre-alpha checkpoint",
                 "m136",
                 "cross-tool dependency execution",
+                "implemented/released",
+            ),
+            (
+                "checkpoint m137",
+                "pre-alpha checkpoint",
+                "m137",
+                "autonomous browser + connector combined workflows",
+                "implemented/released",
+            ),
+            (
+                "checkpoint m138",
+                "pre-alpha checkpoint",
+                "m138",
+                "autonomous error handling guardrails",
                 "planned/provisional",
             ),
             (
@@ -42367,6 +42446,20 @@ class FoundationGateEvaluator:
                 "pre-alpha checkpoint",
                 "m136",
                 "cross-tool dependency execution",
+                "implemented/released",
+            ),
+            (
+                "checkpoint m137",
+                "pre-alpha checkpoint",
+                "m137",
+                "autonomous browser + connector combined workflows",
+                "implemented/released",
+            ),
+            (
+                "checkpoint m138",
+                "pre-alpha checkpoint",
+                "m138",
+                "autonomous error handling guardrails",
                 "planned/provisional",
             ),
             (
@@ -42383,9 +42476,11 @@ class FoundationGateEvaluator:
             )
             if not _roadmap_row_present(text, row):
                 failures.append(
-                    f"active docs missing expected M131-M136/M137-M150 row: {version_label} / {milestone.upper()} - {title}"
+                    f"active docs missing expected M131-M137/M138-M150 row: {version_label} / {milestone.upper()} - {title}"
                 )
         for fragment in (
+            "autonomous error handling guardrails are implemented",
+            "m138 autonomous error handling guardrails are implemented",
             "recurring workflow runtime is implemented",
             "recovery execution is implemented",
             "m135 recovery is implemented",
@@ -42401,7 +42496,7 @@ class FoundationGateEvaluator:
             "connector runtime is implemented",
             "backend route is implemented",
             "control center control is implemented",
-            "m136 dependency is added",
+            "m138 dependency is added",
             "beta is released",
             "production authority is implemented",
         ):
@@ -42916,6 +43011,20 @@ class FoundationGateEvaluator:
                 "pre-alpha checkpoint",
                 "m136",
                 "cross-tool dependency execution",
+                "implemented/released",
+            ),
+            (
+                "checkpoint m137",
+                "pre-alpha checkpoint",
+                "m137",
+                "autonomous browser + connector combined workflows",
+                "implemented/released",
+            ),
+            (
+                "checkpoint m138",
+                "pre-alpha checkpoint",
+                "m138",
+                "autonomous error handling guardrails",
                 "planned/provisional",
             ),
             (
@@ -42932,9 +43041,11 @@ class FoundationGateEvaluator:
             )
             if not _roadmap_row_present(text, row):
                 failures.append(
-                    f"active docs missing expected M132-M136/M137-M150 row: {version_label} / {milestone.upper()} - {title}"
+                    f"active docs missing expected M132-M137/M138-M150 row: {version_label} / {milestone.upper()} - {title}"
                 )
         for fragment in (
+            "autonomous error handling guardrails are implemented",
+            "m138 autonomous error handling guardrails are implemented",
             "recovery execution is implemented",
             "m135 recovery is implemented",
             "workflow start is implemented",
@@ -42953,7 +43064,7 @@ class FoundationGateEvaluator:
             "connector runtime is implemented",
             "backend route is implemented",
             "control center control is implemented",
-            "m136 dependency is added",
+            "m138 dependency is added",
             "beta is released",
             "production authority is implemented",
         ):
@@ -43482,6 +43593,20 @@ class FoundationGateEvaluator:
                 "pre-alpha checkpoint",
                 "m136",
                 "cross-tool dependency execution",
+                "implemented/released",
+            ),
+            (
+                "checkpoint m137",
+                "pre-alpha checkpoint",
+                "m137",
+                "autonomous browser + connector combined workflows",
+                "implemented/released",
+            ),
+            (
+                "checkpoint m138",
+                "pre-alpha checkpoint",
+                "m138",
+                "autonomous error handling guardrails",
                 "planned/provisional",
             ),
             (
@@ -43498,9 +43623,11 @@ class FoundationGateEvaluator:
             )
             if not _roadmap_row_present(text, row):
                 failures.append(
-                    f"active docs missing expected M133-M136/M137-M150 row: {version_label} / {milestone.upper()} - {title}"
+                    f"active docs missing expected M133-M137/M138-M150 row: {version_label} / {milestone.upper()} - {title}"
                 )
         for fragment in (
+            "autonomous error handling guardrails are implemented",
+            "m138 autonomous error handling guardrails are implemented",
             "recovery execution is implemented",
             "m135 recovery is implemented",
             "supervisor runtime is implemented",
@@ -43522,7 +43649,7 @@ class FoundationGateEvaluator:
             "connector runtime is implemented",
             "backend route is implemented",
             "control center control is implemented",
-            "m136 dependency is added",
+            "m138 dependency is added",
             "beta is released",
             "production authority is implemented",
         ):
@@ -44047,6 +44174,27 @@ class FoundationGateEvaluator:
                 "pre-alpha checkpoint",
                 "m135",
                 "autonomous recovery planner",
+                "implemented/released",
+            ),
+            (
+                "checkpoint m136",
+                "pre-alpha checkpoint",
+                "m136",
+                "cross-tool dependency execution",
+                "implemented/released",
+            ),
+            (
+                "checkpoint m137",
+                "pre-alpha checkpoint",
+                "m137",
+                "autonomous browser + connector combined workflows",
+                "implemented/released",
+            ),
+            (
+                "checkpoint m138",
+                "pre-alpha checkpoint",
+                "m138",
+                "autonomous error handling guardrails",
                 "planned/provisional",
             ),
             (
@@ -44063,11 +44211,11 @@ class FoundationGateEvaluator:
             )
             if not _roadmap_row_present(text, row):
                 failures.append(
-                    f"active docs missing expected M134-M136/M137-M150 row: {version_label} / {milestone.upper()} - {title}"
+                    f"active docs missing expected M134-M137/M138-M150 row: {version_label} / {milestone.upper()} - {title}"
                 )
         for fragment in (
-            "autonomous browser + connector combined workflows are implemented",
-            "m136 autonomous browser + connector combined workflows are implemented",
+            "autonomous error handling guardrails are implemented",
+            "m138 autonomous error handling guardrails are implemented",
             "checkpoint scheduler runtime is implemented",
             "prompt runtime is implemented",
             "notification delivery is implemented",
@@ -44089,7 +44237,7 @@ class FoundationGateEvaluator:
             "connector runtime is implemented",
             "backend route is implemented",
             "control center control is implemented",
-            "m136 dependency is added",
+            "m138 dependency is added",
             "beta is released",
             "production authority is implemented",
         ):
@@ -44650,11 +44798,11 @@ class FoundationGateEvaluator:
             )
             if not _roadmap_row_present(text, row):
                 failures.append(
-                    f"active docs missing expected M135-M136/M137-M150 row: {version_label} / {milestone.upper()} - {title}"
+                    f"active docs missing expected M135-M137/M138-M150 row: {version_label} / {milestone.upper()} - {title}"
                 )
         for fragment in (
-            "autonomous browser + connector combined workflows are implemented",
-            "m136 autonomous browser + connector combined workflows are implemented",
+            "autonomous error handling guardrails are implemented",
+            "m138 autonomous error handling guardrails are implemented",
             "recovery execution is implemented",
             "retry execution is implemented",
             "resume execution is implemented",
@@ -44673,7 +44821,7 @@ class FoundationGateEvaluator:
             "connector runtime is implemented",
             "backend route is implemented",
             "control center control is implemented",
-            "m136 dependency is added",
+            "m138 dependency is added",
             "beta is released",
             "production authority is implemented",
         ):
@@ -45231,6 +45379,13 @@ class FoundationGateEvaluator:
                 "pre-alpha checkpoint",
                 "m137",
                 "autonomous browser + connector combined workflows",
+                "implemented/released",
+            ),
+            (
+                "checkpoint m138",
+                "pre-alpha checkpoint",
+                "m138",
+                "autonomous error handling guardrails",
                 "planned/provisional",
             ),
             (
@@ -45247,11 +45402,12 @@ class FoundationGateEvaluator:
             )
             if not _roadmap_row_present(text, row):
                 failures.append(
-                    f"active docs missing expected M136/M137-M150 row: {version_label} / {milestone.upper()} - {title}"
+                    f"active docs missing expected M136/M138-M150 row: {version_label} / {milestone.upper()} - {title}"
                 )
         for fragment in (
-            "autonomous browser + connector combined workflows are implemented",
-            "m137 autonomous browser + connector combined workflows are implemented",
+            "autonomous error handling guardrails are implemented",
+            "m138 autonomous error handling guardrails are implemented",
+            "error handling guardrail runtime is implemented",
             "browser action is implemented",
             "connector write is implemented",
             "account auth is implemented",
@@ -45266,13 +45422,411 @@ class FoundationGateEvaluator:
             "connector runtime is implemented",
             "backend route is implemented",
             "control center control is implemented",
-            "m137 dependency is added",
+            "m138 dependency is added",
             "beta is released",
             "production authority is implemented",
         ):
             if fragment in text:
                 failures.append(
                     f"active docs imply forbidden M136 future/currentness claim: {fragment}"
+                )
+        return self._result(criterion, failures, required_docs)
+
+    def check_m137_browser_connector_combined_workflow_contracts(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/autonomy/browser_connector_combined_workflow.py",
+            "docs/autonomy/BROWSER_CONNECTOR_COMBINED_WORKFLOW.md",
+            "docs/autonomy/BROWSER_CONNECTOR_COMBINED_WORKFLOW_POLICY.md",
+            "docs/autonomy/BROWSER_CONNECTOR_COMBINED_WORKFLOW_AUTHORITY_BOUNDARY.md",
+            "docs/autonomy/BROWSER_CONNECTOR_COMBINED_WORKFLOW_RECEIPT_PLAN.md",
+            "docs/autonomy/BROWSER_CONNECTOR_COMBINED_WORKFLOW_NON_GOALS.md",
+            "docs/autonomy/M137_TO_M138_BOUNDARY.md",
+            "docs/release_notes/checkpoint_m137.md",
+            "docs/archive/checkpoints/m137/README_IMPORT.md",
+            "docs/archive/checkpoints/m137/master_plan.md",
+            "tests/test_m137_browser_connector_combined_workflow.py",
+            "tests/test_m137_gate_integration.py",
+        ]
+        failures = [
+            f"missing M137 browser connector combined workflow file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            from tests.test_m137_browser_connector_combined_workflow import _request
+            from ultimate_ai_agent.core.autonomy import (
+                AutonomyAuthorityMode,
+                BrowserConnectorCombinedWorkflowStatus,
+                build_browser_connector_combined_workflow_decision,
+                validate_browser_connector_combined_workflow_decision,
+            )
+
+            decision = build_browser_connector_combined_workflow_decision(_request())
+            if (
+                decision.status
+                != BrowserConnectorCombinedWorkflowStatus.ready_for_review
+                or decision.selected_mode
+                != AutonomyAuthorityMode.trusted_recurring_automation
+                or not decision.contract_only
+                or not decision.review_only
+                or not decision.browser_connector_combined_workflow_only
+                or not decision.safe_refs_only
+                or not decision.exact_scope_bound
+                or not decision.mode5_bound
+                or not decision.m136_dependency_execution_bound
+                or not decision.m135_recovery_planner_bound
+                or not decision.m134_human_checkpoint_bound
+                or not decision.m133_supervisor_bound
+                or not decision.m132_trusted_workflow_bound
+                or not decision.browser_plan_bound
+                or not decision.connector_plan_bound
+                or not decision.combined_dependency_graph_bound
+                or not decision.approval_bundle_bound
+                or not decision.no_effect_receipt_required
+                or decision.combined_workflow_runtime_authorized
+                or decision.browser_action_authorized
+                or decision.browser_action_performed
+                or decision.connector_runtime_authorized
+                or decision.connector_action_authorized
+                or decision.connector_write_performed
+                or decision.account_auth_performed
+                or decision.dependency_execution_authorized
+                or decision.dependency_execution_performed
+                or decision.tool_execution_performed
+                or decision.execution_performed
+                or decision.backend_route_added
+                or decision.dependency_added
+                or decision.beta_release_enabled
+                or decision.production_authority_granted
+                or "M137_BROWSER_CONNECTOR_COMBINED_WORKFLOW_CONTRACT_ONLY"
+                not in decision.reason_codes
+                or "M138_REMAINS_FUTURE" not in decision.reason_codes
+            ):
+                failures.append(
+                    "M137 browser connector combined workflow decision is unsafe or over-authoritative"
+                )
+            for update, reason in [
+                (
+                    {"combined_workflow_runtime_authorized": True},
+                    "M137_COMBINED_WORKFLOW_RUNTIME_DENIED",
+                ),
+                ({"browser_action_authorized": True}, "M137_BROWSER_ACTION_DENIED"),
+                ({"browser_action_performed": True}, "M137_BROWSER_ACTION_DENIED"),
+                ({"browser_click_performed": True}, "M137_BROWSER_CLICK_DENIED"),
+                ({"browser_form_performed": True}, "M137_BROWSER_FORM_DENIED"),
+                ({"connector_runtime_authorized": True}, "M137_CONNECTOR_RUNTIME_DENIED"),
+                ({"connector_action_authorized": True}, "M137_CONNECTOR_ACTION_DENIED"),
+                ({"connector_write_performed": True}, "M137_CONNECTOR_WRITE_DENIED"),
+                ({"account_auth_performed": True}, "M137_ACCOUNT_AUTH_DENIED"),
+                (
+                    {"dependency_execution_performed": True},
+                    "M137_DEPENDENCY_EXECUTION_DENIED",
+                ),
+                ({"tool_execution_performed": True}, "M137_TOOL_EXECUTION_DENIED"),
+                ({"backend_route_added": True}, "M137_BACKEND_ROUTE_DENIED"),
+                (
+                    {"production_authority_granted": True},
+                    "M137_PRODUCTION_AUTHORITY_DENIED",
+                ),
+            ]:
+                try:
+                    validate_browser_connector_combined_workflow_decision(
+                        decision.model_copy(update=update)
+                    )
+                    failures.append(
+                        f"M137 unsafe workflow mutation was not denied with {reason}"
+                    )
+                except ValueError as exc:
+                    if reason not in str(exc):
+                        failures.append(f"M137 unsafe workflow mutation raised {exc!s}")
+            try:
+                validate_browser_connector_combined_workflow_decision(
+                    decision.model_copy(
+                        update={
+                            "receipt_plan": decision.receipt_plan.model_copy(
+                                update={"store_raw_browser_dom": True}
+                            )
+                        }
+                    )
+                )
+                failures.append("M137 receipt plan allowed raw browser DOM storage")
+            except ValueError as exc:
+                if "M137_RAW_BROWSER_DOM_DENIED" not in str(exc):
+                    failures.append(f"M137 raw browser DOM receipt mutation raised {exc!s}")
+        except Exception as exc:
+            failures.append(
+                f"M137 browser connector combined workflow validation failed: {exc}"
+            )
+
+        docs_text = " ".join(
+            "\n".join(
+                self._read(self.root / path).lower()
+                for path in required_files
+                if path.startswith("docs/") and (self.root / path).exists()
+            ).split()
+        )
+        for fragment in [
+            "autonomous browser + connector combined workflows",
+            "contract-only",
+            "review-only",
+            "browser-connector-combined-workflow-only",
+            "deterministic",
+            "local-only",
+            "safe-ref-only",
+            "exact scope",
+            "mode 5",
+            "m136 cross-tool dependency execution decision",
+            "m135 autonomous recovery planner decision",
+            "m134 human checkpoint scheduling decision",
+            "m133 supervisor decision",
+            "m132 trusted workflow decision",
+            "browser workflow",
+            "browser observation",
+            "browser action plan refs",
+            "connector workflow",
+            "connector account scope",
+            "connector action plan refs",
+            "workflow step refs",
+            "combined dependency graph",
+            "dependency order refs",
+            "safe handoff",
+            "dry-run plan",
+            "approval bundle",
+            "human checkpoint",
+            "audit",
+            "replay",
+            "revocation",
+            "kill-switch",
+            "no-effect receipt",
+            "no browser action",
+            "no connector action",
+            "no account auth",
+            "no dependency execution",
+            "no tool execution",
+            "no shell execution",
+            "no network access",
+            "no plugin execution",
+            "no model call",
+            "no memory write",
+            "no context injection",
+            "no backend route",
+            "no control center control",
+            "no dependency",
+            "m138 remains future",
+            "v1.0.0-alpha",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M137 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m137_browser_connector_combined_workflow_static_safety(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        forbidden_source_fragments = [
+            "combined_workflow_runtime_enabled=True",
+            "browser_action_enabled=True",
+            "browser_navigation_enabled=True",
+            "browser_click_enabled=True",
+            "browser_form_enabled=True",
+            "browser_download_enabled=True",
+            "browser_upload_enabled=True",
+            "authenticated_browser_enabled=True",
+            "connector_runtime_enabled=True",
+            "connector_read_runtime_enabled=True",
+            "connector_write_enabled=True",
+            "connector_send_enabled=True",
+            "connector_delete_enabled=True",
+            "account_auth_enabled=True",
+            "dependency_execution_enabled=True",
+            "tool_execution_enabled=True",
+            "execution_enabled=True",
+            "shell_execution_enabled=True",
+            "network_access_enabled=True",
+            "plugin_execution_enabled=True",
+            "model_call_enabled=True",
+            "memory_write_enabled=True",
+            "context_injection_enabled=True",
+            "backend_route_enabled=True",
+            "dependency_added=True",
+            "production_authority_granted=True",
+            "combined_workflow_runtime_authorized=True",
+            "browser_action_authorized=True",
+            "browser_action_performed=True",
+            "browser_click_performed=True",
+            "browser_form_performed=True",
+            "connector_runtime_authorized=True",
+            "connector_action_authorized=True",
+            "connector_write_performed=True",
+            "account_auth_performed=True",
+            "dependency_execution_performed=True",
+            "tool_execution_performed=True",
+            "/autonomy/browser-connector-combined-workflow",
+            "/autonomy/browser-connector-combined-workflow/start",
+            "/combined-workflows/run",
+            "/browser/actions/run",
+            "/browser/navigate",
+            "/browser/click",
+            "/browser/form",
+            "/browser/download",
+            "/browser/upload",
+            "/connectors/runtime",
+            "/connectors/read",
+            "/connectors/write",
+            "/connectors/send",
+            "/connectors/delete",
+            "/connectors/auth",
+            "/accounts/auth",
+        ]
+        allowed_files = {
+            "src/ultimate_ai_agent/core/gate/evaluators.py",
+            "src/ultimate_ai_agent/api/app.py",
+            "src/ultimate_ai_agent/api/openapi.py",
+            "src/ultimate_ai_agent/core/gate/criteria.py",
+            "src/ultimate_ai_agent/core/autonomy/__init__.py",
+            "src/ultimate_ai_agent/core/autonomy/browser_connector_combined_workflow.py",
+            "src/ultimate_ai_agent/core/autonomy/cross_tool_dependency_execution.py",
+            "src/ultimate_ai_agent/core/autonomy/autonomous_recovery_planner.py",
+            "src/ultimate_ai_agent/core/autonomy/human_checkpoint_scheduling.py",
+            "src/ultimate_ai_agent/core/autonomy/long_running_task_supervisor.py",
+            "src/ultimate_ai_agent/core/autonomy/trusted_recurring_workflow.py",
+            "src/ultimate_ai_agent/core/autonomy/mode4_scoped_work_session.py",
+        }
+        for root in [
+            self.root / "src" / "ultimate_ai_agent",
+            self.root / "apps" / "control-center" / "src",
+            self.root / "apps" / "ccc-ios",
+        ]:
+            if not root.exists():
+                continue
+            candidate_files = []
+            for pattern in (
+                "*.py",
+                "*.ts",
+                "*.tsx",
+                "*.js",
+                "*.jsx",
+                "*.swift",
+                "*.yml",
+                "*.yaml",
+            ):
+                candidate_files.extend(root.rglob(pattern))
+            for path in sorted(candidate_files):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(self.root).as_posix()
+                if ".test." in rel or rel in allowed_files:
+                    continue
+                text = path.read_text(encoding="utf-8")
+                for fragment in forbidden_source_fragments:
+                    if fragment in text:
+                        failures.append(
+                            f"M137 forbidden browser connector workflow fragment in {rel}: {fragment}"
+                        )
+        return self._result(criterion, failures, [])
+
+    def check_m137_browser_connector_combined_workflow_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m137_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M137 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m137_roadmap_currentness(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_docs = [
+            "README.md",
+            "VERSION.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            "docs/roadmap/MILESTONE_CHARTERS.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+        ]
+        failures = [
+            f"missing M137 roadmap doc: {path}"
+            for path in required_docs
+            if not (self.root / path).exists()
+        ]
+        text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_docs
+            if (self.root / path).exists()
+        )
+        if (
+            "checkpoint m137" not in text
+            or "autonomous browser + connector combined workflows" not in text
+        ):
+            failures.append(
+                "active docs do not identify Checkpoint M137 Autonomous Browser + Connector Combined Workflows"
+            )
+        if (
+            "m137 is implemented/released" not in text
+            and "checkpoint m137 is implemented/released" not in text
+        ):
+            failures.append("active docs do not mark M137 implemented/released")
+        for version_label, product_target, milestone, title, status in [
+            (
+                "checkpoint m137",
+                "pre-alpha checkpoint",
+                "m137",
+                "autonomous browser + connector combined workflows",
+                "implemented/released",
+            ),
+            (
+                "checkpoint m138",
+                "pre-alpha checkpoint",
+                "m138",
+                "autonomous error handling guardrails",
+                "planned/provisional",
+            ),
+            (
+                "v1.0.0-alpha",
+                "alpha",
+                "m150",
+                "ultimate ai agent v1.0.0-alpha",
+                "planned/provisional",
+            ),
+        ]:
+            row = (
+                f"| {version_label} | {product_target} | {milestone} | "
+                f"{title} | {status} |"
+            )
+            if not _roadmap_row_present(text, row):
+                failures.append(
+                    f"active docs missing expected M137/M138-M150 row: {version_label} / {milestone.upper()} - {title}"
+                )
+        for fragment in (
+            "autonomous error handling guardrails are implemented",
+            "m138 autonomous error handling guardrails are implemented",
+            "error handling guardrail runtime is implemented",
+            "browser action execution is implemented",
+            "connector action execution is implemented",
+            "combined workflow runtime is implemented",
+            "dependency execution runtime is implemented",
+            "tool execution is implemented",
+            "shell execution is implemented",
+            "network access is implemented",
+            "browser automation is implemented",
+            "browser forms are implemented",
+            "plugin execution is implemented",
+            "connector runtime is implemented",
+            "backend route is implemented",
+            "control center control is implemented",
+            "m138 dependency is added",
+            "beta is released",
+            "production authority is implemented",
+        ):
+            if fragment in text:
+                failures.append(
+                    f"active docs imply forbidden M137 future/currentness claim: {fragment}"
                 )
         return self._result(criterion, failures, required_docs)
 

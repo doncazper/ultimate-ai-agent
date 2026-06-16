@@ -13,37 +13,37 @@ allowed to become operational authority.
 | Field | Current state |
 |---|---|
 | Current active baseline | **v1.7.2** |
-| Current milestone | **Checkpoint M136 — Cross-Tool Dependency Execution** |
+| Current milestone | **Checkpoint M137 — Autonomous Browser + Connector Combined Workflows** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **75** OpenAPI paths |
 | Production readiness | Not claimed |
 
-Checkpoint M136 implements Cross-Tool Dependency Execution while the current
+Checkpoint M137 implements Autonomous Browser + Connector Combined Workflows while the current
 product baseline remains v1.7.2. Already-pushed tags remain immutable historical
-internal milestone tags, future M137-M149 conveyor milestones use checkpoint
+internal milestone tags, future M138-M149 conveyor milestones use checkpoint
 labels instead of product SemVer tags, and M150 is the next product release
 target **v1.0.0-alpha**. Beta begins only after the alpha UI and supporting
 safety/product work are reviewed, accepted, and explicitly promoted by a later
-roadmap patch. M136 is contract-only, review-only,
-cross-tool-dependency-execution-only, deterministic, local-only, and
-safe-ref-only. It records exact scope, Mode 5, M135 autonomous recovery planner
-decision, M134 human checkpoint scheduling decision, M133 supervisor decision,
-M132 trusted workflow decision, dependency graph ref, dependency step refs,
-dependency edge refs, deterministic dependency order refs, safe tool refs,
-dry-run plan, dependency resolution ref, conflict policy, failure policy,
-recovery plan, checkpoint ref, human checkpoint ref, risk decision, audit,
-replay, revocation, kill-switch, and no-effect receipt refs for governed
-review. It adds no dependency execution, no dependency resolver runtime, no
-cross-tool runtime, no parallel tool execution, no tool state handoff, no tool
-output routing, no recovery execution, no supervisor runtime, no checkpoint
-scheduler, no prompt, no scheduler, no background worker, no autonomous actions,
-no execution, no tool execution, no shell execution, no network access, no
-browser automation, no plugin execution, no connector runtime, no account auth,
-no mobile sensor access, no remote execution, no model call, no memory write, no
-context injection, no backend route, no Control Center control, no dependency,
-no M137 browser + connector combined workflow work, no broad autonomy, no beta
-release, and no production authority.
+roadmap patch. M137 is contract-only, review-only,
+browser-connector-combined-workflow-only, deterministic, local-only, and
+safe-ref-only. It records exact scope, Mode 5, M136 cross-tool dependency
+execution decision, M135 autonomous recovery planner decision, M134 human
+checkpoint scheduling decision, M133 supervisor decision, M132 trusted workflow
+decision, browser workflow refs, browser observation refs, browser action plan
+refs, connector workflow refs, connector account scope refs, connector action
+plan refs, workflow step refs, combined dependency graph refs, dependency order
+refs, safe handoff refs, dry-run plan refs, approval bundle refs, checkpoint
+refs, human checkpoint refs, risk decision, audit, replay, revocation,
+kill-switch, and no-effect receipt refs for governed review. It adds no
+combined workflow runtime, browser action, browser navigation, browser click,
+browser form, browser download, browser upload, authenticated browser use,
+connector runtime, connector read runtime, connector write, connector send,
+connector delete, account auth, dependency execution, dependency resolver
+runtime, cross-tool runtime, tool execution, shell execution, network access,
+plugin execution, model call, memory write, context injection, backend route,
+Control Center control, dependency, M138 error handling guardrail work, beta
+release, or production authority.
 
 v0.29.5 is documentation policy polish. It remains the documentation
 organization cleanup baseline before the M26 and M27 implementation releases.
@@ -57,6 +57,7 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M34-M60 roadmap supersession](docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md)
 - [M61-M100 roadmap](docs/roadmap/M61_M100_ROADMAP.md)
 - [M101-M150 planned roadmap](docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md)
+- [M137 Autonomous Browser + Connector Combined Workflows](docs/autonomy/BROWSER_CONNECTOR_COMBINED_WORKFLOW.md)
 - [M136 Cross-Tool Dependency Execution](docs/autonomy/CROSS_TOOL_DEPENDENCY_EXECUTION.md)
 - [M135 Autonomous Recovery Planner](docs/autonomy/AUTONOMOUS_RECOVERY_PLANNER.md)
 - [M134 Human Checkpoint Scheduling](docs/autonomy/HUMAN_CHECKPOINT_SCHEDULING.md)

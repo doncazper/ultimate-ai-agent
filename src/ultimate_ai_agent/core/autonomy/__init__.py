@@ -210,6 +210,21 @@ from ultimate_ai_agent.core.autonomy.cross_tool_dependency_execution import (
     validate_cross_tool_dependency_execution_policy,
     validate_cross_tool_dependency_execution_request,
 )
+from ultimate_ai_agent.core.autonomy.browser_connector_combined_workflow import (
+    BROWSER_CONNECTOR_COMBINED_WORKFLOW_DOCS,
+    M137_MAX_BROWSER_PLAN_REFS,
+    M137_MAX_CONNECTOR_PLAN_REFS,
+    M137_MAX_WORKFLOW_STEP_REFS,
+    BrowserConnectorCombinedWorkflowDecision,
+    BrowserConnectorCombinedWorkflowPolicy,
+    BrowserConnectorCombinedWorkflowReceiptPlan,
+    BrowserConnectorCombinedWorkflowRequest,
+    BrowserConnectorCombinedWorkflowStatus,
+    build_browser_connector_combined_workflow_decision,
+    validate_browser_connector_combined_workflow_decision,
+    validate_browser_connector_combined_workflow_policy,
+    validate_browser_connector_combined_workflow_request,
+)
 
 __all__ = [
     "AUTONOMY_MODE_CHARTER_DOCS",
@@ -386,4 +401,17 @@ __all__ = [
     "validate_cross_tool_dependency_execution_decision",
     "validate_cross_tool_dependency_execution_policy",
     "validate_cross_tool_dependency_execution_request",
+    "BROWSER_CONNECTOR_COMBINED_WORKFLOW_DOCS",
+    "M137_MAX_BROWSER_PLAN_REFS",
+    "M137_MAX_CONNECTOR_PLAN_REFS",
+    "M137_MAX_WORKFLOW_STEP_REFS",
+    "BrowserConnectorCombinedWorkflowDecision",
+    "BrowserConnectorCombinedWorkflowPolicy",
+    "BrowserConnectorCombinedWorkflowReceiptPlan",
+    "BrowserConnectorCombinedWorkflowRequest",
+    "BrowserConnectorCombinedWorkflowStatus",
+    "build_browser_connector_combined_workflow_decision",
+    "validate_browser_connector_combined_workflow_decision",
+    "validate_browser_connector_combined_workflow_policy",
+    "validate_browser_connector_combined_workflow_request",
 ]
