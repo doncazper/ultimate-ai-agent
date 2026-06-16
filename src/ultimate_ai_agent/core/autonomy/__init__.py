@@ -152,6 +152,20 @@ from ultimate_ai_agent.core.autonomy.trusted_recurring_workflow import (
     validate_trusted_recurring_workflow_policy,
     validate_trusted_recurring_workflow_request,
 )
+from ultimate_ai_agent.core.autonomy.long_running_task_supervisor import (
+    LONG_RUNNING_TASK_SUPERVISOR_DOCS,
+    M133_MAX_CHECKPOINT_REFS,
+    M133_MAX_SUPERVISOR_WINDOW_SECONDS,
+    LongRunningTaskSupervisorDecision,
+    LongRunningTaskSupervisorPolicy,
+    LongRunningTaskSupervisorReceiptPlan,
+    LongRunningTaskSupervisorRequest,
+    LongRunningTaskSupervisorStatus,
+    build_long_running_task_supervisor_decision,
+    validate_long_running_task_supervisor_decision,
+    validate_long_running_task_supervisor_policy,
+    validate_long_running_task_supervisor_request,
+)
 
 __all__ = [
     "AUTONOMY_MODE_CHARTER_DOCS",
@@ -278,4 +292,16 @@ __all__ = [
     "validate_trusted_recurring_workflow_decision",
     "validate_trusted_recurring_workflow_policy",
     "validate_trusted_recurring_workflow_request",
+    "LONG_RUNNING_TASK_SUPERVISOR_DOCS",
+    "M133_MAX_CHECKPOINT_REFS",
+    "M133_MAX_SUPERVISOR_WINDOW_SECONDS",
+    "LongRunningTaskSupervisorDecision",
+    "LongRunningTaskSupervisorPolicy",
+    "LongRunningTaskSupervisorReceiptPlan",
+    "LongRunningTaskSupervisorRequest",
+    "LongRunningTaskSupervisorStatus",
+    "build_long_running_task_supervisor_decision",
+    "validate_long_running_task_supervisor_decision",
+    "validate_long_running_task_supervisor_policy",
+    "validate_long_running_task_supervisor_request",
 ]

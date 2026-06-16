@@ -851,16 +851,17 @@ connector audit + revocation hardening records. M130 is implemented/released as
 deterministic local freeze-only connector safety freeze records. M131 is
 implemented/released as deterministic local review-only Autonomy Mode 4 scoped
 work-session records. M132 is implemented/released as deterministic local
-review-only Autonomy Mode 5 trusted recurring workflow records. M133-M150 are
-planned/provisional only in
+review-only Autonomy Mode 5 trusted recurring workflow records. M133 is
+implemented/released as deterministic local review-only Long-Running Task
+Supervisor records. M134-M150 are planned/provisional only in
 `docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md`.
-Future M133-M149 conveyor milestones use checkpoint labels instead of product
+Future M134-M149 conveyor milestones use checkpoint labels instead of product
 SemVer tags, and M150 is
 planned as v1.0.0-alpha. Beta begins only after alpha UI and supporting
 safety/product work are reviewed and promoted. Active roadmap sources consistently mark
-M34-M132 implemented/released and rely on documentation-integrity checks to
+M34-M133 implemented/released and rely on documentation-integrity checks to
 guard against superseded-roadmap drift, stale current-baseline labels, route
-drift, authority-boundary drift, alpha/beta versioning drift, and M133-M150
+drift, authority-boundary drift, alpha/beta versioning drift, and M134-M150
 future-status drift.
 
 ## Release Notes Index

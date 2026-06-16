@@ -13,30 +13,33 @@ allowed to become operational authority.
 | Field | Current state |
 |---|---|
 | Current active baseline | **v1.7.2** |
-| Current milestone | **Checkpoint M132 — Autonomy Mode 5, Trusted Recurring Workflow** |
+| Current milestone | **Checkpoint M133 — Long-Running Task Supervisor** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **75** OpenAPI paths |
 | Production readiness | Not claimed |
 
-Checkpoint M132 implements Autonomy Mode 5, Trusted Recurring Workflow while the current
+Checkpoint M133 implements Long-Running Task Supervisor while the current
 product baseline remains v1.7.2. Already-pushed tags remain immutable historical
-internal milestone tags, future M133-M149 conveyor milestones use checkpoint
+internal milestone tags, future M134-M149 conveyor milestones use checkpoint
 labels instead of product SemVer tags, and M150 is the next product release
 target **v1.0.0-alpha**. Beta begins only after the alpha UI and supporting
 safety/product work are reviewed, accepted, and explicitly promoted by a later
-roadmap patch. M132 is contract-only, review-only,
-trusted-recurring-workflow-only, deterministic, local-only, and safe-ref-only.
-It records exact scope, Mode 5, M131 scoped work-session decision, recurring
-contract, scoped low-risk recurring, cadence, approval bundle, approval renewal,
-expiration, stop condition, risk decision, audit, replay, revocation,
+roadmap patch. M133 is contract-only, review-only,
+long-running-supervisor-only, deterministic, local-only, and safe-ref-only. It
+records exact scope, Mode 5, M132 trusted workflow decision, M131 scoped
+work-session decision, supervisor plan, task state, run state, heartbeat plan,
+checkpoint plan, checkpoint refs, context budget, pause condition, resume
+condition, stop condition, risk decision, audit, replay, revocation,
 kill-switch, and no-effect receipt refs for governed review. It adds no
-workflow start, active recurrence, recurring runtime, scheduler, background
-worker, long-running supervisor, autonomous actions, execution, tool execution,
-shell execution, network access, browser automation, plugin execution,
-connector runtime, account auth, mobile sensor access, remote execution, model
-call, memory write, context injection, backend route, Control Center control,
-dependency, M133 work, broad autonomy, beta release, or production authority.
+supervisor start, supervisor runtime, task supervision, heartbeat monitor,
+checkpoint scheduler, resume execution, recovery execution, human checkpoint
+scheduling, scheduler, background worker, autonomous actions, execution, tool
+execution, shell execution, network access, browser automation, plugin
+execution, connector runtime, account auth, mobile sensor access, remote
+execution, model call, memory write, context injection, backend route, Control
+Center control, dependency, M134 work, M135 recovery work, broad autonomy, beta
+release, or production authority.
 
 v0.29.5 is documentation policy polish. It remains the documentation
 organization cleanup baseline before the M26 and M27 implementation releases.
@@ -50,6 +53,7 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M34-M60 roadmap supersession](docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md)
 - [M61-M100 roadmap](docs/roadmap/M61_M100_ROADMAP.md)
 - [M101-M150 planned roadmap](docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md)
+- [M133 Long-Running Task Supervisor](docs/autonomy/LONG_RUNNING_TASK_SUPERVISOR.md)
 - [M132 Autonomy Mode 5, Trusted Recurring Workflow](docs/autonomy/TRUSTED_RECURRING_WORKFLOW.md)
 - [M131 Autonomy Mode 4, Scoped Work Session](docs/autonomy/AUTONOMY_MODE4_SCOPED_WORK_SESSION.md)
 - [M130 Connector Safety Freeze](docs/connectors/CONNECTOR_SAFETY_FREEZE.md)

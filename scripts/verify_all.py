@@ -171,6 +171,7 @@ SCAN_SEQUENCE = [
     ("M130 connector safety freeze scan", "verify_m130_connector_safety_freeze"),
     ("M131 autonomy mode4 scoped work session scan", "verify_m131_autonomy_mode4_scoped_work_session"),
     ("M132 trusted recurring workflow scan", "verify_m132_trusted_recurring_workflow"),
+    ("M133 long-running task supervisor scan", "verify_m133_long_running_task_supervisor"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -17712,6 +17713,12 @@ def verify_post_m100_roadmap_reconciliation():
         or "autonomy mode 5, trusted recurring workflow" in active_version_text
     ):
         implemented_milestones.add("m132")
+    if (
+        "checkpoint m133" in active_version_text
+        or "m133" in active_version_text
+        or "long-running task supervisor" in active_version_text
+    ):
+        implemented_milestones.add("m133")
     for version_label, product_target, milestone, title in expected_labels:
         if milestone in implemented_milestones:
             continue
@@ -23951,6 +23958,273 @@ def verify_m132_trusted_recurring_workflow():
             sys.exit(1)
 
     print("OK: M132 trusted recurring workflow is review-only, safe-ref-only, and route-free")
+
+
+def verify_m133_long_running_task_supervisor():
+    print("\n[Verifier] Running M133 long-running task supervisor guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/autonomy/__init__.py",
+        "src/ultimate_ai_agent/core/autonomy/long_running_task_supervisor.py",
+        "docs/autonomy/LONG_RUNNING_TASK_SUPERVISOR.md",
+        "docs/autonomy/LONG_RUNNING_TASK_SUPERVISOR_POLICY.md",
+        "docs/autonomy/LONG_RUNNING_TASK_SUPERVISOR_AUTHORITY_BOUNDARY.md",
+        "docs/autonomy/LONG_RUNNING_TASK_SUPERVISOR_RECEIPT_PLAN.md",
+        "docs/autonomy/LONG_RUNNING_TASK_SUPERVISOR_NON_GOALS.md",
+        "docs/autonomy/M133_TO_M134_BOUNDARY.md",
+        "docs/release_notes/checkpoint_m133.md",
+        "docs/archive/checkpoints/m133/README_IMPORT.md",
+        "docs/archive/checkpoints/m133/master_plan.md",
+        "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+        "tests/test_m133_long_running_task_supervisor.py",
+        "tests/test_m133_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M133 long-running task supervisor file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = " ".join(
+        "\n".join(
+            (ROOT / rel_path).read_text(encoding="utf-8").lower()
+            for rel_path in required_files
+            if rel_path.startswith("docs/")
+        ).split()
+    )
+    for fragment in [
+        "long-running task supervisor",
+        "contract-only",
+        "review-only",
+        "long-running-supervisor-only",
+        "deterministic",
+        "local-only",
+        "safe-ref-only",
+        "exact scope",
+        "mode 5",
+        "m132 trusted workflow decision",
+        "m131 scoped work-session decision",
+        "supervisor plan",
+        "task state",
+        "run state",
+        "heartbeat plan",
+        "checkpoint plan",
+        "checkpoint refs",
+        "context budget",
+        "pause condition",
+        "resume condition",
+        "stop condition",
+        "risk decision",
+        "audit",
+        "replay",
+        "revocation",
+        "kill-switch",
+        "no-effect receipt",
+        "no supervisor start",
+        "no supervisor runtime",
+        "no task supervision",
+        "no heartbeat monitor",
+        "no checkpoint scheduler",
+        "no resume execution",
+        "no recovery execution",
+        "no human checkpoint scheduling",
+        "no scheduler",
+        "no background worker",
+        "no autonomous actions",
+        "no execution",
+        "no tool execution",
+        "no shell execution",
+        "no network access",
+        "no browser automation",
+        "no plugin execution",
+        "no connector runtime",
+        "no account auth",
+        "no model call",
+        "no memory write",
+        "no context injection",
+        "no backend route",
+        "no control center control",
+        "no dependency",
+        "m134 remains future",
+        "v1.0.0-alpha",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M133 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from tests.test_m133_long_running_task_supervisor import _request
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.autonomy import (
+            AutonomyAuthorityMode,
+            AutonomyRiskClass,
+            LongRunningTaskSupervisorStatus,
+            build_long_running_task_supervisor_decision,
+            validate_long_running_task_supervisor_decision,
+        )
+        from ultimate_ai_agent.core.gate.criteria import (
+            default_foundation_gate_criteria,
+        )
+        from ultimate_ai_agent.core.gate.evaluators import (
+            FoundationGateEvaluator,
+            m133_openapi_route_failures,
+        )
+    except Exception as exc:
+        print(f"FAIL: M133 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m133_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    decision = build_long_running_task_supervisor_decision(_request())
+    if (
+        decision.status != LongRunningTaskSupervisorStatus.ready_for_review
+        or decision.selected_mode != AutonomyAuthorityMode.trusted_recurring_automation
+        or not decision.contract_only
+        or not decision.review_only
+        or not decision.long_running_supervisor_only
+        or not decision.deterministic
+        or not decision.local_only
+        or not decision.safe_refs_only
+        or not decision.exact_scope_bound
+        or not decision.mode5_bound
+        or not decision.m132_trusted_workflow_bound
+        or not decision.m131_work_session_bound
+        or not decision.supervisor_plan_bound
+        or not decision.task_state_bound
+        or not decision.heartbeat_plan_bound
+        or not decision.checkpoint_plan_bound
+        or not decision.context_budget_bound
+        or not decision.pause_resume_bound
+        or not decision.audit_replay_bound
+        or not decision.revocation_bound
+        or not decision.kill_switch_bound
+        or not decision.no_effect_receipt_required
+        or decision.max_risk_class != AutonomyRiskClass.low
+        or decision.mode5_runtime_authorized
+        or decision.supervisor_runtime_authorized
+        or decision.long_running_supervisor_start_authorized
+        or decision.supervisor_started
+        or decision.task_supervision_active
+        or decision.heartbeat_monitor_started
+        or decision.checkpoint_scheduler_started
+        or decision.resume_execution_performed
+        or decision.recovery_execution_performed
+        or decision.human_checkpoint_scheduling_performed
+        or decision.scheduler_started
+        or decision.background_worker_started
+        or decision.autonomous_actions_authorized
+        or decision.autonomous_actions_performed
+        or decision.execution_authorized
+        or decision.execution_performed
+        or decision.tool_execution_authorized
+        or decision.tool_execution_performed
+        or decision.shell_execution_performed
+        or decision.command_execution_performed
+        or decision.subprocess_execution_performed
+        or decision.filesystem_mutation_performed
+        or decision.network_access_performed
+        or decision.browser_automation_performed
+        or decision.browser_form_performed
+        or decision.authenticated_browser_performed
+        or decision.download_performed
+        or decision.upload_performed
+        or decision.plugin_execution_performed
+        or decision.connector_runtime_performed
+        or decision.account_auth_performed
+        or decision.mobile_sensor_performed
+        or decision.remote_execution_performed
+        or decision.model_call_performed
+        or decision.memory_write_performed
+        or decision.context_injection_performed
+        or decision.backend_route_added
+        or decision.control_center_control_added
+        or decision.dependency_added
+        or decision.beta_release_enabled
+        or decision.production_authority_granted
+        or decision.side_effects_performed
+        or not decision.receipt_plan.store_safe_summary_only
+        or not decision.receipt_plan.store_safe_refs_only
+        or decision.receipt_plan.store_raw_prompt
+        or decision.receipt_plan.store_raw_provider_payload
+        or decision.receipt_plan.supervisor_started
+        or decision.receipt_plan.heartbeat_monitor_started
+        or decision.receipt_plan.checkpoint_scheduler_started
+        or decision.receipt_plan.resume_execution_performed
+        or decision.receipt_plan.recovery_execution_performed
+        or decision.receipt_plan.execution_performed
+        or "M133_LONG_RUNNING_TASK_SUPERVISOR_CONTRACT_ONLY"
+        not in decision.reason_codes
+        or "M133_NO_SUPERVISOR_RUNTIME" not in decision.reason_codes
+        or "M134_REMAINS_FUTURE" not in decision.reason_codes
+    ):
+        print("FAIL: M133 long-running task supervisor decision is unsafe or over-authoritative")
+        sys.exit(1)
+
+    for update, reason in [
+        ({"mode5_runtime_authorized": True}, "M133_MODE5_RUNTIME_DENIED"),
+        ({"supervisor_runtime_authorized": True}, "M133_SUPERVISOR_RUNTIME_DENIED"),
+        (
+            {"long_running_supervisor_start_authorized": True},
+            "M133_SUPERVISOR_START_DENIED",
+        ),
+        ({"supervisor_started": True}, "M133_SUPERVISOR_START_DENIED"),
+        ({"task_supervision_active": True}, "M133_TASK_SUPERVISION_DENIED"),
+        ({"heartbeat_monitor_started": True}, "M133_HEARTBEAT_MONITOR_DENIED"),
+        ({"checkpoint_scheduler_started": True}, "M133_CHECKPOINT_SCHEDULER_DENIED"),
+        ({"resume_execution_performed": True}, "M133_RESUME_EXECUTION_DENIED"),
+        ({"recovery_execution_performed": True}, "M135_RECOVERY_EXECUTION_DENIED"),
+        (
+            {"human_checkpoint_scheduling_performed": True},
+            "M134_HUMAN_CHECKPOINT_SCHEDULING_DENIED",
+        ),
+        ({"execution_performed": True}, "M133_EXECUTION_DENIED"),
+        ({"tool_execution_performed": True}, "M133_TOOL_EXECUTION_DENIED"),
+        ({"backend_route_added": True}, "M133_BACKEND_ROUTE_DENIED"),
+        (
+            {"production_authority_granted": True},
+            "M133_PRODUCTION_AUTHORITY_DENIED",
+        ),
+    ]:
+        try:
+            validate_long_running_task_supervisor_decision(
+                decision.model_copy(update=update)
+            )
+            print(f"FAIL: M133 mutated authority flag was not denied: {update}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M133 mutated authority flag raised {exc!s}")
+                sys.exit(1)
+
+    criteria = {
+        criterion.criterion_id: criterion
+        for criterion in default_foundation_gate_criteria()
+    }
+    for criterion_id in [
+        "m133_long_running_task_supervisor_contracts",
+        "m133_long_running_task_supervisor_static_safety",
+        "m133_long_running_task_supervisor_route_boundary",
+        "m133_roadmap_currentness",
+    ]:
+        if criterion_id not in criteria:
+            print(f"FAIL: Missing M133 Foundation Gate criterion: {criterion_id}")
+            sys.exit(1)
+    evaluator = FoundationGateEvaluator(ROOT)
+    for criterion_id in [
+        "m133_long_running_task_supervisor_contracts",
+        "m133_long_running_task_supervisor_static_safety",
+        "m133_long_running_task_supervisor_route_boundary",
+        "m133_roadmap_currentness",
+    ]:
+        gate_report = evaluator.evaluate([criteria[criterion_id]])
+        result = gate_report.results[0]
+        if result.status != "passed":
+            print(f"FAIL: {criterion_id} failed: {result.failures}")
+            sys.exit(1)
+
+    print("OK: M133 long-running task supervisor is review-only, safe-ref-only, and route-free")
 
 
 def verify_local_developer_launcher_safety():
