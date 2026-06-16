@@ -1592,6 +1592,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_m128_connector_write_execution_low_risk_docs(root, version))
     failures.extend(_verify_m129_connector_audit_revocation_hardening_docs(root, version))
     failures.extend(_verify_m130_connector_safety_freeze_docs(root, version))
+    failures.extend(_verify_m131_autonomy_mode4_scoped_work_session_docs(root, version))
     failures.extend(_verify_m19_roadmap_currentness(root, version))
     failures.extend(_verify_post_m18_roadmap_status_labels(root))
 
@@ -7251,6 +7252,12 @@ def _verify_post_m100_roadmap_reconciliation_docs(root: Path, version: str | Non
         or "connector safety freeze" in version_doc_text
     ):
         implemented_milestones.add("m130")
+    if _version_tuple(version) >= (1, 7, 2) and (
+        "checkpoint m131" in version_doc_text
+        or "m131" in version_doc_text
+        or "autonomy mode 4, scoped work session" in version_doc_text
+    ):
+        implemented_milestones.add("m131")
     for version_label, product_target, milestone, title in EXPECTED_M101_M150_LABELS:
         if milestone in implemented_milestones:
             continue
@@ -11056,9 +11063,10 @@ def _verify_m125_connector_read_only_runtime_docs(
         if not _roadmap_row_present(current_text, planned_m130_row):
             failures.append("active docs missing planned Checkpoint M130 row")
     for fragment in {
-        "autonomy mode 4 is implemented",
-        "m131 is implemented",
-        "checkpoint m131 implements m131",
+        "autonomy mode 5 is implemented",
+        "trusted recurring workflow is implemented",
+        "m132 is implemented",
+        "checkpoint m132 implements m132",
         "live connector runtime is implemented",
         "account auth is implemented",
         "network access is implemented",
@@ -11206,9 +11214,10 @@ def _verify_m126_connector_approval_capture_docs(
     if not _roadmap_row_present(current_text, planned_m130_row):
         failures.append("active docs missing planned Checkpoint M130 row")
     for fragment in {
-        "autonomy mode 4 is implemented",
-        "m131 is implemented",
-        "checkpoint m131 implements m131",
+        "autonomy mode 5 is implemented",
+        "trusted recurring workflow is implemented",
+        "m132 is implemented",
+        "checkpoint m132 implements m132",
         "live connector runtime is implemented",
         "account auth is implemented",
         "network access is implemented",
@@ -11348,11 +11357,12 @@ def _verify_m127_connector_write_dry_run_planner_docs(
     if not _roadmap_row_present(current_text, planned_m130_row):
         failures.append("active docs missing planned Checkpoint M130 row")
     for fragment in {
-        "autonomy mode 4 is implemented",
+        "autonomy mode 5 is implemented",
+        "trusted recurring workflow is implemented",
         "revocation execution is implemented",
         "kill switch execution is implemented",
-        "m131 is implemented",
-        "checkpoint m131 implements m131",
+        "m132 is implemented",
+        "checkpoint m132 implements m132",
         "live connector runtime is implemented",
         "account auth is implemented",
         "network access is implemented",
@@ -11497,14 +11507,15 @@ def _verify_m128_connector_write_execution_low_risk_docs(
     if not _roadmap_row_present(current_text, planned_m130_row):
         failures.append("active docs missing planned Checkpoint M130 row")
     for fragment in {
-        "autonomy mode 4 is implemented",
+        "autonomy mode 5 is implemented",
+        "trusted recurring workflow is implemented",
         "revocation execution is implemented",
         "kill switch execution is implemented",
         "connector export is implemented",
         "connector send execution is implemented",
         "connector delete execution is implemented",
-        "m131 is implemented",
-        "checkpoint m131 implements m131",
+        "m132 is implemented",
+        "checkpoint m132 implements m132",
         "live connector runtime is implemented",
         "account auth is implemented",
         "network access is implemented",
@@ -11643,15 +11654,16 @@ def _verify_m129_connector_audit_revocation_hardening_docs(
     if not _roadmap_row_present(current_text, planned_m130_row):
         failures.append("active docs missing planned Checkpoint M130 row")
     for fragment in {
-        "autonomy mode 4 is implemented",
+        "autonomy mode 5 is implemented",
+        "trusted recurring workflow is implemented",
         "freeze acceptance is implemented",
         "revocation execution is implemented",
         "kill switch execution is implemented",
         "connector export is implemented",
         "connector send execution is implemented",
         "connector delete execution is implemented",
-        "m131 is implemented",
-        "checkpoint m131 implements m131",
+        "m132 is implemented",
+        "checkpoint m132 implements m132",
         "live connector runtime is implemented",
         "account auth is implemented",
         "network access is implemented",
@@ -11777,20 +11789,26 @@ def _verify_m130_connector_safety_freeze_docs(
         "| checkpoint m130 | pre-alpha checkpoint | m130 | "
         "connector safety freeze | implemented/released |"
     )
-    planned_m131_row = (
+    implemented_m131_row = (
         "| checkpoint m131 | pre-alpha checkpoint | m131 | "
-        "autonomy mode 4, scoped work session | planned/provisional |"
+        "autonomy mode 4, scoped work session | implemented/released |"
+    )
+    planned_m132_row = (
+        "| checkpoint m132 | pre-alpha checkpoint | m132 | "
+        "autonomy mode 5, trusted recurring workflow | planned/provisional |"
     )
     if not _roadmap_row_present(current_text, implemented_m130_row):
         failures.append("active docs missing implemented Checkpoint M130 row")
-    if not _roadmap_row_present(current_text, planned_m131_row):
-        failures.append("active docs missing planned Checkpoint M131 row")
+    if not _roadmap_row_present(current_text, implemented_m131_row):
+        failures.append("active docs missing implemented Checkpoint M131 row")
+    if not _roadmap_row_present(current_text, planned_m132_row):
+        failures.append("active docs missing planned Checkpoint M132 row")
     for fragment in {
-        "autonomy mode 4 is implemented",
-        "scoped work session is implemented",
+        "autonomy mode 5 is implemented",
+        "trusted recurring workflow is implemented",
         "higher autonomy is implemented",
-        "m131 is implemented",
-        "checkpoint m131 implements m131",
+        "m132 is implemented",
+        "checkpoint m132 implements m132",
         "live connector runtime is implemented",
         "account auth is implemented",
         "network access is implemented",
@@ -11809,6 +11827,154 @@ def _verify_m130_connector_safety_freeze_docs(
     }:
         if fragment in current_text or fragment in text:
             failures.append(f"M130 docs imply forbidden/future capability: {fragment}")
+    return failures
+
+
+def _verify_m131_autonomy_mode4_scoped_work_session_docs(
+    root: Path, version: str | None
+) -> list[str]:
+    failures: list[str] = []
+    if _version_tuple(version) < (1, 7, 2):
+        return failures
+    active_text = " ".join(
+        "\n".join(
+            _read(root / rel_path).lower()
+            for rel_path in [
+                "README.md",
+                "VERSION.md",
+                "docs/canonical/09_roadmap.md",
+                "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            ]
+            if (root / rel_path).exists()
+        ).split()
+    )
+    if (
+        "checkpoint m131 is implemented/released" not in active_text
+        and "m131 is implemented/released" not in active_text
+    ):
+        return failures
+    required_paths = [
+        "docs/autonomy/AUTONOMY_MODE4_SCOPED_WORK_SESSION.md",
+        "docs/autonomy/AUTONOMY_MODE4_SCOPED_WORK_SESSION_POLICY.md",
+        "docs/autonomy/AUTONOMY_MODE4_SCOPED_WORK_SESSION_AUTHORITY_BOUNDARY.md",
+        "docs/autonomy/AUTONOMY_MODE4_SCOPED_WORK_SESSION_RECEIPT_PLAN.md",
+        "docs/autonomy/AUTONOMY_MODE4_SCOPED_WORK_SESSION_NON_GOALS.md",
+        "docs/autonomy/M131_TO_M132_BOUNDARY.md",
+        "docs/release_notes/checkpoint_m131.md",
+        "docs/archive/checkpoints/m131/README_IMPORT.md",
+        "docs/archive/checkpoints/m131/master_plan.md",
+        "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+    ]
+    for rel_path in required_paths:
+        if not (root / rel_path).exists():
+            failures.append(f"missing M131 autonomy mode4 doc: {rel_path}")
+    text = " ".join(
+        "\n".join(
+            _read(root / rel_path).lower()
+            for rel_path in required_paths
+            if (root / rel_path).exists()
+        ).split()
+    )
+    required_fragments = {
+        "M131 docs must say autonomy mode 4": "autonomy mode 4",
+        "M131 docs must say scoped work session": "scoped work session",
+        "M131 docs must say contract-only": "contract-only",
+        "M131 docs must say review-only": "review-only",
+        "M131 docs must say scoped-work-session-only": "scoped-work-session-only",
+        "M131 docs must say deterministic": "deterministic",
+        "M131 docs must say local-only": "local-only",
+        "M131 docs must say safe-ref-only": "safe-ref-only",
+        "M131 docs must say exact scope": "exact scope",
+        "M131 docs must say actor-bound": "actor-bound",
+        "M131 docs must say resource-bound": "resource-bound",
+        "M131 docs must say capability-bound": "capability-bound",
+        "M131 docs must say allowlist-bound": "allowlist-bound",
+        "M131 docs must say duration-bound": "duration-bound",
+        "M131 docs must say policy decision ref": "policy decision ref",
+        "M131 docs must say approval bundle ref": "approval bundle ref",
+        "M131 docs must say risk decision ref": "risk decision ref",
+        "M131 docs must say audit ref": "audit ref",
+        "M131 docs must say replay ref": "replay ref",
+        "M131 docs must say revocation ref": "revocation ref",
+        "M131 docs must say kill-switch ref": "kill-switch ref",
+        "M131 docs must say no-effect receipt": "no-effect receipt",
+        "M131 docs must deny session start": "no session start",
+        "M131 docs must deny autonomous actions": "no autonomous actions",
+        "M131 docs must deny execution": "no execution",
+        "M131 docs must deny tool execution": "no tool execution",
+        "M131 docs must deny shell execution": "no shell execution",
+        "M131 docs must deny network access": "no network access",
+        "M131 docs must deny browser automation": "no browser automation",
+        "M131 docs must deny browser forms": "no browser forms",
+        "M131 docs must deny authenticated browser": "no authenticated browser",
+        "M131 docs must deny download": "no download",
+        "M131 docs must deny upload": "no upload",
+        "M131 docs must deny plugin execution": "no plugin execution",
+        "M131 docs must deny connector runtime": "no connector runtime",
+        "M131 docs must deny account auth": "no account auth",
+        "M131 docs must deny background worker": "no background worker",
+        "M131 docs must deny scheduler": "no scheduler",
+        "M131 docs must deny model call": "no model call",
+        "M131 docs must deny memory write": "no memory write",
+        "M131 docs must deny context injection": "no context injection",
+        "M131 docs must deny backend route": "no backend route",
+        "M131 docs must deny Control Center control": "no control center control",
+        "M131 docs must deny dependency": "no dependency",
+        "M131 docs must keep M132 future": "m132 remains future",
+        "M131 docs must preserve alpha target": "v1.0.0-alpha",
+    }
+    for message, fragment in required_fragments.items():
+        if fragment not in text:
+            failures.append(message)
+    active_paths = [
+        "README.md",
+        "VERSION.md",
+        "docs/canonical/09_roadmap.md",
+        "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+        "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+        "docs/roadmap/MILESTONE_CHARTERS.md",
+        "docs/DOCUMENTATION_INDEX.md",
+        "docs/canonical/CANONICAL_DOC_MAP.md",
+    ]
+    current_text = " ".join(
+        "\n".join(
+            _read(root / rel_path).lower()
+            for rel_path in active_paths
+            if (root / rel_path).exists()
+        ).split()
+    )
+    implemented_m131_row = (
+        "| checkpoint m131 | pre-alpha checkpoint | m131 | "
+        "autonomy mode 4, scoped work session | implemented/released |"
+    )
+    planned_m132_row = (
+        "| checkpoint m132 | pre-alpha checkpoint | m132 | "
+        "autonomy mode 5, trusted recurring workflow | planned/provisional |"
+    )
+    if not _roadmap_row_present(current_text, implemented_m131_row):
+        failures.append("active docs missing implemented Checkpoint M131 row")
+    if not _roadmap_row_present(current_text, planned_m132_row):
+        failures.append("active docs missing planned Checkpoint M132 row")
+    for fragment in {
+        "autonomy mode 5 is implemented",
+        "trusted recurring workflow is implemented",
+        "recurring workflow runtime is implemented",
+        "m132 is implemented",
+        "checkpoint m132 implements m132",
+        "session start is implemented",
+        "autonomous actions are implemented",
+        "tool execution is implemented",
+        "shell execution is implemented",
+        "network access is implemented",
+        "browser automation is implemented",
+        "plugin execution is implemented",
+        "backend route is implemented",
+        "control center control is implemented",
+        "beta is released",
+        "production authority is implemented",
+    }:
+        if fragment in current_text or fragment in text:
+            failures.append(f"M131 docs imply forbidden/future capability: {fragment}")
     return failures
 
 

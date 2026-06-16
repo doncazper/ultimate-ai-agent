@@ -169,6 +169,7 @@ SCAN_SEQUENCE = [
     ("M128 connector write execution low-risk scan", "verify_m128_connector_write_execution_low_risk"),
     ("M129 connector audit revocation hardening scan", "verify_m129_connector_audit_revocation_hardening"),
     ("M130 connector safety freeze scan", "verify_m130_connector_safety_freeze"),
+    ("M131 autonomy mode4 scoped work session scan", "verify_m131_autonomy_mode4_scoped_work_session"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -17698,6 +17699,12 @@ def verify_post_m100_roadmap_reconciliation():
         or "connector safety freeze" in active_version_text
     ):
         implemented_milestones.add("m130")
+    if (
+        "checkpoint m131" in active_version_text
+        or "m131" in active_version_text
+        or "autonomy mode 4, scoped work session" in active_version_text
+    ):
+        implemented_milestones.add("m131")
     for version_label, product_target, milestone, title in expected_labels:
         if milestone in implemented_milestones:
             continue
@@ -23449,6 +23456,247 @@ def verify_m130_connector_safety_freeze():
             sys.exit(1)
 
     print("OK: M130 connector safety freeze is freeze-only, safe-ref-only, and route-free")
+
+
+def verify_m131_autonomy_mode4_scoped_work_session():
+    print("\n[Verifier] Running M131 autonomy mode4 scoped work session guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/autonomy/__init__.py",
+        "src/ultimate_ai_agent/core/autonomy/mode4_scoped_work_session.py",
+        "docs/autonomy/AUTONOMY_MODE4_SCOPED_WORK_SESSION.md",
+        "docs/autonomy/AUTONOMY_MODE4_SCOPED_WORK_SESSION_POLICY.md",
+        "docs/autonomy/AUTONOMY_MODE4_SCOPED_WORK_SESSION_AUTHORITY_BOUNDARY.md",
+        "docs/autonomy/AUTONOMY_MODE4_SCOPED_WORK_SESSION_RECEIPT_PLAN.md",
+        "docs/autonomy/AUTONOMY_MODE4_SCOPED_WORK_SESSION_NON_GOALS.md",
+        "docs/autonomy/M131_TO_M132_BOUNDARY.md",
+        "docs/release_notes/checkpoint_m131.md",
+        "docs/archive/checkpoints/m131/README_IMPORT.md",
+        "docs/archive/checkpoints/m131/master_plan.md",
+        "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+        "tests/test_m131_autonomy_mode4_scoped_work_session.py",
+        "tests/test_m131_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M131 autonomy mode4 scoped work session file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = " ".join(
+        "\n".join(
+            (ROOT / rel_path).read_text(encoding="utf-8").lower()
+            for rel_path in required_files
+            if rel_path.startswith("docs/")
+        ).split()
+    )
+    for fragment in [
+        "autonomy mode 4",
+        "scoped work session",
+        "contract-only",
+        "review-only",
+        "scoped-work-session-only",
+        "deterministic",
+        "local-only",
+        "safe-ref-only",
+        "exact scope",
+        "actor-bound",
+        "resource-bound",
+        "capability-bound",
+        "allowlist-bound",
+        "duration-bound",
+        "policy decision ref",
+        "approval bundle ref",
+        "risk decision ref",
+        "audit ref",
+        "replay ref",
+        "revocation ref",
+        "kill-switch ref",
+        "no-effect receipt",
+        "no session start",
+        "no autonomous actions",
+        "no execution",
+        "no tool execution",
+        "no shell execution",
+        "no network access",
+        "no browser automation",
+        "no browser forms",
+        "no authenticated browser",
+        "no download",
+        "no upload",
+        "no plugin execution",
+        "no connector runtime",
+        "no account auth",
+        "no background worker",
+        "no scheduler",
+        "no model call",
+        "no memory write",
+        "no context injection",
+        "no backend route",
+        "no control center control",
+        "no dependency",
+        "m132 remains future",
+        "v1.0.0-alpha",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M131 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from tests.test_m131_autonomy_mode4_scoped_work_session import _request
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.autonomy import (
+            AutonomyAuthorityMode,
+            AutonomyRiskClass,
+            Mode4ScopedWorkSessionStatus,
+            build_mode4_scoped_work_session_decision,
+            validate_mode4_scoped_work_session_decision,
+        )
+        from ultimate_ai_agent.core.gate.criteria import (
+            default_foundation_gate_criteria,
+        )
+        from ultimate_ai_agent.core.gate.evaluators import (
+            FoundationGateEvaluator,
+            m131_openapi_route_failures,
+        )
+    except Exception as exc:
+        print(f"FAIL: M131 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m131_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    decision = build_mode4_scoped_work_session_decision(_request())
+    if (
+        decision.status != Mode4ScopedWorkSessionStatus.ready_for_review
+        or decision.selected_mode != AutonomyAuthorityMode.scoped_autonomy_window
+        or not decision.contract_only
+        or not decision.review_only
+        or not decision.scoped_work_session_only
+        or not decision.deterministic
+        or not decision.local_only
+        or not decision.safe_refs_only
+        or not decision.exact_scope_bound
+        or not decision.actor_bound
+        or not decision.resource_bound
+        or not decision.capability_bound
+        or not decision.allowlist_bound
+        or not decision.policy_decision_bound
+        or not decision.approval_bundle_bound
+        or not decision.risk_decision_bound
+        or not decision.audit_replay_bound
+        or not decision.revocation_bound
+        or not decision.kill_switch_bound
+        or not decision.no_effect_receipt_required
+        or decision.max_risk_class != AutonomyRiskClass.medium
+        or decision.mode4_runtime_authorized
+        or decision.scoped_work_session_start_authorized
+        or decision.session_started
+        or decision.session_active
+        or decision.autonomous_actions_authorized
+        or decision.autonomous_actions_performed
+        or decision.execution_authorized
+        or decision.execution_performed
+        or decision.tool_execution_authorized
+        or decision.tool_execution_performed
+        or decision.shell_execution_performed
+        or decision.command_execution_performed
+        or decision.subprocess_execution_performed
+        or decision.filesystem_mutation_performed
+        or decision.network_access_performed
+        or decision.browser_automation_performed
+        or decision.browser_form_performed
+        or decision.authenticated_browser_performed
+        or decision.download_performed
+        or decision.upload_performed
+        or decision.plugin_execution_performed
+        or decision.connector_runtime_performed
+        or decision.account_auth_performed
+        or decision.mobile_sensor_performed
+        or decision.remote_execution_performed
+        or decision.background_worker_started
+        or decision.scheduler_started
+        or decision.model_call_performed
+        or decision.memory_write_performed
+        or decision.context_injection_performed
+        or decision.backend_route_added
+        or decision.control_center_control_added
+        or decision.dependency_added
+        or decision.beta_release_enabled
+        or decision.production_authority_granted
+        or decision.trusted_recurring_workflow_enabled
+        or decision.side_effects_performed
+        or not decision.receipt_plan.store_safe_summary_only
+        or not decision.receipt_plan.store_safe_refs_only
+        or decision.receipt_plan.store_raw_prompt
+        or decision.receipt_plan.store_raw_provider_payload
+        or decision.receipt_plan.session_started
+        or decision.receipt_plan.execution_performed
+        or "M131_MODE4_SCOPED_WORK_SESSION_CONTRACT_ONLY"
+        not in decision.reason_codes
+        or "M132_REMAINS_FUTURE" not in decision.reason_codes
+    ):
+        print("FAIL: M131 Mode 4 scoped work session decision is unsafe or over-authoritative")
+        sys.exit(1)
+
+    for update, reason in [
+        ({"mode4_runtime_authorized": True}, "M131_MODE4_RUNTIME_DENIED"),
+        ({"session_started": True}, "M131_SESSION_START_DENIED"),
+        ({"session_active": True}, "M131_SESSION_ACTIVE_DENIED"),
+        ({"autonomous_actions_performed": True}, "M131_AUTONOMOUS_ACTIONS_DENIED"),
+        ({"execution_performed": True}, "M131_EXECUTION_DENIED"),
+        ({"tool_execution_performed": True}, "M131_TOOL_EXECUTION_DENIED"),
+        ({"browser_form_performed": True}, "M131_BROWSER_FORM_DENIED"),
+        ({"background_worker_started": True}, "M131_BACKGROUND_WORKER_DENIED"),
+        ({"backend_route_added": True}, "M131_BACKEND_ROUTE_DENIED"),
+        (
+            {"trusted_recurring_workflow_enabled": True},
+            "M132_TRUSTED_RECURRING_WORKFLOW_DENIED",
+        ),
+        (
+            {"production_authority_granted": True},
+            "M131_PRODUCTION_AUTHORITY_DENIED",
+        ),
+    ]:
+        try:
+            validate_mode4_scoped_work_session_decision(
+                decision.model_copy(update=update)
+            )
+            print(f"FAIL: M131 mutated authority flag was not denied: {update}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M131 mutated authority flag raised {exc!s}")
+                sys.exit(1)
+
+    criteria = {
+        criterion.criterion_id: criterion
+        for criterion in default_foundation_gate_criteria()
+    }
+    for criterion_id in [
+        "m131_autonomy_mode4_scoped_work_session_contracts",
+        "m131_autonomy_mode4_scoped_work_session_static_safety",
+        "m131_autonomy_mode4_scoped_work_session_route_boundary",
+        "m131_roadmap_currentness",
+    ]:
+        if criterion_id not in criteria:
+            print(f"FAIL: Missing M131 Foundation Gate criterion: {criterion_id}")
+            sys.exit(1)
+    evaluator = FoundationGateEvaluator(ROOT)
+    for criterion_id in [
+        "m131_autonomy_mode4_scoped_work_session_contracts",
+        "m131_autonomy_mode4_scoped_work_session_static_safety",
+        "m131_autonomy_mode4_scoped_work_session_route_boundary",
+        "m131_roadmap_currentness",
+    ]:
+        gate_report = evaluator.evaluate([criteria[criterion_id]])
+        result = gate_report.results[0]
+        if result.status != "passed":
+            print(f"FAIL: {criterion_id} failed: {result.failures}")
+            sys.exit(1)
+
+    print("OK: M131 autonomy mode4 scoped work session is review-only, safe-ref-only, and route-free")
 
 
 def verify_local_developer_launcher_safety():

@@ -125,6 +125,19 @@ from ultimate_ai_agent.core.autonomy.sessions import (
     validate_scoped_autonomy_session_request,
     validate_scoped_autonomy_session_scope,
 )
+from ultimate_ai_agent.core.autonomy.mode4_scoped_work_session import (
+    M131_MAX_WORK_SESSION_SECONDS,
+    MODE4_SCOPED_WORK_SESSION_DOCS,
+    Mode4ScopedWorkSessionDecision,
+    Mode4ScopedWorkSessionPolicy,
+    Mode4ScopedWorkSessionReceiptPlan,
+    Mode4ScopedWorkSessionRequest,
+    Mode4ScopedWorkSessionStatus,
+    build_mode4_scoped_work_session_decision,
+    validate_mode4_scoped_work_session_decision,
+    validate_mode4_scoped_work_session_policy,
+    validate_mode4_scoped_work_session_request,
+)
 
 __all__ = [
     "AUTONOMY_MODE_CHARTER_DOCS",
@@ -228,4 +241,15 @@ __all__ = [
     "build_scoped_autonomy_session_decision",
     "validate_scoped_autonomy_session_request",
     "validate_scoped_autonomy_session_scope",
+    "M131_MAX_WORK_SESSION_SECONDS",
+    "MODE4_SCOPED_WORK_SESSION_DOCS",
+    "Mode4ScopedWorkSessionDecision",
+    "Mode4ScopedWorkSessionPolicy",
+    "Mode4ScopedWorkSessionReceiptPlan",
+    "Mode4ScopedWorkSessionRequest",
+    "Mode4ScopedWorkSessionStatus",
+    "build_mode4_scoped_work_session_decision",
+    "validate_mode4_scoped_work_session_decision",
+    "validate_mode4_scoped_work_session_policy",
+    "validate_mode4_scoped_work_session_request",
 ]

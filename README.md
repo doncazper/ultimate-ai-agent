@@ -13,29 +13,28 @@ allowed to become operational authority.
 | Field | Current state |
 |---|---|
 | Current active baseline | **v1.7.2** |
-| Current milestone | **Checkpoint M130 — Connector Safety Freeze** |
+| Current milestone | **Checkpoint M131 — Autonomy Mode 4, Scoped Work Session** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **75** OpenAPI paths |
 | Production readiness | Not claimed |
 
-Checkpoint M130 implements Connector Safety Freeze while the current
+Checkpoint M131 implements Autonomy Mode 4, Scoped Work Session while the current
 product baseline remains v1.7.2. Already-pushed tags remain immutable historical
-internal milestone tags, future M131-M149 conveyor milestones use checkpoint
+internal milestone tags, future M132-M149 conveyor milestones use checkpoint
 labels instead of product SemVer tags, and M150 is the next product release
 target **v1.0.0-alpha**. Beta begins only after the alpha UI and supporting
 safety/product work are reviewed, accepted, and explicitly promoted by a later
-roadmap patch. M130 is contract-only, review-only, freeze-only, deterministic,
-local-only, safe-ref-only, and exact-bound to M129 connector audit + revocation
-hardening. It freezes the accepted M121-M129 connector safety surface for
-governed review. It adds no live connector runtime, account auth, network
-access, credential handling, raw connector content, full content read,
-connector write execution, connector send execution, connector delete
-execution, connector export, connector bulk export, attachment download, audit
-export, revocation execution, kill-switch execution, approval revocation,
-session stop, model call, memory write, context injection, backend route,
-Control Center control, dependency, M131 work, broad autonomy, beta release, or
-production authority.
+roadmap patch. M131 is contract-only, review-only, scoped-work-session-only,
+deterministic, local-only, and safe-ref-only. It records exact scope, actor,
+user, workspace, resource, capability, allowlist, policy decision, approval
+bundle, risk decision, audit, replay, revocation, kill-switch, and no-effect
+receipt refs for governed review. It adds no session start, autonomous actions,
+execution, tool execution, shell execution, network access, browser automation,
+plugin execution, connector runtime, account auth, mobile sensor access, remote
+execution, background worker, scheduler, model call, memory write, context
+injection, backend route, Control Center control, dependency, M132 work, broad
+autonomy, beta release, or production authority.
 
 v0.29.5 is documentation policy polish. It remains the documentation
 organization cleanup baseline before the M26 and M27 implementation releases.
@@ -49,6 +48,7 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M34-M60 roadmap supersession](docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md)
 - [M61-M100 roadmap](docs/roadmap/M61_M100_ROADMAP.md)
 - [M101-M150 planned roadmap](docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md)
+- [M131 Autonomy Mode 4, Scoped Work Session](docs/autonomy/AUTONOMY_MODE4_SCOPED_WORK_SESSION.md)
 - [M130 Connector Safety Freeze](docs/connectors/CONNECTOR_SAFETY_FREEZE.md)
 - [M129 Connector Audit + Revocation Hardening](docs/connectors/CONNECTOR_AUDIT_REVOCATION_HARDENING.md)
 - [M128 Connector Write Execution, Low-Risk Only](docs/connectors/CONNECTOR_WRITE_EXECUTION_LOW_RISK.md)

@@ -848,15 +848,17 @@ write dry-run planner records. M128 is implemented/released as deterministic
 local low-risk-only connector write execution records through injected safe
 transport. M129 is implemented/released as deterministic local review-only
 connector audit + revocation hardening records. M130 is implemented/released as
-deterministic local freeze-only connector safety freeze records. M131-M150 are planned/provisional only in
+deterministic local freeze-only connector safety freeze records. M131 is
+implemented/released as deterministic local review-only Autonomy Mode 4 scoped
+work-session records. M132-M150 are planned/provisional only in
 `docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md`.
-Future M131-M149 conveyor milestones use checkpoint labels instead of product
+Future M132-M149 conveyor milestones use checkpoint labels instead of product
 SemVer tags, and M150 is
 planned as v1.0.0-alpha. Beta begins only after alpha UI and supporting
 safety/product work are reviewed and promoted. Active roadmap sources consistently mark
-M34-M130 implemented/released and rely on documentation-integrity checks to
+M34-M131 implemented/released and rely on documentation-integrity checks to
 guard against superseded-roadmap drift, stale current-baseline labels, route
-drift, authority-boundary drift, alpha/beta versioning drift, and M131-M150
+drift, authority-boundary drift, alpha/beta versioning drift, and M132-M150
 future-status drift.
 
 ## Release Notes Index
