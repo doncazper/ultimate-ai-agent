@@ -1919,6 +1919,27 @@ M139_FORBIDDEN_BACKEND_ROUTES = M138_FORBIDDEN_BACKEND_ROUTES + (
     "/browser/click",
     "/connectors/write",
 )
+EXPECTED_M140_OPENAPI_PATH_COUNT = 75
+M140_FORBIDDEN_BACKEND_ROUTES = M139_FORBIDDEN_BACKEND_ROUTES + (
+    "/autonomy/higher-autonomy-red-team-freeze",
+    "/autonomy/higher-autonomy-red-team-freeze/start",
+    "/autonomy/higher-autonomy-red-team-freeze/run",
+    "/red-team/run",
+    "/red-team/execute",
+    "/red-team/harness/run",
+    "/red-team/harness/execute",
+    "/adversarial-tests/run",
+    "/adversarial-tests/execute",
+    "/autonomy/execute",
+    "/autonomy/broad/enable",
+    "/multi-user/enable",
+    "/tenants/create",
+    "/workspaces/share",
+    "/production/authority/enable",
+    "/tools/execute",
+    "/browser/click",
+    "/connectors/write",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -3754,6 +3775,23 @@ def m139_openapi_route_failures(
     return failures
 
 
+def m140_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M140_OPENAPI_PATH_COUNT
+) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(
+            f"OpenAPI path count changed for M140: expected {expected_path_count}, got {len(path_set)}"
+        )
+    for route in M140_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(
+                f"M140 forbidden red-team freeze, red-team runtime, multi-user, execution, browser, connector, or authority route present: {route}"
+            )
+    return failures
+
+
 M36_SAFE_REF_PREFIXES = {
     "reviewPacketRef": "file-review-packet:",
     "previewResultRef": "redacted-file-preview-output:",
@@ -5009,6 +5047,16 @@ class FoundationGateEvaluator:
                 self.check_m139_autonomy_abuse_loop_detection_route_boundary
             ),
             "m139_roadmap_currentness": self.check_m139_roadmap_currentness,
+            "m140_higher_autonomy_red_team_freeze_contracts": (
+                self.check_m140_higher_autonomy_red_team_freeze_contracts
+            ),
+            "m140_higher_autonomy_red_team_freeze_static_safety": (
+                self.check_m140_higher_autonomy_red_team_freeze_static_safety
+            ),
+            "m140_higher_autonomy_red_team_freeze_route_boundary": (
+                self.check_m140_higher_autonomy_red_team_freeze_route_boundary
+            ),
+            "m140_roadmap_currentness": self.check_m140_roadmap_currentness,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -30872,6 +30920,12 @@ class FoundationGateEvaluator:
             or "autonomy abuse/loop detection" in active_version_text
         ):
             implemented_milestones.add("m139")
+        if (
+            "checkpoint m140" in active_version_text
+            or "m140" in active_version_text
+            or "higher-autonomy red-team freeze" in active_version_text
+        ):
+            implemented_milestones.add("m140")
         for version_label, product_target, milestone, title in expected_labels:
             if milestone in implemented_milestones:
                 continue
@@ -46327,6 +46381,13 @@ class FoundationGateEvaluator:
                 "pre-alpha checkpoint",
                 "m140",
                 "higher-autonomy red-team freeze",
+                "implemented/released",
+            ),
+            (
+                "checkpoint m141",
+                "pre-alpha checkpoint",
+                "m141",
+                "multi-user product boundary",
                 "planned/provisional",
             ),
             (
@@ -46785,11 +46846,15 @@ class FoundationGateEvaluator:
             )
             if not _roadmap_row_present(text, row):
                 failures.append(
-                    f"active docs missing expected M139/M140-M150 row: {version_label} / {milestone.upper()} - {title}"
+                    f"active docs missing expected M139/M141-M150 row: {version_label} / {milestone.upper()} - {title}"
                 )
         for fragment in (
-            "higher-autonomy red-team freeze is implemented",
-            "m140 higher-autonomy red-team freeze is implemented",
+            "multi-user product boundary is implemented",
+            "m141 multi-user product boundary is implemented",
+            "multi-user runtime is implemented",
+            "tenant runtime is implemented",
+            "workspace sharing is implemented",
+            "identity federation is implemented",
             "red-team runtime is implemented",
             "abuse detection runtime is implemented",
             "loop detection runtime is implemented",
@@ -46805,13 +46870,395 @@ class FoundationGateEvaluator:
             "plugin execution is implemented",
             "backend route is implemented",
             "control center control is implemented",
-            "m140 dependency is added",
+            "m141 dependency is added",
             "beta is released",
             "production authority is implemented",
         ):
             if fragment in text:
                 failures.append(
                     f"active docs imply forbidden M139 future/currentness claim: {fragment}"
+                )
+        return self._result(criterion, failures, required_docs)
+
+    def check_m140_higher_autonomy_red_team_freeze_contracts(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/autonomy/__init__.py",
+            "src/ultimate_ai_agent/core/autonomy/higher_autonomy_red_team_freeze.py",
+            "docs/autonomy/HIGHER_AUTONOMY_RED_TEAM_FREEZE.md",
+            "docs/autonomy/HIGHER_AUTONOMY_RED_TEAM_FREEZE_POLICY.md",
+            "docs/autonomy/HIGHER_AUTONOMY_RED_TEAM_FREEZE_AUTHORITY_BOUNDARY.md",
+            "docs/autonomy/HIGHER_AUTONOMY_RED_TEAM_FREEZE_RECEIPT_PLAN.md",
+            "docs/autonomy/HIGHER_AUTONOMY_RED_TEAM_FREEZE_NON_GOALS.md",
+            "docs/autonomy/M140_TO_M141_BOUNDARY.md",
+            "docs/release_notes/checkpoint_m140.md",
+            "docs/archive/checkpoints/m140/README_IMPORT.md",
+            "docs/archive/checkpoints/m140/master_plan.md",
+            "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            "tests/test_m140_higher_autonomy_red_team_freeze.py",
+            "tests/test_m140_gate_integration.py",
+        ]
+        failures = [
+            f"missing M140 higher-autonomy red-team freeze file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            from tests.test_m140_higher_autonomy_red_team_freeze import _request
+            from ultimate_ai_agent.core.autonomy import (
+                HigherAutonomyRedTeamFreezeStatus,
+                build_higher_autonomy_red_team_freeze_report,
+                validate_higher_autonomy_red_team_freeze_report,
+            )
+
+            report = build_higher_autonomy_red_team_freeze_report(_request())
+            if (
+                report.status
+                != HigherAutonomyRedTeamFreezeStatus.frozen_for_review
+                or not report.contract_only
+                or not report.review_only
+                or not report.freeze_only
+                or not report.deterministic
+                or not report.local_only
+                or not report.safe_refs_only
+                or not report.m131_m139_covered
+                or not report.red_team_review_bound
+                or not report.audit_replay_bound
+                or not report.revocation_readiness_bound
+                or not report.no_effect_receipt_required
+                or not report.no_broad_unsandboxed_autonomy
+                or not report.no_production_authority
+                or report.red_team_runtime_started
+                or report.red_team_harness_execution_performed
+                or report.adversarial_test_execution_performed
+                or report.autonomous_execution_performed
+                or report.broad_autonomy_granted
+                or report.global_autonomy_switch_enabled
+                or report.execution_performed
+                or report.tool_execution_performed
+                or report.shell_execution_performed
+                or report.browser_action_performed
+                or report.connector_action_performed
+                or report.network_access_performed
+                or report.plugin_execution_performed
+                or report.background_worker_started
+                or report.scheduler_started
+                or report.mobile_sensor_performed
+                or report.remote_execution_performed
+                or report.model_call_performed
+                or report.memory_write_performed
+                or report.context_injection_performed
+                or report.raw_prompt_payload_exposed
+                or report.credential_cookie_access_performed
+                or report.backend_route_added
+                or report.control_center_control_added
+                or report.dependency_added
+                or report.alpha_release_enabled
+                or report.beta_release_enabled
+                or report.production_authority_granted
+                or report.side_effects_performed
+                or "M140_HIGHER_AUTONOMY_RED_TEAM_FREEZE_REVIEW_ONLY"
+                not in report.reason_codes
+                or "M140_M131_M139_COVERED" not in report.reason_codes
+                or "M140_NO_RED_TEAM_RUNTIME" not in report.reason_codes
+                or "M140_NO_BROAD_UNSANDBOXED_AUTONOMY"
+                not in report.reason_codes
+                or "M140_NO_PRODUCTION_AUTHORITY" not in report.reason_codes
+                or "M141_REMAINS_FUTURE" not in report.reason_codes
+            ):
+                failures.append(
+                    "M140 higher-autonomy red-team freeze report is unsafe or over-authoritative"
+                )
+            for update, reason in [
+                ({"red_team_runtime_started": True}, "M140_RED_TEAM_RUNTIME_DENIED"),
+                (
+                    {"red_team_harness_execution_performed": True},
+                    "M140_RED_TEAM_HARNESS_EXECUTION_DENIED",
+                ),
+                (
+                    {"adversarial_test_execution_performed": True},
+                    "M140_ADVERSARIAL_TEST_EXECUTION_DENIED",
+                ),
+                (
+                    {"autonomous_execution_performed": True},
+                    "M140_AUTONOMOUS_EXECUTION_DENIED",
+                ),
+                ({"tool_execution_performed": True}, "M140_TOOL_EXECUTION_DENIED"),
+                ({"browser_action_performed": True}, "M140_BROWSER_ACTION_DENIED"),
+                (
+                    {"connector_action_performed": True},
+                    "M140_CONNECTOR_ACTION_DENIED",
+                ),
+                ({"backend_route_added": True}, "M140_BACKEND_ROUTE_DENIED"),
+                ({"alpha_release_enabled": True}, "M140_ALPHA_RELEASE_DENIED"),
+                ({"beta_release_enabled": True}, "M140_BETA_RELEASE_DENIED"),
+                (
+                    {"production_authority_granted": True},
+                    "M140_PRODUCTION_AUTHORITY_DENIED",
+                ),
+            ]:
+                try:
+                    validate_higher_autonomy_red_team_freeze_report(
+                        report.model_copy(update=update)
+                    )
+                    failures.append(
+                        f"M140 unsafe red-team freeze mutation was not denied with {reason}"
+                    )
+                except ValueError as exc:
+                    if reason not in str(exc):
+                        failures.append(
+                            f"M140 unsafe red-team freeze mutation raised {exc!s}"
+                        )
+        except Exception as exc:
+            failures.append(f"M140 red-team freeze validation failed: {exc}")
+
+        docs_text = " ".join(
+            "\n".join(
+                self._read(self.root / path).lower()
+                for path in required_files
+                if path.startswith("docs/") and (self.root / path).exists()
+            ).split()
+        )
+        for fragment in [
+            "higher-autonomy red-team freeze",
+            "contract-only",
+            "review-only",
+            "freeze-only",
+            "deterministic",
+            "local-only",
+            "safe-ref-only",
+            "accepted m131-m139",
+            "red-team checklist",
+            "audit",
+            "replay",
+            "revocation",
+            "kill-switch",
+            "no-effect receipt",
+            "no red-team runtime",
+            "no red-team harness execution",
+            "no adversarial test execution",
+            "no autonomous execution",
+            "no broad autonomy",
+            "no global autonomy switch",
+            "no execution",
+            "no tool execution",
+            "no shell execution",
+            "no browser action",
+            "no connector action",
+            "no network access",
+            "no plugin execution",
+            "no background worker",
+            "no scheduler",
+            "no mobile sensor",
+            "no remote execution",
+            "no model call",
+            "no memory write",
+            "no context injection",
+            "no raw prompt",
+            "no credential",
+            "no backend route",
+            "no control center control",
+            "no dependency",
+            "m141 remains future",
+            "v1.0.0-alpha",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M140 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m140_higher_autonomy_red_team_freeze_static_safety(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        forbidden_source_fragments = [
+            "red_team_runtime_enabled=True",
+            "red_team_harness_execution_enabled=True",
+            "adversarial_test_execution_enabled=True",
+            "autonomous_execution_enabled=True",
+            "broad_autonomy_enabled=True",
+            "global_autonomy_switch_enabled=True",
+            "execution_enabled=True",
+            "tool_execution_enabled=True",
+            "shell_execution_enabled=True",
+            "browser_action_enabled=True",
+            "connector_action_enabled=True",
+            "network_access_enabled=True",
+            "plugin_execution_enabled=True",
+            "model_call_enabled=True",
+            "memory_write_enabled=True",
+            "context_injection_enabled=True",
+            "backend_route_enabled=True",
+            "dependency_added=True",
+            "production_authority_granted=True",
+            "red_team_runtime_started=True",
+            "red_team_harness_execution_performed=True",
+            "adversarial_test_execution_performed=True",
+            "autonomous_execution_performed=True",
+            "tool_execution_performed=True",
+            "browser_action_performed=True",
+            "connector_action_performed=True",
+            "/autonomy/higher-autonomy-red-team-freeze/start",
+            "/red-team/run",
+            "/red-team/harness/run",
+            "/adversarial-tests/run",
+            "/autonomy/execute",
+            "/multi-user/enable",
+        ]
+        allowed_files = {
+            "src/ultimate_ai_agent/core/gate/evaluators.py",
+            "src/ultimate_ai_agent/api/app.py",
+            "src/ultimate_ai_agent/api/openapi.py",
+            "src/ultimate_ai_agent/core/gate/criteria.py",
+            "src/ultimate_ai_agent/core/autonomy/__init__.py",
+            "src/ultimate_ai_agent/core/autonomy/higher_autonomy_red_team_freeze.py",
+            "src/ultimate_ai_agent/core/autonomy/abuse_loop_detection.py",
+            "src/ultimate_ai_agent/core/autonomy/error_handling_guardrails.py",
+            "src/ultimate_ai_agent/core/autonomy/browser_connector_combined_workflow.py",
+            "src/ultimate_ai_agent/core/autonomy/cross_tool_dependency_execution.py",
+            "src/ultimate_ai_agent/core/autonomy/autonomous_recovery_planner.py",
+            "src/ultimate_ai_agent/core/autonomy/human_checkpoint_scheduling.py",
+            "src/ultimate_ai_agent/core/autonomy/long_running_task_supervisor.py",
+            "src/ultimate_ai_agent/core/autonomy/trusted_recurring_workflow.py",
+            "src/ultimate_ai_agent/core/autonomy/mode4_scoped_work_session.py",
+        }
+        for root in [
+            self.root / "src" / "ultimate_ai_agent",
+            self.root / "apps" / "control-center" / "src",
+            self.root / "apps" / "ccc-ios",
+        ]:
+            if not root.exists():
+                continue
+            candidate_files = []
+            for pattern in (
+                "*.py",
+                "*.ts",
+                "*.tsx",
+                "*.js",
+                "*.jsx",
+                "*.swift",
+                "*.yml",
+                "*.yaml",
+            ):
+                candidate_files.extend(root.rglob(pattern))
+            for path in sorted(candidate_files):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(self.root).as_posix()
+                if ".test." in rel or rel in allowed_files:
+                    continue
+                text = path.read_text(encoding="utf-8")
+                for fragment in forbidden_source_fragments:
+                    if fragment in text:
+                        failures.append(
+                            f"M140 forbidden red-team freeze fragment in {rel}: {fragment}"
+                        )
+        return self._result(criterion, failures, [])
+
+    def check_m140_higher_autonomy_red_team_freeze_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m140_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M140 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m140_roadmap_currentness(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_docs = [
+            "README.md",
+            "VERSION.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            "docs/roadmap/MILESTONE_CHARTERS.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+        ]
+        failures = [
+            f"missing M140 roadmap doc: {path}"
+            for path in required_docs
+            if not (self.root / path).exists()
+        ]
+        text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_docs
+            if (self.root / path).exists()
+        )
+        if (
+            "checkpoint m140" not in text
+            or "higher-autonomy red-team freeze" not in text
+        ):
+            failures.append(
+                "active docs do not identify Checkpoint M140 Higher-Autonomy Red-Team Freeze"
+            )
+        if (
+            "m140 is implemented/released" not in text
+            and "checkpoint m140 is implemented/released" not in text
+        ):
+            failures.append("active docs do not mark M140 implemented/released")
+        for version_label, product_target, milestone, title, status in [
+            (
+                "checkpoint m140",
+                "pre-alpha checkpoint",
+                "m140",
+                "higher-autonomy red-team freeze",
+                "implemented/released",
+            ),
+            (
+                "checkpoint m141",
+                "pre-alpha checkpoint",
+                "m141",
+                "multi-user product boundary",
+                "planned/provisional",
+            ),
+            (
+                "v1.0.0-alpha",
+                "alpha",
+                "m150",
+                "ultimate ai agent v1.0.0-alpha",
+                "planned/provisional",
+            ),
+        ]:
+            row = (
+                f"| {version_label} | {product_target} | {milestone} | "
+                f"{title} | {status} |"
+            )
+            if not _roadmap_row_present(text, row):
+                failures.append(
+                    f"active docs missing expected M140/M141-M150 row: {version_label} / {milestone.upper()} - {title}"
+                )
+        for fragment in (
+            "multi-user product boundary is implemented",
+            "m141 multi-user product boundary is implemented",
+            "multi-user runtime is implemented",
+            "tenant runtime is implemented",
+            "workspace sharing is implemented",
+            "identity federation is implemented",
+            "red-team runtime is implemented",
+            "red-team harness execution is implemented",
+            "adversarial test execution is implemented",
+            "autonomous execution is implemented",
+            "broad autonomy is implemented",
+            "global autonomy switch is implemented",
+            "tool execution is implemented",
+            "shell execution is implemented",
+            "browser action execution is implemented",
+            "connector action execution is implemented",
+            "network access is implemented",
+            "plugin execution is implemented",
+            "backend route is implemented",
+            "control center control is implemented",
+            "m141 dependency is added",
+            "beta is released",
+            "production authority is implemented",
+        ):
+            if fragment in text:
+                failures.append(
+                    f"active docs imply forbidden M140 future/currentness claim: {fragment}"
                 )
         return self._result(criterion, failures, required_docs)
 

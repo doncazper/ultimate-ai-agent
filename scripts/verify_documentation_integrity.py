@@ -1601,6 +1601,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_m137_browser_connector_combined_workflow_docs(root, version))
     failures.extend(_verify_m138_autonomous_error_handling_guardrails_docs(root, version))
     failures.extend(_verify_m139_autonomy_abuse_loop_detection_docs(root, version))
+    failures.extend(_verify_m140_higher_autonomy_red_team_freeze_docs(root, version))
     failures.extend(_verify_m19_roadmap_currentness(root, version))
     failures.extend(_verify_post_m18_roadmap_status_labels(root))
 
@@ -7315,6 +7316,12 @@ def _verify_post_m100_roadmap_reconciliation_docs(root: Path, version: str | Non
         or "autonomy abuse/loop detection" in version_doc_text
     ):
         implemented_milestones.add("m139")
+    if _version_tuple(version) >= (1, 7, 2) and (
+        "checkpoint m140" in version_doc_text
+        or "m140" in version_doc_text
+        or "higher-autonomy red-team freeze" in version_doc_text
+    ):
+        implemented_milestones.add("m140")
     for version_label, product_target, milestone, title in EXPECTED_M101_M150_LABELS:
         if milestone in implemented_milestones:
             continue
@@ -13382,9 +13389,13 @@ def _verify_m139_autonomy_abuse_loop_detection_docs(
         "| checkpoint m139 | pre-alpha checkpoint | m139 | "
         "autonomy abuse/loop detection | implemented/released |"
     )
-    planned_m140_row = (
+    implemented_m140_row = (
         "| checkpoint m140 | pre-alpha checkpoint | m140 | "
-        "higher-autonomy red-team freeze | planned/provisional |"
+        "higher-autonomy red-team freeze | implemented/released |"
+    )
+    planned_m141_row = (
+        "| checkpoint m141 | pre-alpha checkpoint | m141 | "
+        "multi-user product boundary | planned/provisional |"
     )
     m150_row = (
         "| v1.0.0-alpha | alpha | m150 | ultimate ai agent v1.0.0-alpha | "
@@ -13392,13 +13403,19 @@ def _verify_m139_autonomy_abuse_loop_detection_docs(
     )
     if not _roadmap_row_present(current_text, implemented_m139_row):
         failures.append("active docs missing implemented Checkpoint M139 row")
-    if not _roadmap_row_present(current_text, planned_m140_row):
-        failures.append("active docs missing planned Checkpoint M140 row")
+    if not _roadmap_row_present(current_text, implemented_m140_row):
+        failures.append("active docs missing implemented Checkpoint M140 row")
+    if not _roadmap_row_present(current_text, planned_m141_row):
+        failures.append("active docs missing planned Checkpoint M141 row")
     if not _roadmap_row_present(current_text, m150_row):
         failures.append("active docs missing planned M150 alpha row")
     for fragment in {
-        "higher-autonomy red-team freeze is implemented",
-        "m140 higher-autonomy red-team freeze is implemented",
+        "multi-user product boundary is implemented",
+        "m141 multi-user product boundary is implemented",
+        "multi-user runtime is implemented",
+        "tenant runtime is implemented",
+        "workspace sharing is implemented",
+        "identity federation is implemented",
         "red-team runtime is implemented",
         "abuse detection runtime is implemented",
         "loop detection runtime is implemented",
@@ -13414,12 +13431,169 @@ def _verify_m139_autonomy_abuse_loop_detection_docs(
         "plugin execution is implemented",
         "backend route is implemented",
         "control center control is implemented",
-        "m140 dependency is added",
+        "m141 dependency is added",
         "beta is released",
         "production authority is implemented",
     }:
         if fragment in current_text or fragment in text:
             failures.append(f"M139 docs imply forbidden/future capability: {fragment}")
+    return failures
+
+
+def _verify_m140_higher_autonomy_red_team_freeze_docs(
+    root: Path, version: str | None
+) -> list[str]:
+    failures: list[str] = []
+    if _version_tuple(version) < (1, 7, 2):
+        return failures
+    active_text = " ".join(
+        "\n".join(
+            _read(root / rel_path).lower()
+            for rel_path in [
+                "README.md",
+                "VERSION.md",
+                "docs/canonical/09_roadmap.md",
+                "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            ]
+            if (root / rel_path).exists()
+        ).split()
+    )
+    if (
+        "checkpoint m140 is implemented/released" not in active_text
+        and "m140 is implemented/released" not in active_text
+    ):
+        return failures
+    required_paths = [
+        "docs/autonomy/HIGHER_AUTONOMY_RED_TEAM_FREEZE.md",
+        "docs/autonomy/HIGHER_AUTONOMY_RED_TEAM_FREEZE_POLICY.md",
+        "docs/autonomy/HIGHER_AUTONOMY_RED_TEAM_FREEZE_AUTHORITY_BOUNDARY.md",
+        "docs/autonomy/HIGHER_AUTONOMY_RED_TEAM_FREEZE_RECEIPT_PLAN.md",
+        "docs/autonomy/HIGHER_AUTONOMY_RED_TEAM_FREEZE_NON_GOALS.md",
+        "docs/autonomy/M140_TO_M141_BOUNDARY.md",
+        "docs/release_notes/checkpoint_m140.md",
+        "docs/archive/checkpoints/m140/README_IMPORT.md",
+        "docs/archive/checkpoints/m140/master_plan.md",
+        "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+    ]
+    for rel_path in required_paths:
+        if not (root / rel_path).exists():
+            failures.append(f"missing M140 red-team freeze doc: {rel_path}")
+    text = " ".join(
+        "\n".join(
+            _read(root / rel_path).lower()
+            for rel_path in required_paths
+            if (root / rel_path).exists()
+        ).split()
+    )
+    required_fragments = {
+        "M140 docs must say higher-autonomy red-team freeze": "higher-autonomy red-team freeze",
+        "M140 docs must say contract-only": "contract-only",
+        "M140 docs must say review-only": "review-only",
+        "M140 docs must say freeze-only": "freeze-only",
+        "M140 docs must say deterministic": "deterministic",
+        "M140 docs must say local-only": "local-only",
+        "M140 docs must say safe-ref-only": "safe-ref-only",
+        "M140 docs must say accepted M131-M139": "accepted m131-m139",
+        "M140 docs must say red-team checklist": "red-team checklist",
+        "M140 docs must say audit": "audit",
+        "M140 docs must say replay": "replay",
+        "M140 docs must say revocation": "revocation",
+        "M140 docs must say kill-switch": "kill-switch",
+        "M140 docs must say no-effect receipt": "no-effect receipt",
+        "M140 docs must deny red-team runtime": "no red-team runtime",
+        "M140 docs must deny red-team harness execution": "no red-team harness execution",
+        "M140 docs must deny adversarial test execution": "no adversarial test execution",
+        "M140 docs must deny autonomous execution": "no autonomous execution",
+        "M140 docs must deny broad autonomy": "no broad autonomy",
+        "M140 docs must deny global autonomy switch": "no global autonomy switch",
+        "M140 docs must deny execution": "no execution",
+        "M140 docs must deny tool execution": "no tool execution",
+        "M140 docs must deny shell execution": "no shell execution",
+        "M140 docs must deny browser action": "no browser action",
+        "M140 docs must deny connector action": "no connector action",
+        "M140 docs must deny network access": "no network access",
+        "M140 docs must deny plugin execution": "no plugin execution",
+        "M140 docs must deny background worker": "no background worker",
+        "M140 docs must deny scheduler": "no scheduler",
+        "M140 docs must deny mobile sensor": "no mobile sensor",
+        "M140 docs must deny remote execution": "no remote execution",
+        "M140 docs must deny model call": "no model call",
+        "M140 docs must deny memory write": "no memory write",
+        "M140 docs must deny context injection": "no context injection",
+        "M140 docs must deny raw prompt": "no raw prompt",
+        "M140 docs must deny credential": "no credential",
+        "M140 docs must deny backend route": "no backend route",
+        "M140 docs must deny Control Center control": "no control center control",
+        "M140 docs must deny dependency": "no dependency",
+        "M140 docs must keep M141 future": "m141 remains future",
+        "M140 docs must preserve alpha target": "v1.0.0-alpha",
+    }
+    for message, fragment in required_fragments.items():
+        if fragment not in text:
+            failures.append(message)
+
+    active_paths = [
+        "README.md",
+        "VERSION.md",
+        "docs/canonical/09_roadmap.md",
+        "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+        "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+        "docs/roadmap/MILESTONE_CHARTERS.md",
+        "docs/DOCUMENTATION_INDEX.md",
+        "docs/canonical/CANONICAL_DOC_MAP.md",
+    ]
+    current_text = " ".join(
+        "\n".join(
+            _read(root / rel_path).lower()
+            for rel_path in active_paths
+            if (root / rel_path).exists()
+        ).split()
+    )
+    implemented_m140_row = (
+        "| checkpoint m140 | pre-alpha checkpoint | m140 | "
+        "higher-autonomy red-team freeze | implemented/released |"
+    )
+    planned_m141_row = (
+        "| checkpoint m141 | pre-alpha checkpoint | m141 | "
+        "multi-user product boundary | planned/provisional |"
+    )
+    m150_row = (
+        "| v1.0.0-alpha | alpha | m150 | ultimate ai agent v1.0.0-alpha | "
+        "planned/provisional |"
+    )
+    if not _roadmap_row_present(current_text, implemented_m140_row):
+        failures.append("active docs missing implemented Checkpoint M140 row")
+    if not _roadmap_row_present(current_text, planned_m141_row):
+        failures.append("active docs missing planned Checkpoint M141 row")
+    if not _roadmap_row_present(current_text, m150_row):
+        failures.append("active docs missing planned M150 alpha row")
+    for fragment in {
+        "multi-user product boundary is implemented",
+        "m141 multi-user product boundary is implemented",
+        "multi-user runtime is implemented",
+        "tenant runtime is implemented",
+        "workspace sharing is implemented",
+        "identity federation is implemented",
+        "red-team runtime is implemented",
+        "red-team harness execution is implemented",
+        "adversarial test execution is implemented",
+        "autonomous execution is implemented",
+        "broad autonomy is implemented",
+        "global autonomy switch is implemented",
+        "tool execution is implemented",
+        "shell execution is implemented",
+        "browser action execution is implemented",
+        "connector action execution is implemented",
+        "network access is implemented",
+        "plugin execution is implemented",
+        "backend route is implemented",
+        "control center control is implemented",
+        "m141 dependency is added",
+        "beta is released",
+        "production authority is implemented",
+    }:
+        if fragment in current_text or fragment in text:
+            failures.append(f"M140 docs imply forbidden/future capability: {fragment}")
     return failures
 
 

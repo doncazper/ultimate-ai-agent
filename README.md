@@ -13,35 +13,27 @@ allowed to become operational authority.
 | Field | Current state |
 |---|---|
 | Current active baseline | **v1.7.2** |
-| Current milestone | **Checkpoint M139 — Autonomy Abuse/Loop Detection** |
+| Current milestone | **Checkpoint M140 — Higher-Autonomy Red-Team Freeze** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **75** OpenAPI paths |
 | Production readiness | Not claimed |
 
-Checkpoint M139 implements Autonomy Abuse/Loop Detection while the current
+Checkpoint M140 implements Higher-Autonomy Red-Team Freeze while the current
 product baseline remains v1.7.2. Already-pushed tags remain immutable historical
-internal milestone tags, future M140-M149 conveyor milestones use checkpoint
+internal milestone tags, future M141-M149 conveyor milestones use checkpoint
 labels instead of product SemVer tags, and M150 is the next product release
 target **v1.0.0-alpha**. Beta begins only after the alpha UI and supporting
 safety/product work are reviewed, accepted, and explicitly promoted by a later
-roadmap patch. M139 is contract-only, review-only,
-autonomy-abuse-loop-detection-only, deterministic, local-only, and
-safe-ref-only. It records exact scope, Mode 5, M138 error handling guardrail
-decision, M137 browser connector combined workflow decision, M136 cross-tool
-dependency execution decision, M135 autonomous recovery planner decision, M134
-human checkpoint scheduling decision, M133 supervisor decision, M132 trusted
-workflow decision, abuse signal refs, loop signal refs, pattern policy refs,
-threshold policy refs, intervention plan refs, escalation plan refs, human
-checkpoint refs, risk decision, audit, replay, revocation, kill-switch, and
-no-effect receipt refs for governed review. It adds no abuse detection runtime,
-loop detection runtime, loop monitor, detector runtime, loop intervention,
-autonomous recovery execution, retry execution, rollback execution, resume
-execution, dependency execution, browser action, connector action, connector
-write, account auth, tool execution, shell execution, network access, plugin
-execution, model call, memory write, context injection, backend route, Control
-Center control, dependency, M140 higher-autonomy red-team freeze work, beta
-release, or production authority.
+roadmap patch. M140 is contract-only, review-only, freeze-only, deterministic,
+local-only, and safe-ref-only. It records accepted M131-M139 checkpoint refs,
+red-team checklist refs, audit, replay, revocation, kill-switch, and no-effect
+receipt refs for governed review. It adds no red-team runtime, red-team harness
+execution, adversarial test execution, autonomous execution, broad autonomy,
+global autonomy switch, execution, tool execution, shell execution, browser
+action, connector action, network access, plugin execution, model call, memory
+write, context injection, backend route, Control Center control, dependency,
+alpha release, beta release, or production authority.
 
 v0.29.5 is documentation policy polish. It remains the documentation
 organization cleanup baseline before the M26 and M27 implementation releases.
@@ -55,6 +47,7 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M34-M60 roadmap supersession](docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md)
 - [M61-M100 roadmap](docs/roadmap/M61_M100_ROADMAP.md)
 - [M101-M150 planned roadmap](docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md)
+- [M140 Higher-Autonomy Red-Team Freeze](docs/autonomy/HIGHER_AUTONOMY_RED_TEAM_FREEZE.md)
 - [M139 Autonomy Abuse/Loop Detection](docs/autonomy/AUTONOMY_ABUSE_LOOP_DETECTION.md)
 - [M138 Autonomous Error Handling Guardrails](docs/autonomy/AUTONOMOUS_ERROR_HANDLING_GUARDRAILS.md)
 - [M137 Autonomous Browser + Connector Combined Workflows](docs/autonomy/BROWSER_CONNECTOR_COMBINED_WORKFLOW.md)

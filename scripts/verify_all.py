@@ -178,6 +178,7 @@ SCAN_SEQUENCE = [
     ("M137 browser connector combined workflow scan", "verify_m137_browser_connector_combined_workflow"),
     ("M138 autonomous error handling guardrails scan", "verify_m138_autonomous_error_handling_guardrails"),
     ("M139 autonomy abuse loop detection scan", "verify_m139_autonomy_abuse_loop_detection"),
+    ("M140 higher autonomy red-team freeze scan", "verify_m140_higher_autonomy_red_team_freeze"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -17765,6 +17766,12 @@ def verify_post_m100_roadmap_reconciliation():
         or "autonomy abuse/loop detection" in active_version_text
     ):
         implemented_milestones.add("m139")
+    if (
+        "checkpoint m140" in active_version_text
+        or "m140" in active_version_text
+        or "higher-autonomy red-team freeze" in active_version_text
+    ):
+        implemented_milestones.add("m140")
     for version_label, product_target, milestone, title in expected_labels:
         if milestone in implemented_milestones:
             continue
@@ -25838,6 +25845,221 @@ def verify_m139_autonomy_abuse_loop_detection():
             sys.exit(1)
 
     print("OK: M139 abuse/loop detection is review-only, safe-ref-only, and route-free")
+
+
+def verify_m140_higher_autonomy_red_team_freeze():
+    print("\n[Verifier] Running M140 higher autonomy red-team freeze guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/autonomy/__init__.py",
+        "src/ultimate_ai_agent/core/autonomy/higher_autonomy_red_team_freeze.py",
+        "docs/autonomy/HIGHER_AUTONOMY_RED_TEAM_FREEZE.md",
+        "docs/autonomy/HIGHER_AUTONOMY_RED_TEAM_FREEZE_POLICY.md",
+        "docs/autonomy/HIGHER_AUTONOMY_RED_TEAM_FREEZE_AUTHORITY_BOUNDARY.md",
+        "docs/autonomy/HIGHER_AUTONOMY_RED_TEAM_FREEZE_RECEIPT_PLAN.md",
+        "docs/autonomy/HIGHER_AUTONOMY_RED_TEAM_FREEZE_NON_GOALS.md",
+        "docs/autonomy/M140_TO_M141_BOUNDARY.md",
+        "docs/release_notes/checkpoint_m140.md",
+        "docs/archive/checkpoints/m140/README_IMPORT.md",
+        "docs/archive/checkpoints/m140/master_plan.md",
+        "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+        "tests/test_m140_higher_autonomy_red_team_freeze.py",
+        "tests/test_m140_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M140 red-team freeze file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = " ".join(
+        "\n".join(
+            (ROOT / rel_path).read_text(encoding="utf-8").lower()
+            for rel_path in required_files
+            if rel_path.startswith("docs/")
+        ).split()
+    )
+    for fragment in [
+        "higher-autonomy red-team freeze",
+        "contract-only",
+        "review-only",
+        "freeze-only",
+        "deterministic",
+        "local-only",
+        "safe-ref-only",
+        "accepted m131-m139",
+        "red-team checklist",
+        "audit",
+        "replay",
+        "revocation",
+        "kill-switch",
+        "no-effect receipt",
+        "no red-team runtime",
+        "no red-team harness execution",
+        "no adversarial test execution",
+        "no autonomous execution",
+        "no broad autonomy",
+        "no global autonomy switch",
+        "no execution",
+        "no tool execution",
+        "no shell execution",
+        "no browser action",
+        "no connector action",
+        "no network access",
+        "no plugin execution",
+        "no background worker",
+        "no scheduler",
+        "no mobile sensor",
+        "no remote execution",
+        "no model call",
+        "no memory write",
+        "no context injection",
+        "no raw prompt",
+        "no credential",
+        "no backend route",
+        "no control center control",
+        "no dependency",
+        "m141 remains future",
+        "v1.0.0-alpha",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M140 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from tests.test_m140_higher_autonomy_red_team_freeze import _request
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.autonomy import (
+            HigherAutonomyRedTeamFreezeStatus,
+            build_higher_autonomy_red_team_freeze_report,
+            validate_higher_autonomy_red_team_freeze_report,
+        )
+        from ultimate_ai_agent.core.gate.criteria import (
+            default_foundation_gate_criteria,
+        )
+        from ultimate_ai_agent.core.gate.evaluators import (
+            FoundationGateEvaluator,
+            m140_openapi_route_failures,
+        )
+    except Exception as exc:
+        print(f"FAIL: M140 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m140_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    report = build_higher_autonomy_red_team_freeze_report(_request())
+    if (
+        report.status != HigherAutonomyRedTeamFreezeStatus.frozen_for_review
+        or not report.contract_only
+        or not report.review_only
+        or not report.freeze_only
+        or not report.deterministic
+        or not report.local_only
+        or not report.safe_refs_only
+        or not report.m131_m139_covered
+        or not report.red_team_review_bound
+        or not report.audit_replay_bound
+        or not report.revocation_readiness_bound
+        or not report.no_effect_receipt_required
+        or not report.no_broad_unsandboxed_autonomy
+        or not report.no_production_authority
+        or report.red_team_runtime_started
+        or report.red_team_harness_execution_performed
+        or report.adversarial_test_execution_performed
+        or report.autonomous_execution_performed
+        or report.broad_autonomy_granted
+        or report.global_autonomy_switch_enabled
+        or report.execution_performed
+        or report.tool_execution_performed
+        or report.shell_execution_performed
+        or report.browser_action_performed
+        or report.connector_action_performed
+        or report.network_access_performed
+        or report.plugin_execution_performed
+        or report.model_call_performed
+        or report.memory_write_performed
+        or report.context_injection_performed
+        or report.backend_route_added
+        or report.dependency_added
+        or report.alpha_release_enabled
+        or report.beta_release_enabled
+        or report.production_authority_granted
+        or "M140_HIGHER_AUTONOMY_RED_TEAM_FREEZE_REVIEW_ONLY"
+        not in report.reason_codes
+        or "M140_M131_M139_COVERED" not in report.reason_codes
+        or "M140_NO_RED_TEAM_RUNTIME" not in report.reason_codes
+        or "M140_NO_BROAD_UNSANDBOXED_AUTONOMY" not in report.reason_codes
+        or "M140_NO_PRODUCTION_AUTHORITY" not in report.reason_codes
+        or "M141_REMAINS_FUTURE" not in report.reason_codes
+    ):
+        print("FAIL: M140 red-team freeze report is unsafe or over-authoritative")
+        sys.exit(1)
+
+    for update, reason in [
+        ({"red_team_runtime_started": True}, "M140_RED_TEAM_RUNTIME_DENIED"),
+        (
+            {"red_team_harness_execution_performed": True},
+            "M140_RED_TEAM_HARNESS_EXECUTION_DENIED",
+        ),
+        (
+            {"adversarial_test_execution_performed": True},
+            "M140_ADVERSARIAL_TEST_EXECUTION_DENIED",
+        ),
+        (
+            {"autonomous_execution_performed": True},
+            "M140_AUTONOMOUS_EXECUTION_DENIED",
+        ),
+        ({"tool_execution_performed": True}, "M140_TOOL_EXECUTION_DENIED"),
+        ({"browser_action_performed": True}, "M140_BROWSER_ACTION_DENIED"),
+        ({"connector_action_performed": True}, "M140_CONNECTOR_ACTION_DENIED"),
+        ({"backend_route_added": True}, "M140_BACKEND_ROUTE_DENIED"),
+        ({"alpha_release_enabled": True}, "M140_ALPHA_RELEASE_DENIED"),
+        ({"beta_release_enabled": True}, "M140_BETA_RELEASE_DENIED"),
+        (
+            {"production_authority_granted": True},
+            "M140_PRODUCTION_AUTHORITY_DENIED",
+        ),
+    ]:
+        try:
+            validate_higher_autonomy_red_team_freeze_report(
+                report.model_copy(update=update)
+            )
+            print(f"FAIL: M140 mutated authority flag was not denied: {update}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M140 mutated authority flag raised {exc!s}")
+                sys.exit(1)
+
+    criteria = {
+        criterion.criterion_id: criterion
+        for criterion in default_foundation_gate_criteria()
+    }
+    for criterion_id in [
+        "m140_higher_autonomy_red_team_freeze_contracts",
+        "m140_higher_autonomy_red_team_freeze_static_safety",
+        "m140_higher_autonomy_red_team_freeze_route_boundary",
+        "m140_roadmap_currentness",
+    ]:
+        if criterion_id not in criteria:
+            print(f"FAIL: Missing M140 Foundation Gate criterion: {criterion_id}")
+            sys.exit(1)
+    evaluator = FoundationGateEvaluator(ROOT)
+    for criterion_id in [
+        "m140_higher_autonomy_red_team_freeze_contracts",
+        "m140_higher_autonomy_red_team_freeze_static_safety",
+        "m140_higher_autonomy_red_team_freeze_route_boundary",
+        "m140_roadmap_currentness",
+    ]:
+        gate_report = evaluator.evaluate([criteria[criterion_id]])
+        result = gate_report.results[0]
+        if result.status != "passed":
+            print(f"FAIL: {criterion_id} failed: {result.failures}")
+            sys.exit(1)
+
+    print("OK: M140 red-team freeze is review-only, freeze-only, and route-free")
 
 
 def verify_local_developer_launcher_safety():

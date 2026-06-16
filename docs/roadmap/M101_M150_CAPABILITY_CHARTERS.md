@@ -42,7 +42,8 @@ Recovery Planner. Checkpoint M136 is implemented/released as Cross-Tool
 Dependency Execution. Checkpoint M137 is implemented/released as Autonomous
 Browser + Connector Combined Workflows. Checkpoint M138 is implemented/released
 as Autonomous Error Handling Guardrails. Checkpoint M139 is
-implemented/released as Autonomy Abuse/Loop Detection. M140-M150 remain
+implemented/released as Autonomy Abuse/Loop Detection. Checkpoint M140 is
+implemented/released as Higher-Autonomy Red-Team Freeze. M141-M150 remain
 planned/provisional.
 Future work must continue the authority-tier model:
 
@@ -106,7 +107,7 @@ roadmap patch. Do not rewrite, move, or reuse existing tags.
 | Checkpoint M137 | pre-alpha checkpoint | M137 | Autonomous Browser + Connector Combined Workflows | Implemented/released |
 | Checkpoint M138 | pre-alpha checkpoint | M138 | Autonomous Error Handling Guardrails | Implemented/released |
 | Checkpoint M139 | pre-alpha checkpoint | M139 | Autonomy Abuse/Loop Detection | Implemented/released |
-| Checkpoint M140 | pre-alpha checkpoint | M140 | Higher-Autonomy Red-Team Freeze | Planned/provisional |
+| Checkpoint M140 | pre-alpha checkpoint | M140 | Higher-Autonomy Red-Team Freeze | Implemented/released |
 | Checkpoint M141 | pre-alpha checkpoint | M141 | Multi-User Product Boundary | Planned/provisional |
 | Checkpoint M142 | pre-alpha checkpoint | M142 | Alpha Privacy Review | Planned/provisional |
 | Checkpoint M143 | pre-alpha checkpoint | M143 | Alpha UI and App Readiness | Planned/provisional |

@@ -253,6 +253,18 @@ from ultimate_ai_agent.core.autonomy.abuse_loop_detection import (
     validate_abuse_loop_detection_policy,
     validate_abuse_loop_detection_request,
 )
+from ultimate_ai_agent.core.autonomy.higher_autonomy_red_team_freeze import (
+    HIGHER_AUTONOMY_RED_TEAM_FREEZE_DOCS,
+    REQUIRED_M140_ACCEPTED_CHECKPOINT_REFS,
+    HigherAutonomyRedTeamFreezePolicy,
+    HigherAutonomyRedTeamFreezeReport,
+    HigherAutonomyRedTeamFreezeRequest,
+    HigherAutonomyRedTeamFreezeStatus,
+    build_higher_autonomy_red_team_freeze_report,
+    validate_higher_autonomy_red_team_freeze_policy,
+    validate_higher_autonomy_red_team_freeze_report,
+    validate_higher_autonomy_red_team_freeze_request,
+)
 
 __all__ = [
     "AUTONOMY_MODE_CHARTER_DOCS",
@@ -466,4 +478,14 @@ __all__ = [
     "validate_abuse_loop_detection_decision",
     "validate_abuse_loop_detection_policy",
     "validate_abuse_loop_detection_request",
+    "HIGHER_AUTONOMY_RED_TEAM_FREEZE_DOCS",
+    "REQUIRED_M140_ACCEPTED_CHECKPOINT_REFS",
+    "HigherAutonomyRedTeamFreezePolicy",
+    "HigherAutonomyRedTeamFreezeReport",
+    "HigherAutonomyRedTeamFreezeRequest",
+    "HigherAutonomyRedTeamFreezeStatus",
+    "build_higher_autonomy_red_team_freeze_report",
+    "validate_higher_autonomy_red_team_freeze_policy",
+    "validate_higher_autonomy_red_team_freeze_report",
+    "validate_higher_autonomy_red_team_freeze_request",
 ]
