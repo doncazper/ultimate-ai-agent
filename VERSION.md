@@ -2,10 +2,9 @@
 
 Current active baseline: **v1.7.2**
 
-Checkpoint M138 is implemented/released as Autonomous Error Handling
-Guardrails.
+Checkpoint M139 is implemented/released as Autonomy Abuse/Loop Detection.
 The current product baseline remains v1.7.2. Already-pushed tags
-remain immutable historical internal milestone tags. Future M139-M149 conveyor
+remain immutable historical internal milestone tags. Future M140-M149 conveyor
 milestones use checkpoint labels instead of product SemVer tags, and M150 is
 the next product release target **v1.0.0-alpha**. Beta begins only after the
 alpha UI and supporting safety/product work are reviewed, accepted, and
@@ -461,6 +460,26 @@ context injection, backend routes, Control Center controls, dependencies, beta
 release, M139 abuse/loop detection work, broad autonomy, and production
 authority.
 
-M101, M102, M103, M104, M105, M106, M107, M108, M109, M110, M111, M112, M113, M114, M115, M116, M117, M118, M119, M120, M121, M122, M123, M124, M125, M126, M127, M128, M129, M130, M131, M132, M133, M134, M135, M136, M137, and M138 are implemented/released. M139-M150 are
+Checkpoint M139 adds deterministic local Autonomy Abuse/Loop Detection records.
+It records exact scope refs, Mode 5 refs, M138 error handling guardrail decision
+refs, M137 browser connector combined workflow decision refs, M136 cross-tool
+dependency execution decision refs, M135 recovery planner decision refs, M134
+human checkpoint scheduling decision refs, M133 supervisor decision refs, M132
+trusted workflow decision refs, abuse signal refs, loop signal refs, pattern
+policy refs, threshold policy refs, intervention plan refs, escalation plan
+refs, human checkpoint refs, risk decision refs, audit refs, replay refs,
+revocation refs, kill-switch refs, and no-effect receipt plan refs. It keeps
+abuse/loop detection review-only and no-effect. It denies abuse detection
+runtime, loop detection runtime, loop monitor, detector runtime, loop
+intervention, autonomous recovery execution, retry execution, rollback
+execution, resume execution, dependency execution, browser action, connector
+action, connector write, account auth, tool execution, shell execution, command
+execution, subprocess execution, filesystem mutation, network access, plugin
+execution, mobile sensor access, remote execution, model calls, memory writes,
+context injection, backend routes, Control Center controls, dependencies, beta
+release, M140 higher-autonomy red-team freeze work, broad autonomy, and
+production authority.
+
+M101, M102, M103, M104, M105, M106, M107, M108, M109, M110, M111, M112, M113, M114, M115, M116, M117, M118, M119, M120, M121, M122, M123, M124, M125, M126, M127, M128, M129, M130, M131, M132, M133, M134, M135, M136, M137, M138, and M139 are implemented/released. M140-M150 are
 planned/provisional checkpoint milestones only. M150 is planned as
 v1.0.0-alpha, not beta.

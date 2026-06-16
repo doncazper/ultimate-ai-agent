@@ -27,6 +27,12 @@ docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md
 docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md
 docs/roadmap/M61_M100_ROADMAP.md
 docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md
+docs/autonomy/AUTONOMY_ABUSE_LOOP_DETECTION.md
+docs/autonomy/AUTONOMY_ABUSE_LOOP_DETECTION_POLICY.md
+docs/autonomy/AUTONOMY_ABUSE_LOOP_DETECTION_AUTHORITY_BOUNDARY.md
+docs/autonomy/AUTONOMY_ABUSE_LOOP_DETECTION_RECEIPT_PLAN.md
+docs/autonomy/AUTONOMY_ABUSE_LOOP_DETECTION_NON_GOALS.md
+docs/autonomy/M139_TO_M140_BOUNDARY.md
 docs/autonomy/AUTONOMOUS_ERROR_HANDLING_GUARDRAILS.md
 docs/autonomy/AUTONOMOUS_ERROR_HANDLING_GUARDRAILS_POLICY.md
 docs/autonomy/AUTONOMOUS_ERROR_HANDLING_GUARDRAILS_AUTHORITY_BOUNDARY.md
@@ -890,16 +896,17 @@ implemented/released as deterministic local review-only Cross-Tool Dependency
 Execution records. M137 is implemented/released as deterministic local
 review-only Autonomous Browser + Connector Combined Workflows records.
 M138 is implemented/released as deterministic local review-only Autonomous
-Error Handling Guardrails records. M139-M150 are
+Error Handling Guardrails records. M139 is implemented/released as
+deterministic local review-only Autonomy Abuse/Loop Detection records. M140-M150 are
 planned/provisional only in
 `docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md`.
-Future M139-M149 conveyor milestones use checkpoint labels instead of product
+Future M140-M149 conveyor milestones use checkpoint labels instead of product
 SemVer tags, and M150 is
 planned as v1.0.0-alpha. Beta begins only after alpha UI and supporting
 safety/product work are reviewed and promoted. Active roadmap sources consistently mark
-M34-M138 implemented/released and rely on documentation-integrity checks to
+M34-M139 implemented/released and rely on documentation-integrity checks to
 guard against superseded-roadmap drift, stale current-baseline labels, route
-drift, authority-boundary drift, alpha/beta versioning drift, and M139-M150
+drift, authority-boundary drift, alpha/beta versioning drift, and M140-M150
 future-status drift.
 
 ## Release Notes Index

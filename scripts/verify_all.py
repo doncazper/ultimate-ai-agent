@@ -177,6 +177,7 @@ SCAN_SEQUENCE = [
     ("M136 cross-tool dependency execution scan", "verify_m136_cross_tool_dependency_execution"),
     ("M137 browser connector combined workflow scan", "verify_m137_browser_connector_combined_workflow"),
     ("M138 autonomous error handling guardrails scan", "verify_m138_autonomous_error_handling_guardrails"),
+    ("M139 autonomy abuse loop detection scan", "verify_m139_autonomy_abuse_loop_detection"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -17758,6 +17759,12 @@ def verify_post_m100_roadmap_reconciliation():
         or "autonomous error handling guardrails" in active_version_text
     ):
         implemented_milestones.add("m138")
+    if (
+        "checkpoint m139" in active_version_text
+        or "m139" in active_version_text
+        or "autonomy abuse/loop detection" in active_version_text
+    ):
+        implemented_milestones.add("m139")
     for version_label, product_target, milestone, title in expected_labels:
         if milestone in implemented_milestones:
             continue
@@ -25563,6 +25570,274 @@ def verify_m138_autonomous_error_handling_guardrails():
             sys.exit(1)
 
     print("OK: M138 error handling guardrails are review-only, safe-ref-only, and route-free")
+
+
+def verify_m139_autonomy_abuse_loop_detection():
+    print("\n[Verifier] Running M139 autonomy abuse/loop detection guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/autonomy/__init__.py",
+        "src/ultimate_ai_agent/core/autonomy/abuse_loop_detection.py",
+        "docs/autonomy/AUTONOMY_ABUSE_LOOP_DETECTION.md",
+        "docs/autonomy/AUTONOMY_ABUSE_LOOP_DETECTION_POLICY.md",
+        "docs/autonomy/AUTONOMY_ABUSE_LOOP_DETECTION_AUTHORITY_BOUNDARY.md",
+        "docs/autonomy/AUTONOMY_ABUSE_LOOP_DETECTION_RECEIPT_PLAN.md",
+        "docs/autonomy/AUTONOMY_ABUSE_LOOP_DETECTION_NON_GOALS.md",
+        "docs/autonomy/M139_TO_M140_BOUNDARY.md",
+        "docs/release_notes/checkpoint_m139.md",
+        "docs/archive/checkpoints/m139/README_IMPORT.md",
+        "docs/archive/checkpoints/m139/master_plan.md",
+        "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+        "tests/test_m139_abuse_loop_detection.py",
+        "tests/test_m139_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M139 abuse/loop detection file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = " ".join(
+        "\n".join(
+            (ROOT / rel_path).read_text(encoding="utf-8").lower()
+            for rel_path in required_files
+            if rel_path.startswith("docs/")
+        ).split()
+    )
+    for fragment in [
+        "autonomy abuse/loop detection",
+        "contract-only",
+        "review-only",
+        "autonomy-abuse-loop-detection-only",
+        "deterministic",
+        "local-only",
+        "safe-ref-only",
+        "exact",
+        "mode 5",
+        "m138 error handling guardrail decision",
+        "m137 browser connector combined workflow decision",
+        "m136 cross-tool dependency execution decision",
+        "m135 autonomous recovery planner decision",
+        "m134 human checkpoint scheduling decision",
+        "m133 supervisor decision",
+        "m132 trusted workflow decision",
+        "abuse signal refs",
+        "loop signal refs",
+        "pattern policy refs",
+        "threshold policy refs",
+        "intervention plan refs",
+        "escalation plan refs",
+        "human checkpoint",
+        "audit",
+        "replay",
+        "revocation",
+        "kill-switch",
+        "no-effect receipt",
+        "no abuse detection runtime",
+        "no loop detection runtime",
+        "no loop monitor",
+        "no detector runtime",
+        "no loop intervention",
+        "no autonomous recovery execution",
+        "no retry execution",
+        "no rollback execution",
+        "no resume execution",
+        "no dependency execution",
+        "no browser action",
+        "no connector action",
+        "no tool execution",
+        "no shell execution",
+        "no network access",
+        "no plugin execution",
+        "no model call",
+        "no memory write",
+        "no context injection",
+        "no backend route",
+        "no control center control",
+        "no dependency",
+        "m140 remains future",
+        "v1.0.0-alpha",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M139 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from tests.test_m139_abuse_loop_detection import _request
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.autonomy import (
+            AbuseLoopDetectionStatus,
+            AutonomyAuthorityMode,
+            AutonomyRiskClass,
+            build_abuse_loop_detection_decision,
+            validate_abuse_loop_detection_decision,
+        )
+        from ultimate_ai_agent.core.gate.criteria import (
+            default_foundation_gate_criteria,
+        )
+        from ultimate_ai_agent.core.gate.evaluators import (
+            FoundationGateEvaluator,
+            m139_openapi_route_failures,
+        )
+    except Exception as exc:
+        print(f"FAIL: M139 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m139_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    decision = build_abuse_loop_detection_decision(_request())
+    if (
+        decision.status != AbuseLoopDetectionStatus.ready_for_review
+        or decision.selected_mode != AutonomyAuthorityMode.trusted_recurring_automation
+        or decision.max_risk_class != AutonomyRiskClass.low
+        or not decision.contract_only
+        or not decision.review_only
+        or not decision.autonomy_abuse_loop_detection_only
+        or not decision.deterministic
+        or not decision.local_only
+        or not decision.safe_refs_only
+        or not decision.exact_scope_bound
+        or not decision.mode5_bound
+        or not decision.m138_error_guardrail_bound
+        or not decision.m137_browser_connector_workflow_bound
+        or not decision.m136_dependency_execution_bound
+        or not decision.m135_recovery_planner_bound
+        or not decision.m134_human_checkpoint_bound
+        or not decision.m133_supervisor_bound
+        or not decision.m132_trusted_workflow_bound
+        or not decision.abuse_signal_bound
+        or not decision.loop_signal_bound
+        or not decision.pattern_policy_bound
+        or not decision.threshold_policy_bound
+        or not decision.intervention_plan_bound
+        or not decision.escalation_plan_bound
+        or not decision.human_checkpoint_bound
+        or not decision.audit_replay_bound
+        or not decision.revocation_bound
+        or not decision.kill_switch_bound
+        or not decision.no_effect_receipt_required
+        or decision.abuse_detection_runtime_authorized
+        or decision.loop_detection_runtime_authorized
+        or decision.loop_monitor_started
+        or decision.detector_runtime_started
+        or decision.loop_intervention_performed
+        or decision.autonomous_recovery_execution_authorized
+        or decision.retry_execution_performed
+        or decision.rollback_execution_performed
+        or decision.resume_execution_performed
+        or decision.dependency_execution_performed
+        or decision.browser_action_performed
+        or decision.connector_action_performed
+        or decision.tool_execution_performed
+        or decision.execution_performed
+        or decision.backend_route_added
+        or decision.dependency_added
+        or decision.beta_release_enabled
+        or decision.production_authority_granted
+        or not decision.receipt_plan.store_safe_summary_only
+        or not decision.receipt_plan.store_safe_refs_only
+        or decision.receipt_plan.store_raw_abuse_log
+        or decision.receipt_plan.store_raw_loop_trace
+        or decision.receipt_plan.detector_runtime_started
+        or decision.receipt_plan.loop_intervention_performed
+        or decision.receipt_plan.recovery_execution_performed
+        or "M139_AUTONOMY_ABUSE_LOOP_DETECTION_CONTRACT_ONLY"
+        not in decision.reason_codes
+        or "M139_EXACT_DETECTION_SCOPE_REQUIRED" not in decision.reason_codes
+        or "M139_NO_ABUSE_OR_LOOP_RUNTIME" not in decision.reason_codes
+        or "M139_NO_INTERVENTION_OR_RECOVERY_EXECUTION"
+        not in decision.reason_codes
+        or "M140_REMAINS_FUTURE" not in decision.reason_codes
+    ):
+        print("FAIL: M139 abuse/loop detection decision is unsafe or over-authoritative")
+        sys.exit(1)
+
+    for update, reason in [
+        (
+            {"abuse_detection_runtime_authorized": True},
+            "M139_ABUSE_DETECTION_RUNTIME_DENIED",
+        ),
+        (
+            {"loop_detection_runtime_authorized": True},
+            "M139_LOOP_DETECTION_RUNTIME_DENIED",
+        ),
+        ({"loop_monitor_started": True}, "M139_LOOP_MONITOR_DENIED"),
+        ({"detector_runtime_started": True}, "M139_DETECTOR_RUNTIME_DENIED"),
+        ({"loop_intervention_performed": True}, "M139_LOOP_INTERVENTION_DENIED"),
+        (
+            {"autonomous_recovery_execution_authorized": True},
+            "M139_RECOVERY_EXECUTION_DENIED",
+        ),
+        ({"retry_execution_performed": True}, "M139_RETRY_EXECUTION_DENIED"),
+        ({"rollback_execution_performed": True}, "M139_ROLLBACK_EXECUTION_DENIED"),
+        ({"resume_execution_performed": True}, "M139_RESUME_EXECUTION_DENIED"),
+        ({"dependency_execution_performed": True}, "M139_DEPENDENCY_EXECUTION_DENIED"),
+        ({"browser_action_performed": True}, "M139_BROWSER_ACTION_DENIED"),
+        ({"connector_action_performed": True}, "M139_CONNECTOR_ACTION_DENIED"),
+        ({"tool_execution_performed": True}, "M139_TOOL_EXECUTION_DENIED"),
+        ({"backend_route_added": True}, "M139_BACKEND_ROUTE_DENIED"),
+        (
+            {"production_authority_granted": True},
+            "M139_PRODUCTION_AUTHORITY_DENIED",
+        ),
+    ]:
+        try:
+            validate_abuse_loop_detection_decision(
+                decision.model_copy(update=update)
+            )
+            print(f"FAIL: M139 mutated authority flag was not denied: {update}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M139 mutated authority flag raised {exc!s}")
+                sys.exit(1)
+
+    try:
+        validate_abuse_loop_detection_decision(
+            decision.model_copy(
+                update={
+                    "receipt_plan": decision.receipt_plan.model_copy(
+                        update={"store_raw_abuse_log": True}
+                    )
+                }
+            )
+        )
+        print("FAIL: M139 receipt plan allowed raw abuse log storage")
+        sys.exit(1)
+    except ValueError as exc:
+        if "M139_RAW_ABUSE_LOG_DENIED" not in str(exc):
+            print(f"FAIL: M139 raw abuse log receipt mutation raised {exc!s}")
+            sys.exit(1)
+
+    criteria = {
+        criterion.criterion_id: criterion
+        for criterion in default_foundation_gate_criteria()
+    }
+    for criterion_id in [
+        "m139_autonomy_abuse_loop_detection_contracts",
+        "m139_autonomy_abuse_loop_detection_static_safety",
+        "m139_autonomy_abuse_loop_detection_route_boundary",
+        "m139_roadmap_currentness",
+    ]:
+        if criterion_id not in criteria:
+            print(f"FAIL: Missing M139 Foundation Gate criterion: {criterion_id}")
+            sys.exit(1)
+    evaluator = FoundationGateEvaluator(ROOT)
+    for criterion_id in [
+        "m139_autonomy_abuse_loop_detection_contracts",
+        "m139_autonomy_abuse_loop_detection_static_safety",
+        "m139_autonomy_abuse_loop_detection_route_boundary",
+        "m139_roadmap_currentness",
+    ]:
+        gate_report = evaluator.evaluate([criteria[criterion_id]])
+        result = gate_report.results[0]
+        if result.status != "passed":
+            print(f"FAIL: {criterion_id} failed: {result.failures}")
+            sys.exit(1)
+
+    print("OK: M139 abuse/loop detection is review-only, safe-ref-only, and route-free")
 
 
 def verify_local_developer_launcher_safety():

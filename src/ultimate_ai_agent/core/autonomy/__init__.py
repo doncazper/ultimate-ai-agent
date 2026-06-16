@@ -239,6 +239,20 @@ from ultimate_ai_agent.core.autonomy.error_handling_guardrails import (
     validate_error_handling_guardrail_policy,
     validate_error_handling_guardrail_request,
 )
+from ultimate_ai_agent.core.autonomy.abuse_loop_detection import (
+    ABUSE_LOOP_DETECTION_DOCS,
+    M139_MAX_PATTERN_REFS,
+    M139_MAX_SIGNAL_REFS,
+    AbuseLoopDetectionDecision,
+    AbuseLoopDetectionPolicy,
+    AbuseLoopDetectionReceiptPlan,
+    AbuseLoopDetectionRequest,
+    AbuseLoopDetectionStatus,
+    build_abuse_loop_detection_decision,
+    validate_abuse_loop_detection_decision,
+    validate_abuse_loop_detection_policy,
+    validate_abuse_loop_detection_request,
+)
 
 __all__ = [
     "AUTONOMY_MODE_CHARTER_DOCS",
@@ -440,4 +454,16 @@ __all__ = [
     "validate_error_handling_guardrail_decision",
     "validate_error_handling_guardrail_policy",
     "validate_error_handling_guardrail_request",
+    "ABUSE_LOOP_DETECTION_DOCS",
+    "M139_MAX_PATTERN_REFS",
+    "M139_MAX_SIGNAL_REFS",
+    "AbuseLoopDetectionDecision",
+    "AbuseLoopDetectionPolicy",
+    "AbuseLoopDetectionReceiptPlan",
+    "AbuseLoopDetectionRequest",
+    "AbuseLoopDetectionStatus",
+    "build_abuse_loop_detection_decision",
+    "validate_abuse_loop_detection_decision",
+    "validate_abuse_loop_detection_policy",
+    "validate_abuse_loop_detection_request",
 ]
