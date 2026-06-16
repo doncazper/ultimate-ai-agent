@@ -1940,6 +1940,29 @@ M140_FORBIDDEN_BACKEND_ROUTES = M139_FORBIDDEN_BACKEND_ROUTES + (
     "/browser/click",
     "/connectors/write",
 )
+EXPECTED_M141_OPENAPI_PATH_COUNT = 75
+M141_FORBIDDEN_BACKEND_ROUTES = M140_FORBIDDEN_BACKEND_ROUTES + (
+    "/multi-user",
+    "/multi-user/enable",
+    "/multi-user/start",
+    "/multi-user/run",
+    "/tenants",
+    "/tenants/create",
+    "/tenants/invite",
+    "/workspaces/share",
+    "/workspaces/members",
+    "/identity/federation/enable",
+    "/auth/login",
+    "/auth/session",
+    "/organizations/create",
+    "/roles/assign",
+    "/alpha/privacy-review/start",
+    "/alpha/privacy-review/run",
+    "/production/authority/enable",
+    "/tools/execute",
+    "/browser/click",
+    "/connectors/write",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -3792,6 +3815,23 @@ def m140_openapi_route_failures(
     return failures
 
 
+def m141_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M141_OPENAPI_PATH_COUNT
+) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(
+            f"OpenAPI path count changed for M141: expected {expected_path_count}, got {len(path_set)}"
+        )
+    for route in M141_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(
+                f"M141 forbidden multi-user runtime, tenancy, auth, workspace sharing, execution, browser, connector, alpha, or authority route present: {route}"
+            )
+    return failures
+
+
 M36_SAFE_REF_PREFIXES = {
     "reviewPacketRef": "file-review-packet:",
     "previewResultRef": "redacted-file-preview-output:",
@@ -5057,6 +5097,16 @@ class FoundationGateEvaluator:
                 self.check_m140_higher_autonomy_red_team_freeze_route_boundary
             ),
             "m140_roadmap_currentness": self.check_m140_roadmap_currentness,
+            "m141_multi_user_product_boundary_contracts": (
+                self.check_m141_multi_user_product_boundary_contracts
+            ),
+            "m141_multi_user_product_boundary_static_safety": (
+                self.check_m141_multi_user_product_boundary_static_safety
+            ),
+            "m141_multi_user_product_boundary_route_boundary": (
+                self.check_m141_multi_user_product_boundary_route_boundary
+            ),
+            "m141_roadmap_currentness": self.check_m141_roadmap_currentness,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -30926,6 +30976,11 @@ class FoundationGateEvaluator:
             or "higher-autonomy red-team freeze" in active_version_text
         ):
             implemented_milestones.add("m140")
+        if (
+            "checkpoint m141 is implemented/released" in active_version_text
+            or "m141 is implemented/released" in active_version_text
+        ):
+            implemented_milestones.add("m141")
         for version_label, product_target, milestone, title in expected_labels:
             if milestone in implemented_milestones:
                 continue
@@ -47259,6 +47314,438 @@ class FoundationGateEvaluator:
             if fragment in text:
                 failures.append(
                     f"active docs imply forbidden M140 future/currentness claim: {fragment}"
+                )
+        return self._result(criterion, failures, required_docs)
+
+    def check_m141_multi_user_product_boundary_contracts(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/productization/__init__.py",
+            "src/ultimate_ai_agent/core/productization/multi_user_product_boundary.py",
+            "docs/productization/MULTI_USER_PRODUCT_BOUNDARY.md",
+            "docs/productization/MULTI_USER_PRODUCT_BOUNDARY_POLICY.md",
+            "docs/productization/MULTI_USER_PRODUCT_BOUNDARY_AUTHORITY_BOUNDARY.md",
+            "docs/productization/MULTI_USER_PRODUCT_BOUNDARY_RECEIPT_PLAN.md",
+            "docs/productization/MULTI_USER_PRODUCT_BOUNDARY_NON_GOALS.md",
+            "docs/productization/M141_TO_M142_BOUNDARY.md",
+            "docs/release_notes/checkpoint_m141.md",
+            "docs/archive/checkpoints/m141/README_IMPORT.md",
+            "docs/archive/checkpoints/m141/master_plan.md",
+            "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            "tests/test_m141_multi_user_product_boundary.py",
+            "tests/test_m141_gate_integration.py",
+        ]
+        failures = [
+            f"missing M141 multi-user product boundary file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            from tests.test_m141_multi_user_product_boundary import _request
+            from ultimate_ai_agent.core.productization import (
+                MultiUserProductBoundaryStatus,
+                build_multi_user_product_boundary_record,
+                validate_multi_user_product_boundary_record,
+            )
+
+            record = build_multi_user_product_boundary_record(_request())
+            if (
+                record.status
+                != MultiUserProductBoundaryStatus.product_boundary_review
+                or not record.contract_only
+                or not record.review_only
+                or not record.deterministic
+                or not record.local_only
+                or not record.safe_refs_only
+                or not record.product_boundary_only
+                or not record.m101_m140_covered
+                or not record.actor_boundary_bound
+                or not record.workspace_boundary_bound
+                or not record.tenant_boundary_bound
+                or not record.role_boundary_bound
+                or not record.privacy_boundary_bound
+                or not record.audit_replay_bound
+                or not record.revocation_readiness_bound
+                or not record.no_effect_receipt_required
+                or not record.no_multi_user_runtime
+                or not record.no_account_tenancy
+                or not record.no_auth_runtime
+                or not record.no_workspace_sharing
+                or not record.no_production_authority
+                or record.multi_user_runtime_started
+                or record.account_tenancy_enabled
+                or record.tenant_runtime_started
+                or record.workspace_sharing_enabled
+                or record.identity_federation_enabled
+                or record.auth_runtime_started
+                or record.login_enabled
+                or record.session_cookie_enabled
+                or record.credential_handling_performed
+                or record.persistent_identity_store_enabled
+                or record.account_connector_enabled
+                or record.production_runtime_enabled
+                or record.execution_performed
+                or record.tool_execution_performed
+                or record.shell_execution_performed
+                or record.browser_action_performed
+                or record.connector_action_performed
+                or record.network_access_performed
+                or record.plugin_execution_performed
+                or record.background_worker_started
+                or record.scheduler_started
+                or record.mobile_sensor_performed
+                or record.remote_execution_performed
+                or record.model_call_performed
+                or record.memory_write_performed
+                or record.context_injection_performed
+                or record.raw_prompt_payload_exposed
+                or record.credential_cookie_access_performed
+                or record.backend_route_added
+                or record.control_center_control_added
+                or record.dependency_added
+                or record.alpha_privacy_review_enabled
+                or record.alpha_release_enabled
+                or record.beta_release_enabled
+                or record.production_authority_granted
+                or record.side_effects_performed
+                or "M141_MULTI_USER_PRODUCT_BOUNDARY_REVIEW_ONLY"
+                not in record.reason_codes
+                or "M141_M101_M140_COVERED" not in record.reason_codes
+                or "M141_NO_MULTI_USER_RUNTIME" not in record.reason_codes
+                or "M141_NO_ACCOUNT_TENANCY" not in record.reason_codes
+                or "M141_NO_AUTH_OR_IDENTITY_FEDERATION"
+                not in record.reason_codes
+                or "M141_NO_WORKSPACE_SHARING" not in record.reason_codes
+                or "M141_NO_PRODUCTION_AUTHORITY" not in record.reason_codes
+                or "M142_REMAINS_FUTURE" not in record.reason_codes
+            ):
+                failures.append(
+                    "M141 multi-user product boundary record is unsafe or over-authoritative"
+                )
+            for update, reason in [
+                ({"multi_user_runtime_started": True}, "M141_MULTI_USER_RUNTIME_DENIED"),
+                ({"account_tenancy_enabled": True}, "M141_ACCOUNT_TENANCY_DENIED"),
+                ({"tenant_runtime_started": True}, "M141_TENANT_RUNTIME_DENIED"),
+                ({"workspace_sharing_enabled": True}, "M141_WORKSPACE_SHARING_DENIED"),
+                (
+                    {"identity_federation_enabled": True},
+                    "M141_IDENTITY_FEDERATION_DENIED",
+                ),
+                ({"auth_runtime_started": True}, "M141_AUTH_RUNTIME_DENIED"),
+                ({"login_enabled": True}, "M141_LOGIN_DENIED"),
+                (
+                    {"persistent_identity_store_enabled": True},
+                    "M141_PERSISTENT_IDENTITY_STORE_DENIED",
+                ),
+                ({"tool_execution_performed": True}, "M141_TOOL_EXECUTION_DENIED"),
+                ({"browser_action_performed": True}, "M141_BROWSER_ACTION_DENIED"),
+                (
+                    {"connector_action_performed": True},
+                    "M141_CONNECTOR_ACTION_DENIED",
+                ),
+                ({"backend_route_added": True}, "M141_BACKEND_ROUTE_DENIED"),
+                (
+                    {"alpha_privacy_review_enabled": True},
+                    "M141_ALPHA_PRIVACY_REVIEW_DENIED",
+                ),
+                ({"beta_release_enabled": True}, "M141_BETA_RELEASE_DENIED"),
+                (
+                    {"production_authority_granted": True},
+                    "M141_PRODUCTION_AUTHORITY_DENIED",
+                ),
+            ]:
+                try:
+                    validate_multi_user_product_boundary_record(
+                        record.model_copy(update=update)
+                    )
+                    failures.append(
+                        f"M141 unsafe product boundary mutation was not denied with {reason}"
+                    )
+                except ValueError as exc:
+                    if reason not in str(exc):
+                        failures.append(
+                            f"M141 unsafe product boundary mutation raised {exc!s}"
+                        )
+        except Exception as exc:
+            failures.append(f"M141 product boundary validation failed: {exc}")
+
+        docs_text = " ".join(
+            "\n".join(
+                self._read(self.root / path).lower()
+                for path in required_files
+                if path.startswith("docs/") and (self.root / path).exists()
+            ).split()
+        )
+        for fragment in [
+            "multi-user product boundary",
+            "contract-only",
+            "review-only",
+            "deterministic",
+            "local-only",
+            "safe-ref-only",
+            "product-boundary-only",
+            "route-free",
+            "no-effect",
+            "accepted m101-m140",
+            "user boundary refs",
+            "workspace boundary refs",
+            "tenant boundary refs",
+            "role boundary refs",
+            "privacy boundary refs",
+            "audit",
+            "replay",
+            "revocation",
+            "kill-switch",
+            "no-effect receipt",
+            "no multi-user runtime",
+            "no account tenancy",
+            "no tenant runtime",
+            "no workspace sharing",
+            "no identity federation",
+            "no organization admin runtime",
+            "no cross-workspace access",
+            "no auth runtime",
+            "no login",
+            "no session material runtime",
+            "no private auth material",
+            "no persistent identity store",
+            "no account connector runtime",
+            "no production runtime",
+            "no execution",
+            "no tool execution",
+            "no shell execution",
+            "no browser action",
+            "no connector action",
+            "no network access",
+            "no plugin execution",
+            "no background worker",
+            "no scheduler",
+            "no mobile sensor",
+            "no remote execution",
+            "no model call",
+            "no memory write",
+            "no context injection",
+            "no raw prompt",
+            "no backend route",
+            "no control center control",
+            "no dependency",
+            "no alpha privacy review",
+            "no beta release",
+            "no production authority",
+            "m142 remains future",
+            "v1.0.0-alpha",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M141 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m141_multi_user_product_boundary_static_safety(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        forbidden_source_fragments = [
+            "multi_user_runtime_enabled=True",
+            "account_tenancy_enabled=True",
+            "tenant_runtime_enabled=True",
+            "workspace_sharing_enabled=True",
+            "identity_federation_enabled=True",
+            "org_admin_runtime_enabled=True",
+            "cross_workspace_access_enabled=True",
+            "auth_runtime_enabled=True",
+            "login_enabled=True",
+            "session_cookie_enabled=True",
+            "credential_handling_enabled=True",
+            "persistent_identity_store_enabled=True",
+            "account_connector_enabled=True",
+            "production_runtime_enabled=True",
+            "execution_enabled=True",
+            "tool_execution_enabled=True",
+            "shell_execution_enabled=True",
+            "browser_action_enabled=True",
+            "connector_action_enabled=True",
+            "network_access_enabled=True",
+            "plugin_execution_enabled=True",
+            "model_call_enabled=True",
+            "memory_write_enabled=True",
+            "context_injection_enabled=True",
+            "backend_route_enabled=True",
+            "dependency_added=True",
+            "alpha_privacy_review_enabled=True",
+            "beta_release_enabled=True",
+            "production_authority_granted=True",
+            "multi_user_runtime_started=True",
+            "tenant_runtime_started=True",
+            "auth_runtime_started=True",
+            "tool_execution_performed=True",
+            "browser_action_performed=True",
+            "connector_action_performed=True",
+            "/multi-user/enable",
+            "/tenants/create",
+            "/workspaces/share",
+            "/identity/federation/enable",
+            "/auth/login",
+            "/alpha/privacy-review/start",
+        ]
+        allowed_files = {
+            "src/ultimate_ai_agent/core/gate/evaluators.py",
+            "src/ultimate_ai_agent/api/app.py",
+            "src/ultimate_ai_agent/api/openapi.py",
+            "src/ultimate_ai_agent/core/gate/criteria.py",
+            "src/ultimate_ai_agent/core/productization/__init__.py",
+            "src/ultimate_ai_agent/core/productization/multi_user_product_boundary.py",
+            "src/ultimate_ai_agent/core/autonomy/higher_autonomy_red_team_freeze.py",
+            "src/ultimate_ai_agent/core/autonomy/abuse_loop_detection.py",
+            "src/ultimate_ai_agent/core/autonomy/error_handling_guardrails.py",
+            "src/ultimate_ai_agent/core/autonomy/browser_connector_combined_workflow.py",
+        }
+        for root in [
+            self.root / "src" / "ultimate_ai_agent",
+            self.root / "apps" / "control-center" / "src",
+            self.root / "apps" / "ccc-ios",
+        ]:
+            if not root.exists():
+                continue
+            candidate_files = []
+            for pattern in (
+                "*.py",
+                "*.ts",
+                "*.tsx",
+                "*.js",
+                "*.jsx",
+                "*.swift",
+                "*.yml",
+                "*.yaml",
+            ):
+                candidate_files.extend(root.rglob(pattern))
+            for path in sorted(candidate_files):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(self.root).as_posix()
+                if ".test." in rel or rel in allowed_files:
+                    continue
+                text = path.read_text(encoding="utf-8")
+                for fragment in forbidden_source_fragments:
+                    if fragment in text:
+                        failures.append(
+                            f"M141 forbidden product boundary fragment in {rel}: {fragment}"
+                        )
+        return self._result(criterion, failures, [])
+
+    def check_m141_multi_user_product_boundary_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m141_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M141 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m141_roadmap_currentness(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_docs = [
+            "README.md",
+            "VERSION.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            "docs/roadmap/MILESTONE_CHARTERS.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+            "docs/DOCUMENTATION_INDEX.md",
+            "docs/canonical/CANONICAL_DOC_MAP.md",
+        ]
+        failures = [
+            f"missing M141 roadmap doc: {path}"
+            for path in required_docs
+            if not (self.root / path).exists()
+        ]
+        text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_docs
+            if (self.root / path).exists()
+        )
+        if (
+            "checkpoint m141" not in text
+            or "multi-user product boundary" not in text
+        ):
+            failures.append(
+                "active docs do not identify Checkpoint M141 Multi-User Product Boundary"
+            )
+        if (
+            "m141 is implemented/released" not in text
+            and "checkpoint m141 is implemented/released" not in text
+        ):
+            failures.append("active docs do not mark M141 implemented/released")
+        for version_label, product_target, milestone, title, status in [
+            (
+                "checkpoint m140",
+                "pre-alpha checkpoint",
+                "m140",
+                "higher-autonomy red-team freeze",
+                "implemented/released",
+            ),
+            (
+                "checkpoint m141",
+                "pre-alpha checkpoint",
+                "m141",
+                "multi-user product boundary",
+                "implemented/released",
+            ),
+            (
+                "checkpoint m142",
+                "pre-alpha checkpoint",
+                "m142",
+                "alpha privacy review",
+                "planned/provisional",
+            ),
+            (
+                "v1.0.0-alpha",
+                "alpha",
+                "m150",
+                "ultimate ai agent v1.0.0-alpha",
+                "planned/provisional",
+            ),
+        ]:
+            row = (
+                f"| {version_label} | {product_target} | {milestone} | "
+                f"{title} | {status} |"
+            )
+            if not _roadmap_row_present(text, row):
+                failures.append(
+                    f"active docs missing expected M141/M142-M150 row: {version_label} / {milestone.upper()} - {title}"
+                )
+        for fragment in (
+            "alpha privacy review is implemented",
+            "m142 alpha privacy review is implemented",
+            "alpha privacy runtime is implemented",
+            "privacy review runtime is implemented",
+            "alpha ui runtime is implemented",
+            "multi-user runtime is implemented",
+            "account tenancy is implemented",
+            "tenant runtime is implemented",
+            "workspace sharing is implemented",
+            "identity federation is implemented",
+            "auth runtime is implemented",
+            "login is implemented",
+            "production runtime is implemented",
+            "tool execution is implemented",
+            "shell execution is implemented",
+            "browser action execution is implemented",
+            "connector action execution is implemented",
+            "network access is implemented",
+            "plugin execution is implemented",
+            "backend route is implemented",
+            "control center control is implemented",
+            "m142 dependency is added",
+            "beta is released",
+            "production authority is implemented",
+        ):
+            if fragment in text:
+                failures.append(
+                    f"active docs imply forbidden M141 future/currentness claim: {fragment}"
                 )
         return self._result(criterion, failures, required_docs)
 

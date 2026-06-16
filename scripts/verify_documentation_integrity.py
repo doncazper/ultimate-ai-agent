@@ -1602,6 +1602,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_m138_autonomous_error_handling_guardrails_docs(root, version))
     failures.extend(_verify_m139_autonomy_abuse_loop_detection_docs(root, version))
     failures.extend(_verify_m140_higher_autonomy_red_team_freeze_docs(root, version))
+    failures.extend(_verify_m141_multi_user_product_boundary_docs(root, version))
     failures.extend(_verify_m19_roadmap_currentness(root, version))
     failures.extend(_verify_post_m18_roadmap_status_labels(root))
 
@@ -7322,6 +7323,11 @@ def _verify_post_m100_roadmap_reconciliation_docs(root: Path, version: str | Non
         or "higher-autonomy red-team freeze" in version_doc_text
     ):
         implemented_milestones.add("m140")
+    if _version_tuple(version) >= (1, 7, 2) and (
+        "checkpoint m141 is implemented/released" in version_doc_text
+        or "m141 is implemented/released" in version_doc_text
+    ):
+        implemented_milestones.add("m141")
     for version_label, product_target, milestone, title in EXPECTED_M101_M150_LABELS:
         if milestone in implemented_milestones:
             continue
@@ -13594,6 +13600,186 @@ def _verify_m140_higher_autonomy_red_team_freeze_docs(
     }:
         if fragment in current_text or fragment in text:
             failures.append(f"M140 docs imply forbidden/future capability: {fragment}")
+    return failures
+
+
+def _verify_m141_multi_user_product_boundary_docs(
+    root: Path, version: str | None
+) -> list[str]:
+    failures: list[str] = []
+    if _version_tuple(version) < (1, 7, 2):
+        return failures
+    active_text = " ".join(
+        "\n".join(
+            _read(root / rel_path).lower()
+            for rel_path in [
+                "README.md",
+                "VERSION.md",
+                "docs/canonical/09_roadmap.md",
+                "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            ]
+            if (root / rel_path).exists()
+        ).split()
+    )
+    if (
+        "checkpoint m141 is implemented/released" not in active_text
+        and "m141 is implemented/released" not in active_text
+    ):
+        return failures
+    required_paths = [
+        "docs/productization/MULTI_USER_PRODUCT_BOUNDARY.md",
+        "docs/productization/MULTI_USER_PRODUCT_BOUNDARY_POLICY.md",
+        "docs/productization/MULTI_USER_PRODUCT_BOUNDARY_AUTHORITY_BOUNDARY.md",
+        "docs/productization/MULTI_USER_PRODUCT_BOUNDARY_RECEIPT_PLAN.md",
+        "docs/productization/MULTI_USER_PRODUCT_BOUNDARY_NON_GOALS.md",
+        "docs/productization/M141_TO_M142_BOUNDARY.md",
+        "docs/release_notes/checkpoint_m141.md",
+        "docs/archive/checkpoints/m141/README_IMPORT.md",
+        "docs/archive/checkpoints/m141/master_plan.md",
+        "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+    ]
+    for rel_path in required_paths:
+        if not (root / rel_path).exists():
+            failures.append(f"missing M141 multi-user product boundary doc: {rel_path}")
+    text = " ".join(
+        "\n".join(
+            _read(root / rel_path).lower()
+            for rel_path in required_paths
+            if (root / rel_path).exists()
+        ).split()
+    )
+    required_fragments = {
+        "M141 docs must say multi-user product boundary": "multi-user product boundary",
+        "M141 docs must say contract-only": "contract-only",
+        "M141 docs must say review-only": "review-only",
+        "M141 docs must say deterministic": "deterministic",
+        "M141 docs must say local-only": "local-only",
+        "M141 docs must say safe-ref-only": "safe-ref-only",
+        "M141 docs must say product-boundary-only": "product-boundary-only",
+        "M141 docs must say route-free": "route-free",
+        "M141 docs must say no-effect": "no-effect",
+        "M141 docs must say accepted M101-M140": "accepted m101-m140",
+        "M141 docs must say user boundary refs": "user boundary refs",
+        "M141 docs must say workspace boundary refs": "workspace boundary refs",
+        "M141 docs must say tenant boundary refs": "tenant boundary refs",
+        "M141 docs must say role boundary refs": "role boundary refs",
+        "M141 docs must say privacy boundary refs": "privacy boundary refs",
+        "M141 docs must say audit": "audit",
+        "M141 docs must say replay": "replay",
+        "M141 docs must say revocation": "revocation",
+        "M141 docs must say kill-switch": "kill-switch",
+        "M141 docs must say no-effect receipt": "no-effect receipt",
+        "M141 docs must deny multi-user runtime": "no multi-user runtime",
+        "M141 docs must deny account tenancy": "no account tenancy",
+        "M141 docs must deny tenant runtime": "no tenant runtime",
+        "M141 docs must deny workspace sharing": "no workspace sharing",
+        "M141 docs must deny identity federation": "no identity federation",
+        "M141 docs must deny organization admin runtime": "no organization admin runtime",
+        "M141 docs must deny cross-workspace access": "no cross-workspace access",
+        "M141 docs must deny auth runtime": "no auth runtime",
+        "M141 docs must deny login": "no login",
+        "M141 docs must deny session material": "no session material runtime",
+        "M141 docs must deny private auth material": "no private auth material",
+        "M141 docs must deny persistent identity store": "no persistent identity store",
+        "M141 docs must deny account connector": "no account connector runtime",
+        "M141 docs must deny production runtime": "no production runtime",
+        "M141 docs must deny execution": "no execution",
+        "M141 docs must deny tool execution": "no tool execution",
+        "M141 docs must deny shell execution": "no shell execution",
+        "M141 docs must deny browser action": "no browser action",
+        "M141 docs must deny connector action": "no connector action",
+        "M141 docs must deny network access": "no network access",
+        "M141 docs must deny plugin execution": "no plugin execution",
+        "M141 docs must deny background worker": "no background worker",
+        "M141 docs must deny scheduler": "no scheduler",
+        "M141 docs must deny mobile sensor": "no mobile sensor",
+        "M141 docs must deny remote execution": "no remote execution",
+        "M141 docs must deny model call": "no model call",
+        "M141 docs must deny memory write": "no memory write",
+        "M141 docs must deny context injection": "no context injection",
+        "M141 docs must deny raw prompt": "no raw prompt",
+        "M141 docs must deny backend route": "no backend route",
+        "M141 docs must deny Control Center control": "no control center control",
+        "M141 docs must deny dependency": "no dependency",
+        "M141 docs must deny alpha privacy review": "no alpha privacy review",
+        "M141 docs must deny beta release": "no beta release",
+        "M141 docs must deny production authority": "no production authority",
+        "M141 docs must keep M142 future": "m142 remains future",
+        "M141 docs must preserve alpha target": "v1.0.0-alpha",
+    }
+    for message, fragment in required_fragments.items():
+        if fragment not in text:
+            failures.append(message)
+
+    active_paths = [
+        "README.md",
+        "VERSION.md",
+        "docs/canonical/09_roadmap.md",
+        "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+        "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+        "docs/roadmap/MILESTONE_CHARTERS.md",
+        "docs/DOCUMENTATION_INDEX.md",
+        "docs/canonical/CANONICAL_DOC_MAP.md",
+    ]
+    current_text = " ".join(
+        "\n".join(
+            _read(root / rel_path).lower()
+            for rel_path in active_paths
+            if (root / rel_path).exists()
+        ).split()
+    )
+    implemented_m140_row = (
+        "| checkpoint m140 | pre-alpha checkpoint | m140 | "
+        "higher-autonomy red-team freeze | implemented/released |"
+    )
+    implemented_m141_row = (
+        "| checkpoint m141 | pre-alpha checkpoint | m141 | "
+        "multi-user product boundary | implemented/released |"
+    )
+    planned_m142_row = (
+        "| checkpoint m142 | pre-alpha checkpoint | m142 | "
+        "alpha privacy review | planned/provisional |"
+    )
+    m150_row = (
+        "| v1.0.0-alpha | alpha | m150 | ultimate ai agent v1.0.0-alpha | "
+        "planned/provisional |"
+    )
+    if not _roadmap_row_present(current_text, implemented_m140_row):
+        failures.append("active docs missing implemented Checkpoint M140 row")
+    if not _roadmap_row_present(current_text, implemented_m141_row):
+        failures.append("active docs missing implemented Checkpoint M141 row")
+    if not _roadmap_row_present(current_text, planned_m142_row):
+        failures.append("active docs missing planned Checkpoint M142 row")
+    if not _roadmap_row_present(current_text, m150_row):
+        failures.append("active docs missing planned M150 alpha row")
+    for fragment in {
+        "alpha privacy review is implemented",
+        "m142 alpha privacy review is implemented",
+        "alpha privacy runtime is implemented",
+        "privacy review runtime is implemented",
+        "alpha ui runtime is implemented",
+        "multi-user runtime is implemented",
+        "account tenancy is implemented",
+        "tenant runtime is implemented",
+        "workspace sharing is implemented",
+        "identity federation is implemented",
+        "auth runtime is implemented",
+        "login is implemented",
+        "production runtime is implemented",
+        "tool execution is implemented",
+        "shell execution is implemented",
+        "browser action execution is implemented",
+        "connector action execution is implemented",
+        "network access is implemented",
+        "plugin execution is implemented",
+        "backend route is implemented",
+        "control center control is implemented",
+        "m142 dependency is added",
+        "beta is released",
+        "production authority is implemented",
+    }:
+        if fragment in current_text or fragment in text:
+            failures.append(f"M141 docs imply forbidden/future capability: {fragment}")
     return failures
 
 

@@ -179,6 +179,7 @@ SCAN_SEQUENCE = [
     ("M138 autonomous error handling guardrails scan", "verify_m138_autonomous_error_handling_guardrails"),
     ("M139 autonomy abuse loop detection scan", "verify_m139_autonomy_abuse_loop_detection"),
     ("M140 higher autonomy red-team freeze scan", "verify_m140_higher_autonomy_red_team_freeze"),
+    ("M141 multi-user product boundary scan", "verify_m141_multi_user_product_boundary"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -17772,6 +17773,11 @@ def verify_post_m100_roadmap_reconciliation():
         or "higher-autonomy red-team freeze" in active_version_text
     ):
         implemented_milestones.add("m140")
+    if (
+        "checkpoint m141 is implemented/released" in active_version_text
+        or "m141 is implemented/released" in active_version_text
+    ):
+        implemented_milestones.add("m141")
     for version_label, product_target, milestone, title in expected_labels:
         if milestone in implemented_milestones:
             continue
@@ -26060,6 +26066,248 @@ def verify_m140_higher_autonomy_red_team_freeze():
             sys.exit(1)
 
     print("OK: M140 red-team freeze is review-only, freeze-only, and route-free")
+
+
+def verify_m141_multi_user_product_boundary():
+    print("\n[Verifier] Running M141 multi-user product boundary guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/productization/__init__.py",
+        "src/ultimate_ai_agent/core/productization/multi_user_product_boundary.py",
+        "docs/productization/MULTI_USER_PRODUCT_BOUNDARY.md",
+        "docs/productization/MULTI_USER_PRODUCT_BOUNDARY_POLICY.md",
+        "docs/productization/MULTI_USER_PRODUCT_BOUNDARY_AUTHORITY_BOUNDARY.md",
+        "docs/productization/MULTI_USER_PRODUCT_BOUNDARY_RECEIPT_PLAN.md",
+        "docs/productization/MULTI_USER_PRODUCT_BOUNDARY_NON_GOALS.md",
+        "docs/productization/M141_TO_M142_BOUNDARY.md",
+        "docs/release_notes/checkpoint_m141.md",
+        "docs/archive/checkpoints/m141/README_IMPORT.md",
+        "docs/archive/checkpoints/m141/master_plan.md",
+        "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+        "tests/test_m141_multi_user_product_boundary.py",
+        "tests/test_m141_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M141 multi-user product boundary file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = " ".join(
+        "\n".join(
+            (ROOT / rel_path).read_text(encoding="utf-8").lower()
+            for rel_path in required_files
+            if rel_path.startswith("docs/")
+        ).split()
+    )
+    for fragment in [
+        "multi-user product boundary",
+        "contract-only",
+        "review-only",
+        "deterministic",
+        "local-only",
+        "safe-ref-only",
+        "product-boundary-only",
+        "route-free",
+        "no-effect",
+        "accepted m101-m140",
+        "user boundary refs",
+        "workspace boundary refs",
+        "tenant boundary refs",
+        "role boundary refs",
+        "privacy boundary refs",
+        "audit",
+        "replay",
+        "revocation",
+        "kill-switch",
+        "no-effect receipt",
+        "no multi-user runtime",
+        "no account tenancy",
+        "no tenant runtime",
+        "no workspace sharing",
+        "no identity federation",
+        "no organization admin runtime",
+        "no cross-workspace access",
+        "no auth runtime",
+        "no login",
+        "no session material runtime",
+        "no private auth material",
+        "no persistent identity store",
+        "no account connector runtime",
+        "no production runtime",
+        "no execution",
+        "no tool execution",
+        "no shell execution",
+        "no browser action",
+        "no connector action",
+        "no network access",
+        "no plugin execution",
+        "no background worker",
+        "no scheduler",
+        "no mobile sensor",
+        "no remote execution",
+        "no model call",
+        "no memory write",
+        "no context injection",
+        "no raw prompt",
+        "no backend route",
+        "no control center control",
+        "no dependency",
+        "no alpha privacy review",
+        "no beta release",
+        "no production authority",
+        "m142 remains future",
+        "v1.0.0-alpha",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M141 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from tests.test_m141_multi_user_product_boundary import _request
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.criteria import (
+            default_foundation_gate_criteria,
+        )
+        from ultimate_ai_agent.core.gate.evaluators import (
+            FoundationGateEvaluator,
+            m141_openapi_route_failures,
+        )
+        from ultimate_ai_agent.core.productization import (
+            MultiUserProductBoundaryStatus,
+            build_multi_user_product_boundary_record,
+            validate_multi_user_product_boundary_record,
+        )
+    except Exception as exc:
+        print(f"FAIL: M141 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m141_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    record = build_multi_user_product_boundary_record(_request())
+    if (
+        record.status != MultiUserProductBoundaryStatus.product_boundary_review
+        or not record.contract_only
+        or not record.review_only
+        or not record.deterministic
+        or not record.local_only
+        or not record.safe_refs_only
+        or not record.product_boundary_only
+        or not record.m101_m140_covered
+        or not record.actor_boundary_bound
+        or not record.workspace_boundary_bound
+        or not record.tenant_boundary_bound
+        or not record.role_boundary_bound
+        or not record.privacy_boundary_bound
+        or not record.audit_replay_bound
+        or not record.revocation_readiness_bound
+        or not record.no_effect_receipt_required
+        or not record.no_multi_user_runtime
+        or not record.no_account_tenancy
+        or not record.no_auth_runtime
+        or not record.no_workspace_sharing
+        or not record.no_production_authority
+        or record.multi_user_runtime_started
+        or record.account_tenancy_enabled
+        or record.tenant_runtime_started
+        or record.workspace_sharing_enabled
+        or record.identity_federation_enabled
+        or record.auth_runtime_started
+        or record.login_enabled
+        or record.persistent_identity_store_enabled
+        or record.account_connector_enabled
+        or record.execution_performed
+        or record.tool_execution_performed
+        or record.shell_execution_performed
+        or record.browser_action_performed
+        or record.connector_action_performed
+        or record.network_access_performed
+        or record.plugin_execution_performed
+        or record.model_call_performed
+        or record.memory_write_performed
+        or record.context_injection_performed
+        or record.backend_route_added
+        or record.dependency_added
+        or record.alpha_privacy_review_enabled
+        or record.beta_release_enabled
+        or record.production_authority_granted
+        or "M141_MULTI_USER_PRODUCT_BOUNDARY_REVIEW_ONLY"
+        not in record.reason_codes
+        or "M141_M101_M140_COVERED" not in record.reason_codes
+        or "M141_NO_MULTI_USER_RUNTIME" not in record.reason_codes
+        or "M141_NO_ACCOUNT_TENANCY" not in record.reason_codes
+        or "M141_NO_AUTH_OR_IDENTITY_FEDERATION" not in record.reason_codes
+        or "M141_NO_WORKSPACE_SHARING" not in record.reason_codes
+        or "M141_NO_PRODUCTION_AUTHORITY" not in record.reason_codes
+        or "M142_REMAINS_FUTURE" not in record.reason_codes
+    ):
+        print("FAIL: M141 multi-user product boundary record is unsafe")
+        sys.exit(1)
+
+    for update, reason in [
+        ({"multi_user_runtime_started": True}, "M141_MULTI_USER_RUNTIME_DENIED"),
+        ({"account_tenancy_enabled": True}, "M141_ACCOUNT_TENANCY_DENIED"),
+        ({"tenant_runtime_started": True}, "M141_TENANT_RUNTIME_DENIED"),
+        ({"workspace_sharing_enabled": True}, "M141_WORKSPACE_SHARING_DENIED"),
+        (
+            {"identity_federation_enabled": True},
+            "M141_IDENTITY_FEDERATION_DENIED",
+        ),
+        ({"auth_runtime_started": True}, "M141_AUTH_RUNTIME_DENIED"),
+        ({"tool_execution_performed": True}, "M141_TOOL_EXECUTION_DENIED"),
+        ({"browser_action_performed": True}, "M141_BROWSER_ACTION_DENIED"),
+        ({"connector_action_performed": True}, "M141_CONNECTOR_ACTION_DENIED"),
+        ({"backend_route_added": True}, "M141_BACKEND_ROUTE_DENIED"),
+        (
+            {"alpha_privacy_review_enabled": True},
+            "M141_ALPHA_PRIVACY_REVIEW_DENIED",
+        ),
+        ({"beta_release_enabled": True}, "M141_BETA_RELEASE_DENIED"),
+        (
+            {"production_authority_granted": True},
+            "M141_PRODUCTION_AUTHORITY_DENIED",
+        ),
+    ]:
+        try:
+            validate_multi_user_product_boundary_record(
+                record.model_copy(update=update)
+            )
+            print(f"FAIL: M141 mutated authority flag was not denied: {update}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M141 mutated authority flag raised {exc!s}")
+                sys.exit(1)
+
+    criteria = {
+        criterion.criterion_id: criterion
+        for criterion in default_foundation_gate_criteria()
+    }
+    for criterion_id in [
+        "m141_multi_user_product_boundary_contracts",
+        "m141_multi_user_product_boundary_static_safety",
+        "m141_multi_user_product_boundary_route_boundary",
+        "m141_roadmap_currentness",
+    ]:
+        if criterion_id not in criteria:
+            print(f"FAIL: Missing M141 Foundation Gate criterion: {criterion_id}")
+            sys.exit(1)
+    evaluator = FoundationGateEvaluator(ROOT)
+    for criterion_id in [
+        "m141_multi_user_product_boundary_contracts",
+        "m141_multi_user_product_boundary_static_safety",
+        "m141_multi_user_product_boundary_route_boundary",
+        "m141_roadmap_currentness",
+    ]:
+        gate_report = evaluator.evaluate([criteria[criterion_id]])
+        result = gate_report.results[0]
+        if result.status != "passed":
+            print(f"FAIL: {criterion_id} failed: {result.failures}")
+            sys.exit(1)
+
+    print("OK: M141 product boundary is review-only, safe-ref-only, and route-free")
 
 
 def verify_local_developer_launcher_safety():

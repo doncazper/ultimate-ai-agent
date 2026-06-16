@@ -43,7 +43,8 @@ Dependency Execution. Checkpoint M137 is implemented/released as Autonomous
 Browser + Connector Combined Workflows. Checkpoint M138 is implemented/released
 as Autonomous Error Handling Guardrails. Checkpoint M139 is
 implemented/released as Autonomy Abuse/Loop Detection. Checkpoint M140 is
-implemented/released as Higher-Autonomy Red-Team Freeze. M141-M150 remain
+implemented/released as Higher-Autonomy Red-Team Freeze. Checkpoint M141 is
+implemented/released as Multi-User Product Boundary. M142-M150 remain
 planned/provisional.
 Future work must continue the authority-tier model:
 
@@ -108,7 +109,7 @@ roadmap patch. Do not rewrite, move, or reuse existing tags.
 | Checkpoint M138 | pre-alpha checkpoint | M138 | Autonomous Error Handling Guardrails | Implemented/released |
 | Checkpoint M139 | pre-alpha checkpoint | M139 | Autonomy Abuse/Loop Detection | Implemented/released |
 | Checkpoint M140 | pre-alpha checkpoint | M140 | Higher-Autonomy Red-Team Freeze | Implemented/released |
-| Checkpoint M141 | pre-alpha checkpoint | M141 | Multi-User Product Boundary | Planned/provisional |
+| Checkpoint M141 | pre-alpha checkpoint | M141 | Multi-User Product Boundary | Implemented/released |
 | Checkpoint M142 | pre-alpha checkpoint | M142 | Alpha Privacy Review | Planned/provisional |
 | Checkpoint M143 | pre-alpha checkpoint | M143 | Alpha UI and App Readiness | Planned/provisional |
 | Checkpoint M144 | pre-alpha checkpoint | M144 | Plugin Marketplace Policy Draft | Planned/provisional |
@@ -138,10 +139,11 @@ M101-M110 stage mobile sensor and mobile-control work from contract review to a
 hardening freeze. M111-M120 stage production-readiness contracts without
 granting production authority. M121-M130 stage connector safety from contract
 refresh through low-risk write execution and freeze. M131-M140 stage higher
-autonomy only after prior scoped, auditable safety foundations. M141-M150 stage
-multi-user, alpha UI/product readiness, marketplace policy, billing boundaries,
-public docs, security review, alpha release candidate freeze, and the
-v1.0.0-alpha target.
+autonomy only after prior scoped, auditable safety foundations. M141 records the
+multi-user product boundary as contract-only product-readiness work. M142-M150
+stage alpha privacy review, alpha UI/product readiness, marketplace policy,
+billing boundaries, public docs, security review, alpha release candidate
+freeze, and the v1.0.0-alpha target.
 
 No M151+ extension is required by the v1.7.2 versioning repair. Beta begins
 after the alpha UI and other alpha findings are ironed out through later

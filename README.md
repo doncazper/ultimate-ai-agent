@@ -13,27 +13,29 @@ allowed to become operational authority.
 | Field | Current state |
 |---|---|
 | Current active baseline | **v1.7.2** |
-| Current milestone | **Checkpoint M140 — Higher-Autonomy Red-Team Freeze** |
+| Current milestone | **Checkpoint M141 — Multi-User Product Boundary** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **75** OpenAPI paths |
 | Production readiness | Not claimed |
 
-Checkpoint M140 implements Higher-Autonomy Red-Team Freeze while the current
+Checkpoint M141 implements Multi-User Product Boundary while the current
 product baseline remains v1.7.2. Already-pushed tags remain immutable historical
-internal milestone tags, future M141-M149 conveyor milestones use checkpoint
+internal milestone tags, future M142-M149 conveyor milestones use checkpoint
 labels instead of product SemVer tags, and M150 is the next product release
 target **v1.0.0-alpha**. Beta begins only after the alpha UI and supporting
 safety/product work are reviewed, accepted, and explicitly promoted by a later
-roadmap patch. M140 is contract-only, review-only, freeze-only, deterministic,
-local-only, and safe-ref-only. It records accepted M131-M139 checkpoint refs,
-red-team checklist refs, audit, replay, revocation, kill-switch, and no-effect
-receipt refs for governed review. It adds no red-team runtime, red-team harness
-execution, adversarial test execution, autonomous execution, broad autonomy,
-global autonomy switch, execution, tool execution, shell execution, browser
-action, connector action, network access, plugin execution, model call, memory
-write, context injection, backend route, Control Center control, dependency,
-alpha release, beta release, or production authority.
+roadmap patch. M141 is contract-only, review-only, deterministic, local-only,
+safe-ref-only, and product-boundary-only. It records accepted M101-M140
+checkpoint refs, safe user boundary refs, workspace boundary refs, tenant
+boundary refs, role boundary refs, privacy boundary refs, audit, replay,
+revocation, kill-switch, and no-effect receipt refs for governed review. It
+adds no multi-user runtime, account tenancy, tenant runtime, workspace sharing,
+identity federation, auth runtime, login, persistent identity store, execution,
+tool execution, shell execution, browser action, connector action, network
+access, plugin execution, model call, memory write, context injection, backend
+route, Control Center control, dependency, alpha privacy review, beta release,
+or production authority.
 
 v0.29.5 is documentation policy polish. It remains the documentation
 organization cleanup baseline before the M26 and M27 implementation releases.
@@ -47,6 +49,7 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M34-M60 roadmap supersession](docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md)
 - [M61-M100 roadmap](docs/roadmap/M61_M100_ROADMAP.md)
 - [M101-M150 planned roadmap](docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md)
+- [M141 Multi-User Product Boundary](docs/productization/MULTI_USER_PRODUCT_BOUNDARY.md)
 - [M140 Higher-Autonomy Red-Team Freeze](docs/autonomy/HIGHER_AUTONOMY_RED_TEAM_FREEZE.md)
 - [M139 Autonomy Abuse/Loop Detection](docs/autonomy/AUTONOMY_ABUSE_LOOP_DETECTION.md)
 - [M138 Autonomous Error Handling Guardrails](docs/autonomy/AUTONOMOUS_ERROR_HANDLING_GUARDRAILS.md)
