@@ -40,7 +40,8 @@ Long-Running Task Supervisor. Checkpoint M134 is implemented/released as Human
 Checkpoint Scheduling. Checkpoint M135 is implemented/released as Autonomous
 Recovery Planner. Checkpoint M136 is implemented/released as Cross-Tool
 Dependency Execution. Checkpoint M137 is implemented/released as Autonomous
-Browser + Connector Combined Workflows. M138-M150 remain planned/provisional.
+Browser + Connector Combined Workflows. Checkpoint M138 is implemented/released
+as Autonomous Error Handling Guardrails. M139-M150 remain planned/provisional.
 Future work must continue the authority-tier model:
 
 Capability exists -> disabled by default -> dry-run first -> limited allowlist
@@ -101,7 +102,7 @@ roadmap patch. Do not rewrite, move, or reuse existing tags.
 | Checkpoint M135 | pre-alpha checkpoint | M135 | Autonomous Recovery Planner | Implemented/released |
 | Checkpoint M136 | pre-alpha checkpoint | M136 | Cross-Tool Dependency Execution | Implemented/released |
 | Checkpoint M137 | pre-alpha checkpoint | M137 | Autonomous Browser + Connector Combined Workflows | Implemented/released |
-| Checkpoint M138 | pre-alpha checkpoint | M138 | Autonomous Error Handling Guardrails | Planned/provisional |
+| Checkpoint M138 | pre-alpha checkpoint | M138 | Autonomous Error Handling Guardrails | Implemented/released |
 | Checkpoint M139 | pre-alpha checkpoint | M139 | Autonomy Abuse/Loop Detection | Planned/provisional |
 | Checkpoint M140 | pre-alpha checkpoint | M140 | Higher-Autonomy Red-Team Freeze | Planned/provisional |
 | Checkpoint M141 | pre-alpha checkpoint | M141 | Multi-User Product Boundary | Planned/provisional |

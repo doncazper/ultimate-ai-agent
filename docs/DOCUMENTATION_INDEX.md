@@ -27,6 +27,12 @@ docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md
 docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md
 docs/roadmap/M61_M100_ROADMAP.md
 docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md
+docs/autonomy/AUTONOMOUS_ERROR_HANDLING_GUARDRAILS.md
+docs/autonomy/AUTONOMOUS_ERROR_HANDLING_GUARDRAILS_POLICY.md
+docs/autonomy/AUTONOMOUS_ERROR_HANDLING_GUARDRAILS_AUTHORITY_BOUNDARY.md
+docs/autonomy/AUTONOMOUS_ERROR_HANDLING_GUARDRAILS_RECEIPT_PLAN.md
+docs/autonomy/AUTONOMOUS_ERROR_HANDLING_GUARDRAILS_NON_GOALS.md
+docs/autonomy/M138_TO_M139_BOUNDARY.md
 docs/autonomy/BROWSER_CONNECTOR_COMBINED_WORKFLOW.md
 docs/autonomy/BROWSER_CONNECTOR_COMBINED_WORKFLOW_POLICY.md
 docs/autonomy/BROWSER_CONNECTOR_COMBINED_WORKFLOW_AUTHORITY_BOUNDARY.md
@@ -883,16 +889,17 @@ as deterministic local review-only Autonomous Recovery Planner records. M136 is
 implemented/released as deterministic local review-only Cross-Tool Dependency
 Execution records. M137 is implemented/released as deterministic local
 review-only Autonomous Browser + Connector Combined Workflows records.
-M138-M150 are
+M138 is implemented/released as deterministic local review-only Autonomous
+Error Handling Guardrails records. M139-M150 are
 planned/provisional only in
 `docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md`.
-Future M138-M149 conveyor milestones use checkpoint labels instead of product
+Future M139-M149 conveyor milestones use checkpoint labels instead of product
 SemVer tags, and M150 is
 planned as v1.0.0-alpha. Beta begins only after alpha UI and supporting
 safety/product work are reviewed and promoted. Active roadmap sources consistently mark
-M34-M137 implemented/released and rely on documentation-integrity checks to
+M34-M138 implemented/released and rely on documentation-integrity checks to
 guard against superseded-roadmap drift, stale current-baseline labels, route
-drift, authority-boundary drift, alpha/beta versioning drift, and M138-M150
+drift, authority-boundary drift, alpha/beta versioning drift, and M139-M150
 future-status drift.
 
 ## Release Notes Index

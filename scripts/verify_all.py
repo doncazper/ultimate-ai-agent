@@ -176,6 +176,7 @@ SCAN_SEQUENCE = [
     ("M135 autonomous recovery planner scan", "verify_m135_autonomous_recovery_planner"),
     ("M136 cross-tool dependency execution scan", "verify_m136_cross_tool_dependency_execution"),
     ("M137 browser connector combined workflow scan", "verify_m137_browser_connector_combined_workflow"),
+    ("M138 autonomous error handling guardrails scan", "verify_m138_autonomous_error_handling_guardrails"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -17751,6 +17752,12 @@ def verify_post_m100_roadmap_reconciliation():
         in active_version_text
     ):
         implemented_milestones.add("m137")
+    if (
+        "checkpoint m138" in active_version_text
+        or "m138" in active_version_text
+        or "autonomous error handling guardrails" in active_version_text
+    ):
+        implemented_milestones.add("m138")
     for version_label, product_target, milestone, title in expected_labels:
         if milestone in implemented_milestones:
             continue
@@ -25292,6 +25299,270 @@ def verify_m137_browser_connector_combined_workflow():
             sys.exit(1)
 
     print("OK: M137 browser connector workflow is review-only, safe-ref-only, and route-free")
+
+
+def verify_m138_autonomous_error_handling_guardrails():
+    print("\n[Verifier] Running M138 autonomous error handling guardrails guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/autonomy/__init__.py",
+        "src/ultimate_ai_agent/core/autonomy/error_handling_guardrails.py",
+        "docs/autonomy/AUTONOMOUS_ERROR_HANDLING_GUARDRAILS.md",
+        "docs/autonomy/AUTONOMOUS_ERROR_HANDLING_GUARDRAILS_POLICY.md",
+        "docs/autonomy/AUTONOMOUS_ERROR_HANDLING_GUARDRAILS_AUTHORITY_BOUNDARY.md",
+        "docs/autonomy/AUTONOMOUS_ERROR_HANDLING_GUARDRAILS_RECEIPT_PLAN.md",
+        "docs/autonomy/AUTONOMOUS_ERROR_HANDLING_GUARDRAILS_NON_GOALS.md",
+        "docs/autonomy/M138_TO_M139_BOUNDARY.md",
+        "docs/release_notes/checkpoint_m138.md",
+        "docs/archive/checkpoints/m138/README_IMPORT.md",
+        "docs/archive/checkpoints/m138/master_plan.md",
+        "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+        "tests/test_m138_error_handling_guardrails.py",
+        "tests/test_m138_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M138 error handling guardrail file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = " ".join(
+        "\n".join(
+            (ROOT / rel_path).read_text(encoding="utf-8").lower()
+            for rel_path in required_files
+            if rel_path.startswith("docs/")
+        ).split()
+    )
+    for fragment in [
+        "autonomous error handling guardrails",
+        "contract-only",
+        "review-only",
+        "autonomous-error-handling-guardrails-only",
+        "deterministic",
+        "local-only",
+        "safe-ref-only",
+        "exact",
+        "mode 5",
+        "m137 browser connector combined workflow decision",
+        "m136 cross-tool dependency execution decision",
+        "m135 autonomous recovery planner decision",
+        "m134 human checkpoint scheduling decision",
+        "m133 supervisor decision",
+        "m132 trusted workflow decision",
+        "error signal refs",
+        "guardrail policy refs",
+        "retry policy refs",
+        "fallback policy refs",
+        "escalation policy refs",
+        "recovery plan refs",
+        "rollback plan refs",
+        "resume plan refs",
+        "human checkpoint",
+        "audit",
+        "replay",
+        "revocation",
+        "kill-switch",
+        "no-effect receipt",
+        "no error handling runtime",
+        "no error guardrail runtime",
+        "no autonomous recovery execution",
+        "no retry execution",
+        "no rollback execution",
+        "no resume execution",
+        "no dependency execution",
+        "no browser action",
+        "no connector action",
+        "no tool execution",
+        "no shell execution",
+        "no network access",
+        "no plugin execution",
+        "no model call",
+        "no memory write",
+        "no context injection",
+        "no backend route",
+        "no control center control",
+        "no dependency",
+        "m139 remains future",
+        "v1.0.0-alpha",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M138 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from tests.test_m138_error_handling_guardrails import _request
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.autonomy import (
+            AutonomyAuthorityMode,
+            AutonomyRiskClass,
+            ErrorHandlingGuardrailStatus,
+            build_error_handling_guardrail_decision,
+            validate_error_handling_guardrail_decision,
+        )
+        from ultimate_ai_agent.core.gate.criteria import (
+            default_foundation_gate_criteria,
+        )
+        from ultimate_ai_agent.core.gate.evaluators import (
+            FoundationGateEvaluator,
+            m138_openapi_route_failures,
+        )
+    except Exception as exc:
+        print(f"FAIL: M138 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m138_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    decision = build_error_handling_guardrail_decision(_request())
+    if (
+        decision.status != ErrorHandlingGuardrailStatus.ready_for_review
+        or decision.selected_mode != AutonomyAuthorityMode.trusted_recurring_automation
+        or decision.max_risk_class != AutonomyRiskClass.low
+        or not decision.contract_only
+        or not decision.review_only
+        or not decision.autonomous_error_handling_guardrails_only
+        or not decision.deterministic
+        or not decision.local_only
+        or not decision.safe_refs_only
+        or not decision.exact_scope_bound
+        or not decision.mode5_bound
+        or not decision.m137_browser_connector_workflow_bound
+        or not decision.m136_dependency_execution_bound
+        or not decision.m135_recovery_planner_bound
+        or not decision.m134_human_checkpoint_bound
+        or not decision.m133_supervisor_bound
+        or not decision.m132_trusted_workflow_bound
+        or not decision.error_signal_bound
+        or not decision.guardrail_policy_bound
+        or not decision.retry_policy_bound
+        or not decision.fallback_policy_bound
+        or not decision.escalation_policy_bound
+        or not decision.recovery_plan_bound
+        or not decision.rollback_plan_bound
+        or not decision.resume_plan_bound
+        or not decision.human_checkpoint_bound
+        or not decision.audit_replay_bound
+        or not decision.revocation_bound
+        or not decision.kill_switch_bound
+        or not decision.no_effect_receipt_required
+        or decision.error_handling_runtime_authorized
+        or decision.error_guardrail_runtime_started
+        or decision.autonomous_recovery_execution_authorized
+        or decision.retry_execution_performed
+        or decision.rollback_execution_performed
+        or decision.resume_execution_performed
+        or decision.dependency_execution_performed
+        or decision.browser_action_performed
+        or decision.connector_action_performed
+        or decision.tool_execution_performed
+        or decision.execution_performed
+        or decision.backend_route_added
+        or decision.dependency_added
+        or decision.beta_release_enabled
+        or decision.production_authority_granted
+        or not decision.receipt_plan.store_safe_summary_only
+        or not decision.receipt_plan.store_safe_refs_only
+        or decision.receipt_plan.store_raw_error_log
+        or decision.receipt_plan.store_raw_stack_trace
+        or decision.receipt_plan.retry_execution_performed
+        or decision.receipt_plan.rollback_execution_performed
+        or decision.receipt_plan.resume_execution_performed
+        or decision.receipt_plan.recovery_execution_performed
+        or "M138_AUTONOMOUS_ERROR_HANDLING_GUARDRAILS_CONTRACT_ONLY"
+        not in decision.reason_codes
+        or "M138_EXACT_ERROR_SCOPE_REQUIRED" not in decision.reason_codes
+        or "M138_NO_ERROR_HANDLING_RUNTIME" not in decision.reason_codes
+        or "M138_NO_RETRY_OR_ROLLBACK_EXECUTION" not in decision.reason_codes
+        or "M139_REMAINS_FUTURE" not in decision.reason_codes
+    ):
+        print("FAIL: M138 error handling guardrail decision is unsafe or over-authoritative")
+        sys.exit(1)
+
+    for update, reason in [
+        (
+            {"error_handling_runtime_authorized": True},
+            "M138_ERROR_HANDLING_RUNTIME_DENIED",
+        ),
+        (
+            {"error_guardrail_runtime_started": True},
+            "M138_ERROR_GUARDRAIL_RUNTIME_DENIED",
+        ),
+        (
+            {"autonomous_recovery_execution_authorized": True},
+            "M138_RECOVERY_EXECUTION_DENIED",
+        ),
+        ({"retry_execution_performed": True}, "M138_RETRY_EXECUTION_DENIED"),
+        ({"rollback_execution_performed": True}, "M138_ROLLBACK_EXECUTION_DENIED"),
+        ({"resume_execution_performed": True}, "M138_RESUME_EXECUTION_DENIED"),
+        (
+            {"dependency_execution_performed": True},
+            "M138_DEPENDENCY_EXECUTION_DENIED",
+        ),
+        ({"browser_action_performed": True}, "M138_BROWSER_ACTION_DENIED"),
+        ({"connector_action_performed": True}, "M138_CONNECTOR_ACTION_DENIED"),
+        ({"tool_execution_performed": True}, "M138_TOOL_EXECUTION_DENIED"),
+        ({"backend_route_added": True}, "M138_BACKEND_ROUTE_DENIED"),
+        (
+            {"production_authority_granted": True},
+            "M138_PRODUCTION_AUTHORITY_DENIED",
+        ),
+    ]:
+        try:
+            validate_error_handling_guardrail_decision(
+                decision.model_copy(update=update)
+            )
+            print(f"FAIL: M138 mutated authority flag was not denied: {update}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M138 mutated authority flag raised {exc!s}")
+                sys.exit(1)
+
+    try:
+        validate_error_handling_guardrail_decision(
+            decision.model_copy(
+                update={
+                    "receipt_plan": decision.receipt_plan.model_copy(
+                        update={"store_raw_error_log": True}
+                    )
+                }
+            )
+        )
+        print("FAIL: M138 receipt plan allowed raw error log storage")
+        sys.exit(1)
+    except ValueError as exc:
+        if "M138_RAW_ERROR_LOG_DENIED" not in str(exc):
+            print(f"FAIL: M138 raw error log receipt mutation raised {exc!s}")
+            sys.exit(1)
+
+    criteria = {
+        criterion.criterion_id: criterion
+        for criterion in default_foundation_gate_criteria()
+    }
+    for criterion_id in [
+        "m138_autonomous_error_handling_guardrails_contracts",
+        "m138_autonomous_error_handling_guardrails_static_safety",
+        "m138_autonomous_error_handling_guardrails_route_boundary",
+        "m138_roadmap_currentness",
+    ]:
+        if criterion_id not in criteria:
+            print(f"FAIL: Missing M138 Foundation Gate criterion: {criterion_id}")
+            sys.exit(1)
+    evaluator = FoundationGateEvaluator(ROOT)
+    for criterion_id in [
+        "m138_autonomous_error_handling_guardrails_contracts",
+        "m138_autonomous_error_handling_guardrails_static_safety",
+        "m138_autonomous_error_handling_guardrails_route_boundary",
+        "m138_roadmap_currentness",
+    ]:
+        gate_report = evaluator.evaluate([criteria[criterion_id]])
+        result = gate_report.results[0]
+        if result.status != "passed":
+            print(f"FAIL: {criterion_id} failed: {result.failures}")
+            sys.exit(1)
+
+    print("OK: M138 error handling guardrails are review-only, safe-ref-only, and route-free")
 
 
 def verify_local_developer_launcher_safety():

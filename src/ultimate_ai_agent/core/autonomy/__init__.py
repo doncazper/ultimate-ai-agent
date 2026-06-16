@@ -225,6 +225,20 @@ from ultimate_ai_agent.core.autonomy.browser_connector_combined_workflow import 
     validate_browser_connector_combined_workflow_policy,
     validate_browser_connector_combined_workflow_request,
 )
+from ultimate_ai_agent.core.autonomy.error_handling_guardrails import (
+    ERROR_HANDLING_GUARDRAILS_DOCS,
+    M138_MAX_ERROR_SIGNAL_REFS,
+    M138_MAX_GUARDRAIL_REFS,
+    ErrorHandlingGuardrailDecision,
+    ErrorHandlingGuardrailPolicy,
+    ErrorHandlingGuardrailReceiptPlan,
+    ErrorHandlingGuardrailRequest,
+    ErrorHandlingGuardrailStatus,
+    build_error_handling_guardrail_decision,
+    validate_error_handling_guardrail_decision,
+    validate_error_handling_guardrail_policy,
+    validate_error_handling_guardrail_request,
+)
 
 __all__ = [
     "AUTONOMY_MODE_CHARTER_DOCS",
@@ -414,4 +428,16 @@ __all__ = [
     "validate_browser_connector_combined_workflow_decision",
     "validate_browser_connector_combined_workflow_policy",
     "validate_browser_connector_combined_workflow_request",
+    "ERROR_HANDLING_GUARDRAILS_DOCS",
+    "M138_MAX_ERROR_SIGNAL_REFS",
+    "M138_MAX_GUARDRAIL_REFS",
+    "ErrorHandlingGuardrailDecision",
+    "ErrorHandlingGuardrailPolicy",
+    "ErrorHandlingGuardrailReceiptPlan",
+    "ErrorHandlingGuardrailRequest",
+    "ErrorHandlingGuardrailStatus",
+    "build_error_handling_guardrail_decision",
+    "validate_error_handling_guardrail_decision",
+    "validate_error_handling_guardrail_policy",
+    "validate_error_handling_guardrail_request",
 ]

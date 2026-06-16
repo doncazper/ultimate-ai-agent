@@ -1599,6 +1599,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_m135_autonomous_recovery_planner_docs(root, version))
     failures.extend(_verify_m136_cross_tool_dependency_execution_docs(root, version))
     failures.extend(_verify_m137_browser_connector_combined_workflow_docs(root, version))
+    failures.extend(_verify_m138_autonomous_error_handling_guardrails_docs(root, version))
     failures.extend(_verify_m19_roadmap_currentness(root, version))
     failures.extend(_verify_post_m18_roadmap_status_labels(root))
 
@@ -7301,6 +7302,12 @@ def _verify_post_m100_roadmap_reconciliation_docs(root: Path, version: str | Non
         in version_doc_text
     ):
         implemented_milestones.add("m137")
+    if _version_tuple(version) >= (1, 7, 2) and (
+        "checkpoint m138" in version_doc_text
+        or "m138" in version_doc_text
+        or "autonomous error handling guardrails" in version_doc_text
+    ):
+        implemented_milestones.add("m138")
     for version_label, product_target, milestone, title in EXPECTED_M101_M150_LABELS:
         if milestone in implemented_milestones:
             continue
@@ -13005,9 +13012,18 @@ def _verify_m137_browser_connector_combined_workflow_docs(
         "| checkpoint m137 | pre-alpha checkpoint | m137 | "
         "autonomous browser + connector combined workflows | implemented/released |"
     )
+    implemented_m138_row = (
+        "| checkpoint m138 | pre-alpha checkpoint | m138 | "
+        "autonomous error handling guardrails | implemented/released |"
+    )
     planned_m138_row = (
         "| checkpoint m138 | pre-alpha checkpoint | m138 | "
         "autonomous error handling guardrails | planned/provisional |"
+    )
+    m138_implemented = (
+        "checkpoint m138 is implemented/released" in current_text
+        or "m138 is implemented/released" in current_text
+        or _roadmap_row_present(current_text, implemented_m138_row)
     )
     m150_row = (
         "| v1.0.0-alpha | alpha | m150 | ultimate ai agent v1.0.0-alpha | "
@@ -13015,13 +13031,14 @@ def _verify_m137_browser_connector_combined_workflow_docs(
     )
     if not _roadmap_row_present(current_text, implemented_m137_row):
         failures.append("active docs missing implemented Checkpoint M137 row")
-    if not _roadmap_row_present(current_text, planned_m138_row):
+    if m138_implemented:
+        if not _roadmap_row_present(current_text, implemented_m138_row):
+            failures.append("active docs missing implemented Checkpoint M138 row")
+    elif not _roadmap_row_present(current_text, planned_m138_row):
         failures.append("active docs missing planned Checkpoint M138 row")
     if not _roadmap_row_present(current_text, m150_row):
         failures.append("active docs missing planned M150 alpha row")
-    for fragment in {
-        "autonomous error handling guardrails are implemented",
-        "m138 autonomous error handling guardrails are implemented",
+    forbidden_fragments = {
         "error handling guardrail runtime is implemented",
         "browser action execution is implemented",
         "connector action execution is implemented",
@@ -13036,12 +13053,184 @@ def _verify_m137_browser_connector_combined_workflow_docs(
         "connector runtime is implemented",
         "backend route is implemented",
         "control center control is implemented",
-        "m138 dependency is added",
+        "m139 dependency is added",
+        "beta is released",
+        "production authority is implemented",
+    }
+    if not m138_implemented:
+        forbidden_fragments.update(
+            {
+                "autonomous error handling guardrails are implemented",
+                "m138 autonomous error handling guardrails are implemented",
+            }
+        )
+    for fragment in forbidden_fragments:
+        if fragment in current_text or fragment in text:
+            failures.append(f"M137 docs imply forbidden/future capability: {fragment}")
+    return failures
+
+
+def _verify_m138_autonomous_error_handling_guardrails_docs(
+    root: Path, version: str | None
+) -> list[str]:
+    failures: list[str] = []
+    if _version_tuple(version) < (1, 7, 2):
+        return failures
+    active_text = " ".join(
+        "\n".join(
+            _read(root / rel_path).lower()
+            for rel_path in [
+                "README.md",
+                "VERSION.md",
+                "docs/canonical/09_roadmap.md",
+                "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            ]
+            if (root / rel_path).exists()
+        ).split()
+    )
+    if (
+        "checkpoint m138 is implemented/released" not in active_text
+        and "m138 is implemented/released" not in active_text
+    ):
+        return failures
+    required_paths = [
+        "docs/autonomy/AUTONOMOUS_ERROR_HANDLING_GUARDRAILS.md",
+        "docs/autonomy/AUTONOMOUS_ERROR_HANDLING_GUARDRAILS_POLICY.md",
+        "docs/autonomy/AUTONOMOUS_ERROR_HANDLING_GUARDRAILS_AUTHORITY_BOUNDARY.md",
+        "docs/autonomy/AUTONOMOUS_ERROR_HANDLING_GUARDRAILS_RECEIPT_PLAN.md",
+        "docs/autonomy/AUTONOMOUS_ERROR_HANDLING_GUARDRAILS_NON_GOALS.md",
+        "docs/autonomy/M138_TO_M139_BOUNDARY.md",
+        "docs/release_notes/checkpoint_m138.md",
+        "docs/archive/checkpoints/m138/README_IMPORT.md",
+        "docs/archive/checkpoints/m138/master_plan.md",
+        "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+    ]
+    for rel_path in required_paths:
+        if not (root / rel_path).exists():
+            failures.append(f"missing M138 error handling guardrail doc: {rel_path}")
+    text = " ".join(
+        "\n".join(
+            _read(root / rel_path).lower()
+            for rel_path in required_paths
+            if (root / rel_path).exists()
+        ).split()
+    )
+    required_fragments = {
+        "M138 docs must say autonomous error handling guardrails": "autonomous error handling guardrails",
+        "M138 docs must say contract-only": "contract-only",
+        "M138 docs must say review-only": "review-only",
+        "M138 docs must say autonomous-error-handling-guardrails-only": "autonomous-error-handling-guardrails-only",
+        "M138 docs must say deterministic": "deterministic",
+        "M138 docs must say local-only": "local-only",
+        "M138 docs must say safe-ref-only": "safe-ref-only",
+        "M138 docs must say exact scope": "exact",
+        "M138 docs must say Mode 5": "mode 5",
+        "M138 docs must say M137 browser connector decision": "m137 browser connector combined workflow decision",
+        "M138 docs must say M136 cross-tool dependency decision": "m136 cross-tool dependency execution decision",
+        "M138 docs must say M135 recovery planner decision": "m135 autonomous recovery planner decision",
+        "M138 docs must say M134 human checkpoint decision": "m134 human checkpoint scheduling decision",
+        "M138 docs must say M133 supervisor decision": "m133 supervisor decision",
+        "M138 docs must say M132 trusted workflow decision": "m132 trusted workflow decision",
+        "M138 docs must say error signal refs": "error signal refs",
+        "M138 docs must say guardrail policy refs": "guardrail policy refs",
+        "M138 docs must say retry policy refs": "retry policy refs",
+        "M138 docs must say fallback policy refs": "fallback policy refs",
+        "M138 docs must say escalation policy refs": "escalation policy refs",
+        "M138 docs must say recovery plan refs": "recovery plan refs",
+        "M138 docs must say rollback plan refs": "rollback plan refs",
+        "M138 docs must say resume plan refs": "resume plan refs",
+        "M138 docs must say human checkpoint": "human checkpoint",
+        "M138 docs must say audit": "audit",
+        "M138 docs must say replay": "replay",
+        "M138 docs must say revocation": "revocation",
+        "M138 docs must say kill-switch": "kill-switch",
+        "M138 docs must say no-effect receipt": "no-effect receipt",
+        "M138 docs must deny error handling runtime": "no error handling runtime",
+        "M138 docs must deny error guardrail runtime": "no error guardrail runtime",
+        "M138 docs must deny autonomous recovery execution": "no autonomous recovery execution",
+        "M138 docs must deny retry execution": "no retry execution",
+        "M138 docs must deny rollback execution": "no rollback execution",
+        "M138 docs must deny resume execution": "no resume execution",
+        "M138 docs must deny dependency execution": "no dependency execution",
+        "M138 docs must deny browser action": "no browser action",
+        "M138 docs must deny connector action": "no connector action",
+        "M138 docs must deny tool execution": "no tool execution",
+        "M138 docs must deny shell execution": "no shell execution",
+        "M138 docs must deny network access": "no network access",
+        "M138 docs must deny plugin execution": "no plugin execution",
+        "M138 docs must deny model call": "no model call",
+        "M138 docs must deny memory write": "no memory write",
+        "M138 docs must deny context injection": "no context injection",
+        "M138 docs must deny backend route": "no backend route",
+        "M138 docs must deny Control Center control": "no control center control",
+        "M138 docs must deny dependency": "no dependency",
+        "M138 docs must keep M139 future": "m139 remains future",
+        "M138 docs must preserve alpha target": "v1.0.0-alpha",
+    }
+    for message, fragment in required_fragments.items():
+        if fragment not in text:
+            failures.append(message)
+
+    active_paths = [
+        "README.md",
+        "VERSION.md",
+        "docs/canonical/09_roadmap.md",
+        "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+        "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+        "docs/roadmap/MILESTONE_CHARTERS.md",
+        "docs/DOCUMENTATION_INDEX.md",
+        "docs/canonical/CANONICAL_DOC_MAP.md",
+    ]
+    current_text = " ".join(
+        "\n".join(
+            _read(root / rel_path).lower()
+            for rel_path in active_paths
+            if (root / rel_path).exists()
+        ).split()
+    )
+    implemented_m138_row = (
+        "| checkpoint m138 | pre-alpha checkpoint | m138 | "
+        "autonomous error handling guardrails | implemented/released |"
+    )
+    planned_m139_row = (
+        "| checkpoint m139 | pre-alpha checkpoint | m139 | "
+        "autonomy abuse/loop detection | planned/provisional |"
+    )
+    m150_row = (
+        "| v1.0.0-alpha | alpha | m150 | ultimate ai agent v1.0.0-alpha | "
+        "planned/provisional |"
+    )
+    if not _roadmap_row_present(current_text, implemented_m138_row):
+        failures.append("active docs missing implemented Checkpoint M138 row")
+    if not _roadmap_row_present(current_text, planned_m139_row):
+        failures.append("active docs missing planned Checkpoint M139 row")
+    if not _roadmap_row_present(current_text, m150_row):
+        failures.append("active docs missing planned M150 alpha row")
+    for fragment in {
+        "autonomy abuse/loop detection is implemented",
+        "m139 autonomy abuse/loop detection is implemented",
+        "abuse detection runtime is implemented",
+        "loop detection runtime is implemented",
+        "error handling guardrail runtime is implemented",
+        "retry execution is implemented",
+        "rollback execution is implemented",
+        "resume execution is implemented",
+        "recovery execution is implemented",
+        "dependency execution runtime is implemented",
+        "browser action execution is implemented",
+        "connector action execution is implemented",
+        "tool execution is implemented",
+        "shell execution is implemented",
+        "network access is implemented",
+        "plugin execution is implemented",
+        "backend route is implemented",
+        "control center control is implemented",
+        "m139 dependency is added",
         "beta is released",
         "production authority is implemented",
     }:
         if fragment in current_text or fragment in text:
-            failures.append(f"M137 docs imply forbidden/future capability: {fragment}")
+            failures.append(f"M138 docs imply forbidden/future capability: {fragment}")
     return failures
 
 
