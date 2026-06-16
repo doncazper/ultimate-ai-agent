@@ -1,6 +1,6 @@
 # M101-M150 Capability Charters
 
-Status: Active roadmap maintained through Checkpoint M145 after the accepted
+Status: Active roadmap maintained through Checkpoint M146 after the accepted
 v1.7.2 post-M103 versioning repair follow-up.
 
 M101 is implemented/released as Mobile Sensor Contract Review. M102 is
@@ -48,7 +48,8 @@ implemented/released as Multi-User Product Boundary. Checkpoint M142 is
 implemented/released as Alpha Privacy Review. Checkpoint M143 is
 implemented/released as Alpha UI and App Readiness. Checkpoint M144 is
 implemented/released as Plugin Marketplace Policy Draft. Checkpoint M145 is
-implemented/released as Enterprise/Pro Safety Modes. M146-M150 remain
+implemented/released as Enterprise/Pro Safety Modes. Checkpoint M146 is
+implemented/released as Billing/Plan Boundary. M147-M150 remain
 planned/provisional.
 Future work must continue the authority-tier model:
 
@@ -118,7 +119,7 @@ roadmap patch. Do not rewrite, move, or reuse existing tags.
 | Checkpoint M143 | pre-alpha checkpoint | M143 | Alpha UI and App Readiness | Implemented/released |
 | Checkpoint M144 | pre-alpha checkpoint | M144 | Plugin Marketplace Policy Draft | Implemented/released |
 | Checkpoint M145 | pre-alpha checkpoint | M145 | Enterprise/Pro Safety Modes | Implemented/released |
-| Checkpoint M146 | pre-alpha checkpoint | M146 | Billing/Plan Boundary, If Needed | Planned/provisional |
+| Checkpoint M146 | pre-alpha checkpoint | M146 | Billing/Plan Boundary, If Needed | Implemented/released |
 | Checkpoint M147 | pre-alpha checkpoint | M147 | Public Docs + Wiki Readiness | Planned/provisional |
 | Checkpoint M148 | pre-alpha checkpoint | M148 | External Security Review | Planned/provisional |
 | Checkpoint M149 | pre-alpha checkpoint | M149 | Alpha Release Candidate Freeze | Planned/provisional |
@@ -149,8 +150,9 @@ records alpha privacy review as contract-only product-readiness work. M143
 records alpha UI and app readiness as contract-only product-readiness work. M144
 records plugin marketplace policy draft as contract-only product-readiness work.
 M145 records enterprise/pro safety modes as contract-only product-readiness
-work. M146-M150 stage billing boundaries, public docs, security review, alpha
-release candidate freeze, and the v1.0.0-alpha target.
+work. M146 records billing/plan boundary as contract-only product-readiness
+work. M147-M150 stage public docs, security review, alpha release candidate
+freeze, and the v1.0.0-alpha target.
 
 No M151+ extension is required by the v1.7.2 versioning repair. Beta begins
 after the alpha UI and other alpha findings are ironed out through later

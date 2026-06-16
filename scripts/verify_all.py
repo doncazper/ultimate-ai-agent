@@ -193,6 +193,7 @@ SCAN_SEQUENCE = [
     ("M143 alpha UI/app readiness scan", "verify_m143_alpha_ui_app_readiness"),
     ("M144 plugin marketplace policy draft scan", "verify_m144_plugin_marketplace_policy_draft"),
     ("M145 enterprise/pro safety modes scan", "verify_m145_enterprise_pro_safety_modes"),
+    ("M146 billing/plan boundary scan", "verify_m146_billing_plan_boundary"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -17806,6 +17807,10 @@ def verify_post_m100_roadmap_reconciliation():
         _version_doc_marks_milestone_implemented(active_version_text, "m145")
     ):
         implemented_milestones.add("m145")
+    if (
+        _version_doc_marks_milestone_implemented(active_version_text, "m146")
+    ):
+        implemented_milestones.add("m146")
     for version_label, product_target, milestone, title in expected_labels:
         if milestone in implemented_milestones:
             continue
@@ -27083,6 +27088,217 @@ def verify_m145_enterprise_pro_safety_modes():
 
     print(
         "OK: M145 enterprise/pro safety modes are review-only, disabled-by-default, safe-ref-only, and route-free"
+    )
+
+
+def verify_m146_billing_plan_boundary():
+    print("\n[Verifier] Running M146 billing/plan boundary guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/productization/billing_plan_boundary.py",
+        "docs/productization/BILLING_PLAN_BOUNDARY.md",
+        "docs/productization/BILLING_PLAN_BOUNDARY_POLICY.md",
+        "docs/productization/BILLING_PLAN_BOUNDARY_AUTHORITY_BOUNDARY.md",
+        "docs/productization/BILLING_PLAN_BOUNDARY_RECEIPT_PLAN.md",
+        "docs/productization/BILLING_PLAN_BOUNDARY_NON_GOALS.md",
+        "docs/productization/M146_TO_M147_BOUNDARY.md",
+        "docs/release_notes/checkpoint_m146.md",
+        "docs/archive/checkpoints/m146/README_IMPORT.md",
+        "docs/archive/checkpoints/m146/master_plan.md",
+        "tests/test_m146_billing_plan_boundary.py",
+        "tests/test_m146_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M146 billing/plan boundary file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = " ".join(
+        "\n".join(
+            (ROOT / rel_path).read_text(encoding="utf-8").lower()
+            for rel_path in required_files
+            if rel_path.startswith("docs/")
+        ).split()
+    )
+    for fragment in [
+        "billing/plan boundary",
+        "contract-only",
+        "review-only",
+        "deterministic",
+        "local-only",
+        "safe-ref-only",
+        "billing-boundary-only",
+        "disabled by default",
+        "route-free",
+        "no-effect",
+        "accepted m101-m145",
+        "billing boundary refs",
+        "plan boundary refs",
+        "entitlement boundary refs",
+        "pricing disclosure refs",
+        "payment provider boundary refs",
+        "upgrade downgrade policy refs",
+        "support refund policy refs",
+        "audit",
+        "replay",
+        "revocation",
+        "kill-switch",
+        "no-effect receipt",
+        "no payment processing",
+        "no checkout runtime",
+        "no subscription management",
+        "no plan enforcement",
+        "no billing runtime",
+        "no external billing provider",
+        "no account plan runtime",
+        "no entitlement runtime",
+        "no auth runtime",
+        "no backend route",
+        "no control center control",
+        "no dependency",
+        "no beta release",
+        "no production authority",
+        "m147 remains future",
+        "v1.0.0-alpha",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M146 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from tests.test_m146_billing_plan_boundary import _request
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.criteria import (
+            default_foundation_gate_criteria,
+        )
+        from ultimate_ai_agent.core.gate.evaluators import (
+            FoundationGateEvaluator,
+            m146_openapi_route_failures,
+        )
+        from ultimate_ai_agent.core.productization import (
+            BillingPlanBoundaryStatus,
+            build_billing_plan_boundary_record,
+            validate_billing_plan_boundary_record,
+        )
+    except Exception as exc:
+        print(f"FAIL: M146 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m146_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    record = build_billing_plan_boundary_record(_request())
+    if (
+        record.status != BillingPlanBoundaryStatus.boundary_recorded
+        or not record.contract_only
+        or not record.review_only
+        or not record.safe_refs_only
+        or not record.billing_boundary_only
+        or not record.disabled_by_default
+        or not record.m101_m145_covered
+        or not record.no_payment_processing
+        or not record.no_checkout_runtime
+        or not record.no_plan_enforcement
+        or not record.no_billing_runtime
+        or not record.no_account_plan_runtime
+        or not record.no_entitlement_runtime
+        or not record.no_auth_runtime
+        or not record.no_backend_route
+        or not record.no_dependency
+        or not record.no_production_authority
+        or record.payment_processing_started
+        or record.checkout_runtime_started
+        or record.subscription_management_started
+        or record.plan_enforcement_performed
+        or record.billing_runtime_started
+        or record.external_billing_provider_performed
+        or record.account_plan_runtime_started
+        or record.entitlement_runtime_started
+        or record.pricing_runtime_performed
+        or record.auth_runtime_started
+        or record.backend_route_added
+        or record.dependency_added
+        or record.beta_release_enabled
+        or record.production_authority_granted
+        or "M146_BILLING_PLAN_BOUNDARY_REVIEW_ONLY" not in record.reason_codes
+        or "M146_M101_M145_COVERED" not in record.reason_codes
+        or "M146_DISABLED_BY_DEFAULT" not in record.reason_codes
+        or "M146_NO_PAYMENT_PROCESSING" not in record.reason_codes
+        or "M146_NO_CHECKOUT_RUNTIME" not in record.reason_codes
+        or "M146_NO_PLAN_ENFORCEMENT" not in record.reason_codes
+        or "M146_NO_BILLING_RUNTIME" not in record.reason_codes
+        or "M146_NO_ACCOUNT_PLAN_RUNTIME" not in record.reason_codes
+        or "M146_NO_AUTH_RUNTIME" not in record.reason_codes
+        or "M146_NO_BACKEND_ROUTE" not in record.reason_codes
+        or "M146_NO_PRODUCTION_AUTHORITY" not in record.reason_codes
+        or "M147_REMAINS_FUTURE" not in record.reason_codes
+    ):
+        print("FAIL: M146 billing/plan boundary record is unsafe")
+        sys.exit(1)
+
+    for update, reason in [
+        ({"payment_processing_started": True}, "M146_PAYMENT_PROCESSING_DENIED"),
+        ({"checkout_runtime_started": True}, "M146_CHECKOUT_RUNTIME_DENIED"),
+        (
+            {"subscription_management_started": True},
+            "M146_SUBSCRIPTION_MANAGEMENT_DENIED",
+        ),
+        ({"plan_enforcement_performed": True}, "M146_PLAN_ENFORCEMENT_DENIED"),
+        ({"billing_runtime_started": True}, "M146_BILLING_RUNTIME_DENIED"),
+        (
+            {"external_billing_provider_performed": True},
+            "M146_EXTERNAL_BILLING_PROVIDER_DENIED",
+        ),
+        (
+            {"account_plan_runtime_started": True},
+            "M146_ACCOUNT_PLAN_RUNTIME_DENIED",
+        ),
+        ({"entitlement_runtime_started": True}, "M146_ENTITLEMENT_RUNTIME_DENIED"),
+        ({"pricing_runtime_performed": True}, "M146_PRICING_RUNTIME_DENIED"),
+        ({"auth_runtime_started": True}, "M146_AUTH_RUNTIME_DENIED"),
+        ({"backend_route_added": True}, "M146_BACKEND_ROUTE_DENIED"),
+        ({"dependency_added": True}, "M146_DEPENDENCY_DENIED"),
+        ({"production_authority_granted": True}, "M146_PRODUCTION_AUTHORITY_DENIED"),
+    ]:
+        try:
+            validate_billing_plan_boundary_record(record.model_copy(update=update))
+            print(f"FAIL: M146 mutated authority flag was not denied: {update}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M146 mutated authority flag raised {exc!s}")
+                sys.exit(1)
+
+    criteria = {
+        criterion.criterion_id: criterion
+        for criterion in default_foundation_gate_criteria()
+    }
+    for criterion_id in [
+        "m146_billing_plan_boundary_contracts",
+        "m146_billing_plan_boundary_static_safety",
+        "m146_billing_plan_boundary_route_boundary",
+        "m146_roadmap_currentness",
+    ]:
+        if criterion_id not in criteria:
+            print(f"FAIL: Missing M146 Foundation Gate criterion: {criterion_id}")
+            sys.exit(1)
+    evaluator = FoundationGateEvaluator(ROOT)
+    for criterion_id in [
+        "m146_billing_plan_boundary_contracts",
+        "m146_billing_plan_boundary_static_safety",
+        "m146_billing_plan_boundary_route_boundary",
+        "m146_roadmap_currentness",
+    ]:
+        gate_report = evaluator.evaluate([criteria[criterion_id]])
+        result = gate_report.results[0]
+        if result.status != "passed":
+            print(f"FAIL: {criterion_id} failed: {result.failures}")
+            sys.exit(1)
+
+    print(
+        "OK: M146 billing/plan boundary is review-only, disabled-by-default, safe-ref-only, and route-free"
     )
 
 

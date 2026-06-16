@@ -2057,6 +2057,32 @@ M145_FORBIDDEN_BACKEND_ROUTES = M144_FORBIDDEN_BACKEND_ROUTES + (
     "/auth/login",
     "/production/authority/enable",
 )
+EXPECTED_M146_OPENAPI_PATH_COUNT = 75
+M146_FORBIDDEN_BACKEND_ROUTES = M145_FORBIDDEN_BACKEND_ROUTES + (
+    "/billing",
+    "/billing/runtime",
+    "/billing/plans",
+    "/billing/checkout",
+    "/billing/subscriptions",
+    "/billing/invoices",
+    "/billing/webhooks",
+    "/plans/enforce",
+    "/plans/upgrade",
+    "/plans/downgrade",
+    "/plans/entitlements",
+    "/pricing/runtime",
+    "/pricing/update",
+    "/payments/process",
+    "/payment/checkout",
+    "/checkout/session",
+    "/subscriptions/manage",
+    "/invoices/generate",
+    "/entitlements/runtime",
+    "/account/plans",
+    "/external-billing-provider",
+    "/stripe",
+    "/production/authority/enable",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -3994,6 +4020,23 @@ def m145_openapi_route_failures(
     return failures
 
 
+def m146_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M146_OPENAPI_PATH_COUNT
+) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(
+            f"OpenAPI path count changed for M146: expected {expected_path_count}, got {len(path_set)}"
+        )
+    for route in M146_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(
+                f"M146 forbidden billing runtime, payment, checkout, subscription, invoice, entitlement, plan enforcement, account-plan, external billing provider, or authority route present: {route}"
+            )
+    return failures
+
+
 M36_SAFE_REF_PREFIXES = {
     "reviewPacketRef": "file-review-packet:",
     "previewResultRef": "redacted-file-preview-output:",
@@ -5309,6 +5352,16 @@ class FoundationGateEvaluator:
                 self.check_m145_enterprise_pro_safety_modes_route_boundary
             ),
             "m145_roadmap_currentness": self.check_m145_roadmap_currentness,
+            "m146_billing_plan_boundary_contracts": (
+                self.check_m146_billing_plan_boundary_contracts
+            ),
+            "m146_billing_plan_boundary_static_safety": (
+                self.check_m146_billing_plan_boundary_static_safety
+            ),
+            "m146_billing_plan_boundary_route_boundary": (
+                self.check_m146_billing_plan_boundary_route_boundary
+            ),
+            "m146_roadmap_currentness": self.check_m146_roadmap_currentness,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -31198,6 +31251,10 @@ class FoundationGateEvaluator:
             _version_doc_marks_milestone_implemented(active_version_text, "m145")
         ):
             implemented_milestones.add("m145")
+        if (
+            _version_doc_marks_milestone_implemented(active_version_text, "m146")
+        ):
+            implemented_milestones.add("m146")
         for version_label, product_target, milestone, title in expected_labels:
             if milestone in implemented_milestones:
                 continue
@@ -48632,6 +48689,13 @@ class FoundationGateEvaluator:
                 "pre-alpha checkpoint",
                 "m146",
                 "billing/plan boundary, if needed",
+                "implemented/released",
+            ),
+            (
+                "checkpoint m147",
+                "pre-alpha checkpoint",
+                "m147",
+                "public docs + wiki readiness",
                 "planned/provisional",
             ),
             (
@@ -48648,7 +48712,7 @@ class FoundationGateEvaluator:
             )
             if not _roadmap_row_present(text, row):
                 failures.append(
-                    f"active docs missing expected M143/M144/M145-M146-M150 row: {version_label} / {milestone.upper()} - {title}"
+                    f"active docs missing expected M143/M144/M145/M146/M147-M150 row: {version_label} / {milestone.upper()} - {title}"
                 )
         for fragment in (
             "alpha ui runtime is implemented",
@@ -49040,6 +49104,13 @@ class FoundationGateEvaluator:
                 "pre-alpha checkpoint",
                 "m146",
                 "billing/plan boundary, if needed",
+                "implemented/released",
+            ),
+            (
+                "checkpoint m147",
+                "pre-alpha checkpoint",
+                "m147",
+                "public docs + wiki readiness",
                 "planned/provisional",
             ),
             (
@@ -49056,7 +49127,7 @@ class FoundationGateEvaluator:
             )
             if not _roadmap_row_present(text, row):
                 failures.append(
-                    f"active docs missing expected M144/M145-M146-M150 row: {version_label} / {milestone.upper()} - {title}"
+                    f"active docs missing expected M144/M145/M146/M147-M150 row: {version_label} / {milestone.upper()} - {title}"
                 )
         for fragment in (
             "enterprise/pro safety runtime is implemented",
@@ -49410,6 +49481,13 @@ class FoundationGateEvaluator:
                 "pre-alpha checkpoint",
                 "m146",
                 "billing/plan boundary, if needed",
+                "implemented/released",
+            ),
+            (
+                "checkpoint m147",
+                "pre-alpha checkpoint",
+                "m147",
+                "public docs + wiki readiness",
                 "planned/provisional",
             ),
             (
@@ -49426,7 +49504,7 @@ class FoundationGateEvaluator:
             )
             if not _roadmap_row_present(text, row):
                 failures.append(
-                    f"active docs missing expected M145/M146-M150 row: {version_label} / {milestone.upper()} - {title}"
+                    f"active docs missing expected M145/M146/M147-M150 row: {version_label} / {milestone.upper()} - {title}"
                 )
         for fragment in (
             "billing runtime is implemented",
@@ -49447,6 +49525,401 @@ class FoundationGateEvaluator:
                     f"active docs imply forbidden M145 future/currentness claim: {fragment}"
                 )
         return self._result(criterion, failures, required_docs)
+
+    def check_m146_billing_plan_boundary_contracts(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/productization/billing_plan_boundary.py",
+            "docs/productization/BILLING_PLAN_BOUNDARY.md",
+            "docs/productization/BILLING_PLAN_BOUNDARY_POLICY.md",
+            "docs/productization/BILLING_PLAN_BOUNDARY_AUTHORITY_BOUNDARY.md",
+            "docs/productization/BILLING_PLAN_BOUNDARY_RECEIPT_PLAN.md",
+            "docs/productization/BILLING_PLAN_BOUNDARY_NON_GOALS.md",
+            "docs/productization/M146_TO_M147_BOUNDARY.md",
+            "docs/release_notes/checkpoint_m146.md",
+            "docs/archive/checkpoints/m146/README_IMPORT.md",
+            "docs/archive/checkpoints/m146/master_plan.md",
+            "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            "tests/test_m146_billing_plan_boundary.py",
+            "tests/test_m146_gate_integration.py",
+        ]
+        failures = [
+            f"missing M146 billing/plan boundary file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            from tests.test_m146_billing_plan_boundary import _request
+            from ultimate_ai_agent.core.productization import (
+                BillingPlanBoundaryStatus,
+                build_billing_plan_boundary_record,
+                validate_billing_plan_boundary_record,
+            )
+
+            record = build_billing_plan_boundary_record(_request())
+            if (
+                record.status != BillingPlanBoundaryStatus.boundary_recorded
+                or not record.contract_only
+                or not record.review_only
+                or not record.deterministic
+                or not record.local_only
+                or not record.safe_refs_only
+                or not record.billing_boundary_only
+                or not record.disabled_by_default
+                or not record.m101_m145_covered
+                or not record.billing_boundaries_bound
+                or not record.plan_boundaries_bound
+                or not record.entitlement_boundaries_bound
+                or not record.pricing_disclosures_bound
+                or not record.payment_provider_boundaries_bound
+                or not record.upgrade_downgrade_policies_bound
+                or not record.support_refund_policies_bound
+                or not record.audit_replay_bound
+                or not record.revocation_bound
+                or not record.no_effect_receipt_required
+                or not record.no_payment_processing
+                or not record.no_checkout_runtime
+                or not record.no_plan_enforcement
+                or not record.no_billing_runtime
+                or not record.no_account_plan_runtime
+                or not record.no_entitlement_runtime
+                or not record.no_auth_runtime
+                or not record.no_backend_route
+                or not record.no_control_center_control
+                or not record.no_dependency
+                or not record.no_production_authority
+                or record.payment_processing_started
+                or record.checkout_runtime_started
+                or record.subscription_management_started
+                or record.plan_enforcement_performed
+                or record.billing_runtime_started
+                or record.external_billing_provider_performed
+                or record.account_plan_runtime_started
+                or record.entitlement_runtime_started
+                or record.pricing_runtime_performed
+                or record.auth_runtime_started
+                or record.backend_route_added
+                or record.control_center_control_added
+                or record.dependency_added
+                or record.beta_release_enabled
+                or record.production_authority_granted
+                or "M146_BILLING_PLAN_BOUNDARY_REVIEW_ONLY"
+                not in record.reason_codes
+                or "M146_M101_M145_COVERED" not in record.reason_codes
+                or "M146_DISABLED_BY_DEFAULT" not in record.reason_codes
+                or "M146_NO_PAYMENT_PROCESSING" not in record.reason_codes
+                or "M146_NO_CHECKOUT_RUNTIME" not in record.reason_codes
+                or "M146_NO_PLAN_ENFORCEMENT" not in record.reason_codes
+                or "M146_NO_BILLING_RUNTIME" not in record.reason_codes
+                or "M146_NO_ACCOUNT_PLAN_RUNTIME" not in record.reason_codes
+                or "M146_NO_AUTH_RUNTIME" not in record.reason_codes
+                or "M146_NO_BACKEND_ROUTE" not in record.reason_codes
+                or "M146_NO_PRODUCTION_AUTHORITY" not in record.reason_codes
+                or "M147_REMAINS_FUTURE" not in record.reason_codes
+            ):
+                failures.append(
+                    "M146 billing/plan boundary record is unsafe or over-authoritative"
+                )
+            for update, reason in [
+                ({"payment_processing_started": True}, "M146_PAYMENT_PROCESSING_DENIED"),
+                ({"checkout_runtime_started": True}, "M146_CHECKOUT_RUNTIME_DENIED"),
+                (
+                    {"subscription_management_started": True},
+                    "M146_SUBSCRIPTION_MANAGEMENT_DENIED",
+                ),
+                (
+                    {"plan_enforcement_performed": True},
+                    "M146_PLAN_ENFORCEMENT_DENIED",
+                ),
+                ({"billing_runtime_started": True}, "M146_BILLING_RUNTIME_DENIED"),
+                (
+                    {"external_billing_provider_performed": True},
+                    "M146_EXTERNAL_BILLING_PROVIDER_DENIED",
+                ),
+                (
+                    {"account_plan_runtime_started": True},
+                    "M146_ACCOUNT_PLAN_RUNTIME_DENIED",
+                ),
+                ({"entitlement_runtime_started": True}, "M146_ENTITLEMENT_RUNTIME_DENIED"),
+                ({"pricing_runtime_performed": True}, "M146_PRICING_RUNTIME_DENIED"),
+                ({"auth_runtime_started": True}, "M146_AUTH_RUNTIME_DENIED"),
+                ({"backend_route_added": True}, "M146_BACKEND_ROUTE_DENIED"),
+                ({"dependency_added": True}, "M146_DEPENDENCY_DENIED"),
+                (
+                    {"production_authority_granted": True},
+                    "M146_PRODUCTION_AUTHORITY_DENIED",
+                ),
+            ]:
+                try:
+                    validate_billing_plan_boundary_record(
+                        record.model_copy(update=update)
+                    )
+                    failures.append(
+                        f"M146 unsafe billing/plan mutation was not denied with {reason}"
+                    )
+                except ValueError as exc:
+                    if reason not in str(exc):
+                        failures.append(
+                            f"M146 unsafe billing/plan mutation raised {exc!s}"
+                        )
+        except Exception as exc:
+            failures.append(f"M146 billing/plan boundary validation failed: {exc}")
+
+        docs_text = " ".join(
+            "\n".join(
+                self._read(self.root / path).lower()
+                for path in required_files
+                if path.startswith("docs/") and (self.root / path).exists()
+            ).split()
+        )
+        for fragment in [
+            "billing/plan boundary",
+            "contract-only",
+            "review-only",
+            "deterministic",
+            "local-only",
+            "safe-ref-only",
+            "billing-boundary-only",
+            "disabled by default",
+            "route-free",
+            "no-effect",
+            "accepted m101-m145",
+            "billing boundary refs",
+            "plan boundary refs",
+            "entitlement boundary refs",
+            "pricing disclosure refs",
+            "payment provider boundary refs",
+            "upgrade downgrade policy refs",
+            "support refund policy refs",
+            "audit",
+            "replay",
+            "revocation",
+            "kill-switch",
+            "no-effect receipt",
+            "no payment processing",
+            "no checkout runtime",
+            "no subscription management",
+            "no plan enforcement",
+            "no billing runtime",
+            "no external billing provider",
+            "no account plan runtime",
+            "no entitlement runtime",
+            "no auth runtime",
+            "no backend route",
+            "no control center control",
+            "no dependency",
+            "no beta release",
+            "no production authority",
+            "m147 remains future",
+            "v1.0.0-alpha",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M146 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m146_billing_plan_boundary_static_safety(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        forbidden_source_fragments = [
+            "payment_processing_enabled=True",
+            "checkout_runtime_enabled=True",
+            "subscription_management_enabled=True",
+            "plan_enforcement_enabled=True",
+            "billing_runtime_enabled=True",
+            "external_billing_provider_enabled=True",
+            "account_plan_runtime_enabled=True",
+            "entitlement_runtime_enabled=True",
+            "pricing_runtime_enabled=True",
+            "auth_runtime_enabled=True",
+            "login_enabled=True",
+            "connector_runtime_enabled=True",
+            "plugin_marketplace_runtime_enabled=True",
+            "execution_enabled=True",
+            "tool_execution_enabled=True",
+            "shell_execution_enabled=True",
+            "browser_action_enabled=True",
+            "connector_action_enabled=True",
+            "network_access_enabled=True",
+            "model_call_enabled=True",
+            "memory_write_enabled=True",
+            "context_injection_enabled=True",
+            "backend_route_enabled=True",
+            "dependency_added=True",
+            "beta_release_enabled=True",
+            "production_authority_granted=True",
+            "payment_processing_started=True",
+            "checkout_runtime_started=True",
+            "subscription_management_started=True",
+            "plan_enforcement_performed=True",
+            "billing_runtime_started=True",
+            "external_billing_provider_performed=True",
+            "account_plan_runtime_started=True",
+            "entitlement_runtime_started=True",
+            "pricing_runtime_performed=True",
+            "auth_runtime_started=True",
+            "/billing/runtime",
+            "/billing/checkout",
+            "/billing/subscriptions",
+            "/billing/invoices",
+            "/plans/enforce",
+            "/payments/process",
+            "/checkout/session",
+            "/subscriptions/manage",
+            "/entitlements/runtime",
+            "/account/plans",
+            "/external-billing-provider",
+            "/stripe",
+        ]
+        allowed_files = {
+            "src/ultimate_ai_agent/core/gate/evaluators.py",
+            "src/ultimate_ai_agent/api/app.py",
+            "src/ultimate_ai_agent/api/openapi.py",
+            "src/ultimate_ai_agent/core/gate/criteria.py",
+            "src/ultimate_ai_agent/core/productization/__init__.py",
+            "src/ultimate_ai_agent/core/productization/billing_plan_boundary.py",
+            "src/ultimate_ai_agent/core/productization/enterprise_pro_safety_modes.py",
+            "src/ultimate_ai_agent/core/productization/plugin_marketplace_policy_draft.py",
+            "src/ultimate_ai_agent/core/productization/alpha_ui_app_readiness.py",
+            "src/ultimate_ai_agent/core/productization/alpha_privacy_review.py",
+            "src/ultimate_ai_agent/core/productization/multi_user_product_boundary.py",
+        }
+        for root in [
+            self.root / "src" / "ultimate_ai_agent",
+            self.root / "apps" / "control-center" / "src",
+            self.root / "apps" / "ccc-ios",
+        ]:
+            if not root.exists():
+                continue
+            candidate_files = []
+            for pattern in (
+                "*.py",
+                "*.ts",
+                "*.tsx",
+                "*.js",
+                "*.jsx",
+                "*.swift",
+                "*.yml",
+                "*.yaml",
+            ):
+                candidate_files.extend(root.rglob(pattern))
+            for path in sorted(candidate_files):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(self.root).as_posix()
+                if ".test." in rel or rel in allowed_files:
+                    continue
+                text = path.read_text(encoding="utf-8")
+                for fragment in forbidden_source_fragments:
+                    if fragment in text:
+                        failures.append(
+                            f"M146 forbidden billing/plan fragment in {rel}: {fragment}"
+                        )
+        return self._result(criterion, failures, [])
+
+    def check_m146_billing_plan_boundary_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m146_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M146 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m146_roadmap_currentness(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_docs = [
+            "README.md",
+            "VERSION.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            "docs/roadmap/MILESTONE_CHARTERS.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+            "docs/DOCUMENTATION_INDEX.md",
+            "docs/canonical/CANONICAL_DOC_MAP.md",
+        ]
+        failures = [
+            f"missing M146 roadmap doc: {path}"
+            for path in required_docs
+            if not (self.root / path).exists()
+        ]
+        text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_docs
+            if (self.root / path).exists()
+        )
+        if "checkpoint m146" not in text or "billing/plan boundary" not in text:
+            failures.append("active docs do not identify Checkpoint M146")
+        if (
+            "m146 is implemented/released" not in text
+            and "checkpoint m146 is implemented/released" not in text
+        ):
+            failures.append("active docs do not mark M146 implemented/released")
+        for version_label, product_target, milestone, title, status in [
+            (
+                "checkpoint m145",
+                "pre-alpha checkpoint",
+                "m145",
+                "enterprise/pro safety modes",
+                "implemented/released",
+            ),
+            (
+                "checkpoint m146",
+                "pre-alpha checkpoint",
+                "m146",
+                "billing/plan boundary, if needed",
+                "implemented/released",
+            ),
+            (
+                "checkpoint m147",
+                "pre-alpha checkpoint",
+                "m147",
+                "public docs + wiki readiness",
+                "planned/provisional",
+            ),
+            (
+                "v1.0.0-alpha",
+                "alpha",
+                "m150",
+                "ultimate ai agent v1.0.0-alpha",
+                "planned/provisional",
+            ),
+        ]:
+            row = (
+                f"| {version_label} | {product_target} | {milestone} | "
+                f"{title} | {status} |"
+            )
+            if not _roadmap_row_present(text, row):
+                failures.append(
+                    f"active docs missing expected M146/M147-M150 row: {version_label} / {milestone.upper()} - {title}"
+                )
+        for fragment in (
+            "payment processing is implemented",
+            "checkout runtime is implemented",
+            "subscription management is implemented",
+            "plan enforcement is implemented",
+            "billing runtime is implemented",
+            "external billing provider is implemented",
+            "account plan runtime is implemented",
+            "entitlement runtime is implemented",
+            "pricing runtime is implemented",
+            "beta is released",
+            "production authority is implemented",
+            "backend route is implemented",
+            "control center control is implemented",
+            "m147 dependency is added",
+        ):
+            if fragment in text:
+                failures.append(
+                    f"active docs imply forbidden M146 future/currentness claim: {fragment}"
+                )
+        return self._result(criterion, failures, required_docs)
+
 
     def check_v0292_local_dev_api_authority_and_preview_safe(
         self, criterion: FoundationGateCriterion

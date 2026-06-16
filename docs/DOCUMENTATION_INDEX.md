@@ -57,6 +57,12 @@ docs/productization/ENTERPRISE_PRO_SAFETY_MODES_AUTHORITY_BOUNDARY.md
 docs/productization/ENTERPRISE_PRO_SAFETY_MODES_RECEIPT_PLAN.md
 docs/productization/ENTERPRISE_PRO_SAFETY_MODES_NON_GOALS.md
 docs/productization/M145_TO_M146_BOUNDARY.md
+docs/productization/BILLING_PLAN_BOUNDARY.md
+docs/productization/BILLING_PLAN_BOUNDARY_POLICY.md
+docs/productization/BILLING_PLAN_BOUNDARY_AUTHORITY_BOUNDARY.md
+docs/productization/BILLING_PLAN_BOUNDARY_RECEIPT_PLAN.md
+docs/productization/BILLING_PLAN_BOUNDARY_NON_GOALS.md
+docs/productization/M146_TO_M147_BOUNDARY.md
 docs/autonomy/HIGHER_AUTONOMY_RED_TEAM_FREEZE.md
 docs/autonomy/HIGHER_AUTONOMY_RED_TEAM_FREEZE_POLICY.md
 docs/autonomy/HIGHER_AUTONOMY_RED_TEAM_FREEZE_AUTHORITY_BOUNDARY.md
@@ -942,16 +948,17 @@ implemented/released as deterministic local review-only Alpha UI and App
 Readiness records. M144 is implemented/released as deterministic local
 review-only Plugin Marketplace Policy Draft records. M145 is
 implemented/released as deterministic local review-only Enterprise/Pro Safety
-Modes records. M146-M150 are
+Modes records. M146 is implemented/released as deterministic local review-only
+Billing/Plan Boundary records. M147-M150 are
 planned/provisional only in
 `docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md`.
-Future M146-M149 conveyor milestones use checkpoint labels instead of product
+Future M147-M149 conveyor milestones use checkpoint labels instead of product
 SemVer tags, and M150 is
 planned as v1.0.0-alpha. Beta begins only after alpha UI and supporting
 safety/product work are reviewed and promoted. Active roadmap sources consistently mark
-M34-M145 implemented/released and rely on documentation-integrity checks to
+M34-M146 implemented/released and rely on documentation-integrity checks to
 guard against superseded-roadmap drift, stale current-baseline labels, route
-drift, authority-boundary drift, alpha/beta versioning drift, and M146-M150
+drift, authority-boundary drift, alpha/beta versioning drift, and M147-M150
 future-status drift.
 
 ## Release Notes Index

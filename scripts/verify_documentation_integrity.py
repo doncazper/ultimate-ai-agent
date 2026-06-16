@@ -1616,6 +1616,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_m143_alpha_ui_app_readiness_docs(root, version))
     failures.extend(_verify_m144_plugin_marketplace_policy_draft_docs(root, version))
     failures.extend(_verify_m145_enterprise_pro_safety_modes_docs(root, version))
+    failures.extend(_verify_m146_billing_plan_boundary_docs(root, version))
     failures.extend(_verify_m19_roadmap_currentness(root, version))
     failures.extend(_verify_post_m18_roadmap_status_labels(root))
 
@@ -7356,6 +7357,10 @@ def _verify_post_m100_roadmap_reconciliation_docs(root: Path, version: str | Non
         _version_doc_marks_milestone_implemented(version_doc_text, "m145")
     ):
         implemented_milestones.add("m145")
+    if _version_tuple(version) >= (1, 7, 2) and (
+        _version_doc_marks_milestone_implemented(version_doc_text, "m146")
+    ):
+        implemented_milestones.add("m146")
     for version_label, product_target, milestone, title in EXPECTED_M101_M150_LABELS:
         if milestone in implemented_milestones:
             continue
@@ -14043,9 +14048,13 @@ def _verify_m143_alpha_ui_app_readiness_docs(
         "| checkpoint m145 | pre-alpha checkpoint | m145 | "
         "enterprise/pro safety modes | implemented/released |"
     )
-    planned_m146_row = (
+    implemented_m146_row = (
         "| checkpoint m146 | pre-alpha checkpoint | m146 | "
-        "billing/plan boundary, if needed | planned/provisional |"
+        "billing/plan boundary, if needed | implemented/released |"
+    )
+    planned_m147_row = (
+        "| checkpoint m147 | pre-alpha checkpoint | m147 | "
+        "public docs + wiki readiness | planned/provisional |"
     )
     if not _roadmap_row_present(current_text, implemented_m143_row):
         failures.append("active docs missing implemented Checkpoint M143 row")
@@ -14053,8 +14062,10 @@ def _verify_m143_alpha_ui_app_readiness_docs(
         failures.append("active docs missing implemented Checkpoint M144 row")
     if not _roadmap_row_present(current_text, implemented_m145_row):
         failures.append("active docs missing implemented Checkpoint M145 row")
-    if not _roadmap_row_present(current_text, planned_m146_row):
-        failures.append("active docs missing planned Checkpoint M146 row")
+    if not _roadmap_row_present(current_text, implemented_m146_row):
+        failures.append("active docs missing implemented Checkpoint M146 row")
+    if not _roadmap_row_present(current_text, planned_m147_row):
+        failures.append("active docs missing planned Checkpoint M147 row")
     for fragment in {
         "alpha ui runtime is implemented",
         "app readiness execution is implemented",
@@ -14187,16 +14198,22 @@ def _verify_m144_plugin_marketplace_policy_draft_docs(
         "| checkpoint m145 | pre-alpha checkpoint | m145 | "
         "enterprise/pro safety modes | implemented/released |"
     )
-    planned_m146_row = (
+    implemented_m146_row = (
         "| checkpoint m146 | pre-alpha checkpoint | m146 | "
-        "billing/plan boundary, if needed | planned/provisional |"
+        "billing/plan boundary, if needed | implemented/released |"
+    )
+    planned_m147_row = (
+        "| checkpoint m147 | pre-alpha checkpoint | m147 | "
+        "public docs + wiki readiness | planned/provisional |"
     )
     if not _roadmap_row_present(current_text, implemented_m144_row):
         failures.append("active docs missing implemented Checkpoint M144 row")
     if not _roadmap_row_present(current_text, implemented_m145_row):
         failures.append("active docs missing implemented Checkpoint M145 row")
-    if not _roadmap_row_present(current_text, planned_m146_row):
-        failures.append("active docs missing planned Checkpoint M146 row")
+    if not _roadmap_row_present(current_text, implemented_m146_row):
+        failures.append("active docs missing implemented Checkpoint M146 row")
+    if not _roadmap_row_present(current_text, planned_m147_row):
+        failures.append("active docs missing planned Checkpoint M147 row")
     for fragment in {
         "enterprise/pro safety runtime is implemented",
         "plan enforcement is implemented",
@@ -14322,14 +14339,20 @@ def _verify_m145_enterprise_pro_safety_modes_docs(
         "| checkpoint m145 | pre-alpha checkpoint | m145 | "
         "enterprise/pro safety modes | implemented/released |"
     )
-    planned_m146_row = (
+    implemented_m146_row = (
         "| checkpoint m146 | pre-alpha checkpoint | m146 | "
-        "billing/plan boundary, if needed | planned/provisional |"
+        "billing/plan boundary, if needed | implemented/released |"
+    )
+    planned_m147_row = (
+        "| checkpoint m147 | pre-alpha checkpoint | m147 | "
+        "public docs + wiki readiness | planned/provisional |"
     )
     if not _roadmap_row_present(current_text, implemented_m145_row):
         failures.append("active docs missing implemented Checkpoint M145 row")
-    if not _roadmap_row_present(current_text, planned_m146_row):
-        failures.append("active docs missing planned Checkpoint M146 row")
+    if not _roadmap_row_present(current_text, implemented_m146_row):
+        failures.append("active docs missing implemented Checkpoint M146 row")
+    if not _roadmap_row_present(current_text, planned_m147_row):
+        failures.append("active docs missing planned Checkpoint M147 row")
     for fragment in {
         "billing runtime is implemented",
         "billing plan boundary is implemented",
@@ -14346,6 +14369,147 @@ def _verify_m145_enterprise_pro_safety_modes_docs(
     }:
         if fragment in current_text or fragment in text:
             failures.append(f"M145 docs imply forbidden/future capability: {fragment}")
+    return failures
+
+
+def _verify_m146_billing_plan_boundary_docs(
+    root: Path, version: str | None
+) -> list[str]:
+    failures: list[str] = []
+    if _version_tuple(version) < (1, 7, 2):
+        return failures
+    active_text = " ".join(
+        "\n".join(
+            _read(root / rel_path).lower()
+            for rel_path in [
+                "README.md",
+                "VERSION.md",
+                "docs/canonical/09_roadmap.md",
+                "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            ]
+            if (root / rel_path).exists()
+        ).split()
+    )
+    if (
+        "checkpoint m146 is implemented/released" not in active_text
+        and "m146 is implemented/released" not in active_text
+    ):
+        return failures
+    required_paths = [
+        "docs/productization/BILLING_PLAN_BOUNDARY.md",
+        "docs/productization/BILLING_PLAN_BOUNDARY_POLICY.md",
+        "docs/productization/BILLING_PLAN_BOUNDARY_AUTHORITY_BOUNDARY.md",
+        "docs/productization/BILLING_PLAN_BOUNDARY_RECEIPT_PLAN.md",
+        "docs/productization/BILLING_PLAN_BOUNDARY_NON_GOALS.md",
+        "docs/productization/M146_TO_M147_BOUNDARY.md",
+        "docs/release_notes/checkpoint_m146.md",
+        "docs/archive/checkpoints/m146/README_IMPORT.md",
+        "docs/archive/checkpoints/m146/master_plan.md",
+        "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+    ]
+    for rel_path in required_paths:
+        if not (root / rel_path).exists():
+            failures.append(f"missing M146 billing/plan boundary doc: {rel_path}")
+    text = " ".join(
+        "\n".join(
+            _read(root / rel_path).lower()
+            for rel_path in required_paths
+            if (root / rel_path).exists()
+        ).split()
+    )
+    required_fragments = {
+        "M146 docs must say Billing/Plan Boundary": "billing/plan boundary",
+        "M146 docs must say contract-only": "contract-only",
+        "M146 docs must say review-only": "review-only",
+        "M146 docs must say deterministic": "deterministic",
+        "M146 docs must say local-only": "local-only",
+        "M146 docs must say safe-ref-only": "safe-ref-only",
+        "M146 docs must say billing-boundary-only": "billing-boundary-only",
+        "M146 docs must say disabled by default": "disabled by default",
+        "M146 docs must say route-free": "route-free",
+        "M146 docs must say no-effect": "no-effect",
+        "M146 docs must say accepted M101-M145": "accepted m101-m145",
+        "M146 docs must say billing boundary refs": "billing boundary refs",
+        "M146 docs must say plan boundary refs": "plan boundary refs",
+        "M146 docs must say entitlement boundary refs": "entitlement boundary refs",
+        "M146 docs must say pricing disclosure refs": "pricing disclosure refs",
+        "M146 docs must say payment provider boundary refs": "payment provider boundary refs",
+        "M146 docs must say upgrade downgrade policy refs": "upgrade downgrade policy refs",
+        "M146 docs must say support refund policy refs": "support refund policy refs",
+        "M146 docs must deny payment processing": "no payment processing",
+        "M146 docs must deny checkout runtime": "no checkout runtime",
+        "M146 docs must deny subscription management": "no subscription management",
+        "M146 docs must deny plan enforcement": "no plan enforcement",
+        "M146 docs must deny billing runtime": "no billing runtime",
+        "M146 docs must deny external billing provider": "no external billing provider",
+        "M146 docs must deny account plan runtime": "no account plan runtime",
+        "M146 docs must deny entitlement runtime": "no entitlement runtime",
+        "M146 docs must deny auth runtime": "no auth runtime",
+        "M146 docs must deny backend route": "no backend route",
+        "M146 docs must deny Control Center control": "no control center control",
+        "M146 docs must deny dependency": "no dependency",
+        "M146 docs must deny beta release": "no beta release",
+        "M146 docs must deny production authority": "no production authority",
+        "M146 docs must keep M147 future": "m147 remains future",
+        "M146 docs must preserve alpha target": "v1.0.0-alpha",
+    }
+    for message, fragment in required_fragments.items():
+        if fragment not in text:
+            failures.append(message)
+
+    active_paths = [
+        "README.md",
+        "VERSION.md",
+        "docs/canonical/09_roadmap.md",
+        "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+        "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+        "docs/roadmap/MILESTONE_CHARTERS.md",
+        "docs/DOCUMENTATION_INDEX.md",
+        "docs/canonical/CANONICAL_DOC_MAP.md",
+    ]
+    current_text = " ".join(
+        "\n".join(
+            _read(root / rel_path).lower()
+            for rel_path in active_paths
+            if (root / rel_path).exists()
+        ).split()
+    )
+    implemented_m145_row = (
+        "| checkpoint m145 | pre-alpha checkpoint | m145 | "
+        "enterprise/pro safety modes | implemented/released |"
+    )
+    implemented_m146_row = (
+        "| checkpoint m146 | pre-alpha checkpoint | m146 | "
+        "billing/plan boundary, if needed | implemented/released |"
+    )
+    planned_m147_row = (
+        "| checkpoint m147 | pre-alpha checkpoint | m147 | "
+        "public docs + wiki readiness | planned/provisional |"
+    )
+    if not _roadmap_row_present(current_text, implemented_m145_row):
+        failures.append("active docs missing implemented Checkpoint M145 row")
+    if not _roadmap_row_present(current_text, implemented_m146_row):
+        failures.append("active docs missing implemented Checkpoint M146 row")
+    if not _roadmap_row_present(current_text, planned_m147_row):
+        failures.append("active docs missing planned Checkpoint M147 row")
+    for fragment in {
+        "payment processing is implemented",
+        "checkout runtime is implemented",
+        "subscription management is implemented",
+        "plan enforcement is implemented",
+        "billing runtime is implemented",
+        "external billing provider is implemented",
+        "account plan runtime is implemented",
+        "entitlement runtime is implemented",
+        "pricing runtime is implemented",
+        "beta is released",
+        "production authority is implemented",
+        "backend route is implemented",
+        "control center control is implemented",
+        "m147 dependency is added",
+    }:
+        if fragment in current_text or fragment in text:
+            failures.append(f"M146 docs imply forbidden/future capability: {fragment}")
     return failures
 
 
