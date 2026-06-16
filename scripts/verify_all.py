@@ -173,6 +173,7 @@ SCAN_SEQUENCE = [
     ("M132 trusted recurring workflow scan", "verify_m132_trusted_recurring_workflow"),
     ("M133 long-running task supervisor scan", "verify_m133_long_running_task_supervisor"),
     ("M134 human checkpoint scheduling scan", "verify_m134_human_checkpoint_scheduling"),
+    ("M135 autonomous recovery planner scan", "verify_m135_autonomous_recovery_planner"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -17726,6 +17727,12 @@ def verify_post_m100_roadmap_reconciliation():
         or "human checkpoint scheduling" in active_version_text
     ):
         implemented_milestones.add("m134")
+    if (
+        "checkpoint m135" in active_version_text
+        or "m135" in active_version_text
+        or "autonomous recovery planner" in active_version_text
+    ):
+        implemented_milestones.add("m135")
     for version_label, product_target, milestone, title in expected_labels:
         if milestone in implemented_milestones:
             continue
@@ -24504,6 +24511,240 @@ def verify_m134_human_checkpoint_scheduling():
             sys.exit(1)
 
     print("OK: M134 human checkpoint scheduling is review-only, safe-ref-only, and route-free")
+
+
+def verify_m135_autonomous_recovery_planner():
+    print("\n[Verifier] Running M135 autonomous recovery planner guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/autonomy/__init__.py",
+        "src/ultimate_ai_agent/core/autonomy/autonomous_recovery_planner.py",
+        "docs/autonomy/AUTONOMOUS_RECOVERY_PLANNER.md",
+        "docs/autonomy/AUTONOMOUS_RECOVERY_PLANNER_POLICY.md",
+        "docs/autonomy/AUTONOMOUS_RECOVERY_PLANNER_AUTHORITY_BOUNDARY.md",
+        "docs/autonomy/AUTONOMOUS_RECOVERY_PLANNER_RECEIPT_PLAN.md",
+        "docs/autonomy/AUTONOMOUS_RECOVERY_PLANNER_NON_GOALS.md",
+        "docs/autonomy/M135_TO_M136_BOUNDARY.md",
+        "docs/release_notes/checkpoint_m135.md",
+        "docs/archive/checkpoints/m135/README_IMPORT.md",
+        "docs/archive/checkpoints/m135/master_plan.md",
+        "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+        "tests/test_m135_autonomous_recovery_planner.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M135 autonomous recovery planner file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = " ".join(
+        "\n".join(
+            (ROOT / rel_path).read_text(encoding="utf-8").lower()
+            for rel_path in required_files
+            if rel_path.startswith("docs/")
+        ).split()
+    )
+    for fragment in [
+        "autonomous recovery planner",
+        "contract-only",
+        "review-only",
+        "autonomous-recovery-planner-only",
+        "deterministic",
+        "local-only",
+        "safe-ref-only",
+        "exact scope",
+        "mode 5",
+        "m134 human checkpoint scheduling decision",
+        "m133 supervisor decision",
+        "m132 trusted workflow decision",
+        "failure signal",
+        "recovery trigger",
+        "recovery strategy",
+        "recovery step refs",
+        "rollback plan",
+        "resume plan",
+        "checkpoint ref",
+        "human checkpoint ref",
+        "risk decision",
+        "audit",
+        "replay",
+        "revocation",
+        "kill-switch",
+        "no-effect receipt",
+        "no recovery execution",
+        "no retry execution",
+        "no resume execution",
+        "no rollback execution",
+        "no supervisor runtime",
+        "no checkpoint scheduler",
+        "no human checkpoint scheduler",
+        "no prompt",
+        "no notification delivery",
+        "no scheduler",
+        "no background worker",
+        "no autonomous actions",
+        "no execution",
+        "no tool execution",
+        "no shell execution",
+        "no network access",
+        "no browser automation",
+        "no plugin execution",
+        "no connector runtime",
+        "no account auth",
+        "no model call",
+        "no memory write",
+        "no context injection",
+        "no backend route",
+        "no control center control",
+        "no dependency",
+        "m136 remains future",
+        "v1.0.0-alpha",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M135 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from tests.test_m135_autonomous_recovery_planner import _request
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.autonomy import (
+            AutonomyAuthorityMode,
+            AutonomyRiskClass,
+            AutonomousRecoveryPlannerStatus,
+            build_autonomous_recovery_planner_decision,
+            validate_autonomous_recovery_planner_decision,
+        )
+        from ultimate_ai_agent.core.gate.criteria import (
+            default_foundation_gate_criteria,
+        )
+        from ultimate_ai_agent.core.gate.evaluators import (
+            FoundationGateEvaluator,
+            m135_openapi_route_failures,
+        )
+    except Exception as exc:
+        print(f"FAIL: M135 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m135_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    decision = build_autonomous_recovery_planner_decision(_request())
+    if (
+        decision.status != AutonomousRecoveryPlannerStatus.ready_for_review
+        or decision.selected_mode != AutonomyAuthorityMode.trusted_recurring_automation
+        or not decision.contract_only
+        or not decision.review_only
+        or not decision.autonomous_recovery_planner_only
+        or not decision.deterministic
+        or not decision.local_only
+        or not decision.safe_refs_only
+        or not decision.exact_scope_bound
+        or not decision.mode5_bound
+        or not decision.m134_human_checkpoint_bound
+        or not decision.m133_supervisor_bound
+        or not decision.m132_trusted_workflow_bound
+        or not decision.recovery_plan_bound
+        or not decision.failure_signal_bound
+        or not decision.recovery_trigger_bound
+        or not decision.rollback_plan_bound
+        or not decision.resume_plan_bound
+        or not decision.human_checkpoint_bound
+        or not decision.audit_replay_bound
+        or not decision.revocation_bound
+        or not decision.kill_switch_bound
+        or not decision.no_effect_receipt_required
+        or decision.max_risk_class != AutonomyRiskClass.low
+        or decision.recovery_execution_authorized
+        or decision.recovery_execution_performed
+        or decision.retry_execution_performed
+        or decision.resume_execution_performed
+        or decision.rollback_execution_performed
+        or decision.supervisor_runtime_started
+        or decision.checkpoint_scheduler_started
+        or decision.human_checkpoint_scheduler_started
+        or decision.human_checkpoint_prompt_sent
+        or decision.notification_delivered
+        or decision.scheduler_started
+        or decision.background_worker_started
+        or decision.execution_authorized
+        or decision.execution_performed
+        or decision.tool_execution_authorized
+        or decision.tool_execution_performed
+        or decision.backend_route_added
+        or decision.dependency_added
+        or decision.beta_release_enabled
+        or decision.production_authority_granted
+        or decision.side_effects_performed
+        or not decision.receipt_plan.store_safe_summary_only
+        or not decision.receipt_plan.store_safe_refs_only
+        or decision.receipt_plan.store_raw_prompt
+        or decision.receipt_plan.recovery_executed
+        or decision.receipt_plan.retry_executed
+        or decision.receipt_plan.resume_executed
+        or decision.receipt_plan.rollback_executed
+        or "M135_AUTONOMOUS_RECOVERY_PLANNER_CONTRACT_ONLY"
+        not in decision.reason_codes
+        or "M135_NO_RECOVERY_EXECUTION" not in decision.reason_codes
+        or "M136_REMAINS_FUTURE" not in decision.reason_codes
+    ):
+        print("FAIL: M135 autonomous recovery planner decision is unsafe or over-authoritative")
+        sys.exit(1)
+
+    for update, reason in [
+        ({"recovery_execution_authorized": True}, "M135_RECOVERY_EXECUTION_DENIED"),
+        ({"recovery_execution_performed": True}, "M135_RECOVERY_EXECUTION_DENIED"),
+        ({"retry_execution_performed": True}, "M135_RETRY_EXECUTION_DENIED"),
+        ({"resume_execution_performed": True}, "M135_RESUME_EXECUTION_DENIED"),
+        ({"rollback_execution_performed": True}, "M135_ROLLBACK_EXECUTION_DENIED"),
+        ({"supervisor_runtime_started": True}, "M135_SUPERVISOR_RUNTIME_DENIED"),
+        ({"checkpoint_scheduler_started": True}, "M135_CHECKPOINT_SCHEDULER_DENIED"),
+        ({"execution_performed": True}, "M135_EXECUTION_DENIED"),
+        ({"tool_execution_performed": True}, "M135_TOOL_EXECUTION_DENIED"),
+        ({"backend_route_added": True}, "M135_BACKEND_ROUTE_DENIED"),
+        (
+            {"production_authority_granted": True},
+            "M135_PRODUCTION_AUTHORITY_DENIED",
+        ),
+    ]:
+        try:
+            validate_autonomous_recovery_planner_decision(
+                decision.model_copy(update=update)
+            )
+            print(f"FAIL: M135 mutated authority flag was not denied: {update}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M135 mutated authority flag raised {exc!s}")
+                sys.exit(1)
+
+    criteria = {
+        criterion.criterion_id: criterion
+        for criterion in default_foundation_gate_criteria()
+    }
+    for criterion_id in [
+        "m135_autonomous_recovery_planner_contracts",
+        "m135_autonomous_recovery_planner_static_safety",
+        "m135_autonomous_recovery_planner_route_boundary",
+        "m135_roadmap_currentness",
+    ]:
+        if criterion_id not in criteria:
+            print(f"FAIL: Missing M135 Foundation Gate criterion: {criterion_id}")
+            sys.exit(1)
+    evaluator = FoundationGateEvaluator(ROOT)
+    for criterion_id in [
+        "m135_autonomous_recovery_planner_contracts",
+        "m135_autonomous_recovery_planner_static_safety",
+        "m135_autonomous_recovery_planner_route_boundary",
+        "m135_roadmap_currentness",
+    ]:
+        gate_report = evaluator.evaluate([criteria[criterion_id]])
+        result = gate_report.results[0]
+        if result.status != "passed":
+            print(f"FAIL: {criterion_id} failed: {result.failures}")
+            sys.exit(1)
+
+    print("OK: M135 autonomous recovery planner is review-only, safe-ref-only, and route-free")
 
 
 def verify_local_developer_launcher_safety():

@@ -180,6 +180,20 @@ from ultimate_ai_agent.core.autonomy.human_checkpoint_scheduling import (
     validate_human_checkpoint_scheduling_policy,
     validate_human_checkpoint_scheduling_request,
 )
+from ultimate_ai_agent.core.autonomy.autonomous_recovery_planner import (
+    AUTONOMOUS_RECOVERY_PLANNER_DOCS,
+    M135_MAX_RECOVERY_STEP_REFS,
+    M135_MAX_RECOVERY_WINDOW_SECONDS,
+    AutonomousRecoveryPlannerDecision,
+    AutonomousRecoveryPlannerPolicy,
+    AutonomousRecoveryPlannerReceiptPlan,
+    AutonomousRecoveryPlannerRequest,
+    AutonomousRecoveryPlannerStatus,
+    build_autonomous_recovery_planner_decision,
+    validate_autonomous_recovery_planner_decision,
+    validate_autonomous_recovery_planner_policy,
+    validate_autonomous_recovery_planner_request,
+)
 
 __all__ = [
     "AUTONOMY_MODE_CHARTER_DOCS",
@@ -330,4 +344,16 @@ __all__ = [
     "validate_human_checkpoint_scheduling_decision",
     "validate_human_checkpoint_scheduling_policy",
     "validate_human_checkpoint_scheduling_request",
+    "AUTONOMOUS_RECOVERY_PLANNER_DOCS",
+    "M135_MAX_RECOVERY_STEP_REFS",
+    "M135_MAX_RECOVERY_WINDOW_SECONDS",
+    "AutonomousRecoveryPlannerDecision",
+    "AutonomousRecoveryPlannerPolicy",
+    "AutonomousRecoveryPlannerReceiptPlan",
+    "AutonomousRecoveryPlannerRequest",
+    "AutonomousRecoveryPlannerStatus",
+    "build_autonomous_recovery_planner_decision",
+    "validate_autonomous_recovery_planner_decision",
+    "validate_autonomous_recovery_planner_policy",
+    "validate_autonomous_recovery_planner_request",
 ]
