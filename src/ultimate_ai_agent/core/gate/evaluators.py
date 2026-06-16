@@ -1990,6 +1990,28 @@ M142_FORBIDDEN_BACKEND_ROUTES = M141_FORBIDDEN_BACKEND_ROUTES + (
     "/browser/click",
     "/connectors/write",
 )
+EXPECTED_M143_OPENAPI_PATH_COUNT = 75
+M143_FORBIDDEN_BACKEND_ROUTES = M142_FORBIDDEN_BACKEND_ROUTES + (
+    "/alpha/ui",
+    "/alpha/ui/start",
+    "/alpha/ui/run",
+    "/alpha/app-readiness",
+    "/alpha/app-readiness/run",
+    "/alpha/app-readiness/signoff",
+    "/app/readiness/execute",
+    "/app/build",
+    "/app/sign",
+    "/app-store/connect",
+    "/testflight/upload",
+    "/alpha/release",
+    "/beta/release",
+    "/plugin-marketplace/policy",
+    "/plugin-marketplace/publish",
+    "/production/authority/enable",
+    "/tools/execute",
+    "/browser/click",
+    "/connectors/write",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -3876,6 +3898,23 @@ def m142_openapi_route_failures(
     return failures
 
 
+def m143_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M143_OPENAPI_PATH_COUNT
+) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(
+            f"OpenAPI path count changed for M143: expected {expected_path_count}, got {len(path_set)}"
+        )
+    for route in M143_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(
+                f"M143 forbidden alpha UI, app readiness, app build, app store, release, plugin marketplace, execution, browser, connector, or authority route present: {route}"
+            )
+    return failures
+
+
 M36_SAFE_REF_PREFIXES = {
     "reviewPacketRef": "file-review-packet:",
     "previewResultRef": "redacted-file-preview-output:",
@@ -5161,6 +5200,16 @@ class FoundationGateEvaluator:
                 self.check_m142_alpha_privacy_review_route_boundary
             ),
             "m142_roadmap_currentness": self.check_m142_roadmap_currentness,
+            "m143_alpha_ui_app_readiness_contracts": (
+                self.check_m143_alpha_ui_app_readiness_contracts
+            ),
+            "m143_alpha_ui_app_readiness_static_safety": (
+                self.check_m143_alpha_ui_app_readiness_static_safety
+            ),
+            "m143_alpha_ui_app_readiness_route_boundary": (
+                self.check_m143_alpha_ui_app_readiness_route_boundary
+            ),
+            "m143_roadmap_currentness": self.check_m143_roadmap_currentness,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -31038,6 +31087,10 @@ class FoundationGateEvaluator:
             _version_doc_marks_milestone_implemented(active_version_text, "m142")
         ):
             implemented_milestones.add("m142")
+        if (
+            _version_doc_marks_milestone_implemented(active_version_text, "m143")
+        ):
+            implemented_milestones.add("m143")
         for version_label, product_target, milestone, title in expected_labels:
             if milestone in implemented_milestones:
                 continue
@@ -48136,6 +48189,364 @@ class FoundationGateEvaluator:
             if fragment in text:
                 failures.append(
                     f"active docs imply forbidden M142 future/currentness claim: {fragment}"
+                )
+        return self._result(criterion, failures, required_docs)
+
+    def check_m143_alpha_ui_app_readiness_contracts(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/productization/alpha_ui_app_readiness.py",
+            "docs/productization/ALPHA_UI_APP_READINESS.md",
+            "docs/productization/ALPHA_UI_APP_READINESS_POLICY.md",
+            "docs/productization/ALPHA_UI_APP_READINESS_AUTHORITY_BOUNDARY.md",
+            "docs/productization/ALPHA_UI_APP_READINESS_RECEIPT_PLAN.md",
+            "docs/productization/ALPHA_UI_APP_READINESS_NON_GOALS.md",
+            "docs/productization/M143_TO_M144_BOUNDARY.md",
+            "docs/release_notes/checkpoint_m143.md",
+            "docs/archive/checkpoints/m143/README_IMPORT.md",
+            "docs/archive/checkpoints/m143/master_plan.md",
+            "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            "tests/test_m143_alpha_ui_app_readiness.py",
+            "tests/test_m143_gate_integration.py",
+        ]
+        failures = [
+            f"missing M143 alpha UI/app readiness file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            from tests.test_m143_alpha_ui_app_readiness import _request
+            from ultimate_ai_agent.core.productization import (
+                AlphaUiAppReadinessStatus,
+                build_alpha_ui_app_readiness_record,
+                validate_alpha_ui_app_readiness_record,
+            )
+
+            record = build_alpha_ui_app_readiness_record(_request())
+            if (
+                record.status != AlphaUiAppReadinessStatus.readiness_review_recorded
+                or not record.contract_only
+                or not record.review_only
+                or not record.deterministic
+                or not record.local_only
+                or not record.safe_refs_only
+                or not record.alpha_ui_app_readiness_only
+                or not record.m101_m142_covered
+                or not record.ui_readiness_bound
+                or not record.app_readiness_bound
+                or not record.privacy_review_bound
+                or not record.accessibility_review_bound
+                or not record.release_blocker_bound
+                or not record.audit_replay_bound
+                or not record.revocation_readiness_bound
+                or not record.no_effect_receipt_required
+                or not record.no_alpha_ui_runtime
+                or not record.no_app_readiness_execution
+                or not record.no_app_build
+                or not record.no_app_store_connect
+                or not record.no_alpha_release
+                or not record.no_production_authority
+                or record.alpha_ui_runtime_started
+                or record.app_readiness_execution_performed
+                or record.app_build_performed
+                or record.app_store_connect_performed
+                or record.testflight_upload_performed
+                or record.alpha_release_enabled
+                or record.beta_release_enabled
+                or record.raw_private_content_accessed
+                or record.execution_performed
+                or record.tool_execution_performed
+                or record.browser_action_performed
+                or record.connector_action_performed
+                or record.backend_route_added
+                or record.control_center_control_added
+                or record.dependency_added
+                or record.production_authority_granted
+                or "M143_ALPHA_UI_APP_READINESS_REVIEW_ONLY"
+                not in record.reason_codes
+                or "M143_M101_M142_COVERED" not in record.reason_codes
+                or "M143_NO_ALPHA_UI_RUNTIME" not in record.reason_codes
+                or "M143_NO_APP_READINESS_EXECUTION" not in record.reason_codes
+                or "M143_NO_APP_BUILD" not in record.reason_codes
+                or "M143_NO_APP_STORE_CONNECT" not in record.reason_codes
+                or "M143_NO_ALPHA_RELEASE" not in record.reason_codes
+                or "M143_NO_PRODUCTION_AUTHORITY" not in record.reason_codes
+                or "M144_REMAINS_FUTURE" not in record.reason_codes
+            ):
+                failures.append(
+                    "M143 alpha UI/app readiness record is unsafe or over-authoritative"
+                )
+            for update, reason in [
+                ({"alpha_ui_runtime_started": True}, "M143_ALPHA_UI_RUNTIME_DENIED"),
+                (
+                    {"app_readiness_execution_performed": True},
+                    "M143_APP_READINESS_EXECUTION_DENIED",
+                ),
+                ({"app_build_performed": True}, "M143_APP_BUILD_DENIED"),
+                (
+                    {"app_store_connect_performed": True},
+                    "M143_APP_STORE_CONNECT_DENIED",
+                ),
+                (
+                    {"testflight_upload_performed": True},
+                    "M143_TESTFLIGHT_UPLOAD_DENIED",
+                ),
+                ({"alpha_release_enabled": True}, "M143_ALPHA_RELEASE_DENIED"),
+                (
+                    {"raw_private_content_accessed": True},
+                    "M143_RAW_PRIVATE_CONTENT_DENIED",
+                ),
+                ({"backend_route_added": True}, "M143_BACKEND_ROUTE_DENIED"),
+                ({"dependency_added": True}, "M143_DEPENDENCY_DENIED"),
+                (
+                    {"production_authority_granted": True},
+                    "M143_PRODUCTION_AUTHORITY_DENIED",
+                ),
+            ]:
+                try:
+                    validate_alpha_ui_app_readiness_record(
+                        record.model_copy(update=update)
+                    )
+                    failures.append(
+                        f"M143 unsafe readiness mutation was not denied with {reason}"
+                    )
+                except ValueError as exc:
+                    if reason not in str(exc):
+                        failures.append(
+                            f"M143 unsafe readiness mutation raised {exc!s}"
+                        )
+        except Exception as exc:
+            failures.append(f"M143 readiness validation failed: {exc}")
+
+        docs_text = " ".join(
+            "\n".join(
+                self._read(self.root / path).lower()
+                for path in required_files
+                if path.startswith("docs/") and (self.root / path).exists()
+            ).split()
+        )
+        for fragment in [
+            "alpha ui and app readiness",
+            "contract-only",
+            "review-only",
+            "deterministic",
+            "local-only",
+            "safe-ref-only",
+            "alpha-ui-app-readiness-only",
+            "route-free",
+            "no-effect",
+            "accepted m101-m142",
+            "ui readiness refs",
+            "app readiness refs",
+            "privacy review refs",
+            "accessibility review refs",
+            "release blocker refs",
+            "audit",
+            "replay",
+            "revocation",
+            "kill-switch",
+            "no-effect receipt",
+            "no alpha ui runtime",
+            "no app readiness execution",
+            "no app build",
+            "no app store connect",
+            "no alpha release",
+            "no raw private content access",
+            "no backend route",
+            "no control center control",
+            "no dependency",
+            "no beta release",
+            "no production authority",
+            "m144 remains future",
+            "v1.0.0-alpha",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M143 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m143_alpha_ui_app_readiness_static_safety(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        forbidden_source_fragments = [
+            "alpha_ui_runtime_enabled=True",
+            "app_readiness_execution_enabled=True",
+            "app_build_enabled=True",
+            "app_signing_enabled=True",
+            "app_store_connect_enabled=True",
+            "testflight_upload_enabled=True",
+            "alpha_release_enabled=True",
+            "beta_release_enabled=True",
+            "production_authority_granted=True",
+            "raw_private_content_access_enabled=True",
+            "execution_enabled=True",
+            "tool_execution_enabled=True",
+            "shell_execution_enabled=True",
+            "browser_action_enabled=True",
+            "connector_action_enabled=True",
+            "network_access_enabled=True",
+            "plugin_execution_enabled=True",
+            "model_call_enabled=True",
+            "memory_write_enabled=True",
+            "context_injection_enabled=True",
+            "backend_route_enabled=True",
+            "dependency_added=True",
+            "alpha_ui_runtime_started=True",
+            "app_readiness_execution_performed=True",
+            "app_build_performed=True",
+            "app_store_connect_performed=True",
+            "testflight_upload_performed=True",
+            "/alpha/ui/start",
+            "/alpha/app-readiness/run",
+            "/app/build",
+            "/app-store/connect",
+            "/testflight/upload",
+            "/alpha/release",
+            "/beta/release",
+            "/plugin-marketplace/publish",
+        ]
+        allowed_files = {
+            "src/ultimate_ai_agent/core/gate/evaluators.py",
+            "src/ultimate_ai_agent/api/app.py",
+            "src/ultimate_ai_agent/api/openapi.py",
+            "src/ultimate_ai_agent/core/gate/criteria.py",
+            "src/ultimate_ai_agent/core/productization/__init__.py",
+            "src/ultimate_ai_agent/core/productization/alpha_ui_app_readiness.py",
+            "src/ultimate_ai_agent/core/productization/alpha_privacy_review.py",
+            "src/ultimate_ai_agent/core/productization/multi_user_product_boundary.py",
+        }
+        for root in [
+            self.root / "src" / "ultimate_ai_agent",
+            self.root / "apps" / "control-center" / "src",
+            self.root / "apps" / "ccc-ios",
+        ]:
+            if not root.exists():
+                continue
+            candidate_files = []
+            for pattern in (
+                "*.py",
+                "*.ts",
+                "*.tsx",
+                "*.js",
+                "*.jsx",
+                "*.swift",
+                "*.yml",
+                "*.yaml",
+            ):
+                candidate_files.extend(root.rglob(pattern))
+            for path in sorted(candidate_files):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(self.root).as_posix()
+                if ".test." in rel or rel in allowed_files:
+                    continue
+                text = path.read_text(encoding="utf-8")
+                for fragment in forbidden_source_fragments:
+                    if fragment in text:
+                        failures.append(
+                            f"M143 forbidden alpha UI/app readiness fragment in {rel}: {fragment}"
+                        )
+        return self._result(criterion, failures, [])
+
+    def check_m143_alpha_ui_app_readiness_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m143_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M143 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m143_roadmap_currentness(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_docs = [
+            "README.md",
+            "VERSION.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            "docs/roadmap/MILESTONE_CHARTERS.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+            "docs/DOCUMENTATION_INDEX.md",
+            "docs/canonical/CANONICAL_DOC_MAP.md",
+        ]
+        failures = [
+            f"missing M143 roadmap doc: {path}"
+            for path in required_docs
+            if not (self.root / path).exists()
+        ]
+        text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_docs
+            if (self.root / path).exists()
+        )
+        if "checkpoint m143" not in text or "alpha ui and app readiness" not in text:
+            failures.append("active docs do not identify Checkpoint M143")
+        if (
+            "m143 is implemented/released" not in text
+            and "checkpoint m143 is implemented/released" not in text
+        ):
+            failures.append("active docs do not mark M143 implemented/released")
+        for version_label, product_target, milestone, title, status in [
+            (
+                "checkpoint m142",
+                "pre-alpha checkpoint",
+                "m142",
+                "alpha privacy review",
+                "implemented/released",
+            ),
+            (
+                "checkpoint m143",
+                "pre-alpha checkpoint",
+                "m143",
+                "alpha ui and app readiness",
+                "implemented/released",
+            ),
+            (
+                "checkpoint m144",
+                "pre-alpha checkpoint",
+                "m144",
+                "plugin marketplace policy draft",
+                "planned/provisional",
+            ),
+            (
+                "v1.0.0-alpha",
+                "alpha",
+                "m150",
+                "ultimate ai agent v1.0.0-alpha",
+                "planned/provisional",
+            ),
+        ]:
+            row = (
+                f"| {version_label} | {product_target} | {milestone} | "
+                f"{title} | {status} |"
+            )
+            if not _roadmap_row_present(text, row):
+                failures.append(
+                    f"active docs missing expected M143/M144-M150 row: {version_label} / {milestone.upper()} - {title}"
+                )
+        for fragment in (
+            "alpha ui runtime is implemented",
+            "app readiness execution is implemented",
+            "app build is implemented",
+            "app signing is implemented",
+            "app store connect is implemented",
+            "testflight upload is implemented",
+            "alpha release is implemented",
+            "beta is released",
+            "production authority is implemented",
+            "plugin marketplace runtime is implemented",
+            "backend route is implemented",
+            "control center control is implemented",
+            "m144 dependency is added",
+        ):
+            if fragment in text:
+                failures.append(
+                    f"active docs imply forbidden M143 future/currentness claim: {fragment}"
                 )
         return self._result(criterion, failures, required_docs)
 

@@ -13,28 +13,26 @@ allowed to become operational authority.
 | Field | Current state |
 |---|---|
 | Current active baseline | **v1.7.2** |
-| Current milestone | **Checkpoint M142 — Alpha Privacy Review** |
+| Current milestone | **Checkpoint M143 — Alpha UI and App Readiness** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **75** OpenAPI paths |
 | Production readiness | Not claimed |
 
-Checkpoint M142 implements Alpha Privacy Review while the current
+Checkpoint M143 implements Alpha UI and App Readiness while the current
 product baseline remains v1.7.2. Already-pushed tags remain immutable historical
-internal milestone tags, future M143-M149 conveyor milestones use checkpoint
+internal milestone tags, future M144-M149 conveyor milestones use checkpoint
 labels instead of product SemVer tags, and M150 is the next product release
 target **v1.0.0-alpha**. Beta begins only after the alpha UI and supporting
 safety/product work are reviewed, accepted, and explicitly promoted by a later
-roadmap patch. M142 is contract-only, review-only, deterministic, local-only,
-safe-ref-only, and alpha-privacy-review-only. It records accepted M101-M141
-checkpoint refs, safe privacy review refs, data boundary refs, disclosure
-review refs, consent review refs, retention review refs, audit, replay,
-revocation, kill-switch, and no-effect receipt refs for governed review. It
-adds no privacy review execution, alpha privacy sign-off, alpha UI runtime, raw
-private content access, auth runtime, login, execution, tool execution, shell
-execution, browser action, connector action, network access, plugin execution,
-model call, memory write, context injection, backend route, Control Center
-control, dependency, beta release, or production authority.
+roadmap patch. M143 is contract-only, review-only, deterministic, local-only,
+safe-ref-only, and alpha-ui-app-readiness-only. It records accepted M101-M142
+checkpoint refs, UI readiness refs, app readiness refs, privacy review refs,
+accessibility review refs, release blocker refs, audit, replay, revocation,
+kill-switch, and no-effect receipt refs for governed review. It adds no alpha
+UI runtime, app readiness execution, app build, app signing, App Store Connect
+action, TestFlight upload, alpha release, beta release, backend route, Control
+Center control, dependency, or production authority.
 
 v0.29.5 is documentation policy polish. It remains the documentation
 organization cleanup baseline before the M26 and M27 implementation releases.
@@ -48,6 +46,7 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M34-M60 roadmap supersession](docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md)
 - [M61-M100 roadmap](docs/roadmap/M61_M100_ROADMAP.md)
 - [M101-M150 planned roadmap](docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md)
+- [M143 Alpha UI and App Readiness](docs/productization/ALPHA_UI_APP_READINESS.md)
 - [M142 Alpha Privacy Review](docs/productization/ALPHA_PRIVACY_REVIEW.md)
 - [M141 Multi-User Product Boundary](docs/productization/MULTI_USER_PRODUCT_BOUNDARY.md)
 - [M140 Higher-Autonomy Red-Team Freeze](docs/autonomy/HIGHER_AUTONOMY_RED_TEAM_FREEZE.md)

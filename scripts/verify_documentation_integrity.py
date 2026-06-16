@@ -1613,6 +1613,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_m140_higher_autonomy_red_team_freeze_docs(root, version))
     failures.extend(_verify_m141_multi_user_product_boundary_docs(root, version))
     failures.extend(_verify_m142_alpha_privacy_review_docs(root, version))
+    failures.extend(_verify_m143_alpha_ui_app_readiness_docs(root, version))
     failures.extend(_verify_m19_roadmap_currentness(root, version))
     failures.extend(_verify_post_m18_roadmap_status_labels(root))
 
@@ -7341,6 +7342,10 @@ def _verify_post_m100_roadmap_reconciliation_docs(root: Path, version: str | Non
         _version_doc_marks_milestone_implemented(version_doc_text, "m142")
     ):
         implemented_milestones.add("m142")
+    if _version_tuple(version) >= (1, 7, 2) and (
+        _version_doc_marks_milestone_implemented(version_doc_text, "m143")
+    ):
+        implemented_milestones.add("m143")
     for version_label, product_target, milestone, title in EXPECTED_M101_M150_LABELS:
         if milestone in implemented_milestones:
             continue
@@ -13917,6 +13922,134 @@ def _verify_m142_alpha_privacy_review_docs(
     }:
         if fragment in current_text or fragment in text:
             failures.append(f"M142 docs imply forbidden/future capability: {fragment}")
+    return failures
+
+
+def _verify_m143_alpha_ui_app_readiness_docs(
+    root: Path, version: str | None
+) -> list[str]:
+    failures: list[str] = []
+    if _version_tuple(version) < (1, 7, 2):
+        return failures
+    active_text = " ".join(
+        "\n".join(
+            _read(root / rel_path).lower()
+            for rel_path in [
+                "README.md",
+                "VERSION.md",
+                "docs/canonical/09_roadmap.md",
+                "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            ]
+            if (root / rel_path).exists()
+        ).split()
+    )
+    if (
+        "checkpoint m143 is implemented/released" not in active_text
+        and "m143 is implemented/released" not in active_text
+    ):
+        return failures
+    required_paths = [
+        "docs/productization/ALPHA_UI_APP_READINESS.md",
+        "docs/productization/ALPHA_UI_APP_READINESS_POLICY.md",
+        "docs/productization/ALPHA_UI_APP_READINESS_AUTHORITY_BOUNDARY.md",
+        "docs/productization/ALPHA_UI_APP_READINESS_RECEIPT_PLAN.md",
+        "docs/productization/ALPHA_UI_APP_READINESS_NON_GOALS.md",
+        "docs/productization/M143_TO_M144_BOUNDARY.md",
+        "docs/release_notes/checkpoint_m143.md",
+        "docs/archive/checkpoints/m143/README_IMPORT.md",
+        "docs/archive/checkpoints/m143/master_plan.md",
+        "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+    ]
+    for rel_path in required_paths:
+        if not (root / rel_path).exists():
+            failures.append(f"missing M143 alpha UI/app readiness doc: {rel_path}")
+    text = " ".join(
+        "\n".join(
+            _read(root / rel_path).lower()
+            for rel_path in required_paths
+            if (root / rel_path).exists()
+        ).split()
+    )
+    required_fragments = {
+        "M143 docs must say alpha UI and app readiness": "alpha ui and app readiness",
+        "M143 docs must say contract-only": "contract-only",
+        "M143 docs must say review-only": "review-only",
+        "M143 docs must say deterministic": "deterministic",
+        "M143 docs must say local-only": "local-only",
+        "M143 docs must say safe-ref-only": "safe-ref-only",
+        "M143 docs must say alpha-ui-app-readiness-only": "alpha-ui-app-readiness-only",
+        "M143 docs must say route-free": "route-free",
+        "M143 docs must say no-effect": "no-effect",
+        "M143 docs must say accepted M101-M142": "accepted m101-m142",
+        "M143 docs must say UI readiness refs": "ui readiness refs",
+        "M143 docs must say app readiness refs": "app readiness refs",
+        "M143 docs must say privacy review refs": "privacy review refs",
+        "M143 docs must say accessibility review refs": "accessibility review refs",
+        "M143 docs must say release blocker refs": "release blocker refs",
+        "M143 docs must deny alpha UI runtime": "no alpha ui runtime",
+        "M143 docs must deny app readiness execution": "no app readiness execution",
+        "M143 docs must deny app build": "no app build",
+        "M143 docs must deny App Store Connect": "no app store connect",
+        "M143 docs must deny alpha release": "no alpha release",
+        "M143 docs must deny raw private content": "no raw private content access",
+        "M143 docs must deny backend route": "no backend route",
+        "M143 docs must deny Control Center control": "no control center control",
+        "M143 docs must deny dependency": "no dependency",
+        "M143 docs must deny beta release": "no beta release",
+        "M143 docs must deny production authority": "no production authority",
+        "M143 docs must keep M144 future": "m144 remains future",
+        "M143 docs must preserve alpha target": "v1.0.0-alpha",
+    }
+    for message, fragment in required_fragments.items():
+        if fragment not in text:
+            failures.append(message)
+
+    active_paths = [
+        "README.md",
+        "VERSION.md",
+        "docs/canonical/09_roadmap.md",
+        "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+        "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+        "docs/roadmap/MILESTONE_CHARTERS.md",
+        "docs/DOCUMENTATION_INDEX.md",
+        "docs/canonical/CANONICAL_DOC_MAP.md",
+    ]
+    current_text = " ".join(
+        "\n".join(
+            _read(root / rel_path).lower()
+            for rel_path in active_paths
+            if (root / rel_path).exists()
+        ).split()
+    )
+    implemented_m143_row = (
+        "| checkpoint m143 | pre-alpha checkpoint | m143 | "
+        "alpha ui and app readiness | implemented/released |"
+    )
+    planned_m144_row = (
+        "| checkpoint m144 | pre-alpha checkpoint | m144 | "
+        "plugin marketplace policy draft | planned/provisional |"
+    )
+    if not _roadmap_row_present(current_text, implemented_m143_row):
+        failures.append("active docs missing implemented Checkpoint M143 row")
+    if not _roadmap_row_present(current_text, planned_m144_row):
+        failures.append("active docs missing planned Checkpoint M144 row")
+    for fragment in {
+        "alpha ui runtime is implemented",
+        "app readiness execution is implemented",
+        "app build is implemented",
+        "app signing is implemented",
+        "app store connect is implemented",
+        "testflight upload is implemented",
+        "alpha release is implemented",
+        "beta is released",
+        "production authority is implemented",
+        "plugin marketplace runtime is implemented",
+        "backend route is implemented",
+        "control center control is implemented",
+        "m144 dependency is added",
+    }:
+        if fragment in current_text or fragment in text:
+            failures.append(f"M143 docs imply forbidden/future capability: {fragment}")
     return failures
 
 

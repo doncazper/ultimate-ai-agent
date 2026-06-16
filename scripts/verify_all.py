@@ -190,6 +190,7 @@ SCAN_SEQUENCE = [
     ("M140 higher autonomy red-team freeze scan", "verify_m140_higher_autonomy_red_team_freeze"),
     ("M141 multi-user product boundary scan", "verify_m141_multi_user_product_boundary"),
     ("M142 alpha privacy review scan", "verify_m142_alpha_privacy_review"),
+    ("M143 alpha UI/app readiness scan", "verify_m143_alpha_ui_app_readiness"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -17791,6 +17792,10 @@ def verify_post_m100_roadmap_reconciliation():
         _version_doc_marks_milestone_implemented(active_version_text, "m142")
     ):
         implemented_milestones.add("m142")
+    if (
+        _version_doc_marks_milestone_implemented(active_version_text, "m143")
+    ):
+        implemented_milestones.add("m143")
     for version_label, product_target, milestone, title in expected_labels:
         if milestone in implemented_milestones:
             continue
@@ -26491,6 +26496,187 @@ def verify_m142_alpha_privacy_review():
             sys.exit(1)
 
     print("OK: M142 alpha privacy review is review-only, safe-ref-only, and route-free")
+
+
+def verify_m143_alpha_ui_app_readiness():
+    print("\n[Verifier] Running M143 alpha UI/app readiness guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/productization/alpha_ui_app_readiness.py",
+        "docs/productization/ALPHA_UI_APP_READINESS.md",
+        "docs/productization/ALPHA_UI_APP_READINESS_POLICY.md",
+        "docs/productization/ALPHA_UI_APP_READINESS_AUTHORITY_BOUNDARY.md",
+        "docs/productization/ALPHA_UI_APP_READINESS_RECEIPT_PLAN.md",
+        "docs/productization/ALPHA_UI_APP_READINESS_NON_GOALS.md",
+        "docs/productization/M143_TO_M144_BOUNDARY.md",
+        "docs/release_notes/checkpoint_m143.md",
+        "docs/archive/checkpoints/m143/README_IMPORT.md",
+        "docs/archive/checkpoints/m143/master_plan.md",
+        "tests/test_m143_alpha_ui_app_readiness.py",
+        "tests/test_m143_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M143 alpha UI/app readiness file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = " ".join(
+        "\n".join(
+            (ROOT / rel_path).read_text(encoding="utf-8").lower()
+            for rel_path in required_files
+            if rel_path.startswith("docs/")
+        ).split()
+    )
+    for fragment in [
+        "alpha ui and app readiness",
+        "contract-only",
+        "review-only",
+        "deterministic",
+        "local-only",
+        "safe-ref-only",
+        "alpha-ui-app-readiness-only",
+        "route-free",
+        "no-effect",
+        "accepted m101-m142",
+        "ui readiness refs",
+        "app readiness refs",
+        "privacy review refs",
+        "accessibility review refs",
+        "release blocker refs",
+        "no alpha ui runtime",
+        "no app readiness execution",
+        "no app build",
+        "no app store connect",
+        "no alpha release",
+        "no raw private content access",
+        "no backend route",
+        "no control center control",
+        "no dependency",
+        "no beta release",
+        "no production authority",
+        "m144 remains future",
+        "v1.0.0-alpha",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M143 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from tests.test_m143_alpha_ui_app_readiness import _request
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.criteria import (
+            default_foundation_gate_criteria,
+        )
+        from ultimate_ai_agent.core.gate.evaluators import (
+            FoundationGateEvaluator,
+            m143_openapi_route_failures,
+        )
+        from ultimate_ai_agent.core.productization import (
+            AlphaUiAppReadinessStatus,
+            build_alpha_ui_app_readiness_record,
+            validate_alpha_ui_app_readiness_record,
+        )
+    except Exception as exc:
+        print(f"FAIL: M143 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m143_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    record = build_alpha_ui_app_readiness_record(_request())
+    if (
+        record.status != AlphaUiAppReadinessStatus.readiness_review_recorded
+        or not record.contract_only
+        or not record.review_only
+        or not record.safe_refs_only
+        or not record.alpha_ui_app_readiness_only
+        or not record.m101_m142_covered
+        or not record.no_alpha_ui_runtime
+        or not record.no_app_readiness_execution
+        or not record.no_app_build
+        or not record.no_app_store_connect
+        or not record.no_alpha_release
+        or not record.no_production_authority
+        or record.alpha_ui_runtime_started
+        or record.app_readiness_execution_performed
+        or record.app_build_performed
+        or record.app_store_connect_performed
+        or record.testflight_upload_performed
+        or record.alpha_release_enabled
+        or record.beta_release_enabled
+        or record.raw_private_content_accessed
+        or record.backend_route_added
+        or record.dependency_added
+        or record.production_authority_granted
+        or "M143_ALPHA_UI_APP_READINESS_REVIEW_ONLY" not in record.reason_codes
+        or "M143_M101_M142_COVERED" not in record.reason_codes
+        or "M143_NO_ALPHA_UI_RUNTIME" not in record.reason_codes
+        or "M143_NO_APP_READINESS_EXECUTION" not in record.reason_codes
+        or "M143_NO_APP_BUILD" not in record.reason_codes
+        or "M143_NO_APP_STORE_CONNECT" not in record.reason_codes
+        or "M143_NO_ALPHA_RELEASE" not in record.reason_codes
+        or "M143_NO_PRODUCTION_AUTHORITY" not in record.reason_codes
+        or "M144_REMAINS_FUTURE" not in record.reason_codes
+    ):
+        print("FAIL: M143 alpha UI/app readiness record is unsafe")
+        sys.exit(1)
+
+    for update, reason in [
+        ({"alpha_ui_runtime_started": True}, "M143_ALPHA_UI_RUNTIME_DENIED"),
+        (
+            {"app_readiness_execution_performed": True},
+            "M143_APP_READINESS_EXECUTION_DENIED",
+        ),
+        ({"app_build_performed": True}, "M143_APP_BUILD_DENIED"),
+        ({"app_store_connect_performed": True}, "M143_APP_STORE_CONNECT_DENIED"),
+        ({"testflight_upload_performed": True}, "M143_TESTFLIGHT_UPLOAD_DENIED"),
+        ({"alpha_release_enabled": True}, "M143_ALPHA_RELEASE_DENIED"),
+        ({"raw_private_content_accessed": True}, "M143_RAW_PRIVATE_CONTENT_DENIED"),
+        ({"backend_route_added": True}, "M143_BACKEND_ROUTE_DENIED"),
+        ({"dependency_added": True}, "M143_DEPENDENCY_DENIED"),
+        (
+            {"production_authority_granted": True},
+            "M143_PRODUCTION_AUTHORITY_DENIED",
+        ),
+    ]:
+        try:
+            validate_alpha_ui_app_readiness_record(record.model_copy(update=update))
+            print(f"FAIL: M143 mutated authority flag was not denied: {update}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M143 mutated authority flag raised {exc!s}")
+                sys.exit(1)
+
+    criteria = {
+        criterion.criterion_id: criterion
+        for criterion in default_foundation_gate_criteria()
+    }
+    for criterion_id in [
+        "m143_alpha_ui_app_readiness_contracts",
+        "m143_alpha_ui_app_readiness_static_safety",
+        "m143_alpha_ui_app_readiness_route_boundary",
+        "m143_roadmap_currentness",
+    ]:
+        if criterion_id not in criteria:
+            print(f"FAIL: Missing M143 Foundation Gate criterion: {criterion_id}")
+            sys.exit(1)
+    evaluator = FoundationGateEvaluator(ROOT)
+    for criterion_id in [
+        "m143_alpha_ui_app_readiness_contracts",
+        "m143_alpha_ui_app_readiness_static_safety",
+        "m143_alpha_ui_app_readiness_route_boundary",
+        "m143_roadmap_currentness",
+    ]:
+        gate_report = evaluator.evaluate([criteria[criterion_id]])
+        result = gate_report.results[0]
+        if result.status != "passed":
+            print(f"FAIL: {criterion_id} failed: {result.failures}")
+            sys.exit(1)
+
+    print("OK: M143 alpha UI/app readiness is review-only, safe-ref-only, and route-free")
 
 
 def verify_local_developer_launcher_safety():
