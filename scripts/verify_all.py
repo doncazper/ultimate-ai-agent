@@ -167,6 +167,7 @@ SCAN_SEQUENCE = [
     ("M126 connector approval capture scan", "verify_m126_connector_approval_capture"),
     ("M127 connector write dry-run planner scan", "verify_m127_connector_write_dry_run_planner"),
     ("M128 connector write execution low-risk scan", "verify_m128_connector_write_execution_low_risk"),
+    ("M129 connector audit revocation hardening scan", "verify_m129_connector_audit_revocation_hardening"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -17684,6 +17685,12 @@ def verify_post_m100_roadmap_reconciliation():
         or "connector write execution, low-risk only" in active_version_text
     ):
         implemented_milestones.add("m128")
+    if (
+        "checkpoint m129" in active_version_text
+        or "m129" in active_version_text
+        or "connector audit + revocation hardening" in active_version_text
+    ):
+        implemented_milestones.add("m129")
     for version_label, product_target, milestone, title in expected_labels:
         if milestone in implemented_milestones:
             continue
@@ -22959,6 +22966,256 @@ def verify_m128_connector_write_execution_low_risk():
             sys.exit(1)
 
     print("OK: M128 connector write execution is low-risk-only, safe-result-only, and route-free")
+
+
+def verify_m129_connector_audit_revocation_hardening():
+    print("\n[Verifier] Running M129 connector audit revocation hardening guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/connectors/__init__.py",
+        "src/ultimate_ai_agent/core/connectors/connector_audit_revocation_hardening.py",
+        "src/ultimate_ai_agent/core/connectors/connector_write_execution_low_risk.py",
+        "src/ultimate_ai_agent/core/connectors/connector_write_dry_run_planner.py",
+        "src/ultimate_ai_agent/core/connectors/connector_approval_capture.py",
+        "src/ultimate_ai_agent/core/connectors/connector_read_only_runtime.py",
+        "docs/connectors/CONNECTOR_AUDIT_REVOCATION_HARDENING.md",
+        "docs/connectors/CONNECTOR_AUDIT_REVOCATION_HARDENING_AUTHORITY_BOUNDARY.md",
+        "docs/connectors/CONNECTOR_AUDIT_REVOCATION_HARDENING_RECEIPT_PLAN.md",
+        "docs/connectors/CONNECTOR_AUDIT_REVOCATION_HARDENING_NON_GOALS.md",
+        "docs/connectors/M129_TO_M130_BOUNDARY.md",
+        "docs/release_notes/checkpoint_m129.md",
+        "docs/archive/checkpoints/m129/README_IMPORT.md",
+        "docs/archive/checkpoints/m129/master_plan.md",
+        "tests/test_m129_connector_audit_revocation_hardening.py",
+        "tests/test_m129_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M129 connector audit revocation file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = " ".join(
+        "\n".join(
+            (ROOT / rel_path).read_text(encoding="utf-8").lower()
+            for rel_path in required_files
+            if rel_path.startswith("docs/")
+        ).split()
+    )
+    for fragment in [
+        "connector audit + revocation hardening",
+        "review-only",
+        "hardening-only",
+        "local-only",
+        "safe-ref-only",
+        "exact-bound",
+        "m128 connector write execution",
+        "safe audit ledger",
+        "revocation readiness",
+        "safe refs only",
+        "safe summaries only",
+        "audit ref",
+        "replay ref",
+        "revocation ref",
+        "kill-switch ref",
+        "retention policy ref",
+        "redaction ref",
+        "no live connector runtime",
+        "no account auth",
+        "no network access",
+        "no credential handling",
+        "no raw connector content",
+        "no full content read",
+        "no connector write execution",
+        "no connector send execution",
+        "no connector delete execution",
+        "no connector export",
+        "no connector bulk export",
+        "no attachment download",
+        "no audit export",
+        "no revocation execution",
+        "no kill-switch execution",
+        "no model call",
+        "no memory write",
+        "no context injection",
+        "no backend route",
+        "no control center control",
+        "no dependency",
+        "m130 remains future",
+        "v1.0.0-alpha",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M129 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from tests.test_m129_connector_audit_revocation_hardening import _request
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.connectors import (
+            ConnectorAuditRevocationHardeningStatus,
+            build_connector_audit_revocation_hardening_report,
+            validate_connector_audit_ledger_entry,
+            validate_connector_audit_revocation_hardening_report,
+            validate_connector_revocation_hardening_record,
+        )
+        from ultimate_ai_agent.core.gate.criteria import (
+            default_foundation_gate_criteria,
+        )
+        from ultimate_ai_agent.core.gate.evaluators import (
+            FoundationGateEvaluator,
+            m129_openapi_route_failures,
+        )
+    except Exception as exc:
+        print(f"FAIL: M129 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m129_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    report = build_connector_audit_revocation_hardening_report(_request())
+    if (
+        report.status
+        != ConnectorAuditRevocationHardeningStatus.hardened_for_governed_review
+        or not report.exact_m128_execution_bound
+        or not report.audit_hardened
+        or not report.revocation_hardened
+        or not report.audit_bound
+        or not report.replay_bound
+        or not report.revocation_ready
+        or not report.local_only
+        or not report.safe_refs_only
+        or not report.review_only
+        or report.live_connector_runtime_performed
+        or report.account_auth_performed
+        or report.network_access_performed
+        or report.credential_handling_performed
+        or report.raw_connector_content_returned
+        or report.full_connector_content_returned
+        or report.connector_write_performed
+        or report.connector_send_performed
+        or report.connector_delete_performed
+        or report.connector_export_performed
+        or report.connector_bulk_export_performed
+        or report.attachment_download_performed
+        or report.audit_export_performed
+        or report.revocation_executed
+        or report.kill_switch_executed
+        or report.model_call_performed
+        or report.memory_write_performed
+        or report.context_injection_performed
+        or report.backend_route_added
+        or report.control_center_control_added
+        or report.dependency_added
+        or report.production_authority_granted
+        or report.side_effects_performed
+        or not report.audit_ledger_entry.store_safe_refs_only
+        or not report.audit_ledger_entry.store_safe_summary_only
+        or report.audit_ledger_entry.raw_audit_payload_stored
+        or report.audit_ledger_entry.audit_exported
+        or not report.revocation_record.revocation_ready
+        or not report.revocation_record.revocation_review_only
+        or report.revocation_record.revocation_executed
+        or report.revocation_record.kill_switch_executed
+        or report.revocation_record.connector_approval_revoked
+        or "M129_CONNECTOR_AUDIT_REVOCATION_HARDENED" not in report.reason_codes
+        or "M130_REMAINS_FUTURE" not in report.reason_codes
+    ):
+        print("FAIL: M129 connector audit revocation report is unsafe or over-authoritative")
+        sys.exit(1)
+
+    for validator, target, update, reason in [
+        (
+            validate_connector_audit_revocation_hardening_report,
+            report,
+            {"revocation_executed": True},
+            "M129_REVOCATION_EXECUTION_DENIED",
+        ),
+        (
+            validate_connector_audit_revocation_hardening_report,
+            report,
+            {"kill_switch_executed": True},
+            "M129_KILL_SWITCH_EXECUTION_DENIED",
+        ),
+        (
+            validate_connector_audit_revocation_hardening_report,
+            report,
+            {"audit_export_performed": True},
+            "M129_AUDIT_EXPORT_DENIED",
+        ),
+        (
+            validate_connector_audit_revocation_hardening_report,
+            report,
+            {"backend_route_added": True},
+            "M129_BACKEND_ROUTE_DENIED",
+        ),
+        (
+            validate_connector_audit_revocation_hardening_report,
+            report,
+            {"production_authority_granted": True},
+            "M129_PRODUCTION_AUTHORITY_DENIED",
+        ),
+        (
+            validate_connector_audit_ledger_entry,
+            report.audit_ledger_entry,
+            {"raw_audit_payload_stored": True},
+            "M129_RAW_AUDIT_PAYLOAD_DENIED",
+        ),
+        (
+            validate_connector_audit_ledger_entry,
+            report.audit_ledger_entry,
+            {"audit_exported": True},
+            "M129_AUDIT_EXPORT_DENIED",
+        ),
+        (
+            validate_connector_revocation_hardening_record,
+            report.revocation_record,
+            {"connector_approval_revoked": True},
+            "M129_APPROVAL_REVOCATION_EXECUTION_DENIED",
+        ),
+        (
+            validate_connector_revocation_hardening_record,
+            report.revocation_record,
+            {"connector_session_stopped": True},
+            "M129_CONNECTOR_SESSION_STOP_DENIED",
+        ),
+    ]:
+        try:
+            validator(target.model_copy(update=update))
+            print(f"FAIL: M129 mutated authority flag was not denied: {update}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M129 mutated authority flag raised {exc!s}")
+                sys.exit(1)
+
+    criteria = {
+        criterion.criterion_id: criterion
+        for criterion in default_foundation_gate_criteria()
+    }
+    for criterion_id in [
+        "m129_connector_audit_revocation_hardening_contracts",
+        "m129_connector_audit_revocation_hardening_static_safety",
+        "m129_connector_audit_revocation_hardening_route_boundary",
+        "m129_roadmap_currentness",
+    ]:
+        if criterion_id not in criteria:
+            print(f"FAIL: Missing M129 Foundation Gate criterion: {criterion_id}")
+            sys.exit(1)
+    evaluator = FoundationGateEvaluator(ROOT)
+    for criterion_id in [
+        "m129_connector_audit_revocation_hardening_contracts",
+        "m129_connector_audit_revocation_hardening_static_safety",
+        "m129_connector_audit_revocation_hardening_route_boundary",
+        "m129_roadmap_currentness",
+    ]:
+        gate_report = evaluator.evaluate([criteria[criterion_id]])
+        result = gate_report.results[0]
+        if result.status != "passed":
+            print(f"FAIL: {criterion_id} failed: {result.failures}")
+            sys.exit(1)
+
+    print("OK: M129 connector audit revocation hardening is review-only, safe-ref-only, and route-free")
 
 
 def verify_local_developer_launcher_safety():

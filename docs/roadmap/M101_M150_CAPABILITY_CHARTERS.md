@@ -1,6 +1,6 @@
 # M101-M150 Capability Charters
 
-Status: Active roadmap maintained through Checkpoint M128 after the accepted
+Status: Active roadmap maintained through Checkpoint M129 after the accepted
 v1.7.2 post-M103 versioning repair follow-up.
 
 M101 is implemented/released as Mobile Sensor Contract Review. M102 is
@@ -31,7 +31,8 @@ Connector Contract Review. Checkpoint M125 is implemented/released as Connector
 Read-Only Runtime. Checkpoint M126 is implemented/released as Connector
 Approval Capture. Checkpoint M127 is implemented/released as Connector Write
 Dry-Run Planner. Checkpoint M128 is implemented/released as Connector Write
-Execution, Low-Risk Only. M129-M150 remain planned/provisional.
+Execution, Low-Risk Only. Checkpoint M129 is implemented/released as Connector
+Audit + Revocation Hardening. M130-M150 remain planned/provisional.
 Future work must continue the authority-tier model:
 
 Capability exists -> disabled by default -> dry-run first -> limited allowlist
@@ -83,7 +84,7 @@ roadmap patch. Do not rewrite, move, or reuse existing tags.
 | Checkpoint M126 | pre-alpha checkpoint | M126 | Connector Approval Capture | Implemented/released |
 | Checkpoint M127 | pre-alpha checkpoint | M127 | Connector Write Dry-Run Planner | Implemented/released |
 | Checkpoint M128 | pre-alpha checkpoint | M128 | Connector Write Execution, Low-Risk Only | Implemented/released |
-| Checkpoint M129 | pre-alpha checkpoint | M129 | Connector Audit + Revocation Hardening | Planned/provisional |
+| Checkpoint M129 | pre-alpha checkpoint | M129 | Connector Audit + Revocation Hardening | Implemented/released |
 | Checkpoint M130 | pre-alpha checkpoint | M130 | Connector Safety Freeze | Planned/provisional |
 | Checkpoint M131 | pre-alpha checkpoint | M131 | Autonomy Mode 4, Scoped Work Session | Planned/provisional |
 | Checkpoint M132 | pre-alpha checkpoint | M132 | Autonomy Mode 5, Trusted Recurring Workflow | Planned/provisional |
