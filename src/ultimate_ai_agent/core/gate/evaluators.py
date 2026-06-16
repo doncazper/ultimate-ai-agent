@@ -2083,6 +2083,24 @@ M146_FORBIDDEN_BACKEND_ROUTES = M145_FORBIDDEN_BACKEND_ROUTES + (
     "/stripe",
     "/production/authority/enable",
 )
+EXPECTED_M147_OPENAPI_PATH_COUNT = 75
+M147_FORBIDDEN_BACKEND_ROUTES = M146_FORBIDDEN_BACKEND_ROUTES + (
+    "/public-docs/publish",
+    "/public-docs/deploy",
+    "/docs/publish",
+    "/docs/deploy",
+    "/docs/site/deploy",
+    "/wiki/publish",
+    "/wiki/sync",
+    "/wiki/automation",
+    "/github/wiki",
+    "/github/wiki/publish",
+    "/artifacts/upload",
+    "/release/publish",
+    "/distribution/publish",
+    "/external-distribution",
+    "/production/authority/enable",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -4037,6 +4055,23 @@ def m146_openapi_route_failures(
     return failures
 
 
+def m147_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M147_OPENAPI_PATH_COUNT
+) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(
+            f"OpenAPI path count changed for M147: expected {expected_path_count}, got {len(path_set)}"
+        )
+    for route in M147_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(
+                f"M147 forbidden public docs, wiki, publishing, deploy, artifact upload, distribution, auth, or authority route present: {route}"
+            )
+    return failures
+
+
 M36_SAFE_REF_PREFIXES = {
     "reviewPacketRef": "file-review-packet:",
     "previewResultRef": "redacted-file-preview-output:",
@@ -5362,6 +5397,16 @@ class FoundationGateEvaluator:
                 self.check_m146_billing_plan_boundary_route_boundary
             ),
             "m146_roadmap_currentness": self.check_m146_roadmap_currentness,
+            "m147_public_docs_wiki_readiness_contracts": (
+                self.check_m147_public_docs_wiki_readiness_contracts
+            ),
+            "m147_public_docs_wiki_readiness_static_safety": (
+                self.check_m147_public_docs_wiki_readiness_static_safety
+            ),
+            "m147_public_docs_wiki_readiness_route_boundary": (
+                self.check_m147_public_docs_wiki_readiness_route_boundary
+            ),
+            "m147_roadmap_currentness": self.check_m147_roadmap_currentness,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -31255,6 +31300,10 @@ class FoundationGateEvaluator:
             _version_doc_marks_milestone_implemented(active_version_text, "m146")
         ):
             implemented_milestones.add("m146")
+        if (
+            _version_doc_marks_milestone_implemented(active_version_text, "m147")
+        ):
+            implemented_milestones.add("m147")
         for version_label, product_target, milestone, title in expected_labels:
             if milestone in implemented_milestones:
                 continue
@@ -48696,6 +48745,13 @@ class FoundationGateEvaluator:
                 "pre-alpha checkpoint",
                 "m147",
                 "public docs + wiki readiness",
+                "implemented/released",
+            ),
+            (
+                "checkpoint m148",
+                "pre-alpha checkpoint",
+                "m148",
+                "external security review",
                 "planned/provisional",
             ),
             (
@@ -48712,7 +48768,7 @@ class FoundationGateEvaluator:
             )
             if not _roadmap_row_present(text, row):
                 failures.append(
-                    f"active docs missing expected M143/M144/M145/M146/M147-M150 row: {version_label} / {milestone.upper()} - {title}"
+                    f"active docs missing expected M143/M144/M145/M146/M147/M148-M150 row: {version_label} / {milestone.upper()} - {title}"
                 )
         for fragment in (
             "alpha ui runtime is implemented",
@@ -49111,6 +49167,13 @@ class FoundationGateEvaluator:
                 "pre-alpha checkpoint",
                 "m147",
                 "public docs + wiki readiness",
+                "implemented/released",
+            ),
+            (
+                "checkpoint m148",
+                "pre-alpha checkpoint",
+                "m148",
+                "external security review",
                 "planned/provisional",
             ),
             (
@@ -49127,7 +49190,7 @@ class FoundationGateEvaluator:
             )
             if not _roadmap_row_present(text, row):
                 failures.append(
-                    f"active docs missing expected M144/M145/M146/M147-M150 row: {version_label} / {milestone.upper()} - {title}"
+                    f"active docs missing expected M144/M145/M146/M147/M148-M150 row: {version_label} / {milestone.upper()} - {title}"
                 )
         for fragment in (
             "enterprise/pro safety runtime is implemented",
@@ -49488,6 +49551,13 @@ class FoundationGateEvaluator:
                 "pre-alpha checkpoint",
                 "m147",
                 "public docs + wiki readiness",
+                "implemented/released",
+            ),
+            (
+                "checkpoint m148",
+                "pre-alpha checkpoint",
+                "m148",
+                "external security review",
                 "planned/provisional",
             ),
             (
@@ -49504,7 +49574,7 @@ class FoundationGateEvaluator:
             )
             if not _roadmap_row_present(text, row):
                 failures.append(
-                    f"active docs missing expected M145/M146/M147-M150 row: {version_label} / {milestone.upper()} - {title}"
+                    f"active docs missing expected M145/M146/M147/M148-M150 row: {version_label} / {milestone.upper()} - {title}"
                 )
         for fragment in (
             "billing runtime is implemented",
@@ -49880,6 +49950,13 @@ class FoundationGateEvaluator:
                 "pre-alpha checkpoint",
                 "m147",
                 "public docs + wiki readiness",
+                "implemented/released",
+            ),
+            (
+                "checkpoint m148",
+                "pre-alpha checkpoint",
+                "m148",
+                "external security review",
                 "planned/provisional",
             ),
             (
@@ -49896,7 +49973,7 @@ class FoundationGateEvaluator:
             )
             if not _roadmap_row_present(text, row):
                 failures.append(
-                    f"active docs missing expected M146/M147-M150 row: {version_label} / {milestone.upper()} - {title}"
+                    f"active docs missing expected M146/M147/M148-M150 row: {version_label} / {milestone.upper()} - {title}"
                 )
         for fragment in (
             "payment processing is implemented",
@@ -49917,6 +49994,400 @@ class FoundationGateEvaluator:
             if fragment in text:
                 failures.append(
                     f"active docs imply forbidden M146 future/currentness claim: {fragment}"
+                )
+        return self._result(criterion, failures, required_docs)
+
+
+    def check_m147_public_docs_wiki_readiness_contracts(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/productization/public_docs_wiki_readiness.py",
+            "docs/productization/PUBLIC_DOCS_WIKI_READINESS.md",
+            "docs/productization/PUBLIC_DOCS_WIKI_READINESS_POLICY.md",
+            "docs/productization/PUBLIC_DOCS_WIKI_READINESS_AUTHORITY_BOUNDARY.md",
+            "docs/productization/PUBLIC_DOCS_WIKI_READINESS_RECEIPT_PLAN.md",
+            "docs/productization/PUBLIC_DOCS_WIKI_READINESS_NON_GOALS.md",
+            "docs/productization/M147_TO_M148_BOUNDARY.md",
+            "docs/release_notes/checkpoint_m147.md",
+            "docs/archive/checkpoints/m147/README_IMPORT.md",
+            "docs/archive/checkpoints/m147/master_plan.md",
+            "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            "tests/test_m147_public_docs_wiki_readiness.py",
+            "tests/test_m147_gate_integration.py",
+        ]
+        failures = [
+            f"missing M147 public docs + wiki readiness file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            from tests.test_m147_public_docs_wiki_readiness import _request
+            from ultimate_ai_agent.core.productization import (
+                PublicDocsWikiReadinessStatus,
+                build_public_docs_wiki_readiness_record,
+                validate_public_docs_wiki_readiness_record,
+            )
+
+            record = build_public_docs_wiki_readiness_record(_request())
+            if (
+                record.status != PublicDocsWikiReadinessStatus.readiness_recorded
+                or not record.contract_only
+                or not record.review_only
+                or not record.deterministic
+                or not record.local_only
+                or not record.safe_refs_only
+                or not record.docs_readiness_only
+                or not record.disabled_by_default
+                or not record.m101_m146_covered
+                or not record.public_docs_bound
+                or not record.wiki_readiness_bound
+                or not record.docs_indexes_bound
+                or not record.canonical_maps_bound
+                or not record.release_notes_bound
+                or not record.disclosure_reviews_bound
+                or not record.publishing_checklists_bound
+                or not record.no_public_publish
+                or not record.no_wiki_publish
+                or not record.no_wiki_automation
+                or not record.no_github_wiki_runtime
+                or not record.no_docs_site_deploy
+                or not record.no_external_distribution
+                or not record.no_artifact_upload
+                or not record.no_release_publish
+                or not record.no_docs_runtime
+                or not record.no_auth_runtime
+                or not record.no_backend_route
+                or not record.no_control_center_control
+                or not record.no_dependency
+                or not record.no_production_authority
+                or record.public_publish_started
+                or record.wiki_publish_started
+                or record.wiki_automation_started
+                or record.github_wiki_runtime_performed
+                or record.docs_site_deploy_started
+                or record.external_distribution_performed
+                or record.artifact_upload_started
+                or record.release_publish_started
+                or record.docs_runtime_performed
+                or record.auth_runtime_started
+                or record.backend_route_added
+                or record.control_center_control_added
+                or record.dependency_added
+                or record.beta_release_enabled
+                or record.production_authority_granted
+                or "M147_PUBLIC_DOCS_WIKI_READINESS_REVIEW_ONLY"
+                not in record.reason_codes
+                or "M147_M101_M146_COVERED" not in record.reason_codes
+                or "M147_DISABLED_BY_DEFAULT" not in record.reason_codes
+                or "M147_NO_PUBLIC_PUBLISH" not in record.reason_codes
+                or "M147_NO_WIKI_PUBLISH" not in record.reason_codes
+                or "M147_NO_WIKI_AUTOMATION" not in record.reason_codes
+                or "M147_NO_GITHUB_WIKI_RUNTIME" not in record.reason_codes
+                or "M147_NO_DOCS_SITE_DEPLOY" not in record.reason_codes
+                or "M147_NO_EXTERNAL_DISTRIBUTION" not in record.reason_codes
+                or "M147_NO_ARTIFACT_UPLOAD" not in record.reason_codes
+                or "M147_NO_RELEASE_PUBLISH" not in record.reason_codes
+                or "M147_NO_DOCS_RUNTIME" not in record.reason_codes
+                or "M147_NO_AUTH_RUNTIME" not in record.reason_codes
+                or "M147_NO_BACKEND_ROUTE" not in record.reason_codes
+                or "M147_NO_PRODUCTION_AUTHORITY" not in record.reason_codes
+                or "M148_REMAINS_FUTURE" not in record.reason_codes
+            ):
+                failures.append(
+                    "M147 public docs + wiki readiness record is unsafe or over-authoritative"
+                )
+            for update, reason in [
+                ({"public_publish_started": True}, "M147_PUBLIC_PUBLISH_DENIED"),
+                ({"wiki_publish_started": True}, "M147_WIKI_PUBLISH_DENIED"),
+                ({"wiki_automation_started": True}, "M147_WIKI_AUTOMATION_DENIED"),
+                (
+                    {"github_wiki_runtime_performed": True},
+                    "M147_GITHUB_WIKI_RUNTIME_DENIED",
+                ),
+                ({"docs_site_deploy_started": True}, "M147_DOCS_SITE_DEPLOY_DENIED"),
+                (
+                    {"external_distribution_performed": True},
+                    "M147_EXTERNAL_DISTRIBUTION_DENIED",
+                ),
+                ({"artifact_upload_started": True}, "M147_ARTIFACT_UPLOAD_DENIED"),
+                ({"release_publish_started": True}, "M147_RELEASE_PUBLISH_DENIED"),
+                ({"docs_runtime_performed": True}, "M147_DOCS_RUNTIME_DENIED"),
+                ({"auth_runtime_started": True}, "M147_AUTH_RUNTIME_DENIED"),
+                ({"backend_route_added": True}, "M147_BACKEND_ROUTE_DENIED"),
+                ({"dependency_added": True}, "M147_DEPENDENCY_DENIED"),
+                (
+                    {"production_authority_granted": True},
+                    "M147_PRODUCTION_AUTHORITY_DENIED",
+                ),
+            ]:
+                try:
+                    validate_public_docs_wiki_readiness_record(
+                        record.model_copy(update=update)
+                    )
+                    failures.append(
+                        f"M147 unsafe public-docs mutation was not denied with {reason}"
+                    )
+                except ValueError as exc:
+                    if reason not in str(exc):
+                        failures.append(
+                            f"M147 unsafe public-docs mutation raised {exc!s}"
+                        )
+        except Exception as exc:
+            failures.append(f"M147 public docs + wiki validation failed: {exc}")
+
+        docs_text = " ".join(
+            "\n".join(
+                self._read(self.root / path).lower()
+                for path in required_files
+                if path.startswith("docs/") and (self.root / path).exists()
+            ).split()
+        )
+        for fragment in [
+            "public docs + wiki readiness",
+            "contract-only",
+            "review-only",
+            "deterministic",
+            "local-only",
+            "safe-ref-only",
+            "docs-readiness-only",
+            "disabled by default",
+            "route-free",
+            "no-effect",
+            "accepted m101-m146",
+            "public doc refs",
+            "wiki readiness refs",
+            "docs index refs",
+            "canonical map refs",
+            "release note refs",
+            "disclosure review refs",
+            "publishing checklist refs",
+            "audit",
+            "replay",
+            "revocation",
+            "kill-switch",
+            "no-effect receipt",
+            "no public publishing",
+            "no wiki publishing",
+            "no wiki automation",
+            "no github wiki runtime",
+            "no docs-site deploy",
+            "no external distribution",
+            "no artifact upload",
+            "no release publishing",
+            "no docs runtime",
+            "no auth runtime",
+            "no backend route",
+            "no control center control",
+            "no dependency",
+            "no beta release",
+            "no production authority",
+            "m148 remains future",
+            "v1.0.0-alpha",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M147 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m147_public_docs_wiki_readiness_static_safety(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        forbidden_source_fragments = [
+            "public_publish_enabled=True",
+            "wiki_publish_enabled=True",
+            "wiki_automation_enabled=True",
+            "github_wiki_runtime_enabled=True",
+            "docs_site_deploy_enabled=True",
+            "external_distribution_enabled=True",
+            "artifact_upload_enabled=True",
+            "release_publish_enabled=True",
+            "docs_runtime_enabled=True",
+            "auth_runtime_enabled=True",
+            "login_enabled=True",
+            "connector_runtime_enabled=True",
+            "plugin_marketplace_runtime_enabled=True",
+            "execution_enabled=True",
+            "tool_execution_enabled=True",
+            "shell_execution_enabled=True",
+            "browser_action_enabled=True",
+            "connector_action_enabled=True",
+            "network_access_enabled=True",
+            "model_call_enabled=True",
+            "memory_write_enabled=True",
+            "context_injection_enabled=True",
+            "backend_route_enabled=True",
+            "dependency_added=True",
+            "beta_release_enabled=True",
+            "production_authority_granted=True",
+            "public_publish_started=True",
+            "wiki_publish_started=True",
+            "wiki_automation_started=True",
+            "github_wiki_runtime_performed=True",
+            "docs_site_deploy_started=True",
+            "external_distribution_performed=True",
+            "artifact_upload_started=True",
+            "release_publish_started=True",
+            "docs_runtime_performed=True",
+            "auth_runtime_started=True",
+            "/public-docs/publish",
+            "/public-docs/deploy",
+            "/docs/publish",
+            "/docs/deploy",
+            "/wiki/publish",
+            "/wiki/sync",
+            "/wiki/automation",
+            "/github/wiki",
+            "/artifacts/upload",
+            "/release/publish",
+            "/distribution/publish",
+        ]
+        allowed_files = {
+            "src/ultimate_ai_agent/core/gate/evaluators.py",
+            "src/ultimate_ai_agent/api/app.py",
+            "src/ultimate_ai_agent/api/openapi.py",
+            "src/ultimate_ai_agent/core/gate/criteria.py",
+            "src/ultimate_ai_agent/core/productization/__init__.py",
+            "src/ultimate_ai_agent/core/productization/public_docs_wiki_readiness.py",
+            "src/ultimate_ai_agent/core/productization/billing_plan_boundary.py",
+            "src/ultimate_ai_agent/core/productization/enterprise_pro_safety_modes.py",
+            "src/ultimate_ai_agent/core/productization/plugin_marketplace_policy_draft.py",
+            "src/ultimate_ai_agent/core/productization/alpha_ui_app_readiness.py",
+            "src/ultimate_ai_agent/core/productization/alpha_privacy_review.py",
+            "src/ultimate_ai_agent/core/productization/multi_user_product_boundary.py",
+        }
+        for root in [
+            self.root / "src" / "ultimate_ai_agent",
+            self.root / "apps" / "control-center" / "src",
+            self.root / "apps" / "ccc-ios",
+        ]:
+            if not root.exists():
+                continue
+            candidate_files = []
+            for pattern in (
+                "*.py",
+                "*.ts",
+                "*.tsx",
+                "*.js",
+                "*.jsx",
+                "*.swift",
+                "*.yml",
+                "*.yaml",
+            ):
+                candidate_files.extend(root.rglob(pattern))
+            for path in sorted(candidate_files):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(self.root).as_posix()
+                if ".test." in rel or rel in allowed_files:
+                    continue
+                text = path.read_text(encoding="utf-8")
+                for fragment in forbidden_source_fragments:
+                    if fragment in text:
+                        failures.append(
+                            f"M147 forbidden public-docs/wiki fragment in {rel}: {fragment}"
+                        )
+        return self._result(criterion, failures, [])
+
+    def check_m147_public_docs_wiki_readiness_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m147_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M147 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m147_roadmap_currentness(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_docs = [
+            "README.md",
+            "VERSION.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            "docs/roadmap/MILESTONE_CHARTERS.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+            "docs/DOCUMENTATION_INDEX.md",
+            "docs/canonical/CANONICAL_DOC_MAP.md",
+        ]
+        failures = [
+            f"missing M147 roadmap doc: {path}"
+            for path in required_docs
+            if not (self.root / path).exists()
+        ]
+        text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_docs
+            if (self.root / path).exists()
+        )
+        if "checkpoint m147" not in text or "public docs + wiki readiness" not in text:
+            failures.append("active docs do not identify Checkpoint M147")
+        if (
+            "m147 is implemented/released" not in text
+            and "checkpoint m147 is implemented/released" not in text
+        ):
+            failures.append("active docs do not mark M147 implemented/released")
+        for version_label, product_target, milestone, title, status in [
+            (
+                "checkpoint m146",
+                "pre-alpha checkpoint",
+                "m146",
+                "billing/plan boundary, if needed",
+                "implemented/released",
+            ),
+            (
+                "checkpoint m147",
+                "pre-alpha checkpoint",
+                "m147",
+                "public docs + wiki readiness",
+                "implemented/released",
+            ),
+            (
+                "checkpoint m148",
+                "pre-alpha checkpoint",
+                "m148",
+                "external security review",
+                "planned/provisional",
+            ),
+            (
+                "v1.0.0-alpha",
+                "alpha",
+                "m150",
+                "ultimate ai agent v1.0.0-alpha",
+                "planned/provisional",
+            ),
+        ]:
+            row = (
+                f"| {version_label} | {product_target} | {milestone} | "
+                f"{title} | {status} |"
+            )
+            if not _roadmap_row_present(text, row):
+                failures.append(
+                    f"active docs missing expected M147/M148-M150 row: {version_label} / {milestone.upper()} - {title}"
+                )
+        for fragment in (
+            "public publishing is implemented",
+            "wiki publishing is implemented",
+            "wiki automation is implemented",
+            "github wiki runtime is implemented",
+            "docs-site deploy is implemented",
+            "external distribution is implemented",
+            "artifact upload is implemented",
+            "release publishing is implemented",
+            "docs runtime is implemented",
+            "beta is released",
+            "production authority is implemented",
+            "backend route is implemented",
+            "control center control is implemented",
+            "m148 dependency is added",
+        ):
+            if fragment in text:
+                failures.append(
+                    f"active docs imply forbidden M147 future/currentness claim: {fragment}"
                 )
         return self._result(criterion, failures, required_docs)
 

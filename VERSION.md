@@ -2,25 +2,24 @@
 
 Current active baseline: **v1.7.2**
 
-Checkpoint M146 is implemented/released as Billing/Plan Boundary.
+Checkpoint M147 is implemented/released as Public Docs + Wiki Readiness.
 The current product baseline remains v1.7.2. Already-pushed tags
-remain immutable historical internal milestone tags. Future M147-M149 conveyor
+remain immutable historical internal milestone tags. Future M148-M149 conveyor
 milestones use checkpoint labels instead of product SemVer tags, and M150 is
 the next product release target **v1.0.0-alpha**. Beta begins only after the
 alpha UI and supporting safety/product work are reviewed, accepted, and
 explicitly promoted by a later roadmap patch.
 
-Checkpoint M146 is contract-only, review-only, deterministic, local-only,
-safe-ref-only, billing-boundary-only, disabled by default, route-free, and
-no-effect. It records accepted M101-M145 checkpoint refs, billing boundary refs,
-plan boundary refs, entitlement boundary refs, pricing disclosure refs, payment
-provider boundary refs, upgrade downgrade policy refs, support refund policy
-refs, audit, replay, revocation, kill-switch, and no-effect receipt refs. It
-denies payment processing, checkout runtime, subscription management, plan
-enforcement, billing runtime, external billing provider, account plan runtime,
-entitlement runtime, pricing runtime, auth runtime, backend route, Control
-Center control, dependency, beta release, and production authority. M147
-remains future Public Docs + Wiki Readiness work.
+Checkpoint M147 is contract-only, review-only, deterministic, local-only,
+safe-ref-only, docs-readiness-only, disabled by default, route-free, and
+no-effect. It records accepted M101-M146 checkpoint refs, public doc refs, wiki
+readiness refs, docs index refs, canonical map refs, release note refs,
+disclosure review refs, publishing checklist refs, audit, replay, revocation,
+kill-switch, and no-effect receipt refs. It denies public publishing, wiki
+publishing, wiki automation, GitHub wiki runtime, docs-site deploy, external
+distribution, artifact upload, release publishing, docs runtime, auth runtime,
+backend route, Control Center control, dependency, beta release, and production
+authority. M148 remains future External Security Review work.
 
 v1.7.0 implements M103 Camera/Photos Metadata-Only Contract. Camera and photos
 remain off by default.
@@ -523,6 +522,6 @@ backend routes, Control Center controls, dependencies, alpha privacy review,
 alpha release, beta release, M142 alpha privacy review work, broad autonomy,
 and production authority.
 
-M101, M102, M103, M104, M105, M106, M107, M108, M109, M110, M111, M112, M113, M114, M115, M116, M117, M118, M119, M120, M121, M122, M123, M124, M125, M126, M127, M128, M129, M130, M131, M132, M133, M134, M135, M136, M137, M138, M139, M140, M141, M142, M143, M144, M145, and M146 are implemented/released. M147-M150 are
+M101, M102, M103, M104, M105, M106, M107, M108, M109, M110, M111, M112, M113, M114, M115, M116, M117, M118, M119, M120, M121, M122, M123, M124, M125, M126, M127, M128, M129, M130, M131, M132, M133, M134, M135, M136, M137, M138, M139, M140, M141, M142, M143, M144, M145, M146, and M147 are implemented/released. M148-M150 are
 planned/provisional checkpoint milestones only. M150 is planned as
 v1.0.0-alpha, not beta.

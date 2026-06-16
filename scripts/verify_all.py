@@ -194,6 +194,7 @@ SCAN_SEQUENCE = [
     ("M144 plugin marketplace policy draft scan", "verify_m144_plugin_marketplace_policy_draft"),
     ("M145 enterprise/pro safety modes scan", "verify_m145_enterprise_pro_safety_modes"),
     ("M146 billing/plan boundary scan", "verify_m146_billing_plan_boundary"),
+    ("M147 public docs + wiki readiness scan", "verify_m147_public_docs_wiki_readiness"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -17811,6 +17812,10 @@ def verify_post_m100_roadmap_reconciliation():
         _version_doc_marks_milestone_implemented(active_version_text, "m146")
     ):
         implemented_milestones.add("m146")
+    if (
+        _version_doc_marks_milestone_implemented(active_version_text, "m147")
+    ):
+        implemented_milestones.add("m147")
     for version_label, product_target, milestone, title in expected_labels:
         if milestone in implemented_milestones:
             continue
@@ -27299,6 +27304,230 @@ def verify_m146_billing_plan_boundary():
 
     print(
         "OK: M146 billing/plan boundary is review-only, disabled-by-default, safe-ref-only, and route-free"
+    )
+
+
+def verify_m147_public_docs_wiki_readiness():
+    print("\n[Verifier] Running M147 public docs + wiki readiness guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/productization/public_docs_wiki_readiness.py",
+        "docs/productization/PUBLIC_DOCS_WIKI_READINESS.md",
+        "docs/productization/PUBLIC_DOCS_WIKI_READINESS_POLICY.md",
+        "docs/productization/PUBLIC_DOCS_WIKI_READINESS_AUTHORITY_BOUNDARY.md",
+        "docs/productization/PUBLIC_DOCS_WIKI_READINESS_RECEIPT_PLAN.md",
+        "docs/productization/PUBLIC_DOCS_WIKI_READINESS_NON_GOALS.md",
+        "docs/productization/M147_TO_M148_BOUNDARY.md",
+        "docs/release_notes/checkpoint_m147.md",
+        "docs/archive/checkpoints/m147/README_IMPORT.md",
+        "docs/archive/checkpoints/m147/master_plan.md",
+        "tests/test_m147_public_docs_wiki_readiness.py",
+        "tests/test_m147_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M147 public docs + wiki readiness file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = " ".join(
+        "\n".join(
+            (ROOT / rel_path).read_text(encoding="utf-8").lower()
+            for rel_path in required_files
+            if rel_path.startswith("docs/")
+        ).split()
+    )
+    for fragment in [
+        "public docs + wiki readiness",
+        "contract-only",
+        "review-only",
+        "deterministic",
+        "local-only",
+        "safe-ref-only",
+        "docs-readiness-only",
+        "disabled by default",
+        "route-free",
+        "no-effect",
+        "accepted m101-m146",
+        "public doc refs",
+        "wiki readiness refs",
+        "docs index refs",
+        "canonical map refs",
+        "release note refs",
+        "disclosure review refs",
+        "publishing checklist refs",
+        "audit",
+        "replay",
+        "revocation",
+        "kill-switch",
+        "no-effect receipt",
+        "no public publishing",
+        "no wiki publishing",
+        "no wiki automation",
+        "no github wiki runtime",
+        "no docs-site deploy",
+        "no external distribution",
+        "no artifact upload",
+        "no release publishing",
+        "no docs runtime",
+        "no auth runtime",
+        "no backend route",
+        "no control center control",
+        "no dependency",
+        "no beta release",
+        "no production authority",
+        "m148 remains future",
+        "v1.0.0-alpha",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M147 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from tests.test_m147_public_docs_wiki_readiness import _request
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.criteria import (
+            default_foundation_gate_criteria,
+        )
+        from ultimate_ai_agent.core.gate.evaluators import (
+            FoundationGateEvaluator,
+            m147_openapi_route_failures,
+        )
+        from ultimate_ai_agent.core.productization import (
+            PublicDocsWikiReadinessStatus,
+            build_public_docs_wiki_readiness_record,
+            validate_public_docs_wiki_readiness_record,
+        )
+    except Exception as exc:
+        print(f"FAIL: M147 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m147_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    record = build_public_docs_wiki_readiness_record(_request())
+    if (
+        record.status != PublicDocsWikiReadinessStatus.readiness_recorded
+        or not record.contract_only
+        or not record.review_only
+        or not record.safe_refs_only
+        or not record.docs_readiness_only
+        or not record.disabled_by_default
+        or not record.m101_m146_covered
+        or not record.public_docs_bound
+        or not record.wiki_readiness_bound
+        or not record.docs_indexes_bound
+        or not record.canonical_maps_bound
+        or not record.release_notes_bound
+        or not record.disclosure_reviews_bound
+        or not record.publishing_checklists_bound
+        or not record.no_public_publish
+        or not record.no_wiki_publish
+        or not record.no_wiki_automation
+        or not record.no_github_wiki_runtime
+        or not record.no_docs_site_deploy
+        or not record.no_external_distribution
+        or not record.no_artifact_upload
+        or not record.no_release_publish
+        or not record.no_docs_runtime
+        or not record.no_auth_runtime
+        or not record.no_backend_route
+        or not record.no_dependency
+        or not record.no_production_authority
+        or record.public_publish_started
+        or record.wiki_publish_started
+        or record.wiki_automation_started
+        or record.github_wiki_runtime_performed
+        or record.docs_site_deploy_started
+        or record.external_distribution_performed
+        or record.artifact_upload_started
+        or record.release_publish_started
+        or record.docs_runtime_performed
+        or record.auth_runtime_started
+        or record.backend_route_added
+        or record.dependency_added
+        or record.beta_release_enabled
+        or record.production_authority_granted
+        or "M147_PUBLIC_DOCS_WIKI_READINESS_REVIEW_ONLY"
+        not in record.reason_codes
+        or "M147_M101_M146_COVERED" not in record.reason_codes
+        or "M147_DISABLED_BY_DEFAULT" not in record.reason_codes
+        or "M147_NO_PUBLIC_PUBLISH" not in record.reason_codes
+        or "M147_NO_WIKI_PUBLISH" not in record.reason_codes
+        or "M147_NO_WIKI_AUTOMATION" not in record.reason_codes
+        or "M147_NO_GITHUB_WIKI_RUNTIME" not in record.reason_codes
+        or "M147_NO_DOCS_SITE_DEPLOY" not in record.reason_codes
+        or "M147_NO_EXTERNAL_DISTRIBUTION" not in record.reason_codes
+        or "M147_NO_ARTIFACT_UPLOAD" not in record.reason_codes
+        or "M147_NO_RELEASE_PUBLISH" not in record.reason_codes
+        or "M147_NO_DOCS_RUNTIME" not in record.reason_codes
+        or "M147_NO_AUTH_RUNTIME" not in record.reason_codes
+        or "M147_NO_BACKEND_ROUTE" not in record.reason_codes
+        or "M147_NO_PRODUCTION_AUTHORITY" not in record.reason_codes
+        or "M148_REMAINS_FUTURE" not in record.reason_codes
+    ):
+        print("FAIL: M147 public docs + wiki readiness record is unsafe")
+        sys.exit(1)
+
+    for update, reason in [
+        ({"public_publish_started": True}, "M147_PUBLIC_PUBLISH_DENIED"),
+        ({"wiki_publish_started": True}, "M147_WIKI_PUBLISH_DENIED"),
+        ({"wiki_automation_started": True}, "M147_WIKI_AUTOMATION_DENIED"),
+        (
+            {"github_wiki_runtime_performed": True},
+            "M147_GITHUB_WIKI_RUNTIME_DENIED",
+        ),
+        ({"docs_site_deploy_started": True}, "M147_DOCS_SITE_DEPLOY_DENIED"),
+        (
+            {"external_distribution_performed": True},
+            "M147_EXTERNAL_DISTRIBUTION_DENIED",
+        ),
+        ({"artifact_upload_started": True}, "M147_ARTIFACT_UPLOAD_DENIED"),
+        ({"release_publish_started": True}, "M147_RELEASE_PUBLISH_DENIED"),
+        ({"docs_runtime_performed": True}, "M147_DOCS_RUNTIME_DENIED"),
+        ({"auth_runtime_started": True}, "M147_AUTH_RUNTIME_DENIED"),
+        ({"backend_route_added": True}, "M147_BACKEND_ROUTE_DENIED"),
+        ({"dependency_added": True}, "M147_DEPENDENCY_DENIED"),
+        ({"production_authority_granted": True}, "M147_PRODUCTION_AUTHORITY_DENIED"),
+    ]:
+        try:
+            validate_public_docs_wiki_readiness_record(record.model_copy(update=update))
+            print(f"FAIL: M147 mutated authority flag was not denied: {update}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M147 mutated authority flag raised {exc!s}")
+                sys.exit(1)
+
+    criteria = {
+        criterion.criterion_id: criterion
+        for criterion in default_foundation_gate_criteria()
+    }
+    for criterion_id in [
+        "m147_public_docs_wiki_readiness_contracts",
+        "m147_public_docs_wiki_readiness_static_safety",
+        "m147_public_docs_wiki_readiness_route_boundary",
+        "m147_roadmap_currentness",
+    ]:
+        if criterion_id not in criteria:
+            print(f"FAIL: Missing M147 Foundation Gate criterion: {criterion_id}")
+            sys.exit(1)
+    evaluator = FoundationGateEvaluator(ROOT)
+    for criterion_id in [
+        "m147_public_docs_wiki_readiness_contracts",
+        "m147_public_docs_wiki_readiness_static_safety",
+        "m147_public_docs_wiki_readiness_route_boundary",
+        "m147_roadmap_currentness",
+    ]:
+        gate_report = evaluator.evaluate([criteria[criterion_id]])
+        result = gate_report.results[0]
+        if result.status != "passed":
+            print(f"FAIL: {criterion_id} failed: {result.failures}")
+            sys.exit(1)
+
+    print(
+        "OK: M147 public docs + wiki readiness is review-only, disabled-by-default, safe-ref-only, and route-free"
     )
 
 
