@@ -194,6 +194,22 @@ from ultimate_ai_agent.core.autonomy.autonomous_recovery_planner import (
     validate_autonomous_recovery_planner_policy,
     validate_autonomous_recovery_planner_request,
 )
+from ultimate_ai_agent.core.autonomy.cross_tool_dependency_execution import (
+    CROSS_TOOL_DEPENDENCY_EXECUTION_DOCS,
+    M136_MAX_DEPENDENCY_EDGE_REFS,
+    M136_MAX_DEPENDENCY_STEP_REFS,
+    M136_MAX_TOOL_REFS,
+    CrossToolDependencyEdge,
+    CrossToolDependencyExecutionDecision,
+    CrossToolDependencyExecutionPolicy,
+    CrossToolDependencyExecutionReceiptPlan,
+    CrossToolDependencyExecutionRequest,
+    CrossToolDependencyExecutionStatus,
+    build_cross_tool_dependency_execution_decision,
+    validate_cross_tool_dependency_execution_decision,
+    validate_cross_tool_dependency_execution_policy,
+    validate_cross_tool_dependency_execution_request,
+)
 
 __all__ = [
     "AUTONOMY_MODE_CHARTER_DOCS",
@@ -356,4 +372,18 @@ __all__ = [
     "validate_autonomous_recovery_planner_decision",
     "validate_autonomous_recovery_planner_policy",
     "validate_autonomous_recovery_planner_request",
+    "CROSS_TOOL_DEPENDENCY_EXECUTION_DOCS",
+    "M136_MAX_DEPENDENCY_EDGE_REFS",
+    "M136_MAX_DEPENDENCY_STEP_REFS",
+    "M136_MAX_TOOL_REFS",
+    "CrossToolDependencyEdge",
+    "CrossToolDependencyExecutionDecision",
+    "CrossToolDependencyExecutionPolicy",
+    "CrossToolDependencyExecutionReceiptPlan",
+    "CrossToolDependencyExecutionRequest",
+    "CrossToolDependencyExecutionStatus",
+    "build_cross_tool_dependency_execution_decision",
+    "validate_cross_tool_dependency_execution_decision",
+    "validate_cross_tool_dependency_execution_policy",
+    "validate_cross_tool_dependency_execution_request",
 ]

@@ -1597,6 +1597,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_m133_long_running_task_supervisor_docs(root, version))
     failures.extend(_verify_m134_human_checkpoint_scheduling_docs(root, version))
     failures.extend(_verify_m135_autonomous_recovery_planner_docs(root, version))
+    failures.extend(_verify_m136_cross_tool_dependency_execution_docs(root, version))
     failures.extend(_verify_m19_roadmap_currentness(root, version))
     failures.extend(_verify_post_m18_roadmap_status_labels(root))
 
@@ -7286,6 +7287,12 @@ def _verify_post_m100_roadmap_reconciliation_docs(root: Path, version: str | Non
         or "autonomous recovery planner" in version_doc_text
     ):
         implemented_milestones.add("m135")
+    if _version_tuple(version) >= (1, 7, 2) and (
+        "checkpoint m136" in version_doc_text
+        or "m136" in version_doc_text
+        or "cross-tool dependency execution" in version_doc_text
+    ):
+        implemented_milestones.add("m136")
     for version_label, product_target, milestone, title in EXPECTED_M101_M150_LABELS:
         if milestone in implemented_milestones:
             continue
@@ -12631,17 +12638,19 @@ def _verify_m135_autonomous_recovery_planner_docs(
         "| checkpoint m135 | pre-alpha checkpoint | m135 | "
         "autonomous recovery planner | implemented/released |"
     )
+    m136_implemented = (
+        "checkpoint m136 is implemented/released" in current_text
+        or "m136 is implemented/released" in current_text
+    )
     planned_m136_row = (
         "| checkpoint m136 | pre-alpha checkpoint | m136 | "
         "cross-tool dependency execution | planned/provisional |"
     )
     if not _roadmap_row_present(current_text, implemented_m135_row):
         failures.append("active docs missing implemented Checkpoint M135 row")
-    if not _roadmap_row_present(current_text, planned_m136_row):
+    if not m136_implemented and not _roadmap_row_present(current_text, planned_m136_row):
         failures.append("active docs missing planned Checkpoint M136 row")
-    for fragment in {
-        "cross-tool dependency execution is implemented",
-        "m136 cross-tool dependency execution is implemented",
+    m135_forbidden_fragments = {
         "recovery execution is implemented",
         "retry execution is implemented",
         "resume execution is implemented",
@@ -12664,9 +12673,189 @@ def _verify_m135_autonomous_recovery_planner_docs(
         "control center control is implemented",
         "beta is released",
         "production authority is implemented",
-    }:
+    }
+    m135_boundary_only_forbidden_fragments = {
+        "cross-tool dependency execution is implemented",
+        "m136 cross-tool dependency execution is implemented",
+    }
+    for fragment in m135_forbidden_fragments:
         if fragment in current_text or fragment in text:
             failures.append(f"M135 docs imply forbidden/future capability: {fragment}")
+    for fragment in m135_boundary_only_forbidden_fragments:
+        if fragment in text or (not m136_implemented and fragment in current_text):
+            failures.append(f"M135 docs imply forbidden/future capability: {fragment}")
+    return failures
+
+
+def _verify_m136_cross_tool_dependency_execution_docs(
+    root: Path, version: str | None
+) -> list[str]:
+    failures: list[str] = []
+    if _version_tuple(version) < (1, 7, 2):
+        return failures
+    active_text = " ".join(
+        "\n".join(
+            _read(root / rel_path).lower()
+            for rel_path in [
+                "README.md",
+                "VERSION.md",
+                "docs/canonical/09_roadmap.md",
+                "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            ]
+            if (root / rel_path).exists()
+        ).split()
+    )
+    if (
+        "checkpoint m136 is implemented/released" not in active_text
+        and "m136 is implemented/released" not in active_text
+    ):
+        return failures
+    required_paths = [
+        "docs/autonomy/CROSS_TOOL_DEPENDENCY_EXECUTION.md",
+        "docs/autonomy/CROSS_TOOL_DEPENDENCY_EXECUTION_POLICY.md",
+        "docs/autonomy/CROSS_TOOL_DEPENDENCY_EXECUTION_AUTHORITY_BOUNDARY.md",
+        "docs/autonomy/CROSS_TOOL_DEPENDENCY_EXECUTION_RECEIPT_PLAN.md",
+        "docs/autonomy/CROSS_TOOL_DEPENDENCY_EXECUTION_NON_GOALS.md",
+        "docs/autonomy/M136_TO_M137_BOUNDARY.md",
+        "docs/release_notes/checkpoint_m136.md",
+        "docs/archive/checkpoints/m136/README_IMPORT.md",
+        "docs/archive/checkpoints/m136/master_plan.md",
+        "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+    ]
+    for rel_path in required_paths:
+        if not (root / rel_path).exists():
+            failures.append(f"missing M136 cross-tool dependency execution doc: {rel_path}")
+    text = " ".join(
+        "\n".join(
+            _read(root / rel_path).lower()
+            for rel_path in required_paths
+            if (root / rel_path).exists()
+        ).split()
+    )
+    required_fragments = {
+        "M136 docs must say cross-tool dependency execution": "cross-tool dependency execution",
+        "M136 docs must say contract-only": "contract-only",
+        "M136 docs must say review-only": "review-only",
+        "M136 docs must say cross-tool-dependency-execution-only": "cross-tool-dependency-execution-only",
+        "M136 docs must say deterministic": "deterministic",
+        "M136 docs must say local-only": "local-only",
+        "M136 docs must say safe-ref-only": "safe-ref-only",
+        "M136 docs must say exact scope": "exact scope",
+        "M136 docs must say Mode 5": "mode 5",
+        "M136 docs must say M135 autonomous recovery planner decision": "m135 autonomous recovery planner decision",
+        "M136 docs must say M134 human checkpoint scheduling decision": "m134 human checkpoint scheduling decision",
+        "M136 docs must say M133 supervisor decision": "m133 supervisor decision",
+        "M136 docs must say M132 trusted workflow decision": "m132 trusted workflow decision",
+        "M136 docs must say dependency graph": "dependency graph",
+        "M136 docs must say dependency step refs": "dependency step refs",
+        "M136 docs must say dependency edge refs": "dependency edge refs",
+        "M136 docs must say dependency order refs": "dependency order refs",
+        "M136 docs must say safe tool refs": "safe tool refs",
+        "M136 docs must say dry-run plan": "dry-run plan",
+        "M136 docs must say dependency resolution": "dependency resolution",
+        "M136 docs must say conflict policy": "conflict policy",
+        "M136 docs must say failure policy": "failure policy",
+        "M136 docs must say recovery plan": "recovery plan",
+        "M136 docs must say checkpoint ref": "checkpoint ref",
+        "M136 docs must say human checkpoint ref": "human checkpoint ref",
+        "M136 docs must say risk decision": "risk decision",
+        "M136 docs must say audit": "audit",
+        "M136 docs must say replay": "replay",
+        "M136 docs must say revocation": "revocation",
+        "M136 docs must say kill-switch": "kill-switch",
+        "M136 docs must say no-effect receipt": "no-effect receipt",
+        "M136 docs must deny dependency execution": "no dependency execution",
+        "M136 docs must deny dependency resolver runtime": "no dependency resolver runtime",
+        "M136 docs must deny cross-tool runtime": "no cross-tool runtime",
+        "M136 docs must deny parallel tool execution": "no parallel tool execution",
+        "M136 docs must deny tool state handoff": "no tool state handoff",
+        "M136 docs must deny tool output routing": "no tool output routing",
+        "M136 docs must deny recovery execution": "no recovery execution",
+        "M136 docs must deny supervisor runtime": "no supervisor runtime",
+        "M136 docs must deny checkpoint scheduler": "no checkpoint scheduler",
+        "M136 docs must deny prompt": "no prompt",
+        "M136 docs must deny scheduler": "no scheduler",
+        "M136 docs must deny background worker": "no background worker",
+        "M136 docs must deny autonomous actions": "no autonomous actions",
+        "M136 docs must deny execution": "no execution",
+        "M136 docs must deny tool execution": "no tool execution",
+        "M136 docs must deny shell execution": "no shell execution",
+        "M136 docs must deny network access": "no network access",
+        "M136 docs must deny browser automation": "no browser automation",
+        "M136 docs must deny plugin execution": "no plugin execution",
+        "M136 docs must deny connector runtime": "no connector runtime",
+        "M136 docs must deny account auth": "no account auth",
+        "M136 docs must deny model call": "no model call",
+        "M136 docs must deny memory write": "no memory write",
+        "M136 docs must deny context injection": "no context injection",
+        "M136 docs must deny backend route": "no backend route",
+        "M136 docs must deny Control Center control": "no control center control",
+        "M136 docs must deny dependency": "no dependency",
+        "M136 docs must keep M137 future": "m137 remains future",
+        "M136 docs must preserve alpha target": "v1.0.0-alpha",
+    }
+    for message, fragment in required_fragments.items():
+        if fragment not in text:
+            failures.append(message)
+
+    active_paths = [
+        "README.md",
+        "VERSION.md",
+        "docs/canonical/09_roadmap.md",
+        "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+        "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+        "docs/roadmap/MILESTONE_CHARTERS.md",
+        "docs/DOCUMENTATION_INDEX.md",
+        "docs/canonical/CANONICAL_DOC_MAP.md",
+    ]
+    current_text = " ".join(
+        "\n".join(
+            _read(root / rel_path).lower()
+            for rel_path in active_paths
+            if (root / rel_path).exists()
+        ).split()
+    )
+    implemented_m136_row = (
+        "| checkpoint m136 | pre-alpha checkpoint | m136 | "
+        "cross-tool dependency execution | implemented/released |"
+    )
+    planned_m137_row = (
+        "| checkpoint m137 | pre-alpha checkpoint | m137 | "
+        "autonomous browser + connector combined workflows | planned/provisional |"
+    )
+    m150_row = (
+        "| v1.0.0-alpha | alpha | m150 | ultimate ai agent v1.0.0-alpha | "
+        "planned/provisional |"
+    )
+    if not _roadmap_row_present(current_text, implemented_m136_row):
+        failures.append("active docs missing implemented Checkpoint M136 row")
+    if not _roadmap_row_present(current_text, planned_m137_row):
+        failures.append("active docs missing planned Checkpoint M137 row")
+    if not _roadmap_row_present(current_text, m150_row):
+        failures.append("active docs missing planned M150 alpha row")
+    for fragment in {
+        "autonomous browser + connector combined workflows are implemented",
+        "m137 autonomous browser + connector combined workflows are implemented",
+        "browser action is implemented",
+        "connector write is implemented",
+        "account auth is implemented",
+        "combined workflow runtime is implemented",
+        "dependency execution runtime is implemented",
+        "tool execution is implemented",
+        "shell execution is implemented",
+        "network access is implemented",
+        "browser automation is implemented",
+        "browser forms are implemented",
+        "plugin execution is implemented",
+        "connector runtime is implemented",
+        "backend route is implemented",
+        "control center control is implemented",
+        "m137 dependency is added",
+        "beta is released",
+        "production authority is implemented",
+    }:
+        if fragment in current_text or fragment in text:
+            failures.append(f"M136 docs imply forbidden/future capability: {fragment}")
     return failures
 
 

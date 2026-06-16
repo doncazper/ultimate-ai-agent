@@ -174,6 +174,7 @@ SCAN_SEQUENCE = [
     ("M133 long-running task supervisor scan", "verify_m133_long_running_task_supervisor"),
     ("M134 human checkpoint scheduling scan", "verify_m134_human_checkpoint_scheduling"),
     ("M135 autonomous recovery planner scan", "verify_m135_autonomous_recovery_planner"),
+    ("M136 cross-tool dependency execution scan", "verify_m136_cross_tool_dependency_execution"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -17733,6 +17734,12 @@ def verify_post_m100_roadmap_reconciliation():
         or "autonomous recovery planner" in active_version_text
     ):
         implemented_milestones.add("m135")
+    if (
+        "checkpoint m136" in active_version_text
+        or "m136" in active_version_text
+        or "cross-tool dependency execution" in active_version_text
+    ):
+        implemented_milestones.add("m136")
     for version_label, product_target, milestone, title in expected_labels:
         if milestone in implemented_milestones:
             continue
@@ -24745,6 +24752,279 @@ def verify_m135_autonomous_recovery_planner():
             sys.exit(1)
 
     print("OK: M135 autonomous recovery planner is review-only, safe-ref-only, and route-free")
+
+
+def verify_m136_cross_tool_dependency_execution():
+    print("\n[Verifier] Running M136 cross-tool dependency execution guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/autonomy/__init__.py",
+        "src/ultimate_ai_agent/core/autonomy/cross_tool_dependency_execution.py",
+        "docs/autonomy/CROSS_TOOL_DEPENDENCY_EXECUTION.md",
+        "docs/autonomy/CROSS_TOOL_DEPENDENCY_EXECUTION_POLICY.md",
+        "docs/autonomy/CROSS_TOOL_DEPENDENCY_EXECUTION_AUTHORITY_BOUNDARY.md",
+        "docs/autonomy/CROSS_TOOL_DEPENDENCY_EXECUTION_RECEIPT_PLAN.md",
+        "docs/autonomy/CROSS_TOOL_DEPENDENCY_EXECUTION_NON_GOALS.md",
+        "docs/autonomy/M136_TO_M137_BOUNDARY.md",
+        "docs/release_notes/checkpoint_m136.md",
+        "docs/archive/checkpoints/m136/README_IMPORT.md",
+        "docs/archive/checkpoints/m136/master_plan.md",
+        "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+        "tests/test_m136_cross_tool_dependency_execution.py",
+        "tests/test_m136_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M136 cross-tool dependency execution file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = " ".join(
+        "\n".join(
+            (ROOT / rel_path).read_text(encoding="utf-8").lower()
+            for rel_path in required_files
+            if rel_path.startswith("docs/")
+        ).split()
+    )
+    for fragment in [
+        "cross-tool dependency execution",
+        "contract-only",
+        "review-only",
+        "cross-tool-dependency-execution-only",
+        "deterministic",
+        "local-only",
+        "safe-ref-only",
+        "exact scope",
+        "mode 5",
+        "m135 autonomous recovery planner decision",
+        "m134 human checkpoint scheduling decision",
+        "m133 supervisor decision",
+        "m132 trusted workflow decision",
+        "dependency graph",
+        "dependency step refs",
+        "dependency edge refs",
+        "dependency order refs",
+        "safe tool refs",
+        "dry-run plan",
+        "dependency resolution",
+        "conflict policy",
+        "failure policy",
+        "recovery plan",
+        "checkpoint ref",
+        "human checkpoint ref",
+        "risk decision",
+        "audit",
+        "replay",
+        "revocation",
+        "kill-switch",
+        "no-effect receipt",
+        "no dependency execution",
+        "no dependency resolver runtime",
+        "no cross-tool runtime",
+        "no parallel tool execution",
+        "no tool state handoff",
+        "no tool output routing",
+        "no recovery execution",
+        "no supervisor runtime",
+        "no checkpoint scheduler",
+        "no prompt",
+        "no scheduler",
+        "no background worker",
+        "no autonomous actions",
+        "no execution",
+        "no tool execution",
+        "no shell execution",
+        "no network access",
+        "no browser automation",
+        "no plugin execution",
+        "no connector runtime",
+        "no account auth",
+        "no model call",
+        "no memory write",
+        "no context injection",
+        "no backend route",
+        "no control center control",
+        "no dependency",
+        "m137 remains future",
+        "v1.0.0-alpha",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M136 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from tests.test_m136_cross_tool_dependency_execution import _request
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.autonomy import (
+            AutonomyAuthorityMode,
+            AutonomyRiskClass,
+            CrossToolDependencyExecutionStatus,
+            build_cross_tool_dependency_execution_decision,
+            validate_cross_tool_dependency_execution_decision,
+        )
+        from ultimate_ai_agent.core.gate.criteria import (
+            default_foundation_gate_criteria,
+        )
+        from ultimate_ai_agent.core.gate.evaluators import (
+            FoundationGateEvaluator,
+            m136_openapi_route_failures,
+        )
+    except Exception as exc:
+        print(f"FAIL: M136 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m136_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    decision = build_cross_tool_dependency_execution_decision(_request())
+    if (
+        decision.status != CrossToolDependencyExecutionStatus.ready_for_review
+        or decision.selected_mode != AutonomyAuthorityMode.trusted_recurring_automation
+        or not decision.contract_only
+        or not decision.review_only
+        or not decision.cross_tool_dependency_execution_only
+        or not decision.deterministic
+        or not decision.local_only
+        or not decision.safe_refs_only
+        or not decision.exact_scope_bound
+        or not decision.mode5_bound
+        or not decision.m135_recovery_planner_bound
+        or not decision.m134_human_checkpoint_bound
+        or not decision.m133_supervisor_bound
+        or not decision.m132_trusted_workflow_bound
+        or not decision.dependency_graph_bound
+        or not decision.acyclic_graph_validated
+        or not decision.dependency_order_bound
+        or not decision.cross_tool_scope_bound
+        or not decision.dry_run_plan_bound
+        or not decision.human_checkpoint_bound
+        or not decision.audit_replay_bound
+        or not decision.revocation_bound
+        or not decision.kill_switch_bound
+        or not decision.no_effect_receipt_required
+        or decision.max_risk_class != AutonomyRiskClass.low
+        or decision.mode5_runtime_authorized
+        or decision.cross_tool_dependency_runtime_authorized
+        or decision.dependency_execution_authorized
+        or decision.dependency_execution_performed
+        or decision.dependency_resolver_runtime_started
+        or decision.cross_tool_runtime_started
+        or decision.parallel_tool_execution_performed
+        or decision.tool_state_handoff_performed
+        or decision.tool_output_routing_performed
+        or decision.recovery_execution_performed
+        or decision.supervisor_runtime_started
+        or decision.checkpoint_scheduler_started
+        or decision.human_checkpoint_prompt_sent
+        or decision.scheduler_started
+        or decision.background_worker_started
+        or decision.execution_authorized
+        or decision.execution_performed
+        or decision.tool_execution_authorized
+        or decision.tool_execution_performed
+        or decision.backend_route_added
+        or decision.dependency_added
+        or decision.beta_release_enabled
+        or decision.production_authority_granted
+        or decision.side_effects_performed
+        or not decision.receipt_plan.store_safe_summary_only
+        or not decision.receipt_plan.store_safe_refs_only
+        or not decision.receipt_plan.store_dependency_order_refs_only
+        or decision.receipt_plan.store_raw_tool_payload
+        or decision.receipt_plan.dependency_execution_performed
+        or "M136_CROSS_TOOL_DEPENDENCY_EXECUTION_CONTRACT_ONLY"
+        not in decision.reason_codes
+        or "M136_ACYCLIC_DEPENDENCY_GRAPH_REQUIRED" not in decision.reason_codes
+        or "M136_EXACT_TOOL_SCOPE_REQUIRED" not in decision.reason_codes
+        or "M136_NO_DEPENDENCY_EXECUTION" not in decision.reason_codes
+        or "M137_REMAINS_FUTURE" not in decision.reason_codes
+    ):
+        print("FAIL: M136 cross-tool dependency execution decision is unsafe or over-authoritative")
+        sys.exit(1)
+
+    for update, reason in [
+        ({"mode5_runtime_authorized": True}, "M136_MODE5_RUNTIME_DENIED"),
+        (
+            {"cross_tool_dependency_runtime_authorized": True},
+            "M136_CROSS_TOOL_RUNTIME_DENIED",
+        ),
+        ({"dependency_execution_authorized": True}, "M136_DEPENDENCY_EXECUTION_DENIED"),
+        ({"dependency_execution_performed": True}, "M136_DEPENDENCY_EXECUTION_DENIED"),
+        (
+            {"dependency_resolver_runtime_started": True},
+            "M136_DEPENDENCY_RESOLVER_DENIED",
+        ),
+        (
+            {"parallel_tool_execution_performed": True},
+            "M136_PARALLEL_TOOL_EXECUTION_DENIED",
+        ),
+        ({"tool_state_handoff_performed": True}, "M136_TOOL_STATE_HANDOFF_DENIED"),
+        ({"tool_output_routing_performed": True}, "M136_TOOL_OUTPUT_ROUTING_DENIED"),
+        ({"execution_performed": True}, "M136_EXECUTION_DENIED"),
+        ({"tool_execution_performed": True}, "M136_TOOL_EXECUTION_DENIED"),
+        ({"backend_route_added": True}, "M136_BACKEND_ROUTE_DENIED"),
+        ({"beta_release_enabled": True}, "M136_BETA_RELEASE_DENIED"),
+        (
+            {"production_authority_granted": True},
+            "M136_PRODUCTION_AUTHORITY_DENIED",
+        ),
+    ]:
+        try:
+            validate_cross_tool_dependency_execution_decision(
+                decision.model_copy(update=update)
+            )
+            print(f"FAIL: M136 mutated authority flag was not denied: {update}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M136 mutated authority flag raised {exc!s}")
+                sys.exit(1)
+
+    try:
+        validate_cross_tool_dependency_execution_decision(
+            decision.model_copy(
+                update={
+                    "receipt_plan": decision.receipt_plan.model_copy(
+                        update={"store_raw_tool_payload": True}
+                    )
+                }
+            )
+        )
+        print("FAIL: M136 receipt plan allowed raw tool payload storage")
+        sys.exit(1)
+    except ValueError as exc:
+        if "M136_RAW_TOOL_PAYLOAD_DENIED" not in str(exc):
+            print(f"FAIL: M136 raw tool payload receipt mutation raised {exc!s}")
+            sys.exit(1)
+
+    criteria = {
+        criterion.criterion_id: criterion
+        for criterion in default_foundation_gate_criteria()
+    }
+    for criterion_id in [
+        "m136_cross_tool_dependency_execution_contracts",
+        "m136_cross_tool_dependency_execution_static_safety",
+        "m136_cross_tool_dependency_execution_route_boundary",
+        "m136_roadmap_currentness",
+    ]:
+        if criterion_id not in criteria:
+            print(f"FAIL: Missing M136 Foundation Gate criterion: {criterion_id}")
+            sys.exit(1)
+    evaluator = FoundationGateEvaluator(ROOT)
+    for criterion_id in [
+        "m136_cross_tool_dependency_execution_contracts",
+        "m136_cross_tool_dependency_execution_static_safety",
+        "m136_cross_tool_dependency_execution_route_boundary",
+        "m136_roadmap_currentness",
+    ]:
+        gate_report = evaluator.evaluate([criteria[criterion_id]])
+        result = gate_report.results[0]
+        if result.status != "passed":
+            print(f"FAIL: {criterion_id} failed: {result.failures}")
+            sys.exit(1)
+
+    print("OK: M136 cross-tool dependency execution is review-only, safe-ref-only, and route-free")
 
 
 def verify_local_developer_launcher_safety():
