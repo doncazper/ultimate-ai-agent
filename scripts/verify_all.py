@@ -165,6 +165,7 @@ SCAN_SEQUENCE = [
     ("M124 messages connector contract review scan", "verify_m124_messages_connector_contract_review"),
     ("M125 connector read-only runtime scan", "verify_m125_connector_read_only_runtime"),
     ("M126 connector approval capture scan", "verify_m126_connector_approval_capture"),
+    ("M127 connector write dry-run planner scan", "verify_m127_connector_write_dry_run_planner"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -17670,6 +17671,12 @@ def verify_post_m100_roadmap_reconciliation():
         or "connector approval capture" in active_version_text
     ):
         implemented_milestones.add("m126")
+    if (
+        "checkpoint m127" in active_version_text
+        or "m127" in active_version_text
+        or "connector write dry-run planner" in active_version_text
+    ):
+        implemented_milestones.add("m127")
     for version_label, product_target, milestone, title in expected_labels:
         if milestone in implemented_milestones:
             continue
@@ -22614,6 +22621,124 @@ def verify_m126_connector_approval_capture():
             sys.exit(1)
 
     print("OK: M126 connector approval capture is exact-bound, review-only, and route-free")
+
+
+def verify_m127_connector_write_dry_run_planner():
+    print("\n[Verifier] Running M127 connector write dry-run planner guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/connectors/__init__.py",
+        "src/ultimate_ai_agent/core/connectors/connector_write_dry_run_planner.py",
+        "src/ultimate_ai_agent/core/connectors/connector_approval_capture.py",
+        "src/ultimate_ai_agent/core/connectors/connector_read_only_runtime.py",
+        "docs/connectors/CONNECTOR_WRITE_DRY_RUN_PLANNER.md",
+        "docs/connectors/CONNECTOR_WRITE_DRY_RUN_PLANNER_AUTHORITY_BOUNDARY.md",
+        "docs/connectors/CONNECTOR_WRITE_DRY_RUN_PLANNER_RECEIPT_PLAN.md",
+        "docs/connectors/CONNECTOR_WRITE_DRY_RUN_PLANNER_NON_GOALS.md",
+        "docs/connectors/M127_TO_M128_BOUNDARY.md",
+        "docs/release_notes/checkpoint_m127.md",
+        "docs/archive/checkpoints/m127/README_IMPORT.md",
+        "docs/archive/checkpoints/m127/master_plan.md",
+        "tests/test_m127_connector_write_dry_run_planner.py",
+        "tests/test_m127_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M127 connector write dry-run planner file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = " ".join(
+        "\n".join(
+            (ROOT / rel_path).read_text(encoding="utf-8").lower()
+            for rel_path in required_files
+            if rel_path.startswith("docs/")
+        ).split()
+    )
+    for fragment in [
+        "connector write dry-run planner",
+        "dry-run-only",
+        "review-only",
+        "safe refs only",
+        "exact-bound",
+        "approval refs remain identifiers, not authority",
+        "m126 connector approval capture",
+        "m125 connector read-only runtime",
+        "actor-bound",
+        "user-bound",
+        "workspace-bound",
+        "replay-safe",
+        "revocable",
+        "no-effect receipt",
+        "no live connector runtime",
+        "no account auth",
+        "no network access",
+        "no credential handling",
+        "no raw connector content",
+        "no full content read",
+        "no connector write execution",
+        "no connector send execution",
+        "no connector delete execution",
+        "no connector export",
+        "no attachment download",
+        "no model call",
+        "no memory write",
+        "no context injection",
+        "no execution",
+        "no backend route",
+        "no control center control",
+        "no dependency",
+        "m128 remains future",
+        "v1.0.0-alpha",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M127 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.criteria import (
+            default_foundation_gate_criteria,
+        )
+        from ultimate_ai_agent.core.gate.evaluators import (
+            FoundationGateEvaluator,
+            m127_openapi_route_failures,
+        )
+    except Exception as exc:
+        print(f"FAIL: M127 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m127_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    criteria = {
+        criterion.criterion_id: criterion
+        for criterion in default_foundation_gate_criteria()
+    }
+    for criterion_id in [
+        "m127_connector_write_dry_run_planner_contracts",
+        "m127_connector_write_dry_run_planner_static_safety",
+        "m127_connector_write_dry_run_planner_route_boundary",
+        "m127_roadmap_currentness",
+    ]:
+        if criterion_id not in criteria:
+            print(f"FAIL: Missing M127 Foundation Gate criterion: {criterion_id}")
+            sys.exit(1)
+    evaluator = FoundationGateEvaluator(ROOT)
+    for criterion_id in [
+        "m127_connector_write_dry_run_planner_contracts",
+        "m127_connector_write_dry_run_planner_static_safety",
+        "m127_connector_write_dry_run_planner_route_boundary",
+        "m127_roadmap_currentness",
+    ]:
+        report = evaluator.evaluate([criteria[criterion_id]])
+        result = report.results[0]
+        if result.status != "passed":
+            print(f"FAIL: {criterion_id} failed: {result.failures}")
+            sys.exit(1)
+
+    print("OK: M127 connector write dry-run planner is dry-run-only, safe-ref-only, and route-free")
 
 
 def verify_local_developer_launcher_safety():

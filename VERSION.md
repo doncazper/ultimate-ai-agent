@@ -2,9 +2,9 @@
 
 Current active baseline: **v1.7.2**
 
-Checkpoint M126 is implemented/released as Connector Approval Capture.
+Checkpoint M127 is implemented/released as Connector Write Dry-Run Planner.
 The current product baseline remains v1.7.2. Already-pushed tags
-remain immutable historical internal milestone tags. Future M127-M149 conveyor
+remain immutable historical internal milestone tags. Future M128-M149 conveyor
 milestones use checkpoint labels instead of product SemVer tags, and M150 is
 the next product release target **v1.0.0-alpha**. Beta begins only after the
 alpha UI and supporting safety/product work are reviewed, accepted, and
@@ -250,6 +250,25 @@ memory write, no context injection, no execution, no backend route, no Control
 Center control, no dependency, no M127 work, no broad autonomy, no beta release,
 and no production authority.
 
-M101, M102, M103, M104, M105, M106, M107, M108, M109, M110, M111, M112, M113, M114, M115, M116, M117, M118, M119, M120, M121, M122, M123, M124, M125, and M126 are implemented/released. M127-M150 are
+Checkpoint M127 adds deterministic local connector write dry-run planner records
+bound to M126 connector approval capture records and M125 connector read-only
+runtime records. It records safe write target refs, safe payload summary refs,
+dry-run operation allowlist refs, source operation allowlist refs, redacted
+metadata preview refs, audit refs, replay refs, idempotency keys, and no-effect
+receipt plan refs. It denies denied or rejected M126 approvals, approval_test_
+refs, expired dry-run requests, revoked dry-run requests, replayed dry-run
+nonces, actor mismatch, user mismatch, workspace mismatch, runtime ref mismatch,
+source review ref mismatch, source operation mismatch, allowlist mismatch,
+metadata preview mismatch, unsafe write target refs, unsafe payload summary
+refs, and unallowlisted dry-run operation refs. Approval refs remain identifiers,
+not authority. It adds no live connector runtime, no account auth, no network
+access, no credential handling, no raw connector content, no full content read,
+no connector write execution, no connector send execution, no connector delete
+execution, no connector export, no connector bulk export, no attachment
+download, no model call, no memory write, no context injection, no execution, no
+backend route, no Control Center control, no dependency, no M128 work, no broad
+autonomy, no beta release, and no production authority.
+
+M101, M102, M103, M104, M105, M106, M107, M108, M109, M110, M111, M112, M113, M114, M115, M116, M117, M118, M119, M120, M121, M122, M123, M124, M125, M126, and M127 are implemented/released. M128-M150 are
 planned/provisional checkpoint milestones only. M150 is planned as
 v1.0.0-alpha, not beta.

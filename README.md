@@ -13,26 +13,28 @@ allowed to become operational authority.
 | Field | Current state |
 |---|---|
 | Current active baseline | **v1.7.2** |
-| Current milestone | **Checkpoint M126 — Connector Approval Capture** |
+| Current milestone | **Checkpoint M127 — Connector Write Dry-Run Planner** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **75** OpenAPI paths |
 | Production readiness | Not claimed |
 
-Checkpoint M126 implements Connector Approval Capture while the current
+Checkpoint M127 implements Connector Write Dry-Run Planner while the current
 product baseline remains v1.7.2. Already-pushed tags remain immutable historical
-internal milestone tags, future M127-M149 conveyor milestones use checkpoint
+internal milestone tags, future M128-M149 conveyor milestones use checkpoint
 labels instead of product SemVer tags, and M150 is the next product release
 target **v1.0.0-alpha**. Beta begins only after the alpha UI and supporting
 safety/product work are reviewed, accepted, and explicitly promoted by a later
-roadmap patch. M126 is review-only, exact-bound, actor-bound, user-bound,
-workspace-bound, replay-safe, revocable, and safe refs only. It adds no live
-connector runtime, account auth, network access, credential handling, raw
-connector content, full content read, connector write, connector send,
-connector delete, connector export, connector bulk export, attachment download,
-model call, memory write, context injection, execution, backend route, Control
-Center control, dependency, M127 work, broad autonomy, beta release, or
-production authority.
+roadmap patch. M127 is review-only, dry-run-only, exact-bound, actor-bound,
+user-bound, workspace-bound, replay-safe, revocable, and safe refs only. It
+records connector write dry-run plans from M126 connector approval capture
+records and M125 connector read-only runtime records. It adds no live connector
+runtime, account auth, network access, credential handling, raw connector
+content, full content read, connector write execution, connector send
+execution, connector delete execution, connector export, connector bulk export,
+attachment download, model call, memory write, context injection, execution,
+backend route, Control Center control, dependency, M128 work, broad autonomy,
+beta release, or production authority.
 
 v0.29.5 is documentation policy polish. It remains the documentation
 organization cleanup baseline before the M26 and M27 implementation releases.
@@ -46,6 +48,7 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M34-M60 roadmap supersession](docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md)
 - [M61-M100 roadmap](docs/roadmap/M61_M100_ROADMAP.md)
 - [M101-M150 planned roadmap](docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md)
+- [M127 Connector Write Dry-Run Planner](docs/connectors/CONNECTOR_WRITE_DRY_RUN_PLANNER.md)
 - [M126 Connector Approval Capture](docs/connectors/CONNECTOR_APPROVAL_CAPTURE.md)
 - [M125 Connector Read-Only Runtime](docs/connectors/CONNECTOR_READ_ONLY_RUNTIME.md)
 - [M124 Messages Connector Contract Review](docs/connectors/MESSAGES_CONNECTOR_CONTRACT_REVIEW.md)

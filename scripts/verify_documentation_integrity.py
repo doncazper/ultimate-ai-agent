@@ -1588,6 +1588,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_m124_messages_connector_contract_review_docs(root, version))
     failures.extend(_verify_m125_connector_read_only_runtime_docs(root, version))
     failures.extend(_verify_m126_connector_approval_capture_docs(root, version))
+    failures.extend(_verify_m127_connector_write_dry_run_planner_docs(root, version))
     failures.extend(_verify_m19_roadmap_currentness(root, version))
     failures.extend(_verify_post_m18_roadmap_status_labels(root))
 
@@ -7223,6 +7224,12 @@ def _verify_post_m100_roadmap_reconciliation_docs(root: Path, version: str | Non
         or "connector approval capture" in version_doc_text
     ):
         implemented_milestones.add("m126")
+    if _version_tuple(version) >= (1, 7, 2) and (
+        "checkpoint m127" in version_doc_text
+        or "m127" in version_doc_text
+        or "connector write dry-run planner" in version_doc_text
+    ):
+        implemented_milestones.add("m127")
     for version_label, product_target, milestone, title in EXPECTED_M101_M150_LABELS:
         if milestone in implemented_milestones:
             continue
@@ -10985,16 +10992,31 @@ def _verify_m125_connector_read_only_runtime_docs(
         "| checkpoint m127 | pre-alpha checkpoint | m127 | "
         "connector write dry-run planner | planned/provisional |"
     )
+    implemented_m127_row = (
+        "| checkpoint m127 | pre-alpha checkpoint | m127 | "
+        "connector write dry-run planner | implemented/released |"
+    )
+    planned_m128_row = (
+        "| checkpoint m128 | pre-alpha checkpoint | m128 | "
+        "connector write execution, low-risk only | planned/provisional |"
+    )
     if not _roadmap_row_present(current_text, implemented_m125_row):
         failures.append("active docs missing implemented Checkpoint M125 row")
     if not any(_roadmap_row_present(current_text, row) for row in allowed_m126_rows):
         failures.append("active docs missing Checkpoint M126 row")
     if "checkpoint m126 is implemented/released" in current_text:
-        if not _roadmap_row_present(current_text, planned_m127_row):
-            failures.append("active docs missing planned Checkpoint M127 row")
+        if not (
+            _roadmap_row_present(current_text, planned_m127_row)
+            or _roadmap_row_present(current_text, implemented_m127_row)
+        ):
+            failures.append("active docs missing Checkpoint M127 row")
+    if "checkpoint m127 is implemented/released" in current_text:
+        if not _roadmap_row_present(current_text, planned_m128_row):
+            failures.append("active docs missing planned Checkpoint M128 row")
     for fragment in {
-        "connector write dry-run planner is implemented",
         "connector write execution is implemented",
+        "m128 is implemented",
+        "checkpoint m128 implements m128",
         "live connector runtime is implemented",
         "account auth is implemented",
         "network access is implemented",
@@ -11115,19 +11137,24 @@ def _verify_m126_connector_approval_capture_docs(
     )
     next_m127_row = (
         "| checkpoint m127 | pre-alpha checkpoint | m127 | "
-        "connector write dry-run planner | planned/provisional |"
+        "connector write dry-run planner | implemented/released |"
+    )
+    next_m128_row = (
+        "| checkpoint m128 | pre-alpha checkpoint | m128 | "
+        "connector write execution, low-risk only | planned/provisional |"
     )
     if not _roadmap_row_present(current_text, implemented_m126_row):
         failures.append("active docs missing implemented Checkpoint M126 row")
     if planned_m126_row in current_text:
         failures.append("active docs still mark Checkpoint M126 planned")
     if not _roadmap_row_present(current_text, next_m127_row):
-        failures.append("active docs missing planned Checkpoint M127 row")
+        failures.append("active docs missing implemented Checkpoint M127 row")
+    if not _roadmap_row_present(current_text, next_m128_row):
+        failures.append("active docs missing planned Checkpoint M128 row")
     for fragment in {
-        "m127 is implemented",
-        "checkpoint m127 implements m127",
-        "connector write dry-run planner is implemented",
         "connector write execution is implemented",
+        "m128 is implemented",
+        "checkpoint m128 implements m128",
         "live connector runtime is implemented",
         "account auth is implemented",
         "network access is implemented",
@@ -11137,6 +11164,144 @@ def _verify_m126_connector_approval_capture_docs(
     }:
         if fragment in current_text or fragment in text:
             failures.append(f"M126 docs imply forbidden/future capability: {fragment}")
+    return failures
+
+
+def _verify_m127_connector_write_dry_run_planner_docs(
+    root: Path, version: str | None
+) -> list[str]:
+    failures: list[str] = []
+    if _version_tuple(version) < (1, 7, 2):
+        return failures
+    active_text = " ".join(
+        "\n".join(
+            _read(root / rel_path).lower()
+            for rel_path in [
+                "README.md",
+                "VERSION.md",
+                "docs/canonical/09_roadmap.md",
+                "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            ]
+            if (root / rel_path).exists()
+        ).split()
+    )
+    if (
+        "checkpoint m127 is implemented/released" not in active_text
+        and "m127 is implemented/released" not in active_text
+    ):
+        return failures
+    required_paths = [
+        "docs/connectors/CONNECTOR_WRITE_DRY_RUN_PLANNER.md",
+        "docs/connectors/CONNECTOR_WRITE_DRY_RUN_PLANNER_AUTHORITY_BOUNDARY.md",
+        "docs/connectors/CONNECTOR_WRITE_DRY_RUN_PLANNER_RECEIPT_PLAN.md",
+        "docs/connectors/CONNECTOR_WRITE_DRY_RUN_PLANNER_NON_GOALS.md",
+        "docs/connectors/M127_TO_M128_BOUNDARY.md",
+        "docs/release_notes/checkpoint_m127.md",
+        "docs/archive/checkpoints/m127/README_IMPORT.md",
+        "docs/archive/checkpoints/m127/master_plan.md",
+        "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+    ]
+    for rel_path in required_paths:
+        if not (root / rel_path).exists():
+            failures.append(
+                f"missing M127 connector write dry-run planner doc: {rel_path}"
+            )
+    text = " ".join(
+        "\n".join(
+            _read(root / rel_path).lower()
+            for rel_path in required_paths
+            if (root / rel_path).exists()
+        ).split()
+    )
+    required_fragments = {
+        "M127 docs must say connector write dry-run planner": "connector write dry-run planner",
+        "M127 docs must say dry-run-only": "dry-run-only",
+        "M127 docs must say review-only": "review-only",
+        "M127 docs must say safe refs only": "safe refs only",
+        "M127 docs must say exact-bound": "exact-bound",
+        "M127 docs must say approval refs remain identifiers": "approval refs remain identifiers, not authority",
+        "M127 docs must say M126 connector approval capture": "m126 connector approval capture",
+        "M127 docs must say M125 Connector Read-Only Runtime": "m125 connector read-only runtime",
+        "M127 docs must say actor-bound": "actor-bound",
+        "M127 docs must say user-bound": "user-bound",
+        "M127 docs must say workspace-bound": "workspace-bound",
+        "M127 docs must say replay-safe": "replay-safe",
+        "M127 docs must say revocable": "revocable",
+        "M127 docs must say no-effect receipt": "no-effect receipt",
+        "M127 docs must deny live connector runtime": "no live connector runtime",
+        "M127 docs must deny account auth": "no account auth",
+        "M127 docs must deny network access": "no network access",
+        "M127 docs must deny credential handling": "no credential handling",
+        "M127 docs must deny raw connector content": "no raw connector content",
+        "M127 docs must deny full content read": "no full content read",
+        "M127 docs must deny connector write execution": "no connector write execution",
+        "M127 docs must deny connector send execution": "no connector send execution",
+        "M127 docs must deny connector delete execution": "no connector delete execution",
+        "M127 docs must deny connector export": "no connector export",
+        "M127 docs must deny attachment download": "no attachment download",
+        "M127 docs must deny model call": "no model call",
+        "M127 docs must deny memory write": "no memory write",
+        "M127 docs must deny context injection": "no context injection",
+        "M127 docs must deny execution": "no execution",
+        "M127 docs must deny backend route": "no backend route",
+        "M127 docs must deny Control Center control": "no control center control",
+        "M127 docs must deny dependency": "no dependency",
+        "M127 docs must keep M128 future": "m128 remains future",
+        "M127 docs must preserve alpha target": "v1.0.0-alpha",
+    }
+    for message, fragment in required_fragments.items():
+        if fragment not in text:
+            failures.append(message)
+    active_paths = [
+        "README.md",
+        "VERSION.md",
+        "docs/canonical/09_roadmap.md",
+        "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+        "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+        "docs/roadmap/MILESTONE_CHARTERS.md",
+        "docs/DOCUMENTATION_INDEX.md",
+        "docs/canonical/CANONICAL_DOC_MAP.md",
+    ]
+    current_text = " ".join(
+        "\n".join(
+            _read(root / rel_path).lower()
+            for rel_path in active_paths
+            if (root / rel_path).exists()
+        ).split()
+    )
+    implemented_m127_row = (
+        "| checkpoint m127 | pre-alpha checkpoint | m127 | "
+        "connector write dry-run planner | implemented/released |"
+    )
+    planned_m128_row = (
+        "| checkpoint m128 | pre-alpha checkpoint | m128 | "
+        "connector write execution, low-risk only | planned/provisional |"
+    )
+    if not _roadmap_row_present(current_text, implemented_m127_row):
+        failures.append("active docs missing implemented Checkpoint M127 row")
+    if not _roadmap_row_present(current_text, planned_m128_row):
+        failures.append("active docs missing planned Checkpoint M128 row")
+    for fragment in {
+        "connector write execution is implemented",
+        "connector send execution is implemented",
+        "connector delete execution is implemented",
+        "m128 is implemented",
+        "checkpoint m128 implements m128",
+        "live connector runtime is implemented",
+        "account auth is implemented",
+        "network access is implemented",
+        "credential handling is implemented",
+        "raw connector content is implemented",
+        "full content read is implemented",
+        "connector export is implemented",
+        "attachment download is implemented",
+        "backend route is implemented",
+        "control center control is implemented",
+        "beta is released",
+        "production authority is implemented",
+    }:
+        if fragment in current_text or fragment in text:
+            failures.append(f"M127 docs imply forbidden/future capability: {fragment}")
     return failures
 
 
