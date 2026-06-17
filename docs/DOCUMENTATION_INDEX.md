@@ -75,6 +75,12 @@ docs/productization/EXTERNAL_SECURITY_REVIEW_AUTHORITY_BOUNDARY.md
 docs/productization/EXTERNAL_SECURITY_REVIEW_RECEIPT_PLAN.md
 docs/productization/EXTERNAL_SECURITY_REVIEW_NON_GOALS.md
 docs/productization/M148_TO_M149_BOUNDARY.md
+docs/productization/ALPHA_RELEASE_CANDIDATE_FREEZE.md
+docs/productization/ALPHA_RELEASE_CANDIDATE_FREEZE_POLICY.md
+docs/productization/ALPHA_RELEASE_CANDIDATE_FREEZE_AUTHORITY_BOUNDARY.md
+docs/productization/ALPHA_RELEASE_CANDIDATE_FREEZE_RECEIPT_PLAN.md
+docs/productization/ALPHA_RELEASE_CANDIDATE_FREEZE_NON_GOALS.md
+docs/productization/M149_TO_M150_BOUNDARY.md
 docs/autonomy/HIGHER_AUTONOMY_RED_TEAM_FREEZE.md
 docs/autonomy/HIGHER_AUTONOMY_RED_TEAM_FREEZE_POLICY.md
 docs/autonomy/HIGHER_AUTONOMY_RED_TEAM_FREEZE_AUTHORITY_BOUNDARY.md
@@ -963,16 +969,16 @@ implemented/released as deterministic local review-only Enterprise/Pro Safety
 Modes records. M146 is implemented/released as deterministic local review-only
 Billing/Plan Boundary records. M147 is implemented/released as deterministic
 local review-only Public Docs + Wiki Readiness records. M148 is implemented/released as deterministic
-local review-only External Security Review records. M149-M150 are
+local review-only External Security Review records. M149 is implemented/released as deterministic
+local review-only Alpha Release Candidate Freeze records. M150 is
 planned/provisional only in
 `docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md`.
-Future M149 conveyor milestones use checkpoint labels instead of product
-SemVer tags, and M150 is
+M149 uses a checkpoint label instead of a product SemVer tag, and M150 is
 planned as v1.0.0-alpha. Beta begins only after alpha UI and supporting
 safety/product work are reviewed and promoted. Active roadmap sources consistently mark
-M34-M148 implemented/released and rely on documentation-integrity checks to
+M34-M149 implemented/released and rely on documentation-integrity checks to
 guard against superseded-roadmap drift, stale current-baseline labels, route
-drift, authority-boundary drift, alpha/beta versioning drift, and M149-M150
+drift, authority-boundary drift, alpha/beta versioning drift, and M150
 future-status drift.
 
 ## Release Notes Index

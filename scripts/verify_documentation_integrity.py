@@ -1619,6 +1619,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_m146_billing_plan_boundary_docs(root, version))
     failures.extend(_verify_m147_public_docs_wiki_readiness_docs(root, version))
     failures.extend(_verify_m148_external_security_review_docs(root, version))
+    failures.extend(_verify_m149_alpha_release_candidate_freeze_docs(root, version))
     failures.extend(_verify_m19_roadmap_currentness(root, version))
     failures.extend(_verify_post_m18_roadmap_status_labels(root))
 
@@ -7371,6 +7372,10 @@ def _verify_post_m100_roadmap_reconciliation_docs(root: Path, version: str | Non
         _version_doc_marks_milestone_implemented(version_doc_text, "m148")
     ):
         implemented_milestones.add("m148")
+    if _version_tuple(version) >= (1, 7, 2) and (
+        _version_doc_marks_milestone_implemented(version_doc_text, "m149")
+    ):
+        implemented_milestones.add("m149")
     for version_label, product_target, milestone, title in EXPECTED_M101_M150_LABELS:
         if milestone in implemented_milestones:
             continue
@@ -14813,16 +14818,16 @@ def _verify_m148_external_security_review_docs(
         "| checkpoint m148 | pre-alpha checkpoint | m148 | "
         "external security review | implemented/released |"
     )
-    planned_m149_row = (
+    implemented_m149_row = (
         "| checkpoint m149 | pre-alpha checkpoint | m149 | "
-        "alpha release candidate freeze | planned/provisional |"
+        "alpha release candidate freeze | implemented/released |"
     )
     if not _roadmap_row_present(current_text, implemented_m147_row):
         failures.append("active docs missing implemented Checkpoint M147 row")
     if not _roadmap_row_present(current_text, implemented_m148_row):
         failures.append("active docs missing implemented Checkpoint M148 row")
-    if not _roadmap_row_present(current_text, planned_m149_row):
-        failures.append("active docs missing planned Checkpoint M149 row")
+    if not _roadmap_row_present(current_text, implemented_m149_row):
+        failures.append("active docs missing implemented Checkpoint M149 row")
     for fragment in {
         "external vendor handoff is implemented",
         "security vendor handoff is implemented",
@@ -14842,6 +14847,158 @@ def _verify_m148_external_security_review_docs(
     }:
         if fragment in current_text or fragment in text:
             failures.append(f"M148 docs imply forbidden/future capability: {fragment}")
+    return failures
+
+
+def _verify_m149_alpha_release_candidate_freeze_docs(
+    root: Path, version: str | None
+) -> list[str]:
+    failures: list[str] = []
+    if _version_tuple(version) < (1, 7, 2):
+        return failures
+    active_text = " ".join(
+        "\n".join(
+            _read(root / rel_path).lower()
+            for rel_path in [
+                "README.md",
+                "VERSION.md",
+                "docs/canonical/09_roadmap.md",
+                "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            ]
+            if (root / rel_path).exists()
+        ).split()
+    )
+    if (
+        "checkpoint m149 is implemented/released" not in active_text
+        and "m149 is implemented/released" not in active_text
+    ):
+        return failures
+    required_paths = [
+        "docs/productization/ALPHA_RELEASE_CANDIDATE_FREEZE.md",
+        "docs/productization/ALPHA_RELEASE_CANDIDATE_FREEZE_POLICY.md",
+        "docs/productization/ALPHA_RELEASE_CANDIDATE_FREEZE_AUTHORITY_BOUNDARY.md",
+        "docs/productization/ALPHA_RELEASE_CANDIDATE_FREEZE_RECEIPT_PLAN.md",
+        "docs/productization/ALPHA_RELEASE_CANDIDATE_FREEZE_NON_GOALS.md",
+        "docs/productization/M149_TO_M150_BOUNDARY.md",
+        "docs/release_notes/checkpoint_m149.md",
+        "docs/archive/checkpoints/m149/README_IMPORT.md",
+        "docs/archive/checkpoints/m149/master_plan.md",
+        "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+    ]
+    for rel_path in required_paths:
+        if not (root / rel_path).exists():
+            failures.append(
+                f"missing M149 alpha release candidate freeze doc: {rel_path}"
+            )
+    text = " ".join(
+        "\n".join(
+            _read(root / rel_path).lower()
+            for rel_path in required_paths
+            if (root / rel_path).exists()
+        ).split()
+    )
+    required_fragments = {
+        "M149 docs must say Alpha Release Candidate Freeze": (
+            "alpha release candidate freeze"
+        ),
+        "M149 docs must say contract-only": "contract-only",
+        "M149 docs must say review-only": "review-only",
+        "M149 docs must say freeze-only": "freeze-only",
+        "M149 docs must say deterministic": "deterministic",
+        "M149 docs must say local-only": "local-only",
+        "M149 docs must say safe-ref-only": "safe-ref-only",
+        "M149 docs must say alpha-release-candidate-freeze-only": (
+            "alpha-release-candidate-freeze-only"
+        ),
+        "M149 docs must say disabled by default": "disabled by default",
+        "M149 docs must say route-free": "route-free",
+        "M149 docs must say no-effect": "no-effect",
+        "M149 docs must say accepted M101-M148": "accepted m101-m148",
+        "M149 docs must say release candidate refs": "release candidate refs",
+        "M149 docs must say freeze checklist refs": "freeze checklist refs",
+        "M149 docs must say alpha readiness refs": "alpha readiness refs",
+        "M149 docs must say evidence index refs": "evidence index refs",
+        "M149 docs must say blocker summary refs": "blocker summary refs",
+        "M149 docs must say signoff review refs": "signoff review refs",
+        "M149 docs must say M150 promotion gate refs": "m150 promotion gate refs",
+        "M149 docs must deny release publication": "no release publication",
+        "M149 docs must deny release tag": "no release tag",
+        "M149 docs must deny tag creation": "no tag creation",
+        "M149 docs must deny artifact build": "no artifact build",
+        "M149 docs must deny artifact upload": "no artifact upload",
+        "M149 docs must deny artifact export": "no artifact export",
+        "M149 docs must deny external distribution": "no external distribution",
+        "M149 docs must deny App Store submission": "no app store submission",
+        "M149 docs must deny TestFlight submission": "no testflight submission",
+        "M149 docs must deny beta release": "no beta release",
+        "M149 docs must deny M150 release": "no m150 release",
+        "M149 docs must deny release automation": "no release automation",
+        "M149 docs must deny backend route": "no backend route",
+        "M149 docs must deny Control Center control": "no control center control",
+        "M149 docs must deny dependency": "no dependency",
+        "M149 docs must deny production authority": "no production authority",
+        "M149 docs must keep M150 future": "m150 remains future",
+        "M149 docs must preserve alpha target": "v1.0.0-alpha",
+    }
+    for message, fragment in required_fragments.items():
+        if fragment not in text:
+            failures.append(message)
+
+    active_paths = [
+        "README.md",
+        "VERSION.md",
+        "docs/canonical/09_roadmap.md",
+        "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+        "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+        "docs/roadmap/MILESTONE_CHARTERS.md",
+        "docs/DOCUMENTATION_INDEX.md",
+        "docs/canonical/CANONICAL_DOC_MAP.md",
+    ]
+    current_text = " ".join(
+        "\n".join(
+            _read(root / rel_path).lower()
+            for rel_path in active_paths
+            if (root / rel_path).exists()
+        ).split()
+    )
+    implemented_m148_row = (
+        "| checkpoint m148 | pre-alpha checkpoint | m148 | "
+        "external security review | implemented/released |"
+    )
+    implemented_m149_row = (
+        "| checkpoint m149 | pre-alpha checkpoint | m149 | "
+        "alpha release candidate freeze | implemented/released |"
+    )
+    planned_m150_row = (
+        "| v1.0.0-alpha | alpha | m150 | ultimate ai agent v1.0.0-alpha | "
+        "planned/provisional |"
+    )
+    if not _roadmap_row_present(current_text, implemented_m148_row):
+        failures.append("active docs missing implemented Checkpoint M148 row")
+    if not _roadmap_row_present(current_text, implemented_m149_row):
+        failures.append("active docs missing implemented Checkpoint M149 row")
+    if not _roadmap_row_present(current_text, planned_m150_row):
+        failures.append("active docs missing planned M150 alpha row")
+    for fragment in {
+        "release publication is implemented",
+        "release tag is implemented",
+        "tag creation is implemented",
+        "artifact build is implemented",
+        "artifact upload is implemented",
+        "artifact export is implemented",
+        "external distribution is implemented",
+        "app store submission is implemented",
+        "testflight submission is implemented",
+        "m150 release is implemented",
+        "release automation is implemented",
+        "beta is released",
+        "production authority is implemented",
+        "backend route is implemented",
+        "control center control is implemented",
+        "m150 dependency is added",
+    }:
+        if fragment in current_text or fragment in text:
+            failures.append(f"M149 docs imply forbidden/future capability: {fragment}")
     return failures
 
 

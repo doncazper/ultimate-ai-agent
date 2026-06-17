@@ -2,25 +2,25 @@
 
 Current active baseline: **v1.7.2**
 
-Checkpoint M148 is implemented/released as External Security Review.
+Checkpoint M149 is implemented/released as Alpha Release Candidate Freeze.
 The current product baseline remains v1.7.2. Already-pushed tags
-remain immutable historical internal milestone tags. Future M149 conveyor
-milestones use checkpoint labels instead of product SemVer tags, and M150 is
-the next product release target **v1.0.0-alpha**. Beta begins only after the
-alpha UI and supporting safety/product work are reviewed, accepted, and
-explicitly promoted by a later roadmap patch.
+remain immutable historical internal milestone tags. M149 uses a checkpoint
+label instead of a product SemVer tag, and M150 is the next product release
+target **v1.0.0-alpha**. Beta begins only after the alpha UI and supporting
+safety/product work are reviewed, accepted, and explicitly promoted by a later
+roadmap patch.
 
-Checkpoint M148 is contract-only, review-only, deterministic, local-only,
-safe-ref-only, external-security-review-only, disabled by default, route-free,
-and no-effect. It records accepted M101-M147 checkpoint refs, security review
-refs, threat model refs, review scope refs, evidence index refs, finding summary
-refs, disclosure review refs, remediation plan refs, audit, replay, revocation,
-kill-switch, and no-effect receipt refs. It denies external vendor handoff,
-security vendor handoff, external review automation, scanner runtime,
-vulnerability scan, repository export, artifact export, issue export, security
-review runtime, auth runtime, backend route, Control Center control, dependency,
-beta release, and production authority. M149 remains future Alpha Release
-Candidate Freeze work.
+Checkpoint M149 is contract-only, review-only, freeze-only, deterministic,
+local-only, safe-ref-only, alpha-release-candidate-freeze-only, disabled by
+default, route-free, and no-effect. It records accepted M101-M148 checkpoint
+refs, release candidate refs, freeze checklist refs, alpha readiness refs,
+evidence index refs, blocker summary refs, signoff review refs, M150 promotion
+gate refs, audit, replay, revocation, kill-switch, and no-effect receipt refs.
+It denies release publication, release tag, tag creation, artifact build,
+artifact upload, artifact export, external distribution, App Store submission,
+TestFlight submission, beta release, M150 release, release automation, backend
+route, Control Center control, dependency, and production authority. M150
+remains future v1.0.0-alpha work.
 
 v1.7.0 implements M103 Camera/Photos Metadata-Only Contract. Camera and photos
 remain off by default.
@@ -523,6 +523,6 @@ backend routes, Control Center controls, dependencies, alpha privacy review,
 alpha release, beta release, M142 alpha privacy review work, broad autonomy,
 and production authority.
 
-M101, M102, M103, M104, M105, M106, M107, M108, M109, M110, M111, M112, M113, M114, M115, M116, M117, M118, M119, M120, M121, M122, M123, M124, M125, M126, M127, M128, M129, M130, M131, M132, M133, M134, M135, M136, M137, M138, M139, M140, M141, M142, M143, M144, M145, M146, M147, and M148 are implemented/released. M149-M150 are
-planned/provisional checkpoint milestones only. M150 is planned as
+M101, M102, M103, M104, M105, M106, M107, M108, M109, M110, M111, M112, M113, M114, M115, M116, M117, M118, M119, M120, M121, M122, M123, M124, M125, M126, M127, M128, M129, M130, M131, M132, M133, M134, M135, M136, M137, M138, M139, M140, M141, M142, M143, M144, M145, M146, M147, M148, and M149 are implemented/released. M150 is a
+planned/provisional checkpoint milestone only. M150 is planned as
 v1.0.0-alpha, not beta.

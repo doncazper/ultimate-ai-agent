@@ -2121,6 +2121,27 @@ M148_FORBIDDEN_BACKEND_ROUTES = M147_FORBIDDEN_BACKEND_ROUTES + (
     "/artifacts/export",
     "/production/authority/enable",
 )
+EXPECTED_M149_OPENAPI_PATH_COUNT = 75
+M149_FORBIDDEN_BACKEND_ROUTES = M148_FORBIDDEN_BACKEND_ROUTES + (
+    "/alpha-release-candidate-freeze",
+    "/alpha-release-candidate-freeze/start",
+    "/alpha-release-candidate-freeze/publish",
+    "/release/publish",
+    "/release/tag",
+    "/release/create-tag",
+    "/release/artifact/build",
+    "/release/artifact/upload",
+    "/release/artifact/export",
+    "/distribution/publish",
+    "/external-distribution",
+    "/app-store/submit",
+    "/testflight/submit",
+    "/beta/release",
+    "/v1-alpha/release",
+    "/m150/release",
+    "/release/automation",
+    "/production/authority/enable",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -4109,6 +4130,23 @@ def m148_openapi_route_failures(
     return failures
 
 
+def m149_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M149_OPENAPI_PATH_COUNT
+) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(
+            f"OpenAPI path count changed for M149: expected {expected_path_count}, got {len(path_set)}"
+        )
+    for route in M149_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(
+                f"M149 forbidden release candidate, release publication, tag, artifact, distribution, submission, beta, M150 release, automation, auth, or authority route present: {route}"
+            )
+    return failures
+
+
 M36_SAFE_REF_PREFIXES = {
     "reviewPacketRef": "file-review-packet:",
     "previewResultRef": "redacted-file-preview-output:",
@@ -5454,6 +5492,16 @@ class FoundationGateEvaluator:
                 self.check_m148_external_security_review_route_boundary
             ),
             "m148_roadmap_currentness": self.check_m148_roadmap_currentness,
+            "m149_alpha_release_candidate_freeze_contracts": (
+                self.check_m149_alpha_release_candidate_freeze_contracts
+            ),
+            "m149_alpha_release_candidate_freeze_static_safety": (
+                self.check_m149_alpha_release_candidate_freeze_static_safety
+            ),
+            "m149_alpha_release_candidate_freeze_route_boundary": (
+                self.check_m149_alpha_release_candidate_freeze_route_boundary
+            ),
+            "m149_roadmap_currentness": self.check_m149_roadmap_currentness,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -31355,6 +31403,10 @@ class FoundationGateEvaluator:
             _version_doc_marks_milestone_implemented(active_version_text, "m148")
         ):
             implemented_milestones.add("m148")
+        if (
+            _version_doc_marks_milestone_implemented(active_version_text, "m149")
+        ):
+            implemented_milestones.add("m149")
         for version_label, product_target, milestone, title in expected_labels:
             if milestone in implemented_milestones:
                 continue
@@ -50804,7 +50856,7 @@ class FoundationGateEvaluator:
                 "pre-alpha checkpoint",
                 "m149",
                 "alpha release candidate freeze",
-                "planned/provisional",
+                "implemented/released",
             ),
             (
                 "v1.0.0-alpha",
@@ -50820,7 +50872,7 @@ class FoundationGateEvaluator:
             )
             if not _roadmap_row_present(text, row):
                 failures.append(
-                    f"active docs missing expected M148/M149-M150 row: {version_label} / {milestone.upper()} - {title}"
+                    f"active docs missing expected M148/M149/M150 row: {version_label} / {milestone.upper()} - {title}"
                 )
         for fragment in (
             "external vendor handoff is implemented",
@@ -50841,6 +50893,424 @@ class FoundationGateEvaluator:
             if fragment in text:
                 failures.append(
                     f"active docs imply forbidden M148 future/currentness claim: {fragment}"
+                )
+        return self._result(criterion, failures, required_docs)
+
+    def check_m149_alpha_release_candidate_freeze_contracts(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/productization/alpha_release_candidate_freeze.py",
+            "docs/productization/ALPHA_RELEASE_CANDIDATE_FREEZE.md",
+            "docs/productization/ALPHA_RELEASE_CANDIDATE_FREEZE_POLICY.md",
+            "docs/productization/ALPHA_RELEASE_CANDIDATE_FREEZE_AUTHORITY_BOUNDARY.md",
+            "docs/productization/ALPHA_RELEASE_CANDIDATE_FREEZE_RECEIPT_PLAN.md",
+            "docs/productization/ALPHA_RELEASE_CANDIDATE_FREEZE_NON_GOALS.md",
+            "docs/productization/M149_TO_M150_BOUNDARY.md",
+            "docs/release_notes/checkpoint_m149.md",
+            "docs/archive/checkpoints/m149/README_IMPORT.md",
+            "docs/archive/checkpoints/m149/master_plan.md",
+            "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            "tests/test_m149_alpha_release_candidate_freeze.py",
+            "tests/test_m149_gate_integration.py",
+        ]
+        failures = [
+            f"missing M149 alpha release candidate freeze file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            from tests.test_m149_alpha_release_candidate_freeze import _request
+            from ultimate_ai_agent.core.productization import (
+                AlphaReleaseCandidateFreezeStatus,
+                build_alpha_release_candidate_freeze_record,
+                validate_alpha_release_candidate_freeze_record,
+            )
+
+            record = build_alpha_release_candidate_freeze_record(_request())
+            if (
+                record.status != AlphaReleaseCandidateFreezeStatus.freeze_recorded
+                or not record.contract_only
+                or not record.review_only
+                or not record.freeze_only
+                or not record.deterministic
+                or not record.local_only
+                or not record.safe_refs_only
+                or not record.alpha_release_candidate_freeze_only
+                or not record.disabled_by_default
+                or not record.m101_m148_covered
+                or not record.release_candidates_bound
+                or not record.freeze_checklists_bound
+                or not record.alpha_readiness_bound
+                or not record.evidence_indexes_bound
+                or not record.blocker_summaries_bound
+                or not record.signoff_reviews_bound
+                or not record.m150_promotion_gates_bound
+                or not record.no_release_publication
+                or not record.no_release_tag
+                or not record.no_tag_creation
+                or not record.no_artifact_build
+                or not record.no_artifact_upload
+                or not record.no_artifact_export
+                or not record.no_external_distribution
+                or not record.no_app_store_submission
+                or not record.no_testflight_submission
+                or not record.no_beta_release
+                or not record.no_m150_release
+                or not record.no_release_automation
+                or not record.no_backend_route
+                or not record.no_control_center_control
+                or not record.no_dependency
+                or not record.no_production_authority
+                or record.release_publication_started
+                or record.release_tag_created
+                or record.tag_creation_performed
+                or record.artifact_build_performed
+                or record.artifact_upload_started
+                or record.artifact_export_started
+                or record.external_distribution_started
+                or record.app_store_submission_started
+                or record.testflight_submission_started
+                or record.beta_release_enabled
+                or record.m150_release_performed
+                or record.release_automation_started
+                or record.auth_runtime_started
+                or record.backend_route_added
+                or record.control_center_control_added
+                or record.dependency_added
+                or record.production_authority_granted
+                or "M149_ALPHA_RELEASE_CANDIDATE_FREEZE_REVIEW_ONLY"
+                not in record.reason_codes
+                or "M149_M101_M148_COVERED" not in record.reason_codes
+                or "M149_FREEZE_ONLY" not in record.reason_codes
+                or "M149_DISABLED_BY_DEFAULT" not in record.reason_codes
+                or "M149_NO_RELEASE_PUBLICATION" not in record.reason_codes
+                or "M149_NO_RELEASE_TAG" not in record.reason_codes
+                or "M149_NO_TAG_CREATION" not in record.reason_codes
+                or "M149_NO_ARTIFACT_BUILD" not in record.reason_codes
+                or "M149_NO_ARTIFACT_UPLOAD" not in record.reason_codes
+                or "M149_NO_ARTIFACT_EXPORT" not in record.reason_codes
+                or "M149_NO_EXTERNAL_DISTRIBUTION" not in record.reason_codes
+                or "M149_NO_APP_STORE_SUBMISSION" not in record.reason_codes
+                or "M149_NO_TESTFLIGHT_SUBMISSION" not in record.reason_codes
+                or "M149_NO_BETA_RELEASE" not in record.reason_codes
+                or "M149_NO_M150_RELEASE" not in record.reason_codes
+                or "M149_NO_RELEASE_AUTOMATION" not in record.reason_codes
+                or "M149_NO_BACKEND_ROUTE" not in record.reason_codes
+                or "M149_NO_PRODUCTION_AUTHORITY" not in record.reason_codes
+                or "M150_REMAINS_FUTURE" not in record.reason_codes
+            ):
+                failures.append(
+                    "M149 alpha release candidate freeze record is unsafe or over-authoritative"
+                )
+            for update, reason in [
+                (
+                    {"release_publication_started": True},
+                    "M149_RELEASE_PUBLICATION_DENIED",
+                ),
+                ({"release_tag_created": True}, "M149_RELEASE_TAG_DENIED"),
+                ({"tag_creation_performed": True}, "M149_TAG_CREATION_DENIED"),
+                ({"artifact_build_performed": True}, "M149_ARTIFACT_BUILD_DENIED"),
+                ({"artifact_upload_started": True}, "M149_ARTIFACT_UPLOAD_DENIED"),
+                ({"artifact_export_started": True}, "M149_ARTIFACT_EXPORT_DENIED"),
+                (
+                    {"external_distribution_started": True},
+                    "M149_EXTERNAL_DISTRIBUTION_DENIED",
+                ),
+                (
+                    {"app_store_submission_started": True},
+                    "M149_APP_STORE_SUBMISSION_DENIED",
+                ),
+                (
+                    {"testflight_submission_started": True},
+                    "M149_TESTFLIGHT_SUBMISSION_DENIED",
+                ),
+                ({"m150_release_performed": True}, "M149_M150_RELEASE_DENIED"),
+                ({"release_automation_started": True}, "M149_RELEASE_AUTOMATION_DENIED"),
+                ({"auth_runtime_started": True}, "M149_AUTH_RUNTIME_DENIED"),
+                ({"backend_route_added": True}, "M149_BACKEND_ROUTE_DENIED"),
+                ({"dependency_added": True}, "M149_DEPENDENCY_DENIED"),
+                (
+                    {"production_authority_granted": True},
+                    "M149_PRODUCTION_AUTHORITY_DENIED",
+                ),
+            ]:
+                try:
+                    validate_alpha_release_candidate_freeze_record(
+                        record.model_copy(update=update)
+                    )
+                    failures.append(
+                        f"M149 unsafe release-freeze mutation was not denied with {reason}"
+                    )
+                except ValueError as exc:
+                    if reason not in str(exc):
+                        failures.append(
+                            f"M149 unsafe release-freeze mutation raised {exc!s}"
+                        )
+        except Exception as exc:
+            failures.append(
+                f"M149 alpha release candidate freeze validation failed: {exc}"
+            )
+
+        docs_text = " ".join(
+            "\n".join(
+                self._read(self.root / path).lower()
+                for path in required_files
+                if path.startswith("docs/") and (self.root / path).exists()
+            ).split()
+        )
+        for fragment in [
+            "alpha release candidate freeze",
+            "contract-only",
+            "review-only",
+            "freeze-only",
+            "deterministic",
+            "local-only",
+            "safe-ref-only",
+            "alpha-release-candidate-freeze-only",
+            "disabled by default",
+            "route-free",
+            "no-effect",
+            "accepted m101-m148",
+            "release candidate refs",
+            "freeze checklist refs",
+            "alpha readiness refs",
+            "evidence index refs",
+            "blocker summary refs",
+            "signoff review refs",
+            "m150 promotion gate refs",
+            "audit",
+            "replay",
+            "revocation",
+            "kill-switch",
+            "no-effect receipt",
+            "no release publication",
+            "no release tag",
+            "no tag creation",
+            "no artifact build",
+            "no artifact upload",
+            "no artifact export",
+            "no external distribution",
+            "no app store submission",
+            "no testflight submission",
+            "no beta release",
+            "no m150 release",
+            "no release automation",
+            "no backend route",
+            "no control center control",
+            "no dependency",
+            "no production authority",
+            "m150 remains future",
+            "v1.0.0-alpha",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M149 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m149_alpha_release_candidate_freeze_static_safety(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        forbidden_source_fragments = [
+            "release_publication_enabled=True",
+            "release_tag_enabled=True",
+            "tag_creation_enabled=True",
+            "artifact_build_enabled=True",
+            "artifact_upload_enabled=True",
+            "artifact_export_enabled=True",
+            "external_distribution_enabled=True",
+            "app_store_submission_enabled=True",
+            "testflight_submission_enabled=True",
+            "beta_release_enabled=True",
+            "m150_release_enabled=True",
+            "release_automation_enabled=True",
+            "auth_runtime_enabled=True",
+            "login_enabled=True",
+            "connector_runtime_enabled=True",
+            "plugin_marketplace_runtime_enabled=True",
+            "execution_enabled=True",
+            "tool_execution_enabled=True",
+            "shell_execution_enabled=True",
+            "browser_action_enabled=True",
+            "connector_action_enabled=True",
+            "network_access_enabled=True",
+            "model_call_enabled=True",
+            "memory_write_enabled=True",
+            "context_injection_enabled=True",
+            "backend_route_enabled=True",
+            "dependency_added=True",
+            "production_authority_granted=True",
+            "release_publication_started=True",
+            "release_tag_created=True",
+            "tag_creation_performed=True",
+            "artifact_build_performed=True",
+            "artifact_upload_started=True",
+            "artifact_export_started=True",
+            "external_distribution_started=True",
+            "app_store_submission_started=True",
+            "testflight_submission_started=True",
+            "m150_release_performed=True",
+            "release_automation_started=True",
+            "auth_runtime_started=True",
+            "/alpha-release-candidate-freeze",
+            "/release/publish",
+            "/release/tag",
+            "/release/create-tag",
+            "/release/artifact/build",
+            "/release/artifact/upload",
+            "/release/artifact/export",
+            "/distribution/publish",
+            "/external-distribution",
+            "/app-store/submit",
+            "/testflight/submit",
+            "/beta/release",
+            "/v1-alpha/release",
+            "/m150/release",
+            "/release/automation",
+        ]
+        allowed_files = {
+            "src/ultimate_ai_agent/core/gate/evaluators.py",
+            "src/ultimate_ai_agent/api/app.py",
+            "src/ultimate_ai_agent/api/openapi.py",
+            "src/ultimate_ai_agent/core/gate/criteria.py",
+            "src/ultimate_ai_agent/core/productization/__init__.py",
+            "src/ultimate_ai_agent/core/productization/alpha_release_candidate_freeze.py",
+            "src/ultimate_ai_agent/core/productization/external_security_review.py",
+            "src/ultimate_ai_agent/core/productization/public_docs_wiki_readiness.py",
+            "src/ultimate_ai_agent/core/productization/billing_plan_boundary.py",
+            "src/ultimate_ai_agent/core/productization/enterprise_pro_safety_modes.py",
+            "src/ultimate_ai_agent/core/productization/plugin_marketplace_policy_draft.py",
+            "src/ultimate_ai_agent/core/productization/alpha_ui_app_readiness.py",
+            "src/ultimate_ai_agent/core/productization/alpha_privacy_review.py",
+            "src/ultimate_ai_agent/core/productization/multi_user_product_boundary.py",
+        }
+        for root in [
+            self.root / "src" / "ultimate_ai_agent",
+            self.root / "apps" / "control-center" / "src",
+            self.root / "apps" / "ccc-ios",
+        ]:
+            if not root.exists():
+                continue
+            candidate_files = []
+            for pattern in (
+                "*.py",
+                "*.ts",
+                "*.tsx",
+                "*.js",
+                "*.jsx",
+                "*.swift",
+                "*.yml",
+                "*.yaml",
+            ):
+                candidate_files.extend(root.rglob(pattern))
+            for path in sorted(candidate_files):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(self.root).as_posix()
+                if ".test." in rel or rel in allowed_files:
+                    continue
+                text = path.read_text(encoding="utf-8")
+                for fragment in forbidden_source_fragments:
+                    if fragment in text:
+                        failures.append(
+                            f"M149 forbidden release-freeze fragment in {rel}: {fragment}"
+                        )
+        return self._result(criterion, failures, [])
+
+    def check_m149_alpha_release_candidate_freeze_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m149_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M149 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m149_roadmap_currentness(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_docs = [
+            "README.md",
+            "VERSION.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            "docs/roadmap/MILESTONE_CHARTERS.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+            "docs/DOCUMENTATION_INDEX.md",
+            "docs/canonical/CANONICAL_DOC_MAP.md",
+        ]
+        failures = [
+            f"missing M149 roadmap doc: {path}"
+            for path in required_docs
+            if not (self.root / path).exists()
+        ]
+        text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_docs
+            if (self.root / path).exists()
+        )
+        if "checkpoint m149" not in text or "alpha release candidate freeze" not in text:
+            failures.append("active docs do not identify Checkpoint M149")
+        if (
+            "m149 is implemented/released" not in text
+            and "checkpoint m149 is implemented/released" not in text
+        ):
+            failures.append("active docs do not mark M149 implemented/released")
+        for version_label, product_target, milestone, title, status in [
+            (
+                "checkpoint m148",
+                "pre-alpha checkpoint",
+                "m148",
+                "external security review",
+                "implemented/released",
+            ),
+            (
+                "checkpoint m149",
+                "pre-alpha checkpoint",
+                "m149",
+                "alpha release candidate freeze",
+                "implemented/released",
+            ),
+            (
+                "v1.0.0-alpha",
+                "alpha",
+                "m150",
+                "ultimate ai agent v1.0.0-alpha",
+                "planned/provisional",
+            ),
+        ]:
+            row = (
+                f"| {version_label} | {product_target} | {milestone} | "
+                f"{title} | {status} |"
+            )
+            if not _roadmap_row_present(text, row):
+                failures.append(
+                    f"active docs missing expected M149/M150 row: {version_label} / {milestone.upper()} - {title}"
+                )
+        for fragment in (
+            "release publication is implemented",
+            "release tag is implemented",
+            "tag creation is implemented",
+            "artifact build is implemented",
+            "artifact upload is implemented",
+            "artifact export is implemented",
+            "external distribution is implemented",
+            "app store submission is implemented",
+            "testflight submission is implemented",
+            "m150 release is implemented",
+            "release automation is implemented",
+            "beta is released",
+            "production authority is implemented",
+            "backend route is implemented",
+            "control center control is implemented",
+            "m150 dependency is added",
+        ):
+            if fragment in text:
+                failures.append(
+                    f"active docs imply forbidden M149 future/currentness claim: {fragment}"
                 )
         return self._result(criterion, failures, required_docs)
 

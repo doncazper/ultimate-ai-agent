@@ -82,6 +82,18 @@ from ultimate_ai_agent.core.productization.external_security_review import (
     validate_external_security_review_record,
     validate_external_security_review_request,
 )
+from ultimate_ai_agent.core.productization.alpha_release_candidate_freeze import (
+    ALPHA_RELEASE_CANDIDATE_FREEZE_DOCS,
+    REQUIRED_M149_ACCEPTED_CHECKPOINT_REFS,
+    AlphaReleaseCandidateFreezePolicy,
+    AlphaReleaseCandidateFreezeRecord,
+    AlphaReleaseCandidateFreezeRequest,
+    AlphaReleaseCandidateFreezeStatus,
+    build_alpha_release_candidate_freeze_record,
+    validate_alpha_release_candidate_freeze_policy,
+    validate_alpha_release_candidate_freeze_record,
+    validate_alpha_release_candidate_freeze_request,
+)
 from ultimate_ai_agent.core.productization.multi_user_product_boundary import (
     MULTI_USER_PRODUCT_BOUNDARY_DOCS,
     REQUIRED_M141_ACCEPTED_CHECKPOINT_REFS,
@@ -97,6 +109,7 @@ from ultimate_ai_agent.core.productization.multi_user_product_boundary import (
 
 __all__ = [
     "ALPHA_PRIVACY_REVIEW_DOCS",
+    "ALPHA_RELEASE_CANDIDATE_FREEZE_DOCS",
     "ALPHA_UI_APP_READINESS_DOCS",
     "BILLING_PLAN_BOUNDARY_DOCS",
     "ENTERPRISE_PRO_SAFETY_MODES_DOCS",
@@ -112,6 +125,11 @@ __all__ = [
     "REQUIRED_M146_ACCEPTED_CHECKPOINT_REFS",
     "REQUIRED_M147_ACCEPTED_CHECKPOINT_REFS",
     "REQUIRED_M148_ACCEPTED_CHECKPOINT_REFS",
+    "REQUIRED_M149_ACCEPTED_CHECKPOINT_REFS",
+    "AlphaReleaseCandidateFreezePolicy",
+    "AlphaReleaseCandidateFreezeRecord",
+    "AlphaReleaseCandidateFreezeRequest",
+    "AlphaReleaseCandidateFreezeStatus",
     "AlphaPrivacyReviewPolicy",
     "AlphaPrivacyReviewRecord",
     "AlphaPrivacyReviewRequest",
@@ -145,6 +163,7 @@ __all__ = [
     "PublicDocsWikiReadinessRequest",
     "PublicDocsWikiReadinessStatus",
     "build_alpha_privacy_review_record",
+    "build_alpha_release_candidate_freeze_record",
     "build_alpha_ui_app_readiness_record",
     "build_billing_plan_boundary_record",
     "build_enterprise_pro_safety_modes_record",
@@ -155,6 +174,9 @@ __all__ = [
     "validate_alpha_privacy_review_policy",
     "validate_alpha_privacy_review_record",
     "validate_alpha_privacy_review_request",
+    "validate_alpha_release_candidate_freeze_policy",
+    "validate_alpha_release_candidate_freeze_record",
+    "validate_alpha_release_candidate_freeze_request",
     "validate_alpha_ui_app_readiness_policy",
     "validate_alpha_ui_app_readiness_record",
     "validate_alpha_ui_app_readiness_request",

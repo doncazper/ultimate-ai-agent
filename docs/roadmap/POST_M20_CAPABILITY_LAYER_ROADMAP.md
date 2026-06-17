@@ -128,7 +128,7 @@ Recommended next prompt after Checkpoint M112:
 
 ```text
 Continue with M114 implementation conveyor using checkpoint milestones for
-M114-M149, with M150 reserved as the v1.0.0-alpha product target.
+M114-M150, with M150 reserved as the v1.0.0-alpha product target.
 ```
 
 M61 is implemented/released by v0.65.0 as Autonomy Mode Charter + Authority
@@ -219,9 +219,9 @@ Privacy Review. Checkpoint M143 is implemented/released as Alpha UI and App
 Readiness. Checkpoint M144 is implemented/released as Plugin Marketplace Policy
 Draft. Checkpoint M146 is implemented/released as Billing/Plan Boundary.
 Checkpoint M147 is implemented/released as Public Docs + Wiki Readiness.
-M149 remains planned/provisional as a checkpoint milestone instead of product
-SemVer tags, and M150 remains planned/provisional as the v1.0.0-alpha product
-target.
+M149 is implemented/released as Alpha Release Candidate Freeze while the product
+baseline remains v1.7.2. M150 remains planned/provisional as the
+v1.0.0-alpha product target.
 Beta begins after the alpha UI and supporting safety/product work are reviewed
 and promoted.
 

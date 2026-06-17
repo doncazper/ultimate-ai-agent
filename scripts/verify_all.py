@@ -196,6 +196,7 @@ SCAN_SEQUENCE = [
     ("M146 billing/plan boundary scan", "verify_m146_billing_plan_boundary"),
     ("M147 public docs + wiki readiness scan", "verify_m147_public_docs_wiki_readiness"),
     ("M148 external security review scan", "verify_m148_external_security_review"),
+    ("M149 alpha release candidate freeze scan", "verify_m149_alpha_release_candidate_freeze"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -17821,6 +17822,10 @@ def verify_post_m100_roadmap_reconciliation():
         _version_doc_marks_milestone_implemented(active_version_text, "m148")
     ):
         implemented_milestones.add("m148")
+    if (
+        _version_doc_marks_milestone_implemented(active_version_text, "m149")
+    ):
+        implemented_milestones.add("m149")
     for version_label, product_target, milestone, title in expected_labels:
         if milestone in implemented_milestones:
             continue
@@ -27750,6 +27755,221 @@ def verify_m148_external_security_review():
 
     print(
         "OK: M148 external security review is review-only, disabled-by-default, safe-ref-only, and route-free"
+    )
+
+
+def verify_m149_alpha_release_candidate_freeze():
+    print("\n[Verifier] Running M149 alpha release candidate freeze guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/productization/alpha_release_candidate_freeze.py",
+        "docs/productization/ALPHA_RELEASE_CANDIDATE_FREEZE.md",
+        "docs/productization/ALPHA_RELEASE_CANDIDATE_FREEZE_POLICY.md",
+        "docs/productization/ALPHA_RELEASE_CANDIDATE_FREEZE_AUTHORITY_BOUNDARY.md",
+        "docs/productization/ALPHA_RELEASE_CANDIDATE_FREEZE_RECEIPT_PLAN.md",
+        "docs/productization/ALPHA_RELEASE_CANDIDATE_FREEZE_NON_GOALS.md",
+        "docs/productization/M149_TO_M150_BOUNDARY.md",
+        "docs/release_notes/checkpoint_m149.md",
+        "docs/archive/checkpoints/m149/README_IMPORT.md",
+        "docs/archive/checkpoints/m149/master_plan.md",
+        "tests/test_m149_alpha_release_candidate_freeze.py",
+        "tests/test_m149_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M149 alpha release candidate freeze file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = " ".join(
+        "\n".join(
+            (ROOT / rel_path).read_text(encoding="utf-8").lower()
+            for rel_path in required_files
+            if rel_path.startswith("docs/")
+        ).split()
+    )
+    for fragment in [
+        "alpha release candidate freeze",
+        "contract-only",
+        "review-only",
+        "freeze-only",
+        "deterministic",
+        "local-only",
+        "safe-ref-only",
+        "alpha-release-candidate-freeze-only",
+        "disabled by default",
+        "route-free",
+        "no-effect",
+        "accepted m101-m148",
+        "release candidate refs",
+        "freeze checklist refs",
+        "alpha readiness refs",
+        "evidence index refs",
+        "blocker summary refs",
+        "signoff review refs",
+        "m150 promotion gate refs",
+        "no release publication",
+        "no release tag",
+        "no tag creation",
+        "no artifact build",
+        "no artifact upload",
+        "no artifact export",
+        "no external distribution",
+        "no app store submission",
+        "no testflight submission",
+        "no beta release",
+        "no m150 release",
+        "no release automation",
+        "no backend route",
+        "no control center control",
+        "no dependency",
+        "no production authority",
+        "m150 remains future",
+        "v1.0.0-alpha",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M149 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from tests.test_m149_alpha_release_candidate_freeze import _request
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.criteria import (
+            default_foundation_gate_criteria,
+        )
+        from ultimate_ai_agent.core.gate.evaluators import (
+            FoundationGateEvaluator,
+            m149_openapi_route_failures,
+        )
+        from ultimate_ai_agent.core.productization import (
+            AlphaReleaseCandidateFreezeStatus,
+            build_alpha_release_candidate_freeze_record,
+            validate_alpha_release_candidate_freeze_record,
+        )
+    except Exception as exc:
+        print(f"FAIL: M149 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m149_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    record = build_alpha_release_candidate_freeze_record(_request())
+    if (
+        record.status != AlphaReleaseCandidateFreezeStatus.freeze_recorded
+        or not record.contract_only
+        or not record.review_only
+        or not record.freeze_only
+        or not record.safe_refs_only
+        or not record.alpha_release_candidate_freeze_only
+        or not record.disabled_by_default
+        or not record.m101_m148_covered
+        or not record.release_candidates_bound
+        or not record.freeze_checklists_bound
+        or not record.alpha_readiness_bound
+        or not record.evidence_indexes_bound
+        or not record.blocker_summaries_bound
+        or not record.signoff_reviews_bound
+        or not record.m150_promotion_gates_bound
+        or not record.no_release_publication
+        or not record.no_release_tag
+        or not record.no_tag_creation
+        or not record.no_artifact_build
+        or not record.no_artifact_upload
+        or not record.no_artifact_export
+        or not record.no_external_distribution
+        or not record.no_app_store_submission
+        or not record.no_testflight_submission
+        or not record.no_beta_release
+        or not record.no_m150_release
+        or not record.no_release_automation
+        or not record.no_backend_route
+        or not record.no_dependency
+        or not record.no_production_authority
+        or record.release_publication_started
+        or record.release_tag_created
+        or record.artifact_build_performed
+        or record.artifact_upload_started
+        or record.artifact_export_started
+        or record.external_distribution_started
+        or record.app_store_submission_started
+        or record.testflight_submission_started
+        or record.m150_release_performed
+        or record.release_automation_started
+        or record.backend_route_added
+        or record.dependency_added
+        or record.production_authority_granted
+        or "M149_ALPHA_RELEASE_CANDIDATE_FREEZE_REVIEW_ONLY"
+        not in record.reason_codes
+        or "M149_M101_M148_COVERED" not in record.reason_codes
+        or "M149_FREEZE_ONLY" not in record.reason_codes
+        or "M149_NO_RELEASE_PUBLICATION" not in record.reason_codes
+        or "M149_NO_RELEASE_TAG" not in record.reason_codes
+        or "M149_NO_ARTIFACT_BUILD" not in record.reason_codes
+        or "M149_NO_ARTIFACT_UPLOAD" not in record.reason_codes
+        or "M149_NO_ARTIFACT_EXPORT" not in record.reason_codes
+        or "M149_NO_EXTERNAL_DISTRIBUTION" not in record.reason_codes
+        or "M149_NO_M150_RELEASE" not in record.reason_codes
+        or "M149_NO_RELEASE_AUTOMATION" not in record.reason_codes
+        or "M149_NO_BACKEND_ROUTE" not in record.reason_codes
+        or "M149_NO_PRODUCTION_AUTHORITY" not in record.reason_codes
+        or "M150_REMAINS_FUTURE" not in record.reason_codes
+    ):
+        print("FAIL: M149 alpha release candidate freeze record is unsafe")
+        sys.exit(1)
+
+    for update, reason in [
+        ({"release_publication_started": True}, "M149_RELEASE_PUBLICATION_DENIED"),
+        ({"release_tag_created": True}, "M149_RELEASE_TAG_DENIED"),
+        ({"artifact_build_performed": True}, "M149_ARTIFACT_BUILD_DENIED"),
+        ({"artifact_upload_started": True}, "M149_ARTIFACT_UPLOAD_DENIED"),
+        ({"artifact_export_started": True}, "M149_ARTIFACT_EXPORT_DENIED"),
+        ({"external_distribution_started": True}, "M149_EXTERNAL_DISTRIBUTION_DENIED"),
+        ({"m150_release_performed": True}, "M149_M150_RELEASE_DENIED"),
+        ({"release_automation_started": True}, "M149_RELEASE_AUTOMATION_DENIED"),
+        ({"backend_route_added": True}, "M149_BACKEND_ROUTE_DENIED"),
+        ({"dependency_added": True}, "M149_DEPENDENCY_DENIED"),
+        ({"production_authority_granted": True}, "M149_PRODUCTION_AUTHORITY_DENIED"),
+    ]:
+        try:
+            validate_alpha_release_candidate_freeze_record(
+                record.model_copy(update=update)
+            )
+            print(f"FAIL: M149 mutated authority flag was not denied: {update}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M149 mutated authority flag raised {exc!s}")
+                sys.exit(1)
+
+    criteria = {
+        criterion.criterion_id: criterion
+        for criterion in default_foundation_gate_criteria()
+    }
+    for criterion_id in [
+        "m149_alpha_release_candidate_freeze_contracts",
+        "m149_alpha_release_candidate_freeze_static_safety",
+        "m149_alpha_release_candidate_freeze_route_boundary",
+        "m149_roadmap_currentness",
+    ]:
+        if criterion_id not in criteria:
+            print(f"FAIL: Missing M149 Foundation Gate criterion: {criterion_id}")
+            sys.exit(1)
+    evaluator = FoundationGateEvaluator(ROOT)
+    for criterion_id in [
+        "m149_alpha_release_candidate_freeze_contracts",
+        "m149_alpha_release_candidate_freeze_static_safety",
+        "m149_alpha_release_candidate_freeze_route_boundary",
+        "m149_roadmap_currentness",
+    ]:
+        gate_report = evaluator.evaluate([criteria[criterion_id]])
+        result = gate_report.results[0]
+        if result.status != "passed":
+            print(f"FAIL: {criterion_id} failed: {result.failures}")
+            sys.exit(1)
+
+    print(
+        "OK: M149 alpha release candidate freeze is review-only, freeze-only, disabled-by-default, safe-ref-only, and route-free"
     )
 
 
