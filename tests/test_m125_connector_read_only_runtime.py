@@ -1,3 +1,4 @@
+from functools import lru_cache
 from importlib import import_module
 
 import pytest
@@ -29,6 +30,7 @@ def _connectors():
         pytest.fail(f"M125 connectors package missing: {exc}")
 
 
+@lru_cache(maxsize=1)
 def _m120_source_record():
     return build_production_authority_readiness_review_record(
         source_record=build_production_red_team_harness_record(
@@ -59,6 +61,7 @@ def _m120_source_record():
     )
 
 
+@lru_cache(maxsize=1)
 def _m124_source_record():
     connectors = _connectors()
     return connectors.build_messages_connector_contract_review_record(

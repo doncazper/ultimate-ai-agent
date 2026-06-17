@@ -1,4 +1,4 @@
-from ultimate_ai_agent.core.gate import FoundationGateEvaluator, FoundationGateStatus, default_foundation_gate_criteria
+from ultimate_ai_agent.core.gate import FoundationGateStatus, default_foundation_gate_criteria
 
 
 def test_foundation_gate_criteria_include_m75_api_boundary_surface():
@@ -15,13 +15,10 @@ def test_foundation_gate_criteria_include_m75_api_boundary_surface():
     }.issubset(by_id)
 
 
-def test_foundation_gate_evaluator_passes_m75_api_boundary_checks():
-    report = FoundationGateEvaluator().evaluate()
-    results = {result.criterion_id: result for result in report.results}
-
-    assert results["api_manifest_endpoint_present"].status == FoundationGateStatus.passed
-    assert results["openapi_contract_valid"].status == FoundationGateStatus.passed
-    assert results["api_operation_ids_unique"].status == FoundationGateStatus.passed
-    assert results["forbidden_runtime_routes_absent"].status == FoundationGateStatus.passed
-    assert results["agents_md_guidance_present"].status == FoundationGateStatus.passed
-    assert results["runtime_agent_config_loading_absent"].status == FoundationGateStatus.passed
+def test_foundation_gate_evaluator_passes_m75_api_boundary_checks(foundation_gate_results):
+    assert foundation_gate_results["api_manifest_endpoint_present"].status == FoundationGateStatus.passed
+    assert foundation_gate_results["openapi_contract_valid"].status == FoundationGateStatus.passed
+    assert foundation_gate_results["api_operation_ids_unique"].status == FoundationGateStatus.passed
+    assert foundation_gate_results["forbidden_runtime_routes_absent"].status == FoundationGateStatus.passed
+    assert foundation_gate_results["agents_md_guidance_present"].status == FoundationGateStatus.passed
+    assert foundation_gate_results["runtime_agent_config_loading_absent"].status == FoundationGateStatus.passed

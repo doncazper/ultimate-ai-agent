@@ -10,16 +10,34 @@ from ultimate_ai_agent.core.observability.export import (
     validate_redacted_observability_export_policy,
     validate_redacted_observability_export_request,
 )
+from ultimate_ai_agent.core.observability.debug_logs import (
+    DebugLogCategory,
+    DebugLogLevel,
+    DebugLogRecord,
+    DebugLogRedactionStatus,
+    DebugLogStore,
+    DebugLogSummary,
+    RedactedDebugText,
+    redact_debug_text,
+)
 
 __all__ = [
+    "DebugLogCategory",
+    "DebugLogLevel",
+    "DebugLogRecord",
+    "DebugLogRedactionStatus",
+    "DebugLogStore",
+    "DebugLogSummary",
     "ObservabilityExportFormat",
     "RedactedObservabilityExportBundle",
+    "RedactedDebugText",
     "RedactedObservabilityExportItem",
     "RedactedObservabilityExportPolicy",
     "RedactedObservabilityExportReceiptPlan",
     "RedactedObservabilityExportRequest",
     "RedactedObservabilityExportStatus",
     "build_redacted_observability_export",
+    "redact_debug_text",
     "validate_redacted_observability_export_policy",
     "validate_redacted_observability_export_request",
 ]

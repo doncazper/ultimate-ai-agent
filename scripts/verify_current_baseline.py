@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import argparse
 import sys
 import re
 from pathlib import Path
@@ -19,7 +20,15 @@ def release_packet_paths(version_key):
         f"docs/archive/releases/v{version_key}/master_plan.md",
     )
 
-def main():
+def main(argv=None):
+    parser = argparse.ArgumentParser(description="Verify current baseline metadata and required files.")
+    parser.add_argument(
+        "--skip-static-scans",
+        action="store_true",
+        help="Skip delegated verify_all static scans when the caller already ran them.",
+    )
+    args = parser.parse_args(argv)
+
     print("=== Ultimate AI Agent Baseline Consistency Verification ===")
     
     # 1. Read VERSION.md and extract version
@@ -629,11 +638,14 @@ def main():
     ok("All M20 Device Capability Broker contract files exist")
     
     # 9. Enforce scans by delegating to verify_all
-    try:
-        from verify_all import run_static_scans
-    except Exception as exc:
-        fail(f"Could not import verify_all scan helpers: {exc}")
-    run_static_scans()
+    if args.skip_static_scans:
+        ok("Static scans already satisfied by caller")
+    else:
+        try:
+            from verify_all import run_static_scans
+        except Exception as exc:
+            fail(f"Could not import verify_all scan helpers: {exc}")
+        run_static_scans()
 
     print("\nConsistency verification PASSED")
 

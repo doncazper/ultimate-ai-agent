@@ -1,25 +1,23 @@
 from ultimate_ai_agent.core.gate import (
-    FoundationGateEvaluator,
-    FoundationGateReport,
+    FoundationGateStatus,
     default_foundation_gate_criteria,
 )
 from ultimate_ai_agent.core.gate.evaluators import m38_openapi_route_failures
 
 
-def test_m38_gate_criteria_are_registered_and_pass():
+def test_m38_gate_criteria_are_registered_and_pass(foundation_gate_results):
     criteria = default_foundation_gate_criteria()
     ids = {criterion.criterion_id for criterion in criteria}
+    expected = [
+        "m38_safe_context_proposal_contracts",
+        "m38_safe_context_proposal_route_boundary",
+        "m38_no_control_center_context_surface",
+        "m38_roadmap_currentness",
+    ]
 
-    assert "m38_safe_context_proposal_contracts" in ids
-    assert "m38_safe_context_proposal_route_boundary" in ids
-    assert "m38_no_control_center_context_surface" in ids
-    assert "m38_roadmap_currentness" in ids
-
-    report = FoundationGateEvaluator().evaluate(criteria)
-    failed = [item for item in report.results if item.status == "failed"]
-
-    assert not failed
-    assert FoundationGateReport.model_validate(report.model_dump())
+    for criterion_id in expected:
+        assert criterion_id in ids
+        assert foundation_gate_results[criterion_id].status == FoundationGateStatus.passed
 
 
 def test_m38_route_boundary_rejects_future_context_and_openwebui_routes():

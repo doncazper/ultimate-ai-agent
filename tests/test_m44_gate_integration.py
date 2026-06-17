@@ -1,25 +1,23 @@
 from ultimate_ai_agent.core.gate import (
-    FoundationGateEvaluator,
-    FoundationGateReport,
+    FoundationGateStatus,
     default_foundation_gate_criteria,
 )
 from ultimate_ai_agent.core.gate.evaluators import m44_openapi_route_failures
 
 
-def test_m44_gate_criteria_are_registered_and_pass() -> None:
+def test_m44_gate_criteria_are_registered_and_pass(foundation_gate_results) -> None:
     criteria = default_foundation_gate_criteria()
     criterion_ids = {criterion.criterion_id for criterion in criteria}
+    expected = [
+        "m44_ccc_ios_skeleton_no_authority",
+        "m44_ios_skeleton_static_safety",
+        "m44_mobile_route_boundary",
+        "m44_roadmap_currentness",
+    ]
 
-    assert "m44_ccc_ios_skeleton_no_authority" in criterion_ids
-    assert "m44_ios_skeleton_static_safety" in criterion_ids
-    assert "m44_mobile_route_boundary" in criterion_ids
-    assert "m44_roadmap_currentness" in criterion_ids
-
-    report = FoundationGateEvaluator().evaluate(criteria)
-    failed = [result for result in report.results if result.status == "failed"]
-
-    assert not failed
-    assert FoundationGateReport.model_validate(report.model_dump())
+    for criterion_id in expected:
+        assert criterion_id in criterion_ids
+        assert foundation_gate_results[criterion_id].status == FoundationGateStatus.passed
 
 
 def test_m44_route_boundary_rejects_mobile_and_native_authority_routes() -> None:

@@ -1,4 +1,4 @@
-from ultimate_ai_agent.core.gate import FoundationGateEvaluator, FoundationGateStatus
+from ultimate_ai_agent.core.gate import FoundationGateStatus
 from ultimate_ai_agent.core.tools import (
     CapabilityFirewallPolicy,
     ToolBroker,
@@ -15,12 +15,9 @@ from tests.test_kernel_minimum_lovable_happy_path import actor
 from ultimate_ai_agent.core.consent.enums import DataBoundary
 
 
-def test_foundation_gate_evaluator_confirms_blocked_modules_are_absent():
-    report = FoundationGateEvaluator().evaluate()
-    results = {result.criterion_id: result for result in report.results}
-
-    assert results["blocked_modules_absent"].status == FoundationGateStatus.passed
-    assert results["forbidden_runtime_integrations_absent"].status == FoundationGateStatus.passed
+def test_foundation_gate_evaluator_confirms_blocked_modules_are_absent(foundation_gate_results):
+    assert foundation_gate_results["blocked_modules_absent"].status == FoundationGateStatus.passed
+    assert foundation_gate_results["forbidden_runtime_integrations_absent"].status == FoundationGateStatus.passed
 
 
 def test_tool_broker_blocks_advanced_adapter_categories():

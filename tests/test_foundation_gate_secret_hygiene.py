@@ -5,18 +5,16 @@ from pathlib import Path
 import pytest
 
 from ultimate_ai_agent.core.gate import (
-    FoundationGateEvaluator,
     FoundationGateStatus,
     scan_public_gate_payload_for_secrets,
 )
 
 
-def test_gate_evaluator_report_contains_no_raw_secret_like_values():
-    report = FoundationGateEvaluator().evaluate()
-    payload = report.model_dump(mode="json")
+def test_gate_evaluator_report_contains_no_raw_secret_like_values(foundation_gate_report):
+    payload = foundation_gate_report.model_dump(mode="json")
 
     assert scan_public_gate_payload_for_secrets(payload) == []
-    assert report.overall_status in {FoundationGateStatus.passed, FoundationGateStatus.warning}
+    assert foundation_gate_report.overall_status in {FoundationGateStatus.passed, FoundationGateStatus.warning}
 
 
 def test_sample_gate_report_is_secret_clean():

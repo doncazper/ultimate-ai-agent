@@ -1,24 +1,22 @@
 from ultimate_ai_agent.core.gate import (
-    FoundationGateEvaluator,
-    FoundationGateReport,
+    FoundationGateStatus,
     default_foundation_gate_criteria,
 )
 from ultimate_ai_agent.core.gate.evaluators import m41_openapi_route_failures
 
 
-def test_m41_gate_criteria_are_registered_and_pass() -> None:
+def test_m41_gate_criteria_are_registered_and_pass(foundation_gate_results) -> None:
     criteria = default_foundation_gate_criteria()
     criterion_ids = {criterion.criterion_id for criterion in criteria}
+    expected = [
+        "m41_local_prototype_safety_freeze",
+        "m41_local_prototype_route_boundary",
+        "m41_roadmap_currentness",
+    ]
 
-    assert "m41_local_prototype_safety_freeze" in criterion_ids
-    assert "m41_local_prototype_route_boundary" in criterion_ids
-    assert "m41_roadmap_currentness" in criterion_ids
-
-    report = FoundationGateEvaluator().evaluate(criteria)
-    failed = [result for result in report.results if result.status == "failed"]
-
-    assert not failed
-    assert FoundationGateReport.model_validate(report.model_dump())
+    for criterion_id in expected:
+        assert criterion_id in criterion_ids
+        assert foundation_gate_results[criterion_id].status == FoundationGateStatus.passed
 
 
 def test_m41_route_boundary_rejects_post_freeze_runtime_routes() -> None:

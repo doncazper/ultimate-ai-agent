@@ -1,10 +1,7 @@
-from ultimate_ai_agent.core.gate import FoundationGateEvaluator, FoundationGateStatus
+from ultimate_ai_agent.core.gate import FoundationGateStatus
 
 
-def test_m105_gate_criteria_pass_on_current_repo():
-    report = FoundationGateEvaluator().evaluate()
-    results = {result.criterion_id: result for result in report.results}
-
+def test_m105_gate_criteria_pass_on_current_repo(foundation_gate_results):
     expected = [
         "m105_remote_worker_files_present",
         "m105_remote_capabilities_default_safe",
@@ -26,5 +23,5 @@ def test_m105_gate_criteria_pass_on_current_repo():
         "codex_plugin_governance_docs_present",
     ]
     for criterion_id in expected:
-        assert criterion_id in results
-        assert results[criterion_id].status == FoundationGateStatus.passed
+        assert criterion_id in foundation_gate_results
+        assert foundation_gate_results[criterion_id].status == FoundationGateStatus.passed

@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
+import argparse
+import json
 import sys
 import subprocess
 import re
 import os
 import tempfile
+import time
 import importlib.util
 from pathlib import Path
 
@@ -28615,42 +28618,134 @@ def verify_no_mobile_native_or_sensor_implementation():
     print("OK: No native mobile app, sensor API, OS permission, or mobile dependency implementation detected")
 
 
-def run_static_scans():
+def record_timing(timings, name, started, status):
+    if timings is not None:
+        timings.append(
+            {
+                "name": name,
+                "status": status,
+                "elapsed_ms": round((time.perf_counter() - started) * 1000),
+            }
+        )
+
+
+def run_timed(timings, name, function):
+    started = time.perf_counter()
+    status = "passed"
+    try:
+        return function()
+    except BaseException:
+        status = "failed"
+        raise
+    finally:
+        record_timing(timings, name, started, status)
+
+
+def write_timings_json(path, timings):
+    output_path = Path(path)
+    if not output_path.is_absolute():
+        output_path = ROOT / output_path
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "schema_version": "verify_all_timings.v1",
+        "generated_unix_seconds": time.time(),
+        "total_elapsed_ms": sum(item["elapsed_ms"] for item in timings),
+        "timings": timings,
+    }
+    output_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def run_static_scans(timings=None):
     print("\n=== Static Verification Scans ===")
     print("Scans enabled:")
     for scan_name, _ in SCAN_SEQUENCE:
         print(f"- {scan_name}")
 
-    for _, function_name in SCAN_SEQUENCE:
-        globals()[function_name]()
+    for scan_name, function_name in SCAN_SEQUENCE:
+        run_timed(timings, f"static_scan:{scan_name}", globals()[function_name])
 
 
-def main():
+def main(argv=None):
+    parser = argparse.ArgumentParser(description="Run the Ultimate AI Agent master verification suite.")
+    parser.add_argument("--timings-json", help="Optional path for per-phase and per-scan timing JSON.")
+    parser.add_argument("--skip-ruff", action="store_true", help="Skip Ruff linting. Used by parallel CI jobs.")
+    parser.add_argument("--skip-pytest", action="store_true", help="Skip pytest. Used by parallel CI jobs.")
+    parser.add_argument("--skip-static-scans", action="store_true", help="Skip verify_all static scans.")
+    parser.add_argument("--skip-baseline", action="store_true", help="Skip current baseline verification.")
+    parser.add_argument("--skip-docs", action="store_true", help="Skip documentation integrity verification.")
+    parser.add_argument("--skip-skill", action="store_true", help="Skip skill package security rule verification.")
+    parser.add_argument("--skip-openapi", action="store_true", help="Skip OpenAPI contract verification.")
+    args = parser.parse_args(argv)
+    timings = [] if args.timings_json else None
+
     print("=== Ultimate AI Agent Master Verification Suite ===")
 
     # 1. Run Ruff Linter
-    run_cmd([sys.executable, "-m", "ruff", "check", "."])
+    if args.skip_ruff:
+        print("\nSkipping Ruff linting (--skip-ruff)")
+    else:
+        run_timed(timings, "command:ruff", lambda: run_cmd([sys.executable, "-m", "ruff", "check", "."]))
 
     # 2. Run Pytest Suite
     import os
     env = os.environ.copy()
     env["PYTHONPATH"] = str(ROOT / "src")
-    run_cmd([sys.executable, "-m", "pytest"], env=env)
+    if args.skip_pytest:
+        print("\nSkipping pytest (--skip-pytest)")
+    else:
+        run_timed(timings, "command:pytest", lambda: run_cmd([sys.executable, "-m", "pytest"], env=env))
 
     # 3. Explicitly Enforce Scans
-    run_static_scans()
+    if args.skip_static_scans:
+        print("\nSkipping static verification scans (--skip-static-scans)")
+    else:
+        run_static_scans(timings)
 
     # 4. Run Baseline Consistency Verification
-    run_cmd([sys.executable, "scripts/verify_current_baseline.py"])
+    if args.skip_baseline:
+        print("\nSkipping current baseline verification (--skip-baseline)")
+    else:
+        baseline_command = [sys.executable, "scripts/verify_current_baseline.py"]
+        if not args.skip_static_scans:
+            baseline_command.append("--skip-static-scans")
+        run_timed(
+            timings,
+            "command:verify_current_baseline",
+            lambda: run_cmd(baseline_command),
+        )
 
     # 5. Run Documentation Integrity Verification
-    run_cmd([sys.executable, "scripts/verify_documentation_integrity.py"])
+    if args.skip_docs:
+        print("\nSkipping documentation integrity verification (--skip-docs)")
+    else:
+        run_timed(
+            timings,
+            "command:verify_documentation_integrity",
+            lambda: run_cmd([sys.executable, "scripts/verify_documentation_integrity.py"]),
+        )
 
     # 6. Run Skill Package Security Rule Audit
-    run_cmd([sys.executable, "scripts/verify_skill_package_security_rule.py"])
+    if args.skip_skill:
+        print("\nSkipping skill package security rule verification (--skip-skill)")
+    else:
+        run_timed(
+            timings,
+            "command:verify_skill_package_security_rule",
+            lambda: run_cmd([sys.executable, "scripts/verify_skill_package_security_rule.py"]),
+        )
 
     # 7. Run OpenAPI Contract Verification
-    run_cmd([sys.executable, "scripts/verify_openapi_contract.py"])
+    if args.skip_openapi:
+        print("\nSkipping OpenAPI contract verification (--skip-openapi)")
+    else:
+        run_timed(
+            timings,
+            "command:verify_openapi_contract",
+            lambda: run_cmd([sys.executable, "scripts/verify_openapi_contract.py"]),
+        )
+
+    if timings is not None:
+        write_timings_json(args.timings_json, timings)
 
     print("\n=== All verification checks PASSED successfully ===")
 

@@ -1,4 +1,5 @@
 from pathlib import Path
+from contextlib import contextmanager
 import json
 import re
 import sys
@@ -4360,6 +4361,50 @@ class FoundationGateEvaluator:
         self.root = root or Path(__file__).resolve().parents[4]
         self.src_root = self.root / "src" / "ultimate_ai_agent"
 
+    @contextmanager
+    def _repository_filesystem_cache(self):
+        original_rglob = Path.rglob
+        original_read_text = Path.read_text
+        rglob_cache = {}
+        read_text_cache = {}
+        cacheable_paths = {}
+        root = self.root.resolve()
+
+        def is_cacheable(path: Path) -> bool:
+            cached = cacheable_paths.get(path)
+            if cached is not None:
+                return cached
+            try:
+                cacheable = path.resolve().is_relative_to(root)
+            except (OSError, RuntimeError):
+                cacheable = False
+            cacheable_paths[path] = cacheable
+            return cacheable
+
+        def cached_rglob(path: Path, pattern: str):
+            if not is_cacheable(path):
+                return original_rglob(path, pattern)
+            key = (path, pattern)
+            if key not in rglob_cache:
+                rglob_cache[key] = tuple(original_rglob(path, pattern))
+            return iter(rglob_cache[key])
+
+        def cached_read_text(path: Path, *args, **kwargs):
+            if not is_cacheable(path):
+                return original_read_text(path, *args, **kwargs)
+            key = (path, args, tuple(sorted(kwargs.items())))
+            if key not in read_text_cache:
+                read_text_cache[key] = original_read_text(path, *args, **kwargs)
+            return read_text_cache[key]
+
+        Path.rglob = cached_rglob
+        Path.read_text = cached_read_text
+        try:
+            yield
+        finally:
+            Path.rglob = original_rglob
+            Path.read_text = original_read_text
+
     def evaluate(self, criteria: Optional[List[FoundationGateCriterion]] = None) -> FoundationGateReport:
         criteria = criteria or default_foundation_gate_criteria()
         evaluator_map: Dict[str, Callable[[FoundationGateCriterion], FoundationGateResult]] = {
@@ -5544,11 +5589,12 @@ class FoundationGateEvaluator:
             "documentation_integrity_current": self.check_documentation_integrity_current,
             "codex_plugin_governance_docs_present": self.check_codex_plugin_governance_docs_present,
         }
-        results = [
-            evaluator_map.get(criterion.criterion_id, self._skipped)(criterion)
-            for criterion in criteria
-        ]
-        version = self._active_version() or "unknown"
+        with self._repository_filesystem_cache():
+            results = [
+                evaluator_map.get(criterion.criterion_id, self._skipped)(criterion)
+                for criterion in criteria
+            ]
+            version = self._active_version() or "unknown"
         return build_foundation_gate_report(version=version, results=results, trace_id="trace_foundation_gate")
 
     def check_versioning_consistent(self, criterion: FoundationGateCriterion) -> FoundationGateResult:

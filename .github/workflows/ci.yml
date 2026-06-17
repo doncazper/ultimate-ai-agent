@@ -9,7 +9,7 @@ on:
       - main
 
 jobs:
-  verify:
+  lint:
     runs-on: ubuntu-latest
 
     steps:
@@ -20,6 +20,8 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
 
       - name: Install package
         run: |
@@ -27,17 +29,77 @@ jobs:
           .venv/bin/python -m pip install --upgrade pip
           .venv/bin/python -m pip install -e ".[dev]"
 
-      - name: Run master verification
-        run: .venv/bin/python scripts/verify_all.py
-
-      - name: Run Foundation Gate
-        run: .venv/bin/python scripts/run_foundation_gate.py
-
-      - name: Verify OpenAPI contract
-        run: .venv/bin/python scripts/verify_openapi_contract.py
-
       - name: Run Ruff
         run: .venv/bin/python -m ruff check .
+
+  pytest:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install package
+        run: |
+          python -m venv .venv
+          .venv/bin/python -m pip install --upgrade pip
+          .venv/bin/python -m pip install -e ".[dev]"
+
+      - name: Run pytest
+        run: .venv/bin/python -m pytest -q --durations=50 --durations-min=0.05
+
+  static-verification:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install package
+        run: |
+          python -m venv .venv
+          .venv/bin/python -m pip install --upgrade pip
+          .venv/bin/python -m pip install -e ".[dev]"
+
+      - name: Run static verification
+        run: .venv/bin/python scripts/verify_all.py --skip-ruff --skip-pytest --timings-json /tmp/uaa_static_verification_timings.json
+
+  foundation-gate-report:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install package
+        run: |
+          python -m venv .venv
+          .venv/bin/python -m pip install --upgrade pip
+          .venv/bin/python -m pip install -e ".[dev]"
+
+      - name: Run Foundation Gate report
+        run: .venv/bin/python scripts/run_foundation_gate.py --command-mode ci-parallel --no-write-latest
 
   control-center-frontend:
     runs-on: ubuntu-latest

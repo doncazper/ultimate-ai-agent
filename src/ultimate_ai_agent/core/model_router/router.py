@@ -17,18 +17,30 @@ class _Candidate:
     warning_reason_codes: list[str]
 
 
+@dataclass(frozen=True)
+class _PreparedRoutePolicy:
+    classification: str
+    required_capabilities: frozenset[str]
+    allowed_provider_kinds: frozenset[str]
+    forbidden_provider_kinds: frozenset[str]
+    required_context_tokens: int
+    context_budget_rejection_reason: str | None
+
+
 class ModelRouter:
     def __init__(self, cost_governor: CostGovernor | None = None, approval_authority: LocalApprovalAuthority | None = None):
         self.cost_governor = cost_governor or CostGovernor()
         self.approval_authority = approval_authority
 
     def route(self, request: ModelRouteRequest) -> ModelRouteDecision:
-        if self._classification(request) == "credential_secret":
+        prepared = self._prepare_policy(request)
+        if prepared.classification == "credential_secret":
             return self._decision(
                 request,
                 ModelRouteStatus.privacy_blocked,
                 ["CREDENTIAL_SECRET_NEVER_TO_MODEL"],
                 "Credential-secret data is never routed to a model.",
+                prepared=prepared,
             )
 
         eligible: list[_Candidate] = []
@@ -37,7 +49,7 @@ class ModelRouter:
         approval_required = False
 
         for profile in sorted(request.available_profiles, key=lambda item: item.model_profile_id):
-            profile_reasons = self._profile_rejection_reasons(request, profile)
+            profile_reasons = self._profile_rejection_reasons(request, profile, prepared)
             if profile_reasons:
                 rejected.append(profile.model_profile_id)
                 reasons.extend(profile_reasons)
@@ -84,9 +96,10 @@ class ModelRouter:
                 "No model profile matched the routing policy.",
                 rejected_profile_ids=sorted(set(rejected)),
                 required_approval=approval_required,
+                prepared=prepared,
             )
 
-        selected = sorted(eligible, key=lambda candidate: self._sort_key(request, candidate))[0]
+        selected = min(eligible, key=lambda candidate: self._sort_key(request, candidate))
         reason_codes = ["SELECTED_PROFILE", *selected.warning_reason_codes]
         if selected.profile.is_cloud and request.approval_ref and self.approval_authority is not None:
             reason_codes.append("APPROVAL_VALIDATED")
@@ -107,26 +120,42 @@ class ModelRouter:
             safe_message=safe_message,
             estimated_cost=selected.estimated_cost,
             estimated_latency_ms=selected.estimated_latency_ms,
-            privacy_notes=self._privacy_notes(request, selected.profile),
+            privacy_notes=self._privacy_notes(request, selected.profile, prepared),
             required_approval=False,
             consent_refs=request.consent_refs,
             event_ref=request.event_ref,
         )
 
-    def _profile_rejection_reasons(self, request: ModelRouteRequest, profile: ModelCapabilityProfile) -> List[str]:
+    def _prepare_policy(self, request: ModelRouteRequest) -> _PreparedRoutePolicy:
+        policy = request.routing_policy
+        required = request.required_capabilities or policy.required_capabilities
+        return _PreparedRoutePolicy(
+            classification=self._classification(request),
+            required_capabilities=frozenset(str(capability) for capability in required),
+            allowed_provider_kinds=frozenset(str(kind) for kind in policy.allowed_provider_kinds),
+            forbidden_provider_kinds=frozenset(str(kind) for kind in policy.forbidden_provider_kinds),
+            required_context_tokens=self._required_context_tokens(request),
+            context_budget_rejection_reason=self._context_budget_rejection_reason(request),
+        )
+
+    def _profile_rejection_reasons(
+        self,
+        request: ModelRouteRequest,
+        profile: ModelCapabilityProfile,
+        prepared: _PreparedRoutePolicy,
+    ) -> List[str]:
         policy = request.routing_policy
         reasons: list[str] = []
         provider_kind = str(profile.provider_kind)
-        required = set(request.required_capabilities or policy.required_capabilities)
         capabilities = {str(capability) for capability in profile.capabilities}
 
         if not profile.enabled:
             reasons.append("PROFILE_DISABLED")
-        if policy.allowed_provider_kinds and provider_kind not in {str(kind) for kind in policy.allowed_provider_kinds}:
+        if prepared.allowed_provider_kinds and provider_kind not in prepared.allowed_provider_kinds:
             reasons.append("PROVIDER_KIND_NOT_ALLOWED")
-        if provider_kind in {str(kind) for kind in policy.forbidden_provider_kinds}:
+        if provider_kind in prepared.forbidden_provider_kinds:
             reasons.append("PROVIDER_KIND_FORBIDDEN")
-        if not {str(capability) for capability in required}.issubset(capabilities):
+        if not prepared.required_capabilities.issubset(capabilities):
             reasons.append("CAPABILITY_MISSING")
         if policy.require_structured_output and not profile.supports_structured_output:
             reasons.append("STRUCTURED_OUTPUT_REQUIRED")
@@ -136,27 +165,30 @@ class ModelRouter:
             reasons.append("PAID_MODEL_DISALLOWED")
         if profile.credential_ref and not request.credential_availability.get(profile.credential_ref, False):
             reasons.append("CREDENTIAL_NOT_AVAILABLE")
-        context_budget_reason = self._context_budget_rejection_reason(request)
-        if context_budget_reason:
-            reasons.append(context_budget_reason)
-        if profile.max_context_tokens is not None and profile.max_context_tokens < self._required_context_tokens(request):
+        if prepared.context_budget_rejection_reason:
+            reasons.append(prepared.context_budget_rejection_reason)
+        if profile.max_context_tokens is not None and profile.max_context_tokens < prepared.required_context_tokens:
             reasons.append("CONTEXT_TOO_SMALL")
         if policy.max_latency_ms is not None and profile.time_to_first_token_ms is not None:
             if profile.time_to_first_token_ms > policy.max_latency_ms:
                 reasons.append("LATENCY_TOO_HIGH")
-        reasons.extend(self._privacy_rejections(request, profile))
+        reasons.extend(self._privacy_rejections(request, profile, prepared))
         return reasons
 
-    def _privacy_rejections(self, request: ModelRouteRequest, profile: ModelCapabilityProfile) -> list[str]:
+    def _privacy_rejections(
+        self,
+        request: ModelRouteRequest,
+        profile: ModelCapabilityProfile,
+        prepared: _PreparedRoutePolicy,
+    ) -> list[str]:
         policy = request.routing_policy
-        classification = self._classification(request)
         if not profile.is_cloud:
             return []
         if policy.privacy_mode == ModelPrivacyClass.local_only or str(policy.privacy_mode) == "local_only":
             return ["CLOUD_BLOCKED_BY_PRIVACY_MODE"]
         if not policy.allow_cloud:
             return ["CLOUD_BLOCKED_BY_POLICY"]
-        if classification in {"sensitive_personal", "regulated", "tcb_protected"}:
+        if prepared.classification in {"sensitive_personal", "regulated", "tcb_protected"}:
             if policy.require_human_approval_for_cloud:
                 if not request.approval_ref:
                     return ["CLOUD_APPROVAL_REQUIRED"]
@@ -230,8 +262,14 @@ class ModelRouter:
             return ModelRouteStatus.denied
         return ModelRouteStatus.no_candidate
 
-    def _privacy_notes(self, request: ModelRouteRequest, profile: ModelCapabilityProfile) -> list[str]:
-        notes = [f"data_classification:{self._classification(request)}"]
+    def _privacy_notes(
+        self,
+        request: ModelRouteRequest,
+        profile: ModelCapabilityProfile,
+        prepared: _PreparedRoutePolicy | None = None,
+    ) -> list[str]:
+        classification = prepared.classification if prepared is not None else self._classification(request)
+        notes = [f"data_classification:{classification}"]
         notes.append("cloud_metadata_only" if profile.is_cloud else "local_metadata_only")
         return notes
 
@@ -246,7 +284,9 @@ class ModelRouter:
         safe_message: str,
         rejected_profile_ids: list[str] | None = None,
         required_approval: bool = False,
+        prepared: _PreparedRoutePolicy | None = None,
     ) -> ModelRouteDecision:
+        classification = prepared.classification if prepared is not None else self._classification(request)
         return ModelRouteDecision(
             request_id=request.request_id,
             run_id=request.run_id,
@@ -257,7 +297,7 @@ class ModelRouter:
             rejected_profile_ids=rejected_profile_ids or [],
             reason_codes=reason_codes,
             safe_message=safe_message,
-            privacy_notes=[f"data_classification:{self._classification(request)}"],
+            privacy_notes=[f"data_classification:{classification}"],
             required_approval=required_approval,
             consent_refs=request.consent_refs,
             event_ref=request.event_ref,

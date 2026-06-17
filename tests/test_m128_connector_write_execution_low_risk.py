@@ -1,3 +1,5 @@
+from functools import lru_cache
+
 import pytest
 
 from tests.test_m127_connector_write_dry_run_planner import (
@@ -8,6 +10,7 @@ from tests.test_m127_connector_write_dry_run_planner import (
 from ultimate_ai_agent.core.time import utc_now
 
 
+@lru_cache(maxsize=1)
 def _m127_decision():
     connectors = _connectors()
     runtime_record = _runtime_record()
@@ -26,7 +29,7 @@ def _connectors():
 
 def _request(**overrides):
     connectors = _connectors()
-    m127_decision = overrides.pop("m127_decision", _m127_decision())
+    m127_decision = overrides.pop("m127_decision") if "m127_decision" in overrides else _m127_decision()
     assert m127_decision.plan is not None
     plan = m127_decision.plan
     data = {

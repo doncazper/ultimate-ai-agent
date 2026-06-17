@@ -1,14 +1,13 @@
 from pydantic import ValidationError
 
-from ultimate_ai_agent.core.gate import FoundationGateEvaluator, FoundationGateStatus
+from ultimate_ai_agent.core.gate import FoundationGateStatus
 from ultimate_ai_agent.core.truth import EvidenceManifest
 from ultimate_ai_agent.core.truth.claims import ClaimEvidence
 from ultimate_ai_agent.core.truth.enums import ClaimVerificationStatus, SourceFreshnessStatus
 
 
-def test_truth_evidence_gate_criteria_passes_contract_checks():
-    report = FoundationGateEvaluator().evaluate()
-    result = {item.criterion_id: item for item in report.results}["truth_evidence_contracts_valid"]
+def test_truth_evidence_gate_criteria_passes_contract_checks(foundation_gate_results):
+    result = foundation_gate_results["truth_evidence_contracts_valid"]
 
     assert result.status == FoundationGateStatus.passed
     assert result.evidence_refs

@@ -2,6 +2,7 @@ from ultimate_ai_agent.core.gate.criteria import FoundationGateCriterion, defaul
 from ultimate_ai_agent.core.gate.enums import FoundationGateCategory, FoundationGateStatus
 from ultimate_ai_agent.core.gate.evaluators import FoundationGateEvaluator
 from ultimate_ai_agent.core.gate.reports import (
+    FoundationGateCommandReceipt,
     FoundationGateReport,
     FoundationGateResult,
     build_foundation_gate_report,
@@ -18,6 +19,7 @@ from ultimate_ai_agent.core.gate.validation import validate_shadow_replay_scenar
 
 __all__ = [
     "FoundationGateCategory",
+    "FoundationGateCommandReceipt",
     "FoundationGateCriterion",
     "FoundationGateEvaluator",
     "FoundationGateReport",

@@ -1,3 +1,5 @@
+from functools import lru_cache
+
 import pytest
 
 from tests.test_m128_connector_write_execution_low_risk import (
@@ -12,6 +14,7 @@ def _connectors():
     return connectors
 
 
+@lru_cache(maxsize=1)
 def _m128_decision_and_result():
     connectors = _connectors()
     decision = connectors.build_connector_write_execution_decision(_m128_request())
@@ -24,7 +27,7 @@ def _m128_decision_and_result():
 
 def _request(**overrides):
     connectors = _connectors()
-    decision, result = overrides.pop("m128_pair", _m128_decision_and_result())
+    decision, result = overrides.pop("m128_pair") if "m128_pair" in overrides else _m128_decision_and_result()
     data = {
         "hardening_request_ref": "connector-audit-revocation-hardening-request:m129:email-draft",
         "hardening_ref": "connector-audit-revocation-hardening:m129:email-draft",

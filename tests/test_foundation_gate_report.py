@@ -1,4 +1,5 @@
 from ultimate_ai_agent.core.gate import (
+    FoundationGateCommandReceipt,
     FoundationGateResult,
     FoundationGateStatus,
     build_foundation_gate_report,
@@ -56,6 +57,26 @@ def test_foundation_gate_report_orders_results_deterministically():
         "secret_hygiene_clean",
         "versioning_consistent",
     ]
+
+
+def test_foundation_gate_report_includes_command_receipts():
+    receipt = FoundationGateCommandReceipt(
+        command_ref="command:scripts.verify_all",
+        command_mode="ci-after-verify-all",
+        status="satisfied_external",
+        satisfied_by="ci-master-verification",
+        safe_summary="Master verification was satisfied externally.",
+    )
+    report = build_foundation_gate_report(
+        version="0.10.0",
+        results=[result("versioning_consistent", FoundationGateStatus.passed)],
+        command_mode="ci-after-verify-all",
+        command_receipts=[receipt],
+    )
+
+    assert report.command_mode == "ci-after-verify-all"
+    assert report.command_receipts == [receipt]
+    assert validate_foundation_gate_report(report).success is True
 
 
 def test_report_validation_blocks_raw_secret_like_payloads():

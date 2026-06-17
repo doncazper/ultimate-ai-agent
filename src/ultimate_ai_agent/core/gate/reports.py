@@ -23,6 +23,19 @@ class FoundationGateResult(BaseModel):
     model_config = ConfigDict(use_enum_values=True, extra="forbid")
 
 
+class FoundationGateCommandReceipt(BaseModel):
+    command_ref: str = Field(..., min_length=1)
+    command_mode: str = Field(..., min_length=1)
+    status: str = Field(..., min_length=1)
+    satisfied_by: str = Field(..., min_length=1)
+    safe_summary: str = Field(..., min_length=1)
+    return_code: Optional[int] = None
+    elapsed_ms: Optional[int] = Field(default=None, ge=0)
+    checked_at: datetime = Field(default_factory=utc_now)
+
+    model_config = ConfigDict(use_enum_values=True, extra="forbid")
+
+
 class FoundationGateReport(BaseModel):
     report_id: str = Field(..., min_length=1)
     version: str = Field(..., min_length=1)
@@ -37,6 +50,8 @@ class FoundationGateReport(BaseModel):
     next_recommended_action: str
     event_ref: Optional[str] = None
     trace_id: Optional[str] = None
+    command_mode: Optional[str] = None
+    command_receipts: List[FoundationGateCommandReceipt] = Field(default_factory=list)
 
     model_config = ConfigDict(use_enum_values=True, extra="forbid")
 
@@ -47,6 +62,8 @@ def build_foundation_gate_report(
     results: List[FoundationGateResult],
     event_ref: Optional[str] = None,
     trace_id: Optional[str] = None,
+    command_mode: Optional[str] = None,
+    command_receipts: Optional[List[FoundationGateCommandReceipt]] = None,
 ) -> FoundationGateReport:
     ordered_results = sorted(results, key=lambda result: result.criterion_id)
     passed_count = sum(1 for result in ordered_results if result.status == FoundationGateStatus.passed)
@@ -83,6 +100,8 @@ def build_foundation_gate_report(
         next_recommended_action=next_action,
         event_ref=event_ref,
         trace_id=trace_id,
+        command_mode=command_mode,
+        command_receipts=command_receipts or [],
     )
 
 

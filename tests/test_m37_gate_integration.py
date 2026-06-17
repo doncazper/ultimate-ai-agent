@@ -1,6 +1,5 @@
 from ultimate_ai_agent.core.gate import (
-    FoundationGateEvaluator,
-    FoundationGateReport,
+    FoundationGateStatus,
     default_foundation_gate_criteria,
 )
 from ultimate_ai_agent.core.gate.evaluators import (
@@ -9,20 +8,19 @@ from ultimate_ai_agent.core.gate.evaluators import (
 )
 
 
-def test_m37_gate_criteria_are_registered_and_pass():
+def test_m37_gate_criteria_are_registered_and_pass(foundation_gate_results):
     criteria = default_foundation_gate_criteria()
     ids = {criterion.criterion_id for criterion in criteria}
+    expected = [
+        "m37_file_review_approval_capture_contracts",
+        "m37_file_review_approval_capture_route_boundary",
+        "m37_control_center_review_only_approval_capture",
+        "m37_roadmap_currentness",
+    ]
 
-    assert "m37_file_review_approval_capture_contracts" in ids
-    assert "m37_file_review_approval_capture_route_boundary" in ids
-    assert "m37_control_center_review_only_approval_capture" in ids
-    assert "m37_roadmap_currentness" in ids
-
-    report = FoundationGateEvaluator().evaluate(criteria)
-    failed = [item for item in report.results if item.status == "failed"]
-
-    assert not failed
-    assert FoundationGateReport.model_validate(report.model_dump())
+    for criterion_id in expected:
+        assert criterion_id in ids
+        assert foundation_gate_results[criterion_id].status == FoundationGateStatus.passed
 
 
 def test_m37_route_boundary_allows_only_capture_route():

@@ -1,3 +1,5 @@
+from functools import lru_cache
+
 import pytest
 
 from tests.test_m129_connector_audit_revocation_hardening import _request as _m129_request
@@ -9,6 +11,7 @@ def _connectors():
     return connectors
 
 
+@lru_cache(maxsize=1)
 def _source_report():
     connectors = _connectors()
     return connectors.build_connector_audit_revocation_hardening_report(
