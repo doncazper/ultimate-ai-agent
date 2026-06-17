@@ -1,3 +1,4 @@
+import hashlib
 from pathlib import Path
 
 from ultimate_ai_agent.core.files import FileReadRequest, LocalFileManager
@@ -57,3 +58,25 @@ def test_read_preview_path_can_be_used_as_memory_source_locator(tmp_path: Path):
 
     assert source.file_ref == "docs/note.md"
     assert source.locator == "path:docs/note.md"
+
+
+def test_read_preview_reports_full_metadata_with_bounded_preview(tmp_path: Path):
+    content = "first line\n" + ("x" * 9000)
+    (tmp_path / "large.txt").write_text(content, encoding="utf-8")
+    manager = LocalFileManager(workspace_root=tmp_path)
+
+    preview = manager.read_preview(
+        FileReadRequest(
+            request_id="frr_large",
+            run_id="run_123",
+            actor_context=actor(),
+            path="large.txt",
+            purpose="large preview",
+            max_bytes=12,
+        )
+    )
+
+    assert preview.truncated is True
+    assert preview.size_bytes == len(content.encode("utf-8"))
+    assert preview.content_hash == hashlib.sha256(content.encode("utf-8")).hexdigest()
+    assert preview.text_preview == content.encode("utf-8")[:12].decode("utf-8")

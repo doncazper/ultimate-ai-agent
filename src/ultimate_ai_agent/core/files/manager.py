@@ -27,6 +27,10 @@ from ultimate_ai_agent.core.files.validation import (
 from ultimate_ai_agent.core.secrets.redaction import redact_secret_value
 
 
+_FILE_HASH_CHUNK_BYTES = 1024 * 1024
+_PREVIEW_REDACTION_LOOKAHEAD_BYTES = 4096
+
+
 class LocalFileManager:
     """Local/dev workspace-only file manager."""
 
@@ -51,15 +55,14 @@ class LocalFileManager:
     def build_file_ref(self, path: str) -> FileRef:
         normalized = self.validate_path(path)
         full_path = self.workspace_root / normalized
-        content = full_path.read_bytes() if full_path.exists() else b""
         stat = full_path.stat() if full_path.exists() else None
         return FileRef(
             file_ref=f"file_{hashlib.sha256(normalized.encode()).hexdigest()[:12]}",
             path=normalized,
             kind=FileKind.artifact,
             sensitivity=FileSensitivity.project_private,
-            content_hash=self._hash_bytes(content),
-            size_bytes=len(content),
+            content_hash=self._hash_file(full_path) if stat else self._hash_text(""),
+            size_bytes=stat.st_size if stat else 0,
             created_at=datetime.fromtimestamp(stat.st_ctime) if stat else None,
             updated_at=datetime.fromtimestamp(stat.st_mtime) if stat else None,
         )
@@ -70,20 +73,22 @@ class LocalFileManager:
             raise ValueError("FileReadRequest requires path or file_ref.")
         normalized = self.validate_path(path)
         full_path = self.workspace_root / normalized
-        content = full_path.read_text(encoding="utf-8") if full_path.exists() else ""
+        stat = full_path.stat() if full_path.exists() else None
+        content = self._read_preview_window(full_path, request.max_bytes) if stat else ""
         redactions = []
         preview_text = content
         if file_content_contains_secret(content):
             preview_text = redact_secret_value(content)
             redactions.append("secret_value")
-        truncated = len(preview_text.encode("utf-8")) > request.max_bytes
+        truncated = (stat.st_size if stat else 0) > request.max_bytes
+        truncated = truncated or len(preview_text.encode("utf-8")) > request.max_bytes
         if truncated:
             preview_text = preview_text.encode("utf-8")[: request.max_bytes].decode("utf-8", errors="ignore")
         return FileReadPreview(
             preview_id=f"frp_{uuid.uuid4().hex[:8]}",
             path=normalized,
-            size_bytes=len(content.encode("utf-8")),
-            content_hash=self._hash_text(content),
+            size_bytes=stat.st_size if stat else 0,
+            content_hash=self._hash_file(full_path) if stat else self._hash_text(""),
             text_preview=preview_text,
             redactions_applied=redactions,
             truncated=truncated,
@@ -156,9 +161,7 @@ class LocalFileManager:
         self._rollback_plans[rollback_plan.rollback_ref] = rollback_plan
 
         full_path.parent.mkdir(parents=True, exist_ok=True)
-        temp_path = full_path.with_name(f".{full_path.name}.{uuid.uuid4().hex}.tmp")
-        temp_path.write_text(proposal.new_content, encoding="utf-8")
-        os.replace(temp_path, full_path)
+        self._atomic_write_text(full_path, proposal.new_content)
 
         after_hash = self._hash_text(proposal.new_content)
         return FileChange(
@@ -195,7 +198,7 @@ class LocalFileManager:
         before_hash = self._hash_text(read_text_if_exists(full_path)) if full_path.exists() else None
         content = self._snapshots[rollback_plan.snapshot_id]
         full_path.parent.mkdir(parents=True, exist_ok=True)
-        full_path.write_text(content, encoding="utf-8")
+        self._atomic_write_text(full_path, content)
         return FileChange(
             change_id=f"chg_{uuid.uuid4().hex[:10]}",
             target_path=normalized,
@@ -242,3 +245,25 @@ class LocalFileManager:
 
     def _hash_bytes(self, content: bytes) -> str:
         return hashlib.sha256(content).hexdigest()
+
+    def _hash_file(self, path: Path) -> str:
+        digest = hashlib.sha256()
+        with path.open("rb") as handle:
+            for chunk in iter(lambda: handle.read(_FILE_HASH_CHUNK_BYTES), b""):
+                digest.update(chunk)
+        return digest.hexdigest()
+
+    def _read_preview_window(self, path: Path, max_bytes: int) -> str:
+        window_bytes = max_bytes + _PREVIEW_REDACTION_LOOKAHEAD_BYTES
+        with path.open("rb") as handle:
+            content = handle.read(window_bytes)
+        return content.decode("utf-8", errors="ignore")
+
+    def _atomic_write_text(self, path: Path, content: str) -> None:
+        temp_path = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
+        try:
+            temp_path.write_text(content, encoding="utf-8")
+            os.replace(temp_path, path)
+        except Exception:
+            temp_path.unlink(missing_ok=True)
+            raise

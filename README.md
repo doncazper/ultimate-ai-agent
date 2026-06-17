@@ -12,7 +12,7 @@ allowed to become operational authority.
 
 | Field | Current state |
 |---|---|
-| Current active baseline | **v1.7.2** |
+| Current active baseline | **v1.7.3** |
 | Current milestone | **M150 - Ultimate AI Agent v1.0.0-alpha** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
@@ -20,9 +20,10 @@ allowed to become operational authority.
 | Production readiness | Not claimed |
 
 M150 records Ultimate AI Agent **v1.0.0-alpha** as a local alpha target
-acceptance packet while the package baseline remains v1.7.2 for this
-contract-first conveyor run. Already-pushed tags remain immutable historical
-internal milestone tags. M150 is contract-only, review-only, alpha-target-only,
+acceptance packet while the package baseline is v1.7.3 for this contract-first
+conveyor run after post-M150 local file-manager hardening. Already-pushed tags
+remain immutable historical internal milestone tags. M150 is contract-only,
+review-only, alpha-target-only,
 deterministic, local-only, safe-ref-only, disabled by default, route-free, and
 no-effect. It records accepted M101-M149 checkpoint refs, alpha target refs,
 release candidate freeze refs, alpha readiness refs, evidence index refs,
@@ -336,6 +337,8 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [v1.7.1 master plan](docs/archive/releases/v1_7_1/master_plan.md)
 - [v1.7.2 release packet](docs/archive/releases/v1_7_2/README_IMPORT.md)
 - [v1.7.2 master plan](docs/archive/releases/v1_7_2/master_plan.md)
+- [v1.7.3 release packet](docs/archive/releases/v1_7_3/README_IMPORT.md)
+- [v1.7.3 master plan](docs/archive/releases/v1_7_3/master_plan.md)
 
 ## What This Project Is
 

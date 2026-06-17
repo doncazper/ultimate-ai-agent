@@ -1,6 +1,6 @@
 # Post-M20 Capability Layer Roadmap
 
-Status: Active roadmap projection maintained through v1.7.2.
+Status: Active roadmap projection maintained through v1.7.3.
 
 v0.38.0 implements M34 Broader File Capability Review as planning,
 architecture review, documentation, verifier, and Foundation Gate work only.
@@ -177,7 +177,7 @@ M101 is implemented/released by v1.5.0 as Mobile Sensor Contract Review.
 M102 is implemented/released by v1.6.0 as Location Sensor, Off by Default.
 M103 is implemented/released by v1.7.0 as Camera/Photos Metadata-Only Contract.
 Checkpoint M104 is implemented/released as Notification Planning, No Push
-Execution while the product baseline remains v1.7.2. Checkpoint M105 is
+Execution under the v1.7.2 checkpoint baseline. Checkpoint M105 is
 implemented/released as Background Task Contract, No Execution. Checkpoint M106
 is implemented/released as Mobile Background Read-Only Status Sync. Checkpoint
 M107 is implemented/released as Mobile Approval Renewal UX. Checkpoint M108 is
@@ -220,7 +220,7 @@ Readiness. Checkpoint M144 is implemented/released as Plugin Marketplace Policy
 Draft. Checkpoint M146 is implemented/released as Billing/Plan Boundary.
 Checkpoint M147 is implemented/released as Public Docs + Wiki Readiness.
 M149 is implemented/released as Alpha Release Candidate Freeze while the product
-baseline remains v1.7.2. M150 is implemented/released as Ultimate AI Agent
+baseline stayed v1.7.2 for that checkpoint. M150 is implemented/released as Ultimate AI Agent
 v1.0.0-alpha target acceptance, with beta remaining future.
 Beta begins after the alpha UI and supporting safety/product work are reviewed
 and promoted.

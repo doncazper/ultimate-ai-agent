@@ -1,14 +1,15 @@
 # M101-M150 Capability Charters
 
-Status: Active roadmap maintained through M150 after the accepted
-v1.7.2 post-M103 versioning repair follow-up.
+Status: Active roadmap maintained through M150 and the v1.7.3 post-M150
+local file-manager hardening baseline.
 
 M101 is implemented/released as Mobile Sensor Contract Review. M102 is
 implemented/released as Location Sensor, Off by Default. M103 is
 implemented/released as Camera/Photos Metadata-Only Contract. Checkpoint M104
 is implemented/released as Notification Planning, No Push Execution. Checkpoint
-M105 is implemented/released as Background Task Contract, No Execution. v1.7.2
-is the current product baseline. Checkpoint M106 is implemented/released as
+M105 is implemented/released as Background Task Contract, No Execution. v1.7.3
+is the current package baseline after post-M150 local file-manager hardening.
+Checkpoint M106 is implemented/released as
 Mobile Background Read-Only Status Sync. Checkpoint M107 is implemented/released
 as Mobile Approval Renewal UX. Checkpoint M108 is implemented/released as Mobile
 Kill Switch + Revocation. Checkpoint M109 is implemented/released as Mobile
@@ -162,7 +163,7 @@ product-readiness work. M149 records alpha release candidate freeze as
 contract-only product-readiness work. M150 records the v1.0.0-alpha target as
 contract-only product-readiness work.
 
-No M151+ extension is required by the v1.7.2 versioning repair. Beta begins
+No M151+ extension is required by the v1.7.3 hardening baseline. Beta begins
 after the alpha UI and other alpha findings are ironed out through later
 reviewed roadmap promotion. If future review finds missed M1-M100 work that
 should not displace M101-M150, add a separate planned/provisional M151+

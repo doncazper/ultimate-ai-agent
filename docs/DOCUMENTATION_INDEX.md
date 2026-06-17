@@ -1,6 +1,6 @@
 # Documentation Index
 
-Current active baseline: **v1.7.2**
+Current active baseline: **v1.7.3**
 
 This index is the active entrypoint for documentation navigation. Historical release documents remain in the repository for audit history, but active truth starts with the current baseline files listed here.
 
@@ -906,7 +906,7 @@ scripts/dev/README.md
 ```
 
 v0.37.4 supersedes the old active M35-M40 roadmap projection and defines the
-active M34-M60 sequence. v1.7.2 is the current active product baseline.
+active M34-M60 sequence. v1.7.3 is the current active package baseline after post-M150 file-manager hardening.
 Checkpoint M108 is implemented/released as Mobile Kill Switch + Revocation
 after the Checkpoint M107 Mobile Approval Renewal UX release and post-M103
 versioning repair follow-up.
@@ -990,7 +990,7 @@ future-status drift.
 
 ## Release Notes Index
 
-Current release notes: `docs/release_notes/v1_7_2.md`
+Current release notes: `docs/release_notes/v1_7_3.md`
 
 Historical release notes remain under `docs/release_notes/`. Historical docs may mention old active baselines in historical context; they are not the current source of truth.
 

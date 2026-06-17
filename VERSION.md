@@ -1,13 +1,21 @@
 # Ultimate AI Agent Version
 
-Current active baseline: **v1.7.2**
+Current active baseline: **v1.7.3**
 
 M150 is implemented/released as Ultimate AI Agent v1.0.0-alpha target
-acceptance. The package baseline remains v1.7.2 for this contract-first
-conveyor run. Already-pushed tags remain immutable historical internal
-milestone tags. Beta begins only after the alpha UI and supporting
-safety/product work are reviewed, accepted, and explicitly promoted by a later
-roadmap patch.
+acceptance. The package baseline is v1.7.3 for this contract-first conveyor
+run after post-M150 local file-manager hardening. Already-pushed tags remain
+immutable historical internal milestone tags. Beta begins only after the alpha
+UI and supporting safety/product work are reviewed, accepted, and explicitly
+promoted by a later roadmap patch.
+
+v1.7.3 hardens the local/dev file manager by streaming file hashes, bounding
+preview reads with a redaction lookahead, and reusing atomic replacement for
+apply and rollback paths with temporary-file cleanup on replacement failure.
+It adds no dependency, backend route, Control Center control, broad filesystem
+authority, shell/subprocess execution, network access, model/provider call,
+memory write, context injection, M151 work, beta release, or production
+authority.
 
 M150 is contract-only, review-only, alpha-target-only, deterministic,
 local-only, safe-ref-only, disabled by default, route-free, and no-effect. It
