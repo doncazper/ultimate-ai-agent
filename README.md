@@ -152,6 +152,9 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M77 OpenWebUI Safe Handoff Execution](docs/openwebui/OPENWEBUI_SAFE_HANDOFF_EXECUTION.md)
 - [M77 OpenWebUI Safe Handoff Policy](docs/openwebui/OPENWEBUI_SAFE_HANDOFF_POLICY.md)
 - [M77 OpenWebUI Safe Handoff Authority Boundary](docs/openwebui/OPENWEBUI_SAFE_HANDOFF_AUTHORITY_BOUNDARY.md)
+- [M151 Local OpenWebUI Test Shell](docs/openwebui/M151_LOCAL_OPENWEBUI_TEST_SHELL.md)
+- [M151 Local OpenWebUI Test Shell Authority Boundary](docs/openwebui/M151_LOCAL_OPENWEBUI_TEST_SHELL_AUTHORITY_BOUNDARY.md)
+- [M151 Local OpenWebUI Test Shell Runbook](docs/openwebui/M151_LOCAL_OPENWEBUI_TEST_SHELL_RUNBOOK.md)
 - [M78 Plugin Manifest Security Model](docs/tooling/PLUGIN_MANIFEST_SECURITY_MODEL.md)
 - [M78 Plugin Manifest Policy](docs/tooling/PLUGIN_MANIFEST_POLICY.md)
 - [M78 Plugin Manifest Authority Boundary](docs/tooling/PLUGIN_MANIFEST_AUTHORITY_BOUNDARY.md)
@@ -354,9 +357,9 @@ Core themes:
 - **Control Center / CCC is the governance client family.** CCC Web exists as a
   local React/Vite control surface for safe summaries, status, and previews.
   Future CCC iOS, Android, and macOS clients are planned, not implemented.
-- **OpenWebUI is the preferred conversational shell direction.** The current
-  repo contains contract and strategy docs, not an operational OpenWebUI
-  integration.
+- **OpenWebUI is the preferred conversational shell direction.** M151 adds a
+  local-dev-only, disabled-by-default, localhost-only OpenWebUI test shell path
+  for `uaa-safe-local`; OpenWebUI is still a shell, not the agent brain.
 - **Memory is recall, not authority.** Memory can help plan recall context, but
   governed source refs outrank memory for truth.
 - **Tool intents are contracts, not execution.** M27 validates tool intent
@@ -403,7 +406,7 @@ Ultimate AI Agent
   Control Center / CCC Web
     Local governance and preview surfaces
   OpenWebUI Strategy
-    Preferred conversational shell direction, contract-only today
+    Local safe smoke shell in M151; no OpenWebUI authority
   Foundation Gate + Verifiers
     Tests, docs integrity, OpenAPI checks, frontend checks, safety scans
 ```
@@ -417,9 +420,9 @@ boundary.
 | Layer | Current status | Notes |
 |---|---|---|
 | Python Agent Core | Implemented foundation | Contract-first core under `src/ultimate_ai_agent/` |
-| FastAPI backend | Implemented validation/metadata API | OpenAPI path count remains 74 |
+| FastAPI backend | Implemented validation/metadata API | Includes disabled-by-default M151 local OpenWebUI test gateway |
 | CCC Web Control Center | Implemented preview/read-only local shell | React/Vite app under `apps/control-center/` |
-| OpenWebUI bridge | Contract/planning only | Preferred shell strategy; no live integration |
+| OpenWebUI bridge | Local test shell plus contracts | M151 exposes `uaa-safe-local` for local smoke only; no provider/tool/memory/context authority |
 | Local model runtime | Bounded/manual only | M23 fixed-prompt, loopback-only, approval-gated CLI path; model output is non-authoritative |
 | Memory | Implemented governed local foundation | Reviewed/source-linked recall records; no automatic writes |
 | Truth/evidence | Implemented M25 contracts | Deterministic validation over provided refs; no external lookup |

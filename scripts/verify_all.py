@@ -201,6 +201,7 @@ SCAN_SEQUENCE = [
     ("M148 external security review scan", "verify_m148_external_security_review"),
     ("M149 alpha release candidate freeze scan", "verify_m149_alpha_release_candidate_freeze"),
     ("M150 Ultimate AI Agent Alpha scan", "verify_m150_ultimate_ai_agent_alpha"),
+    ("M151 local OpenWebUI test shell scan", "verify_m151_local_openwebui_test_shell"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -256,6 +257,10 @@ OPENWEBUI_ALLOWED_FRAGMENT_SCAN_FILES = {
     "src/ultimate_ai_agent/core/gate/evaluators.py",
     "src/ultimate_ai_agent/core/hardening_freeze/__init__.py",
     "src/ultimate_ai_agent/core/hardening_freeze/network_browser_openwebui.py",
+}
+M151_LOCAL_OPENWEBUI_TEST_ROUTES = {
+    "/v1/models",
+    "/v1/chat/completions",
 }
 M22_LOCAL_RUNTIME_FORBIDDEN_FRAGMENTS = (
     "import ollama",
@@ -999,6 +1004,7 @@ def verify_no_local_runtime_activation_implementation():
         "/model-runtime/execute",
     }
     historical_paths = set(paths)
+    historical_paths.difference_update(M151_LOCAL_OPENWEBUI_TEST_ROUTES)
     if len(historical_paths) > 74:
         historical_paths.discard("/files/review/approvals/capture")
     if len(historical_paths) != 74:
@@ -4786,7 +4792,8 @@ def verify_m39_ccc_context_proposal_surface_safety():
         sys.path.insert(0, str(ROOT / "src"))
         from ultimate_ai_agent.api.app import app
 
-        paths = app.openapi().get("paths", {})
+        paths = set(app.openapi().get("paths", {}))
+        paths.difference_update(M151_LOCAL_OPENWEBUI_TEST_ROUTES)
     except Exception as exc:
         print(f"FAIL: M39 OpenAPI route validation failed: {exc}")
         sys.exit(1)
@@ -4988,7 +4995,8 @@ def verify_m40_context_handoff_approval_safety():
             print("FAIL: M40 approval_test_ mutation probe did not fail closed")
             sys.exit(1)
 
-        paths = app.openapi().get("paths", {})
+        paths = set(app.openapi().get("paths", {}))
+        paths.difference_update(M151_LOCAL_OPENWEBUI_TEST_ROUTES)
         if len(paths) != 75:
             print(f"FAIL: M40 OpenAPI path count changed: expected 75, found {len(paths)}")
             sys.exit(1)
@@ -28195,6 +28203,152 @@ def verify_m150_ultimate_ai_agent_alpha():
 
     print(
         "OK: M150 Ultimate AI Agent Alpha is review-only, alpha-target-only, disabled-by-default, safe-ref-only, and route-free"
+    )
+
+
+def verify_m151_local_openwebui_test_shell():
+    print("\n[Verifier] Running M151 local OpenWebUI test shell guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/openwebui_bridge/local_test_shell.py",
+        "docs/openwebui/M151_LOCAL_OPENWEBUI_TEST_SHELL.md",
+        "docs/openwebui/M151_LOCAL_OPENWEBUI_TEST_SHELL_AUTHORITY_BOUNDARY.md",
+        "docs/openwebui/M151_LOCAL_OPENWEBUI_TEST_SHELL_RUNBOOK.md",
+        "tests/test_m151_openwebui_local_test_shell.py",
+        "tests/test_m151_openwebui_local_gateway_api.py",
+        "tests/test_dev_launcher.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M151 local OpenWebUI test shell file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = " ".join(
+        "\n".join(
+            (ROOT / rel_path).read_text(encoding="utf-8").lower()
+            for rel_path in required_files
+            if rel_path.startswith("docs/")
+        ).split()
+    )
+    for fragment in [
+        "m151 local openwebui test shell",
+        "local-dev-only",
+        "disabled by default",
+        "localhost-only",
+        "openwebui is a shell, not the agent brain",
+        "openai-compatible",
+        "uaa-safe-local",
+        "no provider call",
+        "no tool execution",
+        "no memory write",
+        "no context injection",
+        "no external network",
+        "no raw prompt logging",
+        "no production authority",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M151 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    for rel_path in ["pyproject.toml", "apps/control-center/package.json"]:
+        path = ROOT / rel_path
+        if not path.exists():
+            continue
+        text = path.read_text(encoding="utf-8").lower()
+        for fragment in ['"openwebui"', '"open-webui"', "openwebui==", "open-webui=="]:
+            if fragment in text:
+                print(f"FAIL: M151 must not add OpenWebUI dependency in {rel_path}: {fragment}")
+                sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.openwebui_bridge import (
+            UAA_OPENWEBUI_TEST_MODEL_ID,
+            OpenWebUILocalChatCompletionRequest,
+            build_default_openwebui_local_test_shell_policy,
+            build_openwebui_local_chat_completion_response,
+            openwebui_test_gateway_authorized,
+            openwebui_test_gateway_enabled,
+        )
+    except Exception as exc:
+        print(f"FAIL: M151 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    paths = set(app.openapi().get("paths", {}))
+    for route in M151_LOCAL_OPENWEBUI_TEST_ROUTES:
+        if route not in paths:
+            print(f"FAIL: M151 expected local OpenWebUI test route missing: {route}")
+            sys.exit(1)
+
+    policy = build_default_openwebui_local_test_shell_policy()
+    if (
+        not policy.local_dev_only
+        or not policy.disabled_by_default
+        or not policy.localhost_only
+        or not policy.openai_compatible_gateway
+        or not policy.deterministic_response_only
+        or policy.openwebui_is_agent_brain
+        or policy.provider_call_enabled
+        or policy.model_authority_enabled
+        or policy.tool_execution_enabled
+        or policy.memory_write_enabled
+        or policy.context_injection_enabled
+        or policy.external_network_enabled
+        or policy.raw_prompt_logging_enabled
+        or policy.raw_provider_payload_exposure_enabled
+        or policy.dependency_added
+        or policy.production_authority_enabled
+    ):
+        print("FAIL: M151 local OpenWebUI policy is unsafe")
+        sys.exit(1)
+
+    if openwebui_test_gateway_enabled({}):
+        print("FAIL: M151 local OpenWebUI gateway must be disabled by default")
+        sys.exit(1)
+    if not openwebui_test_gateway_authorized("Bearer uaa-local-test", {}):
+        print("FAIL: M151 local OpenWebUI gateway did not accept the local smoke bearer value")
+        sys.exit(1)
+
+    request = OpenWebUILocalChatCompletionRequest(
+        model=UAA_OPENWEBUI_TEST_MODEL_ID,
+        messages=[{"role": "user", "content": "token=do-not-echo"}],
+    )
+    response = build_openwebui_local_chat_completion_response(request)
+    response_text = str(response)
+    if "do-not-echo" in response_text:
+        print("FAIL: M151 local OpenWebUI response echoed raw prompt content")
+        sys.exit(1)
+    safety = response.get("uaa_safety", {})
+    for key in [
+        "provider_called",
+        "model_authority_granted",
+        "tool_executed",
+        "memory_written",
+        "context_injected",
+        "external_network_called",
+        "raw_prompt_logged",
+        "raw_provider_payload_exposed",
+        "production_authority_granted",
+    ]:
+        if safety.get(key) is not False:
+            print(f"FAIL: M151 local OpenWebUI safety flag is not false: {key}")
+            sys.exit(1)
+
+    launcher_text = (ROOT / "scripts/dev/uaa_launcher.py").read_text(encoding="utf-8").lower()
+    for fragment in [
+        "openwebui",
+        'openwebui_host = "127.0.0.1"',
+        "openwebui_port = 3000",
+        "uaa_openwebui_test_gateway_enabled",
+        "uaa-safe-local",
+    ]:
+        if fragment not in launcher_text:
+            print(f"FAIL: M151 launcher missing fragment: {fragment}")
+            sys.exit(1)
+
+    print(
+        "OK: M151 local OpenWebUI test shell is disabled-by-default, localhost-only, deterministic, and no-authority"
     )
 
 

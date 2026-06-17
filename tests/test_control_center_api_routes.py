@@ -81,5 +81,7 @@ def test_control_center_openapi_routes_and_operation_ids_are_safe():
         if isinstance(spec, dict) and "operationId" in spec
     ]
     assert "/files/review/approvals/capture" in paths
-    assert len(paths) == 75
-    assert len(operation_ids) == len(set(operation_ids)) == 75
+    assert "/v1/models" in paths
+    assert "/v1/chat/completions" in paths
+    assert len(paths) == 77
+    assert len(operation_ids) == len(set(operation_ids)) == 77

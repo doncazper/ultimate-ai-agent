@@ -40,6 +40,7 @@ def test_launcher_builds_localhost_only_command_lists():
 
     backend = launcher.build_backend_command(ROOT)
     frontend = launcher.build_frontend_command(ROOT)
+    openwebui = launcher.build_openwebui_command(ROOT)
 
     assert backend[:3] == [str(ROOT / ".venv" / "bin" / "python"), "-m", "uvicorn"]
     assert "ultimate_ai_agent.api.app:app" in backend
@@ -54,6 +55,13 @@ def test_launcher_builds_localhost_only_command_lists():
     assert frontend[frontend.index("--host") + 1] == "127.0.0.1"
     assert "--port" in frontend
     assert frontend[frontend.index("--port") + 1] == "5173"
+
+    assert openwebui[:2] == ["docker", "run"]
+    assert "-p" in openwebui
+    assert openwebui[openwebui.index("-p") + 1] == "127.0.0.1:3000:8080"
+    assert "ghcr.io/open-webui/open-webui:main" in openwebui
+    assert any(value == "OPENAI_API_BASE_URL=http://host.docker.internal:8000/v1" for value in openwebui)
+    assert any(value == "OPENAI_API_KEY=uaa-local-test" for value in openwebui)
 
 
 def test_stale_pid_cleanup_removes_only_stale_pid_file(tmp_path):
@@ -91,6 +99,28 @@ def test_macos_launcher_content_is_relative_and_safe():
     assert "launchctl" not in content
     assert "LaunchAgent" not in content
     assert "/usr/local/bin" not in content
+
+
+def test_launcher_openwebui_service_config_is_localhost_only():
+    launcher = load_launcher()
+
+    service = launcher.service_config(ROOT, "openwebui")
+
+    assert service.url == "http://127.0.0.1:3000"
+    assert service.health_url == "http://127.0.0.1:3000"
+    assert service.pid_file.name == "openwebui.pid"
+    assert service.log_file.name == "openwebui.log"
+
+
+def test_launcher_backend_env_allows_only_openwebui_gateway_flag(monkeypatch):
+    launcher = load_launcher()
+    monkeypatch.setenv("UAA_OPENWEBUI_TEST_GATEWAY_ENABLED", "1")
+    monkeypatch.setenv("UAA_OPENWEBUI_TEST_GATEWAY_KEY", "should-not-pass-through")
+
+    env = launcher.safe_env(ROOT, "backend")
+
+    assert env["UAA_OPENWEBUI_TEST_GATEWAY_ENABLED"] == "1"
+    assert "UAA_OPENWEBUI_TEST_GATEWAY_KEY" not in env
 
 
 def test_shell_wrapper_exists_and_is_executable():

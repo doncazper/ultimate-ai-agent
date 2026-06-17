@@ -2246,11 +2246,22 @@ M21_OPENWEBUI_ALLOWED_FRAGMENT_SCAN_FILES = {
     "scripts/verify_all.py",
     "scripts/verify_control_center_frontend.py",
 }
+M151_LOCAL_OPENWEBUI_TEST_ROUTES = {
+    "/v1/models",
+    "/v1/chat/completions",
+}
+
+
+def _post_m151_route_boundary_path_set(paths: Iterable[str]) -> set[str]:
+    """Normalize current OpenAPI paths for pre-M151 route-boundary gates."""
+    path_set = {path for path in paths}
+    path_set.difference_update(M151_LOCAL_OPENWEBUI_TEST_ROUTES)
+    return path_set
 
 
 def _historical_openapi_path_set(paths: Iterable[str]) -> set[str]:
     """Normalize current OpenAPI paths for historical route-count gates."""
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     if len(path_set) > EXPECTED_M36_OPENAPI_PATH_COUNT:
         path_set.discard(M37_ALLOWED_CAPTURE_ROUTE)
     return path_set
@@ -2488,7 +2499,7 @@ def m36_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m37_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M37_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2501,7 +2512,7 @@ def m37_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m38_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M38_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2514,7 +2525,7 @@ def m38_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m39_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M39_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2527,7 +2538,7 @@ def m39_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m40_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M40_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2540,7 +2551,7 @@ def m40_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m41_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M41_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2553,7 +2564,7 @@ def m41_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m42_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M42_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2566,7 +2577,7 @@ def m42_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m43_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M43_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2579,7 +2590,7 @@ def m43_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m44_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M44_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2592,7 +2603,7 @@ def m44_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m45_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M45_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2605,7 +2616,7 @@ def m45_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m46_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M46_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2618,7 +2629,7 @@ def m46_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m47_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M47_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2631,7 +2642,7 @@ def m47_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m48_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M48_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2644,7 +2655,7 @@ def m48_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m49_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M49_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2657,7 +2668,7 @@ def m49_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m50_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M50_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2670,7 +2681,7 @@ def m50_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m51_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M51_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2683,7 +2694,7 @@ def m51_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m52_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M52_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2696,7 +2707,7 @@ def m52_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m53_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M53_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2709,7 +2720,7 @@ def m53_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m54_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M54_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2722,7 +2733,7 @@ def m54_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m55_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M55_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2735,7 +2746,7 @@ def m55_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m56_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M56_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2748,7 +2759,7 @@ def m56_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m57_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M57_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2761,7 +2772,7 @@ def m57_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m58_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M58_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2774,7 +2785,7 @@ def m58_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m59_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M59_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2787,7 +2798,7 @@ def m59_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m60_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M60_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2800,7 +2811,7 @@ def m60_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m61_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M61_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2813,7 +2824,7 @@ def m61_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m62_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M62_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2826,7 +2837,7 @@ def m62_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m63_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M63_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2839,7 +2850,7 @@ def m63_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m64_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M64_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2852,7 +2863,7 @@ def m64_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m65_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M65_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2865,7 +2876,7 @@ def m65_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m66_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M66_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2878,7 +2889,7 @@ def m66_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m67_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M67_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2891,7 +2902,7 @@ def m67_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m68_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M68_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2904,7 +2915,7 @@ def m68_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m69_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M69_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2917,7 +2928,7 @@ def m69_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m70_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M70_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2930,7 +2941,7 @@ def m70_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m71_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M71_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2943,7 +2954,7 @@ def m71_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m72_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M72_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2956,7 +2967,7 @@ def m72_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m73_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M73_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2969,7 +2980,7 @@ def m73_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m74_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M74_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2982,7 +2993,7 @@ def m74_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m75_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M75_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2995,7 +3006,7 @@ def m75_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m76_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M76_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -3008,7 +3019,7 @@ def m76_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m77_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M77_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3021,7 +3032,7 @@ def m77_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m78_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M78_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3034,7 +3045,7 @@ def m78_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m79_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M79_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3047,7 +3058,7 @@ def m79_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m80_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M80_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3060,7 +3071,7 @@ def m80_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m81_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M81_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3073,7 +3084,7 @@ def m81_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m82_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M82_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3088,7 +3099,7 @@ def m82_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 def m83_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M83_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3103,7 +3114,7 @@ def m83_openapi_route_failures(
 def m84_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M84_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3118,7 +3129,7 @@ def m84_openapi_route_failures(
 def m85_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M85_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3133,7 +3144,7 @@ def m85_openapi_route_failures(
 def m86_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M86_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3148,7 +3159,7 @@ def m86_openapi_route_failures(
 def m87_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M87_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3163,7 +3174,7 @@ def m87_openapi_route_failures(
 def m88_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M88_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3178,7 +3189,7 @@ def m88_openapi_route_failures(
 def m89_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M89_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3193,7 +3204,7 @@ def m89_openapi_route_failures(
 def m90_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M90_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3208,7 +3219,7 @@ def m90_openapi_route_failures(
 def m91_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M91_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3223,7 +3234,7 @@ def m91_openapi_route_failures(
 def m92_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M92_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3238,7 +3249,7 @@ def m92_openapi_route_failures(
 def m93_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M93_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3253,7 +3264,7 @@ def m93_openapi_route_failures(
 def m94_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M94_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3268,7 +3279,7 @@ def m94_openapi_route_failures(
 def m95_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M95_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3283,7 +3294,7 @@ def m95_openapi_route_failures(
 def m96_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M96_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3298,7 +3309,7 @@ def m96_openapi_route_failures(
 def m97_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M97_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3313,7 +3324,7 @@ def m97_openapi_route_failures(
 def m98_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M98_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3328,7 +3339,7 @@ def m98_openapi_route_failures(
 def m99_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M99_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3343,7 +3354,7 @@ def m99_openapi_route_failures(
 def m100_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M100_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3358,7 +3369,7 @@ def m100_openapi_route_failures(
 def m101_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M101_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3373,7 +3384,7 @@ def m101_openapi_route_failures(
 def m102_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M102_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3388,7 +3399,7 @@ def m102_openapi_route_failures(
 def m103_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M103_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3403,7 +3414,7 @@ def m103_openapi_route_failures(
 def m104_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M104_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3418,7 +3429,7 @@ def m104_openapi_route_failures(
 def m105_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M105_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3433,7 +3444,7 @@ def m105_openapi_route_failures(
 def m106_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M106_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3448,7 +3459,7 @@ def m106_openapi_route_failures(
 def m107_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M107_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3463,7 +3474,7 @@ def m107_openapi_route_failures(
 def m108_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M108_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3478,7 +3489,7 @@ def m108_openapi_route_failures(
 def m109_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M109_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3493,7 +3504,7 @@ def m109_openapi_route_failures(
 def m110_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M110_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3508,7 +3519,7 @@ def m110_openapi_route_failures(
 def m111_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M111_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3523,7 +3534,7 @@ def m111_openapi_route_failures(
 def m112_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M112_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3538,7 +3549,7 @@ def m112_openapi_route_failures(
 def m113_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M113_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3553,7 +3564,7 @@ def m113_openapi_route_failures(
 def m114_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M114_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3568,7 +3579,7 @@ def m114_openapi_route_failures(
 def m115_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M115_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3583,7 +3594,7 @@ def m115_openapi_route_failures(
 def m116_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M116_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3598,7 +3609,7 @@ def m116_openapi_route_failures(
 def m117_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M117_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3615,7 +3626,7 @@ def m117_openapi_route_failures(
 def m118_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M118_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3632,7 +3643,7 @@ def m118_openapi_route_failures(
 def m119_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M119_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3649,7 +3660,7 @@ def m119_openapi_route_failures(
 def m120_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M120_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3666,7 +3677,7 @@ def m120_openapi_route_failures(
 def m121_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M121_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3683,7 +3694,7 @@ def m121_openapi_route_failures(
 def m122_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M122_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3700,7 +3711,7 @@ def m122_openapi_route_failures(
 def m123_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M123_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3717,7 +3728,7 @@ def m123_openapi_route_failures(
 def m124_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M124_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3734,7 +3745,7 @@ def m124_openapi_route_failures(
 def m125_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M125_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3751,7 +3762,7 @@ def m125_openapi_route_failures(
 def m126_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M126_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3768,7 +3779,7 @@ def m126_openapi_route_failures(
 def m127_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M127_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3785,7 +3796,7 @@ def m127_openapi_route_failures(
 def m128_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M128_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3802,7 +3813,7 @@ def m128_openapi_route_failures(
 def m129_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M129_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3819,7 +3830,7 @@ def m129_openapi_route_failures(
 def m130_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M130_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3836,7 +3847,7 @@ def m130_openapi_route_failures(
 def m131_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M131_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3853,7 +3864,7 @@ def m131_openapi_route_failures(
 def m132_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M132_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3870,7 +3881,7 @@ def m132_openapi_route_failures(
 def m133_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M133_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3887,7 +3898,7 @@ def m133_openapi_route_failures(
 def m134_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M134_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3904,7 +3915,7 @@ def m134_openapi_route_failures(
 def m135_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M135_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3921,7 +3932,7 @@ def m135_openapi_route_failures(
 def m136_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M136_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3938,7 +3949,7 @@ def m136_openapi_route_failures(
 def m137_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M137_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3955,7 +3966,7 @@ def m137_openapi_route_failures(
 def m138_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M138_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3972,7 +3983,7 @@ def m138_openapi_route_failures(
 def m139_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M139_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3989,7 +4000,7 @@ def m139_openapi_route_failures(
 def m140_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M140_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -4006,7 +4017,7 @@ def m140_openapi_route_failures(
 def m141_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M141_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -4023,7 +4034,7 @@ def m141_openapi_route_failures(
 def m142_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M142_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -4040,7 +4051,7 @@ def m142_openapi_route_failures(
 def m143_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M143_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -4057,7 +4068,7 @@ def m143_openapi_route_failures(
 def m144_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M144_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -4074,7 +4085,7 @@ def m144_openapi_route_failures(
 def m145_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M145_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -4091,7 +4102,7 @@ def m145_openapi_route_failures(
 def m146_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M146_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -4108,7 +4119,7 @@ def m146_openapi_route_failures(
 def m147_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M147_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -4125,7 +4136,7 @@ def m147_openapi_route_failures(
 def m148_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M148_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -4142,7 +4153,7 @@ def m148_openapi_route_failures(
 def m149_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M149_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -4159,7 +4170,7 @@ def m149_openapi_route_failures(
 def m150_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M150_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -5582,6 +5593,15 @@ class FoundationGateEvaluator:
                 self.check_m150_ultimate_ai_agent_alpha_route_boundary
             ),
             "m150_roadmap_currentness": self.check_m150_roadmap_currentness,
+            "m151_local_openwebui_test_shell_contracts": (
+                self.check_m151_local_openwebui_test_shell_contracts
+            ),
+            "m151_local_openwebui_test_shell_route_boundary": (
+                self.check_m151_local_openwebui_test_shell_route_boundary
+            ),
+            "m151_local_openwebui_test_shell_launcher": (
+                self.check_m151_local_openwebui_test_shell_launcher
+            ),
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -8032,8 +8052,7 @@ class FoundationGateEvaluator:
 
         routes = iter_api_route_items(app)
         paths = {route.path: route for route in routes}
-        historical_paths = dict(paths)
-        historical_paths.pop(M37_ALLOWED_CAPTURE_ROUTE, None)
+        historical_paths = _historical_openapi_path_set(paths)
         failures = []
         if len(historical_paths) != 74:
             failures.append(f"API path count changed from M12 contract: {len(historical_paths)}")
@@ -51808,6 +51827,179 @@ class FoundationGateEvaluator:
                     f"active docs imply forbidden M150 future/currentness claim: {fragment}"
                 )
         return self._result(criterion, failures, required_docs)
+
+    def check_m151_local_openwebui_test_shell_contracts(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/openwebui_bridge/local_test_shell.py",
+            "docs/openwebui/M151_LOCAL_OPENWEBUI_TEST_SHELL.md",
+            "docs/openwebui/M151_LOCAL_OPENWEBUI_TEST_SHELL_AUTHORITY_BOUNDARY.md",
+            "docs/openwebui/M151_LOCAL_OPENWEBUI_TEST_SHELL_RUNBOOK.md",
+            "tests/test_m151_openwebui_local_test_shell.py",
+            "tests/test_m151_openwebui_local_gateway_api.py",
+        ]
+        failures = [
+            f"missing M151 local OpenWebUI test shell file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            from ultimate_ai_agent.core.openwebui_bridge import (
+                UAA_OPENWEBUI_TEST_MODEL_ID,
+                OpenWebUILocalChatCompletionRequest,
+                build_default_openwebui_local_test_shell_policy,
+                build_openwebui_local_chat_completion_response,
+                openwebui_test_gateway_authorized,
+                openwebui_test_gateway_enabled,
+            )
+
+            policy = build_default_openwebui_local_test_shell_policy()
+            if (
+                not policy.local_dev_only
+                or not policy.disabled_by_default
+                or not policy.localhost_only
+                or not policy.openai_compatible_gateway
+                or not policy.deterministic_response_only
+                or policy.openwebui_is_agent_brain
+                or policy.provider_call_enabled
+                or policy.model_authority_enabled
+                or policy.tool_execution_enabled
+                or policy.memory_write_enabled
+                or policy.context_injection_enabled
+                or policy.external_network_enabled
+                or policy.raw_prompt_logging_enabled
+                or policy.dependency_added
+                or policy.production_authority_enabled
+            ):
+                failures.append("M151 local OpenWebUI policy is unsafe")
+            if openwebui_test_gateway_enabled({}):
+                failures.append("M151 local OpenWebUI gateway is not disabled by default")
+            if not openwebui_test_gateway_authorized("Bearer uaa-local-test", {}):
+                failures.append("M151 local OpenWebUI local bearer value was not accepted")
+            request = OpenWebUILocalChatCompletionRequest(
+                model=UAA_OPENWEBUI_TEST_MODEL_ID,
+                messages=[{"role": "user", "content": "token=do-not-echo"}],
+            )
+            response = build_openwebui_local_chat_completion_response(request)
+            if "do-not-echo" in str(response):
+                failures.append("M151 local OpenWebUI response echoes raw prompt content")
+            safety = response.get("uaa_safety", {})
+            for key in [
+                "provider_called",
+                "model_authority_granted",
+                "tool_executed",
+                "memory_written",
+                "context_injected",
+                "external_network_called",
+                "raw_prompt_logged",
+                "production_authority_granted",
+            ]:
+                if safety.get(key) is not False:
+                    failures.append(f"M151 safety flag is not false: {key}")
+        except Exception as exc:
+            failures.append(f"M151 local OpenWebUI contract validation failed: {exc}")
+
+        docs_text = " ".join(
+            "\n".join(
+                self._read(self.root / path).lower()
+                for path in required_files
+                if path.startswith("docs/") and (self.root / path).exists()
+            ).split()
+        )
+        for fragment in [
+            "m151 local openwebui test shell",
+            "local-dev-only",
+            "disabled by default",
+            "localhost-only",
+            "openwebui is a shell, not the agent brain",
+            "openai-compatible",
+            "uaa-safe-local",
+            "no provider call",
+            "no tool execution",
+            "no memory write",
+            "no context injection",
+            "no external network",
+            "no raw prompt logging",
+            "no production authority",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M151 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m151_local_openwebui_test_shell_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+            from ultimate_ai_agent.api.openapi import verify_openapi_contract
+
+            paths = set(app.openapi().get("paths", {}))
+            for route in M151_LOCAL_OPENWEBUI_TEST_ROUTES:
+                if route not in paths:
+                    failures.append(f"M151 expected local OpenWebUI test route missing: {route}")
+            forbidden_routes = {
+                "/openwebui/execute",
+                "/openwebui/bridge/run",
+                "/openwebui/handoff",
+                "/providers/call",
+                "/providers/invoke",
+                "/models/generate",
+                "/models/complete",
+                "/tools/execute",
+                "/memory/write",
+                "/context/inject",
+                "/runtime/execute",
+                "/model-runtime/execute",
+            }
+            present = sorted(paths.intersection(forbidden_routes))
+            if present:
+                failures.append(f"M151 forbidden authority route(s) present: {', '.join(present)}")
+            contract_status = verify_openapi_contract(app)
+            if contract_status.errors:
+                failures.extend(contract_status.errors)
+        except Exception as exc:
+            failures.append(f"M151 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m151_local_openwebui_test_shell_launcher(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "scripts/dev/uaa_launcher.py",
+            "scripts/dev/README.md",
+            "tests/test_dev_launcher.py",
+        ]
+        failures = [
+            f"missing M151 local OpenWebUI launcher file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        launcher = self._read(self.root / "scripts/dev/uaa_launcher.py").lower()
+        for fragment in [
+            "openwebui",
+            'openwebui_host = "127.0.0.1"',
+            "openwebui_port = 3000",
+            "uaa_openwebui_test_gateway_enabled",
+            "uaa-safe-local",
+            "http://host.docker.internal:8000/v1",
+            "openai_api_base_url=",
+            "openai_api_key=",
+            "uaa-local-test",
+        ]:
+            if fragment not in launcher:
+                failures.append(f"M151 launcher missing safety fragment: {fragment}")
+        for forbidden in [
+            "0.0.0.0:3000",
+            "--privileged",
+            "--network=host",
+            "docker compose",
+            "docker-compose",
+        ]:
+            if forbidden in launcher:
+                failures.append(f"M151 launcher contains forbidden fragment: {forbidden}")
+        return self._result(criterion, failures, required_files)
 
 
     def check_v0292_local_dev_api_authority_and_preview_safe(

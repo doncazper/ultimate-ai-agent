@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict
@@ -147,6 +147,13 @@ from ultimate_ai_agent.core.file_review import (
     FileReviewApprovalCaptureRequest,
     FileReviewApprovalStore,
     capture_file_review_approval_request,
+)
+from ultimate_ai_agent.core.openwebui_bridge import (
+    OpenWebUILocalChatCompletionRequest,
+    build_openwebui_local_chat_completion_response,
+    build_openwebui_local_models_response,
+    openwebui_test_gateway_authorized,
+    openwebui_test_gateway_enabled,
 )
 
 app = FastAPI(
@@ -305,6 +312,31 @@ def get_version():
 @app.get("/api/manifest", response_model=ApiManifest)
 def get_api_manifest():
     return build_api_manifest(app)
+
+def _require_openwebui_local_test_gateway(authorization: str | None) -> None:
+    if not openwebui_test_gateway_enabled():
+        raise HTTPException(
+            status_code=403,
+            detail="M151 local OpenWebUI test gateway is disabled. Set UAA_OPENWEBUI_TEST_GATEWAY_ENABLED=1 for local smoke testing.",
+        )
+    if not openwebui_test_gateway_authorized(authorization):
+        raise HTTPException(
+            status_code=401,
+            detail="M151 local OpenWebUI test gateway requires the local test bearer value.",
+        )
+
+@app.get("/v1/models")
+def get_v1_models(authorization: str | None = Header(default=None)):
+    _require_openwebui_local_test_gateway(authorization)
+    return build_openwebui_local_models_response()
+
+@app.post("/v1/chat/completions")
+def post_v1_chat_completions(
+    request: OpenWebUILocalChatCompletionRequest,
+    authorization: str | None = Header(default=None),
+):
+    _require_openwebui_local_test_gateway(authorization)
+    return build_openwebui_local_chat_completion_response(request)
 
 @app.post("/contracts/validate", response_model=ResultEnvelope)
 def post_validate_contract(contract: ExecutionContract):

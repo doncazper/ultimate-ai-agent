@@ -38,5 +38,12 @@ Current M150 alpha note: Checkpoint M149 is implemented/released as
 Alpha Release Candidate Freeze. M150 is implemented/released as Ultimate AI
 Agent v1.0.0-alpha target acceptance; beta remains future.
 
+Post-M150 corrective note: M151 is the Local OpenWebUI Test Shell milestone.
+It adds a local-dev-only, disabled-by-default, localhost-only OpenWebUI smoke
+path for `uaa-safe-local`, with OpenWebUI as a shell and not the agent brain.
+It is the bridge from M150 alpha target acceptance to a testable local chat UI.
+It adds no provider call, tool execution, memory write, context injection,
+external network, raw prompt logging, beta release, or production authority.
+
 Documentation organization and historical-roadmap handling rules live in
 `docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md`.

@@ -19,6 +19,23 @@ authority.
 ./scripts/dev/uaa restart
 ```
 
+Optional M151 local OpenWebUI test shell commands:
+
+```bash
+UAA_OPENWEBUI_TEST_GATEWAY_ENABLED=1 ./scripts/dev/uaa start
+./scripts/dev/uaa openwebui doctor
+./scripts/dev/uaa openwebui start
+./scripts/dev/uaa openwebui status
+./scripts/dev/uaa openwebui logs
+./scripts/dev/uaa openwebui stop
+```
+
+The OpenWebUI path is local-dev-only, disabled by default, localhost-only, and
+uses the deterministic `uaa-safe-local` model through UAA's `/v1` local test
+gateway. OpenWebUI is a shell, not the agent brain. The M151 path adds no
+provider call, tool execution, memory write, context injection, external
+network, raw prompt logging, or production authority.
+
 Optional shell command:
 
 ```bash
@@ -63,6 +80,7 @@ closing.
 ## Safety Boundary
 
 - localhost-only: backend `127.0.0.1:8000`, frontend `127.0.0.1:5173`.
+- optional OpenWebUI test shell is localhost-only at `127.0.0.1:3000`.
 - no `0.0.0.0` binding.
 - no tool, action, task, shell, browser, mobile, remote, plugin, model/provider,
   or production execution authority.
