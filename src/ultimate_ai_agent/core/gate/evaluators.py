@@ -2142,6 +2142,14 @@ M149_FORBIDDEN_BACKEND_ROUTES = M148_FORBIDDEN_BACKEND_ROUTES + (
     "/release/automation",
     "/production/authority/enable",
 )
+EXPECTED_M150_OPENAPI_PATH_COUNT = 75
+M150_FORBIDDEN_BACKEND_ROUTES = M149_FORBIDDEN_BACKEND_ROUTES + (
+    "/ultimate-ai-agent-alpha",
+    "/ultimate-ai-agent-alpha/publish",
+    "/alpha/accept",
+    "/alpha/release",
+    "/v1.0.0-alpha/release",
+)
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
     "from ollama import",
@@ -4147,6 +4155,23 @@ def m149_openapi_route_failures(
     return failures
 
 
+def m150_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M150_OPENAPI_PATH_COUNT
+) -> List[str]:
+    path_set = set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(
+            f"OpenAPI path count changed for M150: expected {expected_path_count}, got {len(path_set)}"
+        )
+    for route in M150_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(
+                f"M150 forbidden alpha target, release publication, tag, artifact, distribution, submission, beta, automation, auth, or authority route present: {route}"
+            )
+    return failures
+
+
 M36_SAFE_REF_PREFIXES = {
     "reviewPacketRef": "file-review-packet:",
     "previewResultRef": "redacted-file-preview-output:",
@@ -5502,6 +5527,16 @@ class FoundationGateEvaluator:
                 self.check_m149_alpha_release_candidate_freeze_route_boundary
             ),
             "m149_roadmap_currentness": self.check_m149_roadmap_currentness,
+            "m150_ultimate_ai_agent_alpha_contracts": (
+                self.check_m150_ultimate_ai_agent_alpha_contracts
+            ),
+            "m150_ultimate_ai_agent_alpha_static_safety": (
+                self.check_m150_ultimate_ai_agent_alpha_static_safety
+            ),
+            "m150_ultimate_ai_agent_alpha_route_boundary": (
+                self.check_m150_ultimate_ai_agent_alpha_route_boundary
+            ),
+            "m150_roadmap_currentness": self.check_m150_roadmap_currentness,
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -31407,6 +31442,19 @@ class FoundationGateEvaluator:
             _version_doc_marks_milestone_implemented(active_version_text, "m149")
         ):
             implemented_milestones.add("m149")
+        if (
+            _version_doc_marks_milestone_implemented(active_version_text, "m150")
+        ):
+            implemented_milestones.add("m150")
+        if "m150" in implemented_milestones:
+            implemented_m150_row = (
+                "| v1.0.0-alpha | alpha | m150 | ultimate ai agent v1.0.0-alpha | "
+                "implemented/released |"
+            )
+            if implemented_m150_row not in text:
+                failures.append(
+                    "M101-M150 roadmap row must mark M150 implemented/released"
+                )
         for version_label, product_target, milestone, title in expected_labels:
             if milestone in implemented_milestones:
                 continue
@@ -35897,8 +35945,8 @@ class FoundationGateEvaluator:
             "| v1.0.0-alpha | alpha | m150 | ultimate ai agent v1.0.0-alpha | "
             "planned/provisional |"
         )
-        if m150_row not in text:
-            failures.append("active docs missing planned M150 alpha row")
+        if not _roadmap_row_present(text, m150_row):
+            failures.append("active docs missing M150 alpha row")
         for fragment in (
             "account connector runtime is implemented",
             "account connector is implemented",
@@ -51311,6 +51359,407 @@ class FoundationGateEvaluator:
             if fragment in text:
                 failures.append(
                     f"active docs imply forbidden M149 future/currentness claim: {fragment}"
+                )
+        return self._result(criterion, failures, required_docs)
+
+    def check_m150_ultimate_ai_agent_alpha_contracts(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/productization/ultimate_ai_agent_alpha.py",
+            "docs/productization/ULTIMATE_AI_AGENT_ALPHA.md",
+            "docs/productization/ULTIMATE_AI_AGENT_ALPHA_POLICY.md",
+            "docs/productization/ULTIMATE_AI_AGENT_ALPHA_AUTHORITY_BOUNDARY.md",
+            "docs/productization/ULTIMATE_AI_AGENT_ALPHA_RECEIPT_PLAN.md",
+            "docs/productization/ULTIMATE_AI_AGENT_ALPHA_NON_GOALS.md",
+            "docs/productization/M150_ALPHA_TO_BETA_BOUNDARY.md",
+            "docs/release_notes/checkpoint_m150.md",
+            "docs/archive/checkpoints/m150/README_IMPORT.md",
+            "docs/archive/checkpoints/m150/master_plan.md",
+            "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            "tests/test_m150_ultimate_ai_agent_alpha.py",
+            "tests/test_m150_gate_integration.py",
+        ]
+        failures = [
+            f"missing M150 Ultimate AI Agent Alpha file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            from tests.test_m150_ultimate_ai_agent_alpha import _request
+            from ultimate_ai_agent.core.productization import (
+                UltimateAiAgentAlphaStatus,
+                build_ultimate_ai_agent_alpha_record,
+                validate_ultimate_ai_agent_alpha_record,
+            )
+
+            record = build_ultimate_ai_agent_alpha_record(_request())
+            if (
+                record.status != UltimateAiAgentAlphaStatus.alpha_target_recorded
+                or record.product_target_ref != "product-target:v1.0.0-alpha"
+                or not record.contract_only
+                or not record.review_only
+                or not record.alpha_target_only
+                or not record.deterministic
+                or not record.local_only
+                or not record.safe_refs_only
+                or not record.disabled_by_default
+                or not record.m101_m149_covered
+                or not record.alpha_targets_bound
+                or not record.release_candidate_freezes_bound
+                or not record.alpha_readiness_bound
+                or not record.evidence_indexes_bound
+                or not record.blocker_summaries_bound
+                or not record.signoff_reviews_bound
+                or not record.beta_promotion_gates_bound
+                or not record.no_release_publication
+                or not record.no_release_tag
+                or not record.no_tag_creation
+                or not record.no_artifact_build
+                or not record.no_artifact_upload
+                or not record.no_artifact_export
+                or not record.no_external_distribution
+                or not record.no_app_store_submission
+                or not record.no_testflight_submission
+                or not record.no_beta_release
+                or not record.no_release_automation
+                or not record.no_backend_route
+                or not record.no_control_center_control
+                or not record.no_dependency
+                or not record.no_production_authority
+                or record.release_publication_started
+                or record.release_tag_created
+                or record.tag_creation_performed
+                or record.artifact_build_performed
+                or record.artifact_upload_started
+                or record.artifact_export_started
+                or record.external_distribution_started
+                or record.app_store_submission_started
+                or record.testflight_submission_started
+                or record.beta_release_enabled
+                or record.release_automation_started
+                or record.auth_runtime_started
+                or record.backend_route_added
+                or record.control_center_control_added
+                or record.dependency_added
+                or record.production_authority_granted
+                or "M150_ULTIMATE_AI_AGENT_ALPHA_REVIEW_ONLY"
+                not in record.reason_codes
+                or "M150_M101_M149_COVERED" not in record.reason_codes
+                or "M150_ALPHA_TARGET_ONLY" not in record.reason_codes
+                or "M150_DISABLED_BY_DEFAULT" not in record.reason_codes
+                or "M150_NO_RELEASE_PUBLICATION" not in record.reason_codes
+                or "M150_NO_RELEASE_TAG" not in record.reason_codes
+                or "M150_NO_TAG_CREATION" not in record.reason_codes
+                or "M150_NO_ARTIFACT_BUILD" not in record.reason_codes
+                or "M150_NO_ARTIFACT_UPLOAD" not in record.reason_codes
+                or "M150_NO_ARTIFACT_EXPORT" not in record.reason_codes
+                or "M150_NO_EXTERNAL_DISTRIBUTION" not in record.reason_codes
+                or "M150_NO_APP_STORE_SUBMISSION" not in record.reason_codes
+                or "M150_NO_TESTFLIGHT_SUBMISSION" not in record.reason_codes
+                or "M150_NO_BETA_RELEASE" not in record.reason_codes
+                or "M150_NO_RELEASE_AUTOMATION" not in record.reason_codes
+                or "M150_NO_BACKEND_ROUTE" not in record.reason_codes
+                or "M150_NO_PRODUCTION_AUTHORITY" not in record.reason_codes
+                or "BETA_REMAINS_FUTURE" not in record.reason_codes
+            ):
+                failures.append(
+                    "M150 Ultimate AI Agent Alpha record is unsafe or over-authoritative"
+                )
+            for update, reason in [
+                (
+                    {"release_publication_started": True},
+                    "M150_RELEASE_PUBLICATION_DENIED",
+                ),
+                ({"release_tag_created": True}, "M150_RELEASE_TAG_DENIED"),
+                ({"tag_creation_performed": True}, "M150_TAG_CREATION_DENIED"),
+                ({"artifact_build_performed": True}, "M150_ARTIFACT_BUILD_DENIED"),
+                ({"artifact_upload_started": True}, "M150_ARTIFACT_UPLOAD_DENIED"),
+                ({"artifact_export_started": True}, "M150_ARTIFACT_EXPORT_DENIED"),
+                (
+                    {"external_distribution_started": True},
+                    "M150_EXTERNAL_DISTRIBUTION_DENIED",
+                ),
+                (
+                    {"app_store_submission_started": True},
+                    "M150_APP_STORE_SUBMISSION_DENIED",
+                ),
+                (
+                    {"testflight_submission_started": True},
+                    "M150_TESTFLIGHT_SUBMISSION_DENIED",
+                ),
+                ({"beta_release_enabled": True}, "M150_BETA_RELEASE_DENIED"),
+                ({"release_automation_started": True}, "M150_RELEASE_AUTOMATION_DENIED"),
+                ({"auth_runtime_started": True}, "M150_AUTH_RUNTIME_DENIED"),
+                ({"backend_route_added": True}, "M150_BACKEND_ROUTE_DENIED"),
+                ({"dependency_added": True}, "M150_DEPENDENCY_DENIED"),
+                (
+                    {"production_authority_granted": True},
+                    "M150_PRODUCTION_AUTHORITY_DENIED",
+                ),
+            ]:
+                try:
+                    validate_ultimate_ai_agent_alpha_record(
+                        record.model_copy(update=update)
+                    )
+                    failures.append(
+                        f"M150 unsafe alpha mutation was not denied with {reason}"
+                    )
+                except ValueError as exc:
+                    if reason not in str(exc):
+                        failures.append(f"M150 unsafe alpha mutation raised {exc!s}")
+        except Exception as exc:
+            failures.append(f"M150 Ultimate AI Agent Alpha validation failed: {exc}")
+
+        docs_text = " ".join(
+            "\n".join(
+                self._read(self.root / path).lower()
+                for path in required_files
+                if path.startswith("docs/") and (self.root / path).exists()
+            ).split()
+        )
+        for fragment in [
+            "ultimate ai agent",
+            "v1.0.0-alpha",
+            "contract-only",
+            "review-only",
+            "alpha-target-only",
+            "deterministic",
+            "local-only",
+            "safe-ref-only",
+            "disabled by default",
+            "route-free",
+            "no-effect",
+            "accepted m101-m149",
+            "alpha target refs",
+            "release candidate freeze refs",
+            "alpha readiness refs",
+            "evidence index refs",
+            "blocker summary refs",
+            "signoff review refs",
+            "beta promotion gate refs",
+            "audit",
+            "replay",
+            "revocation",
+            "kill-switch",
+            "no-effect receipt",
+            "no release publication",
+            "no release tag",
+            "no tag creation",
+            "no artifact build",
+            "no artifact upload",
+            "no artifact export",
+            "no external distribution",
+            "no app store submission",
+            "no testflight submission",
+            "no beta release",
+            "no release automation",
+            "no backend route",
+            "no control center control",
+            "no dependency",
+            "no production authority",
+            "beta remains future",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M150 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m150_ultimate_ai_agent_alpha_static_safety(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        forbidden_source_fragments = [
+            "release_publication_enabled=True",
+            "release_tag_enabled=True",
+            "tag_creation_enabled=True",
+            "artifact_build_enabled=True",
+            "artifact_upload_enabled=True",
+            "artifact_export_enabled=True",
+            "external_distribution_enabled=True",
+            "app_store_submission_enabled=True",
+            "testflight_submission_enabled=True",
+            "beta_release_enabled=True",
+            "release_automation_enabled=True",
+            "auth_runtime_enabled=True",
+            "login_enabled=True",
+            "connector_runtime_enabled=True",
+            "plugin_marketplace_runtime_enabled=True",
+            "execution_enabled=True",
+            "tool_execution_enabled=True",
+            "shell_execution_enabled=True",
+            "browser_action_enabled=True",
+            "connector_action_enabled=True",
+            "network_access_enabled=True",
+            "model_call_enabled=True",
+            "memory_write_enabled=True",
+            "context_injection_enabled=True",
+            "backend_route_enabled=True",
+            "dependency_added=True",
+            "production_authority_granted=True",
+            "release_publication_started=True",
+            "release_tag_created=True",
+            "tag_creation_performed=True",
+            "artifact_build_performed=True",
+            "artifact_upload_started=True",
+            "artifact_export_started=True",
+            "external_distribution_started=True",
+            "app_store_submission_started=True",
+            "testflight_submission_started=True",
+            "release_automation_started=True",
+            "auth_runtime_started=True",
+            "/ultimate-ai-agent-alpha",
+            "/alpha/accept",
+            "/alpha/release",
+            "/release/publish",
+            "/release/tag",
+            "/release/create-tag",
+            "/release/artifact/build",
+            "/release/artifact/upload",
+            "/release/artifact/export",
+            "/distribution/publish",
+            "/external-distribution",
+            "/app-store/submit",
+            "/testflight/submit",
+            "/beta/release",
+            "/v1-alpha/release",
+            "/v1.0.0-alpha/release",
+            "/m150/release",
+            "/release/automation",
+        ]
+        allowed_files = {
+            "src/ultimate_ai_agent/core/gate/evaluators.py",
+            "src/ultimate_ai_agent/api/app.py",
+            "src/ultimate_ai_agent/api/openapi.py",
+            "src/ultimate_ai_agent/core/gate/criteria.py",
+            "src/ultimate_ai_agent/core/productization/__init__.py",
+            "src/ultimate_ai_agent/core/productization/ultimate_ai_agent_alpha.py",
+            "src/ultimate_ai_agent/core/productization/alpha_release_candidate_freeze.py",
+            "src/ultimate_ai_agent/core/productization/external_security_review.py",
+            "src/ultimate_ai_agent/core/productization/public_docs_wiki_readiness.py",
+            "src/ultimate_ai_agent/core/productization/billing_plan_boundary.py",
+            "src/ultimate_ai_agent/core/productization/enterprise_pro_safety_modes.py",
+            "src/ultimate_ai_agent/core/productization/plugin_marketplace_policy_draft.py",
+            "src/ultimate_ai_agent/core/productization/alpha_ui_app_readiness.py",
+            "src/ultimate_ai_agent/core/productization/alpha_privacy_review.py",
+            "src/ultimate_ai_agent/core/productization/multi_user_product_boundary.py",
+        }
+        for root in [
+            self.root / "src" / "ultimate_ai_agent",
+            self.root / "apps" / "control-center" / "src",
+            self.root / "apps" / "ccc-ios",
+        ]:
+            if not root.exists():
+                continue
+            candidate_files = []
+            for pattern in (
+                "*.py",
+                "*.ts",
+                "*.tsx",
+                "*.js",
+                "*.jsx",
+                "*.swift",
+                "*.yml",
+                "*.yaml",
+            ):
+                candidate_files.extend(root.rglob(pattern))
+            for path in sorted(candidate_files):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(self.root).as_posix()
+                if ".test." in rel or rel in allowed_files:
+                    continue
+                text = path.read_text(encoding="utf-8")
+                for fragment in forbidden_source_fragments:
+                    if fragment in text:
+                        failures.append(
+                            f"M150 forbidden alpha target fragment in {rel}: {fragment}"
+                        )
+        return self._result(criterion, failures, [])
+
+    def check_m150_ultimate_ai_agent_alpha_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+
+            failures.extend(m150_openapi_route_failures(app.openapi().get("paths", {})))
+        except Exception as exc:
+            failures.append(f"M150 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m150_roadmap_currentness(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_docs = [
+            "README.md",
+            "VERSION.md",
+            "docs/canonical/09_roadmap.md",
+            "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            "docs/roadmap/MILESTONE_CHARTERS.md",
+            "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+            "docs/DOCUMENTATION_INDEX.md",
+            "docs/canonical/CANONICAL_DOC_MAP.md",
+        ]
+        failures = [
+            f"missing M150 roadmap doc: {path}"
+            for path in required_docs
+            if not (self.root / path).exists()
+        ]
+        text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_docs
+            if (self.root / path).exists()
+        )
+        if "m150" not in text or "ultimate ai agent v1.0.0-alpha" not in text:
+            failures.append("active docs do not identify M150 Ultimate AI Agent Alpha")
+        if "m150 is implemented/released" not in text:
+            failures.append("active docs do not mark M150 implemented/released")
+        for version_label, product_target, milestone, title, status in [
+            (
+                "checkpoint m149",
+                "pre-alpha checkpoint",
+                "m149",
+                "alpha release candidate freeze",
+                "implemented/released",
+            ),
+            (
+                "v1.0.0-alpha",
+                "alpha",
+                "m150",
+                "ultimate ai agent v1.0.0-alpha",
+                "implemented/released",
+            ),
+        ]:
+            row = (
+                f"| {version_label} | {product_target} | {milestone} | "
+                f"{title} | {status} |"
+            )
+            if not _roadmap_row_present(text, row):
+                failures.append(
+                    f"active docs missing expected M149/M150 row: {version_label} / {milestone.upper()} - {title}"
+                )
+        for fragment in (
+            "release publication is implemented",
+            "release tag is implemented",
+            "tag creation is implemented",
+            "artifact build is implemented",
+            "artifact upload is implemented",
+            "artifact export is implemented",
+            "external distribution is implemented",
+            "app store submission is implemented",
+            "testflight submission is implemented",
+            "release automation is implemented",
+            "beta is released",
+            "production authority is implemented",
+            "backend route is implemented",
+            "control center control is implemented",
+            "m150 dependency is added",
+            "m151 is implemented",
+        ):
+            if fragment in text:
+                failures.append(
+                    f"active docs imply forbidden M150 future/currentness claim: {fragment}"
                 )
         return self._result(criterion, failures, required_docs)
 

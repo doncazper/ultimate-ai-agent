@@ -197,6 +197,7 @@ SCAN_SEQUENCE = [
     ("M147 public docs + wiki readiness scan", "verify_m147_public_docs_wiki_readiness"),
     ("M148 external security review scan", "verify_m148_external_security_review"),
     ("M149 alpha release candidate freeze scan", "verify_m149_alpha_release_candidate_freeze"),
+    ("M150 Ultimate AI Agent Alpha scan", "verify_m150_ultimate_ai_agent_alpha"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -17826,6 +17827,18 @@ def verify_post_m100_roadmap_reconciliation():
         _version_doc_marks_milestone_implemented(active_version_text, "m149")
     ):
         implemented_milestones.add("m149")
+    if (
+        _version_doc_marks_milestone_implemented(active_version_text, "m150")
+    ):
+        implemented_milestones.add("m150")
+    if "m150" in implemented_milestones:
+        implemented_m150_row = (
+            "| v1.0.0-alpha | alpha | m150 | ultimate ai agent v1.0.0-alpha | "
+            "implemented/released |"
+        )
+        if implemented_m150_row not in roadmap_text:
+            print("FAIL: M101-M150 roadmap row must mark M150 implemented/released")
+            sys.exit(1)
     for version_label, product_target, milestone, title in expected_labels:
         if milestone in implemented_milestones:
             continue
@@ -27970,6 +27983,215 @@ def verify_m149_alpha_release_candidate_freeze():
 
     print(
         "OK: M149 alpha release candidate freeze is review-only, freeze-only, disabled-by-default, safe-ref-only, and route-free"
+    )
+
+
+def verify_m150_ultimate_ai_agent_alpha():
+    print("\n[Verifier] Running M150 Ultimate AI Agent Alpha guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/productization/ultimate_ai_agent_alpha.py",
+        "docs/productization/ULTIMATE_AI_AGENT_ALPHA.md",
+        "docs/productization/ULTIMATE_AI_AGENT_ALPHA_POLICY.md",
+        "docs/productization/ULTIMATE_AI_AGENT_ALPHA_AUTHORITY_BOUNDARY.md",
+        "docs/productization/ULTIMATE_AI_AGENT_ALPHA_RECEIPT_PLAN.md",
+        "docs/productization/ULTIMATE_AI_AGENT_ALPHA_NON_GOALS.md",
+        "docs/productization/M150_ALPHA_TO_BETA_BOUNDARY.md",
+        "docs/release_notes/checkpoint_m150.md",
+        "docs/archive/checkpoints/m150/README_IMPORT.md",
+        "docs/archive/checkpoints/m150/master_plan.md",
+        "tests/test_m150_ultimate_ai_agent_alpha.py",
+        "tests/test_m150_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M150 Ultimate AI Agent Alpha file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = " ".join(
+        "\n".join(
+            (ROOT / rel_path).read_text(encoding="utf-8").lower()
+            for rel_path in required_files
+            if rel_path.startswith("docs/")
+        ).split()
+    )
+    for fragment in [
+        "ultimate ai agent",
+        "v1.0.0-alpha",
+        "contract-only",
+        "review-only",
+        "alpha-target-only",
+        "deterministic",
+        "local-only",
+        "safe-ref-only",
+        "disabled by default",
+        "route-free",
+        "no-effect",
+        "accepted m101-m149",
+        "alpha target refs",
+        "release candidate freeze refs",
+        "alpha readiness refs",
+        "evidence index refs",
+        "blocker summary refs",
+        "signoff review refs",
+        "beta promotion gate refs",
+        "no release publication",
+        "no release tag",
+        "no tag creation",
+        "no artifact build",
+        "no artifact upload",
+        "no artifact export",
+        "no external distribution",
+        "no app store submission",
+        "no testflight submission",
+        "no beta release",
+        "no release automation",
+        "no backend route",
+        "no control center control",
+        "no dependency",
+        "no production authority",
+        "beta remains future",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M150 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from tests.test_m150_ultimate_ai_agent_alpha import _request
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.criteria import (
+            default_foundation_gate_criteria,
+        )
+        from ultimate_ai_agent.core.gate.evaluators import (
+            FoundationGateEvaluator,
+            m150_openapi_route_failures,
+        )
+        from ultimate_ai_agent.core.productization import (
+            UltimateAiAgentAlphaStatus,
+            build_ultimate_ai_agent_alpha_record,
+            validate_ultimate_ai_agent_alpha_record,
+        )
+    except Exception as exc:
+        print(f"FAIL: M150 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    for failure in m150_openapi_route_failures(app.openapi().get("paths", {})):
+        print(f"FAIL: {failure}")
+        sys.exit(1)
+
+    record = build_ultimate_ai_agent_alpha_record(_request())
+    if (
+        record.status != UltimateAiAgentAlphaStatus.alpha_target_recorded
+        or record.product_target_ref != "product-target:v1.0.0-alpha"
+        or not record.contract_only
+        or not record.review_only
+        or not record.alpha_target_only
+        or not record.safe_refs_only
+        or not record.disabled_by_default
+        or not record.m101_m149_covered
+        or not record.alpha_targets_bound
+        or not record.release_candidate_freezes_bound
+        or not record.alpha_readiness_bound
+        or not record.evidence_indexes_bound
+        or not record.blocker_summaries_bound
+        or not record.signoff_reviews_bound
+        or not record.beta_promotion_gates_bound
+        or not record.no_release_publication
+        or not record.no_release_tag
+        or not record.no_tag_creation
+        or not record.no_artifact_build
+        or not record.no_artifact_upload
+        or not record.no_artifact_export
+        or not record.no_external_distribution
+        or not record.no_app_store_submission
+        or not record.no_testflight_submission
+        or not record.no_beta_release
+        or not record.no_release_automation
+        or not record.no_backend_route
+        or not record.no_dependency
+        or not record.no_production_authority
+        or record.release_publication_started
+        or record.release_tag_created
+        or record.artifact_build_performed
+        or record.artifact_upload_started
+        or record.artifact_export_started
+        or record.external_distribution_started
+        or record.app_store_submission_started
+        or record.testflight_submission_started
+        or record.beta_release_enabled
+        or record.release_automation_started
+        or record.backend_route_added
+        or record.dependency_added
+        or record.production_authority_granted
+        or "M150_ULTIMATE_AI_AGENT_ALPHA_REVIEW_ONLY" not in record.reason_codes
+        or "M150_M101_M149_COVERED" not in record.reason_codes
+        or "M150_ALPHA_TARGET_ONLY" not in record.reason_codes
+        or "M150_NO_RELEASE_PUBLICATION" not in record.reason_codes
+        or "M150_NO_RELEASE_TAG" not in record.reason_codes
+        or "M150_NO_ARTIFACT_BUILD" not in record.reason_codes
+        or "M150_NO_ARTIFACT_UPLOAD" not in record.reason_codes
+        or "M150_NO_ARTIFACT_EXPORT" not in record.reason_codes
+        or "M150_NO_EXTERNAL_DISTRIBUTION" not in record.reason_codes
+        or "M150_NO_BETA_RELEASE" not in record.reason_codes
+        or "M150_NO_RELEASE_AUTOMATION" not in record.reason_codes
+        or "M150_NO_BACKEND_ROUTE" not in record.reason_codes
+        or "M150_NO_PRODUCTION_AUTHORITY" not in record.reason_codes
+        or "BETA_REMAINS_FUTURE" not in record.reason_codes
+    ):
+        print("FAIL: M150 Ultimate AI Agent Alpha record is unsafe")
+        sys.exit(1)
+
+    for update, reason in [
+        ({"release_publication_started": True}, "M150_RELEASE_PUBLICATION_DENIED"),
+        ({"release_tag_created": True}, "M150_RELEASE_TAG_DENIED"),
+        ({"artifact_build_performed": True}, "M150_ARTIFACT_BUILD_DENIED"),
+        ({"artifact_upload_started": True}, "M150_ARTIFACT_UPLOAD_DENIED"),
+        ({"artifact_export_started": True}, "M150_ARTIFACT_EXPORT_DENIED"),
+        ({"external_distribution_started": True}, "M150_EXTERNAL_DISTRIBUTION_DENIED"),
+        ({"beta_release_enabled": True}, "M150_BETA_RELEASE_DENIED"),
+        ({"release_automation_started": True}, "M150_RELEASE_AUTOMATION_DENIED"),
+        ({"backend_route_added": True}, "M150_BACKEND_ROUTE_DENIED"),
+        ({"dependency_added": True}, "M150_DEPENDENCY_DENIED"),
+        ({"production_authority_granted": True}, "M150_PRODUCTION_AUTHORITY_DENIED"),
+    ]:
+        try:
+            validate_ultimate_ai_agent_alpha_record(record.model_copy(update=update))
+            print(f"FAIL: M150 mutated authority flag was not denied: {update}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M150 mutated authority flag raised {exc!s}")
+                sys.exit(1)
+
+    criteria = {
+        criterion.criterion_id: criterion
+        for criterion in default_foundation_gate_criteria()
+    }
+    for criterion_id in [
+        "m150_ultimate_ai_agent_alpha_contracts",
+        "m150_ultimate_ai_agent_alpha_static_safety",
+        "m150_ultimate_ai_agent_alpha_route_boundary",
+        "m150_roadmap_currentness",
+    ]:
+        if criterion_id not in criteria:
+            print(f"FAIL: Missing M150 Foundation Gate criterion: {criterion_id}")
+            sys.exit(1)
+    evaluator = FoundationGateEvaluator(ROOT)
+    for criterion_id in [
+        "m150_ultimate_ai_agent_alpha_contracts",
+        "m150_ultimate_ai_agent_alpha_static_safety",
+        "m150_ultimate_ai_agent_alpha_route_boundary",
+        "m150_roadmap_currentness",
+    ]:
+        gate_report = evaluator.evaluate([criteria[criterion_id]])
+        result = gate_report.results[0]
+        if result.status != "passed":
+            print(f"FAIL: {criterion_id} failed: {result.failures}")
+            sys.exit(1)
+
+    print(
+        "OK: M150 Ultimate AI Agent Alpha is review-only, alpha-target-only, disabled-by-default, safe-ref-only, and route-free"
     )
 
 

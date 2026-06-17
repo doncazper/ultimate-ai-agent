@@ -46,7 +46,7 @@ def test_post_m100_documentation_integrity_guard_rejects_missing_row_status(
     roadmap = tmp_path / "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md"
     roadmap.write_text(
         roadmap.read_text(encoding="utf-8").replace(
-            "| v1.0.0-alpha | alpha | M150 | Ultimate AI Agent v1.0.0-alpha | Planned/provisional |",
+            "| v1.0.0-alpha | alpha | M150 | Ultimate AI Agent v1.0.0-alpha | Implemented/released |",
             "| v1.0.0-alpha | alpha | M150 | Ultimate AI Agent v1.0.0-alpha | Deferred |",
         ),
         encoding="utf-8",
@@ -58,7 +58,7 @@ def test_post_m100_documentation_integrity_guard_rejects_missing_row_status(
     )
 
     assert any("m150" in failure.lower() for failure in failures)
-    assert any("planned/provisional" in failure.lower() for failure in failures)
+    assert any("m150" in failure.lower() for failure in failures)
 
 
 def test_post_m100_documentation_integrity_guard_allows_negated_future_claim(
@@ -96,7 +96,7 @@ def test_post_m100_static_verifier_rejects_missing_row_status(
     roadmap = tmp_path / "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md"
     roadmap.write_text(
         roadmap.read_text(encoding="utf-8").replace(
-            "| v1.0.0-alpha | alpha | M150 | Ultimate AI Agent v1.0.0-alpha | Planned/provisional |",
+            "| v1.0.0-alpha | alpha | M150 | Ultimate AI Agent v1.0.0-alpha | Implemented/released |",
             "| v1.0.0-alpha | alpha | M150 | Ultimate AI Agent v1.0.0-alpha | Deferred |",
         ),
         encoding="utf-8",
@@ -142,7 +142,7 @@ def test_post_m100_foundation_gate_rejects_missing_row_status(tmp_path: Path) ->
     roadmap = tmp_path / "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md"
     roadmap.write_text(
         roadmap.read_text(encoding="utf-8").replace(
-            "| v1.0.0-alpha | alpha | M150 | Ultimate AI Agent v1.0.0-alpha | Planned/provisional |",
+            "| v1.0.0-alpha | alpha | M150 | Ultimate AI Agent v1.0.0-alpha | Implemented/released |",
             "| v1.0.0-alpha | alpha | M150 | Ultimate AI Agent v1.0.0-alpha | Deferred |",
         ),
         encoding="utf-8",

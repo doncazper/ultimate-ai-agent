@@ -220,8 +220,8 @@ Readiness. Checkpoint M144 is implemented/released as Plugin Marketplace Policy
 Draft. Checkpoint M146 is implemented/released as Billing/Plan Boundary.
 Checkpoint M147 is implemented/released as Public Docs + Wiki Readiness.
 M149 is implemented/released as Alpha Release Candidate Freeze while the product
-baseline remains v1.7.2. M150 remains planned/provisional as the
-v1.0.0-alpha product target.
+baseline remains v1.7.2. M150 is implemented/released as Ultimate AI Agent
+v1.0.0-alpha target acceptance, with beta remaining future.
 Beta begins after the alpha UI and supporting safety/product work are reviewed
 and promoted.
 

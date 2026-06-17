@@ -5,6 +5,7 @@ from pathlib import Path
 import sys
 
 import re
+import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -87,14 +88,25 @@ if gitignore.exists():
         print("FAIL .gitignore should ignore egg-info")
         ok = False
 
-egg_info_dirs = list((ROOT / "src").glob("*.egg-info")) if (ROOT / "src").exists() else []
-if egg_info_dirs:
-    print("FAIL generated egg-info directories should not be committed:")
-    for p in egg_info_dirs:
-        print(f"  - {p.relative_to(ROOT)}")
+tracked_egg_info = []
+try:
+    tracked_files = subprocess.check_output(
+        ["git", "ls-files", "src/*.egg-info", "src/*.egg-info/**"],
+        cwd=ROOT,
+        text=True,
+        stderr=subprocess.DEVNULL,
+    ).splitlines()
+    tracked_egg_info = [path for path in tracked_files if ".egg-info" in path]
+except (subprocess.CalledProcessError, FileNotFoundError):
+    tracked_egg_info = []
+
+if tracked_egg_info:
+    print("FAIL generated egg-info files should not be committed:")
+    for path in tracked_egg_info:
+        print(f"  - {path}")
     ok = False
 else:
-    print("OK no generated egg-info directories under src")
+    print("OK no generated egg-info files are tracked in git")
 
 if not ok:
     sys.exit(1)

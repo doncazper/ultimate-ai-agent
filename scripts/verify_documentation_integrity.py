@@ -1620,6 +1620,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_m147_public_docs_wiki_readiness_docs(root, version))
     failures.extend(_verify_m148_external_security_review_docs(root, version))
     failures.extend(_verify_m149_alpha_release_candidate_freeze_docs(root, version))
+    failures.extend(_verify_m150_ultimate_ai_agent_alpha_docs(root, version))
     failures.extend(_verify_m19_roadmap_currentness(root, version))
     failures.extend(_verify_post_m18_roadmap_status_labels(root))
 
@@ -7376,6 +7377,17 @@ def _verify_post_m100_roadmap_reconciliation_docs(root: Path, version: str | Non
         _version_doc_marks_milestone_implemented(version_doc_text, "m149")
     ):
         implemented_milestones.add("m149")
+    if _version_tuple(version) >= (1, 7, 2) and (
+        _version_doc_marks_milestone_implemented(version_doc_text, "m150")
+    ):
+        implemented_milestones.add("m150")
+    if "m150" in implemented_milestones:
+        implemented_m150_row = (
+            "| v1.0.0-alpha | alpha | m150 | ultimate ai agent v1.0.0-alpha | "
+            "implemented/released |"
+        )
+        if implemented_m150_row not in roadmap_text:
+            failures.append("M101-M150 roadmap row must mark M150 implemented/released")
     for version_label, product_target, milestone, title in EXPECTED_M101_M150_LABELS:
         if milestone in implemented_milestones:
             continue
@@ -14999,6 +15011,143 @@ def _verify_m149_alpha_release_candidate_freeze_docs(
     }:
         if fragment in current_text or fragment in text:
             failures.append(f"M149 docs imply forbidden/future capability: {fragment}")
+    return failures
+
+
+def _verify_m150_ultimate_ai_agent_alpha_docs(
+    root: Path, version: str | None
+) -> list[str]:
+    failures: list[str] = []
+    if _version_tuple(version) < (1, 7, 2):
+        return failures
+    active_text = " ".join(
+        "\n".join(
+            _read(root / rel_path).lower()
+            for rel_path in [
+                "README.md",
+                "VERSION.md",
+                "docs/canonical/09_roadmap.md",
+                "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+            ]
+            if (root / rel_path).exists()
+        ).split()
+    )
+    if "m150 is implemented/released" not in active_text:
+        return failures
+    required_paths = [
+        "docs/productization/ULTIMATE_AI_AGENT_ALPHA.md",
+        "docs/productization/ULTIMATE_AI_AGENT_ALPHA_POLICY.md",
+        "docs/productization/ULTIMATE_AI_AGENT_ALPHA_AUTHORITY_BOUNDARY.md",
+        "docs/productization/ULTIMATE_AI_AGENT_ALPHA_RECEIPT_PLAN.md",
+        "docs/productization/ULTIMATE_AI_AGENT_ALPHA_NON_GOALS.md",
+        "docs/productization/M150_ALPHA_TO_BETA_BOUNDARY.md",
+        "docs/release_notes/checkpoint_m150.md",
+        "docs/archive/checkpoints/m150/README_IMPORT.md",
+        "docs/archive/checkpoints/m150/master_plan.md",
+        "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+    ]
+    for rel_path in required_paths:
+        if not (root / rel_path).exists():
+            failures.append(f"missing M150 Ultimate AI Agent Alpha doc: {rel_path}")
+    text = " ".join(
+        "\n".join(
+            _read(root / rel_path).lower()
+            for rel_path in required_paths
+            if (root / rel_path).exists()
+        ).split()
+    )
+    required_fragments = {
+        "M150 docs must say Ultimate AI Agent": "ultimate ai agent",
+        "M150 docs must preserve alpha target": "v1.0.0-alpha",
+        "M150 docs must say contract-only": "contract-only",
+        "M150 docs must say review-only": "review-only",
+        "M150 docs must say alpha-target-only": "alpha-target-only",
+        "M150 docs must say deterministic": "deterministic",
+        "M150 docs must say local-only": "local-only",
+        "M150 docs must say safe-ref-only": "safe-ref-only",
+        "M150 docs must say disabled by default": "disabled by default",
+        "M150 docs must say route-free": "route-free",
+        "M150 docs must say no-effect": "no-effect",
+        "M150 docs must say accepted M101-M149": "accepted m101-m149",
+        "M150 docs must say alpha target refs": "alpha target refs",
+        "M150 docs must say release candidate freeze refs": (
+            "release candidate freeze refs"
+        ),
+        "M150 docs must say alpha readiness refs": "alpha readiness refs",
+        "M150 docs must say evidence index refs": "evidence index refs",
+        "M150 docs must say blocker summary refs": "blocker summary refs",
+        "M150 docs must say signoff review refs": "signoff review refs",
+        "M150 docs must say beta promotion gate refs": "beta promotion gate refs",
+        "M150 docs must deny release publication": "no release publication",
+        "M150 docs must deny release tag": "no release tag",
+        "M150 docs must deny tag creation": "no tag creation",
+        "M150 docs must deny artifact build": "no artifact build",
+        "M150 docs must deny artifact upload": "no artifact upload",
+        "M150 docs must deny artifact export": "no artifact export",
+        "M150 docs must deny external distribution": "no external distribution",
+        "M150 docs must deny App Store submission": "no app store submission",
+        "M150 docs must deny TestFlight submission": "no testflight submission",
+        "M150 docs must deny beta release": "no beta release",
+        "M150 docs must deny release automation": "no release automation",
+        "M150 docs must deny backend route": "no backend route",
+        "M150 docs must deny Control Center control": "no control center control",
+        "M150 docs must deny dependency": "no dependency",
+        "M150 docs must deny production authority": "no production authority",
+        "M150 docs must keep beta future": "beta remains future",
+    }
+    for message, fragment in required_fragments.items():
+        if fragment not in text:
+            failures.append(message)
+
+    active_paths = [
+        "README.md",
+        "VERSION.md",
+        "docs/canonical/09_roadmap.md",
+        "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+        "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md",
+        "docs/roadmap/MILESTONE_CHARTERS.md",
+        "docs/DOCUMENTATION_INDEX.md",
+        "docs/canonical/CANONICAL_DOC_MAP.md",
+    ]
+    current_text = " ".join(
+        "\n".join(
+            _read(root / rel_path).lower()
+            for rel_path in active_paths
+            if (root / rel_path).exists()
+        ).split()
+    )
+    implemented_m149_row = (
+        "| checkpoint m149 | pre-alpha checkpoint | m149 | "
+        "alpha release candidate freeze | implemented/released |"
+    )
+    implemented_m150_row = (
+        "| v1.0.0-alpha | alpha | m150 | ultimate ai agent v1.0.0-alpha | "
+        "implemented/released |"
+    )
+    if not _roadmap_row_present(current_text, implemented_m149_row):
+        failures.append("active docs missing implemented Checkpoint M149 row")
+    if not _roadmap_row_present(current_text, implemented_m150_row):
+        failures.append("active docs missing implemented M150 alpha row")
+    for fragment in {
+        "release publication is implemented",
+        "release tag is implemented",
+        "tag creation is implemented",
+        "artifact build is implemented",
+        "artifact upload is implemented",
+        "artifact export is implemented",
+        "external distribution is implemented",
+        "app store submission is implemented",
+        "testflight submission is implemented",
+        "release automation is implemented",
+        "beta is released",
+        "production authority is implemented",
+        "backend route is implemented",
+        "control center control is implemented",
+        "m150 dependency is added",
+        "m151 is implemented",
+    }:
+        if fragment in current_text or fragment in text:
+            failures.append(f"M150 docs imply forbidden/future capability: {fragment}")
     return failures
 
 

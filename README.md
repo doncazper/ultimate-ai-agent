@@ -13,29 +13,26 @@ allowed to become operational authority.
 | Field | Current state |
 |---|---|
 | Current active baseline | **v1.7.2** |
-| Current milestone | **Checkpoint M149 - Alpha Release Candidate Freeze** |
+| Current milestone | **M150 - Ultimate AI Agent v1.0.0-alpha** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **75** OpenAPI paths |
 | Production readiness | Not claimed |
 
-Checkpoint M149 implements Alpha Release Candidate Freeze while the current
-product baseline remains v1.7.2. Already-pushed tags remain immutable historical
-internal milestone tags, M149 uses a checkpoint label instead of a product SemVer
-tag, and M150 is the next product release target **v1.0.0-alpha**. Beta begins
-only after the alpha UI and supporting safety/product work are reviewed,
-accepted, and explicitly promoted by a later roadmap patch. M149 is
-contract-only, review-only, freeze-only, deterministic, local-only,
-safe-ref-only, alpha-release-candidate-freeze-only, disabled by default,
-route-free, and no-effect. It records accepted M101-M148 checkpoint refs,
-release candidate refs, freeze checklist refs, alpha readiness refs, evidence
-index refs, blocker summary refs, signoff review refs, M150 promotion gate refs,
-audit, replay, revocation, kill-switch, and no-effect receipt refs for governed
-review. It adds no release publication, release tag, tag creation, artifact
-build, artifact upload, artifact export, external distribution, App Store
-submission, TestFlight submission, beta release, M150 release, release
-automation, backend route, Control Center control, dependency, or production
-authority. M150 remains future v1.0.0-alpha work.
+M150 records Ultimate AI Agent **v1.0.0-alpha** as a local alpha target
+acceptance packet while the package baseline remains v1.7.2 for this
+contract-first conveyor run. Already-pushed tags remain immutable historical
+internal milestone tags. M150 is contract-only, review-only, alpha-target-only,
+deterministic, local-only, safe-ref-only, disabled by default, route-free, and
+no-effect. It records accepted M101-M149 checkpoint refs, alpha target refs,
+release candidate freeze refs, alpha readiness refs, evidence index refs,
+blocker summary refs, signoff review refs, beta promotion gate refs, audit,
+replay, revocation, kill-switch, and no-effect receipt refs for governed review.
+It adds no release publication, release tag, tag creation, artifact build,
+artifact upload, artifact export, external distribution, App Store submission,
+TestFlight submission, beta release, release automation, backend route, Control
+Center control, dependency, or production authority. Beta remains future and
+requires a later reviewed roadmap promotion.
 
 v0.29.5 is documentation policy polish. It remains the documentation
 organization cleanup baseline before the M26 and M27 implementation releases.
@@ -49,6 +46,7 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M34-M60 roadmap supersession](docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md)
 - [M61-M100 roadmap](docs/roadmap/M61_M100_ROADMAP.md)
 - [M101-M150 planned roadmap](docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md)
+- [M150 Ultimate AI Agent v1.0.0-alpha](docs/productization/ULTIMATE_AI_AGENT_ALPHA.md)
 - [M149 Alpha Release Candidate Freeze](docs/productization/ALPHA_RELEASE_CANDIDATE_FREEZE.md)
 - [M148 External Security Review](docs/productization/EXTERNAL_SECURITY_REVIEW.md)
 - [M147 Public Docs + Wiki Readiness](docs/productization/PUBLIC_DOCS_WIKI_READINESS.md)
