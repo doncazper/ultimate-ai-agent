@@ -53,6 +53,11 @@ SECRET_ENV_MARKERS = (
     "API_KEY",
     "KEYCHAIN",
 )
+DEVELOPER_TOOL_PATHS = (
+    Path("/opt/homebrew/bin"),
+    Path("/opt/homebrew/sbin"),
+    Path("/usr/local/bin"),
+)
 
 
 @dataclass(frozen=True)
@@ -96,7 +101,7 @@ def build_frontend_command(root: Path) -> list[str]:
     _ = root
     validate_local_host(FRONTEND_HOST)
     return [
-        "npm",
+        _developer_tool("npm"),
         "run",
         "dev",
         "--",
@@ -111,7 +116,7 @@ def build_openwebui_command(root: Path) -> list[str]:
     validate_local_host(OPENWEBUI_HOST)
     data_dir = root / STATE_DIR / "openwebui-data"
     return [
-        "docker",
+        _developer_tool("docker"),
         "run",
         "--rm",
         "--name",
@@ -175,6 +180,7 @@ def service_config(root: Path, name: str) -> Service:
 def safe_env(root: Path, service_name: str) -> dict[str, str]:
     allowed_keys = {"PATH", "HOME", "TMPDIR", "LANG", "LC_ALL", "USER", "SHELL", "TERM"}
     env = {key: value for key, value in os.environ.items() if key in allowed_keys}
+    env["PATH"] = _developer_path(env.get("PATH", ""))
     env["PYTHONUNBUFFERED"] = "1"
     if service_name == "backend":
         env["PYTHONPATH"] = str(root / "src")
@@ -368,10 +374,33 @@ def check_openwebui_doctor(root: Path) -> tuple[list[str], list[str]]:
 
 
 def _command_exists(command: str) -> bool:
+    return _resolve_developer_tool(command) is not None
+
+
+def _developer_tool(command: str) -> str:
+    resolved = _resolve_developer_tool(command)
+    if resolved is None:
+        return command
+    return str(resolved)
+
+
+def _developer_path(path_value: str) -> str:
+    entries = [str(path) for path in DEVELOPER_TOOL_PATHS if path.exists()]
+    entries.extend(part for part in path_value.split(os.pathsep) if part)
+    unique_entries = list(dict.fromkeys(entries))
+    return os.pathsep.join(unique_entries)
+
+
+def _resolve_developer_tool(command: str) -> Path | None:
+    for directory in DEVELOPER_TOOL_PATHS:
+        candidate = directory / command
+        if candidate.exists():
+            return candidate
     for directory in os.environ.get("PATH", "").split(os.pathsep):
-        if directory and Path(directory, command).exists():
-            return True
-    return False
+        candidate = Path(directory, command)
+        if directory and candidate.exists():
+            return candidate
+    return None
 
 
 def start_service(root: Path, service: Service) -> str:
@@ -627,7 +656,11 @@ def command_openwebui_stop(root: Path) -> int:
     service = service_config(root, "openwebui")
     print(stop_service(service))
     if _command_exists("docker"):
-        subprocess.run(["docker", "rm", "-f", OPENWEBUI_CONTAINER_NAME], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run(
+            [_developer_tool("docker"), "rm", "-f", OPENWEBUI_CONTAINER_NAME],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
     return 0
 
 
