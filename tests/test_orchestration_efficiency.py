@@ -7,10 +7,9 @@ from pydantic import ValidationError
 
 from tests.m7_helpers import classification, cloud_profile, local_profile, policy, route_request
 from ultimate_ai_agent.core.context_budget import ContextBudget
+from ultimate_ai_agent.core.costs import CostGovernor
 from ultimate_ai_agent.core.hygiene.policies import ClassificationValue
-from ultimate_ai_agent.core.model_router import (
-    ModelRouteCostMode,
-)
+from ultimate_ai_agent.core.model_router import ModelRouteCostMode, ModelRouter
 from ultimate_ai_agent.core.orchestration_efficiency import (
     CacheabilityPlan,
     OrchestrationEfficiencyPlanner,
@@ -223,6 +222,133 @@ def test_cache_plan_invalidation_and_ledger_metadata_are_redacted() -> None:
     assert "Summarize the task" not in json.dumps(metadata)
     assert "provider payload" not in json.dumps(metadata).lower()
     assert metadata["no_effect"] is True
+
+
+def test_cache_adjusted_scoring_prefers_high_reuse_lower_effective_cost() -> None:
+    cached = local_profile(
+        profile_id="cached_profile",
+        cost_per_1k_input_tokens=0.01,
+        cost_per_1k_output_tokens=0.0001,
+    )
+    cheap_uncached = local_profile(
+        profile_id="cheap_uncached",
+        cost_per_1k_input_tokens=0.003,
+        cost_per_1k_output_tokens=0.003,
+    )
+    request = route_request(
+        profiles=[cached, cheap_uncached],
+        routing_policy=policy(allow_paid=True),
+    )
+
+    decision = OrchestrationEfficiencyPlanner().preview(
+        request,
+        efficiency_policy(
+            weights=RouteOptimizationWeights(
+                cost_weight=1,
+                latency_weight=0,
+                token_weight=0,
+                cache_weight=0,
+                quality_weight=0,
+                locality_weight=0,
+            )
+        ),
+        cache_plan(
+            model_profile_id="cached_profile",
+            predicted_cache_hit_tokens=1400,
+            predicted_cache_write_tokens=0,
+        ),
+    )
+
+    cached_score = next(score for score in decision.score_breakdowns if score.model_profile_id == "cached_profile")
+    cheap_score = next(score for score in decision.score_breakdowns if score.model_profile_id == "cheap_uncached")
+
+    assert decision.selected_profile_id == "cached_profile"
+    assert cached_score.estimated_cost_usd > cheap_score.estimated_cost_usd
+    assert cached_score.cache_adjusted_estimated_cost_usd < cheap_score.cache_adjusted_estimated_cost_usd
+    assert cached_score.cache_reuse_ratio > 0.9
+
+
+def test_fallback_planning_is_capped_but_candidate_count_preserves_all_eligible() -> None:
+    profiles = [local_profile(profile_id=f"profile_{index}") for index in range(4)]
+    request = route_request(profiles=profiles, routing_policy=policy(fallback_allowed=True))
+
+    decision = OrchestrationEfficiencyPlanner().preview(
+        request,
+        efficiency_policy(fallback_allowed=True, max_fallback_candidates=1),
+        cache_plan(cache_eligible=False),
+    )
+
+    assert decision.metric_summary.candidate_count == 4
+    assert len(decision.fallback_plan.fallback_profile_ids) == 1
+    assert decision.metric_summary.fallback_planned_count == 1
+
+
+def test_critical_approval_preflight_skips_router_work() -> None:
+    class ExplodingRouter(ModelRouter):
+        def route(self, request):  # pragma: no cover - failure path only
+            raise AssertionError("router should not run for critical approval preflight")
+
+    request = route_request(profiles=[local_profile()], routing_policy=policy())
+
+    decision = OrchestrationEfficiencyPlanner(router=ExplodingRouter()).preview(
+        request,
+        efficiency_policy(cost_mode=ModelRouteCostMode.critical),
+        cache_plan(cache_eligible=False),
+    )
+
+    assert decision.status == OrchestrationPreviewStatus.approval_required
+    assert decision.reason_codes == ["CRITICAL_APPROVAL_REQUIRED"]
+    assert decision.metric_summary.approval_required_count == 1
+
+
+def test_selected_path_estimates_each_eligible_profile_once() -> None:
+    class CountingCostGovernor(CostGovernor):
+        def __init__(self):
+            super().__init__()
+            self.estimate_calls = 0
+
+        def estimate_route_cost(self, route_request, profile):
+            self.estimate_calls += 1
+            return super().estimate_route_cost(route_request, profile)
+
+    governor = CountingCostGovernor()
+    request = route_request(
+        profiles=[
+            local_profile(profile_id="eligible_a"),
+            local_profile(profile_id="eligible_b"),
+        ],
+        routing_policy=policy(allow_paid=True),
+    )
+
+    OrchestrationEfficiencyPlanner(
+        router=ModelRouter(cost_governor=governor),
+        cost_governor=governor,
+    ).preview(request, efficiency_policy(), cache_plan(cache_eligible=False))
+
+    assert governor.estimate_calls == 2
+
+
+def test_planner_reuses_router_cost_governor_by_default() -> None:
+    class CountingCostGovernor(CostGovernor):
+        def __init__(self):
+            super().__init__()
+            self.estimate_calls = 0
+
+        def estimate_route_cost(self, route_request, profile):
+            self.estimate_calls += 1
+            return super().estimate_route_cost(route_request, profile)
+
+    governor = CountingCostGovernor()
+    request = route_request(
+        profiles=[local_profile(profile_id="router_governed")],
+        routing_policy=policy(allow_paid=True),
+    )
+
+    OrchestrationEfficiencyPlanner(
+        router=ModelRouter(cost_governor=governor),
+    ).preview(request, efficiency_policy(), cache_plan(cache_eligible=False))
+
+    assert governor.estimate_calls == 1
 
 
 def test_orchestration_efficiency_contracts_reject_unknown_fields_and_secrets() -> None:

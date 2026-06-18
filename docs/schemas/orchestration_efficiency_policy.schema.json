@@ -80,6 +80,11 @@
     "fallback_allowed": {
       "type": "boolean"
     },
+    "max_fallback_candidates": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 10
+    },
     "require_known_paid_cost": {
       "type": "boolean"
     },

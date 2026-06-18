@@ -52,6 +52,7 @@ class OrchestrationEfficiencyPolicy(_EfficiencyModel):
     profile_quality_scores: dict[str, float] = Field(default_factory=dict)
     premium_profile_refs: list[str] = Field(default_factory=list)
     fallback_allowed: bool = False
+    max_fallback_candidates: int = Field(default=2, ge=0, le=10)
     require_known_paid_cost: bool = True
     critical_requires_verifier: bool = True
     critical_requires_approval: bool = True
@@ -131,6 +132,9 @@ class RouteScoreBreakdown(_EfficiencyModel):
     estimated_cost_usd: float = Field(default=0.0, ge=0)
     estimated_latency_ms: float = Field(default=0.0, ge=0)
     estimated_runtime_seconds: float | None = Field(None, ge=0)
+    cache_adjusted_estimated_cost_usd: float = Field(default=0.0, ge=0)
+    cache_adjusted_latency_ms: float = Field(default=0.0, ge=0)
+    cache_reuse_ratio: float = Field(default=0.0, ge=0, le=1)
     total_tokens: int = Field(default=0, ge=0)
     quality_score: float = Field(default=0.0, ge=0, le=1)
     normalized_estimated_cost: float = Field(default=0.0, ge=0)
