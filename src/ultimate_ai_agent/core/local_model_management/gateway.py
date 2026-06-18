@@ -186,6 +186,12 @@ def llama_cpp_gateway_key(env: Mapping[str, str] | None = None) -> str:
     return values.get(UAA_LLAMA_CPP_GATEWAY_KEY_ENV, "").strip() or DEFAULT_UAA_LLAMA_CPP_GATEWAY_KEY
 
 
+def llama_cpp_backend_api_key(env: Mapping[str, str] | None = None) -> str | None:
+    values = os.environ if env is None else env
+    value = values.get(UAA_LLAMA_CPP_API_KEY_ENV, "").strip()
+    return value or None
+
+
 def llama_cpp_gateway_authorized(authorization_header: str | None, env: Mapping[str, str] | None = None) -> bool:
     if not authorization_header:
         return False

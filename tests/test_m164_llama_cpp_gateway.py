@@ -8,9 +8,11 @@ from ultimate_ai_agent.core.local_model_management import (
     FakeM164GatewayTransport,
     M164ChatCompletionRequest,
     M164LocalGatewayModel,
+    UAA_LLAMA_CPP_API_KEY_ENV,
     UAA_LLAMA_CPP_GATEWAY_ENV,
     build_m164_chat_completion_response,
     build_m164_local_models_response,
+    llama_cpp_backend_api_key,
     llama_cpp_gateway_authorized,
     llama_cpp_gateway_enabled,
 )
@@ -26,6 +28,8 @@ def _headers():
 def test_m164_gateway_enablement_and_auth_are_explicit():
     assert llama_cpp_gateway_enabled({}) is False
     assert llama_cpp_gateway_enabled({UAA_LLAMA_CPP_GATEWAY_ENV: "1"}) is True
+    assert llama_cpp_backend_api_key({}) is None
+    assert llama_cpp_backend_api_key({UAA_LLAMA_CPP_API_KEY_ENV: "backend-secret"}) == "backend-secret"
     assert llama_cpp_gateway_authorized(None, {}) is False
     assert llama_cpp_gateway_authorized(f"Bearer {DEFAULT_UAA_LLAMA_CPP_GATEWAY_KEY}", {}) is True
     assert llama_cpp_gateway_authorized("Bearer wrong", {}) is False
@@ -103,3 +107,21 @@ def test_m164_api_requires_gateway_bearer_when_enabled(monkeypatch):
     response = client.get("/v1/models", headers={"Authorization": "Bearer wrong"})
 
     assert response.status_code == 401
+
+
+def test_m164_api_redacts_validation_errors_in_llama_cpp_mode(monkeypatch):
+    monkeypatch.setenv(UAA_LLAMA_CPP_GATEWAY_ENV, "1")
+
+    response = client.post(
+        "/v1/chat/completions",
+        headers=_headers(),
+        json={
+            "model": DEFAULT_UAA_LLAMA_CPP_MODEL_ID,
+            "stream": True,
+            "messages": [{"role": "user", "content": "secret prompt should not echo"}],
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == "M164 llama.cpp gateway request failed safe validation."
+    assert "secret prompt" not in response.text

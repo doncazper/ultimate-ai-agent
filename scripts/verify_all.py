@@ -207,6 +207,7 @@ SCAN_SEQUENCE = [
     ("M160 bounded Hugging Face GGUF search scan", "verify_m160_bounded_hf_gguf_search"),
     ("M161 local system capability probe scan", "verify_m161_local_system_capability_probe"),
     ("M162 exact-approved GGUF acquisition scan", "verify_m162_exact_approved_gguf_acquisition"),
+    ("M166 local model production readiness gate scan", "verify_m166_local_model_production_readiness_gate"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -28674,6 +28675,141 @@ def verify_m162_exact_approved_gguf_acquisition():
 
     print(
         "OK: M162 GGUF acquisition is exact-approved, stdlib-only, cache-bound, and no-model-call"
+    )
+
+
+def verify_m166_local_model_production_readiness_gate():
+    print("\n[Verifier] Running M166 local model production readiness gate guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/production_readiness/production_release_gate.py",
+        "docs/production/LOCAL_MODEL_PRODUCTION_READINESS_GATE.md",
+        "docs/production/LOCAL_MODEL_PRODUCTION_READINESS_BOUNDARY.md",
+        "docs/production/LOCAL_MODEL_PRODUCTION_READINESS_RECEIPT_PLAN.md",
+        "docs/production/LOCAL_MODEL_PRODUCTION_READINESS_NON_GOALS.md",
+        "docs/production/M166_PRODUCTION_AUTHORITY_GATE.md",
+        "docs/release_notes/checkpoint_m166.md",
+        "tests/test_m166_local_model_production_readiness.py",
+        "tests/test_m166_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M166 production readiness file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = " ".join(
+        "\n".join(
+            (ROOT / rel_path).read_text(encoding="utf-8").lower()
+            for rel_path in required_files
+            if rel_path.startswith("docs/")
+        ).split()
+    )
+    for fragment in [
+        "production authority granted",
+        "live install/run tests",
+        "openwebui e2e tests",
+        "security review",
+        "packaging",
+        "operational rollback",
+        "load tests",
+        "all required evidence is green",
+        "revocable",
+        "replay-safe",
+        "redacted summary only",
+        "localhost-only",
+        "no raw prompt",
+        "no raw response",
+        "no raw provider payload",
+        "no credential",
+        "no raw local path",
+        "no raw log",
+        "no backend route",
+        "no control center control",
+        "no openwebui admin",
+        "no openwebui plugin",
+        "no dependency",
+        "no unreviewed side effects",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M166 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.core.gate.criteria import (
+            default_foundation_gate_criteria,
+        )
+        from ultimate_ai_agent.core.gate.evaluators import FoundationGateEvaluator
+        from ultimate_ai_agent.core.production_readiness import (
+            REQUIRED_M166_EVIDENCE_KINDS,
+            ProductionReadinessEvidenceKind,
+            build_m166_green_production_readiness_evidence,
+            build_m166_production_release_gate_record,
+            validate_m166_production_release_gate_record,
+        )
+    except Exception as exc:
+        print(f"FAIL: M166 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    gate = build_m166_production_release_gate_record(
+        evidence_records=build_m166_green_production_readiness_evidence()
+    )
+    expected_kinds = [
+        ProductionReadinessEvidenceKind(kind)
+        for kind in REQUIRED_M166_EVIDENCE_KINDS
+    ]
+    if (
+        gate.source_checkpoint_ref != "checkpoint:m165"
+        or gate.required_evidence_kinds != expected_kinds
+        or not gate.production_authority_granted
+        or not gate.production_runtime_authorized
+        or not gate.go_live_authorized
+        or not gate.production_deployment_authorized
+        or not gate.traffic_routing_authorized
+        or not gate.all_evidence_passed
+        or not gate.redacted_evidence_only
+        or not gate.rollback_ready
+        or gate.side_effects_performed
+    ):
+        print("FAIL: M166 production release gate is not green-authority-bound")
+        sys.exit(1)
+    for update, reason in [
+        ({"production_authority_granted": False}, "M166_PRODUCTION_AUTHORITY_GRANT_REQUIRED"),
+        ({"raw_prompt_exported": True}, "M166_RAW_PROMPT_DENIED"),
+        ({"credential_material_exported": True}, "M166_CREDENTIAL_MATERIAL_DENIED"),
+        ({"backend_route_added": True}, "M166_BACKEND_ROUTE_DENIED"),
+        ({"side_effects_performed": ["deploy"]}, "M166_RELEASE_GATE_SIDE_EFFECTS_DENIED"),
+    ]:
+        try:
+            validate_m166_production_release_gate_record(gate.model_copy(update=update))
+            print(f"FAIL: M166 unsafe gate mutation was not denied: {update}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M166 unsafe gate mutation raised {exc!s}")
+                sys.exit(1)
+
+    criteria = {
+        criterion.criterion_id: criterion
+        for criterion in default_foundation_gate_criteria()
+    }
+    evaluator = FoundationGateEvaluator(ROOT)
+    for criterion_id in [
+        "m166_local_model_production_readiness_contracts",
+        "m166_local_model_production_readiness_static_safety",
+        "m166_local_model_production_readiness_route_boundary",
+    ]:
+        if criterion_id not in criteria:
+            print(f"FAIL: Missing M166 Foundation Gate criterion: {criterion_id}")
+            sys.exit(1)
+        gate_report = evaluator.evaluate([criteria[criterion_id]])
+        result = gate_report.results[0]
+        if result.status != "passed":
+            print(f"FAIL: {criterion_id} failed: {result.failures}")
+            sys.exit(1)
+
+    print(
+        "OK: M166 local model production readiness gate grants authority only from green redacted evidence"
     )
 
 

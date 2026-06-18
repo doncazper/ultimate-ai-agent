@@ -160,6 +160,7 @@ from ultimate_ai_agent.core.local_model_management import (
     build_m164_chat_completion_response,
     build_m164_gateway_model_from_env,
     build_m164_local_models_response,
+    llama_cpp_backend_api_key,
     llama_cpp_gateway_authorized,
     llama_cpp_gateway_enabled,
 )
@@ -364,9 +365,13 @@ def post_v1_chat_completions(
             return build_m164_chat_completion_response(
                 M164ChatCompletionRequest(**request),
                 gateway_model=build_m164_gateway_model_from_env(),
+                api_key=llama_cpp_backend_api_key(),
             )
         except ValueError as exc:
-            raise HTTPException(status_code=422, detail=str(exc)) from exc
+            raise HTTPException(
+                status_code=422,
+                detail="M164 llama.cpp gateway request failed safe validation.",
+            ) from exc
     _require_openwebui_local_test_gateway(authorization)
     try:
         local_request = OpenWebUILocalChatCompletionRequest(**request)

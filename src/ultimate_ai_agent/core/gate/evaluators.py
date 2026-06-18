@@ -4344,6 +4344,38 @@ def m152_openapi_route_failures(
     return failures
 
 
+EXPECTED_M166_OPENAPI_PATH_COUNT = EXPECTED_M152_OPENAPI_PATH_COUNT
+M166_FORBIDDEN_BACKEND_ROUTES = M120_FORBIDDEN_BACKEND_ROUTES + (
+    "/production/release-gate/apply",
+    "/production/release-gate/run",
+    "/production/release-gate/execute",
+    "/production/release-gate/approve",
+    "/production/readiness/run",
+    "/production/readiness/execute",
+    "/production/load-test/run",
+    "/production/package/build",
+    "/production/security-scan/run",
+    "/production/openwebui/e2e/run",
+)
+
+
+def m166_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M166_OPENAPI_PATH_COUNT
+) -> List[str]:
+    path_set = _post_m151_route_boundary_path_set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(
+            f"OpenAPI path count changed for M166: expected {expected_path_count}, got {len(path_set)}"
+        )
+    for route in M166_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(
+                f"M166 forbidden production readiness, release gate, go-live, rollback, packaging, load test, security scan, OpenWebUI E2E, or authority route present: {route}"
+            )
+    return failures
+
+
 M36_SAFE_REF_PREFIXES = {
     "reviewPacketRef": "file-review-packet:",
     "previewResultRef": "redacted-file-preview-output:",
@@ -5812,6 +5844,15 @@ class FoundationGateEvaluator:
             ),
             "m162_exact_approved_gguf_acquisition_static_safety": (
                 self.check_m162_exact_approved_gguf_acquisition_static_safety
+            ),
+            "m166_local_model_production_readiness_contracts": (
+                self.check_m166_local_model_production_readiness_contracts
+            ),
+            "m166_local_model_production_readiness_static_safety": (
+                self.check_m166_local_model_production_readiness_static_safety
+            ),
+            "m166_local_model_production_readiness_route_boundary": (
+                self.check_m166_local_model_production_readiness_route_boundary
             ),
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
@@ -53250,6 +53291,239 @@ class FoundationGateEvaluator:
             if fragment not in docs_text:
                 failures.append(f"M162 docs missing safety fragment: {fragment}")
         return self._result(criterion, failures, required_files)
+
+    def check_m166_local_model_production_readiness_contracts(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/production_readiness/production_release_gate.py",
+            "docs/production/LOCAL_MODEL_PRODUCTION_READINESS_GATE.md",
+            "docs/production/LOCAL_MODEL_PRODUCTION_READINESS_BOUNDARY.md",
+            "docs/production/LOCAL_MODEL_PRODUCTION_READINESS_RECEIPT_PLAN.md",
+            "docs/production/LOCAL_MODEL_PRODUCTION_READINESS_NON_GOALS.md",
+            "docs/production/M166_PRODUCTION_AUTHORITY_GATE.md",
+            "docs/release_notes/checkpoint_m166.md",
+            "tests/test_m166_local_model_production_readiness.py",
+            "tests/test_m166_gate_integration.py",
+        ]
+        failures = [
+            f"missing M166 production readiness file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            from ultimate_ai_agent.core.production_readiness import (
+                REQUIRED_M166_EVIDENCE_KINDS,
+                ProductionReadinessEvidenceKind,
+                ProductionReleaseGateStatus,
+                build_m166_green_production_readiness_evidence,
+                build_m166_production_release_gate_record,
+                validate_m166_production_readiness_evidence_record,
+                validate_m166_production_release_gate_record,
+            )
+
+            evidence = build_m166_green_production_readiness_evidence()
+            gate = build_m166_production_release_gate_record(evidence_records=evidence)
+            expected_kinds = [
+                ProductionReadinessEvidenceKind(kind)
+                for kind in REQUIRED_M166_EVIDENCE_KINDS
+            ]
+            if (
+                gate.status != ProductionReleaseGateStatus.production_authority_granted
+                or gate.source_checkpoint_ref != "checkpoint:m165"
+                or gate.required_evidence_kinds != expected_kinds
+                or [item.evidence_ref for item in evidence] != gate.evidence_refs
+                or not gate.production_authority_granted
+                or not gate.production_runtime_authorized
+                or not gate.go_live_authorized
+                or not gate.production_deployment_authorized
+                or not gate.traffic_routing_authorized
+                or not gate.exact_scope_bound
+                or not gate.all_evidence_passed
+                or not gate.redacted_evidence_only
+                or not gate.blockers_cleared
+                or not gate.rollback_ready
+                or not gate.audit_required
+                or not gate.replay_safe
+                or gate.side_effects_performed
+                or "M166_PRODUCTION_AUTHORITY_GRANTED" not in gate.reason_codes
+            ):
+                failures.append("M166 release gate does not grant exact green production authority")
+
+            for evidence_record in evidence:
+                if (
+                    evidence_record.source_checkpoint_ref != "checkpoint:m165"
+                    or not evidence_record.redacted
+                    or not evidence_record.safe_refs_only
+                    or not evidence_record.loopback_only
+                    or not evidence_record.openwebui_shell_only
+                    or evidence_record.openwebui_is_agent_brain
+                    or evidence_record.raw_prompt_included
+                    or evidence_record.raw_response_included
+                    or evidence_record.raw_path_included
+                    or evidence_record.secret_included
+                    or evidence_record.blocker_refs
+                ):
+                    failures.append(f"M166 evidence record unsafe: {evidence_record.evidence_ref}")
+                validate_m166_production_readiness_evidence_record(evidence_record)
+
+            for update, reason in [
+                ({"production_authority_granted": False}, "M166_PRODUCTION_AUTHORITY_GRANT_REQUIRED"),
+                ({"go_live_authorized": False}, "M166_GO_LIVE_AUTH_REQUIRED"),
+                ({"raw_prompt_exported": True}, "M166_RAW_PROMPT_DENIED"),
+                ({"credential_material_exported": True}, "M166_CREDENTIAL_MATERIAL_DENIED"),
+                ({"backend_route_added": True}, "M166_BACKEND_ROUTE_DENIED"),
+                ({"side_effects_performed": ["deploy"]}, "M166_RELEASE_GATE_SIDE_EFFECTS_DENIED"),
+            ]:
+                try:
+                    validate_m166_production_release_gate_record(
+                        gate.model_copy(update=update)
+                    )
+                    failures.append(f"M166 unsafe gate mutation was not denied with {reason}")
+                except ValueError as exc:
+                    if reason not in str(exc):
+                        failures.append(f"M166 unsafe gate mutation raised {exc!s}")
+        except Exception as exc:
+            failures.append(f"M166 production readiness validation failed: {exc}")
+
+        docs_text = " ".join(
+            "\n".join(
+                self._read(self.root / path).lower()
+                for path in required_files
+                if path.startswith("docs/") and (self.root / path).exists()
+            ).split()
+        )
+        for fragment in [
+            "m166",
+            "production authority granted",
+            "live install/run tests",
+            "openwebui e2e tests",
+            "security review",
+            "packaging",
+            "operational rollback",
+            "load tests",
+            "all required evidence is green",
+            "revocable",
+            "replay-safe",
+            "redacted summary only",
+            "safe-ref-only",
+            "localhost-only",
+            "audit-bound",
+            "rollback-bound",
+            "no raw prompt",
+            "no raw response",
+            "no raw provider payload",
+            "no credential",
+            "no raw local path",
+            "no raw log",
+            "no backend route",
+            "no control center control",
+            "no openwebui admin",
+            "no openwebui plugin",
+            "no dependency",
+            "no unreviewed side effects",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M166 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m166_local_model_production_readiness_static_safety(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        forbidden_source_fragments = [
+            "production_authority_granted=True",
+            "raw_prompt_exported=True",
+            "raw_response_exported=True",
+            "raw_provider_payload_exported=True",
+            "credential_material_exported=True",
+            "raw_local_path_exported=True",
+            "raw_log_exported=True",
+            "backend_route_added=True",
+            "control_center_control_added=True",
+            "unreviewed_dependency_added=True",
+            "/production/release-gate/apply",
+            "/production/release-gate/run",
+            "/production/release-gate/execute",
+        ]
+        allowed_files = {
+            "src/ultimate_ai_agent/core/gate/evaluators.py",
+            "src/ultimate_ai_agent/core/production_readiness/__init__.py",
+            "src/ultimate_ai_agent/core/production_readiness/production_release_gate.py",
+        }
+        for root in [
+            self.root / "src" / "ultimate_ai_agent",
+            self.root / "apps" / "control-center" / "src",
+            self.root / "apps" / "ccc-ios",
+        ]:
+            if not root.exists():
+                continue
+            candidate_files: list[Path] = []
+            for pattern in ("*.py", "*.ts", "*.tsx", "*.js", "*.jsx", "*.swift", "*.yml", "*.yaml"):
+                candidate_files.extend(root.rglob(pattern))
+            for path in sorted(candidate_files):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(self.root).as_posix()
+                if ".test." in rel or rel in allowed_files:
+                    continue
+                text = path.read_text(encoding="utf-8")
+                for fragment in forbidden_source_fragments:
+                    if fragment in text:
+                        failures.append(
+                            f"M166 forbidden production readiness fragment in {rel}: {fragment}"
+                        )
+
+        source = self._read(
+            self.root / "src/ultimate_ai_agent/core/production_readiness/production_release_gate.py"
+        )
+        for fragment in [
+            "REQUIRED_M166_EVIDENCE_KINDS",
+            "ProductionReadinessEvidenceKind",
+            "ProductionReleaseGateStatus",
+            "build_m166_production_release_gate_record",
+            "validate_m166_production_release_gate_record",
+            "checkpoint:m165",
+        ]:
+            if fragment not in source:
+                failures.append(f"M166 release gate source missing required fragment: {fragment}")
+        for forbidden in [
+            "import " + "requests",
+            "from " + "requests import",
+            "import " + "httpx",
+            "from " + "httpx import",
+            "import " + "subprocess",
+            "from subprocess import",
+            "request.urlopen(",
+            "shell=True",
+            "openai.OpenAI(",
+            "chat.completions.create(",
+            "hf_hub_download(",
+            "snapshot_download(",
+            "raw_prompt_exported=True",
+            "credential_material_exported=True",
+            "backend_route_added=True",
+            "control_center_control_added=True",
+        ]:
+            if forbidden in source:
+                failures.append(f"M166 release gate source contains forbidden fragment: {forbidden}")
+        return self._result(criterion, failures, [])
+
+    def check_m166_local_model_production_readiness_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+            from ultimate_ai_agent.api.openapi import verify_openapi_contract
+
+            failures.extend(m166_openapi_route_failures(app.openapi().get("paths", {})))
+            contract_status = verify_openapi_contract(app)
+            if contract_status.errors:
+                failures.extend(contract_status.errors)
+        except Exception as exc:
+            failures.append(f"M166 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
 
 
     def check_v0292_local_dev_api_authority_and_preview_safe(
