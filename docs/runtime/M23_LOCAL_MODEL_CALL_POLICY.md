@@ -29,6 +29,11 @@ Denied endpoints:
 
 Only `m23_fixed_local_model_smoke_v1` is allowed.
 
+For llama.cpp server, M23 uses the OpenAI-compatible `/v1/completions`
+request shape through stdlib HTTP only. The request still carries only the
+fixed M23 smoke prompt, sets streaming off, and does not add a llama.cpp Python
+package dependency.
+
 The CLI must not accept arbitrary prompt flags, stdin prompt input, prompt-file
 input, clipboard input, memory input, OpenWebUI transcript input, raw files, raw
 memory contents, credentials, or user task content.

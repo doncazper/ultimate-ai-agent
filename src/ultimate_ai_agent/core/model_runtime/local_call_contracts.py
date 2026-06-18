@@ -75,7 +75,7 @@ class LocalModelCallDecision(_M23LocalModelCallModel):
 class LocalModelCallTransportResult(_M23LocalModelCallModel):
     transport_result_id: str = Field(..., min_length=1)
     request_id: str = Field(..., min_length=1)
-    transport_kind: Literal["none", "fake", "manual_stdlib_loopback"]
+    transport_kind: Literal["none", "fake", "manual_stdlib_loopback", "manual_stdlib_openai_completions"]
     call_performed: bool = False
     endpoint_contacted: bool = False
     network_scope: Literal["none", "loopback"] = "none"
@@ -133,4 +133,3 @@ class LocalModelCallResult(_M23LocalModelCallModel):
     metadata_refs: list[str] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=utc_now)
-

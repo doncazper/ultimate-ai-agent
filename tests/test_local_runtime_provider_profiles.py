@@ -23,6 +23,21 @@ def test_provider_profiles_are_metadata_only_and_non_authoritative():
         assert profile.endpoint_probe_allowed is False
 
 
+def test_llama_cpp_profile_records_m23_manual_openai_completions_shape_only():
+    profiles = build_default_local_runtime_provider_profiles()
+    profile = next(profile for profile in profiles if profile.kind == LocalModelRuntimeKind.llama_cpp_planned)
+
+    assert profile.activation_allowed_now is False
+    assert profile.real_model_call_allowed is False
+    assert profile.package_import_allowed is False
+    assert profile.dependency_added is False
+    assert profile.metadata == {
+        "m23_manual_transport_shape": "openai_completions",
+        "safe_endpoint_path_ref": "loopback_v1_completions",
+        "model_artifact_family": "gguf",
+    }
+
+
 @pytest.mark.parametrize(
     ("field", "message"),
     [

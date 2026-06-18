@@ -14,6 +14,7 @@ from ultimate_ai_agent.core.model_runtime import (  # noqa: E402
     M23_FIXED_LOCAL_MODEL_PROMPT_ID,
     LocalModelCallRequest,
     LocalModelRuntimeKind,
+    ManualStdlibOpenAICompletionsLocalModelCallTransport,
     ManualStdlibLoopbackLocalModelCallTransport,
     build_dry_run_local_model_call_result,
     build_m23_fixed_prompt,
@@ -33,12 +34,15 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--approval-ref")
     parser.add_argument("--approval-grant-json")
     parser.add_argument("--runtime-kind", default=LocalModelRuntimeKind.ollama_planned.value)
+    parser.add_argument("--transport-shape", choices=["ollama-generate", "openai-completions"])
     parser.add_argument("--timeout-seconds", type=float, default=5.0)
     parser.add_argument("--max-response-chars", type=int, default=512)
     return parser
 
 
-def build_transport():
+def build_transport(transport_shape: str):
+    if transport_shape == "openai-completions":
+        return ManualStdlibOpenAICompletionsLocalModelCallTransport()
     return ManualStdlibLoopbackLocalModelCallTransport()
 
 
@@ -63,9 +67,14 @@ def main(argv: list[str] | None = None, *, transport=None) -> int:
             dry_run=not args.execute_local_call,
             execute_local_call=args.execute_local_call,
         )
+        transport_shape = args.transport_shape or _default_transport_shape(request.runtime_kind)
         approval_decision = _approval_decision_from_grant(request, grant)
         result = (
-            run_local_model_call(request, transport=transport or build_transport(), approval_decision=approval_decision)
+            run_local_model_call(
+                request,
+                transport=transport or build_transport(transport_shape),
+                approval_decision=approval_decision,
+            )
             if args.execute_local_call
             else build_dry_run_local_model_call_result(request, transport=transport)
         )
@@ -82,6 +91,12 @@ def _approval_decision_from_grant(request: LocalModelCallRequest, grant: Approva
     authority = LocalApprovalAuthority()
     authority.load_grant_for_validation(grant)
     return authority.validate(local_model_call_approval_request(request).to_validation_request(request.approval_ref or ""))
+
+
+def _default_transport_shape(runtime_kind: LocalModelRuntimeKind) -> str:
+    if runtime_kind == LocalModelRuntimeKind.llama_cpp_planned:
+        return "openai-completions"
+    return "ollama-generate"
 
 
 def _validation_denial(caused_by: str):
@@ -127,4 +142,3 @@ def _validation_denial(caused_by: str):
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
