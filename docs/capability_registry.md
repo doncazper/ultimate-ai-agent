@@ -2,7 +2,7 @@
 
 The capability registry is an additive, contract-first layer for coordinating tools, local agents, deterministic workflows, reviewer steps, and future adapter families. It does not add backend routes, production authority, provider calls, network access, shell execution, browser automation, plugin execution, memory writes, context injection, or new dependencies.
 
-The existing `CapabilitySpec` registry remains available for decorator-style Python capabilities. The new `CapabilityManifest` lane adds typed manifests, compact catalog disclosure, structured task envelopes, policy checks, telemetry hooks, and bounded in-process adapters. The live-local testing runtime intentionally remains local/dev-only and does not grant production authority.
+The existing `CapabilitySpec` registry remains available for decorator-style Python capabilities. The new `CapabilityManifest` lane adds typed manifests, compact catalog disclosure, structured task envelopes, policy checks, telemetry hooks, and bounded in-process adapters. Concrete live file/model/provider adapters are intentionally out of scope for the current repository boundary.
 
 ## Architecture
 
@@ -103,43 +103,6 @@ artifact = coordinator.run("Search safe metadata refs", {"capability_ids": [sear
 
 The callable receives `(TaskEnvelope, context)` and may return either an `Artifact` or any structured value. Non-artifact values are wrapped into a typed artifact.
 
-## Live Local Testing Runtime
-
-`build_live_local_testing_runtime(workspace_root)` creates a coordinator-ready registry for local user testing without granting production authority. It registers five concrete capabilities:
-
-- `cap:live.local_file_metadata` uses `LocalFileManager.build_file_ref()` and optional bounded redacted preview reads. It is read-only and concurrency-safe.
-- `cap:live.local_file_write` uses `LocalFileManager.propose_write()` and `apply_write()` for one approved local workspace write. It requires an `approval_ref`, an `idempotency_key`, `apply_write=True`, and single-writer planning.
-- `cap:live.deterministic_workflow` runs an in-process deterministic workflow node over structured inputs and returns a stable digest.
-- `cap:live.m23_local_model_loopback` wraps the existing M23 fixed-prompt local loopback model call policy. It remains high-risk, approval-required, fixed-prompt only, loopback-only, non-authoritative, and independently validates approval evidence before any transport contact.
-- `cap:live.external_action_gate` returns a structured denial for provider, browser, network, plugin, remote, or other external authority that has no reviewed adapter.
-
-Example:
-
-```python
-from ultimate_ai_agent.core.capabilities import (
-    LOCAL_FILE_WRITE_CAPABILITY_ID,
-    Coordinator,
-    build_live_local_testing_runtime,
-)
-
-runtime = build_live_local_testing_runtime("/path/to/dev-workspace")
-coordinator = Coordinator(runtime.registry)
-
-artifact = coordinator.run(
-    "Write one approved local test file",
-    {
-        "capability_ids": [LOCAL_FILE_WRITE_CAPABILITY_ID],
-        "target_path": "out/live.txt",
-        "new_content": "live write complete\n",
-        "idempotency_key": "manual-smoke-1",
-        "approval_ref": "approval_live_local_write",
-        "apply_write": True,
-    },
-)
-```
-
-This path performs real local metadata reads and approved local file writes, but it still does not add shell execution, arbitrary filesystem authority, backend routes, Control Center controls, provider calls, browser automation, network tools, plugins, remote dispatch, memory writes, context injection, commits, or production authority.
-
 ## Routing Rules
 
 - The coordinator plans centrally and synthesizes final output.
@@ -156,7 +119,7 @@ Use `manifest_from_mcp_tool_spec()` and `manifest_from_a2a_agent_card()` to conv
 
 ## Local Smoke Harness
 
-Run the contract-only smoke harness to prove registry resolution and schema export without adding live authority:
+Run the dev-only smoke harness to prove registry resolution and schema export without adding live authority:
 
 ```bash
 PYTHONPATH=src .venv/bin/python scripts/dev/capability_registry_smoke.py
@@ -164,21 +127,12 @@ PYTHONPATH=src .venv/bin/python scripts/dev/capability_registry_smoke.py
 
 The harness registers one deterministic in-process echo capability, resolves it for a test run context, executes it, and prints OpenAI/MCP schemas. It does not add backend routes, provider calls, plugin loading, shell/network authority, or production authority.
 
-Run the live-local smoke harness to exercise the graduated local testing path:
-
-```bash
-PYTHONPATH=src .venv/bin/python scripts/dev/live_local_capability_smoke.py
-```
-
-That harness uses a temporary workspace, performs a real metadata read and approved local file write, runs a deterministic workflow node, exercises the M23 fake loopback transport through existing approval validation, and verifies external authority remains gated.
-
 ## Testing
 
 Run the focused suite:
 
 ```bash
-PYTHONPATH=src .venv/bin/python -m pytest tests/test_capability_registry.py tests/test_capability_registry_coordinator.py tests/test_live_local_capability_testing.py
+PYTHONPATH=src .venv/bin/python -m pytest tests/test_capability_registry.py tests/test_capability_registry_coordinator.py
 ```
 
 The tests cover manifest validation, registry search/load, compact catalog rendering, policy denials, single-writer validation, read-only fan-out, fake tool/agent adapters, mocked structured selection, and JSON import/export.
-The live-local tests also create a temporary file, read its metadata, apply an approved single-writer local file write, prove multiple writers are rejected, run the deterministic workflow node, exercise the M23 fake loopback transport through existing approval validation, and verify external actions remain gated.

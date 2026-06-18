@@ -77,18 +77,12 @@ __all__ = [
     "CoordinationMode",
     "CoordinationRiskLevel",
     "Coordinator",
-    "DETERMINISTIC_WORKFLOW_CAPABILITY_ID",
     "DeterministicSelector",
-    "EXTERNAL_ACTION_GATE_CAPABILITY_ID",
     "HandoffAdapter",
     "HumanGateAdapter",
     "InMemoryTelemetrySink",
     "LLMSelector",
-    "LOCAL_FILE_METADATA_CAPABILITY_ID",
-    "LOCAL_FILE_WRITE_CAPABILITY_ID",
-    "LiveLocalTestingRuntime",
     "LoggerCapabilityEventSink",
-    "M23_LOCAL_MODEL_LOOPBACK_CAPABILITY_ID",
     "NoOpTelemetrySink",
     "NoopCapabilityEventSink",
     "NotesStore",
@@ -113,8 +107,6 @@ __all__ = [
     "WorkflowAdapter",
     "BLOCKED_FOUNDATION_CAPABILITY_NAMES",
     "as_registration",
-    "build_live_local_testing_registry",
-    "build_live_local_testing_runtime",
     "capability_is_foundation_blocked",
     "capability",
     "default_foundation_capability_registry",
@@ -140,29 +132,11 @@ _ADAPTER_EXPORTS = {
     "wrap_tool",
 }
 
-_LIVE_EXPORTS = {
-    "DETERMINISTIC_WORKFLOW_CAPABILITY_ID",
-    "EXTERNAL_ACTION_GATE_CAPABILITY_ID",
-    "LOCAL_FILE_METADATA_CAPABILITY_ID",
-    "LOCAL_FILE_WRITE_CAPABILITY_ID",
-    "M23_LOCAL_MODEL_LOOPBACK_CAPABILITY_ID",
-    "LiveLocalTestingRuntime",
-    "build_live_local_testing_registry",
-    "build_live_local_testing_runtime",
-}
-
-
 def __getattr__(name: str):
     if name in _ADAPTER_EXPORTS:
         from ultimate_ai_agent.core.capabilities import adapters
 
         value = getattr(adapters, name)
-        globals()[name] = value
-        return value
-    if name in _LIVE_EXPORTS:
-        from ultimate_ai_agent.core.capabilities import live
-
-        value = getattr(live, name)
         globals()[name] = value
         return value
     raise AttributeError(name)

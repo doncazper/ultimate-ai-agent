@@ -432,14 +432,6 @@ in-process capability and exports OpenAI/MCP schemas without adding backend
 routes, provider calls, shell/network authority, plugin loading, or production
 authority.
 
-For coordinator-level live local testing, use
-`build_live_local_testing_runtime(workspace_root)` or
-`scripts/dev/live_local_capability_smoke.py`. That path wires real local
-metadata reads, approved single-writer local file writes, deterministic workflow
-nodes, M23 fixed-prompt loopback smoke calls through existing approval
-validation, and an explicit external-action denial gate. See
-`docs/capability_registry.md` for the manifest examples and routing rules.
-
 Register native Python capabilities explicitly:
 
 ```python
