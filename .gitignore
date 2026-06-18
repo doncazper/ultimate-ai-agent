@@ -18,6 +18,7 @@ secrets.*
 *.secret
 *.pem
 *.key
+.webui_secret_key
 
 # Runtime output
 logs/

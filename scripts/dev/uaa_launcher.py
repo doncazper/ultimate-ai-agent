@@ -32,9 +32,11 @@ OPENWEBUI_HOST = "127.0.0.1"
 OPENWEBUI_PORT = 3000
 OPENWEBUI_CONTAINER_NAME = "uaa-openwebui-local"
 OPENWEBUI_IMAGE = "ghcr.io/open-webui/open-webui:main"
+OPENWEBUI_MODEL_ID = "uaa-safe-local"
 OPENWEBUI_GATEWAY_FOR_CONTAINER = "http://host.docker.internal:8000/v1"
 UAA_OPENWEBUI_TEST_GATEWAY_ENV = "UAA_OPENWEBUI_TEST_GATEWAY_ENABLED"
 UAA_OPENWEBUI_TEST_GATEWAY_VALUE = "uaa-local-test"
+DOCKER_ENGINE_CHECK_TIMEOUT_SECONDS = 3.0
 SAFE_HOSTS = {"127.0.0.1", "localhost", "::1"}
 STATE_DIR = Path(".uaa") / "dev"
 BACKEND_HEALTH_PATH = "/health"
@@ -57,6 +59,7 @@ DEVELOPER_TOOL_PATHS = (
     Path("/opt/homebrew/bin"),
     Path("/opt/homebrew/sbin"),
     Path("/usr/local/bin"),
+    Path("/Applications/Docker.app/Contents/Resources/bin"),
 )
 
 
@@ -115,6 +118,19 @@ def build_frontend_command(root: Path) -> list[str]:
 def build_openwebui_command(root: Path) -> list[str]:
     validate_local_host(OPENWEBUI_HOST)
     data_dir = root / STATE_DIR / "openwebui-data"
+    openwebui_env = {
+        "DEFAULT_MODEL_PARAMS": '{"stream_response":false}',
+        "DEFAULT_MODELS": OPENWEBUI_MODEL_ID,
+        "ENABLE_OLLAMA_API": "False",
+        "ENABLE_OPENAI_API": "True",
+        "ENABLE_PERSISTENT_CONFIG": "False",
+        "OPENAI_API_BASE_URL": OPENWEBUI_GATEWAY_FOR_CONTAINER,
+        "OPENAI_API_BASE_URLS": OPENWEBUI_GATEWAY_FOR_CONTAINER,
+        "OPENAI_API_KEY": UAA_OPENWEBUI_TEST_GATEWAY_VALUE,
+        "OPENAI_API_KEYS": UAA_OPENWEBUI_TEST_GATEWAY_VALUE,
+        "WEBUI_AUTH": "False",
+    }
+    env_args = [item for key, value in openwebui_env.items() for item in ["-e", f"{key}={value}"]]
     return [
         _developer_tool("docker"),
         "run",
@@ -125,10 +141,7 @@ def build_openwebui_command(root: Path) -> list[str]:
         f"{OPENWEBUI_HOST}:{OPENWEBUI_PORT}:8080",
         "-v",
         f"{data_dir}:/app/backend/data",
-        "-e",
-        f"OPENAI_API_BASE_URL={OPENWEBUI_GATEWAY_FOR_CONTAINER}",
-        "-e",
-        f"OPENAI_API_KEY={UAA_OPENWEBUI_TEST_GATEWAY_VALUE}",
+        *env_args,
         OPENWEBUI_IMAGE,
     ]
 
@@ -335,10 +348,11 @@ def check_doctor(root: Path) -> tuple[list[str], list[str]]:
 def check_openwebui_doctor(root: Path) -> tuple[list[str], list[str]]:
     ok: list[str] = []
     failures: list[str] = []
-    if not _command_exists("docker"):
-        failures.append("Docker is not available on PATH")
+    docker_ready, docker_message = docker_engine_status()
+    if docker_ready:
+        ok.append(docker_message)
     else:
-        ok.append("Docker found on PATH")
+        failures.append(docker_message)
 
     if is_port_open(OPENWEBUI_HOST, OPENWEBUI_PORT):
         ok.append(f"OpenWebUI port already in use on {OPENWEBUI_URL}")
@@ -394,13 +408,47 @@ def _developer_path(path_value: str) -> str:
 def _resolve_developer_tool(command: str) -> Path | None:
     for directory in DEVELOPER_TOOL_PATHS:
         candidate = directory / command
-        if candidate.exists():
+        if _is_executable_file(candidate):
             return candidate
     for directory in os.environ.get("PATH", "").split(os.pathsep):
         candidate = Path(directory, command)
-        if directory and candidate.exists():
+        if directory and _is_executable_file(candidate):
             return candidate
     return None
+
+
+def _is_executable_file(path: Path) -> bool:
+    return path.is_file() and os.access(path, os.X_OK)
+
+
+def docker_engine_status(timeout_seconds: float = DOCKER_ENGINE_CHECK_TIMEOUT_SECONDS) -> tuple[bool, str]:
+    docker = _resolve_developer_tool("docker")
+    if docker is None:
+        return False, "Docker is not available on PATH"
+    try:
+        result = subprocess.run(
+            [str(docker), "info", "--format", "{{.ServerVersion}}"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=timeout_seconds,
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
+        return (
+            False,
+            f"Docker CLI found, but the Docker engine did not answer within {timeout_seconds:g}s; "
+            "open Docker Desktop and finish first-run setup",
+        )
+    except OSError as exc:
+        return False, f"Docker CLI found, but could not be started: {exc}"
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout).strip()
+        if detail:
+            return False, f"Docker CLI found, but the Docker engine is not ready: {detail.splitlines()[-1]}"
+        return False, "Docker CLI found, but the Docker engine is not ready; open Docker Desktop and finish first-run setup"
+    version = result.stdout.strip() or "unknown"
+    return True, f"Docker engine ready: {version}"
 
 
 def start_service(root: Path, service: Service) -> str:
@@ -421,8 +469,9 @@ def start_service(root: Path, service: Service) -> str:
     if service.name == "frontend" and not service.cwd.joinpath("node_modules").exists():
         raise RuntimeError("missing apps/control-center/node_modules; run uaa doctor")
     if service.name == "openwebui":
-        if not _command_exists("docker"):
-            raise RuntimeError("Docker is not available on PATH; install Docker and run uaa openwebui doctor")
+        docker_ready, docker_message = docker_engine_status()
+        if not docker_ready:
+            raise RuntimeError(f"{docker_message}; run uaa openwebui doctor")
         (root / STATE_DIR / "openwebui-data").mkdir(parents=True, exist_ok=True)
 
     service.log_file.parent.mkdir(parents=True, exist_ok=True)
@@ -611,7 +660,7 @@ def command_openwebui_start(root: Path) -> int:
     print(start_service(root, service))
     print(f"\nOpenWebUI: {OPENWEBUI_URL}")
     print(f"UAA gateway for OpenWebUI: {OPENWEBUI_GATEWAY_FOR_CONTAINER}")
-    print("Model: uaa-safe-local")
+    print(f"Model: {OPENWEBUI_MODEL_ID}")
     print(f"Local bearer value: {UAA_OPENWEBUI_TEST_GATEWAY_VALUE}")
     return 0
 
@@ -655,12 +704,18 @@ def command_openwebui_logs(root: Path, follow: bool = False) -> int:
 def command_openwebui_stop(root: Path) -> int:
     service = service_config(root, "openwebui")
     print(stop_service(service))
-    if _command_exists("docker"):
-        subprocess.run(
-            [_developer_tool("docker"), "rm", "-f", OPENWEBUI_CONTAINER_NAME],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
+    docker_ready, _ = docker_engine_status(timeout_seconds=1.5)
+    if docker_ready:
+        try:
+            subprocess.run(
+                [_developer_tool("docker"), "rm", "-f", OPENWEBUI_CONTAINER_NAME],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=5.0,
+                check=False,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            pass
     return 0
 
 

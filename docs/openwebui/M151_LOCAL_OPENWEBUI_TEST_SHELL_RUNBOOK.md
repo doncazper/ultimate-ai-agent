@@ -44,12 +44,37 @@ The launcher starts OpenWebUI with:
 - base URL for the container: `http://host.docker.internal:8000/v1`
 - local bearer value: `uaa-local-test`
 - model: `uaa-safe-local`
+- OpenAI-compatible streaming disabled
+- Ollama adapter disabled for the local smoke path
 
-If OpenWebUI is run directly on the host instead of Docker, use this base URL:
+M151 denies streaming requests, so OpenWebUI must send ordinary non-streaming
+chat completions to the local gateway.
 
-```text
-http://127.0.0.1:8000/v1
+If OpenWebUI is run directly on the host instead of Docker, use this shape:
+
+```bash
+mkdir -p .uaa/dev
+test -f .uaa/dev/openwebui_secret_key || \
+  (umask 077 && openssl rand -hex 32 > .uaa/dev/openwebui_secret_key)
+
+DATA_DIR="$PWD/.uaa/dev/openwebui-data" \
+WEBUI_SECRET_KEY="$(cat "$PWD/.uaa/dev/openwebui_secret_key")" \
+WEBUI_AUTH="False" \
+OPENAI_API_BASE_URL="http://127.0.0.1:8000/v1" \
+OPENAI_API_BASE_URLS="http://127.0.0.1:8000/v1" \
+OPENAI_API_KEY="uaa-local-test" \
+OPENAI_API_KEYS="uaa-local-test" \
+ENABLE_OPENAI_API="True" \
+ENABLE_OLLAMA_API="False" \
+ENABLE_PERSISTENT_CONFIG="False" \
+DEFAULT_MODELS="uaa-safe-local" \
+DEFAULT_MODEL_PARAMS='{"stream_response":false}' \
+WEBUI_URL="http://127.0.0.1:3000" \
+uvx --python 3.11 open-webui@latest serve --host 127.0.0.1 --port 3000
 ```
+
+This direct-host fallback uses OpenWebUI outside the UAA package. It does not
+add OpenWebUI as a repository dependency.
 
 ## Status, Logs, Stop
 
@@ -92,6 +117,11 @@ If Docker is missing, install Docker Desktop and rerun:
 ./scripts/dev/uaa openwebui doctor
 ```
 
+If Docker Desktop is installed but still in first-run setup, open Docker
+Desktop, finish the local setup prompts, and rerun the doctor command. The
+doctor uses a bounded Docker engine probe and should fail quickly when Docker
+is installed but not ready.
+
 If the UAA gateway is disabled, stop and restart the backend with:
 
 ```bash
@@ -101,3 +131,7 @@ UAA_OPENWEBUI_TEST_GATEWAY_ENABLED=1 ./scripts/dev/uaa start
 
 If the OpenWebUI port is already occupied, stop the other local process or use
 the status command to see whether the launcher already owns it.
+
+If the OpenWebUI chat displays `None`, streaming is probably still enabled in
+OpenWebUI. Confirm that `DEFAULT_MODEL_PARAMS='{"stream_response":false}'` is
+set for direct-host runs, or restart OpenWebUI through the developer launcher.
