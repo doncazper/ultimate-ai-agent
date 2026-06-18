@@ -10,5 +10,5 @@ distribution, deployment, backend routes, Control Center controls,
 dependencies, broad autonomy, memory write, context injection, or execution.
 
 The current product baseline remains v1.7.2 through M111 checkpoint work.
-M150 remains the v1.0.0-alpha target. Beta begins later after the alpha UI and
+M150 remains the v1.2.0-alpha target. Beta begins later after the alpha UI and
 supporting safety/product work are reviewed and promoted.

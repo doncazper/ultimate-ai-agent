@@ -12,16 +12,17 @@ allowed to become operational authority.
 
 | Field | Current state |
 |---|---|
-| Current active baseline | **v1.7.3** |
-| Current milestone | **M150 - Ultimate AI Agent v1.0.0-alpha** |
+| Current active baseline | **v1.2.0-alpha** |
+| Current milestone | **M150 - Ultimate AI Agent v1.2.0-alpha** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **75** OpenAPI paths |
 | Production readiness | Not claimed |
 
-M150 records Ultimate AI Agent **v1.0.0-alpha** as a local alpha target
-acceptance packet while the package baseline is v1.7.3 for this contract-first
-conveyor run after post-M150 local file-manager hardening. Already-pushed tags
+M150 records Ultimate AI Agent **v1.2.0-alpha** as a local alpha target
+acceptance packet while the package baseline is v1.2.0-alpha for this
+contract-first conveyor run after orchestration efficiency layer currentness.
+Already-pushed tags
 remain immutable historical internal milestone tags. M150 is contract-only,
 review-only, alpha-target-only,
 deterministic, local-only, safe-ref-only, disabled by default, route-free, and
@@ -47,7 +48,7 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M34-M60 roadmap supersession](docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md)
 - [M61-M100 roadmap](docs/roadmap/M61_M100_ROADMAP.md)
 - [M101-M150 planned roadmap](docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md)
-- [M150 Ultimate AI Agent v1.0.0-alpha](docs/productization/ULTIMATE_AI_AGENT_ALPHA.md)
+- [M150 Ultimate AI Agent v1.2.0-alpha](docs/productization/ULTIMATE_AI_AGENT_ALPHA.md)
 - [M149 Alpha Release Candidate Freeze](docs/productization/ALPHA_RELEASE_CANDIDATE_FREEZE.md)
 - [M148 External Security Review](docs/productization/EXTERNAL_SECURITY_REVIEW.md)
 - [M147 Public Docs + Wiki Readiness](docs/productization/PUBLIC_DOCS_WIKI_READINESS.md)
@@ -326,6 +327,8 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [v1.0.0 master plan](docs/archive/releases/v1_0_0/master_plan.md)
 - [v1.1.0 release packet](docs/archive/releases/v1_1_0/README_IMPORT.md)
 - [v1.1.0 master plan](docs/archive/releases/v1_1_0/master_plan.md)
+- [v1.2.0-alpha release packet](docs/archive/releases/v1_2_0_alpha/README_IMPORT.md)
+- [v1.2.0-alpha master plan](docs/archive/releases/v1_2_0_alpha/master_plan.md)
 - [v1.3.0 release packet](docs/archive/releases/v1_3_0/README_IMPORT.md)
 - [v1.3.0 master plan](docs/archive/releases/v1_3_0/master_plan.md)
 - [v1.4.0 release packet](docs/archive/releases/v1_4_0/README_IMPORT.md)
@@ -340,8 +343,6 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [v1.7.1 master plan](docs/archive/releases/v1_7_1/master_plan.md)
 - [v1.7.2 release packet](docs/archive/releases/v1_7_2/README_IMPORT.md)
 - [v1.7.2 master plan](docs/archive/releases/v1_7_2/master_plan.md)
-- [v1.7.3 release packet](docs/archive/releases/v1_7_3/README_IMPORT.md)
-- [v1.7.3 master plan](docs/archive/releases/v1_7_3/master_plan.md)
 
 ## What This Project Is
 

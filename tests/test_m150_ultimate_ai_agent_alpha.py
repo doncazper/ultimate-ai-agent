@@ -20,7 +20,7 @@ def _request(**overrides) -> UltimateAiAgentAlphaRequest:
         "actor_ref": "actor:local-reviewer",
         "accepted_checkpoint_refs": list(REQUIRED_M150_ACCEPTED_CHECKPOINT_REFS),
         "alpha_target_refs": [
-            "alpha-target:m150:v1.0.0-alpha",
+            "alpha-target:m150:v1.2.0-alpha",
             "alpha-target:m150:no-public-release",
         ],
         "release_candidate_freeze_refs": [
@@ -54,7 +54,7 @@ def _request(**overrides) -> UltimateAiAgentAlphaRequest:
         "no_effect_receipt_plan_ref": (
             "receipt-plan:m150:ultimate-ai-agent-alpha:no-effect"
         ),
-        "safe_summary": "Record v1.0.0-alpha target refs without release authority.",
+        "safe_summary": "Record v1.2.0-alpha target refs without release authority.",
     }
     data.update(overrides)
     return UltimateAiAgentAlphaRequest(**data)
@@ -64,7 +64,7 @@ def test_m150_record_is_alpha_target_only_and_non_authoritative() -> None:
     record = build_ultimate_ai_agent_alpha_record(_request())
 
     assert record.status == UltimateAiAgentAlphaStatus.alpha_target_recorded
-    assert record.product_target_ref == "product-target:v1.0.0-alpha"
+    assert record.product_target_ref == "product-target:v1.2.0-alpha"
     assert record.contract_only is True
     assert record.review_only is True
     assert record.alpha_target_only is True

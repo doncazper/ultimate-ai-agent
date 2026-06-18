@@ -2,7 +2,7 @@
 
 Checkpoint M122 adds Calendar Connector Contract Refresh while the current
 product baseline remains v1.7.2. It uses the checkpoint-m122 tag and keeps
-M150 as the planned v1.0.0-alpha target.
+M150 as the planned v1.2.0-alpha target.
 
 The checkpoint adds contract-only, review-only calendar connector refresh
 records bound to the M121 Email Connector Contract Refresh. The records use
@@ -18,4 +18,4 @@ action, no model call, no memory write, no context injection, no execution, no
 backend routes, no Control Center controls, no dependencies, no M123 work, no
 beta release, and no production authority.
 
-M123 remains future. M150 remains the planned v1.0.0-alpha target.
+M123 remains future. M150 remains the planned v1.2.0-alpha target.

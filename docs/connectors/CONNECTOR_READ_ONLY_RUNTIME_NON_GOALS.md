@@ -12,4 +12,4 @@ write authority, export authority, model authority, memory authority, context
 authority, execution authority, backend route authority, or production
 authority.
 
-M126 remains future. M150 remains the planned v1.0.0-alpha target.
+M126 remains future. M150 remains the planned v1.2.0-alpha target.

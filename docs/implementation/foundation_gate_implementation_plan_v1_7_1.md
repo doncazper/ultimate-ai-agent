@@ -10,7 +10,7 @@ Foundation Gate and verifier coverage should confirm:
 - already-pushed v1.0.0 through v1.7.0 tags remain historical internal
   milestone tags and are not rewritten.
 - future M104-M149 conveyor snapshots use incremental v1.7.x internal tags.
-- M150 is the public product target v1.0.0-alpha.
+- M150 is the public product target v1.2.0-alpha.
 - beta begins only after alpha UI and supporting safety/product work are
   reviewed, accepted, and promoted by a later roadmap patch.
 - stale fast-version rows such as v1.8.0/M104 and v1.54.0/M150 beta are denied

@@ -35,12 +35,12 @@ def _is_m46_allowed_ccc_ios_review_receipt_file(rel_path: str) -> bool:
 
 def _current_version() -> str:
     text = (ROOT / "VERSION.md").read_text(encoding="utf-8")
-    match = re.search(r"v\d+\.\d+\.\d+", text)
+    match = re.search(r"v\d+\.\d+\.\d+(?:-[A-Za-z0-9]+(?:[.-][A-Za-z0-9]+)*)?", text)
     return match.group(0) if match else "v0.0.0"
 
 
 def _current_version_tuple() -> tuple[int, int, int]:
-    version = _current_version().lstrip("v")
+    version = _current_version().lstrip("v").split("-", 1)[0]
     return tuple(int(part) for part in version.split("."))  # type: ignore[return-value]
 
 
@@ -3419,7 +3419,7 @@ def verify_m32_filesystem_metadata_tool_safety():
     policy = manifest.policy
     active_text = (ROOT / "VERSION.md").read_text(encoding="utf-8")
     expected_m32_allowlist = [NOOP_TOOL_REF, FILESYSTEM_METADATA_TOOL_REF]
-    active_match = re.search(r"Current active baseline:\s*\*\*v(\d+)\.(\d+)\.(\d+)\*\*", active_text)
+    active_match = re.search(r"Current active baseline:\s*\*\*v(\d+)\.(\d+)\.(\d+)(?:-[A-Za-z0-9.]+)?\*\*", active_text)
     active_tuple = tuple(int(part) for part in active_match.groups()) if active_match else (0, 0, 0)
     if active_tuple >= (0, 37, 0):
         expected_m32_allowlist.append(REDACTED_FILE_PREVIEW_TOOL_REF)
@@ -17557,7 +17557,7 @@ def verify_post_m100_roadmap_reconciliation():
                 ("m149", "alpha release candidate freeze"),
             ]
         ],
-        ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+        ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
     ]
     active_version_text = (ROOT / "VERSION.md").read_text(encoding="utf-8").lower()
     implemented_milestones = set()
@@ -17844,7 +17844,7 @@ def verify_post_m100_roadmap_reconciliation():
         implemented_milestones.add("m150")
     if "m150" in implemented_milestones:
         implemented_m150_row = (
-            "| v1.0.0-alpha | alpha | m150 | ultimate ai agent v1.0.0-alpha | "
+            "| v1.2.0-alpha | alpha | m150 | ultimate ai agent v1.2.0-alpha | "
             "implemented/released |"
         )
         if implemented_m150_row not in roadmap_text:
@@ -17877,7 +17877,7 @@ def verify_post_m100_roadmap_reconciliation():
         if future_semver_row in roadmap_text:
             print(f"FAIL: Future milestone SemVer row remains active: {future_semver_row}")
             sys.exit(1)
-    for fragment in ["v1.0.0-alpha", "beta begins", "do not rewrite"]:
+    for fragment in ["v1.2.0-alpha", "beta begins", "do not rewrite"]:
         if fragment not in roadmap_text:
             print(f"FAIL: Post-M100 roadmap missing alpha versioning policy fragment: {fragment}")
             sys.exit(1)
@@ -19341,7 +19341,7 @@ def verify_m109_mobile_sensor_audit_ledger():
         "no execution",
         "no production authority",
         "m110 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M109 docs missing fragment: {fragment}")
@@ -19566,7 +19566,7 @@ def verify_m110_mobile_sensor_hardening_freeze():
         "no execution",
         "no production authority",
         "m111 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M110 docs missing fragment: {fragment}")
@@ -19792,7 +19792,7 @@ def verify_m111_production_threat_model():
         "no control center control",
         "no dependency",
         "m112 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M111 docs missing fragment: {fragment}")
@@ -19967,7 +19967,7 @@ def verify_m112_user_workspace_identity_model():
         "no control center control",
         "no dependency",
         "m113 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M112 docs missing fragment: {fragment}")
@@ -20167,7 +20167,7 @@ def verify_m113_secrets_boundary_credential_vault():
         "no control center control",
         "no dependency",
         "m114 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M113 docs missing fragment: {fragment}")
@@ -20405,7 +20405,7 @@ def verify_m114_account_connector_contract_review():
         "no control center control",
         "no dependency",
         "m115 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M114 docs missing fragment: {fragment}")
@@ -20644,7 +20644,7 @@ def verify_m115_production_audit_retention_policy():
         "no control center control",
         "no dependency",
         "m116 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M115 docs missing fragment: {fragment}")
@@ -20880,7 +20880,7 @@ def verify_m116_role_based_authority_model():
         "no control center control",
         "no dependency",
         "m117 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M116 docs missing fragment: {fragment}")
@@ -21106,7 +21106,7 @@ def verify_m117_remote_agent_coordination_contract():
         "no control center control",
         "no dependency",
         "m118 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M117 docs missing fragment: {fragment}")
@@ -21313,7 +21313,7 @@ def verify_m118_deployment_mode_matrix():
         "no control center control",
         "no dependency",
         "m119 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M118 docs missing fragment: {fragment}")
@@ -21533,7 +21533,7 @@ def verify_m119_production_red_team_harness():
         "no control center control",
         "no dependency",
         "m120 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M119 docs missing fragment: {fragment}")
@@ -21747,7 +21747,7 @@ def verify_m120_production_authority_readiness_review():
         "no control center control",
         "no dependency",
         "m121 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M120 docs missing fragment: {fragment}")
@@ -21970,7 +21970,7 @@ def verify_m121_email_connector_contract_refresh():
         "no control center control",
         "no dependency",
         "m122 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M121 docs missing fragment: {fragment}")
@@ -22196,7 +22196,7 @@ def verify_m122_calendar_connector_contract_refresh():
         "no control center control",
         "no dependency",
         "m123 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M122 docs missing fragment: {fragment}")
@@ -22429,7 +22429,7 @@ def verify_m123_contacts_connector_contract_refresh():
         "no control center control",
         "no dependency",
         "m124 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M123 docs missing fragment: {fragment}")
@@ -22540,7 +22540,7 @@ def verify_m124_messages_connector_contract_review():
         "no control center control",
         "no dependency",
         "m125 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M124 docs missing fragment: {fragment}")
@@ -22645,7 +22645,7 @@ def verify_m125_connector_read_only_runtime():
         "no control center control",
         "no dependency",
         "m126 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M125 docs missing fragment: {fragment}")
@@ -22751,7 +22751,7 @@ def verify_m126_connector_approval_capture():
         "no control center control",
         "no dependency",
         "m127 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M126 docs missing fragment: {fragment}")
@@ -22860,7 +22860,7 @@ def verify_m127_connector_write_dry_run_planner():
         "no control center control",
         "no dependency",
         "m128 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M127 docs missing fragment: {fragment}")
@@ -22982,7 +22982,7 @@ def verify_m128_connector_write_execution_low_risk():
         "no dependency",
         "no production authority",
         "m129 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M128 docs missing fragment: {fragment}")
@@ -23199,7 +23199,7 @@ def verify_m129_connector_audit_revocation_hardening():
         "no control center control",
         "no dependency",
         "m130 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M129 docs missing fragment: {fragment}")
@@ -23446,7 +23446,7 @@ def verify_m130_connector_safety_freeze():
         "no control center control",
         "no dependency",
         "m131 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M130 docs missing fragment: {fragment}")
@@ -23679,7 +23679,7 @@ def verify_m131_autonomy_mode4_scoped_work_session():
         "no control center control",
         "no dependency",
         "m132 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M131 docs missing fragment: {fragment}")
@@ -23921,7 +23921,7 @@ def verify_m132_trusted_recurring_workflow():
         "no control center control",
         "no dependency",
         "m133 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M132 docs missing fragment: {fragment}")
@@ -24175,7 +24175,7 @@ def verify_m133_long_running_task_supervisor():
         "no control center control",
         "no dependency",
         "m134 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M133 docs missing fragment: {fragment}")
@@ -24444,7 +24444,7 @@ def verify_m134_human_checkpoint_scheduling():
         "no control center control",
         "no dependency",
         "m135 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M134 docs missing fragment: {fragment}")
@@ -24713,7 +24713,7 @@ def verify_m135_autonomous_recovery_planner():
         "no control center control",
         "no dependency",
         "m136 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M135 docs missing fragment: {fragment}")
@@ -24954,7 +24954,7 @@ def verify_m136_cross_tool_dependency_execution():
         "no control center control",
         "no dependency",
         "m137 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M136 docs missing fragment: {fragment}")
@@ -25215,7 +25215,7 @@ def verify_m137_browser_connector_combined_workflow():
         "no control center control",
         "no dependency",
         "m138 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M137 docs missing fragment: {fragment}")
@@ -25473,7 +25473,7 @@ def verify_m138_autonomous_error_handling_guardrails():
         "no control center control",
         "no dependency",
         "m139 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M138 docs missing fragment: {fragment}")
@@ -25739,7 +25739,7 @@ def verify_m139_autonomy_abuse_loop_detection():
         "no control center control",
         "no dependency",
         "m140 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M139 docs missing fragment: {fragment}")
@@ -25996,7 +25996,7 @@ def verify_m140_higher_autonomy_red_team_freeze():
         "no control center control",
         "no dependency",
         "m141 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M140 docs missing fragment: {fragment}")
@@ -26227,7 +26227,7 @@ def verify_m141_multi_user_product_boundary():
         "no beta release",
         "no production authority",
         "m142 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M141 docs missing fragment: {fragment}")
@@ -26436,7 +26436,7 @@ def verify_m142_alpha_privacy_review():
         "no beta release",
         "no production authority",
         "m143 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M142 docs missing fragment: {fragment}")
@@ -26608,7 +26608,7 @@ def verify_m143_alpha_ui_app_readiness():
         "no beta release",
         "no production authority",
         "m144 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M143 docs missing fragment: {fragment}")
@@ -26795,7 +26795,7 @@ def verify_m144_plugin_marketplace_policy_draft():
         "no beta release",
         "no production authority",
         "m145 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M144 docs missing fragment: {fragment}")
@@ -26998,7 +26998,7 @@ def verify_m145_enterprise_pro_safety_modes():
         "no beta release",
         "no production authority",
         "m146 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M145 docs missing fragment: {fragment}")
@@ -27197,7 +27197,7 @@ def verify_m146_billing_plan_boundary():
         "no beta release",
         "no production authority",
         "m147 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M146 docs missing fragment: {fragment}")
@@ -27409,7 +27409,7 @@ def verify_m147_public_docs_wiki_readiness():
         "no beta release",
         "no production authority",
         "m148 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M147 docs missing fragment: {fragment}")
@@ -27633,7 +27633,7 @@ def verify_m148_external_security_review():
         "no beta release",
         "no production authority",
         "m149 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M148 docs missing fragment: {fragment}")
@@ -27847,7 +27847,7 @@ def verify_m149_alpha_release_candidate_freeze():
         "no dependency",
         "no production authority",
         "m150 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M149 docs missing fragment: {fragment}")
@@ -28027,7 +28027,7 @@ def verify_m150_ultimate_ai_agent_alpha():
     )
     for fragment in [
         "ultimate ai agent",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
         "contract-only",
         "review-only",
         "alpha-target-only",
@@ -28094,7 +28094,7 @@ def verify_m150_ultimate_ai_agent_alpha():
     record = build_ultimate_ai_agent_alpha_record(_request())
     if (
         record.status != UltimateAiAgentAlphaStatus.alpha_target_recorded
-        or record.product_target_ref != "product-target:v1.0.0-alpha"
+        or record.product_target_ref != "product-target:v1.2.0-alpha"
         or not record.contract_only
         or not record.review_only
         or not record.alpha_target_only

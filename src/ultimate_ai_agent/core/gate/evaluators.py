@@ -2149,7 +2149,7 @@ M150_FORBIDDEN_BACKEND_ROUTES = M149_FORBIDDEN_BACKEND_ROUTES + (
     "/ultimate-ai-agent-alpha/publish",
     "/alpha/accept",
     "/alpha/release",
-    "/v1.0.0-alpha/release",
+    "/v1.2.0-alpha/release",
 )
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
@@ -5629,12 +5629,13 @@ class FoundationGateEvaluator:
                 r"(?m)^__version__\s*=\s*['\"]([^'\"]+)['\"]",
             )
             readme = self._read(self.root / "README.md")
-            expected_underscored = version.replace(".", "_")
+            expected_underscored = self._version_key(version)
+            expected_package_version = self._package_version(version)
             expected_import = f"docs/archive/releases/v{expected_underscored}/README_IMPORT.md"
             expected_master = f"docs/archive/releases/v{expected_underscored}/master_plan.md"
-            if pyproject_version != version:
+            if pyproject_version != expected_package_version:
                 failures.append("pyproject.toml version mismatch")
-            if init_version != version:
+            if init_version != expected_package_version:
                 failures.append("package __version__ mismatch")
             if f"v{version}" not in readme:
                 failures.append("README.md missing active version")
@@ -5646,7 +5647,7 @@ class FoundationGateEvaluator:
 
     def check_release_docs_present(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
         version = self._active_version()
-        version_key = (version or "0.0.0").replace(".", "_")
+        version_key = self._version_key(version or "0.0.0")
         required = [
             f"docs/archive/releases/v{version_key}/README_IMPORT.md",
             f"docs/archive/releases/v{version_key}/master_plan.md",
@@ -6119,7 +6120,8 @@ class FoundationGateEvaluator:
         paths = {route.path for route in manifest.routes}
         if "/api/manifest" not in paths:
             failures.append("/api/manifest missing from route inventory")
-        if manifest.api_version != (self._active_version() or ""):
+        active_package_version = self._package_version(self._active_version() or "")
+        if manifest.api_version != active_package_version:
             failures.append("manifest api_version does not match active baseline")
         if not manifest.no_runtime_integrations:
             failures.append("manifest does not declare no_runtime_integrations")
@@ -7280,7 +7282,7 @@ class FoundationGateEvaluator:
 
     def check_documentation_integrity_current(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
         version = self._active_version()
-        version_key = (version or "0.0.0").replace(".", "_")
+        version_key = self._version_key(version or "0.0.0")
         required = [
             "docs/DOCUMENTATION_INDEX.md",
             "docs/canonical/CANONICAL_DOC_MAP.md",
@@ -7420,8 +7422,7 @@ class FoundationGateEvaluator:
             "m14 — ux polish",
             "m14: ux polish",
         ]
-        active_version = self._active_version() or "0.0.0"
-        version_tuple = tuple(int(part) for part in active_version.split("."))
+        version_tuple = self._active_version_tuple()
         if version_tuple < (0, 19, 0):
             forbidden.extend(
                 [
@@ -9499,8 +9500,7 @@ class FoundationGateEvaluator:
         roadmap_text = self._read(self.root / "docs/canonical/09_roadmap.md").lower()
         if "v0.25.0 / m21" not in roadmap_text or "implemented" not in roadmap_text:
             failures.append("canonical roadmap must mark v0.25.0 / M21 implemented")
-        active_version = self._active_version() or "0.0.0"
-        version_tuple = tuple(int(part) for part in active_version.split("."))
+        version_tuple = self._active_version_tuple()
         if version_tuple >= (0, 26, 0):
             if "v0.26.0 / m22" not in roadmap_text or "implemented" not in roadmap_text:
                 failures.append("canonical roadmap must mark v0.26.0 / M22 implemented")
@@ -9608,8 +9608,7 @@ class FoundationGateEvaluator:
         failures.extend(m22_local_runtime_forbidden_fragment_failures(self.root))
 
         roadmap_text = self._read(self.root / "docs/canonical/09_roadmap.md").lower()
-        active_version = self._active_version() or "0.0.0"
-        version_tuple = tuple(int(part) for part in active_version.split("."))
+        version_tuple = self._active_version_tuple()
         if "v0.26.0 / m22" not in roadmap_text or "implemented" not in roadmap_text:
             failures.append("canonical roadmap must mark v0.26.0 / M22 implemented")
         if version_tuple >= (0, 27, 0):
@@ -10392,8 +10391,7 @@ class FoundationGateEvaluator:
                 failures.append("M26 docs do not mark v0.30.0 implemented/released")
         else:
             failures.append("M26 docs do not mention v0.30.0 Grounded Recall Router + Evidence-Linked Context Pack Builder")
-        active_version = self._active_version() or "0.0.0"
-        version_tuple = tuple(int(part) for part in active_version.split("."))
+        version_tuple = self._active_version_tuple()
         if version_tuple >= (0, 32, 0):
             if "v0.32.0" in text and "approval authority v2 + action policy expansion" in text:
                 if "implemented/released" not in text:
@@ -10632,8 +10630,7 @@ class FoundationGateEvaluator:
                 failures.append("M27 docs do not mark v0.31.0 implemented/released")
         else:
             failures.append("M27 docs do not mention v0.31.0 Tool Broker v2 + Safe Tool Intent Contracts")
-        active_version = self._active_version() or "0.0.0"
-        version_tuple = tuple(int(part) for part in active_version.split("."))
+        version_tuple = self._active_version_tuple()
         if version_tuple >= (0, 32, 0):
             if "approval authority v2 + action policy expansion" not in text:
                 failures.append("M27 docs do not describe the M28 Approval Authority v2 handoff")
@@ -11071,8 +11068,7 @@ class FoundationGateEvaluator:
                 failures.append("M28 docs do not mark v0.32.0 implemented/released")
         else:
             failures.append("M28 docs do not mention v0.32.0 Approval Authority v2 + Action Policy Expansion")
-        active_version = self._active_version() or "0.0.0"
-        version_tuple = tuple(int(part) for part in active_version.split("."))
+        version_tuple = self._active_version_tuple()
         if version_tuple >= (0, 35, 0):
             if "m29 agent task planning engine" not in text:
                 failures.append("M28 docs do not describe the M29 Agent Task Planning Engine handoff")
@@ -11433,8 +11429,7 @@ class FoundationGateEvaluator:
                 failures.append("M29 docs do not mark v0.33.0 implemented/released")
         else:
             failures.append("M29 docs do not mention v0.33.0 Agent Task Planning Engine")
-        active_version = self._active_version() or "0.0.0"
-        version_tuple = tuple(int(part) for part in active_version.split("."))
+        version_tuple = self._active_version_tuple()
         if version_tuple >= (0, 35, 0):
             if "m30" not in text or "multi-step execution framework" not in text or "implemented/released" not in text:
                 failures.append("M29 boundary docs must acknowledge implemented v0.34.0 / M30")
@@ -11788,8 +11783,7 @@ class FoundationGateEvaluator:
                 failures.append("M30 docs do not mark v0.34.0 implemented/released")
         else:
             failures.append("M30 docs do not mention v0.34.0 Multi-Step Execution Framework")
-        active_version = self._active_version() or "0.0.0"
-        version_tuple = tuple(int(part) for part in active_version.split("."))
+        version_tuple = self._active_version_tuple()
         if version_tuple >= (0, 35, 0):
             if "m31" not in text or "real tool runtime adapter" not in text or "implemented/released" not in text:
                 failures.append("M30 docs do not acknowledge implemented v0.35.0 / M31")
@@ -12041,8 +12035,7 @@ class FoundationGateEvaluator:
             failures.append("M31 docs do not mark v0.35.0 Real Tool Runtime Adapter implemented/released")
         if "v0.35.1" not in text or "hardens m31" not in text:
             failures.append("M31 docs do not mark v0.35.1 no-op tool runtime hardening")
-        active_version = self._active_version() or "0.0.0"
-        version_tuple = tuple(int(part) for part in active_version.split("."))
+        version_tuple = self._active_version_tuple()
         if version_tuple >= (0, 36, 0):
             if "m32 is implemented/released" not in text and "m32 safe local filesystem metadata tool" not in text:
                 failures.append("M31/M32 docs do not acknowledge implemented M32")
@@ -12382,8 +12375,7 @@ class FoundationGateEvaluator:
         ]
         failures = [f"missing M32 roadmap doc: {path}" for path in required_docs if not (self.root / path).exists()]
         text = "\n".join(self._read(self.root / path).lower() for path in required_docs if (self.root / path).exists())
-        active_version = self._active_version() or "0.0.0"
-        version_tuple = tuple(int(part) for part in active_version.split("."))
+        version_tuple = self._active_version_tuple()
         if version_tuple >= (0, 36, 1):
             if "v0.36.1" not in text or "filesystem metadata path safety" not in text:
                 failures.append("M32 docs do not mark v0.36.1 filesystem metadata path safety hardening")
@@ -12783,8 +12775,7 @@ class FoundationGateEvaluator:
             failures.append("M33 docs do not mark redacted file preview proposal implemented/released")
         if "implemented/released" not in text:
             failures.append("M33 docs do not mark M33 implemented/released")
-        active_version = self._active_version() or "0.0.0"
-        version_tuple = tuple(int(part) for part in active_version.split("."))
+        version_tuple = self._active_version_tuple()
         if version_tuple >= (0, 38, 0):
             if "m34" not in text or "broader file capability review" not in text or "implemented/released" not in text:
                 failures.append("M34 broader file capability review must be implemented/released at v0.38.0+")
@@ -12833,8 +12824,7 @@ class FoundationGateEvaluator:
         ]
         failures = [f"missing M34 broader file capability review file: {path}" for path in required_docs if not (self.root / path).exists()]
         text = "\n".join(self._read(self.root / path).lower() for path in required_docs if (self.root / path).exists())
-        current_version = self._active_version() or "0.0.0"
-        version_tuple = tuple(int(part) for part in current_version.split(".")[:3])
+        version_tuple = self._active_version_tuple()
         required_fragments = {
             "M34 docs must say planning/review only": "planning/review only",
             "M34 docs must say no runtime file capability": "no runtime file capability",
@@ -12923,8 +12913,7 @@ class FoundationGateEvaluator:
             failures.append("M34 roadmap docs do not mark M34 implemented/released")
         if "planning/docs/verifier" not in text and "planning, architecture review" not in text:
             failures.append("M34 roadmap docs do not constrain M34 to planning/docs/verifier work")
-        current_version = self._active_version() or "0.0.0"
-        current_tuple = tuple(int(part) for part in current_version.split(".")[:3])
+        current_tuple = self._active_version_tuple()
         if current_tuple >= (0, 45, 0):
             if "m41 is implemented/released" not in text and "v0.45.0 implements m41" not in text:
                 failures.append("M41 roadmap docs do not mark M41 implemented/released")
@@ -13064,8 +13053,7 @@ class FoundationGateEvaluator:
                 if path.startswith("docs/") and (self.root / path).exists()
             ).split()
         )
-        current_version = self._active_version() or "0.0.0"
-        version_tuple = tuple(int(part) for part in current_version.split(".")[:3])
+        version_tuple = self._active_version_tuple()
         required_fragments = {
             "M35 docs must say redacted review packets only": "redacted review packets only",
             "M35 docs must say exact approval binding": "exact approval binding",
@@ -13210,8 +13198,7 @@ class FoundationGateEvaluator:
         return self._result(criterion, failures, [])
 
     def check_m35_m36_m37_m38_remain_future(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
-        active_version = self._active_version() or "0.0.0"
-        version_tuple = tuple(int(part) for part in active_version.split("."))
+        version_tuple = self._active_version_tuple()
         required_docs = [
             "README.md",
             "docs/canonical/09_roadmap.md",
@@ -13400,8 +13387,7 @@ class FoundationGateEvaluator:
         return self._result(criterion, failures, [])
 
     def check_m36_m37_m38_remain_future(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
-        active_version = self._active_version() or "0.0.0"
-        version_tuple = tuple(int(part) for part in active_version.split("."))
+        version_tuple = self._active_version_tuple()
         required_docs = [
             "README.md",
             "docs/canonical/09_roadmap.md",
@@ -13580,8 +13566,7 @@ class FoundationGateEvaluator:
             failures.append("active docs do not identify v0.41.0/M37 Review Approval Capture")
         if "m37 is implemented/released" not in text and "m37 implemented/released" not in text:
             failures.append("active docs do not mark M37 implemented/released")
-        active_version = self._active_version() or "0.0.0"
-        version_tuple = tuple(int(part) for part in active_version.split(".")[:3])
+        version_tuple = self._active_version_tuple()
         if version_tuple >= (0, 45, 0):
             if "m41 is implemented/released" not in text and "v0.45.0 implements m41" not in text:
                 failures.append("active docs do not mark M41 implemented/released")
@@ -13813,7 +13798,7 @@ class FoundationGateEvaluator:
         ]
         failures = [f"missing M38 Control Center boundary file: {path}" for path in required_files if not (self.root / path).exists()]
         text = "\n".join(self._read(self.root / path).lower() for path in required_files if (self.root / path).exists())
-        current = tuple(int(part) for part in (self._active_version() or "0.0.0").split(".")[:3])
+        current = self._active_version_tuple()
         forbidden_fragments = [
             "/context/proposals",
             "/context/propose",
@@ -13857,7 +13842,7 @@ class FoundationGateEvaluator:
             failures.append("active docs do not identify v0.42.0/M38 Safe Context Proposal")
         if "m38 is implemented/released" not in text and "m38 implemented/released" not in text:
             failures.append("active docs do not mark M38 implemented/released")
-        current = tuple(int(part) for part in (self._active_version() or "0.0.0").split(".")[:3])
+        current = self._active_version_tuple()
         if current >= (0, 45, 0):
             if "m41 is implemented/released" not in text and "v0.45.0 implements m41" not in text:
                 failures.append("active docs do not mark M41 implemented/released after v0.45.0")
@@ -14255,7 +14240,7 @@ class FoundationGateEvaluator:
             failures.append("active docs do not identify v0.44.0/M40 Context Handoff Approval, No Injection")
         if "m40 is implemented/released" not in text and "v0.44.0 implements m40" not in text:
             failures.append("active docs do not mark M40 implemented/released")
-        active_version = tuple(int(part) for part in (self._active_version() or "0.0.0").split(".")[:3])
+        active_version = self._active_version_tuple()
         if active_version >= (0, 45, 0):
             if "m41 is implemented/released" not in text and "v0.45.0 implements m41" not in text:
                 failures.append("active docs do not mark M41 implemented/released")
@@ -14401,7 +14386,7 @@ class FoundationGateEvaluator:
             failures.append("active docs do not identify v0.45.0/M41 Local Prototype Safety Freeze")
         if "m41 is implemented/released" not in text and "v0.45.0 implements m41" not in text:
             failures.append("active docs do not mark M41 implemented/released")
-        current_tuple = tuple(int(part) for part in (self._active_version() or "0.0.0").split(".")[:3])
+        current_tuple = self._active_version_tuple()
         if current_tuple >= (0, 52, 0):
             self._append_post_m48_mobile_status_failures(text, failures)
         elif current_tuple >= (0, 51, 0):
@@ -14567,7 +14552,7 @@ class FoundationGateEvaluator:
             failures.append("active docs do not identify v0.46.0/M42 Mobile Companion Product Contract Refresh")
         if "m42 is implemented/released" not in text and "v0.46.0 implements m42" not in text:
             failures.append("active docs do not mark M42 implemented/released")
-        current_tuple = tuple(int(part) for part in (self._active_version() or "0.0.0").split(".")[:3])
+        current_tuple = self._active_version_tuple()
         if current_tuple >= (0, 52, 0):
             self._append_post_m48_mobile_status_failures(text, failures)
         elif current_tuple >= (0, 51, 0):
@@ -14743,7 +14728,7 @@ class FoundationGateEvaluator:
             failures.append("active docs do not identify v0.47.0/M43 Mobile API Boundary, Read-Only")
         if "m43 is implemented/released" not in text and "v0.47.0 implements m43" not in text:
             failures.append("active docs do not mark M43 implemented/released")
-        current_tuple = tuple(int(part) for part in (self._active_version() or "0.0.0").split(".")[:3])
+        current_tuple = self._active_version_tuple()
         if current_tuple >= (0, 52, 0):
             self._append_post_m48_mobile_status_failures(text, failures)
         elif current_tuple >= (0, 51, 0):
@@ -14941,7 +14926,7 @@ class FoundationGateEvaluator:
             failures.append("active docs do not identify v0.48.0/M44 CCC iOS Skeleton, No Authority")
         if "m44 is implemented/released" not in text and "v0.48.0 implements m44" not in text:
             failures.append("active docs do not mark M44 implemented/released")
-        current_tuple = tuple(int(part) for part in (self._active_version() or "0.0.0").split(".")[:3])
+        current_tuple = self._active_version_tuple()
         if current_tuple >= (0, 52, 0):
             self._append_post_m48_mobile_status_failures(text, failures)
         elif current_tuple >= (0, 51, 0):
@@ -15142,8 +15127,7 @@ class FoundationGateEvaluator:
             failures.append("active docs do not identify v0.49.0/M45 CCC iOS Local Read-Only Connection")
         if "m45 is implemented/released" not in text and "v0.49.0 implements m45" not in text:
             failures.append("active docs do not mark M45 implemented/released")
-        active_version = self._active_version() or "0.0.0"
-        current = tuple(int(part) for part in active_version.split(".")[:3])
+        current = self._active_version_tuple()
         if current >= (0, 52, 0):
             self._append_post_m48_mobile_status_failures(text, failures)
         elif current >= (0, 51, 0):
@@ -15316,7 +15300,7 @@ class FoundationGateEvaluator:
             failures.append("active docs do not identify v0.50.0/M46 iOS Review/Receipt Read-Only Surfaces")
         if "m46 is implemented/released" not in text and "v0.50.0 implements m46" not in text:
             failures.append("active docs do not mark M46 implemented/released")
-        current_tuple = tuple(int(part) for part in (self._active_version() or "0.0.0").split(".")[:3])
+        current_tuple = self._active_version_tuple()
         if current_tuple >= (0, 52, 0):
             self._append_post_m48_mobile_status_failures(text, failures)
         elif current_tuple >= (0, 51, 0):
@@ -15507,7 +15491,7 @@ class FoundationGateEvaluator:
             failures.append("active docs do not identify v0.51.0/M47 TestFlight Pipeline, Internal Only")
         if "m47 is implemented/released" not in text and "v0.51.0 implements m47" not in text:
             failures.append("active docs do not mark M47 implemented/released")
-        current_tuple = tuple(int(part) for part in (self._active_version() or "0.0.0").split(".")[:3])
+        current_tuple = self._active_version_tuple()
         if current_tuple >= (0, 52, 0):
             self._append_post_m48_mobile_status_failures(text, failures)
         elif "m48-m60 remain planned/provisional" not in text:
@@ -19948,11 +19932,7 @@ class FoundationGateEvaluator:
         ):
             if fragment in text:
                 failures.append(f"M64 docs imply forbidden/future capability: {fragment}")
-        version = self._active_version() or "0.0.0"
-        try:
-            version_tuple = tuple(int(part) for part in version.split("."))
-        except ValueError:
-            version_tuple = (0, 0, 0)
+        version_tuple = self._active_version_tuple()
         if version_tuple < (0, 69, 0):
             for fragment in (
                 "m65 is implemented",
@@ -22773,8 +22753,7 @@ class FoundationGateEvaluator:
         ]:
             if version_label.lower() not in text or milestone.lower() not in text or title.lower() not in text:
                 failures.append(f"active docs missing planned M74-M100 row: {version_label} / {milestone} — {title}")
-        active_version = self._active_version() or "0.0.0"
-        version_tuple = tuple(int(part) for part in active_version.split(".")[:3])
+        version_tuple = self._active_version_tuple()
         forbidden_fragments = [
             "m74 is implemented",
             "browser observe-only adapter is implemented",
@@ -23060,8 +23039,7 @@ class FoundationGateEvaluator:
         ]:
             if version_label.lower() not in text or milestone.lower() not in text or title.lower() not in text:
                 failures.append(f"active docs missing planned M75-M100 row: {version_label} / {milestone} — {title}")
-        active_version = self._active_version() or "0.0.0"
-        version_tuple = tuple(int(part) for part in active_version.split(".")[:3])
+        version_tuple = self._active_version_tuple()
         forbidden_fragments = [
             "m75 is implemented",
             "browser action dry-run planner is implemented",
@@ -24172,8 +24150,7 @@ class FoundationGateEvaluator:
             "production authority is implemented",
             "broad autonomy is implemented",
         ]
-        active_version = self._active_version() or "0.0.0"
-        version_tuple = tuple(int(part) for part in active_version.split("."))
+        version_tuple = self._active_version_tuple()
         if version_tuple < (0, 83, 0):
             forbidden_fragments.append("m79 is implemented")
         for fragment in forbidden_fragments:
@@ -31226,7 +31203,7 @@ class FoundationGateEvaluator:
                     ("m149", "alpha release candidate freeze"),
                 ]
             ],
-            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
         ]
         active_version_text = self._read(self.root / "VERSION.md").lower()
         implemented_milestones = set()
@@ -31513,7 +31490,7 @@ class FoundationGateEvaluator:
             implemented_milestones.add("m150")
         if "m150" in implemented_milestones:
             implemented_m150_row = (
-                "| v1.0.0-alpha | alpha | m150 | ultimate ai agent v1.0.0-alpha | "
+                "| v1.2.0-alpha | alpha | m150 | ultimate ai agent v1.2.0-alpha | "
                 "implemented/released |"
             )
             if implemented_m150_row not in text:
@@ -31542,7 +31519,7 @@ class FoundationGateEvaluator:
             future_semver_row = f"| v1.7.{minor} |"
             if future_semver_row in text:
                 failures.append(f"future milestone SemVer row remains active: {future_semver_row}")
-        for fragment in ("v1.0.0-alpha", "beta begins", "do not rewrite"):
+        for fragment in ("v1.2.0-alpha", "beta begins", "do not rewrite"):
             if fragment not in text:
                 failures.append(f"post-M100 roadmap missing alpha versioning policy fragment: {fragment}")
         for fragment in (
@@ -31756,7 +31733,7 @@ class FoundationGateEvaluator:
         m102_implemented = "v1.6.0" in text and "m102" in text
         m103_implemented = "v1.7.0" in text and "m103" in text
         planned_rows = [
-            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
         ]
         if not m103_implemented:
             planned_rows.insert(
@@ -31990,7 +31967,7 @@ class FoundationGateEvaluator:
         m103_implemented = "v1.7.0" in text and "m103" in text
         m104_implemented = "checkpoint m104" in text and "notification planning, no push execution" in text
         planned_rows = [
-            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
         ]
         if not m104_implemented:
             planned_rows.insert(
@@ -32267,7 +32244,7 @@ class FoundationGateEvaluator:
             "background task contract, no execution | implemented/released |"
         )
         planned_rows = [
-            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
         ]
         if implemented_m105_row not in text:
             planned_rows.insert(
@@ -32521,7 +32498,7 @@ class FoundationGateEvaluator:
             "mobile approval renewal ux | implemented/released |"
         )
         planned_rows = [
-            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
         ]
         if implemented_m105_row not in text:
             planned_rows.insert(
@@ -32795,7 +32772,7 @@ class FoundationGateEvaluator:
             "mobile approval renewal ux | implemented/released |"
         )
         planned_rows = [
-            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
         ]
         if implemented_m106_row not in text:
             planned_rows.insert(
@@ -33071,7 +33048,7 @@ class FoundationGateEvaluator:
         if implemented_m107_row not in text:
             failures.append("active docs missing implemented Checkpoint M107 row")
         planned_rows = [
-            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
         ]
         if implemented_m108_row not in text:
             planned_rows.insert(
@@ -33369,7 +33346,7 @@ class FoundationGateEvaluator:
         )
         planned_rows = [
             ("checkpoint m110", "pre-alpha checkpoint", "m110", "mobile sensor hardening freeze"),
-            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
         ]
         if implemented_m108_row not in text:
             planned_rows.insert(
@@ -33404,27 +33381,27 @@ class FoundationGateEvaluator:
         if implemented_m117_row in text:
             planned_rows = [
                 ("checkpoint m118", "pre-alpha checkpoint", "m118", "deployment mode matrix"),
-                ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+                ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
             ]
         elif implemented_m116_row in text:
             planned_rows = [
                 ("checkpoint m117", "pre-alpha checkpoint", "m117", "remote agent coordination contract"),
-                ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+                ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
             ]
         elif implemented_m115_row in text:
             planned_rows = [
                 ("checkpoint m116", "pre-alpha checkpoint", "m116", "role-based authority model"),
-                ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+                ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
             ]
         elif implemented_m114_row in text:
             planned_rows = [
                 ("checkpoint m115", "pre-alpha checkpoint", "m115", "production audit retention policy"),
-                ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+                ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
             ]
         elif implemented_m113_row in text:
             planned_rows = [
                 ("checkpoint m114", "pre-alpha checkpoint", "m114", "account connector contract review"),
-                ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+                ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
             ]
         elif implemented_m112_row in text:
             planned_rows = [
@@ -33434,17 +33411,17 @@ class FoundationGateEvaluator:
                     "m113",
                     "secrets boundary + credential vault contract",
                 ),
-                ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+                ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
             ]
         elif implemented_m111_row in text:
             planned_rows = [
                 ("checkpoint m112", "pre-alpha checkpoint", "m112", "user/workspace identity model"),
-                ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+                ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
             ]
         elif implemented_m110_row in text:
             planned_rows = [
                 ("checkpoint m111", "pre-alpha checkpoint", "m111", "production threat model"),
-                ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+                ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
             ]
         for version_label, product_target, milestone, title in planned_rows:
             row = (
@@ -33756,7 +33733,7 @@ class FoundationGateEvaluator:
         )
         planned_rows = [
             ("checkpoint m110", "pre-alpha checkpoint", "m110", "mobile sensor hardening freeze"),
-            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
         ]
         if implemented_m109_row not in text:
             planned_rows.insert(
@@ -33786,27 +33763,27 @@ class FoundationGateEvaluator:
         if implemented_m117_row in text:
             planned_rows = [
                 ("checkpoint m118", "pre-alpha checkpoint", "m118", "deployment mode matrix"),
-                ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+                ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
             ]
         elif implemented_m116_row in text:
             planned_rows = [
                 ("checkpoint m117", "pre-alpha checkpoint", "m117", "remote agent coordination contract"),
-                ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+                ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
             ]
         elif implemented_m115_row in text:
             planned_rows = [
                 ("checkpoint m116", "pre-alpha checkpoint", "m116", "role-based authority model"),
-                ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+                ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
             ]
         elif implemented_m114_row in text:
             planned_rows = [
                 ("checkpoint m115", "pre-alpha checkpoint", "m115", "production audit retention policy"),
-                ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+                ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
             ]
         elif implemented_m113_row in text:
             planned_rows = [
                 ("checkpoint m114", "pre-alpha checkpoint", "m114", "account connector contract review"),
-                ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+                ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
             ]
         elif implemented_m112_row in text:
             planned_rows = [
@@ -33816,17 +33793,17 @@ class FoundationGateEvaluator:
                     "m113",
                     "secrets boundary + credential vault contract",
                 ),
-                ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+                ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
             ]
         elif implemented_m111_row in text:
             planned_rows = [
                 ("checkpoint m112", "pre-alpha checkpoint", "m112", "user/workspace identity model"),
-                ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+                ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
             ]
         elif implemented_m110_row in text:
             planned_rows = [
                 ("checkpoint m111", "pre-alpha checkpoint", "m111", "production threat model"),
-                ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+                ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
             ]
         for version_label, product_target, milestone, title in planned_rows:
             row = (
@@ -34123,7 +34100,7 @@ class FoundationGateEvaluator:
         )
         planned_rows = [
             ("checkpoint m110", "pre-alpha checkpoint", "m110", "mobile sensor hardening freeze"),
-            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
         ]
         implemented_m113_row = (
             "| checkpoint m113 | pre-alpha checkpoint | m113 | "
@@ -34148,27 +34125,27 @@ class FoundationGateEvaluator:
         if implemented_m117_row in text:
             planned_rows = [
                 ("checkpoint m118", "pre-alpha checkpoint", "m118", "deployment mode matrix"),
-                ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+                ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
             ]
         elif implemented_m116_row in text:
             planned_rows = [
                 ("checkpoint m117", "pre-alpha checkpoint", "m117", "remote agent coordination contract"),
-                ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+                ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
             ]
         elif implemented_m115_row in text:
             planned_rows = [
                 ("checkpoint m116", "pre-alpha checkpoint", "m116", "role-based authority model"),
-                ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+                ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
             ]
         elif implemented_m114_row in text:
             planned_rows = [
                 ("checkpoint m115", "pre-alpha checkpoint", "m115", "production audit retention policy"),
-                ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+                ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
             ]
         elif implemented_m113_row in text:
             planned_rows = [
                 ("checkpoint m114", "pre-alpha checkpoint", "m114", "account connector contract review"),
-                ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+                ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
             ]
         elif implemented_m112_row in text:
             planned_rows = [
@@ -34178,17 +34155,17 @@ class FoundationGateEvaluator:
                     "m113",
                     "secrets boundary + credential vault contract",
                 ),
-                ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+                ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
             ]
         elif implemented_m111_row in text:
             planned_rows = [
                 ("checkpoint m112", "pre-alpha checkpoint", "m112", "user/workspace identity model"),
-                ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+                ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
             ]
         elif implemented_m110_row in text:
             planned_rows = [
                 ("checkpoint m111", "pre-alpha checkpoint", "m111", "production threat model"),
-                ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+                ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
             ]
         for version_label, product_target, milestone, title in planned_rows:
             row = (
@@ -34383,7 +34360,7 @@ class FoundationGateEvaluator:
             "no execution",
             "no production authority",
             "m111 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M110 docs missing safety fragment: {fragment}")
@@ -34517,7 +34494,7 @@ class FoundationGateEvaluator:
                 "production threat model",
                 "implemented/released" if implemented_m111_row in text else "planned/provisional",
             ),
-            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha", "planned/provisional"),
+            ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha", "planned/provisional"),
         ]
         for version_label, product_target, milestone, title, status in expected_rows:
             row = (
@@ -34708,7 +34685,7 @@ class FoundationGateEvaluator:
             "no control center control",
             "no dependency",
             "m112 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M111 docs missing safety fragment: {fragment}")
@@ -34824,10 +34801,10 @@ class FoundationGateEvaluator:
                 "implemented/released",
             ),
             (
-                "v1.0.0-alpha",
+                "v1.2.0-alpha",
                 "alpha",
                 "m150",
-                "ultimate ai agent v1.0.0-alpha",
+                "ultimate ai agent v1.2.0-alpha",
                 "planned/provisional",
             ),
         ]:
@@ -35025,7 +35002,7 @@ class FoundationGateEvaluator:
             "no control center control",
             "no dependency",
             "m113 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M112 docs missing safety fragment: {fragment}")
@@ -35149,7 +35126,7 @@ class FoundationGateEvaluator:
             "production audit retention policy | implemented/released |"
         )
         planned_rows = [
-            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
         ]
         implemented_m116_row = (
             "| checkpoint m116 | pre-alpha checkpoint | m116 | "
@@ -35443,7 +35420,7 @@ class FoundationGateEvaluator:
             "no control center control",
             "no dependency",
             "m114 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M113 docs missing safety fragment: {fragment}")
@@ -35585,7 +35562,7 @@ class FoundationGateEvaluator:
             or "m114 is implemented/released" in text
         )
         planned_rows = [
-            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
         ]
         if not m114_is_current:
             planned_rows.append(
@@ -35858,7 +35835,7 @@ class FoundationGateEvaluator:
             "no control center control",
             "no dependency",
             "m115 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M114 docs missing safety fragment: {fragment}")
@@ -36007,7 +35984,7 @@ class FoundationGateEvaluator:
         if m115_row_fragment not in text:
             failures.append("active docs missing Checkpoint M115 row")
         m150_row = (
-            "| v1.0.0-alpha | alpha | m150 | ultimate ai agent v1.0.0-alpha | "
+            "| v1.2.0-alpha | alpha | m150 | ultimate ai agent v1.2.0-alpha | "
             "planned/provisional |"
         )
         if not _roadmap_row_present(text, m150_row):
@@ -36238,7 +36215,7 @@ class FoundationGateEvaluator:
             "no control center control",
             "no dependency",
             "m116 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M115 docs missing safety fragment: {fragment}")
@@ -36397,10 +36374,10 @@ class FoundationGateEvaluator:
                 "planned/provisional",
             ),
             (
-                "v1.0.0-alpha",
+                "v1.2.0-alpha",
                 "alpha",
                 "m150",
-                "ultimate ai agent v1.0.0-alpha",
+                "ultimate ai agent v1.2.0-alpha",
                 "planned/provisional",
             ),
         ]:
@@ -36649,7 +36626,7 @@ class FoundationGateEvaluator:
             "no control center control",
             "no dependency",
             "m117 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M116 docs missing safety fragment: {fragment}")
@@ -36804,10 +36781,10 @@ class FoundationGateEvaluator:
                 "planned/provisional",
             ),
             (
-                "v1.0.0-alpha",
+                "v1.2.0-alpha",
                 "alpha",
                 "m150",
-                "ultimate ai agent v1.0.0-alpha",
+                "ultimate ai agent v1.2.0-alpha",
                 "planned/provisional",
             ),
         ]:
@@ -37067,7 +37044,7 @@ class FoundationGateEvaluator:
             "no control center control",
             "no dependency",
             "m118 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M117 docs missing safety fragment: {fragment}")
@@ -37206,7 +37183,7 @@ class FoundationGateEvaluator:
                 "m118",
                 "deployment mode matrix",
             ),
-            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
         ]:
             row = (
                 f"| {version_label} | {product_target} | {milestone} | "
@@ -37451,7 +37428,7 @@ class FoundationGateEvaluator:
             "no control center control",
             "no dependency",
             "m119 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M118 docs missing safety fragment: {fragment}")
@@ -37584,7 +37561,7 @@ class FoundationGateEvaluator:
                 "m119",
                 "production red-team harness",
             ),
-            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
         ]:
             planned_row = (
                 f"| {version_label} | {product_target} | {milestone} | "
@@ -37829,7 +37806,7 @@ class FoundationGateEvaluator:
             "no control center control",
             "no dependency",
             "m120 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M119 docs missing safety fragment: {fragment}")
@@ -37961,7 +37938,7 @@ class FoundationGateEvaluator:
                 "m120",
                 "production authority readiness review",
             ),
-            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
         ]:
             row = (
                 f"| {version_label} | {product_target} | {milestone} | "
@@ -38195,7 +38172,7 @@ class FoundationGateEvaluator:
             "no control center control",
             "no dependency",
             "m121 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M120 docs missing safety fragment: {fragment}")
@@ -38322,7 +38299,7 @@ class FoundationGateEvaluator:
         ):
             failures.append("active docs do not mark M120 implemented/released")
         for version_label, product_target, milestone, title in [
-            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
         ]:
             row = (
                 f"| {version_label} | {product_target} | {milestone} | "
@@ -38554,7 +38531,7 @@ class FoundationGateEvaluator:
             "no control center control",
             "no dependency",
             "m122 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M121 docs missing safety fragment: {fragment}")
@@ -38697,10 +38674,10 @@ class FoundationGateEvaluator:
                 "planned/provisional",
             ),
             (
-                "v1.0.0-alpha",
+                "v1.2.0-alpha",
                 "alpha",
                 "m150",
-                "ultimate ai agent v1.0.0-alpha",
+                "ultimate ai agent v1.2.0-alpha",
                 "planned/provisional",
             ),
         ]:
@@ -38962,7 +38939,7 @@ class FoundationGateEvaluator:
             "no control center control",
             "no dependency",
             "m123 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M122 docs missing safety fragment: {fragment}")
@@ -39107,10 +39084,10 @@ class FoundationGateEvaluator:
                 "implemented/released",
             ),
             (
-                "v1.0.0-alpha",
+                "v1.2.0-alpha",
                 "alpha",
                 "m150",
-                "ultimate ai agent v1.0.0-alpha",
+                "ultimate ai agent v1.2.0-alpha",
                 "planned/provisional",
             ),
         ]:
@@ -39366,7 +39343,7 @@ class FoundationGateEvaluator:
             "no control center control",
             "no dependency",
             "m124 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M123 docs missing safety fragment: {fragment}")
@@ -39513,10 +39490,10 @@ class FoundationGateEvaluator:
                 "planned/provisional",
             ),
             (
-                "v1.0.0-alpha",
+                "v1.2.0-alpha",
                 "alpha",
                 "m150",
-                "ultimate ai agent v1.0.0-alpha",
+                "ultimate ai agent v1.2.0-alpha",
                 "planned/provisional",
             ),
         ]:
@@ -39798,7 +39775,7 @@ class FoundationGateEvaluator:
             "no control center control",
             "no dependency",
             "m125 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M124 docs missing safety fragment: {fragment}")
@@ -39951,10 +39928,10 @@ class FoundationGateEvaluator:
                 "planned/provisional",
             ),
             (
-                "v1.0.0-alpha",
+                "v1.2.0-alpha",
                 "alpha",
                 "m150",
-                "ultimate ai agent v1.0.0-alpha",
+                "ultimate ai agent v1.2.0-alpha",
                 "planned/provisional",
             ),
         ]:
@@ -40202,7 +40179,7 @@ class FoundationGateEvaluator:
             "no control center control",
             "no dependency",
             "m126 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M125 docs missing safety fragment: {fragment}")
@@ -40373,10 +40350,10 @@ class FoundationGateEvaluator:
                 "planned/provisional",
             ),
             (
-                "v1.0.0-alpha",
+                "v1.2.0-alpha",
                 "alpha",
                 "m150",
-                "ultimate ai agent v1.0.0-alpha",
+                "ultimate ai agent v1.2.0-alpha",
                 "planned/provisional",
             ),
         ]:
@@ -40652,7 +40629,7 @@ class FoundationGateEvaluator:
             "no control center control",
             "no dependency",
             "m127 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M126 docs missing safety fragment: {fragment}")
@@ -40816,10 +40793,10 @@ class FoundationGateEvaluator:
                 "planned/provisional",
             ),
             (
-                "v1.0.0-alpha",
+                "v1.2.0-alpha",
                 "alpha",
                 "m150",
-                "ultimate ai agent v1.0.0-alpha",
+                "ultimate ai agent v1.2.0-alpha",
                 "planned/provisional",
             ),
         ]:
@@ -41199,7 +41176,7 @@ class FoundationGateEvaluator:
             "no control center control",
             "no dependency",
             "m128 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M127 docs missing safety fragment: {fragment}")
@@ -41359,10 +41336,10 @@ class FoundationGateEvaluator:
                 "planned/provisional",
             ),
             (
-                "v1.0.0-alpha",
+                "v1.2.0-alpha",
                 "alpha",
                 "m150",
-                "ultimate ai agent v1.0.0-alpha",
+                "ultimate ai agent v1.2.0-alpha",
                 "planned/provisional",
             ),
         ]:
@@ -41587,7 +41564,7 @@ class FoundationGateEvaluator:
             "no dependency",
             "no production authority",
             "m129 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M128 docs missing safety fragment: {fragment}")
@@ -41775,10 +41752,10 @@ class FoundationGateEvaluator:
                 "planned/provisional",
             ),
             (
-                "v1.0.0-alpha",
+                "v1.2.0-alpha",
                 "alpha",
                 "m150",
-                "ultimate ai agent v1.0.0-alpha",
+                "ultimate ai agent v1.2.0-alpha",
                 "planned/provisional",
             ),
         ]:
@@ -42024,7 +42001,7 @@ class FoundationGateEvaluator:
             "no control center control",
             "no dependency",
             "m130 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M129 docs missing safety fragment: {fragment}")
@@ -42212,10 +42189,10 @@ class FoundationGateEvaluator:
                 "planned/provisional",
             ),
             (
-                "v1.0.0-alpha",
+                "v1.2.0-alpha",
                 "alpha",
                 "m150",
-                "ultimate ai agent v1.0.0-alpha",
+                "ultimate ai agent v1.2.0-alpha",
                 "planned/provisional",
             ),
         ]:
@@ -42433,7 +42410,7 @@ class FoundationGateEvaluator:
             "no control center control",
             "no dependency",
             "m131 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M130 docs missing safety fragment: {fragment}")
@@ -42668,10 +42645,10 @@ class FoundationGateEvaluator:
                 "planned/provisional",
             ),
             (
-                "v1.0.0-alpha",
+                "v1.2.0-alpha",
                 "alpha",
                 "m150",
-                "ultimate ai agent v1.0.0-alpha",
+                "ultimate ai agent v1.2.0-alpha",
                 "planned/provisional",
             ),
         ]:
@@ -42929,7 +42906,7 @@ class FoundationGateEvaluator:
             "no control center control",
             "no dependency",
             "m132 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M131 docs missing safety fragment: {fragment}")
@@ -43213,10 +43190,10 @@ class FoundationGateEvaluator:
                 "planned/provisional",
             ),
             (
-                "v1.0.0-alpha",
+                "v1.2.0-alpha",
                 "alpha",
                 "m150",
-                "ultimate ai agent v1.0.0-alpha",
+                "ultimate ai agent v1.2.0-alpha",
                 "planned/provisional",
             ),
         ]:
@@ -43488,7 +43465,7 @@ class FoundationGateEvaluator:
             "no control center control",
             "no dependency",
             "m133 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M132 docs missing safety fragment: {fragment}")
@@ -43778,10 +43755,10 @@ class FoundationGateEvaluator:
                 "planned/provisional",
             ),
             (
-                "v1.0.0-alpha",
+                "v1.2.0-alpha",
                 "alpha",
                 "m150",
-                "ultimate ai agent v1.0.0-alpha",
+                "ultimate ai agent v1.2.0-alpha",
                 "planned/provisional",
             ),
         ]:
@@ -44067,7 +44044,7 @@ class FoundationGateEvaluator:
             "no control center control",
             "no dependency",
             "m134 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M133 docs missing safety fragment: {fragment}")
@@ -44360,10 +44337,10 @@ class FoundationGateEvaluator:
                 "planned/provisional",
             ),
             (
-                "v1.0.0-alpha",
+                "v1.2.0-alpha",
                 "alpha",
                 "m150",
-                "ultimate ai agent v1.0.0-alpha",
+                "ultimate ai agent v1.2.0-alpha",
                 "planned/provisional",
             ),
         ]:
@@ -44655,7 +44632,7 @@ class FoundationGateEvaluator:
             "no control center control",
             "no dependency",
             "m135 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M134 docs missing safety fragment: {fragment}")
@@ -44948,10 +44925,10 @@ class FoundationGateEvaluator:
                 "planned/provisional",
             ),
             (
-                "v1.0.0-alpha",
+                "v1.2.0-alpha",
                 "alpha",
                 "m150",
-                "ultimate ai agent v1.0.0-alpha",
+                "ultimate ai agent v1.2.0-alpha",
                 "planned/provisional",
             ),
         ]:
@@ -45256,7 +45233,7 @@ class FoundationGateEvaluator:
             "no control center control",
             "no dependency",
             "m136 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M135 docs missing safety fragment: {fragment}")
@@ -45535,10 +45512,10 @@ class FoundationGateEvaluator:
                 "planned/provisional",
             ),
             (
-                "v1.0.0-alpha",
+                "v1.2.0-alpha",
                 "alpha",
                 "m150",
-                "ultimate ai agent v1.0.0-alpha",
+                "ultimate ai agent v1.2.0-alpha",
                 "planned/provisional",
             ),
         ]:
@@ -45853,7 +45830,7 @@ class FoundationGateEvaluator:
             "no control center control",
             "no dependency",
             "m137 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M136 docs missing safety fragment: {fragment}")
@@ -46139,10 +46116,10 @@ class FoundationGateEvaluator:
                 "planned/provisional",
             ),
             (
-                "v1.0.0-alpha",
+                "v1.2.0-alpha",
                 "alpha",
                 "m150",
-                "ultimate ai agent v1.0.0-alpha",
+                "ultimate ai agent v1.2.0-alpha",
                 "planned/provisional",
             ),
         ]:
@@ -46365,7 +46342,7 @@ class FoundationGateEvaluator:
             "no control center control",
             "no dependency",
             "m138 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M137 docs missing safety fragment: {fragment}")
@@ -46538,10 +46515,10 @@ class FoundationGateEvaluator:
                 "planned/provisional",
             ),
             (
-                "v1.0.0-alpha",
+                "v1.2.0-alpha",
                 "alpha",
                 "m150",
-                "ultimate ai agent v1.0.0-alpha",
+                "ultimate ai agent v1.2.0-alpha",
                 "planned/provisional",
             ),
         ]:
@@ -46807,7 +46784,7 @@ class FoundationGateEvaluator:
             "no control center control",
             "no dependency",
             "m139 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M138 docs missing safety fragment: {fragment}")
@@ -46985,10 +46962,10 @@ class FoundationGateEvaluator:
                 "planned/provisional",
             ),
             (
-                "v1.0.0-alpha",
+                "v1.2.0-alpha",
                 "alpha",
                 "m150",
-                "ultimate ai agent v1.0.0-alpha",
+                "ultimate ai agent v1.2.0-alpha",
                 "planned/provisional",
             ),
         ]:
@@ -47261,7 +47238,7 @@ class FoundationGateEvaluator:
             "no control center control",
             "no dependency",
             "m140 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M139 docs missing safety fragment: {fragment}")
@@ -47427,10 +47404,10 @@ class FoundationGateEvaluator:
                 "planned/provisional",
             ),
             (
-                "v1.0.0-alpha",
+                "v1.2.0-alpha",
                 "alpha",
                 "m150",
-                "ultimate ai agent v1.0.0-alpha",
+                "ultimate ai agent v1.2.0-alpha",
                 "planned/provisional",
             ),
         ]:
@@ -47655,7 +47632,7 @@ class FoundationGateEvaluator:
             "no control center control",
             "no dependency",
             "m141 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M140 docs missing safety fragment: {fragment}")
@@ -47810,10 +47787,10 @@ class FoundationGateEvaluator:
                 "planned/provisional",
             ),
             (
-                "v1.0.0-alpha",
+                "v1.2.0-alpha",
                 "alpha",
                 "m150",
-                "ultimate ai agent v1.0.0-alpha",
+                "ultimate ai agent v1.2.0-alpha",
                 "planned/provisional",
             ),
         ]:
@@ -48073,7 +48050,7 @@ class FoundationGateEvaluator:
             "no beta release",
             "no production authority",
             "m142 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M141 docs missing safety fragment: {fragment}")
@@ -48241,10 +48218,10 @@ class FoundationGateEvaluator:
                 "planned/provisional",
             ),
             (
-                "v1.0.0-alpha",
+                "v1.2.0-alpha",
                 "alpha",
                 "m150",
-                "ultimate ai agent v1.0.0-alpha",
+                "ultimate ai agent v1.2.0-alpha",
                 "planned/provisional",
             ),
         ]:
@@ -48442,7 +48419,7 @@ class FoundationGateEvaluator:
             "no beta release",
             "no production authority",
             "m143 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M142 docs missing safety fragment: {fragment}")
@@ -48588,10 +48565,10 @@ class FoundationGateEvaluator:
                 "planned/provisional",
             ),
             (
-                "v1.0.0-alpha",
+                "v1.2.0-alpha",
                 "alpha",
                 "m150",
-                "ultimate ai agent v1.0.0-alpha",
+                "ultimate ai agent v1.2.0-alpha",
                 "planned/provisional",
             ),
         ]:
@@ -48788,7 +48765,7 @@ class FoundationGateEvaluator:
             "no beta release",
             "no production authority",
             "m144 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M143 docs missing safety fragment: {fragment}")
@@ -48971,10 +48948,10 @@ class FoundationGateEvaluator:
                 "implemented/released",
             ),
             (
-                "v1.0.0-alpha",
+                "v1.2.0-alpha",
                 "alpha",
                 "m150",
-                "ultimate ai agent v1.0.0-alpha",
+                "ultimate ai agent v1.2.0-alpha",
                 "planned/provisional",
             ),
         ]:
@@ -49202,7 +49179,7 @@ class FoundationGateEvaluator:
             "no beta release",
             "no production authority",
             "m145 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M144 docs missing safety fragment: {fragment}")
@@ -49393,10 +49370,10 @@ class FoundationGateEvaluator:
                 "implemented/released",
             ),
             (
-                "v1.0.0-alpha",
+                "v1.2.0-alpha",
                 "alpha",
                 "m150",
-                "ultimate ai agent v1.0.0-alpha",
+                "ultimate ai agent v1.2.0-alpha",
                 "planned/provisional",
             ),
         ]:
@@ -49599,7 +49576,7 @@ class FoundationGateEvaluator:
             "no beta release",
             "no production authority",
             "m146 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M145 docs missing safety fragment: {fragment}")
@@ -49777,10 +49754,10 @@ class FoundationGateEvaluator:
                 "implemented/released",
             ),
             (
-                "v1.0.0-alpha",
+                "v1.2.0-alpha",
                 "alpha",
                 "m150",
-                "ultimate ai agent v1.0.0-alpha",
+                "ultimate ai agent v1.2.0-alpha",
                 "planned/provisional",
             ),
         ]:
@@ -49998,7 +49975,7 @@ class FoundationGateEvaluator:
             "no beta release",
             "no production authority",
             "m147 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M146 docs missing safety fragment: {fragment}")
@@ -50176,10 +50153,10 @@ class FoundationGateEvaluator:
                 "implemented/released",
             ),
             (
-                "v1.0.0-alpha",
+                "v1.2.0-alpha",
                 "alpha",
                 "m150",
-                "ultimate ai agent v1.0.0-alpha",
+                "ultimate ai agent v1.2.0-alpha",
                 "planned/provisional",
             ),
         ]:
@@ -50399,7 +50376,7 @@ class FoundationGateEvaluator:
             "no beta release",
             "no production authority",
             "m148 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M147 docs missing safety fragment: {fragment}")
@@ -50570,10 +50547,10 @@ class FoundationGateEvaluator:
                 "implemented/released",
             ),
             (
-                "v1.0.0-alpha",
+                "v1.2.0-alpha",
                 "alpha",
                 "m150",
-                "ultimate ai agent v1.0.0-alpha",
+                "ultimate ai agent v1.2.0-alpha",
                 "planned/provisional",
             ),
         ]:
@@ -50798,7 +50775,7 @@ class FoundationGateEvaluator:
             "no beta release",
             "no production authority",
             "m149 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M148 docs missing safety fragment: {fragment}")
@@ -50972,10 +50949,10 @@ class FoundationGateEvaluator:
                 "implemented/released",
             ),
             (
-                "v1.0.0-alpha",
+                "v1.2.0-alpha",
                 "alpha",
                 "m150",
-                "ultimate ai agent v1.0.0-alpha",
+                "ultimate ai agent v1.2.0-alpha",
                 "planned/provisional",
             ),
         ]:
@@ -51214,7 +51191,7 @@ class FoundationGateEvaluator:
             "no dependency",
             "no production authority",
             "m150 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M149 docs missing safety fragment: {fragment}")
@@ -51388,10 +51365,10 @@ class FoundationGateEvaluator:
                 "implemented/released",
             ),
             (
-                "v1.0.0-alpha",
+                "v1.2.0-alpha",
                 "alpha",
                 "m150",
-                "ultimate ai agent v1.0.0-alpha",
+                "ultimate ai agent v1.2.0-alpha",
                 "planned/provisional",
             ),
         ]:
@@ -51461,7 +51438,7 @@ class FoundationGateEvaluator:
             record = build_ultimate_ai_agent_alpha_record(_request())
             if (
                 record.status != UltimateAiAgentAlphaStatus.alpha_target_recorded
-                or record.product_target_ref != "product-target:v1.0.0-alpha"
+                or record.product_target_ref != "product-target:v1.2.0-alpha"
                 or not record.contract_only
                 or not record.review_only
                 or not record.alpha_target_only
@@ -51585,7 +51562,7 @@ class FoundationGateEvaluator:
         )
         for fragment in [
             "ultimate ai agent",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
             "contract-only",
             "review-only",
             "alpha-target-only",
@@ -51687,7 +51664,7 @@ class FoundationGateEvaluator:
             "/testflight/submit",
             "/beta/release",
             "/v1-alpha/release",
-            "/v1.0.0-alpha/release",
+            "/v1.2.0-alpha/release",
             "/m150/release",
             "/release/automation",
         ]
@@ -51776,7 +51753,7 @@ class FoundationGateEvaluator:
             for path in required_docs
             if (self.root / path).exists()
         )
-        if "m150" not in text or "ultimate ai agent v1.0.0-alpha" not in text:
+        if "m150" not in text or "ultimate ai agent v1.2.0-alpha" not in text:
             failures.append("active docs do not identify M150 Ultimate AI Agent Alpha")
         if "m150 is implemented/released" not in text:
             failures.append("active docs do not mark M150 implemented/released")
@@ -51789,10 +51766,10 @@ class FoundationGateEvaluator:
                 "implemented/released",
             ),
             (
-                "v1.0.0-alpha",
+                "v1.2.0-alpha",
                 "alpha",
                 "m150",
-                "ultimate ai agent v1.0.0-alpha",
+                "ultimate ai agent v1.2.0-alpha",
                 "implemented/released",
             ),
         ]:
@@ -52142,8 +52119,7 @@ class FoundationGateEvaluator:
                 failures.append("M25 docs do not mark v0.29.0 implemented/released")
         else:
             failures.append("M25 docs do not mention v0.29.0 Truth Source Router + Evidence Claim Checker")
-        active_version = self._active_version() or "0.0.0"
-        version_tuple = tuple(int(part) for part in active_version.split("."))
+        version_tuple = self._active_version_tuple()
         if version_tuple >= (0, 32, 0):
             if "v0.32.0" in text and "approval authority v2 + action policy expansion" in text:
                 if "implemented/released" not in text:
@@ -52284,8 +52260,7 @@ class FoundationGateEvaluator:
         ]
         failures = [f"missing post-M20 roadmap doc: {path}" for path in required_docs if not (self.root / path).exists()]
         roadmap_text = "\n".join(self._read(self.root / path).lower() for path in required_docs if (self.root / path).exists())
-        active_version = self._active_version() or "0.0.0"
-        version_tuple = tuple(int(part) for part in active_version.split("."))
+        version_tuple = self._active_version_tuple()
         expectations = {
             "post-M20 docs missing M21": "m21",
             "post-M20 docs missing M40": "m40",
@@ -52419,11 +52394,23 @@ class FoundationGateEvaluator:
         )
 
     def _active_version(self) -> Optional[str]:
-        return self._regex_first(self.root / "VERSION.md", r"Current active baseline:\s*\*\*v?(\d+\.\d+\.\d+)\*\*")
+        return self._regex_first(
+            self.root / "VERSION.md",
+            r"Current active baseline:\s*\*\*v?(\d+\.\d+\.\d+(?:-[A-Za-z0-9]+(?:[.-][A-Za-z0-9]+)*)?)\*\*",
+        )
+
+    def _version_key(self, version: str) -> str:
+        return version.replace(".", "_").replace("-", "_")
+
+    def _package_version(self, version: str) -> str:
+        if version.endswith("-alpha"):
+            return f"{version[:-6]}a0"
+        return version
 
     def _active_version_tuple(self) -> tuple[int, int, int]:
         version = self._active_version() or "0.0.0"
-        return tuple(int(part) for part in version.split("."))  # type: ignore[return-value]
+        base_version = version.split("-", 1)[0]
+        return tuple(int(part) for part in base_version.split("."))  # type: ignore[return-value]
 
     def _m60_currentness_marker_present(self, text: str) -> bool:
         if self._active_version_tuple() >= (0, 64, 0):

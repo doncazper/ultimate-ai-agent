@@ -12,4 +12,4 @@ safety control refs, mitigation plan refs, audit refs, replay refs, receipt
 plans, model output, memory, context packs, task plans, or approval refs into
 runtime authority.
 
-M120 remains future. M150 remains the planned v1.0.0-alpha target.
+M120 remains future. M150 remains the planned v1.2.0-alpha target.

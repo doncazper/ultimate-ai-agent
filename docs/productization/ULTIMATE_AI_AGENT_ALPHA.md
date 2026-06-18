@@ -1,6 +1,6 @@
-# M150 Ultimate AI Agent v1.0.0-alpha
+# M150 Ultimate AI Agent v1.2.0-alpha
 
-M150 records the Ultimate AI Agent `v1.0.0-alpha` product target for governed
+M150 records the Ultimate AI Agent `v1.2.0-alpha` product target for governed
 local review. It is contract-only, review-only, alpha-target-only,
 deterministic, local-only, safe-ref-only, disabled by default, route-free, and
 no-effect.
@@ -16,4 +16,3 @@ to App Store, submit to TestFlight, release beta, start release automation, add
 a backend route, add a Control Center control, add a dependency, or grant
 production authority. Beta remains future and requires a later reviewed roadmap
 promotion.
-

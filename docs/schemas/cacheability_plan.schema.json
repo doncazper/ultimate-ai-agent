@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ultimate-ai-agent.local/schemas/cacheability_plan.schema.json",
+  "title": "CacheabilityPlan",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "plan_ref",
+    "run_id",
+    "data_classification",
+    "cache_eligible"
+  ],
+  "properties": {
+    "plan_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "model_profile_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "runtime_optimization_profile_ref": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "prompt_bundle_hash": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "tool_schema_bundle_hash": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "tool_order_hash": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "context_pack_hash": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "data_classification": {
+      "type": "string",
+      "minLength": 1
+    },
+    "consent_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "approval_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "cache_eligible": {
+      "type": "boolean"
+    },
+    "predicted_prefix_reuse_tokens": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "predicted_cache_write_tokens": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "predicted_cache_hit_tokens": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "invalidation_reason_codes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "metadata_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "metadata": {
+      "type": "object"
+    }
+  }
+}

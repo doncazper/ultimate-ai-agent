@@ -16,4 +16,4 @@ no permission enforcement, no auth runtime, no credential handling, no account
 action, no network access, no execution, no backend route, no Control Center
 control, no dependency, and no M117 work.
 
-M117 remains future. M150 remains the planned v1.0.0-alpha target.
+M117 remains future. M150 remains the planned v1.2.0-alpha target.

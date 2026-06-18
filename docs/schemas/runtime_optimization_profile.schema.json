@@ -13,6 +13,15 @@
     "supports_prefix_caching": {
       "type": "boolean"
     },
+    "supports_continuous_batching": {
+      "type": "boolean"
+    },
+    "supports_chunked_prefill": {
+      "type": "boolean"
+    },
+    "supports_disaggregated_prefill": {
+      "type": "boolean"
+    },
     "supports_cuda_graphs": {
       "type": "boolean"
     },
@@ -36,6 +45,12 @@
     },
     "warmup_required": {
       "type": "boolean"
+    },
+    "p95_time_to_first_token_ms": {
+      "type": "number"
+    },
+    "p99_time_to_first_token_ms": {
+      "type": "number"
     },
     "prefix_cache_sensitive_to": {
       "type": "array",

@@ -18,4 +18,4 @@ download, model call, memory write, context injection, backend route, Control
 Center control, dependency, broad autonomy, beta release, or production
 authority.
 
-M129 remains future. M150 remains the planned v1.0.0-alpha target.
+M129 remains future. M150 remains the planned v1.2.0-alpha target.

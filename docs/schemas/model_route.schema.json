@@ -110,6 +110,9 @@
         "type": "string"
       }
     },
+    "fallback_plan_ref": {
+      "type": "string"
+    },
     "fallback_used": {
       "type": "boolean"
     },
@@ -117,6 +120,15 @@
       "type": "boolean"
     },
     "verification_route_id": {
+      "type": "string"
+    },
+    "cache_plan_ref": {
+      "type": "string"
+    },
+    "trace_id": {
+      "type": "string"
+    },
+    "correlation_id": {
       "type": "string"
     },
     "event_ids": {

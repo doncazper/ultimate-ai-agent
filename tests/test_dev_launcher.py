@@ -49,14 +49,16 @@ def test_launcher_builds_localhost_only_command_lists():
     assert "--port" in backend
     assert backend[backend.index("--port") + 1] == "8000"
 
-    assert frontend[:2] == ["npm", "run"]
+    assert Path(frontend[0]).name == "npm"
+    assert frontend[1] == "run"
     assert "dev" in frontend
     assert "--host" in frontend
     assert frontend[frontend.index("--host") + 1] == "127.0.0.1"
     assert "--port" in frontend
     assert frontend[frontend.index("--port") + 1] == "5173"
 
-    assert openwebui[:2] == ["docker", "run"]
+    assert Path(openwebui[0]).name == "docker"
+    assert openwebui[1] == "run"
     assert "-p" in openwebui
     assert openwebui[openwebui.index("-p") + 1] == "127.0.0.1:3000:8080"
     assert "ghcr.io/open-webui/open-webui:main" in openwebui

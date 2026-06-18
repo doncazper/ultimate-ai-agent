@@ -17,4 +17,4 @@ automation, no plugin execution, no mobile sensor, no backend route, no Control
 Center control, no dependency, no M119 work, no beta release, and no production
 authority.
 
-M119 remains future. M150 remains planned as v1.0.0-alpha.
+M119 remains future. M150 remains planned as v1.2.0-alpha.

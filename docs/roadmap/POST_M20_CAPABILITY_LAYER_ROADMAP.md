@@ -1,6 +1,6 @@
 # Post-M20 Capability Layer Roadmap
 
-Status: Active roadmap projection maintained through v1.7.3.
+Status: Active roadmap projection maintained through v1.2.0-alpha.
 
 v0.38.0 implements M34 Broader File Capability Review as planning,
 architecture review, documentation, verifier, and Foundation Gate work only.
@@ -128,7 +128,7 @@ Recommended next prompt after Checkpoint M112:
 
 ```text
 Continue with M114 implementation conveyor using checkpoint milestones for
-M114-M150, with M150 reserved as the v1.0.0-alpha product target.
+M114-M150, with M150 reserved as the v1.2.0-alpha product target.
 ```
 
 M61 is implemented/released by v0.65.0 as Autonomy Mode Charter + Authority
@@ -221,7 +221,7 @@ Draft. Checkpoint M146 is implemented/released as Billing/Plan Boundary.
 Checkpoint M147 is implemented/released as Public Docs + Wiki Readiness.
 M149 is implemented/released as Alpha Release Candidate Freeze while the product
 baseline stayed v1.7.2 for that checkpoint. M150 is implemented/released as Ultimate AI Agent
-v1.0.0-alpha target acceptance, with beta remaining future.
+v1.2.0-alpha target acceptance, with beta remaining future.
 Beta begins after the alpha UI and supporting safety/product work are reviewed
 and promoted.
 

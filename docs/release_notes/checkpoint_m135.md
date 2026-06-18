@@ -4,7 +4,7 @@ Checkpoint M135 implements Autonomous Recovery Planner.
 
 It adds deterministic local recovery planning contracts, validation, no-effect
 receipt planning, docs, tests, and Foundation Gate coverage. The current product
-baseline remains v1.7.2 and M150 remains the planned v1.0.0-alpha product
+baseline remains v1.7.2 and M150 remains the planned v1.2.0-alpha product
 target.
 
 M135 is contract-only, review-only, autonomous-recovery-planner-only,

@@ -14,4 +14,4 @@ rollout stage refs, rollback boundary refs, audit refs, replay refs, receipt
 plans, model output, memory, context packs, task plans, or approval refs into
 runtime authority.
 
-M119 remains future. M150 remains the planned v1.0.0-alpha target.
+M119 remains future. M150 remains the planned v1.2.0-alpha target.

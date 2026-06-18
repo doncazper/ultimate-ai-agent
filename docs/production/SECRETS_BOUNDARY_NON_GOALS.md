@@ -10,4 +10,4 @@ workers, remote execution, backend routes, Control Center controls,
 dependencies, beta release, or broad autonomy.
 
 M113 does not implement M114. Account Connector Contract Review remains future.
-M150 remains v1.0.0-alpha.
+M150 remains v1.2.0-alpha.

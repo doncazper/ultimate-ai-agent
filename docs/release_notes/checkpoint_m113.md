@@ -11,7 +11,7 @@ Changes:
   no-effect receipt plan refs.
 - Adds tests, static verifier coverage, documentation-integrity checks, and
   Foundation Gate criteria for M113.
-- Keeps M114-M150 planned/provisional and keeps M150 as v1.0.0-alpha.
+- Keeps M114-M150 planned/provisional and keeps M150 as v1.2.0-alpha.
 
 Non-goals:
 - No credential vault runtime.

@@ -1,7 +1,7 @@
 # M149 Alpha Release Candidate Freeze
 
 Checkpoint M149 is Alpha Release Candidate Freeze for the future
-v1.0.0-alpha target. It is contract-only, review-only, freeze-only,
+v1.2.0-alpha target. It is contract-only, review-only, freeze-only,
 deterministic, local-only, safe-ref-only, alpha-release-candidate-freeze-only,
 disabled by default, route-free, and no-effect.
 
@@ -15,4 +15,4 @@ build, no artifact upload, no artifact export, no external distribution, no App
 Store submission, no TestFlight submission, no beta release, no M150 release,
 no release automation, no backend route, no Control Center control, no
 dependency, and no production authority. M150 remains future and
-v1.0.0-alpha remains planned/provisional until a later accepted release patch.
+v1.2.0-alpha remains planned/provisional until a later accepted release patch.

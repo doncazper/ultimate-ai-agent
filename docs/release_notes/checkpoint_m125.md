@@ -8,7 +8,7 @@ refs, audit refs, replay refs, accepted checkpoint refs, and a no-effect
 receipt plan.
 
 The product baseline remains v1.7.2. M125 uses the checkpoint label
-`checkpoint-m125`; M150 remains the planned v1.0.0-alpha product target.
+`checkpoint-m125`; M150 remains the planned v1.2.0-alpha product target.
 
 M125 adds no live connector runtime, no account auth, no network access, no
 credential handling, no raw connector content, no full content read, no

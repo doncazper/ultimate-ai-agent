@@ -77,6 +77,12 @@ LOCAL_DEV_WORKSPACE_PREFIXES = ("/kernel", "/files", "/memory")
 VALIDATION_HINTS = ("/validate", "/preview", "/evaluate", "/route", "/freshness/check", "/dry-run")
 
 
+def active_baseline_label() -> str:
+    if __version__.endswith("a0"):
+        return f"v{__version__[:-2]}-alpha"
+    return f"v{__version__}"
+
+
 def route_group_for_path(path: str) -> str:
     for prefix, group in ROUTE_GROUPS_BY_PREFIX.items():
         if path == prefix or path.startswith(prefix + "/"):
@@ -135,7 +141,7 @@ def build_api_manifest(app: FastAPI, foundation_gate_status: str | None = None) 
         title=app.title,
         api_version=__version__,
         package_version=__version__,
-        active_baseline=f"v{__version__}",
+        active_baseline=active_baseline_label(),
         route_count=len(routes),
         route_groups=route_groups,
         routes=routes,

@@ -1007,7 +1007,7 @@ EXPECTED_M101_M150_LABELS = [
         (f"checkpoint {milestone}", "pre-alpha checkpoint", milestone, title)
         for milestone, title in M104_M149_CHECKPOINT_TITLES
     ],
-    ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+    ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
 ]
 
 
@@ -1363,15 +1363,28 @@ def _read(path: Path) -> str:
 
 
 def _active_version(root: Path) -> str | None:
-    match = re.search(r"Current active baseline:\s*\*\*v?(\d+\.\d+\.\d+)\*\*", _read(root / "VERSION.md"))
+    match = re.search(
+        r"Current active baseline:\s*\*\*v?(\d+\.\d+\.\d+(?:-[A-Za-z0-9.]+)?)\*\*",
+        _read(root / "VERSION.md"),
+    )
     return match.group(1) if match else None
 
 
 def _version_tuple(version: str | None) -> tuple[int, int, int]:
     if not version:
         return (0, 0, 0)
-    parts = version.split(".")
+    parts = version.split("-", 1)[0].split(".")
     return (int(parts[0]), int(parts[1]), int(parts[2]))
+
+
+def _version_key(version: str) -> str:
+    return version.replace(".", "_").replace("-", "_")
+
+
+def _package_version(version: str) -> str:
+    if version.endswith("-alpha"):
+        return f"{version[:-6]}a0"
+    return version
 
 
 def _release_packet_paths(version_key: str) -> tuple[str, str]:
@@ -1382,7 +1395,7 @@ def _release_packet_paths(version_key: str) -> tuple[str, str]:
 
 
 def _active_baseline_label_docs(version: str) -> list[str]:
-    version_key = version.replace(".", "_")
+    version_key = _version_key(version)
     active_import, active_master = _release_packet_paths(version_key)
     return [
         "README.md",
@@ -1403,13 +1416,26 @@ def _active_baseline_label_docs(version: str) -> list[str]:
 
 
 ACTIVE_BASELINE_LABEL_PATTERNS = [
-    re.compile(r"current active baseline\s*(?:\||:)?\s*\*{0,2}v?(\d+\.\d+\.\d+)\*{0,2}", re.IGNORECASE),
-    re.compile(r"active accepted baseline is\s+v?(\d+\.\d+\.\d+)", re.IGNORECASE),
     re.compile(
-        r"status:\s*active[^\n]*(?:maintained through|source of truth through)\s+v?(\d+\.\d+\.\d+)",
+        r"current active baseline\s*(?:\||:)?\s*\*{0,2}v?"
+        r"(\d+\.\d+\.\d+(?:-[A-Za-z0-9]+(?:[.-][A-Za-z0-9]+)*)?)\*{0,2}",
         re.IGNORECASE,
     ),
-    re.compile(r"current through:\s*\*{0,2}v?(\d+\.\d+\.\d+)\*{0,2}", re.IGNORECASE),
+    re.compile(
+        r"active accepted baseline is\s+v?"
+        r"(\d+\.\d+\.\d+(?:-[A-Za-z0-9]+(?:[.-][A-Za-z0-9]+)*)?)",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"status:\s*active[^\n]*(?:maintained through|source of truth through)\s+v?"
+        r"(\d+\.\d+\.\d+(?:-[A-Za-z0-9]+(?:[.-][A-Za-z0-9]+)*)?)",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"current through:\s*\*{0,2}v?"
+        r"(\d+\.\d+\.\d+(?:-[A-Za-z0-9]+(?:[.-][A-Za-z0-9]+)*)?)\*{0,2}",
+        re.IGNORECASE,
+    ),
 ]
 
 
@@ -1438,14 +1464,15 @@ def verify(root: Path = ROOT) -> list[str]:
     if not version:
         return ["VERSION.md active baseline is missing or malformed"]
 
-    version_key = version.replace(".", "_")
+    version_key = _version_key(version)
+    package_version = _package_version(version)
     pyproject = _read(root / "pyproject.toml")
     init = _read(root / "src/ultimate_ai_agent/__init__.py")
     readme = _read(root / "README.md")
 
-    if f'version = "{version}"' not in pyproject:
+    if f'version = "{package_version}"' not in pyproject:
         failures.append("pyproject.toml version does not match VERSION.md")
-    if f'__version__ = "{version}"' not in init:
+    if f'__version__ = "{package_version}"' not in init:
         failures.append("package __version__ does not match VERSION.md")
 
     active_import, active_master = _release_packet_paths(version_key)
@@ -7383,7 +7410,7 @@ def _verify_post_m100_roadmap_reconciliation_docs(root: Path, version: str | Non
         implemented_milestones.add("m150")
     if "m150" in implemented_milestones:
         implemented_m150_row = (
-            "| v1.0.0-alpha | alpha | m150 | ultimate ai agent v1.0.0-alpha | "
+            "| v1.2.0-alpha | alpha | m150 | ultimate ai agent v1.2.0-alpha | "
             "implemented/released |"
         )
         if implemented_m150_row not in roadmap_text:
@@ -7410,7 +7437,7 @@ def _verify_post_m100_roadmap_reconciliation_docs(root: Path, version: str | Non
         "post-M100 docs must say no dependency": "no dependency",
         "post-M100 docs must say no automatic context injection": "no automatic context injection",
         "post-M100 docs must say no unreviewed memory writes": "no unreviewed memory writes",
-        "post-M100 docs must say M150 alpha target": "v1.0.0-alpha",
+        "post-M100 docs must say M150 alpha target": "v1.2.0-alpha",
         "post-M100 docs must say beta begins later": "beta begins",
         "post-M100 docs must say existing tags are not rewritten": "do not rewrite",
     }
@@ -7556,7 +7583,7 @@ def _verify_m101_mobile_sensor_contract_review_docs(root: Path, version: str | N
     m102_implemented = _version_tuple(version) >= (1, 6, 0)
     m103_implemented = _version_tuple(version) >= (1, 7, 0)
     planned_rows = [
-        ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+        ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
     ]
     if not m103_implemented:
         planned_rows.insert(
@@ -7661,7 +7688,7 @@ def _verify_m102_location_sensor_off_by_default_docs(root: Path, version: str | 
         and "notification planning, no push execution" in active_text
     )
     planned_rows = [
-        ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+        ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
     ]
     if not m104_implemented:
         planned_rows.insert(
@@ -7794,7 +7821,7 @@ def _verify_m103_camera_photos_metadata_only_docs(root: Path, version: str | Non
         "background task contract, no execution | implemented/released |"
     ) in active_text
     planned_rows = [
-        ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+        ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
     ]
     if not m105_implemented:
         planned_rows.insert(
@@ -7912,7 +7939,7 @@ def _verify_m104_notification_planning_no_push_docs(root: Path, version: str | N
         "mobile approval renewal ux | implemented/released |"
     )
     planned_rows = [
-        ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+        ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
     ]
     if implemented_m105_row not in active_text:
         planned_rows.insert(
@@ -8042,7 +8069,7 @@ def _verify_m105_background_task_contract_no_execution_docs(
         "mobile approval renewal ux | implemented/released |"
     )
     planned_rows = [
-        ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+        ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
     ]
     if implemented_m106_row not in active_text:
         planned_rows.insert(
@@ -8167,7 +8194,7 @@ def _verify_m106_mobile_background_read_only_status_sync_docs(
         "mobile approval renewal ux | implemented/released |"
     )
     for version_label, product_target, milestone, title in [
-        ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+        ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
     ]:
         row = (
             f"| {version_label} | {product_target} | {milestone} | "
@@ -8296,7 +8323,7 @@ def _verify_m107_mobile_approval_renewal_ux_docs(
         failures.append("active docs missing implemented Checkpoint M107 row")
     planned_rows = [
         ("checkpoint m110", "pre-alpha checkpoint", "m110", "mobile sensor hardening freeze"),
-        ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+        ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
     ]
     if implemented_m108_row not in active_text:
         planned_rows.insert(
@@ -8339,27 +8366,27 @@ def _verify_m107_mobile_approval_renewal_ux_docs(
     if implemented_m117_row in active_text:
         planned_rows = [
             ("checkpoint m118", "pre-alpha checkpoint", "m118", "deployment mode matrix"),
-            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
         ]
     elif implemented_m116_row in active_text:
         planned_rows = [
             ("checkpoint m117", "pre-alpha checkpoint", "m117", "remote agent coordination contract"),
-            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
         ]
     elif implemented_m115_row in active_text:
         planned_rows = [
             ("checkpoint m116", "pre-alpha checkpoint", "m116", "role-based authority model"),
-            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
         ]
     elif implemented_m114_row in active_text:
         planned_rows = [
             ("checkpoint m115", "pre-alpha checkpoint", "m115", "production audit retention policy"),
-            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
         ]
     elif implemented_m113_row in active_text:
         planned_rows = [
             ("checkpoint m114", "pre-alpha checkpoint", "m114", "account connector contract review"),
-            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
         ]
     elif implemented_m112_row in active_text:
         planned_rows = [
@@ -8369,17 +8396,17 @@ def _verify_m107_mobile_approval_renewal_ux_docs(
                 "m113",
                 "secrets boundary + credential vault contract",
             ),
-            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
         ]
     elif implemented_m111_row in active_text:
         planned_rows = [
             ("checkpoint m112", "pre-alpha checkpoint", "m112", "user/workspace identity model"),
-            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
         ]
     elif implemented_m110_row in active_text:
         planned_rows = [
             ("checkpoint m111", "pre-alpha checkpoint", "m111", "production threat model"),
-            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
         ]
     for version_label, product_target, milestone, title in planned_rows:
         row = (
@@ -8524,7 +8551,7 @@ def _verify_m108_mobile_kill_switch_revocation_docs(
         failures.append("active docs missing implemented Checkpoint M108 row")
     planned_rows = [
         ("checkpoint m110", "pre-alpha checkpoint", "m110", "mobile sensor hardening freeze"),
-        ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+        ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
     ]
     if implemented_m109_row not in active_text:
         planned_rows.insert(
@@ -8562,27 +8589,27 @@ def _verify_m108_mobile_kill_switch_revocation_docs(
     if implemented_m117_row in active_text:
         planned_rows = [
             ("checkpoint m118", "pre-alpha checkpoint", "m118", "deployment mode matrix"),
-            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
         ]
     elif implemented_m116_row in active_text:
         planned_rows = [
             ("checkpoint m117", "pre-alpha checkpoint", "m117", "remote agent coordination contract"),
-            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
         ]
     elif implemented_m115_row in active_text:
         planned_rows = [
             ("checkpoint m116", "pre-alpha checkpoint", "m116", "role-based authority model"),
-            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
         ]
     elif implemented_m114_row in active_text:
         planned_rows = [
             ("checkpoint m115", "pre-alpha checkpoint", "m115", "production audit retention policy"),
-            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
         ]
     elif implemented_m113_row in active_text:
         planned_rows = [
             ("checkpoint m114", "pre-alpha checkpoint", "m114", "account connector contract review"),
-            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
         ]
     elif implemented_m112_row in active_text:
         planned_rows = [
@@ -8592,17 +8619,17 @@ def _verify_m108_mobile_kill_switch_revocation_docs(
                 "m113",
                 "secrets boundary + credential vault contract",
             ),
-            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
         ]
     elif implemented_m111_row in active_text:
         planned_rows = [
             ("checkpoint m112", "pre-alpha checkpoint", "m112", "user/workspace identity model"),
-            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
         ]
     elif implemented_m110_row in active_text:
         planned_rows = [
             ("checkpoint m111", "pre-alpha checkpoint", "m111", "production threat model"),
-            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
         ]
     for version_label, product_target, milestone, title in planned_rows:
         row = (
@@ -8703,7 +8730,7 @@ def _verify_m109_mobile_sensor_audit_ledger_docs(
         "M109 docs must deny execution": "no execution",
         "M109 docs must deny production authority": "no production authority",
         "M109 docs must keep M110 future": "m110 remains future",
-        "M109 docs must preserve alpha target": "v1.0.0-alpha",
+        "M109 docs must preserve alpha target": "v1.2.0-alpha",
     }
     for message, fragment in required_fragments.items():
         if fragment not in text:
@@ -8736,7 +8763,7 @@ def _verify_m109_mobile_sensor_audit_ledger_docs(
         failures.append("active docs missing implemented Checkpoint M109 row")
     planned_rows = [
         ("checkpoint m110", "pre-alpha checkpoint", "m110", "mobile sensor hardening freeze"),
-        ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+        ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
     ]
     implemented_m111_row = (
         "| checkpoint m111 | pre-alpha checkpoint | m111 | "
@@ -8769,27 +8796,27 @@ def _verify_m109_mobile_sensor_audit_ledger_docs(
     if implemented_m117_row in active_text:
         planned_rows = [
             ("checkpoint m118", "pre-alpha checkpoint", "m118", "deployment mode matrix"),
-            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
         ]
     elif implemented_m116_row in active_text:
         planned_rows = [
             ("checkpoint m117", "pre-alpha checkpoint", "m117", "remote agent coordination contract"),
-            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
         ]
     elif implemented_m115_row in active_text:
         planned_rows = [
             ("checkpoint m116", "pre-alpha checkpoint", "m116", "role-based authority model"),
-            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
         ]
     elif implemented_m114_row in active_text:
         planned_rows = [
             ("checkpoint m115", "pre-alpha checkpoint", "m115", "production audit retention policy"),
-            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
         ]
     elif implemented_m113_row in active_text:
         planned_rows = [
             ("checkpoint m114", "pre-alpha checkpoint", "m114", "account connector contract review"),
-            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
         ]
     elif implemented_m112_row in active_text:
         planned_rows = [
@@ -8799,17 +8826,17 @@ def _verify_m109_mobile_sensor_audit_ledger_docs(
                 "m113",
                 "secrets boundary + credential vault contract",
             ),
-            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
         ]
     elif implemented_m111_row in active_text:
         planned_rows = [
             ("checkpoint m112", "pre-alpha checkpoint", "m112", "user/workspace identity model"),
-            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
         ]
     elif implemented_m110_row in active_text:
         planned_rows = [
             ("checkpoint m111", "pre-alpha checkpoint", "m111", "production threat model"),
-            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
         ]
     for version_label, product_target, milestone, title in planned_rows:
         row = (
@@ -8910,7 +8937,7 @@ def _verify_m110_mobile_sensor_hardening_freeze_docs(
         "M110 docs must deny execution": "no execution",
         "M110 docs must deny production authority": "no production authority",
         "M110 docs must keep M111 future": "m111 remains future",
-        "M110 docs must preserve alpha target": "v1.0.0-alpha",
+        "M110 docs must preserve alpha target": "v1.2.0-alpha",
     }
     for message, fragment in required_fragments.items():
         if fragment not in text:
@@ -8951,7 +8978,7 @@ def _verify_m110_mobile_sensor_hardening_freeze_docs(
             if implemented_m111_row in active_text
             else "planned/provisional",
         ),
-        ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha", "planned/provisional"),
+        ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha", "planned/provisional"),
     ]
     for version_label, product_target, milestone, title, status in expected_rows:
         row = (
@@ -9046,7 +9073,7 @@ def _verify_m111_production_threat_model_docs(
         "M111 docs must deny Control Center control": "no control center control",
         "M111 docs must deny dependency": "no dependency",
         "M111 docs must keep M112 future": "m112 remains future",
-        "M111 docs must preserve alpha target": "v1.0.0-alpha",
+        "M111 docs must preserve alpha target": "v1.2.0-alpha",
     }
     for message, fragment in required_fragments.items():
         if fragment not in text:
@@ -9082,10 +9109,10 @@ def _verify_m111_production_threat_model_docs(
             "implemented/released",
         ),
         (
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
             "alpha",
             "m150",
-            "ultimate ai agent v1.0.0-alpha",
+            "ultimate ai agent v1.2.0-alpha",
             "planned/provisional",
         ),
     ]:
@@ -9175,7 +9202,7 @@ def _verify_m112_user_workspace_identity_docs(
         "M112 docs must deny Control Center control": "no control center control",
         "M112 docs must deny dependency": "no dependency",
         "M112 docs must keep M113 future": "m113 remains future",
-        "M112 docs must preserve alpha target": "v1.0.0-alpha",
+        "M112 docs must preserve alpha target": "v1.2.0-alpha",
     }
     for message, fragment in required_fragments.items():
         if fragment not in text:
@@ -9215,7 +9242,7 @@ def _verify_m112_user_workspace_identity_docs(
         "production audit retention policy | implemented/released |"
     )
     planned_rows = [
-        ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+        ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
     ]
     implemented_m116_row = (
         "| checkpoint m116 | pre-alpha checkpoint | m116 | "
@@ -9380,7 +9407,7 @@ def _verify_m113_secrets_boundary_docs(
         "M113 docs must deny Control Center control": "no control center control",
         "M113 docs must deny dependency": "no dependency",
         "M113 docs must keep M114 future": "m114 remains future",
-        "M113 docs must preserve alpha target": "v1.0.0-alpha",
+        "M113 docs must preserve alpha target": "v1.2.0-alpha",
     }
     for message, fragment in required_fragments.items():
         if fragment not in text:
@@ -9414,7 +9441,7 @@ def _verify_m113_secrets_boundary_docs(
         or "m114 is implemented/released" in active_text
     )
     planned_rows = [
-        ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+        ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
     ]
     if not m114_is_current:
         planned_rows.append(
@@ -9559,7 +9586,7 @@ def _verify_m114_account_connector_docs(
         "M114 docs must deny Control Center control": "no control center control",
         "M114 docs must deny dependency": "no dependency",
         "M114 docs must keep M115 future": "m115 remains future",
-        "M114 docs must preserve alpha target": "v1.0.0-alpha",
+        "M114 docs must preserve alpha target": "v1.2.0-alpha",
     }
     for message, fragment in required_fragments.items():
         if fragment not in text:
@@ -9700,7 +9727,7 @@ def _verify_m115_production_audit_retention_docs(
         "M115 docs must deny Control Center control": "no control center control",
         "M115 docs must deny dependency": "no dependency",
         "M115 docs must keep M116 future": "m116 remains future",
-        "M115 docs must preserve alpha target": "v1.0.0-alpha",
+        "M115 docs must preserve alpha target": "v1.2.0-alpha",
     }
     for message, fragment in required_fragments.items():
         if fragment not in text:
@@ -9856,7 +9883,7 @@ def _verify_m116_role_based_authority_docs(
         "M116 docs must deny Control Center control": "no control center control",
         "M116 docs must deny dependency": "no dependency",
         "M116 docs must keep M117 future": "m117 remains future",
-        "M116 docs must preserve alpha target": "v1.0.0-alpha",
+        "M116 docs must preserve alpha target": "v1.2.0-alpha",
     }
     for message, fragment in required_fragments.items():
         if fragment not in text:
@@ -10016,7 +10043,7 @@ def _verify_m117_remote_agent_coordination_docs(
         "M117 docs must deny Control Center control": "no control center control",
         "M117 docs must deny dependency": "no dependency",
         "M117 docs must keep M118 future": "m118 remains future",
-        "M117 docs must preserve alpha target": "v1.0.0-alpha",
+        "M117 docs must preserve alpha target": "v1.2.0-alpha",
     }
     for message, fragment in required_fragments.items():
         if fragment not in text:
@@ -10146,7 +10173,7 @@ def _verify_m118_deployment_mode_matrix_docs(
         "M118 docs must deny Control Center control": "no control center control",
         "M118 docs must deny dependency": "no dependency",
         "M118 docs must keep M119 future": "m119 remains future",
-        "M118 docs must preserve alpha target": "v1.0.0-alpha",
+        "M118 docs must preserve alpha target": "v1.2.0-alpha",
     }
     for message, fragment in required_fragments.items():
         if fragment not in text:
@@ -10285,7 +10312,7 @@ def _verify_m119_production_red_team_harness_docs(
         "M119 docs must deny Control Center control": "no control center control",
         "M119 docs must deny dependency": "no dependency",
         "M119 docs must keep M120 future": "m120 remains future",
-        "M119 docs must preserve alpha target": "v1.0.0-alpha",
+        "M119 docs must preserve alpha target": "v1.2.0-alpha",
     }
     for message, fragment in required_fragments.items():
         if fragment not in text:
@@ -10420,7 +10447,7 @@ def _verify_m120_production_authority_readiness_docs(
         "M120 docs must deny Control Center control": "no control center control",
         "M120 docs must deny dependency": "no dependency",
         "M120 docs must keep M121 future": "m121 remains future",
-        "M120 docs must preserve alpha target": "v1.0.0-alpha",
+        "M120 docs must preserve alpha target": "v1.2.0-alpha",
     }
     for message, fragment in required_fragments.items():
         if fragment not in text:
@@ -10540,7 +10567,7 @@ def _verify_m121_email_connector_contract_refresh_docs(
         "M121 docs must deny Control Center control": "no control center control",
         "M121 docs must deny dependency": "no dependency",
         "M121 docs must keep M122 future": "m122 remains future",
-        "M121 docs must preserve alpha target": "v1.0.0-alpha",
+        "M121 docs must preserve alpha target": "v1.2.0-alpha",
     }
     for message, fragment in required_fragments.items():
         if fragment not in text:
@@ -10680,7 +10707,7 @@ def _verify_m122_calendar_connector_contract_refresh_docs(
         "M122 docs must deny Control Center control": "no control center control",
         "M122 docs must deny dependency": "no dependency",
         "M122 docs must keep M123 future": "m123 remains future",
-        "M122 docs must preserve alpha target": "v1.0.0-alpha",
+        "M122 docs must preserve alpha target": "v1.2.0-alpha",
     }
     for message, fragment in required_fragments.items():
         if fragment not in text:
@@ -10827,7 +10854,7 @@ def _verify_m123_contacts_connector_contract_refresh_docs(
         "M123 docs must deny Control Center control": "no control center control",
         "M123 docs must deny dependency": "no dependency",
         "M123 docs must keep M124 future": "m124 remains future",
-        "M123 docs must preserve alpha target": "v1.0.0-alpha",
+        "M123 docs must preserve alpha target": "v1.2.0-alpha",
     }
     for message, fragment in required_fragments.items():
         if fragment not in text:
@@ -10978,7 +11005,7 @@ def _verify_m124_messages_connector_contract_review_docs(
         "M124 docs must deny Control Center control": "no control center control",
         "M124 docs must deny dependency": "no dependency",
         "M124 docs must keep M125 future": "m125 remains future",
-        "M124 docs must preserve alpha target": "v1.0.0-alpha",
+        "M124 docs must preserve alpha target": "v1.2.0-alpha",
     }
     for message, fragment in required_fragments.items():
         if fragment not in text:
@@ -11110,7 +11137,7 @@ def _verify_m125_connector_read_only_runtime_docs(
         "M125 docs must deny Control Center control": "no control center control",
         "M125 docs must deny dependency": "no dependency",
         "M125 docs must keep M126 future": "m126 remains future",
-        "M125 docs must preserve alpha target": "v1.0.0-alpha",
+        "M125 docs must preserve alpha target": "v1.2.0-alpha",
     }
     for message, fragment in required_fragments.items():
         if fragment not in text:
@@ -11281,7 +11308,7 @@ def _verify_m126_connector_approval_capture_docs(
         "M126 docs must deny Control Center control": "no control center control",
         "M126 docs must deny dependency": "no dependency",
         "M126 docs must keep M127 future": "m127 remains future",
-        "M126 docs must preserve alpha target": "v1.0.0-alpha",
+        "M126 docs must preserve alpha target": "v1.2.0-alpha",
     }
     for message, fragment in required_fragments.items():
         if fragment not in text:
@@ -11432,7 +11459,7 @@ def _verify_m127_connector_write_dry_run_planner_docs(
         "M127 docs must deny Control Center control": "no control center control",
         "M127 docs must deny dependency": "no dependency",
         "M127 docs must keep M128 future": "m128 remains future",
-        "M127 docs must preserve alpha target": "v1.0.0-alpha",
+        "M127 docs must preserve alpha target": "v1.2.0-alpha",
     }
     for message, fragment in required_fragments.items():
         if fragment not in text:
@@ -11584,7 +11611,7 @@ def _verify_m128_connector_write_execution_low_risk_docs(
         "M128 docs must deny Control Center control": "no control center control",
         "M128 docs must deny dependency": "no dependency",
         "M128 docs must keep M129 future": "m129 remains future",
-        "M128 docs must preserve alpha target": "v1.0.0-alpha",
+        "M128 docs must preserve alpha target": "v1.2.0-alpha",
     }
     for message, fragment in required_fragments.items():
         if fragment not in text:
@@ -11733,7 +11760,7 @@ def _verify_m129_connector_audit_revocation_hardening_docs(
         "M129 docs must deny Control Center control": "no control center control",
         "M129 docs must deny dependency": "no dependency",
         "M129 docs must keep M130 future": "m130 remains future",
-        "M129 docs must preserve alpha target": "v1.0.0-alpha",
+        "M129 docs must preserve alpha target": "v1.2.0-alpha",
     }
     for message, fragment in required_fragments.items():
         if fragment not in text:
@@ -11873,7 +11900,7 @@ def _verify_m130_connector_safety_freeze_docs(
         "M130 docs must deny Control Center control": "no control center control",
         "M130 docs must deny dependency": "no dependency",
         "M130 docs must keep M131 future": "m131 remains future",
-        "M130 docs must preserve alpha target": "v1.0.0-alpha",
+        "M130 docs must preserve alpha target": "v1.2.0-alpha",
     }
     for message, fragment in required_fragments.items():
         if fragment not in text:
@@ -12027,7 +12054,7 @@ def _verify_m131_autonomy_mode4_scoped_work_session_docs(
         "M131 docs must deny Control Center control": "no control center control",
         "M131 docs must deny dependency": "no dependency",
         "M131 docs must keep M132 future": "m132 remains future",
-        "M131 docs must preserve alpha target": "v1.0.0-alpha",
+        "M131 docs must preserve alpha target": "v1.2.0-alpha",
     }
     for message, fragment in required_fragments.items():
         if fragment not in text:
@@ -12193,7 +12220,7 @@ def _verify_m132_trusted_recurring_workflow_docs(
         "M132 docs must deny Control Center control": "no control center control",
         "M132 docs must deny dependency": "no dependency",
         "M132 docs must keep M133 future": "m133 remains future",
-        "M132 docs must preserve alpha target": "v1.0.0-alpha",
+        "M132 docs must preserve alpha target": "v1.2.0-alpha",
     }
     for message, fragment in required_fragments.items():
         if fragment not in text:
@@ -12367,7 +12394,7 @@ def _verify_m133_long_running_task_supervisor_docs(
         "M133 docs must deny Control Center control": "no control center control",
         "M133 docs must deny dependency": "no dependency",
         "M133 docs must keep M134 future": "m134 remains future",
-        "M133 docs must preserve alpha target": "v1.0.0-alpha",
+        "M133 docs must preserve alpha target": "v1.2.0-alpha",
     }
     for message, fragment in required_fragments.items():
         if fragment not in text:
@@ -12540,7 +12567,7 @@ def _verify_m134_human_checkpoint_scheduling_docs(
         "M134 docs must deny Control Center control": "no control center control",
         "M134 docs must deny dependency": "no dependency",
         "M134 docs must keep M135 future": "m135 remains future",
-        "M134 docs must preserve alpha target": "v1.0.0-alpha",
+        "M134 docs must preserve alpha target": "v1.2.0-alpha",
     }
     for message, fragment in required_fragments.items():
         if fragment not in text:
@@ -12707,7 +12734,7 @@ def _verify_m135_autonomous_recovery_planner_docs(
         "M135 docs must deny Control Center control": "no control center control",
         "M135 docs must deny dependency": "no dependency",
         "M135 docs must keep M136 future": "m136 remains future",
-        "M135 docs must preserve alpha target": "v1.0.0-alpha",
+        "M135 docs must preserve alpha target": "v1.2.0-alpha",
     }
     for message, fragment in required_fragments.items():
         if fragment not in text:
@@ -12887,7 +12914,7 @@ def _verify_m136_cross_tool_dependency_execution_docs(
         "M136 docs must deny Control Center control": "no control center control",
         "M136 docs must deny dependency": "no dependency",
         "M136 docs must keep M137 future": "m137 remains future",
-        "M136 docs must preserve alpha target": "v1.0.0-alpha",
+        "M136 docs must preserve alpha target": "v1.2.0-alpha",
     }
     for message, fragment in required_fragments.items():
         if fragment not in text:
@@ -12928,7 +12955,7 @@ def _verify_m136_cross_tool_dependency_execution_docs(
         or _roadmap_row_present(current_text, implemented_m137_row)
     )
     m150_row = (
-        "| v1.0.0-alpha | alpha | m150 | ultimate ai agent v1.0.0-alpha | "
+        "| v1.2.0-alpha | alpha | m150 | ultimate ai agent v1.2.0-alpha | "
         "planned/provisional |"
     )
     if not _roadmap_row_present(current_text, implemented_m136_row):
@@ -13065,7 +13092,7 @@ def _verify_m137_browser_connector_combined_workflow_docs(
         "M137 docs must deny Control Center control": "no control center control",
         "M137 docs must deny dependency": "no dependency",
         "M137 docs must keep M138 future": "m138 remains future",
-        "M137 docs must preserve alpha target": "v1.0.0-alpha",
+        "M137 docs must preserve alpha target": "v1.2.0-alpha",
     }
     for message, fragment in required_fragments.items():
         if fragment not in text:
@@ -13106,7 +13133,7 @@ def _verify_m137_browser_connector_combined_workflow_docs(
         or _roadmap_row_present(current_text, implemented_m138_row)
     )
     m150_row = (
-        "| v1.0.0-alpha | alpha | m150 | ultimate ai agent v1.0.0-alpha | "
+        "| v1.2.0-alpha | alpha | m150 | ultimate ai agent v1.2.0-alpha | "
         "planned/provisional |"
     )
     if not _roadmap_row_present(current_text, implemented_m137_row):
@@ -13245,7 +13272,7 @@ def _verify_m138_autonomous_error_handling_guardrails_docs(
         "M138 docs must deny Control Center control": "no control center control",
         "M138 docs must deny dependency": "no dependency",
         "M138 docs must keep M139 future": "m139 remains future",
-        "M138 docs must preserve alpha target": "v1.0.0-alpha",
+        "M138 docs must preserve alpha target": "v1.2.0-alpha",
     }
     for message, fragment in required_fragments.items():
         if fragment not in text:
@@ -13286,7 +13313,7 @@ def _verify_m138_autonomous_error_handling_guardrails_docs(
         or _roadmap_row_present(current_text, implemented_m139_row)
     )
     m150_row = (
-        "| v1.0.0-alpha | alpha | m150 | ultimate ai agent v1.0.0-alpha | "
+        "| v1.2.0-alpha | alpha | m150 | ultimate ai agent v1.2.0-alpha | "
         "planned/provisional |"
     )
     if not _roadmap_row_present(current_text, implemented_m138_row):
@@ -13428,7 +13455,7 @@ def _verify_m139_autonomy_abuse_loop_detection_docs(
         "M139 docs must deny Control Center control": "no control center control",
         "M139 docs must deny dependency": "no dependency",
         "M139 docs must keep M140 future": "m140 remains future",
-        "M139 docs must preserve alpha target": "v1.0.0-alpha",
+        "M139 docs must preserve alpha target": "v1.2.0-alpha",
     }
     for message, fragment in required_fragments.items():
         if fragment not in text:
@@ -13464,7 +13491,7 @@ def _verify_m139_autonomy_abuse_loop_detection_docs(
         "multi-user product boundary | planned/provisional |"
     )
     m150_row = (
-        "| v1.0.0-alpha | alpha | m150 | ultimate ai agent v1.0.0-alpha | "
+        "| v1.2.0-alpha | alpha | m150 | ultimate ai agent v1.2.0-alpha | "
         "planned/provisional |"
     )
     if not _roadmap_row_present(current_text, implemented_m139_row):
@@ -13592,7 +13619,7 @@ def _verify_m140_higher_autonomy_red_team_freeze_docs(
         "M140 docs must deny Control Center control": "no control center control",
         "M140 docs must deny dependency": "no dependency",
         "M140 docs must keep M141 future": "m141 remains future",
-        "M140 docs must preserve alpha target": "v1.0.0-alpha",
+        "M140 docs must preserve alpha target": "v1.2.0-alpha",
     }
     for message, fragment in required_fragments.items():
         if fragment not in text:
@@ -13624,7 +13651,7 @@ def _verify_m140_higher_autonomy_red_team_freeze_docs(
         "multi-user product boundary | planned/provisional |"
     )
     m150_row = (
-        "| v1.0.0-alpha | alpha | m150 | ultimate ai agent v1.0.0-alpha | "
+        "| v1.2.0-alpha | alpha | m150 | ultimate ai agent v1.2.0-alpha | "
         "planned/provisional |"
     )
     if not _roadmap_row_present(current_text, implemented_m140_row):
@@ -13765,7 +13792,7 @@ def _verify_m141_multi_user_product_boundary_docs(
         "M141 docs must deny beta release": "no beta release",
         "M141 docs must deny production authority": "no production authority",
         "M141 docs must keep M142 future": "m142 remains future",
-        "M141 docs must preserve alpha target": "v1.0.0-alpha",
+        "M141 docs must preserve alpha target": "v1.2.0-alpha",
     }
     for message, fragment in required_fragments.items():
         if fragment not in text:
@@ -13801,7 +13828,7 @@ def _verify_m141_multi_user_product_boundary_docs(
         "alpha privacy review | planned/provisional |"
     )
     m150_row = (
-        "| v1.0.0-alpha | alpha | m150 | ultimate ai agent v1.0.0-alpha | "
+        "| v1.2.0-alpha | alpha | m150 | ultimate ai agent v1.2.0-alpha | "
         "planned/provisional |"
     )
     if not _roadmap_row_present(current_text, implemented_m140_row):
@@ -13915,7 +13942,7 @@ def _verify_m142_alpha_privacy_review_docs(
         "M142 docs must deny beta release": "no beta release",
         "M142 docs must deny production authority": "no production authority",
         "M142 docs must keep M143 future": "m143 remains future",
-        "M142 docs must preserve alpha target": "v1.0.0-alpha",
+        "M142 docs must preserve alpha target": "v1.2.0-alpha",
     }
     for message, fragment in required_fragments.items():
         if fragment not in text:
@@ -14040,7 +14067,7 @@ def _verify_m143_alpha_ui_app_readiness_docs(
         "M143 docs must deny beta release": "no beta release",
         "M143 docs must deny production authority": "no production authority",
         "M143 docs must keep M144 future": "m144 remains future",
-        "M143 docs must preserve alpha target": "v1.0.0-alpha",
+        "M143 docs must preserve alpha target": "v1.2.0-alpha",
     }
     for message, fragment in required_fragments.items():
         if fragment not in text:
@@ -14200,7 +14227,7 @@ def _verify_m144_plugin_marketplace_policy_draft_docs(
         "M144 docs must deny beta release": "no beta release",
         "M144 docs must deny production authority": "no production authority",
         "M144 docs must keep M145 future": "m145 remains future",
-        "M144 docs must preserve alpha target": "v1.0.0-alpha",
+        "M144 docs must preserve alpha target": "v1.2.0-alpha",
     }
     for message, fragment in required_fragments.items():
         if fragment not in text:
@@ -14351,7 +14378,7 @@ def _verify_m145_enterprise_pro_safety_modes_docs(
         "M145 docs must deny beta release": "no beta release",
         "M145 docs must deny production authority": "no production authority",
         "M145 docs must keep M146 future": "m146 remains future",
-        "M145 docs must preserve alpha target": "v1.0.0-alpha",
+        "M145 docs must preserve alpha target": "v1.2.0-alpha",
     }
     for message, fragment in required_fragments.items():
         if fragment not in text:
@@ -14496,7 +14523,7 @@ def _verify_m146_billing_plan_boundary_docs(
         "M146 docs must deny beta release": "no beta release",
         "M146 docs must deny production authority": "no production authority",
         "M146 docs must keep M147 future": "m147 remains future",
-        "M146 docs must preserve alpha target": "v1.0.0-alpha",
+        "M146 docs must preserve alpha target": "v1.2.0-alpha",
     }
     for message, fragment in required_fragments.items():
         if fragment not in text:
@@ -14646,7 +14673,7 @@ def _verify_m147_public_docs_wiki_readiness_docs(
         "M147 docs must deny beta release": "no beta release",
         "M147 docs must deny production authority": "no production authority",
         "M147 docs must keep M148 future": "m148 remains future",
-        "M147 docs must preserve alpha target": "v1.0.0-alpha",
+        "M147 docs must preserve alpha target": "v1.2.0-alpha",
     }
     for message, fragment in required_fragments.items():
         if fragment not in text:
@@ -14799,7 +14826,7 @@ def _verify_m148_external_security_review_docs(
         "M148 docs must deny beta release": "no beta release",
         "M148 docs must deny production authority": "no production authority",
         "M148 docs must keep M149 future": "m149 remains future",
-        "M148 docs must preserve alpha target": "v1.0.0-alpha",
+        "M148 docs must preserve alpha target": "v1.2.0-alpha",
     }
     for message, fragment in required_fragments.items():
         if fragment not in text:
@@ -14950,7 +14977,7 @@ def _verify_m149_alpha_release_candidate_freeze_docs(
         "M149 docs must deny dependency": "no dependency",
         "M149 docs must deny production authority": "no production authority",
         "M149 docs must keep M150 future": "m150 remains future",
-        "M149 docs must preserve alpha target": "v1.0.0-alpha",
+        "M149 docs must preserve alpha target": "v1.2.0-alpha",
     }
     for message, fragment in required_fragments.items():
         if fragment not in text:
@@ -14982,7 +15009,7 @@ def _verify_m149_alpha_release_candidate_freeze_docs(
         "alpha release candidate freeze | implemented/released |"
     )
     planned_m150_row = (
-        "| v1.0.0-alpha | alpha | m150 | ultimate ai agent v1.0.0-alpha | "
+        "| v1.2.0-alpha | alpha | m150 | ultimate ai agent v1.2.0-alpha | "
         "planned/provisional |"
     )
     if not _roadmap_row_present(current_text, implemented_m148_row):
@@ -15058,7 +15085,7 @@ def _verify_m150_ultimate_ai_agent_alpha_docs(
     )
     required_fragments = {
         "M150 docs must say Ultimate AI Agent": "ultimate ai agent",
-        "M150 docs must preserve alpha target": "v1.0.0-alpha",
+        "M150 docs must preserve alpha target": "v1.2.0-alpha",
         "M150 docs must say contract-only": "contract-only",
         "M150 docs must say review-only": "review-only",
         "M150 docs must say alpha-target-only": "alpha-target-only",
@@ -15121,7 +15148,7 @@ def _verify_m150_ultimate_ai_agent_alpha_docs(
         "alpha release candidate freeze | implemented/released |"
     )
     implemented_m150_row = (
-        "| v1.0.0-alpha | alpha | m150 | ultimate ai agent v1.0.0-alpha | "
+        "| v1.2.0-alpha | alpha | m150 | ultimate ai agent v1.2.0-alpha | "
         "implemented/released |"
     )
     if not _roadmap_row_present(current_text, implemented_m149_row):
@@ -15995,7 +16022,7 @@ def _verify_m25_truth_docs(root: Path, version: str | None) -> list[str]:
                 failures.append(f"root release artifact must be archived or a historical stub: {artifact.name}")
 
     if _version_tuple(version) >= (0, 29, 4):
-        version_key = version.replace(".", "_")
+        version_key = _version_key(version)
         v0294_expectations = {
             "active docs must say v0.29.4 repairs archive references": "repairs documentation archive references",
             "active docs must say historical verifiers are not current gates": "legacy historical verifiers are not current release gates",

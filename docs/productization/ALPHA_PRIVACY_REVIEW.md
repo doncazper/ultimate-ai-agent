@@ -21,4 +21,4 @@ context injection, no backend route, no Control Center control, and no
 dependency.
 
 M143 remains future Alpha UI and App Readiness work. M150 remains the
-v1.0.0-alpha target.
+v1.2.0-alpha target.

@@ -25,6 +25,8 @@ ULTIMATE_AI_AGENT_ALPHA_DOCS = [
 REQUIRED_M150_ACCEPTED_CHECKPOINT_REFS = tuple(
     f"checkpoint:m{index}" for index in range(101, 150)
 )
+M150_PRODUCT_TARGET_REF = "product-target:v1.2.0-alpha"
+M150_PRODUCT_TARGET_VERSION = "v1.2.0-alpha"
 
 
 class UltimateAiAgentAlphaStatus(str, Enum):
@@ -37,7 +39,7 @@ class _UltimateAiAgentAlphaModel(BaseModel):
 
 class UltimateAiAgentAlphaPolicy(_UltimateAiAgentAlphaModel):
     policy_ref: str = "ultimate-ai-agent-alpha-policy:m150"
-    product_target_ref: str = "product-target:v1.0.0-alpha"
+    product_target_ref: str = M150_PRODUCT_TARGET_REF
     contract_only: bool = True
     review_only: bool = True
     alpha_target_only: bool = True
@@ -120,7 +122,7 @@ class UltimateAiAgentAlphaPolicy(_UltimateAiAgentAlphaModel):
 class UltimateAiAgentAlphaRequest(_UltimateAiAgentAlphaModel):
     request_ref: str
     alpha_target_ref: str
-    product_target_ref: str = "product-target:v1.0.0-alpha"
+    product_target_ref: str = M150_PRODUCT_TARGET_REF
     baseline_ref: str
     actor_ref: str
     accepted_checkpoint_refs: list[str]
@@ -408,7 +410,7 @@ def build_ultimate_ai_agent_alpha_record(
             "BETA_REMAINS_FUTURE",
         ],
         safe_summary=(
-            "M150 records the Ultimate AI Agent v1.0.0-alpha target using safe "
+            "M150 records the Ultimate AI Agent v1.2.0-alpha target using safe "
             "alpha target, release candidate freeze, alpha readiness, evidence "
             "index, blocker summary, signoff review, beta promotion gate, audit, "
             "replay, revocation, kill-switch, and no-effect receipt refs. It "
@@ -453,7 +455,7 @@ def validate_ultimate_ai_agent_alpha_request(
     _deny_enabled(_M150_REQUEST_DENIALS, _model_payload(validated))
     if validated.side_effects_performed:
         raise ValueError("M150_SIDE_EFFECTS_DENIED")
-    if validated.product_target_ref != "product-target:v1.0.0-alpha":
+    if validated.product_target_ref != M150_PRODUCT_TARGET_REF:
         raise ValueError("M150_PRODUCT_TARGET_REF_REQUIRED")
     _validate_accepted_checkpoints(validated.accepted_checkpoint_refs)
     for values, field_name, reason in _request_ref_lists(validated):
@@ -479,7 +481,7 @@ def validate_ultimate_ai_agent_alpha_record(
     _deny_enabled(_M150_RECORD_DENIALS, _model_payload(validated))
     if validated.status != UltimateAiAgentAlphaStatus.alpha_target_recorded:
         raise ValueError("M150_ALPHA_STATUS_REQUIRED")
-    if validated.product_target_ref != "product-target:v1.0.0-alpha":
+    if validated.product_target_ref != M150_PRODUCT_TARGET_REF:
         raise ValueError("M150_PRODUCT_TARGET_REF_REQUIRED")
     if validated.side_effects_performed:
         raise ValueError("M150_SIDE_EFFECTS_DENIED")

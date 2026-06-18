@@ -10,4 +10,4 @@ Included:
 - explicit denials for multi-user runtime, account tenancy, tenant runtime, workspace sharing, identity federation, auth runtime, persistent identity storage, routes, controls, dependencies, alpha privacy review, beta release, and production authority
 - Foundation Gate, documentation-integrity, verify_all, and focused test coverage
 
-M142 remains future Alpha Privacy Review work. M150 remains v1.0.0-alpha.
+M142 remains future Alpha Privacy Review work. M150 remains v1.2.0-alpha.

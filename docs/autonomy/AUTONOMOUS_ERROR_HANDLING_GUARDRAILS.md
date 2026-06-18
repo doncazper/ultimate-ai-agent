@@ -25,4 +25,4 @@ release, and no production authority.
 
 M138 stores no raw error log, no raw stack trace, no raw prompt, no raw provider
 payload, no cookies, no credentials, and no secrets. M139 remains future
-Autonomy Abuse/Loop Detection work. M150 remains the v1.0.0-alpha target.
+Autonomy Abuse/Loop Detection work. M150 remains the v1.2.0-alpha target.

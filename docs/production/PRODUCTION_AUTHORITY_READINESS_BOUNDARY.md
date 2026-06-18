@@ -17,4 +17,4 @@ injection, execution, tool execution, shell execution, browser automation,
 plugin execution, mobile sensor, backend route, Control Center control,
 dependency, M121 work, beta release, and production authority.
 
-M121 remains future. M150 remains the planned v1.0.0-alpha target.
+M121 remains future. M150 remains the planned v1.2.0-alpha target.

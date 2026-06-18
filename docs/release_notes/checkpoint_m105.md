@@ -8,7 +8,7 @@ receipt plans, tests, documentation-integrity checks, static verification, and
 Foundation Gate coverage.
 
 The product baseline remains v1.7.2. This checkpoint does not consume a product
-SemVer tag. M150 remains the next product release target as v1.0.0-alpha.
+SemVer tag. M150 remains the next product release target as v1.2.0-alpha.
 
 It adds no background worker, scheduler, daemon, OS background permission prompt,
 push trigger, device token handling, external service, raw task payload, backend

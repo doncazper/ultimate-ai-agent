@@ -1,6 +1,6 @@
 # M150 Ultimate AI Agent Alpha Authority Boundary
 
-M150 records the local `v1.0.0-alpha` target only. It is not a public release
+M150 records the local `v1.2.0-alpha` target only. It is not a public release
 mechanism and not a distribution mechanism.
 
 Allowed scope:
@@ -30,4 +30,3 @@ Denied scope:
 - no production authority
 
 Beta remains future and requires separate reviewed promotion.
-

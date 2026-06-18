@@ -5,7 +5,7 @@ v1.7.3 is a post-M150 local file-manager hardening baseline.
 Foundation Gate and verifier coverage should confirm:
 
 - current baseline metadata is v1.7.3.
-- M150 remains the accepted v1.0.0-alpha target packet.
+- M150 remains the accepted v1.2.0-alpha target packet.
 - file references use streaming content hashes rather than whole-file in-memory
   reads.
 - file read previews are bounded to the requested preview budget with only a

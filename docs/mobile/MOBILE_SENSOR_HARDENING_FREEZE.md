@@ -15,7 +15,7 @@ M110 requires safe sensor refs.
 
 M110 does not consume a product SemVer version. The current product baseline
 remains v1.7.2, M110 is tagged as a checkpoint, and M150 remains the
-v1.0.0-alpha target. Beta begins later after the alpha UI and supporting
+v1.2.0-alpha target. Beta begins later after the alpha UI and supporting
 safety/product work are reviewed and promoted.
 
 M110 adds no sensor access, no sensor read, no raw sensor payload, no location

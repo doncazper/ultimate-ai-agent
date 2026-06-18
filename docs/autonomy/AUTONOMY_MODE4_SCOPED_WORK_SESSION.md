@@ -21,5 +21,5 @@ route, no Control Center control, no dependency, no beta release, and no
 production authority.
 
 M132 remains future Trusted Recurring Workflow work. M131 does not add
-recurrence or trusted recurring automation. M150 remains the v1.0.0-alpha
+recurrence or trusted recurring automation. M150 remains the v1.2.0-alpha
 target.

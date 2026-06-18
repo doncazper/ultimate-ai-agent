@@ -6,7 +6,7 @@ user-bound, workspace-bound, replay-safe, revocable, and bound to M125 Connector
 Read-Only Runtime records.
 
 The product baseline remains v1.7.2. M126 uses the checkpoint label
-`checkpoint-m126`; M150 remains the planned v1.0.0-alpha product target.
+`checkpoint-m126`; M150 remains the planned v1.2.0-alpha product target.
 
 M126 denies `approval_test_` refs, expired approvals, revoked approvals,
 replayed approval nonces, actor mismatch, user mismatch, workspace mismatch,

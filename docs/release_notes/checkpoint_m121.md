@@ -2,7 +2,7 @@
 
 Checkpoint M121 adds Email Connector Contract Refresh while the current product
 baseline remains v1.7.2. It uses the checkpoint-m121 tag and keeps M150 as the
-planned v1.0.0-alpha target.
+planned v1.2.0-alpha target.
 
 The checkpoint adds contract-only, review-only email connector refresh records
 bound to the M120 Production Authority Readiness Review. The records use safe
@@ -17,4 +17,4 @@ account action, no model call, no memory write, no context injection, no
 execution, no backend routes, no Control Center controls, no dependencies, no
 M122 work, no beta release, and no production authority.
 
-M122 remains future. M150 remains the planned v1.0.0-alpha target.
+M122 remains future. M150 remains the planned v1.2.0-alpha target.

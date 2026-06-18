@@ -23,4 +23,4 @@ dependency, no beta release, and no production authority.
 
 M133 remains future Long-Running Task Supervisor work. M132 does not add a
 supervisor, daemon, scheduler, or background execution path. M150 remains the
-v1.0.0-alpha target.
+v1.2.0-alpha target.

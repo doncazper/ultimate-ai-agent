@@ -1,6 +1,6 @@
 # Documentation Index
 
-Current active baseline: **v1.7.3**
+Current active baseline: **v1.2.0-alpha**
 
 This index is the active entrypoint for documentation navigation. Historical release documents remain in the repository for audit history, but active truth starts with the current baseline files listed here.
 
@@ -14,9 +14,9 @@ docs/canonical/CANONICAL_DOC_MAP.md
 docs/canonical/09_roadmap.md
 docs/roadmap/README.md
 docs/archive/README.md
-docs/archive/releases/v1_2_0/README_IMPORT.md
-docs/archive/releases/v1_2_0/master_plan.md
-docs/release_notes/v1_2_0.md
+docs/archive/releases/v1_2_0_alpha/README_IMPORT.md
+docs/archive/releases/v1_2_0_alpha/master_plan.md
+docs/release_notes/v1_2_0_alpha.md
 docs/developer/LOCAL_LAUNCHER.md
 scripts/dev/README.md
 docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md
@@ -906,7 +906,9 @@ scripts/dev/README.md
 ```
 
 v0.37.4 supersedes the old active M35-M40 roadmap projection and defines the
-active M34-M60 sequence. v1.7.3 is the current active package baseline after post-M150 file-manager hardening.
+active M34-M60 sequence. v1.2.0-alpha is the current active package baseline
+for the contract-only Orchestration Efficiency Layer and M150 alpha target
+alignment.
 Checkpoint M108 is implemented/released as Mobile Kill Switch + Revocation
 after the Checkpoint M107 Mobile Approval Renewal UX release and post-M103
 versioning repair follow-up.
@@ -978,7 +980,7 @@ local review-only Public Docs + Wiki Readiness records. M148 is implemented/rele
 local review-only External Security Review records. M149 is implemented/released as deterministic
 local review-only Alpha Release Candidate Freeze records. M150 is
 implemented/released as deterministic local review-only Ultimate AI Agent
-v1.0.0-alpha target acceptance records in
+v1.2.0-alpha target acceptance records in
 `docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md`. M150 adds no release
 publication, tag creation, artifact publishing, external distribution, beta
 release, or production authority. Beta begins only after alpha UI and supporting
@@ -990,7 +992,7 @@ future-status drift.
 
 ## Release Notes Index
 
-Current release notes: `docs/release_notes/v1_7_3.md`
+Current release notes: `docs/release_notes/v1_2_0_alpha.md`
 
 Historical release notes remain under `docs/release_notes/`. Historical docs may mention old active baselines in historical context; they are not the current source of truth.
 

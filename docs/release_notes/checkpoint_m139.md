@@ -19,4 +19,4 @@ no beta release, and no production authority.
 
 M139 also records no raw abuse log, no raw loop trace, no raw prompt, no raw
 provider payload, no account auth, and no credential handling. M140 remains
-future. M150 remains the v1.0.0-alpha target.
+future. M150 remains the v1.2.0-alpha target.

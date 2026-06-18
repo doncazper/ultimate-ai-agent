@@ -12,7 +12,7 @@ M112 adds tests, documentation, documentation-integrity checks, static
 verification, and Foundation Gate coverage.
 
 M112 does not consume a product SemVer version. The product baseline remains
-v1.7.2 and M150 remains the v1.0.0-alpha target.
+v1.7.2 and M150 remains the v1.2.0-alpha target.
 
 M112 adds no production authority, no production runtime, no auth runtime, no
 login, no session cookie handling, no credential handling, no persistent

@@ -51,7 +51,7 @@ def test_m150_route_boundary_rejects_alpha_release_routes() -> None:
         "/testflight/submit": {},
         "/beta/release": {},
         "/v1-alpha/release": {},
-        "/v1.0.0-alpha/release": {},
+        "/v1.2.0-alpha/release": {},
         "/m150/release": {},
         "/release/automation": {},
         "/auth/login": {},
@@ -79,7 +79,7 @@ def test_m150_route_boundary_rejects_alpha_release_routes() -> None:
         "/testflight/submit",
         "/beta/release",
         "/v1-alpha/release",
-        "/v1.0.0-alpha/release",
+        "/v1.2.0-alpha/release",
         "/m150/release",
         "/release/automation",
         "/auth/login",
@@ -135,7 +135,7 @@ def test_m150_static_safety_detects_alpha_release_fragments(
         "/app-store/submit\n"
         "/testflight/submit\n"
         "/beta/release\n"
-        "/v1.0.0-alpha/release\n"
+        "/v1.2.0-alpha/release\n"
         "/release/automation\n",
         encoding="utf-8",
     )
@@ -192,7 +192,7 @@ def test_m150_static_safety_detects_alpha_release_fragments(
         "/app-store/submit",
         "/testflight/submit",
         "/beta/release",
-        "/v1.0.0-alpha/release",
+        "/v1.2.0-alpha/release",
         "/release/automation",
     ]:
         assert any(fragment in failure for failure in result.failures)

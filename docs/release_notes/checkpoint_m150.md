@@ -1,6 +1,6 @@
 # M150 Release Notes
 
-M150 records Ultimate AI Agent `v1.0.0-alpha` as a local alpha target acceptance
+M150 records Ultimate AI Agent `v1.2.0-alpha` as a local alpha target acceptance
 packet. It is contract-only, review-only, alpha-target-only, deterministic,
 local-only, safe-ref-only, disabled by default, route-free, and no-effect.
 

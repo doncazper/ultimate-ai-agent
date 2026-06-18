@@ -1,13 +1,13 @@
 # M101-M150 Capability Charters
 
-Status: Active roadmap maintained through M150 and the v1.7.3 post-M150
+Status: Active roadmap maintained through M150 and the v1.2.0-alpha orchestration efficiency
 local file-manager hardening baseline.
 
 M101 is implemented/released as Mobile Sensor Contract Review. M102 is
 implemented/released as Location Sensor, Off by Default. M103 is
 implemented/released as Camera/Photos Metadata-Only Contract. Checkpoint M104
 is implemented/released as Notification Planning, No Push Execution. Checkpoint
-M105 is implemented/released as Background Task Contract, No Execution. v1.7.3
+M105 is implemented/released as Background Task Contract, No Execution. v1.2.0-alpha
 is the current package baseline after post-M150 local file-manager hardening.
 Checkpoint M106 is implemented/released as
 Mobile Background Read-Only Status Sync. Checkpoint M107 is implemented/released
@@ -54,7 +54,7 @@ implemented/released as Billing/Plan Boundary. Checkpoint M147 is
 implemented/released as Public Docs + Wiki Readiness. Checkpoint M148 is
 implemented/released as External Security Review. Checkpoint M149 is
 implemented/released as Alpha Release Candidate Freeze. M150 is
-implemented/released as Ultimate AI Agent v1.0.0-alpha target acceptance.
+implemented/released as Ultimate AI Agent v1.2.0-alpha target acceptance.
 Future work must continue the authority-tier model:
 
 Capability exists -> disabled by default -> dry-run first -> limited allowlist
@@ -72,7 +72,7 @@ The already-pushed v1.0.0 through v1.7.1 tags remain immutable historical
 internal milestone tags. They are not the public product alpha/beta channel.
 Starting after v1.7.2, M104-M149 conveyor milestones use checkpoint
 labels instead of product SemVer tags. M150 records the product alpha target:
-**v1.0.0-alpha**. It does not create a tag, publish a release, build or upload
+**v1.2.0-alpha**. It does not create a tag, publish a release, build or upload
 artifacts, distribute externally, or begin beta. Beta begins only after the
 alpha UI and supporting safety/product work are reviewed, accepted, and
 explicitly promoted by a later roadmap patch. Do not rewrite, move, or reuse
@@ -129,7 +129,7 @@ existing tags.
 | Checkpoint M147 | pre-alpha checkpoint | M147 | Public Docs + Wiki Readiness | Implemented/released |
 | Checkpoint M148 | pre-alpha checkpoint | M148 | External Security Review | Implemented/released |
 | Checkpoint M149 | pre-alpha checkpoint | M149 | Alpha Release Candidate Freeze | Implemented/released |
-| v1.0.0-alpha | alpha | M150 | Ultimate AI Agent v1.0.0-alpha | Implemented/released |
+| v1.2.0-alpha | alpha | M150 | Ultimate AI Agent v1.2.0-alpha | Implemented/released |
 
 ## Shared Non-Goals
 
@@ -160,10 +160,10 @@ work. M146 records billing/plan boundary as contract-only product-readiness
 work. M147 records public docs + wiki readiness as contract-only
 product-readiness work. M148 records external security review as contract-only
 product-readiness work. M149 records alpha release candidate freeze as
-contract-only product-readiness work. M150 records the v1.0.0-alpha target as
+contract-only product-readiness work. M150 records the v1.2.0-alpha target as
 contract-only product-readiness work.
 
-No M151+ extension is required by the v1.7.3 hardening baseline. Beta begins
+No M151+ extension is required by the v1.2.0-alpha orchestration efficiency baseline. Beta begins
 after the alpha UI and other alpha findings are ironed out through later
 reviewed roadmap promotion. If future review finds missed M1-M100 work that
 should not displace M101-M150, add a separate planned/provisional M151+

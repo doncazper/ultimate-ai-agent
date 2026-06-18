@@ -1,0 +1,187 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ultimate-ai-agent.local/schemas/orchestration_preview_decision.schema.json",
+  "title": "OrchestrationPreviewDecision",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "decision_id",
+    "request_id",
+    "run_id",
+    "policy_id",
+    "status",
+    "cost_mode",
+    "safe_message",
+    "cacheability_plan",
+    "fallback_plan",
+    "metric_summary",
+    "no_effect"
+  ],
+  "properties": {
+    "decision_id": {
+      "type": "string"
+    },
+    "request_id": {
+      "type": "string"
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "policy_id": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "selected",
+        "denied",
+        "no_candidate",
+        "approval_required",
+        "budget_exceeded",
+        "privacy_blocked",
+        "capability_missing",
+        "context_too_small"
+      ]
+    },
+    "cost_mode": {
+      "type": "string",
+      "enum": [
+        "cheap",
+        "balanced",
+        "premium",
+        "critical",
+        "local_private"
+      ]
+    },
+    "selected_profile_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "selected_model_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "candidate_profile_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "rejected_profile_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "reason_codes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "safe_message": {
+      "type": "string"
+    },
+    "estimated_cost_usd": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "estimated_latency_ms": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "estimated_runtime_seconds": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "input_tokens": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "output_tokens": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "total_tokens": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "score_breakdowns": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "selected_score": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "cacheability_plan": {
+      "type": "object"
+    },
+    "fallback_plan": {
+      "type": "object"
+    },
+    "metric_summary": {
+      "type": "object"
+    },
+    "required_approval": {
+      "type": "boolean"
+    },
+    "verification_required": {
+      "type": "boolean"
+    },
+    "verifier_plan_ref": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "fallback_used": {
+      "type": "boolean"
+    },
+    "no_effect": {
+      "type": "boolean",
+      "const": true
+    },
+    "event_ref": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "eval_result_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "trace_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "correlation_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  }
+}

@@ -2,7 +2,7 @@
 
 Checkpoint M124 adds Messages Connector Contract Review while the current
 product baseline remains v1.7.2. It uses the checkpoint-m124 tag and keeps
-M150 as the planned v1.0.0-alpha target.
+M150 as the planned v1.2.0-alpha target.
 
 The checkpoint adds contract-only, review-only messages connector review
 records bound to the M123 Contacts Connector Contract Refresh. The records use
@@ -19,4 +19,4 @@ no model call, no memory write, no context injection, no execution, no backend
 routes, no Control Center controls, no dependencies, no M125 work, no beta
 release, and no production authority.
 
-M125 remains future. M150 remains the planned v1.0.0-alpha target.
+M125 remains future. M150 remains the planned v1.2.0-alpha target.

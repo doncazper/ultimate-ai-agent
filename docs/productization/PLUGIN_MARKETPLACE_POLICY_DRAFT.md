@@ -19,4 +19,4 @@ backend route, no Control Center control, no dependency, no alpha release, no
 beta release, and no production authority.
 
 M145 remains future Enterprise/Pro Safety Modes work. M150 remains the planned
-v1.0.0-alpha product target.
+v1.2.0-alpha product target.

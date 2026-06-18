@@ -14,5 +14,5 @@ sensor access, background workers, remote execution, dependencies, beta
 release, and M117 implementation.
 
 M117 remains future as Remote Agent Coordination Contract. M150 remains the
-planned v1.0.0-alpha target, and beta begins only after alpha UI and supporting
+planned v1.2.0-alpha target, and beta begins only after alpha UI and supporting
 safety/product work are reviewed and promoted.

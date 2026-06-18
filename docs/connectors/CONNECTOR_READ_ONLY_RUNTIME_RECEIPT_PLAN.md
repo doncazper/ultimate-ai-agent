@@ -14,4 +14,4 @@ export, no connector bulk export, no attachment download, no model call, no
 memory write, no context injection, no execution result, no backend route
 result, no Control Center control result, and no production authority evidence.
 
-M126 remains future. M150 remains the planned v1.0.0-alpha target.
+M126 remains future. M150 remains the planned v1.2.0-alpha target.

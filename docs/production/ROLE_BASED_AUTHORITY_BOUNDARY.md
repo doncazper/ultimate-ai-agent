@@ -18,4 +18,4 @@ network access, no model call, no memory write, no context injection, no
 execution, no backend route, no Control Center control, no dependency, no M117
 work, no beta release, and no production authority.
 
-M117 remains future. M150 remains the planned v1.0.0-alpha target.
+M117 remains future. M150 remains the planned v1.2.0-alpha target.
