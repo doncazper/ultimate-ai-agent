@@ -3,7 +3,7 @@ import { EmptyState } from "./DataState";
 
 export function RuntimeReadinessPanel({
   report,
-  matrix
+  matrix,
 }: {
   report: RuntimeReadinessReport;
   matrix: RuntimeCapabilityMatrix;
@@ -13,7 +13,7 @@ export function RuntimeReadinessPanel({
     ["Real model runtime ready", report.real_model_runtime_ready],
     ["Remote execution ready", report.remote_execution_ready],
     ["Mobile sensor ready", report.mobile_sensor_ready],
-    ["Plugin/native build ready", report.plugin_or_native_build_ready]
+    ["Plugin/native build ready", report.plugin_or_native_build_ready],
   ];
   return (
     <section className="panel" aria-labelledby="runtime-readiness-heading">
@@ -25,8 +25,8 @@ export function RuntimeReadinessPanel({
         <span>{report.status}</span>
       </div>
       <p className="section-copy">
-        Local contract state only. These flags do not claim production runtime, model, remote, mobile, or plugin
-        readiness.
+        Local contract state only. These flags do not claim production runtime, model, remote,
+        mobile, or plugin readiness.
       </p>
       <div className="flag-list">
         {booleans.map(([label, value]) => (
@@ -63,7 +63,10 @@ export function RuntimeReadinessPanel({
           </table>
         </div>
       ) : (
-        <EmptyState title="No runtime surfaces listed" message="The local runtime matrix returned no entries." />
+        <EmptyState
+          title="No runtime surfaces listed"
+          message="The local runtime matrix returned no entries."
+        />
       )}
     </section>
   );

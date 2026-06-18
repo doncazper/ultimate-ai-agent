@@ -33,7 +33,7 @@ describe("Control Center API base URL policy", () => {
       "http://172.16.0.2:8000",
       "http://172.31.0.2:8000",
       "http://192.168.1.10:8000",
-      "http://control-center.local:8000"
+      "http://control-center.local:8000",
     ];
 
     for (const host of blockedHosts) {
@@ -58,7 +58,9 @@ describe("Control Center API base URL policy", () => {
 
   it("rejects and redacts secret-like query strings", () => {
     const secretQueryMarker = "tok" + "en";
-    const policy = resolveApiBaseUrl(`http://localhost:8000?${secretQueryMarker}=supersecretvalue123`);
+    const policy = resolveApiBaseUrl(
+      `http://localhost:8000?${secretQueryMarker}=supersecretvalue123`,
+    );
 
     expect(policy.allowed).toBe(false);
     expect(policy.baseUrl).toBe("");
@@ -68,7 +70,15 @@ describe("Control Center API base URL policy", () => {
   });
 
   it("rejects broad secret-like query parameter names", () => {
-    const blockedParamNames = ["api_key", "auth", "credential", "key", "password", "secret", "token"];
+    const blockedParamNames = [
+      "api_key",
+      "auth",
+      "credential",
+      "key",
+      "password",
+      "secret",
+      "token",
+    ];
 
     for (const name of blockedParamNames) {
       const policy = resolveApiBaseUrl(`http://127.0.0.1:8000?${name}=supersecretvalue123`);

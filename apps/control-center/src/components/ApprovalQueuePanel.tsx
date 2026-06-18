@@ -4,7 +4,9 @@ import { EmptyState } from "./DataState";
 
 export function ApprovalQueuePanel({ review }: { review: M15ReviewData }) {
   const [selectedRef, setSelectedRef] = useState(review.approvalQueue[0]?.approvalRef ?? "");
-  const selected = review.approvalQueue.find((item) => item.approvalRef === selectedRef) ?? review.approvalQueue[0];
+  const selected =
+    review.approvalQueue.find((item) => item.approvalRef === selectedRef) ??
+    review.approvalQueue[0];
 
   return (
     <section className="page-section" aria-labelledby="approval-queue-heading">
@@ -19,8 +21,8 @@ export function ApprovalQueuePanel({ review }: { review: M15ReviewData }) {
         Approval request summaries are read-only and preview-only. {review.authorityBoundary}
       </p>
       <p className="safe-copy">
-        This UI cannot grant, deny, execute, or bypass approvals. Approval refs are identifiers only and never
-        authority. Python Agent Core remains the only approval authority.
+        This UI cannot grant, deny, execute, or bypass approvals. Approval refs are identifiers only
+        and never authority. Python Agent Core remains the only approval authority.
       </p>
       <ReviewWarningBar codes={review.warningCodes} />
       {review.approvalQueue.length > 0 && selected ? (
@@ -50,7 +52,7 @@ export function ApprovalQueuePanel({ review }: { review: M15ReviewData }) {
 function ApprovalQueueRow({
   item,
   selected,
-  onSelect
+  onSelect,
 }: {
   item: ApprovalQueueItem;
   selected: boolean;
@@ -121,7 +123,8 @@ function ApprovalQueueDetail({ item }: { item: ApprovalQueueItem }) {
       <TagList label="Related refs" values={item.relatedRefs} />
       <p className="safe-copy">{item.safeMessage}</p>
       <p className="safe-copy">
-        Approval refs are identifiers only and never authority; Python Agent Core remains the only approval authority.
+        Approval refs are identifiers only and never authority; Python Agent Core remains the only
+        approval authority.
       </p>
     </article>
   );

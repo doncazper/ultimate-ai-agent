@@ -16,8 +16,8 @@ export function EventViewerPanel({ review }: { review: M15ReviewData }) {
         <span className="status-pill compact">redacted summary-only</span>
       </div>
       <p className="section-copy">
-        This view displays redacted event summaries for audit review. It does not expose event bodies or create event
-        authority.
+        This view displays redacted event summaries for audit review. It does not expose event
+        bodies or create event authority.
       </p>
       <div className="note-list" aria-label="Event viewer warnings">
         {review.warningCodes.map((code) => (
@@ -39,7 +39,10 @@ export function EventViewerPanel({ review }: { review: M15ReviewData }) {
           <EventDetail item={selected} />
         </div>
       ) : (
-        <EmptyState title="No event summaries" message="No redacted event summaries are available." />
+        <EmptyState
+          title="No event summaries"
+          message="No redacted event summaries are available."
+        />
       )}
     </section>
   );
@@ -48,7 +51,7 @@ export function EventViewerPanel({ review }: { review: M15ReviewData }) {
 function EventRow({
   item,
   selected,
-  onSelect
+  onSelect,
 }: {
   item: EventSummaryItem;
   selected: boolean;

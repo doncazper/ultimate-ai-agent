@@ -13,8 +13,8 @@ export function DashboardSummary({ dashboard }: { dashboard: ControlCenterDashbo
         <span className="status-pill compact">{dashboard.baseline_version}</span>
       </div>
       <p className="section-copy">
-        Read-only summaries for release readiness, runtime boundaries, API inventory, approvals, remote worker planning,
-        mobile planning, and plugin governance.
+        Read-only summaries for release readiness, runtime boundaries, API inventory, approvals,
+        remote worker planning, mobile planning, and plugin governance.
       </p>
       <div className="panel-grid">
         <StatusCard
@@ -49,7 +49,10 @@ export function DashboardSummary({ dashboard }: { dashboard: ControlCenterDashbo
           ))}
         </div>
       ) : (
-        <EmptyState title="No dashboard warnings" message="No warning summaries were returned by the local contract." />
+        <EmptyState
+          title="No dashboard warnings"
+          message="No warning summaries were returned by the local contract."
+        />
       )}
     </section>
   );

@@ -54,8 +54,9 @@ function allowedPolicy(baseUrl: string, label: string): ApiBaseUrlPolicy {
     allowed: true,
     baseUrl,
     label,
-    safeMessage: "Local API base is allowed for read-only and preview-only Control Center requests.",
-    warnings: []
+    safeMessage:
+      "Local API base is allowed for read-only and preview-only Control Center requests.",
+    warnings: [],
   };
 }
 
@@ -64,7 +65,9 @@ function blockedPolicy(label: string, warning: string): ApiBaseUrlPolicy {
     allowed: false,
     baseUrl: "",
     label,
-    safeMessage: sanitizeForDisplay("API base URL is not allowed for this local-only Control Center shell."),
-    warnings: [warning]
+    safeMessage: sanitizeForDisplay(
+      "API base URL is not allowed for this local-only Control Center shell.",
+    ),
+    warnings: [warning],
   };
 }

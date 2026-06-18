@@ -8,7 +8,7 @@ export const mockControlCenterData: ControlCenterData = {
     checkedAt: "2026-01-01T00:00:00Z",
     safeMessage: "Backend unavailable; showing non-authoritative mock fallback data.",
     usingMockData: true,
-    warnings: ["MOCK_DATA_ONLY", "NO_PRODUCTION_AUTHORITY"]
+    warnings: ["MOCK_DATA_ONLY", "NO_PRODUCTION_AUTHORITY"],
   },
   manifest: {
     manifest_id: "mock_control_center_manifest_m36",
@@ -22,7 +22,7 @@ export const mockControlCenterData: ControlCenterData = {
       "control_center_m17_knowledge_reference_preview",
       "control_center_m18_local_runtime_manual_smoke_preview",
       "control_center_m36_file_review_surface",
-      "control_center_m39_context_proposal_surface"
+      "control_center_m39_context_proposal_surface",
     ],
     blocked_capabilities: [
       "runtime_execution",
@@ -31,20 +31,20 @@ export const mockControlCenterData: ControlCenterData = {
       "remote_dispatch",
       "mobile_sensor_access",
       "plugin_enablement",
-      "native_build_control"
+      "native_build_control",
     ],
     api_route_refs: [
       "/control-center/manifest",
       "/control-center/dashboard",
       "/control-center/status",
       "/control-center/routes",
-      "/control-center/actions/preview"
+      "/control-center/actions/preview",
     ],
     metadata: {
       mock: true,
       read_only: true,
       preview_only: true,
-      production_control_center: false
+      production_control_center: false,
     },
     surfaces: [
       {
@@ -56,7 +56,7 @@ export const mockControlCenterData: ControlCenterData = {
         mutation_allowed: false,
         credential_resolution_allowed: false,
         approval_grant_allowed: false,
-        metadata: { mock: true }
+        metadata: { mock: true },
       },
       {
         surface: "action_preview",
@@ -67,7 +67,7 @@ export const mockControlCenterData: ControlCenterData = {
         mutation_allowed: false,
         credential_resolution_allowed: false,
         approval_grant_allowed: false,
-        metadata: { mock: true }
+        metadata: { mock: true },
       },
       {
         surface: "approval_receipt_event_review",
@@ -78,7 +78,7 @@ export const mockControlCenterData: ControlCenterData = {
         mutation_allowed: false,
         credential_resolution_allowed: false,
         approval_grant_allowed: false,
-        metadata: { mock: true, redacted_summary_only: true }
+        metadata: { mock: true, redacted_summary_only: true },
       },
       {
         surface: "event_timeline_trace_viewer",
@@ -89,7 +89,7 @@ export const mockControlCenterData: ControlCenterData = {
         mutation_allowed: false,
         credential_resolution_allowed: false,
         approval_grant_allowed: false,
-        metadata: { mock: true, redacted_summary_only: true, external_export_allowed: false }
+        metadata: { mock: true, redacted_summary_only: true, external_export_allowed: false },
       },
       {
         surface: "evidence_file_memory_viewer",
@@ -104,14 +104,19 @@ export const mockControlCenterData: ControlCenterData = {
           mock: true,
           redacted_summary_only: true,
           raw_content_allowed: false,
-          memory_authority_allowed: false
-        }
+          memory_authority_allowed: false,
+        },
       },
       {
         surface: "local_runtime_manual_smoke_status",
         status: "validation_only",
-        description: "Mock local runtime readiness and manual smoke report validation summaries for M18.",
-        route_refs: ["/runtime/readiness", "/runtime/capability-matrix", "/runtime/smoke-reports/validate"],
+        description:
+          "Mock local runtime readiness and manual smoke report validation summaries for M18.",
+        route_refs: [
+          "/runtime/readiness",
+          "/runtime/capability-matrix",
+          "/runtime/smoke-reports/validate",
+        ],
         execution_allowed: false,
         mutation_allowed: false,
         credential_resolution_allowed: false,
@@ -121,13 +126,14 @@ export const mockControlCenterData: ControlCenterData = {
           redacted_summary_only: true,
           runtime_execution_allowed: false,
           smoke_execution_allowed: false,
-          model_output_authoritative: false
-        }
+          model_output_authoritative: false,
+        },
       },
       {
         surface: "file_review_surface",
         status: "preview_only",
-        description: "Mock review-only redacted file review packet surface with M37 approval capture.",
+        description:
+          "Mock review-only redacted file review packet surface with M37 approval capture.",
         route_refs: [],
         execution_allowed: false,
         mutation_allowed: false,
@@ -139,8 +145,8 @@ export const mockControlCenterData: ControlCenterData = {
           approval_capture_allowed: false,
           approval_persistence_allowed: false,
           context_proposal_allowed: false,
-          raw_file_display_allowed: false
-        }
+          raw_file_display_allowed: false,
+        },
       },
       {
         surface: "context_proposal_surface",
@@ -160,8 +166,8 @@ export const mockControlCenterData: ControlCenterData = {
           memory_write_allowed: false,
           export_allowed: false,
           execution_allowed: false,
-          raw_file_display_allowed: false
-        }
+          raw_file_display_allowed: false,
+        },
       },
       {
         surface: "remote_workers",
@@ -172,7 +178,7 @@ export const mockControlCenterData: ControlCenterData = {
         mutation_allowed: false,
         credential_resolution_allowed: false,
         approval_grant_allowed: false,
-        metadata: { mock: true }
+        metadata: { mock: true },
       },
       {
         surface: "mobile_planning",
@@ -183,7 +189,7 @@ export const mockControlCenterData: ControlCenterData = {
         mutation_allowed: false,
         credential_resolution_allowed: false,
         approval_grant_allowed: false,
-        metadata: { mock: true }
+        metadata: { mock: true },
       },
       {
         surface: "plugin_governance",
@@ -194,9 +200,9 @@ export const mockControlCenterData: ControlCenterData = {
         mutation_allowed: false,
         credential_resolution_allowed: false,
         approval_grant_allowed: false,
-        metadata: { mock: true }
-      }
-    ]
+        metadata: { mock: true },
+      },
+    ],
   },
   dashboard: {
     snapshot_id: "mock_control_center_dashboard_m36",
@@ -205,13 +211,13 @@ export const mockControlCenterData: ControlCenterData = {
     system_status: {
       label: "Control Center",
       status: "mock_read_only",
-      summary: "Mock frontend fallback is read-only and preview-only."
+      summary: "Mock frontend fallback is read-only and preview-only.",
     },
     foundation_gate_summary: {
       status: "mock_passed",
       passed_count: 0,
       failed_count: 0,
-      summary: "Mock gate summary only; verify the backend for release evidence."
+      summary: "Mock gate summary only; verify the backend for release evidence.",
     },
     runtime_readiness_summary: {
       status: "readiness_report_only",
@@ -219,40 +225,40 @@ export const mockControlCenterData: ControlCenterData = {
       real_model_runtime_ready: false,
       remote_execution_ready: false,
       mobile_sensor_ready: false,
-      plugin_or_native_build_ready: false
+      plugin_or_native_build_ready: false,
     },
     approval_summary: {
       pending_count: 0,
       approval_grants_created: false,
       arbitrary_approval_ref_authority: false,
-      summary: "Mock approval summary only; no approval is granted."
+      summary: "Mock approval summary only; no approval is granted.",
     },
     api_summary: {
       route_count: 74,
       control_center_route_count: 8,
       operation_ids_unique: true,
-      execution_routes_present: false
+      execution_routes_present: false,
     },
     remote_worker_summary: {
       status: "dry_run_only",
       execution_enabled: false,
-      dispatch_enabled: false
+      dispatch_enabled: false,
     },
     private_mesh_summary: {
       status: "planned_disabled",
       headscale_integrated: false,
       tailscale_integrated: false,
-      wireguard_integrated: false
+      wireguard_integrated: false,
     },
     mobile_planning_summary: {
       status: "planned_disabled",
       sensor_access_enabled: false,
-      mobile_app_implemented: false
+      mobile_app_implemented: false,
     },
     plugin_governance_summary: {
       status: "planned_disabled",
       plugin_enablement_allowed: false,
-      native_build_tools_enabled: false
+      native_build_tools_enabled: false,
     },
     warnings: ["MOCK_DATA_ONLY", "NO_PRODUCTION_AUTHORITY"],
     blockers: [],
@@ -260,8 +266,8 @@ export const mockControlCenterData: ControlCenterData = {
     metadata: {
       mock: true,
       read_only: true,
-      preview_only: true
-    }
+      preview_only: true,
+    },
   },
   status: {
     status: "mock_available",
@@ -269,7 +275,7 @@ export const mockControlCenterData: ControlCenterData = {
     preview_only: true,
     frontend_shell: true,
     production_authority: false,
-    message: "Mock status fallback; no backend authority is implied."
+    message: "Mock status fallback; no backend authority is implied.",
   },
   routes: {
     route_count: 8,
@@ -279,16 +285,16 @@ export const mockControlCenterData: ControlCenterData = {
         methods: ["GET"],
         operation_id: "get_control_center_manifest",
         tags: ["control-center"],
-        validation_only: true
+        validation_only: true,
       },
       {
         path: "/control-center/actions/preview",
         methods: ["POST"],
         operation_id: "preview_control_center_action",
         tags: ["control-center"],
-        validation_only: true
-      }
-    ]
+        validation_only: true,
+      },
+    ],
   },
   runtimeReadiness: {
     report_id: "mock_runtime_readiness_m18",
@@ -302,7 +308,7 @@ export const mockControlCenterData: ControlCenterData = {
     capability_matrix_ref: "mock_runtime_capability_matrix_m18",
     warnings: ["MOCK_DATA_ONLY"],
     blockers: [],
-    metadata: { mock: true, model_output_authoritative: false }
+    metadata: { mock: true, model_output_authoritative: false },
   },
   capabilityMatrix: {
     matrix_id: "mock_runtime_capability_matrix_m18",
@@ -318,7 +324,7 @@ export const mockControlCenterData: ControlCenterData = {
         cloud_allowed: false,
         user_content_allowed: false,
         secrets_allowed: false,
-        summary: "Simulated adapter only."
+        summary: "Simulated adapter only.",
       },
       {
         surface: "manual_loopback_smoke",
@@ -329,7 +335,7 @@ export const mockControlCenterData: ControlCenterData = {
         cloud_allowed: false,
         user_content_allowed: false,
         secrets_allowed: false,
-        summary: "Manual fixed-prompt loopback smoke only."
+        summary: "Manual fixed-prompt loopback smoke only.",
       },
       {
         surface: "cloud_provider_runtime",
@@ -340,9 +346,9 @@ export const mockControlCenterData: ControlCenterData = {
         cloud_allowed: false,
         user_content_allowed: false,
         secrets_allowed: false,
-        summary: "Cloud provider runtime is blocked."
-      }
-    ]
+        summary: "Cloud provider runtime is blocked.",
+      },
+    ],
   },
   m15Review: {
     status: "mock_preview_only",
@@ -350,7 +356,8 @@ export const mockControlCenterData: ControlCenterData = {
     previewOnly: true,
     mock: true,
     nonAuthoritative: true,
-    authorityBoundary: "Approval Authority handles final decision; Control Center displays summaries only.",
+    authorityBoundary:
+      "Approval Authority handles final decision; Control Center displays summaries only.",
     warningCodes: ["MOCK_DATA_ONLY", "NO_PRODUCTION_AUTHORITY", "REDACTED_SUMMARY_ONLY"],
     approvalQueue: [
       {
@@ -370,7 +377,7 @@ export const mockControlCenterData: ControlCenterData = {
         relatedRefs: ["mock_receipt_ref_001", "mock_event_ref_001"],
         previewOnly: true,
         readOnly: true,
-        mock: true
+        mock: true,
       },
       {
         approvalRef: "mock_approval_ref_002",
@@ -388,8 +395,8 @@ export const mockControlCenterData: ControlCenterData = {
         relatedRefs: ["mock_receipt_ref_002"],
         previewOnly: true,
         readOnly: true,
-        mock: true
-      }
+        mock: true,
+      },
     ],
     receipts: [
       {
@@ -401,12 +408,13 @@ export const mockControlCenterData: ControlCenterData = {
         riskLevel: "medium",
         dataClassification: "internal",
         redactionStatus: "redacted_summary_only",
-        safeMessage: "Receipt is a redacted summary; no receipt mutation is available from this UI.",
+        safeMessage:
+          "Receipt is a redacted summary; no receipt mutation is available from this UI.",
         timestamp: "2026-01-01T00:02:00Z",
         relatedRefs: ["mock_approval_ref_001"],
         previewOnly: true,
         readOnly: true,
-        mock: true
+        mock: true,
       },
       {
         receiptRef: "mock_receipt_ref_002",
@@ -422,8 +430,8 @@ export const mockControlCenterData: ControlCenterData = {
         relatedRefs: ["mock_approval_ref_002"],
         previewOnly: true,
         readOnly: true,
-        mock: true
-      }
+        mock: true,
+      },
     ],
     events: [
       {
@@ -439,7 +447,7 @@ export const mockControlCenterData: ControlCenterData = {
         safeMessage: "No event action is available from this UI.",
         previewOnly: true,
         readOnly: true,
-        mock: true
+        mock: true,
       },
       {
         eventRef: "mock_event_ref_002",
@@ -454,9 +462,9 @@ export const mockControlCenterData: ControlCenterData = {
         safeMessage: "Event record is safe display metadata only.",
         previewOnly: true,
         readOnly: true,
-        mock: true
-      }
-    ]
+        mock: true,
+      },
+    ],
   },
   m16Trace: {
     status: "mock_preview_only",
@@ -466,7 +474,12 @@ export const mockControlCenterData: ControlCenterData = {
     nonAuthoritative: true,
     boundarySummary:
       "Trace summaries use refs and safe messages only; Python Agent Core and Event Ledger remain source of truth.",
-    warningCodes: ["MOCK_DATA_ONLY", "NO_PRODUCTION_AUTHORITY", "REDACTED_SUMMARY_ONLY", "NO_EXTERNAL_EXPORT"],
+    warningCodes: [
+      "MOCK_DATA_ONLY",
+      "NO_PRODUCTION_AUTHORITY",
+      "REDACTED_SUMMARY_ONLY",
+      "NO_EXTERNAL_EXPORT",
+    ],
     timelineEvents: [
       {
         eventRef: "mock_event_ref_001",
@@ -484,7 +497,7 @@ export const mockControlCenterData: ControlCenterData = {
         safeMessage: "Timeline event is summary metadata only; no execution path is available.",
         previewOnly: true,
         readOnly: true,
-        mock: true
+        mock: true,
       },
       {
         eventRef: "mock_event_ref_002",
@@ -503,8 +516,8 @@ export const mockControlCenterData: ControlCenterData = {
         safeMessage: "Trace relation is safe display metadata only.",
         previewOnly: true,
         readOnly: true,
-        mock: true
-      }
+        mock: true,
+      },
     ],
     traceRelations: [
       {
@@ -513,7 +526,7 @@ export const mockControlCenterData: ControlCenterData = {
         fromRef: "mock_event_ref_001",
         toRef: "mock_event_ref_002",
         safeSummary: "Event summary review followed the approval review preview.",
-        redactionStatus: "redacted_summary_only"
+        redactionStatus: "redacted_summary_only",
       },
       {
         relationRef: "mock_relation_ref_002",
@@ -521,7 +534,7 @@ export const mockControlCenterData: ControlCenterData = {
         fromRef: "mock_event_ref_001",
         toRef: "mock_receipt_ref_001",
         safeSummary: "Receipt summary is linked by ref only.",
-        redactionStatus: "redacted_summary_only"
+        redactionStatus: "redacted_summary_only",
       },
       {
         relationRef: "mock_relation_ref_003",
@@ -529,8 +542,8 @@ export const mockControlCenterData: ControlCenterData = {
         fromRef: "mock_event_ref_001",
         toRef: "mock_evidence_ref_gate_001",
         safeSummary: "Foundation Gate evidence summary is linked by ref only.",
-        redactionStatus: "redacted_summary_only"
-      }
+        redactionStatus: "redacted_summary_only",
+      },
     ],
     foundationGateEvidence: [
       {
@@ -539,10 +552,11 @@ export const mockControlCenterData: ControlCenterData = {
         status: "mock_passed",
         receiptRefs: ["mock_receipt_ref_001"],
         eventRefs: ["mock_event_ref_001", "mock_event_ref_002"],
-        safeSummary: "Mock Foundation Gate evidence confirms timeline trace summaries stay read-only and redacted.",
-        redactionStatus: "redacted_summary_only"
-      }
-    ]
+        safeSummary:
+          "Mock Foundation Gate evidence confirms timeline trace summaries stay read-only and redacted.",
+        redactionStatus: "redacted_summary_only",
+      },
+    ],
   },
   m17Knowledge: {
     status: "mock_preview_only",
@@ -557,7 +571,7 @@ export const mockControlCenterData: ControlCenterData = {
       "NO_PRODUCTION_AUTHORITY",
       "REDACTED_SUMMARY_ONLY",
       "NO_RAW_CONTENT",
-      "MEMORY_NOT_AUTHORITY"
+      "MEMORY_NOT_AUTHORITY",
     ],
     evidence: [
       {
@@ -580,7 +594,7 @@ export const mockControlCenterData: ControlCenterData = {
         timestamp: "2026-01-01T00:20:00Z",
         previewOnly: true,
         readOnly: true,
-        mock: true
+        mock: true,
       },
       {
         evidenceRef: "mock_evidence_ref_002",
@@ -602,8 +616,8 @@ export const mockControlCenterData: ControlCenterData = {
         timestamp: "2026-01-01T00:25:00Z",
         previewOnly: true,
         readOnly: true,
-        mock: true
-      }
+        mock: true,
+      },
     ],
     fileRefs: [
       {
@@ -622,7 +636,7 @@ export const mockControlCenterData: ControlCenterData = {
         pathDisclosure: "redacted_safe_label_only",
         previewOnly: true,
         readOnly: true,
-        mock: true
+        mock: true,
       },
       {
         fileRef: "mock_file_ref_002",
@@ -640,8 +654,8 @@ export const mockControlCenterData: ControlCenterData = {
         pathDisclosure: "redacted_safe_label_only",
         previewOnly: true,
         readOnly: true,
-        mock: true
-      }
+        mock: true,
+      },
     ],
     memories: [
       {
@@ -659,11 +673,10 @@ export const mockControlCenterData: ControlCenterData = {
         relatedEventRefs: ["mock_event_ref_001"],
         relatedReceiptRefs: ["mock_receipt_ref_001"],
         relatedEvidenceRefs: ["mock_evidence_ref_001"],
-        authorityNotice:
-          "Memory summary remains recall-only. Governed source refs outrank it.",
+        authorityNotice: "Memory summary remains recall-only. Governed source refs outrank it.",
         previewOnly: true,
         readOnly: true,
-        mock: true
+        mock: true,
       },
       {
         memoryRef: "mock_memory_ref_002",
@@ -684,9 +697,9 @@ export const mockControlCenterData: ControlCenterData = {
           "Memory summary remains recall-only. Governed event and receipt refs outrank it.",
         previewOnly: true,
         readOnly: true,
-        mock: true
-      }
-    ]
+        mock: true,
+      },
+    ],
   },
   m18Runtime: {
     status: "mock_preview_only",
@@ -702,7 +715,7 @@ export const mockControlCenterData: ControlCenterData = {
       "REDACTED_SUMMARY_ONLY",
       "VALIDATION_ONLY",
       "NO_RUNTIME_EXECUTION",
-      "NO_MODEL_CALLS"
+      "NO_MODEL_CALLS",
     ],
     localRuntimeSurfaces: [
       {
@@ -717,7 +730,7 @@ export const mockControlCenterData: ControlCenterData = {
         safeSummary:
           "Readiness report summarizes local contract state without claiming production runtime readiness.",
         guardrailRefs: ["m11_runtime_readiness", "m18_local_runtime_manual_smoke_surface_safe"],
-        redactionStatus: "redacted_summary_only"
+        redactionStatus: "redacted_summary_only",
       },
       {
         surfaceRef: "runtime_capability_matrix",
@@ -731,7 +744,7 @@ export const mockControlCenterData: ControlCenterData = {
         safeSummary:
           "Capability matrix lists allowed and blocked runtime categories without enabling any provider.",
         guardrailRefs: ["m11_runtime_capability_matrix", "m18_openapi_route_guard"],
-        redactionStatus: "redacted_summary_only"
+        redactionStatus: "redacted_summary_only",
       },
       {
         surfaceRef: "manual_loopback_smoke",
@@ -745,8 +758,8 @@ export const mockControlCenterData: ControlCenterData = {
         safeSummary:
           "Manual smoke reports may be validated as metadata; the UI cannot perform the smoke attempt.",
         guardrailRefs: ["m10_manual_smoke", "m11_manual_smoke_report_validation_safe"],
-        redactionStatus: "redacted_summary_only"
-      }
+        redactionStatus: "redacted_summary_only",
+      },
     ],
     manualSmokeReports: [
       {
@@ -763,9 +776,9 @@ export const mockControlCenterData: ControlCenterData = {
         redactionStatus: "redacted_summary_only",
         safeMessage:
           "Mock validation summary only; no smoke attempt was performed and no response text is shown.",
-        createdAt: "2026-01-01T00:30:00Z"
-      }
-    ]
+        createdAt: "2026-01-01T00:30:00Z",
+      },
+    ],
   },
   m36FileReview: {
     status: "mock_review_only",
@@ -785,7 +798,7 @@ export const mockControlCenterData: ControlCenterData = {
       "SAFE_REF_PERSISTENCE_ONLY",
       "NO_RAW_FILE_DISPLAY",
       "SAFE_REFS_ONLY",
-      "NO_AUTHORITY_GRANTED"
+      "NO_AUTHORITY_GRANTED",
     ],
     packets: [
       {
@@ -802,7 +815,7 @@ export const mockControlCenterData: ControlCenterData = {
           previewResultRef: "redacted-file-preview-output:mock_001",
           redactionSummaryRef: "file-review-redaction-summary:mock_001",
           fileRef: "file-ref:mock_review_001",
-          safePathRef: "filesystem-preview-path:safe-root_m36/docs/review-summary.md"
+          safePathRef: "filesystem-preview-path:safe-root_m36/docs/review-summary.md",
         },
         reviewDecisionStatus: "packet_valid_for_review",
         approvalGateContractStatus: "exact_binding_ready",
@@ -818,8 +831,7 @@ export const mockControlCenterData: ControlCenterData = {
           memoryWritePerformed: false,
           exportPerformed: false,
           executionPerformed: false,
-          safeSummary:
-            "Receipt plan stores refs, redaction status, and decision metadata only."
+          safeSummary: "Receipt plan stores refs, redaction status, and decision metadata only.",
         },
         approvalCapture: {
           status: "not_captured",
@@ -833,19 +845,23 @@ export const mockControlCenterData: ControlCenterData = {
           exportAuthorized: false,
           executionAuthorized: false,
           executionPerformed: false,
-          safeMessage: "No review-only approval capture has been recorded for this mock packet."
+          safeMessage: "No review-only approval capture has been recorded for this mock packet.",
         },
-        reasonCodes: ["M37_REVIEW_ONLY_CAPTURE_SURFACE", "EXACT_BINDING_REFS_DISPLAYED", "SAFE_REFS_ONLY"],
+        reasonCodes: [
+          "M37_REVIEW_ONLY_CAPTURE_SURFACE",
+          "EXACT_BINDING_REFS_DISPLAYED",
+          "SAFE_REFS_ONLY",
+        ],
         authorityWarnings: [
           "Review approval capture records safe refs only and grants no authority.",
           "Approval gate refs are shown for review; they are not authority.",
-          "No raw file access, context proposal, memory write, export, or execution is available."
+          "No raw file access, context proposal, memory write, export, or execution is available.",
         ],
         redactionStatus: "redacted_summary_only",
         previewOnly: true,
         readOnly: true,
         mock: true,
-        nonAuthoritative: true
+        nonAuthoritative: true,
       },
       {
         reviewPacketRef: "file-review-packet:mock_002",
@@ -861,7 +877,7 @@ export const mockControlCenterData: ControlCenterData = {
           previewResultRef: "redacted-file-preview-output:mock_002",
           redactionSummaryRef: "file-review-redaction-summary:mock_002",
           fileRef: "file-ref:mock_review_002",
-          safePathRef: "filesystem-preview-path:safe-root_m36/docs/alternate-review.md"
+          safePathRef: "filesystem-preview-path:safe-root_m36/docs/alternate-review.md",
         },
         reviewDecisionStatus: "review_only_display",
         approvalGateContractStatus: "binding_refs_match_required",
@@ -878,7 +894,7 @@ export const mockControlCenterData: ControlCenterData = {
           exportPerformed: false,
           executionPerformed: false,
           safeSummary:
-            "Alternate receipt plan confirms no raw data or mutation authority is stored."
+            "Alternate receipt plan confirms no raw data or mutation authority is stored.",
         },
         approvalCapture: {
           status: "not_captured",
@@ -892,21 +908,25 @@ export const mockControlCenterData: ControlCenterData = {
           exportAuthorized: false,
           executionAuthorized: false,
           executionPerformed: false,
-          safeMessage: "No review-only approval capture has been recorded for this mock packet."
+          safeMessage: "No review-only approval capture has been recorded for this mock packet.",
         },
-        reasonCodes: ["M37_REVIEW_ONLY_CAPTURE_SURFACE", "SAFE_REF_PERSISTENCE_ONLY", "NO_AUTHORITY_GRANTED"],
+        reasonCodes: [
+          "M37_REVIEW_ONLY_CAPTURE_SURFACE",
+          "SAFE_REF_PERSISTENCE_ONLY",
+          "NO_AUTHORITY_GRANTED",
+        ],
         authorityWarnings: [
           "Review approval capture records safe refs only and grants no authority.",
           "M38 context proposal remains future.",
-          "Context proposal and injection remain unavailable."
+          "Context proposal and injection remain unavailable.",
         ],
         redactionStatus: "redacted_summary_only",
         previewOnly: true,
         readOnly: true,
         mock: true,
-        nonAuthoritative: true
-      }
-    ]
+        nonAuthoritative: true,
+      },
+    ],
   },
   m39ContextProposals: {
     status: "mock_review_only",
@@ -928,7 +948,7 @@ export const mockControlCenterData: ControlCenterData = {
       "NO_MEMORY_WRITE",
       "NO_EXPORT",
       "NO_EXECUTION",
-      "NO_RAW_FILE_DISPLAY"
+      "NO_RAW_FILE_DISPLAY",
     ],
     proposals: [
       {
@@ -948,7 +968,7 @@ export const mockControlCenterData: ControlCenterData = {
           redactionSummaryRef: "file-review-redaction-summary:mock_001",
           fileRef: "file-ref:mock_review_001",
           safePathRef: "filesystem-preview-path:safe-root_m39/docs/review-summary.md",
-          actorRef: "user:mock_reviewer_001"
+          actorRef: "user:mock_reviewer_001",
         },
         sourceChainRefs: [
           "file-review-approval-capture:mock_001",
@@ -957,7 +977,7 @@ export const mockControlCenterData: ControlCenterData = {
           "file-review-redaction-summary:mock_001",
           "file-ref:mock_review_001",
           "filesystem-preview-path:safe-root_m39/docs/review-summary.md",
-          "user:mock_reviewer_001"
+          "user:mock_reviewer_001",
         ],
         sections: [
           {
@@ -968,8 +988,8 @@ export const mockControlCenterData: ControlCenterData = {
             sourceRef: "redacted-file-preview-output:mock_001",
             redacted: true,
             bounded: true,
-            nonAuthoritative: true
-          }
+            nonAuthoritative: true,
+          },
         ],
         redactionVerificationStatus: "redacted_review_material_only",
         decisionStatus: "proposal_ready_for_review",
@@ -984,7 +1004,7 @@ export const mockControlCenterData: ControlCenterData = {
           openwebuiHandoffPerformed: false,
           memoryWritePerformed: false,
           exportPerformed: false,
-          executionPerformed: false
+          executionPerformed: false,
         },
         authority: {
           contextInjectionAuthorized: false,
@@ -994,25 +1014,26 @@ export const mockControlCenterData: ControlCenterData = {
           exportAuthorized: false,
           executionAuthorized: false,
           rawFileAccessAuthorized: false,
-          truthAuthorityClaimed: false
+          truthAuthorityClaimed: false,
         },
         reasonCodes: ["M39_CONTEXT_PROPOSAL_SURFACE", "PROPOSAL_ONLY", "SAFE_REFS_ONLY"],
         authorityWarnings: [
           "Control Center output is not authority.",
           "Context proposal review does not authorize OpenWebUI handoff or context injection.",
-          "No raw file access, memory write, export, model call, or execution is available."
+          "No raw file access, memory write, export, model call, or execution is available.",
         ],
         redactionStatus: "redacted_summary_only",
         previewOnly: true,
         readOnly: true,
-        mock: true
+        mock: true,
       },
       {
         proposalRef: "safe-context-proposal:mock_002",
         status: "review_only",
         proposalOnly: true,
         nonAuthoritative: true,
-        sourceSummary: "Alternate safe context proposal from exact-scope approved redacted review packet mock_002.",
+        sourceSummary:
+          "Alternate safe context proposal from exact-scope approved redacted review packet mock_002.",
         safeSummary:
           "Alternate proposal remains review-only display. It cannot become context handoff, injection, memory, export, or execution authority.",
         dataClassification: "internal",
@@ -1024,7 +1045,7 @@ export const mockControlCenterData: ControlCenterData = {
           redactionSummaryRef: "file-review-redaction-summary:mock_002",
           fileRef: "file-ref:mock_review_002",
           safePathRef: "filesystem-preview-path:safe-root_m39/docs/alternate-review.md",
-          actorRef: "user:mock_reviewer_002"
+          actorRef: "user:mock_reviewer_002",
         },
         sourceChainRefs: [
           "file-review-approval-capture:mock_002",
@@ -1033,7 +1054,7 @@ export const mockControlCenterData: ControlCenterData = {
           "file-review-redaction-summary:mock_002",
           "file-ref:mock_review_002",
           "filesystem-preview-path:safe-root_m39/docs/alternate-review.md",
-          "user:mock_reviewer_002"
+          "user:mock_reviewer_002",
         ],
         sections: [
           {
@@ -1044,15 +1065,14 @@ export const mockControlCenterData: ControlCenterData = {
             sourceRef: "redacted-file-preview-output:mock_002",
             redacted: true,
             bounded: true,
-            nonAuthoritative: true
-          }
+            nonAuthoritative: true,
+          },
         ],
         redactionVerificationStatus: "redacted_review_material_only",
         decisionStatus: "proposal_ready_for_review",
         receiptPlan: {
           receiptPlanRef: "safe-context-proposal-receipt-plan:mock_002",
-          safeSummary:
-            "Alternate receipt plan stores refs and no raw proposal source material.",
+          safeSummary: "Alternate receipt plan stores refs and no raw proposal source material.",
           rawContentStored: false,
           fullFileContentStored: false,
           unredactedPreviewStored: false,
@@ -1060,7 +1080,7 @@ export const mockControlCenterData: ControlCenterData = {
           openwebuiHandoffPerformed: false,
           memoryWritePerformed: false,
           exportPerformed: false,
-          executionPerformed: false
+          executionPerformed: false,
         },
         authority: {
           contextInjectionAuthorized: false,
@@ -1070,19 +1090,19 @@ export const mockControlCenterData: ControlCenterData = {
           exportAuthorized: false,
           executionAuthorized: false,
           rawFileAccessAuthorized: false,
-          truthAuthorityClaimed: false
+          truthAuthorityClaimed: false,
         },
         reasonCodes: ["M39_CONTEXT_PROPOSAL_SURFACE", "NO_AUTHORITY_GRANTED", "SAFE_REFS_ONLY"],
         authorityWarnings: [
           "Control Center output is not authority.",
           "M40 handoff approval remains future and does not imply injection.",
-          "No context injection, memory write, export, model call, raw file access, or execution is available."
+          "No context injection, memory write, export, model call, raw file access, or execution is available.",
         ],
         redactionStatus: "redacted_summary_only",
         previewOnly: true,
         readOnly: true,
-        mock: true
-      }
-    ]
-  }
+        mock: true,
+      },
+    ],
+  },
 };

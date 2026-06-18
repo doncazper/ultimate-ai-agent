@@ -7,7 +7,7 @@ import { DashboardSummary } from "./components/DashboardSummary";
 import {
   EvidenceViewerPanel,
   FileReferenceViewerPanel,
-  MemoryViewerPanel
+  MemoryViewerPanel,
 } from "./components/EvidenceFileMemoryViewerPanel";
 import { EventViewerPanel } from "./components/EventViewerPanel";
 import { EventTimelineTracePanel } from "./components/EventTimelineTracePanel";
@@ -15,14 +15,14 @@ import { FileReviewSurfacePanel } from "./components/FileReviewSurfacePanel";
 import { FoundationGatePanel } from "./components/FoundationGatePanel";
 import {
   LocalRuntimeStatusPanel,
-  ManualSmokeControlSurfacePanel
+  ManualSmokeControlSurfacePanel,
 } from "./components/LocalRuntimeStatusPanel";
 import { ReceiptViewerPanel } from "./components/ReceiptViewerPanel";
 import { RuntimeReadinessPanel } from "./components/RuntimeReadinessPanel";
 import {
   MobilePlanningPanel,
   PluginGovernancePanel,
-  RemoteWorkerSummaryPanel
+  RemoteWorkerSummaryPanel,
 } from "./components/SummaryPanels";
 
 export const navItems = [
@@ -45,13 +45,15 @@ export const navItems = [
   { path: "/remote-workers", label: "Remote Workers" },
   { path: "/mobile-planning", label: "Mobile Planning" },
   { path: "/plugin-governance", label: "Plugin Governance" },
-  { path: "/action-preview", label: "Action Preview" }
+  { path: "/action-preview", label: "Action Preview" },
 ] as const;
 
 export function renderRoute(path: string, data: ControlCenterData) {
   switch (path) {
     case "/runtime":
-      return <RuntimeReadinessPanel report={data.runtimeReadiness} matrix={data.capabilityMatrix} />;
+      return (
+        <RuntimeReadinessPanel report={data.runtimeReadiness} matrix={data.capabilityMatrix} />
+      );
     case "/foundation-gate":
       return <FoundationGatePanel summary={data.dashboard.foundation_gate_summary} />;
     case "/api-routes":

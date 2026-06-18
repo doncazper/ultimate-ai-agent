@@ -3,7 +3,7 @@ import type {
   MobilePlanningSummary,
   PluginGovernanceSummary,
   PrivateMeshSummary,
-  RemoteWorkerSummary
+  RemoteWorkerSummary,
 } from "../api/types";
 import { StatusCard } from "./StatusCard";
 
@@ -18,14 +18,17 @@ export function ApprovalSummaryPanel({ summary }: { summary: ApprovalSummary }) 
         <span>{summary.pending_count} pending</span>
       </div>
       <p>{summary.summary}</p>
-      <p>Arbitrary approval refs: {summary.arbitrary_approval_ref_authority ? "authority" : "not authority"}</p>
+      <p>
+        Arbitrary approval refs:{" "}
+        {summary.arbitrary_approval_ref_authority ? "authority" : "not authority"}
+      </p>
     </section>
   );
 }
 
 export function RemoteWorkerSummaryPanel({
   remote,
-  privateMesh
+  privateMesh,
 }: {
   remote: RemoteWorkerSummary;
   privateMesh: PrivateMeshSummary;
@@ -39,7 +42,9 @@ export function RemoteWorkerSummaryPanel({
         </div>
         <span className="status-pill compact">metadata only</span>
       </div>
-      <p className="section-copy">Remote workers and private mesh entries are summaries only. No dispatch path is exposed.</p>
+      <p className="section-copy">
+        Remote workers and private mesh entries are summaries only. No dispatch path is exposed.
+      </p>
       <div className="panel-grid">
         <StatusCard
           label="Remote workers"

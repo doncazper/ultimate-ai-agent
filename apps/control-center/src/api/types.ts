@@ -10,7 +10,13 @@ export type CapabilityStatus =
 
 export type ControlCenterActionStatus = "allowed_preview" | "approval_required" | "blocked";
 
-export type BackendConnectionState = "unknown" | "checking" | "online" | "offline" | "degraded" | "mock_fallback";
+export type BackendConnectionState =
+  | "unknown"
+  | "checking"
+  | "online"
+  | "offline"
+  | "degraded"
+  | "mock_fallback";
 
 export interface BackendConnectionSummary {
   state: BackendConnectionState;
@@ -481,7 +487,10 @@ export interface FileReviewReceiptPlanSummary {
   safeSummary: string;
 }
 
-export type FileReviewApprovalCaptureStatus = "approved_for_review_only" | "denied_for_review" | "not_captured";
+export type FileReviewApprovalCaptureStatus =
+  | "approved_for_review_only"
+  | "denied_for_review"
+  | "not_captured";
 
 export interface FileReviewApprovalCaptureSummary {
   status: FileReviewApprovalCaptureStatus;

@@ -23,10 +23,10 @@ export function useControlCenterData(): LoadState {
           setState({
             status: "error",
             data: {
-              ...(({} as unknown) as ControlCenterData),
-              source: "mock"
+              ...({} as unknown as ControlCenterData),
+              source: "mock",
             },
-            error: error instanceof Error ? error.message : "Unable to load Control Center data."
+            error: error instanceof Error ? error.message : "Unable to load Control Center data.",
           });
         }
       });

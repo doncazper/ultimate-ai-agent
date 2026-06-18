@@ -12,7 +12,7 @@ export const API_ENDPOINTS = {
   runtimeReadiness: "/runtime/readiness",
   runtimeCapabilityMatrix: "/runtime/capability-matrix",
   runtimeSmokeReportValidate: "/runtime/smoke-reports/validate",
-  actionPreview: "/control-center/actions/preview"
+  actionPreview: "/control-center/actions/preview",
 } as const;
 
 export const READ_ENDPOINTS = [
@@ -27,19 +27,23 @@ export const READ_ENDPOINTS = [
   API_ENDPOINTS.runtimeReadinessSummary,
   API_ENDPOINTS.foundationGateSummary,
   API_ENDPOINTS.runtimeReadiness,
-  API_ENDPOINTS.runtimeCapabilityMatrix
+  API_ENDPOINTS.runtimeCapabilityMatrix,
 ] as const;
 
-export function isAllowedReadEndpoint(endpoint: string): endpoint is (typeof READ_ENDPOINTS)[number] {
+export function isAllowedReadEndpoint(
+  endpoint: string,
+): endpoint is (typeof READ_ENDPOINTS)[number] {
   return READ_ENDPOINTS.includes(endpoint as (typeof READ_ENDPOINTS)[number]);
 }
 
-export function isPreviewEndpoint(endpoint: string): endpoint is typeof API_ENDPOINTS.actionPreview {
+export function isPreviewEndpoint(
+  endpoint: string,
+): endpoint is typeof API_ENDPOINTS.actionPreview {
   return endpoint === API_ENDPOINTS.actionPreview;
 }
 
 export function isRuntimeValidationEndpoint(
-  endpoint: string
+  endpoint: string,
 ): endpoint is typeof API_ENDPOINTS.runtimeSmokeReportValidate {
   return endpoint === API_ENDPOINTS.runtimeSmokeReportValidate;
 }

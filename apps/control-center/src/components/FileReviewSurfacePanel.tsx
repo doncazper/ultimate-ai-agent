@@ -1,10 +1,20 @@
 import { useState } from "react";
-import type { FileReviewApprovalCaptureSummary, FileReviewPacketSummary, M36FileReviewData } from "../api/types";
+import type {
+  FileReviewApprovalCaptureSummary,
+  FileReviewPacketSummary,
+  M36FileReviewData,
+} from "../api/types";
 import { EmptyState } from "./DataState";
+
+const FILE_REVIEW_SAFE_REFS_COPY =
+  "Safe refs only are displayed. Packet selection is local read-only UI state. Only the review approval capture route may persist safe refs.";
+const FILE_REVIEW_CAPTURE_BOUNDARY_COPY =
+  "Review approval capture is review-only persistence for the exact selected packet. Only the review approval capture route may persist safe refs, and it does not grant raw file access, context proposal, context injection, memory writes, export, or execution.";
 
 export function FileReviewSurfacePanel({ review }: { review: M36FileReviewData }) {
   const [selectedRef, setSelectedRef] = useState(review.packets[0]?.reviewPacketRef ?? "");
-  const selected = review.packets.find((packet) => packet.reviewPacketRef === selectedRef) ?? review.packets[0];
+  const selected =
+    review.packets.find((packet) => packet.reviewPacketRef === selectedRef) ?? review.packets[0];
 
   return (
     <section className="page-section" aria-labelledby="file-review-surface-heading">
@@ -16,14 +26,11 @@ export function FileReviewSurfacePanel({ review }: { review: M36FileReviewData }
         <span className="status-pill compact">review-only</span>
       </div>
       <p className="section-copy">
-        Redacted file review packets are shown for local inspection only. The surface displays safe refs,
-        redaction summaries, decision status, gate contract status, receipt-plan metadata, and review-only approval
-        capture state.
+        Redacted file review packets are shown for local inspection only. The surface displays safe
+        refs, redaction summaries, decision status, gate contract status, receipt-plan metadata, and
+        review-only approval capture state.
       </p>
-      <p className="safe-copy">
-        Safe refs only are displayed. Packet selection is local read-only UI state. Only the review approval capture
-        route may persist safe refs.
-      </p>
+      <p className="safe-copy">{FILE_REVIEW_SAFE_REFS_COPY}</p>
       <p className="safe-copy">{review.boundarySummary}</p>
       <p className="safe-copy">{review.captureBoundarySummary}</p>
       <div className="note-list" aria-label="M37 file review warnings">
@@ -47,7 +54,10 @@ export function FileReviewSurfacePanel({ review }: { review: M36FileReviewData }
           <FileReviewPacketDetail packet={selected} />
         </div>
       ) : (
-        <EmptyState title="No file review packets" message="No redacted file review packets are available." />
+        <EmptyState
+          title="No file review packets"
+          message="No redacted file review packets are available."
+        />
       )}
     </section>
   );
@@ -56,7 +66,7 @@ export function FileReviewSurfacePanel({ review }: { review: M36FileReviewData }
 function FileReviewPacketRow({
   packet,
   selected,
-  onSelect
+  onSelect,
 }: {
   packet: FileReviewPacketSummary;
   selected: boolean;
@@ -76,7 +86,11 @@ function FileReviewPacketRow({
       <p className="review-meta">
         {packet.redactionStatus} | {packet.dataClassification}
       </p>
-      <button type="button" className="secondary-button" onClick={() => onSelect(packet.reviewPacketRef)}>
+      <button
+        type="button"
+        className="secondary-button"
+        onClick={() => onSelect(packet.reviewPacketRef)}
+      >
         View review packet
       </button>
     </article>
@@ -100,7 +114,7 @@ function FileReviewPacketDetail({ packet }: { packet: FileReviewPacketSummary })
       executionAuthorized: false,
       executionPerformed: false,
       safeMessage:
-        "Review-only approval capture persisted safe refs for this exact redacted packet. No authority was granted."
+        "Review-only approval capture persisted safe refs for this exact redacted packet. No authority was granted.",
     });
   }
 
@@ -113,14 +127,20 @@ function FileReviewPacketDetail({ packet }: { packet: FileReviewPacketSummary })
         </div>
         <span className="status-pill compact">Review-only surface</span>
       </div>
-      <p className="safe-copy">
-        Review approval capture is review-only persistence for the exact selected packet. Only the review approval capture route may persist safe refs, and it does not grant raw file access, context proposal, context injection, memory writes, export, or execution.
-      </p>
+      <p className="safe-copy">{FILE_REVIEW_CAPTURE_BOUNDARY_COPY}</p>
       <div className="button-row" aria-label="Review-only approval capture controls">
-        <button type="button" className="secondary-button" onClick={() => captureReviewOnly("approved_for_review_only")}>
+        <button
+          type="button"
+          className="secondary-button"
+          onClick={() => captureReviewOnly("approved_for_review_only")}
+        >
           Approve review-only
         </button>
-        <button type="button" className="secondary-button" onClick={() => captureReviewOnly("denied_for_review")}>
+        <button
+          type="button"
+          className="secondary-button"
+          onClick={() => captureReviewOnly("denied_for_review")}
+        >
           Deny review-only
         </button>
       </div>
@@ -140,7 +160,10 @@ function FileReviewPacketDetail({ packet }: { packet: FileReviewPacketSummary })
         <dl className="detail-grid">
           <DetailTerm label="review_packet_ref" value={packet.bindingRefs.reviewPacketRef} />
           <DetailTerm label="preview_result_ref" value={packet.bindingRefs.previewResultRef} />
-          <DetailTerm label="redaction_summary_ref" value={packet.bindingRefs.redactionSummaryRef} />
+          <DetailTerm
+            label="redaction_summary_ref"
+            value={packet.bindingRefs.redactionSummaryRef}
+          />
           <DetailTerm label="file_ref" value={packet.bindingRefs.fileRef} />
           <DetailTerm label="safe_path_ref" value={packet.bindingRefs.safePathRef} />
         </dl>
@@ -148,27 +171,75 @@ function FileReviewPacketDetail({ packet }: { packet: FileReviewPacketSummary })
 
       <dl className="detail-grid">
         <DetailTerm label="Review-only decision status" value={packet.reviewDecisionStatus} />
-        <DetailTerm label="Approval gate contract status" value={packet.approvalGateContractStatus} />
+        <DetailTerm
+          label="Approval gate contract status"
+          value={packet.approvalGateContractStatus}
+        />
         <DetailTerm label="Receipt plan ref" value={packet.receiptPlan.receiptPlanRef} />
-        <DetailTerm label="raw content stored" value={yesNo(packet.receiptPlan.rawContentStored)} includeInlineText />
-        <DetailTerm label="unredacted preview stored" value={yesNo(packet.receiptPlan.unredactedPreviewStored)} />
-        <DetailTerm label="raw absolute path stored" value={yesNo(packet.receiptPlan.rawAbsolutePathStored)} />
+        <DetailTerm
+          label="raw content stored"
+          value={yesNo(packet.receiptPlan.rawContentStored)}
+          includeInlineText
+        />
+        <DetailTerm
+          label="unredacted preview stored"
+          value={yesNo(packet.receiptPlan.unredactedPreviewStored)}
+        />
+        <DetailTerm
+          label="raw absolute path stored"
+          value={yesNo(packet.receiptPlan.rawAbsolutePathStored)}
+        />
         <DetailTerm label="approval captured" value={yesNo(capture.captured)} />
         <DetailTerm label="approval persisted" value={yesNo(capture.persisted)} />
         <DetailTerm label="capture status" value={capture.status} />
         <DetailTerm label="capture persisted" value={yesNo(capture.persisted)} includeInlineText />
-        <DetailTerm label="raw access authorized" value={yesNo(capture.rawFileAccessAuthorized)} includeInlineText />
-        <DetailTerm label="context proposal authorized" value={yesNo(capture.contextProposalAuthorized)} includeInlineText />
-        <DetailTerm label="context injection authorized" value={yesNo(capture.contextInjectionAuthorized)} />
-        <DetailTerm label="memory write authorized" value={yesNo(capture.memoryWriteAuthorized)} includeInlineText />
-        <DetailTerm label="export authorized" value={yesNo(capture.exportAuthorized)} includeInlineText />
-        <DetailTerm label="execution authorized" value={yesNo(capture.executionAuthorized)} includeInlineText />
+        <DetailTerm
+          label="raw access authorized"
+          value={yesNo(capture.rawFileAccessAuthorized)}
+          includeInlineText
+        />
+        <DetailTerm
+          label="context proposal authorized"
+          value={yesNo(capture.contextProposalAuthorized)}
+          includeInlineText
+        />
+        <DetailTerm
+          label="context injection authorized"
+          value={yesNo(capture.contextInjectionAuthorized)}
+        />
+        <DetailTerm
+          label="memory write authorized"
+          value={yesNo(capture.memoryWriteAuthorized)}
+          includeInlineText
+        />
+        <DetailTerm
+          label="export authorized"
+          value={yesNo(capture.exportAuthorized)}
+          includeInlineText
+        />
+        <DetailTerm
+          label="execution authorized"
+          value={yesNo(capture.executionAuthorized)}
+          includeInlineText
+        />
         <DetailTerm label="execution performed" value={yesNo(capture.executionPerformed)} />
-        <DetailTerm label="context proposal created" value={yesNo(packet.receiptPlan.contextProposalCreated)} />
-        <DetailTerm label="context injection performed" value={yesNo(packet.receiptPlan.contextInjectionPerformed)} />
-        <DetailTerm label="memory write performed" value={yesNo(packet.receiptPlan.memoryWritePerformed)} />
+        <DetailTerm
+          label="context proposal created"
+          value={yesNo(packet.receiptPlan.contextProposalCreated)}
+        />
+        <DetailTerm
+          label="context injection performed"
+          value={yesNo(packet.receiptPlan.contextInjectionPerformed)}
+        />
+        <DetailTerm
+          label="memory write performed"
+          value={yesNo(packet.receiptPlan.memoryWritePerformed)}
+        />
         <DetailTerm label="export performed" value={yesNo(packet.receiptPlan.exportPerformed)} />
-        <DetailTerm label="execution performed" value={yesNo(packet.receiptPlan.executionPerformed)} />
+        <DetailTerm
+          label="execution performed"
+          value={yesNo(packet.receiptPlan.executionPerformed)}
+        />
         <DetailTerm label="Receipt plan metadata" value={packet.receiptPlan.safeSummary} />
         <DetailTerm label="Capture safe message" value={capture.safeMessage} />
       </dl>
@@ -179,7 +250,15 @@ function FileReviewPacketDetail({ packet }: { packet: FileReviewPacketSummary })
   );
 }
 
-function DetailTerm({ label, value, includeInlineText = false }: { label: string; value: string; includeInlineText?: boolean }) {
+function DetailTerm({
+  label,
+  value,
+  includeInlineText = false,
+}: {
+  label: string;
+  value: string;
+  includeInlineText?: boolean;
+}) {
   return (
     <div>
       <dt>{label}</dt>
