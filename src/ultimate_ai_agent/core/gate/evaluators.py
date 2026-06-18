@@ -17332,7 +17332,7 @@ class FoundationGateEvaluator:
             )
             request = RedactedObservabilityExportRequest(
                 request_ref="observability-export-request:m55-gate",
-                run_ref="run:m55-gate",
+                run_ref="run:run_m55_gate",
                 export_ref="observability-export:m55-gate",
                 requested_formats=[ObservabilityExportFormat.internal_redacted_json],
                 source_event_refs=["event:evt_m55_gate"],

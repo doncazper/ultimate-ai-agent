@@ -7420,7 +7420,7 @@ def verify_m55_redacted_observability_export():
     )
     request = RedactedObservabilityExportRequest(
         request_ref="observability-export-request:verify-all-m55",
-        run_ref="run:verify-all-m55",
+        run_ref="run:run_verify_all_m55",
         export_ref="observability-export:verify-all-m55",
         requested_formats=[ObservabilityExportFormat.internal_redacted_json],
         source_event_refs=["event:evt_verify_all_m55"],

@@ -7,6 +7,16 @@ from ultimate_ai_agent.core.consent.grants import ConsentGrant, RevocationRecord
 from ultimate_ai_agent.core.consent.decisions import ConsentQuery, ConsentDecision
 from ultimate_ai_agent.core.consent.validation import validate_consent_grant
 
+EXPLICIT_DATA_BOUNDARY_REQUIRED = {
+    DataBoundary.user_private,
+    DataBoundary.sensitive_personal,
+    DataBoundary.credential_secret,
+    DataBoundary.regulated,
+    DataBoundary.third_party_confidential,
+    DataBoundary.system_internal,
+    DataBoundary.tcb_protected,
+}
+
 class ConsentLedger:
     def __init__(self):
         self._grants: List[ConsentGrant] = []
@@ -70,7 +80,7 @@ class ConsentLedger:
                 continue
             
             # Match actor
-            if grant.granted_to_actor != query.actor_id and grant.granted_to_actor != "*":
+            if not _grant_matches_actor(grant, query.actor_id):
                 continue
                 
             # If the grant explicitly denies this action or all actions.
@@ -84,7 +94,7 @@ class ConsentLedger:
                     reason_codes=reason_codes,
                     safe_message=f"Action '{query.action}' is explicitly denied by consent grant '{grant.consent_id}'"
                 )
-            if query.resource in grant.denied_resources:
+            if any(_resource_matches(resource_pattern, query.resource) for resource_pattern in grant.denied_resources):
                 reason_codes.append("EXPLICIT_DENY_RESOURCE")
                 return ConsentDecision(
                     decision_id=decision_id,
@@ -93,6 +103,16 @@ class ConsentLedger:
                     required_approval=ApprovalRequirement.forbidden,
                     reason_codes=reason_codes,
                     safe_message=f"Resource '{query.resource}' is explicitly denied by consent grant '{grant.consent_id}'"
+                )
+            if query.purpose in grant.denied_purposes or "*" in grant.denied_purposes:
+                reason_codes.append("EXPLICIT_DENY_PURPOSE")
+                return ConsentDecision(
+                    decision_id=decision_id,
+                    allowed=False,
+                    matched_grants=[grant.consent_id],
+                    required_approval=ApprovalRequirement.forbidden,
+                    reason_codes=reason_codes,
+                    safe_message=f"Purpose '{query.purpose}' is explicitly denied by consent grant '{grant.consent_id}'"
                 )
             # If data classification matches denied boundaries
             if query.data_classification and query.data_classification in grant.denied_data_boundaries:
@@ -112,7 +132,7 @@ class ConsentLedger:
             if grant.status != ConsentStatus.active:
                 continue
             
-            if grant.granted_to_actor != query.actor_id and grant.granted_to_actor != "*":
+            if not _grant_matches_actor(grant, query.actor_id):
                 continue
 
             # Must match allowed action
@@ -125,15 +145,15 @@ class ConsentLedger:
             if not grant.allowed_resources or ("*" in grant.allowed_resources):
                 resource_allowed = True
             else:
-                for res_pattern in grant.allowed_resources:
-                    if res_pattern == query.resource or (res_pattern.endswith("*") and query.resource.startswith(res_pattern[:-1])):
+                for resource_pattern in grant.allowed_resources:
+                    if _resource_matches(resource_pattern, query.resource):
                         resource_allowed = True
                         break
             if not resource_allowed:
                 continue
 
             # Check sensitive data boundary if sensitive
-            if query.data_classification in [DataBoundary.credential_secret, DataBoundary.sensitive_personal, DataBoundary.tcb_protected]:
+            if query.data_classification in EXPLICIT_DATA_BOUNDARY_REQUIRED:
                 # Requires explicit allowed data boundary
                 if query.data_classification not in grant.allowed_data_boundaries:
                     continue
@@ -176,3 +196,11 @@ class ConsentLedger:
             reason_codes=["CONSENT_GRANTED"],
             safe_message="Consent successfully authorized by active matching grants"
         )
+
+
+def _grant_matches_actor(grant: ConsentGrant, actor_id: str) -> bool:
+    return grant.granted_to_actor in {actor_id, "*"}
+
+
+def _resource_matches(pattern: str, resource: str) -> bool:
+    return pattern == "*" or pattern == resource or (pattern.endswith("*") and resource.startswith(pattern[:-1]))

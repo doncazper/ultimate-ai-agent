@@ -1,4 +1,5 @@
 import json
+from collections import defaultdict
 from typing import List, Optional, Set
 from pathlib import Path
 
@@ -13,6 +14,9 @@ class EventLedger:
         self.filepath = Path(filepath) if filepath else None
         self._events: List[EventLedgerEvent] = []
         self._event_ids: Set[str] = set()
+        self._events_by_id: dict[str, EventLedgerEvent] = {}
+        self._events_by_run: dict[str, list[EventLedgerEvent]] = defaultdict(list)
+        self._idempotency_keys_by_run: dict[str, set[str]] = defaultdict(set)
 
         if self.filepath:
             self._load_from_file()
@@ -25,8 +29,7 @@ class EventLedger:
                     if line:
                         event_dict = json.loads(line)
                         event = EventLedgerEvent.model_validate(event_dict)
-                        self._events.append(event)
-                        self._event_ids.add(event.event_id)
+                        self._append_in_memory(event)
 
     def append_event(self, event: EventLedgerEvent) -> None:
         # Rule 1: Reject duplicate event_id
@@ -34,19 +37,15 @@ class EventLedger:
             raise ValueError(f"Duplicate event_id detected: {event.event_id}")
 
         # Rule 2: Reject duplicate idempotency_key for the same run
-        if event.idempotency_key:
-            for existing in self._events:
-                if (existing.run_id == event.run_id and 
-                        existing.idempotency_key == event.idempotency_key):
-                    raise ValueError(f"Duplicate idempotency_key detected for run_id '{event.run_id}': {event.idempotency_key}")
+        if event.idempotency_key and event.idempotency_key in self._idempotency_keys_by_run[event.run_id]:
+            raise ValueError(f"Duplicate idempotency_key detected for run_id '{event.run_id}': {event.idempotency_key}")
 
         # Rule 3: Scan event payload and metadata for secrets
         if scan_payload_for_secrets(event.model_dump()):
             raise ValueError("Event append blocked: raw secrets/credentials detected in payload")
 
         # Save to memory
-        self._events.append(event)
-        self._event_ids.add(event.event_id)
+        self._append_in_memory(event)
 
         # Write to JSONL
         if self.filepath:
@@ -54,23 +53,28 @@ class EventLedger:
             with open(self.filepath, "a", encoding="utf-8") as f:
                 f.write(event.model_dump_json() + "\n")
 
+    def _append_in_memory(self, event: EventLedgerEvent) -> None:
+        self._events.append(event)
+        self._event_ids.add(event.event_id)
+        self._events_by_id[event.event_id] = event
+        self._events_by_run[event.run_id].append(event)
+        if event.idempotency_key:
+            self._idempotency_keys_by_run[event.run_id].add(event.idempotency_key)
+
     def list_events(self, run_id: Optional[str] = None) -> List[EventLedgerEvent]:
         if run_id:
-            return [e for e in self._events if e.run_id == run_id]
+            return list(self._events_by_run.get(run_id, []))
         return list(self._events)
 
     def get_event(self, event_id: str) -> Optional[EventLedgerEvent]:
-        for e in self._events:
-            if e.event_id == event_id:
-                return e
-        return None
+        return self._events_by_id.get(event_id)
 
     def replay_run(self, run_id: str) -> RunState:
-        run_state = replay_run_events(run_id, self._events)
+        run_state = replay_run_events(run_id, self.list_events(run_id))
         return run_state.current_state
 
     def generate_receipt(self, run_id: str) -> RunReceipt:
-        return generate_receipt_from_events(run_id, self._events)
+        return generate_receipt_from_events(run_id, self.list_events(run_id))
 
     def validate_trace_integrity(self, run_id: str, allow_external_parent_spans: bool = True) -> bool:
         """Validate trace details and chronological ordering of trace spans.
@@ -82,7 +86,7 @@ class EventLedger:
         - If allow_external_parent_spans is False (internal-only mode), all parent_span_ids must correspond to
           a span_id defined within the run's events, otherwise verification fails.
         """
-        run_events = [e for e in self._events if e.run_id == run_id]
+        run_events = self.list_events(run_id)
         if not run_events:
             return True
         

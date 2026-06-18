@@ -1,6 +1,6 @@
 import re
 from enum import Enum
-from typing import Any
+from typing import Any, Iterable
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -15,6 +15,10 @@ M55_DOC_REFS = [
     "docs/observability/M55_TO_M56_BOUNDARY.md",
 ]
 M55_SAFE_REF_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9_.-]*:[a-zA-Z0-9][a-zA-Z0-9_.:/@-]*$")
+M55_PRIVATE_SUMMARY_RE = re.compile(
+    r"([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}|"
+    r"(?<!\w)(/Users/[^\s]+|/home/[^\s]+|/var/[^\s]+|/etc/[^\s]+|[A-Za-z]:\\[^\s]+))"
+)
 
 
 class ObservabilityExportFormat(str, Enum):
@@ -291,17 +295,24 @@ def validate_redacted_observability_export_request(
 
 def build_redacted_observability_export(
     request: RedactedObservabilityExportRequest,
-    events: list[EventLedgerEvent],
+    events: Iterable[EventLedgerEvent],
     policy: RedactedObservabilityExportPolicy | None = None,
 ) -> RedactedObservabilityExportBundle:
     active_policy = validate_redacted_observability_export_policy(
         policy or RedactedObservabilityExportPolicy()
     )
     active_request = validate_redacted_observability_export_request(request)
-    event_by_ref = {f"event:{event.event_id}": event for event in events}
+    event_by_ref = _requested_events_by_ref(active_request.source_event_refs, events)
     missing_refs = [ref for ref in active_request.source_event_refs if ref not in event_by_ref]
     if missing_refs:
         raise ValueError("OBSERVABILITY_EXPORT_EVENT_REF_MISMATCH")
+    mismatched_run_refs = [
+        ref
+        for ref, event in event_by_ref.items()
+        if f"run:{event.run_id}" != active_request.run_ref
+    ]
+    if mismatched_run_refs:
+        raise ValueError("OBSERVABILITY_EXPORT_RUN_REF_MISMATCH")
 
     items = [_redacted_item_from_event(event_by_ref[ref]) for ref in active_request.source_event_refs]
     return RedactedObservabilityExportBundle(
@@ -325,9 +336,25 @@ def build_redacted_observability_export(
     )
 
 
+def _requested_events_by_ref(
+    source_event_refs: list[str],
+    events: Iterable[EventLedgerEvent],
+) -> dict[str, EventLedgerEvent]:
+    required_refs = set(source_event_refs)
+    event_by_ref: dict[str, EventLedgerEvent] = {}
+    for event in events:
+        event_ref = f"event:{event.event_id}"
+        if event_ref not in required_refs:
+            continue
+        event_by_ref[event_ref] = event
+        if len(event_by_ref) == len(required_refs):
+            break
+    return event_by_ref
+
+
 def _redacted_item_from_event(event: EventLedgerEvent) -> RedactedObservabilityExportItem:
     _assert_event_redacted_safe(event)
-    safe_summary = str(event.metadata.get("safe_summary") or event.subject)
+    safe_summary = _safe_observability_summary(event)
     return RedactedObservabilityExportItem(
         event_ref=f"event:{event.event_id}",
         run_ref=f"run:{event.run_id}",
@@ -341,6 +368,14 @@ def _redacted_item_from_event(event: EventLedgerEvent) -> RedactedObservabilityE
         redaction_summary_ref=f"redaction-summary:{event.event_id}",
         evidence_refs=list(event.evidence_refs),
     )
+
+
+def _safe_observability_summary(event: EventLedgerEvent) -> str:
+    safe_summary = str(event.metadata.get("safe_summary") or event.subject)
+    validate_safe_tool_payload(safe_summary, "safe_summary")
+    if M55_PRIVATE_SUMMARY_RE.search(safe_summary):
+        raise ValueError("PRIVATE_OBSERVABILITY_SUMMARY_DENIED")
+    return safe_summary
 
 
 def _assert_event_redacted_safe(event: EventLedgerEvent) -> None:

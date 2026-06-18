@@ -64,7 +64,7 @@ def _event(**overrides):
 def _request(**overrides):
     data = {
         "request_ref": "observability-export-request:m55",
-        "run_ref": "run:m55",
+        "run_ref": "run:run_m55",
         "export_ref": "observability-export:m55",
         "requested_formats": [ObservabilityExportFormat.internal_redacted_json],
         "source_event_refs": ["event:evt_m55_001"],
@@ -131,6 +131,28 @@ def test_redacted_observability_export_rejects_secret_like_event_metadata() -> N
 
     with pytest.raises(ValueError, match="SECRET_LIKE_OBSERVABILITY_CONTENT_DENIED"):
         build_redacted_observability_export(_request(), [unsafe_event])
+
+
+def test_redacted_observability_export_rejects_private_summary_identifiers() -> None:
+    unsafe_event = _event(metadata={"safe_summary": "Contact alice@example.com for the raw trace."})
+
+    with pytest.raises(ValueError, match="PRIVATE_OBSERVABILITY_SUMMARY_DENIED"):
+        build_redacted_observability_export(_request(), [unsafe_event])
+
+
+def test_redacted_observability_export_rejects_run_ref_mismatch() -> None:
+    with pytest.raises(ValueError, match="OBSERVABILITY_EXPORT_RUN_REF_MISMATCH"):
+        build_redacted_observability_export(_request(run_ref="run:other"), [_event()])
+
+
+def test_redacted_observability_export_stops_after_requested_events() -> None:
+    def event_stream():
+        yield _event()
+        raise AssertionError("unrequested events should not be consumed")
+
+    bundle = build_redacted_observability_export(_request(), event_stream())
+
+    assert bundle.items[0].event_ref == "event:evt_m55_001"
 
 
 def test_redacted_observability_export_policy_denies_transport_and_authority_flags() -> None:
