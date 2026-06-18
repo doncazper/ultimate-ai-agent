@@ -416,6 +416,116 @@ The project advances by small milestones. Each milestone states what it enables,
 what it blocks, which docs are active, and which tests/verifiers protect the
 boundary.
 
+## Capability Registry
+
+`ultimate_ai_agent.core.capabilities` is the central source of truth for
+agent-facing capabilities. A capability is a typed, provider-neutral record that
+describes a named operation, its input and output schemas, source, tags,
+metadata, risk policy, optional model instructions, examples, and an optional
+internal callable binding. Model-facing adapters export only safe schema fields;
+callable refs and registry metadata are never included in OpenAI or MCP tool
+definitions.
+
+For local smoke testing, use
+`scripts/dev/capability_registry_smoke.py`. It resolves a deterministic
+in-process capability and exports OpenAI/MCP schemas without adding backend
+routes, provider calls, shell/network authority, plugin loading, or production
+authority.
+
+For coordinator-level live local testing, use
+`build_live_local_testing_runtime(workspace_root)` or
+`scripts/dev/live_local_capability_smoke.py`. That path wires real local
+metadata reads, approved single-writer local file writes, deterministic workflow
+nodes, M23 fixed-prompt loopback smoke calls through existing approval
+validation, and an explicit external-action denial gate. See
+`docs/capability_registry.md` for the manifest examples and routing rules.
+
+Register native Python capabilities explicitly:
+
+```python
+from pydantic import BaseModel
+
+from ultimate_ai_agent.core.capabilities import (
+    CapabilityPolicy,
+    CapabilityRegistry,
+    RiskLevel,
+    tool_capability,
+)
+
+class ReadTextInput(BaseModel):
+    path: str
+
+class ReadTextOutput(BaseModel):
+    text: str
+
+registry = CapabilityRegistry()
+
+@tool_capability(
+    name="files.read_text",
+    title="Read text file",
+    description="Read a safe text reference from an allowed workspace.",
+    input_model=ReadTextInput,
+    output_model=ReadTextOutput,
+    tags={"files", "read"},
+    policy=CapabilityPolicy(risk=RiskLevel.READ_ONLY, required_scopes={"files:read"}),
+    registry=registry,
+)
+async def read_text(ctx, args: ReadTextInput) -> ReadTextOutput:
+    return ReadTextOutput(text="safe summary")
+```
+
+Group related capabilities with dotted namespaces such as `files.read_text` or
+`github.search_issues`, then resolve a per-run tool set by agent, user scopes,
+tags, and query:
+
+```python
+resolved = registry.resolve(
+    agent_name="orchestrator",
+    user_scopes={"files:read"},
+    query="read file",
+    tags={"files"},
+)
+```
+
+Policy is enforced before execution: allowed agents, required scopes, approval
+requirements, timeouts, retry limits, idempotency, output redaction, and sandbox
+requirements are checked by the registry executor. Approval is pluggable via
+`CapabilityRegistry(approval_callback=...)`. The executor treats model
+arguments as untrusted, validates input and output schemas, emits redacted
+observability events, and returns structured `CapabilityResult` errors that a
+model can correct.
+
+Adapters are thin and provider-neutral:
+
+```python
+from ultimate_ai_agent.core.capabilities.adapters import (
+    capability_to_mcp_tool,
+    capability_to_openai_tool,
+    capability_to_tool_manifest,
+)
+
+openai_tool = capability_to_openai_tool(resolved[0])
+mcp_tool = capability_to_mcp_tool(resolved[0])
+tool_manifest = capability_to_tool_manifest(resolved[0])
+```
+
+External packages can contribute capabilities through entry points named
+`ultimate_ai_agent.capabilities`. Entry points may return a `CapabilityPack`, a
+list of `CapabilitySpec` or `CapabilityRegistration` objects, or a function that
+receives a registry and registers capabilities. Runtime imports are disabled by
+default under the current contract-first boundary; enable them only in controlled
+local development or tests after review:
+
+```python
+registry.discover_entry_points(allow_runtime_imports=True)
+```
+
+This package does not add backend routes, provider SDK calls, browser
+automation, shell execution, plugin enablement, or production authority. It is
+an internal schema, policy, disabled-by-default discovery, adapter, and opt-in
+callable layer for code that has already registered a safe in-process
+capability.
+
 ## Capability Map
 
 | Layer | Current status | Notes |

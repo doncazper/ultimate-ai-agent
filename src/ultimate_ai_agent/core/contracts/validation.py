@@ -1,5 +1,6 @@
 import re
 from typing import Any
+
 from ultimate_ai_agent.core.contracts.enums import GroundingMode, ContractStatus, RiskLevel, AgentMode
 from ultimate_ai_agent.core.contracts.execution_contract import ExecutionContract
 from ultimate_ai_agent.core.contracts.context_pack import ContextPack
@@ -23,10 +24,13 @@ BLOCKED_CAPABILITIES = [
 
 SECRET_PATTERN = re.compile(r"(?i)(api[_-]?key|secret|token|password)\s*=\s*['\"][A-Za-z0-9_\-]{16,}['\"]")
 
-def validate_execution_contract(contract: ExecutionContract) -> ResultEnvelope:
+def validate_execution_contract(
+    contract: ExecutionContract,
+    capability_registry: Any | None = None,
+) -> ResultEnvelope:
     # Rule 7 & 8 & 9: Blocked capabilities, skills, and real executions
     for tool in contract.allowed_tools:
-        if any(blocked in tool.lower() for blocked in BLOCKED_CAPABILITIES) or "skill" in tool.lower():
+        if _capability_is_foundation_blocked(tool, capability_registry) or "skill" in tool.lower():
             err = ErrorEnvelope(
                 code="BLOCKED_CAPABILITY",
                 category=ErrorCategory.security_blocked,
@@ -45,7 +49,7 @@ def validate_execution_contract(contract: ExecutionContract) -> ResultEnvelope:
             )
 
     for flag in contract.capability_flags_required:
-        if any(blocked in flag.lower() for blocked in BLOCKED_CAPABILITIES) or "skill" in flag.lower():
+        if _capability_is_foundation_blocked(flag, capability_registry) or "skill" in flag.lower():
             err = ErrorEnvelope(
                 code="BLOCKED_CAPABILITY",
                 category=ErrorCategory.security_blocked,
@@ -238,3 +242,20 @@ def validate_context_pack(pack: ContextPack) -> ResultEnvelope:
         trace_id=pack.run_id,
         data={"context_pack_id": pack.context_pack_id, "status": "validated"}
     )
+
+
+def _capability_is_foundation_blocked(
+    name: str,
+    registry: Any | None = None,
+) -> bool:
+    lowered = name.lower()
+    if any(blocked in lowered for blocked in BLOCKED_CAPABILITIES):
+        return True
+    if registry is None or not hasattr(registry, "list"):
+        return False
+    for spec in registry.list():
+        metadata = getattr(spec, "metadata", {}) or {}
+        spec_name = getattr(spec, "name", "")
+        if metadata.get("foundation_gate_blocked") and spec_name.lower() in lowered:
+            return True
+    return False
