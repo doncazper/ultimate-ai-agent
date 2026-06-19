@@ -4,6 +4,18 @@ Current active baseline: **v2.0.0**
 
 This map links major systems to their canonical documentation. If a system has both canonical docs and runtime/API docs, canonical docs define principles and sequencing while runtime/API docs define current implementation boundaries.
 
+## Current Snapshot
+
+| Field | Canonical source |
+|---|---|
+| Active baseline | `VERSION.md`, `README.md`, `docs/release_notes/v2_0_0.md` |
+| Latest repository checkpoint | `docs/release_notes/checkpoint_m168.md` |
+| Active program | `docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md` |
+| Product truth | `docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md` |
+| Current board | `docs/kanban/current_board.md` |
+| API route boundary | `docs/api/openapi_contract.md`, `docs/api/route_inventory.md` |
+| Security posture | `SECURITY.md`, `docs/security/SECURITY_TRIAGE_RUNBOOK.md` |
+
 | System | Canonical Docs |
 |---|---|
 | Execution Contract | `docs/canonical/35_execution_contract.md` |

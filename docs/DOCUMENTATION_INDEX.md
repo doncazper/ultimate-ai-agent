@@ -4,6 +4,25 @@ Current active baseline: **v2.0.0**
 
 This index is the active entrypoint for documentation navigation. Historical release documents remain in the repository for audit history, but active truth starts with the current baseline files listed here.
 
+## Curated Current Entry Points
+
+| Area | Canonical entry |
+|---|---|
+| GitHub landing page | `README.md` |
+| Version and baseline | `VERSION.md`, `docs/release_notes/v2_0_0.md`, `docs/release_notes/checkpoint_m168.md` |
+| Product truth | `docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md` |
+| Active roadmap | `docs/canonical/09_roadmap.md`, `docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md`, `docs/kanban/current_board.md` |
+| API boundary | `docs/api/README.md`, `docs/api/openapi_contract.md`, `docs/api/route_inventory.md` |
+| Security posture | `SECURITY.md`, `docs/security/SECURITY_TRIAGE_RUNBOOK.md` |
+| Release evidence | `docs/production/RELEASE_VERIFICATION_LANES.md`, `docs/production/RELEASE_EVIDENCE_PACKET.md` |
+| Local model lane | `docs/production/M167_LIVE_MODEL_EVIDENCE_MATRIX.md`, `docs/production/M167_LOCAL_MODEL_E2E_SMOKE_HARNESS.md` |
+| Redacted observability | `docs/observability/SESSION_LOGGING_M167.md` |
+| Plugin/skill ecosystem | `docs/tooling/PLUGIN_SKILL_ECOSYSTEM_BOUNDARY.md`, `docs/tooling/INSPECTABLE_EXTENSION_CATALOG.md`, `docs/tooling/EXTENSION_ACTIVATION_GRANTS.md`, `docs/tooling/MCP_A2A_COMPATIBILITY_WATCHLIST.md` |
+| Documentation policy | `docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md`, `docs/archive/README.md` |
+
+Use the curated table first. The long list below is intentionally retained as
+the repo-owned audit catalog for active and historical documentation refs.
+
 ## Start Here
 
 ```text
