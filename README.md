@@ -12,20 +12,20 @@ allowed to become operational authority.
 
 | Field | Current state |
 |---|---|
-| Current active baseline | **v0.100.0** |
-| Current program milestone | **Operator Runtime Excellence P0 repair lane through UAA-P0-017** |
+| Current active baseline | **v0.101.0** |
+| Current program milestone | **Operator Runtime Excellence P1 durable run spine through UAA-P1-010** |
 | Latest accepted checkpoint tag | **checkpoint-m168** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **93** OpenAPI paths |
 | Production readiness | Not claimed |
 
-The product and package baseline is **v0.100.0** / `0.100.0`. This is a fresh
-currentness and production-readiness documentation baseline over the accepted
-Operator Runtime Excellence P0 repair lane. It does not publish a public
-release, move historical tags, ship external artifacts, distribute externally,
-release a beta, or grant production authority. Already-pushed tags remain
-immutable historical records.
+The product and package baseline is **v0.101.0** / `0.101.0`. This baseline
+includes the accepted Operator Runtime Excellence P0 repair lane and the
+UAA-P1-010 durable run spine contract. It does not publish a public release,
+move historical tags, ship external artifacts, distribute externally, release a
+beta, or grant production authority. Already-pushed tags remain immutable
+historical records.
 
 The active workstream is the **Operator Runtime Excellence Program**. The latest
 accepted repository checkpoint tag is `checkpoint-m168`, which repairs
@@ -51,6 +51,7 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [Product release-truth packet](docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md)
 - [Control Center operator-shell gap map](docs/control_center/OPERATOR_SHELL_GAP_MAP.md)
 - [Current Kanban board](docs/kanban/current_board.md)
+- [Durable run spine](docs/execution/DURABLE_RUN_SPINE.md)
 - [M34-M60 roadmap supersession](docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md)
 - [M61-M100 roadmap](docs/roadmap/M61_M100_ROADMAP.md)
 - [M101-M150 planned roadmap](docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md)
@@ -359,8 +360,8 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [v1.7.1 master plan](docs/archive/releases/v1_7_1/master_plan.md)
 - [v1.7.2 release packet](docs/archive/releases/v1_7_2/README_IMPORT.md)
 - [v1.7.2 master plan](docs/archive/releases/v1_7_2/master_plan.md)
-- [v0.100.0 release packet](docs/archive/releases/v0_100_0/README_IMPORT.md)
-- [v0.100.0 master plan](docs/archive/releases/v0_100_0/master_plan.md)
+- [v0.101.0 release packet](docs/archive/releases/v0_101_0/README_IMPORT.md)
+- [v0.101.0 master plan](docs/archive/releases/v0_101_0/master_plan.md)
 
 ## What This Project Is
 

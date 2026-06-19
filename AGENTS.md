@@ -1,6 +1,6 @@
 # Ultimate AI Agent Workspace Standards
 
-Active baseline: v0.100.0. Package version: 0.100.0.
+Active baseline: v0.101.0. Package version: 0.101.0.
 
 ## Scoped Productionization Lane (M167+)
 

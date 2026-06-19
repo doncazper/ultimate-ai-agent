@@ -9,6 +9,25 @@ from ultimate_ai_agent.core.execution.enums import (
     ExecutionTransitionKind,
     ExecutionTransitionStatus,
 )
+from ultimate_ai_agent.core.execution.durable_runs import (
+    ALLOWED_DURABLE_RUN_TRANSITIONS,
+    DURABLE_RUN_SCHEMA_VERSION,
+    DurableRunCorruptionError,
+    DurableRunError,
+    DurableRunPersistenceModel,
+    DurableRunRecord,
+    DurableRunSnapshot,
+    DurableRunState,
+    DurableRunTransitionDecision,
+    DurableRunTransitionKind,
+    DurableRunTransitionRequest,
+    DurableRunTransitionResult,
+    DurableRunTransitionStatus,
+    apply_durable_run_transition,
+    build_durable_run_snapshot,
+    evaluate_durable_run_transition,
+    restore_durable_run_snapshot,
+)
 from ultimate_ai_agent.core.execution.manifests import ExecutionFrameworkManifest, build_execution_framework_manifest
 from ultimate_ai_agent.core.execution.receipts import ExecutionReceiptPlan
 from ultimate_ai_agent.core.execution.runs import ExecutionRun
@@ -17,6 +36,19 @@ from ultimate_ai_agent.core.execution.steps import ExecutionStep, ExecutionStepI
 from ultimate_ai_agent.core.execution.transitions import ExecutionTransitionDecision, ExecutionTransitionRequest
 
 __all__ = [
+    "ALLOWED_DURABLE_RUN_TRANSITIONS",
+    "DURABLE_RUN_SCHEMA_VERSION",
+    "DurableRunCorruptionError",
+    "DurableRunError",
+    "DurableRunPersistenceModel",
+    "DurableRunRecord",
+    "DurableRunSnapshot",
+    "DurableRunState",
+    "DurableRunTransitionDecision",
+    "DurableRunTransitionKind",
+    "DurableRunTransitionRequest",
+    "DurableRunTransitionResult",
+    "DurableRunTransitionStatus",
     "ExecutionBlockReason",
     "ExecutionFrameworkManifest",
     "ExecutionFrameworkStatus",
@@ -33,8 +65,11 @@ __all__ = [
     "ExecutionTransitionKind",
     "ExecutionTransitionRequest",
     "ExecutionTransitionStatus",
+    "apply_durable_run_transition",
     "build_execution_framework_manifest",
+    "build_durable_run_snapshot",
     "dependency_graph_reason_codes",
     "evaluate_execution_transition",
+    "evaluate_durable_run_transition",
+    "restore_durable_run_snapshot",
 ]
-

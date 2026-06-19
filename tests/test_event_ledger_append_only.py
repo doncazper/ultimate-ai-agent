@@ -110,6 +110,26 @@ def test_persistent_jsonl_ledger(dummy_event_factory):
         with pytest.raises(ValueError, match="Duplicate idempotency_key detected"):
             ledger2.append_event(dummy_event_factory(event_id="evt_duplicate_key", idempotency_key="persisted_key"))
 
+def test_persistent_jsonl_ledger_rejects_duplicate_event_id_on_load(dummy_event_factory):
+    with tempfile.TemporaryDirectory() as tmpdir:
+        filepath = Path(tmpdir) / "ledger.jsonl"
+        evt1 = dummy_event_factory(event_id="evt_reload_dup", idempotency_key="reload_key_1")
+        evt2 = dummy_event_factory(event_id="evt_reload_dup", idempotency_key="reload_key_2")
+        filepath.write_text(evt1.model_dump_json() + "\n" + evt2.model_dump_json() + "\n", encoding="utf-8")
+
+        with pytest.raises(ValueError, match="Duplicate event_id detected"):
+            EventLedger(filepath=str(filepath))
+
+def test_persistent_jsonl_ledger_rejects_duplicate_idempotency_key_on_load(dummy_event_factory):
+    with tempfile.TemporaryDirectory() as tmpdir:
+        filepath = Path(tmpdir) / "ledger.jsonl"
+        evt1 = dummy_event_factory(event_id="evt_reload_1", idempotency_key="reload_key")
+        evt2 = dummy_event_factory(event_id="evt_reload_2", idempotency_key="reload_key")
+        filepath.write_text(evt1.model_dump_json() + "\n" + evt2.model_dump_json() + "\n", encoding="utf-8")
+
+        with pytest.raises(ValueError, match="Duplicate idempotency_key detected"):
+            EventLedger(filepath=str(filepath))
+
 def test_trace_integrity_parent_spans(dummy_event_factory):
     ledger = EventLedger()
     

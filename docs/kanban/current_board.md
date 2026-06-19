@@ -33,24 +33,20 @@ Gate = required acceptance evidence before Done
 ## Now / Building
 
 ```text
-No active P0 item in this patch. Pull UAA-P1-010 next.
+No active P1 item in this patch. Pull UAA-P1-011 next.
 ```
 
 ## Ready Next
 
 ```text
-UAA-P1-010 Durable run spine v1
-Gate: durable local run records cover idempotency keys, replay-safe receipts,
-pause/resume/cancel states, restart recovery, and rollback refs.
+UAA-P1-011 Task decomposition operator loop
+Gate: task decomposition runs bind to durable run records, exact approvals,
+safe registered handlers, redacted audit summaries, and replay validation.
 ```
 
 ## Shaping
 
 ```text
-UAA-P1-010 Durable run spine v1
-Goal: durable local run records, idempotency keys, replay-safe receipts,
-pause/resume/cancel states, and restart recovery over local storage.
-
 UAA-P1-011 Task decomposition operator loop
 Goal: plan, approve, execute safe registered handlers, inspect audit summaries,
 and replay validation from Control Center.
@@ -191,12 +187,22 @@ credential rotation, rollback, offline mode, safe evidence collection,
 blocked/unknown model state, and safe-disable recovery are documented in
 `docs/production/LOCAL_MODEL_OPERATIONAL_RUNBOOK.md` with safe, degraded,
 blocked, and unsupported state semantics.
+
+UAA-P1-010 Durable run spine v1
+Gate met: durable run records cover explicit states, transition rules,
+idempotency keys, audit refs, receipt refs, replay refs, rollback refs, failure
+refs, restart recovery refs, checksum snapshot validation, invalid-transition
+denials, duplicate mutation denials, replay-ref denial, and restart visibility
+in `docs/execution/DURABLE_RUN_SPINE.md`,
+`src/ultimate_ai_agent/core/execution/durable_runs.py`,
+`tests/test_execution_state_machine_safety.py`, and
+`tests/test_event_ledger_append_only.py`.
 ```
 
 ## ASAP Sequence
 
 ```text
 1. Build only the mapped operator surfaces with tests after route/status gaps are scoped.
-2. Land UAA-P1-010 to shape the durable run spine.
-3. Land UAA-P1-011 to connect task decomposition to the operator loop.
+2. Land UAA-P1-011 to connect task decomposition to the operator loop.
+3. Land UAA-P1-025 to add append-first durable run storage.
 ```

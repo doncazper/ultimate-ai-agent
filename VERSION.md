@@ -1,26 +1,27 @@
 # Ultimate AI Agent Version
 
-Current active baseline: **v0.100.0**
+Current active baseline: **v0.101.0**
 
-v0.100.0 is the fresh currentness and production-readiness documentation baseline
-for the accepted Operator Runtime Excellence P0 repair lane. It keeps the
-repository contract-first, review-gated, local-first, and non-production by
-default. Already-pushed tags remain immutable historical internal milestone
-tags. Beta and public distribution begin only after supporting safety/product
-work is reviewed, accepted, and explicitly promoted by a later roadmap patch.
+v0.101.0 is the Operator Runtime Excellence P1 durable run spine baseline. It
+keeps the repository contract-first, review-gated, local-first, and
+non-production by default while adding UAA-P1-010 durable run records, state
+transitions, idempotency/replay guards, rollback refs, restart recovery refs,
+and checksum snapshot validation. Already-pushed tags remain immutable
+historical internal milestone tags. Beta and public distribution begin only
+after supporting safety/product work is reviewed, accepted, and explicitly
+promoted by a later roadmap patch.
 
 Latest accepted checkpoint tag: **checkpoint-m168**.
 The latest accepted local model lane checkpoint tags remain **checkpoint-m166**
 and **checkpoint-m167**. Those post-M150 checkpoints extend the scoped local
 model lane through the M166 production-readiness gate and M167 live-evidence
 hardening. The active Operator Runtime Excellence Program starts at M168 with
-currentness/product truth repair and is now consolidated under the v0.100.0
+currentness/product truth repair and is now consolidated under the v0.101.0
 product/package baseline.
 
-v0.100.0 consolidates the current README, roadmap/status docs, release-truth
-packet, public security posture, M167 evidence scaffolding, local model smoke
-harness, release latency baseline, and Control Center operator-shell gap map
-under one active baseline. It adds no dependency, backend route, Control Center
+v0.101.0 preserves the P0 currentness, security, product-truth, M167 evidence,
+local model smoke, latency, and operator-shell docs while adding the P1 durable
+run spine contract. It adds no dependency, backend route, Control Center
 control, provider/model call, shell/subprocess execution, network access,
 browser automation, tool execution authority, memory write, context injection,
 beta release, public distribution, or production authority.

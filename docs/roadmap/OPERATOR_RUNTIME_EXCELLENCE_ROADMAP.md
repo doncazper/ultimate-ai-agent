@@ -171,8 +171,9 @@ without creating a sprawling runtime.
 
 Tasks:
 
-- `UAA-P1-010` Define durable run records, run states, transitions, idempotency
-  keys, audit refs, receipt refs, and replay refs.
+- `UAA-P1-010` Done: define durable run records, run states, transitions,
+  idempotency keys, audit refs, receipt refs, replay refs, rollback refs,
+  restart recovery, checksum snapshot validation, and safety tests.
 - `UAA-P1-025` Implement append-first local storage for runs and receipts with
   atomic writes and corruption detection.
 - `UAA-P1-026` Add pause, resume, cancel, retry, dead-letter, and restart
@@ -380,7 +381,7 @@ Acceptance:
 
 ### Weeks 2-3
 
-- `UAA-P1-010` Durable run spine spec and tests.
+- `UAA-P1-010` Done: durable run spine spec and tests.
 - `UAA-P1-025` Append-first local run storage.
 - `UAA-P1-027` Task decomposition to durable run binding.
 - `UAA-P1-030` Visible route status manifest.

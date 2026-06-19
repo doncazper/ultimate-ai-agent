@@ -1,6 +1,12 @@
 import pytest
 
 from ultimate_ai_agent.core.execution import (
+    DurableRunCorruptionError,
+    DurableRunRecord,
+    DurableRunState,
+    DurableRunTransitionKind,
+    DurableRunTransitionRequest,
+    DurableRunTransitionStatus,
     ExecutionInputTrustLevel,
     ExecutionRun,
     ExecutionStep,
@@ -10,7 +16,11 @@ from ultimate_ai_agent.core.execution import (
     ExecutionTransitionKind,
     ExecutionTransitionRequest,
     ExecutionTransitionStatus,
+    apply_durable_run_transition,
+    build_durable_run_snapshot,
     evaluate_execution_transition,
+    evaluate_durable_run_transition,
+    restore_durable_run_snapshot,
 )
 
 
@@ -46,6 +56,38 @@ def _request(**overrides) -> ExecutionTransitionRequest:
     }
     data.update(overrides)
     return ExecutionTransitionRequest(**data)
+
+
+def _durable_record(**overrides) -> DurableRunRecord:
+    data = {
+        "run_id": "durable-run:p1-010",
+        "source_ref": "plan:p1-010",
+        "safe_summary": "Durable run contract summary.",
+    }
+    data.update(overrides)
+    return DurableRunRecord(**data)
+
+
+def _durable_request(
+    transition_kind: DurableRunTransitionKind = DurableRunTransitionKind.mark_ready,
+    suffix: str = "ready",
+    **overrides,
+):
+    data = {
+        "run_id": "durable-run:p1-010",
+        "transition_id": f"durable-transition:p1-010-{suffix}",
+        "transition_kind": transition_kind,
+        "idempotency_key": f"idempotency:p1-010-{suffix}",
+        "actor_ref": "actor:p1-010-reviewer",
+        "audit_ref": f"audit:p1-010-{suffix}",
+        "receipt_ref": f"receipt:p1-010-{suffix}",
+        "replay_ref": f"replay:p1-010-{suffix}",
+        "rollback_ref": f"rollback:p1-010-{suffix}",
+        "safe_summary": "State-only durable run contract transition.",
+        "evidence_refs": [f"evidence:p1-010-{suffix}"],
+    }
+    data.update(overrides)
+    return DurableRunTransitionRequest(**data)
 
 
 @pytest.mark.parametrize(
@@ -165,3 +207,113 @@ def test_completed_step_cannot_complete_twice():
     assert decision.status == ExecutionTransitionStatus.denied
     assert decision.execution_performed is False
     assert "EXECUTION_STEP_ALREADY_COMPLETED_DENIED" in decision.reason_codes
+
+
+def test_durable_run_invalid_transition_is_denied_without_state_change():
+    record = _durable_record()
+    request = _durable_request(DurableRunTransitionKind.pause, "pause-from-created")
+
+    decision = evaluate_durable_run_transition(record, request)
+
+    assert decision.status == DurableRunTransitionStatus.denied
+    assert decision.previous_state == DurableRunState.created
+    assert decision.next_state == DurableRunState.created
+    assert decision.execution_performed is False
+    assert "DURABLE_RUN_INVALID_TRANSITION_DENIED" in decision.reason_codes
+
+
+def test_durable_run_duplicate_mutation_attempt_is_blocked_by_idempotency():
+    record = _durable_record()
+    request = _durable_request()
+
+    first = apply_durable_run_transition(record, request)
+    second = apply_durable_run_transition(first.record, request)
+
+    assert first.decision.status == DurableRunTransitionStatus.accepted
+    assert first.record.state == DurableRunState.ready
+    assert second.decision.status == DurableRunTransitionStatus.denied
+    assert second.record.state == DurableRunState.ready
+    assert "DURABLE_RUN_IDEMPOTENCY_REPLAY_DENIED" in second.decision.reason_codes
+
+
+def test_durable_run_replay_ref_reuse_is_denied():
+    record = _durable_record(state=DurableRunState.ready, replay_refs=["replay:p1-010-reused"])
+    request = _durable_request(
+        DurableRunTransitionKind.start,
+        "start",
+        replay_ref="replay:p1-010-reused",
+    )
+
+    decision = evaluate_durable_run_transition(record, request)
+
+    assert decision.status == DurableRunTransitionStatus.denied
+    assert decision.execution_performed is False
+    assert "DURABLE_RUN_REPLAY_REF_REUSE_DENIED" in decision.reason_codes
+
+
+def test_durable_run_evidence_remains_redacted_refs_only():
+    result = apply_durable_run_transition(_durable_record(), _durable_request())
+    serialized = result.record.model_dump_json().lower()
+
+    assert result.decision.status == DurableRunTransitionStatus.accepted
+    assert result.record.evidence_refs == ["evidence:p1-010-ready"]
+    assert result.record.audit_refs == ["audit:p1-010-ready"]
+    assert result.record.receipt_refs == ["receipt:p1-010-ready"]
+    for forbidden in ["prompt", "response", "provider_payload", "local_path", "hostname"]:
+        assert forbidden not in serialized
+
+
+def test_durable_run_restart_recovery_and_snapshot_hash_are_visible():
+    record = _durable_record(state=DurableRunState.running, generation=3)
+    request = _durable_request(
+        DurableRunTransitionKind.recover_after_restart,
+        "restart-recovery",
+        restart_ref="restart:p1-010-recovery",
+    )
+
+    result = apply_durable_run_transition(record, request)
+    snapshot = build_durable_run_snapshot(result.record)
+    restored = restore_durable_run_snapshot(snapshot)
+    tampered = snapshot.model_dump()
+    tampered["record"]["generation"] = 99
+
+    assert result.decision.status == DurableRunTransitionStatus.accepted
+    assert result.record.state == DurableRunState.restart_recovery
+    assert result.record.generation == 4
+    assert result.record.restart_refs == ["restart:p1-010-recovery"]
+    assert restored == result.record
+    with pytest.raises(DurableRunCorruptionError, match="DURABLE_RUN_SNAPSHOT_HASH_MISMATCH"):
+        restore_durable_run_snapshot(tampered)
+
+
+def test_durable_run_failure_transition_requires_failure_ref():
+    record = _durable_record(state=DurableRunState.running)
+    request = _durable_request(DurableRunTransitionKind.fail, "fail")
+
+    decision = evaluate_durable_run_transition(record, request)
+
+    assert decision.status == DurableRunTransitionStatus.denied
+    assert "DURABLE_RUN_FAILURE_REF_REQUIRED" in decision.reason_codes
+
+
+def test_durable_run_authority_flags_are_denied_after_model_copy():
+    record = _durable_record()
+    request = _durable_request().model_copy(
+        update={
+            "execution_requested": True,
+            "auto_run_requested": True,
+            "schedule_requested": True,
+            "background_worker_requested": True,
+            "side_effect_execution_enabled": True,
+        }
+    )
+
+    decision = evaluate_durable_run_transition(record, request)
+
+    assert decision.status == DurableRunTransitionStatus.denied
+    assert decision.execution_performed is False
+    assert "DURABLE_RUN_EXECUTION_REQUEST_DENIED" in decision.reason_codes
+    assert "DURABLE_RUN_AUTO_RUN_DENIED" in decision.reason_codes
+    assert "DURABLE_RUN_SCHEDULE_DENIED" in decision.reason_codes
+    assert "DURABLE_RUN_BACKGROUND_WORKER_DENIED" in decision.reason_codes
+    assert "DURABLE_RUN_SIDE_EFFECT_EXECUTION_DENIED" in decision.reason_codes

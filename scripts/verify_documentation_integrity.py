@@ -1045,7 +1045,7 @@ RELEASE_FACING_SECURITY_DOCS = [
     REQUIRED_LLAMA_SERVER_PACKAGING_CHECKLIST_DOC,
     REQUIRED_LOCAL_MODEL_OPERATIONAL_RUNBOOK_DOC,
     "docs/security/SECURITY_TRIAGE_RUNBOOK.md",
-    "docs/release_notes/v0_100_0.md",
+    "docs/release_notes/v0_101_0.md",
     "docs/release_notes/v1_2_0_alpha.md",
     "docs/release_notes/checkpoint_m168.md",
     "docs/release_notes/checkpoint_m166.md",
@@ -1596,6 +1596,8 @@ def _verify_operator_runtime_currentness(root: Path) -> list[str]:
     api_readme = read_lower("docs/api/README.md")
     openapi_contract = read_lower("docs/api/openapi_contract.md")
     route_inventory = read_lower("docs/api/route_inventory.md")
+    active_version = _active_version(root) or "0.100.0"
+    active_tag = f"v{active_version}"
 
     active_text = "\n".join(
         [
@@ -1645,7 +1647,7 @@ def _verify_operator_runtime_currentness(root: Path) -> list[str]:
         "active docs must mention checkpoint-m168": "checkpoint-m168",
         "active docs must mention checkpoint-m166": "checkpoint-m166",
         "active docs must mention checkpoint-m167": "checkpoint-m167",
-        "active docs must preserve v0.100.0 baseline": "v0.100.0",
+        f"active docs must preserve {active_tag} baseline": active_tag,
         "active docs must link Operator Runtime roadmap": (
             "docs/roadmap/operator_runtime_excellence_roadmap.md"
         ),
@@ -1725,7 +1727,7 @@ def _verify_operator_runtime_currentness(root: Path) -> list[str]:
 
     product_truth_required = {
         "product truth packet must identify UAA-P0-002": "task: uaa-p0-002",
-        "product truth packet must preserve active baseline": "baseline: v0.100.0 / 0.100.0",
+        "product truth packet must preserve active baseline": f"baseline: {active_tag} / {active_version}",
         "product truth packet must list accepted repository checkpoint": (
             "accepted repository checkpoint: checkpoint-m168"
         ),
@@ -1867,7 +1869,7 @@ def _verify_public_security_posture(root: Path) -> list[str]:
     security_required = {
         "SECURITY.md must identify UAA-P0-003": "program task: uaa-p0-003",
         "SECURITY.md must list supported versions": "## supported versions",
-        "SECURITY.md must preserve active baseline": "v0.100.0",
+        "SECURITY.md must preserve active baseline": f"v{_active_version(root) or '0.100.0'}",
         "SECURITY.md must mention checkpoint-m166": "checkpoint-m166",
         "SECURITY.md must mention checkpoint-m167": "checkpoint-m167",
         "SECURITY.md must describe private reporting": "github private vulnerability reporting",
@@ -2699,22 +2701,41 @@ def _verify_local_model_operational_runbook(root: Path) -> list[str]:
             failures.append(f"runbook contains unsafe claim: {unsafe}")
 
     board = read_lower("docs/kanban/current_board.md")
+    durable_doc = read_lower("docs/execution/DURABLE_RUN_SPINE.md")
     if "uaa-p0-017 local model operational runbook" not in board:
         failures.append("current board must track UAA-P0-017 runbook")
     if "gate met: cache cleanup, corrupted gguf, stuck download, port conflict" not in board:
         failures.append("current board must mark UAA-P0-017 gate met")
     if "pull uaa-p0-017 next" in board:
         failures.append("current board still contains stale UAA-P0-017 next label")
-    if "pull uaa-p1-010 next" not in board:
-        failures.append("current board must move next pull to UAA-P1-010")
+    if "pull uaa-p1-010 next" in board:
+        failures.append("current board still contains stale UAA-P1-010 next label")
+    if "pull uaa-p1-011 next" not in board:
+        failures.append("current board must move next pull to UAA-P1-011")
     if "uaa-p1-010 durable run spine v1" not in board:
-        failures.append("current board must expose UAA-P1-010 as ready next")
+        failures.append("current board must track UAA-P1-010 durable run spine")
+    if "gate met: durable run records cover explicit states" not in board:
+        failures.append("current board must mark UAA-P1-010 gate met")
+    if "uaa-p1-011 task decomposition operator loop" not in board:
+        failures.append("current board must expose UAA-P1-011 as ready next")
+    for message, fragment in {
+        "durable run spine doc must exist": "status: active uaa-p1-010 contract",
+        "durable run spine doc must include states": "## states",
+        "durable run spine doc must include transition rules": "## transition rules",
+        "durable run spine doc must include persistence expectations": "## persistence expectations",
+        "durable run spine doc must deny runtime authority": "does not add execution",
+        "durable run spine doc must mention checksum restore": "checksum-backed snapshot",
+    }.items():
+        if fragment not in durable_doc:
+            failures.append(message)
 
     readme = read_lower("README.md")
-    if "operator runtime excellence p0 repair lane through uaa-p0-017" not in readme:
-        failures.append("README must identify current P0 lane through UAA-P0-017")
+    if "operator runtime excellence p1 durable run spine through uaa-p1-010" not in readme:
+        failures.append("README must identify current P1 lane through UAA-P1-010")
     if "p0-017 adds safe local model operational recovery guidance" not in readme:
         failures.append("README must mention P0-017 operational recovery")
+    if "durable run spine" not in readme:
+        failures.append("README must mention durable run spine")
 
     product_truth = read_lower("docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md")
     if "local model operational recovery guidance is documented" not in product_truth:
@@ -2767,7 +2788,7 @@ def _verify_control_center_operator_shell_gap_map(root: Path) -> list[str]:
         "gap map must identify UAA-P0-007": (
             "status: active uaa-p0-007 operator-shell gap map"
         ),
-        "gap map must preserve baseline": "baseline: v0.100.0 / 0.100.0",
+        "gap map must preserve baseline": f"baseline: v{_active_version(root) or '0.100.0'} / {_active_version(root) or '0.100.0'}",
         "gap map must cite M172": (
             "source plan: `docs/roadmap/operator_runtime_excellence_roadmap.md` m172"
         ),

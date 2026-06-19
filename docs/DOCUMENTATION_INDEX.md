@@ -1,6 +1,6 @@
 # Documentation Index
 
-Current active baseline: **v0.100.0**
+Current active baseline: **v0.101.0**
 
 This index is the active entrypoint for documentation navigation. Historical release documents remain in the repository for audit history, but active truth starts with the current baseline files listed here.
 
@@ -18,12 +18,13 @@ docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md
 docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md
 docs/control_center/OPERATOR_SHELL_GAP_MAP.md
 docs/kanban/current_board.md
+docs/execution/DURABLE_RUN_SPINE.md
 docs/security/SECURITY_TRIAGE_RUNBOOK.md
 docs/archive/README.md
-docs/archive/releases/v0_100_0/README_IMPORT.md
-docs/archive/releases/v0_100_0/master_plan.md
-docs/release_notes/v0_100_0.md
-docs/implementation/foundation_gate_implementation_plan_v0_100_0.md
+docs/archive/releases/v0_101_0/README_IMPORT.md
+docs/archive/releases/v0_101_0/master_plan.md
+docs/release_notes/v0_101_0.md
+docs/implementation/foundation_gate_implementation_plan_v0_101_0.md
 docs/release_notes/checkpoint_m168.md
 docs/release_notes/checkpoint_m166.md
 docs/release_notes/checkpoint_m167.md
@@ -948,7 +949,7 @@ scripts/dev/README.md
 ```
 
 v0.37.4 supersedes the old active M35-M40 roadmap projection and defines the
-active M34-M60 sequence. v0.100.0 is the current active package baseline for the
+active M34-M60 sequence. v0.101.0 is the current active package baseline for the
 accepted Operator Runtime Excellence P0 currentness and production-readiness
 documentation repair lane.
 Checkpoint M108 is implemented/released as Mobile Kill Switch + Revocation
@@ -1034,7 +1035,7 @@ future-status drift.
 
 ## Release Notes Index
 
-Current release notes: `docs/release_notes/v0_100_0.md`
+Current release notes: `docs/release_notes/v0_101_0.md`
 
 Historical release notes remain under `docs/release_notes/`. Historical docs may mention old active baselines in historical context; they are not the current source of truth.
 
