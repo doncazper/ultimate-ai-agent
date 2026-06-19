@@ -103,7 +103,7 @@ def _capability_risk(risk: ToolRiskLevel) -> RiskLevel:
         ToolRiskLevel.medium: RiskLevel.WRITE,
         ToolRiskLevel.high: RiskLevel.DESTRUCTIVE,
         ToolRiskLevel.critical: RiskLevel.SECRET_ACCESS,
-        ToolRiskLevel.forbidden: RiskLevel.DESTRUCTIVE,
+        ToolRiskLevel.forbidden: RiskLevel.forbidden,
     }
     return mapping[risk]
 

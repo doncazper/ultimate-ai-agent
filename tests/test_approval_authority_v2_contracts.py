@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from pydantic import ValidationError
@@ -83,6 +83,56 @@ def _grant(**overrides):
     }
     data.update(overrides)
     return ApprovalGrant(**data)
+
+
+def test_evaluate_grant_uses_most_restrictive_expiry():
+    from ultimate_ai_agent.core.approvals.v2 import (
+        ApprovalScope,
+        ApprovalScopeKind,
+        evaluate_approval_grant,
+    )
+
+    refs = _refs()
+    # Scope deadline has already passed; grant-level deadline is still in the future.
+    expired_scope = ApprovalScope(
+        scope_ref="scope:m28-single",
+        scope_kind=ApprovalScopeKind.single_action,
+        actor_ref=refs["actor"].actor_ref,
+        action_ref=refs["action"].action_ref,
+        resource_ref=refs["resource"].resource_ref,
+        expires_at=utc_now() - timedelta(minutes=5),
+        replay_nonce="nonce:m28-safe",
+    )
+    grant = _grant(scope=expired_scope, expires_at=utc_now() + timedelta(minutes=15))
+
+    reasons = evaluate_approval_grant(_intent(), grant)
+
+    # The earlier scope expiry must not be masked by the later grant expiry.
+    assert "APPROVAL_GRANT_EXPIRED" in reasons
+
+
+def test_evaluate_grant_normalizes_mixed_expiry_datetime_awareness():
+    from ultimate_ai_agent.core.approvals.v2 import (
+        ApprovalScope,
+        ApprovalScopeKind,
+        evaluate_approval_grant,
+    )
+
+    refs = _refs()
+    expired_naive_scope = ApprovalScope(
+        scope_ref="scope:m28-single",
+        scope_kind=ApprovalScopeKind.single_action,
+        actor_ref=refs["actor"].actor_ref,
+        action_ref=refs["action"].action_ref,
+        resource_ref=refs["resource"].resource_ref,
+        expires_at=datetime.now(UTC).replace(tzinfo=None) - timedelta(minutes=5),
+        replay_nonce="nonce:m28-safe",
+    )
+    grant = _grant(scope=expired_naive_scope, expires_at=utc_now() + timedelta(minutes=15))
+
+    reasons = evaluate_approval_grant(_intent(), grant, current_time=utc_now())
+
+    assert "APPROVAL_GRANT_EXPIRED" in reasons
 
 
 def test_default_manifest_is_contract_only_and_disables_execution_authority():
