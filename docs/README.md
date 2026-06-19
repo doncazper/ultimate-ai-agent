@@ -1,7 +1,7 @@
 # Ultimate AI Agent Docs
 
 Status: active
-Current through: v0.64.0
+Current through: v2.0.0 plus accepted checkpoint-m168 and active Operator Runtime Excellence P0 repair work
 Purpose: Human-facing entrypoint for active documentation and historical archive navigation.
 
 Active docs are few, indexed, and current. Historical docs are preserved under
@@ -12,21 +12,48 @@ Start with:
 
 ```text
 docs/DOCUMENTATION_INDEX.md
+SECURITY.md
 docs/canonical/09_roadmap.md
 docs/canonical/CANONICAL_DOC_MAP.md
+docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md
+docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md
+docs/control_center/OPERATOR_SHELL_GAP_MAP.md
+docs/kanban/current_board.md
+docs/security/SECURITY_TRIAGE_RUNBOOK.md
 docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md
 docs/roadmap/README.md
 docs/archive/README.md
 docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md
 ```
 
-Current release packet:
+Current release packet and active program packet:
 
 ```text
-docs/archive/releases/v0_64_0/README_IMPORT.md
-docs/archive/releases/v0_64_0/master_plan.md
-docs/release_notes/v0_64_0.md
-docs/implementation/foundation_gate_implementation_plan_v0_64_0.md
+docs/archive/releases/v2_0_0/README_IMPORT.md
+docs/archive/releases/v2_0_0/master_plan.md
+docs/release_notes/v2_0_0.md
+docs/implementation/foundation_gate_implementation_plan_v2_0_0.md
+docs/release_notes/checkpoint_m168.md
+docs/release_notes/checkpoint_m166.md
+docs/release_notes/checkpoint_m167.md
+docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md
+docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md
+docs/control_center/OPERATOR_SHELL_GAP_MAP.md
+docs/kanban/current_board.md
+SECURITY.md
+docs/security/SECURITY_TRIAGE_RUNBOOK.md
+docs/production/M166_PRODUCTION_AUTHORITY_GATE.md
+docs/production/M167_LIVE_MODEL_PRODUCTION_HARDENING.md
+docs/production/M167_LIVE_MODEL_EVIDENCE_MATRIX.md
+docs/production/M167_LOCAL_MODEL_E2E_SMOKE_HARNESS.md
+docs/production/LLAMA_SERVER_PACKAGING_PROVENANCE_CHECKLIST.md
+docs/production/LOCAL_MODEL_OPERATIONAL_RUNBOOK.md
+docs/production/RELEASE_LATENCY_BASELINE_HARNESS.md
+docs/production/M167_LIVE_MODEL_PRODUCTION_HARDENING_BOUNDARY.md
+docs/production/M167_LIVE_MODEL_PRODUCTION_HARDENING_NON_GOALS.md
+docs/production/M167_LIVE_MODEL_PRODUCTION_HARDENING_RUNBOOK.md
+docs/model_management/M153_M165_LOCAL_MODEL_MANAGEMENT_PROGRESSION.md
+docs/model_management/M160_M165_LIVE_LANE_BOUNDARY.md
 docs/beta/LOCAL_DEVELOPER_BETA_FREEZE.md
 docs/beta/LOCAL_DEVELOPER_BETA_FREEZE_POLICY.md
 docs/beta/LOCAL_DEVELOPER_BETA_FREEZE_AUTHORITY_BOUNDARY.md
@@ -127,6 +154,17 @@ docs/tools/TOOL_AUTHORITY_BOUNDARY.md
 docs/tools/TOOL_INTENT_RECEIPT_PLAN.md
 ```
 
+The product/package baseline is `v2.0.0` / `2.0.0`. The latest
+accepted repository checkpoint tag is `checkpoint-m168`. The latest accepted
+local model lane checkpoint tags remain `checkpoint-m166` and
+`checkpoint-m167`. Active Operator Runtime Excellence P0 repair work is
+docs/verifier/security/evidence/performance/operator-shell scaffolding; it adds
+no production authority, backend route, Control Center control, dependency,
+public distribution, broad autonomy, shell/subprocess authority, browser
+automation, connector writes, plugin runtime import, mobile control,
+model/provider authority, raw prompt export, raw response export, or raw
+provider payload export.
+
 Use active canonical docs and active roadmap docs for current work. Use archive
 docs only for historical review. Git tags and release history preserve exact
 historical snapshots.
@@ -143,10 +181,10 @@ workflow, approval capture, context proposal, context injection, memory writes,
 export, execution, dependencies, mobile or TestFlight implementation, or
 production authority. M35-M60 remain planned/provisional.
 
-v0.38.2 repairs active M34 current-baseline labels and documentation-integrity
-coverage after the v0.38.1 Yellow review. Active docs must identify v0.38.2 as
-the current active baseline while preserving v0.38.0 as the historical M34
-implementation release and v0.38.1 as a superseded hardening release. It adds no
+Historical note: v0.38.2 repaired active M34 current-baseline labels and documentation-integrity
+coverage after the v0.38.1 Yellow review. At that point, docs identified v0.38.2
+as the current active baseline while preserving v0.38.0 as the historical M34
+implementation release and v0.38.1 as a superseded hardening release. It added no
 runtime file capability, backend route, frontend feature, raw file read,
 context injection, memory write, export, execution, dependency, M35 work, or
 production authority.
@@ -197,5 +235,7 @@ automation, network access, memory write, context injection, raw prompt capture,
 raw provider payload capture, external dataset fetch, backend route, Control
 Center control, dependency, production authority, or M57 work.
 
-M57-M60 remain planned/provisional under
-`docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md`.
+Historical M57-M60 planning is preserved under
+`docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md`; current active roadmap status
+is summarized in `docs/canonical/09_roadmap.md` and the Operator Runtime
+Excellence roadmap.

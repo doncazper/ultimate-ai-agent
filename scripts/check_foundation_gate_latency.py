@@ -87,6 +87,18 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Number of untimed warmup evaluations. Default: 0.",
     )
     parser.add_argument(
+        "--path-repeat",
+        type=_positive_int,
+        default=5,
+        help="Number of timed runs per release-critical local path. Default: 5.",
+    )
+    parser.add_argument(
+        "--path-warmup",
+        type=_non_negative_int,
+        default=1,
+        help="Number of untimed warmup runs per release-critical local path. Default: 1.",
+    )
+    parser.add_argument(
         "--max-best-ms",
         type=_positive_float,
         default=_env_float_or_error(
@@ -121,7 +133,12 @@ def main(argv: list[str] | None = None) -> int:
     _ensure_repo_on_path()
     from scripts.benchmark_foundation_gate import _benchmark
 
-    metrics = _benchmark(repeat=args.repeat, warmup=args.warmup)
+    metrics = _benchmark(
+        repeat=args.repeat,
+        warmup=args.warmup,
+        path_repeat=args.path_repeat,
+        path_warmup=args.path_warmup,
+    )
     best_ms = float(metrics["foundation_gate_best_ms"])
     mean_ms = float(metrics["foundation_gate_mean_ms"])
     status = str(metrics["foundation_gate_status"])
@@ -136,6 +153,15 @@ def main(argv: list[str] | None = None) -> int:
         failures.append(
             f"mean {mean_ms:.2f} ms exceeds budget {args.max_mean_ms:.2f} ms"
         )
+    for result in metrics.get("release_latency_path_results", []):
+        if not isinstance(result, dict) or not result.get("required", False):
+            continue
+        safe_label = str(result.get("safe_label", "unknown path"))
+        result_status = str(result.get("status", "unknown"))
+        if result_status != "passed":
+            failures.append(
+                f"{safe_label} release latency status is {result_status!r}, expected 'passed'"
+            )
 
     payload = {
         **metrics,
@@ -151,6 +177,17 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Status: {status}")
         print(f"Best: {best_ms:.2f} ms/evaluation (budget {args.max_best_ms:.2f})")
         print(f"Mean: {mean_ms:.2f} ms/evaluation (budget {args.max_mean_ms:.2f})")
+        print(f"Release latency: {metrics['release_latency_overall_status']}")
+        print(f"Report JSON: {metrics['release_latency_report_json']}")
+        print(f"Report MD: {metrics['release_latency_report_md']}")
+        for result in metrics.get("release_latency_path_results", []):
+            if not isinstance(result, dict):
+                continue
+            p95 = result["p95_ms"] if result["p95_ms"] is not None else "skipped"
+            print(
+                f"- {result['safe_label']}: {result['status']} "
+                f"(p95 {p95} ms, budget {result['budget_ms']} ms)"
+            )
         if failures:
             print("FAILED")
             for failure in failures:

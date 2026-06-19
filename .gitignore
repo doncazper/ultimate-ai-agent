@@ -42,3 +42,5 @@ htmlcov/
 *.egg-info/
 reports/foundation_gate/latest_*.json
 reports/foundation_gate/latest_*.md
+reports/performance/latest_*.json
+reports/performance/latest_*.md

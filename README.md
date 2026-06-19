@@ -12,29 +12,29 @@ allowed to become operational authority.
 
 | Field | Current state |
 |---|---|
-| Current active baseline | **v1.2.0-alpha** |
-| Current milestone | **M150 - Ultimate AI Agent v1.2.0-alpha** |
+| Current active baseline | **v2.0.0** |
+| Current program milestone | **Operator Runtime Excellence P0 repair lane through UAA-P0-017** |
+| Latest accepted checkpoint tag | **checkpoint-m168** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
-| API boundary | FastAPI route contract with **75** OpenAPI paths |
+| API boundary | FastAPI route contract with **93** OpenAPI paths |
 | Production readiness | Not claimed |
 
-M150 records Ultimate AI Agent **v1.2.0-alpha** as a local alpha target
-acceptance packet while the package baseline is v1.2.0-alpha for this
-contract-first conveyor run after orchestration efficiency layer currentness.
-Already-pushed tags
-remain immutable historical internal milestone tags. M150 is contract-only,
-review-only, alpha-target-only,
-deterministic, local-only, safe-ref-only, disabled by default, route-free, and
-no-effect. It records accepted M101-M149 checkpoint refs, alpha target refs,
-release candidate freeze refs, alpha readiness refs, evidence index refs,
-blocker summary refs, signoff review refs, beta promotion gate refs, audit,
-replay, revocation, kill-switch, and no-effect receipt refs for governed review.
-It adds no release publication, release tag, tag creation, artifact build,
-artifact upload, artifact export, external distribution, App Store submission,
-TestFlight submission, beta release, release automation, backend route, Control
-Center control, dependency, or production authority. Beta remains future and
-requires a later reviewed roadmap promotion.
+The product and package baseline is **v2.0.0** / `2.0.0`. This is a fresh
+currentness and production-readiness documentation baseline over the accepted
+Operator Runtime Excellence P0 repair lane. It does not publish a public
+release, move historical tags, ship external artifacts, distribute externally,
+release a beta, or grant production authority. Already-pushed tags remain
+immutable historical records.
+
+The active workstream is the **Operator Runtime Excellence Program**. The latest
+accepted repository checkpoint tag is `checkpoint-m168`, which repairs
+currentness and product truth across README, roadmap, board, accepted checkpoint
+references, and API route-count references. The latest accepted local model lane
+checkpoint tags remain `checkpoint-m166` and `checkpoint-m167`: M166 is an
+exact-scope local model production-readiness gate for the M160-M165
+llama.cpp/OpenWebUI layer, and M167 adds stricter live-evidence hardening
+without granting new production authority beyond the accepted M166 gate.
 
 v0.29.5 is documentation policy polish. It remains the documentation
 organization cleanup baseline before the M26 and M27 implementation releases.
@@ -42,9 +42,15 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 ## Quick Links
 
 - [Docs home](docs/README.md)
+- [Security policy](SECURITY.md)
+- [Security triage runbook](docs/security/SECURITY_TRIAGE_RUNBOOK.md)
 - [Documentation index](docs/DOCUMENTATION_INDEX.md)
 - [Canonical document map](docs/canonical/CANONICAL_DOC_MAP.md)
 - [Current roadmap](docs/canonical/09_roadmap.md)
+- [Operator Runtime Excellence roadmap](docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md)
+- [Product release-truth packet](docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md)
+- [Control Center operator-shell gap map](docs/control_center/OPERATOR_SHELL_GAP_MAP.md)
+- [Current Kanban board](docs/kanban/current_board.md)
 - [M34-M60 roadmap supersession](docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md)
 - [M61-M100 roadmap](docs/roadmap/M61_M100_ROADMAP.md)
 - [M101-M150 planned roadmap](docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md)
@@ -156,6 +162,16 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M151 Local OpenWebUI Test Shell](docs/openwebui/M151_LOCAL_OPENWEBUI_TEST_SHELL.md)
 - [M151 Local OpenWebUI Test Shell Authority Boundary](docs/openwebui/M151_LOCAL_OPENWEBUI_TEST_SHELL_AUTHORITY_BOUNDARY.md)
 - [M151 Local OpenWebUI Test Shell Runbook](docs/openwebui/M151_LOCAL_OPENWEBUI_TEST_SHELL_RUNBOOK.md)
+- [M153-M165 Local Model Management Progression](docs/model_management/M153_M165_LOCAL_MODEL_MANAGEMENT_PROGRESSION.md)
+- [M160-M165 Live Lane Boundary](docs/model_management/M160_M165_LIVE_LANE_BOUNDARY.md)
+- [M166 Production Authority Gate](docs/production/M166_PRODUCTION_AUTHORITY_GATE.md)
+- [M167 Live Model Production Hardening](docs/production/M167_LIVE_MODEL_PRODUCTION_HARDENING.md)
+- [M167 Live Model Evidence Matrix](docs/production/M167_LIVE_MODEL_EVIDENCE_MATRIX.md)
+- [M167 Local Model E2E Smoke Harness](docs/production/M167_LOCAL_MODEL_E2E_SMOKE_HARNESS.md)
+- [llama-server Packaging Provenance Checklist](docs/production/LLAMA_SERVER_PACKAGING_PROVENANCE_CHECKLIST.md)
+- [Local Model Operational Runbook](docs/production/LOCAL_MODEL_OPERATIONAL_RUNBOOK.md)
+- [Release Latency Baseline Harness](docs/production/RELEASE_LATENCY_BASELINE_HARNESS.md)
+- [Control Center Operator Shell Gap Map](docs/control_center/OPERATOR_SHELL_GAP_MAP.md)
 - [M78 Plugin Manifest Security Model](docs/tooling/PLUGIN_MANIFEST_SECURITY_MODEL.md)
 - [M78 Plugin Manifest Policy](docs/tooling/PLUGIN_MANIFEST_POLICY.md)
 - [M78 Plugin Manifest Authority Boundary](docs/tooling/PLUGIN_MANIFEST_AUTHORITY_BOUNDARY.md)
@@ -343,6 +359,8 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [v1.7.1 master plan](docs/archive/releases/v1_7_1/master_plan.md)
 - [v1.7.2 release packet](docs/archive/releases/v1_7_2/README_IMPORT.md)
 - [v1.7.2 master plan](docs/archive/releases/v1_7_2/master_plan.md)
+- [v2.0.0 release packet](docs/archive/releases/v2_0_0/README_IMPORT.md)
+- [v2.0.0 master plan](docs/archive/releases/v2_0_0/master_plan.md)
 
 ## What This Project Is
 
@@ -526,7 +544,8 @@ capability.
 | FastAPI backend | Implemented validation/metadata API | Includes disabled-by-default M151 local OpenWebUI test gateway |
 | CCC Web Control Center | Implemented preview/read-only local shell | React/Vite app under `apps/control-center/` |
 | OpenWebUI bridge | Local test shell plus contracts | M151 exposes `uaa-safe-local` for local smoke only; no provider/tool/memory/context authority |
-| Local model runtime | Bounded/manual only | M23 fixed-prompt, loopback-only, approval-gated CLI path; model output is non-authoritative |
+| Local model runtime | Scoped local model lane | M160-M165 cover bounded HF metadata search, redacted system probing, exact-approved GGUF acquisition, loopback llama.cpp supervision, local `/v1` gateway, and approved tuning; M166/M167 require reviewed safe-ref evidence, P0-005 adds a local/dev E2E smoke harness with skipped or blocked states when prerequisites are unavailable, P0-015 adds the local `llama-server` packaging/provenance checklist without public distribution or broad binary-trust claims, P0-016 hardens tuning advice for lag, out-of-memory, crash loop, reload loop, slow token rate, and one-change rollback cases, and P0-017 adds safe local model operational recovery guidance |
+| Performance baseline | Release latency harness | P0-006 measures p50/p95 for release-critical local paths and writes safe reports under `reports/performance`; authority checks are not cached, skipped, or bypassed for speed |
 | Memory | Implemented governed local foundation | Reviewed/source-linked recall records; no automatic writes |
 | Truth/evidence | Implemented M25 contracts | Deterministic validation over provided refs; no external lookup |
 | Recall/context packs | Implemented M26 contracts | Safe summaries and refs only; source_ref/source_kind consistency enforced |
@@ -661,6 +680,7 @@ Read more:
 - [Control Center contract](docs/control_center/CONTROL_CENTER_CONTRACT.md)
 - [Frontend safety policy](docs/control_center/FRONTEND_SAFETY_POLICY.md)
 - [Control Center frontend routes](docs/control_center/CONTROL_CENTER_FRONTEND_ROUTES.md)
+- [Operator shell gap map](docs/control_center/OPERATOR_SHELL_GAP_MAP.md)
 
 ## Roadmap Snapshot
 

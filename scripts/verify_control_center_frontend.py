@@ -239,6 +239,18 @@ FORBIDDEN_FRONTEND_DEPENDENCIES = [
     '"open-webui"',
 ]
 
+OPERATOR_SHELL_GAP_MAP = "docs/control_center/OPERATOR_SHELL_GAP_MAP.md"
+REQUIRED_OPERATOR_SHELL_SURFACES = [
+    "Chat Shell",
+    "Plans",
+    "Models",
+    "Approvals",
+    "Files",
+    "Runtime",
+    "Evidence",
+    "Settings",
+]
+
 SECRET_ASSIGNMENT = re.compile(
     r"(?i)(api[_-]?key|auth[_-]?token|authorization|cookie|password|secret|token)\s*[:=]\s*['\"]?([a-z0-9_./:-]{8,})"
 )
@@ -473,6 +485,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_tracked_artifact_failures(root))
     failures.extend(_package_failures(app_root))
     failures.extend(_env_example_failures(app_root, root))
+    failures.extend(_operator_shell_gap_map_failures(root))
 
     implementation_files = _implementation_files(app_root)
     for path in implementation_files:
@@ -681,6 +694,73 @@ def verify(root: Path = ROOT) -> list[str]:
         for match in URL_CREDENTIALS.finditer(text):
             failures.append(f"forbidden URL credentials in {vite_config.relative_to(root)}: {match.group(0)}")
 
+    return failures
+
+
+def _operator_shell_gap_map_failures(root: Path) -> list[str]:
+    failures: list[str] = []
+    doc_path = root / OPERATOR_SHELL_GAP_MAP
+    if not doc_path.exists():
+        return [f"missing Control Center operator-shell gap map: {OPERATOR_SHELL_GAP_MAP}"]
+    text = doc_path.read_text(encoding="utf-8")
+    lowered = text.lower()
+    compact = " ".join(lowered.split())
+    required_fragments = {
+        "operator-shell gap map must identify UAA-P0-007": (
+            "status: active uaa-p0-007 operator-shell gap map"
+        ),
+        "operator-shell gap map must include current API count": (
+            "api boundary: current fastapi manifest has 93 openapi paths"
+        ),
+        "operator-shell gap map must include exact matrix columns": (
+            "| surface | current frontend component/page | current backend route(s) | "
+            "missing backend route(s) | authority boundary | side-effect class | "
+            "approval requirement | evidence/audit output | readiness status | "
+            "production-readiness blocker |"
+        ),
+        "operator-shell gap map must include visible action map": "## visible action map",
+        "operator-shell gap map must include first product loop gaps": (
+            "## first product loop gaps"
+        ),
+        "operator-shell gap map must include product language rules": (
+            "## product language rules"
+        ),
+        "operator-shell gap map must require no hidden authority": "no hidden authority",
+        "operator-shell gap map must require no fake completion": "no fake completion",
+        "operator-shell gap map must forbid raw JSON primary UI": (
+            "no raw json as primary ui for operator-critical flows"
+        ),
+        "operator-shell gap map must name route status manifest gap": (
+            "route status manifest"
+        ),
+        "operator-shell gap map must name GGUF selection gap": "gguf selection",
+        "operator-shell gap map must name loopback llama.cpp settings gap": (
+            "loopback llama.cpp settings"
+        ),
+        "operator-shell gap map must map /v1 models": "`get /v1/models`",
+        "operator-shell gap map must map /v1 chat": "`post /v1/chat/completions`",
+        "operator-shell gap map must map task classify": (
+            "`post /task-decomposition/classify`"
+        ),
+        "operator-shell gap map must map bounded file preview": (
+            "`post /files/read/preview`"
+        ),
+    }
+    for message, fragment in required_fragments.items():
+        if fragment not in compact:
+            failures.append(message)
+    for surface in REQUIRED_OPERATOR_SHELL_SURFACES:
+        if f"| {surface.lower()} |" not in compact:
+            failures.append(f"operator-shell gap map missing surface: {surface}")
+    for unsafe in [
+        "production ready for external users",
+        "public distribution is available",
+        "control center executes actions",
+        "plugin runtime import is enabled",
+        "connector writes are enabled",
+    ]:
+        if unsafe in lowered:
+            failures.append(f"operator-shell gap map contains unsafe claim: {unsafe}")
     return failures
 
 

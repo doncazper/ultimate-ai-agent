@@ -2383,6 +2383,7 @@ M152_STATIC_SCAN_ALLOWED_FILES = {
     "src/ultimate_ai_agent/core/gate/criteria.py",
     "src/ultimate_ai_agent/core/gate/evaluators.py",
     "src/ultimate_ai_agent/core/local_model_management/__init__.py",
+    "src/ultimate_ai_agent/core/local_model_management/e2e_smoke.py",
     "src/ultimate_ai_agent/core/local_model_management/gateway.py",
     "src/ultimate_ai_agent/core/local_model_management/hf_search.py",
     "src/ultimate_ai_agent/core/local_model_management/llama_cpp_supervisor.py",

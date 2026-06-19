@@ -120,8 +120,34 @@ def test_file_write_propose_and_diff_preview_endpoints_are_safe(monkeypatch, tmp
     diff_response = client.post("/files/diff/preview", json=payload)
 
     assert propose_response.status_code == 200
+    assert propose_response.json()["success"] is True
     assert propose_response.json()["data"]["allowed"] is True
     assert diff_response.status_code == 200
     assert diff_response.json()["data"]["raw_diff_omitted"] is True
     assert "content_ref_only=True" in diff_response.json()["data"]["diff_summary"]
     assert "hello" not in diff_response.text
+
+
+def test_file_write_propose_endpoint_reports_failure_when_blocked(monkeypatch, tmp_path: Path):
+    monkeypatch.setenv("UAA_FILE_API_SAFE_ROOT", str(tmp_path))
+    payload = {
+        "proposal": {
+            "proposal_id": "fwp_api_blocked",
+            "run_id": "run_123",
+            "actor_context": actor_payload(),
+            "target_path": "note.txt",
+            "purpose": "proposal",
+            "new_content_ref": "content-ref:fwp-api",
+            "file_kind": "artifact",
+            "sensitivity": "credential_secret",
+            "idempotency_key": "idem_api_file_blocked",
+        },
+    }
+
+    response = client.post("/files/write/propose", json=payload)
+
+    # A blocked proposal must not report success at the envelope level.
+    assert response.status_code == 200
+    body = response.json()
+    assert body["data"]["allowed"] is False
+    assert body["success"] is False

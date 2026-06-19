@@ -1,13 +1,16 @@
 # Roadmap Docs
 
 Status: active
-Current through: v1.2.0-alpha
+Current through: v2.0.0
 Purpose: Entry point for active roadmap docs and historical roadmap references.
 
-Current roadmap source of truth:
+Current roadmap sources of truth:
 
 ```text
 docs/canonical/09_roadmap.md
+docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md
+docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md
+docs/kanban/current_board.md
 ```
 
 Active roadmap support docs:
@@ -19,6 +22,8 @@ docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md
 docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md
 docs/roadmap/M61_M100_ROADMAP.md
 docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md
+docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md
+docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md
 docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md
 docs/roadmap/ECOSYSTEM_WATCHLIST.md
 docs/roadmap/STANDARDS_ALIGNMENT_WATCHLIST.md
@@ -38,12 +43,25 @@ Current M150 alpha note: Checkpoint M149 is implemented/released as
 Alpha Release Candidate Freeze. M150 is implemented/released as Ultimate AI
 Agent v1.2.0-alpha target acceptance; beta remains future.
 
-Post-M150 corrective note: M151 is the Local OpenWebUI Test Shell milestone.
-It adds a local-dev-only, disabled-by-default, localhost-only OpenWebUI smoke
-path for `uaa-safe-local`, with OpenWebUI as a shell and not the agent brain.
-It is the bridge from M150 alpha target acceptance to a testable local chat UI.
-It adds no provider call, tool execution, memory write, context injection,
-external network, raw prompt logging, beta release, or production authority.
+Post-M150 accepted checkpoint note: M151 is the Local OpenWebUI Test Shell
+milestone. M152-M159 define the local model management contract lane, M160-M165
+complete the scoped local model live lane, M166 is the exact-scope local model
+production-readiness gate, and M167 hardens that gate with reviewed live
+evidence. The latest accepted repository checkpoint tag is `checkpoint-m168`;
+the latest accepted local model lane checkpoint tags remain `checkpoint-m166`
+and `checkpoint-m167`. The product/package baseline is v2.0.0.
+
+Active program note: M168 starts the Operator Runtime Excellence currentness and
+product-truth lane; P0 repair work through UAA-P0-007 adds public security
+posture, local model evidence scaffolding, local model smoke scaffolding,
+performance baseline reporting, and the Control Center operator-shell gap map.
+External benchmark and peer-console context is product-shaping evidence only,
+not an implementation dependency or authority source. This work adds no
+provider call, tool execution, shell/subprocess execution, unrestricted network
+or browser automation, connector writes, plugin runtime import, mobile control,
+memory write, context injection, external distribution, raw prompt logging, raw
+response logging, raw provider payload logging, beta release, or production
+authority.
 
 Documentation organization and historical-roadmap handling rules live in
 `docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md`.
