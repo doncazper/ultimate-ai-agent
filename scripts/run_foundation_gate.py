@@ -261,9 +261,9 @@ def write_text_atomic(path: Path, payload: str) -> None:
 
 
 def write_json_atomic(path: Path, payload: str) -> None:
-    json.loads(payload)
     if not payload.strip():
         raise ValueError("Foundation Gate JSON report payload must not be empty.")
+    json.loads(payload)
     write_text_atomic(path, payload)
 
 
