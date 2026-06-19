@@ -518,6 +518,14 @@ describe("Web Control Center shell", () => {
     ).toHaveAttribute("aria-current", "true");
     expect(screen.queryByText(/approved_for_review_only/i)).not.toBeInTheDocument();
     expect(screen.getAllByText(/not_captured/i).length).toBeGreaterThan(0);
+
+    fireEvent.click(reviewButtons[0]);
+
+    expect(
+      screen.getByRole("article", { name: /file-review-packet:mock_001/i }),
+    ).toHaveAttribute("aria-current", "true");
+    expect(screen.getByText(/approved_for_review_only/i)).toBeInTheDocument();
+    expect(screen.getByText(/capture persisted: yes/i)).toBeInTheDocument();
   });
 
   it("keeps M37 binding refs safe and free of private path shapes", async () => {
