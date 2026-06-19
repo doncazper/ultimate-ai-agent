@@ -1,8 +1,17 @@
 # Local Browser Smoke Reporting
 
-Status: Active for v0.21.1; local browser smoke reporting was added in v0.17.4.
+Status: active UAA-P1-032 browser smoke readiness reporting
+Baseline: v0.101.0 / 0.101.0
 
-This document defines the safe local browser smoke report format for the Web Control Center shell. A local browser smoke report is local-only, optional, non-authoritative, and never a substitute for tests, static verifiers, OpenAPI verification, or Foundation Gate.
+This document defines the safe local browser smoke report format for the Web
+Control Center shell. A local browser smoke report is local-only, optional,
+non-authoritative, and never a substitute for tests, static verifiers, OpenAPI
+verification, or Foundation Gate.
+
+UAA-P1-032 uses browser smoke reporting to describe the first product loop as
+real, mocked, skipped, or blocked. A report must not convert mock fallback,
+local UI state, preview output, validation output, skipped prerequisites, or
+blocked prerequisites into completion evidence.
 
 v0.21.1 browser smoke reviewability includes `/evidence`, `/files`, and `/memory`: each route should show visibly mock, non-authoritative, redacted summary-only data, allow selecting alternate safe metadata cards, expose selected-card state, and show no mutation, raw-content, filesystem browsing, execution, auth, cookie, analytics, or production authority controls.
 
@@ -56,6 +65,49 @@ no_action_was_executed_visible: pass | fail
 notes:
 blockers:
 ```
+
+## UAA-P1-032 First Product Loop Fields
+
+Use these fields for the first product loop:
+
+```text
+first_product_loop_browser_smoke:
+  open_control_center: real | mocked | skipped | blocked
+  inspect_runtime_health_and_model_readiness: real | mocked | skipped | blocked
+  select_or_approve_local_gguf_model: real | mocked | skipped | blocked
+  chat_shell_through_uaa_v1: real | mocked | skipped | blocked
+  create_task_decomposition_plan: real | mocked | skipped | blocked
+  approve_safe_registered_capability: real | mocked | skipped | blocked
+  inspect_receipt_audit_latency_rollback: real | mocked | skipped | blocked
+  no_raw_json_primary_ui: pass | fail
+  accessible_failure_state: pass | fail
+  blocked_prerequisites_visible: pass | fail
+  hidden_authority_detected: yes | no
+  release_readiness_claimed: no
+```
+
+Current expected states for UAA-P1-032 safe mocked/local-only smoke are:
+
+```text
+open_control_center: mocked
+inspect_runtime_health_and_model_readiness: mocked
+select_or_approve_local_gguf_model: blocked
+chat_shell_through_uaa_v1: blocked
+create_task_decomposition_plan: blocked
+approve_safe_registered_capability: mocked
+inspect_receipt_audit_latency_rollback: mocked
+no_raw_json_primary_ui: pass
+accessible_failure_state: pass
+blocked_prerequisites_visible: pass
+hidden_authority_detected: no
+release_readiness_claimed: no
+```
+
+If a future run has a local backend available, a field may move from mocked to
+real only when the report cites the matching safe route/status evidence. If a
+prerequisite is not available, mark it skipped or blocked and state the safe
+summary blocker. Do not include raw payloads, raw local locations, private
+content, credentials, browser traces, or screenshots with secrets.
 
 Forbidden report claims:
 

@@ -2,6 +2,12 @@
 
 Current active baseline: **v0.101.0**
 
+Operator Runtime Excellence P1 durable run spine is current through
+**UAA-P1-029 replay-safe receipt hashing**.
+Control Center operator-shell readiness is current through **UAA-P1-030 route
+status manifest**, **UAA-P1-031 product language rules**, and **UAA-P1-032
+browser smoke readiness**, plus **UAA-P1-033 accessible operator states**.
+
 This index is the active entrypoint for documentation navigation. Historical release documents remain in the repository for audit history, but active truth starts with the current baseline files listed here.
 
 ## Start Here
@@ -17,8 +23,15 @@ docs/roadmap/README.md
 docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md
 docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md
 docs/control_center/OPERATOR_SHELL_GAP_MAP.md
+docs/control_center/ROUTE_STATUS_MANIFEST.md
+docs/control_center/PRODUCT_LANGUAGE_RULES.md
+docs/control_center/LOCAL_BROWSER_SMOKE.md
+docs/control_center/LOCAL_BROWSER_SMOKE_REPORTING.md
+docs/control_center/route_status_manifest.json
 docs/kanban/current_board.md
 docs/execution/DURABLE_RUN_SPINE.md
+docs/execution/APPEND_FIRST_RUN_STORAGE.md
+docs/execution/DURABLE_RUN_BACKUP_RESTORE.md
 docs/security/SECURITY_TRIAGE_RUNBOOK.md
 docs/archive/README.md
 docs/archive/releases/v0_101_0/README_IMPORT.md
@@ -669,6 +682,8 @@ docs/planning/TASK_PLAN_DECISION_ENVELOPE.md
 docs/planning/TASK_PLAN_RECEIPT_PLAN.md
 docs/planning/TASK_PLANNING_NON_GOALS.md
 docs/planning/M29_TO_M30_BOUNDARY.md
+docs/execution/DURABLE_RUN_SPINE.md
+docs/execution/APPEND_FIRST_RUN_STORAGE.md
 docs/execution/MULTI_STEP_EXECUTION_FRAMEWORK.md
 docs/execution/EXECUTION_STATE_MACHINE.md
 docs/execution/EXECUTION_STEP_CONTRACTS.md
@@ -751,6 +766,10 @@ docs/control_center/WEB_CONTROL_CENTER_SHELL.md
 docs/control_center/FRONTEND_SAFETY_POLICY.md
 docs/control_center/CONTROL_CENTER_FRONTEND_ROUTES.md
 docs/control_center/OPERATOR_SHELL_GAP_MAP.md
+docs/control_center/ROUTE_STATUS_MANIFEST.md
+docs/control_center/PRODUCT_LANGUAGE_RULES.md
+docs/control_center/LOCAL_BROWSER_SMOKE.md
+docs/control_center/LOCAL_BROWSER_SMOKE_REPORTING.md
 docs/control_center/LOCAL_BACKEND_CONNECTION.md
 docs/control_center/LOCAL_BROWSER_SMOKE.md
 docs/control_center/LOCAL_BROWSER_SMOKE_REPORTING.md

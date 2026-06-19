@@ -327,6 +327,28 @@ class NodeExecutionRecord(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+class TaskDecompositionDurableBinding(BaseModel):
+    run_id: str = Field(..., min_length=1)
+    durable_run_ref: str = Field(..., min_length=1)
+    state: str = Field(..., min_length=1)
+    generation: int = Field(..., ge=0)
+    audit_refs: List[str] = Field(default_factory=list)
+    receipt_refs: List[str] = Field(default_factory=list)
+    replay_refs: List[str] = Field(default_factory=list)
+    rollback_refs: List[str] = Field(default_factory=list)
+    evidence_refs: List[str] = Field(default_factory=list)
+    approval_refs: List[str] = Field(default_factory=list)
+    handler_refs: List[str] = Field(default_factory=list)
+    idempotency_keys_seen: List[str] = Field(default_factory=list)
+    restart_refs: List[str] = Field(default_factory=list)
+    replay_validation_ref: Optional[str] = None
+    duplicate_mutation_denied: bool = False
+    no_runtime_authority: bool = True
+    safe_summary: str = Field(..., min_length=1)
+
+    model_config = ConfigDict(extra="forbid")
+
+
 class DAGExecutionResult(BaseModel):
     plan_id: str
     status: DAGExecutionStatus
@@ -336,6 +358,7 @@ class DAGExecutionResult(BaseModel):
     safe_summary: str = Field(..., min_length=1)
     repair_requested: bool = False
     repair_node_ids: List[str] = Field(default_factory=list)
+    durable_binding: Optional[TaskDecompositionDurableBinding] = None
 
     model_config = ConfigDict(extra="forbid")
 

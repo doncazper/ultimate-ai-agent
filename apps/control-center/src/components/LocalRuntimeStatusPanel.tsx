@@ -1,4 +1,5 @@
 import type { M18RuntimeData, RuntimeCapabilityMatrix, RuntimeReadinessReport } from "../api/types";
+import { OperatorSurfaceStates } from "./OperatorSurfaceStates";
 
 const LOCAL_RUNTIME_BOUNDARY_COPY =
   "Local runtime status is read-only. No local runtime is started, stopped, connected, or executed from this UI.";
@@ -24,6 +25,7 @@ export function LocalRuntimeStatusPanel({
         <span className="status-pill compact">{runtime.status}</span>
       </div>
       <p className="section-copy">{LOCAL_RUNTIME_BOUNDARY_COPY}</p>
+      <OperatorSurfaceStates surface="Runtime" />
       <div className="note-list" aria-label="Local runtime safety markers">
         {runtime.warningCodes.map((warning) => (
           <span key={warning}>{warning}</span>
@@ -40,15 +42,15 @@ export function LocalRuntimeStatusPanel({
           </p>
           <dl className="metadata-list">
             <div>
-              <dt>Production ready</dt>
+              <dt>Production readiness claim</dt>
               <dd>{report.production_ready ? "yes" : "no"}</dd>
             </div>
             <div>
-              <dt>Real model runtime ready</dt>
+              <dt>Reviewed local model runtime evidence</dt>
               <dd>{report.real_model_runtime_ready ? "yes" : "no"}</dd>
             </div>
             <div>
-              <dt>Remote execution ready</dt>
+              <dt>Remote execution claim</dt>
               <dd>{report.remote_execution_ready ? "yes" : "no"}</dd>
             </div>
           </dl>

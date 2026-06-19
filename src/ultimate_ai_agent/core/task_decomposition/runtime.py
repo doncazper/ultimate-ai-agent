@@ -16,14 +16,27 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from ultimate_ai_agent.core.approvals import ApprovalGrant, ApprovalRequest, LocalApprovalAuthority
 from ultimate_ai_agent.core.approvals.enums import ApprovalRiskLevel, ApprovalSubjectType
+from ultimate_ai_agent.core.execution import (
+    AppendFirstRunStorage,
+    DurableRunRecord,
+    DurableRunState,
+    DurableRunStorageDuplicateError,
+    DurableRunTransitionKind,
+    DurableRunTransitionRequest,
+    DurableRunTransitionStatus,
+    apply_durable_run_transition,
+)
+from ultimate_ai_agent.core.execution.validation import validate_execution_ref
 from ultimate_ai_agent.core.hygiene.actor_context import ActorContext, ActorType, AuthoritySource
 from ultimate_ai_agent.core.hygiene.policies import ClassificationValue, DataClassification
 from ultimate_ai_agent.core.task_decomposition.contracts import (
     CapabilityCallContext,
     CapabilityContract,
     DAGExecutionResult,
+    DAGExecutionStatus,
     PlanValidationContext,
     PlanValidationResult,
+    TaskDecompositionDurableBinding,
     TaskIntent,
     TaskPlan,
 )
@@ -54,6 +67,7 @@ class CapabilityRegistryStoreConfig(BaseModel):
     registry_path: str = DEFAULT_REGISTRY_PATH
     approval_state_path: Optional[str] = None
     audit_path: Optional[str] = None
+    durable_run_path: Optional[str] = None
     create_if_missing: bool = True
 
     model_config = ConfigDict(extra="forbid")
@@ -110,6 +124,10 @@ class TaskDecompositionAuditEvent(BaseModel):
     safe_summary: str = Field(..., min_length=1)
     reason_codes: list[str] = Field(default_factory=list)
     capability_ids: list[str] = Field(default_factory=list)
+    durable_run_ref: Optional[str] = None
+    receipt_ref: Optional[str] = None
+    replay_ref: Optional[str] = None
+    rollback_ref: Optional[str] = None
     created_at: str = Field(default_factory=lambda: utc_now().isoformat())
 
     model_config = ConfigDict(extra="forbid")
@@ -182,6 +200,7 @@ class TaskDecompositionRegisterRequest(BaseModel):
 class TaskDecompositionRequest(BaseModel):
     raw_request: str = Field(..., min_length=1)
     context: dict[str, Any] = Field(default_factory=dict)
+    idempotency_key: Optional[str] = None
 
     model_config = ConfigDict(extra="forbid")
 
@@ -198,6 +217,7 @@ class TaskPlanExecutionRequest(BaseModel):
     call_context: CapabilityCallContext = Field(default_factory=CapabilityCallContext)
     approval_grants: list[dict[str, Any]] = Field(default_factory=list)
     persist_reflections: bool = True
+    idempotency_key: Optional[str] = None
 
     model_config = ConfigDict(extra="forbid")
 
@@ -208,6 +228,7 @@ class TaskDecompositionRunRequest(BaseModel):
     call_context: CapabilityCallContext = Field(default_factory=CapabilityCallContext)
     approval_grants: list[dict[str, Any]] = Field(default_factory=list)
     persist_reflections: bool = True
+    idempotency_key: Optional[str] = None
 
     model_config = ConfigDict(extra="forbid")
 
@@ -225,6 +246,7 @@ class TaskDecompositionRunResult(BaseModel):
     plan: TaskPlan
     validation: PlanValidationResult
     execution: Optional[DAGExecutionResult] = None
+    durable_binding: Optional[TaskDecompositionDurableBinding] = None
 
     model_config = ConfigDict(extra="forbid")
 
@@ -249,6 +271,12 @@ class CapabilityRegistryStore:
         if self.config.audit_path:
             return Path(self.config.audit_path)
         return self.path.with_suffix(".audit.json")
+
+    @property
+    def durable_run_path(self) -> Path:
+        if self.config.durable_run_path:
+            return Path(self.config.durable_run_path)
+        return self.path.with_suffix(".runs.jsonl")
 
     def load(self) -> CapabilityRegistry:
         registry = CapabilityRegistry()
@@ -405,6 +433,7 @@ class TaskDecompositionService:
         self.registry.approval_authority = self.approval_authority
         self.reflection_store = reflection_store or ReflectionStore()
         self.rate_limiter = rate_limiter or TaskDecompositionRateLimiter()
+        self.durable_run_storage = AppendFirstRunStorage(self.registry_store.durable_run_path)
         self.validator = PlanValidator()
         self._approval_requests: dict[str, ApprovalRequest] = {}
         self._load_persisted_approval_state()
@@ -413,6 +442,84 @@ class TaskDecompositionService:
     def from_env(cls) -> "TaskDecompositionService":
         path = os.environ.get("UAA_TASK_DECOMPOSITION_REGISTRY", DEFAULT_REGISTRY_PATH)
         return cls(registry_store=CapabilityRegistryStore(CapabilityRegistryStoreConfig(registry_path=path)))
+
+    def latest_durable_run(self, run_id: str) -> DurableRunRecord | None:
+        return self.durable_run_storage.latest_run_record(self._durable_run_id(run_id))
+
+    def durable_binding(
+        self,
+        run_id: str,
+        *,
+        replay_validation_ref: str | None = None,
+        duplicate_mutation_denied: bool = False,
+    ) -> TaskDecompositionDurableBinding | None:
+        record = self.latest_durable_run(run_id)
+        if record is None:
+            return None
+        metadata = dict(record.metadata)
+        return TaskDecompositionDurableBinding(
+            run_id=record.run_id,
+            durable_run_ref=self._durable_run_ref(record.run_id),
+            state=record.state.value,
+            generation=record.generation,
+            audit_refs=list(record.audit_refs),
+            receipt_refs=list(record.receipt_refs),
+            replay_refs=list(record.replay_refs),
+            rollback_refs=list(record.rollback_refs),
+            evidence_refs=list(record.evidence_refs),
+            approval_refs=list(metadata.get("approval_refs", [])),
+            handler_refs=list(metadata.get("handler_refs", [])),
+            idempotency_keys_seen=list(record.idempotency_keys_seen),
+            restart_refs=list(record.restart_refs),
+            replay_validation_ref=replay_validation_ref,
+            duplicate_mutation_denied=duplicate_mutation_denied,
+            safe_summary=record.safe_summary,
+        )
+
+    def record_restart_visibility(
+        self,
+        run_id: str,
+        *,
+        restart_ref: str | None = None,
+    ) -> TaskDecompositionDurableBinding:
+        record = self._ensure_durable_run(
+            run_id,
+            safe_summary="Task decomposition durable run is visible after restart.",
+        )
+        safe_restart_ref = restart_ref or self._new_ref("restart", run_id, "visible")
+        if record.state == DurableRunState.running:
+            record = self._transition_durable_run(
+                record,
+                DurableRunTransitionKind.recover_after_restart,
+                safe_summary="Task decomposition durable run restart recovery was recorded.",
+                restart_ref=safe_restart_ref,
+            )
+        else:
+            record = self._append_durable_attachment(
+                record,
+                safe_summary="Task decomposition durable run restart visibility was recorded.",
+                restart_ref=safe_restart_ref,
+            )
+        binding = self.durable_binding(record.run_id)
+        if binding is None:
+            raise ValueError("TASK_DECOMPOSITION_DURABLE_BINDING_MISSING")
+        return binding
+
+    def validate_replay(self, run_id: str) -> TaskDecompositionDurableBinding:
+        record = self._ensure_durable_run(
+            run_id,
+            safe_summary="Task decomposition durable run replay validation is available.",
+        )
+        replay_validation_ref = self._new_ref("replay-validation", record.run_id, str(record.generation))
+        record = self._append_durable_attachment(
+            record,
+            safe_summary="Task decomposition durable run replay validation was recorded.",
+            replay_ref=replay_validation_ref,
+        )
+        binding = self.durable_binding(record.run_id, replay_validation_ref=replay_validation_ref)
+        if binding is None:
+            raise ValueError("TASK_DECOMPOSITION_DURABLE_BINDING_MISSING")
+        return binding
 
     def catalog(self) -> list[dict[str, Any]]:
         return [card.model_dump(mode="json") for card in self.registry.cards()]
@@ -481,6 +588,30 @@ class TaskDecompositionService:
         strategy = decomposer.select_strategy(intent, candidates)
         plan = decomposer.create_plan(intent, candidates, strategy)
         validation = decomposer.validate_plan(plan)
+        record = self._ensure_durable_run(
+            plan.plan_id,
+            safe_summary="Task decomposition durable run was created for a validated plan.",
+            handler_refs=self._handler_refs_for_plan(plan),
+        )
+        self._deny_duplicate_idempotency(record, request.idempotency_key, "decompose")
+        if validation.valid:
+            record = self._transition_durable_run(
+                record,
+                DurableRunTransitionKind.mark_ready,
+                safe_summary="Task decomposition durable run is ready for reviewed execution.",
+                idempotency_key=self._explicit_idempotency_ref(record.run_id, "decompose", request.idempotency_key),
+                handler_refs=self._handler_refs_for_plan(plan),
+            )
+        else:
+            record = self._transition_durable_run(
+                record,
+                DurableRunTransitionKind.fail,
+                safe_summary="Task decomposition durable run captured a validation failure.",
+                failure_ref=self._new_ref("failure", record.run_id, "decompose"),
+                idempotency_key=self._explicit_idempotency_ref(record.run_id, "decompose", request.idempotency_key),
+                handler_refs=self._handler_refs_for_plan(plan),
+            )
+        binding = self.durable_binding(record.run_id)
         self.record_audit_event(
             "plan_decomposed",
             run_id=plan.plan_id,
@@ -488,12 +619,35 @@ class TaskDecompositionService:
             safe_summary="Task request was decomposed and validated.",
             reason_codes=validation.reason_codes,
             capability_ids=[node.selected_capability for node in plan.nodes if node.selected_capability],
+            durable_run_ref=binding.durable_run_ref if binding else None,
+            receipt_ref=self._latest_ref(binding.receipt_refs if binding else []),
+            replay_ref=self._latest_ref(binding.replay_refs if binding else []),
+            rollback_ref=self._latest_ref(binding.rollback_refs if binding else []),
         )
-        return TaskDecompositionRunResult(intent=intent, plan=plan, validation=validation)
+        return TaskDecompositionRunResult(intent=intent, plan=plan, validation=validation, durable_binding=binding)
 
     def validate_plan(self, request: TaskPlanValidationRequest) -> PlanValidationResult:
         self._check_rate_limit(request.context.call_context.actor_id)
         validation = self.validator.validate(request.plan, self.registry, request.context)
+        record = self._ensure_durable_run(
+            request.plan.plan_id,
+            safe_summary="Task decomposition durable run was attached to plan validation.",
+            handler_refs=self._handler_refs_for_plan(request.plan),
+        )
+        if validation.valid and record.state == DurableRunState.created:
+            record = self._transition_durable_run(
+                record,
+                DurableRunTransitionKind.mark_ready,
+                safe_summary="Task decomposition durable run is ready after plan validation.",
+                handler_refs=self._handler_refs_for_plan(request.plan),
+            )
+        else:
+            record = self._append_durable_attachment(
+                record,
+                safe_summary="Task decomposition durable plan validation was recorded.",
+                handler_refs=self._handler_refs_for_plan(request.plan),
+            )
+        binding = self.durable_binding(record.run_id)
         self.record_audit_event(
             "plan_validated",
             run_id=request.plan.plan_id,
@@ -501,6 +655,10 @@ class TaskDecompositionService:
             safe_summary="Task plan validation completed.",
             reason_codes=validation.reason_codes,
             capability_ids=[node.selected_capability for node in request.plan.nodes if node.selected_capability],
+            durable_run_ref=binding.durable_run_ref if binding else None,
+            receipt_ref=self._latest_ref(binding.receipt_refs if binding else []),
+            replay_ref=self._latest_ref(binding.replay_refs if binding else []),
+            rollback_ref=self._latest_ref(binding.rollback_refs if binding else []),
         )
         return validation
 
@@ -529,6 +687,17 @@ class TaskDecompositionService:
         self.approval_authority.create_request(approval_request)
         self._approval_requests[approval_request.approval_request_id] = approval_request
         self._save_persisted_approval_state()
+        record = self._ensure_durable_run(
+            request.run_id,
+            safe_summary="Task decomposition durable run was attached to an approval request.",
+        )
+        approval_refs = [self._safe_external_ref("approval-request", approval_request.approval_request_id)]
+        record = self._append_durable_attachment(
+            record,
+            safe_summary="Task decomposition approval request was bound to durable run truth.",
+            approval_refs=approval_refs,
+        )
+        binding = self.durable_binding(record.run_id)
         self.record_audit_event(
             "approval_requested",
             run_id=request.run_id,
@@ -536,6 +705,10 @@ class TaskDecompositionService:
             status="awaiting_approval",
             safe_summary="Capability approval request was created.",
             capability_ids=[request.capability_id],
+            durable_run_ref=binding.durable_run_ref if binding else None,
+            receipt_ref=self._latest_ref(binding.receipt_refs if binding else []),
+            replay_ref=self._latest_ref(binding.replay_refs if binding else []),
+            rollback_ref=self._latest_ref(binding.rollback_refs if binding else []),
         )
         return approval_request
 
@@ -551,6 +724,17 @@ class TaskDecompositionService:
             approved_resource_refs=request.approved_resource_refs,
         )
         self._save_persisted_approval_state()
+        record = self._ensure_durable_run(
+            grant.run_id,
+            safe_summary="Task decomposition durable run was attached to an approval grant.",
+        )
+        approval_refs = [self._safe_external_ref("approval", grant.approval_ref)]
+        record = self._append_durable_attachment(
+            record,
+            safe_summary="Task decomposition approval grant was bound to durable run truth.",
+            approval_refs=approval_refs,
+        )
+        binding = self.durable_binding(record.run_id)
         self.record_audit_event(
             "approval_granted",
             run_id=grant.run_id,
@@ -558,6 +742,10 @@ class TaskDecompositionService:
             status="granted",
             safe_summary="Capability approval grant was captured for exact scoped validation.",
             capability_ids=[grant.subject_id],
+            durable_run_ref=binding.durable_run_ref if binding else None,
+            receipt_ref=self._latest_ref(binding.receipt_refs if binding else []),
+            replay_ref=self._latest_ref(binding.replay_refs if binding else []),
+            rollback_ref=self._latest_ref(binding.rollback_refs if binding else []),
         )
         return grant
 
@@ -565,6 +753,17 @@ class TaskDecompositionService:
         self._check_rate_limit("approval_revocation")
         revoked = self.approval_authority.revoke(request.approval_ref, request.reason)
         self._save_persisted_approval_state()
+        record = self._ensure_durable_run(
+            revoked.run_id,
+            safe_summary="Task decomposition durable run was attached to approval revocation.",
+        )
+        approval_refs = [self._safe_external_ref("approval", revoked.approval_ref)]
+        record = self._append_durable_attachment(
+            record,
+            safe_summary="Task decomposition approval revocation was bound to durable run truth.",
+            approval_refs=approval_refs,
+        )
+        binding = self.durable_binding(record.run_id)
         self.record_audit_event(
             "approval_revoked",
             run_id=revoked.run_id,
@@ -572,6 +771,10 @@ class TaskDecompositionService:
             status="revoked",
             safe_summary="Capability approval grant was revoked.",
             capability_ids=[revoked.subject_id],
+            durable_run_ref=binding.durable_run_ref if binding else None,
+            receipt_ref=self._latest_ref(binding.receipt_refs if binding else []),
+            replay_ref=self._latest_ref(binding.replay_refs if binding else []),
+            rollback_ref=self._latest_ref(binding.rollback_refs if binding else []),
         )
         return revoked
 
@@ -609,9 +812,31 @@ class TaskDecompositionService:
             raise ValueError("TASK_DECOMPOSITION_INLINE_APPROVAL_GRANTS_DENIED")
         self.registry.approval_authority = self.approval_authority
         call_context = request.call_context.model_copy(update={"approved_capability_ids": []})
+        record = self._ensure_durable_run(
+            request.plan.plan_id,
+            safe_summary="Task decomposition durable run was attached to plan execution.",
+            approval_refs=self._approval_refs_for_context(call_context),
+            handler_refs=self._handler_refs_for_plan(request.plan),
+        )
+        self._deny_duplicate_idempotency(record, request.idempotency_key, "execute")
+        record = self._prepare_durable_run_for_execution(
+            record,
+            actor_id=call_context.actor_id,
+            idempotency_key=request.idempotency_key,
+            approval_refs=self._approval_refs_for_context(call_context),
+            handler_refs=self._handler_refs_for_plan(request.plan),
+        )
         result = await DAGExecutor(self.registry, self.validator).execute(request.plan, call_context)
         if request.persist_reflections:
             self.reflection_store.record_execution(request.plan, result)
+        record = self._finish_durable_run_for_execution(
+            record,
+            result,
+            approval_refs=self._approval_refs_for_context(call_context),
+            handler_refs=self._handler_refs_for_plan(request.plan),
+        )
+        binding = self.durable_binding(record.run_id)
+        result = result.model_copy(update={"durable_binding": binding})
         self.record_audit_event(
             "plan_executed",
             run_id=request.plan.plan_id,
@@ -620,6 +845,10 @@ class TaskDecompositionService:
             safe_summary=result.safe_summary,
             reason_codes=result.reason_codes,
             capability_ids=[node.selected_capability for node in request.plan.nodes if node.selected_capability],
+            durable_run_ref=binding.durable_run_ref if binding else None,
+            receipt_ref=self._latest_ref(binding.receipt_refs if binding else []),
+            replay_ref=self._latest_ref(binding.replay_refs if binding else []),
+            rollback_ref=self._latest_ref(binding.rollback_refs if binding else []),
         )
         return result
 
@@ -627,7 +856,13 @@ class TaskDecompositionService:
         return asyncio.run(self.execute_plan(request))
 
     async def run(self, request: TaskDecompositionRunRequest) -> TaskDecompositionRunResult:
-        decomposed = self.decompose(TaskDecompositionRequest(raw_request=request.raw_request, context=request.context))
+        decomposed = self.decompose(
+            TaskDecompositionRequest(
+                raw_request=request.raw_request,
+                context=request.context,
+                idempotency_key=request.idempotency_key,
+            )
+        )
         if not decomposed.validation.valid:
             return decomposed
         execution = await self.execute_plan(
@@ -636,12 +871,416 @@ class TaskDecompositionService:
                 call_context=request.call_context,
                 approval_grants=request.approval_grants,
                 persist_reflections=request.persist_reflections,
+                idempotency_key=request.idempotency_key,
             )
         )
-        return decomposed.model_copy(update={"execution": execution})
+        return decomposed.model_copy(update={"execution": execution, "durable_binding": execution.durable_binding})
 
     def run_sync(self, request: TaskDecompositionRunRequest) -> TaskDecompositionRunResult:
         return asyncio.run(self.run(request))
+
+    def _ensure_durable_run(
+        self,
+        run_id: str,
+        *,
+        safe_summary: str,
+        approval_refs: list[str] | None = None,
+        handler_refs: list[str] | None = None,
+    ) -> DurableRunRecord:
+        durable_run_id = self._durable_run_id(run_id)
+        existing = self.durable_run_storage.latest_run_record(durable_run_id)
+        if existing is not None:
+            return existing
+
+        record = DurableRunRecord(
+            run_id=durable_run_id,
+            source_ref=self._safe_ref("task-decomposition-source", durable_run_id),
+            state=DurableRunState.created,
+            safe_summary=safe_summary,
+            metadata=self._metadata_payload(approval_refs=approval_refs, handler_refs=handler_refs),
+        )
+        return self._append_durable_snapshot(
+            record,
+            idempotency_key=self._new_ref("idempotency", durable_run_id, "create"),
+            audit_ref=self._new_ref("audit", durable_run_id, "create"),
+            receipt_ref=self._new_ref("receipt", durable_run_id, "create"),
+            replay_ref=self._new_ref("replay", durable_run_id, "create"),
+            rollback_ref=self._new_ref("rollback", durable_run_id, "create"),
+            evidence_refs=[self._new_ref("evidence", durable_run_id, "create")],
+            safe_summary=safe_summary,
+        )
+
+    def _prepare_durable_run_for_execution(
+        self,
+        record: DurableRunRecord,
+        *,
+        actor_id: str,
+        idempotency_key: str | None,
+        approval_refs: list[str],
+        handler_refs: list[str],
+    ) -> DurableRunRecord:
+        if record.state == DurableRunState.created:
+            record = self._transition_durable_run(
+                record,
+                DurableRunTransitionKind.mark_ready,
+                safe_summary="Task decomposition durable run is ready for plan execution.",
+                approval_refs=approval_refs,
+                handler_refs=handler_refs,
+            )
+        if record.state in {DurableRunState.blocked, DurableRunState.failed}:
+            record = self._transition_durable_run(
+                record,
+                DurableRunTransitionKind.retry,
+                safe_summary="Task decomposition durable run retry was recorded for reviewed execution.",
+                approval_refs=approval_refs,
+                handler_refs=handler_refs,
+            )
+        if record.state == DurableRunState.retry_pending:
+            record = self._transition_durable_run(
+                record,
+                DurableRunTransitionKind.start,
+                safe_summary="Task decomposition durable run moved from retry into reviewed execution.",
+                actor_id=actor_id,
+                idempotency_key=self._explicit_idempotency_ref(record.run_id, "execute", idempotency_key),
+                approval_refs=approval_refs,
+                handler_refs=handler_refs,
+            )
+        elif record.state == DurableRunState.ready:
+            record = self._transition_durable_run(
+                record,
+                DurableRunTransitionKind.start,
+                safe_summary="Task decomposition durable run started a reviewed local execution step.",
+                actor_id=actor_id,
+                idempotency_key=self._explicit_idempotency_ref(record.run_id, "execute", idempotency_key),
+                approval_refs=approval_refs,
+                handler_refs=handler_refs,
+            )
+        elif record.state == DurableRunState.paused:
+            record = self._transition_durable_run(
+                record,
+                DurableRunTransitionKind.resume,
+                safe_summary="Task decomposition durable run resumed for reviewed local execution.",
+                actor_id=actor_id,
+                idempotency_key=self._explicit_idempotency_ref(record.run_id, "execute", idempotency_key),
+                approval_refs=approval_refs,
+                handler_refs=handler_refs,
+            )
+        elif record.state == DurableRunState.restart_recovery:
+            record = self._transition_durable_run(
+                record,
+                DurableRunTransitionKind.start,
+                safe_summary="Task decomposition durable run resumed after restart recovery.",
+                actor_id=actor_id,
+                idempotency_key=self._explicit_idempotency_ref(record.run_id, "execute", idempotency_key),
+                approval_refs=approval_refs,
+                handler_refs=handler_refs,
+            )
+        else:
+            record = self._append_durable_attachment(
+                record,
+                safe_summary="Task decomposition durable execution attempt was recorded without changing run state.",
+                idempotency_key=self._explicit_idempotency_ref(record.run_id, "execute", idempotency_key),
+                approval_refs=approval_refs,
+                handler_refs=handler_refs,
+            )
+        return record
+
+    def _finish_durable_run_for_execution(
+        self,
+        record: DurableRunRecord,
+        result: DAGExecutionResult,
+        *,
+        approval_refs: list[str],
+        handler_refs: list[str],
+    ) -> DurableRunRecord:
+        if result.status == DAGExecutionStatus.succeeded:
+            return self._transition_durable_run(
+                record,
+                DurableRunTransitionKind.succeed,
+                safe_summary="Task decomposition durable run completed successfully.",
+                approval_refs=approval_refs,
+                handler_refs=handler_refs,
+            )
+        if result.status == DAGExecutionStatus.awaiting_approval:
+            return self._transition_durable_run(
+                record,
+                DurableRunTransitionKind.block,
+                safe_summary="Task decomposition durable run is blocked on human approval.",
+                approval_refs=approval_refs,
+                handler_refs=handler_refs,
+            )
+        return self._transition_durable_run(
+            record,
+            DurableRunTransitionKind.fail,
+            safe_summary="Task decomposition durable run captured a safe failure state.",
+            failure_ref=self._new_ref("failure", record.run_id, "execution"),
+            approval_refs=approval_refs,
+            handler_refs=handler_refs,
+        )
+
+    def _transition_durable_run(
+        self,
+        record: DurableRunRecord,
+        kind: DurableRunTransitionKind,
+        *,
+        safe_summary: str,
+        actor_id: str = "local_actor",
+        idempotency_key: str | None = None,
+        approval_refs: list[str] | None = None,
+        handler_refs: list[str] | None = None,
+        failure_ref: str | None = None,
+        restart_ref: str | None = None,
+    ) -> DurableRunRecord:
+        effective_idempotency_key = idempotency_key or self._new_ref("idempotency", record.run_id, kind.value)
+        transition_id = self._new_ref("durable-transition", record.run_id, kind.value)
+        audit_ref = self._new_ref("audit", record.run_id, kind.value)
+        receipt_ref = self._new_ref("receipt", record.run_id, kind.value)
+        replay_ref = self._new_ref("replay", record.run_id, kind.value)
+        rollback_ref = self._new_ref("rollback", record.run_id, kind.value)
+        evidence_ref = self._new_ref("evidence", record.run_id, kind.value)
+        request = DurableRunTransitionRequest(
+            run_id=record.run_id,
+            transition_id=transition_id,
+            transition_kind=kind,
+            idempotency_key=effective_idempotency_key,
+            actor_ref=self._safe_external_ref("actor", actor_id),
+            audit_ref=audit_ref,
+            receipt_ref=receipt_ref,
+            replay_ref=replay_ref,
+            rollback_ref=rollback_ref,
+            safe_summary=safe_summary,
+            evidence_refs=[evidence_ref],
+            failure_ref=failure_ref,
+            restart_ref=restart_ref,
+            metadata_refs=[self._safe_ref("metadata", record.run_id, kind.value)],
+            metadata=self._metadata_payload(approval_refs=approval_refs, handler_refs=handler_refs),
+        )
+        transition = apply_durable_run_transition(record, request)
+        if transition.decision.status == DurableRunTransitionStatus.idempotent_replay:
+            return record
+        if transition.decision.status == DurableRunTransitionStatus.denied:
+            if any("IDEMPOTENCY" in reason for reason in transition.decision.reason_codes):
+                raise ValueError("TASK_DECOMPOSITION_IDEMPOTENCY_REPLAY_DENIED")
+            return self._append_durable_attachment(
+                record,
+                safe_summary="Task decomposition durable state change was denied safely and recorded.",
+                approval_refs=approval_refs,
+                handler_refs=handler_refs,
+                failure_ref=failure_ref,
+                restart_ref=restart_ref,
+            )
+
+        next_record = self._merge_record_metadata(
+            transition.record,
+            approval_refs=approval_refs,
+            handler_refs=handler_refs,
+        )
+        return self._append_durable_snapshot(
+            next_record,
+            idempotency_key=effective_idempotency_key,
+            audit_ref=audit_ref,
+            receipt_ref=receipt_ref,
+            replay_ref=replay_ref,
+            rollback_ref=rollback_ref,
+            evidence_refs=[evidence_ref],
+            safe_summary=safe_summary,
+        )
+
+    def _append_durable_attachment(
+        self,
+        record: DurableRunRecord,
+        *,
+        safe_summary: str,
+        idempotency_key: str | None = None,
+        approval_refs: list[str] | None = None,
+        handler_refs: list[str] | None = None,
+        failure_ref: str | None = None,
+        restart_ref: str | None = None,
+        replay_ref: str | None = None,
+    ) -> DurableRunRecord:
+        effective_idempotency_key = idempotency_key or self._new_ref("idempotency", record.run_id, "attachment")
+        audit_ref = self._new_ref("audit", record.run_id, "attachment")
+        receipt_ref = self._new_ref("receipt", record.run_id, "attachment")
+        effective_replay_ref = replay_ref or self._new_ref("replay", record.run_id, "attachment")
+        rollback_ref = self._new_ref("rollback", record.run_id, "attachment")
+        evidence_ref = self._new_ref("evidence", record.run_id, "attachment")
+        next_record = record.model_copy(
+            update={
+                "generation": record.generation + 1,
+                "safe_summary": safe_summary,
+                "idempotency_keys_seen": self._append_unique(
+                    record.idempotency_keys_seen,
+                    effective_idempotency_key,
+                ),
+                "audit_refs": self._append_unique(record.audit_refs, audit_ref),
+                "receipt_refs": self._append_unique(record.receipt_refs, receipt_ref),
+                "replay_refs": self._append_unique(record.replay_refs, effective_replay_ref),
+                "rollback_refs": self._append_unique(record.rollback_refs, rollback_ref),
+                "evidence_refs": self._append_unique(record.evidence_refs, evidence_ref),
+                "failure_refs": self._append_unique(record.failure_refs, failure_ref),
+                "restart_refs": self._append_unique(record.restart_refs, restart_ref),
+                "metadata": self._merge_metadata(record.metadata, approval_refs=approval_refs, handler_refs=handler_refs),
+            }
+        )
+        next_record = DurableRunRecord.model_validate(next_record.model_dump())
+        return self._append_durable_snapshot(
+            next_record,
+            idempotency_key=effective_idempotency_key,
+            audit_ref=audit_ref,
+            receipt_ref=receipt_ref,
+            replay_ref=effective_replay_ref,
+            rollback_ref=rollback_ref,
+            evidence_refs=[evidence_ref],
+            safe_summary=safe_summary,
+        )
+
+    def _append_durable_snapshot(
+        self,
+        record: DurableRunRecord,
+        *,
+        idempotency_key: str,
+        audit_ref: str,
+        receipt_ref: str,
+        replay_ref: str,
+        rollback_ref: str,
+        evidence_refs: list[str],
+        safe_summary: str,
+    ) -> DurableRunRecord:
+        try:
+            self.durable_run_storage.append_run_record(
+                record,
+                idempotency_key=idempotency_key,
+                audit_ref=audit_ref,
+                receipt_ref=receipt_ref,
+                rollback_ref=rollback_ref,
+                safe_summary=safe_summary,
+                evidence_refs=evidence_refs,
+            )
+            self.durable_run_storage.append_receipt_summary(
+                run_id=record.run_id,
+                receipt_ref=receipt_ref,
+                idempotency_key=self._safe_ref("idempotency", idempotency_key, "receipt"),
+                audit_ref=audit_ref,
+                rollback_ref=rollback_ref,
+                safe_summary="Task decomposition durable receipt summary recorded.",
+                receipt_summary={
+                    "run_id": record.run_id,
+                    "state": record.state.value,
+                    "audit_ref": audit_ref,
+                    "receipt_ref": receipt_ref,
+                    "replay_ref": replay_ref,
+                    "rollback_ref": rollback_ref,
+                    "safe_summary": safe_summary,
+                    "no_runtime_authority": True,
+                    "safe_ref_only": True,
+                },
+                evidence_refs=evidence_refs,
+            )
+        except DurableRunStorageDuplicateError as exc:
+            raise ValueError("TASK_DECOMPOSITION_IDEMPOTENCY_REPLAY_DENIED") from exc
+        latest = self.durable_run_storage.latest_run_record(record.run_id)
+        if latest is None:
+            raise ValueError("TASK_DECOMPOSITION_DURABLE_RUN_RECORD_MISSING")
+        return latest
+
+    def _deny_duplicate_idempotency(self, record: DurableRunRecord, idempotency_key: str | None, operation: str) -> None:
+        if not idempotency_key:
+            return
+        safe_key = self._explicit_idempotency_ref(record.run_id, operation, idempotency_key)
+        if safe_key in record.idempotency_keys_seen:
+            raise ValueError("TASK_DECOMPOSITION_IDEMPOTENCY_REPLAY_DENIED")
+
+    def _explicit_idempotency_ref(self, run_id: str, operation: str, idempotency_key: str | None) -> str | None:
+        if not idempotency_key:
+            return None
+        return self._safe_ref("idempotency", run_id, operation, idempotency_key)
+
+    def _durable_run_id(self, run_id: str) -> str:
+        candidate = run_id or "task-decomposition-run:local"
+        try:
+            validate_execution_ref(candidate, "run_id")
+            return candidate
+        except ValueError:
+            return self._safe_ref("task-decomposition-run", candidate)
+
+    def _durable_run_ref(self, run_id: str) -> str:
+        return self._safe_ref("durable-run", run_id)
+
+    def _approval_refs_for_context(self, context: CapabilityCallContext) -> list[str]:
+        refs = self._approval_refs_for_run(context.run_id)
+        refs.extend(self._safe_external_ref("approval", ref) for ref in context.approval_refs.values())
+        return self._append_unique([], *refs)
+
+    def _approval_refs_for_run(self, run_id: str) -> list[str]:
+        return [
+            self._safe_external_ref("approval", grant.approval_ref)
+            for grant in sorted(self.approval_authority.list_grants(run_id), key=lambda item: item.approval_ref)
+        ]
+
+    def _handler_refs_for_plan(self, plan: TaskPlan) -> list[str]:
+        refs: list[str] = []
+        for node in plan.nodes:
+            if not node.selected_capability:
+                continue
+            contract = self.registry.get(node.selected_capability)
+            if contract and contract.handler_ref:
+                refs.append(self._safe_external_ref("handler", contract.handler_ref))
+        return self._append_unique([], *refs)
+
+    def _merge_record_metadata(
+        self,
+        record: DurableRunRecord,
+        *,
+        approval_refs: list[str] | None = None,
+        handler_refs: list[str] | None = None,
+    ) -> DurableRunRecord:
+        next_record = record.model_copy(
+            update={"metadata": self._merge_metadata(record.metadata, approval_refs=approval_refs, handler_refs=handler_refs)}
+        )
+        return DurableRunRecord.model_validate(next_record.model_dump())
+
+    def _metadata_payload(
+        self,
+        *,
+        approval_refs: list[str] | None = None,
+        handler_refs: list[str] | None = None,
+    ) -> dict[str, list[str]]:
+        return self._merge_metadata({}, approval_refs=approval_refs, handler_refs=handler_refs)
+
+    def _merge_metadata(
+        self,
+        metadata: dict[str, Any],
+        *,
+        approval_refs: list[str] | None = None,
+        handler_refs: list[str] | None = None,
+    ) -> dict[str, list[str]]:
+        return {
+            "approval_refs": self._append_unique(list(metadata.get("approval_refs", [])), *(approval_refs or [])),
+            "handler_refs": self._append_unique(list(metadata.get("handler_refs", [])), *(handler_refs or [])),
+        }
+
+    def _safe_external_ref(self, prefix: str, value: str) -> str:
+        return self._safe_ref(prefix, value)
+
+    def _new_ref(self, prefix: str, *parts: str) -> str:
+        return self._safe_ref(prefix, *parts, uuid.uuid4().hex)
+
+    def _safe_ref(self, prefix: str, *parts: str) -> str:
+        seed = "|".join(str(part) for part in parts if part is not None)
+        digest = hashlib.sha256(seed.encode("utf-8")).hexdigest()[:16]
+        ref = f"{prefix}:{digest}"
+        validate_execution_ref(ref, "safe_ref")
+        return ref
+
+    def _append_unique(self, existing: list[str], *refs: str | None) -> list[str]:
+        updated = list(existing)
+        for ref in refs:
+            if ref and ref not in updated:
+                updated.append(ref)
+        return updated
+
+    def _latest_ref(self, refs: list[str]) -> str | None:
+        return refs[-1] if refs else None
 
     def _check_rate_limit(self, key: str) -> None:
         self.rate_limiter.check(key)
@@ -672,6 +1311,10 @@ class TaskDecompositionService:
         safe_summary: str,
         reason_codes: list[str] | None = None,
         capability_ids: list[str | None] | None = None,
+        durable_run_ref: str | None = None,
+        receipt_ref: str | None = None,
+        replay_ref: str | None = None,
+        rollback_ref: str | None = None,
     ) -> TaskDecompositionAuditEvent:
         event = TaskDecompositionAuditEvent(
             event_type=event_type,
@@ -681,6 +1324,10 @@ class TaskDecompositionService:
             safe_summary=safe_summary,
             reason_codes=reason_codes or [],
             capability_ids=[capability_id for capability_id in (capability_ids or []) if capability_id],
+            durable_run_ref=durable_run_ref,
+            receipt_ref=receipt_ref,
+            replay_ref=replay_ref,
+            rollback_ref=rollback_ref,
         )
         self.registry_store.append_audit_event(event)
         return event

@@ -12,8 +12,10 @@ from ultimate_ai_agent.core.execution.enums import (
 from ultimate_ai_agent.core.execution.durable_runs import (
     ALLOWED_DURABLE_RUN_TRANSITIONS,
     DURABLE_RUN_SCHEMA_VERSION,
+    LIFECYCLE_DURABLE_RUN_TRANSITIONS,
     DurableRunCorruptionError,
     DurableRunError,
+    DurableRunIdempotencyRecord,
     DurableRunPersistenceModel,
     DurableRunRecord,
     DurableRunSnapshot,
@@ -30,6 +32,19 @@ from ultimate_ai_agent.core.execution.durable_runs import (
 )
 from ultimate_ai_agent.core.execution.manifests import ExecutionFrameworkManifest, build_execution_framework_manifest
 from ultimate_ai_agent.core.execution.receipts import ExecutionReceiptPlan
+from ultimate_ai_agent.core.execution.run_storage import (
+    DURABLE_RECEIPT_HASH_SCHEMA_VERSION,
+    DURABLE_RUN_STORAGE_SCHEMA_VERSION,
+    AppendFirstRunStorage,
+    DurableRunStorageCorruptionError,
+    DurableRunStorageDuplicateError,
+    DurableRunStorageEntry,
+    DurableRunStorageEntryKind,
+    DurableRunStorageError,
+    DurableRunStorageWriteError,
+    build_receipt_summary_hash_ref,
+    validate_receipt_summary_hash_ref,
+)
 from ultimate_ai_agent.core.execution.runs import ExecutionRun
 from ultimate_ai_agent.core.execution.state_machine import dependency_graph_reason_codes, evaluate_execution_transition
 from ultimate_ai_agent.core.execution.steps import ExecutionStep, ExecutionStepInputBoundary
@@ -37,13 +52,24 @@ from ultimate_ai_agent.core.execution.transitions import ExecutionTransitionDeci
 
 __all__ = [
     "ALLOWED_DURABLE_RUN_TRANSITIONS",
+    "AppendFirstRunStorage",
+    "DURABLE_RECEIPT_HASH_SCHEMA_VERSION",
     "DURABLE_RUN_SCHEMA_VERSION",
+    "DURABLE_RUN_STORAGE_SCHEMA_VERSION",
+    "LIFECYCLE_DURABLE_RUN_TRANSITIONS",
     "DurableRunCorruptionError",
     "DurableRunError",
+    "DurableRunIdempotencyRecord",
     "DurableRunPersistenceModel",
     "DurableRunRecord",
     "DurableRunSnapshot",
     "DurableRunState",
+    "DurableRunStorageCorruptionError",
+    "DurableRunStorageDuplicateError",
+    "DurableRunStorageEntry",
+    "DurableRunStorageEntryKind",
+    "DurableRunStorageError",
+    "DurableRunStorageWriteError",
     "DurableRunTransitionDecision",
     "DurableRunTransitionKind",
     "DurableRunTransitionRequest",
@@ -67,9 +93,11 @@ __all__ = [
     "ExecutionTransitionStatus",
     "apply_durable_run_transition",
     "build_execution_framework_manifest",
+    "build_receipt_summary_hash_ref",
     "build_durable_run_snapshot",
     "dependency_graph_reason_codes",
     "evaluate_execution_transition",
     "evaluate_durable_run_transition",
     "restore_durable_run_snapshot",
+    "validate_receipt_summary_hash_ref",
 ]

@@ -174,18 +174,23 @@ Tasks:
 - `UAA-P1-010` Done: define durable run records, run states, transitions,
   idempotency keys, audit refs, receipt refs, replay refs, rollback refs,
   restart recovery, checksum snapshot validation, and safety tests.
-- `UAA-P1-025` Implement append-first local storage for runs and receipts with
-  atomic writes and corruption detection.
-- `UAA-P1-026` Add pause, resume, cancel, retry, dead-letter, and restart
-  recovery contracts.
-- `UAA-P1-027` Bind task decomposition runs to durable run records.
-- `UAA-P1-028` Add backup minimum set, verify, and offline restore plan.
-- `UAA-P1-029` Add replay-safe receipt hashing for mutating local paths.
+- `UAA-P1-025` Done: implement append-first local storage for runs and receipt
+  summaries with atomic writes and corruption detection.
+- `UAA-P1-026` Done: add pause, resume, cancel, retry, dead-letter, and
+  restart recovery contracts.
+- `UAA-P1-027` Done: bind task decomposition runs to durable run records,
+  approval refs, receipt refs, replay validation, restart visibility, and
+  explicit idempotency replay denial.
+- `UAA-P1-028` Done: define backup minimum set, verification checks, rollback,
+  and offline/operator-run restore plan.
+- `UAA-P1-029` Done: add replay-safe receipt hashing for mutating local paths.
 
 Acceptance:
 
 - A local task run can survive process restart without losing run truth.
 - Duplicate mutation attempts are blocked by idempotency keys.
+- Receipt hashes support replay validation without exposing private runtime
+  content.
 - Restore is offline/operator-run until a later scoped milestone proves live
   restore safety.
 
@@ -217,11 +222,23 @@ Tasks:
 
 - `UAA-P0-007` Map each surface to current routes and missing routes in
   `docs/control_center/OPERATOR_SHELL_GAP_MAP.md`.
-- `UAA-P1-030` Add route status manifest for visible surface readiness.
-- `UAA-P1-031` Add product language rules: no hidden authority, no fake completion,
-  no raw JSON as the primary UI for operator-critical flows.
-- `UAA-P1-032` Add browser smoke readiness for the happy path.
-- `UAA-P1-033` Add accessible loading/error/empty states for each surface.
+- `UAA-P1-030` Done: add route status manifest for visible surface readiness in
+  `docs/control_center/ROUTE_STATUS_MANIFEST.md`.
+- `UAA-P1-031` Done: add enforceable product language rules in
+  `docs/control_center/PRODUCT_LANGUAGE_RULES.md` for no hidden authority, no
+  fake completion, no raw JSON as the primary UI for operator-critical flows,
+  no unsupported production/public distribution claims, no model/provider output
+  as authority, and no completed-state language for blocked/skipped/pending work.
+- `UAA-P1-032` Done: add browser smoke readiness for the first product loop in
+  `docs/control_center/LOCAL_BROWSER_SMOKE.md`,
+  `docs/control_center/LOCAL_BROWSER_SMOKE_REPORTING.md`, and
+  `apps/control-center/src/App.test.tsx` with real/mocked/skipped/blocked
+  states and explicit blockers for missing prerequisites.
+- `UAA-P1-033` Done: add accessible loading/error/empty/blocked/denied
+  operator states for Chat Shell, Plans, Models, Approvals, Files, Runtime,
+  Evidence, and Settings in `apps/control-center/src/components/OperatorSurfaceStates.tsx`,
+  `apps/control-center/src/routes.tsx`, `apps/control-center/src/App.test.tsx`,
+  and `scripts/verify_control_center_frontend.py`.
 
 Acceptance:
 
@@ -229,6 +246,13 @@ Acceptance:
   select local model, run local shell smoke, create plan, approve safe handler,
   inspect receipt, and rollback a local file proposal.
 - Every visible action maps to route authority and side-effect class.
+- Product language rules are documented and statically checked for
+  Control Center and release-facing copy where practical.
+- Browser smoke coverage opens the shell, verifies safe readable UI states for
+  the first product loop, and reports blocked prerequisites without hidden
+  authority or raw JSON primary UI.
+- Loading, error, empty, blocked, and denied states are accessible,
+  operator-actionable, and distinct from product readiness or authority claims.
 
 Verification:
 
@@ -382,10 +406,16 @@ Acceptance:
 ### Weeks 2-3
 
 - `UAA-P1-010` Done: durable run spine spec and tests.
-- `UAA-P1-025` Append-first local run storage.
-- `UAA-P1-027` Task decomposition to durable run binding.
-- `UAA-P1-030` Visible route status manifest.
-- `UAA-P1-032` Browser smoke readiness for first product loop.
+- `UAA-P1-025` Done: append-first local run storage.
+- `UAA-P1-026` Done: durable run lifecycle contracts.
+- `UAA-P1-027` Done: task decomposition to durable run binding.
+- `UAA-P1-028` Done: backup/verify/offline restore plan.
+- `UAA-P1-029` Done: replay-safe receipt hashing for mutating local paths.
+- `UAA-P1-030` Done: visible route status manifest.
+- `UAA-P1-031` Done: product language rules.
+- `UAA-P1-032` Done: browser smoke readiness for first product loop.
+- `UAA-P1-033` Done: accessible loading/error/empty/blocked/denied states for
+  eight Control Center operator surfaces.
 
 ### Weeks 4-6
 

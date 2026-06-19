@@ -15,6 +15,8 @@ from ultimate_ai_agent.core.task_decomposition import (
 from ultimate_ai_agent.core.task_decomposition.examples import build_echo_tool_capability
 from ultimate_ai_agent.core.task_decomposition.runtime import (
     REGISTRY_SCHEMA_VERSION,
+    TaskCapabilityApprovalRequestPayload,
+    TaskDecompositionApprovalGrantRequest,
     TaskDecompositionRegisterRequest,
     TaskDecompositionRateLimiter,
     TaskDecompositionService,
@@ -122,6 +124,156 @@ def test_task_decomposition_api_redacts_secret_like_raw_requests(monkeypatch, tm
         assert "abcdefghijklmnop" not in response.text
         assert "Summarize api_key" not in response.text
         assert "raw_request_omitted" in response.text
+
+
+def test_task_decomposition_api_returns_safe_durable_binding(monkeypatch, tmp_path) -> None:
+    client, _service = _client(monkeypatch, tmp_path)
+    client.post("/task-decomposition/examples/init", headers=TASK_API_HEADERS)
+
+    response = client.post(
+        "/task-decomposition/run",
+        headers=TASK_API_HEADERS,
+        json={
+            "raw_request": "Summarize this request directly.",
+            "context": {},
+            "idempotency_key": "p1-027-safe-run",
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()["data"]
+    binding = data["durable_binding"]
+    assert binding["run_id"].startswith("task-decomposition-plan:")
+    assert binding["state"] == "succeeded"
+    assert binding["receipt_refs"]
+    assert binding["replay_refs"]
+    assert binding["rollback_refs"]
+    assert binding["evidence_refs"]
+    assert binding["no_runtime_authority"] is True
+    assert all(":" in ref for ref in binding["receipt_refs"])
+    assert "Summarize this request directly" not in response.text
+
+
+def test_task_decomposition_explicit_idempotency_key_denies_duplicate_mutation(monkeypatch, tmp_path) -> None:
+    client, _service = _client(monkeypatch, tmp_path)
+    client.post("/task-decomposition/examples/init", headers=TASK_API_HEADERS)
+    payload = {
+        "raw_request": "Summarize this request directly.",
+        "context": {},
+        "idempotency_key": "p1-027-duplicate-run",
+    }
+
+    first = client.post("/task-decomposition/run", headers=TASK_API_HEADERS, json=payload)
+    second = client.post("/task-decomposition/run", headers=TASK_API_HEADERS, json=payload)
+
+    assert first.status_code == 200
+    assert first.json()["success"] is True
+    assert second.status_code == 200
+    assert second.json()["success"] is False
+    assert second.json()["error"]["code"] == "TASK_DECOMPOSITION_IDEMPOTENCY_REPLAY_DENIED"
+
+
+def test_task_decomposition_durable_run_binds_approval_receipt_replay_and_restart(tmp_path) -> None:
+    store = CapabilityRegistryStore(CapabilityRegistryStoreConfig(registry_path=str(tmp_path / "registry.json")))
+    service = TaskDecompositionService(registry_store=store)
+    base = build_echo_tool_capability()
+    gated = base.model_copy(
+        update={
+            "card": base.card.model_copy(
+                update={
+                    "id": "capability:p1-027-gated-summary",
+                    "risk_level": RiskLevel.high,
+                    "requires_approval": True,
+                }
+            ),
+            "required_permissions": ["write:file"],
+        }
+    )
+    service.register(
+        TaskDecompositionRegisterRequest(
+            contract=gated,
+            handler_ref="example.echo_summary_handler",
+        )
+    )
+    run_id = "task-decomposition-run:p1-027-binding"
+    plan = TaskPlan(
+        plan_id=run_id,
+        goal="Run gated summary capability.",
+        nodes=[
+            TaskNode(
+                id="node:gated-p1-027",
+                title="Gated summary",
+                objective="Run approved summary.",
+                candidate_capabilities=["capability:p1-027-gated-summary"],
+                selected_capability="capability:p1-027-gated-summary",
+                input_bindings={"request": "approved summary"},
+                success_criteria=["Approved summary succeeds."],
+                risk_level=RiskLevel.high,
+                requires_approval=True,
+            )
+        ],
+        final_success_criteria=["Approved summary succeeds."],
+    )
+
+    blocked = service.execute_plan_sync(
+        TaskPlanExecutionRequest(
+            plan=plan,
+            call_context=CapabilityCallContext(run_id=run_id, actor_id="local_actor"),
+            idempotency_key="p1-027-blocked-execute",
+        )
+    )
+    assert blocked.status == "awaiting_approval"
+    assert blocked.durable_binding is not None
+    assert blocked.durable_binding.state == "blocked"
+    assert blocked.durable_binding.receipt_refs
+
+    approval_request = service.build_approval_request(
+        TaskCapabilityApprovalRequestPayload(
+            capability_id="capability:p1-027-gated-summary",
+            run_id=run_id,
+            actor_id="local_actor",
+        )
+    )
+    grant = service.grant_approval(
+        TaskDecompositionApprovalGrantRequest(
+            approval_request_id=approval_request.approval_request_id,
+            approved_by_actor_id="local_user",
+        )
+    )
+    approved = service.execute_plan_sync(
+        TaskPlanExecutionRequest(
+            plan=plan,
+            call_context=CapabilityCallContext(
+                run_id=run_id,
+                actor_id="local_actor",
+                approval_refs={"capability:p1-027-gated-summary": grant.approval_ref},
+            ),
+            idempotency_key="p1-027-approved-execute",
+        )
+    )
+
+    assert approved.status == "succeeded"
+    assert approved.durable_binding is not None
+    assert approved.durable_binding.state == "succeeded"
+    assert approved.durable_binding.approval_refs
+    assert approved.durable_binding.handler_refs
+    audit_events = service.audit_events()
+    plan_audit = [event for event in audit_events if event["event_type"] == "plan_executed"][-1]
+    assert plan_audit["durable_run_ref"]
+    assert plan_audit["receipt_ref"]
+
+    replay_binding = service.validate_replay(run_id)
+    assert replay_binding.replay_validation_ref is not None
+    assert replay_binding.replay_validation_ref in replay_binding.replay_refs
+
+    restart_binding = service.record_restart_visibility(run_id, restart_ref="restart:p1-027")
+    assert "restart:p1-027" in restart_binding.restart_refs
+
+    reloaded = TaskDecompositionService(registry_store=store)
+    reloaded_binding = reloaded.durable_binding(run_id)
+    assert reloaded_binding is not None
+    assert reloaded_binding.state == "succeeded"
+    assert reloaded_binding.receipt_refs
 
 
 def test_canonical_api_captures_revokes_and_enforces_capability_approval(monkeypatch, tmp_path) -> None:

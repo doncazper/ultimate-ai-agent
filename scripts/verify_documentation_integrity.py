@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import json
 import re
 import sys
 from pathlib import Path
@@ -1028,6 +1029,21 @@ REQUIRED_LOCAL_MODEL_OPERATIONAL_RUNBOOK_DOC = (
 REQUIRED_CONTROL_CENTER_OPERATOR_SHELL_GAP_MAP_DOC = (
     "docs/control_center/OPERATOR_SHELL_GAP_MAP.md"
 )
+REQUIRED_CONTROL_CENTER_ROUTE_STATUS_MANIFEST_DOC = (
+    "docs/control_center/ROUTE_STATUS_MANIFEST.md"
+)
+REQUIRED_CONTROL_CENTER_ROUTE_STATUS_MANIFEST_JSON = (
+    "docs/control_center/route_status_manifest.json"
+)
+REQUIRED_CONTROL_CENTER_PRODUCT_LANGUAGE_RULES_DOC = (
+    "docs/control_center/PRODUCT_LANGUAGE_RULES.md"
+)
+REQUIRED_CONTROL_CENTER_BROWSER_SMOKE_DOC = (
+    "docs/control_center/LOCAL_BROWSER_SMOKE.md"
+)
+REQUIRED_CONTROL_CENTER_BROWSER_SMOKE_REPORTING_DOC = (
+    "docs/control_center/LOCAL_BROWSER_SMOKE_REPORTING.md"
+)
 
 RELEASE_FACING_SECURITY_DOCS = [
     "README.md",
@@ -1039,6 +1055,10 @@ RELEASE_FACING_SECURITY_DOCS = [
     "docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md",
     "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md",
     REQUIRED_CONTROL_CENTER_OPERATOR_SHELL_GAP_MAP_DOC,
+    REQUIRED_CONTROL_CENTER_ROUTE_STATUS_MANIFEST_DOC,
+    REQUIRED_CONTROL_CENTER_PRODUCT_LANGUAGE_RULES_DOC,
+    REQUIRED_CONTROL_CENTER_BROWSER_SMOKE_DOC,
+    REQUIRED_CONTROL_CENTER_BROWSER_SMOKE_REPORTING_DOC,
     REQUIRED_M167_EVIDENCE_MATRIX_DOC,
     REQUIRED_LOCAL_MODEL_E2E_SMOKE_DOC,
     REQUIRED_PERFORMANCE_BASELINE_DOC,
@@ -1145,6 +1165,9 @@ REQUIRED_ACTIVE_DOCS = [
     "docs/control_center/WEB_CONTROL_CENTER_SHELL.md",
     "docs/control_center/FRONTEND_SAFETY_POLICY.md",
     "docs/control_center/CONTROL_CENTER_FRONTEND_ROUTES.md",
+    REQUIRED_CONTROL_CENTER_OPERATOR_SHELL_GAP_MAP_DOC,
+    REQUIRED_CONTROL_CENTER_ROUTE_STATUS_MANIFEST_DOC,
+    REQUIRED_CONTROL_CENTER_PRODUCT_LANGUAGE_RULES_DOC,
     "docs/control_center/LOCAL_BACKEND_CONNECTION.md",
     "docs/control_center/LOCAL_BROWSER_SMOKE.md",
     "docs/control_center/LOCAL_BROWSER_SMOKE_REPORTING.md",
@@ -1212,6 +1235,8 @@ REQUIRED_ACTIVE_DOCS = [
     "docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md",
     "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md",
     REQUIRED_CONTROL_CENTER_OPERATOR_SHELL_GAP_MAP_DOC,
+    REQUIRED_CONTROL_CENTER_ROUTE_STATUS_MANIFEST_DOC,
+    REQUIRED_CONTROL_CENTER_PRODUCT_LANGUAGE_RULES_DOC,
     REQUIRED_M167_EVIDENCE_MATRIX_DOC,
     REQUIRED_LOCAL_MODEL_E2E_SMOKE_DOC,
     REQUIRED_PERFORMANCE_BASELINE_DOC,
@@ -1391,6 +1416,8 @@ ACTIVE_DOCS_TO_SCAN = [
     "docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md",
     "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md",
     REQUIRED_CONTROL_CENTER_OPERATOR_SHELL_GAP_MAP_DOC,
+    REQUIRED_CONTROL_CENTER_ROUTE_STATUS_MANIFEST_DOC,
+    REQUIRED_CONTROL_CENTER_PRODUCT_LANGUAGE_RULES_DOC,
     REQUIRED_M167_EVIDENCE_MATRIX_DOC,
     REQUIRED_LOCAL_MODEL_E2E_SMOKE_DOC,
     REQUIRED_PERFORMANCE_BASELINE_DOC,
@@ -2702,6 +2729,10 @@ def _verify_local_model_operational_runbook(root: Path) -> list[str]:
 
     board = read_lower("docs/kanban/current_board.md")
     durable_doc = read_lower("docs/execution/DURABLE_RUN_SPINE.md")
+    storage_doc = read_lower("docs/execution/APPEND_FIRST_RUN_STORAGE.md")
+    backup_restore_doc = read_lower("docs/execution/DURABLE_RUN_BACKUP_RESTORE.md")
+    docs_index = read_lower("docs/DOCUMENTATION_INDEX.md")
+    canonical_map = read_lower("docs/canonical/CANONICAL_DOC_MAP.md")
     if "uaa-p0-017 local model operational runbook" not in board:
         failures.append("current board must track UAA-P0-017 runbook")
     if "gate met: cache cleanup, corrupted gguf, stuck download, port conflict" not in board:
@@ -2716,6 +2747,34 @@ def _verify_local_model_operational_runbook(root: Path) -> list[str]:
         failures.append("current board must track UAA-P1-010 durable run spine")
     if "gate met: durable run records cover explicit states" not in board:
         failures.append("current board must mark UAA-P1-010 gate met")
+    if "uaa-p1-025 append-first local run storage" not in board:
+        failures.append("current board must track UAA-P1-025 append-first storage")
+    if "gate met: durable run records and receipt summaries append as hash-chained jsonl" not in board:
+        failures.append("current board must mark UAA-P1-025 gate met")
+    if "land uaa-p1-025" in board:
+        failures.append("current board still contains stale UAA-P1-025 next label")
+    if "uaa-p1-026 durable run lifecycle contracts" not in board:
+        failures.append("current board must track UAA-P1-026 lifecycle contracts")
+    if "gate met: pause, resume, cancel, retry, dead-letter, and restart recovery" not in board:
+        failures.append("current board must mark UAA-P1-026 gate met")
+    if "uaa-p1-027 task decomposition durable-run binding" not in board:
+        failures.append("current board must track UAA-P1-027 durable-run binding")
+    if "gate met: task decomposition decompose, run, and plan execution paths attach" not in board:
+        failures.append("current board must mark UAA-P1-027 gate met")
+    if "scope uaa-p1-027" in board:
+        failures.append("current board still contains stale UAA-P1-027 next label")
+    if "uaa-p1-028 backup/verify/offline restore plan" not in board:
+        failures.append("current board must track UAA-P1-028 backup/restore plan")
+    if "gate met: backup minimum set covers runs, receipts, approvals, settings" not in board:
+        failures.append("current board must mark UAA-P1-028 gate met")
+    if "scope uaa-p1-028" in board:
+        failures.append("current board still contains stale UAA-P1-028 next label")
+    if "uaa-p1-029 replay-safe receipt hashing" not in board:
+        failures.append("current board must track UAA-P1-029 receipt hashing")
+    if "gate met: durable receipt summaries carry stable receipt hash refs" not in board:
+        failures.append("current board must mark UAA-P1-029 gate met")
+    if "scope uaa-p1-029" in board:
+        failures.append("current board still contains stale UAA-P1-029 next label")
     if "uaa-p1-011 task decomposition operator loop" not in board:
         failures.append("current board must expose UAA-P1-011 as ready next")
     for message, fragment in {
@@ -2725,17 +2784,89 @@ def _verify_local_model_operational_runbook(root: Path) -> list[str]:
         "durable run spine doc must include persistence expectations": "## persistence expectations",
         "durable run spine doc must deny runtime authority": "does not add execution",
         "durable run spine doc must mention checksum restore": "checksum-backed snapshot",
+        "durable run spine doc must link append-first storage": "docs/execution/append_first_run_storage.md",
+        "durable run spine doc must include lifecycle contracts": "## lifecycle contracts",
+        "durable run spine doc must include idempotent lifecycle replay": "idempotent_replay",
+        "durable run spine doc must require dead-letter failure refs": "dead-letter requires a failure ref",
+        "durable run spine doc must include stale expected-state denial": "stale expected-state requests are denied",
+        "durable run spine doc must include task decomposition binding": "## task decomposition binding",
+        "durable run spine doc must include task decomposition idempotency denial": "explicit repeated idempotency keys are denied",
+        "durable run spine doc must include task decomposition test lane": "tests/test_task_decomposition_production_api.py",
+        "durable run spine doc must link backup restore plan": "docs/execution/durable_run_backup_restore.md",
+        "durable run spine doc must keep live restore unclaimed": "live restore, backup rotation",
+        "durable run spine doc must include P1-029": "uaa-p1-029 adds replay-safe receipt hashing",
+        "durable run spine doc must include receipt hash refs": "receipt hash refs and replay validation refs",
     }.items():
         if fragment not in durable_doc:
             failures.append(message)
+    for message, fragment in {
+        "append-first storage doc must exist": "status: active uaa-p1-025 implementation",
+        "append-first storage doc must include storage model": "## storage model",
+        "append-first storage doc must include atomicity": "## append and atomicity",
+        "append-first storage doc must include idempotency": "## idempotency and audit links",
+        "append-first storage doc must include corruption detection": "## corruption detection",
+        "append-first storage doc must include recovery semantics": "## recovery semantics",
+        "append-first storage doc must deny runtime authority": "does not add execution",
+        "append-first storage doc must mention required tests": "tests/test_file_atomic_writes.py",
+        "append-first storage doc must include P1-029": "uaa-p1-029 replay-safe receipt hashing",
+        "append-first storage doc must include receipt hash refs": "receipt_hash_ref",
+        "append-first storage doc must include replay validation refs": "replay_validation_ref",
+        "append-first storage doc must include replay validation method": "validate_receipt_replay",
+    }.items():
+        if fragment not in storage_doc:
+            failures.append(message)
+    for message, fragment in {
+        "backup restore doc must exist": "status: active uaa-p1-028 recovery plan",
+        "backup restore doc must define minimum set": "## backup minimum set",
+        "backup restore doc must include runs": "state-ref:durable-runs",
+        "backup restore doc must include receipts": "state-ref:durable-receipts",
+        "backup restore doc must include approvals": "state-ref:approval-state",
+        "backup restore doc must include settings": "state-ref:operator-settings",
+        "backup restore doc must include registry": "state-ref:capability-registry",
+        "backup restore doc must include audit summaries": "state-ref:audit-summaries",
+        "backup restore doc must include local model cache refs": "state-ref:local-model-cache-refs",
+        "backup restore doc must include manifest": "## backup manifest",
+        "backup restore doc must include verification checks": "## verification checks",
+        "backup restore doc must include offline restore plan": "## offline restore plan",
+        "backup restore doc must include rollback": "## rollback",
+        "backup restore doc must deny live restore": "live_restore_claimed",
+        "backup restore doc must identify offline-only restore": "offline_restore_only",
+        "backup restore doc must include no-goals": "## non-goals",
+        "backup restore doc must include receipt hash verification": "receipt hash refs validate",
+        "backup restore doc must include replay validation verification": "replay validation refs match",
+    }.items():
+        if fragment not in backup_restore_doc:
+            failures.append(message)
+    if "docs/execution/durable_run_backup_restore.md" not in docs_index:
+        failures.append("documentation index must link UAA-P1-028 backup restore doc")
+    if "docs/execution/durable_run_backup_restore.md" not in canonical_map:
+        failures.append("canonical map must link UAA-P1-028 backup restore doc")
 
     readme = read_lower("README.md")
-    if "operator runtime excellence p1 durable run spine through uaa-p1-010" not in readme:
-        failures.append("README must identify current P1 lane through UAA-P1-010")
+    if "operator runtime excellence p1 through uaa-p1-033" not in readme:
+        failures.append("README must identify current P1 lane through UAA-P1-033")
     if "p0-017 adds safe local model operational recovery guidance" not in readme:
         failures.append("README must mention P0-017 operational recovery")
     if "durable run spine" not in readme:
         failures.append("README must mention durable run spine")
+    if "append-first local run storage" not in readme:
+        failures.append("README must mention append-first local run storage")
+    if "durable lifecycle contracts now cover pause, resume, cancel, retry" not in readme:
+        failures.append("README must mention P1-026 durable lifecycle contracts")
+    if "task decomposition runs now attach safe durable binding refs" not in readme:
+        failures.append("README must mention P1-027 task decomposition durable binding")
+    if "offline operator-run restore only" not in readme:
+        failures.append("README must mention P1-028 offline restore scope")
+    if "replay-safe receipt hashing" not in readme:
+        failures.append("README must mention P1-029 replay-safe receipt hashing")
+    if "receipt summaries now carry replay-safe hash refs" not in readme:
+        failures.append("README must mention P1-029 receipt hash refs")
+    if "control center product language rules now forbid hidden authority" not in readme:
+        failures.append("README must mention P1-031 product language rules")
+    if "browser smoke readiness now covers the first product loop" not in readme:
+        failures.append("README must mention P1-032 browser smoke readiness")
+    if "control center accessible operator states now expose loading, error, empty" not in readme:
+        failures.append("README must mention P1-033 accessible operator states")
 
     product_truth = read_lower("docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md")
     if "local model operational recovery guidance is documented" not in product_truth:
@@ -2746,6 +2877,44 @@ def _verify_local_model_operational_runbook(root: Path) -> list[str]:
         failures.append("product truth packet must deny public support claims")
     if runbook_link not in product_truth:
         failures.append("product truth packet must cite local model operational runbook")
+    if "append-first local durable run storage exists" not in product_truth:
+        failures.append("product truth packet must include P1-025 storage claim")
+    if "blocked for live restore and backup rotation claims" not in product_truth:
+        failures.append("product truth packet must keep remaining durable storage blockers visible")
+    if "src/ultimate_ai_agent/core/execution/run_storage.py" not in product_truth:
+        failures.append("product truth packet must cite P1-025 storage source")
+    if "durable run lifecycle contracts exist for pause, resume, cancel, retry" not in product_truth:
+        failures.append("product truth packet must include P1-026 lifecycle claim")
+    if "exact idempotent replay and stale-state denial" not in product_truth:
+        failures.append("product truth packet must include P1-026 idempotency and stale-state scope")
+    if "task decomposition durable-run binding attaches decompose, run, plan execution" not in product_truth:
+        failures.append("product truth packet must include P1-027 durable binding claim")
+    if "tests/test_task_decomposition_production_api.py" not in product_truth:
+        failures.append("product truth packet must cite P1-027 task decomposition tests")
+    if "local durable state backup/verify/offline restore planning defines the minimum set" not in product_truth:
+        failures.append("product truth packet must include P1-028 backup restore claim")
+    if "docs/execution/durable_run_backup_restore.md" not in product_truth:
+        failures.append("product truth packet must cite P1-028 backup restore doc")
+    if "blocked for live restore and backup rotation claims" not in product_truth:
+        failures.append("product truth packet must keep live restore and backup rotation blocked")
+    if "replay-safe receipt hashing exists for durable receipt summaries" not in product_truth:
+        failures.append("product truth packet must include P1-029 receipt hashing claim")
+    if "replay validation refs over redacted summary data only" not in product_truth:
+        failures.append("product truth packet must scope P1-029 receipt hashing to redacted summaries")
+    if "control center product language rules forbid hidden authority" not in product_truth:
+        failures.append("product truth packet must include P1-031 product language claim")
+    if "docs/control_center/product_language_rules.md" not in product_truth:
+        failures.append("product truth packet must cite P1-031 product language rules")
+    if "control center browser smoke readiness covers the first product loop" not in product_truth:
+        failures.append("product truth packet must include P1-032 browser smoke claim")
+    if "docs/control_center/local_browser_smoke.md" not in product_truth:
+        failures.append("product truth packet must cite P1-032 browser smoke doc")
+    if "apps/control-center/src/app.test.tsx" not in product_truth:
+        failures.append("product truth packet must cite P1-032 frontend smoke test")
+    if "control center accessible operator states expose loading, error, empty" not in product_truth:
+        failures.append("product truth packet must include P1-033 accessible states claim")
+    if "apps/control-center/src/components/operatorsurfacestates.tsx" not in product_truth:
+        failures.append("product truth packet must cite P1-033 operator state component")
 
     return failures
 
@@ -2766,6 +2935,10 @@ def _verify_control_center_operator_shell_gap_map(root: Path) -> list[str]:
     gap_doc = read_lower(REQUIRED_CONTROL_CENTER_OPERATOR_SHELL_GAP_MAP_DOC)
     gap_compact = " ".join(gap_doc.split())
     gap_link = REQUIRED_CONTROL_CENTER_OPERATOR_SHELL_GAP_MAP_DOC.lower()
+    route_status_link = REQUIRED_CONTROL_CENTER_ROUTE_STATUS_MANIFEST_DOC.lower()
+    route_status_json_link = REQUIRED_CONTROL_CENTER_ROUTE_STATUS_MANIFEST_JSON.lower()
+    product_language_link = REQUIRED_CONTROL_CENTER_PRODUCT_LANGUAGE_RULES_DOC.lower()
+    browser_smoke_link = REQUIRED_CONTROL_CENTER_BROWSER_SMOKE_DOC.lower()
     active_links = {
         "README.md": read_lower("README.md"),
         "docs/README.md": read_lower("docs/README.md"),
@@ -2783,6 +2956,222 @@ def _verify_control_center_operator_shell_gap_map(root: Path) -> list[str]:
     for rel_path, text in active_links.items():
         if gap_link not in text:
             failures.append(f"{rel_path} must link Control Center operator-shell gap map")
+        if route_status_link not in text:
+            failures.append(f"{rel_path} must link Control Center route status manifest")
+        if product_language_link not in text:
+            failures.append(f"{rel_path} must link Control Center product language rules")
+        if browser_smoke_link not in text:
+            failures.append(f"{rel_path} must link Control Center browser smoke readiness")
+
+    route_status_doc_path = root / REQUIRED_CONTROL_CENTER_ROUTE_STATUS_MANIFEST_DOC
+    route_status_json_path = root / REQUIRED_CONTROL_CENTER_ROUTE_STATUS_MANIFEST_JSON
+    product_language_doc_path = root / REQUIRED_CONTROL_CENTER_PRODUCT_LANGUAGE_RULES_DOC
+    browser_smoke_doc_path = root / REQUIRED_CONTROL_CENTER_BROWSER_SMOKE_DOC
+    browser_smoke_reporting_path = root / REQUIRED_CONTROL_CENTER_BROWSER_SMOKE_REPORTING_DOC
+    if not route_status_doc_path.exists():
+        failures.append(
+            f"missing Control Center route status manifest doc: {REQUIRED_CONTROL_CENTER_ROUTE_STATUS_MANIFEST_DOC}"
+        )
+    if not product_language_doc_path.exists():
+        failures.append(
+            "missing Control Center product language rules doc: "
+            f"{REQUIRED_CONTROL_CENTER_PRODUCT_LANGUAGE_RULES_DOC}"
+        )
+    if not browser_smoke_doc_path.exists():
+        failures.append(
+            f"missing Control Center browser smoke readiness doc: {REQUIRED_CONTROL_CENTER_BROWSER_SMOKE_DOC}"
+        )
+    if not browser_smoke_reporting_path.exists():
+        failures.append(
+            "missing Control Center browser smoke reporting doc: "
+            f"{REQUIRED_CONTROL_CENTER_BROWSER_SMOKE_REPORTING_DOC}"
+        )
+    if not route_status_json_path.exists():
+        failures.append(
+            "missing Control Center route status manifest JSON: "
+            f"{REQUIRED_CONTROL_CENTER_ROUTE_STATUS_MANIFEST_JSON}"
+        )
+        route_status_manifest = {}
+    else:
+        try:
+            route_status_manifest = json.loads(route_status_json_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            failures.append(f"Control Center route status manifest JSON is invalid: {exc}")
+            route_status_manifest = {}
+
+    route_status_doc = read_lower(REQUIRED_CONTROL_CENTER_ROUTE_STATUS_MANIFEST_DOC)
+    route_status_compact = " ".join(route_status_doc.split())
+    for message, fragment in {
+        "route status doc must identify UAA-P1-030": "status: active uaa-p1-030 route status manifest",
+        "route status doc must link machine manifest": route_status_json_link,
+        "route status doc must link product language rules": product_language_link,
+        "route status doc must include visible actions": "## visible actions",
+        "route status doc must include release status values": "## release status values",
+        "route status doc must include verification": "## verification",
+        "route status doc must deny runtime authority": "does not add runtime authority",
+    }.items():
+        if fragment not in route_status_compact:
+            failures.append(message)
+
+    product_language_doc = read_lower(REQUIRED_CONTROL_CENTER_PRODUCT_LANGUAGE_RULES_DOC)
+    product_language_compact = " ".join(product_language_doc.split())
+    for message, fragment in {
+        "product language rules must identify UAA-P1-031": (
+            "status: active uaa-p1-031 product language rules"
+        ),
+        "product language rules must deny hidden authority": "no hidden authority",
+        "product language rules must deny fake completion": "no fake completion",
+        "product language rules must forbid raw JSON primary UI": (
+            "no raw json as primary ui for operator-critical flows"
+        ),
+        "product language rules must deny unsupported production/public claims": (
+            "no production/public distribution claims without evidence"
+        ),
+        "product language rules must deny output as authority": (
+            "no model/provider output as authority"
+        ),
+        "product language rules must deny completed-state drift": (
+            "no completed-state language for blocked/skipped/pending work"
+        ),
+        "product language rules must cite frontend verifier": (
+            "scripts/verify_control_center_frontend.py"
+        ),
+        "product language rules must cite docs verifier": (
+            "scripts/verify_documentation_integrity.py"
+        ),
+        "product language rules must include rollback": "## rollback",
+    }.items():
+        if fragment not in product_language_compact:
+            failures.append(message)
+
+    browser_smoke_doc = read_lower(REQUIRED_CONTROL_CENTER_BROWSER_SMOKE_DOC)
+    browser_smoke_compact = " ".join(browser_smoke_doc.split())
+    browser_smoke_reporting = read_lower(REQUIRED_CONTROL_CENTER_BROWSER_SMOKE_REPORTING_DOC)
+    browser_smoke_reporting_compact = " ".join(browser_smoke_reporting.split())
+    for message, fragment in {
+        "browser smoke doc must identify UAA-P1-032": (
+            "status: active uaa-p1-032 browser smoke readiness"
+        ),
+        "browser smoke doc must define first loop": "## uaa-p1-032 first product loop readiness",
+        "browser smoke doc must define real state": "`real`",
+        "browser smoke doc must define mocked state": "`mocked`",
+        "browser smoke doc must define skipped state": "`skipped`",
+        "browser smoke doc must define blocked state": "`blocked`",
+        "browser smoke doc must cover GGUF blocker": "select or approve local gguf model",
+        "browser smoke doc must cover chat shell blocker": "use chat shell through uaa `/v1`",
+        "browser smoke doc must cover task decomposition": "create a task decomposition plan",
+        "browser smoke doc must cover approval": "approve one safe registered capability",
+        "browser smoke doc must cover receipt/audit/latency/rollback": (
+            "inspect receipt/audit/latency/rollback status"
+        ),
+        "browser smoke doc must deny raw JSON primary UI": (
+            "raw json must not be the primary ui"
+        ),
+    }.items():
+        if fragment not in browser_smoke_compact:
+            failures.append(message)
+
+    for message, fragment in {
+        "browser smoke reporting must identify UAA-P1-032": (
+            "status: active uaa-p1-032 browser smoke readiness reporting"
+        ),
+        "browser smoke reporting must include first loop field": (
+            "first_product_loop_browser_smoke"
+        ),
+        "browser smoke reporting must include open control center field": (
+            "open_control_center"
+        ),
+        "browser smoke reporting must include GGUF field": (
+            "select_or_approve_local_gguf_model"
+        ),
+        "browser smoke reporting must include chat field": "chat_shell_through_uaa_v1",
+        "browser smoke reporting must include plan field": (
+            "create_task_decomposition_plan"
+        ),
+        "browser smoke reporting must include approval field": (
+            "approve_safe_registered_capability"
+        ),
+        "browser smoke reporting must include evidence field": (
+            "inspect_receipt_audit_latency_rollback"
+        ),
+        "browser smoke reporting must deny release readiness claim": (
+            "release_readiness_claimed: no"
+        ),
+    }.items():
+        if fragment not in browser_smoke_reporting_compact:
+            failures.append(message)
+
+    app_test = read_lower("apps/control-center/src/App.test.tsx")
+    for message, fragment in {
+        "frontend test must include P1-032 first-loop smoke": (
+            "covers first product loop browser smoke readiness with truthful mocked and blocked states"
+        ),
+        "frontend test must mark GGUF step blocked": (
+            'selectorapprovelocalggufmodel: "blocked"'
+        ),
+        "frontend test must mark chat shell blocked": 'chatshellthroughuaav1: "blocked"',
+        "frontend test must mark Plans step blocked": (
+            'createtaskdecompositionplan: "blocked"'
+        ),
+    }.items():
+        if fragment not in app_test.replace(" ", "").replace("\n", "") and fragment not in app_test:
+            failures.append(message)
+    for message, fragment in {
+        "frontend test must include P1-033 accessible states": (
+            "renders accessible operator states for required control center surfaces"
+        ),
+        "frontend test must include Chat route": "/chat",
+        "frontend test must include Plans route": "/plans",
+        "frontend test must include Models route": "/models",
+        "frontend test must include Settings route": "/settings",
+        "frontend test must check blocked state": "blocked: dedicated chat shell not implemented",
+        "frontend test must check denied state": "denied: no authority toggle",
+    }.items():
+        if fragment not in app_test:
+            failures.append(message)
+
+    if route_status_manifest.get("schema_version") != "uaa-control-center-route-status.v1":
+        failures.append("route status manifest JSON must use current schema version")
+    if route_status_manifest.get("status") != "active UAA-P1-030 route status manifest":
+        failures.append("route status manifest JSON must identify UAA-P1-030")
+    if route_status_manifest.get("openapi_path_count") != 93:
+        failures.append("route status manifest JSON must record 93 OpenAPI paths")
+    surface_names = {surface.get("surface", "").lower() for surface in route_status_manifest.get("surfaces", [])}
+    for surface in [
+        "chat shell",
+        "plans",
+        "models",
+        "approvals",
+        "files",
+        "runtime",
+        "evidence",
+        "settings",
+    ]:
+        if surface not in surface_names:
+            failures.append(f"route status manifest JSON missing surface: {surface}")
+    action_ids = {action.get("action_id") for action in route_status_manifest.get("visible_actions", [])}
+    for action_id in [
+        "navigate-chat-shell",
+        "navigate-plans",
+        "navigate-models",
+        "navigate-settings",
+        "submit-action-preview",
+        "select-local-detail-card",
+        "toggle-review-only-file-decision",
+    ]:
+        if action_id not in action_ids:
+            failures.append(f"route status manifest JSON missing action: {action_id}")
+    serialized_route_status = json.dumps(route_status_manifest).lower()
+    for unsafe in [
+        "production_ready",
+        "public_release_ready",
+        "broad_autonomy_enabled",
+        "shell_authority_enabled",
+        "connector_writes_enabled",
+        "plugin_runtime_enabled",
+    ]:
+        if unsafe in serialized_route_status:
+            failures.append(f"route status manifest JSON contains unsafe claim: {unsafe}")
 
     required_fragments = {
         "gap map must identify UAA-P0-007": (
@@ -2824,6 +3213,14 @@ def _verify_control_center_operator_shell_gap_map(root: Path) -> list[str]:
         "gap map must require no fake completion": "no fake completion",
         "gap map must forbid raw JSON primary UI": (
             "no raw json as primary ui for operator-critical flows"
+        ),
+        "gap map must link product language rules": product_language_link,
+        "gap map must deny unsupported production/public claims": (
+            "no production/public distribution claims without evidence"
+        ),
+        "gap map must deny output as authority": "no model/provider output as authority",
+        "gap map must deny completed-state drift": (
+            "no completed-state language for blocked/skipped/pending work"
         ),
         "gap map must mention route status manifest": "route status manifest",
         "gap map must mention local model readiness": "local model readiness",
@@ -2878,6 +3275,39 @@ def _verify_control_center_operator_shell_gap_map(root: Path) -> list[str]:
         if unsafe in gap_doc:
             failures.append(f"gap map contains unsafe claim: {unsafe}")
 
+    for rel_path in [
+        "README.md",
+        "docs/README.md",
+        "docs/DOCUMENTATION_INDEX.md",
+        "docs/canonical/CANONICAL_DOC_MAP.md",
+        REQUIRED_CONTROL_CENTER_OPERATOR_SHELL_GAP_MAP_DOC,
+        REQUIRED_CONTROL_CENTER_ROUTE_STATUS_MANIFEST_DOC,
+        REQUIRED_CONTROL_CENTER_PRODUCT_LANGUAGE_RULES_DOC,
+        "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md",
+        "docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md",
+        "docs/kanban/current_board.md",
+    ]:
+        text = read_lower(rel_path)
+        for unsafe in [
+            "production ready for external users",
+            "public distribution is available",
+            "public release is available",
+            "control center executes actions",
+            "control center grants approvals",
+            "control center completes work",
+            "control center runs tools",
+            "control center launches runtime",
+            "model output is authority",
+            "provider output is authority",
+            "blocked work is complete",
+            "skipped work is complete",
+            "pending work is complete",
+            "unimplemented action is ready",
+            "raw json is the primary ui",
+        ]:
+            if unsafe in text:
+                failures.append(f"{rel_path} contains unsafe product language claim: {unsafe}")
+
     board = read_lower("docs/kanban/current_board.md")
     if "uaa-p0-007 control center operator-shell gap map" not in board:
         failures.append("current board must track UAA-P0-007 operator-shell gap map")
@@ -2887,14 +3317,52 @@ def _verify_control_center_operator_shell_gap_map(root: Path) -> list[str]:
         failures.append("current board still contains stale UAA-P0-007 next label")
     if "uaa-p0-015 llama-server packaging/provenance checklist" not in board:
         failures.append("current board must keep UAA-P0-015 visible after UAA-P0-007")
+    if "uaa-p1-030 route status manifest" not in board:
+        failures.append("current board must track UAA-P1-030 route status manifest")
+    if "gate met: visible control center routes and actions are mapped" not in board:
+        failures.append("current board must mark UAA-P1-030 gate met")
+    if "scope uaa-p1-030" in board:
+        failures.append("current board still contains stale UAA-P1-030 next label")
+    if "uaa-p1-031 product language rules" not in board:
+        failures.append("current board must track UAA-P1-031 product language rules")
+    if "gate met: control center and release-facing product language rules" not in board:
+        failures.append("current board must mark UAA-P1-031 gate met")
+    if "scope uaa-p1-031" in board:
+        failures.append("current board still contains stale UAA-P1-031 next label")
+    if "uaa-p1-032 browser smoke readiness" not in board:
+        failures.append("current board must track UAA-P1-032 browser smoke readiness")
+    if "gate met: first product loop browser smoke readiness" not in board:
+        failures.append("current board must mark UAA-P1-032 gate met")
+    if "scope uaa-p1-032" in board:
+        failures.append("current board still contains stale UAA-P1-032 next label")
+    if "uaa-p1-033 accessible loading/error/empty states" not in board:
+        failures.append("current board must track UAA-P1-033 accessible states")
+    if "gate met: chat shell, plans, models, approvals, files, runtime, evidence, and" not in board:
+        failures.append("current board must mark UAA-P1-033 gate met")
+    if "scope uaa-p1-033" in board:
+        failures.append("current board still contains stale UAA-P1-033 next label")
 
     product_truth = read_lower("docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md")
     if "docs/control_center/operator_shell_gap_map.md" not in product_truth:
         failures.append("product truth packet must cite operator-shell gap map")
-    if "shipped for the operator-shell gap map" not in product_truth:
-        failures.append("product truth packet must mark operator-shell gap map as shipped")
-    if "blocked for product-readiness claims" not in product_truth:
-        failures.append("product truth packet must keep product-shell claims blocked")
+    if "docs/control_center/route_status_manifest.md" not in product_truth:
+        failures.append("product truth packet must cite route status manifest")
+    if "docs/control_center/route_status_manifest.json" not in product_truth:
+        failures.append("product truth packet must cite route status JSON manifest")
+    if "docs/control_center/product_language_rules.md" not in product_truth:
+        failures.append("product truth packet must cite product language rules")
+    if "shipped for the operator-shell gap map, route status manifest, product language rules, browser smoke readiness, and accessible operator states" not in product_truth:
+        failures.append("product truth packet must mark route status manifest, product language rules, browser smoke readiness, and accessible states as shipped")
+    if "blocked for completed product-surface claims" not in product_truth:
+        failures.append("product truth packet must keep product-shell completion claims blocked")
+    if "control center route status manifest maps visible actions" not in product_truth:
+        failures.append("product truth packet must include P1-030 route status claim")
+    if "control center product language rules forbid hidden authority" not in product_truth:
+        failures.append("product truth packet must include P1-031 product language claim")
+    if "control center browser smoke readiness covers the first product loop" not in product_truth:
+        failures.append("product truth packet must include P1-032 browser smoke claim")
+    if "control center accessible operator states expose loading, error, empty" not in product_truth:
+        failures.append("product truth packet must include P1-033 accessible states claim")
 
     mock_data = read_lower("apps/control-center/src/mocks/controlCenterData.ts")
     if "route_count: 93" not in mock_data:

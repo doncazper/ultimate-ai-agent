@@ -7,7 +7,7 @@ import {
   isPreviewEndpoint,
   READ_ENDPOINTS,
 } from "./api/endpoints";
-import { EmptyState, LoadingState } from "./components/DataState";
+import { EmptyState, ErrorState, LoadingState } from "./components/DataState";
 
 function mockFetchWithFallback() {
   vi.stubGlobal(
@@ -71,6 +71,9 @@ describe("Web Control Center shell", () => {
     const expectedHeadings = [
       ["/", /Dashboard overview/i],
       ["/dashboard", /Dashboard overview/i],
+      ["/chat", /^Chat Shell$/i],
+      ["/plans", /^Plans$/i],
+      ["/models", /^Models$/i],
       ["/runtime", /Runtime readiness/i],
       ["/foundation-gate", /Foundation Gate/i],
       ["/api-routes", /API Routes/i],
@@ -88,6 +91,7 @@ describe("Web Control Center shell", () => {
       ["/remote-workers", /Remote worker boundary/i],
       ["/mobile-planning", /Mobile planning/i],
       ["/plugin-governance", /Plugin governance/i],
+      ["/settings", /^Settings$/i],
       ["/action-preview", /Action Preview/i],
     ] as const;
 
@@ -98,6 +102,192 @@ describe("Web Control Center shell", () => {
       expect(await screen.findByRole("heading", { name: heading })).toBeInTheDocument();
       unmount();
       vi.unstubAllGlobals();
+    }
+  });
+
+  it("renders accessible operator states for required Control Center surfaces", async () => {
+    const requiredSurfaceChecks = [
+      {
+        path: "/chat",
+        heading: /^Chat Shell$/,
+        stateHeading: /Chat Shell states/i,
+        blocked: /Blocked: dedicated chat shell not implemented/i,
+        denied: /Denied: model output is not authority/i,
+      },
+      {
+        path: "/plans",
+        heading: /^Plans$/,
+        stateHeading: /Plans states/i,
+        blocked: /Blocked: product Plans loop incomplete/i,
+        denied: /Denied: no unapproved plan execution/i,
+      },
+      {
+        path: "/models",
+        heading: /^Models$/,
+        stateHeading: /Models states/i,
+        blocked: /Blocked: model selection not implemented/i,
+        denied: /Denied: no provider or model authority/i,
+      },
+      {
+        path: "/approvals",
+        heading: /^Approval Queue$/,
+        stateHeading: /Approvals states/i,
+        blocked: /Blocked: live approval binding incomplete/i,
+        denied: /Denied: no UI approval grant/i,
+      },
+      {
+        path: "/files",
+        heading: /^File Reference Viewer$/,
+        stateHeading: /Files states/i,
+        blocked: /Blocked: broad file workbench incomplete/i,
+        denied: /Denied: no unapproved file mutation/i,
+      },
+      {
+        path: "/runtime",
+        heading: /^Runtime readiness$/,
+        stateHeading: /Runtime states/i,
+        blocked: /Blocked: lifecycle controls not scoped/i,
+        denied: /Denied: no hidden runtime authority/i,
+      },
+      {
+        path: "/evidence",
+        heading: /^Evidence Viewer$/,
+        stateHeading: /Evidence states/i,
+        blocked: /Blocked: release evidence index incomplete/i,
+        denied: /Denied: no sensitive evidence display/i,
+      },
+      {
+        path: "/settings",
+        heading: /^Settings$/,
+        stateHeading: /Settings states/i,
+        blocked: /Blocked: settings routes not implemented/i,
+        denied: /Denied: no authority toggle/i,
+      },
+    ] as const;
+
+    for (const check of requiredSurfaceChecks) {
+      mockFetchWithFallback();
+      window.history.pushState({}, "", check.path);
+      const { unmount } = render(<App />);
+
+      expect(await screen.findByRole("heading", { name: check.heading })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: check.stateHeading })).toBeInTheDocument();
+      expect(screen.getByText(check.blocked)).toBeInTheDocument();
+      expect(screen.getByText(check.denied)).toBeInTheDocument();
+      expect(screen.getAllByRole("status").length).toBeGreaterThanOrEqual(4);
+      expect(screen.getAllByRole("alert").length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText(/Next safe action:/i).length).toBeGreaterThanOrEqual(5);
+      expect(screen.queryByRole("button", { name: /^run$/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /^send$/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /^approve$/i })).not.toBeInTheDocument();
+
+      unmount();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("covers first product loop browser smoke readiness with truthful mocked and blocked states", async () => {
+    const firstLoopStates = {
+      openControlCenter: "mocked",
+      inspectRuntimeHealthAndModelReadiness: "mocked",
+      selectOrApproveLocalGgufModel: "blocked",
+      chatShellThroughUaaV1: "blocked",
+      createTaskDecompositionPlan: "blocked",
+      approveSafeRegisteredCapability: "mocked",
+      inspectReceiptAuditLatencyRollback: "mocked",
+    };
+
+    expect(firstLoopStates).toEqual({
+      openControlCenter: "mocked",
+      inspectRuntimeHealthAndModelReadiness: "mocked",
+      selectOrApproveLocalGgufModel: "blocked",
+      chatShellThroughUaaV1: "blocked",
+      createTaskDecompositionPlan: "blocked",
+      approveSafeRegisteredCapability: "mocked",
+      inspectReceiptAuditLatencyRollback: "mocked",
+    });
+
+    mockFetchWithFallback();
+    window.history.pushState({}, "", "/dashboard");
+    const dashboard = render(<App />);
+    expect(await screen.findByRole("heading", { name: /Dashboard overview/i })).toBeInTheDocument();
+    expect(screen.getByText("Mock fallback active")).toBeInTheDocument();
+    expect(screen.getByText(/Backend unavailable; showing non-authoritative mock fallback data/i)).toBeInTheDocument();
+    expect(screen.getByText(/API base: relative local API/i)).toBeInTheDocument();
+    expect(screen.getByText(/No authority to run actions/i)).toBeInTheDocument();
+    dashboard.unmount();
+    vi.unstubAllGlobals();
+
+    mockFetchWithFallback();
+    window.history.pushState({}, "", "/runtime");
+    const runtime = render(<App />);
+    expect(await screen.findByRole("heading", { name: /Runtime readiness/i })).toBeInTheDocument();
+    expect(screen.getByText(/Production readiness claim/i)).toBeInTheDocument();
+    expect(screen.getByText(/Reviewed local model runtime evidence/i)).toBeInTheDocument();
+    expect(screen.getByText(/Local contract state only/i)).toBeInTheDocument();
+    runtime.unmount();
+    vi.unstubAllGlobals();
+
+    mockFetchWithFallback();
+    window.history.pushState({}, "", "/runtime/local");
+    const localRuntime = render(<App />);
+    expect(
+      await screen.findByRole("heading", { name: /Local Runtime Status/i }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText(/NO_RUNTIME_EXECUTION/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Model output remains non-authoritative/i)).toBeInTheDocument();
+    localRuntime.unmount();
+    vi.unstubAllGlobals();
+
+    mockFetchWithFallback();
+    window.history.pushState({}, "", "/runtime/manual-smoke");
+    const manualSmoke = render(<App />);
+    expect(
+      await screen.findByRole("heading", { name: /Manual Smoke Control Surface/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Manual smoke reports are safe summaries/i)).toBeInTheDocument();
+    expect(screen.getByText(/no smoke attempt was performed/i)).toBeInTheDocument();
+    manualSmoke.unmount();
+    vi.unstubAllGlobals();
+
+    mockFetchWithFallback();
+    window.history.pushState({}, "", "/action-preview");
+    const actionPreview = render(<App />);
+    expect(await screen.findByText(/Preview only action request/i)).toBeInTheDocument();
+    expect(screen.getByText(/never runs, enables, grants, deploys, or dispatches anything/i)).toBeInTheDocument();
+    expect(screen.getByText(/approval reference is never treated as authority/i)).toBeInTheDocument();
+    actionPreview.unmount();
+    vi.unstubAllGlobals();
+
+    mockFetchWithFallback();
+    window.history.pushState({}, "", "/approvals");
+    const approvals = render(<App />);
+    expect(await screen.findByRole("heading", { name: /Approval Queue/i })).toBeInTheDocument();
+    expect(screen.getByText(/No approval was granted from this UI/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Python Agent Core remains the only approval authority/i).length).toBeGreaterThan(0);
+    approvals.unmount();
+    vi.unstubAllGlobals();
+
+    mockFetchWithFallback();
+    window.history.pushState({}, "", "/events/timeline");
+    const evidence = render(<App />);
+    expect(await screen.findByRole("heading", { name: /Event Timeline/i })).toBeInTheDocument();
+    expect(screen.getByText(/Trace detail is redacted summary metadata only/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Foundation Gate evidence summary/i).length).toBeGreaterThan(0);
+    evidence.unmount();
+    vi.unstubAllGlobals();
+
+    for (const forbidden of [
+      /raw json/i,
+      /completed successfully/i,
+      /production ready for external users/i,
+      /^execute$/i,
+      /^run$/i,
+      /^send$/i,
+      /^approve$/i,
+    ]) {
+      expect(screen.queryByText(forbidden)).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: forbidden })).not.toBeInTheDocument();
     }
   });
 
@@ -115,6 +305,10 @@ describe("Web Control Center shell", () => {
     );
     expect(screen.getByRole("status")).toHaveTextContent(/No routes listed/i);
     expect(screen.getByText(/No API routes were returned/i)).toBeInTheDocument();
+
+    rerender(<ErrorState message="Control Center data could not be loaded safely." />);
+    expect(screen.getByRole("alert")).toHaveTextContent(/Control Center data unavailable/i);
+    expect(screen.getByText(/Next safe action: verify the local backend/i)).toBeInTheDocument();
   });
 
   it("keeps backend checking state informational while reads are pending", () => {
@@ -158,8 +352,8 @@ describe("Web Control Center shell", () => {
 
     expect(await screen.findByRole("heading", { name: /Approval Queue/i })).toBeInTheDocument();
     expect(
-      screen.getByText(/This UI cannot grant, deny, execute, or bypass approvals/i),
-    ).toBeInTheDocument();
+      screen.getAllByText(/This UI cannot grant, deny, execute, or bypass approvals/i).length,
+    ).toBeGreaterThan(0);
     expect(
       screen.getAllByText(/Approval refs are identifiers only and never authority/i).length,
     ).toBeGreaterThan(0);
@@ -723,7 +917,7 @@ describe("Web Control Center shell", () => {
     ).toBeInTheDocument();
     expect(screen.getByText(/M18 local runtime surface/i)).toBeInTheDocument();
     expect(screen.getByText(/Local runtime status is read-only/i)).toBeInTheDocument();
-    expect(screen.getByText(/Runtime readiness report/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Runtime readiness report/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/manual_loopback_smoke/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/MOCK_DATA_ONLY/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/NO_RUNTIME_EXECUTION/i).length).toBeGreaterThan(0);

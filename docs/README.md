@@ -1,7 +1,7 @@
 # Ultimate AI Agent Docs
 
 Status: active
-Current through: v0.101.0 plus accepted checkpoint-m168 and active Operator Runtime Excellence P1 durable run spine work
+Current through: v0.101.0 plus accepted checkpoint-m168 and active Operator Runtime Excellence P1 durable run spine, append-first storage, lifecycle contract, task decomposition durable-run binding, offline restore planning, replay-safe receipt hashing, Control Center route status manifest work, product language rules, browser smoke readiness, and accessible operator states
 Purpose: Human-facing entrypoint for active documentation and historical archive navigation.
 
 Active docs are few, indexed, and current. Historical docs are preserved under
@@ -18,8 +18,14 @@ docs/canonical/CANONICAL_DOC_MAP.md
 docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md
 docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md
 docs/control_center/OPERATOR_SHELL_GAP_MAP.md
+docs/control_center/ROUTE_STATUS_MANIFEST.md
+docs/control_center/PRODUCT_LANGUAGE_RULES.md
+docs/control_center/LOCAL_BROWSER_SMOKE.md
+docs/control_center/LOCAL_BROWSER_SMOKE_REPORTING.md
 docs/kanban/current_board.md
 docs/execution/DURABLE_RUN_SPINE.md
+docs/execution/APPEND_FIRST_RUN_STORAGE.md
+docs/execution/DURABLE_RUN_BACKUP_RESTORE.md
 docs/security/SECURITY_TRIAGE_RUNBOOK.md
 docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md
 docs/roadmap/README.md
@@ -43,8 +49,14 @@ docs/release_notes/checkpoint_m167.md
 docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md
 docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md
 docs/control_center/OPERATOR_SHELL_GAP_MAP.md
+docs/control_center/ROUTE_STATUS_MANIFEST.md
+docs/control_center/PRODUCT_LANGUAGE_RULES.md
+docs/control_center/LOCAL_BROWSER_SMOKE.md
+docs/control_center/LOCAL_BROWSER_SMOKE_REPORTING.md
 docs/kanban/current_board.md
 docs/execution/DURABLE_RUN_SPINE.md
+docs/execution/APPEND_FIRST_RUN_STORAGE.md
+docs/execution/DURABLE_RUN_BACKUP_RESTORE.md
 SECURITY.md
 docs/security/SECURITY_TRIAGE_RUNBOOK.md
 docs/maintenance/SEMVER_POLICY.md
@@ -166,8 +178,14 @@ The product/package baseline is `v0.101.0` / `0.101.0`. The latest
 accepted repository checkpoint tag is `checkpoint-m168`. The latest accepted
 local model lane checkpoint tags remain `checkpoint-m166` and
 `checkpoint-m167`. Active Operator Runtime Excellence work now includes the
-P0 repair lane and UAA-P1-010 durable run spine contracts; it adds no production
-authority, backend route, Control Center control, dependency, public
+P0 repair lane, UAA-P1-010 durable run spine contracts, and UAA-P1-025
+append-first local run storage, UAA-P1-026 durable lifecycle contracts, and
+UAA-P1-027 task decomposition durable-run binding, plus UAA-P1-028
+backup/verify/offline restore planning and UAA-P1-029 replay-safe receipt
+hashing, UAA-P1-030 Control Center route status manifest work, UAA-P1-031
+product language rules, UAA-P1-032 browser smoke readiness, and UAA-P1-033
+accessible operator states; it
+adds no production authority, backend route, Control Center control, dependency, public
 distribution, broad autonomy, shell/subprocess authority, browser automation,
 connector writes, plugin runtime import, mobile control, or model/provider
 authority.

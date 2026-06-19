@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import json
 import re
 import subprocess
 import sys
@@ -45,6 +46,7 @@ REQUIRED_FILES = [
     "src/components/EventTimelineTracePanel.tsx",
     "src/components/EvidenceFileMemoryViewerPanel.tsx",
     "src/components/LocalRuntimeStatusPanel.tsx",
+    "src/components/OperatorSurfaceStates.tsx",
     "src/components/FileReviewSurfacePanel.tsx",
     "src/components/ContextProposalSurfacePanel.tsx",
     "src/mocks/controlCenterData.ts",
@@ -252,6 +254,12 @@ FORBIDDEN_FRONTEND_DEPENDENCIES = [
 ]
 
 OPERATOR_SHELL_GAP_MAP = "docs/control_center/OPERATOR_SHELL_GAP_MAP.md"
+ROUTE_STATUS_MANIFEST = "docs/control_center/route_status_manifest.json"
+ROUTE_STATUS_MANIFEST_DOC = "docs/control_center/ROUTE_STATUS_MANIFEST.md"
+PRODUCT_LANGUAGE_RULES_DOC = "docs/control_center/PRODUCT_LANGUAGE_RULES.md"
+BROWSER_SMOKE_DOC = "docs/control_center/LOCAL_BROWSER_SMOKE.md"
+BROWSER_SMOKE_REPORTING_DOC = "docs/control_center/LOCAL_BROWSER_SMOKE_REPORTING.md"
+BROWSER_SMOKE_TEST = "apps/control-center/src/App.test.tsx"
 REQUIRED_OPERATOR_SHELL_SURFACES = [
     "Chat Shell",
     "Plans",
@@ -261,6 +269,148 @@ REQUIRED_OPERATOR_SHELL_SURFACES = [
     "Runtime",
     "Evidence",
     "Settings",
+]
+ROUTE_STATUS_ACTION_FIELDS = {
+    "action_id",
+    "label",
+    "owner",
+    "auth_posture",
+    "side_effect_class",
+    "risk_class",
+    "release_status",
+    "ui_surface",
+    "frontend_route",
+    "approval_requirement",
+    "evidence_audit_output",
+    "backend_routes",
+    "missing_backend_routes",
+}
+ROUTE_STATUS_SURFACE_FIELDS = {
+    "surface",
+    "owner",
+    "auth_posture",
+    "side_effect_class",
+    "risk_class",
+    "release_status",
+    "approval_requirement",
+    "evidence_audit_output",
+    "current_backend_routes",
+    "missing_backend_routes",
+}
+PRODUCT_LANGUAGE_REQUIRED_FRAGMENTS = {
+    "status: active uaa-p1-031 product language rules",
+    "no hidden authority",
+    "no fake completion",
+    "no raw json as primary ui for operator-critical flows",
+    "no production/public distribution claims without evidence",
+    "no model/provider output as authority",
+    "no completed-state language for blocked/skipped/pending work",
+    "scripts/verify_control_center_frontend.py",
+}
+PRODUCT_LANGUAGE_FORBIDDEN_CLAIMS = [
+    "production ready for external users",
+    "public distribution is available",
+    "public release is available",
+    "control center executes actions",
+    "control center grants approvals",
+    "control center completes work",
+    "control center runs tools",
+    "control center launches runtime",
+    "model output is authority",
+    "provider output is authority",
+    "blocked work is complete",
+    "skipped work is complete",
+    "pending work is complete",
+    "unimplemented action is ready",
+    "raw json is the primary ui",
+]
+PRODUCT_LANGUAGE_FORBIDDEN_FRONTEND_PHRASES = [
+    "Production ready",
+    "Public release",
+    "Public distribution",
+    "Completed successfully",
+    "Execution completed",
+    "Model output is authority",
+    "Provider output is authority",
+    "Raw JSON",
+]
+UNREADY_COMPLETION_WORDS = ["complete", "completed", "done", "finished", "succeeded"]
+BROWSER_SMOKE_REQUIRED_DOC_FRAGMENTS = [
+    "status: active uaa-p1-032 browser smoke readiness",
+    "first product loop readiness",
+    "real",
+    "mocked",
+    "skipped",
+    "blocked",
+    "open control center",
+    "inspect runtime health and model readiness",
+    "select or approve local gguf model",
+    "use chat shell through uaa `/v1`",
+    "create a task decomposition plan",
+    "approve one safe registered capability",
+    "inspect receipt/audit/latency/rollback status",
+    "raw json must not be the primary ui",
+]
+BROWSER_SMOKE_REQUIRED_REPORT_FRAGMENTS = [
+    "status: active uaa-p1-032 browser smoke readiness reporting",
+    "first product loop",
+    "real, mocked, skipped, or blocked",
+    "open_control_center",
+    "inspect_runtime_health_and_model_readiness",
+    "select_or_approve_local_gguf_model",
+    "chat_shell_through_uaa_v1",
+    "create_task_decomposition_plan",
+    "approve_safe_registered_capability",
+    "inspect_receipt_audit_latency_rollback",
+    "no_raw_json_primary_ui",
+    "blocked_prerequisites_visible",
+    "release_readiness_claimed: no",
+]
+BROWSER_SMOKE_REQUIRED_TEST_FRAGMENTS = [
+    "covers first product loop browser smoke readiness with truthful mocked and blocked states",
+    'openControlCenter: "mocked"',
+    'selectOrApproveLocalGgufModel: "blocked"',
+    'chatShellThroughUaaV1: "blocked"',
+    'createTaskDecompositionPlan: "blocked"',
+    "Preview only action request",
+    "No approval was granted from this UI",
+    "Trace detail is redacted summary metadata only",
+]
+OPERATOR_STATE_REQUIRED_COMPONENT_FRAGMENTS = [
+    "OperatorSurfaceStates",
+    "OperatorSurfacePlaceholderPanel",
+    "Chat Shell",
+    "Plans",
+    "Models",
+    "Approvals",
+    "Files",
+    "Runtime",
+    "Evidence",
+    "Settings",
+    "loading",
+    "error",
+    "empty",
+    "blocked",
+    "denied",
+    "Next safe action:",
+    "role={role}",
+    "does not run actions",
+    "does not grant approvals",
+    "does not change settings",
+    "does not call models",
+    "does not expose sensitive source material",
+]
+OPERATOR_STATE_REQUIRED_TEST_FRAGMENTS = [
+    "renders accessible operator states for required Control Center surfaces",
+    "/chat",
+    "/plans",
+    "/models",
+    "/settings",
+    "Blocked: dedicated chat shell not implemented",
+    "Denied: no sensitive evidence display",
+    "Denied: no authority toggle",
+    "getAllByRole(\"status\")",
+    "getAllByRole(\"alert\")",
 ]
 
 SECRET_ASSIGNMENT = re.compile(
@@ -498,6 +648,10 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_package_failures(app_root))
     failures.extend(_env_example_failures(app_root, root))
     failures.extend(_operator_shell_gap_map_failures(root))
+    failures.extend(_route_status_manifest_failures(root))
+    failures.extend(_product_language_rule_failures(root))
+    failures.extend(_browser_smoke_readiness_failures(root))
+    failures.extend(_operator_surface_state_failures(root))
 
     implementation_files = _implementation_files(app_root)
     for path in implementation_files:
@@ -518,6 +672,7 @@ def verify(root: Path = ROOT) -> list[str]:
         for match in URL_CREDENTIALS.finditer(text):
             failures.append(f"forbidden URL credentials in {rel}: {match.group(0)}")
         failures.extend(_button_label_failures(rel, text))
+        failures.extend(_product_language_frontend_failures(rel, text))
 
     mock_path = app_root / "src/mocks/controlCenterData.ts"
     if mock_path.exists():
@@ -709,6 +864,265 @@ def verify(root: Path = ROOT) -> list[str]:
     return failures
 
 
+def _frontend_nav_routes(app_root: Path) -> set[str]:
+    routes_file = app_root / "src/routes.tsx"
+    if not routes_file.exists():
+        return set()
+    text = routes_file.read_text(encoding="utf-8")
+    return set(re.findall(r'\{\s*path:\s*"([^"]+)",\s*label:', text))
+
+
+def _frontend_api_endpoint_paths(app_root: Path) -> set[str]:
+    endpoints_file = app_root / "src/api/endpoints.ts"
+    if not endpoints_file.exists():
+        return set()
+    text = endpoints_file.read_text(encoding="utf-8")
+    return set(re.findall(r':\s*"(/[^"]+)"', text))
+
+
+def _route_status_manifest_failures(root: Path) -> list[str]:
+    failures: list[str] = []
+    app_root = root / "apps/control-center"
+    manifest_path = root / ROUTE_STATUS_MANIFEST
+    manifest_doc_path = root / ROUTE_STATUS_MANIFEST_DOC
+    if not manifest_path.exists():
+        return [f"missing Control Center route status manifest: {ROUTE_STATUS_MANIFEST}"]
+    if not manifest_doc_path.exists():
+        failures.append(f"missing Control Center route status manifest doc: {ROUTE_STATUS_MANIFEST_DOC}")
+    else:
+        doc_text = manifest_doc_path.read_text(encoding="utf-8").lower()
+        for fragment in [
+            "status: active uaa-p1-030 route status manifest",
+            "docs/control_center/route_status_manifest.json",
+            "docs/control_center/product_language_rules.md",
+            "visible actions",
+            "verification",
+        ]:
+            if fragment not in doc_text:
+                failures.append(f"route status manifest doc missing fragment: {fragment}")
+
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        return [f"invalid route status manifest JSON: {exc}"]
+
+    if manifest.get("schema_version") != "uaa-control-center-route-status.v1":
+        failures.append("route status manifest schema version is not current")
+    if manifest.get("status") != "active UAA-P1-030 route status manifest":
+        failures.append("route status manifest status is not current")
+    if manifest.get("openapi_path_count") != 93:
+        failures.append("route status manifest must record the 93-path OpenAPI boundary")
+
+    allowed_statuses = set(manifest.get("allowed_release_statuses", []))
+    required_statuses = {
+        "status_available_not_completion",
+        "preview_available_not_execution",
+        "partial_backend_not_product_ready",
+        "mock_only_not_product_ready",
+        "local_ui_state_only_not_evidence",
+        "blocked_missing_backend",
+    }
+    if not required_statuses.issubset(allowed_statuses):
+        failures.append("route status manifest missing required release status values")
+
+    surfaces = manifest.get("surfaces", [])
+    visible_actions = manifest.get("visible_actions", [])
+    surface_names = {surface.get("surface") for surface in surfaces}
+    for surface in REQUIRED_OPERATOR_SHELL_SURFACES:
+        if surface not in surface_names:
+            failures.append(f"route status manifest missing surface: {surface}")
+
+    for surface in surfaces:
+        missing_fields = ROUTE_STATUS_SURFACE_FIELDS.difference(surface)
+        if missing_fields:
+            failures.append(
+                f"route status manifest surface {surface.get('surface', '<unknown>')} "
+                f"missing fields: {sorted(missing_fields)}"
+            )
+        if surface.get("release_status") not in allowed_statuses:
+            failures.append(f"route status manifest surface has unknown status: {surface.get('surface')}")
+
+    action_ids = [action.get("action_id") for action in visible_actions]
+    if len(action_ids) != len(set(action_ids)):
+        failures.append("route status manifest action ids must be unique")
+    action_routes = {action.get("frontend_route") for action in visible_actions}
+    for route in _frontend_nav_routes(app_root):
+        if route not in action_routes:
+            failures.append(f"route status manifest missing frontend route: {route}")
+
+    backend_paths = {
+        route.get("path")
+        for section_name, route_key in [
+            ("surfaces", "current_backend_routes"),
+            ("visible_actions", "backend_routes"),
+        ]
+        for item in manifest.get(section_name, [])
+        for route in item.get(route_key, [])
+    }
+    for endpoint_path in _frontend_api_endpoint_paths(app_root):
+        if endpoint_path not in backend_paths:
+            failures.append(f"route status manifest missing frontend API endpoint: {endpoint_path}")
+
+    available_statuses = {"status_available_not_completion", "preview_available_not_execution"}
+    for action in visible_actions:
+        missing_fields = ROUTE_STATUS_ACTION_FIELDS.difference(action)
+        if missing_fields:
+            failures.append(
+                f"route status manifest action {action.get('action_id', '<unknown>')} "
+                f"missing fields: {sorted(missing_fields)}"
+            )
+        if action.get("release_status") not in allowed_statuses:
+            failures.append(f"route status manifest action has unknown status: {action.get('action_id')}")
+        if (not action.get("backend_routes") or action.get("missing_backend_routes")) and (
+            action.get("release_status") in available_statuses
+        ):
+            failures.append(
+                "route status manifest marks unready action as available: "
+                f"{action.get('action_id')}"
+            )
+
+    for required_action in [
+        "submit-action-preview",
+        "select-local-detail-card",
+        "toggle-review-only-file-decision",
+    ]:
+        if required_action not in action_ids:
+            failures.append(f"route status manifest missing visible action: {required_action}")
+
+    serialized = json.dumps(manifest).lower()
+    for unsafe in [
+        "production_ready",
+        "public_release_ready",
+        "broad_autonomy_enabled",
+        "shell_authority_enabled",
+        "connector_writes_enabled",
+        "plugin_runtime_enabled",
+    ]:
+        if unsafe in serialized:
+            failures.append(f"route status manifest contains unsafe status claim: {unsafe}")
+
+    return failures
+
+
+def _product_language_rule_failures(root: Path) -> list[str]:
+    failures: list[str] = []
+    doc_path = root / PRODUCT_LANGUAGE_RULES_DOC
+    if not doc_path.exists():
+        return [f"missing Control Center product language rules: {PRODUCT_LANGUAGE_RULES_DOC}"]
+
+    doc_text = doc_path.read_text(encoding="utf-8")
+    doc_lowered = doc_text.lower()
+    doc_compact = " ".join(doc_lowered.split())
+    for fragment in PRODUCT_LANGUAGE_REQUIRED_FRAGMENTS:
+        if fragment not in doc_compact:
+            failures.append(f"product language rules doc missing fragment: {fragment}")
+
+    link = PRODUCT_LANGUAGE_RULES_DOC.lower()
+    for rel_path in [
+        "README.md",
+        "docs/README.md",
+        "docs/DOCUMENTATION_INDEX.md",
+        "docs/canonical/CANONICAL_DOC_MAP.md",
+        "docs/control_center/OPERATOR_SHELL_GAP_MAP.md",
+        "docs/control_center/ROUTE_STATUS_MANIFEST.md",
+        "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md",
+        "docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md",
+        "docs/kanban/current_board.md",
+    ]:
+        path = root / rel_path
+        if not path.exists():
+            failures.append(f"missing product language link target: {rel_path}")
+            continue
+        if link not in path.read_text(encoding="utf-8").lower():
+            failures.append(f"{rel_path} must link Control Center product language rules")
+
+    for rel_path in [
+        "README.md",
+        "docs/README.md",
+        "docs/DOCUMENTATION_INDEX.md",
+        "docs/canonical/CANONICAL_DOC_MAP.md",
+        "docs/control_center/OPERATOR_SHELL_GAP_MAP.md",
+        "docs/control_center/ROUTE_STATUS_MANIFEST.md",
+        PRODUCT_LANGUAGE_RULES_DOC,
+        "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md",
+        "docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md",
+        "docs/kanban/current_board.md",
+    ]:
+        text = (root / rel_path).read_text(encoding="utf-8").lower()
+        for claim in PRODUCT_LANGUAGE_FORBIDDEN_CLAIMS:
+            if claim in text:
+                failures.append(f"{rel_path} contains unsafe product language claim: {claim}")
+
+    manifest_path = root / ROUTE_STATUS_MANIFEST
+    if not manifest_path.exists():
+        failures.append(f"missing route status manifest for product language checks: {ROUTE_STATUS_MANIFEST}")
+        return failures
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        failures.append(f"invalid route status manifest JSON for product language checks: {exc}")
+        return failures
+
+    for section_name, items in [
+        ("surface", manifest.get("surfaces", [])),
+        ("visible action", manifest.get("visible_actions", [])),
+    ]:
+        for item in items:
+            status = item.get("release_status", "")
+            if not any(marker in status for marker in ["blocked", "partial", "mock", "local_ui_state"]):
+                continue
+            identifier = item.get("surface") or item.get("action_id") or "<unknown>"
+            checked_text = " ".join(
+                str(item.get(field, ""))
+                for field in ["label", "approval_requirement", "evidence_audit_output"]
+            ).lower()
+            for word in UNREADY_COMPLETION_WORDS:
+                if re.search(rf"\b{re.escape(word)}\b", checked_text):
+                    failures.append(
+                        f"route status manifest {section_name} {identifier} uses "
+                        f"completed-state wording while {status}: {word}"
+                    )
+
+    return failures
+
+
+def _browser_smoke_readiness_failures(root: Path) -> list[str]:
+    failures: list[str] = []
+    for rel_path, required_fragments, label in [
+        (BROWSER_SMOKE_DOC, BROWSER_SMOKE_REQUIRED_DOC_FRAGMENTS, "browser smoke doc"),
+        (
+            BROWSER_SMOKE_REPORTING_DOC,
+            BROWSER_SMOKE_REQUIRED_REPORT_FRAGMENTS,
+            "browser smoke reporting doc",
+        ),
+        (BROWSER_SMOKE_TEST, BROWSER_SMOKE_REQUIRED_TEST_FRAGMENTS, "browser smoke test"),
+    ]:
+        path = root / rel_path
+        if not path.exists():
+            failures.append(f"missing {label}: {rel_path}")
+            continue
+        text = path.read_text(encoding="utf-8").lower()
+        compact = " ".join(text.split())
+        for fragment in required_fragments:
+            if fragment.lower() not in compact and fragment.lower() not in text:
+                failures.append(f"{label} missing UAA-P1-032 fragment: {fragment}")
+
+    smoke_doc_text = (root / BROWSER_SMOKE_DOC).read_text(encoding="utf-8").lower()
+    smoke_report_text = (root / BROWSER_SMOKE_REPORTING_DOC).read_text(encoding="utf-8").lower()
+    for unsafe in [
+        "production ready for external users",
+        "public distribution is available",
+        "browser smoke proves production readiness",
+        "raw json is the primary ui",
+        "hidden authority",
+        "model output is authority",
+        "provider output is authority",
+    ]:
+        if unsafe in smoke_doc_text or unsafe in smoke_report_text:
+            failures.append(f"browser smoke readiness docs contain unsafe claim: {unsafe}")
+    return failures
+
+
 def _operator_shell_gap_map_failures(root: Path) -> list[str]:
     failures: list[str] = []
     doc_path = root / OPERATOR_SHELL_GAP_MAP
@@ -776,6 +1190,39 @@ def _operator_shell_gap_map_failures(root: Path) -> list[str]:
     return failures
 
 
+def _operator_surface_state_failures(root: Path) -> list[str]:
+    failures: list[str] = []
+    component_path = root / "apps/control-center/src/components/OperatorSurfaceStates.tsx"
+    routes_path = root / "apps/control-center/src/routes.tsx"
+    test_path = root / "apps/control-center/src/App.test.tsx"
+    if not component_path.exists():
+        return ["missing accessible operator surface states component"]
+
+    component_text = component_path.read_text(encoding="utf-8")
+    component_compact = " ".join(component_text.split())
+    for fragment in OPERATOR_STATE_REQUIRED_COMPONENT_FRAGMENTS:
+        if fragment not in component_text and fragment not in component_compact:
+            failures.append(f"operator surface states component missing fragment: {fragment}")
+
+    if routes_path.exists():
+        routes_text = routes_path.read_text(encoding="utf-8")
+        for route in ["/chat", "/plans", "/models", "/settings"]:
+            if route not in routes_text:
+                failures.append(f"operator surface route missing from routes.tsx: {route}")
+    else:
+        failures.append("missing Control Center routes.tsx")
+
+    if test_path.exists():
+        test_text = test_path.read_text(encoding="utf-8")
+        for fragment in OPERATOR_STATE_REQUIRED_TEST_FRAGMENTS:
+            if fragment not in test_text:
+                failures.append(f"operator surface state test missing fragment: {fragment}")
+    else:
+        failures.append("missing Control Center App.test.tsx")
+
+    return failures
+
+
 def _tracked_artifact_failures(root: Path) -> list[str]:
     try:
         tracked = subprocess.check_output(["git", "ls-files"], cwd=root, text=True).splitlines()
@@ -840,6 +1287,14 @@ def _button_label_failures(rel: Path, text: str) -> list[str]:
         pattern = re.compile(rf"<button\b[^>]*>\s*{re.escape(label)}\s*</button>", re.IGNORECASE)
         if pattern.search(text):
             failures.append(f"dangerous action control label in {rel}: {label}")
+    return failures
+
+
+def _product_language_frontend_failures(rel: Path, text: str) -> list[str]:
+    failures: list[str] = []
+    for phrase in PRODUCT_LANGUAGE_FORBIDDEN_FRONTEND_PHRASES:
+        if phrase in text:
+            failures.append(f"unsafe product language in {rel}: {phrase}")
     return failures
 
 

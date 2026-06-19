@@ -65,12 +65,22 @@ class DurableRunTransitionKind(str, Enum):
 class DurableRunTransitionStatus(str, Enum):
     accepted = "accepted"
     denied = "denied"
+    idempotent_replay = "idempotent_replay"
 
 
 TERMINAL_DURABLE_RUN_STATES = {
     DurableRunState.succeeded,
     DurableRunState.cancelled,
     DurableRunState.dead_lettered,
+}
+
+LIFECYCLE_DURABLE_RUN_TRANSITIONS = {
+    DurableRunTransitionKind.pause,
+    DurableRunTransitionKind.resume,
+    DurableRunTransitionKind.cancel,
+    DurableRunTransitionKind.retry,
+    DurableRunTransitionKind.dead_letter,
+    DurableRunTransitionKind.recover_after_restart,
 }
 
 ALLOWED_DURABLE_RUN_TRANSITIONS: dict[DurableRunState, set[DurableRunState]] = {
@@ -192,6 +202,42 @@ class DurableRunPersistenceModel(BaseModel):
         return self
 
 
+class DurableRunIdempotencyRecord(BaseModel):
+    run_id: str = Field(..., min_length=1)
+    idempotency_key: str = Field(..., min_length=1)
+    transition_id: str = Field(..., min_length=1)
+    transition_kind: DurableRunTransitionKind
+    request_fingerprint_ref: str = Field(..., min_length=1)
+    accepted_state_before: DurableRunState
+    accepted_state_after: DurableRunState
+    audit_ref: str = Field(..., min_length=1)
+    receipt_ref: str = Field(..., min_length=1)
+    replay_ref: str = Field(..., min_length=1)
+    rollback_ref: str = Field(..., min_length=1)
+    lifecycle_action: bool = False
+    safe_summary: str = Field(..., min_length=1)
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_idempotency_record(self):
+        for value, field_name in [
+            (self.run_id, "run_id"),
+            (self.idempotency_key, "idempotency_key"),
+            (self.transition_id, "transition_id"),
+            (self.request_fingerprint_ref, "request_fingerprint_ref"),
+            (self.audit_ref, "audit_ref"),
+            (self.receipt_ref, "receipt_ref"),
+            (self.replay_ref, "replay_ref"),
+            (self.rollback_ref, "rollback_ref"),
+        ]:
+            validate_execution_ref(value, field_name)
+        _validate_durable_text(self.safe_summary, "safe_summary")
+        if self.lifecycle_action != (self.transition_kind in LIFECYCLE_DURABLE_RUN_TRANSITIONS):
+            raise ValueError("DURABLE_RUN_LIFECYCLE_FLAG_MISMATCH")
+        return self
+
+
 class DurableRunRecord(BaseModel):
     run_id: str = Field(..., min_length=1)
     source_ref: str = Field(..., min_length=1)
@@ -201,6 +247,7 @@ class DurableRunRecord(BaseModel):
     safe_summary: str = Field(..., min_length=1)
     transition_ids_seen: List[str] = Field(default_factory=list)
     idempotency_keys_seen: List[str] = Field(default_factory=list)
+    idempotency_records: List[DurableRunIdempotencyRecord] = Field(default_factory=list)
     audit_refs: List[str] = Field(default_factory=list)
     receipt_refs: List[str] = Field(default_factory=list)
     replay_refs: List[str] = Field(default_factory=list)
@@ -235,6 +282,9 @@ class DurableRunRecord(BaseModel):
             validate_execution_ref(ref, "durable_run_ref")
         validate_safe_execution_payload(self.metadata, "metadata")
         _validate_durable_payload(self.metadata, "metadata")
+        for item in self.idempotency_records:
+            if item.run_id != self.run_id:
+                raise ValueError("DURABLE_RUN_IDEMPOTENCY_RECORD_RUN_REF_MISMATCH")
         if self.schema_version != DURABLE_RUN_SCHEMA_VERSION:
             raise ValueError("DURABLE_RUN_SCHEMA_VERSION_UNSUPPORTED")
         return self
@@ -251,6 +301,7 @@ class DurableRunTransitionRequest(BaseModel):
     replay_ref: str = Field(..., min_length=1)
     rollback_ref: str = Field(..., min_length=1)
     safe_summary: str = Field(..., min_length=1)
+    expected_state: DurableRunState | None = None
     evidence_refs: List[str] = Field(default_factory=list)
     failure_ref: str | None = None
     restart_ref: str | None = None
@@ -305,6 +356,10 @@ class DurableRunTransitionDecision(BaseModel):
     next_state: DurableRunState
     reason_codes: List[str] = Field(default_factory=list)
     safe_message: str = Field(..., min_length=1)
+    authority_boundary_ref: str = "authority-boundary:durable-run-state-only"
+    idempotency_fingerprint_ref: str | None = None
+    idempotent_replay: bool = False
+    stale_request: bool = False
     audit_ref: str | None = None
     receipt_ref: str | None = None
     replay_ref: str | None = None
@@ -347,7 +402,10 @@ class DurableRunTransitionDecision(BaseModel):
                 raise ValueError(f"DURABLE_RUN_INVARIANT_FAILED:{field_name}")
         validate_execution_ref(self.decision_id, "decision_id")
         validate_execution_ref(self.run_id, "run_id")
+        validate_execution_ref(self.authority_boundary_ref, "authority_boundary_ref")
         _validate_durable_text(self.safe_message, "safe_message")
+        if self.idempotency_fingerprint_ref:
+            validate_execution_ref(self.idempotency_fingerprint_ref, "idempotency_fingerprint_ref")
         for ref in [self.audit_ref, self.receipt_ref, self.replay_ref, self.rollback_ref]:
             if ref:
                 validate_execution_ref(ref, "decision_ref")
@@ -386,6 +444,21 @@ def _decision_id(transition_id: str) -> str:
     return f"durable-run-decision:{suffix}"
 
 
+def _request_fingerprint_ref(request: DurableRunTransitionRequest) -> str:
+    payload = json.dumps(request.model_dump(mode="json"), sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return f"sha256:{hashlib.sha256(payload).hexdigest()}"
+
+
+def _find_idempotency_record(
+    record: DurableRunRecord,
+    idempotency_key: str,
+) -> DurableRunIdempotencyRecord | None:
+    for item in record.idempotency_records:
+        if item.idempotency_key == idempotency_key:
+            return item
+    return None
+
+
 def _revalidate_record(record: DurableRunRecord) -> list[str]:
     try:
         DurableRunRecord.model_validate(record.model_dump())
@@ -422,20 +495,50 @@ def evaluate_durable_run_transition(
     reasons.extend(_revalidate_request(request))
 
     next_state = _target_state(request.transition_kind)
+    fingerprint_ref = _request_fingerprint_ref(request)
+    idempotency_record = _find_idempotency_record(record, request.idempotency_key)
+    is_lifecycle_action = request.transition_kind in LIFECYCLE_DURABLE_RUN_TRANSITIONS
+
+    if not reasons and is_lifecycle_action and idempotency_record:
+        if idempotency_record.request_fingerprint_ref == fingerprint_ref:
+            return DurableRunTransitionDecision(
+                decision_id=_decision_id(request.transition_id),
+                run_id=record.run_id,
+                status=DurableRunTransitionStatus.idempotent_replay,
+                transition_kind=request.transition_kind,
+                previous_state=record.state,
+                next_state=record.state,
+                reason_codes=["DURABLE_RUN_LIFECYCLE_IDEMPOTENT_REPLAY"],
+                safe_message="Durable run lifecycle request was already applied; run truth is unchanged.",
+                idempotency_fingerprint_ref=fingerprint_ref,
+                idempotent_replay=True,
+                audit_ref=request.audit_ref,
+                receipt_ref=request.receipt_ref,
+                replay_ref=request.replay_ref,
+                rollback_ref=request.rollback_ref,
+            )
+        reasons.append("DURABLE_RUN_IDEMPOTENCY_CONFLICT_DENIED")
+
     if request.run_id != record.run_id:
         reasons.append("DURABLE_RUN_REF_MISMATCH_DENIED")
     if request.transition_id in record.transition_ids_seen:
         reasons.append("DURABLE_RUN_TRANSITION_REPLAY_DENIED")
-    if request.idempotency_key in record.idempotency_keys_seen:
+    if request.idempotency_key in record.idempotency_keys_seen and not idempotency_record:
+        reasons.append("DURABLE_RUN_IDEMPOTENCY_REPLAY_DENIED")
+    if request.idempotency_key in record.idempotency_keys_seen and idempotency_record and not is_lifecycle_action:
         reasons.append("DURABLE_RUN_IDEMPOTENCY_REPLAY_DENIED")
     if request.replay_ref in record.replay_refs:
         reasons.append("DURABLE_RUN_REPLAY_REF_REUSE_DENIED")
+    if request.expected_state is not None and request.expected_state != record.state:
+        reasons.append("DURABLE_RUN_STALE_STATE_DENIED")
     if record.state in TERMINAL_DURABLE_RUN_STATES:
         reasons.append("DURABLE_RUN_TERMINAL_STATE_DENIED")
     if next_state not in ALLOWED_DURABLE_RUN_TRANSITIONS.get(record.state, set()):
         reasons.append("DURABLE_RUN_INVALID_TRANSITION_DENIED")
     if request.transition_kind == DurableRunTransitionKind.fail and not request.failure_ref:
         reasons.append("DURABLE_RUN_FAILURE_REF_REQUIRED")
+    if request.transition_kind == DurableRunTransitionKind.dead_letter and not request.failure_ref:
+        reasons.append("DURABLE_RUN_DEAD_LETTER_REF_REQUIRED")
     if request.transition_kind == DurableRunTransitionKind.recover_after_restart and not request.restart_ref:
         reasons.append("DURABLE_RUN_RESTART_REF_REQUIRED")
 
@@ -450,6 +553,8 @@ def evaluate_durable_run_transition(
             next_state=record.state,
             reason_codes=reasons,
             safe_message="Durable run transition denied by contract policy.",
+            idempotency_fingerprint_ref=fingerprint_ref,
+            stale_request="DURABLE_RUN_STALE_STATE_DENIED" in reasons,
             audit_ref=request.audit_ref,
             receipt_ref=request.receipt_ref,
             replay_ref=request.replay_ref,
@@ -465,6 +570,7 @@ def evaluate_durable_run_transition(
         next_state=next_state,
         reason_codes=["DURABLE_RUN_TRANSITION_ACCEPTED"],
         safe_message="Durable run transition accepted as state-only contract mutation.",
+        idempotency_fingerprint_ref=fingerprint_ref,
         audit_ref=request.audit_ref,
         receipt_ref=request.receipt_ref,
         replay_ref=request.replay_ref,
@@ -478,6 +584,34 @@ def _append_unique(existing: list[str], *refs: str | None) -> list[str]:
         if ref and ref not in updated:
             updated.append(ref)
     return updated
+
+
+def _append_idempotency_record(
+    existing: list[DurableRunIdempotencyRecord],
+    record: DurableRunRecord,
+    request: DurableRunTransitionRequest,
+    decision: DurableRunTransitionDecision,
+) -> list[DurableRunIdempotencyRecord]:
+    if any(item.idempotency_key == request.idempotency_key for item in existing):
+        return list(existing)
+    if not decision.idempotency_fingerprint_ref:
+        return list(existing)
+    item = DurableRunIdempotencyRecord(
+        run_id=record.run_id,
+        idempotency_key=request.idempotency_key,
+        transition_id=request.transition_id,
+        transition_kind=request.transition_kind,
+        request_fingerprint_ref=decision.idempotency_fingerprint_ref,
+        accepted_state_before=record.state,
+        accepted_state_after=decision.next_state,
+        audit_ref=request.audit_ref,
+        receipt_ref=request.receipt_ref,
+        replay_ref=request.replay_ref,
+        rollback_ref=request.rollback_ref,
+        lifecycle_action=request.transition_kind in LIFECYCLE_DURABLE_RUN_TRANSITIONS,
+        safe_summary=request.safe_summary,
+    )
+    return [*existing, item]
 
 
 def apply_durable_run_transition(
@@ -494,6 +628,12 @@ def apply_durable_run_transition(
             "generation": record.generation + 1,
             "transition_ids_seen": _append_unique(record.transition_ids_seen, request.transition_id),
             "idempotency_keys_seen": _append_unique(record.idempotency_keys_seen, request.idempotency_key),
+            "idempotency_records": _append_idempotency_record(
+                record.idempotency_records,
+                record,
+                request,
+                decision,
+            ),
             "audit_refs": _append_unique(record.audit_refs, request.audit_ref),
             "receipt_refs": _append_unique(record.receipt_refs, request.receipt_ref),
             "replay_refs": _append_unique(record.replay_refs, request.replay_ref),

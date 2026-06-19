@@ -12,8 +12,10 @@ export function LoadingState() {
 
 export function ErrorState({ message }: { message: string }) {
   return (
-    <div className="data-state error" role="alert">
-      {message}
+    <div className="data-state error" role="alert" aria-labelledby="control-center-error-heading">
+      <strong id="control-center-error-heading">Control Center data unavailable</strong>
+      <span>{message}</span>
+      <small>Next safe action: verify the local backend and rerun the frontend checks.</small>
     </div>
   );
 }

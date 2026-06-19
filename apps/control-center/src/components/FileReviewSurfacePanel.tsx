@@ -5,6 +5,7 @@ import type {
   M36FileReviewData,
 } from "../api/types";
 import { EmptyState } from "./DataState";
+import { OperatorSurfaceStates } from "./OperatorSurfaceStates";
 
 const FILE_REVIEW_SAFE_REFS_COPY =
   "Safe refs only are displayed. Packet selection is local read-only UI state. Only the review approval capture route may persist safe refs.";
@@ -38,6 +39,7 @@ export function FileReviewSurfacePanel({ review }: { review: M36FileReviewData }
           <span key={code}>{code}</span>
         ))}
       </div>
+      <OperatorSurfaceStates surface="Files" />
 
       {review.packets.length > 0 && selected ? (
         <div className="review-layout">

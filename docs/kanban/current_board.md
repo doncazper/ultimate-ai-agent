@@ -40,8 +40,9 @@ No active P1 item in this patch. Pull UAA-P1-011 next.
 
 ```text
 UAA-P1-011 Task decomposition operator loop
-Gate: task decomposition runs bind to durable run records, exact approvals,
-safe registered handlers, redacted audit summaries, and replay validation.
+Gate: Control Center operator loop uses the existing task decomposition durable
+binding, exact approvals, safe registered handlers, redacted audit summaries,
+and replay validation without hidden authority.
 ```
 
 ## Shaping
@@ -197,6 +198,84 @@ in `docs/execution/DURABLE_RUN_SPINE.md`,
 `src/ultimate_ai_agent/core/execution/durable_runs.py`,
 `tests/test_execution_state_machine_safety.py`, and
 `tests/test_event_ledger_append_only.py`.
+
+UAA-P1-025 Append-first local run storage
+Gate met: durable run records and receipt summaries append as hash-chained JSONL
+entries with idempotency keys, audit refs, receipt refs, rollback refs, atomic
+replacement, safe failure cleanup, corruption detection, duplicate-write denial,
+restart recovery visibility, and redacted summary-only receipt storage in
+`docs/execution/APPEND_FIRST_RUN_STORAGE.md`,
+`src/ultimate_ai_agent/core/execution/run_storage.py`, and
+`tests/test_file_atomic_writes.py`.
+
+UAA-P1-026 Durable run lifecycle contracts
+Gate met: pause, resume, cancel, retry, dead-letter, and restart recovery are
+state-only durable run lifecycle transitions with expected-state checks,
+authority-boundary refs, exact lifecycle idempotent replay, conflicting
+idempotency denial, dead-letter failure refs, restart refs, terminal-state
+truth, and tests for allowed, denied, repeated, stale, and restart cases in
+`docs/execution/DURABLE_RUN_SPINE.md`,
+`src/ultimate_ai_agent/core/execution/durable_runs.py`, and
+`tests/test_execution_state_machine_safety.py`.
+
+UAA-P1-027 Task decomposition durable-run binding
+Gate met: task decomposition decompose, run, and plan execution paths attach
+durable run records with safe approval refs, handler refs, audit refs, receipt
+refs, replay refs, rollback refs, restart visibility, explicit idempotency
+replay denial, and redacted safe binding responses in
+`docs/execution/DURABLE_RUN_SPINE.md`,
+`src/ultimate_ai_agent/core/task_decomposition/runtime.py`,
+`src/ultimate_ai_agent/core/task_decomposition/contracts.py`, and
+`tests/test_task_decomposition_production_api.py`.
+
+UAA-P1-028 Backup/verify/offline restore plan
+Gate met: backup minimum set covers runs, receipts, approvals, settings,
+registry, audit summaries, and local model cache references; verification,
+rollback, and offline/operator-run restore are documented without live restore
+claims in `docs/execution/DURABLE_RUN_BACKUP_RESTORE.md`.
+
+UAA-P1-029 Replay-safe receipt hashing
+Gate met: durable receipt summaries carry stable receipt hash refs and replay
+validation refs over redacted summary data only; private-data-shaped receipt
+keys are denied, duplicate mutations remain idempotency-blocked, and replay
+validation is covered in `src/ultimate_ai_agent/core/execution/run_storage.py`
+and `tests/test_file_atomic_writes.py`.
+
+UAA-P1-030 Route status manifest
+Gate met: visible Control Center routes and actions are mapped to owners, auth
+posture, side-effect classes, risk classes, OpenAPI operation ids, release
+status, UI surfaces, approval requirements, evidence/audit outputs, and
+unready blockers in `docs/control_center/ROUTE_STATUS_MANIFEST.md` and
+`docs/control_center/route_status_manifest.json`; tests and frontend verifier
+coverage keep unimplemented or unsafe actions out of ready status.
+
+UAA-P1-031 Product language rules
+Gate met: Control Center and release-facing product language rules are
+documented in `docs/control_center/PRODUCT_LANGUAGE_RULES.md`; verifier
+coverage rejects hidden-authority, fake-completion, unsupported readiness,
+unsupported public-distribution, output-as-authority, primary raw-JSON UI, and
+completed-state wording for blocked/skipped/pending work where practical.
+
+UAA-P1-032 Browser smoke readiness
+Gate met: first product loop browser smoke readiness is documented in
+`docs/control_center/LOCAL_BROWSER_SMOKE.md` and
+`docs/control_center/LOCAL_BROWSER_SMOKE_REPORTING.md`, with Vitest coverage in
+`apps/control-center/src/App.test.tsx` and verifier coverage in
+`scripts/verify_control_center_frontend.py` plus
+`scripts/verify_control_center_browser_smoke_readiness.py`. The lane marks
+available UI states as mocked/local-only and missing GGUF, chat shell, Plans,
+approval-binding, latency, and rollback prerequisites as blocked rather than
+complete.
+
+UAA-P1-033 Accessible loading/error/empty states
+Gate met: Chat Shell, Plans, Models, Approvals, Files, Runtime, Evidence, and
+Settings expose accessible loading, error, empty, blocked, and denied states in
+`apps/control-center/src/components/OperatorSurfaceStates.tsx`, with route
+coverage in `apps/control-center/src/routes.tsx`, Vitest coverage in
+`apps/control-center/src/App.test.tsx`, and static verifier coverage in
+`scripts/verify_control_center_frontend.py`. The states remain local UI/status
+only and do not add runtime, model, approval, file mutation, settings, or
+completion authority.
 ```
 
 ## ASAP Sequence
@@ -204,5 +283,5 @@ in `docs/execution/DURABLE_RUN_SPINE.md`,
 ```text
 1. Build only the mapped operator surfaces with tests after route/status gaps are scoped.
 2. Land UAA-P1-011 to connect task decomposition to the operator loop.
-3. Land UAA-P1-025 to add append-first durable run storage.
+3. Scope UAA-P1-012 local workspace workbench only after P1-011 is green.
 ```

@@ -17,6 +17,7 @@ import {
   LocalRuntimeStatusPanel,
   ManualSmokeControlSurfacePanel,
 } from "./components/LocalRuntimeStatusPanel";
+import { OperatorSurfacePlaceholderPanel } from "./components/OperatorSurfaceStates";
 import { ReceiptViewerPanel } from "./components/ReceiptViewerPanel";
 import { RuntimeReadinessPanel } from "./components/RuntimeReadinessPanel";
 import {
@@ -28,6 +29,9 @@ import {
 export const navItems = [
   { path: "/", label: "Overview" },
   { path: "/dashboard", label: "Dashboard" },
+  { path: "/chat", label: "Chat" },
+  { path: "/plans", label: "Plans" },
+  { path: "/models", label: "Models" },
   { path: "/runtime", label: "Runtime" },
   { path: "/foundation-gate", label: "Foundation Gate" },
   { path: "/api-routes", label: "API Routes" },
@@ -45,11 +49,18 @@ export const navItems = [
   { path: "/remote-workers", label: "Remote Workers" },
   { path: "/mobile-planning", label: "Mobile Planning" },
   { path: "/plugin-governance", label: "Plugin Governance" },
+  { path: "/settings", label: "Settings" },
   { path: "/action-preview", label: "Action Preview" },
 ] as const;
 
 export function renderRoute(path: string, data: ControlCenterData) {
   switch (path) {
+    case "/chat":
+      return <OperatorSurfacePlaceholderPanel surface="Chat Shell" />;
+    case "/plans":
+      return <OperatorSurfacePlaceholderPanel surface="Plans" />;
+    case "/models":
+      return <OperatorSurfacePlaceholderPanel surface="Models" />;
     case "/runtime":
       return (
         <RuntimeReadinessPanel report={data.runtimeReadiness} matrix={data.capabilityMatrix} />
@@ -97,6 +108,8 @@ export function renderRoute(path: string, data: ControlCenterData) {
       return <MobilePlanningPanel summary={data.dashboard.mobile_planning_summary} />;
     case "/plugin-governance":
       return <PluginGovernancePanel summary={data.dashboard.plugin_governance_summary} />;
+    case "/settings":
+      return <OperatorSurfacePlaceholderPanel surface="Settings" />;
     case "/action-preview":
       return <ActionPreviewForm />;
     case "/dashboard":

@@ -236,6 +236,204 @@ def test_durable_run_duplicate_mutation_attempt_is_blocked_by_idempotency():
     assert "DURABLE_RUN_IDEMPOTENCY_REPLAY_DENIED" in second.decision.reason_codes
 
 
+@pytest.mark.parametrize(
+    ("initial_state", "transition_kind", "suffix", "expected_state", "extra", "expected_next"),
+    [
+        (
+            DurableRunState.running,
+            DurableRunTransitionKind.pause,
+            "pause-lifecycle",
+            DurableRunState.running,
+            {},
+            DurableRunState.paused,
+        ),
+        (
+            DurableRunState.paused,
+            DurableRunTransitionKind.resume,
+            "resume-lifecycle",
+            DurableRunState.paused,
+            {},
+            DurableRunState.running,
+        ),
+        (
+            DurableRunState.running,
+            DurableRunTransitionKind.cancel,
+            "cancel-lifecycle",
+            DurableRunState.running,
+            {},
+            DurableRunState.cancelled,
+        ),
+        (
+            DurableRunState.failed,
+            DurableRunTransitionKind.retry,
+            "retry-lifecycle",
+            DurableRunState.failed,
+            {},
+            DurableRunState.retry_pending,
+        ),
+        (
+            DurableRunState.blocked,
+            DurableRunTransitionKind.dead_letter,
+            "dead-letter-lifecycle",
+            DurableRunState.blocked,
+            {"failure_ref": "failure:p1-026-dead-letter"},
+            DurableRunState.dead_lettered,
+        ),
+        (
+            DurableRunState.running,
+            DurableRunTransitionKind.recover_after_restart,
+            "restart-lifecycle",
+            DurableRunState.running,
+            {"restart_ref": "restart:p1-026-recovery"},
+            DurableRunState.restart_recovery,
+        ),
+    ],
+)
+def test_durable_run_lifecycle_transitions_are_explicit_and_safe(
+    initial_state,
+    transition_kind,
+    suffix,
+    expected_state,
+    extra,
+    expected_next,
+):
+    record = _durable_record(state=initial_state)
+    request = _durable_request(
+        transition_kind,
+        suffix,
+        expected_state=expected_state,
+        **extra,
+    )
+
+    result = apply_durable_run_transition(record, request)
+
+    assert result.decision.status == DurableRunTransitionStatus.accepted
+    assert result.decision.authority_boundary_ref == "authority-boundary:durable-run-state-only"
+    assert result.decision.execution_performed is False
+    assert result.record.state == expected_next
+    assert result.record.generation == record.generation + 1
+    assert result.record.idempotency_records[-1].idempotency_key == request.idempotency_key
+    assert result.record.idempotency_records[-1].lifecycle_action is True
+
+
+def test_durable_run_lifecycle_repeat_is_idempotent_without_second_mutation():
+    record = _durable_record(state=DurableRunState.running)
+    request = _durable_request(
+        DurableRunTransitionKind.pause,
+        "pause-idempotent",
+        expected_state=DurableRunState.running,
+    )
+
+    first = apply_durable_run_transition(record, request)
+    second = apply_durable_run_transition(first.record, request)
+
+    assert first.decision.status == DurableRunTransitionStatus.accepted
+    assert first.record.state == DurableRunState.paused
+    assert second.decision.status == DurableRunTransitionStatus.idempotent_replay
+    assert second.decision.idempotent_replay is True
+    assert second.decision.reason_codes == ["DURABLE_RUN_LIFECYCLE_IDEMPOTENT_REPLAY"]
+    assert second.record == first.record
+    assert second.record.generation == 1
+
+
+def test_durable_run_lifecycle_reused_idempotency_with_different_request_is_denied():
+    record = _durable_record(state=DurableRunState.running)
+    first_request = _durable_request(
+        DurableRunTransitionKind.pause,
+        "pause-conflict",
+        expected_state=DurableRunState.running,
+    )
+    first = apply_durable_run_transition(record, first_request)
+    conflicting_request = _durable_request(
+        DurableRunTransitionKind.resume,
+        "resume-conflict",
+        idempotency_key=first_request.idempotency_key,
+        expected_state=DurableRunState.paused,
+    )
+
+    second = apply_durable_run_transition(first.record, conflicting_request)
+
+    assert first.decision.status == DurableRunTransitionStatus.accepted
+    assert second.decision.status == DurableRunTransitionStatus.denied
+    assert second.record == first.record
+    assert "DURABLE_RUN_IDEMPOTENCY_CONFLICT_DENIED" in second.decision.reason_codes
+
+
+def test_durable_run_tampered_idempotency_record_run_ref_is_denied():
+    record = _durable_record(state=DurableRunState.running)
+    request = _durable_request(
+        DurableRunTransitionKind.pause,
+        "pause-tamper",
+        expected_state=DurableRunState.running,
+    )
+    first = apply_durable_run_transition(record, request)
+    tampered_records = [
+        item.model_copy(update={"run_id": "durable-run:p1-026-other"})
+        for item in first.record.idempotency_records
+    ]
+    tampered = first.record.model_copy(update={"idempotency_records": tampered_records})
+    repeat = evaluate_durable_run_transition(tampered, request)
+
+    assert repeat.status == DurableRunTransitionStatus.denied
+    assert "DURABLE_RUN_RECORD_REVALIDATION_FAILED" in repeat.reason_codes
+
+
+def test_durable_run_lifecycle_stale_expected_state_is_denied():
+    record = _durable_record(state=DurableRunState.paused)
+    request = _durable_request(
+        DurableRunTransitionKind.pause,
+        "pause-stale",
+        expected_state=DurableRunState.running,
+    )
+
+    decision = evaluate_durable_run_transition(record, request)
+
+    assert decision.status == DurableRunTransitionStatus.denied
+    assert decision.stale_request is True
+    assert "DURABLE_RUN_STALE_STATE_DENIED" in decision.reason_codes
+
+
+def test_durable_run_dead_letter_requires_failure_ref_and_keeps_failure_visible():
+    record = _durable_record(state=DurableRunState.blocked)
+    missing_failure = _durable_request(
+        DurableRunTransitionKind.dead_letter,
+        "dead-letter-missing-failure",
+        expected_state=DurableRunState.blocked,
+    )
+    valid = _durable_request(
+        DurableRunTransitionKind.dead_letter,
+        "dead-letter-visible",
+        expected_state=DurableRunState.blocked,
+        failure_ref="failure:p1-026-visible",
+    )
+
+    denied = evaluate_durable_run_transition(record, missing_failure)
+    accepted = apply_durable_run_transition(record, valid)
+
+    assert denied.status == DurableRunTransitionStatus.denied
+    assert "DURABLE_RUN_DEAD_LETTER_REF_REQUIRED" in denied.reason_codes
+    assert accepted.decision.status == DurableRunTransitionStatus.accepted
+    assert accepted.record.state == DurableRunState.dead_lettered
+    assert accepted.record.failure_refs == ["failure:p1-026-visible"]
+
+
+def test_durable_run_repeated_cancel_is_idempotent_even_after_terminal_state():
+    record = _durable_record(state=DurableRunState.running)
+    request = _durable_request(
+        DurableRunTransitionKind.cancel,
+        "cancel-idempotent-terminal",
+        expected_state=DurableRunState.running,
+    )
+
+    first = apply_durable_run_transition(record, request)
+    second = apply_durable_run_transition(first.record, request)
+
+    assert first.record.state == DurableRunState.cancelled
+    assert second.decision.status == DurableRunTransitionStatus.idempotent_replay
+    assert "DURABLE_RUN_TERMINAL_STATE_DENIED" not in second.decision.reason_codes
+    assert second.record == first.record
+
+
 def test_durable_run_replay_ref_reuse_is_denied():
     record = _durable_record(state=DurableRunState.ready, replay_refs=["replay:p1-010-reused"])
     request = _durable_request(

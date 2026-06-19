@@ -10,9 +10,16 @@ ROOT = Path(__file__).resolve().parent.parent
 SMOKE_DOC = "docs/control_center/LOCAL_BROWSER_SMOKE.md"
 SMOKE_REPORTING_DOC = "docs/control_center/LOCAL_BROWSER_SMOKE_REPORTING.md"
 FRONTEND_PACKAGE = "apps/control-center/package.json"
+FRONTEND_APP_TEST = "apps/control-center/src/App.test.tsx"
 CI_WORKFLOW = ".github/workflows/ci.yml"
 
 REQUIRED_DOC_WORDING = [
+    "status: active uaa-p1-032 browser smoke readiness",
+    "first product loop readiness",
+    "real",
+    "mocked",
+    "skipped",
+    "blocked",
     "manual local browser smoke",
     "local-only",
     "localhost",
@@ -31,6 +38,15 @@ REQUIRED_DOC_WORDING = [
     "no remote dispatch button",
     "mock data marked mock",
     "non-authoritative",
+    "open control center",
+    "inspect runtime health and model readiness",
+    "select or approve local gguf model",
+    "use chat shell through uaa `/v1`",
+    "create a task decomposition plan",
+    "approve one safe registered capability",
+    "inspect receipt/audit/latency/rollback status",
+    "raw json must not be the primary ui",
+    "make frontend-check",
 ]
 
 REQUIRED_FRONTEND_SCRIPTS = ["dev", "preview", "typecheck", "lint", "test", "build"]
@@ -74,6 +90,9 @@ FORBIDDEN_DOC_FRAGMENTS = [
 ]
 
 REQUIRED_REPORTING_WORDING = [
+    "status: active uaa-p1-032 browser smoke readiness reporting",
+    "first product loop",
+    "real, mocked, skipped, or blocked",
     "local browser smoke report",
     "local-only",
     "localhost",
@@ -88,6 +107,30 @@ REQUIRED_REPORTING_WORDING = [
     "no action was executed",
     "do not include secrets",
     "do not commit generated screenshots",
+    "open_control_center",
+    "inspect_runtime_health_and_model_readiness",
+    "select_or_approve_local_gguf_model",
+    "chat_shell_through_uaa_v1",
+    "create_task_decomposition_plan",
+    "approve_safe_registered_capability",
+    "inspect_receipt_audit_latency_rollback",
+    "no_raw_json_primary_ui",
+    "blocked_prerequisites_visible",
+    "release_readiness_claimed: no",
+]
+
+REQUIRED_APP_TEST_WORDING = [
+    "covers first product loop browser smoke readiness with truthful mocked and blocked states",
+    'openControlCenter: "mocked"',
+    'inspectRuntimeHealthAndModelReadiness: "mocked"',
+    'selectOrApproveLocalGgufModel: "blocked"',
+    'chatShellThroughUaaV1: "blocked"',
+    'createTaskDecompositionPlan: "blocked"',
+    'approveSafeRegisteredCapability: "mocked"',
+    'inspectReceiptAuditLatencyRollback: "mocked"',
+    "Preview only action request",
+    "No approval was granted from this UI",
+    "Trace detail is redacted summary metadata only",
 ]
 
 FORBIDDEN_TRACKED_FRAGMENTS = [
@@ -108,6 +151,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures: list[str] = []
     failures.extend(_doc_failures(root))
     failures.extend(_package_failures(root))
+    failures.extend(_app_test_failures(root))
     failures.extend(_ci_failures(root))
     failures.extend(_tracked_artifact_failures(root))
     return failures
@@ -151,6 +195,18 @@ def _package_failures(root: Path) -> list[str]:
         f"frontend package missing smoke-readiness script support: {script}"
         for script in REQUIRED_FRONTEND_SCRIPTS
         if script not in scripts
+    ]
+
+
+def _app_test_failures(root: Path) -> list[str]:
+    path = root / FRONTEND_APP_TEST
+    if not path.exists():
+        return [f"missing frontend browser smoke test file: {FRONTEND_APP_TEST}"]
+    text = path.read_text(encoding="utf-8")
+    return [
+        f"frontend browser smoke test missing first-loop marker: {fragment}"
+        for fragment in REQUIRED_APP_TEST_WORDING
+        if fragment not in text
     ]
 
 

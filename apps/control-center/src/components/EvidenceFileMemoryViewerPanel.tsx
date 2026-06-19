@@ -6,6 +6,7 @@ import type {
   MemorySummaryItem,
 } from "../api/types";
 import { EmptyState } from "./DataState";
+import { OperatorSurfaceStates } from "./OperatorSurfaceStates";
 
 export function EvidenceViewerPanel({ knowledge }: { knowledge: M17KnowledgeData }) {
   const [selectedRef, setSelectedRef] = useState(knowledge.evidence[0]?.evidenceRef ?? "");
@@ -22,6 +23,7 @@ export function EvidenceViewerPanel({ knowledge }: { knowledge: M17KnowledgeData
         copy="Evidence views are read-only. They show governed evidence refs, provenance summaries, and related refs without exposing source material."
       />
       <BoundaryNotice knowledge={knowledge} />
+      <OperatorSurfaceStates surface="Evidence" />
       {knowledge.evidence.length > 0 && selected ? (
         <div className="review-layout">
           <div className="review-list" aria-label="Evidence summaries">
@@ -64,6 +66,7 @@ export function FileReferenceViewerPanel({ knowledge }: { knowledge: M17Knowledg
         File writes are not available from this UI. No filesystem browsing is available.
       </p>
       <BoundaryNotice knowledge={knowledge} />
+      <OperatorSurfaceStates surface="Files" />
       {knowledge.fileRefs.length > 0 && selected ? (
         <div className="review-layout">
           <div className="review-list" aria-label="File ref summaries">

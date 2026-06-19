@@ -1,5 +1,6 @@
 import type { RuntimeCapabilityMatrix, RuntimeReadinessReport } from "../api/types";
 import { EmptyState } from "./DataState";
+import { OperatorSurfaceStates } from "./OperatorSurfaceStates";
 
 export function RuntimeReadinessPanel({
   report,
@@ -9,11 +10,11 @@ export function RuntimeReadinessPanel({
   matrix: RuntimeCapabilityMatrix;
 }) {
   const booleans = [
-    ["Production ready", report.production_ready],
-    ["Real model runtime ready", report.real_model_runtime_ready],
-    ["Remote execution ready", report.remote_execution_ready],
-    ["Mobile sensor ready", report.mobile_sensor_ready],
-    ["Plugin/native build ready", report.plugin_or_native_build_ready],
+    ["Production readiness claim", report.production_ready],
+    ["Reviewed local model runtime evidence", report.real_model_runtime_ready],
+    ["Remote execution claim", report.remote_execution_ready],
+    ["Mobile sensor claim", report.mobile_sensor_ready],
+    ["Plugin/native build claim", report.plugin_or_native_build_ready],
   ];
   return (
     <section className="panel" aria-labelledby="runtime-readiness-heading">
@@ -28,6 +29,7 @@ export function RuntimeReadinessPanel({
         Local contract state only. These flags do not claim production runtime, model, remote,
         mobile, or plugin readiness.
       </p>
+      <OperatorSurfaceStates surface="Runtime" />
       <div className="flag-list">
         {booleans.map(([label, value]) => (
           <div key={label.toString()}>

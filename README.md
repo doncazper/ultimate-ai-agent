@@ -13,19 +13,24 @@ allowed to become operational authority.
 | Field | Current state |
 |---|---|
 | Current active baseline | **v0.101.0** |
-| Current program milestone | **Operator Runtime Excellence P1 durable run spine through UAA-P1-010** |
+| Current program milestone | **Operator Runtime Excellence P1 through UAA-P1-033** |
 | Latest accepted checkpoint tag | **checkpoint-m168** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **93** OpenAPI paths |
 | Production readiness | Not claimed |
 
-The product and package baseline is **v0.101.0** / `0.101.0`. This baseline
-includes the accepted Operator Runtime Excellence P0 repair lane and the
-UAA-P1-010 durable run spine contract. It does not publish a public release,
-move historical tags, ship external artifacts, distribute externally, release a
-beta, or grant production authority. Already-pushed tags remain immutable
-historical records.
+The product and package baseline is **v0.101.0** / `0.101.0`. The current P1
+workstream includes the accepted Operator Runtime Excellence P0 repair lane,
+the UAA-P1-010 durable run spine contract, UAA-P1-025 append-first local run
+storage, UAA-P1-026 durable lifecycle contracts, and UAA-P1-027 task
+decomposition durable-run binding, plus the UAA-P1-028 backup/verify/offline
+restore plan, UAA-P1-029 replay-safe receipt hashing, UAA-P1-030 Control Center
+route status manifest, UAA-P1-031 product language rules, UAA-P1-032 browser
+smoke readiness, and UAA-P1-033 accessible operator states. It does not publish
+a public release, move historical tags, ship external artifacts, distribute
+externally, release a beta, or grant production authority. Already-pushed tags
+remain immutable historical records.
 
 The active workstream is the **Operator Runtime Excellence Program**. The latest
 accepted repository checkpoint tag is `checkpoint-m168`, which repairs
@@ -35,6 +40,34 @@ checkpoint tags remain `checkpoint-m166` and `checkpoint-m167`: M166 is an
 exact-scope local model production-readiness gate for the M160-M165
 llama.cpp/OpenWebUI layer, and M167 adds stricter live-evidence hardening
 without granting new production authority beyond the accepted M166 gate.
+Append-first local run storage is now the active P1 durable-state storage lane,
+with local run records and receipt summaries only.
+Durable lifecycle contracts now cover pause, resume, cancel, retry,
+dead-letter, and restart recovery as state-only transitions.
+Task decomposition runs now attach safe durable binding refs for run state,
+approval evidence, receipt summaries, replay validation, restart visibility,
+and explicit idempotency denial without adding runtime authority.
+The backup/restore plan defines the local state minimum set and verification
+flow for offline operator-run restore only; live restore remains unclaimed.
+Receipt summaries now carry replay-safe hash refs and replay validation refs
+over redacted summary data only; literal local locations and private runtime
+content remain outside durable receipt evidence.
+The Control Center route status manifest now records visible action owners,
+auth posture, side-effect classes, risk classes, OpenAPI operation ids, release
+status, approval requirements, and evidence/audit outputs without marking
+unimplemented or unsafe actions as product-ready.
+Control Center product language rules now forbid hidden authority, fake
+completion, raw JSON as the primary operator-critical UI, unsupported
+production/public distribution claims, model/provider output as authority, and
+completed-state language for blocked, skipped, or pending work.
+Browser smoke readiness now covers the first product loop with safe
+mocked/local-only UI checks and explicit blocked states for missing GGUF
+selection, CCC Chat Shell, product Plans, approval binding, latency, and
+rollback prerequisites.
+Control Center accessible operator states now expose loading, error, empty,
+blocked, and denied guidance for Chat Shell, Plans, Models, Approvals, Files,
+Runtime, Evidence, and Settings without adding runtime authority or product
+completion claims.
 
 v0.29.5 is documentation policy polish. It remains the documentation
 organization cleanup baseline before the M26 and M27 implementation releases.
@@ -50,8 +83,13 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [Operator Runtime Excellence roadmap](docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md)
 - [Product release-truth packet](docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md)
 - [Control Center operator-shell gap map](docs/control_center/OPERATOR_SHELL_GAP_MAP.md)
+- [Control Center route status manifest](docs/control_center/ROUTE_STATUS_MANIFEST.md)
+- [Control Center product language rules](docs/control_center/PRODUCT_LANGUAGE_RULES.md)
+- [Control Center browser smoke readiness](docs/control_center/LOCAL_BROWSER_SMOKE.md)
 - [Current Kanban board](docs/kanban/current_board.md)
 - [Durable run spine](docs/execution/DURABLE_RUN_SPINE.md)
+- [Append-first run storage](docs/execution/APPEND_FIRST_RUN_STORAGE.md)
+- [Durable run backup/restore plan](docs/execution/DURABLE_RUN_BACKUP_RESTORE.md)
 - [M34-M60 roadmap supersession](docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md)
 - [M61-M100 roadmap](docs/roadmap/M61_M100_ROADMAP.md)
 - [M101-M150 planned roadmap](docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md)
@@ -173,6 +211,8 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [Local Model Operational Runbook](docs/production/LOCAL_MODEL_OPERATIONAL_RUNBOOK.md)
 - [Release Latency Baseline Harness](docs/production/RELEASE_LATENCY_BASELINE_HARNESS.md)
 - [Control Center Operator Shell Gap Map](docs/control_center/OPERATOR_SHELL_GAP_MAP.md)
+- [Control Center Product Language Rules](docs/control_center/PRODUCT_LANGUAGE_RULES.md)
+- [Control Center Browser Smoke Readiness](docs/control_center/LOCAL_BROWSER_SMOKE.md)
 - [M78 Plugin Manifest Security Model](docs/tooling/PLUGIN_MANIFEST_SECURITY_MODEL.md)
 - [M78 Plugin Manifest Policy](docs/tooling/PLUGIN_MANIFEST_POLICY.md)
 - [M78 Plugin Manifest Authority Boundary](docs/tooling/PLUGIN_MANIFEST_AUTHORITY_BOUNDARY.md)
@@ -682,6 +722,8 @@ Read more:
 - [Frontend safety policy](docs/control_center/FRONTEND_SAFETY_POLICY.md)
 - [Control Center frontend routes](docs/control_center/CONTROL_CENTER_FRONTEND_ROUTES.md)
 - [Operator shell gap map](docs/control_center/OPERATOR_SHELL_GAP_MAP.md)
+- [Product language rules](docs/control_center/PRODUCT_LANGUAGE_RULES.md)
+- [Browser smoke readiness](docs/control_center/LOCAL_BROWSER_SMOKE.md)
 
 ## Roadmap Snapshot
 

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { ApprovalQueueItem, M15ReviewData } from "../api/types";
 import { EmptyState } from "./DataState";
+import { OperatorSurfaceStates } from "./OperatorSurfaceStates";
 
 export function ApprovalQueuePanel({ review }: { review: M15ReviewData }) {
   const [selectedRef, setSelectedRef] = useState(review.approvalQueue[0]?.approvalRef ?? "");
@@ -24,6 +25,7 @@ export function ApprovalQueuePanel({ review }: { review: M15ReviewData }) {
         This UI cannot grant, deny, execute, or bypass approvals. Approval refs are identifiers only
         and never authority. Python Agent Core remains the only approval authority.
       </p>
+      <OperatorSurfaceStates surface="Approvals" />
       <ReviewWarningBar codes={review.warningCodes} />
       {review.approvalQueue.length > 0 && selected ? (
         <div className="review-layout">
