@@ -710,7 +710,7 @@ def _operator_shell_gap_map_failures(root: Path) -> list[str]:
             "status: active uaa-p0-007 operator-shell gap map"
         ),
         "operator-shell gap map must include current API count": (
-            "api boundary: current fastapi manifest has 93 openapi paths"
+            "api boundary: current fastapi manifest has 94 openapi paths"
         ),
         "operator-shell gap map must include exact matrix columns": (
             "| surface | current frontend component/page | current backend route(s) | "

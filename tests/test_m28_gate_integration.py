@@ -39,7 +39,7 @@ def test_m28_openapi_route_guard_rejects_action_execution_routes():
     assert any("/approval/execute" in failure for failure in failures)
     assert any("/tools/execute" in failure for failure in failures)
     assert any("OpenAPI path count" in failure for failure in failures)
-    assert EXPECTED_M28_OPENAPI_PATH_COUNT == 74
+    assert EXPECTED_M28_OPENAPI_PATH_COUNT == 75
     assert m28_openapi_route_failures(app.openapi().get("paths", {})) == []
 
 

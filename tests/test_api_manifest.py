@@ -23,6 +23,7 @@ def test_api_manifest_endpoint_is_metadata_only_and_versioned():
     assert "api_contract_metadata" in manifest["capabilities_declared"]
     assert "local_loopback_gateway_explicit_bearer_required" in manifest["capabilities_declared"]
     assert "local_loopback_gateway_allowlisted_response_shape" in manifest["capabilities_declared"]
+    assert "file_api_safe_tree_preview_refs" in manifest["capabilities_declared"]
     assert manifest["route_count"] >= 43
     assert any(route["path"] == "/api/manifest" and route["method"] == "GET" for route in manifest["routes"])
 
@@ -38,8 +39,10 @@ def test_api_manifest_route_inventory_has_stable_operation_ids_and_side_effect_c
     assert all(route["blocked_from_production"] is True for route in manifest["routes"])
     routes_by_path = {route["path"]: route for route in manifest["routes"]}
     assert routes_by_path["/v1/chat/completions"]["side_effect_class"] == "local_dev_workspace_only"
+    assert routes_by_path["/files/tree/preview"]["side_effect_class"] == "local_dev_workspace_only"
     assert routes_by_path["/files/read/preview"]["side_effect_class"] == "local_dev_workspace_only"
     assert "file_api_caller_selected_roots" in manifest["capabilities_blocked"]
+    assert "file_api_raw_tree_paths" in manifest["capabilities_blocked"]
     assert "file_api_raw_content_write_payload" in manifest["capabilities_blocked"]
     assert "secret_api_raw_secret_values" in manifest["capabilities_blocked"]
     assert "local_loopback_default_bearer" in manifest["capabilities_blocked"]

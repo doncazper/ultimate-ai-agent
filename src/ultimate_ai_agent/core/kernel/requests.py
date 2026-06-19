@@ -32,6 +32,7 @@ class KernelTaskRequest(BaseModel):
     purpose: str = Field(..., min_length=1)
     consent_grants: List[ConsentGrant] = Field(default_factory=list)
     approval_ref: Optional[str] = None
+    workspace_approval_ref: Optional[str] = None
     idempotency_key: Optional[str] = None
     expected_existing_hash: Optional[str] = None
     data_classification: DataBoundary = DataBoundary.project_private

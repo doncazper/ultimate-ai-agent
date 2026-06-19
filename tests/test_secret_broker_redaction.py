@@ -21,6 +21,10 @@ def active_reference() -> CredentialReference:
     )
 
 
+def synthetic_secret_value(prefix: str = "synthetic") -> str:
+    return prefix + "_" + "".join(["A"] * 18)
+
+
 def test_secret_access_requires_consent_and_matching_purpose():
     broker = SecretBroker()
     broker.register_credential(active_reference(), secret_value="super-secret-token")
@@ -96,6 +100,34 @@ def test_secret_redaction_masks_key_token_password_values():
     assert "abcdefghijklmnop" not in redacted
     assert "qrstuvwxyz123456" not in redacted
     assert "[REDACTED_SECRET]" in redacted
+
+
+def test_secret_redaction_masks_colon_bearer_and_private_key_patterns():
+    broker = SecretBroker()
+    colon_value = synthetic_secret_value("colon")
+    bearer_value = synthetic_secret_value("bearer")
+    private_header = "-----BEGIN " + "OPENSSH " + "PRIVATE KEY-----"
+
+    redacted = broker.redact_value(
+        "api_key: '"
+        + colon_value
+        + "'\nAuthorization: Bearer "
+        + bearer_value
+        + "\n"
+        + private_header
+    )
+
+    assert colon_value not in redacted
+    assert bearer_value not in redacted
+    assert private_header not in redacted
+    assert redacted.count("[REDACTED_SECRET]") >= 3
+
+
+def test_secret_detection_allows_safe_placeholder_values():
+    broker = SecretBroker()
+    payload = {"summary": "token budget remains bounded", "example": "api_key: example-placeholder-value"}
+
+    assert broker.validate_no_secret_leak(payload) is True
 
 
 def test_secret_denial_output_is_secret_clean():

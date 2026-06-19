@@ -1,6 +1,6 @@
 from types import SimpleNamespace
 
-from tests.test_kernel_minimum_lovable_happy_path import request
+from tests.test_kernel_minimum_lovable_happy_path import grant_workspace_patch_for_kernel_request, request
 from ultimate_ai_agent.core.approvals import ApprovalRiskLevel, ApprovalSubjectType, LocalApprovalAuthority
 from ultimate_ai_agent.core.kernel import KernelTaskStatus, MinimumKernelRunner
 
@@ -27,9 +27,15 @@ def test_kernel_accepts_valid_local_dev_approval_grant(tmp_path):
         )
     )
     grant = authority.grant(approval_request.approval_request_id, approved_by_actor_id="human_reviewer")
+    workspace_grant = grant_workspace_patch_for_kernel_request(authority, kernel_request)
 
     result = MinimumKernelRunner(approval_authority=authority).run_task(
-        kernel_request.model_copy(update={"approval_ref": grant.approval_ref})
+        kernel_request.model_copy(
+            update={
+                "approval_ref": grant.approval_ref,
+                "workspace_approval_ref": workspace_grant.approval_ref,
+            }
+        )
     )
 
     assert result.success is True

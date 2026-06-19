@@ -55,10 +55,6 @@ UAA-P1-011 Task decomposition operator loop
 Goal: plan, approve, execute safe registered handlers, inspect audit summaries,
 and replay validation from Control Center.
 
-UAA-P1-012 Local workspace workbench v1
-Goal: file tree refs, bounded previews, patch proposals, atomic apply,
-rollback, and approval-bound mutation without shell execution.
-
 UAA-P1-013 Release verification lanes
 Goal: named lanes for security, docs, API compatibility, durability, local
 model E2E, performance, redaction, and product-surface smoke.
@@ -191,6 +187,40 @@ credential rotation, rollback, offline mode, safe evidence collection,
 blocked/unknown model state, and safe-disable recovery are documented in
 `docs/production/LOCAL_MODEL_OPERATIONAL_RUNBOOK.md` with safe, degraded,
 blocked, and unsupported state semantics.
+
+UAA-P1-012 Local workspace workbench v1
+Gate met: `/files/tree/preview` exposes bounded safe tree refs with raw paths
+omitted, file previews remain bounded and redacted, unsafe access fails safely,
+write proposal/diff paths stay approval-bound and idempotency-aware, and no
+shell/subprocess authority is introduced.
+
+UAA-P1-034 Patch proposal contracts
+Gate met: typed patch proposals bind exact safe file refs, safe path refs,
+expected content hashes, approval scope refs, audit refs, idempotency keys,
+expiration checks, redacted previews, and rollback capture; apply is denied
+without exact LocalApprovalAuthority validation, stale proposals and duplicate
+applies fail safely, and unsafe diff content is blocked.
+
+UAA-P1-035 Atomic apply and rollback receipts
+Gate met: approval-bound patch apply uses atomic replacement with preimage and
+postimage safe refs, emits redacted mutation receipts, records redacted rollback
+receipts, blocks duplicate apply and rollback attempts by idempotency, and leaves
+failed apply/rollback attempts inspectable without storing raw content or raw
+paths.
+
+UAA-P1-036 Secret-like diff blocking and redacted preview
+Gate met: workspace write and patch proposal paths block high-confidence
+secret-like diff content before approval or apply, read previews redact
+secret-like values, safe placeholders and planning text remain allowed, and
+decision/result evidence uses safe refs and redacted summaries without raw
+secret-like values.
+
+UAA-P1-037 Approval-bound workspace mutation only
+Gate met: direct workspace write and rollback helpers deny mutation, patch
+apply passes the workspace mutation PolicyEngine gate before requiring exact
+LocalApprovalAuthority validation, rollback requires exact approval-bound
+receipt flow, approval bypass attempts are tested, and shell/subprocess
+mutation paths remain unavailable.
 ```
 
 ## ASAP Sequence

@@ -2,7 +2,7 @@
 
 Current active baseline: **v1.2.0-alpha**
 
-Current OpenAPI path count: `93`.
+Current OpenAPI path count: `94`.
 
 The API route inventory is generated from FastAPI route metadata and exposed by
 `/api/manifest`. The manifest route count is the authoritative current count;

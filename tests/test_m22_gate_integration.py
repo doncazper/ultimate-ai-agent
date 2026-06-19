@@ -18,7 +18,7 @@ def test_m22_local_runtime_activation_contract_criterion_exists_and_passes():
     assert "contract-only" in criterion.pass_condition
     assert "no model was called" in criterion.pass_condition
     assert "no runtime was activated" in criterion.pass_condition
-    assert "OpenAPI path count at 74" in criterion.pass_condition
+    assert "OpenAPI path count at 75" in criterion.pass_condition
     assert "M23 planned" in criterion.pass_condition
 
     report = FoundationGateEvaluator().evaluate([criterion])
@@ -41,7 +41,7 @@ def test_m22_openapi_route_guard_rejects_activation_or_probe_routes():
         expected_path_count=EXPECTED_M22_OPENAPI_PATH_COUNT,
     )
 
-    assert EXPECTED_M22_OPENAPI_PATH_COUNT == 74
+    assert EXPECTED_M22_OPENAPI_PATH_COUNT == 75
     assert "/runtime/activate" in M22_FORBIDDEN_BACKEND_ROUTES
     assert "/model-runtime/probe" in M22_FORBIDDEN_BACKEND_ROUTES
     assert "/model-runtime/local/call" in M22_FORBIDDEN_BACKEND_ROUTES

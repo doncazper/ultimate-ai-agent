@@ -25,7 +25,7 @@ def test_m21_openwebui_bridge_contract_criterion_exists_and_passes():
     assert "no direct tool execution" in criterion.pass_condition
     assert "no direct memory write" in criterion.pass_condition
     assert "no runtime execution" in criterion.pass_condition
-    assert "OpenAPI path count at 74" in criterion.pass_condition
+    assert "OpenAPI path count at 75" in criterion.pass_condition
     assert "M22 is now contract-only" in criterion.pass_condition
 
     report = FoundationGateEvaluator().evaluate([criterion])
@@ -49,7 +49,7 @@ def test_m21_openapi_route_guard_rejects_openwebui_runtime_expansion():
         expected_path_count=EXPECTED_M21_OPENAPI_PATH_COUNT,
     )
 
-    assert EXPECTED_M21_OPENAPI_PATH_COUNT == 74
+    assert EXPECTED_M21_OPENAPI_PATH_COUNT == 75
     assert "/openwebui" in M21_FORBIDDEN_BACKEND_ROUTES
     assert "/openwebui/bridge" in M21_FORBIDDEN_BACKEND_ROUTES
     assert "/openwebui/execute" in M21_FORBIDDEN_BACKEND_ROUTES

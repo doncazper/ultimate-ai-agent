@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from ultimate_ai_agent.core.approvals import ApprovalRiskLevel, ApprovalSubjectType, LocalApprovalAuthority
 from ultimate_ai_agent.core.consent import ConsentGrant
 from ultimate_ai_agent.core.consent.enums import ConsentScopeType, ConsentSubjectType, DataBoundary, PermissionAction
+from ultimate_ai_agent.core.files import FileKind, FilePatchProposal, FileSensitivity, LocalFileManager
 from ultimate_ai_agent.core.hygiene.actor_context import ActorContext, ActorType, AuthoritySource
 from ultimate_ai_agent.core.kernel import KernelTaskRequest, KernelTaskStatus, KernelTaskType, MinimumKernelRunner
 from ultimate_ai_agent.core.ledger.validation import scan_payload_for_secrets
@@ -148,6 +149,55 @@ def _grant_for_request(authority: LocalApprovalAuthority, request: KernelTaskReq
     return authority.grant(approval_request.approval_request_id, approved_by_actor_id="foundation_gate")
 
 
+def _grant_workspace_patch_for_request(authority: LocalApprovalAuthority, request: KernelTaskRequest):
+    manager = LocalFileManager(request.workspace_root)
+    current_ref = manager.build_file_ref(request.target_path)
+    patch = FilePatchProposal(
+        proposal_id=f"file-patch-proposal:kernel:{request.request_id}",
+        run_id=request.run_id,
+        actor_context=request.actor_context,
+        file_ref=current_ref.file_ref,
+        target_path=request.target_path,
+        purpose=request.purpose,
+        new_content=request.new_content or "",
+        expected_existing_hash=request.expected_existing_hash or current_ref.content_hash,
+        file_kind=FileKind.artifact,
+        sensitivity=FileSensitivity.project_private,
+        risk_class=ApprovalRiskLevel.high,
+        idempotency_key=request.idempotency_key,
+        audit_ref=f"file-patch-audit:{request.request_id}",
+    )
+    approval_request = manager.approval_request_for_patch(patch)
+    authority.create_request(approval_request)
+    return authority.grant(
+        approval_request.approval_request_id,
+        approved_by_actor_id="foundation_gate",
+        approved_actions=[approval_request.requested_action],
+        approved_resource_refs=approval_request.resource_refs,
+    )
+
+
+def _grant_workspace_rollback_for_request(
+    authority: LocalApprovalAuthority,
+    runner: MinimumKernelRunner,
+    request: KernelTaskRequest,
+):
+    manager = runner._file_manager(request.workspace_root)
+    approval_request = manager.approval_request_for_rollback(
+        manager.get_rollback_plan(request.rollback_ref),
+        run_id=request.run_id,
+        actor_context=request.actor_context,
+        purpose=request.purpose,
+    )
+    authority.create_request(approval_request)
+    return authority.grant(
+        approval_request.approval_request_id,
+        approved_by_actor_id="foundation_gate",
+        approved_actions=[approval_request.requested_action],
+        approved_resource_refs=approval_request.resource_refs,
+    )
+
+
 def run_m5_shadow_replay(
     scenario: Optional[ShadowReplayScenario] = None,
     *,
@@ -183,7 +233,13 @@ def _run_m5_shadow_replay_at(
     )
     if not denial_path:
         grant = _grant_for_request(approval_authority, shadow_request)
-        shadow_request = shadow_request.model_copy(update={"approval_ref": grant.approval_ref})
+        workspace_grant = _grant_workspace_patch_for_request(approval_authority, shadow_request)
+        shadow_request = shadow_request.model_copy(
+            update={
+                "approval_ref": grant.approval_ref,
+                "workspace_approval_ref": workspace_grant.approval_ref,
+            }
+        )
     result = runner.run_task(shadow_request)
     events = runner.event_ledger.list_events(result.run_id)
     event_names = [str(event.event_name) for event in events]
@@ -219,7 +275,17 @@ def _run_m5_shadow_replay_at(
         if scan_payload_for_secrets(result.model_dump(mode="json")):
             failures.append("shadow replay result leaked secret-like payload")
         if result.rollback_ref:
-            rollback_result = runner.run_task(_rollback_request(workspace_root, result.rollback_ref))
+            rollback_request = _rollback_request(workspace_root, result.rollback_ref).model_copy(
+                update={"run_id": "run_shadow_m5_rollback"}
+            )
+            rollback_grant = _grant_workspace_rollback_for_request(
+                approval_authority,
+                runner,
+                rollback_request,
+            )
+            rollback_result = runner.run_task(
+                rollback_request.model_copy(update={"workspace_approval_ref": rollback_grant.approval_ref})
+            )
             rollback_verified = (
                 str(rollback_result.status) == str(KernelTaskStatus.completed.value)
                 and target.exists()

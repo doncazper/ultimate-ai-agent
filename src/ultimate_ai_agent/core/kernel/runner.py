@@ -5,16 +5,16 @@ from typing import Callable, Dict, Optional
 
 from pydantic import ValidationError
 
-from ultimate_ai_agent.core.approvals import LocalApprovalAuthority
+from ultimate_ai_agent.core.approvals import ApprovalRiskLevel, LocalApprovalAuthority
 from ultimate_ai_agent.core.consent.decisions import ConsentQuery
 from ultimate_ai_agent.core.consent.enums import DataBoundary, PermissionAction, PermissionRisk
 from ultimate_ai_agent.core.consent.ledger import ConsentLedger
 from ultimate_ai_agent.core.contracts.context_pack import ContextPack
 from ultimate_ai_agent.core.contracts.enums import AgentMode, AutonomyLevel, ContractStatus, GroundingMode, RiskLevel, TaskClass
 from ultimate_ai_agent.core.contracts.execution_contract import ExecutionContract
-from ultimate_ai_agent.core.files.enums import FileKind, FileSensitivity
+from ultimate_ai_agent.core.files.enums import FileKind, FileOperation, FileOperationStatus, FileSensitivity
 from ultimate_ai_agent.core.files.manager import LocalFileManager
-from ultimate_ai_agent.core.files.operations import FileWriteProposal
+from ultimate_ai_agent.core.files.operations import FileChange, FilePatchApplyResult, FilePatchProposal, FileWriteProposal
 from ultimate_ai_agent.core.hygiene.policies import (
     ClassificationValue,
     DataClassification,
@@ -190,7 +190,27 @@ class MinimumKernelRunner:
                 write_decision=write_decision,
             )
 
-        file_change = manager.apply_write(proposal)
+        patch_proposal = self._build_file_patch_proposal(request, run_id, manager)
+        patch_result = manager.apply_patch_proposal(patch_proposal, approval_authority=self.approval_authority)
+        if not patch_result.allowed:
+            failed_status = (
+                KernelTaskStatus.approval_required
+                if any("APPROVAL" in reason for reason in patch_result.reason_codes)
+                else KernelTaskStatus.blocked
+            )
+            return self._fail_with_receipt(
+                request,
+                run_id,
+                trace_id,
+                failed_status,
+                patch_result.safe_message,
+                patch_result.reason_codes,
+                tool_decision=tool_decision,
+                consent_decision=consent_decision,
+                write_decision=write_decision,
+                redactions=patch_result.redactions_applied,
+            )
+        file_change = self._file_change_from_patch_result(request, patch_result)
         self._append_event(
             request,
             run_id,
@@ -238,7 +258,39 @@ class MinimumKernelRunner:
         try:
             manager = self._file_manager(request.workspace_root)
             rollback_plan = manager.get_rollback_plan(request.rollback_ref)
-            file_change = manager.rollback(rollback_plan)
+            rollback_receipt = manager.rollback_with_receipt(
+                rollback_plan,
+                audit_ref=f"file-rollback-audit:{request.request_id}",
+                idempotency_key=request.idempotency_key or f"idem_{run_id}",
+                approval_ref=request.workspace_approval_ref or request.approval_ref,
+                approval_authority=self.approval_authority,
+                run_id=run_id,
+                actor_context=request.actor_context,
+                purpose=request.purpose,
+            )
+            if rollback_receipt.status != FileOperationStatus.rolled_back:
+                status = (
+                    KernelTaskStatus.approval_required
+                    if any("APPROVAL" in reason for reason in rollback_receipt.reason_codes)
+                    else KernelTaskStatus.failed
+                )
+                return self._fail_with_receipt(
+                    request,
+                    run_id,
+                    trace_id,
+                    status,
+                    rollback_receipt.safe_message,
+                    rollback_receipt.reason_codes,
+                    redactions=rollback_receipt.redactions_applied,
+                )
+            file_change = FileChange(
+                change_id=f"chg_{uuid.uuid4().hex[:10]}",
+                target_path=rollback_plan.target_path,
+                operation=FileOperation.rollback,
+                diff_summary=rollback_receipt.safe_message,
+                applied_at=rollback_receipt.created_at,
+                rollback_ref=rollback_receipt.rollback_ref,
+            )
             self._append_event(
                 request,
                 run_id,
@@ -551,6 +603,47 @@ class MinimumKernelRunner:
             sensitivity=FileSensitivity(request.data_classification.value),
             idempotency_key=request.idempotency_key,
             approval_ref=request.approval_ref,
+        )
+
+    def _build_file_patch_proposal(
+        self,
+        request: KernelTaskRequest,
+        run_id: str,
+        manager: LocalFileManager,
+    ) -> FilePatchProposal:
+        target_path = request.target_path or ""
+        current_ref = manager.build_file_ref(target_path)
+        return FilePatchProposal(
+            proposal_id=f"file-patch-proposal:kernel:{request.request_id}",
+            run_id=run_id,
+            actor_context=request.actor_context,
+            file_ref=current_ref.file_ref,
+            target_path=target_path,
+            purpose=request.purpose,
+            new_content=request.new_content or "",
+            expected_existing_hash=request.expected_existing_hash or current_ref.content_hash,
+            file_kind=FileKind.artifact,
+            sensitivity=FileSensitivity(request.data_classification.value),
+            risk_class=ApprovalRiskLevel.high,
+            idempotency_key=request.idempotency_key or f"idem_{run_id}",
+            audit_ref=f"file-patch-audit:{request.request_id}",
+            approval_ref=request.workspace_approval_ref,
+        )
+
+    def _file_change_from_patch_result(
+        self,
+        request: KernelTaskRequest,
+        patch_result: FilePatchApplyResult,
+    ) -> FileChange:
+        return FileChange(
+            change_id=patch_result.change_id,
+            target_path=request.target_path or patch_result.target_ref,
+            operation=FileOperation.apply_write,
+            before_hash=patch_result.before_hash,
+            after_hash=patch_result.after_hash,
+            diff_summary="Patch applied through approval-bound workspace mutation contract.",
+            applied_at=patch_result.applied_at,
+            rollback_ref=patch_result.rollback_ref,
         )
 
     def _write_memory(self, request: KernelTaskRequest, run_id: str, file_ref: str, rollback_ref: Optional[str]):

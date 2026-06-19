@@ -74,6 +74,7 @@ from ultimate_ai_agent.core.files import (
     FileReadRequest,
     FileRef,
     FileSensitivity,
+    FileTreePreviewRequest,
     FileWriteDecision,
     LocalFileManager,
 )
@@ -1702,6 +1703,12 @@ class FileReadPreviewAPIRequest(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
+class FileTreePreviewAPIRequest(BaseModel):
+    safe_root_ref: str = FILE_API_DEFAULT_SAFE_ROOT_REF
+    request: FileTreePreviewRequest
+
+    model_config = ConfigDict(extra="forbid")
+
 class FileWriteAPIProposal(BaseModel):
     proposal_id: str
     run_id: str
@@ -2200,6 +2207,40 @@ def post_preview_file_read(req: FileReadPreviewAPIRequest):
             service="FileManagerAPI",
             trace_id=req.request.run_id,
             error=err,
+        )
+
+@app.post("/files/tree/preview", response_model=ResultEnvelope)
+def post_preview_file_tree(req: FileTreePreviewAPIRequest):
+    try:
+        requested_ref = req.request.root_path or ""
+        if contains_secret_like(requested_ref):
+            raise ValueError("FILE_TREE_REF_UNSAFE")
+        preview = _file_manager_for_safe_root(req.safe_root_ref).preview_tree(req.request)
+        return ResultEnvelope(
+            success=True,
+            operation="preview_file_tree",
+            service="FileManagerAPI",
+            trace_id=req.request.run_id,
+            data=preview.model_dump(mode="json"),
+            redactions_applied=["raw_paths_omitted", "safe_refs_only"],
+        )
+    except Exception:
+        err = ErrorEnvelope(
+            code="FILE_TREE_PREVIEW_FAILED",
+            category=ErrorCategory.validation_error,
+            safe_message=safe_exception_message("REQUEST_PROCESSING_FAILED"),
+            severity=Severity.medium,
+            retryable=False,
+            details_redacted=True,
+            source="FileManagerAPI",
+        )
+        return ResultEnvelope(
+            success=False,
+            operation="preview_file_tree",
+            service="FileManagerAPI",
+            trace_id=req.request.run_id,
+            error=err,
+            redactions_applied=["raw_paths_omitted", "safe_refs_only"],
         )
 
 @app.post("/files/write/propose", response_model=ResultEnvelope)

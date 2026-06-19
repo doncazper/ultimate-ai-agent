@@ -27,6 +27,7 @@ CAPABILITIES_DECLARED = [
     "task_decomposition_capability_registry",
     "task_decomposition_local_approval_capture",
     "file_api_server_owned_safe_root_refs",
+    "file_api_safe_tree_preview_refs",
     "secret_api_reference_only_handles",
 ]
 
@@ -53,6 +54,7 @@ CAPABILITIES_BLOCKED = [
     "local_loopback_default_bearer",
     "local_loopback_raw_provider_payload_passthrough",
     "file_api_caller_selected_roots",
+    "file_api_raw_tree_paths",
     "file_api_raw_diff_return",
     "file_api_raw_content_write_payload",
     "secret_api_raw_secret_values",

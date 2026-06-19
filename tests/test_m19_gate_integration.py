@@ -19,7 +19,7 @@ def test_m19_mobile_companion_contract_criterion_exists_and_passes():
     assert "external sends" in criterion.pass_condition
     assert "OS permission integration" in criterion.pass_condition
     assert "background services" in criterion.pass_condition
-    assert "OpenAPI path count at 74" in criterion.pass_condition
+    assert "OpenAPI path count at 75" in criterion.pass_condition
     assert "M20 planned" in criterion.pass_condition
 
     report = FoundationGateEvaluator().evaluate([criterion])
@@ -41,7 +41,7 @@ def test_m19_openapi_route_guard_rejects_mobile_runtime_expansion():
         expected_path_count=EXPECTED_M19_OPENAPI_PATH_COUNT,
     )
 
-    assert EXPECTED_M19_OPENAPI_PATH_COUNT == 74
+    assert EXPECTED_M19_OPENAPI_PATH_COUNT == 75
     assert "/mobile/register" in M19_FORBIDDEN_BACKEND_ROUTES
     assert "/mobile/sensors" in M19_FORBIDDEN_BACKEND_ROUTES
     assert "/mobile/approvals/execute" in M19_FORBIDDEN_BACKEND_ROUTES

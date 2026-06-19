@@ -17,7 +17,7 @@ allowed to become operational authority.
 | Latest accepted checkpoint tag | **checkpoint-m168** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
-| API boundary | FastAPI route contract with **93** OpenAPI paths |
+| API boundary | FastAPI route contract with **94** OpenAPI paths |
 | Production readiness | Not claimed |
 
 The product and package baseline is **v2.0.0** / `2.0.0`. This is a fresh

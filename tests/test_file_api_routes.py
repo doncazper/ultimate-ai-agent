@@ -100,6 +100,63 @@ def test_file_read_preview_endpoint_does_not_echo_hostile_path_or_secret(monkeyp
     assert hostile_path not in response.text
 
 
+def test_file_tree_preview_endpoint_returns_safe_refs_only(monkeypatch, tmp_path: Path):
+    monkeypatch.setenv("UAA_FILE_API_SAFE_ROOT", str(tmp_path))
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "visible.txt").write_text("hello", encoding="utf-8")
+
+    response = client.post(
+        "/files/tree/preview",
+        json={
+            "request": {
+                "request_id": "ftp_api",
+                "run_id": "run_123",
+                "actor_context": actor_payload(),
+                "root_path": "docs",
+                "purpose": "safe tree preview",
+                "max_depth": 1,
+                "max_entries": 10,
+            },
+        },
+    )
+
+    body = response.json()
+    assert response.status_code == 200
+    assert body["success"] is True
+    assert body["data"]["root_ref"].startswith("file_tree_")
+    assert body["data"]["entries"][0]["entry_ref"].startswith("file_tree_")
+    assert "raw_paths_omitted" in body["data"]["redactions_applied"]
+    assert "safe_refs_only" in body["data"]["redactions_applied"]
+    assert "docs" not in response.text
+    assert "visible.txt" not in response.text
+    assert "hello" not in response.text
+
+
+def test_file_tree_preview_endpoint_does_not_echo_hostile_root_or_secret(monkeypatch, tmp_path: Path):
+    monkeypatch.setenv("UAA_FILE_API_SAFE_ROOT", str(tmp_path))
+    hostile_root = "notes/api_key=supersecretvalue123"
+
+    response = client.post(
+        "/files/tree/preview",
+        json={
+            "request": {
+                "request_id": "ftp_hostile",
+                "run_id": "run_123",
+                "actor_context": actor_payload(),
+                "root_path": hostile_root,
+                "purpose": "safe tree preview",
+                "max_depth": 1,
+                "max_entries": 10,
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["success"] is False
+    assert "supersecretvalue123" not in response.text
+    assert hostile_root not in response.text
+
+
 def test_file_write_propose_and_diff_preview_endpoints_are_safe(monkeypatch, tmp_path: Path):
     monkeypatch.setenv("UAA_FILE_API_SAFE_ROOT", str(tmp_path))
     payload = {

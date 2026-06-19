@@ -4,6 +4,7 @@ from types import SimpleNamespace
 from ultimate_ai_agent.core.approvals import ApprovalRiskLevel, ApprovalSubjectType, LocalApprovalAuthority
 from ultimate_ai_agent.core.consent import ConsentGrant
 from ultimate_ai_agent.core.consent.enums import ConsentScopeType, ConsentSubjectType, DataBoundary, PermissionAction
+from ultimate_ai_agent.core.files import FileKind, FilePatchProposal, FileSensitivity, LocalFileManager
 from ultimate_ai_agent.core.hygiene.actor_context import ActorContext, ActorType, AuthoritySource
 from ultimate_ai_agent.core.kernel import KernelTaskRequest, KernelTaskStatus, KernelTaskType, MinimumKernelRunner
 from ultimate_ai_agent.core.memory import MemoryStore
@@ -75,14 +76,50 @@ def grant_for_kernel_request(authority: LocalApprovalAuthority, kernel_request: 
     return authority.grant(approval_request.approval_request_id, approved_by_actor_id="human_reviewer")
 
 
+def grant_workspace_patch_for_kernel_request(authority: LocalApprovalAuthority, kernel_request: KernelTaskRequest):
+    manager = LocalFileManager(kernel_request.workspace_root)
+    current_ref = manager.build_file_ref(kernel_request.target_path)
+    patch = FilePatchProposal(
+        proposal_id=f"file-patch-proposal:kernel:{kernel_request.request_id}",
+        run_id=kernel_request.run_id,
+        actor_context=kernel_request.actor_context,
+        file_ref=current_ref.file_ref,
+        target_path=kernel_request.target_path,
+        purpose=kernel_request.purpose,
+        new_content=kernel_request.new_content or "",
+        expected_existing_hash=kernel_request.expected_existing_hash or current_ref.content_hash,
+        file_kind=FileKind.artifact,
+        sensitivity=FileSensitivity.project_private,
+        risk_class=ApprovalRiskLevel.high,
+        idempotency_key=kernel_request.idempotency_key,
+        audit_ref=f"file-patch-audit:{kernel_request.request_id}",
+    )
+    approval_request = manager.approval_request_for_patch(patch)
+    authority.create_request(approval_request)
+    return authority.grant(
+        approval_request.approval_request_id,
+        approved_by_actor_id="human_reviewer",
+        approved_actions=[approval_request.requested_action],
+        approved_resource_refs=approval_request.resource_refs,
+    )
+
+
 def test_minimum_lovable_kernel_happy_path_writes_receipts_and_memory(tmp_path):
     memory_store = MemoryStore()
     kernel_request = request(tmp_path).model_copy(update={"run_id": "run_kernel_happy", "approval_ref": None})
     authority = LocalApprovalAuthority()
     grant = grant_for_kernel_request(authority, kernel_request)
+    workspace_grant = grant_workspace_patch_for_kernel_request(authority, kernel_request)
     runner = MinimumKernelRunner(memory_store=memory_store, approval_authority=authority)
 
-    result = runner.run_task(kernel_request.model_copy(update={"approval_ref": grant.approval_ref}))
+    result = runner.run_task(
+        kernel_request.model_copy(
+            update={
+                "approval_ref": grant.approval_ref,
+                "workspace_approval_ref": workspace_grant.approval_ref,
+            }
+        )
+    )
 
     assert result.success is True
     assert result.status == KernelTaskStatus.completed

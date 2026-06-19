@@ -86,8 +86,9 @@ def test_control_center_openapi_routes_and_operation_ids_are_safe():
     assert "/v1/models" in paths
     assert "/v1/chat/completions" in paths
     assert "/task-decomposition/run" in paths
-    assert len(paths) == 93
-    assert len(operation_ids) == len(set(operation_ids)) == 93
+    assert "/files/tree/preview" in paths
+    assert len(paths) == 94
+    assert len(operation_ids) == len(set(operation_ids)) == 94
 
 
 def test_control_center_operator_shell_gap_map_is_current_and_safe():
@@ -96,7 +97,7 @@ def test_control_center_operator_shell_gap_map_is_current_and_safe():
     compact = " ".join(text.lower().split())
 
     assert "status: active uaa-p0-007 operator-shell gap map" in compact
-    assert "api boundary: current fastapi manifest has 93 openapi paths" in compact
+    assert "api boundary: current fastapi manifest has 94 openapi paths" in compact
     assert (
         "| surface | current frontend component/page | current backend route(s) | "
         "missing backend route(s) | authority boundary | side-effect class | "
@@ -121,6 +122,7 @@ def test_control_center_operator_shell_gap_map_is_current_and_safe():
         "`post /v1/chat/completions`",
         "`post /task-decomposition/classify`",
         "`post /task-decomposition/decompose`",
+        "`post /files/tree/preview`",
         "`post /files/read/preview`",
         "`get /control-center/routes`",
     ]:
