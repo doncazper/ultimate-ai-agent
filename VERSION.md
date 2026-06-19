@@ -1,20 +1,29 @@
 # Ultimate AI Agent Version
 
-Current active baseline: **v1.2.0-alpha**
+Current active baseline: **v2.0.0**
 
-M150 is implemented/released as Ultimate AI Agent v1.2.0-alpha target
-acceptance. The package baseline is v1.2.0-alpha for this contract-first
-conveyor run after the orchestration efficiency layer currentness repair.
-Already-pushed tags remain
-immutable historical internal milestone tags. Beta begins only after the alpha
-UI and supporting safety/product work are reviewed, accepted, and explicitly
-promoted by a later roadmap patch.
+v2.0.0 is the fresh currentness and production-readiness documentation baseline
+for the accepted Operator Runtime Excellence P0 repair lane. It keeps the
+repository contract-first, review-gated, local-first, and non-production by
+default. Already-pushed tags remain immutable historical internal milestone
+tags. Beta and public distribution begin only after supporting safety/product
+work is reviewed, accepted, and explicitly promoted by a later roadmap patch.
 
-v1.2.0-alpha adds the contract-only Orchestration Efficiency Layer and aligns
-the active alpha target with the active package baseline. It adds no dependency,
-backend route, Control Center control, provider/model call, shell/subprocess
-execution, network access, browser automation, tool execution authority, memory
-write, context injection, beta release, or production authority.
+Latest accepted checkpoint tag: **checkpoint-m168**.
+The latest accepted local model lane checkpoint tags remain **checkpoint-m166**
+and **checkpoint-m167**. Those post-M150 checkpoints extend the scoped local
+model lane through the M166 production-readiness gate and M167 live-evidence
+hardening. The active Operator Runtime Excellence Program starts at M168 with
+currentness/product truth repair and is now consolidated under the v2.0.0
+product/package baseline.
+
+v2.0.0 consolidates the current README, roadmap/status docs, release-truth
+packet, public security posture, M167 evidence scaffolding, local model smoke
+harness, release latency baseline, and Control Center operator-shell gap map
+under one active baseline. It adds no dependency, backend route, Control Center
+control, provider/model call, shell/subprocess execution, network access,
+browser automation, tool execution authority, memory write, context injection,
+beta release, public distribution, or production authority.
 
 M150 is contract-only, review-only, alpha-target-only, deterministic,
 local-only, safe-ref-only, disabled by default, route-free, and no-effect. It
@@ -529,4 +538,12 @@ alpha release, beta release, M142 alpha privacy review work, broad autonomy,
 and production authority.
 
 M101, M102, M103, M104, M105, M106, M107, M108, M109, M110, M111, M112, M113, M114, M115, M116, M117, M118, M119, M120, M121, M122, M123, M124, M125, M126, M127, M128, M129, M130, M131, M132, M133, M134, M135, M136, M137, M138, M139, M140, M141, M142, M143, M144, M145, M146, M147, M148, M149, and M150 are implemented/released. M150 records
-v1.2.0-alpha target acceptance, not beta.
+v1.2.0-alpha target acceptance, not beta. M151-M167 are accepted post-M150
+checkpoints for the local OpenWebUI shell, local model management lane, local
+model production-readiness gate, and live model production hardening. M168 is
+active currentness work under the Operator Runtime Excellence Program and adds
+no production authority, public distribution, shell/subprocess authority,
+unrestricted network/browser automation, connector writes, plugin runtime
+import, mobile control, memory write, context injection, model/provider output
+authority, raw prompt export, raw response export, or raw provider payload
+export.

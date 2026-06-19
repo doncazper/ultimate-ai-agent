@@ -89,11 +89,12 @@ class EventLedger:
         run_events = self.list_events(run_id)
         if not run_events:
             return True
-        
-        # Sort chronologically
-        run_events.sort(key=lambda x: x.occurred_at)
-        
-        # Check chronological consistency
+
+        # Check chronological consistency of the stored (append-order) trace.
+        # NOTE: do NOT sort here. The ledger is append-only and events are recorded
+        # in the order they occur, so the stored order must already be chronologically
+        # non-decreasing. Sorting first would make the check below unreachable and
+        # silently accept out-of-order traces.
         last_time = run_events[0].occurred_at
         for event in run_events:
             if event.occurred_at < last_time:
