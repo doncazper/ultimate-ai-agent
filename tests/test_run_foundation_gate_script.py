@@ -95,6 +95,39 @@ def _use_fast_gate_report(monkeypatch):
         "build_latency_gate_summary",
         fast_latency_summary,
     )
+    monkeypatch.setattr(
+        run_foundation_gate,
+        "build_release_lane_summary",
+        lambda: run_foundation_gate.FoundationGateReleaseLaneSummary(
+            schema_version="uaa_release_verification_lanes.v1",
+            task_ref="UAA-P1-013",
+            overall_status="definition_pass",
+            definition_status="pass",
+            command_execution_status="not_executed",
+            lane_count=8,
+            lane_ids=[
+                "docs",
+                "openapi",
+                "api-safety",
+                "security-redaction",
+                "local-model-e2e",
+                "durability",
+                "frontend",
+                "performance",
+            ],
+            status_semantics={
+                "pass": "passed",
+                "fail": "failed",
+                "skipped": "skipped",
+                "blocked": "blocked",
+                "accepted_failure": "accepted failure",
+            },
+            accepted_failures=[],
+            validation_failures=[],
+            report_safety={"credential_material_included": False},
+            safe_summary="Release lane definitions validated; commands not executed.",
+        ),
+    )
 
 
 def test_run_foundation_gate_writes_requested_output(tmp_path, monkeypatch):
@@ -113,6 +146,12 @@ def test_run_foundation_gate_writes_requested_output(tmp_path, monkeypatch):
     assert payload["latency_gate"]["foundation_gate_report_json"] == (
         "reports/foundation_gate/latest_foundation_gate_report.json"
     )
+    assert payload["release_verification_lanes"]["schema_version"] == (
+        "uaa_release_verification_lanes.v1"
+    )
+    assert payload["release_verification_lanes"]["definition_status"] == "pass"
+    assert payload["release_verification_lanes"]["command_execution_status"] == "not_executed"
+    assert payload["release_verification_lanes"]["lane_count"] == 8
     expected_count = len(payload["results"])
     assert payload["summary"] == f"{expected_count} passed, 0 failed, 0 warnings, 0 blocked."
 

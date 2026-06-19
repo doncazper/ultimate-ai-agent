@@ -152,3 +152,9 @@ Always stop launcher-owned services with:
 Future production app packaging, signed macOS apps, managed installers,
 background services, and broader local capability work belong to later reviewed
 milestones.
+
+For UAA-P1-014 loopback-first Docker/local runtime packaging, use
+`docs/production/LOCAL_RUNTIME_PACKAGING.md`. That package is a local
+release-readiness test stack only; it does not replace this launcher and does
+not claim public distribution, hosted production support, or signed installer
+readiness.

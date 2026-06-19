@@ -54,14 +54,6 @@ pause/resume/cancel states, and restart recovery over local storage.
 UAA-P1-011 Task decomposition operator loop
 Goal: plan, approve, execute safe registered handlers, inspect audit summaries,
 and replay validation from Control Center.
-
-UAA-P1-013 Release verification lanes
-Goal: named lanes for security, docs, API compatibility, durability, local
-model E2E, performance, redaction, and product-surface smoke.
-
-UAA-P1-014 Docker/local runtime packaging
-Goal: reproducible local dev stack, loopback-only defaults, generated secrets,
-and rollback instructions without broad production distribution claims.
 ```
 
 ## Spec Draft
@@ -256,6 +248,54 @@ Gate met: Foundation Gate JSON and Markdown reports include a typed
 `latency_gate` summary with p50/p95 status, pass/fail/skipped path state,
 accepted failures, performance report refs, optional prerequisite visibility,
 environment-safe summary, authority invariants, and report-safety flags.
+
+UAA-P1-013 Release verification lanes
+Gate met: docs, OpenAPI, API safety, security/redaction, local model E2E,
+durability, frontend, and performance lanes are named in
+`docs/production/RELEASE_VERIFICATION_LANES.md`; `scripts/verify_release_lanes.py`
+validates lane definitions without executing commands, `scripts/verify_all.py`
+guards the manifest, and Foundation Gate report-only output includes a compact
+`release_verification_lanes` summary.
+
+UAA-P1-014 Docker/local runtime packaging
+Gate met: `docs/production/LOCAL_RUNTIME_PACKAGING.md` and
+`packaging/local-runtime/` define a loopback-first local UAA API and Control
+Center Docker stack with host-only `127.0.0.1` published ports, generated
+local secret refs under ignored `.uaa/` state, rollback instructions,
+`.dockerignore` context exclusions, and no public distribution, hosted
+production support, signed installer, OpenWebUI, `llama-server`, connector
+write, plugin import, browser automation, mobile control, or autonomous
+background execution claim.
+
+UAA-P1-044 Release evidence packet
+Gate met: release evidence packet format, schema, template, verifier, tests,
+and docs (`docs/production/RELEASE_EVIDENCE_PACKET.md`) define commit refs,
+verification lanes, report refs, accepted
+failures, artifact hashes, rollback notes, non-goals, release blockers, not
+scoped capabilities, and safety flags with safe refs and redacted summaries
+only. The packet verifier is inspection-only and does not create artifacts,
+execute release lane commands, accept failures by itself, claim public
+distribution, claim signed installer readiness, or grant production authority.
+
+UAA-P1-045 Backup/restore verification
+Gate met: `docs/production/BACKUP_RESTORE_VERIFICATION.md`,
+`scripts/verify_backup_restore.py`, and
+`tests/test_backup_restore_verification.py` verify the UAA-P1-028 minimum set
+for runs, receipts, approvals, settings, registry, audit summaries, and local
+model cache refs with synthetic safe refs, SHA-256 integrity checks, offline
+restore validation, corruption detection, safe report flags, and no raw paths,
+raw logs, prompts, responses, provider payloads, usernames, hostnames,
+environment dumps, credential material, live restore claim, public
+distribution claim, or production authority.
+
+UAA-P1-046 Rollback runbook
+Gate met: `docs/production/LOCAL_STATE_ROLLBACK_RUNBOOK.md` documents
+backup-before-rollback, rollback, safe-disable, backup restore, unsupported
+recovery, safety checks, redacted examples, and release evidence bindings for
+local model cache, settings, registry, approvals, audit state, and run/receipt
+state without live restore, broad mutation, shell/subprocess, connector write,
+plugin runtime import, mobile control, public distribution, or production
+authority claims.
 ```
 
 ## ASAP Sequence

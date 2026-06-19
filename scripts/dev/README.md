@@ -108,3 +108,9 @@ Remove a generated repo-local macOS launcher with:
 ```bash
 rm "Ultimate AI Agent.command"
 ```
+
+For the UAA-P1-014 loopback-first Docker/local runtime package, see
+`docs/production/LOCAL_RUNTIME_PACKAGING.md`. The package is local
+release-readiness scaffolding only and does not add public distribution,
+hosted production support, signed installer readiness, or broader runtime
+authority.

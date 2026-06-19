@@ -13,7 +13,7 @@ allowed to become operational authority.
 | Field | Current state |
 |---|---|
 | Current active baseline | **v2.0.0** |
-| Current program milestone | **Operator Runtime Excellence P0 repair lane through UAA-P0-017** |
+| Current program milestone | **Operator Runtime Excellence P1 release, packaging, and recovery proof lane through UAA-P1-046** |
 | Latest accepted checkpoint tag | **checkpoint-m168** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
@@ -22,7 +22,8 @@ allowed to become operational authority.
 
 The product and package baseline is **v2.0.0** / `2.0.0`. This is a fresh
 currentness and production-readiness documentation baseline over the accepted
-Operator Runtime Excellence P0 repair lane. It does not publish a public
+Operator Runtime Excellence P0 repair lane and the scoped P1 release-evidence
+packet work. It does not publish a public
 release, move historical tags, ship external artifacts, distribute externally,
 release a beta, or grant production authority. Already-pushed tags remain
 immutable historical records.
@@ -171,6 +172,11 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [llama-server Packaging Provenance Checklist](docs/production/LLAMA_SERVER_PACKAGING_PROVENANCE_CHECKLIST.md)
 - [Local Model Operational Runbook](docs/production/LOCAL_MODEL_OPERATIONAL_RUNBOOK.md)
 - [Release Latency Baseline Harness](docs/production/RELEASE_LATENCY_BASELINE_HARNESS.md)
+- [Release Verification Lanes](docs/production/RELEASE_VERIFICATION_LANES.md)
+- [Release Evidence Packet](docs/production/RELEASE_EVIDENCE_PACKET.md)
+- [Backup/Restore Verification](docs/production/BACKUP_RESTORE_VERIFICATION.md)
+- [Local State Rollback Runbook](docs/production/LOCAL_STATE_ROLLBACK_RUNBOOK.md)
+- [Local Runtime Packaging](docs/production/LOCAL_RUNTIME_PACKAGING.md)
 - [Control Center Operator Shell Gap Map](docs/control_center/OPERATOR_SHELL_GAP_MAP.md)
 - [M78 Plugin Manifest Security Model](docs/tooling/PLUGIN_MANIFEST_SECURITY_MODEL.md)
 - [M78 Plugin Manifest Policy](docs/tooling/PLUGIN_MANIFEST_POLICY.md)
@@ -545,7 +551,7 @@ capability.
 | CCC Web Control Center | Implemented preview/read-only local shell | React/Vite app under `apps/control-center/` |
 | OpenWebUI bridge | Local test shell plus contracts | M151 exposes `uaa-safe-local` for local smoke only; no provider/tool/memory/context authority |
 | Local model runtime | Scoped local model lane | M160-M165 cover bounded HF metadata search, redacted system probing, exact-approved GGUF acquisition, loopback llama.cpp supervision, local `/v1` gateway, and approved tuning; M166/M167 require reviewed safe-ref evidence, P0-005 adds a local/dev E2E smoke harness with skipped or blocked states when prerequisites are unavailable, P0-015 adds the local `llama-server` packaging/provenance checklist without public distribution or broad binary-trust claims, P0-016 hardens tuning advice for lag, out-of-memory, crash loop, reload loop, slow token rate, and one-change rollback cases, and P0-017 adds safe local model operational recovery guidance |
-| Performance baseline | Release latency harness | P0-006 measures p50/p95 for release-critical local paths; P1-039 gates required local path budgets; P1-040 writes safe regression reports; P1-041 profiles task decomposition and OpenAPI build hot paths; P1-042 caches only safe static API manifest data; authority checks are not cached, skipped, or bypassed for speed |
+| Performance baseline | Release latency harness and verification lanes | P0-006 measures p50/p95 for release-critical local paths; P1-013 names docs, OpenAPI, API safety, security/redaction, local model E2E, durability, frontend, and performance release lanes; P1-039 gates required local path budgets; P1-040 writes safe regression reports; P1-041 profiles task decomposition and OpenAPI build hot paths; P1-042 caches only safe static API manifest data; authority checks are not cached, skipped, or bypassed for speed |
 | Memory | Implemented governed local foundation | Reviewed/source-linked recall records; no automatic writes |
 | Truth/evidence | Implemented M25 contracts | Deterministic validation over provided refs; no external lookup |
 | Recall/context packs | Implemented M26 contracts | Safe summaries and refs only; source_ref/source_kind consistency enforced |
@@ -605,8 +611,9 @@ PYTHONPATH=src .venv/bin/python -m pytest
 .venv/bin/python scripts/verify_documentation_integrity.py
 .venv/bin/python scripts/verify_skill_package_security_rule.py
 .venv/bin/python scripts/verify_control_center_frontend.py
+.venv/bin/python scripts/verify_release_lanes.py
 .venv/bin/python scripts/verify_all.py
-.venv/bin/python scripts/run_foundation_gate.py
+.venv/bin/python scripts/run_foundation_gate.py --command-mode report-only
 .venv/bin/python scripts/verify_openapi_contract.py
 .venv/bin/python -m ruff check .
 ```
@@ -662,6 +669,11 @@ For a clickable macOS launcher:
 
 Read the full launcher guide at
 [docs/developer/LOCAL_LAUNCHER.md](docs/developer/LOCAL_LAUNCHER.md).
+
+For loopback-first Docker/local runtime packaging, use the scoped package in
+[docs/production/LOCAL_RUNTIME_PACKAGING.md](docs/production/LOCAL_RUNTIME_PACKAGING.md).
+It is for local release-readiness testing only and does not claim public
+distribution, hosted production support, or signed installer readiness.
 
 ## Control Center
 

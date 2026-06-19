@@ -1019,6 +1019,11 @@ REQUIRED_PUBLIC_SECURITY_DOCS = [
 REQUIRED_M167_EVIDENCE_MATRIX_DOC = "docs/production/M167_LIVE_MODEL_EVIDENCE_MATRIX.md"
 REQUIRED_LOCAL_MODEL_E2E_SMOKE_DOC = "docs/production/M167_LOCAL_MODEL_E2E_SMOKE_HARNESS.md"
 REQUIRED_PERFORMANCE_BASELINE_DOC = "docs/production/RELEASE_LATENCY_BASELINE_HARNESS.md"
+REQUIRED_RELEASE_VERIFICATION_LANES_DOC = "docs/production/RELEASE_VERIFICATION_LANES.md"
+REQUIRED_RELEASE_EVIDENCE_PACKET_DOC = "docs/production/RELEASE_EVIDENCE_PACKET.md"
+REQUIRED_BACKUP_RESTORE_VERIFICATION_DOC = "docs/production/BACKUP_RESTORE_VERIFICATION.md"
+REQUIRED_LOCAL_STATE_ROLLBACK_RUNBOOK_DOC = "docs/production/LOCAL_STATE_ROLLBACK_RUNBOOK.md"
+REQUIRED_LOCAL_RUNTIME_PACKAGING_DOC = "docs/production/LOCAL_RUNTIME_PACKAGING.md"
 REQUIRED_SAFE_STATIC_MANIFEST_CACHE_DOC = "docs/api/SAFE_STATIC_MANIFEST_CACHING.md"
 REQUIRED_LLAMA_SERVER_PACKAGING_CHECKLIST_DOC = (
     "docs/production/LLAMA_SERVER_PACKAGING_PROVENANCE_CHECKLIST.md"
@@ -1044,6 +1049,11 @@ RELEASE_FACING_SECURITY_DOCS = [
     REQUIRED_LOCAL_MODEL_E2E_SMOKE_DOC,
     REQUIRED_PERFORMANCE_BASELINE_DOC,
     REQUIRED_SAFE_STATIC_MANIFEST_CACHE_DOC,
+    REQUIRED_RELEASE_VERIFICATION_LANES_DOC,
+    REQUIRED_RELEASE_EVIDENCE_PACKET_DOC,
+    REQUIRED_BACKUP_RESTORE_VERIFICATION_DOC,
+    REQUIRED_LOCAL_STATE_ROLLBACK_RUNBOOK_DOC,
+    REQUIRED_LOCAL_RUNTIME_PACKAGING_DOC,
     REQUIRED_LLAMA_SERVER_PACKAGING_CHECKLIST_DOC,
     REQUIRED_LOCAL_MODEL_OPERATIONAL_RUNBOOK_DOC,
     "docs/security/SECURITY_TRIAGE_RUNBOOK.md",
@@ -1212,6 +1222,11 @@ REQUIRED_ACTIVE_DOCS = [
     REQUIRED_LOCAL_MODEL_E2E_SMOKE_DOC,
     REQUIRED_PERFORMANCE_BASELINE_DOC,
     REQUIRED_SAFE_STATIC_MANIFEST_CACHE_DOC,
+    REQUIRED_RELEASE_VERIFICATION_LANES_DOC,
+    REQUIRED_RELEASE_EVIDENCE_PACKET_DOC,
+    REQUIRED_BACKUP_RESTORE_VERIFICATION_DOC,
+    REQUIRED_LOCAL_STATE_ROLLBACK_RUNBOOK_DOC,
+    REQUIRED_LOCAL_RUNTIME_PACKAGING_DOC,
     REQUIRED_LLAMA_SERVER_PACKAGING_CHECKLIST_DOC,
     REQUIRED_LOCAL_MODEL_OPERATIONAL_RUNBOOK_DOC,
     *REQUIRED_PUBLIC_SECURITY_DOCS,
@@ -1392,6 +1407,11 @@ ACTIVE_DOCS_TO_SCAN = [
     REQUIRED_LOCAL_MODEL_E2E_SMOKE_DOC,
     REQUIRED_PERFORMANCE_BASELINE_DOC,
     REQUIRED_SAFE_STATIC_MANIFEST_CACHE_DOC,
+    REQUIRED_RELEASE_VERIFICATION_LANES_DOC,
+    REQUIRED_RELEASE_EVIDENCE_PACKET_DOC,
+    REQUIRED_BACKUP_RESTORE_VERIFICATION_DOC,
+    REQUIRED_LOCAL_STATE_ROLLBACK_RUNBOOK_DOC,
+    REQUIRED_LOCAL_RUNTIME_PACKAGING_DOC,
     REQUIRED_LLAMA_SERVER_PACKAGING_CHECKLIST_DOC,
     REQUIRED_LOCAL_MODEL_OPERATIONAL_RUNBOOK_DOC,
     *REQUIRED_PUBLIC_SECURITY_DOCS,
@@ -1759,7 +1779,7 @@ def _verify_operator_runtime_currentness(root: Path) -> list[str]:
             "| product shell |"
         ),
         "product truth packet must mark shipped API boundary": (
-            "shipped for the 93-path api boundary"
+            "shipped for the 94-path api boundary"
         ),
         "product truth packet must mark blocked local model claims": (
             "blocked for production-readiness claims"
@@ -2494,6 +2514,792 @@ def _verify_performance_baseline_harness(root: Path) -> list[str]:
     return failures
 
 
+def _verify_release_verification_lanes(root: Path) -> list[str]:
+    failures: list[str] = []
+    doc_path = root / REQUIRED_RELEASE_VERIFICATION_LANES_DOC
+    if not doc_path.exists():
+        return [
+            "missing release verification lanes doc: "
+            f"{REQUIRED_RELEASE_VERIFICATION_LANES_DOC}"
+        ]
+
+    def read_lower(rel_path: str) -> str:
+        path = root / rel_path
+        return _read(path).lower() if path.exists() else ""
+
+    lanes_doc = read_lower(REQUIRED_RELEASE_VERIFICATION_LANES_DOC)
+    lanes_compact = " ".join(lanes_doc.split())
+    lanes_link = REQUIRED_RELEASE_VERIFICATION_LANES_DOC.lower()
+    active_links = {
+        "README.md": read_lower("README.md"),
+        "docs/README.md": read_lower("docs/README.md"),
+        "docs/DOCUMENTATION_INDEX.md": read_lower("docs/DOCUMENTATION_INDEX.md"),
+        "docs/canonical/CANONICAL_DOC_MAP.md": read_lower(
+            "docs/canonical/CANONICAL_DOC_MAP.md"
+        ),
+        "docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md": read_lower(
+            "docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md"
+        ),
+        "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md": read_lower(
+            "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md"
+        ),
+    }
+    for rel_path, text in active_links.items():
+        if lanes_link not in text:
+            failures.append(f"{rel_path} must link release verification lanes")
+
+    for message, fragment in {
+        "release lanes doc must identify UAA-P1-013": (
+            "status: active uaa-p1-013 release verification lane contract"
+        ),
+        "release lanes doc must name verify_release_lanes script": (
+            "scripts/verify_release_lanes.py"
+        ),
+        "release lanes doc must name verify_all guard": "scripts/verify_all.py",
+        "release lanes doc must name Foundation Gate report-only command": (
+            "scripts/run_foundation_gate.py --command-mode report-only"
+        ),
+        "release lanes doc must mention release_verification_lanes summary": (
+            "release_verification_lanes"
+        ),
+        "release lanes doc must define pass status": "| pass |",
+        "release lanes doc must define fail status": "| fail |",
+        "release lanes doc must define skipped status": "| skipped |",
+        "release lanes doc must define blocked status": "| blocked |",
+        "release lanes doc must define accepted_failure status": (
+            "| accepted_failure |"
+        ),
+        "release lanes doc must include docs lane": "| docs |",
+        "release lanes doc must include openapi lane": "| openapi |",
+        "release lanes doc must include api-safety lane": "| api-safety |",
+        "release lanes doc must include security-redaction lane": (
+            "| security-redaction |"
+        ),
+        "release lanes doc must include local-model-e2e lane": (
+            "| local-model-e2e |"
+        ),
+        "release lanes doc must include durability lane": "| durability |",
+        "release lanes doc must include frontend lane": "| frontend |",
+        "release lanes doc must include performance lane": "| performance |",
+        "release lanes doc must forbid raw prompts": "raw prompts",
+        "release lanes doc must forbid public distribution claims": (
+            "public distribution"
+        ),
+        "release lanes doc must include rollback": "## rollback",
+    }.items():
+        if fragment not in lanes_compact:
+            failures.append(message)
+
+    script = read_lower("scripts/verify_release_lanes.py")
+    verify_all = read_lower("scripts/verify_all.py")
+    run_gate = read_lower("scripts/run_foundation_gate.py")
+    tests = read_lower("tests/test_release_verification_lanes.py")
+    for message, fragment in {
+        "release lane script must define schema version": (
+            "uaa_release_verification_lanes.v1"
+        ),
+        "release lane script must define P1-013 task ref": "uaa-p1-013",
+        "release lane script must define required lane ids": "required_lane_ids",
+        "release lane script must define status semantics": "status_semantics",
+        "release lane script must define accepted failures": "accepted_failures",
+        "release lane script must be inspection-only": "does not execute commands",
+        "release lane script must not import subprocess": "import subprocess",
+    }.items():
+        if message.endswith("must not import subprocess"):
+            if fragment in script:
+                failures.append(message)
+        elif fragment not in script:
+            failures.append(message)
+    for lane_id in [
+        "docs",
+        "openapi",
+        "api-safety",
+        "security-redaction",
+        "local-model-e2e",
+        "durability",
+        "frontend",
+        "performance",
+    ]:
+        if lane_id not in script:
+            failures.append(f"release lane script missing lane id: {lane_id}")
+        if lane_id not in tests:
+            failures.append(f"release lane tests missing lane id: {lane_id}")
+    if "verify_release_verification_lanes" not in verify_all:
+        failures.append("verify_all must guard release verification lanes")
+    if "release_verification_lanes" not in run_gate:
+        failures.append("Foundation Gate runner must attach release lane summary")
+
+    board = read_lower("docs/kanban/current_board.md")
+    if "uaa-p1-013 release verification lanes" not in board:
+        failures.append("current board must track UAA-P1-013 release verification lanes")
+    if "gate met: docs, openapi, api safety, security/redaction" not in board:
+        failures.append("current board must mark UAA-P1-013 gate met")
+    if "pull uaa-p1-013 next" in board:
+        failures.append("current board still contains stale UAA-P1-013 next label")
+
+    return failures
+
+
+def _verify_release_evidence_packet(root: Path) -> list[str]:
+    failures: list[str] = []
+    doc_path = root / REQUIRED_RELEASE_EVIDENCE_PACKET_DOC
+    if not doc_path.exists():
+        return [
+            "missing release evidence packet doc: "
+            f"{REQUIRED_RELEASE_EVIDENCE_PACKET_DOC}"
+        ]
+
+    def read_lower(rel_path: str) -> str:
+        path = root / rel_path
+        return _read(path).lower() if path.exists() else ""
+
+    packet_doc = read_lower(REQUIRED_RELEASE_EVIDENCE_PACKET_DOC)
+    packet_compact = " ".join(packet_doc.split())
+    packet_link = REQUIRED_RELEASE_EVIDENCE_PACKET_DOC.lower()
+    active_links = {
+        "README.md": read_lower("README.md"),
+        "docs/README.md": read_lower("docs/README.md"),
+        "docs/DOCUMENTATION_INDEX.md": read_lower("docs/DOCUMENTATION_INDEX.md"),
+        "docs/canonical/CANONICAL_DOC_MAP.md": read_lower(
+            "docs/canonical/CANONICAL_DOC_MAP.md"
+        ),
+        "docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md": read_lower(
+            "docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md"
+        ),
+        "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md": read_lower(
+            "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md"
+        ),
+        "docs/kanban/current_board.md": read_lower("docs/kanban/current_board.md"),
+        "docs/production/RELEASE_VERIFICATION_LANES.md": read_lower(
+            REQUIRED_RELEASE_VERIFICATION_LANES_DOC
+        ),
+    }
+    for rel_path, text in active_links.items():
+        if packet_link not in text:
+            failures.append(f"{rel_path} must link release evidence packet")
+
+    required_files = [
+        "docs/schemas/release_evidence_packet.schema.json",
+        "docs/production/RELEASE_EVIDENCE_PACKET_TEMPLATE.json",
+        "scripts/verify_release_evidence_packet.py",
+        "tests/test_release_evidence_packet.py",
+    ]
+    for rel_path in required_files:
+        if not (root / rel_path).exists():
+            failures.append(f"missing release evidence packet file: {rel_path}")
+
+    for message, fragment in {
+        "release evidence packet doc must identify UAA-P1-044": (
+            "status: active uaa-p1-044 release evidence packet format"
+        ),
+        "release evidence packet doc must name schema": (
+            "docs/schemas/release_evidence_packet.schema.json"
+        ),
+        "release evidence packet doc must name template": (
+            "docs/production/release_evidence_packet_template.json"
+        ),
+        "release evidence packet doc must name verifier": (
+            "scripts/verify_release_evidence_packet.py"
+        ),
+        "release evidence packet doc must name tests": (
+            "tests/test_release_evidence_packet.py"
+        ),
+        "release evidence packet doc must include commit refs": "commit_ref",
+        "release evidence packet doc must include verification lanes": (
+            "verification_lanes"
+        ),
+        "release evidence packet doc must include report refs": "report_refs",
+        "release evidence packet doc must include accepted failures": (
+            "accepted_failures"
+        ),
+        "release evidence packet doc must include artifact hashes": (
+            "artifact_hashes"
+        ),
+        "release evidence packet doc must include release blockers": (
+            "release_blockers"
+        ),
+        "release evidence packet doc must include rollback notes": (
+            "rollback_notes"
+        ),
+        "release evidence packet doc must include non-goals": "non_goals",
+        "release evidence packet doc must define pass status": "| pass |",
+        "release evidence packet doc must define fail status": "| fail |",
+        "release evidence packet doc must define skipped status": "| skipped |",
+        "release evidence packet doc must define blocked status": "| blocked |",
+        "release evidence packet doc must define accepted_failure status": (
+            "| accepted_failure |"
+        ),
+        "release evidence packet doc must forbid raw prompts": "raw prompts",
+        "release evidence packet doc must forbid raw responses": "raw responses",
+        "release evidence packet doc must forbid raw provider payloads": (
+            "raw provider payloads"
+        ),
+        "release evidence packet doc must forbid raw paths": "raw paths",
+        "release evidence packet doc must forbid raw logs": "raw logs",
+        "release evidence packet doc must forbid usernames": "usernames",
+        "release evidence packet doc must forbid hostnames": "hostnames",
+        "release evidence packet doc must forbid environment dumps": (
+            "environment dumps"
+        ),
+        "release evidence packet doc must forbid credentials": (
+            "credential material"
+        ),
+        "release evidence packet doc must forbid public distribution": (
+            "public distribution"
+        ),
+        "release evidence packet doc must include rollback": "## rollback",
+    }.items():
+        if fragment not in packet_compact:
+            failures.append(message)
+
+    script = read_lower("scripts/verify_release_evidence_packet.py")
+    tests = read_lower("tests/test_release_evidence_packet.py")
+    schema = read_lower("docs/schemas/release_evidence_packet.schema.json")
+    template = read_lower("docs/production/RELEASE_EVIDENCE_PACKET_TEMPLATE.json")
+    verify_all = read_lower("scripts/verify_all.py")
+    for message, fragment in {
+        "release evidence script must define schema version": (
+            "uaa_release_evidence_packet.v1"
+        ),
+        "release evidence script must define P1-044 task ref": "uaa-p1-044",
+        "release evidence script must define required lane ids": (
+            "required_lane_ids"
+        ),
+        "release evidence script must define status semantics": (
+            "required_status_values"
+        ),
+        "release evidence script must define safety flags": (
+            "required_safety_flags"
+        ),
+        "release evidence script must be inspection-only": "inspection-only",
+        "release evidence script must not import subprocess": "import subprocess",
+    }.items():
+        if message.endswith("must not import subprocess"):
+            if fragment in script:
+                failures.append(message)
+        elif fragment not in script:
+            failures.append(message)
+    if "verify_release_evidence_packet" not in verify_all:
+        failures.append("verify_all must guard release evidence packet")
+    for lane_id in [
+        "docs",
+        "openapi",
+        "api-safety",
+        "security-redaction",
+        "local-model-e2e",
+        "durability",
+        "frontend",
+        "performance",
+    ]:
+        if lane_id not in template:
+            failures.append(f"release evidence template missing lane id: {lane_id}")
+        if lane_id not in tests:
+            failures.append(f"release evidence tests missing lane id: {lane_id}")
+    for fragment in [
+        "commit_ref",
+        "verification_lanes",
+        "report_refs",
+        "accepted_failures",
+        "artifact_hashes",
+        "release_blockers",
+        "rollback_notes",
+        "non_goals",
+        "packet_safety",
+        "raw_prompt_included",
+        "raw_response_included",
+        "raw_provider_payload_included",
+        "raw_path_included",
+        "raw_log_included",
+        "username_included",
+        "hostname_included",
+        "environment_dump_included",
+        "credential_material_included",
+    ]:
+        if fragment not in schema:
+            failures.append(f"release evidence schema missing fragment: {fragment}")
+        if fragment not in template:
+            failures.append(f"release evidence template missing fragment: {fragment}")
+
+    board = read_lower("docs/kanban/current_board.md")
+    if "uaa-p1-044 release evidence packet" not in board:
+        failures.append("current board must track UAA-P1-044 release evidence packet")
+    if "gate met: release evidence packet format" not in board:
+        failures.append("current board must mark UAA-P1-044 gate met")
+    if "pull uaa-p1-044 next" in board:
+        failures.append("current board still contains stale UAA-P1-044 next label")
+
+    product_truth = read_lower("docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md")
+    if "missing: uaa-p1-044 release evidence packet" in product_truth:
+        failures.append("product truth packet still marks UAA-P1-044 missing")
+    if "release evidence packet format" not in product_truth:
+        failures.append("product truth packet must mention release evidence packet format")
+
+    return failures
+
+
+def _verify_backup_restore_verification(root: Path) -> list[str]:
+    failures: list[str] = []
+    doc_path = root / REQUIRED_BACKUP_RESTORE_VERIFICATION_DOC
+    if not doc_path.exists():
+        return [
+            "missing backup/restore verification doc: "
+            f"{REQUIRED_BACKUP_RESTORE_VERIFICATION_DOC}"
+        ]
+
+    def read_lower(rel_path: str) -> str:
+        path = root / rel_path
+        return _read(path).lower() if path.exists() else ""
+
+    backup_doc = read_lower(REQUIRED_BACKUP_RESTORE_VERIFICATION_DOC)
+    backup_compact = " ".join(backup_doc.split())
+    backup_link = REQUIRED_BACKUP_RESTORE_VERIFICATION_DOC.lower()
+    active_links = {
+        "README.md": read_lower("README.md"),
+        "docs/README.md": read_lower("docs/README.md"),
+        "docs/DOCUMENTATION_INDEX.md": read_lower("docs/DOCUMENTATION_INDEX.md"),
+        "docs/canonical/CANONICAL_DOC_MAP.md": read_lower(
+            "docs/canonical/CANONICAL_DOC_MAP.md"
+        ),
+        "docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md": read_lower(
+            "docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md"
+        ),
+        "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md": read_lower(
+            "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md"
+        ),
+        "docs/kanban/current_board.md": read_lower("docs/kanban/current_board.md"),
+        REQUIRED_RELEASE_VERIFICATION_LANES_DOC: read_lower(
+            REQUIRED_RELEASE_VERIFICATION_LANES_DOC
+        ),
+        REQUIRED_RELEASE_EVIDENCE_PACKET_DOC: read_lower(
+            REQUIRED_RELEASE_EVIDENCE_PACKET_DOC
+        ),
+    }
+    for rel_path, text in active_links.items():
+        if backup_link not in text:
+            failures.append(f"{rel_path} must link backup/restore verification doc")
+
+    required_files = [
+        "scripts/verify_backup_restore.py",
+        "tests/test_backup_restore_verification.py",
+        REQUIRED_BACKUP_RESTORE_VERIFICATION_DOC,
+    ]
+    for rel_path in required_files:
+        if not (root / rel_path).exists():
+            failures.append(f"missing backup/restore verification file: {rel_path}")
+
+    for message, fragment in {
+        "backup/restore doc must identify UAA-P1-045": (
+            "status: active uaa-p1-045 backup/offline restore verification"
+        ),
+        "backup/restore doc must name verifier": "scripts/verify_backup_restore.py",
+        "backup/restore doc must name tests": (
+            "tests/test_backup_restore_verification.py"
+        ),
+        "backup/restore doc must mention UAA-P1-028": "uaa-p1-028",
+        "backup/restore doc must include backup minimum set": "backup minimum set",
+        "backup/restore doc must include runs": "runs",
+        "backup/restore doc must include receipts": "receipts",
+        "backup/restore doc must include approvals": "approvals",
+        "backup/restore doc must include settings": "settings",
+        "backup/restore doc must include registry": "registry",
+        "backup/restore doc must include audit summaries": "audit_summaries",
+        "backup/restore doc must include local model cache refs": (
+            "local_model_cache_refs"
+        ),
+        "backup/restore doc must include offline restore": "offline restore",
+        "backup/restore doc must include corruption detection": (
+            "corruption detection"
+        ),
+        "backup/restore doc must include SHA-256": "sha-256",
+        "backup/restore doc must keep live restore unclaimed": (
+            "live restore remains not scoped"
+        ),
+        "backup/restore doc must include safe refs": "safe refs",
+        "backup/restore doc must forbid raw paths": "raw paths",
+        "backup/restore doc must forbid raw logs": "raw logs",
+        "backup/restore doc must forbid raw prompts": "raw prompts",
+        "backup/restore doc must forbid raw responses": "raw responses",
+        "backup/restore doc must forbid provider payloads": (
+            "raw provider payloads"
+        ),
+        "backup/restore doc must forbid usernames": "usernames",
+        "backup/restore doc must forbid hostnames": "hostnames",
+        "backup/restore doc must forbid environment dumps": "environment dumps",
+        "backup/restore doc must forbid credential material": (
+            "credential material"
+        ),
+        "backup/restore doc must forbid public distribution": (
+            "public distribution"
+        ),
+        "backup/restore doc must include rollback": "## rollback",
+    }.items():
+        if fragment not in backup_compact:
+            failures.append(message)
+
+    script = read_lower("scripts/verify_backup_restore.py")
+    tests = read_lower("tests/test_backup_restore_verification.py")
+    release_lane_tests = read_lower("tests/test_release_verification_lanes.py")
+    release_lanes = read_lower("scripts/verify_release_lanes.py")
+    verify_all = read_lower("scripts/verify_all.py")
+    for message, fragment in {
+        "backup/restore script must define schema version": (
+            "uaa_backup_restore_verification.v1"
+        ),
+        "backup/restore script must define P1-045 task ref": "uaa-p1-045",
+        "backup/restore script must define minimum state categories": (
+            "minimum_state_categories"
+        ),
+        "backup/restore script must cover runs": "runs",
+        "backup/restore script must cover receipts": "receipts",
+        "backup/restore script must cover approvals": "approvals",
+        "backup/restore script must cover settings": "settings",
+        "backup/restore script must cover registry": "registry",
+        "backup/restore script must cover audit summaries": "audit_summaries",
+        "backup/restore script must cover local model cache refs": (
+            "local_model_cache_refs"
+        ),
+        "backup/restore script must verify offline restore": (
+            "offline_restore_status"
+        ),
+        "backup/restore script must verify backup integrity": (
+            "backup_integrity_status"
+        ),
+        "backup/restore script must verify corruption detection": (
+            "corruption_detection_status"
+        ),
+        "backup/restore script must keep live restore unsupported": (
+            "live_restore_supported"
+        ),
+        "backup/restore script must define report safety": "report_safety",
+        "backup/restore script must not import subprocess": "import subprocess",
+    }.items():
+        if message.endswith("must not import subprocess"):
+            if fragment in script:
+                failures.append(message)
+        elif fragment not in script:
+            failures.append(message)
+    if "verify_backup_restore_verification" not in verify_all:
+        failures.append("verify_all must guard backup/restore verification")
+    if "command:backup-restore.verify" not in release_lanes:
+        failures.append("release lanes must include backup/restore command ref")
+    if "command:backup-restore.verify" not in release_lane_tests:
+        failures.append("release lane tests must assert backup/restore command ref")
+    if "live_restore_supported" not in tests or "not_scoped" not in tests:
+        failures.append("backup/restore tests must assert live restore is not scoped")
+
+    board = read_lower("docs/kanban/current_board.md")
+    if "uaa-p1-045 backup/restore verification" not in board:
+        failures.append("current board must track UAA-P1-045 backup/restore verification")
+    if "gate met: `docs/production/backup_restore_verification.md`" not in board:
+        failures.append("current board must mark UAA-P1-045 gate met")
+    if "pull uaa-p1-045 next" in board:
+        failures.append("current board still contains stale UAA-P1-045 next label")
+
+    product_truth = read_lower("docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md")
+    if "backup/offline restore verification" not in product_truth:
+        failures.append("product truth packet must mention backup/offline restore")
+    if "live restore remains not scoped" not in product_truth:
+        failures.append("product truth packet must keep live restore unclaimed")
+    if "missing: uaa-p1-045" in product_truth:
+        failures.append("product truth packet still marks UAA-P1-045 missing")
+
+    return failures
+
+
+def _verify_local_state_rollback_runbook(root: Path) -> list[str]:
+    failures: list[str] = []
+    doc_path = root / REQUIRED_LOCAL_STATE_ROLLBACK_RUNBOOK_DOC
+    if not doc_path.exists():
+        return [
+            "missing local state rollback runbook: "
+            f"{REQUIRED_LOCAL_STATE_ROLLBACK_RUNBOOK_DOC}"
+        ]
+
+    def read_lower(rel_path: str) -> str:
+        path = root / rel_path
+        return _read(path).lower() if path.exists() else ""
+
+    runbook = read_lower(REQUIRED_LOCAL_STATE_ROLLBACK_RUNBOOK_DOC)
+    runbook_compact = " ".join(runbook.split())
+    runbook_link = REQUIRED_LOCAL_STATE_ROLLBACK_RUNBOOK_DOC.lower()
+    active_links = {
+        "README.md": read_lower("README.md"),
+        "docs/README.md": read_lower("docs/README.md"),
+        "docs/DOCUMENTATION_INDEX.md": read_lower("docs/DOCUMENTATION_INDEX.md"),
+        "docs/canonical/CANONICAL_DOC_MAP.md": read_lower(
+            "docs/canonical/CANONICAL_DOC_MAP.md"
+        ),
+        "docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md": read_lower(
+            "docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md"
+        ),
+        "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md": read_lower(
+            "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md"
+        ),
+        "docs/kanban/current_board.md": read_lower("docs/kanban/current_board.md"),
+        REQUIRED_BACKUP_RESTORE_VERIFICATION_DOC: read_lower(
+            REQUIRED_BACKUP_RESTORE_VERIFICATION_DOC
+        ),
+        REQUIRED_RELEASE_VERIFICATION_LANES_DOC: read_lower(
+            REQUIRED_RELEASE_VERIFICATION_LANES_DOC
+        ),
+        REQUIRED_RELEASE_EVIDENCE_PACKET_DOC: read_lower(
+            REQUIRED_RELEASE_EVIDENCE_PACKET_DOC
+        ),
+        REQUIRED_LOCAL_RUNTIME_PACKAGING_DOC: read_lower(
+            REQUIRED_LOCAL_RUNTIME_PACKAGING_DOC
+        ),
+        REQUIRED_LOCAL_MODEL_OPERATIONAL_RUNBOOK_DOC: read_lower(
+            REQUIRED_LOCAL_MODEL_OPERATIONAL_RUNBOOK_DOC
+        ),
+    }
+    for rel_path, text in active_links.items():
+        if runbook_link not in text:
+            failures.append(f"{rel_path} must link local state rollback runbook")
+
+    for message, fragment in {
+        "rollback runbook must identify UAA-P1-046": (
+            "status: active uaa-p1-046 local state rollback runbook"
+        ),
+        "rollback runbook must include backup before rollback": (
+            "backup before rollback"
+        ),
+        "rollback runbook must define rollback": "rollback | return one local state category",
+        "rollback runbook must define safe-disable": "safe-disable",
+        "rollback runbook must define backup restore": "backup restore",
+        "rollback runbook must define unsupported recovery": "unsupported recovery",
+        "rollback runbook must cover local model cache": "local model cache",
+        "rollback runbook must cover settings": "settings",
+        "rollback runbook must cover registry": "registry",
+        "rollback runbook must cover approvals": "approvals",
+        "rollback runbook must cover audit state": "audit state",
+        "rollback runbook must cover run/receipt state": "run/receipt state",
+        "rollback runbook must require safety checks": "## safety checks",
+        "rollback runbook must include redacted examples": "## redacted examples",
+        "rollback runbook must include release evidence binding": (
+            "## release evidence binding"
+        ),
+        "rollback runbook must keep live restore unclaimed": (
+            "live restore safety remains not scoped"
+        ),
+        "rollback runbook must include known gaps": "## known gaps",
+        "rollback runbook must include rollback section": "## rollback",
+        "rollback runbook must forbid raw paths": "raw paths",
+        "rollback runbook must forbid raw logs": "raw logs",
+        "rollback runbook must forbid raw prompts": "raw prompts",
+        "rollback runbook must forbid raw responses": "raw responses",
+        "rollback runbook must forbid provider payloads": (
+            "raw provider payloads"
+        ),
+        "rollback runbook must forbid usernames": "usernames",
+        "rollback runbook must forbid hostnames": "hostnames",
+        "rollback runbook must forbid environment dumps": "environment dumps",
+        "rollback runbook must forbid credential material": "credential material",
+        "rollback runbook must forbid public distribution": (
+            "public distribution"
+        ),
+        "rollback runbook must deny shell/subprocess": "shell execution",
+        "rollback runbook must deny connector writes": "connector writes",
+        "rollback runbook must deny plugin import": "plugin runtime import",
+        "rollback runbook must deny mobile control": "mobile control",
+        "rollback runbook must deny production authority": "production authority",
+    }.items():
+        if fragment not in runbook_compact:
+            failures.append(message)
+
+    board = read_lower("docs/kanban/current_board.md")
+    if "uaa-p1-046 rollback runbook" not in board:
+        failures.append("current board must track UAA-P1-046 rollback runbook")
+    if "gate met: `docs/production/local_state_rollback_runbook.md`" not in board:
+        failures.append("current board must mark UAA-P1-046 gate met")
+    if "pull uaa-p1-046 next" in board:
+        failures.append("current board still contains stale UAA-P1-046 next label")
+
+    product_truth = read_lower("docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md")
+    if "local state rollback guidance" not in product_truth:
+        failures.append("product truth packet must mention local state rollback guidance")
+    if "rollback execution and live restore require later scoped milestones" not in product_truth:
+        failures.append("product truth packet must keep rollback execution future-scoped")
+
+    return failures
+
+
+def _verify_local_runtime_packaging(root: Path) -> list[str]:
+    failures: list[str] = []
+    doc_path = root / REQUIRED_LOCAL_RUNTIME_PACKAGING_DOC
+    if not doc_path.exists():
+        return [
+            "missing local runtime packaging doc: "
+            f"{REQUIRED_LOCAL_RUNTIME_PACKAGING_DOC}"
+        ]
+
+    def read_lower(rel_path: str) -> str:
+        path = root / rel_path
+        return _read(path).lower() if path.exists() else ""
+
+    packaging_doc = read_lower(REQUIRED_LOCAL_RUNTIME_PACKAGING_DOC)
+    packaging_compact = " ".join(packaging_doc.split())
+    packaging_link = REQUIRED_LOCAL_RUNTIME_PACKAGING_DOC.lower()
+    active_links = {
+        "README.md": read_lower("README.md"),
+        "docs/README.md": read_lower("docs/README.md"),
+        "docs/DOCUMENTATION_INDEX.md": read_lower("docs/DOCUMENTATION_INDEX.md"),
+        "docs/canonical/CANONICAL_DOC_MAP.md": read_lower(
+            "docs/canonical/CANONICAL_DOC_MAP.md"
+        ),
+        "docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md": read_lower(
+            "docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md"
+        ),
+        "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md": read_lower(
+            "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md"
+        ),
+        "docs/developer/LOCAL_LAUNCHER.md": read_lower(
+            "docs/developer/LOCAL_LAUNCHER.md"
+        ),
+        "scripts/dev/README.md": read_lower("scripts/dev/README.md"),
+        "packaging/local-runtime/README.md": read_lower(
+            "packaging/local-runtime/README.md"
+        ),
+    }
+    for rel_path, text in active_links.items():
+        if packaging_link not in text:
+            failures.append(f"{rel_path} must link local runtime packaging doc")
+
+    required_files = [
+        ".dockerignore",
+        ".env.example",
+        "packaging/local-runtime/README.md",
+        "packaging/local-runtime/compose.yaml",
+        "packaging/local-runtime/Dockerfile.api",
+        "packaging/local-runtime/Dockerfile.control-center",
+    ]
+    for rel_path in required_files:
+        if not (root / rel_path).exists():
+            failures.append(f"missing local runtime packaging file: {rel_path}")
+
+    for message, fragment in {
+        "packaging doc must identify UAA-P1-014": (
+            "status: active uaa-p1-014 docker/local runtime packaging"
+        ),
+        "packaging doc must say loopback-first": "loopback-first",
+        "packaging doc must bind API to host loopback": "127.0.0.1:8000",
+        "packaging doc must bind Control Center to host loopback": "127.0.0.1:5173",
+        "packaging doc must require generated local secret": "generated local secret",
+        "packaging doc must use ignored local runtime state": ".uaa/local-runtime",
+        "packaging doc must mention .dockerignore": ".dockerignore",
+        "packaging doc must disable OpenWebUI by default": "local openwebui test gateway | disabled by default",
+        "packaging doc must mention access logs disabled": "access logs disabled",
+        "packaging doc must include rollback": "## rollback",
+        "packaging doc must deny public distribution": "public distribution",
+        "packaging doc must deny hosted production support": "hosted production support",
+        "packaging doc must deny signed installer readiness": "signed installer",
+        "packaging doc must deny OpenWebUI packaging": "openwebui",
+        "packaging doc must deny llama-server packaging": "llama-server",
+        "packaging doc must deny shell authority": "does not add shell/subprocess authority",
+        "packaging doc must mark generated secret out of evidence": "not release evidence",
+        "packaging doc must name digest pinning gap": "base image digest pinning",
+    }.items():
+        if fragment not in packaging_compact:
+            failures.append(message)
+
+    dockerignore = read_lower(".dockerignore")
+    for fragment in [
+        ".uaa",
+        ".env",
+        ".env.*",
+        "*.key",
+        "*.pem",
+        "node_modules",
+        "reports/foundation_gate/latest_*.json",
+        "reports/performance/latest_*.json",
+    ]:
+        if fragment not in dockerignore:
+            failures.append(f".dockerignore missing exclusion: {fragment}")
+
+    env_example = read_lower(".env.example")
+    for fragment in [
+        "host=127.0.0.1",
+        "uaa_local_runtime_secret_file=.uaa/local-runtime/uaa_local_runtime_secret",
+        "this file must not contain secret material",
+    ]:
+        if fragment not in env_example:
+            failures.append(f".env.example missing safe local packaging fragment: {fragment}")
+    for unsafe in [
+        "dev_secret_key_change_me_in_production",
+        "secret_key=",
+        "password=",
+        "api_key=",
+    ]:
+        if unsafe in env_example:
+            failures.append(f".env.example contains unsafe secret-like template: {unsafe}")
+
+    compose = read_lower("packaging/local-runtime/compose.yaml")
+    for fragment in [
+        "127.0.0.1:8000:8000",
+        "127.0.0.1:5173:5173",
+        "uaa_local_runtime_secret_file",
+        "uaa_openwebui_test_gateway_enabled: \"\"",
+        "secrets:",
+        ".uaa/local-runtime/uaa_local_runtime_secret",
+        "--no-access-log",
+        "condition: service_healthy",
+    ]:
+        if fragment not in compose:
+            failures.append(f"compose.yaml missing safe packaging fragment: {fragment}")
+    for unsafe in [
+        "0.0.0.0:8000",
+        "0.0.0.0:5173",
+        "secret_key:",
+        "password:",
+        "api_key:",
+        "openai_api_key:",
+    ]:
+        if unsafe in compose:
+            failures.append(f"compose.yaml contains unsafe packaging fragment: {unsafe}")
+
+    api_dockerfile = read_lower("packaging/local-runtime/Dockerfile.api")
+    control_dockerfile = read_lower("packaging/local-runtime/Dockerfile.control-center")
+    for rel_path, text in {
+        "packaging/local-runtime/Dockerfile.api": api_dockerfile,
+        "packaging/local-runtime/Dockerfile.control-center": control_dockerfile,
+    }.items():
+        if "public distribution image" not in text:
+            failures.append(f"{rel_path} must deny public distribution image claim")
+        if "openwebui" in text or "llama-server" in text:
+            failures.append(f"{rel_path} must not package OpenWebUI or llama-server")
+    if "--no-access-log" not in api_dockerfile:
+        failures.append("API Dockerfile must disable access logs by default")
+    if "vite_uaa_api_base_url=http://127.0.0.1:8000" not in control_dockerfile:
+        failures.append("Control Center Dockerfile must default to loopback API base")
+
+    board = read_lower("docs/kanban/current_board.md")
+    if "uaa-p1-014 docker/local runtime packaging" not in board:
+        failures.append("current board must track UAA-P1-014 packaging")
+    if "gate met: `docs/production/local_runtime_packaging.md`" not in board:
+        failures.append("current board must mark UAA-P1-014 gate met")
+    if "uaa-p1-014 docker/local runtime packaging\n goal:" in board:
+        failures.append("current board still contains stale UAA-P1-014 shaping entry")
+
+    product_truth = read_lower("docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md")
+    if packaging_link not in product_truth:
+        failures.append("product truth packet must cite local runtime packaging doc")
+    if "shipped for uaa-p1-014 local docker/runtime package configs" not in product_truth:
+        failures.append("product truth packet must mark UAA-P1-014 local package configs shipped")
+    if "blocked for public packaging, hosted production deployment, signed installer" not in product_truth:
+        failures.append("product truth packet must block unsupported packaging claims")
+
+    for unsafe in [
+        "public distribution is available",
+        "hosted production support is available",
+        "signed installer readiness is available",
+        "openwebui docker config is implemented",
+        "production packaging is complete",
+    ]:
+        if unsafe in packaging_doc or unsafe in product_truth:
+            failures.append(f"local runtime packaging contains unsafe claim: {unsafe}")
+
+    return failures
+
+
 def _verify_safe_static_manifest_cache(root: Path) -> list[str]:
     failures: list[str] = []
     doc_path = root / REQUIRED_SAFE_STATIC_MANIFEST_CACHE_DOC
@@ -2975,8 +3781,11 @@ def _verify_local_model_operational_runbook(root: Path) -> list[str]:
         failures.append("current board must expose UAA-P1-010 as ready next")
 
     readme = read_lower("README.md")
-    if "operator runtime excellence p0 repair lane through uaa-p0-017" not in readme:
-        failures.append("README must identify current P0 lane through UAA-P0-017")
+    if (
+        "operator runtime excellence p1 release, packaging, and recovery proof lane through uaa-p1-046"
+        not in readme
+    ):
+        failures.append("README must identify current P1 lane through UAA-P1-046")
     if "p0-017 adds safe local model operational recovery guidance" not in readme:
         failures.append("README must mention P0-017 operational recovery")
 
@@ -3175,6 +3984,11 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_m167_live_model_evidence_matrix(root))
     failures.extend(_verify_local_model_e2e_smoke_harness(root))
     failures.extend(_verify_performance_baseline_harness(root))
+    failures.extend(_verify_release_verification_lanes(root))
+    failures.extend(_verify_release_evidence_packet(root))
+    failures.extend(_verify_backup_restore_verification(root))
+    failures.extend(_verify_local_state_rollback_runbook(root))
+    failures.extend(_verify_local_runtime_packaging(root))
     failures.extend(_verify_safe_static_manifest_cache(root))
     failures.extend(_verify_llama_server_packaging_checklist(root))
     failures.extend(_verify_tuning_advisor_hardening_cases(root))

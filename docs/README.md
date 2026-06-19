@@ -1,7 +1,7 @@
 # Ultimate AI Agent Docs
 
 Status: active
-Current through: v2.0.0 plus accepted checkpoint-m168 and active Operator Runtime Excellence P0 repair work
+Current through: v2.0.0 plus accepted checkpoint-m168 and active Operator Runtime Excellence P1 release-evidence work
 Purpose: Human-facing entrypoint for active documentation and historical archive navigation.
 
 Active docs are few, indexed, and current. Historical docs are preserved under
@@ -49,6 +49,11 @@ docs/production/M167_LOCAL_MODEL_E2E_SMOKE_HARNESS.md
 docs/production/LLAMA_SERVER_PACKAGING_PROVENANCE_CHECKLIST.md
 docs/production/LOCAL_MODEL_OPERATIONAL_RUNBOOK.md
 docs/production/RELEASE_LATENCY_BASELINE_HARNESS.md
+docs/production/RELEASE_VERIFICATION_LANES.md
+docs/production/RELEASE_EVIDENCE_PACKET.md
+docs/production/BACKUP_RESTORE_VERIFICATION.md
+docs/production/LOCAL_STATE_ROLLBACK_RUNBOOK.md
+docs/production/LOCAL_RUNTIME_PACKAGING.md
 docs/api/SAFE_STATIC_MANIFEST_CACHING.md
 docs/production/M167_LIVE_MODEL_PRODUCTION_HARDENING_BOUNDARY.md
 docs/production/M167_LIVE_MODEL_PRODUCTION_HARDENING_NON_GOALS.md
@@ -158,8 +163,8 @@ docs/tools/TOOL_INTENT_RECEIPT_PLAN.md
 The product/package baseline is `v2.0.0` / `2.0.0`. The latest
 accepted repository checkpoint tag is `checkpoint-m168`. The latest accepted
 local model lane checkpoint tags remain `checkpoint-m166` and
-`checkpoint-m167`. Active Operator Runtime Excellence P0 repair work is
-docs/verifier/security/evidence/performance/operator-shell scaffolding; it adds
+`checkpoint-m167`. Active Operator Runtime Excellence P1 release-evidence work
+is docs/verifier/security/evidence/performance/operator-shell scaffolding; it adds
 no production authority, backend route, Control Center control, dependency,
 public distribution, broad autonomy, shell/subprocess authority, browser
 automation, connector writes, plugin runtime import, mobile control,

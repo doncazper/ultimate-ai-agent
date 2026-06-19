@@ -1,0 +1,67 @@
+name: uaa-local-runtime
+
+services:
+  api:
+    build:
+      context: ../..
+      dockerfile: packaging/local-runtime/Dockerfile.api
+    image: ultimate-ai-agent-api:local
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp
+    environment:
+      ENVIRONMENT: local-runtime
+      HOST: 127.0.0.1
+      PORT: "8000"
+      UAA_FILE_API_SAFE_ROOT: /app
+      UAA_LOCAL_RUNTIME_SECRET_FILE: /run/secrets/uaa_local_runtime_secret
+      UAA_OPENWEBUI_TEST_GATEWAY_ENABLED: ""
+    secrets:
+      - uaa_local_runtime_secret
+    ports:
+      - "127.0.0.1:8000:8000"
+    command:
+      - python
+      - -m
+      - uvicorn
+      - ultimate_ai_agent.api.app:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      - --no-access-log
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2).read()"
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 10s
+
+  control-center:
+    build:
+      context: ../..
+      dockerfile: packaging/local-runtime/Dockerfile.control-center
+    image: ultimate-ai-agent-control-center:local
+    init: true
+    environment:
+      VITE_UAA_API_BASE_URL: http://127.0.0.1:8000
+    ports:
+      - "127.0.0.1:5173:5173"
+    depends_on:
+      api:
+        condition: service_healthy
+    command:
+      - ./node_modules/.bin/vite
+      - --host
+      - 0.0.0.0
+      - --port
+      - "5173"
+
+secrets:
+  uaa_local_runtime_secret:
+    file: ../../.uaa/local-runtime/uaa_local_runtime_secret

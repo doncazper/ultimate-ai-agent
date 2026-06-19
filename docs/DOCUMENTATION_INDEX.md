@@ -121,6 +121,11 @@ docs/production/M167_LOCAL_MODEL_E2E_SMOKE_HARNESS.md
 docs/production/LLAMA_SERVER_PACKAGING_PROVENANCE_CHECKLIST.md
 docs/production/LOCAL_MODEL_OPERATIONAL_RUNBOOK.md
 docs/production/RELEASE_LATENCY_BASELINE_HARNESS.md
+docs/production/RELEASE_VERIFICATION_LANES.md
+docs/production/RELEASE_EVIDENCE_PACKET.md
+docs/production/BACKUP_RESTORE_VERIFICATION.md
+docs/production/LOCAL_STATE_ROLLBACK_RUNBOOK.md
+docs/production/LOCAL_RUNTIME_PACKAGING.md
 docs/api/SAFE_STATIC_MANIFEST_CACHING.md
 docs/control_center/OPERATOR_SHELL_GAP_MAP.md
 docs/production/M167_LIVE_MODEL_PRODUCTION_HARDENING_BOUNDARY.md
@@ -947,8 +952,8 @@ scripts/dev/README.md
 
 v0.37.4 supersedes the old active M35-M40 roadmap projection and defines the
 active M34-M60 sequence. v2.0.0 is the current active package baseline for the
-accepted Operator Runtime Excellence P0 currentness and production-readiness
-documentation repair lane.
+accepted Operator Runtime Excellence currentness and production-readiness
+documentation repair lane through P1 release-evidence packet formatting.
 Checkpoint M108 is implemented/released as Mobile Kill Switch + Revocation
 after the Checkpoint M107 Mobile Approval Renewal UX release and post-M103
 versioning repair follow-up.

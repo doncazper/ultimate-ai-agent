@@ -1,6 +1,7 @@
 from ultimate_ai_agent.core.gate import (
     FoundationGateCommandReceipt,
     FoundationGateLatencySummary,
+    FoundationGateReleaseLaneSummary,
     FoundationGateResult,
     FoundationGateStatus,
     build_foundation_gate_report,
@@ -148,6 +149,54 @@ def test_foundation_gate_report_accepts_safe_latency_summary():
 
     assert payload["latency_gate"]["task_ref"] == "UAA-P1-043"
     assert payload["latency_gate"]["path_results"][0]["p95_ms"] == 7.0
+    assert validate_foundation_gate_report(report).success is True
+
+
+def test_foundation_gate_report_accepts_safe_release_lane_summary():
+    report = build_foundation_gate_report(
+        version="0.10.0",
+        results=[result("versioning_consistent", FoundationGateStatus.passed)],
+    )
+    report.release_verification_lanes = FoundationGateReleaseLaneSummary(
+        schema_version="uaa_release_verification_lanes.v1",
+        task_ref="UAA-P1-013",
+        overall_status="definition_pass",
+        definition_status="pass",
+        command_execution_status="not_executed",
+        lane_count=8,
+        lane_ids=[
+            "docs",
+            "openapi",
+            "api-safety",
+            "security-redaction",
+            "local-model-e2e",
+            "durability",
+            "frontend",
+            "performance",
+        ],
+        status_semantics={
+            "pass": "All required commands passed.",
+            "fail": "A required command failed.",
+            "skipped": "A prerequisite was unavailable with a reason code.",
+            "blocked": "A required gate or prerequisite is missing.",
+            "accepted_failure": "A reviewed release packet accepted the failure.",
+        },
+        accepted_failures=[],
+        validation_failures=[],
+        report_safety={
+            "raw_path_included": False,
+            "raw_log_included": False,
+            "credential_material_included": False,
+        },
+        safe_summary="Release lane definitions validated; commands not executed.",
+    )
+
+    payload = report.model_dump(mode="json")
+
+    assert payload["release_verification_lanes"]["task_ref"] == "UAA-P1-013"
+    assert payload["release_verification_lanes"]["definition_status"] == "pass"
+    assert payload["release_verification_lanes"]["command_execution_status"] == "not_executed"
+    assert "performance" in payload["release_verification_lanes"]["lane_ids"]
     assert validate_foundation_gate_report(report).success is True
 
 

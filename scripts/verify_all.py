@@ -70,6 +70,9 @@ SCAN_SEQUENCE = [
     ("control center frontend safety verifier", "verify_control_center_frontend_script"),
     ("control center browser smoke readiness verifier", "verify_control_center_browser_smoke_readiness_script"),
     ("documentation integrity scan", "verify_documentation_integrity"),
+    ("release verification lanes scan", "verify_release_verification_lanes"),
+    ("release evidence packet scan", "verify_release_evidence_packet"),
+    ("backup/restore verification scan", "verify_backup_restore_verification"),
     ("OpenWebUI bridge contract-only scan", "verify_no_openwebui_runtime_or_config_implementation"),
     ("local model runtime activation contract-only scan", "verify_no_local_runtime_activation_implementation"),
     ("M23 first local LLM call boundary scan", "verify_m23_first_local_llm_call_boundary"),
@@ -29503,6 +29506,63 @@ def verify_no_mobile_native_or_sensor_implementation():
                     sys.exit(1)
 
     print("OK: No native mobile app, sensor API, OS permission, or mobile dependency implementation detected")
+
+
+def verify_release_verification_lanes():
+    print("\n[Verifier] Running release verification lanes guard...")
+    verifier_path = ROOT / "scripts" / "verify_release_lanes.py"
+    spec = importlib.util.spec_from_file_location("verify_release_lanes", verifier_path)
+    if spec is None or spec.loader is None:
+        print("FAIL: release verification lane verifier could not be loaded")
+        sys.exit(1)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+
+    failures = module.validate_release_lane_definitions()
+    if failures:
+        for failure in failures:
+            print(f"FAIL: {failure}")
+        sys.exit(1)
+    print("OK: Release verification lanes are named, safe, and inspection-only")
+
+
+def verify_release_evidence_packet():
+    print("\n[Verifier] Running release evidence packet guard...")
+    verifier_path = ROOT / "scripts" / "verify_release_evidence_packet.py"
+    spec = importlib.util.spec_from_file_location("verify_release_evidence_packet", verifier_path)
+    if spec is None or spec.loader is None:
+        print("FAIL: release evidence packet verifier could not be loaded")
+        sys.exit(1)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+
+    failures = module.validate_release_evidence_packet()
+    if failures:
+        for failure in failures:
+            print(f"FAIL: {failure}")
+        sys.exit(1)
+    print("OK: Release evidence packet schema and template are safe and complete")
+
+
+def verify_backup_restore_verification():
+    print("\n[Verifier] Running backup/restore verification guard...")
+    verifier_path = ROOT / "scripts" / "verify_backup_restore.py"
+    spec = importlib.util.spec_from_file_location("verify_backup_restore", verifier_path)
+    if spec is None or spec.loader is None:
+        print("FAIL: backup/restore verifier could not be loaded")
+        sys.exit(1)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+
+    failures = module.validate_backup_restore_verification()
+    if failures:
+        for failure in failures:
+            print(f"FAIL: {failure}")
+        sys.exit(1)
+    print("OK: Backup integrity and offline restore verification are safe")
 
 
 def record_timing(timings, name, started, status):

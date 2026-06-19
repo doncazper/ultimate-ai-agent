@@ -1,0 +1,21 @@
+# Local-runtime packaging only. This is not a public distribution image.
+ARG PYTHON_BASE_IMAGE=python:3.11-slim
+FROM ${PYTHON_BASE_IMAGE}
+
+WORKDIR /app
+
+ENV ENVIRONMENT=local-runtime \
+    HOST=127.0.0.1 \
+    PORT=8000 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+COPY pyproject.toml README.md VERSION.md ./
+COPY src ./src
+
+RUN python -m pip install --no-cache-dir .
+
+EXPOSE 8000
+
+# The container listens internally; compose publishes only to host loopback.
+CMD ["python", "-m", "uvicorn", "ultimate_ai_agent.api.app:app", "--host", "0.0.0.0", "--port", "8000", "--no-access-log"]

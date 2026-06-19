@@ -1,0 +1,189 @@
+{
+  "schema_version": "uaa_release_evidence_packet.v1",
+  "task_ref": "UAA-P1-044",
+  "packet_id": "release-packet:example-local-rc",
+  "release_candidate_ref": "release-candidate:example-local-rc",
+  "commit_ref": "commit:0000000",
+  "baseline_ref": "baseline:v2.0.0",
+  "created_at_utc": "2026-06-19T00:00:00Z",
+  "status_semantics": {
+    "pass": "The lane completed and produced safe summaries or safe refs.",
+    "fail": "The lane failed and blocks promotion until fixed.",
+    "skipped": "A scoped optional prerequisite was unavailable and a safe reason code is recorded.",
+    "blocked": "A required gate, approval, or prerequisite is missing.",
+    "accepted_failure": "A reviewed failure is time-bound, owner-bound, evidence-bound, and recorded in this packet."
+  },
+  "verification_lanes": [
+    {
+      "lane_id": "docs",
+      "status": "blocked",
+      "command_refs": [
+        "command:docs.integrity"
+      ],
+      "report_refs": [
+        "report:docs-integrity:pending"
+      ],
+      "safe_summary": "Replace with the docs lane result summary for the release candidate."
+    },
+    {
+      "lane_id": "openapi",
+      "status": "blocked",
+      "command_refs": [
+        "command:openapi.contract",
+        "command:api.manifest.tests"
+      ],
+      "report_refs": [
+        "report:openapi:pending"
+      ],
+      "safe_summary": "Replace with the OpenAPI lane result summary for the release candidate."
+    },
+    {
+      "lane_id": "api-safety",
+      "status": "blocked",
+      "command_refs": [
+        "command:api.safe-errors",
+        "command:control-center.api-routes"
+      ],
+      "report_refs": [
+        "report:api-safety:pending"
+      ],
+      "safe_summary": "Replace with the API safety lane result summary for the release candidate."
+    },
+    {
+      "lane_id": "security-redaction",
+      "status": "blocked",
+      "command_refs": [
+        "command:secret-broker.redaction",
+        "command:file-secret.blocking",
+        "command:foundation-gate.secret-hygiene"
+      ],
+      "report_refs": [
+        "report:security-redaction:pending"
+      ],
+      "safe_summary": "Replace with the security and redaction lane result summary for the release candidate."
+    },
+    {
+      "lane_id": "local-model-e2e",
+      "status": "skipped",
+      "command_refs": [
+        "command:local-model.release-gate",
+        "command:local-model.hardening",
+        "command:openwebui.local-gateway"
+      ],
+      "report_refs": [
+        "report:local-model-e2e:pending"
+      ],
+      "safe_summary": "Use skipped only when local prerequisites are unavailable and a safe reason code is recorded."
+    },
+    {
+      "lane_id": "durability",
+      "status": "blocked",
+      "command_refs": [
+        "command:durable.state-machine",
+        "command:event-ledger.append-only",
+        "command:file.atomic-writes",
+        "command:backup-restore.verify"
+      ],
+      "report_refs": [
+        "report:durability:pending",
+        "report:backup-restore:pending"
+      ],
+      "safe_summary": "Replace with the durability lane result summary for the release candidate."
+    },
+    {
+      "lane_id": "frontend",
+      "status": "blocked",
+      "command_refs": [
+        "command:frontend.check",
+        "command:frontend.safety",
+        "command:frontend.browser-smoke"
+      ],
+      "report_refs": [
+        "report:frontend:pending"
+      ],
+      "safe_summary": "Replace with the frontend lane result summary for the release candidate."
+    },
+    {
+      "lane_id": "performance",
+      "status": "blocked",
+      "command_refs": [
+        "command:performance.benchmark",
+        "command:performance.latency-gate",
+        "command:foundation-gate.report-only"
+      ],
+      "report_refs": [
+        "report:performance:pending"
+      ],
+      "safe_summary": "Replace with the performance lane result summary for the release candidate."
+    }
+  ],
+  "report_refs": [
+    {
+      "report_ref": "report:foundation-gate:pending",
+      "report_kind": "foundation_gate",
+      "status": "blocked",
+      "safe_summary": "Replace with the redacted Foundation Gate result summary."
+    },
+    {
+      "report_ref": "report:performance:pending",
+      "report_kind": "performance",
+      "status": "blocked",
+      "safe_summary": "Replace with p50/p95 status and safe report refs only."
+    }
+  ],
+  "accepted_failures": [],
+  "artifact_hashes": [
+    {
+      "artifact_ref": "artifact:source-archive:example",
+      "hash_algorithm": "sha256",
+      "hash_value": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "safe_summary": "Replace with a reviewed artifact hash for the release candidate."
+    }
+  ],
+  "release_blockers": [
+    {
+      "blocker_ref": "blocker:release-evidence:not-populated",
+      "status": "open",
+      "blocking_gate": "Populate the packet from actual release-candidate verification results.",
+      "safe_summary": "This template is not a release packet until concrete safe refs and results replace placeholders."
+    }
+  ],
+  "not_scoped": [
+    "public_distribution",
+    "signed_installer",
+    "hosted_production_support",
+    "broad_autonomy",
+    "unapproved_runtime_authority",
+    "shell_subprocess_execution",
+    "connector_writes",
+    "plugin_runtime_import",
+    "mobile_control"
+  ],
+  "rollback_notes": {
+    "rollback_ref": "rollback:release-packet-template",
+    "safe_summary": "Rollback this format by removing the packet doc, schema, template, verifier, tests, and index links.",
+    "rollback_refs": [
+      "doc:release-evidence-packet",
+      "schema:release-evidence-packet",
+      "script:verify-release-evidence-packet"
+    ]
+  },
+  "non_goals": [
+    "No production authority is granted by this packet format.",
+    "No public release, public distribution, signed installer, or hosted production support is claimed.",
+    "No shell execution, subprocess execution, connector writes, plugin runtime import, mobile control, broad autonomy, or autonomous background execution is enabled.",
+    "No raw prompts, raw responses, raw provider payloads, raw paths, raw logs, usernames, hostnames, serial numbers, environment dumps, or credential material are allowed."
+  ],
+  "packet_safety": {
+    "raw_prompt_included": false,
+    "raw_response_included": false,
+    "raw_provider_payload_included": false,
+    "raw_path_included": false,
+    "raw_log_included": false,
+    "username_included": false,
+    "hostname_included": false,
+    "serial_included": false,
+    "environment_dump_included": false,
+    "credential_material_included": false
+  }
+}

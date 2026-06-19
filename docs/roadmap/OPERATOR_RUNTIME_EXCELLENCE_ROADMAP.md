@@ -323,21 +323,35 @@ Goal: match mature release discipline without overclaiming distribution.
 
 Tasks:
 
-- `UAA-P1-013` Add named verification lanes for docs, OpenAPI, API safety,
-  security/redaction, local model E2E, durability, frontend, and performance.
-- `UAA-P1-014` Add Docker/local runtime packaging with loopback-only defaults.
-- `UAA-P1-044` Add release evidence packet format with commit, checks, reports,
-  accepted failures, and artifact hashes.
-- `UAA-P1-045` Add backup/restore verification for local state.
-- `UAA-P1-046` Add rollback runbook for local model cache, settings, registry,
-  approvals, and audit state.
+- `UAA-P1-013` Done: add named release verification lanes for docs, OpenAPI,
+  API safety, security/redaction, local model E2E, durability, frontend, and
+  performance with pass/fail/skipped/blocked/accepted-failure semantics;
+  canonical doc is `docs/production/RELEASE_VERIFICATION_LANES.md`.
+- `UAA-P1-014` Done: add Docker/local runtime packaging with loopback-only
+  defaults, generated local secret refs, rollback instructions, and no public
+  distribution or signed-installer claim; canonical doc is
+  `docs/production/LOCAL_RUNTIME_PACKAGING.md`.
+- `UAA-P1-044` Done: add release evidence packet format with commit refs,
+  verification lanes, report refs, accepted failures, artifact hashes, rollback
+  notes, non-goals, release blockers, and static validation; canonical doc is
+  `docs/production/RELEASE_EVIDENCE_PACKET.md`.
+- `UAA-P1-045` Done: add backup/restore verification for the UAA-P1-028
+  minimum local state set with synthetic safe refs, SHA-256 integrity checks,
+  offline restore validation, corruption detection, and no live restore claim;
+  canonical doc is `docs/production/BACKUP_RESTORE_VERIFICATION.md`.
+- `UAA-P1-046` Done: add local state rollback runbook for local model cache,
+  settings, registry, approvals, audit state, and run/receipt state with
+  backup-before-rollback, safe-disable, backup restore, unsupported recovery,
+  and redacted evidence guidance; canonical doc is
+  `docs/production/LOCAL_STATE_ROLLBACK_RUNBOOK.md`.
 - `UAA-P2-047` Shape signed installer and public distribution lane only after
   local loop, security, and durability gates are green.
 
 Acceptance:
 
-- A local release candidate can be verified, backed up, restored offline, and
-  rolled back with redacted evidence.
+- A local release candidate can produce redacted verification evidence for the
+  backup minimum set, synthetic offline restore, and rollback plan without
+  claiming live restore or populated real-state restore safety.
 - Public distribution remains unclaimed until signed artifact proof exists.
 
 Verification:
@@ -401,7 +415,11 @@ Acceptance:
 - `UAA-P1-040` Done: Performance regression reports.
 - `UAA-P1-041` Done: Hot-path profiling.
 - `UAA-P1-042` Done: Safe static manifest caching.
-- `UAA-P1-044` Release evidence packet.
+- `UAA-P1-013` Done: Release verification lanes.
+- `UAA-P1-014` Done: Docker/local runtime packaging.
+- `UAA-P1-044` Done: Release evidence packet.
+- `UAA-P1-045` Done: Backup/restore verification.
+- `UAA-P1-046` Done: Rollback runbook.
 
 ## Definition of Ready
 

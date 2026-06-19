@@ -6,7 +6,14 @@ import subprocess
 import sys
 import tempfile
 import time
+import warnings
 from pathlib import Path
+
+warnings.filterwarnings(
+    "ignore",
+    message=r"Using `httpx` with `starlette\.testclient` is deprecated.*",
+    category=Warning,
+)
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
@@ -16,6 +23,7 @@ from ultimate_ai_agent.core.gate import (  # noqa: E402
     FoundationGateCommandReceipt,
     FoundationGateEvaluator,
     FoundationGateLatencySummary,
+    FoundationGateReleaseLaneSummary,
     FoundationGateStatus,
 )
 
@@ -222,6 +230,27 @@ def build_latency_gate_summary(
     return FoundationGateLatencySummary.model_validate(summary)
 
 
+def build_release_lane_summary() -> FoundationGateReleaseLaneSummary:
+    from scripts.verify_release_lanes import build_release_lane_manifest
+
+    manifest = build_release_lane_manifest()
+    summary = {
+        "schema_version": manifest["schema_version"],
+        "task_ref": manifest["task_ref"],
+        "overall_status": manifest["overall_status"],
+        "definition_status": manifest["definition_status"],
+        "command_execution_status": manifest["command_execution_status"],
+        "lane_count": manifest["lane_count"],
+        "lane_ids": [lane["lane_id"] for lane in manifest["lanes"]],
+        "status_semantics": manifest["status_semantics"],
+        "accepted_failures": manifest["accepted_failures"],
+        "validation_failures": manifest["validation_failures"],
+        "report_safety": manifest["report_safety"],
+        "safe_summary": manifest["safe_summary"],
+    }
+    return FoundationGateReleaseLaneSummary.model_validate(summary)
+
+
 def write_markdown_payload(payload: dict, markdown_path: Path) -> None:
     lines = [
         "# Foundation Gate Report",
@@ -290,6 +319,24 @@ def write_markdown_payload(payload: dict, markdown_path: Path) -> None:
             lines.extend(["", "### Latency Failures", ""])
             for failure in latency_gate["failures"]:
                 lines.append(f"- {failure}")
+    release_lanes = payload.get("release_verification_lanes")
+    if release_lanes:
+        lines.extend([
+            "",
+            "## Release Verification Lanes",
+            "",
+            f"- Manifest status: `{release_lanes['overall_status']}`",
+            f"- Definition status: `{release_lanes['definition_status']}`",
+            f"- Command execution status: `{release_lanes['command_execution_status']}`",
+            f"- Lane count: `{release_lanes['lane_count']}`",
+            f"- Accepted failures: `{len(release_lanes.get('accepted_failures', []))}`",
+            f"- Validation failures: `{len(release_lanes.get('validation_failures', []))}`",
+            "- Lanes: "
+            + ", ".join(f"`{lane_id}`" for lane_id in release_lanes.get("lane_ids", [])),
+        ])
+        lines.extend(["", "### Lane Status Semantics", ""])
+        for status, meaning in release_lanes.get("status_semantics", {}).items():
+            lines.append(f"- `{status}`: {meaning}")
     lines.extend([
         "",
         "## Criteria",
@@ -376,6 +423,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.no_write_latest
         else str(markdown_path.relative_to(ROOT)),
     )
+    report.release_verification_lanes = build_release_lane_summary()
     report_payload = report.model_dump_json(indent=2)
     report_payload_dict = json.loads(report_payload)
     if not args.no_write_latest:
@@ -404,6 +452,13 @@ def main(argv: list[str] | None = None) -> int:
     if report.latency_gate is not None:
         print(f"Latency gate: {report.latency_gate.status}")
         print(f"Latency p50/p95 status: {report.latency_gate.p50_p95_status}")
+    if report.release_verification_lanes is not None:
+        print(f"Release lane definitions: {report.release_verification_lanes.definition_status}")
+        print(
+            "Release lane command execution: "
+            f"{report.release_verification_lanes.command_execution_status}"
+        )
+        print(f"Release lane count: {report.release_verification_lanes.lane_count}")
 
     if command_failures:
         print("\nCommand failures:")

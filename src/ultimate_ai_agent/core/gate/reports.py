@@ -81,6 +81,23 @@ class FoundationGateLatencySummary(BaseModel):
     model_config = ConfigDict(use_enum_values=True, extra="forbid")
 
 
+class FoundationGateReleaseLaneSummary(BaseModel):
+    schema_version: str = Field(..., min_length=1)
+    task_ref: str = Field(..., min_length=1)
+    overall_status: str = Field(..., min_length=1)
+    definition_status: str = Field(default="unknown", min_length=1)
+    command_execution_status: str = Field(default="unknown", min_length=1)
+    lane_count: int = Field(default=0, ge=0)
+    lane_ids: List[str] = Field(default_factory=list)
+    status_semantics: Dict[str, str] = Field(default_factory=dict)
+    accepted_failures: List[str] = Field(default_factory=list)
+    validation_failures: List[str] = Field(default_factory=list)
+    report_safety: Dict[str, Any] = Field(default_factory=dict)
+    safe_summary: Optional[str] = None
+
+    model_config = ConfigDict(use_enum_values=True, extra="forbid")
+
+
 class FoundationGateReport(BaseModel):
     report_id: str = Field(..., min_length=1)
     version: str = Field(..., min_length=1)
@@ -98,6 +115,7 @@ class FoundationGateReport(BaseModel):
     command_mode: Optional[str] = None
     command_receipts: List[FoundationGateCommandReceipt] = Field(default_factory=list)
     latency_gate: Optional[FoundationGateLatencySummary] = None
+    release_verification_lanes: Optional[FoundationGateReleaseLaneSummary] = None
 
     model_config = ConfigDict(use_enum_values=True, extra="forbid")
 

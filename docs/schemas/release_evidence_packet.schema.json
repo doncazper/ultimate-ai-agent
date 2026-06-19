@@ -1,0 +1,378 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "uaa_release_evidence_packet",
+  "description": "Release-candidate evidence packet format for UAA local production-readiness review. The packet records safe refs and redacted summaries only.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "task_ref",
+    "packet_id",
+    "release_candidate_ref",
+    "commit_ref",
+    "baseline_ref",
+    "created_at_utc",
+    "status_semantics",
+    "verification_lanes",
+    "report_refs",
+    "accepted_failures",
+    "artifact_hashes",
+    "release_blockers",
+    "not_scoped",
+    "rollback_notes",
+    "non_goals",
+    "packet_safety"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "uaa_release_evidence_packet.v1"
+    },
+    "task_ref": {
+      "const": "UAA-P1-044"
+    },
+    "packet_id": {
+      "type": "string",
+      "pattern": "^release-packet:[a-z0-9][a-z0-9._:-]*$"
+    },
+    "release_candidate_ref": {
+      "type": "string",
+      "pattern": "^release-candidate:[a-z0-9][a-z0-9._:-]*$"
+    },
+    "commit_ref": {
+      "type": "string",
+      "pattern": "^commit:[a-f0-9]{7,64}$"
+    },
+    "baseline_ref": {
+      "type": "string",
+      "pattern": "^baseline:[A-Za-z0-9._:-]+$"
+    },
+    "created_at_utc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status_semantics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "pass",
+        "fail",
+        "skipped",
+        "blocked",
+        "accepted_failure"
+      ],
+      "properties": {
+        "pass": {
+          "type": "string"
+        },
+        "fail": {
+          "type": "string"
+        },
+        "skipped": {
+          "type": "string"
+        },
+        "blocked": {
+          "type": "string"
+        },
+        "accepted_failure": {
+          "type": "string"
+        }
+      }
+    },
+    "verification_lanes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/verification_lane"
+      }
+    },
+    "report_refs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/report_ref"
+      }
+    },
+    "accepted_failures": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/accepted_failure"
+      }
+    },
+    "artifact_hashes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/artifact_hash"
+      }
+    },
+    "release_blockers": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/release_blocker"
+      }
+    },
+    "not_scoped": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string"
+      }
+    },
+    "rollback_notes": {
+      "$ref": "#/$defs/rollback_notes"
+    },
+    "non_goals": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string"
+      }
+    },
+    "packet_safety": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "raw_prompt_included",
+        "raw_response_included",
+        "raw_provider_payload_included",
+        "raw_path_included",
+        "raw_log_included",
+        "username_included",
+        "hostname_included",
+        "serial_included",
+        "environment_dump_included",
+        "credential_material_included"
+      ],
+      "properties": {
+        "raw_prompt_included": {
+          "const": false
+        },
+        "raw_response_included": {
+          "const": false
+        },
+        "raw_provider_payload_included": {
+          "const": false
+        },
+        "raw_path_included": {
+          "const": false
+        },
+        "raw_log_included": {
+          "const": false
+        },
+        "username_included": {
+          "const": false
+        },
+        "hostname_included": {
+          "const": false
+        },
+        "serial_included": {
+          "const": false
+        },
+        "environment_dump_included": {
+          "const": false
+        },
+        "credential_material_included": {
+          "const": false
+        }
+      }
+    }
+  },
+  "$defs": {
+    "status": {
+      "enum": [
+        "pass",
+        "fail",
+        "skipped",
+        "blocked",
+        "accepted_failure"
+      ]
+    },
+    "verification_lane": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "lane_id",
+        "status",
+        "command_refs",
+        "report_refs",
+        "safe_summary"
+      ],
+      "properties": {
+        "lane_id": {
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/status"
+        },
+        "command_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "pattern": "^command:[a-z0-9][a-z0-9._:-]*$"
+          }
+        },
+        "report_refs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^report:[a-z0-9][a-z0-9._:-]*$"
+          }
+        },
+        "safe_summary": {
+          "type": "string"
+        }
+      }
+    },
+    "report_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "report_ref",
+        "report_kind",
+        "status",
+        "safe_summary"
+      ],
+      "properties": {
+        "report_ref": {
+          "type": "string",
+          "pattern": "^report:[a-z0-9][a-z0-9._:-]*$"
+        },
+        "report_kind": {
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/status"
+        },
+        "safe_summary": {
+          "type": "string"
+        }
+      }
+    },
+    "accepted_failure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "accepted_failure_ref",
+        "lane_id",
+        "owner_ref",
+        "reviewer_ref",
+        "expires_at_utc",
+        "reason_code",
+        "safe_impact_summary",
+        "evidence_refs"
+      ],
+      "properties": {
+        "accepted_failure_ref": {
+          "type": "string",
+          "pattern": "^accepted-failure:[a-z0-9][a-z0-9._:-]*$"
+        },
+        "lane_id": {
+          "type": "string"
+        },
+        "owner_ref": {
+          "type": "string",
+          "pattern": "^owner:[a-z0-9][a-z0-9._:-]*$"
+        },
+        "reviewer_ref": {
+          "type": "string",
+          "pattern": "^reviewer:[a-z0-9][a-z0-9._:-]*$"
+        },
+        "expires_at_utc": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "reason_code": {
+          "type": "string"
+        },
+        "safe_impact_summary": {
+          "type": "string"
+        },
+        "evidence_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "artifact_hash": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifact_ref",
+        "hash_algorithm",
+        "hash_value",
+        "safe_summary"
+      ],
+      "properties": {
+        "artifact_ref": {
+          "type": "string",
+          "pattern": "^artifact:[a-z0-9][a-z0-9._:-]*$"
+        },
+        "hash_algorithm": {
+          "const": "sha256"
+        },
+        "hash_value": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "safe_summary": {
+          "type": "string"
+        }
+      }
+    },
+    "release_blocker": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "blocker_ref",
+        "status",
+        "blocking_gate",
+        "safe_summary"
+      ],
+      "properties": {
+        "blocker_ref": {
+          "type": "string",
+          "pattern": "^blocker:[a-z0-9][a-z0-9._:-]*$"
+        },
+        "status": {
+          "enum": [
+            "open",
+            "closed",
+            "not_scoped"
+          ]
+        },
+        "blocking_gate": {
+          "type": "string"
+        },
+        "safe_summary": {
+          "type": "string"
+        }
+      }
+    },
+    "rollback_notes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rollback_ref",
+        "safe_summary",
+        "rollback_refs"
+      ],
+      "properties": {
+        "rollback_ref": {
+          "type": "string",
+          "pattern": "^rollback:[a-z0-9][a-z0-9._:-]*$"
+        },
+        "safe_summary": {
+          "type": "string"
+        },
+        "rollback_refs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

@@ -18,6 +18,11 @@ raw responses, raw provider payloads, raw local paths, raw logs, usernames,
 hostnames, serials, environment dumps, credential material, or secret-like
 values.
 
+For local state category rollback beyond local model operational incidents, use
+`docs/production/LOCAL_STATE_ROLLBACK_RUNBOOK.md`. That runbook distinguishes
+rollback, safe-disable, backup restore, and unsupported recovery for local model
+cache, settings, registry, approvals, audit state, and run/receipt state.
+
 ## State Semantics
 
 | State | Meaning | Operator posture |
