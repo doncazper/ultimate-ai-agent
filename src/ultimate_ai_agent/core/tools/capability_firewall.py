@@ -81,7 +81,11 @@ class CapabilityFirewallPolicy(BaseModel):
         if risk_map[manifest.risk_level] > risk_map[self.max_risk_level]:
             reasons.append("EXCEEDS_MAX_RISK_LEVEL")
 
-        return len(reasons) == 0, reasons
+        # A manifest with several filesystem roots / network domains can append
+        # the same denial code once per entry; collapse to a stable, de-duplicated
+        # list so callers and safe messages don't see repeated codes.
+        deduped = list(dict.fromkeys(reasons))
+        return len(deduped) == 0, deduped
 
 class ToolBrokerPolicy(BaseModel):
     policy_id: str

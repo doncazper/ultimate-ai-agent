@@ -41,6 +41,22 @@ def test_firewall_denies_unbounded_filesystem(base_manifest_factory):
     assert passed is False
     assert "UNBOUNDED_FILESYSTEM_ACCESS_DENIED" in reasons
 
+def test_firewall_reason_codes_are_deduplicated(base_manifest_factory):
+    # Two filesystem roots with an empty allowlist previously appended
+    # FILESYSTEM_ACCESS_NOT_ALLOWLISTED once per root, polluting the reason list.
+    perm = ToolPermissionManifest(
+        required_permissions=[ToolPermissionKind.filesystem_read],
+        filesystem_roots=["/workspace/a", "/workspace/b"],
+    )
+    manifest = base_manifest_factory(perm_manifest=perm)
+
+    firewall = CapabilityFirewallPolicy()  # empty allowlist -> access not allowlisted
+    passed, reasons = firewall.check_firewall(manifest)
+
+    assert passed is False
+    assert "FILESYSTEM_ACCESS_NOT_ALLOWLISTED" in reasons
+    assert len(reasons) == len(set(reasons))
+
 def test_firewall_denies_network_domain(base_manifest_factory):
     perm = ToolPermissionManifest(
         required_permissions=[ToolPermissionKind.network],
