@@ -2206,7 +2206,7 @@ def post_preview_file_read(req: FileReadPreviewAPIRequest):
 def post_propose_file_write(req: FileWriteAPIRequest):
     decision = _review_file_write_api_proposal(req.safe_root_ref, req.proposal)
     return ResultEnvelope(
-        success=True,
+        success=decision.allowed,
         operation="propose_file_write",
         service="FileManagerAPI",
         trace_id=req.proposal.run_id,
