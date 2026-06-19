@@ -1,7 +1,7 @@
 # Ultimate AI Agent Docs
 
 Status: active
-Current through: v1.2.0-alpha plus accepted checkpoint-m167 and active M168 currentness work
+Current through: v2.0.0 plus accepted checkpoint-m168 and active Operator Runtime Excellence P0 repair work
 Purpose: Human-facing entrypoint for active documentation and historical archive navigation.
 
 Active docs are few, indexed, and current. Historical docs are preserved under
@@ -12,10 +12,14 @@ Start with:
 
 ```text
 docs/DOCUMENTATION_INDEX.md
+SECURITY.md
 docs/canonical/09_roadmap.md
 docs/canonical/CANONICAL_DOC_MAP.md
 docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md
+docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md
+docs/control_center/OPERATOR_SHELL_GAP_MAP.md
 docs/kanban/current_board.md
+docs/security/SECURITY_TRIAGE_RUNBOOK.md
 docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md
 docs/roadmap/README.md
 docs/archive/README.md
@@ -25,15 +29,24 @@ docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md
 Current release packet and active program packet:
 
 ```text
-docs/archive/releases/v1_2_0_alpha/README_IMPORT.md
-docs/archive/releases/v1_2_0_alpha/master_plan.md
-docs/release_notes/v1_2_0_alpha.md
+docs/archive/releases/v2_0_0/README_IMPORT.md
+docs/archive/releases/v2_0_0/master_plan.md
+docs/release_notes/v2_0_0.md
+docs/implementation/foundation_gate_implementation_plan_v2_0_0.md
+docs/release_notes/checkpoint_m168.md
 docs/release_notes/checkpoint_m166.md
 docs/release_notes/checkpoint_m167.md
 docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md
+docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md
+docs/control_center/OPERATOR_SHELL_GAP_MAP.md
 docs/kanban/current_board.md
+SECURITY.md
+docs/security/SECURITY_TRIAGE_RUNBOOK.md
 docs/production/M166_PRODUCTION_AUTHORITY_GATE.md
 docs/production/M167_LIVE_MODEL_PRODUCTION_HARDENING.md
+docs/production/M167_LIVE_MODEL_EVIDENCE_MATRIX.md
+docs/production/M167_LOCAL_MODEL_E2E_SMOKE_HARNESS.md
+docs/production/RELEASE_LATENCY_BASELINE_HARNESS.md
 docs/production/M167_LIVE_MODEL_PRODUCTION_HARDENING_BOUNDARY.md
 docs/production/M167_LIVE_MODEL_PRODUCTION_HARDENING_NON_GOALS.md
 docs/production/M167_LIVE_MODEL_PRODUCTION_HARDENING_RUNBOOK.md
@@ -139,12 +152,14 @@ docs/tools/TOOL_AUTHORITY_BOUNDARY.md
 docs/tools/TOOL_INTENT_RECEIPT_PLAN.md
 ```
 
-The product/package baseline remains `v1.2.0-alpha` / `1.2.0a0`. The latest
-accepted checkpoint tags are `checkpoint-m166` and `checkpoint-m167`. Active
-M168 work is docs/verifier currentness under the Operator Runtime Excellence
-Program; it adds no production authority, backend route, Control Center control,
-dependency, public distribution, broad autonomy, shell/subprocess authority,
-browser automation, connector writes, plugin runtime import, mobile control,
+The product/package baseline is `v2.0.0` / `2.0.0`. The latest
+accepted repository checkpoint tag is `checkpoint-m168`. The latest accepted
+local model lane checkpoint tags remain `checkpoint-m166` and
+`checkpoint-m167`. Active Operator Runtime Excellence P0 repair work is
+docs/verifier/security/evidence/performance/operator-shell scaffolding; it adds
+no production authority, backend route, Control Center control, dependency,
+public distribution, broad autonomy, shell/subprocess authority, browser
+automation, connector writes, plugin runtime import, mobile control,
 model/provider authority, raw prompt export, raw response export, or raw
 provider payload export.
 

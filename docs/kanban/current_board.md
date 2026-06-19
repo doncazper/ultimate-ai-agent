@@ -33,31 +33,15 @@ Gate = required acceptance evidence before Done
 ## Now / Building
 
 ```text
-UAA-P0-002 Product release-truth packet
-Gate: product excellence matrix is repo-owned, linked, and verifier-safe.
+No active P0 item in this patch. Pull UAA-P0-015 next.
 ```
 
 ## Ready Next
 
 ```text
-UAA-P0-003 Public security posture
-Gate: SECURITY.md, triage policy, secret/redaction invariants, and report intake docs.
-
-UAA-P0-004 M167 live model evidence matrix
-Gate: Apple Silicon, CPU-only, low RAM, discrete GPU, and limited disk rows exist
-with safe-ref-only evidence placeholders and reviewer bindings.
-
-UAA-P0-005 Local model E2E smoke harness
-Gate: llama.cpp supervisor, local /v1 gateway, OpenWebUI shell, auth failure,
-safe failure, rollback, and no-tools/no-functions assertions are covered.
-
-UAA-P0-006 Performance baseline harness
-Gate: p50/p95 budgets for manifest, model route preview, task decomposition,
-file preview, local /v1 model list, and local /v1 chat path are measured.
-
-UAA-P0-007 Control Center operator-shell gap map
-Gate: visible Chat, Plan, Models, Approvals, Files, Runtime, Evidence, and
-Settings surfaces are mapped to current API routes and missing endpoints.
+UAA-P0-015 Local llama-server prerequisite review
+Gate: installer/runtime checklist covers llama-server discovery, provenance,
+checksum/signature review, rollback, and offline mode without broad authority.
 ```
 
 ## Shaping
@@ -119,11 +103,20 @@ Command: PYTHONPATH=src .venv/bin/python scripts/verify_openapi_contract.py
 
 UAA-QA-003 Focused pytest lanes
 Command: PYTHONPATH=src .venv/bin/python -m pytest tests/test_api_manifest.py
+Command: PYTHONPATH=src .venv/bin/python -m pytest tests/test_m166_production_release_gate.py
+Command: PYTHONPATH=src .venv/bin/python -m pytest tests/test_m167_live_model_hardening.py
+Command: PYTHONPATH=src .venv/bin/python -m pytest tests/test_m151_openwebui_local_gateway_api.py
 Command: PYTHONPATH=src .venv/bin/python -m pytest tests/test_m167_gate_integration.py
 Command: PYTHONPATH=src .venv/bin/python -m pytest tests/test_task_decomposition_production_api.py
+Command: PYTHONPATH=src .venv/bin/python -m pytest tests/test_api_safe_exception_messages.py
+Command: PYTHONPATH=src .venv/bin/python -m pytest tests/test_secret_broker_redaction.py
 
 UAA-QA-004 Foundation Gate report
 Command: .venv/bin/python scripts/run_foundation_gate.py --command-mode report-only
+
+UAA-QA-005 Performance baseline
+Command: .venv/bin/python scripts/benchmark_foundation_gate.py
+Command: .venv/bin/python scripts/check_foundation_gate_latency.py
 ```
 
 ## Blocked Until Scoped Milestone Approval
@@ -145,15 +138,44 @@ Autonomous background sessions by default
 ```text
 UAA-P0-001 Baseline currentness repair
 Gate met: README, roadmap, tags, API path count, and M160-M167 state tell one story.
+
+UAA-P0-002 Product release-truth packet
+Gate met: product excellence matrix is repo-owned, linked, evidence-backed, and
+verifier-safe.
+
+UAA-P0-003 Public security posture
+Gate met: SECURITY.md, triage runbook, report intake, severity targets,
+secret/redaction invariants, static release-doc checks, and focused tests exist.
+
+UAA-P0-004 M167 live model evidence matrix
+Gate met: Apple Silicon, CPU-only, low RAM, discrete GPU, and limited disk rows
+exist with safe-ref-only evidence placeholders, reviewer refs, blocker refs,
+verification refs, rollback refs, and production-readiness status.
+
+UAA-P0-005 Local model E2E smoke harness
+Gate met: llama.cpp supervisor, local /v1 gateway, OpenWebUI shell, auth failure,
+safe failure, rollback, tools/functions/streaming denial, and pass/fail/blocked/
+skipped states are covered by redacted safe-ref harness evidence.
+
+UAA-P0-006 Performance baseline harness
+Gate met: p50/p95 budgets for health, manifest, model route preview, task
+decomposition, bounded file preview, local /v1 model list, and local /v1 chat
+path are measured; reports are written under reports/performance with safe
+skipped status for Control Center render timing.
+
+UAA-P0-007 Control Center operator-shell gap map
+Gate met: Chat, Plans, Models, Approvals, Files, Runtime, Evidence, and
+Settings are mapped to current frontend surfaces, current backend routes,
+missing routes, authority boundaries, side-effect classes, approval
+requirements, evidence/audit outputs, readiness status, product language rules,
+and production-readiness blockers in
+`docs/control_center/OPERATOR_SHELL_GAP_MAP.md`.
 ```
 
 ## ASAP Sequence
 
 ```text
-1. Finish UAA-P0-002 so the repo has a release-truth packet after UAA-P0-001.
-2. Land UAA-P0-003 so outside users have a security/reporting contract.
-3. Land UAA-P0-004 and UAA-P0-005 to turn the M160-M167 local model lane into
-   a visible product proof loop.
-4. Land UAA-P0-006 before broad product work so latency regressions are caught.
-5. Land UAA-P0-007, then build only the mapped operator surfaces with tests.
+1. Build only the mapped operator surfaces with tests after route/status gaps are scoped.
+2. Land UAA-P0-015 to make local llama-server prerequisites reviewable.
+3. Land UAA-P0-016 to harden local tuning-advisor failure cases.
 ```

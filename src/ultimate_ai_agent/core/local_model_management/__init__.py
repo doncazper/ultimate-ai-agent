@@ -145,6 +145,14 @@ from ultimate_ai_agent.core.local_model_management.gateway import (
     llama_cpp_gateway_enabled,
     llama_cpp_gateway_key,
 )
+from ultimate_ai_agent.core.local_model_management.e2e_smoke import (
+    LocalModelE2ESmokePrerequisites,
+    LocalModelE2ESmokeReport,
+    LocalModelE2ESmokeStatus,
+    LocalModelE2ESmokeStep,
+    LocalModelE2ESmokeStepResult,
+    run_local_model_e2e_smoke_harness,
+)
 from ultimate_ai_agent.core.local_model_management.tuning import (
     FakeM165SettingsApplier,
     M165RuntimeObservation,
@@ -295,6 +303,12 @@ __all__ = [
     "llama_cpp_gateway_authorized",
     "llama_cpp_gateway_enabled",
     "llama_cpp_gateway_key",
+    "LocalModelE2ESmokePrerequisites",
+    "LocalModelE2ESmokeReport",
+    "LocalModelE2ESmokeStatus",
+    "LocalModelE2ESmokeStep",
+    "LocalModelE2ESmokeStepResult",
+    "run_local_model_e2e_smoke_harness",
     "FakeM165SettingsApplier",
     "M165RuntimeObservation",
     "M165SettingsApplier",

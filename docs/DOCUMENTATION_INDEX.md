@@ -1,6 +1,6 @@
 # Documentation Index
 
-Current active baseline: **v1.2.0-alpha**
+Current active baseline: **v2.0.0**
 
 This index is the active entrypoint for documentation navigation. Historical release documents remain in the repository for audit history, but active truth starts with the current baseline files listed here.
 
@@ -9,16 +9,22 @@ This index is the active entrypoint for documentation navigation. Historical rel
 ```text
 README.md
 VERSION.md
+SECURITY.md
 docs/README.md
 docs/canonical/CANONICAL_DOC_MAP.md
 docs/canonical/09_roadmap.md
 docs/roadmap/README.md
 docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md
+docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md
+docs/control_center/OPERATOR_SHELL_GAP_MAP.md
 docs/kanban/current_board.md
+docs/security/SECURITY_TRIAGE_RUNBOOK.md
 docs/archive/README.md
-docs/archive/releases/v1_2_0_alpha/README_IMPORT.md
-docs/archive/releases/v1_2_0_alpha/master_plan.md
-docs/release_notes/v1_2_0_alpha.md
+docs/archive/releases/v2_0_0/README_IMPORT.md
+docs/archive/releases/v2_0_0/master_plan.md
+docs/release_notes/v2_0_0.md
+docs/implementation/foundation_gate_implementation_plan_v2_0_0.md
+docs/release_notes/checkpoint_m168.md
 docs/release_notes/checkpoint_m166.md
 docs/release_notes/checkpoint_m167.md
 docs/developer/LOCAL_LAUNCHER.md
@@ -110,6 +116,10 @@ docs/production/LOCAL_MODEL_PRODUCTION_READINESS_RECEIPT_PLAN.md
 docs/production/LOCAL_MODEL_PRODUCTION_READINESS_NON_GOALS.md
 docs/production/M166_PRODUCTION_AUTHORITY_GATE.md
 docs/production/M167_LIVE_MODEL_PRODUCTION_HARDENING.md
+docs/production/M167_LIVE_MODEL_EVIDENCE_MATRIX.md
+docs/production/M167_LOCAL_MODEL_E2E_SMOKE_HARNESS.md
+docs/production/RELEASE_LATENCY_BASELINE_HARNESS.md
+docs/control_center/OPERATOR_SHELL_GAP_MAP.md
 docs/production/M167_LIVE_MODEL_PRODUCTION_HARDENING_BOUNDARY.md
 docs/production/M167_LIVE_MODEL_PRODUCTION_HARDENING_NON_GOALS.md
 docs/production/M167_LIVE_MODEL_PRODUCTION_HARDENING_RUNBOOK.md
@@ -734,6 +744,7 @@ docs/control_center/ACTION_PREVIEW_POLICY.md
 docs/control_center/WEB_CONTROL_CENTER_SHELL.md
 docs/control_center/FRONTEND_SAFETY_POLICY.md
 docs/control_center/CONTROL_CENTER_FRONTEND_ROUTES.md
+docs/control_center/OPERATOR_SHELL_GAP_MAP.md
 docs/control_center/LOCAL_BACKEND_CONNECTION.md
 docs/control_center/LOCAL_BROWSER_SMOKE.md
 docs/control_center/LOCAL_BROWSER_SMOKE_REPORTING.md
@@ -932,9 +943,9 @@ scripts/dev/README.md
 ```
 
 v0.37.4 supersedes the old active M35-M40 roadmap projection and defines the
-active M34-M60 sequence. v1.2.0-alpha is the current active package baseline
-for the contract-only Orchestration Efficiency Layer and M150 alpha target
-alignment.
+active M34-M60 sequence. v2.0.0 is the current active package baseline for the
+accepted Operator Runtime Excellence P0 currentness and production-readiness
+documentation repair lane.
 Checkpoint M108 is implemented/released as Mobile Kill Switch + Revocation
 after the Checkpoint M107 Mobile Approval Renewal UX release and post-M103
 versioning repair follow-up.
@@ -1018,7 +1029,7 @@ future-status drift.
 
 ## Release Notes Index
 
-Current release notes: `docs/release_notes/v1_2_0_alpha.md`
+Current release notes: `docs/release_notes/v2_0_0.md`
 
 Historical release notes remain under `docs/release_notes/`. Historical docs may mention old active baselines in historical context; they are not the current source of truth.
 

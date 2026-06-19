@@ -5,6 +5,18 @@ checkpoint for real live model matrix testing, installer/runtime packaging,
 selection quality validation, tuning advisor hardening, OpenWebUI real E2E,
 load and soak tests, and operational controls.
 
+The active UAA-P0-004 safe-ref-only matrix lives in
+`docs/production/M167_LIVE_MODEL_EVIDENCE_MATRIX.md`. That matrix is evidence
+scaffolding only: it records required hardware rows, reviewer refs, blocker
+refs, verification result refs, rollback refs, and production-readiness status
+without claiming that live evidence is already proven.
+
+The active UAA-P0-005 local/dev E2E smoke harness lives in
+`docs/production/M167_LOCAL_MODEL_E2E_SMOKE_HARNESS.md`. It proves the local
+loop where prerequisites exist and reports skipped or blocked safe-ref states
+where approved GGUF, llama.cpp lifecycle, gateway, or rollback prerequisites
+are unavailable.
+
 M167 does not replace M166. Production authority remains inherited from the
 M166 production release gate. M167 adds a stricter evidence layer that must be
 actual live evidence, reviewed live evidence, redacted summary only,
@@ -53,4 +65,3 @@ M167 evidence must contain no raw prompt, no raw response, no raw provider
 payload, no credential, no raw local path, no raw log, no username, no env dump,
 no backend route, no Control Center control, no dependency, and no unreviewed
 side effects.
-

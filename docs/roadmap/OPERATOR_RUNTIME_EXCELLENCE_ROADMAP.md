@@ -72,7 +72,8 @@ Goal: make the repo tell one current story.
 Tasks:
 
 - `UAA-P0-001` Repair README/version/current-baseline truth across M150-M167.
-- `UAA-P0-002` Add repo-owned product gap and excellence matrix.
+- `UAA-P0-002` Add repo-owned product gap and excellence matrix in
+  `docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md`.
 - `UAA-P0-008` Update docs index/canonical map for M160-M167 and this roadmap.
 - `UAA-P0-009` Make OpenAPI path count and API manifest current.
 - `UAA-P0-010` Add verifier rule for stale active-board labels.
@@ -133,9 +134,11 @@ where UAA is strongest on local model safety and operational clarity.
 Tasks:
 
 - `UAA-P0-004` Build the M167 live evidence matrix with safe refs, reviewer refs,
-  hardware profiles, blockers, and status.
+  hardware profiles, blockers, and status in
+  `docs/production/M167_LIVE_MODEL_EVIDENCE_MATRIX.md`.
 - `UAA-P0-005` Add local model E2E smoke harness over approved GGUF, llama.cpp,
-  local `/v1/models`, local `/v1/chat/completions`, and OpenWebUI shell.
+  local `/v1/models`, local `/v1/chat/completions`, and OpenWebUI shell in
+  `docs/production/M167_LOCAL_MODEL_E2E_SMOKE_HARNESS.md`.
 - `UAA-P0-015` Add installer/runtime packaging checklist for llama-server
   discovery, provenance, checksum/signature review, rollback, and offline mode.
 - `UAA-P0-016` Add tuning advisor hardening cases for lag, OOM, crash loop,
@@ -208,7 +211,8 @@ Required surfaces:
 
 Tasks:
 
-- `UAA-P0-007` Map each surface to current routes and missing routes.
+- `UAA-P0-007` Map each surface to current routes and missing routes in
+  `docs/control_center/OPERATOR_SHELL_GAP_MAP.md`.
 - `UAA-P1-030` Add route status manifest for visible surface readiness.
 - `UAA-P1-031` Add product language rules: no hidden authority, no fake completion,
   no raw JSON as the primary UI for operator-critical flows.
@@ -265,10 +269,13 @@ Goal: make speed a release blocker.
 
 Tasks:
 
-- `UAA-P0-006` Add p50/p95 timing harness.
-- `UAA-P1-039` Define budgets for API manifest, model route preview,
-  task decomposition, file preview, local model list, local chat, and dashboard.
-- `UAA-P1-040` Add regression output under `reports/performance`.
+- `UAA-P0-006` Done: add p50/p95 timing harness with budget definitions and
+  latest safe reports under `reports/performance`; canonical doc is
+  `docs/production/RELEASE_LATENCY_BASELINE_HARNESS.md`.
+- `UAA-P1-039` Refine budgets from repeated local evidence for API manifest,
+  model route preview, task decomposition, file preview, local model list,
+  local chat, and dashboard.
+- `UAA-P1-040` Add historical regression trend output under `reports/performance`.
 - `UAA-P1-041` Add hot-path profiling for task decomposition and OpenAPI build.
 - `UAA-P1-042` Cache safe static manifest data without caching authority
   decisions.
@@ -280,10 +287,12 @@ Initial budgets:
 |---|---:|
 | `/health` | p95 under 50 ms |
 | `/api/manifest` | p95 under 150 ms |
+| `/models/route/preview` | p95 under 150 ms |
 | `/task-decomposition/classify` | p95 under 100 ms |
 | `/task-decomposition/decompose` | p95 under 250 ms |
 | `/files/read/preview` bounded text | p95 under 150 ms |
 | `/v1/models` local gateway | p95 under 100 ms |
+| `/v1/chat/completions` local path | p95 under 250 ms |
 | Control Center first useful local render | p95 under 1500 ms |
 
 Acceptance:
@@ -352,15 +361,15 @@ Acceptance:
 
 ### First 48 Hours
 
-- `UAA-P0-001` Repair baseline/currentness.
-- `UAA-P0-002` Land product release-truth packet.
-- `UAA-P0-003` Add public security posture.
-- `UAA-P0-004` Create M167 evidence matrix skeleton.
-- `UAA-P0-006` Add first performance budget harness.
+- `UAA-P0-001` Done: repair baseline/currentness.
+- `UAA-P0-002` Done: land product release-truth packet.
+- `UAA-P0-003` Done: add public security posture.
+- `UAA-P0-004` Done: create M167 evidence matrix skeleton.
+- `UAA-P0-005` Done: add local model E2E smoke harness.
+- `UAA-P0-006` Done: add first performance budget harness.
 
 ### First Week
 
-- `UAA-P0-005` Local model E2E smoke harness.
 - `UAA-P0-007` Control Center operator-shell gap map.
 - `UAA-P0-015` llama-server packaging/provenance checklist.
 - `UAA-P0-016` Tuning advisor hardening cases.
