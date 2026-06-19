@@ -1,3 +1,5 @@
+from collections import Counter
+
 from fastapi import FastAPI
 from fastapi.routing import APIRoute
 
@@ -153,7 +155,12 @@ def verify_openapi_contract(app: FastAPI) -> ApiContractStatus:
 
     routes = iter_api_route_items(app)
     operation_ids = [route.operation_id for route in routes]
-    duplicate_ids = sorted({operation_id for operation_id in operation_ids if operation_ids.count(operation_id) > 1})
+    operation_id_counts = Counter(operation_ids)
+    duplicate_ids = sorted(
+        operation_id
+        for operation_id, count in operation_id_counts.items()
+        if count > 1
+    )
     if duplicate_ids:
         errors.append(f"Duplicate operation IDs: {', '.join(duplicate_ids)}")
 

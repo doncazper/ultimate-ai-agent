@@ -220,12 +220,18 @@ def build_latency_gate_summary(
     *,
     foundation_gate_report_json: str | None,
     foundation_gate_report_md: str | None,
+    precomputed_foundation_gate_ms: float | None = None,
+    precomputed_foundation_gate_status: str | None = None,
+    precomputed_foundation_gate_result_count: int | None = None,
 ) -> FoundationGateLatencySummary:
     from scripts.check_foundation_gate_latency import run_latency_gate_summary
 
     summary = run_latency_gate_summary(
         foundation_gate_report_json=foundation_gate_report_json,
         foundation_gate_report_md=foundation_gate_report_md,
+        precomputed_foundation_gate_ms=precomputed_foundation_gate_ms,
+        precomputed_foundation_gate_status=precomputed_foundation_gate_status,
+        precomputed_foundation_gate_result_count=precomputed_foundation_gate_result_count,
     )
     return FoundationGateLatencySummary.model_validate(summary)
 
@@ -408,7 +414,12 @@ def main(argv: list[str] | None = None) -> int:
         if receipt.return_code != 0:
             command_failures.append(command_ref)
 
+    foundation_gate_started = time.perf_counter()
     report = FoundationGateEvaluator(ROOT).evaluate()
+    foundation_gate_elapsed_ms = round(
+        (time.perf_counter() - foundation_gate_started) * 1000,
+        2,
+    )
     report.command_mode = command_mode
     report.command_receipts = command_receipts
     output_dir = ROOT / "reports" / "foundation_gate"
@@ -422,6 +433,9 @@ def main(argv: list[str] | None = None) -> int:
         foundation_gate_report_md=None
         if args.no_write_latest
         else str(markdown_path.relative_to(ROOT)),
+        precomputed_foundation_gate_ms=foundation_gate_elapsed_ms,
+        precomputed_foundation_gate_status=str(report.overall_status),
+        precomputed_foundation_gate_result_count=len(report.results),
     )
     report.release_verification_lanes = build_release_lane_summary()
     report_payload = report.model_dump_json(indent=2)

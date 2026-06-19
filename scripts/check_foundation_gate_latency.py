@@ -439,16 +439,49 @@ def run_latency_gate_summary(
     max_mean_ms: float = DEFAULT_MAX_MEAN_MS,
     foundation_gate_report_json: str | None = None,
     foundation_gate_report_md: str | None = None,
+    precomputed_foundation_gate_ms: float | None = None,
+    precomputed_foundation_gate_status: str | None = None,
+    precomputed_foundation_gate_result_count: int | None = None,
 ) -> dict[str, object]:
     _ensure_repo_on_path()
-    from scripts.benchmark_foundation_gate import _benchmark
+    from scripts.benchmark_foundation_gate import _benchmark, _benchmark_release_latency_paths
 
-    metrics = _benchmark(
-        repeat=repeat,
-        warmup=warmup,
-        path_repeat=path_repeat,
-        path_warmup=path_warmup,
+    precomputed_values = (
+        precomputed_foundation_gate_ms,
+        precomputed_foundation_gate_status,
+        precomputed_foundation_gate_result_count,
     )
+    if any(value is not None for value in precomputed_values):
+        if any(value is None for value in precomputed_values):
+            raise ValueError(
+                "precomputed Foundation Gate latency requires elapsed ms, status, "
+                "and result count"
+            )
+        elapsed_ms = round(float(precomputed_foundation_gate_ms), 2)
+        metrics = {
+            "schema_version": "foundation_gate_benchmark.v2",
+            "repeat": 1,
+            "warmup": 0,
+            "foundation_gate_runs_ms": [elapsed_ms],
+            "foundation_gate_best_ms": elapsed_ms,
+            "foundation_gate_mean_ms": elapsed_ms,
+            "foundation_gate_status": str(precomputed_foundation_gate_status),
+            "foundation_gate_result_count": int(
+                precomputed_foundation_gate_result_count
+            ),
+            **_benchmark_release_latency_paths(
+                repeat=path_repeat,
+                warmup=path_warmup,
+                write_report=True,
+            ),
+        }
+    else:
+        metrics = _benchmark(
+            repeat=repeat,
+            warmup=warmup,
+            path_repeat=path_repeat,
+            path_warmup=path_warmup,
+        )
     return build_foundation_gate_latency_summary(
         metrics,
         max_best_ms=max_best_ms,

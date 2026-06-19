@@ -8,6 +8,7 @@ import os
 import tempfile
 import time
 import importlib.util
+from contextlib import contextmanager
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -345,6 +346,52 @@ def run_cmd(args, cwd=ROOT, env=None):
         print(f"FAIL: Command failed with exit code {result.returncode}")
         sys.exit(1)
     print("SUCCESS")
+
+
+@contextmanager
+def repository_filesystem_cache(root=ROOT):
+    """Deduplicate repository file walks and text reads within one scan pass."""
+    original_rglob = Path.rglob
+    original_read_text = Path.read_text
+    rglob_cache = {}
+    read_text_cache = {}
+    cacheable_paths = {}
+    resolved_root = root.resolve()
+
+    def is_cacheable(path: Path) -> bool:
+        cached = cacheable_paths.get(path)
+        if cached is not None:
+            return cached
+        try:
+            cacheable = path.resolve().is_relative_to(resolved_root)
+        except (OSError, RuntimeError):
+            cacheable = False
+        cacheable_paths[path] = cacheable
+        return cacheable
+
+    def cached_rglob(path: Path, pattern: str):
+        if not is_cacheable(path):
+            return original_rglob(path, pattern)
+        key = (path, pattern)
+        if key not in rglob_cache:
+            rglob_cache[key] = tuple(original_rglob(path, pattern))
+        return iter(rglob_cache[key])
+
+    def cached_read_text(path: Path, *args, **kwargs):
+        if not is_cacheable(path):
+            return original_read_text(path, *args, **kwargs)
+        key = (path, args, tuple(sorted(kwargs.items())))
+        if key not in read_text_cache:
+            read_text_cache[key] = original_read_text(path, *args, **kwargs)
+        return read_text_cache[key]
+
+    Path.rglob = cached_rglob
+    Path.read_text = cached_read_text
+    try:
+        yield
+    finally:
+        Path.rglob = original_rglob
+        Path.read_text = original_read_text
 
 def _is_doc_path(rel_path):
     return rel_path == "docs" or rel_path.startswith("docs/")
@@ -29619,8 +29666,9 @@ def run_static_scans(timings=None):
     for scan_name, _ in SCAN_SEQUENCE:
         print(f"- {scan_name}")
 
-    for scan_name, function_name in SCAN_SEQUENCE:
-        run_timed(timings, f"static_scan:{scan_name}", globals()[function_name])
+    with repository_filesystem_cache():
+        for scan_name, function_name in SCAN_SEQUENCE:
+            run_timed(timings, f"static_scan:{scan_name}", globals()[function_name])
 
 
 def main(argv=None):

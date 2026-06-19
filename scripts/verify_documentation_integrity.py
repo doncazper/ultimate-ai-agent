@@ -2,6 +2,7 @@
 import json
 import re
 import sys
+from functools import lru_cache
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -1532,8 +1533,13 @@ ACTIVE_DOCS_TO_SCAN = [
 ]
 
 
+@lru_cache(maxsize=None)
+def _read_cached(path: str) -> str:
+    return Path(path).read_text(encoding="utf-8")
+
+
 def _read(path: Path) -> str:
-    return path.read_text(encoding="utf-8")
+    return _read_cached(str(path))
 
 
 def _active_version(root: Path) -> str | None:

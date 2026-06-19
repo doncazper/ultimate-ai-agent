@@ -29,7 +29,13 @@ def _use_fast_gate_report(monkeypatch):
         *,
         foundation_gate_report_json,
         foundation_gate_report_md,
+        precomputed_foundation_gate_ms=None,
+        precomputed_foundation_gate_status=None,
+        precomputed_foundation_gate_result_count=None,
     ):
+        assert precomputed_foundation_gate_ms is not None
+        assert precomputed_foundation_gate_status == "passed"
+        assert precomputed_foundation_gate_result_count == 1
         return run_foundation_gate.FoundationGateLatencySummary(
             schema_version="uaa_foundation_gate_latency_summary.v1",
             task_ref="UAA-P1-043",

@@ -321,6 +321,53 @@ def test_foundation_gate_latency_guard_emits_parseable_metrics(monkeypatch, caps
     assert summary["report_safety"]["credential_material_included"] is False
 
 
+def test_foundation_gate_latency_summary_reuses_precomputed_gate_timing(
+    monkeypatch,
+):
+    def fail_benchmark(*args, **kwargs):
+        pytest.fail("precomputed Foundation Gate timing must not rerun full benchmark")
+
+    def fake_release_latency_paths(*, repeat: int, warmup: int, write_report: bool):
+        assert repeat == 3
+        assert warmup == 1
+        assert write_report is True
+        return {
+            "release_latency_schema_version": "uaa_release_latency_baseline.v1",
+            **_release_latency_success_payload(),
+            "release_latency_path_repeat": repeat,
+            "release_latency_path_warmup": warmup,
+        }
+
+    monkeypatch.setattr(benchmark_foundation_gate, "_benchmark", fail_benchmark)
+    monkeypatch.setattr(
+        benchmark_foundation_gate,
+        "_benchmark_release_latency_paths",
+        fake_release_latency_paths,
+    )
+
+    summary = check_foundation_gate_latency.run_latency_gate_summary(
+        path_repeat=3,
+        path_warmup=1,
+        precomputed_foundation_gate_ms=12.34,
+        precomputed_foundation_gate_status="passed",
+        precomputed_foundation_gate_result_count=626,
+    )
+
+    assert summary["status"] == "passed"
+    assert summary["foundation_gate_best_ms"] == 12.34
+    assert summary["foundation_gate_mean_ms"] == 12.34
+    assert summary["foundation_gate_status"] == "passed"
+    assert summary["authority_invariants"]["foundation_gate_checks_preserved"] is True
+
+
+def test_foundation_gate_latency_summary_rejects_partial_precomputed_timing():
+    with pytest.raises(ValueError, match="requires elapsed ms, status, and result count"):
+        check_foundation_gate_latency.run_latency_gate_summary(
+            precomputed_foundation_gate_ms=12.34,
+            precomputed_foundation_gate_status="passed",
+        )
+
+
 def test_foundation_gate_latency_guard_fails_when_budget_exceeded(monkeypatch, capsys):
     def fake_benchmark(*, repeat: int, warmup: int, path_repeat: int, path_warmup: int):
         return {

@@ -14,21 +14,16 @@ def test_m135_foundation_gate_criteria_registered() -> None:
     assert "m135_roadmap_currentness" in ids
 
 
-def test_m135_foundation_gate_evaluator_accepts_current_repo() -> None:
-    evaluator = gate_evaluators.FoundationGateEvaluator()
-    criteria = {
-        criterion.criterion_id: criterion
-        for criterion in default_foundation_gate_criteria()
-    }
-
+def test_m135_foundation_gate_evaluator_accepts_current_repo(
+    foundation_gate_results,
+) -> None:
     for criterion_id in [
         "m135_autonomous_recovery_planner_contracts",
         "m135_autonomous_recovery_planner_static_safety",
         "m135_autonomous_recovery_planner_route_boundary",
         "m135_roadmap_currentness",
     ]:
-        report = evaluator.evaluate([criteria[criterion_id]])
-        result = report.results[0]
+        result = foundation_gate_results[criterion_id]
         assert result.status == "passed", result.failures
 
 

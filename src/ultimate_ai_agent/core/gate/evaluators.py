@@ -4699,6 +4699,37 @@ class FoundationGateEvaluator:
             Path.rglob = original_rglob
             Path.read_text = original_read_text
 
+    @contextmanager
+    def _openapi_contract_cache(self):
+        from ultimate_ai_agent.api import app as api_app
+        from ultimate_ai_agent.api import openapi as api_openapi
+
+        app = api_app.app
+        original_openapi = app.openapi
+        original_verify_openapi_contract = api_openapi.verify_openapi_contract
+        schema_cache = {}
+        contract_cache = {}
+
+        def cached_openapi():
+            if "schema" not in schema_cache:
+                schema_cache["schema"] = original_openapi()
+            return schema_cache["schema"]
+
+        def cached_verify_openapi_contract(candidate_app):
+            if candidate_app is not app:
+                return original_verify_openapi_contract(candidate_app)
+            if "status" not in contract_cache:
+                contract_cache["status"] = original_verify_openapi_contract(candidate_app)
+            return contract_cache["status"]
+
+        app.openapi = cached_openapi
+        api_openapi.verify_openapi_contract = cached_verify_openapi_contract
+        try:
+            yield
+        finally:
+            app.openapi = original_openapi
+            api_openapi.verify_openapi_contract = original_verify_openapi_contract
+
     def evaluate(self, criteria: Optional[List[FoundationGateCriterion]] = None) -> FoundationGateReport:
         criteria = criteria or default_foundation_gate_criteria()
         evaluator_map: Dict[str, Callable[[FoundationGateCriterion], FoundationGateResult]] = {
@@ -5931,7 +5962,7 @@ class FoundationGateEvaluator:
             "documentation_integrity_current": self.check_documentation_integrity_current,
             "codex_plugin_governance_docs_present": self.check_codex_plugin_governance_docs_present,
         }
-        with self._repository_filesystem_cache():
+        with self._repository_filesystem_cache(), self._openapi_contract_cache():
             results = [
                 evaluator_map.get(criterion.criterion_id, self._skipped)(criterion)
                 for criterion in criteria

@@ -23,16 +23,11 @@ def test_m167_foundation_gate_criteria_registered() -> None:
     assert M167_CRITERIA.issubset(ids)
 
 
-def test_m167_foundation_gate_evaluator_accepts_current_repo() -> None:
-    evaluator = FoundationGateEvaluator()
-    criteria = {
-        criterion.criterion_id: criterion
-        for criterion in default_foundation_gate_criteria()
-    }
-
+def test_m167_foundation_gate_evaluator_accepts_current_repo(
+    foundation_gate_results,
+) -> None:
     for criterion_id in M167_CRITERIA:
-        report = evaluator.evaluate([criteria[criterion_id]])
-        result = report.results[0]
+        result = foundation_gate_results[criterion_id]
         assert result.status == FoundationGateStatus.passed, result.failures
 
 
