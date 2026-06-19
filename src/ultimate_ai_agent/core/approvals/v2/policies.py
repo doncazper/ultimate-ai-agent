@@ -362,7 +362,13 @@ def evaluate_approval_grant(
 ) -> list[str]:
     reasons: list[str] = _revalidate_approval_grant_for_evaluation(grant)
     reasons.extend(grant_status_reason(grant.status))
-    reasons.extend(expiry_reason(grant.expires_at or grant.scope.expires_at, current_time))
+    # The effective expiry is the most restrictive (earliest) of the grant-level
+    # and scope-level deadlines. Using `or` would ignore an already-expired scope
+    # deadline whenever the grant-level expiry is set, letting an expired scope be
+    # bypassed by a later grant expiry.
+    expiry_candidates = [ts for ts in (grant.expires_at, grant.scope.expires_at) if ts is not None]
+    effective_expiry = min(expiry_candidates) if expiry_candidates else None
+    reasons.extend(expiry_reason(effective_expiry, current_time))
     reasons.extend(assert_no_wildcard_approval(grant.scope.scope_kind, grant.actor_ref, grant.action_ref, grant.resource_ref))
     reasons.extend(assert_no_replay(replay_nonce or grant.replay_nonce or grant.scope.replay_nonce, grant.used_replay_nonces))
     if grant.actor_ref != intent.actor.actor_ref or grant.scope.actor_ref != intent.actor.actor_ref:
