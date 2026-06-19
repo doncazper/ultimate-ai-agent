@@ -44,6 +44,10 @@ A full local proof requires:
 - an approved GGUF/model safe ref
 - a reviewer ref
 - reviewed local llama.cpp runtime hints
+- reviewed `llama-server` packaging/provenance refs from
+  `docs/production/LLAMA_SERVER_PACKAGING_PROVENANCE_CHECKLIST.md`
+- local operational recovery refs from
+  `docs/production/LOCAL_MODEL_OPERATIONAL_RUNBOOK.md`
 - explicit local lifecycle approval for the run
 - loopback-only local `/v1` gateway configuration
 - rollback plan ref

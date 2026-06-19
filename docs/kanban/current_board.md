@@ -33,15 +33,15 @@ Gate = required acceptance evidence before Done
 ## Now / Building
 
 ```text
-No active P0 item in this patch. Pull UAA-P0-015 next.
+No active P0 item in this patch. Pull UAA-P1-010 next.
 ```
 
 ## Ready Next
 
 ```text
-UAA-P0-015 Local llama-server prerequisite review
-Gate: installer/runtime checklist covers llama-server discovery, provenance,
-checksum/signature review, rollback, and offline mode without broad authority.
+UAA-P1-010 Durable run spine v1
+Gate: durable local run records cover idempotency keys, replay-safe receipts,
+pause/resume/cancel states, restart recovery, and rollback refs.
 ```
 
 ## Shaping
@@ -170,12 +170,33 @@ missing routes, authority boundaries, side-effect classes, approval
 requirements, evidence/audit outputs, readiness status, product language rules,
 and production-readiness blockers in
 `docs/control_center/OPERATOR_SHELL_GAP_MAP.md`.
+
+UAA-P0-015 llama-server packaging/provenance checklist
+Gate met: local llama-server discovery, allowed locations, provenance review,
+checksum/signature verification, offline operation, rollback, cache cleanup,
+and blocked/unknown provenance handling are documented in
+`docs/production/LLAMA_SERVER_PACKAGING_PROVENANCE_CHECKLIST.md` without broad
+authority, public distribution, signed installer, or unreviewed binary-trust
+claims.
+
+UAA-P0-016 tuning advisor hardening cases
+Gate met: lag, out-of-memory, crash loop, reload loop, slow tokens per second,
+and one-change rollback are covered in `tests/test_m167_live_model_hardening.py`;
+recommendations remain safe, bounded, redacted, operator-confirmable,
+rollback-aware, and unable to apply settings without exact approval.
+
+UAA-P0-017 local model operational runbook
+Gate met: cache cleanup, corrupted GGUF, stuck download, port conflict,
+credential rotation, rollback, offline mode, safe evidence collection,
+blocked/unknown model state, and safe-disable recovery are documented in
+`docs/production/LOCAL_MODEL_OPERATIONAL_RUNBOOK.md` with safe, degraded,
+blocked, and unsupported state semantics.
 ```
 
 ## ASAP Sequence
 
 ```text
 1. Build only the mapped operator surfaces with tests after route/status gaps are scoped.
-2. Land UAA-P0-015 to make local llama-server prerequisites reviewable.
-3. Land UAA-P0-016 to harden local tuning-advisor failure cases.
+2. Land UAA-P1-010 to shape the durable run spine.
+3. Land UAA-P1-011 to connect task decomposition to the operator loop.
 ```

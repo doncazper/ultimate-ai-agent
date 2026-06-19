@@ -155,6 +155,7 @@ from ultimate_ai_agent.core.local_model_management.e2e_smoke import (
 )
 from ultimate_ai_agent.core.local_model_management.tuning import (
     FakeM165SettingsApplier,
+    M165_TUNING_SIGNAL_KINDS,
     M165RuntimeObservation,
     M165SettingsApplier,
     M165SettingsApplyRequest,
@@ -310,6 +311,7 @@ __all__ = [
     "LocalModelE2ESmokeStepResult",
     "run_local_model_e2e_smoke_harness",
     "FakeM165SettingsApplier",
+    "M165_TUNING_SIGNAL_KINDS",
     "M165RuntimeObservation",
     "M165SettingsApplier",
     "M165SettingsApplyRequest",

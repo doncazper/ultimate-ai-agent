@@ -13,7 +13,7 @@ allowed to become operational authority.
 | Field | Current state |
 |---|---|
 | Current active baseline | **v2.0.0** |
-| Current program milestone | **Operator Runtime Excellence P0 repair lane through UAA-P0-007** |
+| Current program milestone | **Operator Runtime Excellence P0 repair lane through UAA-P0-017** |
 | Latest accepted checkpoint tag | **checkpoint-m168** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
@@ -168,6 +168,8 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M167 Live Model Production Hardening](docs/production/M167_LIVE_MODEL_PRODUCTION_HARDENING.md)
 - [M167 Live Model Evidence Matrix](docs/production/M167_LIVE_MODEL_EVIDENCE_MATRIX.md)
 - [M167 Local Model E2E Smoke Harness](docs/production/M167_LOCAL_MODEL_E2E_SMOKE_HARNESS.md)
+- [llama-server Packaging Provenance Checklist](docs/production/LLAMA_SERVER_PACKAGING_PROVENANCE_CHECKLIST.md)
+- [Local Model Operational Runbook](docs/production/LOCAL_MODEL_OPERATIONAL_RUNBOOK.md)
 - [Release Latency Baseline Harness](docs/production/RELEASE_LATENCY_BASELINE_HARNESS.md)
 - [Control Center Operator Shell Gap Map](docs/control_center/OPERATOR_SHELL_GAP_MAP.md)
 - [M78 Plugin Manifest Security Model](docs/tooling/PLUGIN_MANIFEST_SECURITY_MODEL.md)
@@ -542,7 +544,7 @@ capability.
 | FastAPI backend | Implemented validation/metadata API | Includes disabled-by-default M151 local OpenWebUI test gateway |
 | CCC Web Control Center | Implemented preview/read-only local shell | React/Vite app under `apps/control-center/` |
 | OpenWebUI bridge | Local test shell plus contracts | M151 exposes `uaa-safe-local` for local smoke only; no provider/tool/memory/context authority |
-| Local model runtime | Scoped local model lane | M160-M165 cover bounded HF metadata search, redacted system probing, exact-approved GGUF acquisition, loopback llama.cpp supervision, local `/v1` gateway, and approved tuning; M166/M167 require reviewed safe-ref evidence, and P0-005 adds a local/dev E2E smoke harness with skipped or blocked states when prerequisites are unavailable |
+| Local model runtime | Scoped local model lane | M160-M165 cover bounded HF metadata search, redacted system probing, exact-approved GGUF acquisition, loopback llama.cpp supervision, local `/v1` gateway, and approved tuning; M166/M167 require reviewed safe-ref evidence, P0-005 adds a local/dev E2E smoke harness with skipped or blocked states when prerequisites are unavailable, P0-015 adds the local `llama-server` packaging/provenance checklist without public distribution or broad binary-trust claims, P0-016 hardens tuning advice for lag, out-of-memory, crash loop, reload loop, slow token rate, and one-change rollback cases, and P0-017 adds safe local model operational recovery guidance |
 | Performance baseline | Release latency harness | P0-006 measures p50/p95 for release-critical local paths and writes safe reports under `reports/performance`; authority checks are not cached, skipped, or bypassed for speed |
 | Memory | Implemented governed local foundation | Reviewed/source-linked recall records; no automatic writes |
 | Truth/evidence | Implemented M25 contracts | Deterministic validation over provided refs; no external lookup |

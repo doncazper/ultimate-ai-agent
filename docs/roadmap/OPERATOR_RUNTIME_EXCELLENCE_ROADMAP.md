@@ -140,11 +140,14 @@ Tasks:
   local `/v1/models`, local `/v1/chat/completions`, and OpenWebUI shell in
   `docs/production/M167_LOCAL_MODEL_E2E_SMOKE_HARNESS.md`.
 - `UAA-P0-015` Add installer/runtime packaging checklist for llama-server
-  discovery, provenance, checksum/signature review, rollback, and offline mode.
+  discovery, provenance, checksum/signature review, rollback, and offline mode
+  in `docs/production/LLAMA_SERVER_PACKAGING_PROVENANCE_CHECKLIST.md`.
 - `UAA-P0-016` Add tuning advisor hardening cases for lag, OOM, crash loop,
   reload loop, slow tokens per second, and one-change rollback.
 - `UAA-P0-017` Add local model operator runbook for cache cleanup, corrupted
-  GGUF, stuck download, port conflict, and credential rotation.
+  GGUF, stuck download, port conflict, credential rotation, rollback, offline
+  mode, safe evidence collection, blocked/unknown model state, and safe-disable
+  in `docs/production/LOCAL_MODEL_OPERATIONAL_RUNBOOK.md`.
 
 Acceptance:
 
@@ -370,10 +373,10 @@ Acceptance:
 
 ### First Week
 
-- `UAA-P0-007` Control Center operator-shell gap map.
-- `UAA-P0-015` llama-server packaging/provenance checklist.
-- `UAA-P0-016` Tuning advisor hardening cases.
-- `UAA-P0-017` Local model operational runbook.
+- `UAA-P0-007` Done: Control Center operator-shell gap map.
+- `UAA-P0-015` Done: llama-server packaging/provenance checklist.
+- `UAA-P0-016` Done: tuning advisor hardening cases.
+- `UAA-P0-017` Done: Local model operational runbook.
 
 ### Weeks 2-3
 

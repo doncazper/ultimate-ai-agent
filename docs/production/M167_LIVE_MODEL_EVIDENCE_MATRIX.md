@@ -19,6 +19,17 @@ UAA-P0-005 adds the local/dev E2E smoke harness documented in
 that harness by safe verification ref, but a smoke result does not by itself
 promote any row to Proven without reviewed live evidence.
 
+UAA-P0-015 adds the local `llama-server` packaging/provenance checklist in
+`docs/production/LLAMA_SERVER_PACKAGING_PROVENANCE_CHECKLIST.md`. Packaging rows
+and blocker status should use that checklist for discovery, allowed locations,
+provenance, checksum/signature review, offline operation, rollback, cache
+cleanup, and blocked/unknown provenance handling.
+
+UAA-P0-017 adds the local model operational runbook in
+`docs/production/LOCAL_MODEL_OPERATIONAL_RUNBOOK.md`. Matrix rows and blocker
+status should use that runbook for recovery state, rollback, offline mode,
+safe-disable, safe evidence collection, and blocked/unknown model state.
+
 ## Status Semantics
 
 - Proven: reviewed live evidence exists, all blockers are cleared, rollback is
