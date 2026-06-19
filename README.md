@@ -13,28 +13,26 @@ allowed to become operational authority.
 | Field | Current state |
 |---|---|
 | Current active baseline | **v1.2.0-alpha** |
-| Current milestone | **M150 - Ultimate AI Agent v1.2.0-alpha** |
+| Current program milestone | **M168 - Operator Runtime Excellence currentness/product truth** |
+| Latest accepted checkpoint tags | **checkpoint-m166**, **checkpoint-m167** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
-| API boundary | FastAPI route contract with **75** OpenAPI paths |
+| API boundary | FastAPI route contract with **93** OpenAPI paths |
 | Production readiness | Not claimed |
 
-M150 records Ultimate AI Agent **v1.2.0-alpha** as a local alpha target
-acceptance packet while the package baseline is v1.2.0-alpha for this
-contract-first conveyor run after orchestration efficiency layer currentness.
-Already-pushed tags
-remain immutable historical internal milestone tags. M150 is contract-only,
-review-only, alpha-target-only,
-deterministic, local-only, safe-ref-only, disabled by default, route-free, and
-no-effect. It records accepted M101-M149 checkpoint refs, alpha target refs,
-release candidate freeze refs, alpha readiness refs, evidence index refs,
-blocker summary refs, signoff review refs, beta promotion gate refs, audit,
-replay, revocation, kill-switch, and no-effect receipt refs for governed review.
-It adds no release publication, release tag, tag creation, artifact build,
-artifact upload, artifact export, external distribution, App Store submission,
-TestFlight submission, beta release, release automation, backend route, Control
-Center control, dependency, or production authority. Beta remains future and
-requires a later reviewed roadmap promotion.
+The product and package baseline remains **v1.2.0-alpha** / `1.2.0a0`.
+M150 records the local alpha target acceptance packet; it did not publish a
+release, create or move tags, ship artifacts, distribute externally, release a
+beta, or grant production authority. Already-pushed tags remain immutable
+historical records.
+
+The active workstream is the **Operator Runtime Excellence Program**. M168
+repairs currentness and product truth across README, roadmap, board, accepted
+checkpoint tags, and API route-count references. The latest accepted checkpoint
+tags are `checkpoint-m166` and `checkpoint-m167`: M166 is an exact-scope local
+model production-readiness gate for the M160-M165 llama.cpp/OpenWebUI layer,
+and M167 adds stricter live-evidence hardening without granting new production
+authority beyond the accepted M166 gate.
 
 v0.29.5 is documentation policy polish. It remains the documentation
 organization cleanup baseline before the M26 and M27 implementation releases.
@@ -45,6 +43,8 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [Documentation index](docs/DOCUMENTATION_INDEX.md)
 - [Canonical document map](docs/canonical/CANONICAL_DOC_MAP.md)
 - [Current roadmap](docs/canonical/09_roadmap.md)
+- [Operator Runtime Excellence roadmap](docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md)
+- [Current Kanban board](docs/kanban/current_board.md)
 - [M34-M60 roadmap supersession](docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md)
 - [M61-M100 roadmap](docs/roadmap/M61_M100_ROADMAP.md)
 - [M101-M150 planned roadmap](docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md)
@@ -156,6 +156,10 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M151 Local OpenWebUI Test Shell](docs/openwebui/M151_LOCAL_OPENWEBUI_TEST_SHELL.md)
 - [M151 Local OpenWebUI Test Shell Authority Boundary](docs/openwebui/M151_LOCAL_OPENWEBUI_TEST_SHELL_AUTHORITY_BOUNDARY.md)
 - [M151 Local OpenWebUI Test Shell Runbook](docs/openwebui/M151_LOCAL_OPENWEBUI_TEST_SHELL_RUNBOOK.md)
+- [M153-M165 Local Model Management Progression](docs/model_management/M153_M165_LOCAL_MODEL_MANAGEMENT_PROGRESSION.md)
+- [M160-M165 Live Lane Boundary](docs/model_management/M160_M165_LIVE_LANE_BOUNDARY.md)
+- [M166 Production Authority Gate](docs/production/M166_PRODUCTION_AUTHORITY_GATE.md)
+- [M167 Live Model Production Hardening](docs/production/M167_LIVE_MODEL_PRODUCTION_HARDENING.md)
 - [M78 Plugin Manifest Security Model](docs/tooling/PLUGIN_MANIFEST_SECURITY_MODEL.md)
 - [M78 Plugin Manifest Policy](docs/tooling/PLUGIN_MANIFEST_POLICY.md)
 - [M78 Plugin Manifest Authority Boundary](docs/tooling/PLUGIN_MANIFEST_AUTHORITY_BOUNDARY.md)
@@ -526,7 +530,7 @@ capability.
 | FastAPI backend | Implemented validation/metadata API | Includes disabled-by-default M151 local OpenWebUI test gateway |
 | CCC Web Control Center | Implemented preview/read-only local shell | React/Vite app under `apps/control-center/` |
 | OpenWebUI bridge | Local test shell plus contracts | M151 exposes `uaa-safe-local` for local smoke only; no provider/tool/memory/context authority |
-| Local model runtime | Bounded/manual only | M23 fixed-prompt, loopback-only, approval-gated CLI path; model output is non-authoritative |
+| Local model runtime | Scoped local model lane | M160-M165 cover bounded HF metadata search, redacted system probing, exact-approved GGUF acquisition, loopback llama.cpp supervision, local `/v1` gateway, and approved tuning; M166/M167 require reviewed safe-ref evidence |
 | Memory | Implemented governed local foundation | Reviewed/source-linked recall records; no automatic writes |
 | Truth/evidence | Implemented M25 contracts | Deterministic validation over provided refs; no external lookup |
 | Recall/context packs | Implemented M26 contracts | Safe summaries and refs only; source_ref/source_kind consistency enforced |

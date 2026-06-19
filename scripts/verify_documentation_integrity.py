@@ -1438,6 +1438,8 @@ ACTIVE_BASELINE_LABEL_PATTERNS = [
     ),
 ]
 
+EXPECTED_CURRENT_OPENAPI_PATH_COUNT = 93
+
 
 def _verify_active_baseline_labels(root: Path, version: str) -> list[str]:
     failures: list[str] = []
@@ -1455,6 +1457,146 @@ def _verify_active_baseline_labels(root: Path, version: str) -> list[str]:
                             f"{rel_path}:{line_number} active baseline label {actual} "
                             f"does not match expected {expected}"
                         )
+    return failures
+
+
+def _verify_operator_runtime_currentness(root: Path) -> list[str]:
+    failures: list[str] = []
+    required_paths = [
+        "docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md",
+        "docs/kanban/current_board.md",
+        "docs/api/README.md",
+        "docs/api/openapi_contract.md",
+        "docs/api/route_inventory.md",
+    ]
+    for rel_path in required_paths:
+        if not (root / rel_path).exists():
+            failures.append(f"missing Operator Runtime currentness file: {rel_path}")
+
+    def read_lower(rel_path: str) -> str:
+        path = root / rel_path
+        return _read(path).lower() if path.exists() else ""
+
+    readme = read_lower("README.md")
+    version_text = read_lower("VERSION.md")
+    docs_readme = read_lower("docs/README.md")
+    docs_index = read_lower("docs/DOCUMENTATION_INDEX.md")
+    canonical_map = read_lower("docs/canonical/CANONICAL_DOC_MAP.md")
+    canonical_roadmap = read_lower("docs/canonical/09_roadmap.md")
+    roadmap_index = read_lower("docs/roadmap/README.md")
+    operator_roadmap = read_lower("docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md")
+    operator_roadmap_compact = " ".join(operator_roadmap.split())
+    board = read_lower("docs/kanban/current_board.md")
+    api_readme = read_lower("docs/api/README.md")
+    openapi_contract = read_lower("docs/api/openapi_contract.md")
+    route_inventory = read_lower("docs/api/route_inventory.md")
+
+    active_text = "\n".join(
+        [
+            readme,
+            version_text,
+            docs_readme,
+            docs_index,
+            canonical_map,
+            canonical_roadmap,
+            roadmap_index,
+            operator_roadmap,
+            board,
+            api_readme,
+            openapi_contract,
+            route_inventory,
+        ]
+    )
+
+    board_required = {
+        "active board must use Operator Runtime Excellence title": (
+            "current kanban board - operator runtime excellence program"
+        ),
+        "active board must link the Operator Runtime roadmap": (
+            "source plan: `docs/roadmap/operator_runtime_excellence_roadmap.md`"
+        ),
+        "active board must track UAA-P0-001": "uaa-p0-001 baseline currentness repair",
+    }
+    for message, fragment in board_required.items():
+        if fragment not in board:
+            failures.append(message)
+
+    for fragment in {
+        "current kanban board — v0.5.3 foundation sequence",
+        "current kanban board - v0.5.3 foundation sequence",
+        "advanced modules remain blocked until foundation gate passes",
+        "blocked by foundation gate",
+        "foundation contract test matrix",
+    }:
+        if fragment in board:
+            failures.append(f"active board contains stale label: {fragment}")
+
+    required_current_fragments = {
+        "active docs must mention Operator Runtime Excellence": "operator runtime excellence",
+        "active docs must mention M168 currentness": "m168",
+        "active docs must mention checkpoint-m166": "checkpoint-m166",
+        "active docs must mention checkpoint-m167": "checkpoint-m167",
+        "active docs must preserve v1.2.0-alpha baseline": "v1.2.0-alpha",
+        "active docs must link Operator Runtime roadmap": (
+            "docs/roadmap/operator_runtime_excellence_roadmap.md"
+        ),
+        "active docs must link current board": "docs/kanban/current_board.md",
+        "active docs must mention M160-M167 local model lane": "m160-m167",
+        "active docs must mention M166 production-readiness gate": "m166",
+        "active docs must mention M167 live evidence hardening": "m167",
+    }
+    for message, fragment in required_current_fragments.items():
+        if fragment not in active_text:
+            failures.append(message)
+
+    current_count = str(EXPECTED_CURRENT_OPENAPI_PATH_COUNT)
+    if f"**{current_count}** openapi paths" not in readme:
+        failures.append("README.md current OpenAPI path count is stale or missing")
+    for rel_path, text in {
+        "docs/api/README.md": api_readme,
+        "docs/api/openapi_contract.md": openapi_contract,
+        "docs/api/route_inventory.md": route_inventory,
+    }.items():
+        if f"current openapi path count: `{current_count}`" not in text:
+            failures.append(f"{rel_path} current OpenAPI path count is stale or missing")
+
+    stale_current_claims = {
+        "README.md": [
+            "| current milestone | **m150",
+            "fastapi route contract with **75** openapi paths",
+        ],
+        "docs/README.md": ["current through: v0.64.0"],
+        "docs/api/README.md": ["the v0.29.2 api boundary is"],
+        "docs/api/openapi_contract.md": [
+            "v0.29.2 preserves the fastapi openapi boundary",
+            "backend path count remains `74`; only `info.version` changes",
+        ],
+    }
+    texts_by_path = {
+        "README.md": readme,
+        "docs/README.md": docs_readme,
+        "docs/api/README.md": api_readme,
+        "docs/api/openapi_contract.md": openapi_contract,
+    }
+    for rel_path, fragments in stale_current_claims.items():
+        for fragment in fragments:
+            if fragment in texts_by_path[rel_path]:
+                failures.append(f"{rel_path} contains stale currentness claim: {fragment}")
+
+    for message, fragment in {
+        "Operator roadmap must frame benchmarks as product-shaping evidence": (
+            "product-shaping evidence only"
+        ),
+        "Operator roadmap must deny benchmark implementation dependency": (
+            "not as a product dependency"
+        ),
+        "Operator roadmap must deny peer context as authority source": "authority source",
+        "Operator roadmap must define M168 currentness": "m168 - currentness and product truth",
+        "Operator roadmap must list UAA-P0-001": "uaa-p0-001",
+    }.items():
+        if fragment not in operator_roadmap_compact:
+            failures.append(message)
+
     return failures
 
 
@@ -1479,6 +1621,7 @@ def verify(root: Path = ROOT) -> list[str]:
     active_release_notes = f"docs/release_notes/v{version_key}.md"
     active_gate_plan = f"docs/implementation/foundation_gate_implementation_plan_v{version_key}.md"
     failures.extend(_verify_active_baseline_labels(root, version))
+    failures.extend(_verify_operator_runtime_currentness(root))
     for rel_path in [active_import, active_master, active_release_notes, active_gate_plan, *REQUIRED_ACTIVE_DOCS]:
         if not (root / rel_path).exists():
             failures.append(f"missing active documentation file: {rel_path}")
