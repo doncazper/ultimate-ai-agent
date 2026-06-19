@@ -13,17 +13,17 @@ allowed to become operational authority.
 | Field | Current state |
 |---|---|
 | Current active baseline | **v2.0.0** |
-| Current program milestone | **Operator Runtime Excellence P1 release, packaging, and recovery proof lane through UAA-P1-046** |
+| Current program milestone | **Operator Runtime Excellence P2 ecosystem inspection lane through UAA-P2-051** |
 | Latest accepted checkpoint tag | **checkpoint-m168** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
-| API boundary | FastAPI route contract with **94** OpenAPI paths |
+| API boundary | FastAPI route contract with **95** OpenAPI paths |
 | Production readiness | Not claimed |
 
 The product and package baseline is **v2.0.0** / `2.0.0`. This is a fresh
 currentness and production-readiness documentation baseline over the accepted
-Operator Runtime Excellence P0 repair lane and the scoped P1 release-evidence
-packet work. It does not publish a public
+Operator Runtime Excellence P0 repair lane, scoped P1 release-evidence packet
+work, and P2 read-only ecosystem inspection/activation-record/watchlist work. It does not publish a public
 release, move historical tags, ship external artifacts, distribute externally,
 release a beta, or grant production authority. Already-pushed tags remain
 immutable historical records.
@@ -51,6 +51,10 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [Operator Runtime Excellence roadmap](docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md)
 - [Product release-truth packet](docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md)
 - [Control Center operator-shell gap map](docs/control_center/OPERATOR_SHELL_GAP_MAP.md)
+- [Plugin/skill ecosystem boundary](docs/tooling/PLUGIN_SKILL_ECOSYSTEM_BOUNDARY.md)
+- [Inspectable extension catalog](docs/tooling/INSPECTABLE_EXTENSION_CATALOG.md)
+- [Extension activation grants](docs/tooling/EXTENSION_ACTIVATION_GRANTS.md)
+- [MCP/A2A compatibility watchlist](docs/tooling/MCP_A2A_COMPATIBILITY_WATCHLIST.md)
 - [Current Kanban board](docs/kanban/current_board.md)
 - [M34-M60 roadmap supersession](docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md)
 - [M61-M100 roadmap](docs/roadmap/M61_M100_ROADMAP.md)

@@ -33,8 +33,11 @@ def test_api_manifest_endpoint_is_metadata_only_and_versioned():
     assert "local_loopback_gateway_explicit_bearer_required" in manifest["capabilities_declared"]
     assert "local_loopback_gateway_allowlisted_response_shape" in manifest["capabilities_declared"]
     assert "file_api_safe_tree_preview_refs" in manifest["capabilities_declared"]
+    assert "inspectable_extension_catalog_read_only" in manifest["capabilities_declared"]
+    assert "extension_activation_grant_records_exact_scope" in manifest["capabilities_declared"]
     assert manifest["route_count"] >= 43
     assert any(route["path"] == "/api/manifest" and route["method"] == "GET" for route in manifest["routes"])
+    assert any(route["path"] == "/extensions/catalog" and route["method"] == "GET" for route in manifest["routes"])
 
 
 def test_api_manifest_route_inventory_has_stable_operation_ids_and_side_effect_classes():
@@ -57,6 +60,14 @@ def test_api_manifest_route_inventory_has_stable_operation_ids_and_side_effect_c
     assert "local_loopback_default_bearer" in manifest["capabilities_blocked"]
     assert "local_loopback_raw_provider_payload_passthrough" in manifest["capabilities_blocked"]
     assert "task_decomposition_raw_request_echo" in manifest["capabilities_blocked"]
+    assert "extension_catalog_callable_runtime" in manifest["capabilities_blocked"]
+    assert "extension_catalog_runtime_import" in manifest["capabilities_blocked"]
+    assert "extension_catalog_plugin_execution" in manifest["capabilities_blocked"]
+    assert "extension_catalog_connector_writes" in manifest["capabilities_blocked"]
+    assert "extension_activation_runtime_import" in manifest["capabilities_blocked"]
+    assert "extension_activation_execution" in manifest["capabilities_blocked"]
+    assert "extension_activation_callable_catalog" in manifest["capabilities_blocked"]
+    assert "extension_activation_overbroad_grants" in manifest["capabilities_blocked"]
 
 
 def test_api_manifest_static_cache_policy_excludes_authority_and_private_state():

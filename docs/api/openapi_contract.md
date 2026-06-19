@@ -2,7 +2,7 @@
 
 Current active baseline: **v1.2.0-alpha**
 
-Current OpenAPI path count: `94`.
+Current OpenAPI path count: `95`.
 
 The OpenAPI schema is the public route contract for the current FastAPI API
 boundary. `/api/manifest` is the typed metadata and route-inventory endpoint
@@ -23,6 +23,9 @@ Contract rules:
   blocked from production authority by default.
 - The local `/v1` gateway must remain disabled by default, loopback/local-only,
   bearer-gated, and constrained to the accepted local model lane.
+- `GET /extensions/catalog` must remain a read-only inspectable metadata route
+  only; it is not a callable catalog and does not enable plugin runtime import
+  or extension execution.
 
 Forbidden by the current API boundary:
 

@@ -2,7 +2,7 @@
 
 Current active baseline: **v1.2.0-alpha**
 
-Current OpenAPI path count: `94`.
+Current OpenAPI path count: `95`.
 
 The API route inventory is generated from FastAPI route metadata and exposed by
 `/api/manifest`. The manifest route count is the authoritative current count;
@@ -35,6 +35,19 @@ Current post-M150 route additions include disabled-by-default local `/v1`
 gateway routes and local-dev task/file surfaces. They remain policy-bound,
 redacted, rollback-aware where mutating, and blocked from unscoped production
 authority.
+
+Extension catalog route group:
+
+- `GET /extensions/catalog`
+
+This route returns read-only inspectable extension catalog metadata with safe
+refs, provenance status, file hash status, declared capabilities, risk,
+activation status, and blocked/unknown state. It is separate from any callable
+catalog and does not install, import, enable, activate, revoke, execute, fetch,
+or mutate extensions. Runtime import, arbitrary plugin execution, connector
+writes, shell/subprocess behavior, unrestricted network/browser automation,
+mobile control, autonomous background execution, public distribution, and
+production authority remain unavailable.
 
 M8 route group:
 

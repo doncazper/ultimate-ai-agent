@@ -3,7 +3,7 @@
 Status: active UAA-P0-007 operator-shell gap map
 Baseline: v2.0.0 / 2.0.0
 Source plan: `docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md` M172
-API boundary: current FastAPI manifest has 94 OpenAPI paths
+API boundary: current FastAPI manifest has 95 OpenAPI paths
 
 This map is production-readiness scaffolding for the Control Center operator
 shell. It does not add runtime authority, backend routes, frontend controls,

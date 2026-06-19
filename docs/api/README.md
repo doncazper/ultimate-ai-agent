@@ -2,7 +2,7 @@
 
 Current active baseline: **v1.2.0-alpha**
 
-Current OpenAPI path count: `94`, generated from the FastAPI application and
+Current OpenAPI path count: `95`, generated from the FastAPI application and
 exposed through `/api/manifest`.
 
 The API boundary is metadata-first, validation-first, approval-aware for
@@ -43,6 +43,11 @@ Current boundary summary:
   llama.cpp/OpenWebUI shell lane.
 - Task decomposition and file routes remain local-dev scoped and governed by
   approval, policy, redaction, idempotency, and rollback contracts.
+- `GET /extensions/catalog` exposes read-only inspectable extension metadata
+  only. It is separate from any callable catalog and does not enable runtime
+  import, plugin execution, connector writes, shell/subprocess behavior,
+  unrestricted network/browser automation, mobile control, or public
+  distribution.
 - Route metadata must keep side-effect classes explicit.
 
 Denied by the current API boundary:

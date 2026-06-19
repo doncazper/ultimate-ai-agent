@@ -33,6 +33,8 @@ CAPABILITIES_DECLARED = [
     "file_api_server_owned_safe_root_refs",
     "file_api_safe_tree_preview_refs",
     "secret_api_reference_only_handles",
+    "inspectable_extension_catalog_read_only",
+    "extension_activation_grant_records_exact_scope",
 ]
 
 CAPABILITIES_BLOCKED = [
@@ -66,6 +68,14 @@ CAPABILITIES_BLOCKED = [
     "task_decomposition_unrestricted_external_execution",
     "task_decomposition_unreviewed_handler_imports",
     "task_decomposition_unscoped_approval_authority",
+    "extension_catalog_callable_runtime",
+    "extension_catalog_runtime_import",
+    "extension_catalog_plugin_execution",
+    "extension_catalog_connector_writes",
+    "extension_activation_runtime_import",
+    "extension_activation_execution",
+    "extension_activation_callable_catalog",
+    "extension_activation_overbroad_grants",
 ]
 
 ROUTE_GROUPS_BY_PREFIX = {
@@ -99,6 +109,7 @@ ROUTE_GROUPS_BY_PREFIX = {
     "/kernel": "kernel",
     "/task-decomposition": "task-decomposition",
     "/v1": "openwebui-local-test",
+    "/extensions": "extension-catalog",
 }
 
 LOCAL_DEV_WORKSPACE_PREFIXES = ("/kernel", "/files", "/memory", "/task-decomposition", "/v1")

@@ -148,6 +148,7 @@ from ultimate_ai_agent.core.control_center import (
     build_control_center_manifest,
     preview_control_center_action,
 )
+from ultimate_ai_agent.core.extension_catalog import build_default_inspectable_extension_catalog
 from ultimate_ai_agent.core.file_review import (
     FileReviewApprovalCaptureRequest,
     FileReviewApprovalStore,
@@ -434,6 +435,18 @@ def get_version():
 @app.get("/api/manifest", response_model=ApiManifest)
 def get_api_manifest():
     return build_api_manifest(app)
+
+@app.get("/extensions/catalog", response_model=ResultEnvelope)
+def get_extensions_catalog():
+    catalog = build_default_inspectable_extension_catalog()
+    return ResultEnvelope(
+        success=True,
+        operation="inspect_extension_catalog",
+        service="ExtensionCatalogAPI",
+        trace_id=catalog.catalog_ref,
+        data=catalog.model_dump(mode="json"),
+        redactions_applied=["safe_refs_only", "raw_package_content_omitted"],
+    )
 
 def _require_openwebui_local_test_gateway(authorization: str | None) -> None:
     if not openwebui_test_gateway_enabled():

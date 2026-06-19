@@ -1,0 +1,283 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ultimate-ai-agent.local/schemas/extension_activation_grant.schema.json",
+  "title": "uaa_extension_activation_grant",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "grant_record",
+    "revocation_record",
+    "runtime_import_enabled",
+    "execution_enabled",
+    "safe_summary"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "uaa_extension_activation_grant.v1"
+    },
+    "grant_record": {
+      "$ref": "#/$defs/activation_grant_record"
+    },
+    "revocation_record": {
+      "$ref": "#/$defs/activation_revocation_record"
+    },
+    "runtime_import_enabled": {
+      "const": false
+    },
+    "execution_enabled": {
+      "const": false
+    },
+    "safe_summary": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500
+    }
+  },
+  "$defs": {
+    "safe_ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_-]*:[a-z0-9][a-z0-9_.:-]*$"
+    },
+    "activation_grant_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "activation_grant_ref",
+        "package_ref",
+        "manifest_ref",
+        "version_ref",
+        "actor_ref",
+        "approval_ref",
+        "scope_ref",
+        "capability_refs",
+        "requested_grant_refs",
+        "grant_status",
+        "staleness_status",
+        "exact_scope",
+        "overbroad_scope",
+        "revocation_ref",
+        "audit_refs",
+        "replay_ref",
+        "runtime_import_enabled",
+        "execution_enabled",
+        "connector_writes_enabled",
+        "shell_execution_enabled",
+        "network_access_enabled",
+        "browser_automation_enabled",
+        "mobile_control_enabled",
+        "public_distribution_claimed",
+        "safe_summary"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "uaa_extension_activation_grant.v1"
+        },
+        "activation_grant_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "package_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "manifest_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "version_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "actor_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "approval_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "scope_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "capability_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/safe_ref"
+          }
+        },
+        "requested_grant_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/safe_ref"
+          }
+        },
+        "grant_status": {
+          "enum": ["granted", "revoked", "stale", "blocked"]
+        },
+        "staleness_status": {
+          "enum": ["current", "stale"]
+        },
+        "exact_scope": {
+          "const": true
+        },
+        "overbroad_scope": {
+          "const": false
+        },
+        "revocation_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "audit_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/safe_ref"
+          }
+        },
+        "receipt_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/safe_ref"
+          }
+        },
+        "replay_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "runtime_import_enabled": {
+          "const": false
+        },
+        "execution_enabled": {
+          "const": false
+        },
+        "connector_writes_enabled": {
+          "const": false
+        },
+        "shell_execution_enabled": {
+          "const": false
+        },
+        "network_access_enabled": {
+          "const": false
+        },
+        "browser_automation_enabled": {
+          "const": false
+        },
+        "mobile_control_enabled": {
+          "const": false
+        },
+        "public_distribution_claimed": {
+          "const": false
+        },
+        "safe_summary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        }
+      }
+    },
+    "activation_revocation_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "revocation_ref",
+        "activation_grant_ref",
+        "package_ref",
+        "manifest_ref",
+        "version_ref",
+        "actor_ref",
+        "approval_ref",
+        "scope_ref",
+        "revocation_status",
+        "exact_scope",
+        "audit_refs",
+        "replay_ref",
+        "runtime_import_enabled",
+        "execution_enabled",
+        "connector_writes_enabled",
+        "shell_execution_enabled",
+        "network_access_enabled",
+        "browser_automation_enabled",
+        "mobile_control_enabled",
+        "public_distribution_claimed",
+        "safe_summary"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "uaa_extension_activation_revocation.v1"
+        },
+        "revocation_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "activation_grant_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "package_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "manifest_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "version_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "actor_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "approval_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "scope_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "revocation_status": {
+          "enum": ["requested", "revoked"]
+        },
+        "exact_scope": {
+          "const": true
+        },
+        "audit_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/safe_ref"
+          }
+        },
+        "receipt_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/safe_ref"
+          }
+        },
+        "replay_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "runtime_import_enabled": {
+          "const": false
+        },
+        "execution_enabled": {
+          "const": false
+        },
+        "connector_writes_enabled": {
+          "const": false
+        },
+        "shell_execution_enabled": {
+          "const": false
+        },
+        "network_access_enabled": {
+          "const": false
+        },
+        "browser_automation_enabled": {
+          "const": false
+        },
+        "mobile_control_enabled": {
+          "const": false
+        },
+        "public_distribution_claimed": {
+          "const": false
+        },
+        "safe_summary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        }
+      }
+    }
+  }
+}

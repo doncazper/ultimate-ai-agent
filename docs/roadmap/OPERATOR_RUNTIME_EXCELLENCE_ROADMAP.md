@@ -368,11 +368,27 @@ authority exists.
 
 Tasks:
 
-- `UAA-P1-024` Define plugin/skill manifest trust schema.
+- `UAA-P1-024` Done: define plugin/skill manifest trust schema and ecosystem
+  boundary before runtime import, including package identity, provenance,
+  per-file hashes, declared capabilities, risk class, requested grants,
+  exact-scope activation records, revocation behavior, audit refs, inspectable
+  catalog separation, and no callable/runtime catalog claim; canonical doc is
+  `docs/tooling/PLUGIN_SKILL_ECOSYSTEM_BOUNDARY.md`; canonical schema is
+  `docs/schemas/plugin_skill_trust_manifest.schema.json`.
 - `UAA-P2-048` Add static package review with provenance and per-file hashes.
-- `UAA-P2-049` Add inspectable catalog separate from callable catalog.
-- `UAA-P2-050` Add activation grants with exact capabilities and revocation.
-- `UAA-P2-051` Add MCP/A2A compatibility watchlist without runtime authority.
+- `UAA-P2-049` Done: add read-only inspectable catalog route/model/schema
+  separate from any callable catalog; canonical doc is
+  `docs/tooling/INSPECTABLE_EXTENSION_CATALOG.md`; canonical schema is
+  `docs/schemas/inspectable_extension_catalog.schema.json`; canonical API is
+  `GET /extensions/catalog`.
+- `UAA-P2-050` Done: add exact-scope activation and revocation record
+  contracts without runtime import or execution; canonical doc is
+  `docs/tooling/EXTENSION_ACTIVATION_GRANTS.md`; canonical schema is
+  `docs/schemas/extension_activation_grant.schema.json`.
+- `UAA-P2-051` Done: add MCP/A2A compatibility watchlist without runtime
+  authority, connector writes, plugin execution, broad tool invocation, or
+  network authority; canonical doc is
+  `docs/tooling/MCP_A2A_COMPATIBILITY_WATCHLIST.md`.
 
 Acceptance:
 
@@ -420,6 +436,10 @@ Acceptance:
 - `UAA-P1-044` Done: Release evidence packet.
 - `UAA-P1-045` Done: Backup/restore verification.
 - `UAA-P1-046` Done: Rollback runbook.
+- `UAA-P1-024` Done: Plugin/skill ecosystem boundary.
+- `UAA-P2-049` Done: Inspectable extension catalog.
+- `UAA-P2-050` Done: Extension activation grant records.
+- `UAA-P2-051` Done: MCP/A2A compatibility watchlist.
 
 ## Definition of Ready
 

@@ -105,6 +105,17 @@ Any future OpenWebUI bridge must be treated like external tool integration and p
 
 v0.18.4 maps future OpenWebUI bridge work to M21 in `docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md`. v0.25.0 implements M21 as contract/planning/validation only and does not enable deployment, plugins, functions, pipelines, tools, Docker Compose, or external exposure. v0.26.0 implements M22 contract-only. v0.27.0 implements M23 as manual fixed-prompt local call only and does not enable plugins, external exposure, or production authority.
 
+## MCP/A2A Compatibility Watchlist
+
+MCP/A2A compatibility is tracked in
+`docs/tooling/MCP_A2A_COMPATIBILITY_WATCHLIST.md` as strategy/watchlist only.
+It does not ship MCP/A2A runtime support and does not add runtime authority,
+connector writes, plugin execution, broad tool invocation, network authority,
+backend routes, OpenAPI paths, public distribution, or production authority.
+Any later implementation must pass PolicyEngine, LocalApprovalAuthority, route
+side-effect classification, OpenAPI checks, Foundation Gate checks, redaction,
+audit, revocation, rollback, and release-evidence gates.
+
 ## Mobile and Desktop Build Plugins
 
 iOS, Android, and macOS build plugins are future-only. They may involve Xcode, Gradle, Android Studio, native build systems, signing identities, provisioning profiles, keystores, keychains, simulator/device access, app entitlements, camera/microphone/location permissions, push notification credentials, App Store Connect credentials, and Play Store workflows. They must remain disabled until dedicated milestones define the approval and safety boundary.

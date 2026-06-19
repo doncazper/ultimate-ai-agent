@@ -308,6 +308,10 @@ docs/openwebui/OPENWEBUI_SAFE_HANDOFF_AUTHORITY_BOUNDARY.md
 docs/openwebui/OPENWEBUI_SAFE_HANDOFF_RECEIPT_PLAN.md
 docs/openwebui/M77_TO_M78_BOUNDARY.md
 docs/tooling/PLUGIN_MANIFEST_SECURITY_MODEL.md
+docs/tooling/PLUGIN_SKILL_ECOSYSTEM_BOUNDARY.md
+docs/tooling/INSPECTABLE_EXTENSION_CATALOG.md
+docs/tooling/EXTENSION_ACTIVATION_GRANTS.md
+docs/tooling/MCP_A2A_COMPATIBILITY_WATCHLIST.md
 docs/tooling/PLUGIN_MANIFEST_POLICY.md
 docs/tooling/PLUGIN_PERMISSION_MODEL.md
 docs/tooling/PLUGIN_PROVENANCE_REVIEW.md
@@ -907,6 +911,13 @@ docs/maintenance/codex_plugin_capability_inventory.md
 docs/tooling/CODEX_PLUGIN_CAPABILITY_INVENTORY.md
 docs/tooling/CODEX_PLUGIN_RISK_POLICY.md
 docs/canonical/66_external_tooling_and_codex_plugin_governance.md
+docs/tooling/PLUGIN_SKILL_ECOSYSTEM_BOUNDARY.md
+docs/tooling/INSPECTABLE_EXTENSION_CATALOG.md
+docs/tooling/EXTENSION_ACTIVATION_GRANTS.md
+docs/tooling/MCP_A2A_COMPATIBILITY_WATCHLIST.md
+docs/schemas/plugin_skill_trust_manifest.schema.json
+docs/schemas/inspectable_extension_catalog.schema.json
+docs/schemas/extension_activation_grant.schema.json
 docs/backlog/codex_plugin_enablement_backlog.md
 ```
 
@@ -953,7 +964,8 @@ scripts/dev/README.md
 v0.37.4 supersedes the old active M35-M40 roadmap projection and defines the
 active M34-M60 sequence. v2.0.0 is the current active package baseline for the
 accepted Operator Runtime Excellence currentness and production-readiness
-documentation repair lane through P1 release-evidence packet formatting.
+documentation repair lane through P2 read-only ecosystem inspection,
+activation-record contracts, and MCP/A2A compatibility watchlist planning.
 Checkpoint M108 is implemented/released as Mobile Kill Switch + Revocation
 after the Checkpoint M107 Mobile Approval Renewal UX release and post-M103
 versioning repair follow-up.

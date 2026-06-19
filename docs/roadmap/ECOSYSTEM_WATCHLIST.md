@@ -4,6 +4,11 @@ Status: Active roadmap watchlist for v0.19.1. Documentation only.
 
 This watchlist records projects to evaluate during future milestone planning. It adds no integration, no plugin enablement, no external network, no dependency, and no parity claim.
 
+The active MCP/A2A compatibility watchlist is
+`docs/tooling/MCP_A2A_COMPATIBILITY_WATCHLIST.md`. It is strategy/watchlist
+only and adds no runtime authority, no connector writes, no plugin execution,
+no broad tool invocation, and no network authority.
+
 ## Personal Assistant / Chat Shells
 
 - OpenWebUI.
@@ -56,6 +61,8 @@ This watchlist records projects to evaluate during future milestone planning. It
 - Activepieces.
 - Dify.
 - Flowise.
+- MCP/A2A compatibility, tracked in
+  `docs/tooling/MCP_A2A_COMPATIBILITY_WATCHLIST.md`.
 
 ## Sandboxes
 

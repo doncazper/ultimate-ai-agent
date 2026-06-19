@@ -75,9 +75,6 @@ UAA-P1-023 Redacted observability runtime
 Goal: structured latency, cost, model, approval, tool, and error events with
 no raw prompts, raw responses, raw paths, secrets, or env dumps.
 
-UAA-P1-024 Plugin/skill ecosystem boundary
-Goal: inspectable packages, static manifest review, no runtime import by
-default, explicit activation grants, and rollback proof.
 ```
 
 ## QA / Verification
@@ -296,6 +293,45 @@ local model cache, settings, registry, approvals, audit state, and run/receipt
 state without live restore, broad mutation, shell/subprocess, connector write,
 plugin runtime import, mobile control, public distribution, or production
 authority claims.
+
+UAA-P1-024 Plugin/skill ecosystem boundary
+Gate met: `docs/tooling/PLUGIN_SKILL_ECOSYSTEM_BOUNDARY.md` and
+`docs/schemas/plugin_skill_trust_manifest.schema.json` define package identity,
+provenance, per-file hashes, declared capabilities, risk class, requested
+grants, exact-scope activation records, revocation behavior, audit refs,
+inspectable catalog binding, callable catalog separation, and disabled runtime
+import/execution defaults without plugin install, plugin execution, connector
+writes, shell/subprocess, network/browser, mobile control, autonomous
+background execution, public distribution, or production authority claims.
+
+UAA-P2-049 Inspectable catalog
+Gate met: `docs/tooling/INSPECTABLE_EXTENSION_CATALOG.md`,
+`docs/schemas/inspectable_extension_catalog.schema.json`, and
+`GET /extensions/catalog` define read-only extension catalog inspection for
+declared capabilities, provenance, hashes, risk, activation status, and
+blocked/unknown state while keeping callable catalog, runtime import, plugin
+execution, connector writes, shell/subprocess, network/browser automation,
+mobile control, autonomous background execution, public distribution, and
+production authority unavailable.
+
+UAA-P2-050 Extension activation grants
+Gate met: `docs/tooling/EXTENSION_ACTIVATION_GRANTS.md`,
+`docs/schemas/extension_activation_grant.schema.json`, and
+`tests/test_extension_activation_grants.py` define exact-scope activation and
+revocation records with approval refs, scope refs, capability refs, audit refs,
+replay refs, duplicate denial, stale-grant denial, and revoked-grant denial
+while keeping runtime import, callable catalog, plugin execution, connector
+writes, shell/subprocess, network/browser automation, mobile control,
+autonomous background execution, public distribution, and production authority
+unavailable.
+
+UAA-P2-051 MCP/A2A compatibility watchlist
+Gate met: `docs/tooling/MCP_A2A_COMPATIBILITY_WATCHLIST.md` records MCP/A2A
+concepts, risks, required future gates, compatibility questions, and
+manifest/capability implications as strategy/watchlist only while keeping
+runtime authority, connector writes, plugin execution, broad tool invocation,
+network authority, backend routes, OpenAPI paths, public distribution, and
+production authority unavailable.
 ```
 
 ## ASAP Sequence

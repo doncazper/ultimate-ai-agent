@@ -1,7 +1,7 @@
 # Ultimate AI Agent Docs
 
 Status: active
-Current through: v2.0.0 plus accepted checkpoint-m168 and active Operator Runtime Excellence P1 release-evidence work
+Current through: v2.0.0 plus accepted checkpoint-m168 and active Operator Runtime Excellence P2 ecosystem inspection work through UAA-P2-051
 Purpose: Human-facing entrypoint for active documentation and historical archive navigation.
 
 Active docs are few, indexed, and current. Historical docs are preserved under
@@ -54,6 +54,13 @@ docs/production/RELEASE_EVIDENCE_PACKET.md
 docs/production/BACKUP_RESTORE_VERIFICATION.md
 docs/production/LOCAL_STATE_ROLLBACK_RUNBOOK.md
 docs/production/LOCAL_RUNTIME_PACKAGING.md
+docs/tooling/PLUGIN_SKILL_ECOSYSTEM_BOUNDARY.md
+docs/tooling/INSPECTABLE_EXTENSION_CATALOG.md
+docs/tooling/EXTENSION_ACTIVATION_GRANTS.md
+docs/tooling/MCP_A2A_COMPATIBILITY_WATCHLIST.md
+docs/schemas/plugin_skill_trust_manifest.schema.json
+docs/schemas/inspectable_extension_catalog.schema.json
+docs/schemas/extension_activation_grant.schema.json
 docs/api/SAFE_STATIC_MANIFEST_CACHING.md
 docs/production/M167_LIVE_MODEL_PRODUCTION_HARDENING_BOUNDARY.md
 docs/production/M167_LIVE_MODEL_PRODUCTION_HARDENING_NON_GOALS.md
@@ -163,7 +170,8 @@ docs/tools/TOOL_INTENT_RECEIPT_PLAN.md
 The product/package baseline is `v2.0.0` / `2.0.0`. The latest
 accepted repository checkpoint tag is `checkpoint-m168`. The latest accepted
 local model lane checkpoint tags remain `checkpoint-m166` and
-`checkpoint-m167`. Active Operator Runtime Excellence P1 release-evidence work
+`checkpoint-m167`. Active Operator Runtime Excellence P2 ecosystem inspection
+work through UAA-P2-051
 is docs/verifier/security/evidence/performance/operator-shell scaffolding; it adds
 no production authority, backend route, Control Center control, dependency,
 public distribution, broad autonomy, shell/subprocess authority, browser

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import json
 import re
 import sys
 from pathlib import Path
@@ -607,6 +608,28 @@ REQUIRED_M79_PLUGIN_INSTALL_REVIEW_DOCS = [
     "docs/implementation/foundation_gate_implementation_plan_v0_83_0.md",
 ]
 
+REQUIRED_PLUGIN_SKILL_ECOSYSTEM_BOUNDARY_DOC = (
+    "docs/tooling/PLUGIN_SKILL_ECOSYSTEM_BOUNDARY.md"
+)
+REQUIRED_PLUGIN_SKILL_TRUST_MANIFEST_SCHEMA = (
+    "docs/schemas/plugin_skill_trust_manifest.schema.json"
+)
+REQUIRED_INSPECTABLE_EXTENSION_CATALOG_DOC = (
+    "docs/tooling/INSPECTABLE_EXTENSION_CATALOG.md"
+)
+REQUIRED_INSPECTABLE_EXTENSION_CATALOG_SCHEMA = (
+    "docs/schemas/inspectable_extension_catalog.schema.json"
+)
+REQUIRED_EXTENSION_ACTIVATION_GRANTS_DOC = (
+    "docs/tooling/EXTENSION_ACTIVATION_GRANTS.md"
+)
+REQUIRED_EXTENSION_ACTIVATION_GRANT_SCHEMA = (
+    "docs/schemas/extension_activation_grant.schema.json"
+)
+REQUIRED_MCP_A2A_COMPATIBILITY_WATCHLIST_DOC = (
+    "docs/tooling/MCP_A2A_COMPATIBILITY_WATCHLIST.md"
+)
+
 REQUIRED_M80_NETWORK_BROWSER_OPENWEBUI_FREEZE_DOCS = [
     "docs/hardening/NETWORK_BROWSER_OPENWEBUI_HARDENING_FREEZE.md",
     "docs/hardening/NETWORK_BROWSER_OPENWEBUI_HARDENING_FREEZE_CONTRACTS.md",
@@ -1054,6 +1077,13 @@ RELEASE_FACING_SECURITY_DOCS = [
     REQUIRED_BACKUP_RESTORE_VERIFICATION_DOC,
     REQUIRED_LOCAL_STATE_ROLLBACK_RUNBOOK_DOC,
     REQUIRED_LOCAL_RUNTIME_PACKAGING_DOC,
+    REQUIRED_PLUGIN_SKILL_ECOSYSTEM_BOUNDARY_DOC,
+    REQUIRED_INSPECTABLE_EXTENSION_CATALOG_DOC,
+    REQUIRED_EXTENSION_ACTIVATION_GRANTS_DOC,
+    REQUIRED_MCP_A2A_COMPATIBILITY_WATCHLIST_DOC,
+    REQUIRED_PLUGIN_SKILL_TRUST_MANIFEST_SCHEMA,
+    REQUIRED_INSPECTABLE_EXTENSION_CATALOG_SCHEMA,
+    REQUIRED_EXTENSION_ACTIVATION_GRANT_SCHEMA,
     REQUIRED_LLAMA_SERVER_PACKAGING_CHECKLIST_DOC,
     REQUIRED_LOCAL_MODEL_OPERATIONAL_RUNBOOK_DOC,
     "docs/security/SECURITY_TRIAGE_RUNBOOK.md",
@@ -1117,6 +1147,13 @@ REQUIRED_ACTIVE_DOCS = [
     "docs/backlog/codex_plugin_enablement_backlog.md",
     "docs/tooling/CODEX_PLUGIN_CAPABILITY_INVENTORY.md",
     "docs/tooling/CODEX_PLUGIN_RISK_POLICY.md",
+    REQUIRED_PLUGIN_SKILL_ECOSYSTEM_BOUNDARY_DOC,
+    REQUIRED_INSPECTABLE_EXTENSION_CATALOG_DOC,
+    REQUIRED_EXTENSION_ACTIVATION_GRANTS_DOC,
+    REQUIRED_MCP_A2A_COMPATIBILITY_WATCHLIST_DOC,
+    REQUIRED_PLUGIN_SKILL_TRUST_MANIFEST_SCHEMA,
+    REQUIRED_INSPECTABLE_EXTENSION_CATALOG_SCHEMA,
+    REQUIRED_EXTENSION_ACTIVATION_GRANT_SCHEMA,
     "docs/remote/PRIVATE_MESH_TRANSPORT_POLICY.md",
     "docs/remote/TAILNET_TRANSPORT_POLICY.md",
     "docs/remote/REMOTE_WORKER_FOUNDATION.md",
@@ -1227,6 +1264,13 @@ REQUIRED_ACTIVE_DOCS = [
     REQUIRED_BACKUP_RESTORE_VERIFICATION_DOC,
     REQUIRED_LOCAL_STATE_ROLLBACK_RUNBOOK_DOC,
     REQUIRED_LOCAL_RUNTIME_PACKAGING_DOC,
+    REQUIRED_PLUGIN_SKILL_ECOSYSTEM_BOUNDARY_DOC,
+    REQUIRED_INSPECTABLE_EXTENSION_CATALOG_DOC,
+    REQUIRED_EXTENSION_ACTIVATION_GRANTS_DOC,
+    REQUIRED_MCP_A2A_COMPATIBILITY_WATCHLIST_DOC,
+    REQUIRED_PLUGIN_SKILL_TRUST_MANIFEST_SCHEMA,
+    REQUIRED_INSPECTABLE_EXTENSION_CATALOG_SCHEMA,
+    REQUIRED_EXTENSION_ACTIVATION_GRANT_SCHEMA,
     REQUIRED_LLAMA_SERVER_PACKAGING_CHECKLIST_DOC,
     REQUIRED_LOCAL_MODEL_OPERATIONAL_RUNBOOK_DOC,
     *REQUIRED_PUBLIC_SECURITY_DOCS,
@@ -1412,6 +1456,13 @@ ACTIVE_DOCS_TO_SCAN = [
     REQUIRED_BACKUP_RESTORE_VERIFICATION_DOC,
     REQUIRED_LOCAL_STATE_ROLLBACK_RUNBOOK_DOC,
     REQUIRED_LOCAL_RUNTIME_PACKAGING_DOC,
+    REQUIRED_PLUGIN_SKILL_ECOSYSTEM_BOUNDARY_DOC,
+    REQUIRED_INSPECTABLE_EXTENSION_CATALOG_DOC,
+    REQUIRED_EXTENSION_ACTIVATION_GRANTS_DOC,
+    REQUIRED_MCP_A2A_COMPATIBILITY_WATCHLIST_DOC,
+    REQUIRED_PLUGIN_SKILL_TRUST_MANIFEST_SCHEMA,
+    REQUIRED_INSPECTABLE_EXTENSION_CATALOG_SCHEMA,
+    REQUIRED_EXTENSION_ACTIVATION_GRANT_SCHEMA,
     REQUIRED_LLAMA_SERVER_PACKAGING_CHECKLIST_DOC,
     REQUIRED_LOCAL_MODEL_OPERATIONAL_RUNBOOK_DOC,
     *REQUIRED_PUBLIC_SECURITY_DOCS,
@@ -1471,6 +1522,13 @@ ACTIVE_DOCS_TO_SCAN = [
     "docs/backlog/codex_plugin_enablement_backlog.md",
     "docs/tooling/CODEX_PLUGIN_CAPABILITY_INVENTORY.md",
     "docs/tooling/CODEX_PLUGIN_RISK_POLICY.md",
+    REQUIRED_PLUGIN_SKILL_ECOSYSTEM_BOUNDARY_DOC,
+    REQUIRED_INSPECTABLE_EXTENSION_CATALOG_DOC,
+    REQUIRED_EXTENSION_ACTIVATION_GRANTS_DOC,
+    REQUIRED_MCP_A2A_COMPATIBILITY_WATCHLIST_DOC,
+    REQUIRED_PLUGIN_SKILL_TRUST_MANIFEST_SCHEMA,
+    REQUIRED_INSPECTABLE_EXTENSION_CATALOG_SCHEMA,
+    REQUIRED_EXTENSION_ACTIVATION_GRANT_SCHEMA,
 ]
 
 
@@ -1554,7 +1612,7 @@ ACTIVE_BASELINE_LABEL_PATTERNS = [
     ),
 ]
 
-EXPECTED_CURRENT_OPENAPI_PATH_COUNT = 94
+EXPECTED_CURRENT_OPENAPI_PATH_COUNT = 95
 
 
 def _verify_active_baseline_labels(root: Path, version: str) -> list[str]:
@@ -1779,13 +1837,13 @@ def _verify_operator_runtime_currentness(root: Path) -> list[str]:
             "| product shell |"
         ),
         "product truth packet must mark shipped API boundary": (
-            "shipped for the 94-path api boundary"
+            "shipped for the 95-path api boundary"
         ),
         "product truth packet must mark blocked local model claims": (
             "blocked for production-readiness claims"
         ),
-        "product truth packet must mark future-scoped plugin claims": (
-            "future-scoped; blocked for activation/runtime-import claims"
+        "product truth packet must mark shipped inspectable catalog": (
+            "uaa-p2-049 met for read-only inspectable catalog only"
         ),
         "product truth packet must include non-goals": "## non-goals",
         "product truth packet must cite API evidence": "tests/test_api_manifest.py",
@@ -3300,6 +3358,918 @@ def _verify_local_runtime_packaging(root: Path) -> list[str]:
     return failures
 
 
+def _verify_plugin_skill_ecosystem_boundary(root: Path) -> list[str]:
+    failures: list[str] = []
+    doc_path = root / REQUIRED_PLUGIN_SKILL_ECOSYSTEM_BOUNDARY_DOC
+    schema_path = root / REQUIRED_PLUGIN_SKILL_TRUST_MANIFEST_SCHEMA
+    if not doc_path.exists():
+        return [
+            "missing plugin/skill ecosystem boundary doc: "
+            f"{REQUIRED_PLUGIN_SKILL_ECOSYSTEM_BOUNDARY_DOC}"
+        ]
+    if not schema_path.exists():
+        return [
+            "missing plugin/skill trust manifest schema: "
+            f"{REQUIRED_PLUGIN_SKILL_TRUST_MANIFEST_SCHEMA}"
+        ]
+
+    def read_lower(rel_path: str) -> str:
+        path = root / rel_path
+        return _read(path).lower() if path.exists() else ""
+
+    boundary_doc = read_lower(REQUIRED_PLUGIN_SKILL_ECOSYSTEM_BOUNDARY_DOC)
+    boundary_compact = " ".join(boundary_doc.split())
+    boundary_link = REQUIRED_PLUGIN_SKILL_ECOSYSTEM_BOUNDARY_DOC.lower()
+    schema_link = REQUIRED_PLUGIN_SKILL_TRUST_MANIFEST_SCHEMA.lower()
+    active_links = {
+        "README.md": read_lower("README.md"),
+        "docs/README.md": read_lower("docs/README.md"),
+        "docs/DOCUMENTATION_INDEX.md": read_lower("docs/DOCUMENTATION_INDEX.md"),
+        "docs/canonical/CANONICAL_DOC_MAP.md": read_lower(
+            "docs/canonical/CANONICAL_DOC_MAP.md"
+        ),
+        "docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md": read_lower(
+            "docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md"
+        ),
+        "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md": read_lower(
+            "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md"
+        ),
+        "docs/kanban/current_board.md": read_lower("docs/kanban/current_board.md"),
+    }
+    for rel_path, text in active_links.items():
+        if boundary_link not in text:
+            failures.append(f"{rel_path} must link plugin/skill ecosystem boundary")
+    for rel_path, text in active_links.items():
+        if rel_path == "README.md":
+            continue
+        if schema_link not in text:
+            failures.append(f"{rel_path} must link plugin/skill trust manifest schema")
+
+    for message, fragment in {
+        "boundary doc must identify UAA-P1-024": (
+            "status: active uaa-p1-024 plugin/skill ecosystem boundary"
+        ),
+        "boundary doc must name canonical schema": schema_link,
+        "boundary doc must include package identity": "package identity",
+        "boundary doc must include provenance": "provenance",
+        "boundary doc must include per-file hashes": "per-file hashes",
+        "boundary doc must include declared capabilities": "declared capabilities",
+        "boundary doc must include risk class": "risk class",
+        "boundary doc must include requested grants": "requested grants",
+        "boundary doc must include activation grants": "activation grants",
+        "boundary doc must include revocation model": "revocation model",
+        "boundary doc must include revocation behavior": "revocation behavior",
+        "boundary doc must include audit refs": "audit refs",
+        "boundary doc must define inspectable catalog": "## inspectable catalog",
+        "boundary doc must separate callable catalog": "## callable catalog separation",
+        "boundary doc must keep callable catalog disabled": (
+            "callable_catalog_enabled` remains `false"
+        ),
+        "boundary doc must keep runtime import disabled": (
+            "runtime_import_enabled` remains `false"
+        ),
+        "boundary doc must keep execution disabled": (
+            "execution_enabled` remains `false"
+        ),
+        "boundary doc must deny runtime import": "plugin runtime import",
+        "boundary doc must deny skill runtime import": "skill runtime import",
+        "boundary doc must deny plugin install": "plugin install",
+        "boundary doc must deny plugin execution": "arbitrary plugin execution",
+        "boundary doc must deny connector writes": "connector writes",
+        "boundary doc must deny shell execution": "shell execution",
+        "boundary doc must deny network authority": "network",
+        "boundary doc must deny browser automation": "browser automation",
+        "boundary doc must deny mobile control": "mobile control",
+        "boundary doc must deny public distribution": "public distribution",
+        "boundary doc must deny production authority": "production authority",
+        "boundary doc must keep static review future-scoped": "uaa-p2-048",
+        "boundary doc must reference inspectable catalog milestone": "uaa-p2-049",
+        "boundary doc must reference activation records milestone": "uaa-p2-050",
+        "boundary doc must include rollback": "## rollback",
+    }.items():
+        if fragment not in boundary_compact:
+            failures.append(message)
+
+    for unsafe in [
+        "runtime import is enabled",
+        "plugin execution is enabled",
+        "callable catalog is enabled",
+        "connector writes are enabled",
+        "unrestricted shell/subprocess execution is allowed",
+        "public distribution is available",
+        "production authority is granted",
+    ]:
+        if unsafe in boundary_doc:
+            failures.append(f"plugin/skill boundary contains unsafe claim: {unsafe}")
+
+    try:
+        schema = json.loads(_read(schema_path))
+    except json.JSONDecodeError as exc:
+        failures.append(
+            "plugin/skill trust manifest schema must be valid JSON: "
+            f"{exc.msg}"
+        )
+        return failures
+
+    required_fields = {
+        "schema_version",
+        "manifest_ref",
+        "package_identity",
+        "provenance",
+        "file_hashes",
+        "declared_capabilities",
+        "risk_class",
+        "requested_grants",
+        "activation_model",
+        "revocation_behavior",
+        "audit_refs",
+        "catalog_binding",
+        "runtime_import_enabled",
+        "execution_enabled",
+        "safe_summary",
+    }
+    schema_required = set(schema.get("required", []))
+    missing_required = sorted(required_fields - schema_required)
+    if missing_required:
+        failures.append(
+            "plugin/skill trust schema missing required fields: "
+            + ", ".join(missing_required)
+        )
+    if schema.get("title") != "uaa_plugin_skill_trust_manifest":
+        failures.append("plugin/skill trust schema title must be stable")
+    properties = schema.get("properties", {})
+    if properties.get("schema_version", {}).get("const") != (
+        "uaa_plugin_skill_trust_manifest.v1"
+    ):
+        failures.append("plugin/skill trust schema version const is missing")
+    if properties.get("runtime_import_enabled", {}).get("const") is not False:
+        failures.append("plugin/skill trust schema must disable runtime import")
+    if properties.get("execution_enabled", {}).get("const") is not False:
+        failures.append("plugin/skill trust schema must disable execution")
+
+    activation_model = properties.get("activation_model", {}).get("properties", {})
+    if activation_model.get("exact_scope_required", {}).get("const") is not True:
+        failures.append("plugin/skill trust schema must require exact activation scope")
+    if activation_model.get("runtime_import_allowed", {}).get("const") is not False:
+        failures.append("plugin/skill trust schema must deny runtime import authority")
+
+    catalog_binding = properties.get("catalog_binding", {}).get("properties", {})
+    if catalog_binding.get("callable_catalog_enabled", {}).get("const") is not False:
+        failures.append("plugin/skill trust schema must keep callable catalog disabled")
+
+    revocation_behavior = properties.get("revocation_behavior", {}).get(
+        "properties", {}
+    )
+    if revocation_behavior.get("revocation_supported", {}).get("const") is not True:
+        failures.append("plugin/skill trust schema must require revocation support")
+
+    schema_text = json.dumps(schema, sort_keys=True).lower()
+    for fragment in [
+        "package_identity",
+        "provenance",
+        "file_hashes",
+        "declared_capabilities",
+        "risk_class",
+        "requested_grants",
+        "activation_model",
+        "revocation_behavior",
+        "audit_refs",
+        "catalog_binding",
+        "plugin",
+        "skill",
+        "connector_manifest",
+        "tooling_bundle",
+        "future_scoped",
+        "blocked",
+        "revoked",
+    ]:
+        if fragment not in schema_text:
+            failures.append(f"plugin/skill trust schema missing fragment: {fragment}")
+
+    board = read_lower("docs/kanban/current_board.md")
+    if "uaa-p1-024 plugin/skill ecosystem boundary" not in board:
+        failures.append("current board must track UAA-P1-024 ecosystem boundary")
+    if "gate met: `docs/tooling/plugin_skill_ecosystem_boundary.md`" not in board:
+        failures.append("current board must mark UAA-P1-024 gate met")
+    if "pull uaa-p1-024 next" in board:
+        failures.append("current board still contains stale UAA-P1-024 next label")
+
+    product_truth = read_lower("docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md")
+    if "plugin and skill ecosystem" not in product_truth:
+        failures.append("product truth packet must mention plugin and skill ecosystem")
+    if "uaa-p1-024 met for trust boundary/schema" not in product_truth:
+        failures.append("product truth packet must mark UAA-P1-024 boundary/schema met")
+    if "missing: uaa-p1-024" in product_truth:
+        failures.append("product truth packet still marks UAA-P1-024 missing")
+    for fragment in [
+        "runtime import",
+        "callable catalog",
+        "plugin execution",
+        "connector writes",
+        "public distribution",
+    ]:
+        if fragment not in product_truth:
+            failures.append(
+                "product truth packet must keep plugin ecosystem blocked for "
+                f"{fragment}"
+            )
+    if "uaa-p2-049 met for read-only inspectable catalog only" not in product_truth:
+        failures.append(
+            "product truth packet must mark UAA-P2-049 read-only catalog met"
+        )
+    if "uaa-p2-050 met for exact-scope activation/revocation records only" not in product_truth:
+        failures.append(
+            "product truth packet must mark UAA-P2-050 activation records met"
+        )
+    if "uaa-p2-049 inspectable catalog implementation" in product_truth:
+        failures.append(
+            "product truth packet still marks UAA-P2-049 catalog implementation missing"
+        )
+
+    return failures
+
+
+def _verify_inspectable_extension_catalog(root: Path) -> list[str]:
+    failures: list[str] = []
+    doc_path = root / REQUIRED_INSPECTABLE_EXTENSION_CATALOG_DOC
+    schema_path = root / REQUIRED_INSPECTABLE_EXTENSION_CATALOG_SCHEMA
+    if not doc_path.exists():
+        return [
+            "missing inspectable extension catalog doc: "
+            f"{REQUIRED_INSPECTABLE_EXTENSION_CATALOG_DOC}"
+        ]
+    if not schema_path.exists():
+        return [
+            "missing inspectable extension catalog schema: "
+            f"{REQUIRED_INSPECTABLE_EXTENSION_CATALOG_SCHEMA}"
+        ]
+
+    def read_lower(rel_path: str) -> str:
+        path = root / rel_path
+        return _read(path).lower() if path.exists() else ""
+
+    catalog_doc = read_lower(REQUIRED_INSPECTABLE_EXTENSION_CATALOG_DOC)
+    catalog_compact = " ".join(catalog_doc.split())
+    catalog_link = REQUIRED_INSPECTABLE_EXTENSION_CATALOG_DOC.lower()
+    schema_link = REQUIRED_INSPECTABLE_EXTENSION_CATALOG_SCHEMA.lower()
+    active_links = {
+        "README.md": read_lower("README.md"),
+        "docs/README.md": read_lower("docs/README.md"),
+        "docs/DOCUMENTATION_INDEX.md": read_lower("docs/DOCUMENTATION_INDEX.md"),
+        "docs/canonical/CANONICAL_DOC_MAP.md": read_lower(
+            "docs/canonical/CANONICAL_DOC_MAP.md"
+        ),
+        "docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md": read_lower(
+            "docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md"
+        ),
+        "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md": read_lower(
+            "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md"
+        ),
+        "docs/kanban/current_board.md": read_lower("docs/kanban/current_board.md"),
+        REQUIRED_PLUGIN_SKILL_ECOSYSTEM_BOUNDARY_DOC: read_lower(
+            REQUIRED_PLUGIN_SKILL_ECOSYSTEM_BOUNDARY_DOC
+        ),
+        REQUIRED_EXTENSION_ACTIVATION_GRANTS_DOC: read_lower(
+            REQUIRED_EXTENSION_ACTIVATION_GRANTS_DOC
+        ),
+    }
+    for rel_path, text in active_links.items():
+        if catalog_link not in text:
+            failures.append(f"{rel_path} must link inspectable extension catalog")
+        if rel_path != "README.md" and schema_link not in text:
+            failures.append(f"{rel_path} must link inspectable catalog schema")
+
+    required_fragments = {
+        "catalog doc must identify UAA-P2-049": (
+            "status: active uaa-p2-049 inspectable extension catalog"
+        ),
+        "catalog doc must name canonical schema": schema_link,
+        "catalog doc must name canonical API": "get /extensions/catalog",
+        "catalog doc must define read-only status": "read_only_inspection",
+        "catalog doc must keep callable catalog disabled": (
+            "callable_catalog_enabled: false"
+        ),
+        "catalog doc must keep runtime import disabled": (
+            "runtime_import_enabled: false"
+        ),
+        "catalog doc must keep execution disabled": "execution_enabled: false",
+        "catalog doc must keep connector writes disabled": (
+            "connector_writes_enabled: false"
+        ),
+        "catalog doc must keep shell execution disabled": (
+            "shell_execution_enabled: false"
+        ),
+        "catalog doc must keep network disabled": "network_access_enabled: false",
+        "catalog doc must keep browser automation disabled": (
+            "browser_automation_enabled: false"
+        ),
+        "catalog doc must keep mobile control disabled": (
+            "mobile_control_enabled: false"
+        ),
+        "catalog doc must deny public distribution": (
+            "public_distribution_claimed: false"
+        ),
+        "catalog doc must mention declared capabilities": "declared capabilities",
+        "catalog doc must mention provenance": "provenance",
+        "catalog doc must mention hashes": "hashes",
+        "catalog doc must mention risk": "risk",
+        "catalog doc must mention activation status": "activation status",
+        "catalog doc must mention blocked/unknown": "blocked/unknown",
+        "catalog doc must keep static package review scoped": "uaa-p2-048",
+        "catalog doc must reference activation grants": "uaa-p2-050",
+        "catalog doc must include rollback": "## rollback",
+    }
+    for message, fragment in required_fragments.items():
+        if fragment not in catalog_compact:
+            failures.append(message)
+
+    for unsafe in [
+        "callable catalog is enabled",
+        "runtime import is enabled",
+        "plugin execution is enabled",
+        "connector writes are enabled",
+        "shell execution is enabled",
+        "network access is enabled",
+        "browser automation is enabled",
+        "mobile control is enabled",
+        "public distribution is available",
+        "production authority is granted",
+    ]:
+        if unsafe in catalog_doc:
+            failures.append(f"inspectable catalog doc contains unsafe claim: {unsafe}")
+
+    try:
+        schema = json.loads(_read(schema_path))
+    except json.JSONDecodeError as exc:
+        failures.append(
+            "inspectable catalog schema must be valid JSON: " f"{exc.msg}"
+        )
+        return failures
+
+    if schema.get("title") != "uaa_inspectable_extension_catalog":
+        failures.append("inspectable catalog schema title must be stable")
+    properties = schema.get("properties", {})
+    schema_consts = {
+        "schema_version": "uaa_inspectable_extension_catalog.v1",
+        "catalog_status": "read_only_inspection",
+        "read_only": True,
+        "inspectable_catalog_enabled": True,
+        "callable_catalog_enabled": False,
+        "runtime_import_enabled": False,
+        "execution_enabled": False,
+        "connector_writes_enabled": False,
+        "shell_execution_enabled": False,
+        "network_access_enabled": False,
+        "browser_automation_enabled": False,
+        "mobile_control_enabled": False,
+        "public_distribution_claimed": False,
+    }
+    for field_name, expected in schema_consts.items():
+        if properties.get(field_name, {}).get("const") != expected:
+            failures.append(
+                f"inspectable catalog schema must pin {field_name} to {expected!r}"
+            )
+
+    required_schema_fields = {
+        "schema_version",
+        "catalog_ref",
+        "catalog_status",
+        "generated_from_ref",
+        "entries",
+        "read_only",
+        "inspectable_catalog_enabled",
+        "callable_catalog_enabled",
+        "runtime_import_enabled",
+        "execution_enabled",
+        "connector_writes_enabled",
+        "shell_execution_enabled",
+        "network_access_enabled",
+        "browser_automation_enabled",
+        "mobile_control_enabled",
+        "public_distribution_claimed",
+        "blocked_capabilities",
+        "docs_refs",
+        "schema_refs",
+        "safe_summary",
+    }
+    missing_required = sorted(required_schema_fields - set(schema.get("required", [])))
+    if missing_required:
+        failures.append(
+            "inspectable catalog schema missing required fields: "
+            + ", ".join(missing_required)
+        )
+    schema_text = json.dumps(schema, sort_keys=True).lower()
+    for fragment in [
+        "package_identity",
+        "provenance",
+        "file_hashes",
+        "declared_capabilities",
+        "risk_class",
+        "requested_grants",
+        "activation_status",
+        "blocked_state",
+        "blocker_refs",
+        "audit_refs",
+        "future_scoped",
+        "blocked",
+        "unknown",
+        "revoked",
+    ]:
+        if fragment not in schema_text:
+            failures.append(f"inspectable catalog schema missing fragment: {fragment}")
+
+    contracts = read_lower("src/ultimate_ai_agent/core/extension_catalog/contracts.py")
+    runtime = read_lower("src/ultimate_ai_agent/core/extension_catalog/runtime.py")
+    app_source = read_lower("src/ultimate_ai_agent/api/app.py")
+    manifest_source = read_lower("src/ultimate_ai_agent/api/manifest.py")
+    tests = read_lower("tests/test_inspectable_extension_catalog.py")
+
+    for message, fragment in {
+        "catalog contracts must define validator": (
+            "validate_inspectable_extension_catalog"
+        ),
+        "catalog contracts must deny callable catalog": (
+            "callable_catalog_enabled: literal[false]"
+        ),
+        "catalog contracts must deny runtime import": (
+            "runtime_import_enabled: literal[false]"
+        ),
+        "catalog contracts must deny execution": "execution_enabled: literal[false]",
+        "catalog contracts must deny connector writes": (
+            "connector_writes_enabled: literal[false]"
+        ),
+        "catalog contracts must deny shell execution": (
+            "shell_execution_enabled: literal[false]"
+        ),
+        "catalog contracts must deny network": "network_access_enabled: literal[false]",
+        "catalog contracts must deny browser": (
+            "browser_automation_enabled: literal[false]"
+        ),
+        "catalog contracts must deny mobile": "mobile_control_enabled: literal[false]",
+        "catalog contracts must deny public distribution": (
+            "public_distribution_claimed: literal[false]"
+        ),
+    }.items():
+        if fragment not in contracts:
+            failures.append(message)
+
+    for message, fragment in {
+        "catalog builder must exist": "build_default_inspectable_extension_catalog",
+        "catalog builder must list blocked capabilities": (
+            "extension_catalog_blocked_capabilities"
+        ),
+        "catalog builder must include reviewed repo-owned entry": (
+            "extension-package:uaa-plugin-skill-boundary"
+        ),
+        "catalog builder must include unknown candidate entry": (
+            "extension-package:unknown-extension-candidate"
+        ),
+    }.items():
+        if fragment not in runtime:
+            failures.append(message)
+
+    if '@app.get("/extensions/catalog"' not in app_source:
+        failures.append("app must expose GET /extensions/catalog")
+    for fragment in [
+        '/extensions/catalog/execute',
+        '/extensions/catalog/import',
+        '/extensions/catalog/activate',
+        '/extensions/catalog/revoke',
+        '/extensions/catalog/apply',
+        '/extensions/catalog/install',
+    ]:
+        if fragment in app_source:
+            failures.append(f"app exposes unsafe catalog route: {fragment}")
+
+    for fragment in [
+        "inspectable_extension_catalog_read_only",
+        "extension_catalog_callable_runtime",
+        "extension_catalog_runtime_import",
+        "extension_catalog_plugin_execution",
+        "extension_catalog_connector_writes",
+        '"/extensions": "extension-catalog"',
+    ]:
+        if fragment not in manifest_source:
+            failures.append(f"API manifest missing catalog fragment: {fragment}")
+
+    for fragment in [
+        "test_extension_catalog_route_returns_safe_read_only_metadata",
+        "test_extension_catalog_openapi_route_is_get_only_and_not_runtime_catalog",
+        "test_inspectable_extension_catalog_validation_denies_runtime_authority",
+    ]:
+        if fragment not in tests:
+            failures.append(f"inspectable catalog tests missing: {fragment}")
+
+    board = read_lower("docs/kanban/current_board.md")
+    if "uaa-p2-049 inspectable catalog" not in board:
+        failures.append("current board must track UAA-P2-049 inspectable catalog")
+    if "get /extensions/catalog" not in board:
+        failures.append("current board must mark UAA-P2-049 route gate met")
+    if "pull uaa-p2-049 next" in board:
+        failures.append("current board still contains stale UAA-P2-049 next label")
+
+    product_truth = read_lower("docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md")
+    if "uaa-p2-049 met for read-only inspectable catalog only" not in product_truth:
+        failures.append("product truth must mark UAA-P2-049 catalog met")
+    for fragment in [
+        "uaa-p2-048 static package review",
+        "uaa-p2-050 met for exact-scope activation/revocation records only",
+        "callable catalog",
+        "runtime import",
+        "plugin execution",
+    ]:
+        if fragment not in product_truth:
+            failures.append(f"product truth missing catalog blocker: {fragment}")
+
+    boundary_doc = read_lower(REQUIRED_PLUGIN_SKILL_ECOSYSTEM_BOUNDARY_DOC)
+    if "inspectable catalog implementation remains future-scoped to uaa-p2-049" in boundary_doc:
+        failures.append("plugin/skill boundary still marks UAA-P2-049 future-scoped")
+
+    return failures
+
+
+def _verify_extension_activation_grants(root: Path) -> list[str]:
+    failures: list[str] = []
+    doc_path = root / REQUIRED_EXTENSION_ACTIVATION_GRANTS_DOC
+    schema_path = root / REQUIRED_EXTENSION_ACTIVATION_GRANT_SCHEMA
+    if not doc_path.exists():
+        return [
+            "missing extension activation grants doc: "
+            f"{REQUIRED_EXTENSION_ACTIVATION_GRANTS_DOC}"
+        ]
+    if not schema_path.exists():
+        return [
+            "missing extension activation grant schema: "
+            f"{REQUIRED_EXTENSION_ACTIVATION_GRANT_SCHEMA}"
+        ]
+
+    def read_lower(rel_path: str) -> str:
+        path = root / rel_path
+        return _read(path).lower() if path.exists() else ""
+
+    grants_doc = read_lower(REQUIRED_EXTENSION_ACTIVATION_GRANTS_DOC)
+    grants_compact = " ".join(grants_doc.split())
+    grant_link = REQUIRED_EXTENSION_ACTIVATION_GRANTS_DOC.lower()
+    schema_link = REQUIRED_EXTENSION_ACTIVATION_GRANT_SCHEMA.lower()
+    active_links = {
+        "README.md": read_lower("README.md"),
+        "docs/README.md": read_lower("docs/README.md"),
+        "docs/DOCUMENTATION_INDEX.md": read_lower("docs/DOCUMENTATION_INDEX.md"),
+        "docs/canonical/CANONICAL_DOC_MAP.md": read_lower(
+            "docs/canonical/CANONICAL_DOC_MAP.md"
+        ),
+        "docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md": read_lower(
+            "docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md"
+        ),
+        "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md": read_lower(
+            "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md"
+        ),
+        "docs/kanban/current_board.md": read_lower("docs/kanban/current_board.md"),
+        REQUIRED_PLUGIN_SKILL_ECOSYSTEM_BOUNDARY_DOC: read_lower(
+            REQUIRED_PLUGIN_SKILL_ECOSYSTEM_BOUNDARY_DOC
+        ),
+        REQUIRED_INSPECTABLE_EXTENSION_CATALOG_DOC: read_lower(
+            REQUIRED_INSPECTABLE_EXTENSION_CATALOG_DOC
+        ),
+    }
+    for rel_path, text in active_links.items():
+        if grant_link not in text:
+            failures.append(f"{rel_path} must link extension activation grants")
+        if rel_path != "README.md" and schema_link not in text:
+            failures.append(f"{rel_path} must link extension activation grant schema")
+
+    for message, fragment in {
+        "activation grants doc must identify UAA-P2-050": (
+            "status: active uaa-p2-050 extension activation grants"
+        ),
+        "activation grants doc must name canonical schema": schema_link,
+        "activation grants doc must define grant record": "## grant record",
+        "activation grants doc must define revocation record": "## revocation record",
+        "activation grants doc must require exact scope": "exact_scope: true",
+        "activation grants doc must deny overbroad scope": "overbroad_scope: false",
+        "activation grants doc must deny runtime import": (
+            "runtime_import_enabled: false"
+        ),
+        "activation grants doc must deny execution": "execution_enabled: false",
+        "activation grants doc must deny connector writes": (
+            "connector_writes_enabled: false"
+        ),
+        "activation grants doc must deny shell": "shell_execution_enabled: false",
+        "activation grants doc must deny network": "network_access_enabled: false",
+        "activation grants doc must deny browser": (
+            "browser_automation_enabled: false"
+        ),
+        "activation grants doc must deny mobile": "mobile_control_enabled: false",
+        "activation grants doc must deny public distribution": (
+            "public_distribution_claimed: false"
+        ),
+        "activation grants doc must mention activation_grant_ref": (
+            "activation_grant_ref"
+        ),
+        "activation grants doc must mention approval_ref": "approval_ref",
+        "activation grants doc must mention scope_ref": "scope_ref",
+        "activation grants doc must mention capability_refs": "capability_refs",
+        "activation grants doc must mention audit_refs": "audit_refs",
+        "activation grants doc must mention replay_ref": "replay_ref",
+        "activation grants doc must mention revocation_ref": "revocation_ref",
+        "activation grants doc must deny missing approval": "missing or placeholder",
+        "activation grants doc must deny duplicates": "duplicate grant",
+        "activation grants doc must deny stale grants": "stale grants cannot",
+        "activation grants doc must deny revoked grants": "revoked grant cannot",
+        "activation grants doc must link catalog": (
+            "docs/tooling/inspectable_extension_catalog.md"
+        ),
+        "activation grants doc must include rollback": "## rollback",
+    }.items():
+        if fragment not in grants_compact:
+            failures.append(message)
+
+    for unsafe in [
+        "runtime import is enabled",
+        "plugin execution is enabled",
+        "callable catalog is enabled",
+        "connector writes are enabled",
+        "shell execution is enabled",
+        "public distribution is available",
+        "production authority is granted",
+    ]:
+        if unsafe in grants_doc:
+            failures.append(f"extension activation grants doc contains unsafe claim: {unsafe}")
+
+    try:
+        schema = json.loads(_read(schema_path))
+    except json.JSONDecodeError as exc:
+        failures.append(
+            "extension activation grant schema must be valid JSON: " f"{exc.msg}"
+        )
+        return failures
+
+    if schema.get("title") != "uaa_extension_activation_grant":
+        failures.append("extension activation grant schema title must be stable")
+    properties = schema.get("properties", {})
+    if properties.get("schema_version", {}).get("const") != (
+        "uaa_extension_activation_grant.v1"
+    ):
+        failures.append("extension activation grant schema version const is missing")
+    if properties.get("runtime_import_enabled", {}).get("const") is not False:
+        failures.append("extension activation grant schema must disable runtime import")
+    if properties.get("execution_enabled", {}).get("const") is not False:
+        failures.append("extension activation grant schema must disable execution")
+
+    schema_text = json.dumps(schema, sort_keys=True).lower()
+    for fragment in [
+        "activation_grant_ref",
+        "revocation_ref",
+        "approval_ref",
+        "scope_ref",
+        "capability_refs",
+        "requested_grant_refs",
+        "grant_status",
+        "staleness_status",
+        "exact_scope",
+        "overbroad_scope",
+        "audit_refs",
+        "replay_ref",
+        "runtime_import_enabled",
+        "execution_enabled",
+        "connector_writes_enabled",
+        "shell_execution_enabled",
+        "network_access_enabled",
+        "browser_automation_enabled",
+        "mobile_control_enabled",
+        "public_distribution_claimed",
+        "granted",
+        "revoked",
+        "stale",
+        "blocked",
+    ]:
+        if fragment not in schema_text:
+            failures.append(f"extension activation grant schema missing: {fragment}")
+
+    contracts = read_lower("src/ultimate_ai_agent/core/extension_catalog/contracts.py")
+    tests = read_lower("tests/test_extension_activation_grants.py")
+    manifest_source = read_lower("src/ultimate_ai_agent/api/manifest.py")
+    app_source = read_lower("src/ultimate_ai_agent/api/app.py")
+
+    for fragment in [
+        "extensionactivationgrantrecord",
+        "extensionactivationrevocationrecord",
+        "validate_extension_activation_grant_record",
+        "assert_extension_activation_grant_treatable_as_active",
+        "validate_extension_activation_grant_batch",
+        "validate_extension_activation_revocation_record",
+        "revoke_extension_activation_grant",
+        "extension_activation_duplicate_grant_denied",
+        "extension_activation_revoked_grant_denied",
+        "extension_activation_stale_grant_denied",
+        "extension_activation_approval_required",
+    ]:
+        if fragment not in contracts:
+            failures.append(f"extension activation contracts missing: {fragment}")
+
+    for fragment in [
+        "test_extension_activation_grant_denies_overbroad_scope",
+        "test_extension_activation_grant_denies_missing_approval",
+        "test_extension_activation_grant_denies_duplicate_attempts",
+        "test_revoked_extension_activation_grant_cannot_be_treated_active",
+        "test_stale_extension_activation_grants_are_denied_for_active_use",
+        "test_activation_grant_and_revocation_deny_runtime_authority_flags",
+    ]:
+        if fragment not in tests:
+            failures.append(f"extension activation tests missing: {fragment}")
+
+    for fragment in [
+        "extension_activation_grant_records_exact_scope",
+        "extension_activation_runtime_import",
+        "extension_activation_execution",
+        "extension_activation_callable_catalog",
+        "extension_activation_overbroad_grants",
+    ]:
+        if fragment not in manifest_source:
+            failures.append(f"API manifest missing extension activation fragment: {fragment}")
+
+    for fragment in [
+        "/extensions/activate",
+        "/extensions/revoke",
+        "/extensions/import",
+        "/extensions/execute",
+        "/extensions/install",
+    ]:
+        if fragment in app_source:
+            failures.append(f"app exposes unsafe extension activation route: {fragment}")
+
+    board = read_lower("docs/kanban/current_board.md")
+    if "uaa-p2-050 extension activation grants" not in board:
+        failures.append("current board must track UAA-P2-050 activation grants")
+    if "tests/test_extension_activation_grants.py" not in board:
+        failures.append("current board must mark UAA-P2-050 tests gate met")
+    if "pull uaa-p2-050 next" in board:
+        failures.append("current board still contains stale UAA-P2-050 next label")
+
+    product_truth = read_lower("docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md")
+    if "uaa-p2-050 met for exact-scope activation/revocation records only" not in product_truth:
+        failures.append("product truth must mark UAA-P2-050 record-only gate met")
+    for fragment in [
+        "runtime activation",
+        "runtime import",
+        "callable catalog",
+        "execution",
+    ]:
+        if fragment not in product_truth:
+            failures.append(
+                "product truth must keep extension activation blocked for "
+                f"{fragment}"
+            )
+
+    return failures
+
+
+def _verify_mcp_a2a_compatibility_watchlist(root: Path) -> list[str]:
+    failures: list[str] = []
+    doc_path = root / REQUIRED_MCP_A2A_COMPATIBILITY_WATCHLIST_DOC
+    if not doc_path.exists():
+        return [
+            "missing MCP/A2A compatibility watchlist doc: "
+            f"{REQUIRED_MCP_A2A_COMPATIBILITY_WATCHLIST_DOC}"
+        ]
+
+    def read_lower(rel_path: str) -> str:
+        path = root / rel_path
+        return _read(path).lower() if path.exists() else ""
+
+    watchlist = read_lower(REQUIRED_MCP_A2A_COMPATIBILITY_WATCHLIST_DOC)
+    watchlist_compact = " ".join(watchlist.split())
+    watchlist_link = REQUIRED_MCP_A2A_COMPATIBILITY_WATCHLIST_DOC.lower()
+    active_links = {
+        "README.md": read_lower("README.md"),
+        "docs/README.md": read_lower("docs/README.md"),
+        "docs/DOCUMENTATION_INDEX.md": read_lower("docs/DOCUMENTATION_INDEX.md"),
+        "docs/canonical/CANONICAL_DOC_MAP.md": read_lower(
+            "docs/canonical/CANONICAL_DOC_MAP.md"
+        ),
+        "docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md": read_lower(
+            "docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md"
+        ),
+        "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md": read_lower(
+            "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md"
+        ),
+        "docs/kanban/current_board.md": read_lower("docs/kanban/current_board.md"),
+        "docs/roadmap/ECOSYSTEM_WATCHLIST.md": read_lower(
+            "docs/roadmap/ECOSYSTEM_WATCHLIST.md"
+        ),
+        "docs/canonical/66_external_tooling_and_codex_plugin_governance.md": read_lower(
+            "docs/canonical/66_external_tooling_and_codex_plugin_governance.md"
+        ),
+        REQUIRED_PLUGIN_SKILL_ECOSYSTEM_BOUNDARY_DOC: read_lower(
+            REQUIRED_PLUGIN_SKILL_ECOSYSTEM_BOUNDARY_DOC
+        ),
+        REQUIRED_INSPECTABLE_EXTENSION_CATALOG_DOC: read_lower(
+            REQUIRED_INSPECTABLE_EXTENSION_CATALOG_DOC
+        ),
+        REQUIRED_EXTENSION_ACTIVATION_GRANTS_DOC: read_lower(
+            REQUIRED_EXTENSION_ACTIVATION_GRANTS_DOC
+        ),
+    }
+    for rel_path, text in active_links.items():
+        if watchlist_link not in text:
+            failures.append(f"{rel_path} must link MCP/A2A compatibility watchlist")
+
+    required_fragments = {
+        "watchlist doc must identify UAA-P2-051": (
+            "status: active uaa-p2-051 mcp/a2a compatibility watchlist"
+        ),
+        "watchlist doc must be strategy/watchlist only": "strategy/watchlist only",
+        "watchlist doc must deny shipped support": (
+            "does not imply mcp/a2a support is shipped"
+        ),
+        "watchlist doc must cover MCP concepts": "## mcp concepts",
+        "watchlist doc must cover A2A concepts": "## a2a concepts",
+        "watchlist doc must cover risks": "## risks",
+        "watchlist doc must cover required future gates": (
+            "## required future gates"
+        ),
+        "watchlist doc must cover compatibility questions": (
+            "## compatibility questions"
+        ),
+        "watchlist doc must cover manifest/capability implications": (
+            "## manifest/capability implications"
+        ),
+        "watchlist doc must deny runtime authority": "no runtime authority",
+        "watchlist doc must deny connector writes": "no connector writes",
+        "watchlist doc must deny plugin execution": "no plugin execution",
+        "watchlist doc must deny broad tool invocation": (
+            "no broad tool invocation"
+        ),
+        "watchlist doc must deny network authority": "no network authority",
+        "watchlist doc must mention PolicyEngine": "policyengine",
+        "watchlist doc must mention LocalApprovalAuthority": "localapprovalauthority",
+        "watchlist doc must require route side-effect classification": (
+            "route side-effect classification"
+        ),
+        "watchlist doc must require OpenAPI checks": "openapi checks",
+        "watchlist doc must require Foundation Gate checks": (
+            "foundation gate checks"
+        ),
+        "watchlist doc must mention safe refs": "safe refs",
+        "watchlist doc must include rollback": "## rollback",
+    }
+    for message, fragment in required_fragments.items():
+        if fragment not in watchlist_compact:
+            failures.append(message)
+
+    for unsafe in [
+        "mcp runtime support is shipped",
+        "a2a runtime support is shipped",
+        "mcp runtime is enabled",
+        "a2a runtime is enabled",
+        "connector writes are enabled",
+        "plugin execution is enabled",
+        "broad tool invocation is enabled",
+        "network authority is enabled",
+        "public distribution is available",
+        "production authority is granted",
+    ]:
+        if unsafe in watchlist:
+            failures.append(f"MCP/A2A watchlist contains unsafe claim: {unsafe}")
+
+    board = read_lower("docs/kanban/current_board.md")
+    if "uaa-p2-051 mcp/a2a compatibility watchlist" not in board:
+        failures.append("current board must track UAA-P2-051 MCP/A2A watchlist")
+    if "gate met: `docs/tooling/mcp_a2a_compatibility_watchlist.md`" not in board:
+        failures.append("current board must mark UAA-P2-051 gate met")
+    if "pull uaa-p2-051 next" in board:
+        failures.append("current board still contains stale UAA-P2-051 next label")
+
+    product_truth = read_lower("docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md")
+    if "uaa-p2-051 met for mcp/a2a strategy/watchlist only" not in product_truth:
+        failures.append("product truth must mark UAA-P2-051 watchlist gate met")
+    for fragment in [
+        "mcp/a2a runtime support",
+        "runtime import",
+        "callable catalog",
+        "plugin execution",
+        "connector writes",
+    ]:
+        if fragment not in product_truth:
+            failures.append(
+                "product truth must keep MCP/A2A ecosystem blocked for "
+                f"{fragment}"
+            )
+
+    readme = read_lower("README.md")
+    if (
+        "operator runtime excellence p2 ecosystem inspection lane through uaa-p2-051"
+        not in readme
+    ):
+        failures.append("README must identify current P2 lane through UAA-P2-051")
+
+    docs_readme = read_lower("docs/README.md")
+    if "work through uaa-p2-051" not in docs_readme:
+        failures.append("docs/README.md must identify current P2 work through UAA-P2-051")
+
+    return failures
+
+
 def _verify_safe_static_manifest_cache(root: Path) -> list[str]:
     failures: list[str] = []
     doc_path = root / REQUIRED_SAFE_STATIC_MANIFEST_CACHE_DOC
@@ -3782,10 +4752,10 @@ def _verify_local_model_operational_runbook(root: Path) -> list[str]:
 
     readme = read_lower("README.md")
     if (
-        "operator runtime excellence p1 release, packaging, and recovery proof lane through uaa-p1-046"
+        "operator runtime excellence p2 ecosystem inspection lane through uaa-p2-051"
         not in readme
     ):
-        failures.append("README must identify current P1 lane through UAA-P1-046")
+        failures.append("README must identify current P2 lane through UAA-P2-051")
     if "p0-017 adds safe local model operational recovery guidance" not in readme:
         failures.append("README must mention P0-017 operational recovery")
 
@@ -3845,7 +4815,7 @@ def _verify_control_center_operator_shell_gap_map(root: Path) -> list[str]:
             "source plan: `docs/roadmap/operator_runtime_excellence_roadmap.md` m172"
         ),
         "gap map must include current API count": (
-            "api boundary: current fastapi manifest has 94 openapi paths"
+            "api boundary: current fastapi manifest has 95 openapi paths"
         ),
         "gap map must preserve shell authority boundary": (
             "control center and openwebui remain shells"
@@ -3950,8 +4920,10 @@ def _verify_control_center_operator_shell_gap_map(root: Path) -> list[str]:
         failures.append("product truth packet must keep product-shell claims blocked")
 
     mock_data = read_lower("apps/control-center/src/mocks/controlCenterData.ts")
-    if "route_count: 94" not in mock_data:
-        failures.append("Control Center mock data must use current 94 route count")
+    if "route_count: 95" not in mock_data:
+        failures.append("Control Center mock data must use current 95 route count")
+    if "route_count: 94" in mock_data:
+        failures.append("Control Center mock data contains stale 94 route count")
     if "route_count: 74" in mock_data:
         failures.append("Control Center mock data contains stale 74 route count")
 
@@ -3989,6 +4961,10 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_backup_restore_verification(root))
     failures.extend(_verify_local_state_rollback_runbook(root))
     failures.extend(_verify_local_runtime_packaging(root))
+    failures.extend(_verify_plugin_skill_ecosystem_boundary(root))
+    failures.extend(_verify_inspectable_extension_catalog(root))
+    failures.extend(_verify_extension_activation_grants(root))
+    failures.extend(_verify_mcp_a2a_compatibility_watchlist(root))
     failures.extend(_verify_safe_static_manifest_cache(root))
     failures.extend(_verify_llama_server_packaging_checklist(root))
     failures.extend(_verify_tuning_advisor_hardening_cases(root))

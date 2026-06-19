@@ -1,0 +1,264 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ultimate-ai-agent.local/schemas/plugin_skill_trust_manifest.schema.json",
+  "title": "uaa_plugin_skill_trust_manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "manifest_ref",
+    "package_identity",
+    "provenance",
+    "file_hashes",
+    "declared_capabilities",
+    "risk_class",
+    "requested_grants",
+    "activation_model",
+    "revocation_behavior",
+    "audit_refs",
+    "catalog_binding",
+    "runtime_import_enabled",
+    "execution_enabled",
+    "safe_summary"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "uaa_plugin_skill_trust_manifest.v1"
+    },
+    "manifest_ref": {
+      "type": "string",
+      "pattern": "^plugin-skill-manifest:[a-z0-9][a-z0-9_.:-]*$"
+    },
+    "package_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "package_ref",
+        "package_name",
+        "package_kind",
+        "version_ref",
+        "publisher_ref"
+      ],
+      "properties": {
+        "package_ref": {
+          "type": "string",
+          "pattern": "^extension-package:[a-z0-9][a-z0-9_.:-]*$"
+        },
+        "package_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120,
+          "pattern": "^[A-Za-z0-9_. -]+$"
+        },
+        "package_kind": {
+          "enum": ["plugin", "skill", "connector_manifest", "tooling_bundle"]
+        },
+        "version_ref": {
+          "type": "string",
+          "pattern": "^version:[a-z0-9][a-z0-9_.:-]*$"
+        },
+        "publisher_ref": {
+          "type": "string",
+          "pattern": "^publisher:[a-z0-9][a-z0-9_.:-]*$"
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_ref",
+        "review_ref",
+        "license_ref",
+        "provenance_status"
+      ],
+      "properties": {
+        "source_ref": {
+          "type": "string",
+          "pattern": "^source:[a-z0-9][a-z0-9_.:-]*$"
+        },
+        "review_ref": {
+          "type": "string",
+          "pattern": "^review:[a-z0-9][a-z0-9_.:-]*$"
+        },
+        "license_ref": {
+          "type": "string",
+          "pattern": "^license:[a-z0-9][a-z0-9_.:-]*$"
+        },
+        "provenance_status": {
+          "enum": ["reviewed", "blocked", "unknown"]
+        }
+      }
+    },
+    "file_hashes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["file_ref", "hash_algorithm", "hash_value"],
+        "properties": {
+          "file_ref": {
+            "type": "string",
+            "pattern": "^file-ref:[a-z0-9][a-z0-9_.:-]*$"
+          },
+          "hash_algorithm": {
+            "const": "sha256"
+          },
+          "hash_value": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          }
+        }
+      }
+    },
+    "declared_capabilities": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["capability_ref", "capability_kind", "risk_class", "safe_purpose"],
+        "properties": {
+          "capability_ref": {
+            "type": "string",
+            "pattern": "^capability:[a-z0-9][a-z0-9_.:-]*$"
+          },
+          "capability_kind": {
+            "enum": [
+              "documentation_helper",
+              "read_only_inspection",
+              "local_preview",
+              "tooling_metadata",
+              "blocked_runtime"
+            ]
+          },
+          "risk_class": {
+            "enum": ["low", "medium", "high", "critical"]
+          },
+          "safe_purpose": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 240
+          }
+        }
+      }
+    },
+    "risk_class": {
+      "enum": ["low", "medium", "high", "critical"]
+    },
+    "requested_grants": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["grant_ref", "scope_ref", "status"],
+        "properties": {
+          "grant_ref": {
+            "type": "string",
+            "pattern": "^grant-request:[a-z0-9][a-z0-9_.:-]*$"
+          },
+          "scope_ref": {
+            "type": "string",
+            "pattern": "^scope:[a-z0-9][a-z0-9_.:-]*$"
+          },
+          "status": {
+            "enum": ["requested", "blocked", "future_scoped"]
+          }
+        }
+      }
+    },
+    "activation_model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "activation_status",
+        "activation_grant_ref",
+        "approval_ref",
+        "exact_scope_required",
+        "runtime_import_allowed"
+      ],
+      "properties": {
+        "activation_status": {
+          "enum": ["inactive", "blocked", "revoked", "future_scoped"]
+        },
+        "activation_grant_ref": {
+          "type": "string",
+          "pattern": "^activation-grant:[a-z0-9][a-z0-9_.:-]*$"
+        },
+        "approval_ref": {
+          "type": "string",
+          "pattern": "^approval:[a-z0-9][a-z0-9_.:-]*$"
+        },
+        "exact_scope_required": {
+          "const": true
+        },
+        "runtime_import_allowed": {
+          "const": false
+        }
+      }
+    },
+    "revocation_behavior": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "revocation_ref",
+        "revocation_supported",
+        "revocation_effect"
+      ],
+      "properties": {
+        "revocation_ref": {
+          "type": "string",
+          "pattern": "^revocation:[a-z0-9][a-z0-9_.:-]*$"
+        },
+        "revocation_supported": {
+          "const": true
+        },
+        "revocation_effect": {
+          "enum": ["catalog_inactive", "grant_inactive", "blocked"]
+        }
+      }
+    },
+    "audit_refs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "pattern": "^audit:[a-z0-9][a-z0-9_.:-]*$"
+      }
+    },
+    "catalog_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "inspectable_catalog_ref",
+        "callable_catalog_ref",
+        "callable_catalog_enabled"
+      ],
+      "properties": {
+        "inspectable_catalog_ref": {
+          "type": "string",
+          "pattern": "^inspectable-catalog:[a-z0-9][a-z0-9_.:-]*$"
+        },
+        "callable_catalog_ref": {
+          "type": "string",
+          "pattern": "^callable-catalog:[a-z0-9][a-z0-9_.:-]*$"
+        },
+        "callable_catalog_enabled": {
+          "const": false
+        }
+      }
+    },
+    "runtime_import_enabled": {
+      "const": false
+    },
+    "execution_enabled": {
+      "const": false
+    },
+    "safe_summary": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500
+    }
+  }
+}
