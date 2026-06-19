@@ -54,7 +54,8 @@ regression cases.
 
 Tuning advisor hardening must detect lag, out-of-memory pressure, crash loops,
 reload loops, and slow tokens per second. It may suggest one safe, bounded,
-redacted, operator-confirmable change at a time, apply only with
+redacted, operator-confirmable change at a time. The operator rule is one
+change at a time, apply only with
 approval-bound evidence, restart safely, and rollback to a previous known-good
 preset.
 
