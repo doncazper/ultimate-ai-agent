@@ -22,7 +22,20 @@ ROOT = Path(__file__).resolve().parents[1]
 PERFORMANCE_REPORT_DIR = ROOT / "reports" / "performance"
 PERFORMANCE_REPORT_JSON = PERFORMANCE_REPORT_DIR / "latest_release_latency_baseline.json"
 PERFORMANCE_REPORT_MD = PERFORMANCE_REPORT_DIR / "latest_release_latency_baseline.md"
+PERFORMANCE_REGRESSION_JSON = (
+    PERFORMANCE_REPORT_DIR / "latest_performance_regression_report.json"
+)
+PERFORMANCE_REGRESSION_MD = PERFORMANCE_REPORT_DIR / "latest_performance_regression_report.md"
+HOT_PATH_PROFILE_JSON = PERFORMANCE_REPORT_DIR / "latest_hot_path_profile.json"
+HOT_PATH_PROFILE_MD = PERFORMANCE_REPORT_DIR / "latest_hot_path_profile.md"
 
+RELEASE_LATENCY_BASELINE_TASK_REF = "UAA-P0-006"
+RELEASE_LATENCY_GATE_TASK_REF = "UAA-P1-039"
+PERFORMANCE_REGRESSION_TASK_REF = "UAA-P1-040"
+HOT_PATH_PROFILE_TASK_REF = "UAA-P1-041"
+RELEASE_LATENCY_REPORT_REF = "performance-report:p1-039:latest"
+PERFORMANCE_REGRESSION_REPORT_REF = "performance-regression-report:p1-040:latest"
+HOT_PATH_PROFILE_REPORT_REF = "hot-path-profile:p1-041:latest"
 RELEASE_LATENCY_BUDGETS_MS: dict[str, float] = {
     "health": 50.0,
     "api_manifest": 150.0,
@@ -34,6 +47,16 @@ RELEASE_LATENCY_BUDGETS_MS: dict[str, float] = {
     "v1_chat_completions_local_path": 250.0,
     "control_center_first_useful_local_render": 1500.0,
 }
+RELEASE_LATENCY_REQUIRED_PATH_IDS = frozenset(
+    path_id
+    for path_id in RELEASE_LATENCY_BUDGETS_MS
+    if path_id != "control_center_first_useful_local_render"
+)
+RELEASE_LATENCY_OPTIONAL_PATH_IDS = frozenset(
+    path_id
+    for path_id in RELEASE_LATENCY_BUDGETS_MS
+    if path_id not in RELEASE_LATENCY_REQUIRED_PATH_IDS
+)
 
 
 def _ensure_repo_on_path() -> None:
@@ -164,17 +187,26 @@ def _benchmark_release_latency_paths(
         )
         with _release_latency_environment(safe_root, temp_root):
             results = _measure_release_paths(repeat=repeat, warmup=warmup)
+            hot_path_profile_rows = _measure_hot_paths(repeat=repeat, warmup=warmup)
 
     required_failures = [
         result
         for result in results
         if result["required"] and result["status"] != "passed"
     ]
+    generated_at_utc = _utc_now_label()
+    hot_path_profile = _build_hot_path_profile_report(
+        rows=hot_path_profile_rows,
+        generated_at_utc=generated_at_utc,
+        repeat=repeat,
+        warmup=warmup,
+    )
     report = {
         "schema_version": "uaa_release_latency_baseline.v1",
-        "task_ref": "UAA-P0-006",
-        "report_ref": "performance-report:p0-006:latest",
-        "generated_at_utc": _utc_now_label(),
+        "task_ref": RELEASE_LATENCY_GATE_TASK_REF,
+        "baseline_source_ref": RELEASE_LATENCY_BASELINE_TASK_REF,
+        "report_ref": RELEASE_LATENCY_REPORT_REF,
+        "generated_at_utc": generated_at_utc,
         "measurement_mode": "fastapi_testclient_local_dev",
         "path_repeat": repeat,
         "path_warmup": warmup,
@@ -183,7 +215,16 @@ def _benchmark_release_latency_paths(
             key: round(value, 2) for key, value in RELEASE_LATENCY_BUDGETS_MS.items()
         },
         "path_results": results,
+        "budget_gate": {
+            "task_ref": RELEASE_LATENCY_GATE_TASK_REF,
+            "required_path_ids": sorted(RELEASE_LATENCY_REQUIRED_PATH_IDS),
+            "optional_path_ids": sorted(RELEASE_LATENCY_OPTIONAL_PATH_IDS),
+            "required_path_policy": "fail_when_missing_failed_or_over_budget",
+            "optional_prerequisite_policy": "allow_passed_skipped_or_blocked_only",
+            "dashboard_render_status": "skipped_until_frontend_timing_runner_scoped",
+        },
         "authority_invariants": {
+            "authority_decision_mode": "live_route_handlers_not_cached_skipped_or_bypassed",
             "policy_engine_bypassed_for_speed": False,
             "local_approval_authority_bypassed_for_speed": False,
             "authority_decisions_cached_for_speed": False,
@@ -208,14 +249,23 @@ def _benchmark_release_latency_paths(
         },
     }
     if write_report:
-        _write_performance_reports(report)
+        _write_performance_reports(report, hot_path_profile)
     return {
         "release_latency_schema_version": report["schema_version"],
         "release_latency_report_json": _repo_relative(PERFORMANCE_REPORT_JSON),
         "release_latency_report_md": _repo_relative(PERFORMANCE_REPORT_MD),
+        "performance_regression_report_json": _repo_relative(
+            PERFORMANCE_REGRESSION_JSON
+        ),
+        "performance_regression_report_md": _repo_relative(PERFORMANCE_REGRESSION_MD),
+        "hot_path_profile_report_json": _repo_relative(HOT_PATH_PROFILE_JSON),
+        "hot_path_profile_report_md": _repo_relative(HOT_PATH_PROFILE_MD),
+        "hot_path_profile_overall_status": hot_path_profile["overall_status"],
+        "hot_path_profile_results": hot_path_profile_rows,
         "release_latency_overall_status": report["overall_status"],
         "release_latency_path_repeat": repeat,
         "release_latency_path_warmup": warmup,
+        "release_latency_budget_definitions_ms": report["budget_definitions_ms"],
         "release_latency_budget_passed": not required_failures,
         "release_latency_path_results": results,
     }
@@ -378,6 +428,124 @@ def _measure_release_paths(*, repeat: int, warmup: int) -> list[dict[str, object
     ]
 
 
+def _measure_hot_paths(*, repeat: int, warmup: int) -> list[dict[str, object]]:
+    from fastapi.testclient import TestClient
+    from ultimate_ai_agent.api import app as api_app
+
+    client = TestClient(api_app.app)
+    task_headers = {"Authorization": "Bearer local-performance-bearer"}
+    return [
+        _profile_hot_path(
+            "task_decomposition_classify",
+            "POST /task-decomposition/classify route handler",
+            repeat,
+            warmup,
+            lambda: _ok_result_envelope(
+                client.post(
+                    "/task-decomposition/classify",
+                    headers=task_headers,
+                    json=_task_decomposition_payload(),
+                )
+            ),
+            authority_boundary="task_decomposition_bearer_gate_and_route_handler",
+        ),
+        _profile_hot_path(
+            "task_decomposition_decompose",
+            "POST /task-decomposition/decompose route handler",
+            repeat,
+            warmup,
+            lambda: _ok_result_envelope(
+                client.post(
+                    "/task-decomposition/decompose",
+                    headers=task_headers,
+                    json=_task_decomposition_payload(),
+                )
+            ),
+            authority_boundary="task_decomposition_bearer_gate_and_route_handler",
+        ),
+        _profile_hot_path(
+            "openapi_build",
+            "OpenAPI schema build",
+            repeat,
+            warmup,
+            lambda: _profile_openapi_build(api_app.app),
+            authority_boundary="openapi_schema_generation_no_runtime_authority",
+        ),
+    ]
+
+
+def _profile_hot_path(
+    profile_id: str,
+    label: str,
+    repeat: int,
+    warmup: int,
+    call: Callable[[], bool],
+    *,
+    authority_boundary: str,
+) -> dict[str, object]:
+    warmup_failures = 0
+    for _ in range(warmup):
+        try:
+            if not call():
+                warmup_failures += 1
+        except Exception:
+            warmup_failures += 1
+
+    runs_ms: list[float] = []
+    failed_calls = 0
+    for _ in range(repeat):
+        started = perf_counter()
+        try:
+            ok = call()
+        except Exception:
+            ok = False
+        elapsed_ms = (perf_counter() - started) * 1000
+        runs_ms.append(elapsed_ms)
+        if not ok:
+            failed_calls += 1
+
+    p50_ms = _percentile_ms(runs_ms, 50)
+    p95_ms = _percentile_ms(runs_ms, 95)
+    mean_ms = statistics.mean(runs_ms) if runs_ms else 0.0
+    status = "passed" if failed_calls == 0 and warmup_failures == 0 else "failed"
+    reason_codes = []
+    if warmup_failures:
+        reason_codes.append("PROFILE_WARMUP_EXPECTATION_FAILED")
+    if failed_calls:
+        reason_codes.append("PROFILE_EXPECTATION_FAILED")
+    return {
+        "profile_id": profile_id,
+        "safe_label": label,
+        "status": status,
+        "samples": repeat,
+        "warmup_samples": warmup,
+        "p50_ms": round(p50_ms, 2),
+        "p95_ms": round(p95_ms, 2),
+        "mean_ms": round(mean_ms, 2),
+        "failed_call_count": failed_calls,
+        "warmup_failed_call_count": warmup_failures,
+        "reason_codes": reason_codes,
+        "authority_boundary": authority_boundary,
+        "authority_path_bypassed_for_speed": False,
+        "authority_decision_cached_for_speed": False,
+        "request_body_recorded": False,
+        "response_body_recorded": False,
+        "schema_body_recorded": False,
+        "raw_path_recorded": False,
+        "raw_log_recorded": False,
+    }
+
+
+def _profile_openapi_build(app_instance: Any) -> bool:
+    previous_schema = getattr(app_instance, "openapi_schema", None)
+    try:
+        app_instance.openapi_schema = None
+        schema = app_instance.openapi()
+        return isinstance(schema, dict) and isinstance(schema.get("paths"), dict)
+    finally:
+        app_instance.openapi_schema = previous_schema
+
+
 def _measure_path(
     path_id: str,
     label: str,
@@ -446,7 +614,7 @@ def _control_center_render_measurement() -> dict[str, object]:
         "budget_passed": None,
         "failed_call_count": 0,
         "reason_codes": ["FRONTEND_RENDER_TIMING_RUNNER_NOT_SCOPED"],
-        "skipped_ref": "skipped-ref:p0-006:control-center-render-runner-not-scoped",
+        "skipped_ref": "skipped-ref:p1-039:control-center-render-runner-not-scoped",
         "authority_path_bypassed_for_speed": False,
         "authority_decision_cached_for_speed": False,
         "response_body_recorded": False,
@@ -557,10 +725,417 @@ def _percentile_ms(values: list[float], percentile: int) -> float:
     return ordered[min(index, len(ordered) - 1)]
 
 
-def _write_performance_reports(report: dict[str, object]) -> None:
+def _write_performance_reports(
+    report: dict[str, object],
+    hot_path_profile: dict[str, object],
+) -> None:
     PERFORMANCE_REPORT_DIR.mkdir(parents=True, exist_ok=True)
-    _atomic_write_text(PERFORMANCE_REPORT_JSON, json.dumps(report, indent=2, sort_keys=True) + "\n")
+    regression_report = _performance_regression_report(report)
+    _atomic_write_text(
+        PERFORMANCE_REPORT_JSON,
+        json.dumps(report, indent=2, sort_keys=True) + "\n",
+    )
     _atomic_write_text(PERFORMANCE_REPORT_MD, _performance_markdown(report))
+    _atomic_write_text(
+        PERFORMANCE_REGRESSION_JSON,
+        json.dumps(regression_report, indent=2, sort_keys=True) + "\n",
+    )
+    _atomic_write_text(
+        PERFORMANCE_REGRESSION_MD,
+        _performance_regression_markdown(regression_report),
+    )
+    _write_hot_path_profile_report(hot_path_profile)
+
+
+def _write_hot_path_profile_report(report: dict[str, object]) -> None:
+    PERFORMANCE_REPORT_DIR.mkdir(parents=True, exist_ok=True)
+    _atomic_write_text(
+        HOT_PATH_PROFILE_JSON,
+        json.dumps(report, indent=2, sort_keys=True) + "\n",
+    )
+    _atomic_write_text(HOT_PATH_PROFILE_MD, _hot_path_profile_markdown(report))
+
+
+def run_hot_path_profile(
+    *,
+    repeat: int = 5,
+    warmup: int = 1,
+    write_report: bool = True,
+) -> dict[str, object]:
+    _ensure_repo_on_path()
+    with tempfile.TemporaryDirectory(prefix="uaa_perf_") as temp_dir:
+        temp_root = Path(temp_dir)
+        safe_root = temp_root / "workspace"
+        safe_root.mkdir(parents=True, exist_ok=True)
+        with _release_latency_environment(safe_root, temp_root):
+            rows = _measure_hot_paths(repeat=repeat, warmup=warmup)
+
+    report = _build_hot_path_profile_report(
+        rows=rows,
+        generated_at_utc=_utc_now_label(),
+        repeat=repeat,
+        warmup=warmup,
+    )
+    if write_report:
+        _write_hot_path_profile_report(report)
+    return {
+        "hot_path_profile_schema_version": report["schema_version"],
+        "hot_path_profile_report_json": _repo_relative(HOT_PATH_PROFILE_JSON),
+        "hot_path_profile_report_md": _repo_relative(HOT_PATH_PROFILE_MD),
+        "hot_path_profile_overall_status": report["overall_status"],
+        "hot_path_profile_results": rows,
+    }
+
+
+def _build_hot_path_profile_report(
+    *,
+    rows: list[dict[str, object]],
+    generated_at_utc: str,
+    repeat: int,
+    warmup: int,
+) -> dict[str, object]:
+    failed_rows = [row for row in rows if row["status"] != "passed"]
+    measurement_context = {"measurement_mode": "fastapi_testclient_local_dev"}
+    return {
+        "schema_version": "uaa_hot_path_profile.v1",
+        "task_ref": HOT_PATH_PROFILE_TASK_REF,
+        "source_task_refs": [
+            RELEASE_LATENCY_GATE_TASK_REF,
+            PERFORMANCE_REGRESSION_TASK_REF,
+        ],
+        "report_ref": HOT_PATH_PROFILE_REPORT_REF,
+        "generated_at_utc": generated_at_utc,
+        "measurement_mode": measurement_context["measurement_mode"],
+        "profile_repeat": repeat,
+        "profile_warmup": warmup,
+        "overall_status": "failed" if failed_rows else "passed",
+        "environment_safe_summary": _environment_safe_summary(measurement_context),
+        "profile_scope": {
+            "task_decomposition_profiled": True,
+            "openapi_build_profiled": True,
+            "timing_summary_only": True,
+            "raw_request_response_schema_or_log_recorded": False,
+        },
+        "authority_invariants": {
+            "policy_engine_bypassed_for_speed": False,
+            "local_approval_authority_bypassed_for_speed": False,
+            "authority_decisions_cached_for_speed": False,
+            "authority_path_bypassed_for_speed": False,
+            "openapi_checks_preserved": True,
+            "route_side_effect_classification_preserved": True,
+        },
+        "summary": _hot_path_profile_summary(rows),
+        "hot_paths": rows,
+        "retention_guidance": {
+            "latest_files_are_overwritten": True,
+            "release_evidence_retention": (
+                "retain JSON and Markdown summaries only after verification passes"
+            ),
+            "cleanup": (
+                "delete reports/performance/latest_hot_path_profile.json and .md"
+            ),
+        },
+        "report_safety": {
+            "prompt_content_included": False,
+            "response_content_included": False,
+            "provider_payload_content_included": False,
+            "path_material_included": False,
+            "log_material_included": False,
+            "machine_identity_included": False,
+            "environment_dump_included": False,
+            "credential_material_included": False,
+            "openapi_schema_included": False,
+        },
+    }
+
+
+def _hot_path_profile_summary(rows: list[dict[str, object]]) -> dict[str, object]:
+    statuses = [str(row["status"]) for row in rows]
+    return {
+        "total_rows": len(rows),
+        "passed_rows": statuses.count("passed"),
+        "failed_rows": statuses.count("failed"),
+        "profiled_path_ids": [row["profile_id"] for row in rows],
+    }
+
+
+def _performance_regression_report(report: dict[str, object]) -> dict[str, object]:
+    path_results = list(report["path_results"])  # type: ignore[index]
+    regression_rows = [_performance_regression_row(result) for result in path_results]
+    failed_rows = [
+        row
+        for row in regression_rows
+        if row["required"] is True and row["regression_status"] != "passed"
+    ]
+    return {
+        "schema_version": "uaa_performance_regression_report.v1",
+        "task_ref": PERFORMANCE_REGRESSION_TASK_REF,
+        "source_task_ref": report["task_ref"],
+        "source_report_ref": report["report_ref"],
+        "report_ref": PERFORMANCE_REGRESSION_REPORT_REF,
+        "generated_at_utc": report["generated_at_utc"],
+        "overall_status": "failed" if failed_rows else "passed",
+        "environment_safe_summary": _environment_safe_summary(report),
+        "regression_basis": {
+            "comparison_mode": "current_measurement_against_release_budget",
+            "historical_trend_storage": "not_retained_by_latest_report",
+            "authority_decisions_cached_for_speed": False,
+            "authority_path_bypassed_for_speed": False,
+        },
+        "summary": _performance_regression_summary(regression_rows),
+        "path_regressions": regression_rows,
+        "retention_guidance": {
+            "latest_files_are_overwritten": True,
+            "release_evidence_retention": (
+                "retain JSON and Markdown reports as release evidence only after "
+                "verification passes"
+            ),
+            "history_retention": (
+                "retain safe report refs and summarized timing rows; do not retain "
+                "raw local telemetry"
+            ),
+            "cleanup": (
+                "delete reports/performance/latest_performance_regression_report.json "
+                "and .md"
+            ),
+        },
+        "report_safety": {
+            "prompt_content_included": False,
+            "response_content_included": False,
+            "provider_payload_content_included": False,
+            "path_material_included": False,
+            "log_material_included": False,
+            "machine_identity_included": False,
+            "environment_dump_included": False,
+            "credential_material_included": False,
+        },
+    }
+
+
+def _performance_regression_row(result: dict[str, object]) -> dict[str, object]:
+    p95_ms = result["p95_ms"]
+    budget_ms = result["budget_ms"]
+    if isinstance(p95_ms, (int, float)) and isinstance(budget_ms, (int, float)):
+        budget_margin_ms = round(float(budget_ms) - float(p95_ms), 2)
+        budget_ratio = round(float(p95_ms) / float(budget_ms), 4)
+        budget_comparison = "under_budget" if budget_margin_ms > 0 else "over_budget"
+    else:
+        budget_margin_ms = None
+        budget_ratio = None
+        budget_comparison = "not_measured"
+
+    regression_status = str(result["status"])
+    return {
+        "path_id": result["path_id"],
+        "safe_label": result["safe_label"],
+        "required": result["required"],
+        "regression_status": regression_status,
+        "samples": result["samples"],
+        "p50_ms": result["p50_ms"],
+        "p95_ms": p95_ms,
+        "budget_ms": budget_ms,
+        "budget_margin_ms": budget_margin_ms,
+        "budget_ratio": budget_ratio,
+        "budget_comparison": budget_comparison,
+        "reason_codes": result["reason_codes"],
+        "operator_action": _performance_operator_action(
+            regression_status=regression_status,
+            budget_comparison=budget_comparison,
+            required=bool(result["required"]),
+        ),
+        "request_body_recorded": False,
+        "response_body_recorded": False,
+    }
+
+
+def _performance_operator_action(
+    *,
+    regression_status: str,
+    budget_comparison: str,
+    required: bool,
+) -> str:
+    if regression_status == "passed" and budget_comparison == "under_budget":
+        return "no_action_required"
+    if regression_status in {"skipped", "blocked"} and not required:
+        return "keep_visible_until_prerequisite_is_scoped"
+    if budget_comparison == "over_budget":
+        return "investigate_latency_regression_before_release"
+    return "inspect_measurement_status_and_reason_codes"
+
+
+def _performance_regression_summary(
+    regression_rows: list[dict[str, object]],
+) -> dict[str, object]:
+    statuses = [str(row["regression_status"]) for row in regression_rows]
+    over_budget = [
+        row for row in regression_rows if row["budget_comparison"] == "over_budget"
+    ]
+    measured = [
+        row
+        for row in regression_rows
+        if isinstance(row["p95_ms"], (int, float))
+        and isinstance(row["budget_ms"], (int, float))
+    ]
+    return {
+        "total_rows": len(regression_rows),
+        "measured_rows": len(measured),
+        "passed_rows": statuses.count("passed"),
+        "failed_rows": statuses.count("failed"),
+        "skipped_rows": statuses.count("skipped"),
+        "blocked_rows": statuses.count("blocked"),
+        "over_budget_rows": len(over_budget),
+    }
+
+
+def _environment_safe_summary(report: dict[str, object]) -> dict[str, object]:
+    return {
+        "measurement_mode": report["measurement_mode"],
+        "runner": "fastapi_testclient_in_process",
+        "network_scope": "local_in_process_no_external_network",
+        "sample_policy": "per_path_sample_count_recorded_only",
+        "machine_identity_recorded": False,
+        "environment_variables_recorded": False,
+        "raw_paths_recorded": False,
+        "raw_logs_recorded": False,
+        "raw_prompts_or_responses_recorded": False,
+        "credential_material_recorded": False,
+    }
+
+
+def _hot_path_profile_markdown(report: dict[str, object]) -> str:
+    rows = []
+    for result in report["hot_paths"]:  # type: ignore[index]
+        rows.append(
+            "| {safe_label} | {status} | {samples} | {warmup} | {p50_ms} | {p95_ms} | {mean_ms} | {reason_codes} |".format(
+                safe_label=result["safe_label"],
+                status=result["status"],
+                samples=result["samples"],
+                warmup=result["warmup_samples"],
+                p50_ms=result["p50_ms"],
+                p95_ms=result["p95_ms"],
+                mean_ms=result["mean_ms"],
+                reason_codes=", ".join(result["reason_codes"])
+                if result["reason_codes"]
+                else "none",
+            )
+        )
+
+    summary = report["summary"]  # type: ignore[index]
+    environment = report["environment_safe_summary"]  # type: ignore[index]
+    retention = report["retention_guidance"]  # type: ignore[index]
+    return "\n".join(
+        [
+            "# Hot Path Profile",
+            "",
+            f"Task: `{report['task_ref']}`",
+            f"Report ref: `{report['report_ref']}`",
+            f"Generated: `{report['generated_at_utc']}`",
+            f"Overall status: `{report['overall_status']}`",
+            "",
+            "## Scope",
+            "",
+            "Profiles task decomposition classify/decompose route handlers and OpenAPI schema build.",
+            "Profiling output is timing-summary only. It does not record request bodies, response bodies, OpenAPI schema bodies, raw paths, logs, machine identity, environment dumps, prompts, provider payloads, or credential material.",
+            "Task decomposition profiling uses the existing local bearer-gated route path; OpenAPI profiling restores the schema cache after each sample.",
+            "",
+            "## Environment-Safe Summary",
+            "",
+            f"- Measurement mode: `{environment['measurement_mode']}`",
+            f"- Runner: `{environment['runner']}`",
+            f"- Network scope: `{environment['network_scope']}`",
+            "",
+            "## Summary",
+            "",
+            f"- Total rows: `{summary['total_rows']}`",
+            f"- Passed rows: `{summary['passed_rows']}`",
+            f"- Failed rows: `{summary['failed_rows']}`",
+            "",
+            "## Timing Summary",
+            "",
+            "| Hot path | Status | Samples | Warmups | p50 ms | p95 ms | Mean ms | Reason codes |",
+            "|---|---:|---:|---:|---:|---:|---:|---|",
+            *rows,
+            "",
+            "## Retention Guidance",
+            "",
+            f"- Latest files overwritten: `{retention['latest_files_are_overwritten']}`",
+            f"- Release evidence retention: {retention['release_evidence_retention']}",
+            f"- Cleanup: {retention['cleanup']}",
+            "",
+        ]
+    )
+
+
+def _performance_regression_markdown(report: dict[str, object]) -> str:
+    rows = []
+    for result in report["path_regressions"]:  # type: ignore[index]
+        p50_ms = result["p50_ms"] if result["p50_ms"] is not None else "skipped"
+        p95_ms = result["p95_ms"] if result["p95_ms"] is not None else "skipped"
+        margin = (
+            result["budget_margin_ms"]
+            if result["budget_margin_ms"] is not None
+            else "not measured"
+        )
+        rows.append(
+            "| {safe_label} | {status} | {samples} | {p50_ms} | {p95_ms} | {budget_ms} | {comparison} | {margin} | {action} |".format(
+                safe_label=result["safe_label"],
+                status=result["regression_status"],
+                samples=result["samples"],
+                p50_ms=p50_ms,
+                p95_ms=p95_ms,
+                budget_ms=result["budget_ms"],
+                comparison=result["budget_comparison"],
+                margin=margin,
+                action=result["operator_action"],
+            )
+        )
+
+    summary = report["summary"]  # type: ignore[index]
+    environment = report["environment_safe_summary"]  # type: ignore[index]
+    retention = report["retention_guidance"]  # type: ignore[index]
+    return "\n".join(
+        [
+            "# Performance Regression Report",
+            "",
+            f"Task: `{report['task_ref']}`",
+            f"Source task: `{report['source_task_ref']}`",
+            f"Source report: `{report['source_report_ref']}`",
+            f"Report ref: `{report['report_ref']}`",
+            f"Generated: `{report['generated_at_utc']}`",
+            f"Overall status: `{report['overall_status']}`",
+            "",
+            "## Environment-Safe Summary",
+            "",
+            f"- Measurement mode: `{environment['measurement_mode']}`",
+            f"- Runner: `{environment['runner']}`",
+            f"- Network scope: `{environment['network_scope']}`",
+            "- Machine identity, environment variables, raw paths, raw logs, prompts, responses, provider payloads, and credential material are not recorded.",
+            "",
+            "## Summary",
+            "",
+            f"- Total rows: `{summary['total_rows']}`",
+            f"- Measured rows: `{summary['measured_rows']}`",
+            f"- Passed rows: `{summary['passed_rows']}`",
+            f"- Failed rows: `{summary['failed_rows']}`",
+            f"- Skipped rows: `{summary['skipped_rows']}`",
+            f"- Blocked rows: `{summary['blocked_rows']}`",
+            f"- Over-budget rows: `{summary['over_budget_rows']}`",
+            "",
+            "## Budget Comparison",
+            "",
+            "| Path | Status | Samples | p50 ms | p95 ms | Budget ms | Comparison | Margin ms | Operator action |",
+            "|---|---:|---:|---:|---:|---:|---:|---:|---|",
+            *rows,
+            "",
+            "## Retention Guidance",
+            "",
+            f"- Latest files overwritten: `{retention['latest_files_are_overwritten']}`",
+            f"- Release evidence retention: {retention['release_evidence_retention']}",
+            f"- History retention: {retention['history_retention']}",
+            f"- Cleanup: {retention['cleanup']}",
+            "",
+        ]
+    )
 
 
 def _performance_markdown(report: dict[str, object]) -> str:
@@ -583,10 +1158,12 @@ def _performance_markdown(report: dict[str, object]) -> str:
             "# Release Latency Baseline",
             "",
             f"Task: `{report['task_ref']}`",
+            f"Baseline source: `{report['baseline_source_ref']}`",
             f"Report ref: `{report['report_ref']}`",
             f"Generated: `{report['generated_at_utc']}`",
             f"Overall status: `{report['overall_status']}`",
             "",
+            "Gate policy: required paths fail when missing, failed, or over budget; optional prerequisites must report passed, skipped, or blocked.",
             "Authority decisions are measured on the route path and are not cached, skipped, or bypassed for speed.",
             "Reports contain timing summaries and safe refs only; request and response bodies are not recorded.",
             "",
@@ -638,6 +1215,11 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Status: {metrics['release_latency_overall_status']}")
         print(f"Report JSON: {metrics['release_latency_report_json']}")
         print(f"Report MD: {metrics['release_latency_report_md']}")
+        print(f"Regression JSON: {metrics['performance_regression_report_json']}")
+        print(f"Regression MD: {metrics['performance_regression_report_md']}")
+        print(f"Hot profile JSON: {metrics['hot_path_profile_report_json']}")
+        print(f"Hot profile MD: {metrics['hot_path_profile_report_md']}")
+        print(f"Hot profile status: {metrics['hot_path_profile_overall_status']}")
         for result in metrics["release_latency_path_results"]:  # type: ignore[index]
             p95 = result["p95_ms"] if result["p95_ms"] is not None else "skipped"
             print(

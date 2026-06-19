@@ -27,11 +27,15 @@ Current API docs:
 ```text
 docs/api/openapi_contract.md
 docs/api/route_inventory.md
+docs/api/SAFE_STATIC_MANIFEST_CACHING.md
 ```
 
 Current boundary summary:
 
 - `/api/manifest` publishes typed route metadata and the generated route count.
+- `/api/manifest` may cache only process-local static manifest metadata; policy
+  decisions, approvals, runtime authority, user data, mutable state, and secrets
+  remain excluded.
 - Validation, preview, evaluate, dry-run, readiness, and status routes remain
   non-production authority surfaces.
 - Local `/v1/models` and `/v1/chat/completions` are disabled by default,

@@ -275,14 +275,20 @@ Tasks:
 - `UAA-P0-006` Done: add p50/p95 timing harness with budget definitions and
   latest safe reports under `reports/performance`; canonical doc is
   `docs/production/RELEASE_LATENCY_BASELINE_HARNESS.md`.
-- `UAA-P1-039` Refine budgets from repeated local evidence for API manifest,
+- `UAA-P1-039` Done: enforce latency budget gate coverage for API manifest,
   model route preview, task decomposition, file preview, local model list,
-  local chat, and dashboard.
-- `UAA-P1-040` Add historical regression trend output under `reports/performance`.
-- `UAA-P1-041` Add hot-path profiling for task decomposition and OpenAPI build.
-- `UAA-P1-042` Cache safe static manifest data without caching authority
-  decisions.
-- `UAA-P1-043` Add latency gate to Foundation Gate report.
+  local chat, and an explicit safe skipped dashboard render row.
+- `UAA-P1-040` Done: add machine-readable and human-readable performance
+  regression reports under `reports/performance` with safe environment summary,
+  budget comparisons, skipped/blocked status, and retention guidance.
+- `UAA-P1-041` Done: add safe hot-path profiling for task decomposition and
+  OpenAPI build with timing-summary-only JSON and Markdown reports.
+- `UAA-P1-042` Done: cache safe static API manifest data without caching
+  authority decisions, approvals, policy outcomes, user data, mutable state, or
+  secrets; canonical doc is `docs/api/SAFE_STATIC_MANIFEST_CACHING.md`.
+- `UAA-P1-043` Done: add typed Foundation Gate `latency_gate` report output
+  with p50/p95 status, pass/fail/skipped path state, accepted failures, report
+  refs, optional prerequisite visibility, and environment-safe summary.
 
 Initial budgets:
 
@@ -391,7 +397,10 @@ Acceptance:
 - `UAA-P1-012` Workspace workbench safe refs and previews.
 - `UAA-P1-034` Patch proposal contracts.
 - `UAA-P1-035` Atomic apply and rollback receipts.
-- `UAA-P1-039` Latency budget gate.
+- `UAA-P1-039` Done: Latency budget gate.
+- `UAA-P1-040` Done: Performance regression reports.
+- `UAA-P1-041` Done: Hot-path profiling.
+- `UAA-P1-042` Done: Safe static manifest caching.
 - `UAA-P1-044` Release evidence packet.
 
 ## Definition of Ready

@@ -1,5 +1,6 @@
 from ultimate_ai_agent.core.gate import (
     FoundationGateCommandReceipt,
+    FoundationGateLatencySummary,
     FoundationGateResult,
     FoundationGateStatus,
     build_foundation_gate_report,
@@ -76,6 +77,77 @@ def test_foundation_gate_report_includes_command_receipts():
 
     assert report.command_mode == "ci-after-verify-all"
     assert report.command_receipts == [receipt]
+    assert validate_foundation_gate_report(report).success is True
+
+
+def test_foundation_gate_report_accepts_safe_latency_summary():
+    report = build_foundation_gate_report(
+        version="0.10.0",
+        results=[result("versioning_consistent", FoundationGateStatus.passed)],
+    )
+    report.latency_gate = FoundationGateLatencySummary(
+        schema_version="uaa_foundation_gate_latency_summary.v1",
+        task_ref="UAA-P1-043",
+        status="passed",
+        p50_p95_status="passed",
+        foundation_gate_status="passed",
+        foundation_gate_best_ms=10.0,
+        foundation_gate_mean_ms=12.0,
+        foundation_gate_best_budget_ms=20_000.0,
+        foundation_gate_mean_budget_ms=25_000.0,
+        release_latency_status="passed",
+        hot_path_profile_status="passed",
+        accepted_failures=[],
+        failures=[],
+        report_refs={
+            "release_latency_report_json": (
+                "reports/performance/latest_release_latency_baseline.json"
+            )
+        },
+        foundation_gate_report_json=(
+            "reports/foundation_gate/latest_foundation_gate_report.json"
+        ),
+        foundation_gate_report_md=(
+            "reports/foundation_gate/latest_foundation_gate_report.md"
+        ),
+        environment_safe_summary={
+            "machine_identity_recorded": False,
+            "environment_variables_recorded": False,
+            "raw_paths_recorded": False,
+        },
+        authority_invariants={
+            "authority_decisions_cached_for_speed": False,
+            "foundation_gate_checks_preserved": True,
+        },
+        report_safety={
+            "path_material_included": False,
+            "credential_material_included": False,
+        },
+        path_results=[
+            {
+                "path_id": "api_manifest",
+                "safe_label": "GET /api/manifest",
+                "required": True,
+                "status": "passed",
+                "samples": 5,
+                "p50_ms": 5.0,
+                "p95_ms": 7.0,
+                "budget_ms": 150.0,
+                "budget_status": "within_budget",
+                "reason_codes": [],
+                "authority_path_bypassed_for_speed": False,
+                "authority_decision_cached_for_speed": False,
+                "request_body_recorded": False,
+                "response_body_recorded": False,
+            }
+        ],
+        optional_prerequisites=[],
+    )
+
+    payload = report.model_dump(mode="json")
+
+    assert payload["latency_gate"]["task_ref"] == "UAA-P1-043"
+    assert payload["latency_gate"]["path_results"][0]["p95_ms"] == 7.0
     assert validate_foundation_gate_report(report).success is True
 
 

@@ -1,3 +1,7 @@
+from dataclasses import dataclass
+from threading import RLock
+from typing import Any
+
 from fastapi import FastAPI
 from fastapi.routing import APIRoute
 
@@ -100,6 +104,58 @@ ROUTE_GROUPS_BY_PREFIX = {
 LOCAL_DEV_WORKSPACE_PREFIXES = ("/kernel", "/files", "/memory", "/task-decomposition", "/v1")
 VALIDATION_HINTS = ("/validate", "/preview", "/evaluate", "/route", "/freshness/check", "/dry-run")
 
+API_MANIFEST_CACHEABLE_FIELDS = (
+    "title",
+    "api_version",
+    "package_version",
+    "active_baseline",
+    "route_count",
+    "route_groups",
+    "routes",
+    "capabilities_declared",
+    "capabilities_blocked",
+    "no_runtime_integrations",
+)
+API_MANIFEST_CACHE_EXCLUDED_FIELDS = (
+    "foundation_gate_status",
+    "policy_decisions",
+    "policy_outcomes",
+    "approvals",
+    "approval_decisions",
+    "runtime_authority",
+    "user_data",
+    "secrets",
+    "mutable_state",
+)
+API_MANIFEST_CACHE_INVALIDATION_RULES = (
+    "app_title_change",
+    "package_version_change",
+    "active_baseline_change",
+    "route_path_method_operation_tag_summary_change",
+    "capabilities_declared_change",
+    "capabilities_blocked_change",
+    "manual_cache_clear",
+)
+
+
+@dataclass(frozen=True)
+class _ApiManifestStaticCacheEntry:
+    fingerprint: tuple[Any, ...]
+    title: str
+    api_version: str
+    package_version: str
+    active_baseline: str
+    route_count: int
+    route_groups: tuple[str, ...]
+    routes: tuple[ApiRouteInventoryItem, ...]
+    capabilities_declared: tuple[str, ...]
+    capabilities_blocked: tuple[str, ...]
+    no_runtime_integrations: bool
+
+
+_API_MANIFEST_STATIC_CACHE: dict[int, _ApiManifestStaticCacheEntry] = {}
+_API_MANIFEST_STATIC_CACHE_LOCK = RLock()
+
 
 def active_baseline_label() -> str:
     if __version__.endswith("a0"):
@@ -158,10 +214,62 @@ def iter_api_route_items(app: FastAPI) -> list[ApiRouteInventoryItem]:
     return sorted(items, key=lambda item: (item.path, item.method))
 
 
-def build_api_manifest(app: FastAPI, foundation_gate_status: str | None = None) -> ApiManifest:
-    routes = iter_api_route_items(app)
-    route_groups = sorted({tag for route in routes for tag in route.tags})
-    return ApiManifest(
+def clear_api_manifest_static_cache(app: FastAPI | None = None) -> None:
+    with _API_MANIFEST_STATIC_CACHE_LOCK:
+        if app is None:
+            _API_MANIFEST_STATIC_CACHE.clear()
+        else:
+            _API_MANIFEST_STATIC_CACHE.pop(id(app), None)
+
+
+def api_manifest_cache_policy() -> dict[str, object]:
+    return {
+        "scope": "process_local_static_api_manifest_data_only",
+        "cacheable_fields": list(API_MANIFEST_CACHEABLE_FIELDS),
+        "excluded_fields": list(API_MANIFEST_CACHE_EXCLUDED_FIELDS),
+        "invalidation_rules": list(API_MANIFEST_CACHE_INVALIDATION_RULES),
+        "authority_decisions_cached": False,
+        "policy_decisions_cached": False,
+        "approval_decisions_cached": False,
+        "mutable_user_data_cached": False,
+        "secret_material_cached": False,
+        "durable_cache": False,
+    }
+
+
+def _api_manifest_static_fingerprint(app: FastAPI) -> tuple[Any, ...]:
+    route_fingerprints: list[tuple[object, ...]] = []
+    for route in app.routes:
+        if not isinstance(route, APIRoute):
+            continue
+        methods = tuple(sorted(method for method in route.methods if method not in {"HEAD", "OPTIONS"}))
+        route_fingerprints.append(
+            (
+                route.path,
+                methods,
+                route.operation_id,
+                tuple(route.tags or ()),
+                route.summary,
+            )
+        )
+    return (
+        app.title,
+        __version__,
+        active_baseline_label(),
+        tuple(CAPABILITIES_DECLARED),
+        tuple(CAPABILITIES_BLOCKED),
+        tuple(sorted(route_fingerprints)),
+    )
+
+
+def _build_api_manifest_static_cache_entry(
+    app: FastAPI,
+    fingerprint: tuple[Any, ...],
+) -> _ApiManifestStaticCacheEntry:
+    routes = tuple(iter_api_route_items(app))
+    route_groups = tuple(sorted({tag for route in routes for tag in route.tags}))
+    return _ApiManifestStaticCacheEntry(
+        fingerprint=fingerprint,
         title=app.title,
         api_version=__version__,
         package_version=__version__,
@@ -169,8 +277,36 @@ def build_api_manifest(app: FastAPI, foundation_gate_status: str | None = None) 
         route_count=len(routes),
         route_groups=route_groups,
         routes=routes,
-        foundation_gate_status=foundation_gate_status,
-        capabilities_declared=CAPABILITIES_DECLARED,
-        capabilities_blocked=CAPABILITIES_BLOCKED,
+        capabilities_declared=tuple(CAPABILITIES_DECLARED),
+        capabilities_blocked=tuple(CAPABILITIES_BLOCKED),
         no_runtime_integrations=True,
+    )
+
+
+def _get_api_manifest_static_cache_entry(app: FastAPI) -> _ApiManifestStaticCacheEntry:
+    fingerprint = _api_manifest_static_fingerprint(app)
+    cache_key = id(app)
+    with _API_MANIFEST_STATIC_CACHE_LOCK:
+        cached = _API_MANIFEST_STATIC_CACHE.get(cache_key)
+        if cached is not None and cached.fingerprint == fingerprint:
+            return cached
+        refreshed = _build_api_manifest_static_cache_entry(app, fingerprint)
+        _API_MANIFEST_STATIC_CACHE[cache_key] = refreshed
+        return refreshed
+
+
+def build_api_manifest(app: FastAPI, foundation_gate_status: str | None = None) -> ApiManifest:
+    static = _get_api_manifest_static_cache_entry(app)
+    return ApiManifest(
+        title=static.title,
+        api_version=static.api_version,
+        package_version=static.package_version,
+        active_baseline=static.active_baseline,
+        route_count=static.route_count,
+        route_groups=list(static.route_groups),
+        routes=[route.model_copy(deep=True) for route in static.routes],
+        foundation_gate_status=foundation_gate_status,
+        capabilities_declared=list(static.capabilities_declared),
+        capabilities_blocked=list(static.capabilities_blocked),
+        no_runtime_integrations=static.no_runtime_integrations,
     )

@@ -1019,6 +1019,7 @@ REQUIRED_PUBLIC_SECURITY_DOCS = [
 REQUIRED_M167_EVIDENCE_MATRIX_DOC = "docs/production/M167_LIVE_MODEL_EVIDENCE_MATRIX.md"
 REQUIRED_LOCAL_MODEL_E2E_SMOKE_DOC = "docs/production/M167_LOCAL_MODEL_E2E_SMOKE_HARNESS.md"
 REQUIRED_PERFORMANCE_BASELINE_DOC = "docs/production/RELEASE_LATENCY_BASELINE_HARNESS.md"
+REQUIRED_SAFE_STATIC_MANIFEST_CACHE_DOC = "docs/api/SAFE_STATIC_MANIFEST_CACHING.md"
 REQUIRED_LLAMA_SERVER_PACKAGING_CHECKLIST_DOC = (
     "docs/production/LLAMA_SERVER_PACKAGING_PROVENANCE_CHECKLIST.md"
 )
@@ -1042,6 +1043,7 @@ RELEASE_FACING_SECURITY_DOCS = [
     REQUIRED_M167_EVIDENCE_MATRIX_DOC,
     REQUIRED_LOCAL_MODEL_E2E_SMOKE_DOC,
     REQUIRED_PERFORMANCE_BASELINE_DOC,
+    REQUIRED_SAFE_STATIC_MANIFEST_CACHE_DOC,
     REQUIRED_LLAMA_SERVER_PACKAGING_CHECKLIST_DOC,
     REQUIRED_LOCAL_MODEL_OPERATIONAL_RUNBOOK_DOC,
     "docs/security/SECURITY_TRIAGE_RUNBOOK.md",
@@ -1209,6 +1211,7 @@ REQUIRED_ACTIVE_DOCS = [
     REQUIRED_M167_EVIDENCE_MATRIX_DOC,
     REQUIRED_LOCAL_MODEL_E2E_SMOKE_DOC,
     REQUIRED_PERFORMANCE_BASELINE_DOC,
+    REQUIRED_SAFE_STATIC_MANIFEST_CACHE_DOC,
     REQUIRED_LLAMA_SERVER_PACKAGING_CHECKLIST_DOC,
     REQUIRED_LOCAL_MODEL_OPERATIONAL_RUNBOOK_DOC,
     *REQUIRED_PUBLIC_SECURITY_DOCS,
@@ -1388,6 +1391,7 @@ ACTIVE_DOCS_TO_SCAN = [
     REQUIRED_M167_EVIDENCE_MATRIX_DOC,
     REQUIRED_LOCAL_MODEL_E2E_SMOKE_DOC,
     REQUIRED_PERFORMANCE_BASELINE_DOC,
+    REQUIRED_SAFE_STATIC_MANIFEST_CACHE_DOC,
     REQUIRED_LLAMA_SERVER_PACKAGING_CHECKLIST_DOC,
     REQUIRED_LOCAL_MODEL_OPERATIONAL_RUNBOOK_DOC,
     *REQUIRED_PUBLIC_SECURITY_DOCS,
@@ -2214,8 +2218,24 @@ def _verify_performance_baseline_harness(root: Path) -> list[str]:
             failures.append(f"{rel_path} must link release latency baseline harness")
 
     required_doc_fragments = {
-        "performance doc must identify UAA-P0-006": (
-            "status: active uaa-p0-006 performance baseline harness"
+        "performance doc must identify UAA-P1-043 integration": (
+            "status: active uaa-p1-043 foundation gate latency integration"
+        ),
+        "performance doc must identify UAA-P1-041 profiling": (
+            "uaa-p1-041 hot-path profiling"
+        ),
+        "performance doc must preserve UAA-P0-006 baseline lineage": "uaa-p0-006 introduced the baseline measurement loop",
+        "performance doc must identify UAA-P1-039 gate": (
+            "uaa-p1-039 makes the required local path budgets an explicit release gate"
+        ),
+        "performance doc must identify UAA-P1-040 reports": (
+            "uaa-p1-040 adds machine-readable and human-readable regression reports"
+        ),
+        "performance doc must link hot path profile script": (
+            "scripts/profile_hot_paths.py"
+        ),
+        "performance doc must link Foundation Gate report-only command": (
+            "scripts/run_foundation_gate.py --command-mode report-only"
         ),
         "performance doc must mention p50": "p50",
         "performance doc must mention p95": "p95",
@@ -2232,6 +2252,25 @@ def _verify_performance_baseline_harness(root: Path) -> list[str]:
         "performance doc must define Markdown report": (
             "reports/performance/latest_release_latency_baseline.md"
         ),
+        "performance doc must define regression JSON report": (
+            "reports/performance/latest_performance_regression_report.json"
+        ),
+        "performance doc must define regression Markdown report": (
+            "reports/performance/latest_performance_regression_report.md"
+        ),
+        "performance doc must define hot path JSON report": (
+            "reports/performance/latest_hot_path_profile.json"
+        ),
+        "performance doc must define hot path Markdown report": (
+            "reports/performance/latest_hot_path_profile.md"
+        ),
+        "performance doc must define Foundation Gate JSON report": (
+            "reports/foundation_gate/latest_foundation_gate_report.json"
+        ),
+        "performance doc must define Foundation Gate Markdown report": (
+            "reports/foundation_gate/latest_foundation_gate_report.md"
+        ),
+        "performance doc must mention latency_gate report block": "latency_gate",
         "performance doc must include health budget": "| `/health` | 50 ms |",
         "performance doc must include manifest budget": (
             "| `/api/manifest` | 150 ms |"
@@ -2260,11 +2299,41 @@ def _verify_performance_baseline_harness(root: Path) -> list[str]:
         "performance doc must forbid speed authority bypass": (
             "authority decisions must never be cached, skipped, shortened, or bypassed for speed"
         ),
+        "performance doc must require explicit budget changes": (
+            "budget changes must be made by changing `release_latency_budgets_ms`"
+        ),
         "performance doc must define Control Center skipped ref": (
-            "skipped-ref:p0-006:control-center-render-runner-not-scoped"
+            "skipped-ref:p1-039:control-center-render-runner-not-scoped"
+        ),
+        "performance doc must require optional status visibility": (
+            "they must not disappear from the report"
+        ),
+        "performance doc must include regression fields": (
+            "budget comparison, budget ratio, and remaining budget margin"
+        ),
+        "performance doc must include retention guidance": (
+            "retained history belongs in reviewed release evidence packets"
+        ),
+        "performance doc must forbid unsafe environment summary": (
+            "the environment-safe summary must not include hostname"
+        ),
+        "performance doc must include hot path profiling": "## hot-path profiling",
+        "performance doc must include task decomposition profiling": (
+            "task decomposition classify route handler"
+        ),
+        "performance doc must include OpenAPI profiling": "openapi schema build",
+        "performance doc must say profiling is summary-only": (
+            "profiling output contains p50, p95, mean timing, sample count"
+        ),
+        "performance doc must say OpenAPI cache is restored": (
+            "clears and restores the in-process schema cache"
         ),
         "performance doc must deny request body reports": "request bodies",
         "performance doc must deny response body reports": "response bodies",
+        "performance doc must include Foundation Gate integration section": (
+            "## foundation gate integration"
+        ),
+        "performance doc must include accepted failures field": "accepted failures",
         "performance doc must include rollback": "## rollback",
     }
     for message, fragment in required_doc_fragments.items():
@@ -2273,12 +2342,39 @@ def _verify_performance_baseline_harness(root: Path) -> list[str]:
 
     benchmark = read_lower("scripts/benchmark_foundation_gate.py")
     check = read_lower("scripts/check_foundation_gate_latency.py")
+    run_gate = read_lower("scripts/run_foundation_gate.py")
+    profile_script = read_lower("scripts/profile_hot_paths.py")
     gitignore = read_lower(".gitignore")
     for message, fragment in {
         "benchmark must define release latency budgets": "release_latency_budgets_ms",
+        "benchmark must define P1-039 gate task": "release_latency_gate_task_ref",
+        "benchmark must define required release paths": "release_latency_required_path_ids",
+        "benchmark must define optional release paths": "release_latency_optional_path_ids",
         "benchmark must write reports/performance": "reports\" / \"performance",
         "benchmark must write JSON report": "latest_release_latency_baseline.json",
         "benchmark must write Markdown report": "latest_release_latency_baseline.md",
+        "benchmark must write regression JSON report": (
+            "latest_performance_regression_report.json"
+        ),
+        "benchmark must write regression Markdown report": (
+            "latest_performance_regression_report.md"
+        ),
+        "benchmark must write hot path JSON report": "latest_hot_path_profile.json",
+        "benchmark must write hot path Markdown report": "latest_hot_path_profile.md",
+        "benchmark must define P1-040 report task": "performance_regression_task_ref",
+        "benchmark must define P1-041 report task": "hot_path_profile_task_ref",
+        "benchmark must define regression report builder": (
+            "performance_regression_report"
+        ),
+        "benchmark must define hot path profiler": "measure_hot_paths",
+        "benchmark must profile OpenAPI build": "profile_openapi_build",
+        "benchmark must build hot path profile report": (
+            "build_hot_path_profile_report"
+        ),
+        "benchmark must define environment-safe summary": (
+            "environment_safe_summary"
+        ),
+        "benchmark must define retention guidance": "retention_guidance",
         "benchmark must measure health": "\"health\"",
         "benchmark must measure api manifest": "\"api_manifest\"",
         "benchmark must measure model route preview": "\"model_route_preview\"",
@@ -2290,6 +2386,7 @@ def _verify_performance_baseline_harness(root: Path) -> list[str]:
         "benchmark must safely skip Control Center render": (
             "frontend_render_timing_runner_not_scoped"
         ),
+        "benchmark must emit budget gate metadata": "budget_gate",
         "benchmark must preserve authority no-cache invariant": (
             "authority_decisions_cached_for_speed"
         ),
@@ -2297,8 +2394,38 @@ def _verify_performance_baseline_harness(root: Path) -> list[str]:
         if fragment not in benchmark:
             failures.append(message)
     for message, fragment in {
+        "profile script must run hot path profile": "run_hot_path_profile",
+        "profile script must support no-write mode": "--no-write-report",
+        "profile script must support JSON output": "--json",
+    }.items():
+        if fragment not in profile_script:
+            failures.append(message)
+    for message, fragment in {
         "latency check must inspect release path results": (
             "release_latency_path_results"
+        ),
+        "latency check must inspect release budget definitions": (
+            "release_latency_budget_definitions_ms"
+        ),
+        "latency check must fail missing required paths": "missing_required",
+        "latency check must require optional visibility": "missing_optional",
+        "latency check must reject speed authority bypass": (
+            "authority_path_bypassed_for_speed"
+        ),
+        "latency check must print regression report refs": (
+            "performance_regression_report_json"
+        ),
+        "latency check must print hot profile report refs": (
+            "hot_path_profile_report_json"
+        ),
+        "latency check must define P1-043 summary schema": (
+            "foundation_gate_latency_schema_version"
+        ),
+        "latency check must build Foundation Gate latency summary": (
+            "build_foundation_gate_latency_summary"
+        ),
+        "latency check must expose reusable summary runner": (
+            "run_latency_gate_summary"
         ),
         "latency check must print release latency status": "release latency:",
         "latency check must fail non-passed required paths": (
@@ -2306,6 +2433,18 @@ def _verify_performance_baseline_harness(root: Path) -> list[str]:
         ),
     }.items():
         if fragment not in check:
+            failures.append(message)
+    for message, fragment in {
+        "Foundation Gate runner must attach latency gate": "latency_gate",
+        "Foundation Gate runner must build latency gate summary": (
+            "build_latency_gate_summary"
+        ),
+        "Foundation Gate Markdown must render latency gate": "## latency gate",
+        "Foundation Gate runner must avoid raw requested output paths": (
+            "custom report copy written"
+        ),
+    }.items():
+        if fragment not in run_gate:
             failures.append(message)
     for fragment in [
         "reports/performance/latest_*.json",
@@ -2321,8 +2460,144 @@ def _verify_performance_baseline_harness(root: Path) -> list[str]:
         failures.append("current board must mark UAA-P0-006 gate met")
     if "pull uaa-p0-006 next" in board:
         failures.append("current board still contains stale UAA-P0-006 next label")
+    if "uaa-p1-039 latency budget gate" not in board:
+        failures.append("current board must track UAA-P1-039 latency budget gate")
+    if "gate met: required local release paths have explicit p95 budgets" not in board:
+        failures.append("current board must mark UAA-P1-039 gate met")
+    if "pull uaa-p1-039 next" in board:
+        failures.append("current board still contains stale UAA-P1-039 next label")
+    if "uaa-p1-040 performance regression reports" not in board:
+        failures.append("current board must track UAA-P1-040 performance regression reports")
+    if "gate met: benchmark output writes json and markdown regression reports" not in board:
+        failures.append("current board must mark UAA-P1-040 gate met")
+    if "pull uaa-p1-040 next" in board:
+        failures.append("current board still contains stale UAA-P1-040 next label")
+    if "uaa-p1-041 hot-path profiling" not in board:
+        failures.append("current board must track UAA-P1-041 hot-path profiling")
+    if "gate met: task decomposition classify/decompose route handlers" not in board:
+        failures.append("current board must mark UAA-P1-041 gate met")
+    if "pull uaa-p1-041 next" in board:
+        failures.append("current board still contains stale UAA-P1-041 next label")
+    if "uaa-p1-043 foundation gate latency integration" not in board:
+        failures.append("current board must track UAA-P1-043 Foundation Gate latency integration")
+    if "gate met: foundation gate json and markdown reports include a typed" not in board:
+        failures.append("current board must mark UAA-P1-043 gate met")
+    if "pull uaa-p1-043 next" in board:
+        failures.append("current board still contains stale UAA-P1-043 next label")
     if "uaa-p0-007 control center operator-shell gap map" not in board:
         failures.append("current board must keep UAA-P0-007 visible after UAA-P0-006")
+
+    product_truth = read_lower("docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md")
+    if "uaa-p1-043 remains planned" in product_truth:
+        failures.append("product truth packet still marks UAA-P1-043 as planned")
+
+    return failures
+
+
+def _verify_safe_static_manifest_cache(root: Path) -> list[str]:
+    failures: list[str] = []
+    doc_path = root / REQUIRED_SAFE_STATIC_MANIFEST_CACHE_DOC
+    if not doc_path.exists():
+        return [
+            "missing safe static manifest cache doc: "
+            f"{REQUIRED_SAFE_STATIC_MANIFEST_CACHE_DOC}"
+        ]
+
+    def read_lower(rel_path: str) -> str:
+        path = root / rel_path
+        return _read(path).lower() if path.exists() else ""
+
+    cache_doc = read_lower(REQUIRED_SAFE_STATIC_MANIFEST_CACHE_DOC)
+    cache_compact = " ".join(cache_doc.split())
+    cache_link = REQUIRED_SAFE_STATIC_MANIFEST_CACHE_DOC.lower()
+    active_links = {
+        "docs/api/README.md": read_lower("docs/api/README.md"),
+        "docs/README.md": read_lower("docs/README.md"),
+        "docs/DOCUMENTATION_INDEX.md": read_lower("docs/DOCUMENTATION_INDEX.md"),
+        "docs/canonical/CANONICAL_DOC_MAP.md": read_lower(
+            "docs/canonical/CANONICAL_DOC_MAP.md"
+        ),
+        "docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md": read_lower(
+            "docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md"
+        ),
+        "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md": read_lower(
+            "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md"
+        ),
+    }
+    for rel_path, text in active_links.items():
+        if cache_link not in text:
+            failures.append(f"{rel_path} must link safe static manifest cache doc")
+
+    for message, fragment in {
+        "cache doc must identify UAA-P1-042": (
+            "status: active uaa-p1-042 safe static manifest caching"
+        ),
+        "cache doc must define process-local scope": "process-local caching",
+        "cache doc must list cached routes": "`routes`",
+        "cache doc must list cached route groups": "`route_groups`",
+        "cache doc must exclude foundation gate status": "`foundation_gate_status`",
+        "cache doc must exclude policy decisions": "policy decisions",
+        "cache doc must exclude approvals": "approval decisions",
+        "cache doc must exclude runtime authority": "runtime authority",
+        "cache doc must exclude user data": "user data",
+        "cache doc must exclude secrets": "secrets",
+        "cache doc must exclude mutable state": "mutable state",
+        "cache doc must include invalidation": "## invalidation",
+        "cache doc must include route fingerprint rule": (
+            "route path, method, operation id, tag, or summary change"
+        ),
+        "cache doc must include staleness risk": "## staleness risk",
+        "cache doc must include rollback": "## rollback",
+    }.items():
+        if fragment not in cache_compact:
+            failures.append(message)
+
+    manifest_code = read_lower("src/ultimate_ai_agent/api/manifest.py")
+    manifest_test = read_lower("tests/test_api_manifest.py")
+    for message, fragment in {
+        "manifest code must define cacheable fields": "api_manifest_cacheable_fields",
+        "manifest code must define excluded fields": (
+            "api_manifest_cache_excluded_fields"
+        ),
+        "manifest code must define invalidation rules": (
+            "api_manifest_cache_invalidation_rules"
+        ),
+        "manifest code must expose cache policy": "api_manifest_cache_policy",
+        "manifest code must expose cache clear": "clear_api_manifest_static_cache",
+        "manifest code must build static fingerprint": (
+            "api_manifest_static_fingerprint"
+        ),
+        "manifest code must keep foundation gate status outside static cache": (
+            "foundation_gate_status=foundation_gate_status"
+        ),
+        "manifest code must deep-copy cached routes": "model_copy(deep=true)",
+    }.items():
+        if fragment not in manifest_code:
+            failures.append(message)
+    for message, fragment in {
+        "manifest tests must cover cache policy exclusions": (
+            "test_api_manifest_static_cache_policy_excludes_authority_and_private_state"
+        ),
+        "manifest tests must prove dynamic status remains live": (
+            "test_api_manifest_static_cache_keeps_dynamic_status_live"
+        ),
+        "manifest tests must prove copy isolation": (
+            "test_api_manifest_static_cache_is_copy_isolated"
+        ),
+        "manifest tests must prove route invalidation": (
+            "test_api_manifest_static_cache_invalidates_when_route_risk_changes"
+        ),
+    }.items():
+        if fragment not in manifest_test:
+            failures.append(message)
+
+    board = read_lower("docs/kanban/current_board.md")
+    if "uaa-p1-042 safe static manifest caching" not in board:
+        failures.append("current board must track UAA-P1-042 safe static manifest caching")
+    if "gate met: `/api/manifest` caches only process-local static route metadata" not in board:
+        failures.append("current board must mark UAA-P1-042 gate met")
+    if "pull uaa-p1-042 next" in board:
+        failures.append("current board still contains stale UAA-P1-042 next label")
 
     return failures
 
@@ -2900,6 +3175,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_m167_live_model_evidence_matrix(root))
     failures.extend(_verify_local_model_e2e_smoke_harness(root))
     failures.extend(_verify_performance_baseline_harness(root))
+    failures.extend(_verify_safe_static_manifest_cache(root))
     failures.extend(_verify_llama_server_packaging_checklist(root))
     failures.extend(_verify_tuning_advisor_hardening_cases(root))
     failures.extend(_verify_local_model_operational_runbook(root))

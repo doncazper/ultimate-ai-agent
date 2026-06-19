@@ -25,10 +25,75 @@ class _FastFoundationGateEvaluator:
 
 
 def _use_fast_gate_report(monkeypatch):
+    def fast_latency_summary(
+        *,
+        foundation_gate_report_json,
+        foundation_gate_report_md,
+    ):
+        return run_foundation_gate.FoundationGateLatencySummary(
+            schema_version="uaa_foundation_gate_latency_summary.v1",
+            task_ref="UAA-P1-043",
+            status="passed",
+            p50_p95_status="passed",
+            foundation_gate_status="passed",
+            foundation_gate_best_ms=1.0,
+            foundation_gate_mean_ms=1.0,
+            foundation_gate_best_budget_ms=20_000.0,
+            foundation_gate_mean_budget_ms=25_000.0,
+            release_latency_status="passed",
+            hot_path_profile_status="passed",
+            accepted_failures=[],
+            failures=[],
+            report_refs={
+                "release_latency_report_json": (
+                    "reports/performance/latest_release_latency_baseline.json"
+                )
+            },
+            foundation_gate_report_json=foundation_gate_report_json,
+            foundation_gate_report_md=foundation_gate_report_md,
+            environment_safe_summary={
+                "machine_identity_recorded": False,
+                "environment_variables_recorded": False,
+                "raw_paths_recorded": False,
+            },
+            authority_invariants={
+                "authority_decisions_cached_for_speed": False,
+                "foundation_gate_checks_preserved": True,
+            },
+            report_safety={
+                "path_material_included": False,
+                "credential_material_included": False,
+            },
+            path_results=[
+                {
+                    "path_id": "api_manifest",
+                    "safe_label": "GET /api/manifest",
+                    "required": True,
+                    "status": "passed",
+                    "samples": 1,
+                    "p50_ms": 1.0,
+                    "p95_ms": 1.0,
+                    "budget_ms": 150.0,
+                    "budget_status": "within_budget",
+                    "reason_codes": [],
+                    "authority_path_bypassed_for_speed": False,
+                    "authority_decision_cached_for_speed": False,
+                    "request_body_recorded": False,
+                    "response_body_recorded": False,
+                }
+            ],
+            optional_prerequisites=[],
+        )
+
     monkeypatch.setattr(
         run_foundation_gate,
         "FoundationGateEvaluator",
         _FastFoundationGateEvaluator,
+    )
+    monkeypatch.setattr(
+        run_foundation_gate,
+        "build_latency_gate_summary",
+        fast_latency_summary,
     )
 
 
@@ -43,6 +108,11 @@ def test_run_foundation_gate_writes_requested_output(tmp_path, monkeypatch):
     assert payload["overall_status"] == "passed"
     assert payload["command_mode"] == "report-only"
     assert payload["command_receipts"][0]["status"] == "report_only"
+    assert payload["latency_gate"]["schema_version"] == "uaa_foundation_gate_latency_summary.v1"
+    assert payload["latency_gate"]["status"] == "passed"
+    assert payload["latency_gate"]["foundation_gate_report_json"] == (
+        "reports/foundation_gate/latest_foundation_gate_report.json"
+    )
     expected_count = len(payload["results"])
     assert payload["summary"] == f"{expected_count} passed, 0 failed, 0 warnings, 0 blocked."
 

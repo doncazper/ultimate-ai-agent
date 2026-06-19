@@ -9,11 +9,13 @@ import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "src"))
 
 from ultimate_ai_agent.core.gate import (  # noqa: E402
     FoundationGateCommandReceipt,
     FoundationGateEvaluator,
+    FoundationGateLatencySummary,
     FoundationGateStatus,
 )
 
@@ -206,6 +208,20 @@ def commands_for_mode(command_mode: str) -> list[tuple[str, list[str], str]]:
     return []
 
 
+def build_latency_gate_summary(
+    *,
+    foundation_gate_report_json: str | None,
+    foundation_gate_report_md: str | None,
+) -> FoundationGateLatencySummary:
+    from scripts.check_foundation_gate_latency import run_latency_gate_summary
+
+    summary = run_latency_gate_summary(
+        foundation_gate_report_json=foundation_gate_report_json,
+        foundation_gate_report_md=foundation_gate_report_md,
+    )
+    return FoundationGateLatencySummary.model_validate(summary)
+
+
 def write_markdown_payload(payload: dict, markdown_path: Path) -> None:
     lines = [
         "# Foundation Gate Report",
@@ -228,6 +244,52 @@ def write_markdown_payload(payload: dict, markdown_path: Path) -> None:
             )
     else:
         lines.append("- No command receipts recorded.")
+    latency_gate = payload.get("latency_gate")
+    if latency_gate:
+        lines.extend([
+            "",
+            "## Latency Gate",
+            "",
+            f"- Status: `{latency_gate['status']}`",
+            f"- p50/p95 status: `{latency_gate['p50_p95_status']}`",
+            f"- Release latency: `{latency_gate['release_latency_status']}`",
+            f"- Hot-path profile: `{latency_gate['hot_path_profile_status']}`",
+            (
+                "- Foundation Gate latency: "
+                f"best `{latency_gate['foundation_gate_best_ms']}` ms "
+                f"(budget `{latency_gate['foundation_gate_best_budget_ms']}` ms), "
+                f"mean `{latency_gate['foundation_gate_mean_ms']}` ms "
+                f"(budget `{latency_gate['foundation_gate_mean_budget_ms']}` ms)"
+            ),
+        ])
+        if latency_gate.get("foundation_gate_report_json"):
+            lines.append(
+                f"- Report path: `{latency_gate['foundation_gate_report_json']}`"
+            )
+        accepted_failures = latency_gate.get("accepted_failures", [])
+        lines.append(f"- Accepted failures: `{len(accepted_failures)}`")
+        optional_prerequisites = latency_gate.get("optional_prerequisites", [])
+        if optional_prerequisites:
+            lines.extend(["", "### Optional Prerequisites", ""])
+            for result in optional_prerequisites:
+                reason_codes = ", ".join(result.get("reason_codes", [])) or "none"
+                lines.append(
+                    f"- `{result['safe_label']}`: `{result['status']}` "
+                    f"({reason_codes})"
+                )
+        lines.extend(["", "### Latency Path Results", ""])
+        for result in latency_gate.get("path_results", []):
+            p95 = result["p95_ms"] if result["p95_ms"] is not None else "not measured"
+            p50 = result["p50_ms"] if result["p50_ms"] is not None else "not measured"
+            lines.append(
+                f"- `{result['safe_label']}`: `{result['status']}` "
+                f"p50 `{p50}` ms, p95 `{p95}` ms, budget "
+                f"`{result['budget_ms']}` ms, `{result['budget_status']}`"
+            )
+        if latency_gate.get("failures"):
+            lines.extend(["", "### Latency Failures", ""])
+            for failure in latency_gate["failures"]:
+                lines.append(f"- {failure}")
     lines.extend([
         "",
         "## Criteria",
@@ -306,6 +368,14 @@ def main(argv: list[str] | None = None) -> int:
     output_dir.mkdir(parents=True, exist_ok=True)
     report_path = output_dir / "latest_foundation_gate_report.json"
     markdown_path = output_dir / "latest_foundation_gate_report.md"
+    report.latency_gate = build_latency_gate_summary(
+        foundation_gate_report_json=None
+        if args.no_write_latest
+        else str(report_path.relative_to(ROOT)),
+        foundation_gate_report_md=None
+        if args.no_write_latest
+        else str(markdown_path.relative_to(ROOT)),
+    )
     report_payload = report.model_dump_json(indent=2)
     report_payload_dict = json.loads(report_payload)
     if not args.no_write_latest:
@@ -328,9 +398,12 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Report: {report_path.relative_to(ROOT)}")
         print(f"Markdown: {markdown_path.relative_to(ROOT)}")
     if requested_output_path:
-        print(f"Requested output: {requested_output_path}")
+        print("Requested output: custom report copy written")
     print(f"Overall status: {report.overall_status}")
     print(report.summary)
+    if report.latency_gate is not None:
+        print(f"Latency gate: {report.latency_gate.status}")
+        print(f"Latency p50/p95 status: {report.latency_gate.p50_p95_status}")
 
     if command_failures:
         print("\nCommand failures:")

@@ -1,7 +1,7 @@
 import re
 import uuid
 from datetime import datetime
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -36,6 +36,51 @@ class FoundationGateCommandReceipt(BaseModel):
     model_config = ConfigDict(use_enum_values=True, extra="forbid")
 
 
+class FoundationGateLatencyPathResult(BaseModel):
+    path_id: str = Field(..., min_length=1)
+    safe_label: str = Field(..., min_length=1)
+    required: bool = False
+    status: str = Field(..., min_length=1)
+    samples: int = Field(default=0, ge=0)
+    p50_ms: Optional[float] = Field(default=None, ge=0)
+    p95_ms: Optional[float] = Field(default=None, ge=0)
+    budget_ms: Optional[float] = Field(default=None, ge=0)
+    budget_status: str = Field(..., min_length=1)
+    reason_codes: List[str] = Field(default_factory=list)
+    authority_path_bypassed_for_speed: bool = False
+    authority_decision_cached_for_speed: bool = False
+    request_body_recorded: bool = False
+    response_body_recorded: bool = False
+
+    model_config = ConfigDict(use_enum_values=True, extra="forbid")
+
+
+class FoundationGateLatencySummary(BaseModel):
+    schema_version: str = Field(..., min_length=1)
+    task_ref: str = Field(..., min_length=1)
+    status: str = Field(..., min_length=1)
+    p50_p95_status: str = Field(..., min_length=1)
+    foundation_gate_status: str = Field(..., min_length=1)
+    foundation_gate_best_ms: Optional[float] = Field(default=None, ge=0)
+    foundation_gate_mean_ms: Optional[float] = Field(default=None, ge=0)
+    foundation_gate_best_budget_ms: float = Field(..., gt=0)
+    foundation_gate_mean_budget_ms: float = Field(..., gt=0)
+    release_latency_status: str = Field(..., min_length=1)
+    hot_path_profile_status: str = Field(..., min_length=1)
+    accepted_failures: List[str] = Field(default_factory=list)
+    failures: List[str] = Field(default_factory=list)
+    report_refs: Dict[str, str] = Field(default_factory=dict)
+    foundation_gate_report_json: Optional[str] = None
+    foundation_gate_report_md: Optional[str] = None
+    environment_safe_summary: Dict[str, Any] = Field(default_factory=dict)
+    authority_invariants: Dict[str, Any] = Field(default_factory=dict)
+    report_safety: Dict[str, Any] = Field(default_factory=dict)
+    path_results: List[FoundationGateLatencyPathResult] = Field(default_factory=list)
+    optional_prerequisites: List[FoundationGateLatencyPathResult] = Field(default_factory=list)
+
+    model_config = ConfigDict(use_enum_values=True, extra="forbid")
+
+
 class FoundationGateReport(BaseModel):
     report_id: str = Field(..., min_length=1)
     version: str = Field(..., min_length=1)
@@ -52,6 +97,7 @@ class FoundationGateReport(BaseModel):
     trace_id: Optional[str] = None
     command_mode: Optional[str] = None
     command_receipts: List[FoundationGateCommandReceipt] = Field(default_factory=list)
+    latency_gate: Optional[FoundationGateLatencySummary] = None
 
     model_config = ConfigDict(use_enum_values=True, extra="forbid")
 

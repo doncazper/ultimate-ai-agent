@@ -1,8 +1,17 @@
 from fastapi.testclient import TestClient
+from fastapi import FastAPI
 
 from ultimate_ai_agent import __version__
 from ultimate_ai_agent.api.app import app
-from ultimate_ai_agent.api.manifest import active_baseline_label
+from ultimate_ai_agent.api.manifest import (
+    API_MANIFEST_CACHE_EXCLUDED_FIELDS,
+    API_MANIFEST_CACHE_INVALIDATION_RULES,
+    API_MANIFEST_CACHEABLE_FIELDS,
+    active_baseline_label,
+    api_manifest_cache_policy,
+    build_api_manifest,
+    clear_api_manifest_static_cache,
+)
 from ultimate_ai_agent.api.openapi import forbidden_raw_provider_schema_fields, forbidden_raw_secret_schema_fields
 
 
@@ -48,6 +57,84 @@ def test_api_manifest_route_inventory_has_stable_operation_ids_and_side_effect_c
     assert "local_loopback_default_bearer" in manifest["capabilities_blocked"]
     assert "local_loopback_raw_provider_payload_passthrough" in manifest["capabilities_blocked"]
     assert "task_decomposition_raw_request_echo" in manifest["capabilities_blocked"]
+
+
+def test_api_manifest_static_cache_policy_excludes_authority_and_private_state():
+    policy = api_manifest_cache_policy()
+
+    assert "routes" in API_MANIFEST_CACHEABLE_FIELDS
+    assert "route_groups" in API_MANIFEST_CACHEABLE_FIELDS
+    assert "capabilities_declared" in API_MANIFEST_CACHEABLE_FIELDS
+    assert "foundation_gate_status" in API_MANIFEST_CACHE_EXCLUDED_FIELDS
+    assert "policy_decisions" in API_MANIFEST_CACHE_EXCLUDED_FIELDS
+    assert "approvals" in API_MANIFEST_CACHE_EXCLUDED_FIELDS
+    assert "runtime_authority" in API_MANIFEST_CACHE_EXCLUDED_FIELDS
+    assert "user_data" in API_MANIFEST_CACHE_EXCLUDED_FIELDS
+    assert "secrets" in API_MANIFEST_CACHE_EXCLUDED_FIELDS
+    assert "mutable_state" in API_MANIFEST_CACHE_EXCLUDED_FIELDS
+    assert "route_path_method_operation_tag_summary_change" in (
+        API_MANIFEST_CACHE_INVALIDATION_RULES
+    )
+    assert policy["authority_decisions_cached"] is False
+    assert policy["policy_decisions_cached"] is False
+    assert policy["approval_decisions_cached"] is False
+    assert policy["secret_material_cached"] is False
+    assert policy["durable_cache"] is False
+
+
+def test_api_manifest_static_cache_keeps_dynamic_status_live():
+    clear_api_manifest_static_cache(app)
+
+    passed = build_api_manifest(app, foundation_gate_status="passed")
+    failed = build_api_manifest(app, foundation_gate_status="failed")
+
+    assert passed.foundation_gate_status == "passed"
+    assert failed.foundation_gate_status == "failed"
+    assert passed.route_count == failed.route_count
+    assert passed.routes is not failed.routes
+    assert passed.routes[0] is not failed.routes[0]
+
+
+def test_api_manifest_static_cache_is_copy_isolated():
+    local_app = FastAPI(title="Cache Isolation")
+
+    @local_app.get("/health")
+    def local_health():
+        return {"status": "ok"}
+
+    clear_api_manifest_static_cache(local_app)
+    manifest = build_api_manifest(local_app)
+    manifest.routes.clear()
+
+    rebuilt = build_api_manifest(local_app)
+
+    assert rebuilt.route_count == 1
+    assert len(rebuilt.routes) == 1
+    assert rebuilt.routes[0].path == "/health"
+
+
+def test_api_manifest_static_cache_invalidates_when_route_risk_changes():
+    local_app = FastAPI(title="Cache Invalidation")
+
+    @local_app.get("/api/status")
+    def local_status():
+        return {"status": "ok"}
+
+    clear_api_manifest_static_cache(local_app)
+    first = build_api_manifest(local_app)
+
+    @local_app.post("/files/cache-test")
+    def local_file_preview():
+        return {"status": "ok"}
+
+    second = build_api_manifest(local_app)
+    routes_by_path = {route.path: route for route in second.routes}
+
+    assert second.route_count == first.route_count + 1
+    assert routes_by_path["/files/cache-test"].side_effect_class == (
+        "local_dev_workspace_only"
+    )
+    assert routes_by_path["/files/cache-test"].validation_only is False
 
 
 def test_validation_error_response_does_not_echo_secret_like_payload():

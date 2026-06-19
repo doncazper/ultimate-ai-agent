@@ -3,6 +3,8 @@ from ultimate_ai_agent.core.gate.enums import FoundationGateCategory, Foundation
 from ultimate_ai_agent.core.gate.evaluators import FoundationGateEvaluator
 from ultimate_ai_agent.core.gate.reports import (
     FoundationGateCommandReceipt,
+    FoundationGateLatencyPathResult,
+    FoundationGateLatencySummary,
     FoundationGateReport,
     FoundationGateResult,
     build_foundation_gate_report,
@@ -22,6 +24,8 @@ __all__ = [
     "FoundationGateCommandReceipt",
     "FoundationGateCriterion",
     "FoundationGateEvaluator",
+    "FoundationGateLatencyPathResult",
+    "FoundationGateLatencySummary",
     "FoundationGateReport",
     "FoundationGateResult",
     "FoundationGateStatus",

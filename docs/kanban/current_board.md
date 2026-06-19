@@ -221,6 +221,41 @@ apply passes the workspace mutation PolicyEngine gate before requiring exact
 LocalApprovalAuthority validation, rollback requires exact approval-bound
 receipt flow, approval bypass attempts are tested, and shell/subprocess
 mutation paths remain unavailable.
+
+UAA-P1-039 Latency budget gate
+Gate met: required local release paths have explicit p95 budgets, missing
+required measurements fail the gate, required budget regressions fail the gate,
+optional dashboard render timing remains visible as skipped with a reason code,
+and authority checks are not cached, skipped, or bypassed for speed.
+
+UAA-P1-040 Performance regression reports
+Gate met: benchmark output writes JSON and Markdown regression reports with p50,
+p95, sample count, safe environment summary, pass/fail/skipped status, budget
+comparison, operator action labels, and retention guidance without raw local
+paths, hostnames, usernames, environment dumps, logs, prompts, responses,
+provider payloads, or credential material.
+
+UAA-P1-041 Hot-path profiling
+Gate met: task decomposition classify/decompose route handlers and OpenAPI
+schema build have safe timing-summary-only JSON and Markdown profile reports;
+profiling preserves bearer-gated route behavior, restores OpenAPI schema cache,
+records p50, p95, mean, samples, warmups, and reason codes, and excludes raw
+requests, responses, schema bodies, local paths, logs, machine identity,
+environment dumps, prompts, provider payloads, and credential material.
+
+UAA-P1-042 Safe static manifest caching
+Gate met: `/api/manifest` caches only process-local static route metadata,
+versions, baseline labels, route groups, route inventory, and static
+declared/blocked capability lists; foundation gate status, policy decisions,
+approvals, runtime authority, user data, mutable state, and secrets are
+excluded, cache invalidates on route/version/capability fingerprint changes,
+and tests prove dynamic status remains live.
+
+UAA-P1-043 Foundation Gate latency integration
+Gate met: Foundation Gate JSON and Markdown reports include a typed
+`latency_gate` summary with p50/p95 status, pass/fail/skipped path state,
+accepted failures, performance report refs, optional prerequisite visibility,
+environment-safe summary, authority invariants, and report-safety flags.
 ```
 
 ## ASAP Sequence
