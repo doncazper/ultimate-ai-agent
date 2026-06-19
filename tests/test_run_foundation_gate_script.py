@@ -1,6 +1,8 @@
 import json
 from concurrent.futures import ThreadPoolExecutor
 
+import pytest
+
 import scripts.run_foundation_gate as run_foundation_gate
 from ultimate_ai_agent.core.gate.reports import FoundationGateResult, build_foundation_gate_report
 
@@ -114,3 +116,14 @@ def test_atomic_report_write_keeps_latest_json_parseable_under_concurrent_writes
     assert latest["report_id"].startswith("gate_report_")
     assert report_path.stat().st_size > 0
     assert not list(tmp_path.glob(".latest_foundation_gate_report.json.*.tmp"))
+
+
+def test_write_json_atomic_rejects_empty_payload_with_clear_error(tmp_path):
+    report_path = tmp_path / "latest_foundation_gate_report.json"
+
+    # An empty/whitespace payload must raise the explicit "must not be empty"
+    # error rather than an opaque JSONDecodeError, and must not create a file.
+    with pytest.raises(ValueError, match="must not be empty"):
+        run_foundation_gate.write_json_atomic(report_path, "   ")
+
+    assert not report_path.exists()
