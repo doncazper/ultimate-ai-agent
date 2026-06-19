@@ -30,7 +30,7 @@ def test_m16_openapi_route_guard_rejects_backend_timeline_expansion():
         expected_path_count=EXPECTED_M16_OPENAPI_PATH_COUNT,
     )
 
-    assert EXPECTED_M16_OPENAPI_PATH_COUNT == 75
+    assert EXPECTED_M16_OPENAPI_PATH_COUNT == 76
     assert "/events/timeline" in M16_FORBIDDEN_BACKEND_ROUTES
     assert any("OpenAPI path count" in failure for failure in failures)
     assert any("/events/timeline" in failure for failure in failures)

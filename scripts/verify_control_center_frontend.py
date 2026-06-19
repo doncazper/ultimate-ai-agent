@@ -905,15 +905,21 @@ def _route_status_manifest_failures(root: Path) -> list[str]:
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
         return [f"invalid route status manifest JSON: {exc}"]
+    if not isinstance(manifest, dict):
+        return ["route status manifest must be a JSON object"]
 
     if manifest.get("schema_version") != "uaa-control-center-route-status.v1":
         failures.append("route status manifest schema version is not current")
     if manifest.get("status") != "active UAA-P1-030 route status manifest":
         failures.append("route status manifest status is not current")
-    if manifest.get("openapi_path_count") != 93:
-        failures.append("route status manifest must record the 93-path OpenAPI boundary")
+    if manifest.get("openapi_path_count") != 95:
+        failures.append("route status manifest must record the 95-path OpenAPI boundary")
 
-    allowed_statuses = set(manifest.get("allowed_release_statuses", []))
+    allowed_status_values = manifest.get("allowed_release_statuses", [])
+    if not isinstance(allowed_status_values, list):
+        failures.append("route status manifest allowed_release_statuses must be a list")
+        allowed_status_values = []
+    allowed_statuses = {str(status) for status in allowed_status_values}
     required_statuses = {
         "status_available_not_completion",
         "preview_available_not_execution",
@@ -925,8 +931,27 @@ def _route_status_manifest_failures(root: Path) -> list[str]:
     if not required_statuses.issubset(allowed_statuses):
         failures.append("route status manifest missing required release status values")
 
-    surfaces = manifest.get("surfaces", [])
-    visible_actions = manifest.get("visible_actions", [])
+    surfaces_value = manifest.get("surfaces", [])
+    if not isinstance(surfaces_value, list):
+        failures.append("route status manifest surfaces must be a list")
+        surfaces_value = []
+    visible_actions_value = manifest.get("visible_actions", [])
+    if not isinstance(visible_actions_value, list):
+        failures.append("route status manifest visible_actions must be a list")
+        visible_actions_value = []
+
+    surfaces = []
+    for index, surface in enumerate(surfaces_value):
+        if not isinstance(surface, dict):
+            failures.append(f"route status manifest surface entry {index} must be an object")
+            continue
+        surfaces.append(surface)
+    visible_actions = []
+    for index, action in enumerate(visible_actions_value):
+        if not isinstance(action, dict):
+            failures.append(f"route status manifest visible action entry {index} must be an object")
+            continue
+        visible_actions.append(action)
     surface_names = {surface.get("surface") for surface in surfaces}
     for surface in REQUIRED_OPERATOR_SHELL_SURFACES:
         if surface not in surface_names:
@@ -950,15 +975,27 @@ def _route_status_manifest_failures(root: Path) -> list[str]:
         if route not in action_routes:
             failures.append(f"route status manifest missing frontend route: {route}")
 
-    backend_paths = {
-        route.get("path")
-        for section_name, route_key in [
-            ("surfaces", "current_backend_routes"),
-            ("visible_actions", "backend_routes"),
-        ]
-        for item in manifest.get(section_name, [])
-        for route in item.get(route_key, [])
-    }
+    backend_paths = set()
+    for section_name, route_key, items in [
+        ("surfaces", "current_backend_routes", surfaces),
+        ("visible_actions", "backend_routes", visible_actions),
+    ]:
+        for item_index, item in enumerate(items):
+            routes = item.get(route_key, [])
+            if not isinstance(routes, list):
+                failures.append(
+                    f"route status manifest {section_name} entry {item_index} "
+                    f"{route_key} must be a list"
+                )
+                continue
+            for route_index, route in enumerate(routes):
+                if not isinstance(route, dict):
+                    failures.append(
+                        f"route status manifest {section_name} entry {item_index} "
+                        f"{route_key} route {route_index} must be an object"
+                    )
+                    continue
+                backend_paths.add(route.get("path"))
     for endpoint_path in _frontend_api_endpoint_paths(app_root):
         if endpoint_path not in backend_paths:
             failures.append(f"route status manifest missing frontend API endpoint: {endpoint_path}")
@@ -1048,7 +1085,10 @@ def _product_language_rule_failures(root: Path) -> list[str]:
         "docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md",
         "docs/kanban/current_board.md",
     ]:
-        text = (root / rel_path).read_text(encoding="utf-8").lower()
+        path = root / rel_path
+        if not path.exists():
+            continue
+        text = path.read_text(encoding="utf-8").lower()
         for claim in PRODUCT_LANGUAGE_FORBIDDEN_CLAIMS:
             if claim in text:
                 failures.append(f"{rel_path} contains unsafe product language claim: {claim}")
@@ -1062,12 +1102,21 @@ def _product_language_rule_failures(root: Path) -> list[str]:
     except json.JSONDecodeError as exc:
         failures.append(f"invalid route status manifest JSON for product language checks: {exc}")
         return failures
+    if not isinstance(manifest, dict):
+        failures.append("route status manifest must be a JSON object for product language checks")
+        return failures
 
     for section_name, items in [
         ("surface", manifest.get("surfaces", [])),
         ("visible action", manifest.get("visible_actions", [])),
     ]:
+        if not isinstance(items, list):
+            failures.append(f"route status manifest {section_name} list is malformed")
+            continue
         for item in items:
+            if not isinstance(item, dict):
+                failures.append(f"route status manifest {section_name} entry is malformed")
+                continue
             status = item.get("release_status", "")
             if not any(marker in status for marker in ["blocked", "partial", "mock", "local_ui_state"]):
                 continue
@@ -1107,8 +1156,18 @@ def _browser_smoke_readiness_failures(root: Path) -> list[str]:
             if fragment.lower() not in compact and fragment.lower() not in text:
                 failures.append(f"{label} missing UAA-P1-032 fragment: {fragment}")
 
-    smoke_doc_text = (root / BROWSER_SMOKE_DOC).read_text(encoding="utf-8").lower()
-    smoke_report_text = (root / BROWSER_SMOKE_REPORTING_DOC).read_text(encoding="utf-8").lower()
+    smoke_doc_path = root / BROWSER_SMOKE_DOC
+    smoke_report_path = root / BROWSER_SMOKE_REPORTING_DOC
+    smoke_doc_text = (
+        smoke_doc_path.read_text(encoding="utf-8").lower()
+        if smoke_doc_path.exists()
+        else ""
+    )
+    smoke_report_text = (
+        smoke_report_path.read_text(encoding="utf-8").lower()
+        if smoke_report_path.exists()
+        else ""
+    )
     for unsafe in [
         "production ready for external users",
         "public distribution is available",

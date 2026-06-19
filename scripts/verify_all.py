@@ -1048,8 +1048,8 @@ def verify_no_local_runtime_activation_implementation():
     historical_paths.difference_update(TASK_DECOMPOSITION_CANONICAL_ROUTES)
     if len(historical_paths) > 74:
         historical_paths.discard("/files/review/approvals/capture")
-    if len(historical_paths) != 75:
-        print(f"FAIL: M22 expected OpenAPI path count 75, found {len(historical_paths)}")
+    if len(historical_paths) != 76:
+        print(f"FAIL: M22 expected OpenAPI path count 76, found {len(historical_paths)}")
         sys.exit(1)
     forbidden_present = sorted(paths.intersection(forbidden_routes))
     if forbidden_present:
@@ -4840,8 +4840,8 @@ def verify_m39_ccc_context_proposal_surface_safety():
         print(f"FAIL: M39 OpenAPI route validation failed: {exc}")
         sys.exit(1)
 
-    if len(paths) != 76:
-        print(f"FAIL: M39 OpenAPI path count changed: expected 76, found {len(paths)}")
+    if len(paths) != 77:
+        print(f"FAIL: M39 normalized OpenAPI path count changed: expected 77, found {len(paths)}")
         sys.exit(1)
     if "/files/review/approvals/capture" not in paths:
         print("FAIL: M39 expected M37 review approval capture route is missing")
@@ -5040,8 +5040,8 @@ def verify_m40_context_handoff_approval_safety():
         paths = set(app.openapi().get("paths", {}))
         paths.difference_update(M151_LOCAL_OPENWEBUI_TEST_ROUTES)
         paths.difference_update(TASK_DECOMPOSITION_CANONICAL_ROUTES)
-        if len(paths) != 76:
-            print(f"FAIL: M40 OpenAPI path count changed: expected 76, found {len(paths)}")
+        if len(paths) != 77:
+            print(f"FAIL: M40 normalized OpenAPI path count changed: expected 77, found {len(paths)}")
             sys.exit(1)
         if "/files/review/approvals/capture" not in paths:
             print("FAIL: M40 expected M37 review approval capture route is missing")

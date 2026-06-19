@@ -1,3 +1,4 @@
+import json
 import importlib.util
 from pathlib import Path
 
@@ -1056,3 +1057,76 @@ def test_control_center_frontend_verifier_blocks_secret_like_env_examples(tmp_pa
     failures = verifier.verify(tmp_path)
 
     assert any("secret-like API base env example" in failure for failure in failures)
+
+
+def test_control_center_frontend_verifier_handles_partial_product_language_docs(tmp_path):
+    verifier = load_verifier()
+    doc_dir = tmp_path / "docs/control_center"
+    doc_dir.mkdir(parents=True)
+    (doc_dir / "PRODUCT_LANGUAGE_RULES.md").write_text(
+        "# Control Center Product Language Rules\n"
+        "Status: active UAA-P1-031 product language rules\n"
+        "no hidden authority\n"
+        "no fake completion\n"
+        "no raw json as primary ui for operator-critical flows\n",
+        encoding="utf-8",
+    )
+
+    failures = verifier._product_language_rule_failures(tmp_path)
+
+    assert any("missing product language link target: README.md" in failure for failure in failures)
+    assert any(
+        "missing route status manifest for product language checks" in failure
+        for failure in failures
+    )
+
+
+def test_control_center_frontend_verifier_reports_non_object_route_manifest(tmp_path):
+    verifier = load_verifier()
+    doc_dir = tmp_path / "docs/control_center"
+    doc_dir.mkdir(parents=True)
+    (doc_dir / "route_status_manifest.json").write_text("[]", encoding="utf-8")
+
+    failures = verifier._route_status_manifest_failures(tmp_path)
+
+    assert "route status manifest must be a JSON object" in failures
+
+
+def test_control_center_frontend_verifier_reports_malformed_route_manifest_entries(tmp_path):
+    verifier = load_verifier()
+    doc_dir = tmp_path / "docs/control_center"
+    doc_dir.mkdir(parents=True)
+    (doc_dir / "route_status_manifest.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "uaa-control-center-route-status.v1",
+                "status": "active UAA-P1-030 route status manifest",
+                "openapi_path_count": 95,
+                "allowed_release_statuses": "blocked_missing_backend",
+                "surfaces": [
+                    {
+                        "surface": "Chat Shell",
+                        "release_status": "blocked_missing_backend",
+                        "current_backend_routes": "not-a-list",
+                    }
+                ],
+                "visible_actions": [
+                    "not-an-object",
+                    {
+                        "action_id": "inspect-safe-state",
+                        "frontend_route": "/runtime",
+                        "release_status": "blocked_missing_backend",
+                        "backend_routes": ["not-an-object"],
+                    },
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    failures = verifier._route_status_manifest_failures(tmp_path)
+
+    assert "route status manifest allowed_release_statuses must be a list" in failures
+    assert any("visible action entry 0 must be an object" in failure for failure in failures)
+    assert any("current_backend_routes must be a list" in failure for failure in failures)
+    assert any("backend_routes route 0 must be an object" in failure for failure in failures)

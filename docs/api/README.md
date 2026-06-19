@@ -1,6 +1,6 @@
 # API Boundary
 
-Current active baseline: **v1.2.0-alpha**
+Current active baseline: **v2.0.0**
 
 Current OpenAPI path count: `95`, generated from the FastAPI application and
 exposed through `/api/manifest`.

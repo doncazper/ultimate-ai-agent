@@ -395,6 +395,7 @@ production authority unavailable.
 
 ```text
 1. Build only the mapped operator surfaces with tests after route/status gaps are scoped.
-2. Land UAA-P1-010 to shape the durable run spine.
-3. Land UAA-P1-011 to connect task decomposition to the operator loop.
+2. Land UAA-P1-011 to connect task decomposition to the operator loop.
+3. Scope the next storage migration or operator-surface milestone only after
+   route authority, evidence, and rollback gates are explicit.
 ```

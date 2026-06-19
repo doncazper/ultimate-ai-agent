@@ -11,7 +11,7 @@ def test_m24_foundation_gate_criterion_exists_and_passes():
     assert "MemoryProvider" in criterion.pass_condition
     assert "recall, not authority" in criterion.pass_condition
     assert "no automatic writes" in criterion.pass_condition
-    assert "OpenAPI path count at 75" in criterion.pass_condition
+    assert "OpenAPI path count at 76" in criterion.pass_condition
 
     report = FoundationGateEvaluator().evaluate([criterion])
 

@@ -173,7 +173,7 @@ def test_control_center_route_status_manifest_covers_visible_actions():
 
     assert manifest["schema_version"] == "uaa-control-center-route-status.v1"
     assert manifest["status"] == "active UAA-P1-030 route status manifest"
-    assert manifest["openapi_path_count"] == 93
+    assert manifest["openapi_path_count"] == 95
     assert _visible_frontend_routes().issubset(action_routes)
 
     required_fields = {

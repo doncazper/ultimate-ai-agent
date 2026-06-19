@@ -28,7 +28,7 @@ def test_m31_openapi_route_guard_rejects_tool_runtime_routes():
     assert any("/tools/execute" in failure for failure in failures)
     assert any("/tool-runtime/execute" in failure for failure in failures)
     assert any("OpenAPI path count" in failure for failure in failures)
-    assert EXPECTED_M31_OPENAPI_PATH_COUNT == 75
+    assert EXPECTED_M31_OPENAPI_PATH_COUNT == 76
     assert m31_openapi_route_failures(app.openapi().get("paths", {})) == []
 
 
