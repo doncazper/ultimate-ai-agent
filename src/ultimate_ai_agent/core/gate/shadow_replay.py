@@ -201,9 +201,7 @@ def _run_m5_shadow_replay_at(
             failures.append("denial path wrote a file")
         expected_events = ["run.created", "execution_contract.created", "context_pack.created", "tool.call.requested"]
     else:
-        for expected_name in scenario.expected_event_names:
-            if expected_name not in event_names:
-                failures.append(f"missing expected event {expected_name}")
+        # Expected-event presence is checked once below via `expected_events`.
         if scenario.requires_receipt and not receipt_ref:
             failures.append("receipt missing")
         if not result.rollback_ref:
