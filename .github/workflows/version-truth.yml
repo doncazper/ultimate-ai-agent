@@ -1,0 +1,28 @@
+name: Version Truth
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  version-truth:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Check version truth
+        run: python scripts/release/check_version_truth.py
+
+      - name: Check release bump rules
+        run: python scripts/release/bump_version.py --self-test

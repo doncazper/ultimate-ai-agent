@@ -421,7 +421,7 @@ def test_documentation_integrity_verifier_rejects_active_historical_verifiers(tm
         "REQ = ['README_IMPORT_v0_5_4.md']\n",
         encoding="utf-8",
     )
-    (tmp_path / "scripts").mkdir()
+    (tmp_path / "scripts").mkdir(exist_ok=True)
     (tmp_path / "scripts/verify_ultimate_ai_agent_v0_5_5.py").write_text(
         "REQ = ['README_IMPORT_v0_5_5.md']\n",
         encoding="utf-8",
@@ -561,6 +561,7 @@ def _write_m34_review_docs(root: Path) -> None:
 def _write_minimal_repo(root: Path, version: str = "0.14.6") -> None:
     version_key = version.replace(".", "_")
     files = {
+        "VERSION": f"{version}\n",
         "VERSION.md": f"# Version\n\nCurrent active baseline: **v{version}**\n",
         "pyproject.toml": f'[project]\nversion = "{version}"\n',
         "src/ultimate_ai_agent/__init__.py": f'__version__ = "{version}"\n',

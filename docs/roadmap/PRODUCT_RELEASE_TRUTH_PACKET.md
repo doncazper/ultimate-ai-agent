@@ -2,7 +2,7 @@
 
 Status: active Operator Runtime Excellence product-truth packet
 Task: UAA-P0-002
-Baseline: v2.0.0 / 2.0.0
+Baseline: v0.100.0 / 0.100.0
 Accepted repository checkpoint: checkpoint-m168
 Accepted local model lane checkpoints: checkpoint-m166, checkpoint-m167
 Source plan: `docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md`
@@ -21,7 +21,7 @@ Allowed current claims:
 
 | Claim | Evidence source |
 |---|---|
-| The active product/package baseline is v2.0.0 / 2.0.0. | `VERSION.md`, `README.md`, `docs/release_notes/v2_0_0.md` |
+| The active product/package baseline is v0.100.0 / 0.100.0. | `VERSION.md`, `README.md`, `docs/release_notes/v0_100_0.md` |
 | The latest accepted repository checkpoint tag is checkpoint-m168; checkpoint-m166 and checkpoint-m167 remain the latest accepted local model lane checkpoint tags. | `README.md`, `VERSION.md`, `docs/release_notes/checkpoint_m168.md`, `docs/release_notes/checkpoint_m166.md`, `docs/release_notes/checkpoint_m167.md` |
 | The current API boundary is a FastAPI route contract with 93 OpenAPI paths. | `README.md`, `docs/api/openapi_contract.md`, `docs/api/route_inventory.md`, `tests/test_api_manifest.py` |
 | OpenWebUI is a shell; Python Agent Core remains authority. | `docs/openwebui/M151_LOCAL_OPENWEBUI_TEST_SHELL.md`, `docs/openwebui/OPENWEBUI_BRIDGE_CONTRACT.md` |
@@ -59,7 +59,7 @@ Status values:
 | Redacted observability | Redacted observability export and evidence contracts exist, but runtime observability is not the active product lane. | Latency, cost, model, approval, tool, and error events are structured and redacted, with no raw prompt, response, path, log, environment, or credential material. | P1 | Planned; future-scoped for runtime observability claims. | Evidence: `docs/observability/REDACTED_OBSERVABILITY_EXPORT.md`, `docs/truth/CLAIM_EVIDENCE_CHAIN.md`. Missing: active runtime observability implementation and verifier lane. | UAA-P1-023 and release verification lanes. |
 | Packaging and local runtime operations | Developer launcher and local docs exist; UAA-P0-015 documents local `llama-server` discovery, allowed locations, provenance, checksum/signature review, offline operation, rollback, cache cleanup, and blocked/unknown provenance handling; UAA-P0-017 documents cache cleanup, corrupted GGUF, stuck download, port conflict, credential rotation, rollback, offline mode, safe evidence collection, blocked/unknown model state, and safe-disable recovery. Public distribution and production packaging are not claimed. | A reproducible loopback-first local stack has generated secrets, rollback instructions, local model runtime checks, and no broad distribution claim. | P1 | Shipped for the local `llama-server` checklist and operational runbook; blocked for packaging and distribution claims. | Evidence: `docs/developer/LOCAL_LAUNCHER.md`, `scripts/dev/README.md`, `docs/production/LLAMA_SERVER_PACKAGING_PROVENANCE_CHECKLIST.md`, `docs/production/LOCAL_MODEL_OPERATIONAL_RUNBOOK.md`, `docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md`. Missing: M170/M171/M172 operational proof and UAA-P1-014 packaging proof. | UAA-P1-014 plus M170 local model gates. |
 | Plugin and skill ecosystem | Manifest and install-review governance exists; plugin runtime import remains disabled by default. | A manifest-first ecosystem has static review, explicit activation grants, rollback proof, and no arbitrary runtime import. | P1/P2 | Future-scoped; blocked for activation/runtime-import claims. | Evidence: `docs/tooling/PLUGIN_MANIFEST_SECURITY_MODEL.md`, `docs/tooling/PLUGIN_INSTALL_REVIEW.md`, `docs/tooling/PLUGIN_EXECUTION_SANDBOX.md`. Missing: UAA-P1-024 boundary map and later scoped activation proof. | UAA-P1-024 and later scoped milestone approval. |
-| Policy and approval consolidation | PolicyEngine, LocalApprovalAuthority, route side-effect classification, OpenAPI checks, and Foundation Gate checks remain required boundaries. | Every authority path is consolidated through the reviewed policy and approval layers with no parallel shortcut. | P1 | Planned; blocked for consolidated-authority claims. | Evidence: `docs/approvals/ACTION_POLICY.md`, `docs/approvals/APPROVAL_AUTHORITY_V2.md`, `docs/api/route_inventory.md`, `docs/implementation/foundation_gate_implementation_plan_v2_0_0.md`. Missing: consolidation map over all decision paths. | UAA-P1-020. |
+| Policy and approval consolidation | PolicyEngine, LocalApprovalAuthority, route side-effect classification, OpenAPI checks, and Foundation Gate checks remain required boundaries. | Every authority path is consolidated through the reviewed policy and approval layers with no parallel shortcut. | P1 | Planned; blocked for consolidated-authority claims. | Evidence: `docs/approvals/ACTION_POLICY.md`, `docs/approvals/APPROVAL_AUTHORITY_V2.md`, `docs/api/route_inventory.md`, `docs/implementation/foundation_gate_implementation_plan_v0_100_0.md`. Missing: consolidation map over all decision paths. | UAA-P1-020. |
 
 ## Non-Goals
 

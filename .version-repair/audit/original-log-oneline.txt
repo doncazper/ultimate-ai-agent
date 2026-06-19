@@ -1,0 +1,260 @@
+8431dd524e049cd37aa66c475b082751c7d5129c|2026-05-29T03:37:31Z|docs: add master plan v0.1
+f80cbc449d2b017c16be59a04280c47cb254fc0e|2026-05-29T03:37:31Z|docs: update master plan to v0.2
+712e0b73fddceb747d8b8480b69aa26de50f8fd4|2026-05-29T03:37:31Z|docs: update master plan to v0.3
+a3d8ebd5f3b055a086a89328de75f76d0d82ec12|2026-05-29T03:37:32Z|docs: add canonical trust and layered architecture v0.4
+681cf1b0bf0017bdcfbb830be4bddfe094890941|2026-05-29T03:37:32Z|docs: update foundation-first workflow v0.4.1
+c978d989ea5c67f06c7b1455cc010633044d7fbb|2026-05-29T03:37:33Z|docs: expand model routing foundation v0.4.5
+1353631638b228e9fbae2299fe32088b89d2351b|2026-05-29T03:37:33Z|docs: add foundation gate implementation plan v0.5.0
+3daac3308aa4dfdb379b03b50777c5761f39cbb9|2026-05-29T03:37:34Z|docs: add pre-coding prompt and import pack v0.5.1
+bb31c1a188581d1fddca823c5dd243cf290f0058|2026-05-29T03:37:35Z|docs: integrate scalable stack and UI strategy v0.5.2
+83b464782ddcc3e4c7d10f51cea8cb71b7e7854b|2026-05-28T21:54:50-07:00|Create .gitignore
+0e130e91000851b9fe582ce780e08897fb7b6411|2026-05-29T11:55:28-07:00|docs: sync foundation baseline to v0.5.3
+9bdece395eec39c594d9a28f4a76d833fa9d1123|2026-05-29T22:12:44-07:00|docs: add runtime hygiene micro-foundation v0.5.4
+2cf59545aa489b65993953054c0fa8127b0c04f1|2026-05-29T22:46:26-07:00|docs: add local runtime context survival foundation v0.5.5
+3dc1529a8e1f1a5c77756b9090295176585b4e19|2026-05-29T23:19:32-07:00|docs: add truth grounding evidence governance v0.5.6
+9591db96ba2745d3a454a313717d6140bfc80030|2026-05-30T08:13:46-07:00|docs: add observability standards mapping v0.5.7
+ffb4611ca311d99c09fb7067272a6de39d1e5413|2026-05-30T08:30:11-07:00|docs: add skill package security rule
+61cde3f4e80af8a8a22556e7c6a7c20034bf22f6|2026-05-30T09:24:56-07:00|Bump version to v0.5.8 and implement Milestone M0 & M0.5 (Scaffolding & Hygiene Models)
+54b14f176ccf3909557e530fe25818e3c524e605|2026-05-30T09:58:54-07:00|chore: clean up v0.5.8 review findings
+c55709ba624fd008e5fff15be35cc2e03a89bf4e|2026-05-30T10:56:38-07:00|chore: clean up v0.5.8 metadata
+2a67b48361081bcefe481ae621d664ba0161fa71|2026-05-30T11:04:22-07:00|feat: implement Milestone M1 kernel contracts, validations, and API routes
+9b331ff00e4fb2cbb8cf6fd5ce0647fb90fa27de|2026-05-30T11:19:21-07:00|chore: align M1 release baseline to v0.5.9
+522166e693a73a42dc4ce48701fec6952c94c645|2026-05-30T17:31:45-07:00|feat: implement M2 event ledger and run state foundation
+b23690d5d0f1f7d8169860db9b5e50e8d91063b4|2026-05-31T09:03:36-07:00|feat: implement M2.5 world state and runtime boundary contracts
+832bdeee7934e9df40c522a0b9e5356bd9fa38dc|2026-05-31T10:32:20-07:00|feat: implement M3 consent ledger and tool broker policy foundation
+1865e0aafa0eb8da17c6c47e6cba2ffa15fdf23a|2026-05-31T10:42:44-07:00|refactor: clean up verify_all, remove draft comments, and implement PermissionAction.any wildcard behavior
+6aed37afb10e16cf028c598e313b1b483f89cbc3|2026-05-31T14:14:34-07:00|feat: implement M3.5 secret broker and provider registry foundation
+b025d6c1b88d482bd879e92a2fa05f365feb8ea5|2026-05-31T17:05:11-07:00|feat: implement M4 memory service and file manager foundation
+b2d405e56b11b8ed1925b2aac6395d250cc1350f|2026-05-31T17:33:27-07:00|feat: implement M4.5 truth source and evidence governance foundation
+deabfe8797a60166372a79aab3f19d7a3810ef47|2026-05-31T17:50:02-07:00|feat: implement M5 minimum lovable kernel foundation
+3e865f128dca7e46528bce07f4f51a1af5e9ae51|2026-05-31T18:18:13-07:00|feat: implement M6 foundation gate and shadow replay
+a27824d20c6c62f07712ad3434ba8ce7fdc4a8b4|2026-05-31T18:28:40-07:00|fix: avoid foundation gate secret scan false positive
+6e9fb8bd1d8e9bbea98be9a5a11bd3f93b96ab64|2026-05-31T18:43:13-07:00|chore: harden foundation gate verification v0.10.1
+333f7349425649bab757b763cecd86a35d0257c7|2026-05-31T19:18:46-07:00|feat: implement M7 model router and cost governor foundation
+bb47271165ef6745293bafabbb269f0b8f0d5847|2026-05-31T20:11:23-07:00|fix: harden M7 approval budget and context routing policies
+7a4d77b9cc62508d9efa5d3b40f47eb99f0251cb|2026-05-31T20:34:38-07:00|feat: stabilize M7.5 API boundary contract
+5303395ef99e5258747cc33a397fb24c07701114|2026-05-31T21:08:52-07:00|feat: implement M8 simulated model runtime adapter harness
+6261ac875518383d1ada0ff50547389e013d0290|2026-05-31T21:31:11-07:00|fix: prevent API validation errors from echoing secrets
+e4b0cbbfce3f341ad8662603af38bc99547cbc33|2026-05-31T22:13:32-07:00|feat: implement M8.5 approval authority bridge
+2397910708377f6a4753326429cfc6315b632fec|2026-05-31T22:37:48-07:00|feat: implement M9 local loopback model runtime adapter
+2c78dec8c6b552651b88774a7d1707269601a4d1|2026-06-01T07:03:31-07:00|fix: enforce loopback-only runtime endpoint policy
+9b22833bf9b11ade2c9d58d4f5581eb2621dad27|2026-06-01T07:43:37-07:00|fix: harden loopback policy validation and approval API
+373b0ae62c36fa1053c7bdcd081114e6619ab9d6|2026-06-01T08:36:47-07:00|feat: add manual local loopback smoke harness
+621f7e5d51aff05ec3bafc14181050456709a944|2026-06-01T10:21:36-07:00|feat: add remote worker foundation and planned tailnet transport
+3e72ce85dee5dd120ccfcc5e2fee69c25189d3e5|2026-06-01T10:51:57-07:00|fix: harden remote worker policy validation
+31dd155c86f45418ae2dc46f88adcb1e46646a24|2026-06-01T12:39:43-07:00|chore: add open-source-first private mesh taxonomy
+fe044fc74ad273606d41c30aa435877d3ea5e058|2026-06-01T12:57:38-07:00|docs: add mobile companion and device capability broker roadmap
+ecd9c570ee897c2b640669a7dd9ffae76a89bb66|2026-06-01T13:05:10-07:00|docs: synchronize canonical documentation integrity
+b3236863a627d38bc359ed473b562f4db5345f8d|2026-06-01T13:27:52-07:00|docs: add Codex plugin governance inventory
+36afeb5b1dd7cebd05d7acad0d07588b06646ad5|2026-06-01T14:12:07-07:00|feat: add runtime readiness gate and smoke report validation
+3055f5d7cb24236f5f07279a66364088843e3e08|2026-06-01T14:29:43-07:00|docs: clarify runtime readiness smoke taxonomy
+4ad3f99eb88ee1b3e34d92083540ea0fec0e955c|2026-06-01T14:44:42-07:00|feat: add Control Center contract and read-only dashboard API
+71b3517ff49c1959e6a7f4e91135a6e299b30118|2026-06-01T15:04:58-07:00|feat: add read-only Web Control Center shell
+03b00d7ce977e559ae809e5b115cc2cdf971f02b|2026-06-01T15:22:23-07:00|fix: harden Web Control Center frontend safety
+5ddaabf7d4da828e9d74c93e7e8f942a9bdba20b|2026-06-01T15:39:15-07:00|chore: harden Control Center frontend verification
+bc9c4b93827f53868b13fdb496e79370b6eb1c68|2026-06-01T15:59:57-07:00|docs: clean up current release note labels
+eb4e40f91942abf73d9582529d2b0816695adf5e|2026-06-01T16:55:39-07:00|chore: polish read-only Web Control Center shell
+b17b38821026c28a621e86a7e881b9e4cf57583d|2026-06-01T17:52:33-07:00|docs: freeze roadmap milestone charters
+a71bd3190a139d2698a08ac9c43961e3ae4d33b3|2026-06-01T18:46:09-07:00|feat: stabilize control center local backend connection
+35457a71f414574036d1e653d3627cd5d34cfd99|2026-06-01T19:13:56-07:00|fix: harden Control Center local backend connection safety
+75108251e6900aaf62b6182e0d518fc6feef3271|2026-06-01T19:42:16-07:00|docs: add open design governance foundation
+81744c71ac5772861da4ef8cd55cabce427d2f6b|2026-06-01T20:02:43-07:00|docs: clarify OpenWebUI and CCC client strategy
+5f5572c4bb60d06ef554515033cf664f332ad830|2026-06-01T20:23:03-07:00|docs: add post-M20 capability roadmap charters
+cbe978766fb5058fc58a6a5ae7526f160bbbb431|2026-06-01T21:33:44-07:00|feat: add read-only approval receipt event viewer UI
+6272d0e17b7f9e321eef10880edff0da63c27925|2026-06-01T21:57:16-07:00|fix: harden approval receipt UI safety
+ab634c6be6f6802664ff0ed8567c0238e894925c|2026-06-01T22:21:10-07:00|feat: add read-only event timeline trace viewer
+2e163064134d6aa17935f0262d8ffc16d3581d40|2026-06-01T22:54:41-07:00|fix: harden event timeline trace redaction safety
+8706e08e268a8b8cac987fe85346ea5d14dcef08|2026-06-01T23:19:32-07:00|feat: add read-only evidence file memory viewer
+65d588ed6dedc78f88aa85cb569967cddc7878ee|2026-06-01T23:38:26-07:00|fix: harden evidence file memory viewer safety
+eb75c9789de47695b7a8b3c7a3001f7a849f96cc|2026-06-01T23:56:31-07:00|chore: normalize developer verification commands
+7d7a9764a2854c28b0721d15134aed79eab56e7a|2026-06-02T00:25:52-07:00|feat: add local runtime manual smoke status UI
+6575663547b070257a7500ef7dcf56973cc77300|2026-06-02T07:45:35-07:00|docs: clean up roadmap status labels after M18
+5d8fc45bd278d9c411248408cf600955d7e7e0ee|2026-06-02T08:55:34-07:00|feat: add mobile companion contract planning
+bbcad6847618ffe272d6808daea1357d4ea7fbb3|2026-06-02T09:40:59-07:00|fix: harden M19 mobile contract planning
+7cbc34c503c6d1c486aa08e5e96e3aab4afcadc7|2026-06-02T10:47:07-07:00|feat: add device capability broker contract
+d622a4966a9e22189dcad061b74afdc7b6ae4af5|2026-06-02T11:28:24-07:00|fix: harden device capability broker contract safety
+bd6bdaa486529b7c584f5eae48abcff2f0214e26|2026-06-02T12:10:01-07:00|feat: add OpenWebUI bridge contract
+0777c181fce7bcd31c33a328e823d79fbe8bcbb9|2026-06-02T13:12:27-07:00|fix: harden OpenWebUI bridge contract safety
+57c9f0b767179acf4862496e88423b654b034b1d|2026-06-02T13:43:56-07:00|feat: add local model runtime activation contract
+3ac1a00ecbd91eec4f49e3f9fe9e2b49f55ffd16|2026-06-02T15:03:16-07:00|fix: harden M22 verifier and metadata validation
+70c895b54b22af7b0e765f536bd12c8b743df845|2026-06-02T15:30:11-07:00|feat: add first local llm call boundary
+8bd406ca05bcee60f68d95bc33294ad7394adc3a|2026-06-02T18:26:45-07:00|chore: harden m23 local model call safety
+eacf85f6a04613d7cdb993eda23eae3fdfdff99b|2026-06-02T20:09:50-07:00|feat: add governed memory provider local store
+d20d00916dea993b47ddd4be8eab4aceaf3824d1|2026-06-02T21:03:23-07:00|fix: repair M24 memory contract exports
+967740b68b1f4894b43ba34a3599031eeac1c676|2026-06-02T21:44:14-07:00|docs: remove duplicate M24 roadmap row
+783ac1eb6593f7282af1715830eb0d7a4f240b5e|2026-06-02T23:08:28-07:00|feat: add truth source evidence claim checker
+13d242d47a74b387a23185f6a22fc94e8a98d3ca|2026-06-02T23:46:19-07:00|fix: harden truth source ref validation
+83e71c45b04e27bcf8ee2d171d2c67d0d06f88b1|2026-06-03T07:37:38-07:00|fix: harden local dev api authority boundaries
+9cc3394d1179d296e454898a9d1d1b196eb0353d|2026-06-03T08:45:20-07:00|docs: organize active and historical documentation
+7ae813fb58e166a8cc33a26888e2d2539e9ec118|2026-06-03T09:41:39-07:00|docs: repair archive references and policy
+374bb1e0b5e806719a7aff5e1acb6bfb0b76e2ac|2026-06-03T09:51:10-07:00|Update DOCUMENTATION_ORGANIZATION_POLICY.md
+f0b8b77adf5017e26fefb9c8b0527bd2fc710009|2026-06-03T10:04:31-07:00|docs: polish documentation organization baseline
+49656f88e667e50c874cf9db00a56b82f50be898|2026-06-03T11:04:20-07:00|feat: add grounded recall context pack contracts
+ec16b047f78d3e03bd88ee57cf18a5224a7c92f2|2026-06-03T12:08:47-07:00|fix: harden recall source identity validation
+95f854ee76d4b35c4ad63e63be6a93bbd5db37a3|2026-06-03T13:02:51-07:00|feat: add tool broker v2 intent contracts
+7f6ef30d7f33dbc68fb66184e87b683f3cb0c92e|2026-06-03T13:18:06-07:00|docs: improve GitHub README
+6d5ca78d76d228439588cdc99ac59fe5f75a6b90|2026-06-03T14:54:15-07:00|docs: normalize README polish baseline
+d9ad407e20f992dfa93128c602948641bd0fcc7c|2026-06-03T16:43:30-07:00|feat: add approval authority action policy contracts
+361432ed9d7bb19325f6daed0e02933afe7d38f8|2026-06-03T17:13:12-07:00|fix: harden approval evaluator revalidation
+2d02e8d2f1197bad90fb7d214fa48e0abf34b848|2026-06-03T17:49:20-07:00|feat: add agent task planning contracts
+58dd2f1d9090bf7f8bb5d754d30c143eff755dc8|2026-06-03T18:18:31-07:00|fix: harden agent task planning safety
+37ac00e26d258b8463f65aa7986a9ec88fe5a68f|2026-06-03T18:46:12-07:00|feat: add multi-step execution framework
+c236f1c4fdea2787654949c6ef102155344ffb6e|2026-06-03T19:15:15-07:00|fix: harden execution framework safety
+1e73afb57556b8713745625e50edc60a2f892c56|2026-06-03T19:50:33-07:00|feat: add safe noop tool runtime adapter
+deff1f29f6ce821592b2774cc3a69ebdb52ff5ca|2026-06-03T20:15:45-07:00|fix: harden noop tool runtime safety
+3f72d579971cfd2ccdd32d021db1bed8c009a285|2026-06-03T20:44:53-07:00|feat: add safe filesystem metadata tool
+c15786e49de670c0c8e9196867e07e9218a45fd9|2026-06-03T21:18:59-07:00|fix: harden filesystem metadata path safety
+c3b8a89209e6e73a373f6e15db61b78e85b1a941|2026-06-03T22:01:15-07:00|feat: add redacted file preview proposal tool
+5703d72e9db8744cacc1547645ea45efc7515438|2026-06-03T23:09:27-07:00|fix: harden redacted file preview safety
+de4e2b3f161f303e6ed5d6f12f68a3562a46f42f|2026-06-03T23:35:37-07:00|tools: add local developer launcher
+8122e32b317761350d738b9eac708a3e2002f338|2026-06-04T07:31:46-07:00|docs: align M34 roadmap label
+76b2bdeb623e2431214a27cb75fdf5d104a0642c|2026-06-04T09:25:25-07:00|docs: supersede roadmap through M60
+5dbe334566acf113faa93395443b41c4ea6c6678|2026-06-04T10:13:31-07:00|docs: add broader file capability review
+a55c41b29173abe906bc0b34c4df60a87e1de285|2026-06-04T10:31:22-07:00|docs: harden file capability review boundaries
+d57d2e69df2447e0a16d8548e279255044182b0b|2026-06-04T11:41:09-07:00|docs: repair M34 active baseline labels
+49d5219ccf0a29ff671d86940d0c2ee24555f60b|2026-06-04T12:44:43-07:00|feat: add safe file review workflow contracts
+56402722ab6538cd47fd60a41b03e9a766185f12|2026-06-04T13:48:32-07:00|fix: harden file review exact binding
+181b320fed67a69c171b636c5fe44df82e393a9e|2026-06-04T15:26:43-07:00|feat: add review-only file review surface
+9dddb172d0b6c1446eb7a41ae80f68f7baa4f348|2026-06-04T16:06:13-07:00|fix: harden file review surface safety
+d5d3febb595db136f6f5ad17d1127a46b0cb4b8c|2026-06-04T16:46:09-07:00|feat: add review-only file approval capture
+2513bd6ffe36efceeb6a95c003a0a4350633f636|2026-06-04T20:01:23-07:00|feat: add safe context proposal contracts
+5aaab4d05674aa89fef4c71717df5730a8201ce2|2026-06-04T21:05:22-07:00|feat: add context proposal control center surface
+ef68e891b34baa38b1c1e61a9be371e2764dcb8d|2026-06-04T21:54:50-07:00|feat: add context handoff approval contracts
+c372748101f1c02359e8e3a96efa2f413f2da116|2026-06-04T22:20:30-07:00|docs: freeze local prototype safety
+95513176d051aeeb23d38e33f88f192b4768fab0|2026-06-05T08:55:57-07:00|feat: refresh mobile companion product contract
+bf6ad7a6f4054c859a99fa04ab235c13f9ecc4e5|2026-06-05T09:39:07-07:00|feat: add read-only mobile api boundary contracts
+cde87cefa05ac35cb5bb4a1daf42148b1d68186a|2026-06-05T10:31:49-07:00|feat: add no-authority ccc ios skeleton
+d0bb08d6f1a5e037ddfef9cfc397d56f791f557d|2026-06-05T10:42:44-07:00|fix: harden ccc ios skeleton verifier
+f59651abfa91f1be9814af993ec761363e77a40e|2026-06-05T11:17:11-07:00|feat: add ccc ios local read-only connection contracts
+c974875fdbb4a771ba6d280f4b90c6044d3b6160|2026-06-05T11:52:05-07:00|feat: add ios review receipt read-only surfaces
+50a3100b7e3546963625969c0b01c1391d03fa6f|2026-06-05T12:26:15-07:00|feat: add internal TestFlight pipeline contract
+8040767809759658efbfd70cce66c0679cbc28da|2026-06-05T13:03:01-07:00|feat: add first internal testflight build candidate
+524dc2f1121964c6dd0f7dba5743f1e271ac9a57|2026-06-05T13:38:43-07:00|feat: add mobile review approval capture
+f3bb4859241eb88432a21ceae4393417c328df0a|2026-06-05T14:13:14-07:00|fix: harden mobile approval audit safety
+452cfda1c06999b0bc9297524e1420ae5c76be62|2026-06-05T14:53:58-07:00|feat: add OpenWebUI bridge adapter pilot
+e2243bc52bf276a2539b549c07fa84cf48c2b951|2026-06-05T15:43:00-07:00|feat: add OpenWebUI safe conversation surface
+e14bf173adb15a642aa85ff68c55318866d95694|2026-06-05T16:17:19-07:00|feat: add controlled tool expansion review
+b0cfbfc393cc8b7aef4f73a51b1e14942c4e612b|2026-06-05T16:49:30-07:00|feat: add safe media metadata inspector
+de909c3dfe9673f74afd4e8ba51a054fb6a492dd|2026-06-05T17:31:24-07:00|feat: add redacted observability export
+7c2286da36a09088a2fbac7f49db79212c119a93|2026-06-05T18:08:40-07:00|feat: add agent eval regression harness
+a9af184baff2370d908f1e4fa3d6d4b0b4c4d03f|2026-06-05T18:37:29-07:00|feat: add runtime sandbox architecture review
+a7962d014877e40f5c12cdab6f7760e1568912b5|2026-06-05T19:19:45-07:00|feat: add dry-run execution audit harness
+75a34b95e84da82e0a43a3f8d421b4ddddf2f299|2026-06-05T19:58:21-07:00|feat: add public GitHub readiness review
+7e8ba1669313b88ab469e76685318b733295ca7c|2026-06-05T20:40:03-07:00|chore: freeze local developer beta
+1ac75c4fcf8a3f1eb21b7a3292f84c76036b339e|2026-06-05T21:36:40-07:00|fix: harden post-M60 release safety
+87cd7f6013904a4ea9e5622e1b64f83edd8d0cc5|2026-06-05T22:11:16-07:00|feat: add autonomy mode charter
+e22c29e624720ce2e31bd6aa5c0c425fb4fac096|2026-06-05T22:40:53-07:00|feat: add scoped autonomy session contracts
+3e92905f4156d81039d883a07b2ad737d2d10f62|2026-06-05T23:26:26-07:00|feat: add autonomy policy engine contracts
+9dfba13dfdc2b1c5723fd0eb68ca544b9a76d6ee|2026-06-06T00:10:36-07:00|feat: add autonomous plan simulator contracts
+e220e02c5bb22edf7b066965dcb47bf8594a4df2|2026-06-06T00:42:46-07:00|feat: add autonomy audit replay viewer contracts
+f93fcf9734024098cfecd3ff23e82879485667dd|2026-06-06T01:22:55-07:00|feat: add scoped approval bundle contracts
+85f08e92992e7e95a3840b8ce5da514cafa4175c|2026-06-06T01:55:57-07:00|feat: add revocation kill switch contracts
+8a6b099979d86753bcae7bfb0bea73416d7d9953|2026-06-06T02:41:11-07:00|feat: add autonomy risk classifier contracts
+0dd2abb295ed7ed4f486fe18772540e352242fc5|2026-06-06T03:25:22-07:00|feat: add low-risk autonomous dry-run contracts
+c2702c4d0a7c744367d0e863294c490b3fe83dcc|2026-06-06T03:56:53-07:00|feat: add autonomy foundation freeze contracts
+e8fbbd7f3b18cd22fb7f68df91b71ec854a046b9|2026-06-06T04:35:30-07:00|feat: add network tool contract review
+bb1a10929f93f338f06deba1869a37204601a253|2026-06-06T05:30:04-07:00|feat: add allowlisted read-only http fetch
+c8d9428301e8d1994165e05ae64381e36f745cb5|2026-06-06T06:09:40-07:00|feat: add browser automation contract review
+ffe7a8c42d870f24db297e7cf5fb52189a2d4649|2026-06-06T06:54:15-07:00|feat: add browser observe-only adapter
+5ace8b63e791dd9ce7ad07bf4ba3d6f83e2f6d98|2026-06-06T07:26:42-07:00|feat: add browser action dry-run planner
+cedafe662cd85f79d5bb77796caed8158cf2c438|2026-06-06T08:19:47-07:00|feat: add openwebui runtime bridge
+c1c3f0ca4f49712cf3e895b7fe643f9619be8d76|2026-06-06T09:05:36-07:00|feat: add openwebui safe handoff
+f0e513537079725cbbad846b91bea0bd307ff75c|2026-06-06T09:50:37-07:00|feat: add plugin manifest security model
+87effaabf91d60c185cd56834e370ecda7ec8aa0|2026-06-06T10:33:30-07:00|feat: add plugin install review contracts
+cbd1a0fa1755bb50626cd87a494486ba4c27fe96|2026-06-06T11:24:37-07:00|feat: add network browser openwebui hardening freeze
+2b9e3f4e021c6da185a67bb9fd7a164864eaf23a|2026-06-06T11:39:09-07:00|fix: repair m80 currentness wording
+7701b692fdb79939f3786d8e291bc3ce5be779e0|2026-06-06T12:33:24-07:00|feat: add runtime sandbox spec
+5d21ca63bca13ef1f6c0adb37062adccf2e5b78a|2026-06-06T13:20:35-07:00|feat: add command proposal contracts
+625a5b4dd9f82c329946d08934bed2e6da6e70de|2026-06-06T14:12:34-07:00|feat: add shell dry-run classifier contracts
+97fd61609a034430e75edf69383cb16b5ce3b7dd|2026-06-06T15:01:48-07:00|feat: add sandboxed echo noop command
+b1d45660e67148bad35707a6c1f729bc6c447d2c|2026-06-06T15:56:06-07:00|feat: add read-only command allowlist contracts
+f8e7ad08d25b186d8a4aa38700df10d616b841ae|2026-06-06T16:46:42-07:00|feat: add shell approval gate contracts
+3d623ed138340a3263a0dde1a8aea438d5a40816|2026-06-06T17:43:16-07:00|feat: add sandboxed command audit replay contracts
+9d71ab56471d40ce19b4780199c3ab5b5caaf1b4|2026-06-06T18:42:19-07:00|feat: add mutating command proposal contracts
+398414581dd5de66d9134b5ecc939c5526ca59c8|2026-06-06T19:21:21-07:00|feat: add emergency stop process kill safety contracts
+5131fc60664782b55659d3f5d83ca14d9f01186c|2026-06-06T20:17:31-07:00|feat: add shell subprocess hardening freeze contracts
+2a1d473b8ac27e68ba1e5451a0409657c9d465fb|2026-06-06T21:17:22-07:00|feat: add autonomous tool execution contract
+a332d921ceba24f86c8d72b1c8680ef789a7ace1|2026-06-06T22:25:34-07:00|feat: add low-risk tool autonomy single-session contract
+3cbbdabcbba854ba2c9815e03b68c94fab5cd4f0|2026-06-06T23:19:00-07:00|feat: add multi-tool dry-run promotion contracts
+4040515d2b04126f05ee6edb39a5e1888a7b5e0f|2026-06-07T00:31:06-07:00|feat: add low-risk browser click contracts
+99b18b95cde48ad77ae069462c7fd15bdb2e4264|2026-06-07T01:26:43-07:00|feat: add authless network expansion contracts
+bdd6a96c36db88a64ffc35ca17e0095651e658cf|2026-06-07T02:06:17-07:00|feat: add built-in plugin execution sandbox
+0284a3d2ecf98c7c3b23f287371861c715735945|2026-06-07T02:54:39-07:00|feat: add recurring automation contracts
+f0d4a8880d18d00c83bdc51bf4100cb67be0355c|2026-06-07T03:52:36-07:00|feat: add scoped recurring low-risk automation contracts
+5a56a804263a28e4442fa3f44148e2c448801b22|2026-06-07T04:35:40-07:00|fix: freeze autonomy v1 safety surface
+a911c42dc10dd2ee884362b076f90b7fd37fa0db|2026-06-07T05:46:33-07:00|feat: add mobile permission model v1
+29d6c1b8cfea599acaa069f86f666ecb9a37ce9a|2026-06-07T09:46:31-07:00|fix: reconcile post-M100 roadmap baseline
+92c43b31fdcea525dc7547e20f0c49f1ac6b4369|2026-06-07T12:42:56-07:00|feat: add mobile sensor contract review
+87399d7f9c38a1d15b3f3b2d76e4fd06c5d6ef6d|2026-06-07T13:42:39-07:00|feat: add location sensor off-by-default contracts
+ec24ae4623c4402bff6498925efc075182c69b1b|2026-06-07T14:37:03-07:00|feat: add camera photos metadata-only contracts
+20731b532077da10ff464ab57c2964a5b8aa95e9|2026-06-07T15:27:10-07:00|docs: repair post-M103 versioning roadmap
+4b8ce4d479497758b170a8d4edcc8b7668e61a9b|2026-06-07T16:22:26-07:00|docs: repair post-M103 versioning policy
+7e919f9c09d48e0fad92977a3317c48b6bb375cf|2026-06-07T17:18:14-07:00|feat: add notification planning checkpoint
+d35b2c37108ba4f65b1595c0fac39c1382e45601|2026-06-07T18:17:04-07:00|feat: add background task contract checkpoint
+a813823ea1b96d109e3c576d348d81d56097a449|2026-06-07T18:51:24-07:00|feat: add mobile background status sync checkpoint
+65f323c26b056053fbdc9deb0cfe8f8fc95e5766|2026-06-07T22:34:07-07:00|feat: add mobile approval renewal ux checkpoint
+3522f2211e98480f6912bd367b97ed0819fdedba|2026-06-07T23:21:27-07:00|feat: add mobile kill switch revocation checkpoint
+3555772f99c1ad17c47a3f0414799cf81d1713c1|2026-06-08T00:07:28-07:00|feat: add mobile sensor audit ledger checkpoint
+06475fc92aa8a20bd12a0e577eaf9ed2b0f4042f|2026-06-08T01:09:36-07:00|feat: add mobile sensor hardening freeze checkpoint
+0822fe9e31cd148275b3d3cf036554bf3568ce92|2026-06-08T02:10:17-07:00|feat: add production threat model checkpoint
+c728e9e0438a7c534d94efe91e90e36e6dc0055e|2026-06-08T03:22:09-07:00|feat: add user workspace identity checkpoint
+6b1f9f11523446cf436835eac05b2f1d2d11b37b|2026-06-08T04:18:19-07:00|feat: add secrets boundary checkpoint
+47d1520bc7a5111bceb6a9dce112b58070477585|2026-06-08T05:09:20-07:00|feat: add account connector contract review checkpoint
+4864d6c52e2d2badcde7759924da85e7d9be9a63|2026-06-08T05:59:57-07:00|feat: add production audit retention checkpoint
+a83a6e408f792e3dd1047addc73b0c98d3ae683d|2026-06-08T06:59:44-07:00|feat: add role-based authority checkpoint
+0272dffe70d1e3c233ee5b032a03f23ab6f8eb13|2026-06-08T07:36:10-07:00|feat: add remote agent coordination checkpoint
+21c02c298261191e0c9332932f114221cb77fb87|2026-06-08T08:21:21-07:00|feat: add deployment mode matrix checkpoint
+09f6173b43886d3c0acd4b0c54b3bf72796c3219|2026-06-08T08:51:27-07:00|feat: add production red-team harness checkpoint
+7cb1d3244a85312dd14f4f03899f208abf08ab58|2026-06-08T09:58:15-07:00|feat: add production authority readiness checkpoint
+b93b2153e53f9c111254aae74680ced725f344c9|2026-06-08T13:56:13-07:00|feat: add email connector contract checkpoint
+25e0c2805248b383ad399d368beed08e8cf7cdc1|2026-06-08T14:58:02-07:00|feat: add calendar connector contract checkpoint
+90ba8a699c2bb6c01c848b7b91f8bf52daf6557c|2026-06-08T16:04:01-07:00|feat: add contacts connector contract checkpoint
+0afb30f9600a3c309a58c30ed5ccdd11b1e5765e|2026-06-08T17:32:24-07:00|feat: add messages connector contract checkpoint
+f5c31c33ef8a7b978a490986ded6885140956ad9|2026-06-08T18:29:17-07:00|feat: add connector read-only runtime checkpoint
+806627866c9d3bb644d6f8a302384d738a92f62a|2026-06-08T19:41:01-07:00|feat: add connector approval capture checkpoint
+42f19fe65f355a77b304c7d4f7a7eca70a051dc3|2026-06-15T21:26:11-07:00|M127: implement connector write dry-run planner
+fb2bd43842e7b217757f534bb356658e466e4d72|2026-06-15T21:59:27-07:00|M128: implement connector write execution low risk
+e2a8ce3bdddb8927a0722befb376b5fbb16ac666|2026-06-15T22:29:23-07:00|M129: implement connector audit revocation hardening
+e286c42850e7e62547e7a72a6d92953e81073145|2026-06-15T22:58:10-07:00|M130: implement connector safety freeze
+d097307d1bc97192a96c30e3d80e5a449ed0def5|2026-06-16T00:35:14-07:00|M131: implement autonomy mode 4 scoped work session
+294eb07934f099af21e76e39717888abef3c04d8|2026-06-16T03:16:51-07:00|M132: implement autonomy mode 5 trusted recurring workflow
+160cf42d9f4792131c57264b6f239a019ba49a44|2026-06-16T08:39:06-07:00|M133: implement long-running task supervisor
+c03b027f6af9dd3dbb9d348b99dc4ac9dd416d25|2026-06-16T09:11:01-07:00|M134: implement human checkpoint scheduling
+4275ba9dc6fa89cff0e10366da8e9741c31dac5a|2026-06-16T09:45:40-07:00|M135: implement autonomous recovery planner
+7067c4fdc99cce0ef22c778e1a7714fc7a77c826|2026-06-16T10:16:57-07:00|M136: implement cross-tool dependency execution
+e01837ced07877dd576d3f571a6e1a34a7918203|2026-06-16T11:06:21-07:00|M137: implement autonomous browser connector combined workflows
+c1a2b8afa3ceaacb143902ef217bf00d2ad0a845|2026-06-16T11:50:21-07:00|M138: implement autonomous error handling guardrails
+03a85b2070f7335d69fa415aa18f9a17bce5a1f2|2026-06-16T12:14:20-07:00|M139: implement autonomy abuse loop detection
+9503485fe7b9b6678276d137d22cbc5b4e759037|2026-06-16T12:39:43-07:00|M140: implement higher autonomy red-team freeze
+f6028e1c35048da03560792f42c331dce0d62695|2026-06-16T13:15:48-07:00|M141: implement multi-user product boundary
+9d384c777f74322efa43e9fa7e5b6870eeae2d1a|2026-06-16T13:38:29-07:00|M142: implement alpha privacy review
+c7583a0fb86ac17776a80fa5a8da9597e7db7d76|2026-06-16T14:00:44-07:00|M143: implement alpha UI app readiness
+7b225f798eaa83b1bef33668ed37cda4cf028b53|2026-06-16T14:24:17-07:00|M144: implement plugin marketplace policy draft
+709e51485a1c2a8e44766a54cff754263991d568|2026-06-16T14:49:19-07:00|M145: implement enterprise pro safety modes
+ec0982a8e5c6068a16520a42730f84f813eeb5c0|2026-06-16T15:12:45-07:00|M146: implement billing plan boundary
+52663525427a87184bbeeb3fa1c504162ee5e84a|2026-06-16T15:48:40-07:00|M147: implement public docs wiki readiness
+f4c79f9a8478ad83b3e0bc7eac9d5db96c182051|2026-06-16T16:33:31-07:00|M148: implement external security review
+0762a30844de6f0cf26fdf90a56a2271a168da8e|2026-06-16T17:09:06-07:00|M149: implement alpha release candidate freeze
+91c3faa7684ee41b29ca04a0a08a45e4c8585d56|2026-06-16T17:52:52-07:00|M150: implement Ultimate AI Agent alpha target
+df7218a12b13688fc1753cc028ec05ddd20b9c16|2026-06-16T18:45:07-07:00|v1.7.3: harden local file manager baseline
+a7d0931b886188fc971f22fefc8bd506cff20b6d|2026-06-16T20:22:43-07:00|perf: speed up verification and add debug logs
+da0f2577e66eee43c8dfed654cc1573473b915e3|2026-06-16T20:52:30-07:00|M151: add local OpenWebUI test shell
+a1cb432224a8f78aa0dd2d25ebf7cda3f3d2b292|2026-06-17T21:53:27-07:00|Add orchestration efficiency layer for v1.2.0-alpha
+c7de4f5d15728fd903432554b27dbad50f047f47|2026-06-17T22:06:32-07:00|Optimize orchestration efficiency preview
+788e753f9d96205306ea4dbf8efa95021769e68f|2026-06-17T22:07:42-07:00|Clean up dev launcher tool resolution
+f2c25bd1e784c02de0f09d7147e5e30e125be451|2026-06-17T22:31:14-07:00|Harden observability and governed access paths
+bc8f481dfeac121a7875f844da46116ab583df5c|2026-06-18T10:41:40-07:00|Clean up Control Center frontend safety surfaces
+bd481d5f64afcb7ff788ed4e21c41d85a4a15358|2026-06-18T12:26:25-07:00|Harden local OpenWebUI launcher
+5c459f3c783e124546e8e49ee2c30142f3eaa368|2026-06-18T12:31:33-07:00|Add llama.cpp manual local model transport
+62fffd04925c9be64987b5637845913fa61c4209|2026-06-18T15:46:41-07:00|Complete local model management through M165
+f14849227ad2d498a230ab055ffa90b64d43eba3|2026-06-18T16:23:23-07:00|Add live local capability coordinator
+0843108bf36c90d860c41c5f570c4681affc775e|2026-06-18T16:33:20-07:00|Harden capability registry boundary
+e4969ab58f4f179745e167bec12f5dd8dda5a732|2026-06-18T16:34:08-07:00|Add M166 production readiness gate
+0156a5f5f8d8fb90d90461fcb68ad47b721930c8|2026-06-18T20:01:44-07:00|Merge M166 production readiness gate
+7f1cf72ab8c3eff916b38052c0814a4c4a8c4623|2026-06-18T20:08:56-07:00|Harden live readiness verification
+69ead9c24e844ed5dee3ed7a0a470f37c640a566|2026-06-18T20:28:38-07:00|Add M167 live model production hardening
+c63b6389a3c67cfadd9dac3692be819b0ddc6344|2026-06-18T20:31:26-07:00|Harden task decomposition approval path
+be99d1381d79febd8e60cd9a84f09b5848f6a857|2026-06-18T21:43:13-07:00|Harden contract-first milestone boundaries
+82f953d90a243c1dc0376131a642cfc52afdabc5|2026-06-19T06:35:41-07:00|Repair baseline currentness for UAA-P0-001
+4e0623ad9e6e4292a01ee1f95e61acf27daecbd9|2026-06-19T07:41:40-07:00|Release v2.0.0 baseline currentness
+df496f38bc4c69432af0c9fd60bed5d8c9689200|2026-06-19T08:00:40-07:00|Complete local model readiness hardening

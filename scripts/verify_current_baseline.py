@@ -41,7 +41,18 @@ def main(argv=None):
 
     print("=== Ultimate AI Agent Baseline Consistency Verification ===")
     
-    # 1. Read VERSION.md and extract version
+    # 1. Read VERSION source of truth and confirm VERSION.md agrees
+    version_source_file = ROOT / "VERSION"
+    if not version_source_file.exists():
+        fail("VERSION source of truth does not exist")
+
+    version = version_source_file.read_text(encoding="utf-8").strip()
+    if not re.fullmatch(r"\d+\.\d+\.\d+(?:-rc\.[1-9]\d*)?", version):
+        fail("VERSION must be bare SemVer MAJOR.MINOR.PATCH or MAJOR.MINOR.PATCH-rc.N")
+    if version.startswith("2."):
+        fail("VERSION must not use a forbidden v2 line before stable v1 history exists")
+    ok(f"VERSION source of truth: v{version}")
+
     version_file = ROOT / "VERSION.md"
     if not version_file.exists():
         fail("VERSION.md does not exist")
@@ -53,8 +64,11 @@ def main(argv=None):
     )
     if not version_match:
         fail("Could not find 'Current active baseline: **vX.Y.Z**' pattern in VERSION.md")
-    
-    version = version_match.group(1)
+
+    version_doc_value = version_match.group(1)
+    if version_doc_value != version:
+        fail(f"VERSION.md baseline ({version_doc_value}) does not match VERSION ({version})")
+
     version_with_underscores = version_to_archive_key(version)
     package_version = version_to_package_version(version)
     ok(f"VERSION.md active baseline version: v{version}")

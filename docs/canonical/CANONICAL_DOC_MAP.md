@@ -1,6 +1,6 @@
 # Canonical Document Map
 
-Current active baseline: **v2.0.0**
+Current active baseline: **v0.100.0**
 
 This map links major systems to their canonical documentation. If a system has both canonical docs and runtime/API docs, canonical docs define principles and sequencing while runtime/API docs define current implementation boundaries.
 
@@ -120,13 +120,14 @@ This map links major systems to their canonical documentation. If a system has b
 | Ultimate AI Agent Alpha | `docs/productization/ULTIMATE_AI_AGENT_ALPHA.md`, `docs/productization/ULTIMATE_AI_AGENT_ALPHA_POLICY.md`, `docs/productization/ULTIMATE_AI_AGENT_ALPHA_AUTHORITY_BOUNDARY.md`, `docs/productization/ULTIMATE_AI_AGENT_ALPHA_RECEIPT_PLAN.md`, `docs/productization/ULTIMATE_AI_AGENT_ALPHA_NON_GOALS.md`, `docs/productization/M150_ALPHA_TO_BETA_BOUNDARY.md` |
 | Foundation Gate | `docs/implementation/foundation_gate_implementation_plan_v0_66_0.md`, `docs/evals/foundation_gate_eval.md` |
 | Testing Strategy | `docs/testing/test_strategy_v0.md`, `docs/testing/contract_test_matrix_v0_5_0.md`, `docs/testing/shadow_replay_plan_v0_5_0.md` |
+| Versioning and Release Process | `VERSION`, `VERSION.md`, `docs/maintenance/SEMVER_POLICY.md`, `docs/maintenance/RELEASE_PROCESS.md`, `docs/maintenance/VERSION_REPAIR_LEDGER.md`, `scripts/release/check_version_truth.py`, `scripts/release/bump_version.py` |
 | Documentation Organization | `docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md`, `docs/maintenance/documentation_integrity_checklist.md`, `docs/DOCUMENTATION_INDEX.md`, `docs/archive/README.md` |
 
 ## Source-of-Truth Hierarchy
 
 ```text
 1. Current user instruction and current release prompt
-2. VERSION.md, README.md, docs/README.md, and active archived release-packet/release docs
+2. VERSION, VERSION.md, README.md, docs/README.md, and active archived release-packet/release docs
 3. Canonical docs and active ADRs
 4. API/runtime docs and verifier scripts
 5. Historical release docs and older import/master plans

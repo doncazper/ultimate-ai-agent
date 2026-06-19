@@ -1,7 +1,7 @@
 # Ultimate AI Agent Docs
 
 Status: active
-Current through: v2.0.0 plus accepted checkpoint-m168 and active Operator Runtime Excellence P0 repair work
+Current through: v0.100.0 plus accepted checkpoint-m168 and active Operator Runtime Excellence P0 repair work
 Purpose: Human-facing entrypoint for active documentation and historical archive navigation.
 
 Active docs are few, indexed, and current. Historical docs are preserved under
@@ -23,16 +23,19 @@ docs/security/SECURITY_TRIAGE_RUNBOOK.md
 docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md
 docs/roadmap/README.md
 docs/archive/README.md
+docs/maintenance/SEMVER_POLICY.md
+docs/maintenance/RELEASE_PROCESS.md
+docs/maintenance/VERSION_REPAIR_LEDGER.md
 docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md
 ```
 
 Current release packet and active program packet:
 
 ```text
-docs/archive/releases/v2_0_0/README_IMPORT.md
-docs/archive/releases/v2_0_0/master_plan.md
-docs/release_notes/v2_0_0.md
-docs/implementation/foundation_gate_implementation_plan_v2_0_0.md
+docs/archive/releases/v0_100_0/README_IMPORT.md
+docs/archive/releases/v0_100_0/master_plan.md
+docs/release_notes/v0_100_0.md
+docs/implementation/foundation_gate_implementation_plan_v0_100_0.md
 docs/release_notes/checkpoint_m168.md
 docs/release_notes/checkpoint_m166.md
 docs/release_notes/checkpoint_m167.md
@@ -42,6 +45,9 @@ docs/control_center/OPERATOR_SHELL_GAP_MAP.md
 docs/kanban/current_board.md
 SECURITY.md
 docs/security/SECURITY_TRIAGE_RUNBOOK.md
+docs/maintenance/SEMVER_POLICY.md
+docs/maintenance/RELEASE_PROCESS.md
+docs/maintenance/VERSION_REPAIR_LEDGER.md
 docs/production/M166_PRODUCTION_AUTHORITY_GATE.md
 docs/production/M167_LIVE_MODEL_PRODUCTION_HARDENING.md
 docs/production/M167_LIVE_MODEL_EVIDENCE_MATRIX.md
@@ -154,7 +160,7 @@ docs/tools/TOOL_AUTHORITY_BOUNDARY.md
 docs/tools/TOOL_INTENT_RECEIPT_PLAN.md
 ```
 
-The product/package baseline is `v2.0.0` / `2.0.0`. The latest
+The product/package baseline is `v0.100.0` / `0.100.0`. The latest
 accepted repository checkpoint tag is `checkpoint-m168`. The latest accepted
 local model lane checkpoint tags remain `checkpoint-m166` and
 `checkpoint-m167`. Active Operator Runtime Excellence P0 repair work is

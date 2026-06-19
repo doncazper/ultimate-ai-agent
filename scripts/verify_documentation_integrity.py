@@ -1045,7 +1045,7 @@ RELEASE_FACING_SECURITY_DOCS = [
     REQUIRED_LLAMA_SERVER_PACKAGING_CHECKLIST_DOC,
     REQUIRED_LOCAL_MODEL_OPERATIONAL_RUNBOOK_DOC,
     "docs/security/SECURITY_TRIAGE_RUNBOOK.md",
-    "docs/release_notes/v2_0_0.md",
+    "docs/release_notes/v0_100_0.md",
     "docs/release_notes/v1_2_0_alpha.md",
     "docs/release_notes/checkpoint_m168.md",
     "docs/release_notes/checkpoint_m166.md",
@@ -1086,6 +1086,12 @@ FORBIDDEN_RELEASE_SECURITY_CLAIMS = [
 
 
 REQUIRED_ACTIVE_DOCS = [
+    "VERSION",
+    "docs/maintenance/SEMVER_POLICY.md",
+    "docs/maintenance/RELEASE_PROCESS.md",
+    "docs/maintenance/VERSION_REPAIR_LEDGER.md",
+    "scripts/release/check_version_truth.py",
+    "scripts/release/bump_version.py",
     "docs/README.md",
     "docs/DOCUMENTATION_INDEX.md",
     "docs/canonical/CANONICAL_DOC_MAP.md",
@@ -1455,6 +1461,11 @@ def _read(path: Path) -> str:
 
 
 def _active_version(root: Path) -> str | None:
+    version_file = root / "VERSION"
+    if version_file.exists():
+        version = _read(version_file).strip()
+        if re.fullmatch(r"\d+\.\d+\.\d+(?:-rc\.[1-9]\d*)?", version) and not version.startswith("2."):
+            return version
     match = re.search(
         r"Current active baseline:\s*\*\*v?(\d+\.\d+\.\d+(?:-[A-Za-z0-9.]+)?)\*\*",
         _read(root / "VERSION.md"),
@@ -1634,7 +1645,7 @@ def _verify_operator_runtime_currentness(root: Path) -> list[str]:
         "active docs must mention checkpoint-m168": "checkpoint-m168",
         "active docs must mention checkpoint-m166": "checkpoint-m166",
         "active docs must mention checkpoint-m167": "checkpoint-m167",
-        "active docs must preserve v2.0.0 baseline": "v2.0.0",
+        "active docs must preserve v0.100.0 baseline": "v0.100.0",
         "active docs must link Operator Runtime roadmap": (
             "docs/roadmap/operator_runtime_excellence_roadmap.md"
         ),
@@ -1714,7 +1725,7 @@ def _verify_operator_runtime_currentness(root: Path) -> list[str]:
 
     product_truth_required = {
         "product truth packet must identify UAA-P0-002": "task: uaa-p0-002",
-        "product truth packet must preserve active baseline": "baseline: v2.0.0 / 2.0.0",
+        "product truth packet must preserve active baseline": "baseline: v0.100.0 / 0.100.0",
         "product truth packet must list accepted repository checkpoint": (
             "accepted repository checkpoint: checkpoint-m168"
         ),
@@ -1856,7 +1867,7 @@ def _verify_public_security_posture(root: Path) -> list[str]:
     security_required = {
         "SECURITY.md must identify UAA-P0-003": "program task: uaa-p0-003",
         "SECURITY.md must list supported versions": "## supported versions",
-        "SECURITY.md must preserve active baseline": "v2.0.0",
+        "SECURITY.md must preserve active baseline": "v0.100.0",
         "SECURITY.md must mention checkpoint-m166": "checkpoint-m166",
         "SECURITY.md must mention checkpoint-m167": "checkpoint-m167",
         "SECURITY.md must describe private reporting": "github private vulnerability reporting",
@@ -2756,7 +2767,7 @@ def _verify_control_center_operator_shell_gap_map(root: Path) -> list[str]:
         "gap map must identify UAA-P0-007": (
             "status: active uaa-p0-007 operator-shell gap map"
         ),
-        "gap map must preserve baseline": "baseline: v2.0.0 / 2.0.0",
+        "gap map must preserve baseline": "baseline: v0.100.0 / 0.100.0",
         "gap map must cite M172": (
             "source plan: `docs/roadmap/operator_runtime_excellence_roadmap.md` m172"
         ),
@@ -2885,6 +2896,15 @@ def verify(root: Path = ROOT) -> list[str]:
     init = _read(root / "src/ultimate_ai_agent/__init__.py")
     readme = _read(root / "README.md")
 
+    version_source = _read(root / "VERSION").strip() if (root / "VERSION").exists() else ""
+    if not version_source:
+        failures.append("VERSION source of truth is missing")
+    if version_source.startswith("v"):
+        failures.append("VERSION source of truth must use bare SemVer without a v prefix")
+    if version_source.startswith("2."):
+        failures.append("VERSION source of truth must not use a forbidden v2 line")
+    if version_source and version_source != version:
+        failures.append("VERSION source of truth does not match active version")
     if f'version = "{package_version}"' not in pyproject:
         failures.append("pyproject.toml version does not match VERSION.md")
     if f'__version__ = "{package_version}"' not in init:

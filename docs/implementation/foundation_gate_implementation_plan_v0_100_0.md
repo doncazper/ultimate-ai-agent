@@ -1,6 +1,6 @@
-# Foundation Gate Implementation Plan v2.0.0
+# Foundation Gate Implementation Plan v0.100.0
 
-v2.0.0 keeps Foundation Gate coverage aligned with the accepted Operator Runtime
+v0.100.0 keeps Foundation Gate coverage aligned with the accepted Operator Runtime
 Excellence P0 currentness baseline.
 
 Gate coverage:
@@ -8,7 +8,7 @@ Gate coverage:
 - Current baseline labels are derived from `VERSION.md` and checked across
   active README, roadmap, docs index, canonical map, release notes, implementation
   plan, and archived release packet paths.
-- Active docs must preserve the current v2.0.0 baseline, checkpoint-m168
+- Active docs must preserve the current v0.100.0 baseline, checkpoint-m168
   repository checkpoint, checkpoint-m166/checkpoint-m167 local model checkpoint
   context, Operator Runtime Excellence roadmap links, current Kanban board link,
   and the 93-path OpenAPI route count.

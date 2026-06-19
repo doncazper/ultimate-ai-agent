@@ -1,8 +1,8 @@
-# v2.0.0 Master Plan
+# v0.100.0 Master Plan
 
-Release: v2.0.0 - Operator Runtime Excellence P0 currentness baseline.
+Release: v0.100.0 - Operator Runtime Excellence P0 currentness baseline.
 
-The active product and package baseline is v2.0.0. This is a documentation,
+The active product and package baseline is v0.100.0. This is a documentation,
 evidence, verifier, and product-truth consolidation baseline. It is not a public
 release, beta, production runtime, or expanded-authority milestone.
 

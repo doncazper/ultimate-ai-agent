@@ -1,0 +1,13 @@
+  codex/m151-openwebui-test-shell                          e4969ab [origin/codex/m151-openwebui-test-shell] Add M166 production readiness gate
+  main                                                     df496f3 [origin/main] Complete local model readiness hardening
+* version-repair/semver-reset                              df496f3 Complete local model readiness hardening
+  remotes/origin/HEAD                                      -> origin/main
+  remotes/origin/codex/m151-openwebui-test-shell           e4969ab Add M166 production readiness gate
+  remotes/origin/fix/authority-risk-and-expiry-correctness 0a0dd08 fix(approvals,capabilities): don't under-state risk or grant expiry
+  remotes/origin/fix/control-center-stale-state-and-status 8a1a633 fix(control-center): correct stale review capture state and memory row status
+  remotes/origin/fix/duplicate-diagnostic-codes            6495874 fix(gate,tools): stop emitting duplicate diagnostic reason/failure codes
+  remotes/origin/fix/file-manager-hash-consistency         bdcb381 fix(files): use one consistent content hash across read and write paths
+  remotes/origin/fix/file-propose-success-flag             3fd7c6b fix(api): /files/write/propose reported success for blocked proposals
+  remotes/origin/fix/foundation-gate-empty-payload-guard   22a10a3 fix(scripts): make write_json_atomic empty-payload guard reachable
+  remotes/origin/fix/ledger-trace-integrity-chronology     f595780 fix(ledger): validate_trace_integrity now detects out-of-order traces
+  remotes/origin/main                                      df496f3 Complete local model readiness hardening

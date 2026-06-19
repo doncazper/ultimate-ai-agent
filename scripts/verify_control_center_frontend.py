@@ -9,6 +9,11 @@ ROOT = Path(__file__).resolve().parent.parent
 
 
 def _current_version(root: Path = ROOT) -> str:
+    bare_version_file = root / "VERSION"
+    if bare_version_file.exists():
+        bare_version = bare_version_file.read_text(encoding="utf-8").strip()
+        if re.fullmatch(r"\d+\.\d+\.\d+(?:-rc\.[1-9]\d*)?", bare_version):
+            return f"v{bare_version}"
     version_file = root / "VERSION.md"
     if not version_file.exists():
         return "v0.0.0"
@@ -17,6 +22,13 @@ def _current_version(root: Path = ROOT) -> str:
         if stripped.startswith("Current active baseline:") and "**" in stripped:
             return stripped.split("**", 2)[1]
     return "v0.0.0"
+
+
+def _version_tuple(version: str) -> tuple[int, int, int]:
+    match = re.match(r"^v?(\d+)\.(\d+)\.(\d+)", version)
+    if not match:
+        return (0, 0, 0)
+    return tuple(int(part) for part in match.groups())
 
 REQUIRED_FILES = [
     "package.json",
@@ -547,7 +559,7 @@ def verify(root: Path = ROOT) -> list[str]:
             "no_context_injection",
             "no_openwebui_handoff",
         ]
-        if _current_version(root) < "v0.41.0":
+        if _version_tuple(_current_version(root)) < _version_tuple("v0.41.0"):
             required_mock_safety.extend(["no_approval_capture", "no_approval_persistence"])
         else:
             required_mock_safety.extend(

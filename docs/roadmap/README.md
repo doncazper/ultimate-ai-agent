@@ -1,7 +1,7 @@
 # Roadmap Docs
 
 Status: active
-Current through: v2.0.0
+Current through: v0.100.0
 Purpose: Entry point for active roadmap docs and historical roadmap references.
 
 Current roadmap sources of truth:
@@ -49,7 +49,7 @@ complete the scoped local model live lane, M166 is the exact-scope local model
 production-readiness gate, and M167 hardens that gate with reviewed live
 evidence. The latest accepted repository checkpoint tag is `checkpoint-m168`;
 the latest accepted local model lane checkpoint tags remain `checkpoint-m166`
-and `checkpoint-m167`. The product/package baseline is v2.0.0.
+and `checkpoint-m167`. The product/package baseline is v0.100.0.
 
 Active program note: M168 starts the Operator Runtime Excellence currentness and
 product-truth lane; P0 repair work through UAA-P0-007 adds public security

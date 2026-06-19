@@ -34,14 +34,25 @@ def _is_m46_allowed_ccc_ios_review_receipt_file(rel_path: str) -> bool:
 
 
 def _current_version() -> str:
+    version_source = ROOT / "VERSION"
+    if version_source.exists():
+        version = version_source.read_text(encoding="utf-8").strip()
+        if re.fullmatch(r"\d+\.\d+\.\d+(?:-rc\.[1-9]\d*)?", version):
+            return f"v{version}"
     text = (ROOT / "VERSION.md").read_text(encoding="utf-8")
     match = re.search(r"v\d+\.\d+\.\d+(?:-[A-Za-z0-9]+(?:[.-][A-Za-z0-9]+)*)?", text)
     return match.group(0) if match else "v0.0.0"
 
 
+def _version_tuple(version: str) -> tuple[int, int, int]:
+    match = re.match(r"^v?(\d+)\.(\d+)\.(\d+)", version)
+    if not match:
+        return (0, 0, 0)
+    return tuple(int(part) for part in match.groups())
+
+
 def _current_version_tuple() -> tuple[int, int, int]:
-    version = _current_version().lstrip("v").split("-", 1)[0]
-    return tuple(int(part) for part in version.split("."))  # type: ignore[return-value]
+    return _version_tuple(_current_version())
 
 
 def _roadmap_row_present(text: str, row: str) -> bool:
@@ -4088,7 +4099,7 @@ def verify_m34_broader_file_capability_review_safety():
         "root selector",
     ]
     frontend_root = ROOT / "apps" / "control-center" / "src"
-    if frontend_root.exists() and _current_version() < "v0.40.0":
+    if frontend_root.exists() and _current_version_tuple() < _version_tuple("v0.40.0"):
         for path in frontend_root.rglob("*"):
             if not path.is_file() or path.suffix not in {".ts", ".tsx", ".js", ".jsx"}:
                 continue
@@ -4281,7 +4292,7 @@ def verify_m35_safe_file_review_workflow_safety():
         sys.exit(1)
 
     paths = set(app.openapi().get("paths", {}))
-    if _current_version() >= "v0.41.0":
+    if _current_version_tuple() >= _version_tuple("v0.41.0"):
         paths.discard("/files/review/approvals/capture")
     for failure in m35_openapi_route_failures(paths):
         print(f"FAIL: {failure}")
@@ -4305,7 +4316,7 @@ def verify_m35_safe_file_review_workflow_safety():
             rel = path.relative_to(ROOT).as_posix()
             text = path.read_text(encoding="utf-8").lower()
             for fragment in forbidden_frontend_fragments:
-                if _current_version() >= "v0.41.0" and fragment == "approve review":
+                if _current_version_tuple() >= _version_tuple("v0.41.0") and fragment == "approve review":
                     continue
                 if fragment in text:
                     print(f"FAIL: M35 forbidden file-review frontend fragment in {rel}: {fragment}")
@@ -4316,7 +4327,7 @@ def verify_m35_safe_file_review_workflow_safety():
 
 def verify_m36_ccc_file_review_surface_safety():
     print("\n[Verifier] Running M36 CCC file review surface guard...")
-    if _current_version() >= "v0.41.0":
+    if _current_version_tuple() >= _version_tuple("v0.41.0"):
         print("OK: M36 file review surface historical guard deferred to M37 capture verifier for active v0.41.0+ tree")
         return
     required_files = [
@@ -4466,7 +4477,7 @@ def verify_m37_review_approval_capture_safety():
         "no export",
         "no execution",
     ]
-    if _current_version() >= "v0.42.0":
+    if _current_version_tuple() >= _version_tuple("v0.42.0"):
         required_doc_fragments.append("m38 is now implemented/released")
     else:
         required_doc_fragments.append("m38 remains planned/provisional")
@@ -4607,7 +4618,7 @@ def verify_m38_safe_context_proposal_safety():
         "exact approved-review binding",
         "approval_ref alone is not authority",
     ]
-    if _current_version() >= "v0.43.0":
+    if _current_version_tuple() >= _version_tuple("v0.43.0"):
         required_doc_fragments.extend(
             [
                 "m39 is implemented/released",
@@ -4714,7 +4725,7 @@ def verify_m38_safe_context_proposal_safety():
         print(f"FAIL: {failure}")
         sys.exit(1)
 
-    if _current_version() < "v0.43.0":
+    if _current_version_tuple() < _version_tuple("v0.43.0"):
         control_center_text = "\n".join(
             path.read_text(encoding="utf-8").lower()
             for path in (ROOT / "apps/control-center/src").rglob("*")
