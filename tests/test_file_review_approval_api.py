@@ -56,10 +56,11 @@ def test_openapi_current_boundary_includes_review_capture_and_m151_smoke_routes(
     schema = app.openapi()
 
     assert schema["info"]["version"] == __version__
-    assert len(schema["paths"]) == 77
+    assert len(schema["paths"]) == 93
     assert "/files/review/approvals/capture" in schema["paths"]
     assert "/v1/models" in schema["paths"]
     assert "/v1/chat/completions" in schema["paths"]
+    assert "/task-decomposition/run" in schema["paths"]
     assert schema["paths"]["/files/review/approvals/capture"]["post"]["operationId"] == "post_files_review_approvals_capture"
     for forbidden in [
         "/files/read",

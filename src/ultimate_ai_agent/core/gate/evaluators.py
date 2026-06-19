@@ -2379,6 +2379,7 @@ M152_FORBIDDEN_DEPENDENCY_FRAGMENTS = (
 )
 M152_STATIC_SCAN_ALLOWED_FILES = {
     "src/ultimate_ai_agent/api/openapi.py",
+    "src/ultimate_ai_agent/core/gate/criteria.py",
     "src/ultimate_ai_agent/core/gate/evaluators.py",
     "src/ultimate_ai_agent/core/local_model_management/__init__.py",
     "src/ultimate_ai_agent/core/local_model_management/gateway.py",
@@ -2387,6 +2388,7 @@ M152_STATIC_SCAN_ALLOWED_FILES = {
     "src/ultimate_ai_agent/core/local_model_management/model_acquisition.py",
     "src/ultimate_ai_agent/core/local_model_management/system_probe.py",
     "src/ultimate_ai_agent/core/local_model_management/tuning.py",
+    "src/ultimate_ai_agent/core/production_readiness/live_model_hardening.py",
 }
 M152_STATIC_SCAN_ROOTS = (
     "src/ultimate_ai_agent",
@@ -2394,11 +2396,33 @@ M152_STATIC_SCAN_ROOTS = (
     "apps/ccc-ios",
 )
 
+TASK_DECOMPOSITION_CANONICAL_ROUTES = frozenset(
+    {
+        "/task-decomposition/approval-requests",
+        "/task-decomposition/approvals",
+        "/task-decomposition/approvals/grants/capture",
+        "/task-decomposition/approvals/revoke",
+        "/task-decomposition/audit",
+        "/task-decomposition/capabilities/register",
+        "/task-decomposition/catalog",
+        "/task-decomposition/classify",
+        "/task-decomposition/decompose",
+        "/task-decomposition/examples/init",
+        "/task-decomposition/metrics",
+        "/task-decomposition/plans/execute",
+        "/task-decomposition/plans/validate",
+        "/task-decomposition/registry/export",
+        "/task-decomposition/run",
+        "/task-decomposition/status",
+    }
+)
+
 
 def _post_m151_route_boundary_path_set(paths: Iterable[str]) -> set[str]:
-    """Normalize current OpenAPI paths for pre-M151 route-boundary gates."""
+    """Normalize current OpenAPI paths for route-boundary contract gates."""
     path_set = {path for path in paths}
     path_set.difference_update(M151_LOCAL_OPENWEBUI_TEST_ROUTES)
+    path_set.difference_update(TASK_DECOMPOSITION_CANONICAL_ROUTES)
     return path_set
 
 
@@ -4376,6 +4400,41 @@ def m166_openapi_route_failures(
     return failures
 
 
+EXPECTED_M167_OPENAPI_PATH_COUNT = EXPECTED_M166_OPENAPI_PATH_COUNT
+M167_FORBIDDEN_BACKEND_ROUTES = M166_FORBIDDEN_BACKEND_ROUTES + (
+    "/production/live-model-hardening/run",
+    "/production/live-model-hardening/apply",
+    "/production/live-model-hardening/execute",
+    "/production/model-matrix/run",
+    "/production/model-matrix/execute",
+    "/production/openwebui/e2e/run",
+    "/production/openwebui/e2e/execute",
+    "/production/load-soak/run",
+    "/production/load-soak/execute",
+    "/production/llama-server/install",
+    "/production/llama-server/update",
+    "/production/model-selection/calibrate",
+    "/production/tuning/apply",
+)
+
+
+def m167_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M167_OPENAPI_PATH_COUNT
+) -> List[str]:
+    path_set = _post_m151_route_boundary_path_set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(
+            f"OpenAPI path count changed for M167: expected {expected_path_count}, got {len(path_set)}"
+        )
+    for route in M167_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(
+                f"M167 forbidden live hardening, model matrix, llama-server install, selection calibration, tuning apply, load soak, OpenWebUI E2E, or authority route present: {route}"
+            )
+    return failures
+
+
 M36_SAFE_REF_PREFIXES = {
     "reviewPacketRef": "file-review-packet:",
     "previewResultRef": "redacted-file-preview-output:",
@@ -5853,6 +5912,15 @@ class FoundationGateEvaluator:
             ),
             "m166_local_model_production_readiness_route_boundary": (
                 self.check_m166_local_model_production_readiness_route_boundary
+            ),
+            "m167_live_model_production_hardening_contracts": (
+                self.check_m167_live_model_production_hardening_contracts
+            ),
+            "m167_live_model_production_hardening_static_safety": (
+                self.check_m167_live_model_production_hardening_static_safety
+            ),
+            "m167_live_model_production_hardening_route_boundary": (
+                self.check_m167_live_model_production_hardening_route_boundary
             ),
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
@@ -53546,6 +53614,313 @@ class FoundationGateEvaluator:
                 failures.extend(contract_status.errors)
         except Exception as exc:
             failures.append(f"M166 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m167_live_model_production_hardening_contracts(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/production_readiness/live_model_hardening.py",
+            "docs/production/M167_LIVE_MODEL_PRODUCTION_HARDENING.md",
+            "docs/production/M167_LIVE_MODEL_PRODUCTION_HARDENING_BOUNDARY.md",
+            "docs/production/M167_LIVE_MODEL_PRODUCTION_HARDENING_RUNBOOK.md",
+            "docs/production/M167_LIVE_MODEL_PRODUCTION_HARDENING_NON_GOALS.md",
+            "docs/release_notes/checkpoint_m167.md",
+            "tests/test_m167_live_model_production_hardening.py",
+            "tests/test_m167_gate_integration.py",
+        ]
+        failures = [
+            f"missing M167 live model hardening file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            from ultimate_ai_agent.core.production_readiness import (
+                REQUIRED_M167_EVIDENCE_KINDS,
+                REQUIRED_M167_HARDWARE_PROFILES,
+                LiveModelHardeningEvidenceKind,
+                LiveModelHardeningHardwareProfile,
+                LiveModelProductionHardeningStatus,
+                build_m167_fixture_live_model_hardening_evidence,
+                build_m167_live_model_production_hardening_report,
+                validate_m167_live_model_hardening_evidence_record,
+                validate_m167_live_model_production_hardening_report,
+            )
+
+            fixture_evidence = build_m167_fixture_live_model_hardening_evidence()
+            try:
+                build_m167_live_model_production_hardening_report(
+                    evidence_records=fixture_evidence
+                )
+                failures.append("M167 fixture evidence unexpectedly passed live hardening")
+            except ValueError as exc:
+                if "M167_REVIEWED_LIVE_EVIDENCE_REQUIRED" not in str(exc):
+                    failures.append(f"M167 fixture evidence failed with wrong reason: {exc}")
+            evidence = [
+                record.model_copy(
+                    update={
+                        "actual_live_evidence": True,
+                        "reviewed_by_ref": (
+                            f"review-ref:m167:{record.evidence_ref.rsplit(':', 1)[-1]}"
+                        ),
+                    }
+                )
+                for record in fixture_evidence
+            ]
+            report = build_m167_live_model_production_hardening_report(
+                evidence_records=evidence
+            )
+            expected_kinds = [
+                LiveModelHardeningEvidenceKind(kind)
+                for kind in REQUIRED_M167_EVIDENCE_KINDS
+            ]
+            expected_profiles = [
+                LiveModelHardeningHardwareProfile(profile)
+                for profile in REQUIRED_M167_HARDWARE_PROFILES
+            ]
+            if (
+                report.status
+                != LiveModelProductionHardeningStatus.live_production_hardening_passed
+                or report.source_checkpoint_ref != "checkpoint:m166"
+                or report.required_evidence_kinds != expected_kinds
+                or report.required_hardware_profiles != expected_profiles
+                or [item.evidence_ref for item in evidence] != report.evidence_refs
+                or not report.model_matrix_passed
+                or not report.installer_runtime_packaging_ready
+                or not report.selection_quality_validated
+                or not report.tuning_loop_hardened
+                or not report.openwebui_real_e2e_passed
+                or not report.load_soak_passed
+                or not report.operational_controls_ready
+                or not report.actual_live_evidence_reviewed
+                or not report.production_authority_inherited_from_m166
+                or report.new_production_authority_granted
+                or report.backend_route_added
+                or report.control_center_control_added
+                or report.dependency_added
+                or report.side_effects_performed
+                or "M167_NO_NEW_AUTHORITY_GRANTED" not in report.reason_codes
+            ):
+                failures.append("M167 hardening report is not exact reviewed-evidence-bound")
+
+            for evidence_record in evidence:
+                if (
+                    evidence_record.source_checkpoint_ref != "checkpoint:m166"
+                    or not evidence_record.actual_live_evidence
+                    or evidence_record.reviewed_by_ref is None
+                    or not evidence_record.redacted
+                    or not evidence_record.safe_refs_only
+                    or not evidence_record.loopback_only
+                    or evidence_record.openwebui_is_agent_brain
+                    or evidence_record.raw_prompt_included
+                    or evidence_record.raw_response_included
+                    or evidence_record.raw_log_included
+                    or evidence_record.credential_material_included
+                    or evidence_record.blocker_refs
+                ):
+                    failures.append(f"M167 evidence record unsafe: {evidence_record.evidence_ref}")
+                validate_m167_live_model_hardening_evidence_record(evidence_record)
+
+            for update, reason in [
+                ({"model_matrix_passed": False}, "M167_MODEL_MATRIX_REQUIRED"),
+                ({"new_production_authority_granted": True}, "M167_NEW_AUTHORITY_DENIED"),
+                ({"backend_route_added": True}, "M167_BACKEND_ROUTE_DENIED"),
+                (
+                    {"runtime_execution_started_by_report": True},
+                    "M167_REPORT_RUNTIME_EXECUTION_DENIED",
+                ),
+                ({"model_download_started_by_report": True}, "M167_REPORT_DOWNLOAD_DENIED"),
+                ({"raw_prompt_exported": True}, "M167_RAW_PROMPT_DENIED"),
+                (
+                    {"credential_material_exported": True},
+                    "M167_CREDENTIAL_MATERIAL_DENIED",
+                ),
+                ({"side_effects_performed": ["deploy"]}, "M167_REPORT_SIDE_EFFECTS_DENIED"),
+            ]:
+                try:
+                    validate_m167_live_model_production_hardening_report(
+                        report.model_copy(update=update)
+                    )
+                    failures.append(f"M167 unsafe report mutation was not denied with {reason}")
+                except ValueError as exc:
+                    if reason not in str(exc):
+                        failures.append(f"M167 unsafe report mutation raised {exc!s}")
+        except Exception as exc:
+            failures.append(f"M167 live model hardening validation failed: {exc}")
+
+        docs_text = " ".join(
+            "\n".join(
+                self._read(self.root / path).lower()
+                for path in required_files
+                if path.startswith("docs/") and (self.root / path).exists()
+            ).split()
+        )
+        for fragment in [
+            "m167",
+            "live production hardening",
+            "real live model matrix testing",
+            "apple silicon",
+            "cpu-only",
+            "low ram",
+            "discrete gpu",
+            "limited disk",
+            "installer/runtime packaging",
+            "llama-server discovery",
+            "binary provenance",
+            "selection quality validation",
+            "real gguf repos",
+            "gated model handling",
+            "quant choice",
+            "context limits",
+            "disk/ram/vram",
+            "tuning advisor hardening",
+            "one change at a time",
+            "approval-bound",
+            "restart",
+            "rollback",
+            "openwebui real e2e",
+            "/v1/models",
+            "/v1/chat/completions",
+            "load and soak tests",
+            "operational controls",
+            "cache cleanup",
+            "model removal",
+            "stuck downloads",
+            "corrupted ggufs",
+            "credential rotation",
+            "offline mode",
+            "redacted summary only",
+            "safe-ref-only",
+            "localhost-only",
+            "no raw prompt",
+            "no raw response",
+            "no raw provider payload",
+            "no credential",
+            "no raw local path",
+            "no raw log",
+            "no backend route",
+            "no control center control",
+            "no dependency",
+            "no unreviewed side effects",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M167 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m167_live_model_production_hardening_static_safety(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        forbidden_source_fragments = [
+            "new_production_authority_granted=True",
+            "runtime_execution_started_by_report=True",
+            "model_download_started_by_report=True",
+            "raw_prompt_exported=True",
+            "raw_response_exported=True",
+            "raw_provider_payload_exported=True",
+            "credential_material_exported=True",
+            "raw_local_path_exported=True",
+            "raw_log_exported=True",
+            "backend_route_added=True",
+            "control_center_control_added=True",
+            "dependency_added=True",
+            "/production/live-model-hardening/run",
+            "/production/live-model-hardening/apply",
+            "/production/model-matrix/run",
+            "/production/llama-server/install",
+            "/production/model-selection/calibrate",
+            "/production/tuning/apply",
+            "/production/load-soak/run",
+        ]
+        allowed_files = {
+            "src/ultimate_ai_agent/core/gate/evaluators.py",
+            "src/ultimate_ai_agent/core/production_readiness/__init__.py",
+            "src/ultimate_ai_agent/core/production_readiness/live_model_hardening.py",
+        }
+        for root in [
+            self.root / "src" / "ultimate_ai_agent",
+            self.root / "apps" / "control-center" / "src",
+            self.root / "apps" / "ccc-ios",
+        ]:
+            if not root.exists():
+                continue
+            candidate_files: list[Path] = []
+            for pattern in ("*.py", "*.ts", "*.tsx", "*.js", "*.jsx", "*.swift", "*.yml", "*.yaml"):
+                candidate_files.extend(root.rglob(pattern))
+            for path in sorted(candidate_files):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(self.root).as_posix()
+                if ".test." in rel or rel in allowed_files:
+                    continue
+                text = path.read_text(encoding="utf-8")
+                for fragment in forbidden_source_fragments:
+                    if fragment in text:
+                        failures.append(
+                            f"M167 forbidden live hardening fragment in {rel}: {fragment}"
+                        )
+
+        source_path = (
+            self.root
+            / "src/ultimate_ai_agent/core/production_readiness/live_model_hardening.py"
+        )
+        source = self._read(source_path)
+        for fragment in [
+            "REQUIRED_M167_HARDWARE_PROFILES",
+            "REQUIRED_M167_EVIDENCE_KINDS",
+            "M167_REQUIRED_COVERAGE_FLAGS",
+            "LiveModelHardeningHardwareProfile",
+            "LiveModelHardeningEvidenceKind",
+            "actual_live_evidence",
+            "reviewed_by_ref",
+            "M167_REVIEWED_LIVE_EVIDENCE_REQUIRED",
+            "M167_NO_NEW_AUTHORITY_GRANTED",
+            "build_m167_live_model_production_hardening_report",
+            "validate_m167_live_model_production_hardening_report",
+            "checkpoint:m166",
+        ]:
+            if fragment not in source:
+                failures.append(f"M167 live hardening source missing required fragment: {fragment}")
+        for forbidden in [
+            "import " + "requests",
+            "from " + "requests import",
+            "import " + "httpx",
+            "from " + "httpx import",
+            "import " + "subprocess",
+            "from subprocess import",
+            "request.urlopen(",
+            "shell=True",
+            "openai.OpenAI(",
+            "chat.completions.create(",
+            "hf_hub_download(",
+            "snapshot_download(",
+            "new_production_authority_granted=True",
+            "runtime_execution_started_by_report=True",
+            "model_download_started_by_report=True",
+            "raw_prompt_exported=True",
+            "credential_material_exported=True",
+            "backend_route_added=True",
+            "control_center_control_added=True",
+            "dependency_added=True",
+        ]:
+            if forbidden in source:
+                failures.append(f"M167 live hardening source contains forbidden fragment: {forbidden}")
+        return self._result(criterion, failures, [])
+
+    def check_m167_live_model_production_hardening_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+            from ultimate_ai_agent.api.openapi import verify_openapi_contract
+
+            failures.extend(m167_openapi_route_failures(app.openapi().get("paths", {})))
+            contract_status = verify_openapi_contract(app)
+            if contract_status.errors:
+                failures.extend(contract_status.errors)
+        except Exception as exc:
+            failures.append(f"M167 OpenAPI route validation failed: {exc}")
         return self._result(criterion, failures, [])
 
 

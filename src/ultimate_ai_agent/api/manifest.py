@@ -17,6 +17,9 @@ CAPABILITIES_DECLARED = [
     "manual_smoke_report_validation",
     "control_center_read_only_dashboard",
     "openwebui_local_test_gateway_disabled_by_default",
+    "task_decomposition_canonical_local_runtime",
+    "task_decomposition_capability_registry",
+    "task_decomposition_local_approval_capture",
 ]
 
 CAPABILITIES_BLOCKED = [
@@ -39,6 +42,9 @@ CAPABILITIES_BLOCKED = [
     "openwebui_shell_tool_execution",
     "openwebui_memory_writes",
     "openwebui_context_injection",
+    "task_decomposition_unrestricted_external_execution",
+    "task_decomposition_unreviewed_handler_imports",
+    "task_decomposition_unscoped_approval_authority",
 ]
 
 ROUTE_GROUPS_BY_PREFIX = {
@@ -70,10 +76,11 @@ ROUTE_GROUPS_BY_PREFIX = {
     "/files": "files",
     "/truth": "truth",
     "/kernel": "kernel",
+    "/task-decomposition": "task-decomposition",
     "/v1": "openwebui-local-test",
 }
 
-LOCAL_DEV_WORKSPACE_PREFIXES = ("/kernel", "/files", "/memory")
+LOCAL_DEV_WORKSPACE_PREFIXES = ("/kernel", "/files", "/memory", "/task-decomposition")
 VALIDATION_HINTS = ("/validate", "/preview", "/evaluate", "/route", "/freshness/check", "/dry-run")
 
 

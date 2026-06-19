@@ -6,9 +6,10 @@ approval, or runtime contracts.
 
 It lives under `ultimate_ai_agent.core.task_decomposition` and is designed for
 local deterministic orchestration over explicitly registered capabilities.
-It does not add backend routes, shell execution, network execution, provider
-calls, browser automation, plugin execution, memory writes, context injection,
-or production authority.
+It now has a canonical API surface under `/task-decomposition/*` for local app
+testing and productionization hardening. It still does not add unrestricted
+shell execution, network execution, provider calls, browser automation, plugin
+execution, memory writes, context injection, or broad production authority.
 
 ## Main Contracts
 
@@ -144,39 +145,69 @@ context = CapabilityCallContext(
 The approval grant must match the same run id, actor id, capability id,
 `invoke_capability` action, risk level, and data classification.
 
-## Local Dev API
+## Canonical API
 
-The canonical `ultimate_ai_agent.api.app` OpenAPI boundary does not expose
-task-decomposition routes. That boundary is path-count gated by historical
-milestone tests.
-
-For self-testing, use the standalone local/dev FastAPI app in
-`ultimate_ai_agent.core.task_decomposition.dev_api`:
+The official app exposure is the canonical `ultimate_ai_agent.api.app`
+OpenAPI boundary. The task decomposition route group is classified as
+`local_dev_workspace_only` in the API manifest because it can mutate local
+registry, approval, audit, and reflection state. This is intentional: it makes
+the app testable without granting unrestricted external execution authority.
 
 - `GET /task-decomposition/catalog`
+- `GET /task-decomposition/status`
+- `GET /task-decomposition/registry/export`
 - `POST /task-decomposition/examples/init`
 - `POST /task-decomposition/capabilities/register`
 - `POST /task-decomposition/classify`
 - `POST /task-decomposition/decompose`
 - `POST /task-decomposition/plans/validate`
-- `POST /task-decomposition/approval-request`
+- `POST /task-decomposition/approval-requests`
+- `GET /task-decomposition/approvals`
+- `POST /task-decomposition/approvals/grants/capture`
+- `POST /task-decomposition/approvals/revoke`
+- `GET /task-decomposition/audit`
+- `GET /task-decomposition/metrics`
 - `POST /task-decomposition/plans/execute`
 - `POST /task-decomposition/run`
 
 Example:
 
 ```bash
-PYTHONPATH=src .venv/bin/python -m ultimate_ai_agent.core.task_decomposition.cli \
-  --registry .uaa/task_decomposition_registry.json serve-api --port 8765
+PYTHONPATH=src .venv/bin/uvicorn ultimate_ai_agent.api.app:app --reload --port 8000
 
-curl -X POST http://127.0.0.1:8765/task-decomposition/examples/init
-curl -X POST http://127.0.0.1:8765/task-decomposition/run \
+curl -X POST http://127.0.0.1:8000/task-decomposition/examples/init
+curl -X POST http://127.0.0.1:8000/task-decomposition/run \
   -H 'content-type: application/json' \
   -d '{"raw_request":"Summarize this request directly."}'
 ```
 
-The registry file defaults to `.uaa/task_decomposition_registry.json`. Override
-it with `UAA_TASK_DECOMPOSITION_REGISTRY=/path/to/registry.json`.
+The registry file defaults to `.uaa/task_decomposition_registry.json`.
+New saves use a versioned, tamper-evident document with per-capability
+provenance and SHA-256 signatures. Approval state and audit summaries are
+stored beside the registry as `.approvals.json` and `.audit.json`. Override the
+registry path with `UAA_TASK_DECOMPOSITION_REGISTRY=/path/to/registry.json`.
+
+Approval capture is exact-scope and backed by `LocalApprovalAuthority`.
+Approval grants must bind to the same run id, actor id, capability id,
+`invoke_capability` action, risk level, data classification, and resource refs.
+Revoked or expired grants no longer authorize capability invocation.
+
+The service also applies an in-process per-actor rate limiter to registry
+mutation, planning, approval, and execution calls. Audit records store only
+event type, run id, actor id, status, reason codes, capability ids, timestamps,
+and concise safe summaries; raw user requests and private payloads are not
+written to the audit log.
+
+## Local Dev API
+
+The standalone local/dev FastAPI app in
+`ultimate_ai_agent.core.task_decomposition.dev_api` remains available for
+isolated smoke testing on a separate port:
+
+```bash
+PYTHONPATH=src .venv/bin/python -m ultimate_ai_agent.core.task_decomposition.cli \
+  --registry .uaa/task_decomposition_registry.json serve-api --port 8765
+```
 
 ## Local CLI
 
@@ -223,6 +254,26 @@ store.record_execution(plan, result)
 
 The store keeps only safe summaries, reason codes, plan ids, node ids, and
 capability ids.
+
+## Operational Readiness
+
+The canonical API surface is covered by OpenAPI contract verification and route
+inventory tests. Before release, run:
+
+```bash
+PYTHONPATH=src .venv/bin/python -m pytest \
+  tests/test_task_decomposition_production_api.py \
+  tests/test_task_decomposition_live_local.py \
+  tests/test_task_decomposition_capability_registry.py
+
+PYTHONPATH=src .venv/bin/python scripts/verify_openapi_contract.py
+PYTHONPATH=src .venv/bin/python scripts/verify_documentation_integrity.py
+```
+
+Rollback is data-first: stop the app, restore the previous registry document
+and its adjacent `.approvals.json` and `.audit.json` files, then restart. Legacy
+plain-list registry files still load and are migrated to the versioned document
+format on the next save.
 
 ## Migration Notes
 

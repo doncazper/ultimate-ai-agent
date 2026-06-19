@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from ultimate_ai_agent.core.capabilities.approval import ApprovalAuthority
 from ultimate_ai_agent.core.capabilities.enums import CapabilityHealthStatus, PolicyDecisionStatus, RiskLevel as CoordinationRiskLevel
 from ultimate_ai_agent.core.capabilities.models import (
     CapabilityManifest,
@@ -58,10 +59,12 @@ class PolicyEngine:
         default_max_risk: CoordinationRiskLevel = CoordinationRiskLevel.critical,
         deny_deprecated: bool = True,
         deny_unhealthy: bool = True,
+        approval_authority: ApprovalAuthority | None = None,
     ):
         self.default_max_risk = default_max_risk
         self.deny_deprecated = deny_deprecated
         self.deny_unhealthy = deny_unhealthy
+        self.approval_authority = approval_authority
 
     def can_select(self, capability: CapabilityManifest, context: dict[str, Any]) -> PolicyDecision:
         reasons = self._capability_denial_reasons(capability, context)
@@ -100,6 +103,13 @@ class PolicyEngine:
                 reasons.append("COORDINATION_MODE_DENIED")
         if context.get("coordination_mode") == "handoff" and not context.get("allow_handoff"):
             reasons.append("HANDOFF_REQUIRES_USER_FACING_OWNERSHIP")
+        if (
+            is_mutating_side_effect(capability.side_effects)
+            and capability.runtime_policy.max_retries > 0
+            and "idempotency_key" not in task.context
+            and "idempotency_key" not in context
+        ):
+            reasons.append("MUTATING_RETRY_REQUIRES_IDEMPOTENCY_KEY")
         if reasons:
             return PolicyDecision(
                 status=PolicyDecisionStatus.denied,
@@ -110,8 +120,22 @@ class PolicyEngine:
                 task_id=task.task_id,
             )
         approval_required = self.requires_approval(capability, task, context)
-        if approval_required.requires_approval and not task.context.get("approval_ref") and not context.get("approval_ref"):
-            return approval_required
+        if approval_required.requires_approval:
+            if not task.context.get("approval_ref") and not context.get("approval_ref"):
+                return approval_required
+            if self.approval_authority is None:
+                return PolicyDecision(
+                    status=PolicyDecisionStatus.denied,
+                    allowed=False,
+                    requires_approval=True,
+                    reason_codes=["APPROVAL_AUTHORITY_REQUIRED"],
+                    safe_message="Approval refs require validation by an approval authority.",
+                    capability_id=capability.id,
+                    task_id=task.task_id,
+                )
+            approval_decision = self.approval_authority.validate_approval(capability, task, context)
+            if not approval_decision.allowed:
+                return approval_decision
         return PolicyDecision(
             status=PolicyDecisionStatus.allowed,
             allowed=True,
@@ -159,16 +183,30 @@ class PolicyEngine:
     def validate_side_effects(self, plan: TaskPlan, registry: Any) -> PolicyDecision:
         reason_codes: list[str] = []
         mutating_nodes = []
+        selected_ids = {node.capability_id for node in plan.nodes}
+        node_counts: dict[str, int] = {}
         for node in plan.nodes:
             manifest = registry.load_manifest(node.capability_id)
+            node_counts[node.capability_id] = node_counts.get(node.capability_id, 0) + 1
             if node.expected_side_effects != manifest.side_effects:
                 reason_codes.append("NODE_SIDE_EFFECT_MANIFEST_MISMATCH")
+            missing_dependencies = set(manifest.dependencies) - selected_ids
+            if missing_dependencies:
+                reason_codes.append("CAPABILITY_DEPENDENCY_MISSING")
+            if set(manifest.conflicts_with) & selected_ids:
+                reason_codes.append("CAPABILITY_CONFLICT_DENIED")
             if is_mutating_side_effect(node.expected_side_effects):
                 mutating_nodes.append(node)
             if node.parallel_group and is_mutating_side_effect(node.expected_side_effects):
                 reason_codes.append("PARALLEL_MUTATION_DENIED")
             if node.parallel_group and not is_read_only_side_effect(node.expected_side_effects):
                 reason_codes.append("PARALLEL_NON_READ_ONLY_DENIED")
+            if node.parallel_group and not manifest.concurrency_safe:
+                reason_codes.append("PARALLEL_REQUIRES_CONCURRENCY_SAFE")
+            if node.parallel_group and not manifest.safety.allow_parallel:
+                reason_codes.append("PARALLEL_SAFETY_DENIED")
+            if node_counts[node.capability_id] > manifest.runtime_policy.max_concurrency:
+                reason_codes.append("CAPABILITY_MAX_CONCURRENCY_EXCEEDED")
         if len(mutating_nodes) > 1:
             reason_codes.append("MULTIPLE_WRITER_NODES_DENIED")
         if len(mutating_nodes) == 1:

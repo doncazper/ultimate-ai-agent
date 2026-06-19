@@ -1,6 +1,7 @@
 from ultimate_ai_agent.core.capabilities.catalog import render_compact_catalog
 from ultimate_ai_agent.core.capabilities.context import NotesStore, SimpleNotesStore
 from ultimate_ai_agent.core.capabilities.coordinator import Coordinator, PolicyDeniedError
+from ultimate_ai_agent.core.capabilities.approval import CapabilityApprovalGrant, LocalApprovalAuthority
 from ultimate_ai_agent.core.capabilities.decorators import as_registration, capability, get_capability_spec, tool_capability
 from ultimate_ai_agent.core.capabilities.defaults import (
     BLOCKED_FOUNDATION_CAPABILITY_NAMES,
@@ -50,6 +51,7 @@ from ultimate_ai_agent.core.capabilities.observability import (
 from ultimate_ai_agent.core.capabilities.policy import PolicyEngine
 from ultimate_ai_agent.core.capabilities.registry import CapabilityRegistry
 from ultimate_ai_agent.core.capabilities.selection import DeterministicSelector, LLMSelector, select_capabilities
+from ultimate_ai_agent.core.capabilities.state import FileCoordinatorStateStore, InMemoryCoordinatorStateStore
 from ultimate_ai_agent.core.capabilities.telemetry import InMemoryTelemetrySink, NoOpTelemetrySink, TelemetrySink
 
 __all__ = [
@@ -57,6 +59,7 @@ __all__ = [
     "Artifact",
     "CallableCapabilityAdapter",
     "CapabilityAdapter",
+    "CapabilityApprovalGrant",
     "CapabilityCatalogEntry",
     "CapabilityEvent",
     "CapabilityEventSink",
@@ -80,8 +83,11 @@ __all__ = [
     "DeterministicSelector",
     "HandoffAdapter",
     "HumanGateAdapter",
+    "FileCoordinatorStateStore",
     "InMemoryTelemetrySink",
+    "InMemoryCoordinatorStateStore",
     "LLMSelector",
+    "LocalApprovalAuthority",
     "LoggerCapabilityEventSink",
     "NoOpTelemetrySink",
     "NoopCapabilityEventSink",

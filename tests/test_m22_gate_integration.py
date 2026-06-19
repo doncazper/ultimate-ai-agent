@@ -2,6 +2,7 @@ from ultimate_ai_agent.core.gate import FoundationGateEvaluator, default_foundat
 from ultimate_ai_agent.core.gate.evaluators import (
     EXPECTED_M22_OPENAPI_PATH_COUNT,
     M22_FORBIDDEN_BACKEND_ROUTES,
+    TASK_DECOMPOSITION_CANONICAL_ROUTES,
     m22_local_runtime_forbidden_fragment_failures,
     m22_openapi_route_failures,
 )
@@ -47,6 +48,22 @@ def test_m22_openapi_route_guard_rejects_activation_or_probe_routes():
     assert any("OpenAPI path count" in failure for failure in failures)
     assert any("/runtime/activate" in failure for failure in failures)
     assert any("/model-runtime/local/call" in failure for failure in failures)
+
+
+def test_m22_route_guard_allows_exact_task_decomposition_canonical_surface():
+    historical_paths = {
+        f"/historical-contract-path-{index}"
+        for index in range(EXPECTED_M22_OPENAPI_PATH_COUNT)
+    }
+    current_paths = historical_paths | set(TASK_DECOMPOSITION_CANONICAL_ROUTES)
+
+    assert m22_openapi_route_failures(current_paths) == []
+
+    failures = m22_openapi_route_failures(
+        current_paths | {"/task-decomposition/unreviewed-route"}
+    )
+
+    assert any("OpenAPI path count" in failure for failure in failures)
 
 
 def test_m22_gate_scans_local_runtime_contract_sources_for_forbidden_fragments(tmp_path):

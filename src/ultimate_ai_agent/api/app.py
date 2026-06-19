@@ -164,6 +164,17 @@ from ultimate_ai_agent.core.local_model_management import (
     llama_cpp_gateway_authorized,
     llama_cpp_gateway_enabled,
 )
+from ultimate_ai_agent.core.task_decomposition.runtime import (
+    TaskCapabilityApprovalRequestPayload,
+    TaskDecompositionApprovalGrantRequest,
+    TaskDecompositionApprovalRevokeRequest,
+    TaskDecompositionRegisterRequest,
+    TaskDecompositionRequest,
+    TaskDecompositionRunRequest,
+    TaskDecompositionService,
+    TaskPlanExecutionRequest,
+    TaskPlanValidationRequest,
+)
 
 app = FastAPI(
     title="Ultimate AI Agent API Boundary",
@@ -172,6 +183,7 @@ app = FastAPI(
 )
 
 _file_review_approval_store = FileReviewApprovalStore()
+_task_decomposition_service = TaskDecompositionService.from_env()
 
 class HealthResponse(BaseModel):
     status: str
@@ -715,6 +727,26 @@ def _approval_validation_error(operation: str, trace_id: str, exc: Exception) ->
         redactions_applied=["invalid_payload"],
     )
 
+def _task_decomposition_error(operation: str, trace_id: str, code: str, exc: Exception | None = None) -> ResultEnvelope:
+    return ResultEnvelope(
+        success=False,
+        operation=operation,
+        service="TaskDecompositionAPI",
+        trace_id=trace_id,
+        error=ErrorEnvelope(
+            code=code,
+            category=ErrorCategory.validation_error,
+            safe_message="Task decomposition request failed safely.",
+            severity=Severity.medium,
+            retryable=False,
+            details_redacted=True,
+            source="TaskDecompositionAPI",
+            caused_by=[type(exc).__name__] if exc is not None else [],
+        ),
+        redactions_applied=["task_decomposition_payload"],
+    )
+
+
 @app.post("/approvals/requests/validate", response_model=ResultEnvelope)
 def post_validate_approval_request(payload: dict):
     try:
@@ -775,6 +807,243 @@ def post_validate_approval_receipt(payload: dict):
         trace_id=receipt.event_ref or receipt.run_id,
         data={"receipt_id": receipt.receipt_id, "status": "validated"},
     )
+
+
+@app.get("/task-decomposition/status", response_model=ResultEnvelope)
+def get_task_decomposition_status():
+    status = _task_decomposition_service.status()
+    return ResultEnvelope(
+        success=True,
+        operation="task_decomposition_status",
+        service="TaskDecompositionAPI",
+        trace_id="system",
+        data=status.model_dump(mode="json"),
+    )
+
+
+@app.get("/task-decomposition/catalog", response_model=ResultEnvelope)
+def get_task_decomposition_catalog():
+    return ResultEnvelope(
+        success=True,
+        operation="task_decomposition_catalog",
+        service="TaskDecompositionAPI",
+        trace_id="system",
+        data={"capabilities": _task_decomposition_service.catalog()},
+    )
+
+
+@app.get("/task-decomposition/registry/export", response_model=ResultEnvelope)
+def get_task_decomposition_registry_export():
+    return ResultEnvelope(
+        success=True,
+        operation="task_decomposition_registry_export",
+        service="TaskDecompositionAPI",
+        trace_id="system",
+        data=_task_decomposition_service.export_registry_document(),
+    )
+
+
+@app.post("/task-decomposition/examples/init", response_model=ResultEnvelope)
+def post_task_decomposition_init_examples():
+    return ResultEnvelope(
+        success=True,
+        operation="task_decomposition_init_examples",
+        service="TaskDecompositionAPI",
+        trace_id="system",
+        data={"capabilities": _task_decomposition_service.ensure_examples()},
+    )
+
+
+@app.post("/task-decomposition/capabilities/register", response_model=ResultEnvelope)
+def post_task_decomposition_register_capability(request: TaskDecompositionRegisterRequest):
+    try:
+        contract = _task_decomposition_service.register(request)
+    except (ValidationError, ValueError, KeyError) as exc:
+        return _task_decomposition_error(
+            "task_decomposition_register_capability",
+            "system",
+            "TASK_DECOMPOSITION_REGISTER_FAILED",
+            exc,
+        )
+    return ResultEnvelope(
+        success=True,
+        operation="task_decomposition_register_capability",
+        service="TaskDecompositionAPI",
+        trace_id=contract.card.id,
+        data={"capability": contract.model_dump(mode="json")},
+    )
+
+
+@app.post("/task-decomposition/classify", response_model=ResultEnvelope)
+def post_task_decomposition_classify(request: TaskDecompositionRequest):
+    intent = _task_decomposition_service.classify(request)
+    return ResultEnvelope(
+        success=True,
+        operation="task_decomposition_classify",
+        service="TaskDecompositionAPI",
+        trace_id="system",
+        data={"intent": intent.model_dump(mode="json")},
+    )
+
+
+@app.post("/task-decomposition/decompose", response_model=ResultEnvelope)
+def post_task_decomposition_decompose(request: TaskDecompositionRequest):
+    result = _task_decomposition_service.decompose(request)
+    return ResultEnvelope(
+        success=result.validation.valid,
+        operation="task_decomposition_decompose",
+        service="TaskDecompositionAPI",
+        trace_id=result.plan.plan_id,
+        data=result.model_dump(mode="json"),
+    )
+
+
+@app.post("/task-decomposition/plans/validate", response_model=ResultEnvelope)
+def post_task_decomposition_validate_plan(request: TaskPlanValidationRequest):
+    validation = _task_decomposition_service.validate_plan(request)
+    return ResultEnvelope(
+        success=validation.valid,
+        operation="task_decomposition_validate_plan",
+        service="TaskDecompositionAPI",
+        trace_id=request.plan.plan_id,
+        data=validation.model_dump(mode="json"),
+    )
+
+
+@app.post("/task-decomposition/approval-requests", response_model=ResultEnvelope)
+def post_task_decomposition_approval_request(request: TaskCapabilityApprovalRequestPayload):
+    try:
+        approval = _task_decomposition_service.build_approval_request(request)
+    except (ValidationError, ValueError, KeyError) as exc:
+        return _task_decomposition_error(
+            "task_decomposition_approval_request",
+            request.run_id,
+            "TASK_DECOMPOSITION_APPROVAL_REQUEST_FAILED",
+            exc,
+        )
+    return ResultEnvelope(
+        success=True,
+        operation="task_decomposition_approval_request",
+        service="TaskDecompositionAPI",
+        trace_id=request.run_id,
+        data=approval.model_dump(mode="json"),
+    )
+
+
+@app.get("/task-decomposition/approvals", response_model=ResultEnvelope)
+def get_task_decomposition_approvals():
+    return ResultEnvelope(
+        success=True,
+        operation="task_decomposition_approvals",
+        service="TaskDecompositionAPI",
+        trace_id="system",
+        data=_task_decomposition_service.approval_queue(),
+    )
+
+
+@app.post("/task-decomposition/approvals/grants/capture", response_model=ResultEnvelope)
+def post_task_decomposition_capture_approval_grant(request: TaskDecompositionApprovalGrantRequest):
+    try:
+        grant = _task_decomposition_service.grant_approval(request)
+    except (ValidationError, ValueError, KeyError) as exc:
+        return _task_decomposition_error(
+            "task_decomposition_capture_approval_grant",
+            request.approval_request_id,
+            "TASK_DECOMPOSITION_APPROVAL_GRANT_FAILED",
+            exc,
+        )
+    return ResultEnvelope(
+        success=True,
+        operation="task_decomposition_capture_approval_grant",
+        service="TaskDecompositionAPI",
+        trace_id=grant.run_id,
+        data=grant.model_dump(mode="json"),
+    )
+
+
+@app.post("/task-decomposition/approvals/revoke", response_model=ResultEnvelope)
+def post_task_decomposition_revoke_approval(request: TaskDecompositionApprovalRevokeRequest):
+    try:
+        grant = _task_decomposition_service.revoke_approval(request)
+    except (ValidationError, ValueError, KeyError) as exc:
+        return _task_decomposition_error(
+            "task_decomposition_revoke_approval",
+            request.approval_ref,
+            "TASK_DECOMPOSITION_APPROVAL_REVOKE_FAILED",
+            exc,
+        )
+    return ResultEnvelope(
+        success=True,
+        operation="task_decomposition_revoke_approval",
+        service="TaskDecompositionAPI",
+        trace_id=grant.run_id,
+        data=grant.model_dump(mode="json"),
+    )
+
+
+@app.get("/task-decomposition/audit", response_model=ResultEnvelope)
+def get_task_decomposition_audit(limit: int = 100):
+    bounded_limit = min(max(limit, 1), 500)
+    return ResultEnvelope(
+        success=True,
+        operation="task_decomposition_audit",
+        service="TaskDecompositionAPI",
+        trace_id="system",
+        data={"events": _task_decomposition_service.audit_events(bounded_limit)},
+    )
+
+
+@app.get("/task-decomposition/metrics", response_model=ResultEnvelope)
+def get_task_decomposition_metrics():
+    return ResultEnvelope(
+        success=True,
+        operation="task_decomposition_metrics",
+        service="TaskDecompositionAPI",
+        trace_id="system",
+        data=_task_decomposition_service.metrics(),
+    )
+
+
+@app.post("/task-decomposition/plans/execute", response_model=ResultEnvelope)
+async def post_task_decomposition_execute_plan(request: TaskPlanExecutionRequest):
+    try:
+        result = await _task_decomposition_service.execute_plan(request)
+    except ValueError as exc:
+        return _task_decomposition_error(
+            "task_decomposition_execute_plan",
+            request.plan.plan_id,
+            str(exc),
+            exc,
+        )
+    return ResultEnvelope(
+        success=result.status == "succeeded",
+        operation="task_decomposition_execute_plan",
+        service="TaskDecompositionAPI",
+        trace_id=request.plan.plan_id,
+        data=result.model_dump(mode="json"),
+    )
+
+
+@app.post("/task-decomposition/run", response_model=ResultEnvelope)
+async def post_task_decomposition_run(request: TaskDecompositionRunRequest):
+    try:
+        result = await _task_decomposition_service.run(request)
+    except ValueError as exc:
+        return _task_decomposition_error(
+            "task_decomposition_run",
+            "task-decomposition-run:local",
+            str(exc),
+            exc,
+        )
+    succeeded = result.execution is not None and result.execution.status == "succeeded"
+    return ResultEnvelope(
+        success=succeeded,
+        operation="task_decomposition_run",
+        service="TaskDecompositionAPI",
+        trace_id=result.plan.plan_id,
+        data=result.model_dump(mode="json"),
+    )
+
 
 @app.post("/model-runtime/manifests/validate", response_model=ResultEnvelope)
 def post_validate_model_runtime_manifest(manifest: dict):

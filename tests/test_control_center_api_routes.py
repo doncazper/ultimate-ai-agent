@@ -83,5 +83,6 @@ def test_control_center_openapi_routes_and_operation_ids_are_safe():
     assert "/files/review/approvals/capture" in paths
     assert "/v1/models" in paths
     assert "/v1/chat/completions" in paths
-    assert len(paths) == 77
-    assert len(operation_ids) == len(set(operation_ids)) == 77
+    assert "/task-decomposition/run" in paths
+    assert len(paths) == 93
+    assert len(operation_ids) == len(set(operation_ids)) == 93

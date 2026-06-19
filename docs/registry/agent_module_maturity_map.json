@@ -386,73 +386,75 @@
       "id": "capability_registry",
       "name": "Capability registry",
       "requested_definition": "Lets the agent know what it can and cannot do.",
-      "status": "stale_partial",
-      "maturity": "declared_only",
-      "maturity_score": 1,
-      "summary": "UAA has a canonical capability-registry concept and old JSON registry artifacts, but the latest registry file is v0.5.8 while the active baseline is v1.2.0-alpha. It is not yet a maintained current source of truth for all module capability maturity.",
+      "status": "present_bounded",
+      "maturity": "constrained_local_runtime",
+      "maturity_score": 4,
+      "summary": "UAA has a typed capability registry and coordinator lane with compact catalog disclosure, full manifest loading after selection, policy checks, exact approval validation, durable local state, telemetry, single-writer locking, adapter health checks, and tests. It is bounded to registered in-process capabilities and does not provide arbitrary runtime or external authority.",
       "primary_paths": [
-        "docs/canonical/32_capability_registry_and_dependency_graph.md",
-        "docs/registry/capability_registry_v0_5_8.json",
-        "docs/registry/dependency_graph_v0_5_3.md"
+        "src/ultimate_ai_agent/core/capabilities/registry.py",
+        "src/ultimate_ai_agent/core/capabilities/models.py",
+        "src/ultimate_ai_agent/core/capabilities/policy.py",
+        "src/ultimate_ai_agent/core/capabilities/coordinator.py"
       ],
       "supporting_paths": [
-        "docs/operating/foundation_first_build_policy.md",
-        "src/ultimate_ai_agent/core/runtime/capability_profile.py",
-        "src/ultimate_ai_agent/core/tools/capability_firewall.py"
+        "docs/capability_registry.md",
+        "src/ultimate_ai_agent/core/capabilities/approval.py",
+        "src/ultimate_ai_agent/core/capabilities/state.py",
+        "src/ultimate_ai_agent/core/capabilities/locks.py",
+        "scripts/dev/capability_registry_smoke.py"
       ],
       "test_paths": [
-        "tests/test_capability_firewall.py",
-        "tests/test_runtime_capability_matrix.py",
-        "tests/test_resource_governor.py"
+        "tests/test_capability_registry.py",
+        "tests/test_capability_registry_coordinator.py"
       ],
       "evidence": [
-        "Canonical docs define intended registry fields, dependency graph, permission map, risk map, and blocked capability lists.",
-        "Tool capability firewall and runtime capability profile exist as narrower enforcement mechanisms."
+        "CapabilityManifest declares schemas, examples, anti-examples, risk, side effects, auth, context, runtime, safety, quality, and metadata.",
+        "Coordinator tests prove exact approvals, durable state, retries, idempotency denial, partial read failure artifacts, single-writer leases, adapter health checks, output-schema checks, and fan-out policy."
       ],
       "gaps": [
-        "No current active-baseline capability registry artifact.",
-        "No complete module-level maturity inventory before this map.",
-        "No code-owned registry that all modules consult."
+        "No arbitrary callable loading.",
+        "No external provider, browser, shell, plugin, or remote runtime authority from the registry itself.",
+        "Not all legacy modules consult the new registry yet."
       ],
-      "next_checkpoint": "Replace or supersede stale v0.5.x registry artifacts with an active-baseline capability registry."
+      "next_checkpoint": "Bridge additional governed runtime adapters into the manifest lane without bypassing PolicyEngine, approval, state, and audit."
     },
     {
       "id": "multi_agent_coordinator",
       "name": "Multi-agent coordinator",
       "requested_definition": "Allows multiple specialized agents to work together.",
-      "status": "contract_only",
-      "maturity": "contract_only",
-      "maturity_score": 2,
-      "summary": "UAA has A2A metadata and remote-agent coordination contracts, but those contracts explicitly deny live remote runtime, dispatch, agent spawn, network access, and remote execution. There is no operating multi-agent coordinator.",
+      "status": "present_bounded",
+      "maturity": "constrained_local_runtime",
+      "maturity_score": 4,
+      "summary": "UAA has a bounded local multi-agent coordinator that plans centrally, routes registered specialists as tools, supports handoff mode only by policy, supports read-only fan-out, serializes mutating work, records durable local state, validates approval grants, and returns structured artifacts. Remote dispatch, network coordination, and arbitrary agent spawning remain denied.",
       "primary_paths": [
-        "src/ultimate_ai_agent/core/adapters/a2a_manifest.py",
-        "src/ultimate_ai_agent/core/production_readiness/remote_agent_coordination.py",
-        "src/ultimate_ai_agent/core/remote_workers/registry.py",
-        "src/ultimate_ai_agent/core/remote_workers/dry_run.py"
+        "src/ultimate_ai_agent/core/capabilities/coordinator.py",
+        "src/ultimate_ai_agent/core/capabilities/policy.py",
+        "src/ultimate_ai_agent/core/capabilities/adapters/base.py",
+        "src/ultimate_ai_agent/core/capabilities/state.py"
       ],
       "supporting_paths": [
-        "docs/canonical/29_agent_interoperability.md",
-        "docs/production/REMOTE_AGENT_COORDINATION_CONTRACT.md",
-        "docs/production/REMOTE_AGENT_COORDINATION_NON_GOALS.md",
-        "docs/remote/REMOTE_WORKER_FOUNDATION.md"
+        "docs/capability_registry.md",
+        "src/ultimate_ai_agent/core/capabilities/approval.py",
+        "src/ultimate_ai_agent/core/capabilities/locks.py",
+        "src/ultimate_ai_agent/core/adapters/a2a_manifest.py",
+        "src/ultimate_ai_agent/core/production_readiness/remote_agent_coordination.py"
       ],
       "test_paths": [
+        "tests/test_capability_registry_coordinator.py",
         "tests/test_a2a_adapter_boundaries.py",
         "tests/test_m117_remote_agent_coordination_contract.py",
-        "tests/test_remote_worker_models.py",
         "tests/test_remote_worker_no_network.py"
       ],
       "evidence": [
-        "A2A agent card is inert metadata only.",
-        "Remote-agent coordination record is safe-ref-only and denies runtime dispatch and spawn."
+        "Coordinator tests prove planning, routing, structured task envelopes, read-only fan-out, parallel write denial, single-writer acceptance, exact approvals, durable state, failure artifacts, retries, adapter health checks, and output-schema validation.",
+        "A2A and remote-worker contracts remain inert metadata/dry-run boundaries, preserving no remote dispatch authority."
       ],
       "gaps": [
-        "No live sub-agent runtime.",
-        "No task assignment across specialized agents.",
-        "No inter-agent message bus.",
+        "No live remote sub-agent runtime.",
+        "No networked inter-agent message bus.",
         "No remote agent execution authority."
       ],
-      "next_checkpoint": "Keep this contract_only until a no-effect multi-agent planning layer is defined and separately reviewed."
+      "next_checkpoint": "Promote only after governed runtime integrations prove production auth, external adapter sandboxing, and operational rollout boundaries."
     },
     {
       "id": "human_in_the_loop",

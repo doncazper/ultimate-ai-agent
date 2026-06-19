@@ -38,8 +38,8 @@ No requested module is scored 5 or 6 in this audit.
 | State manager | Fragmented | 3 | `src/ultimate_ai_agent/core/world_state/models.py`, `src/ultimate_ai_agent/core/world_state/snapshots.py`, `src/ultimate_ai_agent/core/ledger/run_state.py` | World state, run state, execution state, and ledger pieces exist and are tested in bounded domains. | Unified live state manager for attempts, retries, active work, and resumption. |
 | Context manager | Yes, no injection | 3 | `src/ultimate_ai_agent/core/contracts/context_pack.py`, `src/ultimate_ai_agent/core/recall/context_pack.py`, `src/ultimate_ai_agent/core/context_budget/trimming.py`, `src/ultimate_ai_agent/core/context_handoff/workflow.py` | UAA has safe context packs, grounded recall selection, context-budget trimming, proposals, and handoff approval contracts. | Live context-window manager and context injection into model sessions. |
 | Tool registry | Yes, bounded | 4 | `src/ultimate_ai_agent/core/tools/registry.py`, `src/ultimate_ai_agent/core/tools/broker.py`, `src/ultimate_ai_agent/core/tools/runtime/invocation.py` | Tool manifests, registry, broker, consent/approval checks, and allowlisted runtime adapters exist. Arbitrary dynamic dispatch is denied. | General tool execution runtime, plugin marketplace authority, arbitrary callable loading. |
-| Capability registry | Stale partial | 1 | `docs/canonical/32_capability_registry_and_dependency_graph.md`, `docs/registry/capability_registry_v0_5_8.json`, `docs/registry/dependency_graph_v0_5_3.md` | The concept is documented, but the maintained artifacts lag the active baseline and are not a complete current module capability source of truth. | Active-baseline registry, code-owned capability decisions, complete module capability and maturity inventory. |
-| Multi-agent coordinator | Contract only | 2 | `src/ultimate_ai_agent/core/adapters/a2a_manifest.py`, `src/ultimate_ai_agent/core/production_readiness/remote_agent_coordination.py`, `src/ultimate_ai_agent/core/remote_workers/dry_run.py` | UAA has inert A2A metadata, remote-agent coordination contracts, and dry-run remote worker records. Live dispatch, agent spawn, network coordination, and remote execution are denied. | Peer communication, task assignment, agent spawning, inter-agent bus, remote execution authority. |
+| Capability registry | Yes, bounded | 4 | `src/ultimate_ai_agent/core/capabilities/registry.py`, `src/ultimate_ai_agent/core/capabilities/models.py`, `src/ultimate_ai_agent/core/capabilities/policy.py`, `src/ultimate_ai_agent/core/capabilities/coordinator.py` | UAA has a typed capability registry and coordinator lane with compact catalog disclosure, manifest loading after selection, policy checks, exact approval validation, durable local state, telemetry, single-writer locking, adapter health checks, and tests. | Registry coverage for all legacy modules, governed external adapters, arbitrary runtime authority. |
+| Multi-agent coordinator | Yes, bounded | 4 | `src/ultimate_ai_agent/core/capabilities/coordinator.py`, `src/ultimate_ai_agent/core/capabilities/policy.py`, `src/ultimate_ai_agent/core/capabilities/adapters/base.py`, `src/ultimate_ai_agent/core/capabilities/state.py` | UAA has a bounded local coordinator that plans centrally, routes registered specialists as tools, supports read-only fan-out, serializes mutating work, records durable local state, validates approval grants, and returns structured artifacts. Remote dispatch, network coordination, and arbitrary agent spawning remain denied. | Remote agent runtime, networked inter-agent bus, production remote execution authority. |
 | Human-in-the-loop module | Partially | 4 | `src/ultimate_ai_agent/core/approvals/authority.py`, `src/ultimate_ai_agent/core/file_review/approval_capture.py`, `src/ultimate_ai_agent/core/autonomy/human_checkpoint_scheduling.py` | UAA has local approval requests, grants, revocation, exact-scope validation, tool/model route approval integration, and review-only checkpoint contracts. | General clarification loop, product approval queue as authority, real checkpoint scheduling or notifications. |
 
 ## What UAA Is Strong At
@@ -52,11 +52,11 @@ No requested module is scored 5 or 6 in this audit.
 
 ## What UAA Is Missing
 
-- A current active-baseline capability registry.
+- Registry coverage across every legacy module.
 - A top-level decision router.
 - A real task decomposition engine.
 - A full orchestration/workflow runtime.
-- A live multi-agent coordinator.
+- A remote or externally networked multi-agent coordinator.
 - A product-grade state service.
 - Production authority for agent autonomy, external dispatch, browser/tool/plugin execution, or model/provider authority.
 

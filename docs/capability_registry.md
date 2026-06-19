@@ -2,7 +2,7 @@
 
 The capability registry is an additive, contract-first layer for coordinating tools, local agents, deterministic workflows, reviewer steps, and future adapter families. It does not add backend routes, production authority, provider calls, network access, shell execution, browser automation, plugin execution, memory writes, context injection, or new dependencies.
 
-The existing `CapabilitySpec` registry remains available for decorator-style Python capabilities. The new `CapabilityManifest` lane adds typed manifests, compact catalog disclosure, structured task envelopes, policy checks, telemetry hooks, and bounded in-process adapters. Concrete live file/model/provider adapters are intentionally out of scope for the current repository boundary.
+The existing `CapabilitySpec` registry remains available for decorator-style Python capabilities. The new `CapabilityManifest` lane adds typed manifests, compact catalog disclosure, structured task envelopes, policy checks, telemetry hooks, bounded in-process adapters, durable local coordinator state, exact approval validation, timeout/retry enforcement, adapter health checks, output-schema checks, and single-writer locking. Concrete live file/model/provider adapters remain outside this registry boundary unless a reviewed capability manifest and adapter are registered.
 
 ## Architecture
 
@@ -14,6 +14,9 @@ The existing `CapabilitySpec` registry remains available for decorator-style Pyt
 - `PolicyEngine` gates selection, execution, approval requirements, read-only fan-out, and single-writer behavior.
 - `TaskEnvelope`, `TaskPlan`, `TaskNode`, and `Artifact` carry structured data instead of freeform inter-agent chat.
 - `TelemetrySink` receives selection, execution, latency, success/failure, estimated cost, and policy denial events.
+- `FileCoordinatorStateStore` or `InMemoryCoordinatorStateStore` records plans, run status, audit events, telemetry events, and artifacts.
+- `LocalApprovalAuthority` validates exact approval grants for high-risk or explicit-approval capabilities.
+- `SingleWriterLockManager` and `FileSingleWriterLockManager` serialize mutating nodes through a single writer lease.
 
 ## Progressive Disclosure
 
@@ -91,13 +94,24 @@ writer_manifest = CapabilityManifest(
 ## Registering Existing Tools Or Agents
 
 ```python
-from ultimate_ai_agent.core.capabilities import CapabilityRegistry, Coordinator, wrap_agent, wrap_tool
+from ultimate_ai_agent.core.capabilities import (
+    CapabilityRegistry,
+    Coordinator,
+    FileCoordinatorStateStore,
+    LocalApprovalAuthority,
+    wrap_agent,
+    wrap_tool,
+)
 
 registry = CapabilityRegistry()
 registry.register(search_manifest, wrap_tool(search_manifest.id, existing_search_tool))
 registry.register(writer_manifest, wrap_agent(writer_manifest.id, existing_writer_agent))
 
-coordinator = Coordinator(registry)
+coordinator = Coordinator(
+    registry,
+    state_store=FileCoordinatorStateStore(".uaa/capability_coordinator_state.json"),
+    approval_authority=LocalApprovalAuthority(),
+)
 artifact = coordinator.run("Search safe metadata refs", {"capability_ids": [search_manifest.id]})
 ```
 
@@ -108,10 +122,23 @@ The callable receives `(TaskEnvelope, context)` and may return either an `Artifa
 - The coordinator plans centrally and synthesizes final output.
 - Direct tool, agent-as-tool, workflow, reviewer, human-gate, and handoff modes are explicit `CoordinationMode` values.
 - Handoff is only valid when a registered specialist is meant to own the next user-facing turn.
-- Parallel fan-out is limited to read-only, concurrency-safe capabilities.
+- Parallel fan-out is limited to read-only capabilities that also declare `concurrency_safe=True` and `safety.allow_parallel=True`.
 - Mutating work is serialized through exactly one writer node.
-- High and critical risk capabilities require approval unless an approval ref is already present in task or run context.
+- High and critical risk capabilities require approval, and approval refs must validate against an exact local approval grant.
 - Missing auth scopes, unhealthy capabilities, and deprecated capabilities are denied or filtered by default.
+- Manifest `dependencies`, `conflicts_with`, runtime timeout, retry limits, idempotency requirements, adapter health, and required output-schema keys are enforced before or during execution.
+- Runtime callers can request a structured `coordinator.failure` artifact instead of exceptions by setting `return_failure_artifact=True`.
+
+## Production-Readiness Hardening
+
+The coordinator is now suitable for governed local production-readiness testing of registered in-process capabilities:
+
+- Durable local state: `FileCoordinatorStateStore` writes atomic JSON state with run records, artifacts, audit events, and telemetry events.
+- Approval gates: `LocalApprovalAuthority` denies missing, mismatched, revoked, expired, or out-of-scope approval grants.
+- Single writer: mutating nodes acquire a single-writer lease before adapter invocation.
+- Failure semantics: timeout, retry attempts, cancellation, policy denial, rollback-hook completion/failure, and optional structured failure artifacts are recorded.
+- Adapter hardening: unhealthy adapters are denied before invocation, and required output-schema keys are checked on returned artifacts.
+- Security posture: model/provider calls, network access, shell execution, browser automation, plugin execution, remote dispatch, memory writes, and context injection are still not created by this layer.
 
 ## MCP And A2A Extension Points
 
@@ -125,7 +152,7 @@ Run the dev-only smoke harness to prove registry resolution and schema export wi
 PYTHONPATH=src .venv/bin/python scripts/dev/capability_registry_smoke.py
 ```
 
-The harness registers one deterministic in-process echo capability, resolves it for a test run context, executes it, prints OpenAI/MCP schemas, and also runs a bounded manifest/coordinator capability path. It does not add backend routes, provider calls, plugin loading, shell/network authority, or production authority. The master verifier runs this smoke explicitly so the runnable example remains covered even when pytest is skipped in split CI jobs.
+The harness registers one deterministic in-process echo capability, resolves it for a test run context, executes it, prints OpenAI/MCP schemas, runs a bounded manifest/coordinator capability path, validates an exact local approval grant for a high-risk manifest, and reloads the durable coordinator state file. It does not add backend routes, provider calls, plugin loading, shell/network authority, or production authority. The master verifier runs this smoke explicitly so the runnable example remains covered even when pytest is skipped in split CI jobs.
 
 ## Testing
 
@@ -135,4 +162,4 @@ Run the focused suite:
 PYTHONPATH=src .venv/bin/python -m pytest tests/test_capability_registry.py tests/test_capability_registry_coordinator.py
 ```
 
-The tests cover manifest validation, registry search/load, compact catalog rendering, policy denials, single-writer validation, read-only fan-out, fake tool/agent adapters, mocked structured selection, and JSON import/export.
+The tests cover manifest validation, registry search/load, compact catalog rendering, policy denials, exact approval grants, durable state persistence, single-writer validation, read-only fan-out, partial fan-out failure artifacts, retries, idempotency enforcement, adapter health denial, output-schema checks, fake tool/agent adapters, mocked structured selection, and JSON import/export.
