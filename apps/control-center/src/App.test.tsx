@@ -495,6 +495,31 @@ describe("Web Control Center shell", () => {
     expect(screen.getByText(/execution authorized: no/i)).toBeInTheDocument();
   });
 
+  it("does not carry review-only capture state across packet selection", async () => {
+    mockFetchWithFallback();
+    window.history.pushState({}, "", "/files/review");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /File Review Surface/i }),
+    ).toBeInTheDocument();
+
+    // Approve review-only on the first (default-selected) packet.
+    fireEvent.click(screen.getByRole("button", { name: /approve review-only/i }));
+    expect(screen.getByText(/approved_for_review_only/i)).toBeInTheDocument();
+
+    // Switching to a different packet must reset the capture state to that
+    // packet's own value rather than leaking the first packet's approval.
+    const reviewButtons = screen.getAllByRole("button", { name: /view review packet/i });
+    fireEvent.click(reviewButtons[1]);
+
+    expect(
+      screen.getByRole("article", { name: /file-review-packet:mock_002/i }),
+    ).toHaveAttribute("aria-current", "true");
+    expect(screen.queryByText(/approved_for_review_only/i)).not.toBeInTheDocument();
+    expect(screen.getAllByText(/not_captured/i).length).toBeGreaterThan(0);
+  });
+
   it("keeps M37 binding refs safe and free of private path shapes", async () => {
     mockFetchWithFallback();
     window.history.pushState({}, "", "/files/review");
@@ -646,7 +671,10 @@ describe("Web Control Center shell", () => {
       screen.getByText(/Canonical files and governed source systems outrank memory/i),
     ).toBeInTheDocument();
     expect(screen.getAllByText("mock_memory_ref_001").length).toBeGreaterThan(0);
-    expect(screen.getByText(/Marked stale/i)).toBeInTheDocument();
+    // Each memory row reflects its own item's staleness/conflict, not a hardcoded placeholder.
+    expect(screen.getAllByText(/Marked stale/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Review freshness/i)).toBeInTheDocument();
+    expect(screen.queryByText(/source conflict flagged/i)).not.toBeInTheDocument();
     expect(screen.getByText(/Conflict indicator/i)).toBeInTheDocument();
     expect(
       screen.getByText(/Memory detail is redacted summary metadata only/i),

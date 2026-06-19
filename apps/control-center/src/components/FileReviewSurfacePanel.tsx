@@ -51,7 +51,7 @@ export function FileReviewSurfacePanel({ review }: { review: M36FileReviewData }
               />
             ))}
           </div>
-          <FileReviewPacketDetail packet={selected} />
+          <FileReviewPacketDetail key={selected.reviewPacketRef} packet={selected} />
         </div>
       ) : (
         <EmptyState
