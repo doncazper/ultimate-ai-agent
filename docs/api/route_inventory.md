@@ -1,6 +1,13 @@
 # Route Inventory
 
-The API route inventory is generated from FastAPI route metadata and exposed by `/api/manifest`.
+Current active baseline: **v1.2.0-alpha**
+
+Current OpenAPI path count: `93`.
+
+The API route inventory is generated from FastAPI route metadata and exposed by
+`/api/manifest`. The manifest route count is the authoritative current count;
+older milestone sections below preserve historical route-count notes for audit
+history only.
 
 Each route declares:
 
@@ -14,13 +21,20 @@ Each route declares:
 - `requires_auth_future`
 - `blocked_from_production`
 
-Allowed side-effect classes in v0.22.0 are:
+Allowed current side-effect classes are:
 
 - `none`
 - `validation_only`
 - `local_dev_workspace_only`
 
-Production runtime side effects are not allowed in this milestone.
+Production runtime side effects remain blocked unless an exact scoped milestone
+grants reviewed authority and updates OpenAPI, route side-effect
+classification, Foundation Gate, and tests.
+
+Current post-M150 route additions include disabled-by-default local `/v1`
+gateway routes and local-dev task/file surfaces. They remain policy-bound,
+redacted, rollback-aware where mutating, and blocked from unscoped production
+authority.
 
 M8 route group:
 

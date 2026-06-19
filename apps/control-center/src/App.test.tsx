@@ -1088,7 +1088,7 @@ const mockApiData = {
       summary: "Read-only approval summary.",
     },
     api_summary: {
-      route_count: 74,
+      route_count: 93,
       control_center_route_count: 8,
       operation_ids_unique: true,
       execution_routes_present: false,

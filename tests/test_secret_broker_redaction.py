@@ -65,6 +65,8 @@ def test_secret_access_returns_handle_not_raw_secret_and_redacts_views():
     assert decision.secret_handle is not None
     assert "super-secret-token" not in decision.model_dump_json()
     assert redacted.redacted_value == "[REDACTED_SECRET]"
+    assert broker.validate_no_secret_leak(decision.model_dump()) is True
+    assert broker.validate_no_secret_leak(redacted.model_dump()) is True
 
 
 def test_secret_access_rejects_secret_like_credential_ref_without_echoing_secret():
@@ -94,3 +96,32 @@ def test_secret_redaction_masks_key_token_password_values():
     assert "abcdefghijklmnop" not in redacted
     assert "qrstuvwxyz123456" not in redacted
     assert "[REDACTED_SECRET]" in redacted
+
+
+def test_secret_denial_output_is_secret_clean():
+    broker = SecretBroker()
+    broker.register_credential(active_reference(), secret_value="super-secret-token")
+
+    decision = broker.request_secret(
+        credential_ref="cred_test",
+        purpose="provider_lookup",
+        provider_id="other_provider",
+        consent_ref="consent_123",
+    )
+
+    serialized = decision.model_dump_json()
+    assert decision.allowed is False
+    assert "PROVIDER_SCOPE_MISMATCH" in decision.reason_codes
+    assert "super-secret-token" not in serialized
+    assert broker.validate_no_secret_leak(decision.model_dump()) is True
+
+
+def test_validate_no_secret_leak_rejects_nested_secret_like_output():
+    broker = SecretBroker()
+
+    payload = {
+        "safe_summary": "redaction regression check",
+        "metadata": {"unsafe_value": "token='abcdefghijklmnop'"},
+    }
+
+    assert broker.validate_no_secret_leak(payload) is False

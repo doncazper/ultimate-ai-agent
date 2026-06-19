@@ -1011,6 +1011,80 @@ EXPECTED_M101_M150_LABELS = [
 ]
 
 
+REQUIRED_PUBLIC_SECURITY_DOCS = [
+    "SECURITY.md",
+    "docs/security/SECURITY_TRIAGE_RUNBOOK.md",
+]
+
+REQUIRED_M167_EVIDENCE_MATRIX_DOC = "docs/production/M167_LIVE_MODEL_EVIDENCE_MATRIX.md"
+REQUIRED_LOCAL_MODEL_E2E_SMOKE_DOC = "docs/production/M167_LOCAL_MODEL_E2E_SMOKE_HARNESS.md"
+REQUIRED_PERFORMANCE_BASELINE_DOC = "docs/production/RELEASE_LATENCY_BASELINE_HARNESS.md"
+REQUIRED_LLAMA_SERVER_PACKAGING_CHECKLIST_DOC = (
+    "docs/production/LLAMA_SERVER_PACKAGING_PROVENANCE_CHECKLIST.md"
+)
+REQUIRED_LOCAL_MODEL_OPERATIONAL_RUNBOOK_DOC = (
+    "docs/production/LOCAL_MODEL_OPERATIONAL_RUNBOOK.md"
+)
+REQUIRED_CONTROL_CENTER_OPERATOR_SHELL_GAP_MAP_DOC = (
+    "docs/control_center/OPERATOR_SHELL_GAP_MAP.md"
+)
+
+RELEASE_FACING_SECURITY_DOCS = [
+    "README.md",
+    "VERSION.md",
+    "SECURITY.md",
+    "docs/README.md",
+    "docs/DOCUMENTATION_INDEX.md",
+    "docs/canonical/CANONICAL_DOC_MAP.md",
+    "docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md",
+    "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md",
+    REQUIRED_CONTROL_CENTER_OPERATOR_SHELL_GAP_MAP_DOC,
+    REQUIRED_M167_EVIDENCE_MATRIX_DOC,
+    REQUIRED_LOCAL_MODEL_E2E_SMOKE_DOC,
+    REQUIRED_PERFORMANCE_BASELINE_DOC,
+    REQUIRED_LLAMA_SERVER_PACKAGING_CHECKLIST_DOC,
+    REQUIRED_LOCAL_MODEL_OPERATIONAL_RUNBOOK_DOC,
+    "docs/security/SECURITY_TRIAGE_RUNBOOK.md",
+    "docs/release_notes/v2_0_0.md",
+    "docs/release_notes/v1_2_0_alpha.md",
+    "docs/release_notes/checkpoint_m168.md",
+    "docs/release_notes/checkpoint_m166.md",
+    "docs/release_notes/checkpoint_m167.md",
+]
+
+FORBIDDEN_RELEASE_SECURITY_CLAIMS = [
+    "external security audit completed",
+    "external audit completed",
+    "signed releases are available",
+    "signed release is available",
+    "public distribution is available",
+    "public release is available",
+    "public beta is available",
+    "production readiness is claimed",
+    "production ready for external users",
+    "shell execution is enabled",
+    "subprocess execution is enabled",
+    "connector writes are enabled",
+    "plugin runtime import is enabled",
+    "mobile control is enabled",
+    "raw prompt logging is enabled",
+    "raw prompts are stored",
+    "raw response logging is enabled",
+    "raw responses are stored",
+    "raw provider payload logging is enabled",
+    "raw provider payloads are stored",
+    "raw provider payload export is enabled",
+    "raw path logging is enabled",
+    "raw paths are stored",
+    "raw local paths are stored",
+    "raw log retention is enabled",
+    "raw logs are stored",
+    "raw environment dumps are stored",
+    "credentials are stored in release evidence",
+    "secret-like values are stored in release evidence",
+]
+
+
 REQUIRED_ACTIVE_DOCS = [
     "docs/README.md",
     "docs/DOCUMENTATION_INDEX.md",
@@ -1129,6 +1203,15 @@ REQUIRED_ACTIVE_DOCS = [
     "docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md",
     "docs/roadmap/ECOSYSTEM_WATCHLIST.md",
     "docs/roadmap/STANDARDS_ALIGNMENT_WATCHLIST.md",
+    "docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md",
+    "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md",
+    REQUIRED_CONTROL_CENTER_OPERATOR_SHELL_GAP_MAP_DOC,
+    REQUIRED_M167_EVIDENCE_MATRIX_DOC,
+    REQUIRED_LOCAL_MODEL_E2E_SMOKE_DOC,
+    REQUIRED_PERFORMANCE_BASELINE_DOC,
+    REQUIRED_LLAMA_SERVER_PACKAGING_CHECKLIST_DOC,
+    REQUIRED_LOCAL_MODEL_OPERATIONAL_RUNBOOK_DOC,
+    *REQUIRED_PUBLIC_SECURITY_DOCS,
     "docs/roadmap/MILESTONE_CHARTERS.md",
     "docs/roadmap/NEXT_SEQUENCE_v0_17_5.md",
 ]
@@ -1299,6 +1382,15 @@ ACTIVE_DOCS_TO_SCAN = [
     "docs/DOCUMENTATION_INDEX.md",
     "docs/canonical/CANONICAL_DOC_MAP.md",
     "docs/canonical/09_roadmap.md",
+    "docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md",
+    "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md",
+    REQUIRED_CONTROL_CENTER_OPERATOR_SHELL_GAP_MAP_DOC,
+    REQUIRED_M167_EVIDENCE_MATRIX_DOC,
+    REQUIRED_LOCAL_MODEL_E2E_SMOKE_DOC,
+    REQUIRED_PERFORMANCE_BASELINE_DOC,
+    REQUIRED_LLAMA_SERVER_PACKAGING_CHECKLIST_DOC,
+    REQUIRED_LOCAL_MODEL_OPERATIONAL_RUNBOOK_DOC,
+    *REQUIRED_PUBLIC_SECURITY_DOCS,
     "docs/roadmap/MILESTONE_CHARTERS.md",
     "docs/roadmap/NEXT_SEQUENCE_v0_17_5.md",
     *REQUIRED_POST_M20_ROADMAP_DOCS,
@@ -1438,6 +1530,8 @@ ACTIVE_BASELINE_LABEL_PATTERNS = [
     ),
 ]
 
+EXPECTED_CURRENT_OPENAPI_PATH_COUNT = 93
+
 
 def _verify_active_baseline_labels(root: Path, version: str) -> list[str]:
     failures: list[str] = []
@@ -1455,6 +1549,1327 @@ def _verify_active_baseline_labels(root: Path, version: str) -> list[str]:
                             f"{rel_path}:{line_number} active baseline label {actual} "
                             f"does not match expected {expected}"
                         )
+    return failures
+
+
+def _verify_operator_runtime_currentness(root: Path) -> list[str]:
+    failures: list[str] = []
+    required_paths = [
+        "docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md",
+        "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md",
+        "docs/kanban/current_board.md",
+        "docs/api/README.md",
+        "docs/api/openapi_contract.md",
+        "docs/api/route_inventory.md",
+    ]
+    for rel_path in required_paths:
+        if not (root / rel_path).exists():
+            failures.append(f"missing Operator Runtime currentness file: {rel_path}")
+
+    def read_lower(rel_path: str) -> str:
+        path = root / rel_path
+        return _read(path).lower() if path.exists() else ""
+
+    readme = read_lower("README.md")
+    version_text = read_lower("VERSION.md")
+    docs_readme = read_lower("docs/README.md")
+    docs_index = read_lower("docs/DOCUMENTATION_INDEX.md")
+    canonical_map = read_lower("docs/canonical/CANONICAL_DOC_MAP.md")
+    canonical_roadmap = read_lower("docs/canonical/09_roadmap.md")
+    roadmap_index = read_lower("docs/roadmap/README.md")
+    operator_roadmap = read_lower("docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md")
+    operator_roadmap_compact = " ".join(operator_roadmap.split())
+    product_truth = read_lower("docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md")
+    product_truth_compact = " ".join(product_truth.split())
+    board = read_lower("docs/kanban/current_board.md")
+    api_readme = read_lower("docs/api/README.md")
+    openapi_contract = read_lower("docs/api/openapi_contract.md")
+    route_inventory = read_lower("docs/api/route_inventory.md")
+
+    active_text = "\n".join(
+        [
+            readme,
+            version_text,
+            docs_readme,
+            docs_index,
+            canonical_map,
+            canonical_roadmap,
+            roadmap_index,
+            operator_roadmap,
+            product_truth,
+            board,
+            api_readme,
+            openapi_contract,
+            route_inventory,
+        ]
+    )
+
+    board_required = {
+        "active board must use Operator Runtime Excellence title": (
+            "current kanban board - operator runtime excellence program"
+        ),
+        "active board must link the Operator Runtime roadmap": (
+            "source plan: `docs/roadmap/operator_runtime_excellence_roadmap.md`"
+        ),
+        "active board must track UAA-P0-001": "uaa-p0-001 baseline currentness repair",
+        "active board must track UAA-P0-002": "uaa-p0-002 product release-truth packet",
+    }
+    for message, fragment in board_required.items():
+        if fragment not in board:
+            failures.append(message)
+
+    for fragment in {
+        "current kanban board — v0.5.3 foundation sequence",
+        "current kanban board - v0.5.3 foundation sequence",
+        "advanced modules remain blocked until foundation gate passes",
+        "blocked by foundation gate",
+        "foundation contract test matrix",
+    }:
+        if fragment in board:
+            failures.append(f"active board contains stale label: {fragment}")
+
+    required_current_fragments = {
+        "active docs must mention Operator Runtime Excellence": "operator runtime excellence",
+        "active docs must mention M168 currentness": "m168",
+        "active docs must mention checkpoint-m168": "checkpoint-m168",
+        "active docs must mention checkpoint-m166": "checkpoint-m166",
+        "active docs must mention checkpoint-m167": "checkpoint-m167",
+        "active docs must preserve v2.0.0 baseline": "v2.0.0",
+        "active docs must link Operator Runtime roadmap": (
+            "docs/roadmap/operator_runtime_excellence_roadmap.md"
+        ),
+        "active docs must link product release-truth packet": (
+            "docs/roadmap/product_release_truth_packet.md"
+        ),
+        "active docs must link current board": "docs/kanban/current_board.md",
+        "active docs must mention M160-M167 local model lane": "m160-m167",
+        "active docs must mention M166 production-readiness gate": "m166",
+        "active docs must mention M167 live evidence hardening": "m167",
+    }
+    for message, fragment in required_current_fragments.items():
+        if fragment not in active_text:
+            failures.append(message)
+
+    current_count = str(EXPECTED_CURRENT_OPENAPI_PATH_COUNT)
+    if f"**{current_count}** openapi paths" not in readme:
+        failures.append("README.md current OpenAPI path count is stale or missing")
+    for rel_path, text in {
+        "docs/api/README.md": api_readme,
+        "docs/api/openapi_contract.md": openapi_contract,
+        "docs/api/route_inventory.md": route_inventory,
+    }.items():
+        if f"current openapi path count: `{current_count}`" not in text:
+            failures.append(f"{rel_path} current OpenAPI path count is stale or missing")
+
+    stale_current_claims = {
+        "README.md": [
+            "| current milestone | **m150",
+            "fastapi route contract with **75** openapi paths",
+        ],
+        "docs/README.md": ["current through: v0.64.0"],
+        "docs/api/README.md": ["the v0.29.2 api boundary is"],
+        "docs/api/openapi_contract.md": [
+            "v0.29.2 preserves the fastapi openapi boundary",
+            "backend path count remains `74`; only `info.version` changes",
+        ],
+    }
+    texts_by_path = {
+        "README.md": readme,
+        "docs/README.md": docs_readme,
+        "docs/api/README.md": api_readme,
+        "docs/api/openapi_contract.md": openapi_contract,
+    }
+    for rel_path, fragments in stale_current_claims.items():
+        for fragment in fragments:
+            if fragment in texts_by_path[rel_path]:
+                failures.append(f"{rel_path} contains stale currentness claim: {fragment}")
+
+    for message, fragment in {
+        "Operator roadmap must frame benchmarks as product-shaping evidence": (
+            "product-shaping evidence only"
+        ),
+        "Operator roadmap must deny benchmark implementation dependency": (
+            "not as a product dependency"
+        ),
+        "Operator roadmap must deny peer context as authority source": "authority source",
+        "Operator roadmap must define M168 currentness": "m168 - currentness and product truth",
+        "Operator roadmap must list UAA-P0-001": "uaa-p0-001",
+        "Operator roadmap must list UAA-P0-002": "uaa-p0-002",
+        "Operator roadmap must link the product release-truth packet": (
+            "docs/roadmap/product_release_truth_packet.md"
+        ),
+    }.items():
+        if fragment not in operator_roadmap_compact:
+            failures.append(message)
+
+    for rel_path, text in {
+        "README.md": readme,
+        "docs/README.md": docs_readme,
+        "docs/DOCUMENTATION_INDEX.md": docs_index,
+        "docs/canonical/CANONICAL_DOC_MAP.md": canonical_map,
+        "docs/roadmap/README.md": roadmap_index,
+    }.items():
+        if "docs/roadmap/product_release_truth_packet.md" not in text:
+            failures.append(f"{rel_path} must link product release-truth packet")
+
+    product_truth_required = {
+        "product truth packet must identify UAA-P0-002": "task: uaa-p0-002",
+        "product truth packet must preserve active baseline": "baseline: v2.0.0 / 2.0.0",
+        "product truth packet must list accepted repository checkpoint": (
+            "accepted repository checkpoint: checkpoint-m168"
+        ),
+        "product truth packet must list accepted local model checkpoints": (
+            "accepted local model lane checkpoints: checkpoint-m166, checkpoint-m167"
+        ),
+        "product truth packet must link source plan": (
+            "source plan: `docs/roadmap/operator_runtime_excellence_roadmap.md`"
+        ),
+        "product truth packet must frame peer context as product-shaping only": (
+            "product-shaping evidence only"
+        ),
+        "product truth packet must deny implementation dependency": (
+            "not an implementation dependency"
+        ),
+        "product truth packet must include release truth section": "## release truth",
+        "product truth packet must include product excellence matrix": (
+            "## product excellence matrix"
+        ),
+        "product truth packet must include exact matrix columns": (
+            "| capability | current uaa state | target production-ready state | "
+            "priority | status | evidence source or missing evidence | "
+            "blocking gate |"
+        ),
+        "product truth packet must define shipped status": (
+            "shipped: evidence-backed current repository capability only"
+        ),
+        "product truth packet must define planned status": (
+            "planned: named by the operator runtime excellence roadmap"
+        ),
+        "product truth packet must define blocked status": (
+            "blocked: cannot be claimed until the named gate is met"
+        ),
+        "product truth packet must define future-scoped status": (
+            "future-scoped: requires a later accepted milestone"
+        ),
+        "product truth packet must mark planned product shell": (
+            "| product shell |"
+        ),
+        "product truth packet must mark shipped API boundary": (
+            "shipped for the 93-path api boundary"
+        ),
+        "product truth packet must mark blocked local model claims": (
+            "blocked for production-readiness claims"
+        ),
+        "product truth packet must mark future-scoped plugin claims": (
+            "future-scoped; blocked for activation/runtime-import claims"
+        ),
+        "product truth packet must include non-goals": "## non-goals",
+        "product truth packet must cite API evidence": "tests/test_api_manifest.py",
+        "product truth packet must cite local model hardening evidence": (
+            "tests/test_m167_live_model_hardening.py"
+        ),
+        "product truth packet must cite local model E2E smoke harness doc": (
+            "docs/production/m167_local_model_e2e_smoke_harness.md"
+        ),
+        "product truth packet must cite local model E2E smoke harness tests": (
+            "tests/test_m151_openwebui_local_gateway_api.py"
+        ),
+        "product truth packet must cite current board gaps": (
+            "docs/kanban/current_board.md"
+        ),
+        "product truth packet must deny production readiness claims": (
+            "do not claim production readiness"
+        ),
+        "product truth packet must deny public distribution claims": (
+            "public distribution"
+        ),
+        "product truth packet must deny broad autonomy": "broad autonomy",
+        "product truth packet must deny unapproved runtime authority": (
+            "unapproved runtime authority"
+        ),
+        "product truth packet must deny shell execution": "shell execution",
+        "product truth packet must deny connector writes": "connector writes",
+        "product truth packet must deny plugin runtime import": (
+            "plugin runtime import"
+        ),
+        "product truth packet must deny raw durable evidence fields": (
+            "raw prompt, raw response, raw provider payload, raw path, raw log"
+        ),
+        "product truth packet must require scoped milestone for non-goal claims": (
+            "accepted scoped milestone"
+        ),
+    }
+    for message, fragment in product_truth_required.items():
+        if fragment not in product_truth_compact:
+            failures.append(message)
+
+    return failures
+
+
+def _verify_public_security_posture(root: Path) -> list[str]:
+    failures: list[str] = []
+    for rel_path in REQUIRED_PUBLIC_SECURITY_DOCS:
+        if not (root / rel_path).exists():
+            failures.append(f"missing public security posture file: {rel_path}")
+
+    def read_lower(rel_path: str) -> str:
+        path = root / rel_path
+        return _read(path).lower() if path.exists() else ""
+
+    security = read_lower("SECURITY.md")
+    runbook = read_lower("docs/security/SECURITY_TRIAGE_RUNBOOK.md")
+    docs_index = read_lower("docs/DOCUMENTATION_INDEX.md")
+    docs_readme = read_lower("docs/README.md")
+    readme = read_lower("README.md")
+    canonical_map = read_lower("docs/canonical/CANONICAL_DOC_MAP.md")
+    board = read_lower("docs/kanban/current_board.md")
+    product_truth = read_lower("docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md")
+    operator_roadmap = read_lower("docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md")
+
+    security_compact = " ".join(security.split())
+    runbook_compact = " ".join(runbook.split())
+    active_security_text = "\n".join(
+        [
+            security,
+            runbook,
+            docs_index,
+            docs_readme,
+            readme,
+            canonical_map,
+            board,
+            product_truth,
+            operator_roadmap,
+        ]
+    )
+
+    for rel_path, text in {
+        "README.md": readme,
+        "docs/README.md": docs_readme,
+        "docs/DOCUMENTATION_INDEX.md": docs_index,
+        "docs/canonical/CANONICAL_DOC_MAP.md": canonical_map,
+    }.items():
+        if "security.md" not in text:
+            failures.append(f"{rel_path} must link SECURITY.md")
+        if "docs/security/security_triage_runbook.md" not in text:
+            failures.append(f"{rel_path} must link security triage runbook")
+
+    security_required = {
+        "SECURITY.md must identify UAA-P0-003": "program task: uaa-p0-003",
+        "SECURITY.md must list supported versions": "## supported versions",
+        "SECURITY.md must preserve active baseline": "v2.0.0",
+        "SECURITY.md must mention checkpoint-m166": "checkpoint-m166",
+        "SECURITY.md must mention checkpoint-m167": "checkpoint-m167",
+        "SECURITY.md must describe private reporting": "github private vulnerability reporting",
+        "SECURITY.md must include severity definitions": "## severity definitions",
+        "SECURITY.md must include unsafe disclosure guidance": (
+            "## unsafe disclosure guidance"
+        ),
+        "SECURITY.md must tell reporters not to post unsafe details": (
+            "do not post raw prompt content"
+        ),
+        "SECURITY.md must tell public reporters to use safe summaries": (
+            "public issues and release-facing comments should contain only a safe summary"
+        ),
+        "SECURITY.md must define critical severity": "| critical |",
+        "SECURITY.md must define high severity": "| high |",
+        "SECURITY.md must define medium severity": "| medium |",
+        "SECURITY.md must define low severity": "| low |",
+        "SECURITY.md must include response targets": "## response targets",
+        "SECURITY.md must target 3 business day acknowledgement": "within 3 business days",
+        "SECURITY.md must target 7 business day severity assessment": (
+            "within 7 business days"
+        ),
+        "SECURITY.md must include security invariants": "## security invariants",
+        "SECURITY.md must deny public distribution claim": (
+            "public distribution is claimed by this policy"
+        ),
+        "SECURITY.md must preserve PolicyEngine": "policyengine",
+        "SECURITY.md must preserve LocalApprovalAuthority": "localapprovalauthority",
+        "SECURITY.md must preserve route side-effect classification": (
+            "route side-effect classification"
+        ),
+        "SECURITY.md must preserve OpenAPI checks": "openapi checks",
+        "SECURITY.md must preserve Foundation Gate checks": "foundation gate checks",
+        "SECURITY.md must deny unrestricted shell/subprocess execution": (
+            "no unrestricted shell/subprocess execution"
+        ),
+        "SECURITY.md must deny connector writes": "connector writes",
+        "SECURITY.md must deny plugin runtime import": "plugin runtime import",
+        "SECURITY.md must deny mobile control": "mobile control",
+    }
+    for message, fragment in security_required.items():
+        if fragment not in security_compact:
+            failures.append(message)
+
+    runbook_required = {
+        "triage runbook must identify UAA-P0-003": "program task: uaa-p0-003",
+        "triage runbook must cover secret scanning": "secret scanning",
+        "triage runbook must cover dependency alerts": "dependency alerts",
+        "triage runbook must cover unsafe logging": "unsafe logging",
+        "triage runbook must cover route auth issues": "route auth issues",
+        "triage runbook must cover redaction regressions": "redaction regressions",
+        "triage runbook must cover no-secret-output failures": (
+            "no-secret-output failures"
+        ),
+        "triage runbook must cover release-blocking findings": (
+            "release-blocking security findings"
+        ),
+        "triage runbook must include release blocking section": "## release blocking",
+        "triage runbook must block unsafe release claims": (
+            "overclaim production or public readiness"
+        ),
+        "triage runbook must include focused safe-error test": (
+            "tests/test_api_safe_exception_messages.py"
+        ),
+        "triage runbook must include focused secret redaction test": (
+            "tests/test_secret_broker_redaction.py"
+        ),
+        "triage runbook must include verify_all lane": (
+            "scripts/verify_all.py --skip-ruff --skip-pytest"
+        ),
+        "triage runbook must include rollback": "## remediation and rollback",
+        "triage runbook must deny scanner runtime": "does not add scanner runtime",
+    }
+    for message, fragment in runbook_required.items():
+        if fragment not in runbook_compact:
+            failures.append(message)
+
+    for message, fragment in {
+        "active docs must mention UAA-P0-003": "uaa-p0-003",
+        "active docs must mention public security posture": "public security posture",
+        "active docs must include security policy link": "security.md",
+        "active docs must include security triage runbook link": (
+            "docs/security/security_triage_runbook.md"
+        ),
+        "active docs must include no-secret-output language": "no-secret-output",
+    }.items():
+        if fragment not in active_security_text:
+            failures.append(message)
+
+    for rel_path in RELEASE_FACING_SECURITY_DOCS:
+        path = root / rel_path
+        if not path.exists():
+            failures.append(f"missing release-facing security scan target: {rel_path}")
+            continue
+        lowered = _read(path).lower()
+        for fragment in FORBIDDEN_RELEASE_SECURITY_CLAIMS:
+            if fragment in lowered:
+                failures.append(
+                    f"{rel_path} contains unsafe release-facing security claim: {fragment}"
+                )
+
+    return failures
+
+
+def _verify_m167_live_model_evidence_matrix(root: Path) -> list[str]:
+    failures: list[str] = []
+    matrix_path = root / REQUIRED_M167_EVIDENCE_MATRIX_DOC
+    if not matrix_path.exists():
+        return [f"missing M167 live evidence matrix: {REQUIRED_M167_EVIDENCE_MATRIX_DOC}"]
+
+    def read_lower(rel_path: str) -> str:
+        path = root / rel_path
+        return _read(path).lower() if path.exists() else ""
+
+    matrix = read_lower(REQUIRED_M167_EVIDENCE_MATRIX_DOC)
+    matrix_compact = " ".join(matrix.split())
+    active_links = {
+        "README.md": read_lower("README.md"),
+        "docs/README.md": read_lower("docs/README.md"),
+        "docs/DOCUMENTATION_INDEX.md": read_lower("docs/DOCUMENTATION_INDEX.md"),
+        "docs/canonical/CANONICAL_DOC_MAP.md": read_lower(
+            "docs/canonical/CANONICAL_DOC_MAP.md"
+        ),
+        "docs/production/M167_LIVE_MODEL_PRODUCTION_HARDENING.md": read_lower(
+            "docs/production/M167_LIVE_MODEL_PRODUCTION_HARDENING.md"
+        ),
+        "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md": read_lower(
+            "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md"
+        ),
+    }
+    matrix_link = REQUIRED_M167_EVIDENCE_MATRIX_DOC.lower()
+    for rel_path, text in active_links.items():
+        if matrix_link not in text:
+            failures.append(f"{rel_path} must link M167 live evidence matrix")
+
+    required_fragments = {
+        "matrix must identify UAA-P0-004": "status: active uaa-p0-004 evidence scaffold",
+        "matrix must preserve checkpoint-m167": "source checkpoint: checkpoint-m167",
+        "matrix must bind authority to M166": (
+            "authority source: m166 exact-scope local model production gate"
+        ),
+        "matrix must deny execution": "does not start llama.cpp",
+        "matrix must deny OpenWebUI calls": "call openwebui",
+        "matrix must deny downloads": "download a model",
+        "matrix must deny routes": "add a backend route",
+        "matrix must deny new production authority": "grant new production authority",
+        "matrix must define Proven": "proven: reviewed live evidence exists",
+        "matrix must define Pending": "pending: the row is scoped",
+        "matrix must define Blocked": "blocked: the row is scoped",
+        "matrix must define Not-scoped": "not-scoped: the behavior is outside this task",
+        "matrix must state no row is proven": "no hardware row is proven in this patch",
+        "matrix must include exact columns": (
+            "| profile | safe evidence ref | reviewer ref | hardware profile summary | "
+            "approved gguf/model ref | llama.cpp/openwebui shell status | "
+            "blocker status | verification command/result ref | rollback status | "
+            "production-readiness status |"
+        ),
+        "matrix must include safe evidence refs": "evidence-ref:m167:matrix:",
+        "matrix must include reviewer refs": "review-ref:m167:",
+        "matrix must include blocker refs": "blocker-ref:m167:",
+        "matrix must include verification refs": "verification-ref:m167:",
+        "matrix must include rollback refs": "rollback-ref:m167:",
+        "matrix must mention approved model refs": "model-ref:m167:approved-gguf:pending",
+        "matrix must deny tools/functions": "no tools/functions",
+        "matrix must include not-scoped cases": "## not-scoped cases",
+        "matrix must forbid raw prompts": "must not contain raw prompts",
+        "matrix must forbid raw responses": "raw responses",
+        "matrix must forbid raw provider payloads": "raw provider payloads",
+        "matrix must forbid credential material": "credentials",
+        "matrix must require M166 binding for Proven": "m166 authority-gate binding",
+    }
+    for message, fragment in required_fragments.items():
+        if fragment not in matrix_compact:
+            failures.append(message)
+
+    required_rows = {
+        "Apple Silicon": "| apple silicon | `evidence-ref:m167:matrix:apple-silicon` |",
+        "CPU-only": "| cpu-only | `evidence-ref:m167:matrix:cpu-only` |",
+        "low RAM": "| low ram | `evidence-ref:m167:matrix:low-ram` |",
+        "discrete GPU": "| discrete gpu | `evidence-ref:m167:matrix:discrete-gpu` |",
+        "limited disk": "| limited disk | `evidence-ref:m167:matrix:limited-disk` |",
+    }
+    for label, fragment in required_rows.items():
+        if fragment not in matrix:
+            failures.append(f"M167 matrix missing required hardware row: {label}")
+
+    for forbidden in [
+        "proven; production-ready",
+        "production readiness is claimed",
+        "public distribution is available",
+        "openwebui admin flows are scoped",
+        "tools/functions authority is scoped",
+    ]:
+        if forbidden in matrix:
+            failures.append(f"M167 matrix contains unsafe claim: {forbidden}")
+
+    board = read_lower("docs/kanban/current_board.md")
+    if "uaa-p0-004 m167 live model evidence matrix" not in board:
+        failures.append("current board must track UAA-P0-004 M167 matrix")
+    if "gate met: apple silicon, cpu-only, low ram, discrete gpu, and limited disk rows" not in board:
+        failures.append("current board must mark UAA-P0-004 gate met")
+    if "uaa-p0-007 control center operator-shell gap map" not in board:
+        failures.append("current board must keep UAA-P0-007 operator-shell gap map visible")
+
+    return failures
+
+
+def _verify_local_model_e2e_smoke_harness(root: Path) -> list[str]:
+    failures: list[str] = []
+    smoke_path = root / REQUIRED_LOCAL_MODEL_E2E_SMOKE_DOC
+    if not smoke_path.exists():
+        return [f"missing local model E2E smoke harness doc: {REQUIRED_LOCAL_MODEL_E2E_SMOKE_DOC}"]
+
+    source_path = root / "src/ultimate_ai_agent/core/local_model_management/e2e_smoke.py"
+    if not source_path.exists():
+        failures.append("missing local model E2E smoke harness source module")
+
+    def read_lower(rel_path: str) -> str:
+        path = root / rel_path
+        return _read(path).lower() if path.exists() else ""
+
+    smoke_doc = read_lower(REQUIRED_LOCAL_MODEL_E2E_SMOKE_DOC)
+    smoke_compact = " ".join(smoke_doc.split())
+    smoke_link = REQUIRED_LOCAL_MODEL_E2E_SMOKE_DOC.lower()
+    active_links = {
+        "README.md": read_lower("README.md"),
+        "docs/README.md": read_lower("docs/README.md"),
+        "docs/DOCUMENTATION_INDEX.md": read_lower("docs/DOCUMENTATION_INDEX.md"),
+        "docs/canonical/CANONICAL_DOC_MAP.md": read_lower(
+            "docs/canonical/CANONICAL_DOC_MAP.md"
+        ),
+        "docs/production/M167_LIVE_MODEL_PRODUCTION_HARDENING.md": read_lower(
+            "docs/production/M167_LIVE_MODEL_PRODUCTION_HARDENING.md"
+        ),
+        "docs/production/M167_LIVE_MODEL_EVIDENCE_MATRIX.md": read_lower(
+            "docs/production/M167_LIVE_MODEL_EVIDENCE_MATRIX.md"
+        ),
+        "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md": read_lower(
+            "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md"
+        ),
+        "docs/control_center/OPERATOR_SHELL_GAP_MAP.md": read_lower(
+            "docs/control_center/OPERATOR_SHELL_GAP_MAP.md"
+        ),
+        "docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md": read_lower(
+            "docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md"
+        ),
+    }
+    for rel_path, text in active_links.items():
+        if smoke_link not in text:
+            failures.append(f"{rel_path} must link local model E2E smoke harness")
+
+    required_fragments = {
+        "smoke doc must identify UAA-P0-005": "status: active uaa-p0-005 smoke harness",
+        "smoke doc must preserve checkpoint-m167": "source checkpoint: checkpoint-m167",
+        "smoke doc must bind authority to M166": (
+            "authority gate: checkpoint-m166 exact-scope local llama.cpp/openwebui shell gate"
+        ),
+        "smoke doc must mention approved GGUF readiness": "approved gguf readiness",
+        "smoke doc must mention skipped prerequisite semantics": (
+            "skipped because prerequisite unavailable"
+        ),
+        "smoke doc must mention llama.cpp supervisor": "llama.cpp supervisor",
+        "smoke doc must mention /v1 models": "local `/v1/models`",
+        "smoke doc must mention /v1 chat": "local `/v1/chat/completions`",
+        "smoke doc must mention OpenWebUI shell compatibility": (
+            "openwebui shell compatibility"
+        ),
+        "smoke doc must mention auth failure": "auth failure",
+        "smoke doc must mention safe failure": "safe failure",
+        "smoke doc must mention rollback": "rollback",
+        "smoke doc must mention tools/functions/streaming denial": (
+            "tools/functions/streaming denial"
+        ),
+        "smoke doc must mention pass status": "| pass |",
+        "smoke doc must mention fail status": "| fail |",
+        "smoke doc must mention blocked status": "| blocked |",
+        "smoke doc must mention skipped status": "| skipped |",
+        "smoke doc must require safe-ref-only evidence": "safe-ref-only",
+        "smoke doc must require redacted summaries": "redacted summary only",
+        "smoke doc must name harness entry point": "run_local_model_e2e_smoke_harness",
+        "smoke doc must cite required pytest lane": (
+            "tests/test_m151_openwebui_local_gateway_api.py"
+        ),
+        "smoke doc must deny raw prompts": "no raw prompt",
+        "smoke doc must deny raw responses": "no raw response",
+        "smoke doc must deny raw provider payloads": "no raw provider payload",
+        "smoke doc must deny raw paths": "no raw path",
+        "smoke doc must deny raw logs": "no raw log",
+        "smoke doc must deny credential material": "no credential material",
+        "smoke doc must deny broad shell behavior": (
+            "does not add unrestricted shell/subprocess execution"
+        ),
+        "smoke doc must deny public distribution": "public distribution",
+    }
+    for message, fragment in required_fragments.items():
+        if fragment not in smoke_compact:
+            failures.append(message)
+
+    test_text = read_lower("tests/test_m151_openwebui_local_gateway_api.py")
+    for message, fragment in {
+        "M151 pytest lane must call P0-005 harness": "run_local_model_e2e_smoke_harness",
+        "M151 pytest lane must cover passed status": "localmodele2esmokestatus.passed",
+        "M151 pytest lane must cover skipped status": "localmodele2esmokestatus.skipped",
+        "M151 pytest lane must cover blocked status": "localmodele2esmokestatus.blocked",
+        "M151 pytest lane must cover rollback": "rollback_plan_ref",
+        "M151 pytest lane must cover tools/functions/streaming": (
+            "tools_functions_streaming_denial"
+        ),
+    }.items():
+        if fragment not in test_text:
+            failures.append(message)
+
+    board = read_lower("docs/kanban/current_board.md")
+    if "uaa-p0-005 local model e2e smoke harness" not in board:
+        failures.append("current board must track UAA-P0-005 local model E2E smoke harness")
+    if "gate met: llama.cpp supervisor, local /v1 gateway, openwebui shell" not in board:
+        failures.append("current board must mark UAA-P0-005 gate met")
+    if "pull uaa-p0-005 next" in board:
+        failures.append("current board still contains stale UAA-P0-005 next label")
+    if "uaa-p0-007 control center operator-shell gap map" not in board:
+        failures.append("current board must keep UAA-P0-007 visible after UAA-P0-005")
+
+    return failures
+
+
+def _verify_performance_baseline_harness(root: Path) -> list[str]:
+    failures: list[str] = []
+    doc_path = root / REQUIRED_PERFORMANCE_BASELINE_DOC
+    if not doc_path.exists():
+        return [f"missing performance baseline harness doc: {REQUIRED_PERFORMANCE_BASELINE_DOC}"]
+
+    def read_lower(rel_path: str) -> str:
+        path = root / rel_path
+        return _read(path).lower() if path.exists() else ""
+
+    perf_doc = read_lower(REQUIRED_PERFORMANCE_BASELINE_DOC)
+    perf_compact = " ".join(perf_doc.split())
+    perf_link = REQUIRED_PERFORMANCE_BASELINE_DOC.lower()
+    active_links = {
+        "README.md": read_lower("README.md"),
+        "docs/README.md": read_lower("docs/README.md"),
+        "docs/DOCUMENTATION_INDEX.md": read_lower("docs/DOCUMENTATION_INDEX.md"),
+        "docs/canonical/CANONICAL_DOC_MAP.md": read_lower(
+            "docs/canonical/CANONICAL_DOC_MAP.md"
+        ),
+        "docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md": read_lower(
+            "docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md"
+        ),
+        "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md": read_lower(
+            "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md"
+        ),
+    }
+    for rel_path, text in active_links.items():
+        if perf_link not in text:
+            failures.append(f"{rel_path} must link release latency baseline harness")
+
+    required_doc_fragments = {
+        "performance doc must identify UAA-P0-006": (
+            "status: active uaa-p0-006 performance baseline harness"
+        ),
+        "performance doc must mention p50": "p50",
+        "performance doc must mention p95": "p95",
+        "performance doc must link benchmark script": (
+            "scripts/benchmark_foundation_gate.py"
+        ),
+        "performance doc must link latency check script": (
+            "scripts/check_foundation_gate_latency.py"
+        ),
+        "performance doc must name reports/performance": "reports/performance",
+        "performance doc must define JSON report": (
+            "reports/performance/latest_release_latency_baseline.json"
+        ),
+        "performance doc must define Markdown report": (
+            "reports/performance/latest_release_latency_baseline.md"
+        ),
+        "performance doc must include health budget": "| `/health` | 50 ms |",
+        "performance doc must include manifest budget": (
+            "| `/api/manifest` | 150 ms |"
+        ),
+        "performance doc must include model route preview budget": (
+            "| `/models/route/preview` | 150 ms |"
+        ),
+        "performance doc must include task classify budget": (
+            "| `/task-decomposition/classify` | 100 ms |"
+        ),
+        "performance doc must include task decompose budget": (
+            "| `/task-decomposition/decompose` | 250 ms |"
+        ),
+        "performance doc must include file preview budget": (
+            "| `/files/read/preview` bounded text | 150 ms |"
+        ),
+        "performance doc must include v1 models budget": (
+            "| `/v1/models` local gateway | 100 ms |"
+        ),
+        "performance doc must include v1 chat budget": (
+            "| `/v1/chat/completions` local path | 250 ms |"
+        ),
+        "performance doc must include Control Center budget": (
+            "| control center first useful local render | 1500 ms |"
+        ),
+        "performance doc must forbid speed authority bypass": (
+            "authority decisions must never be cached, skipped, shortened, or bypassed for speed"
+        ),
+        "performance doc must define Control Center skipped ref": (
+            "skipped-ref:p0-006:control-center-render-runner-not-scoped"
+        ),
+        "performance doc must deny request body reports": "request bodies",
+        "performance doc must deny response body reports": "response bodies",
+        "performance doc must include rollback": "## rollback",
+    }
+    for message, fragment in required_doc_fragments.items():
+        if fragment not in perf_compact:
+            failures.append(message)
+
+    benchmark = read_lower("scripts/benchmark_foundation_gate.py")
+    check = read_lower("scripts/check_foundation_gate_latency.py")
+    gitignore = read_lower(".gitignore")
+    for message, fragment in {
+        "benchmark must define release latency budgets": "release_latency_budgets_ms",
+        "benchmark must write reports/performance": "reports\" / \"performance",
+        "benchmark must write JSON report": "latest_release_latency_baseline.json",
+        "benchmark must write Markdown report": "latest_release_latency_baseline.md",
+        "benchmark must measure health": "\"health\"",
+        "benchmark must measure api manifest": "\"api_manifest\"",
+        "benchmark must measure model route preview": "\"model_route_preview\"",
+        "benchmark must measure task classify": "\"task_decomposition_classify\"",
+        "benchmark must measure task decompose": "\"task_decomposition_decompose\"",
+        "benchmark must measure file preview": "\"file_read_preview_bounded_text\"",
+        "benchmark must measure v1 models": "\"v1_models_local_gateway\"",
+        "benchmark must measure v1 chat": "\"v1_chat_completions_local_path\"",
+        "benchmark must safely skip Control Center render": (
+            "frontend_render_timing_runner_not_scoped"
+        ),
+        "benchmark must preserve authority no-cache invariant": (
+            "authority_decisions_cached_for_speed"
+        ),
+    }.items():
+        if fragment not in benchmark:
+            failures.append(message)
+    for message, fragment in {
+        "latency check must inspect release path results": (
+            "release_latency_path_results"
+        ),
+        "latency check must print release latency status": "release latency:",
+        "latency check must fail non-passed required paths": (
+            "expected 'passed'"
+        ),
+    }.items():
+        if fragment not in check:
+            failures.append(message)
+    for fragment in [
+        "reports/performance/latest_*.json",
+        "reports/performance/latest_*.md",
+    ]:
+        if fragment not in gitignore:
+            failures.append(f".gitignore must ignore generated performance report: {fragment}")
+
+    board = read_lower("docs/kanban/current_board.md")
+    if "uaa-p0-006 performance baseline harness" not in board:
+        failures.append("current board must track UAA-P0-006 performance baseline harness")
+    if "gate met: p50/p95 budgets for health, manifest, model route preview" not in board:
+        failures.append("current board must mark UAA-P0-006 gate met")
+    if "pull uaa-p0-006 next" in board:
+        failures.append("current board still contains stale UAA-P0-006 next label")
+    if "uaa-p0-007 control center operator-shell gap map" not in board:
+        failures.append("current board must keep UAA-P0-007 visible after UAA-P0-006")
+
+    return failures
+
+
+def _verify_llama_server_packaging_checklist(root: Path) -> list[str]:
+    failures: list[str] = []
+    doc_path = root / REQUIRED_LLAMA_SERVER_PACKAGING_CHECKLIST_DOC
+    if not doc_path.exists():
+        return [
+            "missing llama-server packaging/provenance checklist: "
+            f"{REQUIRED_LLAMA_SERVER_PACKAGING_CHECKLIST_DOC}"
+        ]
+
+    def read_lower(rel_path: str) -> str:
+        path = root / rel_path
+        return _read(path).lower() if path.exists() else ""
+
+    checklist_doc = read_lower(REQUIRED_LLAMA_SERVER_PACKAGING_CHECKLIST_DOC)
+    checklist_compact = " ".join(checklist_doc.split())
+    checklist_link = REQUIRED_LLAMA_SERVER_PACKAGING_CHECKLIST_DOC.lower()
+    active_links = {
+        "README.md": read_lower("README.md"),
+        "docs/README.md": read_lower("docs/README.md"),
+        "docs/DOCUMENTATION_INDEX.md": read_lower("docs/DOCUMENTATION_INDEX.md"),
+        "docs/canonical/CANONICAL_DOC_MAP.md": read_lower(
+            "docs/canonical/CANONICAL_DOC_MAP.md"
+        ),
+        "docs/production/M167_LIVE_MODEL_PRODUCTION_HARDENING.md": read_lower(
+            "docs/production/M167_LIVE_MODEL_PRODUCTION_HARDENING.md"
+        ),
+        "docs/production/M167_LIVE_MODEL_PRODUCTION_HARDENING_RUNBOOK.md": read_lower(
+            "docs/production/M167_LIVE_MODEL_PRODUCTION_HARDENING_RUNBOOK.md"
+        ),
+        "docs/production/M167_LIVE_MODEL_EVIDENCE_MATRIX.md": read_lower(
+            "docs/production/M167_LIVE_MODEL_EVIDENCE_MATRIX.md"
+        ),
+        "docs/production/M167_LOCAL_MODEL_E2E_SMOKE_HARNESS.md": read_lower(
+            "docs/production/M167_LOCAL_MODEL_E2E_SMOKE_HARNESS.md"
+        ),
+        "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md": read_lower(
+            "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md"
+        ),
+        "docs/control_center/OPERATOR_SHELL_GAP_MAP.md": read_lower(
+            "docs/control_center/OPERATOR_SHELL_GAP_MAP.md"
+        ),
+        "docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md": read_lower(
+            "docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md"
+        ),
+    }
+    for rel_path, text in active_links.items():
+        if checklist_link not in text:
+            failures.append(
+                f"{rel_path} must link llama-server packaging/provenance checklist"
+            )
+
+    required_fragments = {
+        "checklist must identify UAA-P0-015": (
+            "status: active uaa-p0-015 llama-server packaging/provenance checklist"
+        ),
+        "checklist must scope local loopback readiness": "local loopback readiness",
+        "checklist must bind authority to M166": (
+            "m166 remains the exact-scope authority gate"
+        ),
+        "checklist must require safe refs": "safe refs and redacted summaries only",
+        "checklist must deny installer behavior": (
+            "does not install, launch, download, sign, publish, or trust a binary"
+        ),
+        "checklist must cover llama-server discovery": "`llama-server` discovery",
+        "checklist must cover allowed locations": "allowed locations",
+        "checklist must require safe location classes": "safe location classes",
+        "checklist must cover provenance review": "provenance review",
+        "checklist must cover checksum/signature verification": (
+            "checksum/signature verification"
+        ),
+        "checklist must cover offline operation": "offline operation",
+        "checklist must cover rollback": "rollback",
+        "checklist must cover cache cleanup": "cache cleanup",
+        "checklist must cover blocked/unknown provenance": (
+            "blocked/unknown provenance handling"
+        ),
+        "checklist must block unknown provenance": (
+            "unknown provenance is blocked or not production-ready"
+        ),
+        "checklist must block unverified binaries": (
+            "unverified binaries are blocked or not production-ready"
+        ),
+        "checklist must fail closed": (
+            "fail closed with safe, operator-actionable guidance"
+        ),
+        "checklist must define passed status": "| passed |",
+        "checklist must define blocked status": "| blocked |",
+        "checklist must define pending status": "| pending |",
+        "checklist must define not-scoped status": "| not-scoped |",
+        "checklist must deny public distribution": "public distribution",
+        "checklist must deny signed installer readiness": (
+            "signed installer readiness"
+        ),
+        "checklist must deny broad binary trust": "broad binary trust",
+        "checklist must deny unreviewed binary trust": "unreviewed binary trust",
+        "checklist must deny broad network authority": "broad network authority",
+        "checklist must deny unrestricted shell": (
+            "unrestricted shell/subprocess execution"
+        ),
+        "checklist must preserve scoped llama.cpp shell boundary": (
+            "shell authority beyond scoped llama.cpp operation"
+        ),
+        "checklist must deny broader production runtime": (
+            "production runtime behavior outside the m166/m167 local loopback lane"
+        ),
+    }
+    for message, fragment in required_fragments.items():
+        if fragment not in checklist_compact:
+            failures.append(message)
+
+    for unsafe in [
+        "public distribution is available",
+        "signed installer readiness is available",
+        "broad binary trust is allowed",
+        "unreviewed binaries are trusted",
+        "broad network authority is granted",
+        "unrestricted shell/subprocess execution is allowed",
+    ]:
+        if unsafe in checklist_doc:
+            failures.append(f"checklist contains unsafe claim: {unsafe}")
+
+    board = read_lower("docs/kanban/current_board.md")
+    if "uaa-p0-015 llama-server packaging/provenance checklist" not in board:
+        failures.append("current board must track UAA-P0-015 checklist")
+    if "gate met: local llama-server discovery" not in board:
+        failures.append("current board must mark UAA-P0-015 gate met")
+    if "pull uaa-p0-015 next" in board:
+        failures.append("current board still contains stale UAA-P0-015 next label")
+    if "uaa-p0-016 tuning advisor hardening cases" not in board:
+        failures.append("current board must keep UAA-P0-016 visible after UAA-P0-015")
+
+    product_truth = read_lower("docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md")
+    if checklist_link not in product_truth:
+        failures.append("product truth packet must cite llama-server checklist")
+    if "unverified binaries remain blocked or not production-ready" not in product_truth:
+        failures.append("product truth packet must block unverified binary claims")
+    if "shipped for the local `llama-server` checklist" not in product_truth:
+        failures.append("product truth packet must mark local checklist as shipped")
+    if "public distribution and production packaging are not claimed" not in product_truth:
+        failures.append("product truth packet must deny packaging/distribution claims")
+
+    return failures
+
+
+def _verify_tuning_advisor_hardening_cases(root: Path) -> list[str]:
+    failures: list[str] = []
+
+    def read_lower(rel_path: str) -> str:
+        path = root / rel_path
+        return _read(path).lower() if path.exists() else ""
+
+    tuning = read_lower("src/ultimate_ai_agent/core/local_model_management/tuning.py")
+    tests = read_lower("tests/test_m167_live_model_hardening.py")
+
+    for message, fragment in {
+        "tuning advisor must define hardening signal set": "m165_tuning_signal_kinds",
+        "tuning advisor must cover out-of-memory": "out_of_memory",
+        "tuning advisor must cover crash loop": "crash_loop",
+        "tuning advisor must cover reload loop": "reload_loop",
+        "tuning advisor must cover slow token rate": "slow_tokens_per_second",
+        "tuning advisor must carry evidence refs": "evidence_ref",
+        "tuning advisor must carry rollback refs": "rollback_plan_ref",
+        "tuning advisor must require operator confirmation": (
+            "operator_confirmation_required"
+        ),
+        "tuning advisor must require redacted evidence": "redacted_evidence_only",
+        "tuning advisor must require rollback before apply": (
+            "rollback_required_before_apply"
+        ),
+        "tuning advisor must deny unsafe authority": "unsafe_authority_required",
+        "tuning apply must enforce one setting change": (
+            "m165_one_setting_change_required"
+        ),
+        "tuning observations must deny provider payloads": (
+            "m165_raw_provider_payload_denied"
+        ),
+        "tuning observations must deny raw logs": "m165_raw_log_denied",
+        "tuning observations must deny raw paths": "m165_raw_path_denied",
+        "tuning observations must deny environment dumps": (
+            "m165_environment_dump_denied"
+        ),
+    }.items():
+        if fragment not in tuning:
+            failures.append(message)
+
+    for message, fragment in {
+        "M167 tests must cover lag": '"lag"',
+        "M167 tests must cover out-of-memory": '"out_of_memory"',
+        "M167 tests must cover crash loop": '"crash_loop"',
+        "M167 tests must cover reload loop": '"reload_loop"',
+        "M167 tests must cover slow token rate": '"slow_tokens_per_second"',
+        "M167 tests must cover one-change rollback": (
+            "test_m167_tuning_apply_is_one_change_and_rolls_back_on_failure"
+        ),
+        "M167 tests must cover unknown conservative state": (
+            "unknown_state_is_conservative"
+        ),
+        "M167 tests must cover raw evidence denial": (
+            "reject_raw_or_sensitive_evidence"
+        ),
+        "M167 tests must assert operator confirmation": (
+            "operator_confirmation_required is true"
+        ),
+        "M167 tests must assert redacted evidence": "redacted_evidence_only is true",
+        "M167 tests must assert rollback awareness": (
+            "rollback_required_before_apply is true"
+        ),
+        "M167 tests must assert unsafe authority denied": (
+            "unsafe_authority_required is false"
+        ),
+        "M167 tests must assert multi-setting denial": (
+            "m165_one_setting_change_required"
+        ),
+    }.items():
+        if fragment not in tests:
+            failures.append(message)
+
+    board = read_lower("docs/kanban/current_board.md")
+    if "uaa-p0-016 tuning advisor hardening cases" not in board:
+        failures.append("current board must track UAA-P0-016 tuning hardening")
+    if "gate met: lag, out-of-memory, crash loop, reload loop" not in board:
+        failures.append("current board must mark UAA-P0-016 gate met")
+    if "pull uaa-p0-016 next" in board:
+        failures.append("current board still contains stale UAA-P0-016 next label")
+    if "uaa-p0-017 local model operational runbook" not in board:
+        failures.append("current board must keep UAA-P0-017 visible after UAA-P0-016")
+
+    readme = read_lower("README.md")
+    if "p0-016 hardens tuning advice" not in readme:
+        failures.append("README must mention P0-016 tuning hardening")
+
+    product_truth = read_lower("docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md")
+    if "local tuning advice is hardened" not in product_truth:
+        failures.append("product truth packet must include P0-016 tuning claim")
+    if "without granting runtime authority" not in product_truth:
+        failures.append("product truth packet must scope P0-016 authority")
+    if "src/ultimate_ai_agent/core/local_model_management/tuning.py" not in product_truth:
+        failures.append("product truth packet must cite tuning implementation")
+    if "tests/test_m167_live_model_hardening.py" not in product_truth:
+        failures.append("product truth packet must cite M167 tuning tests")
+
+    hardening_doc = read_lower("docs/production/M167_LIVE_MODEL_PRODUCTION_HARDENING.md")
+    runbook = read_lower("docs/production/M167_LIVE_MODEL_PRODUCTION_HARDENING_RUNBOOK.md")
+    for rel_name, text in {
+        "M167 hardening doc": hardening_doc,
+        "M167 hardening runbook": runbook,
+    }.items():
+        compact_text = " ".join(text.split())
+        for fragment in [
+            "out-of-memory pressure",
+            "crash loops",
+            "reload loops",
+            "slow tokens per second",
+            "one safe, bounded, redacted, operator-confirmable change at a time",
+            "known-good preset",
+        ]:
+            if fragment not in compact_text:
+                failures.append(f"{rel_name} must mention {fragment}")
+
+    return failures
+
+
+def _verify_local_model_operational_runbook(root: Path) -> list[str]:
+    failures: list[str] = []
+    doc_path = root / REQUIRED_LOCAL_MODEL_OPERATIONAL_RUNBOOK_DOC
+    if not doc_path.exists():
+        return [
+            "missing local model operational runbook: "
+            f"{REQUIRED_LOCAL_MODEL_OPERATIONAL_RUNBOOK_DOC}"
+        ]
+
+    def read_lower(rel_path: str) -> str:
+        path = root / rel_path
+        return _read(path).lower() if path.exists() else ""
+
+    runbook = read_lower(REQUIRED_LOCAL_MODEL_OPERATIONAL_RUNBOOK_DOC)
+    runbook_compact = " ".join(runbook.split())
+    runbook_link = REQUIRED_LOCAL_MODEL_OPERATIONAL_RUNBOOK_DOC.lower()
+    active_links = {
+        "README.md": read_lower("README.md"),
+        "docs/README.md": read_lower("docs/README.md"),
+        "docs/DOCUMENTATION_INDEX.md": read_lower("docs/DOCUMENTATION_INDEX.md"),
+        "docs/canonical/CANONICAL_DOC_MAP.md": read_lower(
+            "docs/canonical/CANONICAL_DOC_MAP.md"
+        ),
+        "docs/production/M167_LIVE_MODEL_PRODUCTION_HARDENING.md": read_lower(
+            "docs/production/M167_LIVE_MODEL_PRODUCTION_HARDENING.md"
+        ),
+        "docs/production/M167_LIVE_MODEL_PRODUCTION_HARDENING_RUNBOOK.md": read_lower(
+            "docs/production/M167_LIVE_MODEL_PRODUCTION_HARDENING_RUNBOOK.md"
+        ),
+        "docs/production/M167_LIVE_MODEL_EVIDENCE_MATRIX.md": read_lower(
+            "docs/production/M167_LIVE_MODEL_EVIDENCE_MATRIX.md"
+        ),
+        "docs/production/M167_LOCAL_MODEL_E2E_SMOKE_HARNESS.md": read_lower(
+            "docs/production/M167_LOCAL_MODEL_E2E_SMOKE_HARNESS.md"
+        ),
+        "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md": read_lower(
+            "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md"
+        ),
+        "docs/control_center/OPERATOR_SHELL_GAP_MAP.md": read_lower(
+            "docs/control_center/OPERATOR_SHELL_GAP_MAP.md"
+        ),
+        "docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md": read_lower(
+            "docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md"
+        ),
+    }
+    for rel_path, text in active_links.items():
+        if runbook_link not in text:
+            failures.append(f"{rel_path} must link local model operational runbook")
+
+    for message, fragment in {
+        "runbook must identify UAA-P0-017": (
+            "status: active uaa-p0-017 local model operational runbook"
+        ),
+        "runbook must scope M166/M167": "m166/m167 local loopback model operations",
+        "runbook must bind authority to M166": (
+            "authority source: m166 exact-scope local llama.cpp/openwebui shell gate"
+        ),
+        "runbook must deny public production support": "public production support",
+        "runbook must deny public distribution": "public distribution",
+        "runbook must require safe refs": "safe refs and redacted summaries only",
+        "runbook must define safe state": "| safe |",
+        "runbook must define degraded state": "| degraded |",
+        "runbook must define blocked state": "| blocked |",
+        "runbook must define unsupported state": "| unsupported |",
+        "runbook must cover cache cleanup": "| cache cleanup |",
+        "runbook must cover corrupted GGUF": "| corrupted gguf |",
+        "runbook must cover stuck download": "| stuck download |",
+        "runbook must cover port conflict": "| port conflict |",
+        "runbook must cover credential rotation": "| credential rotation |",
+        "runbook must cover rollback": "| rollback |",
+        "runbook must cover offline mode": "| offline mode |",
+        "runbook must cover safe evidence collection": "| safe evidence collection |",
+        "runbook must cover blocked/unknown model state": (
+            "| blocked/unknown model state |"
+        ),
+        "runbook must cover safe-disable path": "| safe-disable path |",
+        "runbook must include safe-disable criteria": "## safe-disable criteria",
+        "runbook must include operator sequence": "## operator sequence",
+        "runbook must block raw evidence": (
+            "raw prompt, response, provider payload, path, log, identity, environment, credential"
+        ),
+        "runbook must deny unsupported authority": "unsupported authority",
+    }.items():
+        if fragment not in runbook_compact:
+            failures.append(message)
+
+    for unsafe in [
+        "public production support is available",
+        "public distribution is available",
+        "unrestricted shell/subprocess execution is allowed",
+        "connector writes are enabled",
+        "plugin runtime import is enabled",
+        "openwebui admin authority is available",
+        "raw evidence export is enabled",
+    ]:
+        if unsafe in runbook:
+            failures.append(f"runbook contains unsafe claim: {unsafe}")
+
+    board = read_lower("docs/kanban/current_board.md")
+    if "uaa-p0-017 local model operational runbook" not in board:
+        failures.append("current board must track UAA-P0-017 runbook")
+    if "gate met: cache cleanup, corrupted gguf, stuck download, port conflict" not in board:
+        failures.append("current board must mark UAA-P0-017 gate met")
+    if "pull uaa-p0-017 next" in board:
+        failures.append("current board still contains stale UAA-P0-017 next label")
+    if "pull uaa-p1-010 next" not in board:
+        failures.append("current board must move next pull to UAA-P1-010")
+    if "uaa-p1-010 durable run spine v1" not in board:
+        failures.append("current board must expose UAA-P1-010 as ready next")
+
+    readme = read_lower("README.md")
+    if "operator runtime excellence p0 repair lane through uaa-p0-017" not in readme:
+        failures.append("README must identify current P0 lane through UAA-P0-017")
+    if "p0-017 adds safe local model operational recovery guidance" not in readme:
+        failures.append("README must mention P0-017 operational recovery")
+
+    product_truth = read_lower("docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md")
+    if "local model operational recovery guidance is documented" not in product_truth:
+        failures.append("product truth packet must include P0-017 recovery claim")
+    if "safe, degraded, blocked, and unsupported states" not in product_truth:
+        failures.append("product truth packet must include P0-017 state semantics")
+    if "without public production support claims" not in product_truth:
+        failures.append("product truth packet must deny public support claims")
+    if runbook_link not in product_truth:
+        failures.append("product truth packet must cite local model operational runbook")
+
+    return failures
+
+
+def _verify_control_center_operator_shell_gap_map(root: Path) -> list[str]:
+    failures: list[str] = []
+    doc_path = root / REQUIRED_CONTROL_CENTER_OPERATOR_SHELL_GAP_MAP_DOC
+    if not doc_path.exists():
+        return [
+            "missing Control Center operator-shell gap map: "
+            f"{REQUIRED_CONTROL_CENTER_OPERATOR_SHELL_GAP_MAP_DOC}"
+        ]
+
+    def read_lower(rel_path: str) -> str:
+        path = root / rel_path
+        return _read(path).lower() if path.exists() else ""
+
+    gap_doc = read_lower(REQUIRED_CONTROL_CENTER_OPERATOR_SHELL_GAP_MAP_DOC)
+    gap_compact = " ".join(gap_doc.split())
+    gap_link = REQUIRED_CONTROL_CENTER_OPERATOR_SHELL_GAP_MAP_DOC.lower()
+    active_links = {
+        "README.md": read_lower("README.md"),
+        "docs/README.md": read_lower("docs/README.md"),
+        "docs/DOCUMENTATION_INDEX.md": read_lower("docs/DOCUMENTATION_INDEX.md"),
+        "docs/canonical/CANONICAL_DOC_MAP.md": read_lower(
+            "docs/canonical/CANONICAL_DOC_MAP.md"
+        ),
+        "docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md": read_lower(
+            "docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md"
+        ),
+        "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md": read_lower(
+            "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md"
+        ),
+    }
+    for rel_path, text in active_links.items():
+        if gap_link not in text:
+            failures.append(f"{rel_path} must link Control Center operator-shell gap map")
+
+    required_fragments = {
+        "gap map must identify UAA-P0-007": (
+            "status: active uaa-p0-007 operator-shell gap map"
+        ),
+        "gap map must preserve baseline": "baseline: v2.0.0 / 2.0.0",
+        "gap map must cite M172": (
+            "source plan: `docs/roadmap/operator_runtime_excellence_roadmap.md` m172"
+        ),
+        "gap map must include current API count": (
+            "api boundary: current fastapi manifest has 93 openapi paths"
+        ),
+        "gap map must preserve shell authority boundary": (
+            "control center and openwebui remain shells"
+        ),
+        "gap map must preserve PolicyEngine": "policyengine",
+        "gap map must preserve LocalApprovalAuthority": "localapprovalauthority",
+        "gap map must preserve route side-effect classification": (
+            "route side-effect classification"
+        ),
+        "gap map must include exact matrix columns": (
+            "| surface | current frontend component/page | current backend route(s) | "
+            "missing backend route(s) | authority boundary | side-effect class | "
+            "approval requirement | evidence/audit output | readiness status | "
+            "production-readiness blocker |"
+        ),
+        "gap map must define no side effect class": "| `none` |",
+        "gap map must define validation side effect class": "| `validation_only` |",
+        "gap map must define local dev side effect class": (
+            "| `local_dev_workspace_only` |"
+        ),
+        "gap map must include visible action map": "## visible action map",
+        "gap map must call out local file review buttons": (
+            "updates local component state for review-only display"
+        ),
+        "gap map must include first product loop gaps": "## first product loop gaps",
+        "gap map must include product language rules": "## product language rules",
+        "gap map must require no hidden authority": "no hidden authority",
+        "gap map must require no fake completion": "no fake completion",
+        "gap map must forbid raw JSON primary UI": (
+            "no raw json as primary ui for operator-critical flows"
+        ),
+        "gap map must mention route status manifest": "route status manifest",
+        "gap map must mention local model readiness": "local model readiness",
+        "gap map must mention GGUF selection": "gguf selection",
+        "gap map must mention loopback llama.cpp settings": (
+            "loopback llama.cpp settings"
+        ),
+        "gap map must mention safe registered capability": (
+            "safe registered capability"
+        ),
+        "gap map must mention rollback refs": "rollback refs",
+        "gap map must include rollback section": "## rollback",
+    }
+    for message, fragment in required_fragments.items():
+        if fragment not in gap_compact:
+            failures.append(message)
+
+    for surface in [
+        "chat shell",
+        "plans",
+        "models",
+        "approvals",
+        "files",
+        "runtime",
+        "evidence",
+        "settings",
+    ]:
+        if f"| {surface} |" not in gap_compact:
+            failures.append(f"gap map missing required surface: {surface}")
+
+    for route in [
+        "`get /v1/models`",
+        "`post /v1/chat/completions`",
+        "`post /task-decomposition/classify`",
+        "`post /task-decomposition/decompose`",
+        "`post /files/read/preview`",
+        "`get /control-center/routes`",
+        "`post /control-center/actions/preview`",
+    ]:
+        if route not in gap_compact:
+            failures.append(f"gap map missing route mapping: {route}")
+
+    for unsafe in [
+        "production ready for external users",
+        "public distribution is available",
+        "control center executes actions",
+        "control center calls models",
+        "plugin runtime import is enabled",
+        "connector writes are enabled",
+        "mobile control is enabled",
+    ]:
+        if unsafe in gap_doc:
+            failures.append(f"gap map contains unsafe claim: {unsafe}")
+
+    board = read_lower("docs/kanban/current_board.md")
+    if "uaa-p0-007 control center operator-shell gap map" not in board:
+        failures.append("current board must track UAA-P0-007 operator-shell gap map")
+    if "gate met: chat, plans, models, approvals, files, runtime, evidence, and" not in board:
+        failures.append("current board must mark UAA-P0-007 gate met")
+    if "pull uaa-p0-007 next" in board:
+        failures.append("current board still contains stale UAA-P0-007 next label")
+    if "uaa-p0-015 llama-server packaging/provenance checklist" not in board:
+        failures.append("current board must keep UAA-P0-015 visible after UAA-P0-007")
+
+    product_truth = read_lower("docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md")
+    if "docs/control_center/operator_shell_gap_map.md" not in product_truth:
+        failures.append("product truth packet must cite operator-shell gap map")
+    if "shipped for the operator-shell gap map" not in product_truth:
+        failures.append("product truth packet must mark operator-shell gap map as shipped")
+    if "blocked for product-readiness claims" not in product_truth:
+        failures.append("product truth packet must keep product-shell claims blocked")
+
+    mock_data = read_lower("apps/control-center/src/mocks/controlCenterData.ts")
+    if "route_count: 93" not in mock_data:
+        failures.append("Control Center mock data must use current 93 route count")
+    if "route_count: 74" in mock_data:
+        failures.append("Control Center mock data contains stale 74 route count")
+
     return failures
 
 
@@ -1479,6 +2894,15 @@ def verify(root: Path = ROOT) -> list[str]:
     active_release_notes = f"docs/release_notes/v{version_key}.md"
     active_gate_plan = f"docs/implementation/foundation_gate_implementation_plan_v{version_key}.md"
     failures.extend(_verify_active_baseline_labels(root, version))
+    failures.extend(_verify_operator_runtime_currentness(root))
+    failures.extend(_verify_public_security_posture(root))
+    failures.extend(_verify_m167_live_model_evidence_matrix(root))
+    failures.extend(_verify_local_model_e2e_smoke_harness(root))
+    failures.extend(_verify_performance_baseline_harness(root))
+    failures.extend(_verify_llama_server_packaging_checklist(root))
+    failures.extend(_verify_tuning_advisor_hardening_cases(root))
+    failures.extend(_verify_local_model_operational_runbook(root))
+    failures.extend(_verify_control_center_operator_shell_gap_map(root))
     for rel_path in [active_import, active_master, active_release_notes, active_gate_plan, *REQUIRED_ACTIVE_DOCS]:
         if not (root / rel_path).exists():
             failures.append(f"missing active documentation file: {rel_path}")

@@ -19,6 +19,11 @@ checksum/signature review, arch compatibility, update handling, rollback,
 offline mode, structured argv, and clear failure messages. Never store raw
 local paths in evidence.
 
+Use `docs/production/LLAMA_SERVER_PACKAGING_PROVENANCE_CHECKLIST.md` as the
+active UAA-P0-015 checklist before treating `llama-server` packaging evidence as
+production-readiness evidence. Unknown or unverified provenance remains blocked
+or not production-ready.
+
 ## Selection Quality
 
 Calibrate fixed ranking weights against labeled real GGUF repos. Confirm hard
@@ -28,10 +33,11 @@ and disk/RAM/VRAM estimates match observed pressure.
 
 ## Tuning Advisor
 
-Detect lag, crashes, OOM, repeated reloads, memory pressure, and slow tokens per
-second. Suggest one change at a time. Apply changes only with approval-bound
-evidence. Restart safely. Rollback to the previous known-good preset after any
-restart failure, crash loop, or worse metric delta.
+Detect lag, out-of-memory pressure, crash loops, reload loops, and slow tokens
+per second. Suggest one safe, bounded, redacted, operator-confirmable change at
+a time. Apply changes only with approval-bound evidence. Restart safely.
+Rollback to the previous known-good preset after any restart failure, crash
+loop, reload loop, or worse metric delta.
 
 ## OpenWebUI Real E2E
 
@@ -54,3 +60,8 @@ downloads, corrupted GGUFs, rollback, credential rotation, metrics/log review,
 safe offline mode, health checks, readiness checks, revocation, and kill switch
 handoff to the approved production gate.
 
+Use `docs/production/LOCAL_MODEL_OPERATIONAL_RUNBOOK.md` as the active
+UAA-P0-017 recovery runbook for cache cleanup, corrupted GGUF, stuck download,
+port conflict, credential rotation, rollback, offline mode, safe evidence
+collection, blocked/unknown model state, and safe-disable decisions. Evidence
+from recovery work must remain safe-ref-only and redacted-summary-only.

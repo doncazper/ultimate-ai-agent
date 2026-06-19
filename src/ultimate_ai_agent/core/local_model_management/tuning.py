@@ -10,6 +10,18 @@ from ultimate_ai_agent.core.local_model_management.contracts import (
     _validate_safe_payload,
 )
 
+M165_TUNING_SIGNAL_KINDS = {
+    "lag",
+    "out_of_memory",
+    "crash",
+    "crash_loop",
+    "memory_pressure",
+    "reload_loop",
+    "slow_tokens_per_second",
+    "error",
+    "unknown",
+}
+
 
 class _M165Model(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -22,33 +34,61 @@ class M165RuntimeObservation(_M165Model):
     count: int = Field(default=1, ge=1)
     raw_prompt_included: bool = False
     raw_response_included: bool = False
+    raw_provider_payload_included: bool = False
     raw_log_included: bool = False
     raw_path_included: bool = False
+    username_included: bool = False
+    hostname_included: bool = False
+    serial_included: bool = False
+    environment_dump_included: bool = False
     secret_included: bool = False
 
     @model_validator(mode="after")
     def validate_shape(self):
         _validate_m61_ref(self.observation_ref, "observation_ref")
-        if self.signal_kind not in {"lag", "crash", "memory_pressure", "reload_loop", "error"}:
+        if self.signal_kind not in M165_TUNING_SIGNAL_KINDS:
             raise ValueError("M165_SIGNAL_KIND_INVALID")
         _validate_safe_text(self.safe_summary, "safe_summary", max_length=240)
+        for field_name, reason in [
+            ("raw_prompt_included", "M165_RAW_PROMPT_DENIED"),
+            ("raw_response_included", "M165_RAW_RESPONSE_DENIED"),
+            ("raw_provider_payload_included", "M165_RAW_PROVIDER_PAYLOAD_DENIED"),
+            ("raw_log_included", "M165_RAW_LOG_DENIED"),
+            ("raw_path_included", "M165_RAW_PATH_DENIED"),
+            ("username_included", "M165_USERNAME_DENIED"),
+            ("hostname_included", "M165_HOSTNAME_DENIED"),
+            ("serial_included", "M165_SERIAL_DENIED"),
+            ("environment_dump_included", "M165_ENVIRONMENT_DUMP_DENIED"),
+            ("secret_included", "M165_SECRET_DENIED"),
+        ]:
+            if getattr(self, field_name):
+                raise ValueError(reason)
         return self
 
 
 class M165TuningRecommendation(_M165Model):
     recommendation_ref: str
+    evidence_ref: str = "evidence-ref:m165:tuning:redacted"
+    rollback_plan_ref: str = "rollback-ref:m165:tuning:pending"
     action_kind: str
     setting_name: str
     suggested_value: str
     safe_reason: str
     advisory_only: bool = True
     one_change_only: bool = True
+    setting_change_count: int = Field(default=1, ge=0, le=1)
+    operator_confirmation_required: bool = True
+    redacted_evidence_only: bool = True
+    rollback_required_before_apply: bool = True
+    unsafe_authority_required: bool = False
     settings_applied: bool = False
     restart_performed: bool = False
 
     @model_validator(mode="after")
     def validate_shape(self):
         _validate_m61_ref(self.recommendation_ref, "recommendation_ref")
+        _validate_m61_ref(self.evidence_ref, "evidence_ref")
+        _validate_m61_ref(self.rollback_plan_ref, "rollback_plan_ref")
         for value, field_name in [
             (self.action_kind, "action_kind"),
             (self.setting_name, "setting_name"),
@@ -99,6 +139,13 @@ class M165SettingsApplyResult(_M165Model):
     active_preset_ref: str
     raw_prompt_logged: bool = False
     raw_response_logged: bool = False
+    raw_provider_payload_logged: bool = False
+    raw_log_logged: bool = False
+    raw_path_logged: bool = False
+    username_logged: bool = False
+    hostname_logged: bool = False
+    serial_logged: bool = False
+    environment_dump_logged: bool = False
     secret_logged: bool = False
     production_authority_granted: bool = False
     safe_summary: str
@@ -149,17 +196,70 @@ def recommend_m165_llama_cpp_adjustment(
     settings = current_settings or {}
     _validate_safe_payload(settings)
     if not validated:
-        return _recommend("noop", "settings", "unchanged", "No redacted lag, crash, or pressure signal was present.")
+        return _recommend(
+            "noop",
+            "settings",
+            "unchanged",
+            "No redacted tuning signal was present; keep current settings.",
+            setting_change_count=0,
+        )
     kinds = [item.signal_kind for item in validated]
+    if "crash_loop" in kinds:
+        return _recommend(
+            "reduce",
+            "ctx-size",
+            _reduced_numeric(settings.get("ctx-size"), default="2048"),
+            "Crash loop signal suggests reducing context before any restart.",
+        )
+    if "out_of_memory" in kinds or "memory_pressure" in kinds:
+        return _recommend(
+            "reduce",
+            "n-gpu-layers",
+            _reduced_numeric(settings.get("n-gpu-layers"), default="0"),
+            "Out-of-memory pressure suggests reducing GPU offload first.",
+        )
     if "crash" in kinds:
-        return _recommend("reduce", "ctx-size", _reduced_numeric(settings.get("ctx-size"), default="2048"), "Crash signal suggests reducing context first.")
-    if "memory_pressure" in kinds:
-        return _recommend("reduce", "n-gpu-layers", _reduced_numeric(settings.get("n-gpu-layers"), default="0"), "Memory pressure suggests reducing GPU offload.")
-    if "lag" in kinds:
-        return _recommend("reduce", "parallel", "1", "Lag signal suggests reducing parallel work before changing model files.")
+        return _recommend(
+            "reduce",
+            "ctx-size",
+            _reduced_numeric(settings.get("ctx-size"), default="2048"),
+            "Crash signal suggests reducing context first.",
+        )
     if "reload_loop" in kinds:
-        return _recommend("enable", "prompt-cache", "on", "Reload loop signal suggests keeping prompt cache enabled.")
-    return _recommend("reduce", "batch-size", "default", "Error signal suggests returning batch settings to default.")
+        return _recommend(
+            "enable",
+            "prompt-cache",
+            "on",
+            "Reload loop signal suggests enabling prompt cache before other changes.",
+        )
+    if "slow_tokens_per_second" in kinds:
+        return _recommend(
+            "reset",
+            "batch-size",
+            "default",
+            "Slow token rate suggests returning batch size to a known safe default.",
+        )
+    if "lag" in kinds:
+        return _recommend(
+            "reduce",
+            "parallel",
+            "1",
+            "Lag signal suggests reducing parallel work before changing model files.",
+        )
+    if "unknown" in kinds:
+        return _recommend(
+            "noop",
+            "settings",
+            "unchanged",
+            "Unknown tuning state requires operator review before any settings change.",
+            setting_change_count=0,
+        )
+    return _recommend(
+        "reset",
+        "batch-size",
+        "default",
+        "Error signal suggests returning batch settings to a known safe default.",
+    )
 
 
 def apply_m165_settings_with_rollback(
@@ -198,6 +298,8 @@ def validate_m165_settings_apply_request(
     validated = M165SettingsApplyRequest.model_validate(apply_request.model_dump())
     if not validated.approved:
         raise ValueError("M165_EXACT_APPROVAL_REQUIRED")
+    if len(validated.settings) != 1:
+        raise ValueError("M165_ONE_SETTING_CHANGE_REQUIRED")
     for field_name, reason in [
         ("raw_prompt_included", "M165_RAW_PROMPT_DENIED"),
         ("raw_response_included", "M165_RAW_RESPONSE_DENIED"),
@@ -215,6 +317,13 @@ def validate_m165_settings_apply_result(
     for field_name, reason in [
         ("raw_prompt_logged", "M165_RAW_PROMPT_DENIED"),
         ("raw_response_logged", "M165_RAW_RESPONSE_DENIED"),
+        ("raw_provider_payload_logged", "M165_RAW_PROVIDER_PAYLOAD_DENIED"),
+        ("raw_log_logged", "M165_RAW_LOG_DENIED"),
+        ("raw_path_logged", "M165_RAW_PATH_DENIED"),
+        ("username_logged", "M165_USERNAME_DENIED"),
+        ("hostname_logged", "M165_HOSTNAME_DENIED"),
+        ("serial_logged", "M165_SERIAL_DENIED"),
+        ("environment_dump_logged", "M165_ENVIRONMENT_DUMP_DENIED"),
         ("secret_logged", "M165_SECRET_DENIED"),
         ("production_authority_granted", "M165_PRODUCTION_AUTHORITY_DENIED"),
     ]:
@@ -229,19 +338,37 @@ def validate_m165_tuning_recommendation(
     validated = M165TuningRecommendation.model_validate(recommendation.model_dump())
     if not validated.advisory_only or not validated.one_change_only:
         raise ValueError("M165_ONE_ADVISORY_CHANGE_REQUIRED")
+    if (
+        not validated.operator_confirmation_required
+        or not validated.redacted_evidence_only
+        or not validated.rollback_required_before_apply
+        or validated.unsafe_authority_required
+    ):
+        raise ValueError("M165_SAFE_OPERATOR_CONFIRMABLE_RECOMMENDATION_REQUIRED")
     if validated.settings_applied or validated.restart_performed:
         raise ValueError("M165_RECOMMENDATION_MUST_NOT_APPLY")
     return validated
 
 
-def _recommend(action_kind: str, setting_name: str, suggested_value: str, safe_reason: str) -> M165TuningRecommendation:
+def _recommend(
+    action_kind: str,
+    setting_name: str,
+    suggested_value: str,
+    safe_reason: str,
+    *,
+    setting_change_count: int = 1,
+) -> M165TuningRecommendation:
+    safe_setting_ref = setting_name.replace("-", "_")
     return validate_m165_tuning_recommendation(
         M165TuningRecommendation(
             recommendation_ref=f"settings-recommendation:m165-{setting_name}",
+            evidence_ref=f"evidence-ref:m165:tuning:{safe_setting_ref}",
+            rollback_plan_ref=f"rollback-ref:m165:tuning:{safe_setting_ref}",
             action_kind=action_kind,
             setting_name=setting_name,
             suggested_value=suggested_value,
             safe_reason=safe_reason,
+            setting_change_count=setting_change_count,
         )
     )
 

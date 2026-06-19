@@ -20,4 +20,7 @@ Gate coverage:
   additions, memory writes, context injection, external observability export,
   production authority, and live model execution in this layer.
 
-M151 remains future.
+Historical note: at the M150/v1.2.0-alpha acceptance point, M151 remained
+future. Later reviewed post-M150 checkpoints accepted M151-M167; current
+Operator Runtime Excellence work starts at M168 and does not change this
+Foundation Gate plan's v1.2.0-alpha scope.

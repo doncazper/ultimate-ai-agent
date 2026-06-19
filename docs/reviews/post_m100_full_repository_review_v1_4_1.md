@@ -69,6 +69,8 @@ authority.
 
 ## Roadmap Impact
 
-M101-M150 are now planned/provisional and do not implement M101. No M151+
-extension was needed because the M1-M100 audit did not identify displaced work
-that should be captured outside the next 50 milestones.
+At the v1.4.1 review point, M101-M150 were planned/provisional and did not
+implement M101. An additional post-M150 extension was not needed for that
+M1-M100 audit because the audit did not identify displaced work that should be
+captured outside the next 50 milestones. Later reviewed post-M150 checkpoints
+accepted M151-M167.

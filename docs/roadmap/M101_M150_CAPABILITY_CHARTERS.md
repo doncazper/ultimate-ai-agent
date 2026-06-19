@@ -163,8 +163,9 @@ product-readiness work. M149 records alpha release candidate freeze as
 contract-only product-readiness work. M150 records the v1.2.0-alpha target as
 contract-only product-readiness work.
 
-No M151+ extension is required by the v1.2.0-alpha orchestration efficiency baseline. Beta begins
-after the alpha UI and other alpha findings are ironed out through later
-reviewed roadmap promotion. If future review finds missed M1-M100 work that
-should not displace M101-M150, add a separate planned/provisional M151+
-extension roadmap through a reviewed patch.
+At the v1.2.0-alpha orchestration efficiency baseline, no M151+ extension was
+required to complete M101-M150. Later reviewed post-M150 checkpoints accepted
+M151-M167 for the local OpenWebUI shell, local model management lane, local
+model production-readiness gate, and live model production hardening. Beta
+still begins only after the alpha UI and other alpha findings are ironed out
+through later reviewed roadmap promotion.
