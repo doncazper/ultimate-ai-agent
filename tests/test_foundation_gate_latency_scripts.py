@@ -14,20 +14,29 @@ class _FakeReport:
 def test_foundation_gate_benchmark_emits_parseable_metrics(monkeypatch):
     monkeypatch.setattr(benchmark_foundation_gate, "_evaluate_once", lambda: _FakeReport())
 
-    metrics = benchmark_foundation_gate._benchmark(repeat=2, warmup=1)
+    metrics = benchmark_foundation_gate._benchmark(
+        repeat=2,
+        warmup=1,
+        path_repeat=1,
+        path_warmup=0,
+        write_report=False,
+    )
 
-    assert metrics["schema_version"] == "foundation_gate_benchmark.v1"
+    assert metrics["schema_version"] == "foundation_gate_benchmark.v2"
     assert metrics["repeat"] == 2
     assert metrics["warmup"] == 1
     assert metrics["foundation_gate_status"] == "passed"
     assert metrics["foundation_gate_result_count"] == 2
     assert len(metrics["foundation_gate_runs_ms"]) == 2
+    assert metrics["release_latency_schema_version"] == "uaa_release_latency_baseline.v1"
+    assert metrics["release_latency_path_repeat"] == 1
+    assert metrics["release_latency_path_warmup"] == 0
 
 
 def test_foundation_gate_latency_guard_emits_parseable_metrics(monkeypatch, capsys):
-    def fake_benchmark(*, repeat: int, warmup: int):
+    def fake_benchmark(*, repeat: int, warmup: int, path_repeat: int, path_warmup: int):
         return {
-            "schema_version": "foundation_gate_benchmark.v1",
+            "schema_version": "foundation_gate_benchmark.v2",
             "repeat": repeat,
             "warmup": warmup,
             "foundation_gate_runs_ms": [10.0],
@@ -35,6 +44,10 @@ def test_foundation_gate_latency_guard_emits_parseable_metrics(monkeypatch, caps
             "foundation_gate_mean_ms": 10.0,
             "foundation_gate_status": "passed",
             "foundation_gate_result_count": 2,
+            "release_latency_overall_status": "passed",
+            "release_latency_path_repeat": path_repeat,
+            "release_latency_path_warmup": path_warmup,
+            "release_latency_path_results": [],
         }
 
     monkeypatch.setattr(benchmark_foundation_gate, "_benchmark", fake_benchmark)
@@ -59,9 +72,9 @@ def test_foundation_gate_latency_guard_emits_parseable_metrics(monkeypatch, caps
 
 
 def test_foundation_gate_latency_guard_fails_when_budget_exceeded(monkeypatch, capsys):
-    def fake_benchmark(*, repeat: int, warmup: int):
+    def fake_benchmark(*, repeat: int, warmup: int, path_repeat: int, path_warmup: int):
         return {
-            "schema_version": "foundation_gate_benchmark.v1",
+            "schema_version": "foundation_gate_benchmark.v2",
             "repeat": repeat,
             "warmup": warmup,
             "foundation_gate_runs_ms": [1500.0],
@@ -69,6 +82,10 @@ def test_foundation_gate_latency_guard_fails_when_budget_exceeded(monkeypatch, c
             "foundation_gate_mean_ms": 1500.0,
             "foundation_gate_status": "passed",
             "foundation_gate_result_count": 2,
+            "release_latency_overall_status": "passed",
+            "release_latency_path_repeat": path_repeat,
+            "release_latency_path_warmup": path_warmup,
+            "release_latency_path_results": [],
         }
 
     monkeypatch.setattr(benchmark_foundation_gate, "_benchmark", fake_benchmark)
