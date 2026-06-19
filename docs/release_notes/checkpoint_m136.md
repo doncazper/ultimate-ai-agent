@@ -5,7 +5,7 @@ Checkpoint M136 implements Cross-Tool Dependency Execution.
 It adds deterministic local cross-tool dependency execution contracts,
 dependency graph validation, deterministic dependency order refs, no-effect
 receipt planning, docs, tests, and Foundation Gate coverage. The current product
-baseline remains v1.7.2 and M150 remains the planned v1.0.0-alpha product
+baseline remains v1.7.2 and M150 remains the planned v1.2.0-alpha product
 target.
 
 M136 is contract-only, review-only, cross-tool-dependency-execution-only,

@@ -1,4 +1,5 @@
 import uuid
+from collections import defaultdict
 from ultimate_ai_agent.core.time import utc_now
 from typing import Dict, List, Optional
 
@@ -24,11 +25,12 @@ class MemoryStore:
 
     def __init__(self):
         self._records: Dict[str, MemoryRecord] = {}
+        self._records_by_scope: dict[object, list[str]] = defaultdict(list)
         self._idempotency: Dict[str, str] = {}
 
     def add_memory(self, record: MemoryRecord) -> MemoryRecord:
         validate_memory_record(record)
-        self._records[record.memory_id] = record
+        self._save_record(record)
         return record
 
     def write_memory(self, request: MemoryWriteRequest) -> MemoryWriteDecision:
@@ -75,7 +77,7 @@ class MemoryStore:
             reason = "SOURCE_REF_REQUIRED" if "source_refs" in str(exc) else "MEMORY_VALIDATION_FAILED"
             return self._write_denied(request, [reason], str(exc))
 
-        self._records[memory_id] = record
+        self._save_record(record)
         self._idempotency[request.idempotency_key] = memory_id
         return MemoryWriteDecision(
             decision_id=f"mwd_{uuid.uuid4().hex[:8]}",
@@ -100,7 +102,7 @@ class MemoryStore:
         memory_type=None,
         status=None,
     ) -> List[MemoryRecord]:
-        records = list(self._records.values())
+        records = self._records_for_scope(scope)
         if scope is not None:
             records = [record for record in records if record.scope == scope]
         if scope_id is not None:
@@ -123,7 +125,8 @@ class MemoryStore:
             )
 
         results = []
-        for record in self._records.values():
+        redactions_applied: set[str] = set()
+        for record in self._records_for_scope(request.scope):
             if record.scope != request.scope:
                 continue
             if request.scope_id and record.scope_id != request.scope_id:
@@ -150,7 +153,7 @@ class MemoryStore:
                     memory_id=record.memory_id,
                     score=score,
                     match_reasons=reasons,
-                    record_summary=record.summary or record.content,
+                    record_summary=self._safe_record_summary(record, redactions_applied),
                     source_refs=record.source_refs,
                     sensitivity=record.sensitivity,
                     status=record.status,
@@ -166,6 +169,7 @@ class MemoryStore:
             results=results[:limit],
             reason_codes=["MEMORY_QUERY_PREVIEWED"],
             safe_message="Memory results are recall only; canonical sources outrank memory.",
+            redactions_applied=sorted(redactions_applied),
             event_ref=request.event_ref if hasattr(request, "event_ref") else None,
         )
 
@@ -215,3 +219,32 @@ class MemoryStore:
             safe_message=safe_message,
             event_ref=request.event_ref,
         )
+
+    def _save_record(self, record: MemoryRecord) -> None:
+        existing = self._records.get(record.memory_id)
+        if existing is not None:
+            self._records_by_scope[existing.scope] = [
+                memory_id
+                for memory_id in self._records_by_scope[existing.scope]
+                if memory_id != record.memory_id
+            ]
+        self._records[record.memory_id] = record
+        if record.memory_id not in self._records_by_scope[record.scope]:
+            self._records_by_scope[record.scope].append(record.memory_id)
+
+    def _records_for_scope(self, scope) -> List[MemoryRecord]:
+        if scope is None:
+            return list(self._records.values())
+        return [
+            self._records[memory_id]
+            for memory_id in self._records_by_scope.get(scope, [])
+            if memory_id in self._records
+        ]
+
+    def _safe_record_summary(self, record: MemoryRecord, redactions_applied: set[str]) -> str:
+        if record.safe_summary:
+            return record.safe_summary
+        if record.summary:
+            return record.summary
+        redactions_applied.add("raw_memory_content_omitted")
+        return "Redacted memory summary unavailable."

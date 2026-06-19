@@ -6,6 +6,8 @@ VENV_PYTHON="$ROOT_DIR/.venv/bin/python"
 LAUNCHER="$ROOT_DIR/scripts/dev/uaa_launcher.py"
 COMMAND="${1:-help}"
 
+export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/Applications/Docker.app/Contents/Resources/bin:$PATH"
+
 if [[ -x "$VENV_PYTHON" ]]; then
   exec "$VENV_PYTHON" "$LAUNCHER" "$@"
 fi

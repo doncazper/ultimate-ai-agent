@@ -10,7 +10,7 @@ import type {
   ResultEnvelope,
   RuntimeCapabilityMatrix,
   RuntimeReadinessReport,
-  ApiRouteInventory
+  ApiRouteInventory,
 } from "./types";
 import { resolveApiBaseUrl } from "./baseUrl";
 import { API_ENDPOINTS } from "./endpoints";
@@ -20,7 +20,7 @@ const API_BASE_POLICY = resolveApiBaseUrl(import.meta.env.VITE_UAA_API_BASE_URL)
 
 async function readEnvelope<T>(endpoint: string): Promise<T> {
   const response = await fetch(`${API_BASE_POLICY.baseUrl}${endpoint}`, {
-    headers: { Accept: "application/json" }
+    headers: { Accept: "application/json" },
   });
   const data = (await response.json()) as ResultEnvelope<T> | T;
   if (!response.ok) {
@@ -44,7 +44,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       state: "mock_fallback",
       safeMessage: API_BASE_POLICY.safeMessage,
       usingMockData: true,
-      warnings: API_BASE_POLICY.warnings
+      warnings: API_BASE_POLICY.warnings,
     });
   }
 
@@ -54,7 +54,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     readEnvelope<ControlCenterStatus>(API_ENDPOINTS.controlCenterStatus),
     readEnvelope<ApiRouteInventory>(API_ENDPOINTS.controlCenterRoutes),
     readEnvelope<RuntimeReadinessReport>(API_ENDPOINTS.runtimeReadiness),
-    readEnvelope<RuntimeCapabilityMatrix>(API_ENDPOINTS.runtimeCapabilityMatrix)
+    readEnvelope<RuntimeCapabilityMatrix>(API_ENDPOINTS.runtimeCapabilityMatrix),
   ] as const);
 
   const manifest = fulfilledValue(results[0]);
@@ -70,7 +70,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       state: "mock_fallback",
       safeMessage: "Backend unavailable; showing non-authoritative mock fallback data.",
       usingMockData: true,
-      warnings: ["LOCAL_BACKEND_UNAVAILABLE", "MOCK_DATA_ONLY"]
+      warnings: ["LOCAL_BACKEND_UNAVAILABLE", "MOCK_DATA_ONLY"],
     });
   }
 
@@ -88,7 +88,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     m36FileReview: mockControlCenterData.m36FileReview,
     m39ContextProposals: mockControlCenterData.m39ContextProposals,
     source: "api",
-    connection: mockControlCenterData.connection
+    connection: mockControlCenterData.connection,
   };
 
   if (fulfilledCount === results.length) {
@@ -96,19 +96,22 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       state: "online",
       safeMessage: "Live data came from local read-only/preview-only backend API routes.",
       usingMockData: false,
-      warnings: []
+      warnings: [],
     });
   }
 
   return withConnection(data, {
     state: "degraded",
-    safeMessage: "Some local backend summaries were unavailable; non-authoritative mock fallback filled missing panels.",
+    safeMessage:
+      "Some local backend summaries were unavailable; non-authoritative mock fallback filled missing panels.",
     usingMockData: true,
-    warnings: ["LOCAL_BACKEND_DEGRADED", "PARTIAL_MOCK_FALLBACK"]
+    warnings: ["LOCAL_BACKEND_DEGRADED", "PARTIAL_MOCK_FALLBACK"],
   });
 }
 
-export async function submitActionPreview(request: ActionPreviewRequest): Promise<ActionPreviewDecision> {
+export async function submitActionPreview(
+  request: ActionPreviewRequest,
+): Promise<ActionPreviewDecision> {
   if (!API_BASE_POLICY.allowed) {
     throw new Error(API_BASE_POLICY.safeMessage);
   }
@@ -116,29 +119,34 @@ export async function submitActionPreview(request: ActionPreviewRequest): Promis
     method: "POST",
     headers: {
       Accept: "application/json",
-      "Content-Type": "application/json"
+      "Content-Type": "application/json",
     },
-    body: JSON.stringify(request)
+    body: JSON.stringify(request),
   });
   const data = (await response.json()) as ResultEnvelope<ActionPreviewDecision>;
   const decision = data.result ?? data.data;
   if (!response.ok || !decision) {
-    throw new Error(sanitizeForDisplay(data.error?.message ?? "Preview request was rejected safely."));
+    throw new Error(
+      sanitizeForDisplay(data.error?.message ?? "Preview request was rejected safely."),
+    );
   }
   return decision;
 }
 
 function withConnection(
   data: ControlCenterData,
-  connection: Pick<BackendConnectionSummary, "state" | "safeMessage" | "usingMockData" | "warnings">
+  connection: Pick<
+    BackendConnectionSummary,
+    "state" | "safeMessage" | "usingMockData" | "warnings"
+  >,
 ): ControlCenterData {
   return {
     ...data,
     connection: {
       ...connection,
       apiBaseLabel: API_BASE_POLICY.label,
-      checkedAt: new Date().toISOString()
-    }
+      checkedAt: new Date().toISOString(),
+    },
   };
 }
 

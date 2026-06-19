@@ -26,4 +26,4 @@ Control Center control, dependency, beta release, or production authority.
 
 M138 remains future Autonomous Error Handling Guardrails work. M137 does not
 implement M138. M137 explicitly records no account auth, no shell execution, no
-network access, and no plugin execution. M150 remains the v1.0.0-alpha target.
+network access, and no plugin execution. M150 remains the v1.2.0-alpha target.

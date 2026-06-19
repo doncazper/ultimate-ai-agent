@@ -19,4 +19,4 @@ content, download attachments, call models, write memory, inject context, add a
 backend route, add a Control Center control, add dependencies, grant broad
 autonomy, release beta, or grant production authority.
 
-M130 remains future. M150 remains the planned v1.0.0-alpha target.
+M130 remains future. M150 remains the planned v1.2.0-alpha target.

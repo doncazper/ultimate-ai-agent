@@ -21,6 +21,14 @@ class ModelRouteDecision(BaseModel):
     safe_message: str = Field(..., min_length=1)
     estimated_cost: Optional[float] = Field(None, ge=0)
     estimated_latency_ms: Optional[float] = Field(None, ge=0)
+    cost_mode: Optional[str] = None
+    fallback_plan_ref: Optional[str] = None
+    fallback_used: bool = False
+    verification_required: bool = False
+    verification_route_id: Optional[str] = None
+    eval_result_id: Optional[str] = None
+    trace_id: Optional[str] = None
+    correlation_id: Optional[str] = None
     privacy_notes: List[str] = Field(default_factory=list)
     required_approval: bool = False
     consent_refs: List[str] = Field(default_factory=list)

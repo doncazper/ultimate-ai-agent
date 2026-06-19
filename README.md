@@ -12,16 +12,17 @@ allowed to become operational authority.
 
 | Field | Current state |
 |---|---|
-| Current active baseline | **v1.7.3** |
-| Current milestone | **M150 - Ultimate AI Agent v1.0.0-alpha** |
+| Current active baseline | **v1.2.0-alpha** |
+| Current milestone | **M150 - Ultimate AI Agent v1.2.0-alpha** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | API boundary | FastAPI route contract with **75** OpenAPI paths |
 | Production readiness | Not claimed |
 
-M150 records Ultimate AI Agent **v1.0.0-alpha** as a local alpha target
-acceptance packet while the package baseline is v1.7.3 for this contract-first
-conveyor run after post-M150 local file-manager hardening. Already-pushed tags
+M150 records Ultimate AI Agent **v1.2.0-alpha** as a local alpha target
+acceptance packet while the package baseline is v1.2.0-alpha for this
+contract-first conveyor run after orchestration efficiency layer currentness.
+Already-pushed tags
 remain immutable historical internal milestone tags. M150 is contract-only,
 review-only, alpha-target-only,
 deterministic, local-only, safe-ref-only, disabled by default, route-free, and
@@ -47,7 +48,7 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M34-M60 roadmap supersession](docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md)
 - [M61-M100 roadmap](docs/roadmap/M61_M100_ROADMAP.md)
 - [M101-M150 planned roadmap](docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md)
-- [M150 Ultimate AI Agent v1.0.0-alpha](docs/productization/ULTIMATE_AI_AGENT_ALPHA.md)
+- [M150 Ultimate AI Agent v1.2.0-alpha](docs/productization/ULTIMATE_AI_AGENT_ALPHA.md)
 - [M149 Alpha Release Candidate Freeze](docs/productization/ALPHA_RELEASE_CANDIDATE_FREEZE.md)
 - [M148 External Security Review](docs/productization/EXTERNAL_SECURITY_REVIEW.md)
 - [M147 Public Docs + Wiki Readiness](docs/productization/PUBLIC_DOCS_WIKI_READINESS.md)
@@ -152,6 +153,9 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M77 OpenWebUI Safe Handoff Execution](docs/openwebui/OPENWEBUI_SAFE_HANDOFF_EXECUTION.md)
 - [M77 OpenWebUI Safe Handoff Policy](docs/openwebui/OPENWEBUI_SAFE_HANDOFF_POLICY.md)
 - [M77 OpenWebUI Safe Handoff Authority Boundary](docs/openwebui/OPENWEBUI_SAFE_HANDOFF_AUTHORITY_BOUNDARY.md)
+- [M151 Local OpenWebUI Test Shell](docs/openwebui/M151_LOCAL_OPENWEBUI_TEST_SHELL.md)
+- [M151 Local OpenWebUI Test Shell Authority Boundary](docs/openwebui/M151_LOCAL_OPENWEBUI_TEST_SHELL_AUTHORITY_BOUNDARY.md)
+- [M151 Local OpenWebUI Test Shell Runbook](docs/openwebui/M151_LOCAL_OPENWEBUI_TEST_SHELL_RUNBOOK.md)
 - [M78 Plugin Manifest Security Model](docs/tooling/PLUGIN_MANIFEST_SECURITY_MODEL.md)
 - [M78 Plugin Manifest Policy](docs/tooling/PLUGIN_MANIFEST_POLICY.md)
 - [M78 Plugin Manifest Authority Boundary](docs/tooling/PLUGIN_MANIFEST_AUTHORITY_BOUNDARY.md)
@@ -323,6 +327,8 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [v1.0.0 master plan](docs/archive/releases/v1_0_0/master_plan.md)
 - [v1.1.0 release packet](docs/archive/releases/v1_1_0/README_IMPORT.md)
 - [v1.1.0 master plan](docs/archive/releases/v1_1_0/master_plan.md)
+- [v1.2.0-alpha release packet](docs/archive/releases/v1_2_0_alpha/README_IMPORT.md)
+- [v1.2.0-alpha master plan](docs/archive/releases/v1_2_0_alpha/master_plan.md)
 - [v1.3.0 release packet](docs/archive/releases/v1_3_0/README_IMPORT.md)
 - [v1.3.0 master plan](docs/archive/releases/v1_3_0/master_plan.md)
 - [v1.4.0 release packet](docs/archive/releases/v1_4_0/README_IMPORT.md)
@@ -337,8 +343,6 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [v1.7.1 master plan](docs/archive/releases/v1_7_1/master_plan.md)
 - [v1.7.2 release packet](docs/archive/releases/v1_7_2/README_IMPORT.md)
 - [v1.7.2 master plan](docs/archive/releases/v1_7_2/master_plan.md)
-- [v1.7.3 release packet](docs/archive/releases/v1_7_3/README_IMPORT.md)
-- [v1.7.3 master plan](docs/archive/releases/v1_7_3/master_plan.md)
 
 ## What This Project Is
 
@@ -354,9 +358,9 @@ Core themes:
 - **Control Center / CCC is the governance client family.** CCC Web exists as a
   local React/Vite control surface for safe summaries, status, and previews.
   Future CCC iOS, Android, and macOS clients are planned, not implemented.
-- **OpenWebUI is the preferred conversational shell direction.** The current
-  repo contains contract and strategy docs, not an operational OpenWebUI
-  integration.
+- **OpenWebUI is the preferred conversational shell direction.** M151 adds a
+  local-dev-only, disabled-by-default, localhost-only OpenWebUI test shell path
+  for `uaa-safe-local`; OpenWebUI is still a shell, not the agent brain.
 - **Memory is recall, not authority.** Memory can help plan recall context, but
   governed source refs outrank memory for truth.
 - **Tool intents are contracts, not execution.** M27 validates tool intent
@@ -403,7 +407,7 @@ Ultimate AI Agent
   Control Center / CCC Web
     Local governance and preview surfaces
   OpenWebUI Strategy
-    Preferred conversational shell direction, contract-only today
+    Local safe smoke shell in M151; no OpenWebUI authority
   Foundation Gate + Verifiers
     Tests, docs integrity, OpenAPI checks, frontend checks, safety scans
 ```
@@ -412,14 +416,116 @@ The project advances by small milestones. Each milestone states what it enables,
 what it blocks, which docs are active, and which tests/verifiers protect the
 boundary.
 
+## Capability Registry
+
+`ultimate_ai_agent.core.capabilities` is the central source of truth for
+agent-facing capabilities. A capability is a typed, provider-neutral record that
+describes a named operation, its input and output schemas, source, tags,
+metadata, risk policy, optional model instructions, examples, and an optional
+internal callable binding. Model-facing adapters export only safe schema fields;
+callable refs and registry metadata are never included in OpenAI or MCP tool
+definitions.
+
+For local smoke testing, use
+`scripts/dev/capability_registry_smoke.py`. It resolves a deterministic
+in-process capability and exports OpenAI/MCP schemas without adding backend
+routes, provider calls, shell/network authority, plugin loading, or production
+authority.
+
+Register native Python capabilities explicitly:
+
+```python
+from pydantic import BaseModel
+
+from ultimate_ai_agent.core.capabilities import (
+    CapabilityPolicy,
+    CapabilityRegistry,
+    RiskLevel,
+    tool_capability,
+)
+
+class ReadTextInput(BaseModel):
+    path: str
+
+class ReadTextOutput(BaseModel):
+    text: str
+
+registry = CapabilityRegistry()
+
+@tool_capability(
+    name="files.read_text",
+    title="Read text file",
+    description="Read a safe text reference from an allowed workspace.",
+    input_model=ReadTextInput,
+    output_model=ReadTextOutput,
+    tags={"files", "read"},
+    policy=CapabilityPolicy(risk=RiskLevel.READ_ONLY, required_scopes={"files:read"}),
+    registry=registry,
+)
+async def read_text(ctx, args: ReadTextInput) -> ReadTextOutput:
+    return ReadTextOutput(text="safe summary")
+```
+
+Group related capabilities with dotted namespaces such as `files.read_text` or
+`github.search_issues`, then resolve a per-run tool set by agent, user scopes,
+tags, and query:
+
+```python
+resolved = registry.resolve(
+    agent_name="orchestrator",
+    user_scopes={"files:read"},
+    query="read file",
+    tags={"files"},
+)
+```
+
+Policy is enforced before execution: allowed agents, required scopes, approval
+requirements, timeouts, retry limits, idempotency, output redaction, and sandbox
+requirements are checked by the registry executor. Approval is pluggable via
+`CapabilityRegistry(approval_callback=...)`. The executor treats model
+arguments as untrusted, validates input and output schemas, emits redacted
+observability events, and returns structured `CapabilityResult` errors that a
+model can correct.
+
+Adapters are thin and provider-neutral:
+
+```python
+from ultimate_ai_agent.core.capabilities.adapters import (
+    capability_to_mcp_tool,
+    capability_to_openai_tool,
+    capability_to_tool_manifest,
+)
+
+openai_tool = capability_to_openai_tool(resolved[0])
+mcp_tool = capability_to_mcp_tool(resolved[0])
+tool_manifest = capability_to_tool_manifest(resolved[0])
+```
+
+External packages can contribute capabilities through entry points named
+`ultimate_ai_agent.capabilities`. Entry points may return a `CapabilityPack`, a
+list of `CapabilitySpec` or `CapabilityRegistration` objects, or a function that
+receives a registry and registers capabilities. Runtime imports are disabled by
+default under the current contract-first boundary; enable them only in controlled
+local development or tests after review:
+
+```python
+registry.discover_entry_points(allow_runtime_imports=True)
+```
+
+This package does not add backend routes, provider SDK calls, browser
+automation, shell execution, plugin enablement, or production authority. It is
+an internal schema, policy, disabled-by-default discovery, adapter, and opt-in
+callable layer for code that has already registered a safe in-process
+capability.
+
 ## Capability Map
 
 | Layer | Current status | Notes |
 |---|---|---|
 | Python Agent Core | Implemented foundation | Contract-first core under `src/ultimate_ai_agent/` |
-| FastAPI backend | Implemented validation/metadata API | OpenAPI path count remains 74 |
+| FastAPI backend | Implemented validation/metadata API | Includes disabled-by-default M151 local OpenWebUI test gateway |
 | CCC Web Control Center | Implemented preview/read-only local shell | React/Vite app under `apps/control-center/` |
-| OpenWebUI bridge | Contract/planning only | Preferred shell strategy; no live integration |
+| OpenWebUI bridge | Local test shell plus contracts | M151 exposes `uaa-safe-local` for local smoke only; no provider/tool/memory/context authority |
 | Local model runtime | Bounded/manual only | M23 fixed-prompt, loopback-only, approval-gated CLI path; model output is non-authoritative |
 | Memory | Implemented governed local foundation | Reviewed/source-linked recall records; no automatic writes |
 | Truth/evidence | Implemented M25 contracts | Deterministic validation over provided refs; no external lookup |

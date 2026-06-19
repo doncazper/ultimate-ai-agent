@@ -5,7 +5,8 @@ import { EmptyState } from "./DataState";
 export function ContextProposalSurfacePanel({ proposals }: { proposals: M39ContextProposalData }) {
   const [selectedRef, setSelectedRef] = useState(proposals.proposals[0]?.proposalRef ?? "");
   const selected =
-    proposals.proposals.find((proposal) => proposal.proposalRef === selectedRef) ?? proposals.proposals[0];
+    proposals.proposals.find((proposal) => proposal.proposalRef === selectedRef) ??
+    proposals.proposals[0];
 
   return (
     <section className="page-section" aria-labelledby="context-proposal-surface-heading">
@@ -17,14 +18,15 @@ export function ContextProposalSurfacePanel({ proposals }: { proposals: M39Conte
         <span className="status-pill compact">review-only</span>
       </div>
       <p className="section-copy">
-        Safe context proposals are shown for local review only. The surface displays redacted proposal sections, exact
-        source binding refs, source-chain refs, decision status, redaction verification, receipt-plan metadata, and
-        denied authority flags.
+        Safe context proposals are shown for local review only. The surface displays redacted
+        proposal sections, exact source binding refs, source-chain refs, decision status, redaction
+        verification, receipt-plan metadata, and denied authority flags.
       </p>
       <p className="safe-copy">{proposals.boundarySummary}</p>
       <p className="safe-copy">
-        Control Center output is not authority. Proposal review here does not hand off to OpenWebUI, inject context,
-        write memory, export data, execute actions, call models, or reveal raw file material.
+        Control Center output is not authority. Proposal review here does not hand off to OpenWebUI,
+        inject context, write memory, export data, execute actions, call models, or reveal raw file
+        material.
       </p>
       <div className="note-list" aria-label="M39 context proposal warnings">
         {proposals.warningCodes.map((code) => (
@@ -47,7 +49,10 @@ export function ContextProposalSurfacePanel({ proposals }: { proposals: M39Conte
           <ContextProposalDetail proposal={selected} />
         </div>
       ) : (
-        <EmptyState title="No context proposals" message="No safe context proposals are available." />
+        <EmptyState
+          title="No context proposals"
+          message="No safe context proposals are available."
+        />
       )}
     </section>
   );
@@ -56,7 +61,7 @@ export function ContextProposalSurfacePanel({ proposals }: { proposals: M39Conte
 function ContextProposalRow({
   proposal,
   selected,
-  onSelect
+  onSelect,
 }: {
   proposal: ContextProposalSummary;
   selected: boolean;
@@ -76,7 +81,11 @@ function ContextProposalRow({
       <p className="review-meta">
         {proposal.redactionStatus} | {proposal.dataClassification}
       </p>
-      <button type="button" className="secondary-button" onClick={() => onSelect(proposal.proposalRef)}>
+      <button
+        type="button"
+        className="secondary-button"
+        onClick={() => onSelect(proposal.proposalRef)}
+      >
         View context proposal
       </button>
     </article>
@@ -95,14 +104,19 @@ function ContextProposalDetail({ proposal }: { proposal: ContextProposalSummary 
       </div>
       <p className="safe-copy">{proposal.safeSummary}</p>
       <p className="safe-copy">
-        Control Center output is not authority. M39 proposal review is display-only and cannot approve handoff,
-        context injection, memory write, export, model call, raw file access, or execution.
+        Control Center output is not authority. M39 proposal review is display-only and cannot
+        approve handoff, context injection, memory write, export, model call, raw file access, or
+        execution.
       </p>
 
       <section aria-labelledby="proposal-sections-heading">
         <h4 id="proposal-sections-heading">Safe proposal sections</h4>
         {proposal.sections.map((section) => (
-          <article className="status-card" key={section.sectionRef} aria-label={`${section.sectionRef} section`}>
+          <article
+            className="status-card"
+            key={section.sectionRef}
+            aria-label={`${section.sectionRef} section`}
+          >
             <div className="status-card-header">
               <h5>{section.title}</h5>
               <span>{section.sectionRef}</span>
@@ -126,7 +140,10 @@ function ContextProposalDetail({ proposal }: { proposal: ContextProposalSummary 
           <DetailTerm label="approval_ref" value={proposal.bindingRefs.approvalRef} />
           <DetailTerm label="review_packet_ref" value={proposal.bindingRefs.reviewPacketRef} />
           <DetailTerm label="preview_result_ref" value={proposal.bindingRefs.previewResultRef} />
-          <DetailTerm label="redaction_summary_ref" value={proposal.bindingRefs.redactionSummaryRef} />
+          <DetailTerm
+            label="redaction_summary_ref"
+            value={proposal.bindingRefs.redactionSummaryRef}
+          />
           <DetailTerm label="file_ref" value={proposal.bindingRefs.fileRef} />
           <DetailTerm label="safe_path_ref" value={proposal.bindingRefs.safePathRef} />
           <DetailTerm label="actor_ref" value={proposal.bindingRefs.actorRef} />
@@ -137,17 +154,43 @@ function ContextProposalDetail({ proposal }: { proposal: ContextProposalSummary 
 
       <dl className="detail-grid">
         <DetailTerm label="Decision status" value={proposal.decisionStatus} />
-        <DetailTerm label="Redaction verification status" value={proposal.redactionVerificationStatus} />
+        <DetailTerm
+          label="Redaction verification status"
+          value={proposal.redactionVerificationStatus}
+        />
         <DetailTerm label="Receipt plan ref" value={proposal.receiptPlan.receiptPlanRef} />
         <DetailTerm label="Receipt plan metadata" value={proposal.receiptPlan.safeSummary} />
-        <DetailTerm label="raw content stored" value={yesNo(proposal.receiptPlan.rawContentStored)} includeInlineText />
-        <DetailTerm label="full file content stored" value={yesNo(proposal.receiptPlan.fullFileContentStored)} />
-        <DetailTerm label="unredacted preview stored" value={yesNo(proposal.receiptPlan.unredactedPreviewStored)} />
-        <DetailTerm label="context injected" value={yesNo(proposal.receiptPlan.contextInjected)} includeInlineText />
-        <DetailTerm label="OpenWebUI handoff performed" value={yesNo(proposal.receiptPlan.openwebuiHandoffPerformed)} />
-        <DetailTerm label="memory write performed" value={yesNo(proposal.receiptPlan.memoryWritePerformed)} />
+        <DetailTerm
+          label="raw content stored"
+          value={yesNo(proposal.receiptPlan.rawContentStored)}
+          includeInlineText
+        />
+        <DetailTerm
+          label="full file content stored"
+          value={yesNo(proposal.receiptPlan.fullFileContentStored)}
+        />
+        <DetailTerm
+          label="unredacted preview stored"
+          value={yesNo(proposal.receiptPlan.unredactedPreviewStored)}
+        />
+        <DetailTerm
+          label="context injected"
+          value={yesNo(proposal.receiptPlan.contextInjected)}
+          includeInlineText
+        />
+        <DetailTerm
+          label="OpenWebUI handoff performed"
+          value={yesNo(proposal.receiptPlan.openwebuiHandoffPerformed)}
+        />
+        <DetailTerm
+          label="memory write performed"
+          value={yesNo(proposal.receiptPlan.memoryWritePerformed)}
+        />
         <DetailTerm label="export performed" value={yesNo(proposal.receiptPlan.exportPerformed)} />
-        <DetailTerm label="execution performed" value={yesNo(proposal.receiptPlan.executionPerformed)} />
+        <DetailTerm
+          label="execution performed"
+          value={yesNo(proposal.receiptPlan.executionPerformed)}
+        />
         <DetailTerm
           label="OpenWebUI handoff authorized"
           value={yesNo(proposal.authority.openwebuiHandoffAuthorized)}
@@ -157,20 +200,33 @@ function ContextProposalDetail({ proposal }: { proposal: ContextProposalSummary 
           label="context injection authorized"
           value={yesNo(proposal.authority.contextInjectionAuthorized)}
         />
-        <DetailTerm label="model call authorized" value={yesNo(proposal.authority.modelCallAuthorized)} />
+        <DetailTerm
+          label="model call authorized"
+          value={yesNo(proposal.authority.modelCallAuthorized)}
+        />
         <DetailTerm
           label="memory write authorized"
           value={yesNo(proposal.authority.memoryWriteAuthorized)}
           includeInlineText
         />
-        <DetailTerm label="export authorized" value={yesNo(proposal.authority.exportAuthorized)} includeInlineText />
+        <DetailTerm
+          label="export authorized"
+          value={yesNo(proposal.authority.exportAuthorized)}
+          includeInlineText
+        />
         <DetailTerm
           label="execution authorized"
           value={yesNo(proposal.authority.executionAuthorized)}
           includeInlineText
         />
-        <DetailTerm label="raw file access authorized" value={yesNo(proposal.authority.rawFileAccessAuthorized)} />
-        <DetailTerm label="truth authority claimed" value={yesNo(proposal.authority.truthAuthorityClaimed)} />
+        <DetailTerm
+          label="raw file access authorized"
+          value={yesNo(proposal.authority.rawFileAccessAuthorized)}
+        />
+        <DetailTerm
+          label="truth authority claimed"
+          value={yesNo(proposal.authority.truthAuthorityClaimed)}
+        />
       </dl>
 
       <TagList label="Reason codes" values={proposal.reasonCodes} />
@@ -179,7 +235,15 @@ function ContextProposalDetail({ proposal }: { proposal: ContextProposalSummary 
   );
 }
 
-function DetailTerm({ label, value, includeInlineText = false }: { label: string; value: string; includeInlineText?: boolean }) {
+function DetailTerm({
+  label,
+  value,
+  includeInlineText = false,
+}: {
+  label: string;
+  value: string;
+  includeInlineText?: boolean;
+}) {
   return (
     <div>
       <dt>{label}</dt>

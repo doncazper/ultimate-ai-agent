@@ -35,12 +35,12 @@ def _is_m46_allowed_ccc_ios_review_receipt_file(rel_path: str) -> bool:
 
 def _current_version() -> str:
     text = (ROOT / "VERSION.md").read_text(encoding="utf-8")
-    match = re.search(r"v\d+\.\d+\.\d+", text)
+    match = re.search(r"v\d+\.\d+\.\d+(?:-[A-Za-z0-9]+(?:[.-][A-Za-z0-9]+)*)?", text)
     return match.group(0) if match else "v0.0.0"
 
 
 def _current_version_tuple() -> tuple[int, int, int]:
-    version = _current_version().lstrip("v")
+    version = _current_version().lstrip("v").split("-", 1)[0]
     return tuple(int(part) for part in version.split("."))  # type: ignore[return-value]
 
 
@@ -201,6 +201,13 @@ SCAN_SEQUENCE = [
     ("M148 external security review scan", "verify_m148_external_security_review"),
     ("M149 alpha release candidate freeze scan", "verify_m149_alpha_release_candidate_freeze"),
     ("M150 Ultimate AI Agent Alpha scan", "verify_m150_ultimate_ai_agent_alpha"),
+    ("M151 local OpenWebUI test shell scan", "verify_m151_local_openwebui_test_shell"),
+    ("M152 local model management contract-only scan", "verify_m152_local_model_management"),
+    ("M153-M165 local model management progression scan", "verify_m153_m165_local_model_management_progression"),
+    ("M160 bounded Hugging Face GGUF search scan", "verify_m160_bounded_hf_gguf_search"),
+    ("M161 local system capability probe scan", "verify_m161_local_system_capability_probe"),
+    ("M162 exact-approved GGUF acquisition scan", "verify_m162_exact_approved_gguf_acquisition"),
+    ("M166 local model production readiness gate scan", "verify_m166_local_model_production_readiness_gate"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -256,6 +263,11 @@ OPENWEBUI_ALLOWED_FRAGMENT_SCAN_FILES = {
     "src/ultimate_ai_agent/core/gate/evaluators.py",
     "src/ultimate_ai_agent/core/hardening_freeze/__init__.py",
     "src/ultimate_ai_agent/core/hardening_freeze/network_browser_openwebui.py",
+    "src/ultimate_ai_agent/core/local_model_management/contracts.py",
+}
+M151_LOCAL_OPENWEBUI_TEST_ROUTES = {
+    "/v1/models",
+    "/v1/chat/completions",
 }
 M22_LOCAL_RUNTIME_FORBIDDEN_FRAGMENTS = (
     "import ollama",
@@ -999,6 +1011,7 @@ def verify_no_local_runtime_activation_implementation():
         "/model-runtime/execute",
     }
     historical_paths = set(paths)
+    historical_paths.difference_update(M151_LOCAL_OPENWEBUI_TEST_ROUTES)
     if len(historical_paths) > 74:
         historical_paths.discard("/files/review/approvals/capture")
     if len(historical_paths) != 74:
@@ -3413,7 +3426,7 @@ def verify_m32_filesystem_metadata_tool_safety():
     policy = manifest.policy
     active_text = (ROOT / "VERSION.md").read_text(encoding="utf-8")
     expected_m32_allowlist = [NOOP_TOOL_REF, FILESYSTEM_METADATA_TOOL_REF]
-    active_match = re.search(r"Current active baseline:\s*\*\*v(\d+)\.(\d+)\.(\d+)\*\*", active_text)
+    active_match = re.search(r"Current active baseline:\s*\*\*v(\d+)\.(\d+)\.(\d+)(?:-[A-Za-z0-9.]+)?\*\*", active_text)
     active_tuple = tuple(int(part) for part in active_match.groups()) if active_match else (0, 0, 0)
     if active_tuple >= (0, 37, 0):
         expected_m32_allowlist.append(REDACTED_FILE_PREVIEW_TOOL_REF)
@@ -4786,7 +4799,8 @@ def verify_m39_ccc_context_proposal_surface_safety():
         sys.path.insert(0, str(ROOT / "src"))
         from ultimate_ai_agent.api.app import app
 
-        paths = app.openapi().get("paths", {})
+        paths = set(app.openapi().get("paths", {}))
+        paths.difference_update(M151_LOCAL_OPENWEBUI_TEST_ROUTES)
     except Exception as exc:
         print(f"FAIL: M39 OpenAPI route validation failed: {exc}")
         sys.exit(1)
@@ -4988,7 +5002,8 @@ def verify_m40_context_handoff_approval_safety():
             print("FAIL: M40 approval_test_ mutation probe did not fail closed")
             sys.exit(1)
 
-        paths = app.openapi().get("paths", {})
+        paths = set(app.openapi().get("paths", {}))
+        paths.difference_update(M151_LOCAL_OPENWEBUI_TEST_ROUTES)
         if len(paths) != 75:
             print(f"FAIL: M40 OpenAPI path count changed: expected 75, found {len(paths)}")
             sys.exit(1)
@@ -7412,7 +7427,7 @@ def verify_m55_redacted_observability_export():
     )
     request = RedactedObservabilityExportRequest(
         request_ref="observability-export-request:verify-all-m55",
-        run_ref="run:verify-all-m55",
+        run_ref="run:run_verify_all_m55",
         export_ref="observability-export:verify-all-m55",
         requested_formats=[ObservabilityExportFormat.internal_redacted_json],
         source_event_refs=["event:evt_verify_all_m55"],
@@ -17549,7 +17564,7 @@ def verify_post_m100_roadmap_reconciliation():
                 ("m149", "alpha release candidate freeze"),
             ]
         ],
-        ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+        ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
     ]
     active_version_text = (ROOT / "VERSION.md").read_text(encoding="utf-8").lower()
     implemented_milestones = set()
@@ -17836,7 +17851,7 @@ def verify_post_m100_roadmap_reconciliation():
         implemented_milestones.add("m150")
     if "m150" in implemented_milestones:
         implemented_m150_row = (
-            "| v1.0.0-alpha | alpha | m150 | ultimate ai agent v1.0.0-alpha | "
+            "| v1.2.0-alpha | alpha | m150 | ultimate ai agent v1.2.0-alpha | "
             "implemented/released |"
         )
         if implemented_m150_row not in roadmap_text:
@@ -17869,7 +17884,7 @@ def verify_post_m100_roadmap_reconciliation():
         if future_semver_row in roadmap_text:
             print(f"FAIL: Future milestone SemVer row remains active: {future_semver_row}")
             sys.exit(1)
-    for fragment in ["v1.0.0-alpha", "beta begins", "do not rewrite"]:
+    for fragment in ["v1.2.0-alpha", "beta begins", "do not rewrite"]:
         if fragment not in roadmap_text:
             print(f"FAIL: Post-M100 roadmap missing alpha versioning policy fragment: {fragment}")
             sys.exit(1)
@@ -19333,7 +19348,7 @@ def verify_m109_mobile_sensor_audit_ledger():
         "no execution",
         "no production authority",
         "m110 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M109 docs missing fragment: {fragment}")
@@ -19558,7 +19573,7 @@ def verify_m110_mobile_sensor_hardening_freeze():
         "no execution",
         "no production authority",
         "m111 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M110 docs missing fragment: {fragment}")
@@ -19784,7 +19799,7 @@ def verify_m111_production_threat_model():
         "no control center control",
         "no dependency",
         "m112 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M111 docs missing fragment: {fragment}")
@@ -19959,7 +19974,7 @@ def verify_m112_user_workspace_identity_model():
         "no control center control",
         "no dependency",
         "m113 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M112 docs missing fragment: {fragment}")
@@ -20159,7 +20174,7 @@ def verify_m113_secrets_boundary_credential_vault():
         "no control center control",
         "no dependency",
         "m114 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M113 docs missing fragment: {fragment}")
@@ -20397,7 +20412,7 @@ def verify_m114_account_connector_contract_review():
         "no control center control",
         "no dependency",
         "m115 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M114 docs missing fragment: {fragment}")
@@ -20636,7 +20651,7 @@ def verify_m115_production_audit_retention_policy():
         "no control center control",
         "no dependency",
         "m116 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M115 docs missing fragment: {fragment}")
@@ -20872,7 +20887,7 @@ def verify_m116_role_based_authority_model():
         "no control center control",
         "no dependency",
         "m117 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M116 docs missing fragment: {fragment}")
@@ -21098,7 +21113,7 @@ def verify_m117_remote_agent_coordination_contract():
         "no control center control",
         "no dependency",
         "m118 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M117 docs missing fragment: {fragment}")
@@ -21305,7 +21320,7 @@ def verify_m118_deployment_mode_matrix():
         "no control center control",
         "no dependency",
         "m119 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M118 docs missing fragment: {fragment}")
@@ -21525,7 +21540,7 @@ def verify_m119_production_red_team_harness():
         "no control center control",
         "no dependency",
         "m120 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M119 docs missing fragment: {fragment}")
@@ -21739,7 +21754,7 @@ def verify_m120_production_authority_readiness_review():
         "no control center control",
         "no dependency",
         "m121 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M120 docs missing fragment: {fragment}")
@@ -21962,7 +21977,7 @@ def verify_m121_email_connector_contract_refresh():
         "no control center control",
         "no dependency",
         "m122 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M121 docs missing fragment: {fragment}")
@@ -22188,7 +22203,7 @@ def verify_m122_calendar_connector_contract_refresh():
         "no control center control",
         "no dependency",
         "m123 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M122 docs missing fragment: {fragment}")
@@ -22421,7 +22436,7 @@ def verify_m123_contacts_connector_contract_refresh():
         "no control center control",
         "no dependency",
         "m124 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M123 docs missing fragment: {fragment}")
@@ -22532,7 +22547,7 @@ def verify_m124_messages_connector_contract_review():
         "no control center control",
         "no dependency",
         "m125 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M124 docs missing fragment: {fragment}")
@@ -22637,7 +22652,7 @@ def verify_m125_connector_read_only_runtime():
         "no control center control",
         "no dependency",
         "m126 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M125 docs missing fragment: {fragment}")
@@ -22743,7 +22758,7 @@ def verify_m126_connector_approval_capture():
         "no control center control",
         "no dependency",
         "m127 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M126 docs missing fragment: {fragment}")
@@ -22852,7 +22867,7 @@ def verify_m127_connector_write_dry_run_planner():
         "no control center control",
         "no dependency",
         "m128 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M127 docs missing fragment: {fragment}")
@@ -22974,7 +22989,7 @@ def verify_m128_connector_write_execution_low_risk():
         "no dependency",
         "no production authority",
         "m129 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M128 docs missing fragment: {fragment}")
@@ -23191,7 +23206,7 @@ def verify_m129_connector_audit_revocation_hardening():
         "no control center control",
         "no dependency",
         "m130 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M129 docs missing fragment: {fragment}")
@@ -23438,7 +23453,7 @@ def verify_m130_connector_safety_freeze():
         "no control center control",
         "no dependency",
         "m131 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M130 docs missing fragment: {fragment}")
@@ -23671,7 +23686,7 @@ def verify_m131_autonomy_mode4_scoped_work_session():
         "no control center control",
         "no dependency",
         "m132 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M131 docs missing fragment: {fragment}")
@@ -23913,7 +23928,7 @@ def verify_m132_trusted_recurring_workflow():
         "no control center control",
         "no dependency",
         "m133 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M132 docs missing fragment: {fragment}")
@@ -24167,7 +24182,7 @@ def verify_m133_long_running_task_supervisor():
         "no control center control",
         "no dependency",
         "m134 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M133 docs missing fragment: {fragment}")
@@ -24436,7 +24451,7 @@ def verify_m134_human_checkpoint_scheduling():
         "no control center control",
         "no dependency",
         "m135 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M134 docs missing fragment: {fragment}")
@@ -24705,7 +24720,7 @@ def verify_m135_autonomous_recovery_planner():
         "no control center control",
         "no dependency",
         "m136 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M135 docs missing fragment: {fragment}")
@@ -24946,7 +24961,7 @@ def verify_m136_cross_tool_dependency_execution():
         "no control center control",
         "no dependency",
         "m137 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M136 docs missing fragment: {fragment}")
@@ -25207,7 +25222,7 @@ def verify_m137_browser_connector_combined_workflow():
         "no control center control",
         "no dependency",
         "m138 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M137 docs missing fragment: {fragment}")
@@ -25465,7 +25480,7 @@ def verify_m138_autonomous_error_handling_guardrails():
         "no control center control",
         "no dependency",
         "m139 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M138 docs missing fragment: {fragment}")
@@ -25731,7 +25746,7 @@ def verify_m139_autonomy_abuse_loop_detection():
         "no control center control",
         "no dependency",
         "m140 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M139 docs missing fragment: {fragment}")
@@ -25988,7 +26003,7 @@ def verify_m140_higher_autonomy_red_team_freeze():
         "no control center control",
         "no dependency",
         "m141 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M140 docs missing fragment: {fragment}")
@@ -26219,7 +26234,7 @@ def verify_m141_multi_user_product_boundary():
         "no beta release",
         "no production authority",
         "m142 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M141 docs missing fragment: {fragment}")
@@ -26428,7 +26443,7 @@ def verify_m142_alpha_privacy_review():
         "no beta release",
         "no production authority",
         "m143 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M142 docs missing fragment: {fragment}")
@@ -26600,7 +26615,7 @@ def verify_m143_alpha_ui_app_readiness():
         "no beta release",
         "no production authority",
         "m144 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M143 docs missing fragment: {fragment}")
@@ -26787,7 +26802,7 @@ def verify_m144_plugin_marketplace_policy_draft():
         "no beta release",
         "no production authority",
         "m145 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M144 docs missing fragment: {fragment}")
@@ -26990,7 +27005,7 @@ def verify_m145_enterprise_pro_safety_modes():
         "no beta release",
         "no production authority",
         "m146 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M145 docs missing fragment: {fragment}")
@@ -27189,7 +27204,7 @@ def verify_m146_billing_plan_boundary():
         "no beta release",
         "no production authority",
         "m147 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M146 docs missing fragment: {fragment}")
@@ -27401,7 +27416,7 @@ def verify_m147_public_docs_wiki_readiness():
         "no beta release",
         "no production authority",
         "m148 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M147 docs missing fragment: {fragment}")
@@ -27625,7 +27640,7 @@ def verify_m148_external_security_review():
         "no beta release",
         "no production authority",
         "m149 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M148 docs missing fragment: {fragment}")
@@ -27839,7 +27854,7 @@ def verify_m149_alpha_release_candidate_freeze():
         "no dependency",
         "no production authority",
         "m150 remains future",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
     ]:
         if fragment not in docs_text:
             print(f"FAIL: M149 docs missing fragment: {fragment}")
@@ -28019,7 +28034,7 @@ def verify_m150_ultimate_ai_agent_alpha():
     )
     for fragment in [
         "ultimate ai agent",
-        "v1.0.0-alpha",
+        "v1.2.0-alpha",
         "contract-only",
         "review-only",
         "alpha-target-only",
@@ -28086,7 +28101,7 @@ def verify_m150_ultimate_ai_agent_alpha():
     record = build_ultimate_ai_agent_alpha_record(_request())
     if (
         record.status != UltimateAiAgentAlphaStatus.alpha_target_recorded
-        or record.product_target_ref != "product-target:v1.0.0-alpha"
+        or record.product_target_ref != "product-target:v1.2.0-alpha"
         or not record.contract_only
         or not record.review_only
         or not record.alpha_target_only
@@ -28195,6 +28210,606 @@ def verify_m150_ultimate_ai_agent_alpha():
 
     print(
         "OK: M150 Ultimate AI Agent Alpha is review-only, alpha-target-only, disabled-by-default, safe-ref-only, and route-free"
+    )
+
+
+def verify_m151_local_openwebui_test_shell():
+    print("\n[Verifier] Running M151 local OpenWebUI test shell guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/openwebui_bridge/local_test_shell.py",
+        "docs/openwebui/M151_LOCAL_OPENWEBUI_TEST_SHELL.md",
+        "docs/openwebui/M151_LOCAL_OPENWEBUI_TEST_SHELL_AUTHORITY_BOUNDARY.md",
+        "docs/openwebui/M151_LOCAL_OPENWEBUI_TEST_SHELL_RUNBOOK.md",
+        "tests/test_m151_openwebui_local_test_shell.py",
+        "tests/test_m151_openwebui_local_gateway_api.py",
+        "tests/test_dev_launcher.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M151 local OpenWebUI test shell file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = " ".join(
+        "\n".join(
+            (ROOT / rel_path).read_text(encoding="utf-8").lower()
+            for rel_path in required_files
+            if rel_path.startswith("docs/")
+        ).split()
+    )
+    for fragment in [
+        "m151 local openwebui test shell",
+        "local-dev-only",
+        "disabled by default",
+        "localhost-only",
+        "openwebui is a shell, not the agent brain",
+        "openai-compatible",
+        "uaa-safe-local",
+        "no provider call",
+        "no tool execution",
+        "no memory write",
+        "no context injection",
+        "no external network",
+        "no raw prompt logging",
+        "no production authority",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M151 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    for rel_path in ["pyproject.toml", "apps/control-center/package.json"]:
+        path = ROOT / rel_path
+        if not path.exists():
+            continue
+        text = path.read_text(encoding="utf-8").lower()
+        for fragment in ['"openwebui"', '"open-webui"', "openwebui==", "open-webui=="]:
+            if fragment in text:
+                print(f"FAIL: M151 must not add OpenWebUI dependency in {rel_path}: {fragment}")
+                sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.openwebui_bridge import (
+            UAA_OPENWEBUI_TEST_MODEL_ID,
+            OpenWebUILocalChatCompletionRequest,
+            build_default_openwebui_local_test_shell_policy,
+            build_openwebui_local_chat_completion_response,
+            openwebui_test_gateway_authorized,
+            openwebui_test_gateway_enabled,
+        )
+    except Exception as exc:
+        print(f"FAIL: M151 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    paths = set(app.openapi().get("paths", {}))
+    for route in M151_LOCAL_OPENWEBUI_TEST_ROUTES:
+        if route not in paths:
+            print(f"FAIL: M151 expected local OpenWebUI test route missing: {route}")
+            sys.exit(1)
+
+    policy = build_default_openwebui_local_test_shell_policy()
+    if (
+        not policy.local_dev_only
+        or not policy.disabled_by_default
+        or not policy.localhost_only
+        or not policy.openai_compatible_gateway
+        or not policy.deterministic_response_only
+        or policy.openwebui_is_agent_brain
+        or policy.provider_call_enabled
+        or policy.model_authority_enabled
+        or policy.tool_execution_enabled
+        or policy.memory_write_enabled
+        or policy.context_injection_enabled
+        or policy.external_network_enabled
+        or policy.raw_prompt_logging_enabled
+        or policy.raw_provider_payload_exposure_enabled
+        or policy.dependency_added
+        or policy.production_authority_enabled
+    ):
+        print("FAIL: M151 local OpenWebUI policy is unsafe")
+        sys.exit(1)
+
+    if openwebui_test_gateway_enabled({}):
+        print("FAIL: M151 local OpenWebUI gateway must be disabled by default")
+        sys.exit(1)
+    if not openwebui_test_gateway_authorized("Bearer uaa-local-test", {}):
+        print("FAIL: M151 local OpenWebUI gateway did not accept the local smoke bearer value")
+        sys.exit(1)
+
+    request = OpenWebUILocalChatCompletionRequest(
+        model=UAA_OPENWEBUI_TEST_MODEL_ID,
+        messages=[{"role": "user", "content": "token=do-not-echo"}],
+    )
+    response = build_openwebui_local_chat_completion_response(request)
+    response_text = str(response)
+    if "do-not-echo" in response_text:
+        print("FAIL: M151 local OpenWebUI response echoed raw prompt content")
+        sys.exit(1)
+    safety = response.get("uaa_safety", {})
+    for key in [
+        "provider_called",
+        "model_authority_granted",
+        "tool_executed",
+        "memory_written",
+        "context_injected",
+        "external_network_called",
+        "raw_prompt_logged",
+        "raw_provider_payload_exposed",
+        "production_authority_granted",
+    ]:
+        if safety.get(key) is not False:
+            print(f"FAIL: M151 local OpenWebUI safety flag is not false: {key}")
+            sys.exit(1)
+
+    launcher_text = (ROOT / "scripts/dev/uaa_launcher.py").read_text(encoding="utf-8").lower()
+    for fragment in [
+        "openwebui",
+        'openwebui_host = "127.0.0.1"',
+        "openwebui_port = 3000",
+        "uaa_openwebui_test_gateway_enabled",
+        "uaa-safe-local",
+    ]:
+        if fragment not in launcher_text:
+            print(f"FAIL: M151 launcher missing fragment: {fragment}")
+            sys.exit(1)
+
+    print(
+        "OK: M151 local OpenWebUI test shell is disabled-by-default, localhost-only, deterministic, and no-authority"
+    )
+
+
+def verify_m152_local_model_management():
+    print("\n[Verifier] Running M152 local model management guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/local_model_management/__init__.py",
+        "src/ultimate_ai_agent/core/local_model_management/contracts.py",
+        "src/ultimate_ai_agent/core/model_runtime/local_model_management.py",
+        "docs/model_management/LOCAL_MODEL_MANAGEMENT_CHARTER.md",
+        "docs/model_management/LOCAL_MODEL_MANAGEMENT_AUTHORITY_BOUNDARY.md",
+        "docs/model_management/LOCAL_MODEL_MANAGEMENT_NON_GOALS.md",
+        "docs/model_management/LOCAL_MODEL_MANAGEMENT_RECEIPT_PLAN.md",
+        "docs/model_management/M152_TO_M153_BOUNDARY.md",
+        "tests/test_m152_local_model_management.py",
+        "tests/test_m152_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M152 local model management file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = " ".join(
+        "\n".join(
+            (ROOT / rel_path).read_text(encoding="utf-8").lower()
+            for rel_path in required_files
+            if rel_path.startswith("docs/")
+        ).split()
+    )
+    for fragment in [
+        "m152 local model management",
+        "post-m151",
+        "contract-only",
+        "review-only",
+        "metadata-only",
+        "local-only",
+        "safe-ref-only",
+        "disabled by default",
+        "route-free",
+        "no-effect",
+        "model refs",
+        "model profile refs",
+        "model artifact refs",
+        "no network access",
+        "no subprocess",
+        "no llama.cpp import",
+        "no llama.cpp server",
+        "no hugging face hub import",
+        "no hugging face hub download",
+        "no downloads",
+        "no model load",
+        "no model unload",
+        "no model delete",
+        "no model/provider call",
+        "no backend route",
+        "no control center execute control",
+        "no dependency",
+        "no memory write",
+        "no context injection",
+        "no tool execution",
+        "no production authority",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M152 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.core.gate.criteria import (
+            default_foundation_gate_criteria,
+        )
+        from ultimate_ai_agent.core.gate.evaluators import FoundationGateEvaluator
+    except Exception as exc:
+        print(f"FAIL: M152 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    criteria = {
+        criterion.criterion_id: criterion
+        for criterion in default_foundation_gate_criteria()
+    }
+    criterion_ids = [
+        "m152_local_model_management_contracts",
+        "m152_local_model_management_static_safety",
+        "m152_local_model_management_route_boundary",
+    ]
+    for criterion_id in criterion_ids:
+        if criterion_id not in criteria:
+            print(f"FAIL: Missing M152 Foundation Gate criterion: {criterion_id}")
+            sys.exit(1)
+    evaluator = FoundationGateEvaluator(ROOT)
+    for criterion_id in criterion_ids:
+        gate_report = evaluator.evaluate([criteria[criterion_id]])
+        result = gate_report.results[0]
+        if result.status != "passed":
+            print(f"FAIL: {criterion_id} failed: {result.failures}")
+            sys.exit(1)
+
+    print(
+        "OK: M152 local model management is contract-only, review-only, metadata-only, route-free, and no-authority"
+    )
+
+
+def verify_m153_m165_local_model_management_progression():
+    print("\n[Verifier] Running M153-M165 local model management progression guard...")
+    required_files = [
+        "docs/model_management/M153_M165_LOCAL_MODEL_MANAGEMENT_PROGRESSION.md",
+        "docs/model_management/M160_M165_LIVE_LANE_BOUNDARY.md",
+        "tests/test_m153_m165_local_model_management_progression.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M153-M165 local model management file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = " ".join(
+        "\n".join(
+            (ROOT / rel_path).read_text(encoding="utf-8").lower()
+            for rel_path in required_files
+            if rel_path.startswith("docs/")
+        ).split()
+    )
+    for index in range(153, 166):
+        if f"m{index}" not in docs_text:
+            print(f"FAIL: M153-M165 docs missing checkpoint m{index}")
+            sys.exit(1)
+    for fragment in [
+        "safe_contract",
+        "live_bounded_read_only",
+        "live_exact_approved_acquisition",
+        "live_llama_cpp_supervisor",
+        "live_openai_gateway",
+        "live_settings_tuning",
+        "future_live_contract_only",
+        "m160 live bounded read-only hf gguf search only",
+        "m161 live bounded read-only local system capability probing only",
+        "m162 live exact-approved gguf acquisition only",
+        "m163 live loopback llama.cpp supervisor only",
+        "m164 live local `/v1` gateway only",
+        "m165 live approved settings tuning only",
+        "no unapproved downloads",
+        "no shell string",
+        "no non-loopback llama.cpp server",
+        "tools/functions and streaming remain disabled",
+        "no raw prompt",
+        "no raw response",
+        "no serials",
+        "no usernames",
+        "no raw paths",
+        "no environment dump",
+        "no broad scans",
+        "no control center execute controls",
+        "no dependency",
+        "no memory write",
+        "no context injection",
+        "no tool execution",
+        "no production authority",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M153-M165 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.core.gate.criteria import (
+            default_foundation_gate_criteria,
+        )
+        from ultimate_ai_agent.core.gate.evaluators import FoundationGateEvaluator
+    except Exception as exc:
+        print(f"FAIL: M153-M165 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    criteria = {
+        criterion.criterion_id: criterion
+        for criterion in default_foundation_gate_criteria()
+    }
+    criterion_id = "m153_m165_local_model_management_progression"
+    if criterion_id not in criteria:
+        print(f"FAIL: Missing M153-M165 Foundation Gate criterion: {criterion_id}")
+        sys.exit(1)
+    evaluator = FoundationGateEvaluator(ROOT)
+    gate_report = evaluator.evaluate([criteria[criterion_id]])
+    result = gate_report.results[0]
+    if result.status != "passed":
+        print(f"FAIL: {criterion_id} failed: {result.failures}")
+        sys.exit(1)
+
+    print(
+        "OK: M153-M165 local model management progression is exact-bound, lane-bound, disabled, and no-authority"
+    )
+
+
+def verify_m160_bounded_hf_gguf_search():
+    print("\n[Verifier] Running M160 bounded Hugging Face GGUF search guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/local_model_management/hf_search.py",
+        "docs/model_management/M160_HUGGING_FACE_GGUF_SEARCH.md",
+        "tests/test_m160_hf_gguf_search.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M160 Hugging Face GGUF search file: {rel_path}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.core.gate.criteria import (
+            default_foundation_gate_criteria,
+        )
+        from ultimate_ai_agent.core.gate.evaluators import FoundationGateEvaluator
+    except Exception as exc:
+        print(f"FAIL: M160 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    criteria = {
+        criterion.criterion_id: criterion
+        for criterion in default_foundation_gate_criteria()
+    }
+    criterion_id = "m160_bounded_hf_gguf_search_static_safety"
+    if criterion_id not in criteria:
+        print(f"FAIL: Missing M160 Foundation Gate criterion: {criterion_id}")
+        sys.exit(1)
+    evaluator = FoundationGateEvaluator(ROOT)
+    gate_report = evaluator.evaluate([criteria[criterion_id]])
+    result = gate_report.results[0]
+    if result.status != "passed":
+        print(f"FAIL: {criterion_id} failed: {result.failures}")
+        sys.exit(1)
+
+    print(
+        "OK: M160 bounded Hugging Face GGUF search is core-only, stdlib-only, read-only, and no-download"
+    )
+
+
+def verify_m161_local_system_capability_probe():
+    print("\n[Verifier] Running M161 local system capability probe guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/local_model_management/system_probe.py",
+        "docs/model_management/M161_LOCAL_SYSTEM_CAPABILITY_PROBE.md",
+        "tests/test_m161_local_system_probe.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M161 local system probe file: {rel_path}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.core.gate.criteria import (
+            default_foundation_gate_criteria,
+        )
+        from ultimate_ai_agent.core.gate.evaluators import FoundationGateEvaluator
+    except Exception as exc:
+        print(f"FAIL: M161 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    criteria = {
+        criterion.criterion_id: criterion
+        for criterion in default_foundation_gate_criteria()
+    }
+    criterion_id = "m161_local_system_probe_static_safety"
+    if criterion_id not in criteria:
+        print(f"FAIL: Missing M161 Foundation Gate criterion: {criterion_id}")
+        sys.exit(1)
+    evaluator = FoundationGateEvaluator(ROOT)
+    gate_report = evaluator.evaluate([criteria[criterion_id]])
+    result = gate_report.results[0]
+    if result.status != "passed":
+        print(f"FAIL: {criterion_id} failed: {result.failures}")
+        sys.exit(1)
+
+    print(
+        "OK: M161 local system probe is core-only, stdlib-only, redacted, bucketed, and no-execution"
+    )
+
+
+def verify_m162_exact_approved_gguf_acquisition():
+    print("\n[Verifier] Running M162 exact-approved GGUF acquisition guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/local_model_management/model_acquisition.py",
+        "docs/model_management/M162_GGUF_MODEL_ACQUISITION.md",
+        "tests/test_m162_model_acquisition.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M162 GGUF acquisition file: {rel_path}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.core.gate.criteria import (
+            default_foundation_gate_criteria,
+        )
+        from ultimate_ai_agent.core.gate.evaluators import FoundationGateEvaluator
+    except Exception as exc:
+        print(f"FAIL: M162 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    criteria = {
+        criterion.criterion_id: criterion
+        for criterion in default_foundation_gate_criteria()
+    }
+    criterion_id = "m162_exact_approved_gguf_acquisition_static_safety"
+    if criterion_id not in criteria:
+        print(f"FAIL: Missing M162 Foundation Gate criterion: {criterion_id}")
+        sys.exit(1)
+    evaluator = FoundationGateEvaluator(ROOT)
+    gate_report = evaluator.evaluate([criteria[criterion_id]])
+    result = gate_report.results[0]
+    if result.status != "passed":
+        print(f"FAIL: {criterion_id} failed: {result.failures}")
+        sys.exit(1)
+
+    print(
+        "OK: M162 GGUF acquisition is exact-approved, stdlib-only, cache-bound, and no-model-call"
+    )
+
+
+def verify_m166_local_model_production_readiness_gate():
+    print("\n[Verifier] Running M166 local model production readiness gate guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/production_readiness/production_release_gate.py",
+        "docs/production/LOCAL_MODEL_PRODUCTION_READINESS_GATE.md",
+        "docs/production/LOCAL_MODEL_PRODUCTION_READINESS_BOUNDARY.md",
+        "docs/production/LOCAL_MODEL_PRODUCTION_READINESS_RECEIPT_PLAN.md",
+        "docs/production/LOCAL_MODEL_PRODUCTION_READINESS_NON_GOALS.md",
+        "docs/production/M166_PRODUCTION_AUTHORITY_GATE.md",
+        "docs/release_notes/checkpoint_m166.md",
+        "tests/test_m166_local_model_production_readiness.py",
+        "tests/test_m166_gate_integration.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing M166 production readiness file: {rel_path}")
+            sys.exit(1)
+
+    docs_text = " ".join(
+        "\n".join(
+            (ROOT / rel_path).read_text(encoding="utf-8").lower()
+            for rel_path in required_files
+            if rel_path.startswith("docs/")
+        ).split()
+    )
+    for fragment in [
+        "production authority granted",
+        "live install/run tests",
+        "openwebui e2e tests",
+        "security review",
+        "packaging",
+        "operational rollback",
+        "load tests",
+        "all required evidence is green",
+        "revocable",
+        "replay-safe",
+        "redacted summary only",
+        "localhost-only",
+        "no raw prompt",
+        "no raw response",
+        "no raw provider payload",
+        "no credential",
+        "no raw local path",
+        "no raw log",
+        "no backend route",
+        "no control center control",
+        "no openwebui admin",
+        "no openwebui plugin",
+        "no dependency",
+        "no unreviewed side effects",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: M166 docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.core.gate.criteria import (
+            default_foundation_gate_criteria,
+        )
+        from ultimate_ai_agent.core.gate.evaluators import FoundationGateEvaluator
+        from ultimate_ai_agent.core.production_readiness import (
+            REQUIRED_M166_EVIDENCE_KINDS,
+            ProductionReadinessEvidenceKind,
+            build_m166_green_production_readiness_evidence,
+            build_m166_production_release_gate_record,
+            validate_m166_production_release_gate_record,
+        )
+    except Exception as exc:
+        print(f"FAIL: M166 guard imports could not load: {exc}")
+        sys.exit(1)
+
+    gate = build_m166_production_release_gate_record(
+        evidence_records=build_m166_green_production_readiness_evidence()
+    )
+    expected_kinds = [
+        ProductionReadinessEvidenceKind(kind)
+        for kind in REQUIRED_M166_EVIDENCE_KINDS
+    ]
+    if (
+        gate.source_checkpoint_ref != "checkpoint:m165"
+        or gate.required_evidence_kinds != expected_kinds
+        or not gate.production_authority_granted
+        or not gate.production_runtime_authorized
+        or not gate.go_live_authorized
+        or not gate.production_deployment_authorized
+        or not gate.traffic_routing_authorized
+        or not gate.all_evidence_passed
+        or not gate.redacted_evidence_only
+        or not gate.rollback_ready
+        or gate.side_effects_performed
+    ):
+        print("FAIL: M166 production release gate is not green-authority-bound")
+        sys.exit(1)
+    for update, reason in [
+        ({"production_authority_granted": False}, "M166_PRODUCTION_AUTHORITY_GRANT_REQUIRED"),
+        ({"raw_prompt_exported": True}, "M166_RAW_PROMPT_DENIED"),
+        ({"credential_material_exported": True}, "M166_CREDENTIAL_MATERIAL_DENIED"),
+        ({"backend_route_added": True}, "M166_BACKEND_ROUTE_DENIED"),
+        ({"side_effects_performed": ["deploy"]}, "M166_RELEASE_GATE_SIDE_EFFECTS_DENIED"),
+    ]:
+        try:
+            validate_m166_production_release_gate_record(gate.model_copy(update=update))
+            print(f"FAIL: M166 unsafe gate mutation was not denied: {update}")
+            sys.exit(1)
+        except ValueError as exc:
+            if reason not in str(exc):
+                print(f"FAIL: M166 unsafe gate mutation raised {exc!s}")
+                sys.exit(1)
+
+    criteria = {
+        criterion.criterion_id: criterion
+        for criterion in default_foundation_gate_criteria()
+    }
+    evaluator = FoundationGateEvaluator(ROOT)
+    for criterion_id in [
+        "m166_local_model_production_readiness_contracts",
+        "m166_local_model_production_readiness_static_safety",
+        "m166_local_model_production_readiness_route_boundary",
+    ]:
+        if criterion_id not in criteria:
+            print(f"FAIL: Missing M166 Foundation Gate criterion: {criterion_id}")
+            sys.exit(1)
+        gate_report = evaluator.evaluate([criteria[criterion_id]])
+        result = gate_report.results[0]
+        if result.status != "passed":
+            print(f"FAIL: {criterion_id} failed: {result.failures}")
+            sys.exit(1)
+
+    print(
+        "OK: M166 local model production readiness gate grants authority only from green redacted evidence"
     )
 
 
@@ -28430,9 +29045,15 @@ def verify_no_shell_execution_in_runtime():
         "popen(",
         "subprocess.",
     ]
+    allowed_shell_files = {
+        "src/ultimate_ai_agent/core/local_model_management/llama_cpp_supervisor.py",
+    }
     for p in (ROOT / "src").rglob("*.py"):
         try:
-            if p.relative_to(ROOT).as_posix() == "src/ultimate_ai_agent/core/gate/evaluators.py":
+            rel_path = p.relative_to(ROOT).as_posix()
+            if rel_path == "src/ultimate_ai_agent/core/gate/evaluators.py":
+                continue
+            if rel_path in allowed_shell_files:
                 continue
             content = p.read_text(encoding="utf-8")
             for line in content.splitlines():

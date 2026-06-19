@@ -12,9 +12,18 @@ class CostEstimate(BaseModel):
     output_tokens: int = Field(..., ge=0)
     total_tokens: int = Field(..., ge=0)
     estimated_cost_usd: Optional[float] = Field(..., ge=0)
+    estimated_token_cost_usd: Optional[float] = Field(None, ge=0)
     estimated_runtime_seconds: Optional[float] = Field(None, ge=0)
     estimated_memory_gb: Optional[float] = Field(None, ge=0)
     estimated_vram_gb: Optional[float] = Field(None, ge=0)
+    estimated_cache_write_tokens: int = Field(default=0, ge=0)
+    estimated_cache_hit_tokens: int = Field(default=0, ge=0)
+    estimated_retrieval_cost_usd: Optional[float] = Field(None, ge=0)
+    estimated_tool_cost_usd: Optional[float] = Field(None, ge=0)
+    estimated_observability_bytes: int = Field(default=0, ge=0)
+    retrieval_estimate_refs: list[str] = Field(default_factory=list)
+    tool_result_estimate_refs: list[str] = Field(default_factory=list)
+    human_review_estimate_refs: list[str] = Field(default_factory=list)
     model_profile_id: Optional[str] = None
     provider_id: Optional[str] = None
     unknown_cost: bool = False

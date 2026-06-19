@@ -1,9 +1,14 @@
 import type { M18RuntimeData, RuntimeCapabilityMatrix, RuntimeReadinessReport } from "../api/types";
 
+const LOCAL_RUNTIME_BOUNDARY_COPY =
+  "Local runtime status is read-only. No local runtime is started, stopped, connected, or executed from this UI.";
+const MANUAL_SMOKE_BOUNDARY_COPY =
+  "Manual smoke reports are safe summaries. Manual smoke execution remains CLI-only, fixed-prompt-only, approval-gated, and non-authoritative.";
+
 export function LocalRuntimeStatusPanel({
   report,
   matrix,
-  runtime
+  runtime,
 }: {
   report: RuntimeReadinessReport;
   matrix: RuntimeCapabilityMatrix;
@@ -18,9 +23,7 @@ export function LocalRuntimeStatusPanel({
         </div>
         <span className="status-pill compact">{runtime.status}</span>
       </div>
-      <p className="section-copy">
-        Local runtime status is read-only. No local runtime is started, stopped, connected, or executed from this UI.
-      </p>
+      <p className="section-copy">{LOCAL_RUNTIME_BOUNDARY_COPY}</p>
       <div className="note-list" aria-label="Local runtime safety markers">
         {runtime.warningCodes.map((warning) => (
           <span key={warning}>{warning}</span>
@@ -32,7 +35,9 @@ export function LocalRuntimeStatusPanel({
             <h3>Runtime readiness report</h3>
             <span>{report.status}</span>
           </div>
-          <p>Model output remains non-authoritative and production runtime readiness is not claimed.</p>
+          <p>
+            Model output remains non-authoritative and production runtime readiness is not claimed.
+          </p>
           <dl className="metadata-list">
             <div>
               <dt>Production ready</dt>
@@ -103,12 +108,11 @@ export function ManualSmokeControlSurfacePanel({ runtime }: { runtime: M18Runtim
           <p className="eyebrow">validation-only report surface</p>
           <h2 id="manual-smoke-control-heading">Manual Smoke Control Surface</h2>
         </div>
-        <span className="status-pill compact">{runtime.validationOnly ? "validation-only" : "summary-only"}</span>
+        <span className="status-pill compact">
+          {runtime.validationOnly ? "validation-only" : "summary-only"}
+        </span>
       </div>
-      <p className="section-copy">
-        Manual smoke reports are safe summaries. Manual smoke execution remains CLI-only, fixed-prompt-only, approval-gated,
-        and non-authoritative.
-      </p>
+      <p className="section-copy">{MANUAL_SMOKE_BOUNDARY_COPY}</p>
       <div className="note-list" aria-label="Manual smoke safety markers">
         {runtime.warningCodes.map((warning) => (
           <span key={warning}>{warning}</span>

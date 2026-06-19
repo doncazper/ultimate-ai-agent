@@ -1,6 +1,6 @@
 # Canonical Document Map
 
-Current active baseline: **v1.7.3**
+Current active baseline: **v1.2.0-alpha**
 
 This map links major systems to their canonical documentation. If a system has both canonical docs and runtime/API docs, canonical docs define principles and sequencing while runtime/API docs define current implementation boundaries.
 

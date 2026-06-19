@@ -14,5 +14,5 @@ M149 adds no release publication, no release tag, no tag creation, no artifact
 build, no artifact upload, no artifact export, no external distribution, no App
 Store submission, no TestFlight submission, no beta release, no M150 release,
 no release automation, no backend route, no Control Center control, no
-dependency, and no production authority. M150 remains future and v1.0.0-alpha
+dependency, and no production authority. M150 remains future and v1.2.0-alpha
 remains planned/provisional.

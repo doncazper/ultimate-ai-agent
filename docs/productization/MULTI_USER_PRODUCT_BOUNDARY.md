@@ -21,5 +21,5 @@ prompt or provider payload exposure, no backend route, no Control Center
 control, no dependency, no alpha privacy review, no alpha release, no beta
 release, and no production authority.
 
-M142 remains future Alpha Privacy Review work. M150 remains the v1.0.0-alpha
+M142 remains future Alpha Privacy Review work. M150 remains the v1.2.0-alpha
 target.

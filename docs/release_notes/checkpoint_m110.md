@@ -9,7 +9,7 @@ actor refs, device refs, sensor scope refs, and no-effect receipt plans.
 
 M110 adds tests, documentation, documentation-integrity checks, static
 verification, and Foundation Gate coverage. It keeps the product baseline at
-v1.7.2 and uses a checkpoint tag. M150 remains v1.0.0-alpha.
+v1.7.2 and uses a checkpoint tag. M150 remains v1.2.0-alpha.
 
 M110 adds no sensor access, no sensor read, no raw sensor payload, no location
 access, no camera access, no photos access, no microphone access, no background

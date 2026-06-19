@@ -18,4 +18,4 @@ plugin marketplace runtime, no execution, no backend route, no Control Center
 control, no dependency, no beta release, and no production authority.
 
 M147 remains future Public Docs + Wiki Readiness work. M150 remains the
-planned v1.0.0-alpha product target.
+planned v1.2.0-alpha product target.

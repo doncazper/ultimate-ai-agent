@@ -3,7 +3,7 @@ import type {
   FoundationGateEvidenceSummaryItem,
   M16TraceData,
   TimelineEventSummaryItem,
-  TraceRelationSummaryItem
+  TraceRelationSummaryItem,
 } from "../api/types";
 import { EmptyState } from "./DataState";
 
@@ -12,7 +12,10 @@ export function EventTimelineTracePanel({ trace }: { trace: M16TraceData }) {
   const selected =
     trace.timelineEvents.find((item) => item.eventRef === selectedRef) ?? trace.timelineEvents[0];
   const relations = selected
-    ? trace.traceRelations.filter((relation) => relation.fromRef === selected.eventRef || relation.toRef === selected.eventRef)
+    ? trace.traceRelations.filter(
+        (relation) =>
+          relation.fromRef === selected.eventRef || relation.toRef === selected.eventRef,
+      )
     : [];
   const evidence = selected
     ? trace.foundationGateEvidence.filter((item) => item.eventRefs.includes(selected.eventRef))
@@ -28,10 +31,12 @@ export function EventTimelineTracePanel({ trace }: { trace: M16TraceData }) {
         <span className="status-pill compact">redacted summary-only</span>
       </div>
       <p className="section-copy">
-        Timeline and trace views are read-only. They show safe refs, relationship summaries, and receipt/evidence links
-        without execution authority.
+        Timeline and trace views are read-only. They show safe refs, relationship summaries, and
+        receipt/evidence links without execution authority.
       </p>
-      <p className="safe-copy">No trace export or external telemetry is available. {trace.boundarySummary}</p>
+      <p className="safe-copy">
+        No trace export or external telemetry is available. {trace.boundarySummary}
+      </p>
       <div className="note-list" aria-label="Timeline trace warnings">
         {trace.warningCodes.map((code) => (
           <span key={code}>{code}</span>
@@ -56,7 +61,10 @@ export function EventTimelineTracePanel({ trace }: { trace: M16TraceData }) {
           </div>
         </div>
       ) : (
-        <EmptyState title="No timeline summaries" message="No redacted timeline summaries are available." />
+        <EmptyState
+          title="No timeline summaries"
+          message="No redacted timeline summaries are available."
+        />
       )}
     </section>
   );
@@ -65,7 +73,7 @@ export function EventTimelineTracePanel({ trace }: { trace: M16TraceData }) {
 function TimelineEventRow({
   item,
   selected,
-  onSelect
+  onSelect,
 }: {
   item: TimelineEventSummaryItem;
   selected: boolean;
@@ -136,7 +144,9 @@ function TraceDetail({ item }: { item: TimelineEventSummaryItem }) {
       <TagList label="Receipt refs" values={item.receiptRefs} />
       <TagList label="Evidence refs" values={item.evidenceRefs} />
       <TagList label="Child event refs" values={item.childEventRefs} />
-      {item.parentEventRef ? <TagList label="Parent event refs" values={[item.parentEventRef]} /> : null}
+      {item.parentEventRef ? (
+        <TagList label="Parent event refs" values={[item.parentEventRef]} />
+      ) : null}
       <p className="safe-copy">Trace detail is redacted summary metadata only.</p>
       <p className="safe-copy">{item.safeMessage}</p>
     </article>
@@ -173,7 +183,11 @@ function TraceRelationsPanel({ relations }: { relations: TraceRelationSummaryIte
   );
 }
 
-function FoundationGateEvidencePanel({ evidence }: { evidence: FoundationGateEvidenceSummaryItem[] }) {
+function FoundationGateEvidencePanel({
+  evidence,
+}: {
+  evidence: FoundationGateEvidenceSummaryItem[];
+}) {
   return (
     <article className="panel review-detail" aria-label="Foundation Gate evidence summary">
       <div className="panel-heading">
@@ -196,7 +210,9 @@ function FoundationGateEvidencePanel({ evidence }: { evidence: FoundationGateEvi
           ))}
         </div>
       ) : (
-        <p className="safe-copy">No Foundation Gate evidence summaries are linked to the selected event.</p>
+        <p className="safe-copy">
+          No Foundation Gate evidence summaries are linked to the selected event.
+        </p>
       )}
     </article>
   );

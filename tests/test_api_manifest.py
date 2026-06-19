@@ -2,6 +2,7 @@ from fastapi.testclient import TestClient
 
 from ultimate_ai_agent import __version__
 from ultimate_ai_agent.api.app import app
+from ultimate_ai_agent.api.manifest import active_baseline_label
 
 
 client = TestClient(app)
@@ -14,7 +15,7 @@ def test_api_manifest_endpoint_is_metadata_only_and_versioned():
     manifest = response.json()
     assert manifest["api_version"] == __version__
     assert manifest["package_version"] == __version__
-    assert manifest["active_baseline"] == f"v{__version__}"
+    assert manifest["active_baseline"] == active_baseline_label()
     assert manifest["no_runtime_integrations"] is True
     assert "runtime_model_calls" in manifest["capabilities_blocked"]
     assert "web_fetching" in manifest["capabilities_blocked"]

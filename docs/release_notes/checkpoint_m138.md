@@ -19,4 +19,4 @@ release, and no production authority.
 
 M138 also records no raw error log, no raw stack trace, no raw prompt, no raw
 provider payload, no account auth, and no credential handling. M139 remains
-future. M150 remains the v1.0.0-alpha target.
+future. M150 remains the v1.2.0-alpha target.

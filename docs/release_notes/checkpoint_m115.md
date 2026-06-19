@@ -2,7 +2,7 @@
 
 Checkpoint M115 implements Production Audit Retention Policy while the product
 baseline remains v1.7.2. It uses the checkpoint-m115 tag and keeps M150 as the
-planned v1.0.0-alpha target.
+planned v1.2.0-alpha target.
 
 M115 adds contract-only and review-only production audit retention policy
 records bound to M114 Account Connector Contract Review records. The record
@@ -19,4 +19,4 @@ plugin execution, no mobile sensor, no background worker, no remote execution,
 no backend route, no Control Center control, no dependency, no M116 work, no
 broad autonomy, no beta release, and no production authority.
 
-M116 remains future. M150 remains the planned v1.0.0-alpha target.
+M116 remains future. M150 remains the planned v1.2.0-alpha target.

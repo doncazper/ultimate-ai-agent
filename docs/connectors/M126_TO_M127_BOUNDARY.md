@@ -13,4 +13,4 @@ write, context injection, execution, backend route, Control Center control,
 dependency, beta release, or production authority.
 
 Approval refs remain identifiers, not authority. `approval_test_` refs are
-denied. M150 remains the planned v1.0.0-alpha target.
+denied. M150 remains the planned v1.2.0-alpha target.

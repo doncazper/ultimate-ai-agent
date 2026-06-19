@@ -18,4 +18,4 @@ raw calendar content, no credential handling, no network access, no backend
 route, no Control Center control, no dependency, no M123 work, and no
 production authority.
 
-M123 remains future. M150 remains the planned v1.0.0-alpha target.
+M123 remains future. M150 remains the planned v1.2.0-alpha target.

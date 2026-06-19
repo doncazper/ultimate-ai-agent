@@ -19,4 +19,4 @@ model call, no memory write, no context injection, no backend route, no Control
 Center control, and no dependency.
 
 M144 remains future Plugin Marketplace Policy Draft work. M150 remains the
-planned v1.0.0-alpha product target.
+planned v1.2.0-alpha product target.

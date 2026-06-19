@@ -10,7 +10,7 @@ no-effect receipt plans.
 
 M111 adds tests, documentation, documentation-integrity checks, static
 verification, and Foundation Gate coverage. It keeps the product baseline at
-v1.7.2 and uses a checkpoint tag. M150 remains v1.0.0-alpha.
+v1.7.2 and uses a checkpoint tag. M150 remains v1.2.0-alpha.
 
 M111 adds no production authority, no production runtime, no external
 distribution, no deployment, no credential handling, no network access, no

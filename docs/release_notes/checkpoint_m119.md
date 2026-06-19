@@ -2,7 +2,7 @@
 
 Checkpoint M119 adds the Production Red-Team Harness while the current product
 baseline remains v1.7.2. It uses the checkpoint-m119 tag and keeps M150 as the
-planned v1.0.0-alpha target.
+planned v1.2.0-alpha target.
 
 The checkpoint adds contract-only, review-only production red-team harness
 records bound to the M118 Deployment Mode Matrix. The records use safe refs for
@@ -17,4 +17,4 @@ automation, no plugin execution, no mobile sensor access, no backend routes, no
 Control Center controls, no dependencies, no M120 work, no beta release, and no
 production authority.
 
-M120 remains future. M150 remains the planned v1.0.0-alpha target.
+M120 remains future. M150 remains the planned v1.2.0-alpha target.

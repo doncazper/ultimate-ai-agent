@@ -15,4 +15,4 @@ handling, network access, account action, model call, memory write, context
 injection, execution, backend route, Control Center control, dependency, beta
 release, or production authority.
 
-M150 remains the planned v1.0.0-alpha target.
+M150 remains the planned v1.2.0-alpha target.

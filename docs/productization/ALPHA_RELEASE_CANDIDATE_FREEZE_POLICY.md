@@ -13,4 +13,4 @@ The policy denies release publication, release tag, tag creation, artifact
 build, artifact upload, artifact export, external distribution, App Store
 submission, TestFlight submission, beta release, M150 release, release
 automation, backend route, Control Center control, dependency, and production
-authority. M150 remains future and v1.0.0-alpha remains planned/provisional.
+authority. M150 remains future and v1.2.0-alpha remains planned/provisional.

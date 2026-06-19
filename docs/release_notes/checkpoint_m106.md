@@ -15,4 +15,4 @@ context injection, execution, M107 work, broad autonomy, or production
 authority.
 
 The product baseline remains v1.7.2. M150 remains the next product target as
-v1.0.0-alpha.
+v1.2.0-alpha.

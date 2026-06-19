@@ -15,6 +15,8 @@ Allowed surface:
 - fixed prompt id `m23_fixed_local_model_smoke_v1`.
 - loopback-only HTTP endpoint.
 - fake transport for tests and Foundation Gate.
+- stdlib-only llama.cpp server support through OpenAI-compatible
+  `/v1/completions` for manual fixed-prompt calls.
 - safe, capped, redacted response summary.
 - non-authoritative receipt.
 

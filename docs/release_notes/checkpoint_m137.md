@@ -16,4 +16,4 @@ no Control Center control, no dependency addition, no beta release, and no
 production authority.
 
 M137 also records no account auth, no shell execution, no network access, and
-no plugin execution. M138 remains future. M150 remains the v1.0.0-alpha target.
+no plugin execution. M138 remains future. M150 remains the v1.2.0-alpha target.

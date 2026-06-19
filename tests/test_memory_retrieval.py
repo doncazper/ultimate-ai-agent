@@ -1,4 +1,5 @@
 from ultimate_ai_agent.core.hygiene.actor_context import ActorContext, ActorType, AuthoritySource
+from ultimate_ai_agent.core.memory import store as memory_store_module
 from ultimate_ai_agent.core.memory import (
     MemoryAuthority,
     MemoryReadRequest,
@@ -33,6 +34,7 @@ def write(store, content, *, scope=MemoryScope.project, scope_id="proj_123", tag
             scope_id=scope_id,
             project_id=scope_id,
             content=content,
+            summary=content,
             tags=tags or [],
             authority=MemoryAuthority.user_provided,
             sensitivity=MemorySensitivity.project_private,
@@ -117,3 +119,76 @@ def test_retrieval_policy_excludes_sensitive_without_consent_and_limits_results(
     assert len(decision.results) == 1
     assert decision.results[0].record_summary == "Public memory about the roadmap."
     assert policy.embedding_model_ref == "embed_contract_only"
+
+
+def test_memory_search_never_returns_raw_content_without_summary():
+    store = MemoryStore()
+    store.write_memory(
+        MemoryWriteRequest(
+            request_id="mwr_raw",
+            run_id="run_123",
+            actor_context=actor(),
+            memory_type=MemoryType.decision,
+            scope=MemoryScope.project,
+            scope_id="proj_123",
+            project_id="proj_123",
+            content="Raw retained private content should not be returned.",
+            tags=["private"],
+            authority=MemoryAuthority.user_provided,
+            sensitivity=MemorySensitivity.project_private,
+            idempotency_key="idem_raw",
+            consent_ref="consent_123",
+        )
+    )
+
+    decision = store.search(
+        MemoryReadRequest(
+            request_id="mrr_raw",
+            run_id="run_123",
+            actor_context=actor(),
+            query="private",
+            scope=MemoryScope.project,
+            scope_id="proj_123",
+            consent_ref="consent_123",
+        )
+    )
+
+    serialized = str(decision.model_dump())
+    assert "Raw retained private content" not in serialized
+    assert decision.results[0].record_summary == "Redacted memory summary unavailable."
+    assert "raw_memory_content_omitted" in decision.redactions_applied
+
+
+def test_memory_search_scope_prefilter_skips_out_of_scope_scoring(monkeypatch):
+    store = MemoryStore()
+    write(store, "Project-scoped memory about latency.", tags=["latency"])
+    write(
+        store,
+        "User-scoped memory about latency.",
+        scope=MemoryScope.user,
+        scope_id="user_123",
+        tags=["latency"],
+    )
+    scored_scopes = []
+    original_score_memory = memory_store_module.score_memory
+
+    def counting_score_memory(record, query, tags):
+        scored_scopes.append(record.scope)
+        return original_score_memory(record, query, tags)
+
+    monkeypatch.setattr(memory_store_module, "score_memory", counting_score_memory)
+
+    decision = store.search(
+        MemoryReadRequest(
+            request_id="mrr_scope_prefilter",
+            run_id="run_123",
+            actor_context=actor(),
+            query="latency",
+            scope=MemoryScope.project,
+            scope_id="proj_123",
+            consent_ref="consent_123",
+        )
+    )
+
+    assert decision.allowed is True
+    assert scored_scopes == [MemoryScope.project]

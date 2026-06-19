@@ -11,4 +11,4 @@ routes, Control Center controls, dependencies, beta release, or production
 authority.
 
 M116-M149 use checkpoint labels instead of product SemVer tags. M150 remains
-the planned v1.0.0-alpha target.
+the planned v1.2.0-alpha target.

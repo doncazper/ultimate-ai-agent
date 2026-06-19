@@ -24,6 +24,16 @@
         "local_private"
       ]
     },
+    "cost_mode": {
+      "type": "string",
+      "enum": [
+        "cheap",
+        "balanced",
+        "premium",
+        "critical",
+        "local_private"
+      ]
+    },
     "task_defaults": {
       "type": "object",
       "additionalProperties": {
@@ -73,6 +83,20 @@
     },
     "cost_limits": {
       "type": "object"
+    },
+    "latency_limits": {
+      "type": "object"
+    },
+    "cache_policy_ref": {
+      "type": "string"
+    },
+    "fallback_policy_ref": {
+      "type": "string"
+    },
+    "quality_floor": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
     },
     "escalation_thresholds": {
       "type": "object"

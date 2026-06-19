@@ -13,4 +13,4 @@ automation payloads.
 The receipt plan confirms no release publication, no release tag, no tag
 creation, no artifact build, no artifact upload, no artifact export, no
 external distribution, no beta release, no M150 release, and no production
-authority. v1.0.0-alpha remains planned/provisional.
+authority. v1.2.0-alpha remains planned/provisional.

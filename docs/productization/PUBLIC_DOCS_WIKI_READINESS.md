@@ -17,4 +17,4 @@ execution, no backend route, no Control Center control, no dependency, no beta
 release, and no production authority.
 
 M148 remains future External Security Review work. M150 remains the planned
-v1.0.0-alpha product target.
+v1.2.0-alpha product target.

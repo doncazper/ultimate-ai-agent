@@ -1,0 +1,128 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ultimate-ai-agent.local/schemas/orchestration_efficiency_policy.schema.json",
+  "title": "OrchestrationEfficiencyPolicy",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "policy_id",
+    "cost_mode"
+  ],
+  "properties": {
+    "policy_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "cost_mode": {
+      "type": "string",
+      "enum": [
+        "cheap",
+        "balanced",
+        "premium",
+        "critical",
+        "local_private"
+      ]
+    },
+    "weights": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "cost_weight": {
+          "type": "number",
+          "minimum": 0
+        },
+        "latency_weight": {
+          "type": "number",
+          "minimum": 0
+        },
+        "token_weight": {
+          "type": "number",
+          "minimum": 0
+        },
+        "cache_weight": {
+          "type": "number",
+          "minimum": 0
+        },
+        "quality_weight": {
+          "type": "number",
+          "minimum": 0
+        },
+        "locality_weight": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "quality_floor": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "default_quality_score": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "profile_quality_scores": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1
+      }
+    },
+    "premium_profile_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "fallback_allowed": {
+      "type": "boolean"
+    },
+    "max_fallback_candidates": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 10
+    },
+    "require_known_paid_cost": {
+      "type": "boolean"
+    },
+    "critical_requires_verifier": {
+      "type": "boolean"
+    },
+    "critical_requires_approval": {
+      "type": "boolean"
+    },
+    "allow_cloud_in_local_private": {
+      "type": "boolean"
+    },
+    "verifier_plan_ref": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "trace_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "correlation_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "metadata_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "metadata": {
+      "type": "object"
+    }
+  }
+}

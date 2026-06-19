@@ -25,6 +25,14 @@ class ModelTaskCapability(str, Enum):
     low_latency = "low_latency"
 
 
+class ModelRouteCostMode(str, Enum):
+    cheap = "cheap"
+    balanced = "balanced"
+    premium = "premium"
+    critical = "critical"
+    local_private = "local_private"
+
+
 class ModelPrivacyClass(str, Enum):
     local_only = "local_only"
     private_allowed = "private_allowed"

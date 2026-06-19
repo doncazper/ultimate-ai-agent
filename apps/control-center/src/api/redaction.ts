@@ -6,7 +6,7 @@ const SECRET_PATTERNS = [
   /secret\s*[:=]\s*\S{6,}/gi,
   /authorization\s*[:=]\s*\S+/gi,
   /cookie\s*[:=]\s*\S+/gi,
-  new RegExp("-".repeat(5) + "BEGIN[\\s\\S]*?PRIVATE" + " KEY" + "-".repeat(5), "gi")
+  new RegExp("-".repeat(5) + "BEGIN[\\s\\S]*?PRIVATE" + " KEY" + "-".repeat(5), "gi"),
 ];
 
 export function sanitizeForDisplay(value: unknown): string {

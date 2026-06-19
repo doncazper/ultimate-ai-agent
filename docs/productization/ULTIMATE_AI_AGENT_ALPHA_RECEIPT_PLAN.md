@@ -1,7 +1,7 @@
 # M150 Ultimate AI Agent Alpha Receipt Plan
 
 M150 receipts are no-effect receipts. They may record safe refs and bounded
-summaries showing that the `v1.0.0-alpha` target was reviewed locally.
+summaries showing that the `v1.2.0-alpha` target was reviewed locally.
 
 Receipts must preserve:
 
@@ -22,4 +22,3 @@ creation, no artifact build, no artifact upload, no artifact export, no external
 distribution, no App Store submission, no TestFlight submission, no beta
 release, no release automation, no backend route, no Control Center control, no
 dependency, and no production authority.
-

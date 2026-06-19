@@ -50,7 +50,12 @@ def build_default_local_runtime_provider_profiles() -> list[LocalRuntimeProvider
             profile_ref="local_runtime_profile_llama_cpp_m22",
             kind=LocalModelRuntimeKind.llama_cpp_planned,
             display_name="llama.cpp planned profile",
-            safe_summary="Metadata-only planned profile for a future local runtime family.",
+            safe_summary="Metadata-only planned profile for llama.cpp server and GGUF local runtime review.",
+            metadata={
+                "m23_manual_transport_shape": "openai_completions",
+                "safe_endpoint_path_ref": "loopback_v1_completions",
+                "model_artifact_family": "gguf",
+            },
         ),
         LocalRuntimeProviderProfile(
             profile_ref="local_runtime_profile_mlx_m22",

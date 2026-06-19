@@ -41,9 +41,10 @@ function ConnectionStatus({ connection }: { connection: BackendConnectionSummary
     online: "Backend online",
     degraded: "Backend degraded",
     offline: "Backend offline",
-    mock_fallback: "Mock fallback active"
+    mock_fallback: "Mock fallback active",
   };
-  const warnings = connection.warnings.length > 0 ? ` Warnings: ${connection.warnings.join(", ")}.` : "";
+  const warnings =
+    connection.warnings.length > 0 ? ` Warnings: ${connection.warnings.join(", ")}.` : "";
   return (
     <SafeAlert
       title={titleByState[connection.state]}

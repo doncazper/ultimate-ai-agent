@@ -60,6 +60,7 @@ from ultimate_ai_agent.core.model_runtime.local_call_policy import (
 from ultimate_ai_agent.core.model_runtime.local_call_transport import (
     FakeLocalModelCallTransport,
     LocalModelCallTransport,
+    ManualStdlibOpenAICompletionsLocalModelCallTransport,
     ManualStdlibLoopbackLocalModelCallTransport,
 )
 from ultimate_ai_agent.core.model_runtime.local_adapter import LocalLoopbackModelRuntimeAdapter
@@ -137,6 +138,7 @@ __all__ = [
     "ManualLoopbackSmokeRequest",
     "ManualLoopbackSmokeResult",
     "ManualLoopbackSmokeTransport",
+    "ManualStdlibOpenAICompletionsLocalModelCallTransport",
     "ManualStdlibLoopbackLocalModelCallTransport",
     "ModelRuntimeTransport",
     "ModelRuntimeKind",

@@ -3,13 +3,14 @@ import type {
   EvidenceSummaryItem,
   FileReferenceSummaryItem,
   M17KnowledgeData,
-  MemorySummaryItem
+  MemorySummaryItem,
 } from "../api/types";
 import { EmptyState } from "./DataState";
 
 export function EvidenceViewerPanel({ knowledge }: { knowledge: M17KnowledgeData }) {
   const [selectedRef, setSelectedRef] = useState(knowledge.evidence[0]?.evidenceRef ?? "");
-  const selected = knowledge.evidence.find((item) => item.evidenceRef === selectedRef) ?? knowledge.evidence[0];
+  const selected =
+    knowledge.evidence.find((item) => item.evidenceRef === selectedRef) ?? knowledge.evidence[0];
 
   return (
     <section className="page-section" aria-labelledby="evidence-viewer-heading">
@@ -36,7 +37,10 @@ export function EvidenceViewerPanel({ knowledge }: { knowledge: M17KnowledgeData
           <EvidenceDetail item={selected} />
         </div>
       ) : (
-        <EmptyState title="No evidence summaries" message="No redacted evidence summaries are available." />
+        <EmptyState
+          title="No evidence summaries"
+          message="No redacted evidence summaries are available."
+        />
       )}
     </section>
   );
@@ -44,7 +48,8 @@ export function EvidenceViewerPanel({ knowledge }: { knowledge: M17KnowledgeData
 
 export function FileReferenceViewerPanel({ knowledge }: { knowledge: M17KnowledgeData }) {
   const [selectedRef, setSelectedRef] = useState(knowledge.fileRefs[0]?.fileRef ?? "");
-  const selected = knowledge.fileRefs.find((item) => item.fileRef === selectedRef) ?? knowledge.fileRefs[0];
+  const selected =
+    knowledge.fileRefs.find((item) => item.fileRef === selectedRef) ?? knowledge.fileRefs[0];
 
   return (
     <section className="page-section" aria-labelledby="file-ref-viewer-heading">
@@ -55,7 +60,9 @@ export function FileReferenceViewerPanel({ knowledge }: { knowledge: M17Knowledg
         status="metadata-only"
         copy="File ref views are read-only. They show safe file labels, classifications, and related refs without exposing file body text."
       />
-      <p className="safe-copy">File writes are not available from this UI. No filesystem browsing is available.</p>
+      <p className="safe-copy">
+        File writes are not available from this UI. No filesystem browsing is available.
+      </p>
       <BoundaryNotice knowledge={knowledge} />
       {knowledge.fileRefs.length > 0 && selected ? (
         <div className="review-layout">
@@ -72,7 +79,10 @@ export function FileReferenceViewerPanel({ knowledge }: { knowledge: M17Knowledg
           <FileRefDetail item={selected} />
         </div>
       ) : (
-        <EmptyState title="No file ref summaries" message="No redacted file ref summaries are available." />
+        <EmptyState
+          title="No file ref summaries"
+          message="No redacted file ref summaries are available."
+        />
       )}
     </section>
   );
@@ -80,7 +90,8 @@ export function FileReferenceViewerPanel({ knowledge }: { knowledge: M17Knowledg
 
 export function MemoryViewerPanel({ knowledge }: { knowledge: M17KnowledgeData }) {
   const [selectedRef, setSelectedRef] = useState(knowledge.memories[0]?.memoryRef ?? "");
-  const selected = knowledge.memories.find((item) => item.memoryRef === selectedRef) ?? knowledge.memories[0];
+  const selected =
+    knowledge.memories.find((item) => item.memoryRef === selectedRef) ?? knowledge.memories[0];
 
   return (
     <section className="page-section" aria-labelledby="memory-viewer-heading">
@@ -107,7 +118,10 @@ export function MemoryViewerPanel({ knowledge }: { knowledge: M17KnowledgeData }
           <MemoryDetail item={selected} />
         </div>
       ) : (
-        <EmptyState title="No memory summaries" message="No redacted memory summaries are available." />
+        <EmptyState
+          title="No memory summaries"
+          message="No redacted memory summaries are available."
+        />
       )}
     </section>
   );
@@ -118,7 +132,7 @@ function ViewerHeading({
   headingId,
   heading,
   status,
-  copy
+  copy,
 }: {
   eyebrow: string;
   headingId: string;
@@ -156,7 +170,7 @@ function BoundaryNotice({ knowledge }: { knowledge: M17KnowledgeData }) {
 function EvidenceRow({
   item,
   selected,
-  onSelect
+  onSelect,
 }: {
   item: EvidenceSummaryItem;
   selected: boolean;
@@ -186,7 +200,7 @@ function EvidenceRow({
 function FileRefRow({
   item,
   selected,
-  onSelect
+  onSelect,
 }: {
   item: FileReferenceSummaryItem;
   selected: boolean;
@@ -216,7 +230,7 @@ function FileRefRow({
 function MemoryRow({
   item,
   selected,
-  onSelect
+  onSelect,
 }: {
   item: MemorySummaryItem;
   selected: boolean;
@@ -244,7 +258,11 @@ function MemoryRow({
 function EvidenceDetail({ item }: { item: EvidenceSummaryItem }) {
   return (
     <article className="panel review-detail" aria-label="Evidence detail">
-      <PanelHeading eyebrow="Selected evidence" heading={item.evidenceRef} status={item.confidenceStatus} />
+      <PanelHeading
+        eyebrow="Selected evidence"
+        heading={item.evidenceRef}
+        status={item.confidenceStatus}
+      />
       <dl className="detail-grid">
         <DetailTerm label="Evidence type" value={item.evidenceType} />
         <DetailTerm label="Source type" value={item.sourceType} />
@@ -296,7 +314,10 @@ function MemoryDetail({ item }: { item: MemorySummaryItem }) {
         <DetailTerm label="Confidence" value={item.confidenceStatus} />
         <DetailTerm label="Review status" value={item.reviewStatus} />
         <DetailTerm label="Staleness" value={item.staleStatus} />
-        <DetailTerm label="Conflict indicator" value={item.conflictStatus.replace("Conflict indicator: ", "")} />
+        <DetailTerm
+          label="Conflict indicator"
+          value={item.conflictStatus.replace("Conflict indicator: ", "")}
+        />
         <DetailTerm label="Data classification" value={item.dataClassification} />
         <DetailTerm label="Redaction status" value={item.redactionStatus} />
       </dl>
@@ -311,7 +332,15 @@ function MemoryDetail({ item }: { item: MemorySummaryItem }) {
   );
 }
 
-function PanelHeading({ eyebrow, heading, status }: { eyebrow: string; heading: string; status: string }) {
+function PanelHeading({
+  eyebrow,
+  heading,
+  status,
+}: {
+  eyebrow: string;
+  heading: string;
+  status: string;
+}) {
   return (
     <div className="panel-heading">
       <div>

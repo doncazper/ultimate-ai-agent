@@ -15,6 +15,6 @@ write, context injection, execution, tool execution, shell execution, browser
 automation, plugin execution, mobile sensor, backend route, Control Center
 control, dependency, beta release, broad autonomy, or production authority.
 
-M150 remains the planned v1.0.0-alpha target. Beta begins only after the alpha
+M150 remains the planned v1.2.0-alpha target. Beta begins only after the alpha
 UI and supporting safety/product work are reviewed, accepted, and explicitly
 promoted by a later roadmap patch.

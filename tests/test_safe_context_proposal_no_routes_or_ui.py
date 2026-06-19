@@ -28,7 +28,9 @@ def test_openapi_path_count_remains_at_current_boundary():
     data = client.get("/openapi.json").json()
 
     assert data["info"]["version"] == __version__
-    assert len(data.get("paths", {})) == 75
+    assert len(data.get("paths", {})) == 77
+    assert "/v1/models" in data.get("paths", {})
+    assert "/v1/chat/completions" in data.get("paths", {})
 
 
 def test_control_center_context_proposal_surface_has_no_handoff_or_injection_controls():

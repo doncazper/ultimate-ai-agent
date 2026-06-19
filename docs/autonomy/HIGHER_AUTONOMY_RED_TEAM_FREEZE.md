@@ -21,4 +21,4 @@ route, no Control Center control, no dependency, no alpha release, no beta
 release, and no production authority.
 
 M141 remains future Multi-User Product Boundary work. M150 remains the
-v1.0.0-alpha target.
+v1.2.0-alpha target.

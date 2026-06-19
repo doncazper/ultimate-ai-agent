@@ -11,7 +11,9 @@ export function ApiRouteInventoryPanel({ routes }: { routes: ApiRouteInventory }
         </div>
         <span>{routes.route_count} listed</span>
       </div>
-      <p className="section-copy">Read-only and preview-only route inventory. This shell does not add API routes.</p>
+      <p className="section-copy">
+        Read-only and preview-only route inventory. This shell does not add API routes.
+      </p>
       {routes.routes.length > 0 ? (
         <div className="table-wrap">
           <table>
@@ -36,7 +38,10 @@ export function ApiRouteInventoryPanel({ routes }: { routes: ApiRouteInventory }
           </table>
         </div>
       ) : (
-        <EmptyState title="No routes listed" message="No API routes were returned by the local backend or mock." />
+        <EmptyState
+          title="No routes listed"
+          message="No API routes were returned by the local backend or mock."
+        />
       )}
     </section>
   );

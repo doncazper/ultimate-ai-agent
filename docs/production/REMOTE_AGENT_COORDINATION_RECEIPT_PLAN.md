@@ -22,4 +22,4 @@ tool execution, no shell execution, no browser automation, no plugin execution,
 no mobile sensor, no backend route, no Control Center control, no dependency,
 and no M118 work.
 
-M118 remains future. M150 remains the planned v1.0.0-alpha target.
+M118 remains future. M150 remains the planned v1.2.0-alpha target.

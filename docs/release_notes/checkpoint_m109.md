@@ -1,7 +1,7 @@
 # Checkpoint M109 Release Notes
 
-Checkpoint M109 implements Mobile Sensor Audit Ledger while the product baseline
-remains v1.7.2.
+Checkpoint M109 implements Mobile Sensor Audit Ledger while the alpha target
+remains v1.2.0-alpha.
 
 Included:
 

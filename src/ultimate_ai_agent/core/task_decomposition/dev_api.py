@@ -1,0 +1,152 @@
+from __future__ import annotations
+
+from fastapi import FastAPI
+
+from ultimate_ai_agent.core.hygiene.envelopes import ErrorCategory, ErrorEnvelope, ResultEnvelope, Severity
+from ultimate_ai_agent.core.task_decomposition.runtime import (
+    TaskCapabilityApprovalRequestPayload,
+    TaskDecompositionRegisterRequest,
+    TaskDecompositionRequest,
+    TaskDecompositionRunRequest,
+    TaskDecompositionService,
+    TaskPlanExecutionRequest,
+    TaskPlanValidationRequest,
+)
+
+
+def build_task_decomposition_dev_app(
+    service: TaskDecompositionService | None = None,
+) -> FastAPI:
+    active_service = service or TaskDecompositionService.from_env()
+    app = FastAPI(
+        title="Ultimate AI Agent Task Decomposition Local Dev API",
+        version="local-dev",
+        description="Local-only task decomposer and capability registry test surface.",
+    )
+
+    @app.get("/task-decomposition/catalog", response_model=ResultEnvelope)
+    def get_catalog():
+        return ResultEnvelope(
+            success=True,
+            operation="task_decomposition_catalog",
+            service="TaskDecompositionDevAPI",
+            trace_id="local-dev",
+            data={"capabilities": active_service.catalog()},
+        )
+
+    @app.post("/task-decomposition/examples/init", response_model=ResultEnvelope)
+    def init_examples():
+        return ResultEnvelope(
+            success=True,
+            operation="task_decomposition_init_examples",
+            service="TaskDecompositionDevAPI",
+            trace_id="local-dev",
+            data={"capabilities": active_service.ensure_examples()},
+        )
+
+    @app.post("/task-decomposition/capabilities/register", response_model=ResultEnvelope)
+    def register_capability(request: TaskDecompositionRegisterRequest):
+        try:
+            contract = active_service.register(request)
+            return ResultEnvelope(
+                success=True,
+                operation="task_decomposition_register_capability",
+                service="TaskDecompositionDevAPI",
+                trace_id="local-dev",
+                data={"capability": contract.model_dump(mode="json")},
+            )
+        except Exception:
+            return _error("task_decomposition_register_capability", "TASK_DECOMPOSITION_REGISTER_FAILED")
+
+    @app.post("/task-decomposition/classify", response_model=ResultEnvelope)
+    def classify(request: TaskDecompositionRequest):
+        intent = active_service.classify(request)
+        return ResultEnvelope(
+            success=True,
+            operation="task_decomposition_classify",
+            service="TaskDecompositionDevAPI",
+            trace_id="local-dev",
+            data={"intent": intent.model_dump(mode="json")},
+        )
+
+    @app.post("/task-decomposition/decompose", response_model=ResultEnvelope)
+    def decompose(request: TaskDecompositionRequest):
+        result = active_service.decompose(request)
+        return ResultEnvelope(
+            success=True,
+            operation="task_decomposition_decompose",
+            service="TaskDecompositionDevAPI",
+            trace_id=result.plan.plan_id,
+            data=result.model_dump(mode="json"),
+        )
+
+    @app.post("/task-decomposition/plans/validate", response_model=ResultEnvelope)
+    def validate_plan(request: TaskPlanValidationRequest):
+        validation = active_service.validate_plan(request)
+        return ResultEnvelope(
+            success=validation.valid,
+            operation="task_decomposition_validate_plan",
+            service="TaskDecompositionDevAPI",
+            trace_id=request.plan.plan_id,
+            data=validation.model_dump(mode="json"),
+        )
+
+    @app.post("/task-decomposition/approval-request", response_model=ResultEnvelope)
+    def approval_request(request: TaskCapabilityApprovalRequestPayload):
+        try:
+            approval = active_service.build_approval_request(request)
+            return ResultEnvelope(
+                success=True,
+                operation="task_decomposition_approval_request",
+                service="TaskDecompositionDevAPI",
+                trace_id=request.run_id,
+                data=approval.model_dump(mode="json"),
+            )
+        except Exception:
+            return _error("task_decomposition_approval_request", "TASK_DECOMPOSITION_APPROVAL_REQUEST_FAILED")
+
+    @app.post("/task-decomposition/plans/execute", response_model=ResultEnvelope)
+    async def execute_plan(request: TaskPlanExecutionRequest):
+        result = await active_service.execute_plan(request)
+        return ResultEnvelope(
+            success=result.status == "succeeded",
+            operation="task_decomposition_execute_plan",
+            service="TaskDecompositionDevAPI",
+            trace_id=request.plan.plan_id,
+            data=result.model_dump(mode="json"),
+        )
+
+    @app.post("/task-decomposition/run", response_model=ResultEnvelope)
+    async def run(request: TaskDecompositionRunRequest):
+        result = await active_service.run(request)
+        succeeded = result.execution is not None and result.execution.status == "succeeded"
+        return ResultEnvelope(
+            success=succeeded,
+            operation="task_decomposition_run",
+            service="TaskDecompositionDevAPI",
+            trace_id=result.plan.plan_id,
+            data=result.model_dump(mode="json"),
+        )
+
+    return app
+
+
+def _error(operation: str, code: str) -> ResultEnvelope:
+    return ResultEnvelope(
+        success=False,
+        operation=operation,
+        service="TaskDecompositionDevAPI",
+        trace_id="local-dev",
+        error=ErrorEnvelope(
+            code=code,
+            category=ErrorCategory.validation_error,
+            safe_message="Task decomposition local-dev request failed.",
+            severity=Severity.medium,
+            retryable=False,
+            details_redacted=True,
+            source="TaskDecompositionDevAPI",
+        ),
+    )
+
+
+app = build_task_decomposition_dev_app()

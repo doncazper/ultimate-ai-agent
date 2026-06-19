@@ -2,11 +2,17 @@ from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from ultimate_ai_agent.core.model_router.enums import ModelPrivacyClass, ModelProviderKind, ModelTaskCapability
+from ultimate_ai_agent.core.model_router.enums import (
+    ModelPrivacyClass,
+    ModelProviderKind,
+    ModelRouteCostMode,
+    ModelTaskCapability,
+)
 
 
 class ModelRoutingPolicy(BaseModel):
     policy_id: str = Field(..., min_length=1)
+    cost_mode: Optional[ModelRouteCostMode] = None
     required_capabilities: List[ModelTaskCapability] = Field(default_factory=list)
     preferred_capabilities: List[ModelTaskCapability] = Field(default_factory=list)
     forbidden_provider_kinds: List[ModelProviderKind] = Field(default_factory=list)

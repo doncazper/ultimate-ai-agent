@@ -16,4 +16,4 @@ no-effect receipt plan are safe identifiers only. They do not authorize remote
 coordination, dispatch, connection, execution, network access, credentials,
 account actions, or production authority.
 
-M118 remains future. M150 remains the planned v1.0.0-alpha target.
+M118 remains future. M150 remains the planned v1.2.0-alpha target.

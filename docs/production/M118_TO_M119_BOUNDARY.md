@@ -11,4 +11,4 @@ provisioning, CI/CD execution, signing or notarization, backend routes, Control
 Center controls, dependencies, beta release, or production authority.
 
 The product baseline remains v1.7.2. M118 uses the checkpoint-m118 tag rather
-than a product SemVer tag. M150 remains the planned v1.0.0-alpha target.
+than a product SemVer tag. M150 remains the planned v1.2.0-alpha target.

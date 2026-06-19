@@ -1,0 +1,497 @@
+{
+  "schema_version": 1,
+  "baseline": "v1.2.0-alpha",
+  "assessed_on": "2026-06-18",
+  "assessment_scope": "Repository-local maturity for requested agent modules. Scores measure implemented, documented, and tested UAA artifacts, not product ambition or roadmap intent.",
+  "maturity_levels": [
+    {
+      "id": "missing",
+      "score": 0,
+      "label": "Missing",
+      "definition": "No meaningful source, tests, or active documentation for the requested module."
+    },
+    {
+      "id": "declared_only",
+      "score": 1,
+      "label": "Declared only",
+      "definition": "Named in docs or old registries, but not maintained as current tested implementation."
+    },
+    {
+      "id": "contract_only",
+      "score": 2,
+      "label": "Contract only",
+      "definition": "Typed contracts, metadata, or policy records exist, but no operating runtime behavior for the requested module."
+    },
+    {
+      "id": "validated_contract",
+      "score": 3,
+      "label": "Validated contract",
+      "definition": "Contract logic has deterministic evaluators and tests, but remains review-only or no-effect."
+    },
+    {
+      "id": "constrained_local_runtime",
+      "score": 4,
+      "label": "Constrained local runtime",
+      "definition": "A bounded local/dev runtime path exists and is tested, with explicit non-production authority limits."
+    },
+    {
+      "id": "operational_runtime",
+      "score": 5,
+      "label": "Operational runtime",
+      "definition": "The module can perform its intended runtime function in product workflows with durable integration and guardrails."
+    },
+    {
+      "id": "production_ready",
+      "score": 6,
+      "label": "Production ready",
+      "definition": "The module is hardened for production authority, external integrations, observability, recovery, and operational use."
+    }
+  ],
+  "modules": [
+    {
+      "id": "agent_runtime_skeleton",
+      "name": "Agent runtime skeleton",
+      "requested_definition": "A starter framework that defines how the agent receives input, thinks, calls tools, stores state, and returns output.",
+      "status": "present_partial",
+      "maturity": "constrained_local_runtime",
+      "maturity_score": 4,
+      "summary": "UAA has a minimum kernel runner that accepts typed task requests, builds execution/context contracts, checks consent and approval, evaluates a tool request, can apply one governed local/dev file mutation, writes local recall memory, appends ledger events, and returns receipts. It is not a general agent loop and does not run model reasoning or arbitrary tools.",
+      "primary_paths": [
+        "src/ultimate_ai_agent/core/kernel/runner.py",
+        "src/ultimate_ai_agent/core/kernel/requests.py",
+        "src/ultimate_ai_agent/core/kernel/results.py",
+        "src/ultimate_ai_agent/core/contracts/execution_contract.py",
+        "src/ultimate_ai_agent/core/contracts/context_pack.py"
+      ],
+      "supporting_paths": [
+        "docs/canonical/43_minimum_lovable_kernel.md",
+        "docs/canonical/35_execution_contract.md",
+        "docs/canonical/36_context_pack.md"
+      ],
+      "test_paths": [
+        "tests/test_kernel_minimum_lovable_happy_path.py",
+        "tests/test_kernel_request.py",
+        "tests/test_kernel_event_trace.py",
+        "tests/test_kernel_secret_blocking.py"
+      ],
+      "evidence": [
+        "MinimumKernelRunner coordinates contracts, consent, tool broker, local file manager, memory store, ledger, and receipt generation.",
+        "Happy-path tests prove a bounded local/dev file write, rollback ref, world-state artifact ref, receipt, and recall-only memory record."
+      ],
+      "gaps": [
+        "No general model thought loop.",
+        "No production runtime authority.",
+        "No arbitrary tool dispatch.",
+        "No autonomous external action loop."
+      ],
+      "next_checkpoint": "Separate the minimum kernel from a future general Agent Runtime contract before claiming operational_runtime."
+    },
+    {
+      "id": "orchestration_layer",
+      "name": "Orchestration layer",
+      "requested_definition": "Coordinates the full flow across prompts, tools, memory, APIs, workflows, and sub-agents.",
+      "status": "present_fragmented",
+      "maturity": "validated_contract",
+      "maturity_score": 3,
+      "summary": "UAA has orchestration-adjacent pieces: the kernel coordinates a narrow local/dev flow, and the orchestration efficiency planner previews model-route choices. There is no single Commander or full-flow orchestrator spanning prompts, memory, workflows, APIs, and sub-agents.",
+      "primary_paths": [
+        "src/ultimate_ai_agent/core/kernel/runner.py",
+        "src/ultimate_ai_agent/core/orchestration_efficiency/planner.py",
+        "src/ultimate_ai_agent/core/orchestration_efficiency/contracts.py"
+      ],
+      "supporting_paths": [
+        "docs/canonical/31_layered_brain_architecture.md",
+        "docs/schemas/orchestration_efficiency_policy.schema.json",
+        "docs/schemas/orchestration_preview_decision.schema.json"
+      ],
+      "test_paths": [
+        "tests/test_orchestration_efficiency.py",
+        "tests/test_kernel_minimum_lovable_happy_path.py"
+      ],
+      "evidence": [
+        "OrchestrationEfficiencyPlanner deterministically previews route selection, fallback planning, cacheability effects, and approval requirements.",
+        "Layered architecture declares Layer 3 orchestration responsibilities."
+      ],
+      "gaps": [
+        "No durable end-to-end orchestration engine.",
+        "No prompt-tool-memory-workflow coordinator as one module.",
+        "No sub-agent dispatch runtime."
+      ],
+      "next_checkpoint": "Create a single orchestration contract that references the existing kernel, planning, tool, memory, and execution boundaries."
+    },
+    {
+      "id": "decision_router",
+      "name": "Decision router",
+      "requested_definition": "Chooses what path to take: answer directly, call a tool, search memory, ask a human, escalate, or trigger a workflow.",
+      "status": "missing_as_single_module",
+      "maturity": "contract_only",
+      "maturity_score": 2,
+      "summary": "UAA has specialized routers and decision envelopes, including model routing, truth routing, recall routing, tool broker decisions, approval decisions, and planning decisions. It does not have one top-level decision router that chooses between answer, memory, tool, human, escalation, and workflow paths.",
+      "primary_paths": [
+        "src/ultimate_ai_agent/core/model_router/router.py",
+        "src/ultimate_ai_agent/core/recall/router.py",
+        "src/ultimate_ai_agent/core/truth/router.py",
+        "src/ultimate_ai_agent/core/tools/broker.py",
+        "src/ultimate_ai_agent/core/approvals/authority.py"
+      ],
+      "supporting_paths": [
+        "docs/canonical/26_model_routing_strategy.md",
+        "docs/recall/GROUNDED_RECALL_ROUTER.md",
+        "docs/truth/TRUTH_SOURCE_ROUTER.md",
+        "docs/tools/TOOL_BROKER_V2.md"
+      ],
+      "test_paths": [
+        "tests/test_model_router_decisions.py",
+        "tests/test_grounded_recall_router.py",
+        "tests/test_truth_source_router.py",
+        "tests/test_tool_broker_authorization.py",
+        "tests/test_approval_validation.py"
+      ],
+      "evidence": [
+        "Specialized routers make deterministic local decisions inside their own domains.",
+        "Decision envelopes are tested for model routing, recall, truth, tools, and approvals."
+      ],
+      "gaps": [
+        "No unified route taxonomy for direct answer versus memory versus tool versus human versus workflow.",
+        "No single decision trace across all possible paths.",
+        "No escalation workflow trigger runtime."
+      ],
+      "next_checkpoint": "Define a top-level DecisionRouter contract before implementing runtime path selection."
+    },
+    {
+      "id": "planning_module",
+      "name": "Planning module",
+      "requested_definition": "Breaks a goal into steps, tracks progress, and updates the plan as new information appears.",
+      "status": "present_review_only",
+      "maturity": "validated_contract",
+      "maturity_score": 3,
+      "summary": "UAA has task goal, step, dependency, plan, receipt, and review-only decision contracts with evaluator validation. It does not generate plans from vague goals or update plans dynamically during execution.",
+      "primary_paths": [
+        "src/ultimate_ai_agent/core/planning/contracts.py",
+        "src/ultimate_ai_agent/core/planning/planner.py",
+        "src/ultimate_ai_agent/core/planning/goals.py",
+        "src/ultimate_ai_agent/core/planning/steps.py",
+        "src/ultimate_ai_agent/core/planning/dependencies.py"
+      ],
+      "supporting_paths": [
+        "docs/planning/TASK_PLANNING_ENGINE.md",
+        "docs/planning/TASK_GOAL_STEP_PLAN_CONTRACTS.md",
+        "docs/planning/TASK_DEPENDENCY_GRAPH.md",
+        "docs/planning/TASK_PLANNING_NON_GOALS.md"
+      ],
+      "test_paths": [
+        "tests/test_task_planning_contracts.py",
+        "tests/test_task_plan_dependencies.py",
+        "tests/test_task_plan_no_execution.py",
+        "tests/test_task_plan_validation.py"
+      ],
+      "evidence": [
+        "evaluate_task_plan validates goals, steps, input boundaries, dependency cycles, hidden side effects, and non-authoritative receipts.",
+        "Tests assert review-only behavior and no execution authorization."
+      ],
+      "gaps": [
+        "No plan generation from natural-language goals.",
+        "No adaptive replanning loop.",
+        "No execution-progress-driven plan updates."
+      ],
+      "next_checkpoint": "Add a planner input contract for explicit decomposition proposals before adding any automatic planner."
+    },
+    {
+      "id": "task_decomposition_module",
+      "name": "Task decomposition module",
+      "requested_definition": "Turns vague user requests into concrete subtasks.",
+      "status": "present_as_contract_substrate",
+      "maturity": "contract_only",
+      "maturity_score": 2,
+      "summary": "UAA can represent decomposed tasks as TaskPlan and TaskStep contracts, but it does not contain a decomposition engine that transforms vague requests into subtasks.",
+      "primary_paths": [
+        "src/ultimate_ai_agent/core/planning/contracts.py",
+        "src/ultimate_ai_agent/core/planning/steps.py",
+        "src/ultimate_ai_agent/core/planning/goals.py"
+      ],
+      "supporting_paths": [
+        "docs/planning/TASK_GOAL_STEP_PLAN_CONTRACTS.md",
+        "docs/planning/TASK_INPUT_BOUNDARY.md",
+        "docs/canonical/39_verified_task_completion_framework.md"
+      ],
+      "test_paths": [
+        "tests/test_task_planning_contracts.py",
+        "tests/test_task_plan_validation.py"
+      ],
+      "evidence": [
+        "TaskPlan and TaskStep provide the structure needed to store decomposed work.",
+        "Planning tests cover safe plan structure and denial conditions."
+      ],
+      "gaps": [
+        "No vague-request parser.",
+        "No subtask proposal generator.",
+        "No scoring of decomposition quality."
+      ],
+      "next_checkpoint": "Introduce a review-only decomposition proposal record with safe input and output refs."
+    },
+    {
+      "id": "workflow_engine",
+      "name": "Workflow engine",
+      "requested_definition": "Runs repeatable sequences like research, summarize, draft, review, send.",
+      "status": "present_no_effect_state_machine",
+      "maturity": "validated_contract",
+      "maturity_score": 3,
+      "summary": "UAA has a multi-step execution framework that models runs, steps, dependencies, transitions, replay protection, and no-effect completion. It does not run real repeatable workflows, execute tasks, call tools for workflow steps, or send outputs.",
+      "primary_paths": [
+        "src/ultimate_ai_agent/core/execution/runs.py",
+        "src/ultimate_ai_agent/core/execution/steps.py",
+        "src/ultimate_ai_agent/core/execution/transitions.py",
+        "src/ultimate_ai_agent/core/execution/state_machine.py",
+        "src/ultimate_ai_agent/core/file_review/workflow.py"
+      ],
+      "supporting_paths": [
+        "docs/execution/MULTI_STEP_EXECUTION_FRAMEWORK.md",
+        "docs/execution/EXECUTION_STATE_MACHINE.md",
+        "docs/execution/EXECUTION_NON_GOALS.md",
+        "docs/files/SAFE_FILE_REVIEW_WORKFLOW.md"
+      ],
+      "test_paths": [
+        "tests/test_execution_state_machine_safety.py",
+        "tests/test_execution_dependency_progression.py",
+        "tests/test_execution_framework_contracts.py",
+        "tests/test_file_review_workflow_contracts.py"
+      ],
+      "evidence": [
+        "Execution state machine validates dependencies, replay keys, transition IDs, and no-effect transitions.",
+        "Docs explicitly state the framework is not real task execution."
+      ],
+      "gaps": [
+        "No actual workflow step execution.",
+        "No durable workflow runner.",
+        "No research-summarize-draft-review-send pipeline runtime."
+      ],
+      "next_checkpoint": "Keep workflow maturity at validated_contract until a safe runner is separately designed and approved."
+    },
+    {
+      "id": "state_manager",
+      "name": "State manager",
+      "requested_definition": "Tracks what the agent is currently doing, what it has already tried, and what still needs to happen.",
+      "status": "present_fragmented",
+      "maturity": "validated_contract",
+      "maturity_score": 3,
+      "summary": "UAA has structured world state, execution run state, event ledger records, and kernel result/world-state refs. These pieces track state in bounded domains, but there is no single general state manager for live agent cognition and attempts.",
+      "primary_paths": [
+        "src/ultimate_ai_agent/core/world_state/models.py",
+        "src/ultimate_ai_agent/core/world_state/snapshots.py",
+        "src/ultimate_ai_agent/core/execution/state_machine.py",
+        "src/ultimate_ai_agent/core/ledger/run_state.py",
+        "src/ultimate_ai_agent/core/ledger/ledger.py"
+      ],
+      "supporting_paths": [
+        "docs/canonical/53_structured_world_state.md",
+        "docs/execution/EXECUTION_STATE_MACHINE.md",
+        "docs/canonical/22_observability_and_event_ledger.md"
+      ],
+      "test_paths": [
+        "tests/test_world_state.py",
+        "tests/test_run_state.py",
+        "tests/test_event_ledger_events.py",
+        "tests/test_execution_state_machine_safety.py"
+      ],
+      "evidence": [
+        "World state and run state contracts are tested.",
+        "Kernel happy path returns a world-state artifact ref and emits events."
+      ],
+      "gaps": [
+        "No unified live agent attempt ledger.",
+        "No durable state manager coordinating all modules.",
+        "No runtime resumption policy across arbitrary work."
+      ],
+      "next_checkpoint": "Define a single state-manager contract that composes world state, run state, event ledger, and task plan state."
+    },
+    {
+      "id": "context_manager",
+      "name": "Context manager",
+      "requested_definition": "Decides what information should be included in the model's context window.",
+      "status": "present_no_injection",
+      "maturity": "validated_contract",
+      "maturity_score": 3,
+      "summary": "UAA has context packs, grounded recall selection, context-pack building, context budget accounting, trimming, safe context proposal, and handoff approval contracts. It does not inject context into a live model session.",
+      "primary_paths": [
+        "src/ultimate_ai_agent/core/contracts/context_pack.py",
+        "src/ultimate_ai_agent/core/recall/router.py",
+        "src/ultimate_ai_agent/core/recall/context_pack.py",
+        "src/ultimate_ai_agent/core/context_budget/trimming.py",
+        "src/ultimate_ai_agent/core/context_handoff/workflow.py"
+      ],
+      "supporting_paths": [
+        "docs/canonical/36_context_pack.md",
+        "docs/recall/CONTEXT_PACK_BUILDER.md",
+        "docs/context/CONTEXT_HANDOFF_NO_INJECTION_POLICY.md",
+        "docs/canonical/54_context_budget_and_session_survival.md"
+      ],
+      "test_paths": [
+        "tests/test_context_pack.py",
+        "tests/test_context_pack_builder.py",
+        "tests/test_context_budget.py",
+        "tests/test_context_handoff_no_injection.py",
+        "tests/test_grounded_recall_router.py"
+      ],
+      "evidence": [
+        "Recall and context-pack builders select safe summaries and enforce token limits.",
+        "Context handoff tests keep context injection disabled."
+      ],
+      "gaps": [
+        "No live context injection.",
+        "No runtime context-window manager for active model sessions.",
+        "No automatic memory-to-context expansion."
+      ],
+      "next_checkpoint": "Promote from validated_contract only after a reviewed no-injection-to-injection boundary is designed."
+    },
+    {
+      "id": "tool_registry",
+      "name": "Tool registry",
+      "requested_definition": "A standard way to define, describe, permission, and call tools.",
+      "status": "present_bounded",
+      "maturity": "constrained_local_runtime",
+      "maturity_score": 4,
+      "summary": "UAA has ToolManifest, ToolRegistry, ToolBroker, capability firewall checks, consent and approval enforcement, and a governed tool runtime adapter with tightly allowlisted behavior. It deliberately does not support arbitrary tool dispatch.",
+      "primary_paths": [
+        "src/ultimate_ai_agent/core/tools/manifests.py",
+        "src/ultimate_ai_agent/core/tools/registry.py",
+        "src/ultimate_ai_agent/core/tools/broker.py",
+        "src/ultimate_ai_agent/core/tools/capability_firewall.py",
+        "src/ultimate_ai_agent/core/tools/runtime/invocation.py"
+      ],
+      "supporting_paths": [
+        "docs/tools/TOOL_BROKER_V2.md",
+        "docs/tools/TOOL_RUNTIME_ADAPTER.md",
+        "docs/tools/TOOL_AUTHORITY_BOUNDARY.md",
+        "docs/tools/FILE_TOOL_CAPABILITY_MATRIX.md"
+      ],
+      "test_paths": [
+        "tests/test_tool_manifests.py",
+        "tests/test_tool_broker_authorization.py",
+        "tests/test_tool_broker_risk_policy.py",
+        "tests/test_tool_runtime_contracts.py",
+        "tests/test_tool_runtime_no_dynamic_dispatch.py"
+      ],
+      "evidence": [
+        "ToolBroker evaluates registered tools against consent, risk, and capability firewall policy.",
+        "Runtime tests deny dynamic dispatch and preserve no-side-effect constraints for non-allowlisted paths."
+      ],
+      "gaps": [
+        "No general plugin/tool execution registry.",
+        "No arbitrary callable loading.",
+        "No production tool marketplace authority."
+      ],
+      "next_checkpoint": "Keep arbitrary tools behind explicit capability registry, sandbox, approval, and audit milestones."
+    },
+    {
+      "id": "capability_registry",
+      "name": "Capability registry",
+      "requested_definition": "Lets the agent know what it can and cannot do.",
+      "status": "stale_partial",
+      "maturity": "declared_only",
+      "maturity_score": 1,
+      "summary": "UAA has a canonical capability-registry concept and old JSON registry artifacts, but the latest registry file is v0.5.8 while the active baseline is v1.2.0-alpha. It is not yet a maintained current source of truth for all module capability maturity.",
+      "primary_paths": [
+        "docs/canonical/32_capability_registry_and_dependency_graph.md",
+        "docs/registry/capability_registry_v0_5_8.json",
+        "docs/registry/dependency_graph_v0_5_3.md"
+      ],
+      "supporting_paths": [
+        "docs/operating/foundation_first_build_policy.md",
+        "src/ultimate_ai_agent/core/runtime/capability_profile.py",
+        "src/ultimate_ai_agent/core/tools/capability_firewall.py"
+      ],
+      "test_paths": [
+        "tests/test_capability_firewall.py",
+        "tests/test_runtime_capability_matrix.py",
+        "tests/test_resource_governor.py"
+      ],
+      "evidence": [
+        "Canonical docs define intended registry fields, dependency graph, permission map, risk map, and blocked capability lists.",
+        "Tool capability firewall and runtime capability profile exist as narrower enforcement mechanisms."
+      ],
+      "gaps": [
+        "No current active-baseline capability registry artifact.",
+        "No complete module-level maturity inventory before this map.",
+        "No code-owned registry that all modules consult."
+      ],
+      "next_checkpoint": "Replace or supersede stale v0.5.x registry artifacts with an active-baseline capability registry."
+    },
+    {
+      "id": "multi_agent_coordinator",
+      "name": "Multi-agent coordinator",
+      "requested_definition": "Allows multiple specialized agents to work together.",
+      "status": "contract_only",
+      "maturity": "contract_only",
+      "maturity_score": 2,
+      "summary": "UAA has A2A metadata and remote-agent coordination contracts, but those contracts explicitly deny live remote runtime, dispatch, agent spawn, network access, and remote execution. There is no operating multi-agent coordinator.",
+      "primary_paths": [
+        "src/ultimate_ai_agent/core/adapters/a2a_manifest.py",
+        "src/ultimate_ai_agent/core/production_readiness/remote_agent_coordination.py",
+        "src/ultimate_ai_agent/core/remote_workers/registry.py",
+        "src/ultimate_ai_agent/core/remote_workers/dry_run.py"
+      ],
+      "supporting_paths": [
+        "docs/canonical/29_agent_interoperability.md",
+        "docs/production/REMOTE_AGENT_COORDINATION_CONTRACT.md",
+        "docs/production/REMOTE_AGENT_COORDINATION_NON_GOALS.md",
+        "docs/remote/REMOTE_WORKER_FOUNDATION.md"
+      ],
+      "test_paths": [
+        "tests/test_a2a_adapter_boundaries.py",
+        "tests/test_m117_remote_agent_coordination_contract.py",
+        "tests/test_remote_worker_models.py",
+        "tests/test_remote_worker_no_network.py"
+      ],
+      "evidence": [
+        "A2A agent card is inert metadata only.",
+        "Remote-agent coordination record is safe-ref-only and denies runtime dispatch and spawn."
+      ],
+      "gaps": [
+        "No live sub-agent runtime.",
+        "No task assignment across specialized agents.",
+        "No inter-agent message bus.",
+        "No remote agent execution authority."
+      ],
+      "next_checkpoint": "Keep this contract_only until a no-effect multi-agent planning layer is defined and separately reviewed."
+    },
+    {
+      "id": "human_in_the_loop",
+      "name": "Human-in-the-loop module",
+      "requested_definition": "Pauses the agent when approval, review, or clarification is needed.",
+      "status": "present_bounded",
+      "maturity": "constrained_local_runtime",
+      "maturity_score": 4,
+      "summary": "UAA has local approval request/grant/validation logic, approval-bound tool/model route checks, review-only file approval contracts, and human checkpoint scheduling contracts. It can gate bounded local/dev paths, but it is not a general clarification or product approval workflow engine.",
+      "primary_paths": [
+        "src/ultimate_ai_agent/core/approvals/authority.py",
+        "src/ultimate_ai_agent/core/approvals/requests.py",
+        "src/ultimate_ai_agent/core/approvals/grants.py",
+        "src/ultimate_ai_agent/core/file_review/approval_capture.py",
+        "src/ultimate_ai_agent/core/autonomy/human_checkpoint_scheduling.py"
+      ],
+      "supporting_paths": [
+        "docs/approvals/APPROVAL_AUTHORITY_V2.md",
+        "docs/approvals/APPROVAL_REF_NOT_AUTHORITY.md",
+        "docs/files/FILE_REVIEW_APPROVAL_CAPTURE.md",
+        "docs/autonomy/HUMAN_CHECKPOINT_SCHEDULING.md"
+      ],
+      "test_paths": [
+        "tests/test_approval_authority.py",
+        "tests/test_approval_validation.py",
+        "tests/test_approval_integration_tool_broker.py",
+        "tests/test_file_review_approval_capture_contracts.py",
+        "tests/test_m134_human_checkpoint_scheduling.py"
+      ],
+      "evidence": [
+        "LocalApprovalAuthority creates, grants, revokes, and validates approval grants against exact scope.",
+        "Kernel and tool broker integration tests require valid approval for bounded high-risk local/dev actions."
+      ],
+      "gaps": [
+        "No general clarification loop.",
+        "No product-wide approval queue runtime as authority.",
+        "Human checkpoint scheduling is contract-only and does not schedule prompts or notifications."
+      ],
+      "next_checkpoint": "Unify approvals, clarification requests, and human checkpoints under one HITL decision surface before claiming operational_runtime."
+    }
+  ]
+}

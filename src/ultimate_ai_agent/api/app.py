@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict
@@ -147,6 +147,22 @@ from ultimate_ai_agent.core.file_review import (
     FileReviewApprovalCaptureRequest,
     FileReviewApprovalStore,
     capture_file_review_approval_request,
+)
+from ultimate_ai_agent.core.openwebui_bridge import (
+    OpenWebUILocalChatCompletionRequest,
+    build_openwebui_local_chat_completion_response,
+    build_openwebui_local_models_response,
+    openwebui_test_gateway_authorized,
+    openwebui_test_gateway_enabled,
+)
+from ultimate_ai_agent.core.local_model_management import (
+    M164ChatCompletionRequest,
+    build_m164_chat_completion_response,
+    build_m164_gateway_model_from_env,
+    build_m164_local_models_response,
+    llama_cpp_backend_api_key,
+    llama_cpp_gateway_authorized,
+    llama_cpp_gateway_enabled,
 )
 
 app = FastAPI(
@@ -305,6 +321,63 @@ def get_version():
 @app.get("/api/manifest", response_model=ApiManifest)
 def get_api_manifest():
     return build_api_manifest(app)
+
+def _require_openwebui_local_test_gateway(authorization: str | None) -> None:
+    if not openwebui_test_gateway_enabled():
+        raise HTTPException(
+            status_code=403,
+            detail="M151 local OpenWebUI test gateway is disabled. Set UAA_OPENWEBUI_TEST_GATEWAY_ENABLED=1 for local smoke testing.",
+        )
+    if not openwebui_test_gateway_authorized(authorization):
+        raise HTTPException(
+            status_code=401,
+            detail="M151 local OpenWebUI test gateway requires the local test bearer value.",
+        )
+
+def _require_m164_llama_cpp_gateway(authorization: str | None) -> None:
+    if not llama_cpp_gateway_enabled():
+        raise HTTPException(
+            status_code=403,
+            detail="M164 llama.cpp gateway is disabled. Set UAA_LLAMA_CPP_GATEWAY_ENABLED=1 for local runtime use.",
+        )
+    if not llama_cpp_gateway_authorized(authorization):
+        raise HTTPException(
+            status_code=401,
+            detail="M164 llama.cpp gateway requires the configured local bearer value.",
+        )
+
+@app.get("/v1/models")
+def get_v1_models(authorization: str | None = Header(default=None)):
+    if llama_cpp_gateway_enabled():
+        _require_m164_llama_cpp_gateway(authorization)
+        return build_m164_local_models_response(build_m164_gateway_model_from_env())
+    _require_openwebui_local_test_gateway(authorization)
+    return build_openwebui_local_models_response()
+
+@app.post("/v1/chat/completions")
+def post_v1_chat_completions(
+    request: dict,
+    authorization: str | None = Header(default=None),
+):
+    if llama_cpp_gateway_enabled():
+        _require_m164_llama_cpp_gateway(authorization)
+        try:
+            return build_m164_chat_completion_response(
+                M164ChatCompletionRequest(**request),
+                gateway_model=build_m164_gateway_model_from_env(),
+                api_key=llama_cpp_backend_api_key(),
+            )
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=422,
+                detail="M164 llama.cpp gateway request failed safe validation.",
+            ) from exc
+    _require_openwebui_local_test_gateway(authorization)
+    try:
+        local_request = OpenWebUILocalChatCompletionRequest(**request)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return build_openwebui_local_chat_completion_response(local_request)
 
 @app.post("/contracts/validate", response_model=ResultEnvelope)
 def post_validate_contract(contract: ExecutionContract):

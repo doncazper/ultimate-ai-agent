@@ -11,6 +11,6 @@ memory write, context injection, execution, broad autonomy, mobile sensor
 runtime, beta release, or production authority.
 
 M110 does not bump the product SemVer version. The product baseline remains
-v1.7.2, M110 uses a checkpoint tag, and M150 remains v1.0.0-alpha.
+v1.7.2, M110 uses a checkpoint tag, and M150 remains v1.2.0-alpha.
 
 M111 remains future.

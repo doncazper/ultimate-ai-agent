@@ -19,4 +19,4 @@ data access boundary refs, audit refs, replay refs, and a no-effect receipt
 plan. It stays actor-bound, baseline-bound, source-secrets-boundary-bound,
 user-bound, workspace-bound, credential-boundary-bound, and auth-boundary-bound.
 
-M115 remains future. M150 remains the planned v1.0.0-alpha target.
+M115 remains future. M150 remains the planned v1.2.0-alpha target.

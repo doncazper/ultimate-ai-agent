@@ -17,7 +17,7 @@ data.
 
 M111 does not consume a product SemVer version. The current product baseline
 remains v1.7.2, M111 is tagged as a checkpoint, and M150 remains the
-v1.0.0-alpha target. Beta begins later after the alpha UI and supporting
+v1.2.0-alpha target. Beta begins later after the alpha UI and supporting
 safety/product work are reviewed and promoted.
 
 M111 adds no production authority, no production runtime, no external

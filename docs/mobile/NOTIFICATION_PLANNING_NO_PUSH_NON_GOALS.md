@@ -22,5 +22,5 @@ Non-goals:
 - no M105 implementation.
 
 M104 is a checkpoint milestone, not a product SemVer release. M150 remains the
-v1.0.0-alpha target, and beta begins only after later reviewed alpha UI and
+v1.2.0-alpha target, and beta begins only after later reviewed alpha UI and
 product work.

@@ -46,8 +46,8 @@ def test_post_m100_documentation_integrity_guard_rejects_missing_row_status(
     roadmap = tmp_path / "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md"
     roadmap.write_text(
         roadmap.read_text(encoding="utf-8").replace(
-            "| v1.0.0-alpha | alpha | M150 | Ultimate AI Agent v1.0.0-alpha | Implemented/released |",
-            "| v1.0.0-alpha | alpha | M150 | Ultimate AI Agent v1.0.0-alpha | Deferred |",
+            "| v1.2.0-alpha | alpha | M150 | Ultimate AI Agent v1.2.0-alpha | Implemented/released |",
+            "| v1.2.0-alpha | alpha | M150 | Ultimate AI Agent v1.2.0-alpha | Deferred |",
         ),
         encoding="utf-8",
     )
@@ -96,8 +96,8 @@ def test_post_m100_static_verifier_rejects_missing_row_status(
     roadmap = tmp_path / "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md"
     roadmap.write_text(
         roadmap.read_text(encoding="utf-8").replace(
-            "| v1.0.0-alpha | alpha | M150 | Ultimate AI Agent v1.0.0-alpha | Implemented/released |",
-            "| v1.0.0-alpha | alpha | M150 | Ultimate AI Agent v1.0.0-alpha | Deferred |",
+            "| v1.2.0-alpha | alpha | M150 | Ultimate AI Agent v1.2.0-alpha | Implemented/released |",
+            "| v1.2.0-alpha | alpha | M150 | Ultimate AI Agent v1.2.0-alpha | Deferred |",
         ),
         encoding="utf-8",
     )
@@ -142,8 +142,8 @@ def test_post_m100_foundation_gate_rejects_missing_row_status(tmp_path: Path) ->
     roadmap = tmp_path / "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md"
     roadmap.write_text(
         roadmap.read_text(encoding="utf-8").replace(
-            "| v1.0.0-alpha | alpha | M150 | Ultimate AI Agent v1.0.0-alpha | Implemented/released |",
-            "| v1.0.0-alpha | alpha | M150 | Ultimate AI Agent v1.0.0-alpha | Deferred |",
+            "| v1.2.0-alpha | alpha | M150 | Ultimate AI Agent v1.2.0-alpha | Implemented/released |",
+            "| v1.2.0-alpha | alpha | M150 | Ultimate AI Agent v1.2.0-alpha | Deferred |",
         ),
         encoding="utf-8",
     )
@@ -229,7 +229,7 @@ def test_post_m100_static_verifier_rejects_future_semver_rows(
     roadmap = tmp_path / "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md"
     roadmap.write_text(
         roadmap.read_text(encoding="utf-8")
-        + "\n| v1.7.48 | v1.0.0-alpha | M150 | Ultimate AI Agent v1.0.0-alpha | Planned/provisional |\n",
+        + "\n| v1.7.48 | v1.2.0-alpha | M150 | Ultimate AI Agent v1.2.0-alpha | Planned/provisional |\n",
         encoding="utf-8",
     )
     monkeypatch.setattr(static_verifier, "ROOT", tmp_path)

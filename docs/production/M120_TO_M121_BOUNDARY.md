@@ -13,4 +13,4 @@ context injection, execution, backend routes, Control Center controls,
 dependencies, beta release, or production authority.
 
 The product baseline remains v1.7.2. M120 uses the checkpoint-m120 tag rather
-than a product SemVer tag. M150 remains the planned v1.0.0-alpha target.
+than a product SemVer tag. M150 remains the planned v1.2.0-alpha target.

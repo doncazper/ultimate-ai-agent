@@ -20,6 +20,16 @@ def release_packet_paths(version_key):
         f"docs/archive/releases/v{version_key}/master_plan.md",
     )
 
+
+def version_to_archive_key(version):
+    return version.replace(".", "_").replace("-", "_")
+
+
+def version_to_package_version(version):
+    if version.endswith("-alpha"):
+        return f"{version[:-6]}a0"
+    return version
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Verify current baseline metadata and required files.")
     parser.add_argument(
@@ -37,12 +47,16 @@ def main(argv=None):
         fail("VERSION.md does not exist")
     
     version_content = version_file.read_text(encoding="utf-8")
-    version_match = re.search(r"Current active baseline:\s*\*\*v?(\d+\.\d+\.\d+)\*\*", version_content)
+    version_match = re.search(
+        r"Current active baseline:\s*\*\*v?(\d+\.\d+\.\d+(?:-[A-Za-z0-9.]+)?)\*\*",
+        version_content,
+    )
     if not version_match:
         fail("Could not find 'Current active baseline: **vX.Y.Z**' pattern in VERSION.md")
     
     version = version_match.group(1)
-    version_with_underscores = version.replace(".", "_")
+    version_with_underscores = version_to_archive_key(version)
+    package_version = version_to_package_version(version)
     ok(f"VERSION.md active baseline version: v{version}")
     
     # 2. Check pyproject.toml version
@@ -56,8 +70,8 @@ def main(argv=None):
         fail("Could not find version setting in pyproject.toml")
         
     pyproject_version = pyproject_match.group(1)
-    if pyproject_version != version:
-        fail(f"pyproject.toml version ({pyproject_version}) does not match VERSION.md baseline ({version})")
+    if pyproject_version != package_version:
+        fail(f"pyproject.toml version ({pyproject_version}) does not match VERSION.md baseline package form ({package_version})")
     ok(f"pyproject.toml version is consistent: {pyproject_version}")
     
     # 3. Check src/ultimate_ai_agent/__init__.py __version__
@@ -71,8 +85,8 @@ def main(argv=None):
         fail("Could not find __version__ in src/ultimate_ai_agent/__init__.py")
         
     init_version = init_match.group(1)
-    if init_version != version:
-        fail(f"__init__.py version ({init_version}) does not match VERSION.md baseline ({version})")
+    if init_version != package_version:
+        fail(f"__init__.py version ({init_version}) does not match VERSION.md baseline package form ({package_version})")
     ok(f"src/ultimate_ai_agent/__init__.py version is consistent: {init_version}")
     
     # 4. Check README.md consistency

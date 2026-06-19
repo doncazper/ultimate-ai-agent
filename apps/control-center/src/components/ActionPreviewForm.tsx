@@ -12,7 +12,7 @@ const actionKindOptions: Array<{ label: string; value: ActionPreviewRequest["act
   { label: "Preview approval", value: "preview_approval" },
   { label: "Preview runtime", value: "preview_runtime" },
   { label: "Preview remote worker", value: "preview_remote_worker" },
-  { label: "Preview mobile capability", value: "preview_mobile_capability" }
+  { label: "Preview mobile capability", value: "preview_mobile_capability" },
 ];
 
 const defaultRequest: ActionPreviewRequest = {
@@ -24,7 +24,7 @@ const defaultRequest: ActionPreviewRequest = {
   risk_level: "safe",
   data_classification: "system_internal",
   consent_refs: [],
-  metadata: { frontend_shell: true, preview_only: true }
+  metadata: { frontend_shell: true, preview_only: true },
 };
 
 const riskLevelOptions: Array<{ label: string; value: ActionPreviewRequest["risk_level"] }> = [
@@ -32,12 +32,16 @@ const riskLevelOptions: Array<{ label: string; value: ActionPreviewRequest["risk
   { label: "Low", value: "low" },
   { label: "Medium", value: "medium" },
   { label: "High", value: "high" },
-  { label: "Critical", value: "critical" }
+  { label: "Critical", value: "critical" },
 ];
 
 export function ActionPreviewForm() {
-  const [actionKind, setActionKind] = useState<ActionPreviewRequest["action_kind"]>(defaultRequest.action_kind);
-  const [riskLevel, setRiskLevel] = useState<ActionPreviewRequest["risk_level"]>(defaultRequest.risk_level);
+  const [actionKind, setActionKind] = useState<ActionPreviewRequest["action_kind"]>(
+    defaultRequest.action_kind,
+  );
+  const [riskLevel, setRiskLevel] = useState<ActionPreviewRequest["risk_level"]>(
+    defaultRequest.risk_level,
+  );
   const [purpose, setPurpose] = useState(defaultRequest.purpose);
   const [targetRef, setTargetRef] = useState(defaultRequest.target_ref);
   const [decision, setDecision] = useState<ActionPreviewDecision | null>(null);
@@ -48,7 +52,13 @@ export function ActionPreviewForm() {
     event.preventDefault();
     setError(null);
     setDecision(null);
-    const request = { ...defaultRequest, action_kind: actionKind, purpose, risk_level: riskLevel, target_ref: targetRef };
+    const request = {
+      ...defaultRequest,
+      action_kind: actionKind,
+      purpose,
+      risk_level: riskLevel,
+      target_ref: targetRef,
+    };
     if (containsSecretLike(request)) {
       setPurpose("");
       setTargetRef(defaultRequest.target_ref);
@@ -59,7 +69,9 @@ export function ActionPreviewForm() {
     try {
       setDecision(await submitActionPreview(request));
     } catch (err) {
-      setError(sanitizeForDisplay(err instanceof Error ? err.message : "Preview request failed safely."));
+      setError(
+        sanitizeForDisplay(err instanceof Error ? err.message : "Preview request failed safely."),
+      );
     } finally {
       setSubmitting(false);
     }
@@ -79,12 +91,18 @@ export function ActionPreviewForm() {
         message="This form asks the backend for a policy preview only. It never runs, enables, grants, deploys, or dispatches anything."
       />
       <p className="section-copy">
-        High and critical previews remain non-execution decisions; an approval reference is never treated as authority by this shell.
+        High and critical previews remain non-execution decisions; an approval reference is never
+        treated as authority by this shell.
       </p>
       <form className="preview-form" onSubmit={handleSubmit}>
         <label>
           Action kind
-          <select value={actionKind} onChange={(event) => setActionKind(event.target.value as ActionPreviewRequest["action_kind"])}>
+          <select
+            value={actionKind}
+            onChange={(event) =>
+              setActionKind(event.target.value as ActionPreviewRequest["action_kind"])
+            }
+          >
             {actionKindOptions.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
@@ -97,7 +115,12 @@ export function ActionPreviewForm() {
         </label>
         <label>
           Risk level
-          <select value={riskLevel} onChange={(event) => setRiskLevel(event.target.value as ActionPreviewRequest["risk_level"])}>
+          <select
+            value={riskLevel}
+            onChange={(event) =>
+              setRiskLevel(event.target.value as ActionPreviewRequest["risk_level"])
+            }
+          >
             {riskLevelOptions.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}

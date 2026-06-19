@@ -16,6 +16,7 @@ CAPABILITIES_DECLARED = [
     "runtime_readiness_status",
     "manual_smoke_report_validation",
     "control_center_read_only_dashboard",
+    "openwebui_local_test_gateway_disabled_by_default",
 ]
 
 CAPABILITIES_BLOCKED = [
@@ -33,6 +34,11 @@ CAPABILITIES_BLOCKED = [
     "control_center_mobile_sensor_access",
     "control_center_remote_dispatch",
     "control_center_model_provider_invocation",
+    "openwebui_runtime_authority",
+    "openwebui_provider_calls",
+    "openwebui_shell_tool_execution",
+    "openwebui_memory_writes",
+    "openwebui_context_injection",
 ]
 
 ROUTE_GROUPS_BY_PREFIX = {
@@ -64,10 +70,17 @@ ROUTE_GROUPS_BY_PREFIX = {
     "/files": "files",
     "/truth": "truth",
     "/kernel": "kernel",
+    "/v1": "openwebui-local-test",
 }
 
 LOCAL_DEV_WORKSPACE_PREFIXES = ("/kernel", "/files", "/memory")
 VALIDATION_HINTS = ("/validate", "/preview", "/evaluate", "/route", "/freshness/check", "/dry-run")
+
+
+def active_baseline_label() -> str:
+    if __version__.endswith("a0"):
+        return f"v{__version__[:-2]}-alpha"
+    return f"v{__version__}"
 
 
 def route_group_for_path(path: str) -> str:
@@ -128,7 +141,7 @@ def build_api_manifest(app: FastAPI, foundation_gate_status: str | None = None) 
         title=app.title,
         api_version=__version__,
         package_version=__version__,
-        active_baseline=f"v{__version__}",
+        active_baseline=active_baseline_label(),
         route_count=len(routes),
         route_groups=route_groups,
         routes=routes,

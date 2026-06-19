@@ -25,4 +25,4 @@ release, and no production authority.
 
 M139 stores no raw abuse log, no raw loop trace, no raw prompt, no raw provider
 payload, no cookies, no credentials, and no secrets. M140 remains future
-Higher-Autonomy Red-Team Freeze work. M150 remains the v1.0.0-alpha target.
+Higher-Autonomy Red-Team Freeze work. M150 remains the v1.2.0-alpha target.

@@ -4,7 +4,8 @@ import { EmptyState } from "./DataState";
 
 export function ReceiptViewerPanel({ review }: { review: M15ReviewData }) {
   const [selectedRef, setSelectedRef] = useState(review.receipts[0]?.receiptRef ?? "");
-  const selected = review.receipts.find((item) => item.receiptRef === selectedRef) ?? review.receipts[0];
+  const selected =
+    review.receipts.find((item) => item.receiptRef === selectedRef) ?? review.receipts[0];
 
   return (
     <section className="page-section" aria-labelledby="receipt-viewer-heading">
@@ -16,8 +17,9 @@ export function ReceiptViewerPanel({ review }: { review: M15ReviewData }) {
         <span className="status-pill compact">redacted summary-only</span>
       </div>
       <p className="section-copy">
-        This view shows redacted summary-only receipt records for inspection. Receipts remain non-authoritative mock
-        summaries unless a future reviewed backend contract provides safe live data.
+        This view shows redacted summary-only receipt records for inspection. Receipts remain
+        non-authoritative mock summaries unless a future reviewed backend contract provides safe
+        live data.
       </p>
       <div className="note-list" aria-label="Receipt viewer warnings">
         {review.warningCodes.map((code) => (
@@ -39,7 +41,10 @@ export function ReceiptViewerPanel({ review }: { review: M15ReviewData }) {
           <ReceiptDetail item={selected} />
         </div>
       ) : (
-        <EmptyState title="No receipt summaries" message="No redacted receipt summaries are available." />
+        <EmptyState
+          title="No receipt summaries"
+          message="No redacted receipt summaries are available."
+        />
       )}
     </section>
   );
@@ -48,7 +53,7 @@ export function ReceiptViewerPanel({ review }: { review: M15ReviewData }) {
 function ReceiptRow({
   item,
   selected,
-  onSelect
+  onSelect,
 }: {
   item: ReceiptSummaryItem;
   selected: boolean;

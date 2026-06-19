@@ -18,4 +18,4 @@ actor-bound, baseline-bound, source-production-red-team-harness-bound,
 user-bound, workspace-bound, audit-bound, replay-bound, and no-effect receipt
 plan-bound.
 
-M121 remains future. M150 remains the planned v1.0.0-alpha target.
+M121 remains future. M150 remains the planned v1.2.0-alpha target.

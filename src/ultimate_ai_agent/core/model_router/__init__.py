@@ -3,6 +3,7 @@ from ultimate_ai_agent.core.model_router.enums import (
     ModelPrivacyClass,
     ModelProviderKind,
     ModelRiskClass,
+    ModelRouteCostMode,
     ModelRouteStatus,
     ModelTaskCapability,
 )
@@ -17,6 +18,7 @@ __all__ = [
     "ModelPrivacyClass",
     "ModelProviderKind",
     "ModelRiskClass",
+    "ModelRouteCostMode",
     "ModelRouteDecision",
     "ModelRouteRequest",
     "ModelRouteStatus",

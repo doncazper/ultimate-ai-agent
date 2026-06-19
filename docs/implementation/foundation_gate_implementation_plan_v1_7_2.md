@@ -10,7 +10,7 @@ Foundation Gate and verifier coverage should confirm:
 - already-pushed tags remain immutable historical internal milestone tags.
 - future M104-M149 conveyor milestones use checkpoint labels instead of product
   SemVer tags.
-- M150 is the next product release target v1.0.0-alpha.
+- M150 is the next product release target v1.2.0-alpha.
 - beta begins only after alpha UI and supporting safety/product work are
   reviewed, accepted, and promoted by a later roadmap patch.
 - stale fast-version rows such as v1.8.0/M104, v1.7.2/M104, v1.7.48/M150, and

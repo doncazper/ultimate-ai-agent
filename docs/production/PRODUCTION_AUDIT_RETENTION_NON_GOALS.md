@@ -18,4 +18,4 @@ schedule refs, audit data class refs, redaction policy ref, deletion window
 ref, legal hold boundary ref, audit refs, replay refs, actor refs, user refs,
 workspace refs, baseline refs, and no-effect receipt plan refs.
 
-M116 remains future. M150 remains the planned v1.0.0-alpha target.
+M116 remains future. M150 remains the planned v1.2.0-alpha target.

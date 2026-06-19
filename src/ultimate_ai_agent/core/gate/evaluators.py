@@ -2149,7 +2149,7 @@ M150_FORBIDDEN_BACKEND_ROUTES = M149_FORBIDDEN_BACKEND_ROUTES + (
     "/ultimate-ai-agent-alpha/publish",
     "/alpha/accept",
     "/alpha/release",
-    "/v1.0.0-alpha/release",
+    "/v1.2.0-alpha/release",
 )
 M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS = (
     "import ollama",
@@ -2243,14 +2243,168 @@ M21_OPENWEBUI_ALLOWED_FRAGMENT_SCAN_FILES = {
     "src/ultimate_ai_agent/core/gate/evaluators.py",
     "src/ultimate_ai_agent/core/hardening_freeze/__init__.py",
     "src/ultimate_ai_agent/core/hardening_freeze/network_browser_openwebui.py",
+    "src/ultimate_ai_agent/core/local_model_management/contracts.py",
     "scripts/verify_all.py",
     "scripts/verify_control_center_frontend.py",
 }
+M151_LOCAL_OPENWEBUI_TEST_ROUTES = {
+    "/v1/models",
+    "/v1/chat/completions",
+}
+EXPECTED_M152_OPENAPI_PATH_COUNT = EXPECTED_M150_OPENAPI_PATH_COUNT
+M152_FORBIDDEN_BACKEND_ROUTES = M150_FORBIDDEN_BACKEND_ROUTES + (
+    "/hf/search",
+    "/huggingface/search",
+    "/local-models",
+    "/local-models/search",
+    "/local-models/acquire",
+    "/local-models/download",
+    "/local-models/import",
+    "/local-models/load",
+    "/local-models/unload",
+    "/local-models/delete",
+    "/local-models/serve",
+    "/local-models/server",
+    "/model-management",
+    "/model-management/execute",
+    "/model-management/download",
+    "/models/download",
+    "/models/pull",
+    "/models/load",
+    "/models/unload",
+    "/models/delete",
+    "/models/generate",
+    "/models/complete",
+    "/models/invoke",
+    "/hardware/probe",
+    "/system/probe",
+    "/model-runtime/local/download",
+    "/model-runtime/local/load",
+    "/model-runtime/local/unload",
+    "/model-runtime/local/serve",
+    "/model-runtime/local/start",
+    "/model-runtime/local/restart",
+    "/llama-cpp/server",
+    "/llama-cpp/settings/apply",
+    "/v1/responses",
+    "/v1/completions",
+    "/v1/embeddings",
+    "/providers/call",
+    "/providers/invoke",
+    "/control-center/local-models/execute",
+    "/control-center/local-models/download",
+    "/control-center/local-models/apply",
+    "/control-center/local-models/start",
+    "/control-center/model-management/execute",
+    "/control-center/model-management/apply",
+)
+M152_FORBIDDEN_SOURCE_FRAGMENTS = (
+    "import " + "subprocess",
+    "from subprocess import",
+    "subprocess" + ".run(",
+    "subprocess" + ".Popen(",
+    "import " + "requests",
+    "from " + "requests import",
+    "requests.get(",
+    "requests.post(",
+    "requests.request(",
+    "import " + "httpx",
+    "from " + "httpx import",
+    "httpx.get(",
+    "httpx.post(",
+    "httpx.request(",
+    "urllib.request.urlopen(",
+    "import llama_cpp",
+    "from llama_cpp import",
+    "llama_cpp.Llama(",
+    "llama_cpp.server",
+    "llama-server",
+    "llama_server",
+    "import huggingface_hub",
+    "from huggingface_hub import",
+    "HfApi().list_models",
+    "list_models(",
+    "model_info(",
+    "hf_hub_download(",
+    "snapshot_download(",
+    "HfApi(",
+    "AutoModel.from_pretrained(",
+    "AutoTokenizer.from_pretrained(",
+    "pipeline(",
+    "platform.uname(",
+    "psutil.",
+    "system_profiler",
+    "nvidia-smi",
+    "subprocess" + ".check_output(",
+    "asyncio.create_subprocess",
+    "os.system(",
+    "openai.OpenAI(",
+    "ollama.pull(",
+    "ollama.generate(",
+    "create_completion(",
+    "chat.completions.create(",
+    "download_enabled=True",
+    "model_download_enabled=True",
+    "download_performed=True",
+    "settings_applied=True",
+    "server_started=True",
+    "model_load_enabled=True",
+    "model_unload_enabled=True",
+    "model_call_enabled=True",
+    "model_loaded=True",
+    "model_call_performed=True",
+    "provider_call_enabled=True",
+    "backend_route_added=True",
+    "control_center_execute_control_added=True",
+    "dependency_added=True",
+    "production_authority_granted=True",
+)
+M152_FORBIDDEN_DEPENDENCY_FRAGMENTS = (
+    "llama-cpp-python",
+    "llama_cpp",
+    "huggingface-hub",
+    "huggingface_hub",
+    "hf-transfer",
+    "openai",
+    "transformers",
+    "torch",
+    "accelerate",
+    "sentence-transformers",
+    "psutil",
+    "pynvml",
+    "ollama",
+    "vllm",
+    "mlx",
+    "lmstudio",
+)
+M152_STATIC_SCAN_ALLOWED_FILES = {
+    "src/ultimate_ai_agent/api/openapi.py",
+    "src/ultimate_ai_agent/core/gate/evaluators.py",
+    "src/ultimate_ai_agent/core/local_model_management/__init__.py",
+    "src/ultimate_ai_agent/core/local_model_management/gateway.py",
+    "src/ultimate_ai_agent/core/local_model_management/hf_search.py",
+    "src/ultimate_ai_agent/core/local_model_management/llama_cpp_supervisor.py",
+    "src/ultimate_ai_agent/core/local_model_management/model_acquisition.py",
+    "src/ultimate_ai_agent/core/local_model_management/system_probe.py",
+    "src/ultimate_ai_agent/core/local_model_management/tuning.py",
+}
+M152_STATIC_SCAN_ROOTS = (
+    "src/ultimate_ai_agent",
+    "apps/control-center/src",
+    "apps/ccc-ios",
+)
+
+
+def _post_m151_route_boundary_path_set(paths: Iterable[str]) -> set[str]:
+    """Normalize current OpenAPI paths for pre-M151 route-boundary gates."""
+    path_set = {path for path in paths}
+    path_set.difference_update(M151_LOCAL_OPENWEBUI_TEST_ROUTES)
+    return path_set
 
 
 def _historical_openapi_path_set(paths: Iterable[str]) -> set[str]:
     """Normalize current OpenAPI paths for historical route-count gates."""
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     if len(path_set) > EXPECTED_M36_OPENAPI_PATH_COUNT:
         path_set.discard(M37_ALLOWED_CAPTURE_ROUTE)
     return path_set
@@ -2488,7 +2642,7 @@ def m36_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m37_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M37_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2501,7 +2655,7 @@ def m37_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m38_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M38_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2514,7 +2668,7 @@ def m38_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m39_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M39_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2527,7 +2681,7 @@ def m39_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m40_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M40_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2540,7 +2694,7 @@ def m40_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m41_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M41_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2553,7 +2707,7 @@ def m41_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m42_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M42_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2566,7 +2720,7 @@ def m42_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m43_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M43_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2579,7 +2733,7 @@ def m43_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m44_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M44_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2592,7 +2746,7 @@ def m44_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m45_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M45_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2605,7 +2759,7 @@ def m45_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m46_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M46_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2618,7 +2772,7 @@ def m46_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m47_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M47_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2631,7 +2785,7 @@ def m47_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m48_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M48_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2644,7 +2798,7 @@ def m48_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m49_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M49_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2657,7 +2811,7 @@ def m49_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m50_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M50_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2670,7 +2824,7 @@ def m50_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m51_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M51_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2683,7 +2837,7 @@ def m51_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m52_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M52_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2696,7 +2850,7 @@ def m52_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m53_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M53_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2709,7 +2863,7 @@ def m53_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m54_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M54_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2722,7 +2876,7 @@ def m54_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m55_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M55_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2735,7 +2889,7 @@ def m55_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m56_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M56_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2748,7 +2902,7 @@ def m56_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m57_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M57_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2761,7 +2915,7 @@ def m57_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m58_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M58_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2774,7 +2928,7 @@ def m58_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m59_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M59_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2787,7 +2941,7 @@ def m59_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m60_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M60_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2800,7 +2954,7 @@ def m60_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m61_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M61_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2813,7 +2967,7 @@ def m61_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m62_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M62_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2826,7 +2980,7 @@ def m62_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m63_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M63_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2839,7 +2993,7 @@ def m63_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m64_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M64_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2852,7 +3006,7 @@ def m64_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m65_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M65_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2865,7 +3019,7 @@ def m65_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m66_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M66_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2878,7 +3032,7 @@ def m66_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m67_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M67_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2891,7 +3045,7 @@ def m67_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m68_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M68_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2904,7 +3058,7 @@ def m68_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m69_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M69_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2917,7 +3071,7 @@ def m69_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m70_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M70_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2930,7 +3084,7 @@ def m70_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m71_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M71_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2943,7 +3097,7 @@ def m71_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m72_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M72_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2956,7 +3110,7 @@ def m72_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m73_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M73_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2969,7 +3123,7 @@ def m73_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m74_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M74_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2982,7 +3136,7 @@ def m74_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m75_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M75_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -2995,7 +3149,7 @@ def m75_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m76_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M76_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
@@ -3008,7 +3162,7 @@ def m76_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m77_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M77_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3021,7 +3175,7 @@ def m77_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m78_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M78_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3034,7 +3188,7 @@ def m78_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m79_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M79_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3047,7 +3201,7 @@ def m79_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m80_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M80_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3060,7 +3214,7 @@ def m80_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m81_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M81_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3073,7 +3227,7 @@ def m81_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 
 
 def m82_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M82_OPENAPI_PATH_COUNT) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3088,7 +3242,7 @@ def m82_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
 def m83_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M83_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3103,7 +3257,7 @@ def m83_openapi_route_failures(
 def m84_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M84_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3118,7 +3272,7 @@ def m84_openapi_route_failures(
 def m85_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M85_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3133,7 +3287,7 @@ def m85_openapi_route_failures(
 def m86_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M86_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3148,7 +3302,7 @@ def m86_openapi_route_failures(
 def m87_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M87_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3163,7 +3317,7 @@ def m87_openapi_route_failures(
 def m88_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M88_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3178,7 +3332,7 @@ def m88_openapi_route_failures(
 def m89_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M89_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3193,7 +3347,7 @@ def m89_openapi_route_failures(
 def m90_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M90_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3208,7 +3362,7 @@ def m90_openapi_route_failures(
 def m91_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M91_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3223,7 +3377,7 @@ def m91_openapi_route_failures(
 def m92_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M92_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3238,7 +3392,7 @@ def m92_openapi_route_failures(
 def m93_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M93_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3253,7 +3407,7 @@ def m93_openapi_route_failures(
 def m94_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M94_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3268,7 +3422,7 @@ def m94_openapi_route_failures(
 def m95_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M95_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3283,7 +3437,7 @@ def m95_openapi_route_failures(
 def m96_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M96_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3298,7 +3452,7 @@ def m96_openapi_route_failures(
 def m97_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M97_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3313,7 +3467,7 @@ def m97_openapi_route_failures(
 def m98_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M98_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3328,7 +3482,7 @@ def m98_openapi_route_failures(
 def m99_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M99_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3343,7 +3497,7 @@ def m99_openapi_route_failures(
 def m100_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M100_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3358,7 +3512,7 @@ def m100_openapi_route_failures(
 def m101_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M101_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3373,7 +3527,7 @@ def m101_openapi_route_failures(
 def m102_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M102_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3388,7 +3542,7 @@ def m102_openapi_route_failures(
 def m103_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M103_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3403,7 +3557,7 @@ def m103_openapi_route_failures(
 def m104_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M104_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3418,7 +3572,7 @@ def m104_openapi_route_failures(
 def m105_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M105_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3433,7 +3587,7 @@ def m105_openapi_route_failures(
 def m106_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M106_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3448,7 +3602,7 @@ def m106_openapi_route_failures(
 def m107_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M107_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3463,7 +3617,7 @@ def m107_openapi_route_failures(
 def m108_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M108_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3478,7 +3632,7 @@ def m108_openapi_route_failures(
 def m109_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M109_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3493,7 +3647,7 @@ def m109_openapi_route_failures(
 def m110_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M110_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3508,7 +3662,7 @@ def m110_openapi_route_failures(
 def m111_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M111_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3523,7 +3677,7 @@ def m111_openapi_route_failures(
 def m112_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M112_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3538,7 +3692,7 @@ def m112_openapi_route_failures(
 def m113_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M113_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3553,7 +3707,7 @@ def m113_openapi_route_failures(
 def m114_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M114_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3568,7 +3722,7 @@ def m114_openapi_route_failures(
 def m115_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M115_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3583,7 +3737,7 @@ def m115_openapi_route_failures(
 def m116_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M116_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3598,7 +3752,7 @@ def m116_openapi_route_failures(
 def m117_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M117_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3615,7 +3769,7 @@ def m117_openapi_route_failures(
 def m118_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M118_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3632,7 +3786,7 @@ def m118_openapi_route_failures(
 def m119_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M119_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3649,7 +3803,7 @@ def m119_openapi_route_failures(
 def m120_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M120_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3666,7 +3820,7 @@ def m120_openapi_route_failures(
 def m121_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M121_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3683,7 +3837,7 @@ def m121_openapi_route_failures(
 def m122_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M122_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3700,7 +3854,7 @@ def m122_openapi_route_failures(
 def m123_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M123_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3717,7 +3871,7 @@ def m123_openapi_route_failures(
 def m124_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M124_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3734,7 +3888,7 @@ def m124_openapi_route_failures(
 def m125_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M125_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3751,7 +3905,7 @@ def m125_openapi_route_failures(
 def m126_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M126_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3768,7 +3922,7 @@ def m126_openapi_route_failures(
 def m127_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M127_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3785,7 +3939,7 @@ def m127_openapi_route_failures(
 def m128_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M128_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3802,7 +3956,7 @@ def m128_openapi_route_failures(
 def m129_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M129_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3819,7 +3973,7 @@ def m129_openapi_route_failures(
 def m130_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M130_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3836,7 +3990,7 @@ def m130_openapi_route_failures(
 def m131_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M131_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3853,7 +4007,7 @@ def m131_openapi_route_failures(
 def m132_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M132_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3870,7 +4024,7 @@ def m132_openapi_route_failures(
 def m133_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M133_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3887,7 +4041,7 @@ def m133_openapi_route_failures(
 def m134_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M134_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3904,7 +4058,7 @@ def m134_openapi_route_failures(
 def m135_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M135_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3921,7 +4075,7 @@ def m135_openapi_route_failures(
 def m136_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M136_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3938,7 +4092,7 @@ def m136_openapi_route_failures(
 def m137_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M137_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3955,7 +4109,7 @@ def m137_openapi_route_failures(
 def m138_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M138_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3972,7 +4126,7 @@ def m138_openapi_route_failures(
 def m139_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M139_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -3989,7 +4143,7 @@ def m139_openapi_route_failures(
 def m140_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M140_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -4006,7 +4160,7 @@ def m140_openapi_route_failures(
 def m141_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M141_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -4023,7 +4177,7 @@ def m141_openapi_route_failures(
 def m142_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M142_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -4040,7 +4194,7 @@ def m142_openapi_route_failures(
 def m143_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M143_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -4057,7 +4211,7 @@ def m143_openapi_route_failures(
 def m144_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M144_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -4074,7 +4228,7 @@ def m144_openapi_route_failures(
 def m145_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M145_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -4091,7 +4245,7 @@ def m145_openapi_route_failures(
 def m146_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M146_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -4108,7 +4262,7 @@ def m146_openapi_route_failures(
 def m147_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M147_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -4125,7 +4279,7 @@ def m147_openapi_route_failures(
 def m148_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M148_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -4142,7 +4296,7 @@ def m148_openapi_route_failures(
 def m149_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M149_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -4159,7 +4313,7 @@ def m149_openapi_route_failures(
 def m150_openapi_route_failures(
     paths: Iterable[str], expected_path_count: int = EXPECTED_M150_OPENAPI_PATH_COUNT
 ) -> List[str]:
-    path_set = set(paths)
+    path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
         failures.append(
@@ -4169,6 +4323,55 @@ def m150_openapi_route_failures(
         if route in path_set:
             failures.append(
                 f"M150 forbidden alpha target, release publication, tag, artifact, distribution, submission, beta, automation, auth, or authority route present: {route}"
+            )
+    return failures
+
+
+def m152_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M152_OPENAPI_PATH_COUNT
+) -> List[str]:
+    path_set = _post_m151_route_boundary_path_set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(
+            f"OpenAPI path count changed for M152: expected {expected_path_count}, got {len(path_set)}"
+        )
+    for route in M152_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(
+                f"M152 forbidden local model management runtime, download, load, server, provider, or Control Center authority route present: {route}"
+            )
+    return failures
+
+
+EXPECTED_M166_OPENAPI_PATH_COUNT = EXPECTED_M152_OPENAPI_PATH_COUNT
+M166_FORBIDDEN_BACKEND_ROUTES = M120_FORBIDDEN_BACKEND_ROUTES + (
+    "/production/release-gate/apply",
+    "/production/release-gate/run",
+    "/production/release-gate/execute",
+    "/production/release-gate/approve",
+    "/production/readiness/run",
+    "/production/readiness/execute",
+    "/production/load-test/run",
+    "/production/package/build",
+    "/production/security-scan/run",
+    "/production/openwebui/e2e/run",
+)
+
+
+def m166_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M166_OPENAPI_PATH_COUNT
+) -> List[str]:
+    path_set = _post_m151_route_boundary_path_set(paths)
+    failures: List[str] = []
+    if len(path_set) != expected_path_count:
+        failures.append(
+            f"OpenAPI path count changed for M166: expected {expected_path_count}, got {len(path_set)}"
+        )
+    for route in M166_FORBIDDEN_BACKEND_ROUTES:
+        if route in path_set:
+            failures.append(
+                f"M166 forbidden production readiness, release gate, go-live, rollback, packaging, load test, security scan, OpenWebUI E2E, or authority route present: {route}"
             )
     return failures
 
@@ -4291,6 +4494,36 @@ def m22_local_runtime_forbidden_fragment_failures(root: Path) -> List[str]:
         for fragment in M22_FORBIDDEN_LOCAL_RUNTIME_FRAGMENTS:
             if fragment in text:
                 failures.append(f"M22 forbidden local runtime fragment in {rel}: {fragment}")
+    return failures
+
+
+def m152_local_model_management_forbidden_fragment_failures(root: Path) -> List[str]:
+    failures: List[str] = []
+    for rel_root in M152_STATIC_SCAN_ROOTS:
+        scan_root = root / rel_root
+        if not scan_root.exists():
+            continue
+        candidate_files: list[Path] = []
+        for pattern in ("*.py", "*.ts", "*.tsx", "*.js", "*.jsx", "*.swift", "*.yml", "*.yaml", "*.json"):
+            candidate_files.extend(scan_root.rglob(pattern))
+        for path in sorted(candidate_files):
+            if not path.is_file():
+                continue
+            rel = path.relative_to(root).as_posix()
+            if rel in M152_STATIC_SCAN_ALLOWED_FILES:
+                continue
+            text = path.read_text(encoding="utf-8")
+            for fragment in M152_FORBIDDEN_SOURCE_FRAGMENTS:
+                if fragment in text:
+                    failures.append(f"M152 forbidden local model management fragment in {rel}: {fragment}")
+    for rel in ["pyproject.toml", "apps/control-center/package.json"]:
+        path = root / rel
+        if not path.exists():
+            continue
+        text = path.read_text(encoding="utf-8").lower()
+        for fragment in M152_FORBIDDEN_DEPENDENCY_FRAGMENTS:
+            if fragment in text:
+                failures.append(f"M152 forbidden dependency fragment in {rel}: {fragment}")
     return failures
 
 
@@ -5582,6 +5815,45 @@ class FoundationGateEvaluator:
                 self.check_m150_ultimate_ai_agent_alpha_route_boundary
             ),
             "m150_roadmap_currentness": self.check_m150_roadmap_currentness,
+            "m151_local_openwebui_test_shell_contracts": (
+                self.check_m151_local_openwebui_test_shell_contracts
+            ),
+            "m151_local_openwebui_test_shell_route_boundary": (
+                self.check_m151_local_openwebui_test_shell_route_boundary
+            ),
+            "m151_local_openwebui_test_shell_launcher": (
+                self.check_m151_local_openwebui_test_shell_launcher
+            ),
+            "m152_local_model_management_contracts": (
+                self.check_m152_local_model_management_contracts
+            ),
+            "m152_local_model_management_static_safety": (
+                self.check_m152_local_model_management_static_safety
+            ),
+            "m152_local_model_management_route_boundary": (
+                self.check_m152_local_model_management_route_boundary
+            ),
+            "m153_m165_local_model_management_progression": (
+                self.check_m153_m165_local_model_management_progression
+            ),
+            "m160_bounded_hf_gguf_search_static_safety": (
+                self.check_m160_bounded_hf_gguf_search_static_safety
+            ),
+            "m161_local_system_probe_static_safety": (
+                self.check_m161_local_system_probe_static_safety
+            ),
+            "m162_exact_approved_gguf_acquisition_static_safety": (
+                self.check_m162_exact_approved_gguf_acquisition_static_safety
+            ),
+            "m166_local_model_production_readiness_contracts": (
+                self.check_m166_local_model_production_readiness_contracts
+            ),
+            "m166_local_model_production_readiness_static_safety": (
+                self.check_m166_local_model_production_readiness_static_safety
+            ),
+            "m166_local_model_production_readiness_route_boundary": (
+                self.check_m166_local_model_production_readiness_route_boundary
+            ),
             "open_design_governance_docs_present": self.check_open_design_governance_docs_present,
             "openwebui_ccc_strategy_docs_present": self.check_openwebui_ccc_strategy_docs_present,
             "post_m20_roadmap_projection_present": self.check_post_m20_roadmap_projection_present,
@@ -5609,12 +5881,13 @@ class FoundationGateEvaluator:
                 r"(?m)^__version__\s*=\s*['\"]([^'\"]+)['\"]",
             )
             readme = self._read(self.root / "README.md")
-            expected_underscored = version.replace(".", "_")
+            expected_underscored = self._version_key(version)
+            expected_package_version = self._package_version(version)
             expected_import = f"docs/archive/releases/v{expected_underscored}/README_IMPORT.md"
             expected_master = f"docs/archive/releases/v{expected_underscored}/master_plan.md"
-            if pyproject_version != version:
+            if pyproject_version != expected_package_version:
                 failures.append("pyproject.toml version mismatch")
-            if init_version != version:
+            if init_version != expected_package_version:
                 failures.append("package __version__ mismatch")
             if f"v{version}" not in readme:
                 failures.append("README.md missing active version")
@@ -5626,7 +5899,7 @@ class FoundationGateEvaluator:
 
     def check_release_docs_present(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
         version = self._active_version()
-        version_key = (version or "0.0.0").replace(".", "_")
+        version_key = self._version_key(version or "0.0.0")
         required = [
             f"docs/archive/releases/v{version_key}/README_IMPORT.md",
             f"docs/archive/releases/v{version_key}/master_plan.md",
@@ -5730,6 +6003,11 @@ class FoundationGateEvaluator:
             "src/ultimate_ai_agent/core/model_runtime/manual_loopback_transport.py",
             "src/ultimate_ai_agent/core/model_runtime/local_call_transport.py",
         }
+        allowed_m160_hf_search_file = "src/ultimate_ai_agent/core/local_model_management/hf_search.py"
+        allowed_m162_acquisition_file = (
+            "src/ultimate_ai_agent/core/local_model_management/model_acquisition.py"
+        )
+        allowed_m164_gateway_file = "src/ultimate_ai_agent/core/local_model_management/gateway.py"
         allowed_m72_fixture_files = {
             "src/ultimate_ai_agent/core/gate/evaluators.py",
         }
@@ -5746,6 +6024,16 @@ class FoundationGateEvaluator:
                 "docs.example.test" in stripped or "evil.example" in stripped
             ):
                 continue
+            if path == allowed_m160_hf_search_file and "huggingface.co/api/models" in stripped:
+                continue
+            if path == "src/ultimate_ai_agent/core/gate/evaluators.py" and "https://huggingface.co" in stripped:
+                continue
+            if path == "src/ultimate_ai_agent/core/gate/evaluators.py" and "http://127.0.0.1:8080" in stripped:
+                continue
+            if path == allowed_m162_acquisition_file and "https://huggingface.co" in stripped:
+                continue
+            if path == allowed_m164_gateway_file and "http://127.0.0.1:8080" in stripped:
+                continue
             if any(pattern in stripped for pattern in forbidden_contains):
                 failures.append(f"{path}:{line_no} forbidden integration reference")
             if ".get(" in stripped and any(marker in stripped for marker in forbidden_contains[-2:]):
@@ -5760,11 +6048,15 @@ class FoundationGateEvaluator:
             "po" + "pen(",
             "sub" + "process.",
         ]
-        failures = [
-            f"{path}:{line_no} shell execution"
-            for path, line_no, stripped in self._runtime_lines()
-            if not self._is_static_scanner_text(stripped) and any(fragment in stripped for fragment in forbidden)
-        ]
+        allowed_m163_supervisor_file = "src/ultimate_ai_agent/core/local_model_management/llama_cpp_supervisor.py"
+        failures = []
+        for path, line_no, stripped in self._runtime_lines():
+            if self._is_static_scanner_text(stripped):
+                continue
+            if path == allowed_m163_supervisor_file and any(fragment in stripped for fragment in forbidden):
+                continue
+            if any(fragment in stripped for fragment in forbidden):
+                failures.append(f"{path}:{line_no} shell execution")
         return self._result(criterion, failures, ["src/ultimate_ai_agent"])
 
     def check_broad_filesystem_scanning_absent(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
@@ -6099,7 +6391,8 @@ class FoundationGateEvaluator:
         paths = {route.path for route in manifest.routes}
         if "/api/manifest" not in paths:
             failures.append("/api/manifest missing from route inventory")
-        if manifest.api_version != (self._active_version() or ""):
+        active_package_version = self._package_version(self._active_version() or "")
+        if manifest.api_version != active_package_version:
             failures.append("manifest api_version does not match active baseline")
         if not manifest.no_runtime_integrations:
             failures.append("manifest does not declare no_runtime_integrations")
@@ -7260,7 +7553,7 @@ class FoundationGateEvaluator:
 
     def check_documentation_integrity_current(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
         version = self._active_version()
-        version_key = (version or "0.0.0").replace(".", "_")
+        version_key = self._version_key(version or "0.0.0")
         required = [
             "docs/DOCUMENTATION_INDEX.md",
             "docs/canonical/CANONICAL_DOC_MAP.md",
@@ -7400,8 +7693,7 @@ class FoundationGateEvaluator:
             "m14 — ux polish",
             "m14: ux polish",
         ]
-        active_version = self._active_version() or "0.0.0"
-        version_tuple = tuple(int(part) for part in active_version.split("."))
+        version_tuple = self._active_version_tuple()
         if version_tuple < (0, 19, 0):
             forbidden.extend(
                 [
@@ -8032,8 +8324,7 @@ class FoundationGateEvaluator:
 
         routes = iter_api_route_items(app)
         paths = {route.path: route for route in routes}
-        historical_paths = dict(paths)
-        historical_paths.pop(M37_ALLOWED_CAPTURE_ROUTE, None)
+        historical_paths = _historical_openapi_path_set(paths)
         failures = []
         if len(historical_paths) != 74:
             failures.append(f"API path count changed from M12 contract: {len(historical_paths)}")
@@ -9480,8 +9771,7 @@ class FoundationGateEvaluator:
         roadmap_text = self._read(self.root / "docs/canonical/09_roadmap.md").lower()
         if "v0.25.0 / m21" not in roadmap_text or "implemented" not in roadmap_text:
             failures.append("canonical roadmap must mark v0.25.0 / M21 implemented")
-        active_version = self._active_version() or "0.0.0"
-        version_tuple = tuple(int(part) for part in active_version.split("."))
+        version_tuple = self._active_version_tuple()
         if version_tuple >= (0, 26, 0):
             if "v0.26.0 / m22" not in roadmap_text or "implemented" not in roadmap_text:
                 failures.append("canonical roadmap must mark v0.26.0 / M22 implemented")
@@ -9589,8 +9879,7 @@ class FoundationGateEvaluator:
         failures.extend(m22_local_runtime_forbidden_fragment_failures(self.root))
 
         roadmap_text = self._read(self.root / "docs/canonical/09_roadmap.md").lower()
-        active_version = self._active_version() or "0.0.0"
-        version_tuple = tuple(int(part) for part in active_version.split("."))
+        version_tuple = self._active_version_tuple()
         if "v0.26.0 / m22" not in roadmap_text or "implemented" not in roadmap_text:
             failures.append("canonical roadmap must mark v0.26.0 / M22 implemented")
         if version_tuple >= (0, 27, 0):
@@ -10373,8 +10662,7 @@ class FoundationGateEvaluator:
                 failures.append("M26 docs do not mark v0.30.0 implemented/released")
         else:
             failures.append("M26 docs do not mention v0.30.0 Grounded Recall Router + Evidence-Linked Context Pack Builder")
-        active_version = self._active_version() or "0.0.0"
-        version_tuple = tuple(int(part) for part in active_version.split("."))
+        version_tuple = self._active_version_tuple()
         if version_tuple >= (0, 32, 0):
             if "v0.32.0" in text and "approval authority v2 + action policy expansion" in text:
                 if "implemented/released" not in text:
@@ -10613,8 +10901,7 @@ class FoundationGateEvaluator:
                 failures.append("M27 docs do not mark v0.31.0 implemented/released")
         else:
             failures.append("M27 docs do not mention v0.31.0 Tool Broker v2 + Safe Tool Intent Contracts")
-        active_version = self._active_version() or "0.0.0"
-        version_tuple = tuple(int(part) for part in active_version.split("."))
+        version_tuple = self._active_version_tuple()
         if version_tuple >= (0, 32, 0):
             if "approval authority v2 + action policy expansion" not in text:
                 failures.append("M27 docs do not describe the M28 Approval Authority v2 handoff")
@@ -11052,8 +11339,7 @@ class FoundationGateEvaluator:
                 failures.append("M28 docs do not mark v0.32.0 implemented/released")
         else:
             failures.append("M28 docs do not mention v0.32.0 Approval Authority v2 + Action Policy Expansion")
-        active_version = self._active_version() or "0.0.0"
-        version_tuple = tuple(int(part) for part in active_version.split("."))
+        version_tuple = self._active_version_tuple()
         if version_tuple >= (0, 35, 0):
             if "m29 agent task planning engine" not in text:
                 failures.append("M28 docs do not describe the M29 Agent Task Planning Engine handoff")
@@ -11414,8 +11700,7 @@ class FoundationGateEvaluator:
                 failures.append("M29 docs do not mark v0.33.0 implemented/released")
         else:
             failures.append("M29 docs do not mention v0.33.0 Agent Task Planning Engine")
-        active_version = self._active_version() or "0.0.0"
-        version_tuple = tuple(int(part) for part in active_version.split("."))
+        version_tuple = self._active_version_tuple()
         if version_tuple >= (0, 35, 0):
             if "m30" not in text or "multi-step execution framework" not in text or "implemented/released" not in text:
                 failures.append("M29 boundary docs must acknowledge implemented v0.34.0 / M30")
@@ -11769,8 +12054,7 @@ class FoundationGateEvaluator:
                 failures.append("M30 docs do not mark v0.34.0 implemented/released")
         else:
             failures.append("M30 docs do not mention v0.34.0 Multi-Step Execution Framework")
-        active_version = self._active_version() or "0.0.0"
-        version_tuple = tuple(int(part) for part in active_version.split("."))
+        version_tuple = self._active_version_tuple()
         if version_tuple >= (0, 35, 0):
             if "m31" not in text or "real tool runtime adapter" not in text or "implemented/released" not in text:
                 failures.append("M30 docs do not acknowledge implemented v0.35.0 / M31")
@@ -12022,8 +12306,7 @@ class FoundationGateEvaluator:
             failures.append("M31 docs do not mark v0.35.0 Real Tool Runtime Adapter implemented/released")
         if "v0.35.1" not in text or "hardens m31" not in text:
             failures.append("M31 docs do not mark v0.35.1 no-op tool runtime hardening")
-        active_version = self._active_version() or "0.0.0"
-        version_tuple = tuple(int(part) for part in active_version.split("."))
+        version_tuple = self._active_version_tuple()
         if version_tuple >= (0, 36, 0):
             if "m32 is implemented/released" not in text and "m32 safe local filesystem metadata tool" not in text:
                 failures.append("M31/M32 docs do not acknowledge implemented M32")
@@ -12363,8 +12646,7 @@ class FoundationGateEvaluator:
         ]
         failures = [f"missing M32 roadmap doc: {path}" for path in required_docs if not (self.root / path).exists()]
         text = "\n".join(self._read(self.root / path).lower() for path in required_docs if (self.root / path).exists())
-        active_version = self._active_version() or "0.0.0"
-        version_tuple = tuple(int(part) for part in active_version.split("."))
+        version_tuple = self._active_version_tuple()
         if version_tuple >= (0, 36, 1):
             if "v0.36.1" not in text or "filesystem metadata path safety" not in text:
                 failures.append("M32 docs do not mark v0.36.1 filesystem metadata path safety hardening")
@@ -12764,8 +13046,7 @@ class FoundationGateEvaluator:
             failures.append("M33 docs do not mark redacted file preview proposal implemented/released")
         if "implemented/released" not in text:
             failures.append("M33 docs do not mark M33 implemented/released")
-        active_version = self._active_version() or "0.0.0"
-        version_tuple = tuple(int(part) for part in active_version.split("."))
+        version_tuple = self._active_version_tuple()
         if version_tuple >= (0, 38, 0):
             if "m34" not in text or "broader file capability review" not in text or "implemented/released" not in text:
                 failures.append("M34 broader file capability review must be implemented/released at v0.38.0+")
@@ -12814,8 +13095,7 @@ class FoundationGateEvaluator:
         ]
         failures = [f"missing M34 broader file capability review file: {path}" for path in required_docs if not (self.root / path).exists()]
         text = "\n".join(self._read(self.root / path).lower() for path in required_docs if (self.root / path).exists())
-        current_version = self._active_version() or "0.0.0"
-        version_tuple = tuple(int(part) for part in current_version.split(".")[:3])
+        version_tuple = self._active_version_tuple()
         required_fragments = {
             "M34 docs must say planning/review only": "planning/review only",
             "M34 docs must say no runtime file capability": "no runtime file capability",
@@ -12904,8 +13184,7 @@ class FoundationGateEvaluator:
             failures.append("M34 roadmap docs do not mark M34 implemented/released")
         if "planning/docs/verifier" not in text and "planning, architecture review" not in text:
             failures.append("M34 roadmap docs do not constrain M34 to planning/docs/verifier work")
-        current_version = self._active_version() or "0.0.0"
-        current_tuple = tuple(int(part) for part in current_version.split(".")[:3])
+        current_tuple = self._active_version_tuple()
         if current_tuple >= (0, 45, 0):
             if "m41 is implemented/released" not in text and "v0.45.0 implements m41" not in text:
                 failures.append("M41 roadmap docs do not mark M41 implemented/released")
@@ -13045,8 +13324,7 @@ class FoundationGateEvaluator:
                 if path.startswith("docs/") and (self.root / path).exists()
             ).split()
         )
-        current_version = self._active_version() or "0.0.0"
-        version_tuple = tuple(int(part) for part in current_version.split(".")[:3])
+        version_tuple = self._active_version_tuple()
         required_fragments = {
             "M35 docs must say redacted review packets only": "redacted review packets only",
             "M35 docs must say exact approval binding": "exact approval binding",
@@ -13191,8 +13469,7 @@ class FoundationGateEvaluator:
         return self._result(criterion, failures, [])
 
     def check_m35_m36_m37_m38_remain_future(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
-        active_version = self._active_version() or "0.0.0"
-        version_tuple = tuple(int(part) for part in active_version.split("."))
+        version_tuple = self._active_version_tuple()
         required_docs = [
             "README.md",
             "docs/canonical/09_roadmap.md",
@@ -13381,8 +13658,7 @@ class FoundationGateEvaluator:
         return self._result(criterion, failures, [])
 
     def check_m36_m37_m38_remain_future(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
-        active_version = self._active_version() or "0.0.0"
-        version_tuple = tuple(int(part) for part in active_version.split("."))
+        version_tuple = self._active_version_tuple()
         required_docs = [
             "README.md",
             "docs/canonical/09_roadmap.md",
@@ -13561,8 +13837,7 @@ class FoundationGateEvaluator:
             failures.append("active docs do not identify v0.41.0/M37 Review Approval Capture")
         if "m37 is implemented/released" not in text and "m37 implemented/released" not in text:
             failures.append("active docs do not mark M37 implemented/released")
-        active_version = self._active_version() or "0.0.0"
-        version_tuple = tuple(int(part) for part in active_version.split(".")[:3])
+        version_tuple = self._active_version_tuple()
         if version_tuple >= (0, 45, 0):
             if "m41 is implemented/released" not in text and "v0.45.0 implements m41" not in text:
                 failures.append("active docs do not mark M41 implemented/released")
@@ -13794,7 +14069,7 @@ class FoundationGateEvaluator:
         ]
         failures = [f"missing M38 Control Center boundary file: {path}" for path in required_files if not (self.root / path).exists()]
         text = "\n".join(self._read(self.root / path).lower() for path in required_files if (self.root / path).exists())
-        current = tuple(int(part) for part in (self._active_version() or "0.0.0").split(".")[:3])
+        current = self._active_version_tuple()
         forbidden_fragments = [
             "/context/proposals",
             "/context/propose",
@@ -13838,7 +14113,7 @@ class FoundationGateEvaluator:
             failures.append("active docs do not identify v0.42.0/M38 Safe Context Proposal")
         if "m38 is implemented/released" not in text and "m38 implemented/released" not in text:
             failures.append("active docs do not mark M38 implemented/released")
-        current = tuple(int(part) for part in (self._active_version() or "0.0.0").split(".")[:3])
+        current = self._active_version_tuple()
         if current >= (0, 45, 0):
             if "m41 is implemented/released" not in text and "v0.45.0 implements m41" not in text:
                 failures.append("active docs do not mark M41 implemented/released after v0.45.0")
@@ -14236,7 +14511,7 @@ class FoundationGateEvaluator:
             failures.append("active docs do not identify v0.44.0/M40 Context Handoff Approval, No Injection")
         if "m40 is implemented/released" not in text and "v0.44.0 implements m40" not in text:
             failures.append("active docs do not mark M40 implemented/released")
-        active_version = tuple(int(part) for part in (self._active_version() or "0.0.0").split(".")[:3])
+        active_version = self._active_version_tuple()
         if active_version >= (0, 45, 0):
             if "m41 is implemented/released" not in text and "v0.45.0 implements m41" not in text:
                 failures.append("active docs do not mark M41 implemented/released")
@@ -14382,7 +14657,7 @@ class FoundationGateEvaluator:
             failures.append("active docs do not identify v0.45.0/M41 Local Prototype Safety Freeze")
         if "m41 is implemented/released" not in text and "v0.45.0 implements m41" not in text:
             failures.append("active docs do not mark M41 implemented/released")
-        current_tuple = tuple(int(part) for part in (self._active_version() or "0.0.0").split(".")[:3])
+        current_tuple = self._active_version_tuple()
         if current_tuple >= (0, 52, 0):
             self._append_post_m48_mobile_status_failures(text, failures)
         elif current_tuple >= (0, 51, 0):
@@ -14548,7 +14823,7 @@ class FoundationGateEvaluator:
             failures.append("active docs do not identify v0.46.0/M42 Mobile Companion Product Contract Refresh")
         if "m42 is implemented/released" not in text and "v0.46.0 implements m42" not in text:
             failures.append("active docs do not mark M42 implemented/released")
-        current_tuple = tuple(int(part) for part in (self._active_version() or "0.0.0").split(".")[:3])
+        current_tuple = self._active_version_tuple()
         if current_tuple >= (0, 52, 0):
             self._append_post_m48_mobile_status_failures(text, failures)
         elif current_tuple >= (0, 51, 0):
@@ -14724,7 +14999,7 @@ class FoundationGateEvaluator:
             failures.append("active docs do not identify v0.47.0/M43 Mobile API Boundary, Read-Only")
         if "m43 is implemented/released" not in text and "v0.47.0 implements m43" not in text:
             failures.append("active docs do not mark M43 implemented/released")
-        current_tuple = tuple(int(part) for part in (self._active_version() or "0.0.0").split(".")[:3])
+        current_tuple = self._active_version_tuple()
         if current_tuple >= (0, 52, 0):
             self._append_post_m48_mobile_status_failures(text, failures)
         elif current_tuple >= (0, 51, 0):
@@ -14922,7 +15197,7 @@ class FoundationGateEvaluator:
             failures.append("active docs do not identify v0.48.0/M44 CCC iOS Skeleton, No Authority")
         if "m44 is implemented/released" not in text and "v0.48.0 implements m44" not in text:
             failures.append("active docs do not mark M44 implemented/released")
-        current_tuple = tuple(int(part) for part in (self._active_version() or "0.0.0").split(".")[:3])
+        current_tuple = self._active_version_tuple()
         if current_tuple >= (0, 52, 0):
             self._append_post_m48_mobile_status_failures(text, failures)
         elif current_tuple >= (0, 51, 0):
@@ -15123,8 +15398,7 @@ class FoundationGateEvaluator:
             failures.append("active docs do not identify v0.49.0/M45 CCC iOS Local Read-Only Connection")
         if "m45 is implemented/released" not in text and "v0.49.0 implements m45" not in text:
             failures.append("active docs do not mark M45 implemented/released")
-        active_version = self._active_version() or "0.0.0"
-        current = tuple(int(part) for part in active_version.split(".")[:3])
+        current = self._active_version_tuple()
         if current >= (0, 52, 0):
             self._append_post_m48_mobile_status_failures(text, failures)
         elif current >= (0, 51, 0):
@@ -15297,7 +15571,7 @@ class FoundationGateEvaluator:
             failures.append("active docs do not identify v0.50.0/M46 iOS Review/Receipt Read-Only Surfaces")
         if "m46 is implemented/released" not in text and "v0.50.0 implements m46" not in text:
             failures.append("active docs do not mark M46 implemented/released")
-        current_tuple = tuple(int(part) for part in (self._active_version() or "0.0.0").split(".")[:3])
+        current_tuple = self._active_version_tuple()
         if current_tuple >= (0, 52, 0):
             self._append_post_m48_mobile_status_failures(text, failures)
         elif current_tuple >= (0, 51, 0):
@@ -15488,7 +15762,7 @@ class FoundationGateEvaluator:
             failures.append("active docs do not identify v0.51.0/M47 TestFlight Pipeline, Internal Only")
         if "m47 is implemented/released" not in text and "v0.51.0 implements m47" not in text:
             failures.append("active docs do not mark M47 implemented/released")
-        current_tuple = tuple(int(part) for part in (self._active_version() or "0.0.0").split(".")[:3])
+        current_tuple = self._active_version_tuple()
         if current_tuple >= (0, 52, 0):
             self._append_post_m48_mobile_status_failures(text, failures)
         elif "m48-m60 remain planned/provisional" not in text:
@@ -17329,7 +17603,7 @@ class FoundationGateEvaluator:
             )
             request = RedactedObservabilityExportRequest(
                 request_ref="observability-export-request:m55-gate",
-                run_ref="run:m55-gate",
+                run_ref="run:run_m55_gate",
                 export_ref="observability-export:m55-gate",
                 requested_formats=[ObservabilityExportFormat.internal_redacted_json],
                 source_event_refs=["event:evt_m55_gate"],
@@ -19929,11 +20203,7 @@ class FoundationGateEvaluator:
         ):
             if fragment in text:
                 failures.append(f"M64 docs imply forbidden/future capability: {fragment}")
-        version = self._active_version() or "0.0.0"
-        try:
-            version_tuple = tuple(int(part) for part in version.split("."))
-        except ValueError:
-            version_tuple = (0, 0, 0)
+        version_tuple = self._active_version_tuple()
         if version_tuple < (0, 69, 0):
             for fragment in (
                 "m65 is implemented",
@@ -22754,8 +23024,7 @@ class FoundationGateEvaluator:
         ]:
             if version_label.lower() not in text or milestone.lower() not in text or title.lower() not in text:
                 failures.append(f"active docs missing planned M74-M100 row: {version_label} / {milestone} — {title}")
-        active_version = self._active_version() or "0.0.0"
-        version_tuple = tuple(int(part) for part in active_version.split(".")[:3])
+        version_tuple = self._active_version_tuple()
         forbidden_fragments = [
             "m74 is implemented",
             "browser observe-only adapter is implemented",
@@ -23041,8 +23310,7 @@ class FoundationGateEvaluator:
         ]:
             if version_label.lower() not in text or milestone.lower() not in text or title.lower() not in text:
                 failures.append(f"active docs missing planned M75-M100 row: {version_label} / {milestone} — {title}")
-        active_version = self._active_version() or "0.0.0"
-        version_tuple = tuple(int(part) for part in active_version.split(".")[:3])
+        version_tuple = self._active_version_tuple()
         forbidden_fragments = [
             "m75 is implemented",
             "browser action dry-run planner is implemented",
@@ -24153,8 +24421,7 @@ class FoundationGateEvaluator:
             "production authority is implemented",
             "broad autonomy is implemented",
         ]
-        active_version = self._active_version() or "0.0.0"
-        version_tuple = tuple(int(part) for part in active_version.split("."))
+        version_tuple = self._active_version_tuple()
         if version_tuple < (0, 83, 0):
             forbidden_fragments.append("m79 is implemented")
         for fragment in forbidden_fragments:
@@ -31207,7 +31474,7 @@ class FoundationGateEvaluator:
                     ("m149", "alpha release candidate freeze"),
                 ]
             ],
-            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
         ]
         active_version_text = self._read(self.root / "VERSION.md").lower()
         implemented_milestones = set()
@@ -31494,7 +31761,7 @@ class FoundationGateEvaluator:
             implemented_milestones.add("m150")
         if "m150" in implemented_milestones:
             implemented_m150_row = (
-                "| v1.0.0-alpha | alpha | m150 | ultimate ai agent v1.0.0-alpha | "
+                "| v1.2.0-alpha | alpha | m150 | ultimate ai agent v1.2.0-alpha | "
                 "implemented/released |"
             )
             if implemented_m150_row not in text:
@@ -31523,7 +31790,7 @@ class FoundationGateEvaluator:
             future_semver_row = f"| v1.7.{minor} |"
             if future_semver_row in text:
                 failures.append(f"future milestone SemVer row remains active: {future_semver_row}")
-        for fragment in ("v1.0.0-alpha", "beta begins", "do not rewrite"):
+        for fragment in ("v1.2.0-alpha", "beta begins", "do not rewrite"):
             if fragment not in text:
                 failures.append(f"post-M100 roadmap missing alpha versioning policy fragment: {fragment}")
         for fragment in (
@@ -31737,7 +32004,7 @@ class FoundationGateEvaluator:
         m102_implemented = "v1.6.0" in text and "m102" in text
         m103_implemented = "v1.7.0" in text and "m103" in text
         planned_rows = [
-            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
         ]
         if not m103_implemented:
             planned_rows.insert(
@@ -31971,7 +32238,7 @@ class FoundationGateEvaluator:
         m103_implemented = "v1.7.0" in text and "m103" in text
         m104_implemented = "checkpoint m104" in text and "notification planning, no push execution" in text
         planned_rows = [
-            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
         ]
         if not m104_implemented:
             planned_rows.insert(
@@ -32248,7 +32515,7 @@ class FoundationGateEvaluator:
             "background task contract, no execution | implemented/released |"
         )
         planned_rows = [
-            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
         ]
         if implemented_m105_row not in text:
             planned_rows.insert(
@@ -32502,7 +32769,7 @@ class FoundationGateEvaluator:
             "mobile approval renewal ux | implemented/released |"
         )
         planned_rows = [
-            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
         ]
         if implemented_m105_row not in text:
             planned_rows.insert(
@@ -32776,7 +33043,7 @@ class FoundationGateEvaluator:
             "mobile approval renewal ux | implemented/released |"
         )
         planned_rows = [
-            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
         ]
         if implemented_m106_row not in text:
             planned_rows.insert(
@@ -33052,7 +33319,7 @@ class FoundationGateEvaluator:
         if implemented_m107_row not in text:
             failures.append("active docs missing implemented Checkpoint M107 row")
         planned_rows = [
-            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
         ]
         if implemented_m108_row not in text:
             planned_rows.insert(
@@ -33350,7 +33617,7 @@ class FoundationGateEvaluator:
         )
         planned_rows = [
             ("checkpoint m110", "pre-alpha checkpoint", "m110", "mobile sensor hardening freeze"),
-            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
         ]
         if implemented_m108_row not in text:
             planned_rows.insert(
@@ -33385,27 +33652,27 @@ class FoundationGateEvaluator:
         if implemented_m117_row in text:
             planned_rows = [
                 ("checkpoint m118", "pre-alpha checkpoint", "m118", "deployment mode matrix"),
-                ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+                ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
             ]
         elif implemented_m116_row in text:
             planned_rows = [
                 ("checkpoint m117", "pre-alpha checkpoint", "m117", "remote agent coordination contract"),
-                ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+                ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
             ]
         elif implemented_m115_row in text:
             planned_rows = [
                 ("checkpoint m116", "pre-alpha checkpoint", "m116", "role-based authority model"),
-                ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+                ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
             ]
         elif implemented_m114_row in text:
             planned_rows = [
                 ("checkpoint m115", "pre-alpha checkpoint", "m115", "production audit retention policy"),
-                ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+                ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
             ]
         elif implemented_m113_row in text:
             planned_rows = [
                 ("checkpoint m114", "pre-alpha checkpoint", "m114", "account connector contract review"),
-                ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+                ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
             ]
         elif implemented_m112_row in text:
             planned_rows = [
@@ -33415,17 +33682,17 @@ class FoundationGateEvaluator:
                     "m113",
                     "secrets boundary + credential vault contract",
                 ),
-                ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+                ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
             ]
         elif implemented_m111_row in text:
             planned_rows = [
                 ("checkpoint m112", "pre-alpha checkpoint", "m112", "user/workspace identity model"),
-                ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+                ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
             ]
         elif implemented_m110_row in text:
             planned_rows = [
                 ("checkpoint m111", "pre-alpha checkpoint", "m111", "production threat model"),
-                ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+                ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
             ]
         for version_label, product_target, milestone, title in planned_rows:
             row = (
@@ -33737,7 +34004,7 @@ class FoundationGateEvaluator:
         )
         planned_rows = [
             ("checkpoint m110", "pre-alpha checkpoint", "m110", "mobile sensor hardening freeze"),
-            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
         ]
         if implemented_m109_row not in text:
             planned_rows.insert(
@@ -33767,27 +34034,27 @@ class FoundationGateEvaluator:
         if implemented_m117_row in text:
             planned_rows = [
                 ("checkpoint m118", "pre-alpha checkpoint", "m118", "deployment mode matrix"),
-                ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+                ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
             ]
         elif implemented_m116_row in text:
             planned_rows = [
                 ("checkpoint m117", "pre-alpha checkpoint", "m117", "remote agent coordination contract"),
-                ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+                ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
             ]
         elif implemented_m115_row in text:
             planned_rows = [
                 ("checkpoint m116", "pre-alpha checkpoint", "m116", "role-based authority model"),
-                ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+                ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
             ]
         elif implemented_m114_row in text:
             planned_rows = [
                 ("checkpoint m115", "pre-alpha checkpoint", "m115", "production audit retention policy"),
-                ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+                ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
             ]
         elif implemented_m113_row in text:
             planned_rows = [
                 ("checkpoint m114", "pre-alpha checkpoint", "m114", "account connector contract review"),
-                ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+                ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
             ]
         elif implemented_m112_row in text:
             planned_rows = [
@@ -33797,17 +34064,17 @@ class FoundationGateEvaluator:
                     "m113",
                     "secrets boundary + credential vault contract",
                 ),
-                ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+                ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
             ]
         elif implemented_m111_row in text:
             planned_rows = [
                 ("checkpoint m112", "pre-alpha checkpoint", "m112", "user/workspace identity model"),
-                ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+                ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
             ]
         elif implemented_m110_row in text:
             planned_rows = [
                 ("checkpoint m111", "pre-alpha checkpoint", "m111", "production threat model"),
-                ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+                ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
             ]
         for version_label, product_target, milestone, title in planned_rows:
             row = (
@@ -34104,7 +34371,7 @@ class FoundationGateEvaluator:
         )
         planned_rows = [
             ("checkpoint m110", "pre-alpha checkpoint", "m110", "mobile sensor hardening freeze"),
-            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
         ]
         implemented_m113_row = (
             "| checkpoint m113 | pre-alpha checkpoint | m113 | "
@@ -34129,27 +34396,27 @@ class FoundationGateEvaluator:
         if implemented_m117_row in text:
             planned_rows = [
                 ("checkpoint m118", "pre-alpha checkpoint", "m118", "deployment mode matrix"),
-                ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+                ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
             ]
         elif implemented_m116_row in text:
             planned_rows = [
                 ("checkpoint m117", "pre-alpha checkpoint", "m117", "remote agent coordination contract"),
-                ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+                ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
             ]
         elif implemented_m115_row in text:
             planned_rows = [
                 ("checkpoint m116", "pre-alpha checkpoint", "m116", "role-based authority model"),
-                ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+                ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
             ]
         elif implemented_m114_row in text:
             planned_rows = [
                 ("checkpoint m115", "pre-alpha checkpoint", "m115", "production audit retention policy"),
-                ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+                ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
             ]
         elif implemented_m113_row in text:
             planned_rows = [
                 ("checkpoint m114", "pre-alpha checkpoint", "m114", "account connector contract review"),
-                ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+                ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
             ]
         elif implemented_m112_row in text:
             planned_rows = [
@@ -34159,17 +34426,17 @@ class FoundationGateEvaluator:
                     "m113",
                     "secrets boundary + credential vault contract",
                 ),
-                ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+                ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
             ]
         elif implemented_m111_row in text:
             planned_rows = [
                 ("checkpoint m112", "pre-alpha checkpoint", "m112", "user/workspace identity model"),
-                ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+                ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
             ]
         elif implemented_m110_row in text:
             planned_rows = [
                 ("checkpoint m111", "pre-alpha checkpoint", "m111", "production threat model"),
-                ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+                ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
             ]
         for version_label, product_target, milestone, title in planned_rows:
             row = (
@@ -34364,7 +34631,7 @@ class FoundationGateEvaluator:
             "no execution",
             "no production authority",
             "m111 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M110 docs missing safety fragment: {fragment}")
@@ -34498,7 +34765,7 @@ class FoundationGateEvaluator:
                 "production threat model",
                 "implemented/released" if implemented_m111_row in text else "planned/provisional",
             ),
-            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha", "planned/provisional"),
+            ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha", "planned/provisional"),
         ]
         for version_label, product_target, milestone, title, status in expected_rows:
             row = (
@@ -34689,7 +34956,7 @@ class FoundationGateEvaluator:
             "no control center control",
             "no dependency",
             "m112 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M111 docs missing safety fragment: {fragment}")
@@ -34805,10 +35072,10 @@ class FoundationGateEvaluator:
                 "implemented/released",
             ),
             (
-                "v1.0.0-alpha",
+                "v1.2.0-alpha",
                 "alpha",
                 "m150",
-                "ultimate ai agent v1.0.0-alpha",
+                "ultimate ai agent v1.2.0-alpha",
                 "planned/provisional",
             ),
         ]:
@@ -35006,7 +35273,7 @@ class FoundationGateEvaluator:
             "no control center control",
             "no dependency",
             "m113 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M112 docs missing safety fragment: {fragment}")
@@ -35130,7 +35397,7 @@ class FoundationGateEvaluator:
             "production audit retention policy | implemented/released |"
         )
         planned_rows = [
-            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
         ]
         implemented_m116_row = (
             "| checkpoint m116 | pre-alpha checkpoint | m116 | "
@@ -35424,7 +35691,7 @@ class FoundationGateEvaluator:
             "no control center control",
             "no dependency",
             "m114 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M113 docs missing safety fragment: {fragment}")
@@ -35566,7 +35833,7 @@ class FoundationGateEvaluator:
             or "m114 is implemented/released" in text
         )
         planned_rows = [
-            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
         ]
         if not m114_is_current:
             planned_rows.append(
@@ -35839,7 +36106,7 @@ class FoundationGateEvaluator:
             "no control center control",
             "no dependency",
             "m115 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M114 docs missing safety fragment: {fragment}")
@@ -35988,7 +36255,7 @@ class FoundationGateEvaluator:
         if m115_row_fragment not in text:
             failures.append("active docs missing Checkpoint M115 row")
         m150_row = (
-            "| v1.0.0-alpha | alpha | m150 | ultimate ai agent v1.0.0-alpha | "
+            "| v1.2.0-alpha | alpha | m150 | ultimate ai agent v1.2.0-alpha | "
             "planned/provisional |"
         )
         if not _roadmap_row_present(text, m150_row):
@@ -36219,7 +36486,7 @@ class FoundationGateEvaluator:
             "no control center control",
             "no dependency",
             "m116 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M115 docs missing safety fragment: {fragment}")
@@ -36378,10 +36645,10 @@ class FoundationGateEvaluator:
                 "planned/provisional",
             ),
             (
-                "v1.0.0-alpha",
+                "v1.2.0-alpha",
                 "alpha",
                 "m150",
-                "ultimate ai agent v1.0.0-alpha",
+                "ultimate ai agent v1.2.0-alpha",
                 "planned/provisional",
             ),
         ]:
@@ -36630,7 +36897,7 @@ class FoundationGateEvaluator:
             "no control center control",
             "no dependency",
             "m117 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M116 docs missing safety fragment: {fragment}")
@@ -36785,10 +37052,10 @@ class FoundationGateEvaluator:
                 "planned/provisional",
             ),
             (
-                "v1.0.0-alpha",
+                "v1.2.0-alpha",
                 "alpha",
                 "m150",
-                "ultimate ai agent v1.0.0-alpha",
+                "ultimate ai agent v1.2.0-alpha",
                 "planned/provisional",
             ),
         ]:
@@ -37048,7 +37315,7 @@ class FoundationGateEvaluator:
             "no control center control",
             "no dependency",
             "m118 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M117 docs missing safety fragment: {fragment}")
@@ -37187,7 +37454,7 @@ class FoundationGateEvaluator:
                 "m118",
                 "deployment mode matrix",
             ),
-            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
         ]:
             row = (
                 f"| {version_label} | {product_target} | {milestone} | "
@@ -37432,7 +37699,7 @@ class FoundationGateEvaluator:
             "no control center control",
             "no dependency",
             "m119 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M118 docs missing safety fragment: {fragment}")
@@ -37565,7 +37832,7 @@ class FoundationGateEvaluator:
                 "m119",
                 "production red-team harness",
             ),
-            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
         ]:
             planned_row = (
                 f"| {version_label} | {product_target} | {milestone} | "
@@ -37810,7 +38077,7 @@ class FoundationGateEvaluator:
             "no control center control",
             "no dependency",
             "m120 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M119 docs missing safety fragment: {fragment}")
@@ -37942,7 +38209,7 @@ class FoundationGateEvaluator:
                 "m120",
                 "production authority readiness review",
             ),
-            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
         ]:
             row = (
                 f"| {version_label} | {product_target} | {milestone} | "
@@ -38176,7 +38443,7 @@ class FoundationGateEvaluator:
             "no control center control",
             "no dependency",
             "m121 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M120 docs missing safety fragment: {fragment}")
@@ -38303,7 +38570,7 @@ class FoundationGateEvaluator:
         ):
             failures.append("active docs do not mark M120 implemented/released")
         for version_label, product_target, milestone, title in [
-            ("v1.0.0-alpha", "alpha", "m150", "ultimate ai agent v1.0.0-alpha"),
+            ("v1.2.0-alpha", "alpha", "m150", "ultimate ai agent v1.2.0-alpha"),
         ]:
             row = (
                 f"| {version_label} | {product_target} | {milestone} | "
@@ -38535,7 +38802,7 @@ class FoundationGateEvaluator:
             "no control center control",
             "no dependency",
             "m122 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M121 docs missing safety fragment: {fragment}")
@@ -38678,10 +38945,10 @@ class FoundationGateEvaluator:
                 "planned/provisional",
             ),
             (
-                "v1.0.0-alpha",
+                "v1.2.0-alpha",
                 "alpha",
                 "m150",
-                "ultimate ai agent v1.0.0-alpha",
+                "ultimate ai agent v1.2.0-alpha",
                 "planned/provisional",
             ),
         ]:
@@ -38943,7 +39210,7 @@ class FoundationGateEvaluator:
             "no control center control",
             "no dependency",
             "m123 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M122 docs missing safety fragment: {fragment}")
@@ -39088,10 +39355,10 @@ class FoundationGateEvaluator:
                 "implemented/released",
             ),
             (
-                "v1.0.0-alpha",
+                "v1.2.0-alpha",
                 "alpha",
                 "m150",
-                "ultimate ai agent v1.0.0-alpha",
+                "ultimate ai agent v1.2.0-alpha",
                 "planned/provisional",
             ),
         ]:
@@ -39347,7 +39614,7 @@ class FoundationGateEvaluator:
             "no control center control",
             "no dependency",
             "m124 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M123 docs missing safety fragment: {fragment}")
@@ -39494,10 +39761,10 @@ class FoundationGateEvaluator:
                 "planned/provisional",
             ),
             (
-                "v1.0.0-alpha",
+                "v1.2.0-alpha",
                 "alpha",
                 "m150",
-                "ultimate ai agent v1.0.0-alpha",
+                "ultimate ai agent v1.2.0-alpha",
                 "planned/provisional",
             ),
         ]:
@@ -39779,7 +40046,7 @@ class FoundationGateEvaluator:
             "no control center control",
             "no dependency",
             "m125 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M124 docs missing safety fragment: {fragment}")
@@ -39932,10 +40199,10 @@ class FoundationGateEvaluator:
                 "planned/provisional",
             ),
             (
-                "v1.0.0-alpha",
+                "v1.2.0-alpha",
                 "alpha",
                 "m150",
-                "ultimate ai agent v1.0.0-alpha",
+                "ultimate ai agent v1.2.0-alpha",
                 "planned/provisional",
             ),
         ]:
@@ -40183,7 +40450,7 @@ class FoundationGateEvaluator:
             "no control center control",
             "no dependency",
             "m126 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M125 docs missing safety fragment: {fragment}")
@@ -40354,10 +40621,10 @@ class FoundationGateEvaluator:
                 "planned/provisional",
             ),
             (
-                "v1.0.0-alpha",
+                "v1.2.0-alpha",
                 "alpha",
                 "m150",
-                "ultimate ai agent v1.0.0-alpha",
+                "ultimate ai agent v1.2.0-alpha",
                 "planned/provisional",
             ),
         ]:
@@ -40633,7 +40900,7 @@ class FoundationGateEvaluator:
             "no control center control",
             "no dependency",
             "m127 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M126 docs missing safety fragment: {fragment}")
@@ -40797,10 +41064,10 @@ class FoundationGateEvaluator:
                 "planned/provisional",
             ),
             (
-                "v1.0.0-alpha",
+                "v1.2.0-alpha",
                 "alpha",
                 "m150",
-                "ultimate ai agent v1.0.0-alpha",
+                "ultimate ai agent v1.2.0-alpha",
                 "planned/provisional",
             ),
         ]:
@@ -41180,7 +41447,7 @@ class FoundationGateEvaluator:
             "no control center control",
             "no dependency",
             "m128 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M127 docs missing safety fragment: {fragment}")
@@ -41340,10 +41607,10 @@ class FoundationGateEvaluator:
                 "planned/provisional",
             ),
             (
-                "v1.0.0-alpha",
+                "v1.2.0-alpha",
                 "alpha",
                 "m150",
-                "ultimate ai agent v1.0.0-alpha",
+                "ultimate ai agent v1.2.0-alpha",
                 "planned/provisional",
             ),
         ]:
@@ -41568,7 +41835,7 @@ class FoundationGateEvaluator:
             "no dependency",
             "no production authority",
             "m129 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M128 docs missing safety fragment: {fragment}")
@@ -41756,10 +42023,10 @@ class FoundationGateEvaluator:
                 "planned/provisional",
             ),
             (
-                "v1.0.0-alpha",
+                "v1.2.0-alpha",
                 "alpha",
                 "m150",
-                "ultimate ai agent v1.0.0-alpha",
+                "ultimate ai agent v1.2.0-alpha",
                 "planned/provisional",
             ),
         ]:
@@ -42005,7 +42272,7 @@ class FoundationGateEvaluator:
             "no control center control",
             "no dependency",
             "m130 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M129 docs missing safety fragment: {fragment}")
@@ -42193,10 +42460,10 @@ class FoundationGateEvaluator:
                 "planned/provisional",
             ),
             (
-                "v1.0.0-alpha",
+                "v1.2.0-alpha",
                 "alpha",
                 "m150",
-                "ultimate ai agent v1.0.0-alpha",
+                "ultimate ai agent v1.2.0-alpha",
                 "planned/provisional",
             ),
         ]:
@@ -42414,7 +42681,7 @@ class FoundationGateEvaluator:
             "no control center control",
             "no dependency",
             "m131 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M130 docs missing safety fragment: {fragment}")
@@ -42649,10 +42916,10 @@ class FoundationGateEvaluator:
                 "planned/provisional",
             ),
             (
-                "v1.0.0-alpha",
+                "v1.2.0-alpha",
                 "alpha",
                 "m150",
-                "ultimate ai agent v1.0.0-alpha",
+                "ultimate ai agent v1.2.0-alpha",
                 "planned/provisional",
             ),
         ]:
@@ -42910,7 +43177,7 @@ class FoundationGateEvaluator:
             "no control center control",
             "no dependency",
             "m132 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M131 docs missing safety fragment: {fragment}")
@@ -43194,10 +43461,10 @@ class FoundationGateEvaluator:
                 "planned/provisional",
             ),
             (
-                "v1.0.0-alpha",
+                "v1.2.0-alpha",
                 "alpha",
                 "m150",
-                "ultimate ai agent v1.0.0-alpha",
+                "ultimate ai agent v1.2.0-alpha",
                 "planned/provisional",
             ),
         ]:
@@ -43469,7 +43736,7 @@ class FoundationGateEvaluator:
             "no control center control",
             "no dependency",
             "m133 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M132 docs missing safety fragment: {fragment}")
@@ -43759,10 +44026,10 @@ class FoundationGateEvaluator:
                 "planned/provisional",
             ),
             (
-                "v1.0.0-alpha",
+                "v1.2.0-alpha",
                 "alpha",
                 "m150",
-                "ultimate ai agent v1.0.0-alpha",
+                "ultimate ai agent v1.2.0-alpha",
                 "planned/provisional",
             ),
         ]:
@@ -44048,7 +44315,7 @@ class FoundationGateEvaluator:
             "no control center control",
             "no dependency",
             "m134 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M133 docs missing safety fragment: {fragment}")
@@ -44341,10 +44608,10 @@ class FoundationGateEvaluator:
                 "planned/provisional",
             ),
             (
-                "v1.0.0-alpha",
+                "v1.2.0-alpha",
                 "alpha",
                 "m150",
-                "ultimate ai agent v1.0.0-alpha",
+                "ultimate ai agent v1.2.0-alpha",
                 "planned/provisional",
             ),
         ]:
@@ -44636,7 +44903,7 @@ class FoundationGateEvaluator:
             "no control center control",
             "no dependency",
             "m135 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M134 docs missing safety fragment: {fragment}")
@@ -44929,10 +45196,10 @@ class FoundationGateEvaluator:
                 "planned/provisional",
             ),
             (
-                "v1.0.0-alpha",
+                "v1.2.0-alpha",
                 "alpha",
                 "m150",
-                "ultimate ai agent v1.0.0-alpha",
+                "ultimate ai agent v1.2.0-alpha",
                 "planned/provisional",
             ),
         ]:
@@ -45237,7 +45504,7 @@ class FoundationGateEvaluator:
             "no control center control",
             "no dependency",
             "m136 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M135 docs missing safety fragment: {fragment}")
@@ -45516,10 +45783,10 @@ class FoundationGateEvaluator:
                 "planned/provisional",
             ),
             (
-                "v1.0.0-alpha",
+                "v1.2.0-alpha",
                 "alpha",
                 "m150",
-                "ultimate ai agent v1.0.0-alpha",
+                "ultimate ai agent v1.2.0-alpha",
                 "planned/provisional",
             ),
         ]:
@@ -45834,7 +46101,7 @@ class FoundationGateEvaluator:
             "no control center control",
             "no dependency",
             "m137 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M136 docs missing safety fragment: {fragment}")
@@ -46120,10 +46387,10 @@ class FoundationGateEvaluator:
                 "planned/provisional",
             ),
             (
-                "v1.0.0-alpha",
+                "v1.2.0-alpha",
                 "alpha",
                 "m150",
-                "ultimate ai agent v1.0.0-alpha",
+                "ultimate ai agent v1.2.0-alpha",
                 "planned/provisional",
             ),
         ]:
@@ -46346,7 +46613,7 @@ class FoundationGateEvaluator:
             "no control center control",
             "no dependency",
             "m138 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M137 docs missing safety fragment: {fragment}")
@@ -46519,10 +46786,10 @@ class FoundationGateEvaluator:
                 "planned/provisional",
             ),
             (
-                "v1.0.0-alpha",
+                "v1.2.0-alpha",
                 "alpha",
                 "m150",
-                "ultimate ai agent v1.0.0-alpha",
+                "ultimate ai agent v1.2.0-alpha",
                 "planned/provisional",
             ),
         ]:
@@ -46788,7 +47055,7 @@ class FoundationGateEvaluator:
             "no control center control",
             "no dependency",
             "m139 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M138 docs missing safety fragment: {fragment}")
@@ -46966,10 +47233,10 @@ class FoundationGateEvaluator:
                 "planned/provisional",
             ),
             (
-                "v1.0.0-alpha",
+                "v1.2.0-alpha",
                 "alpha",
                 "m150",
-                "ultimate ai agent v1.0.0-alpha",
+                "ultimate ai agent v1.2.0-alpha",
                 "planned/provisional",
             ),
         ]:
@@ -47242,7 +47509,7 @@ class FoundationGateEvaluator:
             "no control center control",
             "no dependency",
             "m140 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M139 docs missing safety fragment: {fragment}")
@@ -47408,10 +47675,10 @@ class FoundationGateEvaluator:
                 "planned/provisional",
             ),
             (
-                "v1.0.0-alpha",
+                "v1.2.0-alpha",
                 "alpha",
                 "m150",
-                "ultimate ai agent v1.0.0-alpha",
+                "ultimate ai agent v1.2.0-alpha",
                 "planned/provisional",
             ),
         ]:
@@ -47636,7 +47903,7 @@ class FoundationGateEvaluator:
             "no control center control",
             "no dependency",
             "m141 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M140 docs missing safety fragment: {fragment}")
@@ -47791,10 +48058,10 @@ class FoundationGateEvaluator:
                 "planned/provisional",
             ),
             (
-                "v1.0.0-alpha",
+                "v1.2.0-alpha",
                 "alpha",
                 "m150",
-                "ultimate ai agent v1.0.0-alpha",
+                "ultimate ai agent v1.2.0-alpha",
                 "planned/provisional",
             ),
         ]:
@@ -48054,7 +48321,7 @@ class FoundationGateEvaluator:
             "no beta release",
             "no production authority",
             "m142 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M141 docs missing safety fragment: {fragment}")
@@ -48222,10 +48489,10 @@ class FoundationGateEvaluator:
                 "planned/provisional",
             ),
             (
-                "v1.0.0-alpha",
+                "v1.2.0-alpha",
                 "alpha",
                 "m150",
-                "ultimate ai agent v1.0.0-alpha",
+                "ultimate ai agent v1.2.0-alpha",
                 "planned/provisional",
             ),
         ]:
@@ -48423,7 +48690,7 @@ class FoundationGateEvaluator:
             "no beta release",
             "no production authority",
             "m143 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M142 docs missing safety fragment: {fragment}")
@@ -48569,10 +48836,10 @@ class FoundationGateEvaluator:
                 "planned/provisional",
             ),
             (
-                "v1.0.0-alpha",
+                "v1.2.0-alpha",
                 "alpha",
                 "m150",
-                "ultimate ai agent v1.0.0-alpha",
+                "ultimate ai agent v1.2.0-alpha",
                 "planned/provisional",
             ),
         ]:
@@ -48769,7 +49036,7 @@ class FoundationGateEvaluator:
             "no beta release",
             "no production authority",
             "m144 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M143 docs missing safety fragment: {fragment}")
@@ -48952,10 +49219,10 @@ class FoundationGateEvaluator:
                 "implemented/released",
             ),
             (
-                "v1.0.0-alpha",
+                "v1.2.0-alpha",
                 "alpha",
                 "m150",
-                "ultimate ai agent v1.0.0-alpha",
+                "ultimate ai agent v1.2.0-alpha",
                 "planned/provisional",
             ),
         ]:
@@ -49183,7 +49450,7 @@ class FoundationGateEvaluator:
             "no beta release",
             "no production authority",
             "m145 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M144 docs missing safety fragment: {fragment}")
@@ -49374,10 +49641,10 @@ class FoundationGateEvaluator:
                 "implemented/released",
             ),
             (
-                "v1.0.0-alpha",
+                "v1.2.0-alpha",
                 "alpha",
                 "m150",
-                "ultimate ai agent v1.0.0-alpha",
+                "ultimate ai agent v1.2.0-alpha",
                 "planned/provisional",
             ),
         ]:
@@ -49580,7 +49847,7 @@ class FoundationGateEvaluator:
             "no beta release",
             "no production authority",
             "m146 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M145 docs missing safety fragment: {fragment}")
@@ -49758,10 +50025,10 @@ class FoundationGateEvaluator:
                 "implemented/released",
             ),
             (
-                "v1.0.0-alpha",
+                "v1.2.0-alpha",
                 "alpha",
                 "m150",
-                "ultimate ai agent v1.0.0-alpha",
+                "ultimate ai agent v1.2.0-alpha",
                 "planned/provisional",
             ),
         ]:
@@ -49979,7 +50246,7 @@ class FoundationGateEvaluator:
             "no beta release",
             "no production authority",
             "m147 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M146 docs missing safety fragment: {fragment}")
@@ -50157,10 +50424,10 @@ class FoundationGateEvaluator:
                 "implemented/released",
             ),
             (
-                "v1.0.0-alpha",
+                "v1.2.0-alpha",
                 "alpha",
                 "m150",
-                "ultimate ai agent v1.0.0-alpha",
+                "ultimate ai agent v1.2.0-alpha",
                 "planned/provisional",
             ),
         ]:
@@ -50380,7 +50647,7 @@ class FoundationGateEvaluator:
             "no beta release",
             "no production authority",
             "m148 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M147 docs missing safety fragment: {fragment}")
@@ -50551,10 +50818,10 @@ class FoundationGateEvaluator:
                 "implemented/released",
             ),
             (
-                "v1.0.0-alpha",
+                "v1.2.0-alpha",
                 "alpha",
                 "m150",
-                "ultimate ai agent v1.0.0-alpha",
+                "ultimate ai agent v1.2.0-alpha",
                 "planned/provisional",
             ),
         ]:
@@ -50779,7 +51046,7 @@ class FoundationGateEvaluator:
             "no beta release",
             "no production authority",
             "m149 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M148 docs missing safety fragment: {fragment}")
@@ -50953,10 +51220,10 @@ class FoundationGateEvaluator:
                 "implemented/released",
             ),
             (
-                "v1.0.0-alpha",
+                "v1.2.0-alpha",
                 "alpha",
                 "m150",
-                "ultimate ai agent v1.0.0-alpha",
+                "ultimate ai agent v1.2.0-alpha",
                 "planned/provisional",
             ),
         ]:
@@ -51195,7 +51462,7 @@ class FoundationGateEvaluator:
             "no dependency",
             "no production authority",
             "m150 remains future",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
         ]:
             if fragment not in docs_text:
                 failures.append(f"M149 docs missing safety fragment: {fragment}")
@@ -51369,10 +51636,10 @@ class FoundationGateEvaluator:
                 "implemented/released",
             ),
             (
-                "v1.0.0-alpha",
+                "v1.2.0-alpha",
                 "alpha",
                 "m150",
-                "ultimate ai agent v1.0.0-alpha",
+                "ultimate ai agent v1.2.0-alpha",
                 "planned/provisional",
             ),
         ]:
@@ -51442,7 +51709,7 @@ class FoundationGateEvaluator:
             record = build_ultimate_ai_agent_alpha_record(_request())
             if (
                 record.status != UltimateAiAgentAlphaStatus.alpha_target_recorded
-                or record.product_target_ref != "product-target:v1.0.0-alpha"
+                or record.product_target_ref != "product-target:v1.2.0-alpha"
                 or not record.contract_only
                 or not record.review_only
                 or not record.alpha_target_only
@@ -51566,7 +51833,7 @@ class FoundationGateEvaluator:
         )
         for fragment in [
             "ultimate ai agent",
-            "v1.0.0-alpha",
+            "v1.2.0-alpha",
             "contract-only",
             "review-only",
             "alpha-target-only",
@@ -51668,7 +51935,7 @@ class FoundationGateEvaluator:
             "/testflight/submit",
             "/beta/release",
             "/v1-alpha/release",
-            "/v1.0.0-alpha/release",
+            "/v1.2.0-alpha/release",
             "/m150/release",
             "/release/automation",
         ]
@@ -51757,7 +52024,7 @@ class FoundationGateEvaluator:
             for path in required_docs
             if (self.root / path).exists()
         )
-        if "m150" not in text or "ultimate ai agent v1.0.0-alpha" not in text:
+        if "m150" not in text or "ultimate ai agent v1.2.0-alpha" not in text:
             failures.append("active docs do not identify M150 Ultimate AI Agent Alpha")
         if "m150 is implemented/released" not in text:
             failures.append("active docs do not mark M150 implemented/released")
@@ -51770,10 +52037,10 @@ class FoundationGateEvaluator:
                 "implemented/released",
             ),
             (
-                "v1.0.0-alpha",
+                "v1.2.0-alpha",
                 "alpha",
                 "m150",
-                "ultimate ai agent v1.0.0-alpha",
+                "ultimate ai agent v1.2.0-alpha",
                 "implemented/released",
             ),
         ]:
@@ -51808,6 +52075,1455 @@ class FoundationGateEvaluator:
                     f"active docs imply forbidden M150 future/currentness claim: {fragment}"
                 )
         return self._result(criterion, failures, required_docs)
+
+    def check_m151_local_openwebui_test_shell_contracts(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/openwebui_bridge/local_test_shell.py",
+            "docs/openwebui/M151_LOCAL_OPENWEBUI_TEST_SHELL.md",
+            "docs/openwebui/M151_LOCAL_OPENWEBUI_TEST_SHELL_AUTHORITY_BOUNDARY.md",
+            "docs/openwebui/M151_LOCAL_OPENWEBUI_TEST_SHELL_RUNBOOK.md",
+            "tests/test_m151_openwebui_local_test_shell.py",
+            "tests/test_m151_openwebui_local_gateway_api.py",
+        ]
+        failures = [
+            f"missing M151 local OpenWebUI test shell file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            from ultimate_ai_agent.core.openwebui_bridge import (
+                UAA_OPENWEBUI_TEST_MODEL_ID,
+                OpenWebUILocalChatCompletionRequest,
+                build_default_openwebui_local_test_shell_policy,
+                build_openwebui_local_chat_completion_response,
+                openwebui_test_gateway_authorized,
+                openwebui_test_gateway_enabled,
+            )
+
+            policy = build_default_openwebui_local_test_shell_policy()
+            if (
+                not policy.local_dev_only
+                or not policy.disabled_by_default
+                or not policy.localhost_only
+                or not policy.openai_compatible_gateway
+                or not policy.deterministic_response_only
+                or policy.openwebui_is_agent_brain
+                or policy.provider_call_enabled
+                or policy.model_authority_enabled
+                or policy.tool_execution_enabled
+                or policy.memory_write_enabled
+                or policy.context_injection_enabled
+                or policy.external_network_enabled
+                or policy.raw_prompt_logging_enabled
+                or policy.dependency_added
+                or policy.production_authority_enabled
+            ):
+                failures.append("M151 local OpenWebUI policy is unsafe")
+            if openwebui_test_gateway_enabled({}):
+                failures.append("M151 local OpenWebUI gateway is not disabled by default")
+            if not openwebui_test_gateway_authorized("Bearer uaa-local-test", {}):
+                failures.append("M151 local OpenWebUI local bearer value was not accepted")
+            request = OpenWebUILocalChatCompletionRequest(
+                model=UAA_OPENWEBUI_TEST_MODEL_ID,
+                messages=[{"role": "user", "content": "token=do-not-echo"}],
+            )
+            response = build_openwebui_local_chat_completion_response(request)
+            if "do-not-echo" in str(response):
+                failures.append("M151 local OpenWebUI response echoes raw prompt content")
+            safety = response.get("uaa_safety", {})
+            for key in [
+                "provider_called",
+                "model_authority_granted",
+                "tool_executed",
+                "memory_written",
+                "context_injected",
+                "external_network_called",
+                "raw_prompt_logged",
+                "production_authority_granted",
+            ]:
+                if safety.get(key) is not False:
+                    failures.append(f"M151 safety flag is not false: {key}")
+        except Exception as exc:
+            failures.append(f"M151 local OpenWebUI contract validation failed: {exc}")
+
+        docs_text = " ".join(
+            "\n".join(
+                self._read(self.root / path).lower()
+                for path in required_files
+                if path.startswith("docs/") and (self.root / path).exists()
+            ).split()
+        )
+        for fragment in [
+            "m151 local openwebui test shell",
+            "local-dev-only",
+            "disabled by default",
+            "localhost-only",
+            "openwebui is a shell, not the agent brain",
+            "openai-compatible",
+            "uaa-safe-local",
+            "no provider call",
+            "no tool execution",
+            "no memory write",
+            "no context injection",
+            "no external network",
+            "no raw prompt logging",
+            "no production authority",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M151 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m151_local_openwebui_test_shell_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+            from ultimate_ai_agent.api.openapi import verify_openapi_contract
+
+            paths = set(app.openapi().get("paths", {}))
+            for route in M151_LOCAL_OPENWEBUI_TEST_ROUTES:
+                if route not in paths:
+                    failures.append(f"M151 expected local OpenWebUI test route missing: {route}")
+            forbidden_routes = {
+                "/openwebui/execute",
+                "/openwebui/bridge/run",
+                "/openwebui/handoff",
+                "/providers/call",
+                "/providers/invoke",
+                "/models/generate",
+                "/models/complete",
+                "/tools/execute",
+                "/memory/write",
+                "/context/inject",
+                "/runtime/execute",
+                "/model-runtime/execute",
+            }
+            present = sorted(paths.intersection(forbidden_routes))
+            if present:
+                failures.append(f"M151 forbidden authority route(s) present: {', '.join(present)}")
+            contract_status = verify_openapi_contract(app)
+            if contract_status.errors:
+                failures.extend(contract_status.errors)
+        except Exception as exc:
+            failures.append(f"M151 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m151_local_openwebui_test_shell_launcher(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "scripts/dev/uaa_launcher.py",
+            "scripts/dev/README.md",
+            "tests/test_dev_launcher.py",
+        ]
+        failures = [
+            f"missing M151 local OpenWebUI launcher file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        launcher = self._read(self.root / "scripts/dev/uaa_launcher.py").lower()
+        for fragment in [
+            "openwebui",
+            'openwebui_host = "127.0.0.1"',
+            "openwebui_port = 3000",
+            "uaa_openwebui_test_gateway_enabled",
+            "uaa-safe-local",
+            "http://host.docker.internal:8000/v1",
+            "openai_api_base_url",
+            "openai_api_key",
+            "uaa-local-test",
+        ]:
+            if fragment not in launcher:
+                failures.append(f"M151 launcher missing safety fragment: {fragment}")
+        for forbidden in [
+            "0.0.0.0:3000",
+            "--privileged",
+            "--network=host",
+            "docker compose",
+            "docker-compose",
+        ]:
+            if forbidden in launcher:
+                failures.append(f"M151 launcher contains forbidden fragment: {forbidden}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m152_local_model_management_contracts(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/local_model_management/__init__.py",
+            "src/ultimate_ai_agent/core/local_model_management/contracts.py",
+            "src/ultimate_ai_agent/core/model_runtime/local_model_management.py",
+            "docs/model_management/LOCAL_MODEL_MANAGEMENT_CHARTER.md",
+            "docs/model_management/LOCAL_MODEL_MANAGEMENT_AUTHORITY_BOUNDARY.md",
+            "docs/model_management/LOCAL_MODEL_MANAGEMENT_NON_GOALS.md",
+            "docs/model_management/LOCAL_MODEL_MANAGEMENT_RECEIPT_PLAN.md",
+            "docs/model_management/M152_TO_M153_BOUNDARY.md",
+            "tests/test_m152_local_model_management.py",
+            "tests/test_m152_gate_integration.py",
+        ]
+        failures = [
+            f"missing M152 local model management file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            from ultimate_ai_agent.core.local_model_management import (
+                REQUIRED_LOCAL_MODEL_MANAGEMENT_CHECKPOINT_REFS,
+                GgufArtifactRef,
+                HardwareCapabilitySummary,
+                HuggingFaceSearchPreviewRequest,
+                LlamaCppSettingsPlan,
+                LocalModelCandidateSummary,
+                LocalModelManagementFreezeRequest,
+                LocalModelManagementPolicy,
+                LocalModelObservabilityPreview,
+                LocalModelObservabilitySignal,
+                LocalModelObservabilitySignalKind,
+                build_local_model_management_freeze_record,
+                build_model_selection_preview,
+                validate_gguf_artifact_ref,
+                validate_hardware_capability_summary,
+                validate_llama_cpp_settings_plan,
+                validate_local_model_management_policy,
+                validate_local_model_observability_preview,
+            )
+
+            policy = validate_local_model_management_policy(LocalModelManagementPolicy())
+            unsafe_policy_flags = [
+                "live_hf_search_enabled",
+                "local_system_probe_enabled",
+                "model_download_enabled",
+                "model_file_read_enabled",
+                "llama_cpp_import_enabled",
+                "llama_cpp_server_enabled",
+                "runtime_execution_enabled",
+                "subprocess_execution_enabled",
+                "network_access_enabled",
+                "model_call_enabled",
+                "backend_route_enabled",
+                "control_center_control_enabled",
+                "dependency_added",
+                "production_authority_granted",
+            ]
+            if any(getattr(policy, field_name) for field_name in unsafe_policy_flags):
+                failures.append("M152 local model management policy grants forbidden authority")
+
+            hardware = validate_hardware_capability_summary(
+                HardwareCapabilitySummary(
+                    summary_ref="hardware-summary:m152-gate",
+                    source_ref="source:m152-injected",
+                    observed_at_ref="observed-at:m152-review",
+                    os_arch_bucket="darwin-arm64-bucket",
+                    cpu_core_bucket="core-bucket-8-to-16",
+                    ram_bucket="ram-bucket-32gb-to-64gb",
+                    vram_bucket="vram-bucket-shared",
+                    backend_device_family_bucket="backend-device-family-metal",
+                    disk_budget_bucket="disk-budget-under-256gb",
+                )
+            )
+            artifact = validate_gguf_artifact_ref(
+                GgufArtifactRef(
+                    artifact_ref="gguf-artifact:m152-qwopus-q4",
+                    repo_ref="hf-repo:m152-qwopus",
+                    revision_ref="hf-revision:m152-pinned",
+                    filename_ref="gguf-file:qwopus-q4_k_m.gguf",
+                    license_ref="license:declared-safe",
+                    provenance_ref="provenance:reviewed",
+                    size_bucket="size-bucket-under-20gb",
+                    quantization_ref="quant:q4_k_m",
+                )
+            )
+            settings_plan = validate_llama_cpp_settings_plan(
+                LlamaCppSettingsPlan(
+                    plan_ref="llama-cpp-settings-plan:m152-gate",
+                    settings_ref="settings:m152-qwopus",
+                    model_candidate_ref="candidate:m152-qwopus",
+                    artifact_ref=artifact.artifact_ref,
+                    preset_ref="model-preset:m152-default",
+                    no_effect_receipt_plan_ref="receipt-plan:m152-settings-no-effect",
+                )
+            )
+            if settings_plan.server_started or settings_plan.subprocess_spawned or settings_plan.model_loaded:
+                failures.append("M152 llama.cpp settings plan performed runtime work")
+
+            request = HuggingFaceSearchPreviewRequest(
+                request_ref="hf-search-preview:m152-qwopus",
+                query="qwopus",
+                task_ref="task:coding",
+                hardware_summary_ref=hardware.summary_ref,
+                query_pool_ref="candidate-pool:m152-query",
+                alternative_pool_ref="candidate-pool:m152-alternatives",
+                no_effect_receipt_plan_ref="receipt-plan:m152-search-no-effect",
+            )
+            selection = build_model_selection_preview(
+                request,
+                [
+                    LocalModelCandidateSummary(
+                        candidate_ref="candidate:m152-qwopus",
+                        repo_ref="hf-repo:m152-qwopus",
+                        revision_ref="hf-revision:m152-pinned",
+                        artifact_ref=artifact.artifact_ref,
+                        filename_ref=artifact.filename_ref,
+                        task_ref="task:coding",
+                        license_ref=artifact.license_ref,
+                        provenance_ref=artifact.provenance_ref,
+                        hardware_fit_score=1.0,
+                        task_capability_score=0.9,
+                        query_name_score=1.0,
+                        popularity_score=0.5,
+                        recency_score=0.5,
+                        license_provenance_score=1.0,
+                    ),
+                    LocalModelCandidateSummary(
+                        candidate_ref="candidate:m152-alternative",
+                        repo_ref="hf-repo:m152-alternative",
+                        revision_ref="hf-revision:m152-pinned",
+                        artifact_ref="gguf-artifact:m152-alt",
+                        filename_ref="gguf-file:alt-q5.gguf",
+                        task_ref="task:coding",
+                        license_ref="license:declared-safe",
+                        provenance_ref="provenance:reviewed",
+                        hardware_fit_score=1.0,
+                        task_capability_score=0.8,
+                        query_name_score=0.0,
+                        popularity_score=0.8,
+                        recency_score=0.8,
+                        license_provenance_score=1.0,
+                    ),
+                    LocalModelCandidateSummary(
+                        candidate_ref="candidate:m152-rejected",
+                        repo_ref="hf-repo:m152-rejected",
+                        revision_ref="hf-revision:m152-pinned",
+                        artifact_ref="gguf-artifact:m152-rejected",
+                        filename_ref="gguf-file:rejected.gguf",
+                        task_ref="task:coding",
+                        license_ref="license:declared-safe",
+                        provenance_ref="provenance:reviewed",
+                        has_gguf=False,
+                    ),
+                ],
+            )
+            if selection.live_search_performed or selection.download_performed or selection.model_loaded:
+                failures.append("M152 model selection preview performed live work")
+            if selection.query_match_candidate_refs[:1] != ["candidate:m152-qwopus"]:
+                failures.append("M152 query match ranking did not keep qwopus first")
+            if "candidate:m152-alternative" not in selection.alternative_candidate_refs:
+                failures.append("M152 alternatives did not include injected non-query candidate")
+            if "candidate:m152-rejected" not in selection.rejected_candidate_refs:
+                failures.append("M152 unsafe candidate was not rejected")
+
+            signal = LocalModelObservabilitySignal(
+                signal_ref="observability-signal:m152-lag",
+                kind=LocalModelObservabilitySignalKind.lag_summary,
+                settings_plan_ref=settings_plan.plan_ref,
+                safe_summary="Lag bucket summary; reduce context first.",
+                suggested_adjustment_ref="settings-adjustment:m152-reduce-context",
+            )
+            observability = validate_local_model_observability_preview(
+                LocalModelObservabilityPreview(
+                    preview_ref="observability-preview:m152-redacted",
+                    settings_plan_ref=settings_plan.plan_ref,
+                    signal_refs=[signal.signal_ref],
+                    signals=[signal],
+                    no_effect_receipt_plan_ref="receipt-plan:m152-observability-no-effect",
+                )
+            )
+            if observability.settings_applied or observability.model_call_performed:
+                failures.append("M152 observability preview applied settings or called a model")
+
+            freeze_record = build_local_model_management_freeze_record(
+                LocalModelManagementFreezeRequest(
+                    request_ref="local-model-freeze-request:m152-gate",
+                    freeze_ref="local-model-freeze:m159-planned",
+                    baseline_ref="baseline:m151-accepted",
+                    actor_ref="actor:foundation-gate",
+                    accepted_checkpoint_refs=list(REQUIRED_LOCAL_MODEL_MANAGEMENT_CHECKPOINT_REFS),
+                    checklist_refs=["checklist:m152-safe-contract-lane"],
+                    authority_boundary_ref="authority-boundary:m152-local-model-management",
+                    audit_ref="audit:m152-local-model-management",
+                    replay_ref="replay:m152-local-model-management",
+                    no_effect_receipt_plan_ref="receipt-plan:m152-freeze-no-effect",
+                    safe_summary="Freeze accepted local model management contract refs only.",
+                )
+            )
+            if (
+                freeze_record.live_search_performed
+                or freeze_record.download_performed
+                or freeze_record.llama_cpp_server_started
+                or freeze_record.backend_route_added
+                or freeze_record.production_authority_granted
+            ):
+                failures.append("M152 freeze record grants forbidden live authority")
+        except Exception as exc:
+            failures.append(f"M152 local model management contract validation failed: {exc}")
+
+        docs_text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_files
+            if path.startswith("docs/") and (self.root / path).exists()
+        )
+        for fragment in [
+            "m152 local model management",
+            "post-m151",
+            "contract-only",
+            "review-only",
+            "metadata-only",
+            "local-only",
+            "safe-ref-only",
+            "disabled by default",
+            "route-free",
+            "no-effect",
+            "model refs",
+            "model profile refs",
+            "model artifact refs",
+            "no network access",
+            "no subprocess",
+            "no llama.cpp import",
+            "no llama.cpp server",
+            "no hugging face hub import",
+            "no hugging face hub download",
+            "no downloads",
+            "no model load",
+            "no model unload",
+            "no model delete",
+            "no model/provider call",
+            "no backend route",
+            "no control center execute control",
+            "no dependency",
+            "no memory write",
+            "no context injection",
+            "no tool execution",
+            "no production authority",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M152 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m152_local_model_management_static_safety(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        return self._result(
+            criterion,
+            m152_local_model_management_forbidden_fragment_failures(self.root),
+            [],
+        )
+
+    def check_m152_local_model_management_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+            from ultimate_ai_agent.api.openapi import verify_openapi_contract
+
+            failures.extend(m152_openapi_route_failures(app.openapi().get("paths", {})))
+            contract_status = verify_openapi_contract(app)
+            if contract_status.errors:
+                failures.extend(contract_status.errors)
+        except Exception as exc:
+            failures.append(f"M152 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
+
+    def check_m153_m165_local_model_management_progression(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/local_model_management/contracts.py",
+            "docs/model_management/M153_M165_LOCAL_MODEL_MANAGEMENT_PROGRESSION.md",
+            "docs/model_management/M160_M165_LIVE_LANE_BOUNDARY.md",
+            "tests/test_m153_m165_local_model_management_progression.py",
+        ]
+        failures = [
+            f"missing M153-M165 local model management file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            from ultimate_ai_agent.api.app import app
+            from ultimate_ai_agent.core.local_model_management import (
+                FUTURE_LIVE_LANE_LOCAL_MODEL_MANAGEMENT_CHECKPOINT_REFS,
+                LIVE_LLAMA_CPP_SUPERVISOR_LOCAL_MODEL_MANAGEMENT_CHECKPOINT_REFS,
+                LIVE_MODEL_ACQUISITION_LOCAL_MODEL_MANAGEMENT_CHECKPOINT_REFS,
+                LIVE_OPENAI_GATEWAY_LOCAL_MODEL_MANAGEMENT_CHECKPOINT_REFS,
+                LIVE_READ_ONLY_LOCAL_MODEL_MANAGEMENT_CHECKPOINT_REFS,
+                LIVE_SETTINGS_TUNING_LOCAL_MODEL_MANAGEMENT_CHECKPOINT_REFS,
+                REQUIRED_LOCAL_MODEL_MANAGEMENT_M153_M165_CHECKPOINT_REFS,
+                SAFE_LANE_LOCAL_MODEL_MANAGEMENT_CHECKPOINT_REFS,
+                FutureLiveContractStatus,
+                LocalModelManagementLane,
+                M160HuggingFaceGgufSearchPolicy,
+                M162ModelAcquisitionPolicy,
+                build_local_model_management_m153_m165_progression_plan,
+                build_m163_m165_disabled_future_live_contracts,
+                validate_m160_huggingface_gguf_search_policy,
+                validate_m162_model_acquisition_policy,
+                validate_future_live_local_model_contract,
+                validate_local_model_management_m153_m165_progression_plan,
+            )
+
+            if REQUIRED_LOCAL_MODEL_MANAGEMENT_M153_M165_CHECKPOINT_REFS != tuple(
+                f"checkpoint:m{index}" for index in range(153, 166)
+            ):
+                failures.append("M153-M165 exact checkpoint refs drifted")
+            if SAFE_LANE_LOCAL_MODEL_MANAGEMENT_CHECKPOINT_REFS != tuple(
+                f"checkpoint:m{index}" for index in range(153, 160)
+            ):
+                failures.append("M153-M159 safe lane refs drifted")
+            if LIVE_READ_ONLY_LOCAL_MODEL_MANAGEMENT_CHECKPOINT_REFS != (
+                "checkpoint:m160",
+                "checkpoint:m161",
+            ):
+                failures.append("M160-M161 live read-only lane refs drifted")
+            if FUTURE_LIVE_LANE_LOCAL_MODEL_MANAGEMENT_CHECKPOINT_REFS != ():
+                failures.append("M153-M165 future live lane refs should be empty after M165")
+            if LIVE_MODEL_ACQUISITION_LOCAL_MODEL_MANAGEMENT_CHECKPOINT_REFS != ("checkpoint:m162",):
+                failures.append("M162 live acquisition lane refs drifted")
+            if LIVE_LLAMA_CPP_SUPERVISOR_LOCAL_MODEL_MANAGEMENT_CHECKPOINT_REFS != ("checkpoint:m163",):
+                failures.append("M163 live llama.cpp supervisor lane refs drifted")
+            if LIVE_OPENAI_GATEWAY_LOCAL_MODEL_MANAGEMENT_CHECKPOINT_REFS != ("checkpoint:m164",):
+                failures.append("M164 live OpenAI gateway lane refs drifted")
+            if LIVE_SETTINGS_TUNING_LOCAL_MODEL_MANAGEMENT_CHECKPOINT_REFS != ("checkpoint:m165",):
+                failures.append("M165 live settings tuning lane refs drifted")
+
+            plan = validate_local_model_management_m153_m165_progression_plan(
+                build_local_model_management_m153_m165_progression_plan()
+            )
+            if len(plan.milestone_contracts) != 13:
+                failures.append("M153-M165 progression does not contain 13 milestone contracts")
+            safe_lane = [
+                contract.milestone_ref
+                for contract in plan.milestone_contracts
+                if contract.lane == LocalModelManagementLane.safe_contract
+            ]
+            future_live_lane = [
+                contract.milestone_ref
+                for contract in plan.milestone_contracts
+                if contract.lane == LocalModelManagementLane.future_live_contract_only
+            ]
+            live_read_only_lane = [
+                contract.milestone_ref
+                for contract in plan.milestone_contracts
+                if contract.lane == LocalModelManagementLane.live_bounded_read_only
+            ]
+            live_acquisition_lane = [
+                contract.milestone_ref
+                for contract in plan.milestone_contracts
+                if contract.lane == LocalModelManagementLane.live_exact_approved_acquisition
+            ]
+            live_llama_cpp_supervisor_lane = [
+                contract.milestone_ref
+                for contract in plan.milestone_contracts
+                if contract.lane == LocalModelManagementLane.live_llama_cpp_supervisor
+            ]
+            live_openai_gateway_lane = [
+                contract.milestone_ref
+                for contract in plan.milestone_contracts
+                if contract.lane == LocalModelManagementLane.live_openai_gateway
+            ]
+            live_settings_tuning_lane = [
+                contract.milestone_ref
+                for contract in plan.milestone_contracts
+                if contract.lane == LocalModelManagementLane.live_settings_tuning
+            ]
+            if tuple(safe_lane) != SAFE_LANE_LOCAL_MODEL_MANAGEMENT_CHECKPOINT_REFS:
+                failures.append("M153-M159 contracts are not exactly safe_contract lane")
+            if tuple(live_read_only_lane) != LIVE_READ_ONLY_LOCAL_MODEL_MANAGEMENT_CHECKPOINT_REFS:
+                failures.append("M160-M161 contracts are not exactly live_bounded_read_only lane")
+            if tuple(live_acquisition_lane) != LIVE_MODEL_ACQUISITION_LOCAL_MODEL_MANAGEMENT_CHECKPOINT_REFS:
+                failures.append("M162 contract is not exactly live_exact_approved_acquisition lane")
+            if tuple(live_llama_cpp_supervisor_lane) != LIVE_LLAMA_CPP_SUPERVISOR_LOCAL_MODEL_MANAGEMENT_CHECKPOINT_REFS:
+                failures.append("M163 contract is not exactly live_llama_cpp_supervisor lane")
+            if tuple(live_openai_gateway_lane) != LIVE_OPENAI_GATEWAY_LOCAL_MODEL_MANAGEMENT_CHECKPOINT_REFS:
+                failures.append("M164 contract is not exactly live_openai_gateway lane")
+            if tuple(live_settings_tuning_lane) != LIVE_SETTINGS_TUNING_LOCAL_MODEL_MANAGEMENT_CHECKPOINT_REFS:
+                failures.append("M165 contract is not exactly live_settings_tuning lane")
+            if tuple(future_live_lane) != FUTURE_LIVE_LANE_LOCAL_MODEL_MANAGEMENT_CHECKPOINT_REFS:
+                failures.append("M153-M165 future_live_contract_only lane should be empty after M165")
+            unsafe_plan_flags = [
+                "live_capability_authorized",
+                "live_hf_search_performed",
+                "local_system_probe_performed",
+                "model_download_performed",
+                "llama_cpp_server_started",
+                "subprocess_execution_performed",
+                "network_access_performed",
+                "model_call_performed",
+                "settings_applied",
+                "backend_route_added",
+                "control_center_control_added",
+                "dependency_added",
+                "production_authority_granted",
+            ]
+            if any(getattr(plan, field_name) for field_name in unsafe_plan_flags):
+                failures.append("M153-M165 progression plan grants forbidden live authority")
+
+            policy = validate_m160_huggingface_gguf_search_policy(M160HuggingFaceGgufSearchPolicy())
+            if (
+                not policy.bounded_read_only
+                or not policy.unauthenticated_only
+                or not policy.https_get_only
+                or not policy.metadata_only
+                or policy.download_allowed
+                or policy.model_call_allowed
+            ):
+                failures.append("M160 Hugging Face GGUF search policy is unsafe")
+
+            acquisition_policy = validate_m162_model_acquisition_policy(M162ModelAcquisitionPolicy())
+            if (
+                not acquisition_policy.exact_user_approval_required
+                or not acquisition_policy.pinned_revision_required
+                or not acquisition_policy.exact_filename_required
+                or not acquisition_policy.uaa_owned_cache_required
+                or not acquisition_policy.unauthenticated_by_default
+                or acquisition_policy.token_use_allowed
+                or acquisition_policy.model_call_allowed
+                or acquisition_policy.llama_cpp_process_allowed
+                or acquisition_policy.subprocess_allowed
+            ):
+                failures.append("M162 GGUF acquisition policy is unsafe")
+
+            future_contracts = build_m163_m165_disabled_future_live_contracts()
+            if future_contracts != []:
+                failures.append("M163-M165 disabled future live contracts should be empty after M165")
+            for future_contract in future_contracts:
+                validated = validate_future_live_local_model_contract(future_contract)
+                if validated.status != FutureLiveContractStatus.disabled_until_runtime_milestone:
+                    failures.append(f"{validated.contract_ref} is not disabled until runtime milestone")
+                for field_name in [
+                    "live_capability_authorized",
+                    "network_access_performed",
+                    "local_system_probe_performed",
+                    "download_performed",
+                    "model_file_read_performed",
+                    "model_cache_write_performed",
+                    "llama_cpp_import_performed",
+                    "subprocess_execution_performed",
+                    "server_started",
+                    "prompt_processed",
+                    "model_call_performed",
+                    "settings_applied",
+                    "runtime_restart_performed",
+                    "backend_route_added",
+                    "control_center_control_added",
+                    "openwebui_settings_mutation_requested",
+                    "openwebui_admin_api_used",
+                    "openwebui_plugin_added",
+                    "openwebui_is_agent_brain",
+                    "memory_write_performed",
+                    "context_injection_performed",
+                    "tool_execution_performed",
+                    "dependency_added",
+                    "production_authority_granted",
+                ]:
+                    if getattr(validated, field_name):
+                        failures.append(f"{validated.contract_ref} unsafe flag true: {field_name}")
+
+            failures.extend(m152_openapi_route_failures(app.openapi().get("paths", {})))
+            failures.extend(m152_local_model_management_forbidden_fragment_failures(self.root))
+        except Exception as exc:
+            failures.append(f"M153-M165 local model management progression validation failed: {exc}")
+
+        docs_text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_files
+            if path.startswith("docs/") and (self.root / path).exists()
+        )
+        for index in range(153, 166):
+            if f"m{index}" not in docs_text:
+                failures.append(f"M153-M165 docs missing checkpoint m{index}")
+        for fragment in [
+            "safe_contract",
+            "live_bounded_read_only",
+            "live_exact_approved_acquisition",
+            "live_llama_cpp_supervisor",
+            "live_openai_gateway",
+            "live_settings_tuning",
+            "future_live_contract_only",
+            "m160 live bounded read-only hf gguf search only",
+            "m161 live bounded read-only local system capability probing only",
+            "m162 live exact-approved gguf acquisition only",
+            "m163 live loopback llama.cpp supervisor only",
+            "m164 live local `/v1` gateway only",
+            "m165 live approved settings tuning only",
+            "no unapproved downloads",
+            "no shell string",
+            "no non-loopback llama.cpp server",
+            "tools/functions and streaming remain disabled",
+            "no raw prompt",
+            "no raw response",
+            "no serials",
+            "no usernames",
+            "no raw paths",
+            "no environment dump",
+            "no broad scans",
+            "no control center execute controls",
+            "no dependency",
+            "no memory write",
+            "no context injection",
+            "no tool execution",
+            "no production authority",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M153-M165 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m160_bounded_hf_gguf_search_static_safety(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/local_model_management/hf_search.py",
+            "docs/model_management/M160_HUGGING_FACE_GGUF_SEARCH.md",
+            "tests/test_m160_hf_gguf_search.py",
+        ]
+        failures = [
+            f"missing M160 Hugging Face GGUF search file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            from ultimate_ai_agent.core.local_model_management import (
+                FakeM160HuggingFaceSearchTransport,
+                M160HuggingFaceGgufSearchPolicy,
+                M160HuggingFaceGgufSearchRequest,
+                search_huggingface_gguf_models,
+                validate_m160_huggingface_gguf_search_policy,
+            )
+
+            policy = validate_m160_huggingface_gguf_search_policy(
+                M160HuggingFaceGgufSearchPolicy()
+            )
+            if (
+                not policy.bounded_read_only
+                or not policy.unauthenticated_only
+                or not policy.https_get_only
+                or not policy.metadata_only
+                or not policy.gguf_candidates_only
+                or policy.raw_response_storage_allowed
+                or policy.token_use_allowed
+                or policy.download_allowed
+                or policy.model_call_allowed
+                or policy.dependency_added
+                or policy.production_authority_granted
+            ):
+                failures.append("M160 search policy is unsafe")
+            result = search_huggingface_gguf_models(
+                M160HuggingFaceGgufSearchRequest(
+                    request_ref="hf-gguf-search-request:m160-gate",
+                    query="qwopus",
+                    limit=3,
+                ),
+                transport=FakeM160HuggingFaceSearchTransport(
+                    [
+                        {
+                            "id": "org/qwopus",
+                            "downloads": 5,
+                            "likes": 1,
+                            "cardData": {"license": "apache-2.0"},
+                            "siblings": [
+                                {"rfilename": "qwopus-q4_k_m.gguf", "size": 1234},
+                                {"rfilename": "model.safetensors", "size": 100},
+                            ],
+                        }
+                    ]
+                ),
+            )
+            if (
+                not result.live_search_performed
+                or not result.network_access_performed
+                or not result.unauthenticated
+                or not result.metadata_only
+                or result.raw_response_stored
+                or result.token_used
+                or result.download_performed
+                or result.model_call_performed
+                or result.backend_route_added
+                or result.dependency_added
+                or result.production_authority_granted
+            ):
+                failures.append("M160 search result is unsafe")
+            if result.candidate_refs != ["hf-gguf-candidate:m160-org-qwopus"]:
+                failures.append("M160 fake search did not return the expected GGUF candidate")
+        except Exception as exc:
+            failures.append(f"M160 Hugging Face GGUF search validation failed: {exc}")
+
+        source_path = self.root / "src/ultimate_ai_agent/core/local_model_management/hf_search.py"
+        source = self._read(source_path)
+        for fragment in [
+            "HF_MODELS_API_URL = \"https://huggingface.co/api/models\"",
+            "M160_MAX_RESPONSE_BYTES",
+            "request.urlopen",
+            "json.loads",
+            "filter\": \"gguf\"",
+        ]:
+            if fragment not in source:
+                failures.append(f"M160 search source missing required bounded-search fragment: {fragment}")
+        for forbidden in [
+            "import " + "requests",
+            "from " + "requests import",
+            "import " + "httpx",
+            "from " + "httpx import",
+            "import huggingface_hub",
+            "from huggingface_hub import",
+            "hf_hub_download(",
+            "snapshot_download(",
+            "Authorization",
+            "Cookie",
+            "import " + "subprocess",
+            "from subprocess import",
+            "subprocess" + ".",
+            "import llama_cpp",
+            "from llama_cpp import",
+            "llama_cpp.",
+            "openai.OpenAI(",
+            "download_performed=True",
+            "model_call_performed=True",
+            "raw_response_stored=True",
+            "backend_route_added=True",
+            "dependency_added=True",
+            "production_authority_granted=True",
+        ]:
+            if forbidden in source:
+                failures.append(f"M160 search source contains forbidden fragment: {forbidden}")
+
+        docs_text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_files
+            if path.startswith("docs/") and (self.root / path).exists()
+        )
+        for fragment in [
+            "m160 bounded hugging face gguf search",
+            "core-only",
+            "bounded read-only",
+            "unauthenticated",
+            "https get",
+            "metadata-only",
+            "gguf",
+            "no downloads",
+            "no auth",
+            "no token",
+            "no raw response storage",
+            "no model card storage",
+            "no model/provider call",
+            "no subprocess",
+            "no llama.cpp",
+            "no backend route",
+            "no control center control",
+            "no dependency",
+            "no production authority",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M160 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m161_local_system_probe_static_safety(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/local_model_management/system_probe.py",
+            "docs/model_management/M161_LOCAL_SYSTEM_CAPABILITY_PROBE.md",
+            "tests/test_m161_local_system_probe.py",
+        ]
+        failures = [
+            f"missing M161 local system probe file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            from ultimate_ai_agent.core.local_model_management import (
+                BYTES_PER_GIB,
+                M161LocalSystemProbePolicy,
+                M161LocalSystemProbeRequest,
+                M161SystemProbeSample,
+                probe_local_system_capabilities,
+                validate_m161_local_system_probe_policy,
+            )
+
+            policy = validate_m161_local_system_probe_policy(M161LocalSystemProbePolicy())
+            if (
+                not policy.local_read_only
+                or not policy.stdlib_only
+                or not policy.redacted_buckets_only
+                or not policy.hardware_fit_metadata_only
+                or policy.broad_scan_allowed
+                or policy.hostname_allowed
+                or policy.serial_allowed
+                or policy.username_allowed
+                or policy.raw_path_allowed
+                or policy.env_dump_allowed
+                or policy.subprocess_allowed
+                or policy.network_allowed
+                or policy.download_allowed
+                or policy.model_call_allowed
+                or policy.dependency_added
+                or policy.production_authority_granted
+            ):
+                failures.append("M161 probe policy is unsafe")
+            result = probe_local_system_capabilities(
+                M161LocalSystemProbeRequest(request_ref="local-system-probe-request:m161-gate"),
+                sample=M161SystemProbeSample(
+                    os_name="Darwin",
+                    machine_arch="arm64",
+                    cpu_count=12,
+                    ram_bytes=64 * BYTES_PER_GIB,
+                    vram_bytes=None,
+                    disk_free_bytes=512 * BYTES_PER_GIB,
+                    power_source_hint="ac",
+                    thermal_state_hint="nominal",
+                ),
+            )
+            if (
+                not result.local_system_probe_performed
+                or not result.local_only
+                or not result.stdlib_only
+                or not result.redacted
+                or not result.bucketed_only
+                or result.raw_hostname_included
+                or result.raw_serial_included
+                or result.raw_username_included
+                or result.raw_path_included
+                or result.env_dump_included
+                or result.broad_scan_performed
+                or result.subprocess_execution_performed
+                or result.network_access_performed
+                or result.download_performed
+                or result.model_call_performed
+                or result.backend_route_added
+                or result.dependency_added
+                or result.production_authority_granted
+            ):
+                failures.append("M161 probe result is unsafe")
+            if result.os_arch_bucket != "os-arch:macos-arm64":
+                failures.append("M161 probe did not return expected redacted OS/arch bucket")
+        except Exception as exc:
+            failures.append(f"M161 local system probe validation failed: {exc}")
+
+        source_path = self.root / "src/ultimate_ai_agent/core/local_model_management/system_probe.py"
+        source = self._read(source_path)
+        for fragment in [
+            "platform.system()",
+            "platform.machine()",
+            "os.cpu_count()",
+            "os.sysconf",
+            "shutil.disk_usage",
+            "BYTES_PER_GIB",
+            "redacted_buckets_only",
+            "bucketed_only",
+        ]:
+            if fragment not in source:
+                failures.append(f"M161 probe source missing required stdlib bucket fragment: {fragment}")
+        for forbidden in [
+            "platform.uname(",
+            "psutil.",
+            "system_profiler",
+            "nvidia-smi",
+            "import " + "subprocess",
+            "from subprocess import",
+            "subprocess" + ".",
+            "os.walk(",
+            "Path.home(",
+            ".rglob(",
+            "os.environ",
+            "getpass.",
+            "socket.gethostname",
+            "uuid.getnode",
+            "import " + "requests",
+            "from " + "requests import",
+            "import " + "httpx",
+            "from " + "httpx import",
+            "import huggingface_hub",
+            "from huggingface_hub import",
+            "llama_cpp",
+            "openai.OpenAI(",
+            "download_performed=True",
+            "model_call_performed=True",
+            "backend_route_added=True",
+            "dependency_added=True",
+            "production_authority_granted=True",
+        ]:
+            if forbidden in source:
+                failures.append(f"M161 probe source contains forbidden fragment: {forbidden}")
+
+        docs_text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_files
+            if path.startswith("docs/") and (self.root / path).exists()
+        )
+        for fragment in [
+            "m161 local system capability probe",
+            "core-only",
+            "stdlib-only",
+            "local read-only",
+            "redacted",
+            "bucketed-only",
+            "os and architecture bucket",
+            "cpu core bucket",
+            "ram bucket",
+            "vram bucket",
+            "backend/device family bucket",
+            "disk budget bucket",
+            "power/thermal hint",
+            "no serials",
+            "no usernames",
+            "no raw paths",
+            "no environment dump",
+            "no broad scans",
+            "no subprocess",
+            "no network access",
+            "no downloads",
+            "no model/provider call",
+            "no backend route",
+            "no control center control",
+            "no dependency",
+            "no production authority",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M161 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m162_exact_approved_gguf_acquisition_static_safety(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/local_model_management/model_acquisition.py",
+            "docs/model_management/M162_GGUF_MODEL_ACQUISITION.md",
+            "tests/test_m162_model_acquisition.py",
+        ]
+        failures = [
+            f"missing M162 GGUF acquisition file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            import hashlib
+
+            from ultimate_ai_agent.core.local_model_management import (
+                ArtifactRole,
+                FakeM162ModelAcquisitionTransport,
+                M162GgufArtifactRequest,
+                M162ModelAcquisitionPolicy,
+                M162ModelAcquisitionRequest,
+                acquire_huggingface_gguf_artifacts,
+                validate_m162_model_acquisition_policy,
+            )
+
+            policy = validate_m162_model_acquisition_policy(M162ModelAcquisitionPolicy())
+            if (
+                not policy.exact_user_approval_required
+                or not policy.pinned_revision_required
+                or not policy.exact_filename_required
+                or not policy.explicit_artifact_refs_required
+                or not policy.uaa_owned_cache_required
+                or not policy.gguf_artifacts_only
+                or not policy.sharded_artifacts_explicit_only
+                or not policy.mmproj_artifacts_explicit_only
+                or not policy.unauthenticated_by_default
+                or not policy.https_get_only
+                or policy.raw_response_storage_allowed
+                or policy.raw_url_storage_allowed
+                or policy.token_use_allowed
+                or policy.model_call_allowed
+                or policy.llama_cpp_process_allowed
+                or policy.subprocess_allowed
+                or policy.backend_route_allowed
+                or policy.control_center_control_allowed
+                or policy.dependency_added
+                or policy.production_authority_granted
+            ):
+                failures.append("M162 acquisition policy is unsafe")
+
+            payload = b"gate-primary"
+            shard_payload = b"gate-shard"
+            mmproj_payload = b"gate-mmproj"
+            primary = M162GgufArtifactRequest(
+                artifact_ref="gguf-artifact:m162-gate-primary",
+                repo_id="org/qwopus",
+                revision="0123456789abcdef0123456789abcdef01234567",
+                filename="qwopus-q4_k_m.gguf",
+                expected_size_bytes=len(payload),
+                expected_sha256=hashlib.sha256(payload).hexdigest(),
+            )
+            shard = M162GgufArtifactRequest(
+                artifact_ref="gguf-artifact:m162-gate-shard",
+                repo_id="org/qwopus",
+                revision="0123456789abcdef0123456789abcdef01234567",
+                filename="qwopus-00001-of-00002.gguf",
+                role=ArtifactRole.shard,
+                expected_size_bytes=len(shard_payload),
+                expected_sha256=hashlib.sha256(shard_payload).hexdigest(),
+            )
+            mmproj = M162GgufArtifactRequest(
+                artifact_ref="gguf-artifact:m162-gate-mmproj",
+                repo_id="org/qwopus",
+                revision="0123456789abcdef0123456789abcdef01234567",
+                filename="mmproj-qwopus.gguf",
+                role=ArtifactRole.mmproj,
+                expected_size_bytes=len(mmproj_payload),
+                expected_sha256=hashlib.sha256(mmproj_payload).hexdigest(),
+            )
+            with tempfile.TemporaryDirectory() as temp_dir:
+                cache_root = Path(temp_dir) / ".uaa" / "model-cache"
+                result = acquire_huggingface_gguf_artifacts(
+                    M162ModelAcquisitionRequest(
+                        request_ref="model-acquisition-request:m162-gate",
+                        approval_ref="approval:m162-gguf-acquisition-gate",
+                        artifacts=[primary, shard, mmproj],
+                    ),
+                    cache_root=cache_root,
+                    transport=FakeM162ModelAcquisitionTransport(
+                        {
+                            primary.artifact_ref: payload,
+                            shard.artifact_ref: shard_payload,
+                            mmproj.artifact_ref: mmproj_payload,
+                        }
+                    ),
+                    max_artifact_bytes=1024,
+                )
+                cached_names = sorted(path.name for path in cache_root.rglob("*.gguf"))
+            if cached_names != [
+                "mmproj-qwopus.gguf",
+                "qwopus-00001-of-00002.gguf",
+                "qwopus-q4_k_m.gguf",
+            ]:
+                failures.append("M162 fake acquisition did not cache expected GGUF artifacts")
+            if (
+                not result.exact_user_approved
+                or not result.exact_artifacts_only
+                or not result.uaa_owned_cache
+                or not result.pinned_revision_used
+                or not result.unauthenticated
+                or not result.https_get_only
+                or not result.download_performed
+                or not result.cache_write_performed
+                or not result.network_access_performed
+                or result.raw_response_stored
+                or result.raw_url_stored
+                or result.local_path_included
+                or result.token_used
+                or result.model_file_read_performed
+                or result.model_call_performed
+                or result.llama_cpp_process_started
+                or result.subprocess_execution_performed
+                or result.backend_route_added
+                or result.control_center_control_added
+                or result.dependency_added
+                or result.production_authority_granted
+            ):
+                failures.append("M162 acquisition result is unsafe")
+        except Exception as exc:
+            failures.append(f"M162 GGUF acquisition validation failed: {exc}")
+
+        source_path = self.root / "src/ultimate_ai_agent/core/local_model_management/model_acquisition.py"
+        source = self._read(source_path)
+        for fragment in [
+            "HF_MODEL_RESOLVE_URL_PREFIX = \"https://huggingface.co\"",
+            "StdlibM162HuggingFaceArtifactTransport",
+            "M162_ALLOWED_REDIRECT_HOST_SUFFIXES",
+            "request.urlopen",
+            "hashlib.sha256",
+            "tempfile.NamedTemporaryFile",
+            "expected_sha256",
+            "ArtifactRole.mmproj",
+        ]:
+            if fragment not in source:
+                failures.append(f"M162 acquisition source missing required fragment: {fragment}")
+        for forbidden in [
+            "import " + "requests",
+            "from " + "requests import",
+            "import " + "httpx",
+            "from " + "httpx import",
+            "import huggingface_hub",
+            "from huggingface_hub import",
+            "hf_hub_download(",
+            "snapshot_download(",
+            "Authorization",
+            "Cookie",
+            "import " + "subprocess",
+            "from subprocess import",
+            "subprocess" + ".",
+            "shell=True",
+            "llama_cpp.Llama(",
+            "llama-server",
+            "llama_server",
+            "openai.OpenAI(",
+            "AutoModel.from_pretrained(",
+            "AutoTokenizer.from_pretrained(",
+            "pipeline(",
+            "backend_route_added=True",
+            "dependency_added=True",
+            "production_authority_granted=True",
+        ]:
+            if forbidden in source:
+                failures.append(f"M162 acquisition source contains forbidden fragment: {forbidden}")
+
+        docs_text = "\n".join(
+            self._read(self.root / path).lower()
+            for path in required_files
+            if path.startswith("docs/") and (self.root / path).exists()
+        )
+        for fragment in [
+            "m162 gguf model acquisition",
+            "core-only",
+            "stdlib-only",
+            "exact-approved",
+            "exact user approval",
+            "pinned revision",
+            "exact `.gguf` filename",
+            "explicit sharded artifact refs",
+            "explicit `mmproj*.gguf` artifact refs",
+            "uaa-owned cache",
+            "unauthenticated https get by default",
+            "no auth by default",
+            "no token use",
+            "no raw url storage",
+            "no raw local path storage",
+            "no raw response storage",
+            "no model/provider call",
+            "no llama.cpp process",
+            "no subprocess",
+            "no backend route",
+            "no control center control",
+            "no dependency",
+            "no production authority",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M162 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m166_local_model_production_readiness_contracts(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/production_readiness/production_release_gate.py",
+            "docs/production/LOCAL_MODEL_PRODUCTION_READINESS_GATE.md",
+            "docs/production/LOCAL_MODEL_PRODUCTION_READINESS_BOUNDARY.md",
+            "docs/production/LOCAL_MODEL_PRODUCTION_READINESS_RECEIPT_PLAN.md",
+            "docs/production/LOCAL_MODEL_PRODUCTION_READINESS_NON_GOALS.md",
+            "docs/production/M166_PRODUCTION_AUTHORITY_GATE.md",
+            "docs/release_notes/checkpoint_m166.md",
+            "tests/test_m166_local_model_production_readiness.py",
+            "tests/test_m166_gate_integration.py",
+        ]
+        failures = [
+            f"missing M166 production readiness file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        try:
+            from ultimate_ai_agent.core.production_readiness import (
+                REQUIRED_M166_EVIDENCE_KINDS,
+                ProductionReadinessEvidenceKind,
+                ProductionReleaseGateStatus,
+                build_m166_green_production_readiness_evidence,
+                build_m166_production_release_gate_record,
+                validate_m166_production_readiness_evidence_record,
+                validate_m166_production_release_gate_record,
+            )
+
+            evidence = build_m166_green_production_readiness_evidence()
+            gate = build_m166_production_release_gate_record(evidence_records=evidence)
+            expected_kinds = [
+                ProductionReadinessEvidenceKind(kind)
+                for kind in REQUIRED_M166_EVIDENCE_KINDS
+            ]
+            if (
+                gate.status != ProductionReleaseGateStatus.production_authority_granted
+                or gate.source_checkpoint_ref != "checkpoint:m165"
+                or gate.required_evidence_kinds != expected_kinds
+                or [item.evidence_ref for item in evidence] != gate.evidence_refs
+                or not gate.production_authority_granted
+                or not gate.production_runtime_authorized
+                or not gate.go_live_authorized
+                or not gate.production_deployment_authorized
+                or not gate.traffic_routing_authorized
+                or not gate.exact_scope_bound
+                or not gate.all_evidence_passed
+                or not gate.redacted_evidence_only
+                or not gate.blockers_cleared
+                or not gate.rollback_ready
+                or not gate.audit_required
+                or not gate.replay_safe
+                or gate.side_effects_performed
+                or "M166_PRODUCTION_AUTHORITY_GRANTED" not in gate.reason_codes
+            ):
+                failures.append("M166 release gate does not grant exact green production authority")
+
+            for evidence_record in evidence:
+                if (
+                    evidence_record.source_checkpoint_ref != "checkpoint:m165"
+                    or not evidence_record.redacted
+                    or not evidence_record.safe_refs_only
+                    or not evidence_record.loopback_only
+                    or not evidence_record.openwebui_shell_only
+                    or evidence_record.openwebui_is_agent_brain
+                    or evidence_record.raw_prompt_included
+                    or evidence_record.raw_response_included
+                    or evidence_record.raw_path_included
+                    or evidence_record.secret_included
+                    or evidence_record.blocker_refs
+                ):
+                    failures.append(f"M166 evidence record unsafe: {evidence_record.evidence_ref}")
+                validate_m166_production_readiness_evidence_record(evidence_record)
+
+            for update, reason in [
+                ({"production_authority_granted": False}, "M166_PRODUCTION_AUTHORITY_GRANT_REQUIRED"),
+                ({"go_live_authorized": False}, "M166_GO_LIVE_AUTH_REQUIRED"),
+                ({"raw_prompt_exported": True}, "M166_RAW_PROMPT_DENIED"),
+                ({"credential_material_exported": True}, "M166_CREDENTIAL_MATERIAL_DENIED"),
+                ({"backend_route_added": True}, "M166_BACKEND_ROUTE_DENIED"),
+                ({"side_effects_performed": ["deploy"]}, "M166_RELEASE_GATE_SIDE_EFFECTS_DENIED"),
+            ]:
+                try:
+                    validate_m166_production_release_gate_record(
+                        gate.model_copy(update=update)
+                    )
+                    failures.append(f"M166 unsafe gate mutation was not denied with {reason}")
+                except ValueError as exc:
+                    if reason not in str(exc):
+                        failures.append(f"M166 unsafe gate mutation raised {exc!s}")
+        except Exception as exc:
+            failures.append(f"M166 production readiness validation failed: {exc}")
+
+        docs_text = " ".join(
+            "\n".join(
+                self._read(self.root / path).lower()
+                for path in required_files
+                if path.startswith("docs/") and (self.root / path).exists()
+            ).split()
+        )
+        for fragment in [
+            "m166",
+            "production authority granted",
+            "live install/run tests",
+            "openwebui e2e tests",
+            "security review",
+            "packaging",
+            "operational rollback",
+            "load tests",
+            "all required evidence is green",
+            "revocable",
+            "replay-safe",
+            "redacted summary only",
+            "safe-ref-only",
+            "localhost-only",
+            "audit-bound",
+            "rollback-bound",
+            "no raw prompt",
+            "no raw response",
+            "no raw provider payload",
+            "no credential",
+            "no raw local path",
+            "no raw log",
+            "no backend route",
+            "no control center control",
+            "no openwebui admin",
+            "no openwebui plugin",
+            "no dependency",
+            "no unreviewed side effects",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"M166 docs missing safety fragment: {fragment}")
+        return self._result(criterion, failures, required_files)
+
+    def check_m166_local_model_production_readiness_static_safety(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        forbidden_source_fragments = [
+            "production_authority_granted=True",
+            "raw_prompt_exported=True",
+            "raw_response_exported=True",
+            "raw_provider_payload_exported=True",
+            "credential_material_exported=True",
+            "raw_local_path_exported=True",
+            "raw_log_exported=True",
+            "backend_route_added=True",
+            "control_center_control_added=True",
+            "unreviewed_dependency_added=True",
+            "/production/release-gate/apply",
+            "/production/release-gate/run",
+            "/production/release-gate/execute",
+        ]
+        allowed_files = {
+            "src/ultimate_ai_agent/core/gate/evaluators.py",
+            "src/ultimate_ai_agent/core/production_readiness/__init__.py",
+            "src/ultimate_ai_agent/core/production_readiness/production_release_gate.py",
+        }
+        for root in [
+            self.root / "src" / "ultimate_ai_agent",
+            self.root / "apps" / "control-center" / "src",
+            self.root / "apps" / "ccc-ios",
+        ]:
+            if not root.exists():
+                continue
+            candidate_files: list[Path] = []
+            for pattern in ("*.py", "*.ts", "*.tsx", "*.js", "*.jsx", "*.swift", "*.yml", "*.yaml"):
+                candidate_files.extend(root.rglob(pattern))
+            for path in sorted(candidate_files):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(self.root).as_posix()
+                if ".test." in rel or rel in allowed_files:
+                    continue
+                text = path.read_text(encoding="utf-8")
+                for fragment in forbidden_source_fragments:
+                    if fragment in text:
+                        failures.append(
+                            f"M166 forbidden production readiness fragment in {rel}: {fragment}"
+                        )
+
+        source = self._read(
+            self.root / "src/ultimate_ai_agent/core/production_readiness/production_release_gate.py"
+        )
+        for fragment in [
+            "REQUIRED_M166_EVIDENCE_KINDS",
+            "ProductionReadinessEvidenceKind",
+            "ProductionReleaseGateStatus",
+            "build_m166_production_release_gate_record",
+            "validate_m166_production_release_gate_record",
+            "checkpoint:m165",
+        ]:
+            if fragment not in source:
+                failures.append(f"M166 release gate source missing required fragment: {fragment}")
+        for forbidden in [
+            "import " + "requests",
+            "from " + "requests import",
+            "import " + "httpx",
+            "from " + "httpx import",
+            "import " + "subprocess",
+            "from subprocess import",
+            "request.urlopen(",
+            "shell=True",
+            "openai.OpenAI(",
+            "chat.completions.create(",
+            "hf_hub_download(",
+            "snapshot_download(",
+            "raw_prompt_exported=True",
+            "credential_material_exported=True",
+            "backend_route_added=True",
+            "control_center_control_added=True",
+        ]:
+            if forbidden in source:
+                failures.append(f"M166 release gate source contains forbidden fragment: {forbidden}")
+        return self._result(criterion, failures, [])
+
+    def check_m166_local_model_production_readiness_route_boundary(
+        self, criterion: FoundationGateCriterion
+    ) -> FoundationGateResult:
+        failures: List[str] = []
+        try:
+            from ultimate_ai_agent.api.app import app
+            from ultimate_ai_agent.api.openapi import verify_openapi_contract
+
+            failures.extend(m166_openapi_route_failures(app.openapi().get("paths", {})))
+            contract_status = verify_openapi_contract(app)
+            if contract_status.errors:
+                failures.extend(contract_status.errors)
+        except Exception as exc:
+            failures.append(f"M166 OpenAPI route validation failed: {exc}")
+        return self._result(criterion, failures, [])
 
 
     def check_v0292_local_dev_api_authority_and_preview_safe(
@@ -51950,8 +53666,7 @@ class FoundationGateEvaluator:
                 failures.append("M25 docs do not mark v0.29.0 implemented/released")
         else:
             failures.append("M25 docs do not mention v0.29.0 Truth Source Router + Evidence Claim Checker")
-        active_version = self._active_version() or "0.0.0"
-        version_tuple = tuple(int(part) for part in active_version.split("."))
+        version_tuple = self._active_version_tuple()
         if version_tuple >= (0, 32, 0):
             if "v0.32.0" in text and "approval authority v2 + action policy expansion" in text:
                 if "implemented/released" not in text:
@@ -52092,8 +53807,7 @@ class FoundationGateEvaluator:
         ]
         failures = [f"missing post-M20 roadmap doc: {path}" for path in required_docs if not (self.root / path).exists()]
         roadmap_text = "\n".join(self._read(self.root / path).lower() for path in required_docs if (self.root / path).exists())
-        active_version = self._active_version() or "0.0.0"
-        version_tuple = tuple(int(part) for part in active_version.split("."))
+        version_tuple = self._active_version_tuple()
         expectations = {
             "post-M20 docs missing M21": "m21",
             "post-M20 docs missing M40": "m40",
@@ -52227,11 +53941,23 @@ class FoundationGateEvaluator:
         )
 
     def _active_version(self) -> Optional[str]:
-        return self._regex_first(self.root / "VERSION.md", r"Current active baseline:\s*\*\*v?(\d+\.\d+\.\d+)\*\*")
+        return self._regex_first(
+            self.root / "VERSION.md",
+            r"Current active baseline:\s*\*\*v?(\d+\.\d+\.\d+(?:-[A-Za-z0-9]+(?:[.-][A-Za-z0-9]+)*)?)\*\*",
+        )
+
+    def _version_key(self, version: str) -> str:
+        return version.replace(".", "_").replace("-", "_")
+
+    def _package_version(self, version: str) -> str:
+        if version.endswith("-alpha"):
+            return f"{version[:-6]}a0"
+        return version
 
     def _active_version_tuple(self) -> tuple[int, int, int]:
         version = self._active_version() or "0.0.0"
-        return tuple(int(part) for part in version.split("."))  # type: ignore[return-value]
+        base_version = version.split("-", 1)[0]
+        return tuple(int(part) for part in base_version.split("."))  # type: ignore[return-value]
 
     def _m60_currentness_marker_present(self, text: str) -> bool:
         if self._active_version_tuple() >= (0, 64, 0):

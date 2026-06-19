@@ -128,6 +128,98 @@ class ManualStdlibLoopbackLocalModelCallTransport:
         )
 
 
+class ManualStdlibOpenAICompletionsLocalModelCallTransport:
+    """Manual M23 CLI-only OpenAI-compatible loopback completions transport."""
+
+    def __init__(self, opener=None):
+        self._opener = opener or urllib_request.urlopen
+
+    def send(self, request: LocalModelCallRequest) -> LocalModelCallTransportResult:
+        started = time.monotonic()
+        payload = json.dumps(
+            {
+                "model": request.model_ref,
+                "prompt": request.prompt_text,
+                "stream": False,
+                "temperature": 0,
+                "max_tokens": 32,
+            }
+        ).encode("utf-8")
+        http_request = urllib_request.Request(
+            request.endpoint_url,
+            data=payload,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        try:
+            with self._opener(http_request, timeout=request.timeout_seconds) as response:
+                status_code = getattr(response, "status", None) or getattr(response, "code", None)
+                body = response.read(_bounded_openai_response_bytes(request.max_response_chars))
+        except urllib_error.URLError:
+            return LocalModelCallTransportResult(
+                transport_result_id=f"m23_transport_{request.request_id}",
+                request_id=request.request_id,
+                transport_kind="manual_stdlib_openai_completions",
+                call_performed=True,
+                endpoint_contacted=True,
+                network_scope="loopback",
+                response_received=False,
+                raw_response_stored=False,
+                safe_response_text=None,
+                safe_response_summary=None,
+                metadata={"reason_codes": ["M23_TRANSPORT_FAILED"], "elapsed_ms": _elapsed_ms(started)},
+            )
+
+        text = _extract_openai_completion_text(body)
+        safe_text, safe_summary, redaction_applied, truncated, redaction_status = redact_local_model_response(
+            text,
+            request.max_response_chars,
+        )
+        metadata = {"elapsed_ms": _elapsed_ms(started), "response_shape": "openai_completions"}
+        if redaction_status == "blocked":
+            metadata["reason_codes"] = ["M23_RESPONSE_SECRET_BLOCKED"]
+        return LocalModelCallTransportResult(
+            transport_result_id=f"m23_transport_{request.request_id}",
+            request_id=request.request_id,
+            transport_kind="manual_stdlib_openai_completions",
+            call_performed=True,
+            endpoint_contacted=True,
+            network_scope="loopback",
+            status_code=status_code,
+            response_received=True,
+            raw_response_stored=False,
+            response_truncated=truncated,
+            redaction_applied=redaction_applied,
+            safe_response_text=safe_text,
+            safe_response_summary=safe_summary,
+            metadata=metadata,
+        )
+
+
 def _elapsed_ms(started: float) -> int:
     return max(0, int((time.monotonic() - started) * 1000))
 
+
+def _bounded_openai_response_bytes(max_response_chars: int) -> int:
+    return max(1024, min(8192, (max_response_chars * 4) + 4096))
+
+
+def _extract_openai_completion_text(body: bytes) -> str:
+    text = body.decode("utf-8", errors="replace")
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError:
+        return text
+    choices = payload.get("choices")
+    if not isinstance(choices, list) or not choices:
+        return text
+    first_choice = choices[0]
+    if not isinstance(first_choice, dict):
+        return text
+    completion_text = first_choice.get("text")
+    if isinstance(completion_text, str):
+        return completion_text
+    message = first_choice.get("message")
+    if isinstance(message, dict) and isinstance(message.get("content"), str):
+        return message["content"]
+    return text

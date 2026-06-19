@@ -75,6 +75,17 @@ def test_ledger_rejects_duplicate_idempotency_key(dummy_event_factory):
     with pytest.raises(ValueError, match="Duplicate idempotency_key detected"):
         ledger.append_event(evt2)
 
+def test_ledger_allows_same_idempotency_key_on_different_runs(dummy_event_factory):
+    ledger = EventLedger()
+    evt1 = dummy_event_factory(event_id="evt_1", run_id="run_1", idempotency_key="key_123")
+    evt2 = dummy_event_factory(event_id="evt_2", run_id="run_2", idempotency_key="key_123")
+
+    ledger.append_event(evt1)
+    ledger.append_event(evt2)
+
+    assert [event.event_id for event in ledger.list_events("run_1")] == ["evt_1"]
+    assert [event.event_id for event in ledger.list_events("run_2")] == ["evt_2"]
+
 def test_ledger_rejects_raw_secrets(dummy_event_factory):
     ledger = EventLedger()
     evt = dummy_event_factory(
@@ -89,13 +100,15 @@ def test_persistent_jsonl_ledger(dummy_event_factory):
         filepath = Path(tmpdir) / "ledger.jsonl"
         ledger1 = EventLedger(filepath=str(filepath))
         
-        evt = dummy_event_factory(event_id="evt_persisted")
+        evt = dummy_event_factory(event_id="evt_persisted", idempotency_key="persisted_key")
         ledger1.append_event(evt)
         
         # Load from the same file in a new instance
         ledger2 = EventLedger(filepath=str(filepath))
         assert len(ledger2.list_events()) == 1
         assert ledger2.get_event("evt_persisted") is not None
+        with pytest.raises(ValueError, match="Duplicate idempotency_key detected"):
+            ledger2.append_event(dummy_event_factory(event_id="evt_duplicate_key", idempotency_key="persisted_key"))
 
 def test_trace_integrity_parent_spans(dummy_event_factory):
     ledger = EventLedger()
