@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import sys
-from pathlib import Path
 
 from ultimate_ai_agent.core.task_decomposition.contracts import CapabilityCallContext
 from ultimate_ai_agent.core.task_decomposition.runtime import (
@@ -47,29 +46,19 @@ def _cmd_decompose(args) -> int:
 
 def _cmd_run(args) -> int:
     service = _service(args)
-    approved = args.approve or []
     approval_refs = {}
     for value in args.approval_ref or []:
         capability_id, _, approval_ref = value.partition("=")
         if capability_id and approval_ref:
             approval_refs[capability_id] = approval_ref
-    grants = []
-    for grant_path in args.approval_grant or []:
-        grants.append(Path(grant_path).read_text(encoding="utf-8"))
-    # Keep grant parsing in the service/API contract shape; files contain one JSON grant each.
-    import json
-
-    parsed_grants = [json.loads(item) for item in grants]
     result = service.run_sync(
         TaskDecompositionRunRequest(
             raw_request=args.request,
             call_context=CapabilityCallContext(
                 run_id=args.run_id,
                 actor_id=args.actor_id,
-                approved_capability_ids=approved,
                 approval_refs=approval_refs,
             ),
-            approval_grants=parsed_grants,
         )
     )
     print(dump_json(result))
@@ -107,9 +96,7 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("request")
     run.add_argument("--run-id", default="task-decomposition-run:cli")
     run.add_argument("--actor-id", default="local_cli_user")
-    run.add_argument("--approve", action="append", help="Locally approve a capability id for developer testing.")
     run.add_argument("--approval-ref", action="append", help="Bind capability_id=approval_ref for LocalApprovalAuthority.")
-    run.add_argument("--approval-grant", action="append", help="Path to a JSON ApprovalGrant.")
     run.set_defaults(func=_cmd_run)
 
     serve = subparsers.add_parser("serve-api", help="Serve the local/dev task decomposition API.")

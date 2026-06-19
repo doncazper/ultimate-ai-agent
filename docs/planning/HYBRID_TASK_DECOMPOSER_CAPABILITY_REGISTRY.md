@@ -114,23 +114,10 @@ network, external API, credential, publish, send, delete, or spend, or set
 `requires_approval=True`.
 
 At plan time, risky capability nodes must declare `requires_approval=True` or
-depend on a `human_approval` node. At execution time, the call context must
-include the approved capability id:
-
-```python
-from ultimate_ai_agent.core.task_decomposition import CapabilityCallContext
-
-context = CapabilityCallContext(
-    approved_capability_ids=["capability:write-preview"],
-)
-```
-
-Shell, MCP, handoff, and external API execution modes are represented in the
-contract schema but are not implemented by this subsystem. They remain denied
-unless a future reviewed milestone adds a safe adapter.
-
-Approval can be validated through the existing `LocalApprovalAuthority` by
-binding a capability id to an approval ref:
+depend on a `human_approval` node. At execution time, the canonical service and
+API require an exact approval ref created through `LocalApprovalAuthority`.
+Caller-supplied inline grants and `approved_capability_ids` shortcuts are denied
+on the live service path.
 
 ```python
 from ultimate_ai_agent.core.task_decomposition import CapabilityCallContext
@@ -144,6 +131,10 @@ context = CapabilityCallContext(
 
 The approval grant must match the same run id, actor id, capability id,
 `invoke_capability` action, risk level, and data classification.
+
+Shell, MCP, handoff, and external API execution modes are represented in the
+contract schema but are not implemented by this subsystem. They remain denied
+unless a future reviewed milestone adds a safe adapter.
 
 ## Canonical API
 
@@ -221,9 +212,9 @@ PYTHONPATH=src .venv/bin/python -m ultimate_ai_agent.core.task_decomposition.cli
   --registry .uaa/task_decomposition_registry.json run "Summarize this request."
 ```
 
-For developer-only approval smoke tests, pass `--approve capability:id`. For
-exact approval authority validation, pass `--approval-ref capability:id=appr_...`
-and `--approval-grant /path/to/grant.json`.
+For exact approval authority validation, first create and capture approval via
+the canonical approval routes, then pass `--approval-ref capability:id=appr_...`.
+The CLI does not accept inline approval grants.
 
 ## Kernel Adapter
 

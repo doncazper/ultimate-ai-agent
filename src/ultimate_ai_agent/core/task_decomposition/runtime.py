@@ -643,12 +643,6 @@ class TaskDecompositionService:
     def run_sync(self, request: TaskDecompositionRunRequest) -> TaskDecompositionRunResult:
         return asyncio.run(self.run(request))
 
-    def _load_approval_grants(self, grants: list[dict[str, Any]]) -> None:
-        for item in grants:
-            self.approval_authority.load_grant_for_validation(ApprovalGrant.model_validate(item))
-        if grants:
-            self._save_persisted_approval_state()
-
     def _check_rate_limit(self, key: str) -> None:
         self.rate_limiter.check(key)
 
