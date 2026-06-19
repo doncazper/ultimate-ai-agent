@@ -40,7 +40,6 @@ def test_secret_access_endpoint_never_returns_raw_secret():
             "purpose": "provider_lookup",
             "consent_ref": "consent_api",
         },
-        "secret_value": "api_key='abcdefghijklmnop'",
     }
 
     response = client.post("/secrets/access/evaluate", json=payload)
@@ -49,7 +48,36 @@ def test_secret_access_endpoint_never_returns_raw_secret():
     data = response.json()
     assert data["success"] is True
     assert data["data"]["allowed"] is True
-    assert "abcdefghijklmnop" not in response.text
+    assert data["data"]["secret_handle"] is not None
+    assert "raw_secret" not in response.text
+
+
+def test_secret_access_endpoint_rejects_raw_secret_value_field_without_echoing_value():
+    secret = "abcdefghijklmnop"
+    payload = {
+        "reference": {
+            "credential_ref": "cred_api_access_raw",
+            "provider_id": "provider_api",
+            "auth_type": "api_key",
+            "scope": "user",
+            "status": "active",
+            "allowed_purposes": ["provider_lookup"],
+        },
+        "access_request": {
+            "credential_ref": "cred_api_access_raw",
+            "requester_actor_id": "actor",
+            "provider_id": "provider_api",
+            "purpose": "provider_lookup",
+            "consent_ref": "consent_api",
+        },
+        "secret_value": f"api_key='{secret}'",
+    }
+
+    response = client.post("/secrets/access/evaluate", json=payload)
+
+    assert response.status_code == 422
+    assert secret not in response.text
+    assert "secret_value" not in response.text
 
 
 def test_provider_manifest_and_resolve_endpoints_are_non_executing():

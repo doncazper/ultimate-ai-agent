@@ -17,9 +17,17 @@ CAPABILITIES_DECLARED = [
     "manual_smoke_report_validation",
     "control_center_read_only_dashboard",
     "openwebui_local_test_gateway_disabled_by_default",
+    "local_model_gateway_disabled_by_default",
+    "local_loopback_runtime_disabled_by_default",
+    "local_loopback_gateway_explicit_bearer_required",
+    "local_loopback_gateway_allowlisted_response_shape",
     "task_decomposition_canonical_local_runtime",
+    "task_decomposition_local_api_disabled_by_default",
+    "task_decomposition_api_redacted_request_refs",
     "task_decomposition_capability_registry",
     "task_decomposition_local_approval_capture",
+    "file_api_server_owned_safe_root_refs",
+    "secret_api_reference_only_handles",
 ]
 
 CAPABILITIES_BLOCKED = [
@@ -42,6 +50,13 @@ CAPABILITIES_BLOCKED = [
     "openwebui_shell_tool_execution",
     "openwebui_memory_writes",
     "openwebui_context_injection",
+    "local_loopback_default_bearer",
+    "local_loopback_raw_provider_payload_passthrough",
+    "file_api_caller_selected_roots",
+    "file_api_raw_diff_return",
+    "file_api_raw_content_write_payload",
+    "secret_api_raw_secret_values",
+    "task_decomposition_raw_request_echo",
     "task_decomposition_unrestricted_external_execution",
     "task_decomposition_unreviewed_handler_imports",
     "task_decomposition_unscoped_approval_authority",
@@ -80,7 +95,7 @@ ROUTE_GROUPS_BY_PREFIX = {
     "/v1": "openwebui-local-test",
 }
 
-LOCAL_DEV_WORKSPACE_PREFIXES = ("/kernel", "/files", "/memory", "/task-decomposition")
+LOCAL_DEV_WORKSPACE_PREFIXES = ("/kernel", "/files", "/memory", "/task-decomposition", "/v1")
 VALIDATION_HINTS = ("/validate", "/preview", "/evaluate", "/route", "/freshness/check", "/dry-run")
 
 

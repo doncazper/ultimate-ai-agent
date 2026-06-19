@@ -163,6 +163,32 @@ def test_validator_detects_cycle_and_missing_capability():
     assert "TASK_PLAN_CANDIDATE_CAPABILITY_MISSING" in result.reason_codes
 
 
+def test_validator_schema_issue_uses_redacted_safe_message():
+    registry = build_example_registry()
+    plan = _plan(
+        [
+            TaskNode(
+                id="node:redacted",
+                title="Redacted",
+                objective="Redacted",
+                candidate_capabilities=["capability:example-echo-summary"],
+                selected_capability="capability:example-echo-summary",
+                input_bindings={"request": "token=should-not-appear"},
+                success_criteria=["Redacted succeeds."],
+            )
+        ]
+    )
+    invalid_node = plan.nodes[0].model_copy(update={"title": ""})
+    invalid_plan = plan.model_copy(update={"nodes": [invalid_node]})
+
+    result = PlanValidator().validate(invalid_plan, registry)
+
+    assert "TASK_PLAN_SCHEMA_INVALID" in result.reason_codes
+    schema_issue = next(issue for issue in result.issues if issue.reason_code == "TASK_PLAN_SCHEMA_INVALID")
+    assert schema_issue.safe_message == "Task plan schema validation failed safely; details are redacted."
+    assert "should-not-appear" not in schema_issue.safe_message
+
+
 def test_risky_capability_requires_plan_gate_and_runtime_approval():
     registry = CapabilityRegistry()
     registry.register(

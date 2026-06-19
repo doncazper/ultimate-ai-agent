@@ -1,11 +1,13 @@
 from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from pydantic import ValidationError
 from datetime import datetime
+import os
+from pathlib import Path
 from ultimate_ai_agent.core.time import utc_now
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from ultimate_ai_agent import __version__
 from ultimate_ai_agent.api.contracts import ApiManifest
@@ -68,12 +70,14 @@ from ultimate_ai_agent.core.memory import (
 )
 from ultimate_ai_agent.core.files import (
     FileKind,
+    FileOperationStatus,
     FileReadRequest,
     FileRef,
     FileSensitivity,
-    FileWriteProposal,
+    FileWriteDecision,
     LocalFileManager,
 )
+from ultimate_ai_agent.core.hygiene.actor_context import ActorContext
 from ultimate_ai_agent.core.truth import (
     EvidenceItem,
     EvidenceManifest,
@@ -175,6 +179,7 @@ from ultimate_ai_agent.core.task_decomposition.runtime import (
     TaskPlanExecutionRequest,
     TaskPlanValidationRequest,
 )
+from ultimate_ai_agent.core.task_decomposition import api_safety as task_decomposition_api_safety
 
 app = FastAPI(
     title="Ultimate AI Agent API Boundary",
@@ -184,6 +189,11 @@ app = FastAPI(
 
 _file_review_approval_store = FileReviewApprovalStore()
 _task_decomposition_service = TaskDecompositionService.from_env()
+
+FILE_API_DEFAULT_SAFE_ROOT_REF = "local_dev_workspace"
+FILE_API_SAFE_ROOT_ENV = "UAA_FILE_API_SAFE_ROOT"
+TASK_DECOMPOSITION_API_ENV = task_decomposition_api_safety.TASK_DECOMPOSITION_API_ENV
+TASK_DECOMPOSITION_API_BEARER_ENV = task_decomposition_api_safety.TASK_DECOMPOSITION_API_BEARER_ENV
 
 class HealthResponse(BaseModel):
     status: str
@@ -232,6 +242,25 @@ class LocalLoopbackSmokeValidatePayload(BaseModel):
     request: dict
     approval_decision: Optional[dict] = None
 
+class V1ChatMessageAPIRequest(BaseModel):
+    role: str
+    content: str | None = None
+
+    model_config = ConfigDict(extra="forbid")
+
+class V1ChatCompletionAPIRequest(BaseModel):
+    model: str
+    messages: list[V1ChatMessageAPIRequest] = Field(..., min_length=1)
+    stream: bool = False
+    temperature: float | None = None
+    max_tokens: int | None = Field(default=None, ge=1, le=8192)
+    tools: list[dict[str, Any]] | None = None
+    tool_choice: Any = None
+    functions: list[dict[str, Any]] | None = None
+    function_call: Any = None
+
+    model_config = ConfigDict(extra="forbid")
+
 class RemoteNodeValidatePayload(BaseModel):
     node: dict
 
@@ -265,7 +294,7 @@ class RuntimeSmokeReportValidatePayload(BaseModel):
 
 class ApprovalValidatePayload(BaseModel):
     validation_request: dict
-    grants: List[dict] = []
+    grants: List[dict] = Field(default_factory=list)
 
 def sanitize_validation_errors(errors: list[dict]) -> list[dict]:
     sanitized = []
@@ -282,7 +311,18 @@ def sanitize_validation_errors(errors: list[dict]) -> list[dict]:
 
 def _sanitize_validation_location(part: object) -> str:
     text = str(part)
-    sensitive_keys = {"api_key", "client_secret", "auth_token", "password", "private_key", "token", "secret"}
+    sensitive_keys = {
+        "api_key",
+        "auth_token",
+        "client_secret",
+        "credential_value",
+        "password",
+        "private_key",
+        "raw_secret",
+        "secret",
+        "secret_value",
+        "token",
+    }
     normalized = text.lower().replace("-", "_")
     if normalized in sensitive_keys or contains_secret_like(text):
         return "[redacted]"
@@ -291,6 +331,66 @@ def _sanitize_validation_location(part: object) -> str:
 
 def safe_exception_message(code: str) -> str:
     return f"{code} failed safely; details are redacted."
+
+
+def _file_api_safe_roots() -> dict[str, Path]:
+    return {
+        FILE_API_DEFAULT_SAFE_ROOT_REF: Path(os.environ.get(FILE_API_SAFE_ROOT_ENV, ".")).resolve(),
+    }
+
+
+def _file_manager_for_safe_root(safe_root_ref: str) -> LocalFileManager:
+    if contains_secret_like(safe_root_ref) or "/" in safe_root_ref or "\\" in safe_root_ref:
+        raise ValueError("FILE_SAFE_ROOT_REF_UNSAFE")
+    safe_roots = _file_api_safe_roots()
+    if safe_root_ref not in safe_roots:
+        raise ValueError("FILE_SAFE_ROOT_REF_UNKNOWN")
+    return LocalFileManager(safe_roots[safe_root_ref])
+
+
+def _review_file_write_api_proposal(safe_root_ref: str, proposal: "FileWriteAPIProposal") -> FileWriteDecision:
+    reason_codes: list[str] = []
+    redactions = ["raw_content_omitted", "content_ref_only"]
+    try:
+        manager = _file_manager_for_safe_root(safe_root_ref)
+        manager.validate_path(proposal.target_path)
+    except ValueError:
+        reason_codes.append("FILE_SAFE_ROOT_OR_PATH_BLOCKED")
+    if not proposal.idempotency_key:
+        reason_codes.append("IDEMPOTENCY_KEY_REQUIRED")
+    if contains_secret_like(proposal.target_path) or contains_secret_like(proposal.new_content_ref):
+        reason_codes.append("FILE_API_REF_UNSAFE")
+    if proposal.sensitivity == FileSensitivity.credential_secret:
+        reason_codes.append("CREDENTIAL_SECRET_FILE_REJECTED")
+
+    allowed = not reason_codes
+    return FileWriteDecision(
+        decision_id=f"fwd_api_{proposal.proposal_id}",
+        proposal_id=proposal.proposal_id,
+        allowed=allowed,
+        status=FileOperationStatus.proposed if allowed else FileOperationStatus.blocked,
+        reason_codes=["WRITE_PROPOSAL_REF_ACCEPTED"] if allowed else reason_codes,
+        safe_message="File write proposal ref is safe for review; raw content is omitted."
+        if allowed
+        else "The file write proposal ref was blocked.",
+        diff_ref=f"diff_ref:{proposal.proposal_id}" if allowed else None,
+        redactions_applied=redactions,
+        event_ref=proposal.event_ref,
+    )
+
+
+def _require_task_decomposition_local_authority(authorization: str | None) -> None:
+    error = task_decomposition_api_safety.task_decomposition_authority_error(authorization)
+    if error is not None:
+        status_code, detail = error
+        raise HTTPException(status_code=status_code, detail=detail)
+
+
+def _safe_task_decomposition_payload(payload: object, *, redact_read_refs: bool = False) -> object:
+    return task_decomposition_api_safety.sanitize_task_decomposition_api_payload(
+        payload,
+        redact_read_refs=redact_read_refs,
+    )
 
 
 def safe_request_validation_error_response(request: Request, exc: RequestValidationError) -> JSONResponse:
@@ -368,14 +468,15 @@ def get_v1_models(authorization: str | None = Header(default=None)):
 
 @app.post("/v1/chat/completions")
 def post_v1_chat_completions(
-    request: dict,
+    request: V1ChatCompletionAPIRequest,
     authorization: str | None = Header(default=None),
 ):
+    payload = request.model_dump(mode="json", exclude_none=True)
     if llama_cpp_gateway_enabled():
         _require_m164_llama_cpp_gateway(authorization)
         try:
             return build_m164_chat_completion_response(
-                M164ChatCompletionRequest(**request),
+                M164ChatCompletionRequest(**payload),
                 gateway_model=build_m164_gateway_model_from_env(),
                 api_key=llama_cpp_backend_api_key(),
             )
@@ -386,9 +487,12 @@ def post_v1_chat_completions(
             ) from exc
     _require_openwebui_local_test_gateway(authorization)
     try:
-        local_request = OpenWebUILocalChatCompletionRequest(**request)
+        local_request = OpenWebUILocalChatCompletionRequest(**payload)
     except ValueError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=422,
+            detail="M151 local OpenWebUI test gateway request failed safe validation.",
+        ) from exc
     return build_openwebui_local_chat_completion_response(local_request)
 
 @app.post("/contracts/validate", response_model=ResultEnvelope)
@@ -747,6 +851,15 @@ def _task_decomposition_error(operation: str, trace_id: str, code: str, exc: Exc
     )
 
 
+def _task_decomposition_public_error_code(exc: Exception, default: str) -> str:
+    known_codes = {
+        "TASK_DECOMPOSITION_INLINE_APPROVAL_GRANTS_DENIED",
+        "TASK_DECOMPOSITION_RATE_LIMIT_EXCEEDED",
+    }
+    message = str(exc)
+    return message if message in known_codes else default
+
+
 @app.post("/approvals/requests/validate", response_model=ResultEnvelope)
 def post_validate_approval_request(payload: dict):
     try:
@@ -810,41 +923,45 @@ def post_validate_approval_receipt(payload: dict):
 
 
 @app.get("/task-decomposition/status", response_model=ResultEnvelope)
-def get_task_decomposition_status():
+def get_task_decomposition_status(authorization: str | None = Header(default=None)):
+    _require_task_decomposition_local_authority(authorization)
     status = _task_decomposition_service.status()
     return ResultEnvelope(
         success=True,
         operation="task_decomposition_status",
         service="TaskDecompositionAPI",
         trace_id="system",
-        data=status.model_dump(mode="json"),
+        data=_safe_task_decomposition_payload(status),
     )
 
 
 @app.get("/task-decomposition/catalog", response_model=ResultEnvelope)
-def get_task_decomposition_catalog():
+def get_task_decomposition_catalog(authorization: str | None = Header(default=None)):
+    _require_task_decomposition_local_authority(authorization)
     return ResultEnvelope(
         success=True,
         operation="task_decomposition_catalog",
         service="TaskDecompositionAPI",
         trace_id="system",
-        data={"capabilities": _task_decomposition_service.catalog()},
+        data=_safe_task_decomposition_payload({"capabilities": _task_decomposition_service.catalog()}),
     )
 
 
 @app.get("/task-decomposition/registry/export", response_model=ResultEnvelope)
-def get_task_decomposition_registry_export():
+def get_task_decomposition_registry_export(authorization: str | None = Header(default=None)):
+    _require_task_decomposition_local_authority(authorization)
     return ResultEnvelope(
         success=True,
         operation="task_decomposition_registry_export",
         service="TaskDecompositionAPI",
         trace_id="system",
-        data=_task_decomposition_service.export_registry_document(),
+        data=_safe_task_decomposition_payload(_task_decomposition_service.export_registry_document()),
     )
 
 
 @app.post("/task-decomposition/examples/init", response_model=ResultEnvelope)
-def post_task_decomposition_init_examples():
+def post_task_decomposition_init_examples(authorization: str | None = Header(default=None)):
+    _require_task_decomposition_local_authority(authorization)
     return ResultEnvelope(
         success=True,
         operation="task_decomposition_init_examples",
@@ -855,7 +972,11 @@ def post_task_decomposition_init_examples():
 
 
 @app.post("/task-decomposition/capabilities/register", response_model=ResultEnvelope)
-def post_task_decomposition_register_capability(request: TaskDecompositionRegisterRequest):
+def post_task_decomposition_register_capability(
+    request: TaskDecompositionRegisterRequest,
+    authorization: str | None = Header(default=None),
+):
+    _require_task_decomposition_local_authority(authorization)
     try:
         contract = _task_decomposition_service.register(request)
     except (ValidationError, ValueError, KeyError) as exc:
@@ -875,43 +996,59 @@ def post_task_decomposition_register_capability(request: TaskDecompositionRegist
 
 
 @app.post("/task-decomposition/classify", response_model=ResultEnvelope)
-def post_task_decomposition_classify(request: TaskDecompositionRequest):
+def post_task_decomposition_classify(
+    request: TaskDecompositionRequest,
+    authorization: str | None = Header(default=None),
+):
+    _require_task_decomposition_local_authority(authorization)
     intent = _task_decomposition_service.classify(request)
     return ResultEnvelope(
         success=True,
         operation="task_decomposition_classify",
         service="TaskDecompositionAPI",
         trace_id="system",
-        data={"intent": intent.model_dump(mode="json")},
+        data=_safe_task_decomposition_payload({"intent": intent}),
     )
 
 
 @app.post("/task-decomposition/decompose", response_model=ResultEnvelope)
-def post_task_decomposition_decompose(request: TaskDecompositionRequest):
+def post_task_decomposition_decompose(
+    request: TaskDecompositionRequest,
+    authorization: str | None = Header(default=None),
+):
+    _require_task_decomposition_local_authority(authorization)
     result = _task_decomposition_service.decompose(request)
     return ResultEnvelope(
         success=result.validation.valid,
         operation="task_decomposition_decompose",
         service="TaskDecompositionAPI",
         trace_id=result.plan.plan_id,
-        data=result.model_dump(mode="json"),
+        data=_safe_task_decomposition_payload(result),
     )
 
 
 @app.post("/task-decomposition/plans/validate", response_model=ResultEnvelope)
-def post_task_decomposition_validate_plan(request: TaskPlanValidationRequest):
+def post_task_decomposition_validate_plan(
+    request: TaskPlanValidationRequest,
+    authorization: str | None = Header(default=None),
+):
+    _require_task_decomposition_local_authority(authorization)
     validation = _task_decomposition_service.validate_plan(request)
     return ResultEnvelope(
         success=validation.valid,
         operation="task_decomposition_validate_plan",
         service="TaskDecompositionAPI",
         trace_id=request.plan.plan_id,
-        data=validation.model_dump(mode="json"),
+        data=_safe_task_decomposition_payload(validation),
     )
 
 
 @app.post("/task-decomposition/approval-requests", response_model=ResultEnvelope)
-def post_task_decomposition_approval_request(request: TaskCapabilityApprovalRequestPayload):
+def post_task_decomposition_approval_request(
+    request: TaskCapabilityApprovalRequestPayload,
+    authorization: str | None = Header(default=None),
+):
+    _require_task_decomposition_local_authority(authorization)
     try:
         approval = _task_decomposition_service.build_approval_request(request)
     except (ValidationError, ValueError, KeyError) as exc:
@@ -931,18 +1068,26 @@ def post_task_decomposition_approval_request(request: TaskCapabilityApprovalRequ
 
 
 @app.get("/task-decomposition/approvals", response_model=ResultEnvelope)
-def get_task_decomposition_approvals():
+def get_task_decomposition_approvals(authorization: str | None = Header(default=None)):
+    _require_task_decomposition_local_authority(authorization)
     return ResultEnvelope(
         success=True,
         operation="task_decomposition_approvals",
         service="TaskDecompositionAPI",
         trace_id="system",
-        data=_task_decomposition_service.approval_queue(),
+        data=_safe_task_decomposition_payload(
+            _task_decomposition_service.approval_queue(),
+            redact_read_refs=True,
+        ),
     )
 
 
 @app.post("/task-decomposition/approvals/grants/capture", response_model=ResultEnvelope)
-def post_task_decomposition_capture_approval_grant(request: TaskDecompositionApprovalGrantRequest):
+def post_task_decomposition_capture_approval_grant(
+    request: TaskDecompositionApprovalGrantRequest,
+    authorization: str | None = Header(default=None),
+):
+    _require_task_decomposition_local_authority(authorization)
     try:
         grant = _task_decomposition_service.grant_approval(request)
     except (ValidationError, ValueError, KeyError) as exc:
@@ -962,7 +1107,11 @@ def post_task_decomposition_capture_approval_grant(request: TaskDecompositionApp
 
 
 @app.post("/task-decomposition/approvals/revoke", response_model=ResultEnvelope)
-def post_task_decomposition_revoke_approval(request: TaskDecompositionApprovalRevokeRequest):
+def post_task_decomposition_revoke_approval(
+    request: TaskDecompositionApprovalRevokeRequest,
+    authorization: str | None = Header(default=None),
+):
+    _require_task_decomposition_local_authority(authorization)
     try:
         grant = _task_decomposition_service.revoke_approval(request)
     except (ValidationError, ValueError, KeyError) as exc:
@@ -982,37 +1131,46 @@ def post_task_decomposition_revoke_approval(request: TaskDecompositionApprovalRe
 
 
 @app.get("/task-decomposition/audit", response_model=ResultEnvelope)
-def get_task_decomposition_audit(limit: int = 100):
+def get_task_decomposition_audit(limit: int = 100, authorization: str | None = Header(default=None)):
+    _require_task_decomposition_local_authority(authorization)
     bounded_limit = min(max(limit, 1), 500)
     return ResultEnvelope(
         success=True,
         operation="task_decomposition_audit",
         service="TaskDecompositionAPI",
         trace_id="system",
-        data={"events": _task_decomposition_service.audit_events(bounded_limit)},
+        data=_safe_task_decomposition_payload(
+            {"events": _task_decomposition_service.audit_events(bounded_limit)},
+            redact_read_refs=True,
+        ),
     )
 
 
 @app.get("/task-decomposition/metrics", response_model=ResultEnvelope)
-def get_task_decomposition_metrics():
+def get_task_decomposition_metrics(authorization: str | None = Header(default=None)):
+    _require_task_decomposition_local_authority(authorization)
     return ResultEnvelope(
         success=True,
         operation="task_decomposition_metrics",
         service="TaskDecompositionAPI",
         trace_id="system",
-        data=_task_decomposition_service.metrics(),
+        data=_safe_task_decomposition_payload(_task_decomposition_service.metrics(), redact_read_refs=True),
     )
 
 
 @app.post("/task-decomposition/plans/execute", response_model=ResultEnvelope)
-async def post_task_decomposition_execute_plan(request: TaskPlanExecutionRequest):
+async def post_task_decomposition_execute_plan(
+    request: TaskPlanExecutionRequest,
+    authorization: str | None = Header(default=None),
+):
+    _require_task_decomposition_local_authority(authorization)
     try:
         result = await _task_decomposition_service.execute_plan(request)
     except ValueError as exc:
         return _task_decomposition_error(
             "task_decomposition_execute_plan",
             request.plan.plan_id,
-            str(exc),
+            _task_decomposition_public_error_code(exc, "TASK_DECOMPOSITION_EXECUTE_PLAN_FAILED"),
             exc,
         )
     return ResultEnvelope(
@@ -1020,19 +1178,23 @@ async def post_task_decomposition_execute_plan(request: TaskPlanExecutionRequest
         operation="task_decomposition_execute_plan",
         service="TaskDecompositionAPI",
         trace_id=request.plan.plan_id,
-        data=result.model_dump(mode="json"),
+        data=_safe_task_decomposition_payload(result),
     )
 
 
 @app.post("/task-decomposition/run", response_model=ResultEnvelope)
-async def post_task_decomposition_run(request: TaskDecompositionRunRequest):
+async def post_task_decomposition_run(
+    request: TaskDecompositionRunRequest,
+    authorization: str | None = Header(default=None),
+):
+    _require_task_decomposition_local_authority(authorization)
     try:
         result = await _task_decomposition_service.run(request)
     except ValueError as exc:
         return _task_decomposition_error(
             "task_decomposition_run",
             "task-decomposition-run:local",
-            str(exc),
+            _task_decomposition_public_error_code(exc, "TASK_DECOMPOSITION_RUN_FAILED"),
             exc,
         )
     succeeded = result.execution is not None and result.execution.status == "succeeded"
@@ -1041,7 +1203,7 @@ async def post_task_decomposition_run(request: TaskDecompositionRunRequest):
         operation="task_decomposition_run",
         service="TaskDecompositionAPI",
         trace_id=result.plan.plan_id,
-        data=result.model_dump(mode="json"),
+        data=_safe_task_decomposition_payload(result),
     )
 
 
@@ -1518,7 +1680,8 @@ class ToolDryRunRequest(BaseModel):
 class SecretAccessEvaluateRequest(BaseModel):
     reference: CredentialReference
     access_request: SecretAccessRequest
-    secret_value: Optional[str] = None
+
+    model_config = ConfigDict(extra="forbid")
 
 class ProviderResolveRequest(BaseModel):
     domain: ProviderDomain
@@ -1534,12 +1697,31 @@ class FileRefValidateRequest(BaseModel):
     sensitivity: FileSensitivity
 
 class FileReadPreviewAPIRequest(BaseModel):
-    workspace_root: str
+    safe_root_ref: str = FILE_API_DEFAULT_SAFE_ROOT_REF
     request: FileReadRequest
 
+    model_config = ConfigDict(extra="forbid")
+
+class FileWriteAPIProposal(BaseModel):
+    proposal_id: str
+    run_id: str
+    actor_context: ActorContext
+    target_path: str
+    purpose: str
+    new_content_ref: str
+    file_kind: FileKind
+    sensitivity: FileSensitivity
+    idempotency_key: Optional[str] = None
+    approval_ref: Optional[str] = None
+    event_ref: Optional[str] = None
+
+    model_config = ConfigDict(use_enum_values=True, extra="forbid")
+
 class FileWriteAPIRequest(BaseModel):
-    workspace_root: str
-    proposal: FileWriteProposal
+    safe_root_ref: str = FILE_API_DEFAULT_SAFE_ROOT_REF
+    proposal: FileWriteAPIProposal
+
+    model_config = ConfigDict(extra="forbid")
 
 class TruthFreshnessCheckRequest(BaseModel):
     evidence_item: EvidenceItem
@@ -1754,16 +1936,36 @@ def post_validate_credential_reference(reference: CredentialReference):
 
 @app.post("/secrets/access/evaluate", response_model=ResultEnvelope)
 def post_evaluate_secret_access(req: SecretAccessEvaluateRequest):
-    broker = SecretBroker()
-    broker.register_credential(req.reference, secret_value=req.secret_value)
-    decision = broker.request_secret(req.access_request)
-    return ResultEnvelope(
-        success=True,
-        operation="evaluate_secret_access",
-        service="SecretBrokerAPI",
-        trace_id=req.access_request.event_ref or "system",
-        data=decision.model_dump()
-    )
+    try:
+        broker = SecretBroker()
+        broker.register_credential(req.reference)
+        decision = broker.request_secret(req.access_request)
+        return ResultEnvelope(
+            success=True,
+            operation="evaluate_secret_access",
+            service="SecretBrokerAPI",
+            trace_id=req.access_request.event_ref or "system",
+            data=decision.model_dump(),
+            redactions_applied=["secret_value"],
+        )
+    except Exception:
+        err = ErrorEnvelope(
+            code="SECRET_ACCESS_EVALUATION_FAILED",
+            category=ErrorCategory.validation_error,
+            safe_message=safe_exception_message("REQUEST_PROCESSING_FAILED"),
+            severity=Severity.medium,
+            retryable=False,
+            details_redacted=True,
+            source="SecretBrokerAPI",
+        )
+        return ResultEnvelope(
+            success=False,
+            operation="evaluate_secret_access",
+            service="SecretBrokerAPI",
+            trace_id="system",
+            error=err,
+            redactions_applied=["secret_value"],
+        )
 
 @app.post("/providers/manifests/validate", response_model=ResultEnvelope)
 def post_validate_provider_manifest(manifest: ProviderManifest):
@@ -1965,9 +2167,16 @@ def post_preview_file_read(req: FileReadPreviewAPIRequest):
         requested_ref = req.request.path or req.request.file_ref or ""
         if contains_secret_like(requested_ref):
             raise ValueError("FILE_PREVIEW_REF_UNSAFE")
-        preview = LocalFileManager(req.workspace_root).read_preview(req.request)
+        preview = _file_manager_for_safe_root(req.safe_root_ref).read_preview(req.request)
         redactions = list(dict.fromkeys([*preview.redactions_applied, "raw_content_omitted"]))
-        preview = preview.model_copy(update={"text_preview": "", "redactions_applied": redactions, "truncated": False})
+        preview = preview.model_copy(
+            update={
+                "content_hash": "redacted",
+                "text_preview": "",
+                "redactions_applied": redactions,
+                "truncated": False,
+            }
+        )
         return ResultEnvelope(
             success=True,
             operation="preview_file_read",
@@ -1995,7 +2204,7 @@ def post_preview_file_read(req: FileReadPreviewAPIRequest):
 
 @app.post("/files/write/propose", response_model=ResultEnvelope)
 def post_propose_file_write(req: FileWriteAPIRequest):
-    decision = LocalFileManager(req.workspace_root).propose_write(req.proposal)
+    decision = _review_file_write_api_proposal(req.safe_root_ref, req.proposal)
     return ResultEnvelope(
         success=True,
         operation="propose_file_write",
@@ -2007,13 +2216,17 @@ def post_propose_file_write(req: FileWriteAPIRequest):
 @app.post("/files/diff/preview", response_model=ResultEnvelope)
 def post_preview_file_diff(req: FileWriteAPIRequest):
     try:
-        diff = LocalFileManager(req.workspace_root).diff_preview(req.proposal)
+        decision = _review_file_write_api_proposal(req.safe_root_ref, req.proposal)
         return ResultEnvelope(
-            success=True,
+            success=decision.allowed,
             operation="preview_file_diff",
             service="FileManagerAPI",
             trace_id=req.proposal.run_id,
-            data={"diff": diff},
+            data={
+                "diff_ref": decision.diff_ref,
+                "diff_summary": "Redacted file diff preview: raw_diff_omitted=True, content_ref_only=True.",
+                "raw_diff_omitted": True,
+            },
         )
     except Exception:
         err = ErrorEnvelope(

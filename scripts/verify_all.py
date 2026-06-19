@@ -29179,10 +29179,11 @@ def verify_v0292_local_dev_api_hardening():
         with tempfile.TemporaryDirectory(prefix="uaa-verify-v0292-preview-") as preview_dir:
             preview_root = Path(preview_dir)
             (preview_root / "note.txt").write_text("hello", encoding="utf-8")
+            old_safe_root = os.environ.get("UAA_FILE_API_SAFE_ROOT")
+            os.environ["UAA_FILE_API_SAFE_ROOT"] = str(preview_root)
             response = client.post(
                 "/files/read/preview",
                 json={
-                    "workspace_root": str(preview_root),
                     "request": {
                         "request_id": "frr_verify_v0292",
                         "run_id": "run_verify_v0292",
@@ -29208,6 +29209,9 @@ def verify_v0292_local_dev_api_hardening():
             if data.get("text_preview") != "":
                 print("FAIL: file preview API returned raw text preview")
                 sys.exit(1)
+            if data.get("content_hash") != "redacted":
+                print("FAIL: file preview API returned a content hash")
+                sys.exit(1)
             if "hello" in response.text:
                 print("FAIL: file preview API echoed raw file content")
                 sys.exit(1)
@@ -29220,7 +29224,6 @@ def verify_v0292_local_dev_api_hardening():
             hostile_response = client.post(
                 "/files/read/preview",
                 json={
-                    "workspace_root": str(preview_root),
                     "request": {
                         "request_id": "frr_verify_v0292_hostile",
                         "run_id": "run_verify_v0292",
@@ -29241,6 +29244,34 @@ def verify_v0292_local_dev_api_hardening():
             if secret in hostile_response.text or hostile_path in hostile_response.text:
                 print("FAIL: file preview API echoed a hostile path or secret-like path value")
                 sys.exit(1)
+            caller_root_response = client.post(
+                "/files/read/preview",
+                json={
+                    "workspace_root": str(preview_root),
+                    "request": {
+                        "request_id": "frr_verify_v0292_caller_root",
+                        "run_id": "run_verify_v0292",
+                        "actor_context": {
+                            "actor_type": "human_user",
+                            "actor_id": "verify_user",
+                            "authority_source": "explicit_user_request",
+                        },
+                        "path": "note.txt",
+                        "purpose": "preview",
+                        "max_bytes": 100,
+                    },
+                },
+            )
+            if caller_root_response.status_code != 422:
+                print("FAIL: file preview API accepted caller-selected workspace_root")
+                sys.exit(1)
+            if str(preview_root) in caller_root_response.text:
+                print("FAIL: file preview API echoed caller-selected workspace_root")
+                sys.exit(1)
+            if old_safe_root is None:
+                os.environ.pop("UAA_FILE_API_SAFE_ROOT", None)
+            else:
+                os.environ["UAA_FILE_API_SAFE_ROOT"] = old_safe_root
 
         broker_source = (ROOT / "src" / "ultimate_ai_agent" / "core" / "tools" / "broker.py").read_text(
             encoding="utf-8"
@@ -29253,8 +29284,12 @@ def verify_v0292_local_dev_api_hardening():
         forbidden_exception_echo = (
             "safe_message=str(e)",
             "safe_message = str(e)",
+            "safe_message=str(exc)",
+            "safe_message = str(exc)",
             "detail=str(e)",
             "detail = str(e)",
+            "detail=str(exc)",
+            "detail = str(exc)",
         )
         for fragment in forbidden_exception_echo:
             if fragment in api_source:
@@ -29529,11 +29564,13 @@ def main(argv=None):
     parser.add_argument("--skip-openapi", action="store_true", help="Skip OpenAPI contract verification.")
     args = parser.parse_args(argv)
     timings = [] if args.timings_json else None
+    skipped_checks = []
 
     print("=== Ultimate AI Agent Master Verification Suite ===")
 
     # 1. Run Ruff Linter
     if args.skip_ruff:
+        skipped_checks.append("ruff")
         print("\nSkipping Ruff linting (--skip-ruff)")
     else:
         run_timed(timings, "command:ruff", lambda: run_cmd([sys.executable, "-m", "ruff", "check", "."]))
@@ -29543,6 +29580,7 @@ def main(argv=None):
     env = os.environ.copy()
     env["PYTHONPATH"] = str(ROOT / "src")
     if args.skip_pytest:
+        skipped_checks.append("pytest")
         print("\nSkipping pytest (--skip-pytest)")
     else:
         run_timed(timings, "command:pytest", lambda: run_cmd([sys.executable, "-m", "pytest"], env=env))
@@ -29556,12 +29594,14 @@ def main(argv=None):
 
     # 4. Explicitly Enforce Scans
     if args.skip_static_scans:
+        skipped_checks.append("static_scans")
         print("\nSkipping static verification scans (--skip-static-scans)")
     else:
         run_static_scans(timings)
 
     # 5. Run Baseline Consistency Verification
     if args.skip_baseline:
+        skipped_checks.append("baseline")
         print("\nSkipping current baseline verification (--skip-baseline)")
     else:
         baseline_command = [sys.executable, "scripts/verify_current_baseline.py"]
@@ -29575,6 +29615,7 @@ def main(argv=None):
 
     # 6. Run Documentation Integrity Verification
     if args.skip_docs:
+        skipped_checks.append("docs")
         print("\nSkipping documentation integrity verification (--skip-docs)")
     else:
         run_timed(
@@ -29585,6 +29626,7 @@ def main(argv=None):
 
     # 7. Run Skill Package Security Rule Audit
     if args.skip_skill:
+        skipped_checks.append("skill")
         print("\nSkipping skill package security rule verification (--skip-skill)")
     else:
         run_timed(
@@ -29595,6 +29637,7 @@ def main(argv=None):
 
     # 8. Run OpenAPI Contract Verification
     if args.skip_openapi:
+        skipped_checks.append("openapi")
         print("\nSkipping OpenAPI contract verification (--skip-openapi)")
     else:
         run_timed(
@@ -29606,7 +29649,11 @@ def main(argv=None):
     if timings is not None:
         write_timings_json(args.timings_json, timings)
 
-    print("\n=== All verification checks PASSED successfully ===")
+    if skipped_checks:
+        print("\n=== Verification shard checks PASSED with explicit skips ===")
+        print(f"Skipped checks: {', '.join(skipped_checks)}")
+    else:
+        print("\n=== All verification checks PASSED successfully ===")
 
 if __name__ == "__main__":
     main()

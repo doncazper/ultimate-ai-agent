@@ -13,6 +13,10 @@ from ultimate_ai_agent.core.task_decomposition import (
     TaskPlan,
     build_example_registry,
 )
+from ultimate_ai_agent.core.task_decomposition.api_safety import (
+    TASK_DECOMPOSITION_API_BEARER_ENV,
+    TASK_DECOMPOSITION_API_ENV,
+)
 from ultimate_ai_agent.core.task_decomposition.cli import main as cli_main
 from ultimate_ai_agent.core.task_decomposition.examples import build_echo_tool_capability
 from ultimate_ai_agent.core.task_decomposition.kernel_adapter import TaskDecompositionKernelAdapter
@@ -25,6 +29,10 @@ from ultimate_ai_agent.core.task_decomposition.runtime import (
     TaskPlanExecutionRequest,
 )
 from ultimate_ai_agent.core.time import utc_now
+
+
+DEV_API_BEARER = "test-task-decomposition-dev"
+DEV_API_HEADERS = {"Authorization": f"Bearer {DEV_API_BEARER}"}
 
 
 def test_json_registry_store_persists_and_reloads_example_handlers(tmp_path) -> None:
@@ -147,29 +155,47 @@ def test_cli_init_catalog_decompose_and_run(tmp_path, capsys) -> None:
     assert "capability:example-echo-summary" in output
 
 
-def test_api_routes_initialize_decompose_and_run(tmp_path) -> None:
+def test_api_routes_initialize_decompose_and_run(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv(TASK_DECOMPOSITION_API_ENV, "1")
+    monkeypatch.setenv(TASK_DECOMPOSITION_API_BEARER_ENV, DEV_API_BEARER)
     store = CapabilityRegistryStore(CapabilityRegistryStoreConfig(registry_path=str(tmp_path / "registry.json")))
     service = TaskDecompositionService(registry_store=store)
     client = TestClient(build_task_decomposition_dev_app(service))
 
-    init_response = client.post("/task-decomposition/examples/init")
+    init_response = client.post("/task-decomposition/examples/init", headers=DEV_API_HEADERS)
     assert init_response.status_code == 200
     assert init_response.json()["success"] is True
 
-    catalog_response = client.get("/task-decomposition/catalog")
+    catalog_response = client.get("/task-decomposition/catalog", headers=DEV_API_HEADERS)
     assert catalog_response.status_code == 200
     assert catalog_response.json()["success"] is True
 
     decompose_response = client.post(
         "/task-decomposition/decompose",
+        headers=DEV_API_HEADERS,
         json={"raw_request": "Summarize this request directly.", "context": {}},
     )
     assert decompose_response.status_code == 200
     assert decompose_response.json()["data"]["validation"]["valid"] is True
+    assert "Summarize this request directly" not in decompose_response.text
 
     run_response = client.post(
         "/task-decomposition/run",
+        headers=DEV_API_HEADERS,
         json={"raw_request": "Summarize this request directly."},
     )
     assert run_response.status_code == 200
     assert run_response.json()["success"] is True
+
+
+def test_dev_api_is_disabled_without_local_authority(tmp_path, monkeypatch) -> None:
+    monkeypatch.delenv(TASK_DECOMPOSITION_API_ENV, raising=False)
+    monkeypatch.delenv(TASK_DECOMPOSITION_API_BEARER_ENV, raising=False)
+    store = CapabilityRegistryStore(CapabilityRegistryStoreConfig(registry_path=str(tmp_path / "registry.json")))
+    service = TaskDecompositionService(registry_store=store)
+    client = TestClient(build_task_decomposition_dev_app(service))
+
+    response = client.get("/task-decomposition/catalog")
+
+    assert response.status_code == 403
+    assert "disabled by default" in response.json()["detail"]

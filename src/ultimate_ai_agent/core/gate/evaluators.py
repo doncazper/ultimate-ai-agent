@@ -1,6 +1,7 @@
 from pathlib import Path
 from contextlib import contextmanager
 import json
+import os
 import re
 import sys
 import tempfile
@@ -54003,10 +54004,11 @@ class FoundationGateEvaluator:
                 preview_root = Path(preview_dir)
                 preview_file = preview_root / "note.txt"
                 preview_file.write_text("hello", encoding="utf-8")
+                old_safe_root = os.environ.get("UAA_FILE_API_SAFE_ROOT")
+                os.environ["UAA_FILE_API_SAFE_ROOT"] = str(preview_root)
                 preview_response = client.post(
                     "/files/read/preview",
                     json={
-                        "workspace_root": str(preview_root),
                         "request": {
                             "request_id": "frr_gate_v0292",
                             "run_id": "run_gate_v0292",
@@ -54030,17 +54032,49 @@ class FoundationGateEvaluator:
                         failures.append("file preview metadata probe failed")
                     if preview_data.get("text_preview") != "":
                         failures.append("file preview API returned raw text content")
+                    if preview_data.get("content_hash") != "redacted":
+                        failures.append("file preview API returned a content hash")
                     if "hello" in preview_response.text:
                         failures.append("file preview API echoed raw file content")
                     if "raw_content_omitted" not in preview_data.get("redactions_applied", []):
                         failures.append("file preview API did not mark raw content omitted")
+                caller_root_response = client.post(
+                    "/files/read/preview",
+                    json={
+                        "workspace_root": str(preview_root),
+                        "request": {
+                            "request_id": "frr_gate_v0292_caller_root",
+                            "run_id": "run_gate_v0292",
+                            "actor_context": {
+                                "actor_type": "human_user",
+                                "actor_id": "gate_user",
+                                "authority_source": "explicit_user_request",
+                            },
+                            "path": "note.txt",
+                            "purpose": "preview",
+                            "max_bytes": 100,
+                        },
+                    },
+                )
+                if caller_root_response.status_code != 422:
+                    failures.append("file preview API accepted caller-selected workspace_root")
+                if str(preview_root) in caller_root_response.text:
+                    failures.append("file preview API echoed caller-selected workspace_root")
+                if old_safe_root is None:
+                    os.environ.pop("UAA_FILE_API_SAFE_ROOT", None)
+                else:
+                    os.environ["UAA_FILE_API_SAFE_ROOT"] = old_safe_root
 
             app_source = (self.root / "src" / "ultimate_ai_agent" / "api" / "app.py").read_text(encoding="utf-8")
             forbidden_exception_echo = (
                 "safe_message=str(e)",
                 "safe_message = str(e)",
+                "safe_message=str(exc)",
+                "safe_message = str(exc)",
                 "detail=str(e)",
                 "detail = str(e)",
+                "detail=str(exc)",
+                "detail = str(exc)",
             )
             failures.extend(
                 f"API handler contains raw exception echo fragment: {fragment}"

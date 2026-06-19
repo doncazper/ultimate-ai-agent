@@ -80,6 +80,11 @@ jobs:
 
   foundation-gate-report:
     runs-on: ubuntu-latest
+    needs:
+      - lint
+      - pytest
+      - static-verification
+      - control-center-frontend
 
     steps:
       - name: Check out repository

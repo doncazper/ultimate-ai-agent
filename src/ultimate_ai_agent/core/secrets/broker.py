@@ -10,6 +10,7 @@ from ultimate_ai_agent.core.secrets.handles import (
     SecretHandle,
 )
 from ultimate_ai_agent.core.secrets.redaction import contains_obvious_secret, redact_secret_value
+from ultimate_ai_agent.core.secrets.validation import validate_credential_reference
 
 
 class SecretBroker:
@@ -25,6 +26,7 @@ class SecretBroker:
         self._secret_values: Dict[str, str] = {}
 
     def register_credential(self, reference: CredentialReference, secret_value: Optional[str] = None) -> None:
+        validate_credential_reference(reference)
         self._references[reference.credential_ref] = reference
         if secret_value is not None:
             self._secret_values[reference.credential_ref] = secret_value
@@ -61,6 +63,12 @@ class SecretBroker:
             consent_ref=consent_ref,
             policy_ref=policy_ref,
         )
+        if contains_obvious_secret(request.model_dump()):
+            return self._deny(
+                "[redacted]",
+                ["SECRET_ACCESS_REF_UNSAFE"],
+                "Secret access request contains unsafe credential metadata.",
+            )
         reference = self._references.get(request.credential_ref)
         if reference is None:
             return self._deny(request.credential_ref, ["CREDENTIAL_NOT_FOUND"], "Credential reference was not found.")
@@ -131,7 +139,7 @@ class SecretBroker:
         return SecretAccessDecision(
             decision_id=f"sdec_{uuid.uuid4().hex[:8]}",
             allowed=False,
-            credential_ref=credential_ref,
+            credential_ref="[redacted]" if contains_obvious_secret(credential_ref) else credential_ref,
             reason_codes=reason_codes,
             safe_message=safe_message,
             redactions_applied=["secret_value"],

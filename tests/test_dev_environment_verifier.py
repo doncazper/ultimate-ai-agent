@@ -64,7 +64,7 @@ def test_makefile_uses_project_venv_python_for_verification_commands():
         assert target in text
     assert "PYTHON := .venv/bin/python" in text
     assert "PYTHONPATH=src $(PYTHON) -m pytest" in text
-    assert "$(PYTHON) scripts/verify_current_baseline.py" in text
-    assert "$(PYTHON) scripts/run_foundation_gate.py" in text
+    assert "$(PYTHON) scripts/verify_all.py" in text
+    assert "$(PYTHON) scripts/run_foundation_gate.py --command-mode report-only" in text
     assert "$(PYTHON) -m ruff check ." in text
     assert "python scripts/" not in text

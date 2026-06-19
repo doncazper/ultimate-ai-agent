@@ -74,6 +74,7 @@ def test_m151_chat_completion_returns_deterministic_safe_response(monkeypatch):
 
 def test_m151_chat_completion_rejects_streaming_and_tools(monkeypatch):
     monkeypatch.setenv(UAA_OPENWEBUI_TEST_GATEWAY_ENV, "1")
+    secret_like_prompt = "token=should-not-appear"
 
     streaming_response = client.post(
         "/v1/chat/completions",
@@ -81,7 +82,7 @@ def test_m151_chat_completion_rejects_streaming_and_tools(monkeypatch):
         json={
             "model": UAA_OPENWEBUI_TEST_MODEL_ID,
             "stream": True,
-            "messages": [{"role": "user", "content": "hello"}],
+            "messages": [{"role": "user", "content": secret_like_prompt}],
         },
     )
     tool_response = client.post(
@@ -96,3 +97,5 @@ def test_m151_chat_completion_rejects_streaming_and_tools(monkeypatch):
 
     assert streaming_response.status_code == 422
     assert tool_response.status_code == 422
+    assert "should-not-appear" not in streaming_response.text
+    assert secret_like_prompt not in streaming_response.text

@@ -47,3 +47,21 @@ def test_secret_broker_registers_reference_and_denies_expired_credential():
 
     assert decision.allowed is False
     assert "CREDENTIAL_INACTIVE" in decision.reason_codes
+
+
+def test_secret_broker_registration_validates_reference_metadata():
+    broker = SecretBroker()
+    ref = CredentialReference(
+        credential_ref="api_key='abcdefghijklmnop'",
+        auth_type=CredentialAuthType.api_key,
+        scope=CredentialScope.provider,
+        status=CredentialStatus.active,
+        allowed_purposes=["weather_lookup"],
+    )
+
+    try:
+        broker.register_credential(ref)
+    except ValueError as exc:
+        assert "raw secrets" in str(exc)
+    else:
+        raise AssertionError("secret-like credential reference should be rejected")

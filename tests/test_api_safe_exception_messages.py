@@ -6,5 +6,9 @@ def test_api_handlers_do_not_return_raw_exception_messages():
 
     assert "safe_message=str(e)" not in app_source
     assert "safe_message = str(e)" not in app_source
+    assert "safe_message=str(exc)" not in app_source
+    assert "safe_message = str(exc)" not in app_source
     assert "detail=str(e)" not in app_source
     assert "detail = str(e)" not in app_source
+    assert "detail=str(exc)" not in app_source
+    assert "detail = str(exc)" not in app_source

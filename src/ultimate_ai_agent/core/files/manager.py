@@ -6,7 +6,7 @@ from ultimate_ai_agent.core.time import utc_now
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from ultimate_ai_agent.core.files.diffs import build_unified_diff, read_text_if_exists
+from ultimate_ai_agent.core.files.diffs import build_redacted_diff_summary, build_unified_diff, read_text_if_exists
 from ultimate_ai_agent.core.files.enums import FileKind, FileOperation, FileOperationStatus, FileSensitivity
 from ultimate_ai_agent.core.files.operations import (
     FileChange,
@@ -36,7 +36,6 @@ class LocalFileManager:
 
     def __init__(self, workspace_root: str | Path, policy: Optional[FileManagerPolicy] = None):
         self.workspace_root = Path(workspace_root).resolve()
-        self.workspace_root.mkdir(parents=True, exist_ok=True)
         self.policy = policy or FileManagerPolicy()
         self._snapshots: Dict[str, str] = {}
         self._snapshot_meta: Dict[str, FileSnapshot] = {}
@@ -48,7 +47,9 @@ class LocalFileManager:
     def validate_path(self, path: str) -> str:
         normalized = validate_safe_file_path(path)
         resolved = (self.workspace_root / normalized).resolve()
-        if self.workspace_root not in [resolved, *resolved.parents]:
+        try:
+            resolved.relative_to(self.workspace_root)
+        except ValueError:
             raise ValueError("Path outside workspace root is rejected.")
         return normalized
 
@@ -143,6 +144,11 @@ class LocalFileManager:
         old_content = read_text_if_exists(self.workspace_root / normalized)
         return build_unified_diff(normalized, old_content, proposal.new_content)
 
+    def redacted_diff_summary(self, proposal: FileWriteProposal) -> str:
+        normalized = self.validate_path(proposal.target_path)
+        old_content = read_text_if_exists(self.workspace_root / normalized)
+        return build_redacted_diff_summary(normalized, old_content, proposal.new_content)
+
     def apply_write(self, proposal: FileWriteProposal) -> FileChange:
         decision = self.propose_write(proposal)
         if not decision.allowed:
@@ -150,7 +156,9 @@ class LocalFileManager:
 
         normalized = self.validate_path(proposal.target_path)
         full_path = self.workspace_root / normalized
-        before_hash = self._hash_text(read_text_if_exists(full_path)) if full_path.exists() else None
+        old_content = read_text_if_exists(full_path)
+        before_hash = self._hash_text(old_content) if full_path.exists() else None
+        diff_summary = build_redacted_diff_summary(normalized, old_content, proposal.new_content)
         snapshot = self.snapshot(normalized)
         rollback_plan = RollbackPlan(
             rollback_ref=f"rb_{uuid.uuid4().hex[:10]}",
@@ -170,7 +178,7 @@ class LocalFileManager:
             operation=FileOperation.apply_write,
             before_hash=before_hash,
             after_hash=after_hash,
-            diff_summary=self.diff_preview(proposal),
+            diff_summary=diff_summary,
             applied_at=utc_now(),
             rollback_ref=rollback_plan.rollback_ref,
         )

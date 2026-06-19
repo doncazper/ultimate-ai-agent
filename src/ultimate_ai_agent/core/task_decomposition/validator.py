@@ -36,11 +36,11 @@ class PlanValidator:
 
         try:
             TaskPlan.model_validate(plan.model_dump())
-        except (ValidationError, ValueError) as exc:
+        except (ValidationError, ValueError):
             issues.append(
                 PlanValidationIssue(
                     reason_code="TASK_PLAN_SCHEMA_INVALID",
-                    safe_message=str(exc).split("\n", 1)[0],
+                    safe_message="Task plan schema validation failed safely; details are redacted.",
                 )
             )
 

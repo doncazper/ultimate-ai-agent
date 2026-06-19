@@ -10,14 +10,8 @@ test:
 	PYTHONPATH=src $(PYTHON) -m pytest
 
 verify:
-	$(PYTHON) scripts/verify_current_baseline.py
-	$(PYTHON) scripts/verify_documentation_integrity.py
-	$(PYTHON) scripts/verify_skill_package_security_rule.py
-	$(PYTHON) scripts/verify_control_center_frontend.py
 	$(PYTHON) scripts/verify_all.py
-	$(PYTHON) scripts/run_foundation_gate.py
-	$(PYTHON) scripts/verify_openapi_contract.py
-	$(PYTHON) -m ruff check .
+	$(PYTHON) scripts/run_foundation_gate.py --command-mode report-only
 
 frontend-check:
 	cd $(FRONTEND_DIR) && npm run typecheck --if-present

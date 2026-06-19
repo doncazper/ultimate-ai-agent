@@ -34,6 +34,9 @@ def test_tool_result_trimming_order():
     # Check that tool_large was trimmed (replaced by ref)
     trimmed_large = next(item for item in trimmed_items if item.item_id == "tool_large")
     assert "[Trimmed tool output. Refer to Event ID: evt_large]" in trimmed_large.content
+    original_large = next(item for item in items if item.item_id == "tool_large")
+    assert original_large.content == "extremely large tool output"
+    assert original_large.tokens == 1000
 
 def test_protected_components_never_trimmed():
     items = [

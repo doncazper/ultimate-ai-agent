@@ -67,6 +67,26 @@ def test_secret_access_returns_handle_not_raw_secret_and_redacts_views():
     assert redacted.redacted_value == "[REDACTED_SECRET]"
 
 
+def test_secret_access_rejects_secret_like_credential_ref_without_echoing_secret():
+    broker = SecretBroker()
+    secret_like_ref = "token='abcdefghijklmnop'"
+
+    decision = broker.request_secret(
+        SecretAccessRequest(
+            credential_ref=secret_like_ref,
+            requester_actor_id="actor",
+            purpose="provider_lookup",
+            provider_id="provider_test",
+            consent_ref="consent_123",
+        )
+    )
+
+    assert decision.allowed is False
+    assert "SECRET_ACCESS_REF_UNSAFE" in decision.reason_codes
+    assert "abcdefghijklmnop" not in decision.model_dump_json()
+    assert decision.credential_ref == "[redacted]"
+
+
 def test_secret_redaction_masks_key_token_password_values():
     broker = SecretBroker()
     redacted = broker.redact_value("api_key='abcdefghijklmnop' token='qrstuvwxyz123456'")

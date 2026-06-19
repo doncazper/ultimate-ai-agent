@@ -67,6 +67,63 @@ FORBIDDEN_ROUTE_FRAGMENTS = [
     "/remote-workers/subagents/launch",
 ]
 
+FORBIDDEN_RAW_SECRET_SCHEMA_FIELDS = {
+    "api_key",
+    "client_secret",
+    "credential_value",
+    "password",
+    "private_key",
+    "raw_secret",
+    "secret_value",
+    "token",
+}
+
+FORBIDDEN_RAW_PROVIDER_SCHEMA_FIELDS = {
+    "provider_payload",
+    "raw_prompt",
+    "raw_provider_payload",
+}
+
+
+def forbidden_raw_secret_schema_fields(schema: dict) -> list[str]:
+    findings: list[str] = []
+
+    def visit(node: object, path: str) -> None:
+        if isinstance(node, dict):
+            properties = node.get("properties")
+            if isinstance(properties, dict):
+                for field_name in properties:
+                    if field_name in FORBIDDEN_RAW_SECRET_SCHEMA_FIELDS:
+                        findings.append(f"{path}.properties.{field_name}")
+            for key, value in node.items():
+                visit(value, f"{path}.{key}")
+        elif isinstance(node, list):
+            for index, value in enumerate(node):
+                visit(value, f"{path}[{index}]")
+
+    visit(schema, "$")
+    return sorted(set(findings))
+
+
+def forbidden_raw_provider_schema_fields(schema: dict) -> list[str]:
+    findings: list[str] = []
+
+    def visit(node: object, path: str) -> None:
+        if isinstance(node, dict):
+            properties = node.get("properties")
+            if isinstance(properties, dict):
+                for field_name in properties:
+                    if field_name in FORBIDDEN_RAW_PROVIDER_SCHEMA_FIELDS:
+                        findings.append(f"{path}.properties.{field_name}")
+            for key, value in node.items():
+                visit(value, f"{path}.{key}")
+        elif isinstance(node, list):
+            for index, value in enumerate(node):
+                visit(value, f"{path}[{index}]")
+
+    visit(schema, "$")
+    return sorted(set(findings))
+
 
 def configure_openapi_contract(app: FastAPI) -> None:
     for route in app.routes:
@@ -119,6 +176,14 @@ def verify_openapi_contract(app: FastAPI) -> ApiContractStatus:
     ]
     if unsafe_routes:
         errors.append(f"Forbidden runtime routes present: {', '.join(sorted(set(unsafe_routes)))}")
+
+    raw_secret_fields = forbidden_raw_secret_schema_fields(schema) if schema else []
+    if raw_secret_fields:
+        errors.append(f"Forbidden raw-secret schema fields present: {', '.join(raw_secret_fields)}")
+
+    raw_provider_fields = forbidden_raw_provider_schema_fields(schema) if schema else []
+    if raw_provider_fields:
+        errors.append(f"Forbidden raw-provider schema fields present: {', '.join(raw_provider_fields)}")
 
     return ApiContractStatus(
         version_consistent=not schema or schema.get("info", {}).get("version") == __version__,

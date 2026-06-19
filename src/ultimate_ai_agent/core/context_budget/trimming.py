@@ -29,7 +29,8 @@ def trim_context(
         return items, []
 
     trimmed_events: List[ContextTrimEvent] = []
-    current_items = list(items)
+    current_items = [item.model_copy() for item in items]
+    current_total_tokens = total_tokens
 
     # Strategy: Trim large tool outputs first
     if policy.trim_large_tool_outputs_first:
@@ -42,32 +43,32 @@ def trim_context(
         tool_indices.sort(key=lambda idx: current_items[idx].tokens, reverse=True)
         
         for idx in tool_indices:
-            if sum(item.tokens for item in current_items) <= target_tokens:
+            if current_total_tokens <= target_tokens:
                 break
             item = current_items[idx]
             original_tokens = item.tokens
             
             # Trim it (replace content with reference)
             ref_str = f"[Trimmed tool output. Refer to Event ID: {item.ledger_ref or 'N/A'}]"
-            item.content = ref_str
-            item.tokens = len(ref_str) // 4 + 1  # rough estimate for trimmed token count
+            trimmed_tokens = len(ref_str) // 4 + 1  # rough estimate for trimmed token count
+            current_items[idx] = item.model_copy(update={"content": ref_str, "tokens": trimmed_tokens})
+            current_total_tokens += trimmed_tokens - original_tokens
             
             trimmed_events.append(ContextTrimEvent(
                 event_id=f"{event_id_prefix}{item.item_id}",
                 run_id=run_id,
                 trimmed_component_ref=item.item_id,
                 original_token_count=original_tokens,
-                trimmed_token_count=item.tokens,
+                trimmed_token_count=trimmed_tokens,
                 reference_to_ledger_id=item.ledger_ref,
                 reason="Trimmed large tool output to save context budget"
             ))
 
     # If still over target, try trimming non-preserved messages/items
-    total_tokens = sum(item.tokens for item in current_items)
-    if total_tokens > target_tokens:
+    if current_total_tokens > target_tokens:
         # Candidate items for trimming (excluding protected items)
         for idx in range(len(current_items)):
-            if total_tokens <= target_tokens:
+            if current_total_tokens <= target_tokens:
                 break
             item = current_items[idx]
             
@@ -88,16 +89,16 @@ def trim_context(
 
             original_tokens = item.tokens
             ref_str = f"[Trimmed {item.item_type}. Refer to Event ID: {item.ledger_ref or 'N/A'}]"
-            item.content = ref_str
-            item.tokens = len(ref_str) // 4 + 1
-            total_tokens = sum(x.tokens for x in current_items)
+            trimmed_tokens = len(ref_str) // 4 + 1
+            current_items[idx] = item.model_copy(update={"content": ref_str, "tokens": trimmed_tokens})
+            current_total_tokens += trimmed_tokens - original_tokens
 
             trimmed_events.append(ContextTrimEvent(
                 event_id=f"{event_id_prefix}{item.item_id}",
                 run_id=run_id,
                 trimmed_component_ref=item.item_id,
                 original_token_count=original_tokens,
-                trimmed_token_count=item.tokens,
+                trimmed_token_count=trimmed_tokens,
                 reference_to_ledger_id=item.ledger_ref,
                 reason=f"Trimmed {item.item_type} to satisfy context budget"
             ))

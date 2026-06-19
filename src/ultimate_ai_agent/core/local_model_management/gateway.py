@@ -25,6 +25,7 @@ DEFAULT_UAA_LLAMA_CPP_GATEWAY_KEY = "uaa-local-llama-cpp"
 DEFAULT_UAA_LLAMA_CPP_MODEL_ID = "uaa-llama-cpp-local"
 DEFAULT_UAA_LLAMA_CPP_BASE_URL = "http://127.0.0.1:8080"
 M164_MAX_RESPONSE_BYTES = 2 * 1024 * 1024
+_M164_ALLOWED_FINISH_REASONS = {"stop", "length", "content_filter"}
 
 
 class _M164Model(BaseModel):
@@ -95,6 +96,8 @@ class M164GatewayReceipt(_M164Model):
     streaming_enabled: bool = False
     raw_prompt_logged: bool = False
     raw_provider_payload_exposed: bool = False
+    backend_fields_allowlisted: bool = True
+    unknown_backend_fields_omitted: bool = True
     memory_written: bool = False
     context_injected: bool = False
     production_authority_granted: bool = False
@@ -181,9 +184,10 @@ def llama_cpp_gateway_enabled(env: Mapping[str, str] | None = None) -> bool:
     return values.get(UAA_LLAMA_CPP_GATEWAY_ENV, "").strip().lower() in {"1", "true", "yes", "on"}
 
 
-def llama_cpp_gateway_key(env: Mapping[str, str] | None = None) -> str:
+def llama_cpp_gateway_key(env: Mapping[str, str] | None = None) -> str | None:
     values = os.environ if env is None else env
-    return values.get(UAA_LLAMA_CPP_GATEWAY_KEY_ENV, "").strip() or DEFAULT_UAA_LLAMA_CPP_GATEWAY_KEY
+    value = values.get(UAA_LLAMA_CPP_GATEWAY_KEY_ENV, "").strip()
+    return value or None
 
 
 def llama_cpp_backend_api_key(env: Mapping[str, str] | None = None) -> str | None:
@@ -195,8 +199,11 @@ def llama_cpp_backend_api_key(env: Mapping[str, str] | None = None) -> str | Non
 def llama_cpp_gateway_authorized(authorization_header: str | None, env: Mapping[str, str] | None = None) -> bool:
     if not authorization_header:
         return False
+    expected = llama_cpp_gateway_key(env)
+    if not expected:
+        return False
     scheme, _, value = authorization_header.strip().partition(" ")
-    return scheme.lower() == "bearer" and value == llama_cpp_gateway_key(env)
+    return scheme.lower() == "bearer" and value == expected
 
 
 def build_m164_gateway_model_from_env(env: Mapping[str, str] | None = None) -> M164LocalGatewayModel:
@@ -245,16 +252,71 @@ def build_m164_chat_completion_response(
         raise ValueError("M164_MODEL_NOT_APPROVED")
     active_transport = transport or StdlibM164LlamaCppGatewayTransport()
     response_payload = active_transport.chat_completions(validated_model, validated_request, api_key=api_key)
-    if "choices" not in response_payload:
+    choices = _sanitize_m164_choices(response_payload.get("choices"), validated_request)
+    return {
+        "id": "chatcmpl-uaa-m164-local",
+        "object": "chat.completion",
+        "created": int(time.time()),
+        "model": validated_model.model_id,
+        "choices": choices,
+        "usage": _sanitize_m164_usage(response_payload.get("usage")),
+        "uaa_safety": M164GatewayReceipt(
+            model=validated_model.model_id,
+            message_count=len(validated_request.messages),
+        ).model_dump(mode="json"),
+    }
+
+
+def _sanitize_m164_choices(choices: Any, chat_request: M164ChatCompletionRequest) -> list[dict[str, Any]]:
+    if not isinstance(choices, list) or not choices:
         raise ValueError("M164_GATEWAY_CHOICES_REQUIRED")
-    response_payload.setdefault("object", "chat.completion")
-    response_payload.setdefault("created", int(time.time()))
-    response_payload["model"] = validated_model.model_id
-    response_payload["uaa_safety"] = M164GatewayReceipt(
-        model=validated_model.model_id,
-        message_count=len(validated_request.messages),
-    ).model_dump(mode="json")
-    return response_payload
+    request_contents = {
+        message.content.strip()
+        for message in chat_request.messages
+        if isinstance(message.content, str) and message.content.strip()
+    }
+    safe_choices: list[dict[str, Any]] = []
+    for fallback_index, choice in enumerate(choices[:4]):
+        if not isinstance(choice, dict):
+            raise ValueError("M164_GATEWAY_CHOICE_OBJECT_REQUIRED")
+        message = choice.get("message")
+        if not isinstance(message, dict):
+            raise ValueError("M164_GATEWAY_MESSAGE_OBJECT_REQUIRED")
+        role = str(message.get("role", "assistant")).strip().lower()
+        if role != "assistant":
+            raise ValueError("M164_GATEWAY_ASSISTANT_MESSAGE_REQUIRED")
+        content = message.get("content")
+        if not isinstance(content, str):
+            raise ValueError("M164_GATEWAY_TEXT_CONTENT_REQUIRED")
+        stripped_content = content.strip()
+        if stripped_content in request_contents:
+            raise ValueError("M164_GATEWAY_PROMPT_ECHO_DENIED")
+        _validate_safe_text(stripped_content, "assistant_content", max_length=4096)
+        index = choice.get("index", fallback_index)
+        if not isinstance(index, int) or index < 0:
+            index = fallback_index
+        finish_reason = choice.get("finish_reason", "stop")
+        if finish_reason not in _M164_ALLOWED_FINISH_REASONS:
+            finish_reason = "stop"
+        safe_choices.append(
+            {
+                "index": index,
+                "message": {"role": "assistant", "content": stripped_content},
+                "finish_reason": finish_reason,
+            }
+        )
+    return safe_choices
+
+
+def _sanitize_m164_usage(usage: Any) -> dict[str, int]:
+    safe_usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+    if not isinstance(usage, dict):
+        return safe_usage
+    for key in safe_usage:
+        value = usage.get(key)
+        if isinstance(value, int) and 0 <= value <= 10_000_000:
+            safe_usage[key] = value
+    return safe_usage
 
 
 def _openai_chat_response(model_id: str, content: str, message_count: int) -> dict[str, Any]:

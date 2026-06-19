@@ -22,61 +22,106 @@ from ultimate_ai_agent.core.task_decomposition.runtime import (
 )
 
 
+TASK_API_BEARER = "test-task-decomposition-local"
+TASK_API_HEADERS = {"Authorization": f"Bearer {TASK_API_BEARER}"}
+
+
 def _client(monkeypatch, tmp_path):
+    monkeypatch.setenv(api_app.TASK_DECOMPOSITION_API_ENV, "1")
+    monkeypatch.setenv(api_app.TASK_DECOMPOSITION_API_BEARER_ENV, TASK_API_BEARER)
     store = CapabilityRegistryStore(CapabilityRegistryStoreConfig(registry_path=str(tmp_path / "registry.json")))
     service = TaskDecompositionService(registry_store=store)
     monkeypatch.setattr(api_app, "_task_decomposition_service", service)
     return TestClient(api_app.app), service
 
 
+def test_task_decomposition_post_routes_are_disabled_without_local_authority(monkeypatch, tmp_path) -> None:
+    monkeypatch.delenv(api_app.TASK_DECOMPOSITION_API_ENV, raising=False)
+    monkeypatch.delenv(api_app.TASK_DECOMPOSITION_API_BEARER_ENV, raising=False)
+    store = CapabilityRegistryStore(CapabilityRegistryStoreConfig(registry_path=str(tmp_path / "registry.json")))
+    monkeypatch.setattr(api_app, "_task_decomposition_service", TaskDecompositionService(registry_store=store))
+    client = TestClient(api_app.app)
+
+    response = client.post("/task-decomposition/run", json={"raw_request": "Summarize this request directly."})
+
+    assert response.status_code == 403
+    assert "disabled by default" in response.json()["detail"]
+
+    read_response = client.get("/task-decomposition/status")
+
+    assert read_response.status_code == 403
+    assert "disabled by default" in read_response.json()["detail"]
+
+
 def test_canonical_api_exposes_task_decomposition_surface(monkeypatch, tmp_path) -> None:
     client, _service = _client(monkeypatch, tmp_path)
 
-    init_response = client.post("/task-decomposition/examples/init")
+    init_response = client.post("/task-decomposition/examples/init", headers=TASK_API_HEADERS)
     assert init_response.status_code == 200
     assert init_response.json()["success"] is True
 
-    status_response = client.get("/task-decomposition/status")
+    status_response = client.get("/task-decomposition/status", headers=TASK_API_HEADERS)
     assert status_response.status_code == 200
     status = status_response.json()["data"]
     assert status["status"] == "ready"
     assert status["production_authority"] is False
     assert status["unrestricted_external_execution"] is False
+    assert "registry_path" not in status
+    assert status["registry_path_omitted"] is True
 
-    catalog_response = client.get("/task-decomposition/catalog")
+    catalog_response = client.get("/task-decomposition/catalog", headers=TASK_API_HEADERS)
     assert catalog_response.status_code == 200
     assert catalog_response.json()["data"]["capabilities"]
 
-    export_response = client.get("/task-decomposition/registry/export")
+    export_response = client.get("/task-decomposition/registry/export", headers=TASK_API_HEADERS)
     assert export_response.status_code == 200
     assert export_response.json()["data"]["schema_version"] == REGISTRY_SCHEMA_VERSION
 
     decompose_response = client.post(
         "/task-decomposition/decompose",
+        headers=TASK_API_HEADERS,
         json={"raw_request": "Summarize this request directly.", "context": {}},
     )
     assert decompose_response.status_code == 200
     assert decompose_response.json()["data"]["validation"]["valid"] is True
+    assert "Summarize this request directly" not in decompose_response.text
+    assert decompose_response.json()["data"]["intent"]["raw_request_omitted"] is True
 
     run_response = client.post(
         "/task-decomposition/run",
+        headers=TASK_API_HEADERS,
         json={"raw_request": "Summarize this request directly."},
     )
     assert run_response.status_code == 200
     assert run_response.json()["success"] is True
+    assert "Summarize this request directly" not in run_response.text
 
     manifest = client.get("/api/manifest").json()
     route = next(item for item in manifest["routes"] if item["path"] == "/task-decomposition/run")
     assert route["side_effect_class"] == "local_dev_workspace_only"
     assert "task_decomposition_canonical_local_runtime" in manifest["capabilities_declared"]
 
-    audit = client.get("/task-decomposition/audit").json()
+    audit = client.get("/task-decomposition/audit", headers=TASK_API_HEADERS).json()
     assert audit["success"] is True
     assert audit["data"]["events"]
 
-    metrics = client.get("/task-decomposition/metrics").json()
+    metrics = client.get("/task-decomposition/metrics", headers=TASK_API_HEADERS).json()
     assert metrics["success"] is True
     assert "capabilities" in metrics["data"]
+
+
+def test_task_decomposition_api_redacts_secret_like_raw_requests(monkeypatch, tmp_path) -> None:
+    client, _service = _client(monkeypatch, tmp_path)
+    client.post("/task-decomposition/examples/init", headers=TASK_API_HEADERS)
+    raw_request = "Summarize api_key='abcdefghijklmnop' without echoing it."
+
+    for route in ("/task-decomposition/classify", "/task-decomposition/decompose", "/task-decomposition/run"):
+        response = client.post(route, headers=TASK_API_HEADERS, json={"raw_request": raw_request, "context": {}})
+
+        assert response.status_code == 200
+        assert "abcdefghijklmnop" not in response.text
+        assert "Summarize api_key" not in response.text
+        assert "raw_request_omitted" in response.text
 
 
 def test_canonical_api_captures_revokes_and_enforces_capability_approval(monkeypatch, tmp_path) -> None:
@@ -96,6 +141,7 @@ def test_canonical_api_captures_revokes_and_enforces_capability_approval(monkeyp
     )
     register_response = client.post(
         "/task-decomposition/capabilities/register",
+        headers=TASK_API_HEADERS,
         json={
             "contract": gated.model_dump(mode="json"),
             "handler_ref": "example.echo_summary_handler",
@@ -127,6 +173,7 @@ def test_canonical_api_captures_revokes_and_enforces_capability_approval(monkeyp
 
     blocked = client.post(
         "/task-decomposition/plans/execute",
+        headers=TASK_API_HEADERS,
         json={"plan": plan.model_dump(mode="json")},
     )
     assert blocked.status_code == 200
@@ -134,6 +181,7 @@ def test_canonical_api_captures_revokes_and_enforces_capability_approval(monkeyp
 
     approval_request = client.post(
         "/task-decomposition/approval-requests",
+        headers=TASK_API_HEADERS,
         json={
             "capability_id": "capability:gated-summary-api",
             "run_id": run_id,
@@ -142,6 +190,7 @@ def test_canonical_api_captures_revokes_and_enforces_capability_approval(monkeyp
     ).json()["data"]
     grant_response = client.post(
         "/task-decomposition/approvals/grants/capture",
+        headers=TASK_API_HEADERS,
         json={
             "approval_request_id": approval_request["approval_request_id"],
             "approved_by_actor_id": "local_user",
@@ -152,6 +201,7 @@ def test_canonical_api_captures_revokes_and_enforces_capability_approval(monkeyp
 
     inline_grant_bypass = client.post(
         "/task-decomposition/plans/execute",
+        headers=TASK_API_HEADERS,
         json={
             "plan": plan.model_dump(mode="json"),
             "approval_grants": [grant],
@@ -163,6 +213,7 @@ def test_canonical_api_captures_revokes_and_enforces_capability_approval(monkeyp
 
     approval_shortcut_bypass = client.post(
         "/task-decomposition/plans/execute",
+        headers=TASK_API_HEADERS,
         json={
             "plan": plan.model_dump(mode="json"),
             "call_context": CapabilityCallContext(
@@ -177,6 +228,7 @@ def test_canonical_api_captures_revokes_and_enforces_capability_approval(monkeyp
 
     approved = client.post(
         "/task-decomposition/plans/execute",
+        headers=TASK_API_HEADERS,
         json={
             "plan": plan.model_dump(mode="json"),
             "call_context": CapabilityCallContext(
@@ -191,6 +243,7 @@ def test_canonical_api_captures_revokes_and_enforces_capability_approval(monkeyp
 
     revoked = client.post(
         "/task-decomposition/approvals/revoke",
+        headers=TASK_API_HEADERS,
         json={"approval_ref": grant["approval_ref"], "reason": "local test revocation"},
     )
     assert revoked.status_code == 200
