@@ -63,6 +63,7 @@ docs/tooling/MCP_A2A_COMPATIBILITY_WATCHLIST.md
 docs/schemas/plugin_skill_trust_manifest.schema.json
 docs/schemas/inspectable_extension_catalog.schema.json
 docs/schemas/extension_activation_grant.schema.json
+docs/observability/SESSION_LOGGING_M167.md
 docs/api/SAFE_STATIC_MANIFEST_CACHING.md
 docs/production/M167_LIVE_MODEL_PRODUCTION_HARDENING_BOUNDARY.md
 docs/production/M167_LIVE_MODEL_PRODUCTION_HARDENING_NON_GOALS.md
@@ -89,6 +90,7 @@ docs/observability/REDACTED_OBSERVABILITY_EXPORT.md
 docs/observability/REDACTED_OBSERVABILITY_EXPORT_POLICY.md
 docs/observability/REDACTED_OBSERVABILITY_EXPORT_AUTHORITY_BOUNDARY.md
 docs/observability/M55_TO_M56_BOUNDARY.md
+docs/observability/SESSION_LOGGING_M167.md
 docs/evals/AGENT_EVAL_REGRESSION_HARNESS.md
 docs/evals/AGENT_EVAL_REGRESSION_POLICY.md
 docs/evals/AGENT_EVAL_REGRESSION_AUTHORITY_BOUNDARY.md

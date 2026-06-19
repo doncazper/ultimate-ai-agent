@@ -2,7 +2,7 @@
 
 Current active baseline: **v2.0.0**
 
-Current OpenAPI path count: `95`, generated from the FastAPI application and
+Current OpenAPI path count: `97`, generated from the FastAPI application and
 exposed through `/api/manifest`.
 
 The API boundary is metadata-first, validation-first, approval-aware for
@@ -48,6 +48,10 @@ Current boundary summary:
   import, plugin execution, connector writes, shell/subprocess behavior,
   unrestricted network/browser automation, mobile control, or public
   distribution.
+- `GET /observability/session-events` and `POST /observability/client-errors`
+  expose bounded redacted session summaries and client-error summaries only;
+  they do not expose raw JSONL records, request or response bodies, prompts,
+  provider payloads, terminal output, credentials, or external telemetry.
 - Route metadata must keep side-effect classes explicit.
 
 Denied by the current API boundary:

@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Local developer launcher for the Ultimate AI Agent prototype.
 
-This module is intentionally stdlib-only and localhost-only. It starts the
-existing FastAPI API boundary and the existing Control Center Vite dev server;
-it does not add any agent, action, or tool authority.
+This module is localhost-only. It starts the existing FastAPI API boundary and
+the existing Control Center Vite dev server; it does not add any agent, action,
+or tool authority. When the local package is importable, it also records
+redacted launcher lifecycle summaries under `.uaa/`.
 """
 
 from __future__ import annotations
@@ -21,7 +22,7 @@ import urllib.request
 import webbrowser
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable
+from typing import Any, Callable
 
 
 BACKEND_HOST = "127.0.0.1"
@@ -214,6 +215,70 @@ def ensure_state_dirs(root: Path) -> None:
     base.mkdir(parents=True, exist_ok=True)
     pid_dir.mkdir(parents=True, exist_ok=True)
     log_dir.mkdir(parents=True, exist_ok=True)
+
+
+def record_launcher_event(
+    root: Path,
+    event_type: str,
+    *,
+    service: Service | None = None,
+    status: str = "recorded",
+    lifecycle_state: str = "completed",
+    pid: int | None = None,
+    duration_ms: float | None = None,
+    reason_codes: list[str] | None = None,
+    error_code: str | None = None,
+    error_summary: str | None = None,
+) -> None:
+    observability = _observability_helpers(root)
+    if observability is None:
+        return
+    build_safe_ref, record_session_event = observability
+    service_name = service.name if service is not None else "launcher"
+    metadata: dict[str, Any] = {
+        "service_name": service_name,
+        "launcher_scope": "uaa_managed_dev_services",
+    }
+    if service is not None:
+        metadata["log_ref"] = f"launcher-log:{service.name}"
+    if pid is not None:
+        metadata["pid"] = pid
+    record_session_event(
+        fail_closed=False,
+        session_id="launcher-session:local",
+        trace_id=build_safe_ref("launcher-trace", service_name),
+        span_id=build_safe_ref("launcher-span", service_name, event_type, time.perf_counter_ns()),
+        correlation_id=build_safe_ref("launcher-correlation", service_name),
+        service="dev_launcher",
+        surface="launcher" if event_type.startswith("launcher.") else "dev_service",
+        event_type=event_type,
+        lifecycle_state=lifecycle_state,
+        status=status,
+        severity="error" if status in {"failed", "timeout"} else "info",
+        duration_ms=duration_ms,
+        safe_summary="Launcher lifecycle metadata recorded as a redacted summary.",
+        reason_codes=reason_codes or ["LAUNCHER_LIFECYCLE_RECORDED"],
+        error_code=error_code,
+        error_summary=error_summary,
+        evidence_refs=[build_safe_ref("launcher-log", service_name)] if service is not None else [],
+        redaction_summary={
+            "status": "summary_only",
+            "process_streams_stored": False,
+            "private_paths_stored": False,
+        },
+        metadata=metadata,
+    )
+
+
+def _observability_helpers(root: Path):
+    src_path = str(root / "src")
+    if src_path not in sys.path:
+        sys.path.insert(0, src_path)
+    try:
+        from ultimate_ai_agent.core.observability import build_safe_ref, record_session_event
+    except Exception:
+        return None
+    return build_safe_ref, record_session_event
 
 
 def read_pid_file(pid_path: Path) -> int | None:
@@ -453,6 +518,15 @@ def docker_engine_status(timeout_seconds: float = DOCKER_ENGINE_CHECK_TIMEOUT_SE
 
 def start_service(root: Path, service: Service) -> str:
     ensure_state_dirs(root)
+    start_clock = time.perf_counter()
+    record_launcher_event(
+        root,
+        "service.start_requested",
+        service=service,
+        status="requested",
+        lifecycle_state="requested",
+        reason_codes=["SERVICE_START_REQUESTED"],
+    )
     state = cleanup_stale_pid(service.pid_file)
     if state == "running":
         return f"{service.name}: already running (pid {read_pid_file(service.pid_file)})"
@@ -465,12 +539,42 @@ def start_service(root: Path, service: Service) -> str:
         return f"{service.name}: {service.url} is already responding; not starting a duplicate"
 
     if service.name == "backend" and not Path(service.command[0]).exists():
+        record_launcher_event(
+            root,
+            "service.process_exited",
+            service=service,
+            status="failed",
+            lifecycle_state="failed",
+            reason_codes=["SERVICE_PREREQUISITE_MISSING"],
+            error_code="SERVICE_PREREQUISITE_MISSING",
+            error_summary="Service start failed safely; prerequisite details are redacted.",
+        )
         raise RuntimeError("missing .venv/bin/python; run uaa doctor")
     if service.name == "frontend" and not service.cwd.joinpath("node_modules").exists():
+        record_launcher_event(
+            root,
+            "service.process_exited",
+            service=service,
+            status="failed",
+            lifecycle_state="failed",
+            reason_codes=["SERVICE_PREREQUISITE_MISSING"],
+            error_code="SERVICE_PREREQUISITE_MISSING",
+            error_summary="Service start failed safely; prerequisite details are redacted.",
+        )
         raise RuntimeError("missing apps/control-center/node_modules; run uaa doctor")
     if service.name == "openwebui":
         docker_ready, docker_message = docker_engine_status()
         if not docker_ready:
+            record_launcher_event(
+                root,
+                "service.process_exited",
+                service=service,
+                status="failed",
+                lifecycle_state="failed",
+                reason_codes=["SERVICE_PREREQUISITE_MISSING"],
+                error_code="SERVICE_PREREQUISITE_MISSING",
+                error_summary="Service start failed safely; prerequisite details are redacted.",
+            )
             raise RuntimeError(f"{docker_message}; run uaa openwebui doctor")
         (root / STATE_DIR / "openwebui-data").mkdir(parents=True, exist_ok=True)
 
@@ -488,6 +592,16 @@ def start_service(root: Path, service: Service) -> str:
         )
     finally:
         log_handle.close()
+    record_launcher_event(
+        root,
+        "service.process_spawned",
+        service=service,
+        status="started",
+        lifecycle_state="started",
+        pid=process.pid,
+        duration_ms=round((time.perf_counter() - start_clock) * 1000, 3),
+        reason_codes=["SERVICE_PROCESS_SPAWNED"],
+    )
     service.pid_file.write_text(f"{process.pid}\n", encoding="utf-8")
     service.metadata_file.write_text(
         json.dumps(
@@ -507,11 +621,33 @@ def start_service(root: Path, service: Service) -> str:
         encoding="utf-8",
     )
     if not wait_for_url(service.health_url):
+        record_launcher_event(
+            root,
+            "service.health_timeout",
+            service=service,
+            status="timeout",
+            lifecycle_state="timeout",
+            pid=process.pid,
+            duration_ms=round((time.perf_counter() - start_clock) * 1000, 3),
+            reason_codes=["SERVICE_HEALTH_TIMEOUT"],
+            error_code="SERVICE_HEALTH_TIMEOUT",
+            error_summary="Service health check timed out safely.",
+        )
         return f"{service.name}: started pid {process.pid}, but health check is not ready yet; see {service.log_file}"
+    record_launcher_event(
+        root,
+        "service.health_ready",
+        service=service,
+        status="ready",
+        lifecycle_state="ready",
+        pid=process.pid,
+        duration_ms=round((time.perf_counter() - start_clock) * 1000, 3),
+        reason_codes=["SERVICE_HEALTH_READY"],
+    )
     return f"{service.name}: running at {service.url} (pid {process.pid}); log {service.log_file}"
 
 
-def stop_service(service: Service) -> str:
+def stop_service(service: Service, root: Path | None = None) -> str:
     state = cleanup_stale_pid(service.pid_file)
     if state == "missing":
         return f"{service.name}: not running"
@@ -542,6 +678,16 @@ def stop_service(service: Service) -> str:
             pass
     service.pid_file.unlink(missing_ok=True)
     service.metadata_file.unlink(missing_ok=True)
+    if root is not None:
+        record_launcher_event(
+            root,
+            "service.process_exited",
+            service=service,
+            status="completed",
+            lifecycle_state="exited",
+            pid=pid,
+            reason_codes=["SERVICE_PROCESS_EXITED"],
+        )
     return f"{service.name}: stopped launcher pid {pid}"
 
 
@@ -617,6 +763,13 @@ def command_doctor(root: Path) -> int:
 def command_start(root: Path) -> int:
     for host in [BACKEND_HOST, FRONTEND_HOST]:
         validate_local_host(host)
+    record_launcher_event(
+        root,
+        "launcher.start_requested",
+        status="requested",
+        lifecycle_state="requested",
+        reason_codes=["LAUNCHER_START_REQUESTED"],
+    )
     for name in ["backend", "frontend"]:
         print(start_service(root, service_config(root, name)))
     print(f"\nControl Center: {FRONTEND_URL}")
@@ -703,7 +856,7 @@ def command_openwebui_logs(root: Path, follow: bool = False) -> int:
 
 def command_openwebui_stop(root: Path) -> int:
     service = service_config(root, "openwebui")
-    print(stop_service(service))
+    print(stop_service(service, root=root))
     docker_ready, _ = docker_engine_status(timeout_seconds=1.5)
     if docker_ready:
         try:
@@ -750,8 +903,15 @@ def command_logs(root: Path, follow: bool = False) -> int:
 
 
 def command_stop(root: Path) -> int:
+    record_launcher_event(
+        root,
+        "launcher.stop_requested",
+        status="requested",
+        lifecycle_state="requested",
+        reason_codes=["LAUNCHER_STOP_REQUESTED"],
+    )
     for name in ["frontend", "backend"]:
-        print(stop_service(service_config(root, name)))
+        print(stop_service(service_config(root, name), root=root))
     return 0
 
 

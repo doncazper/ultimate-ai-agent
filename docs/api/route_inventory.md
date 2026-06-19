@@ -2,7 +2,7 @@
 
 Current active baseline: **v2.0.0**
 
-Current OpenAPI path count: `95`.
+Current OpenAPI path count: `97`.
 
 The API route inventory is generated from FastAPI route metadata and exposed by
 `/api/manifest`. The manifest route count is the authoritative current count;
@@ -48,6 +48,17 @@ or mutate extensions. Runtime import, arbitrary plugin execution, connector
 writes, shell/subprocess behavior, unrestricted network/browser automation,
 mobile control, autonomous background execution, public distribution, and
 production authority remain unavailable.
+
+M167 redacted session observability route group:
+
+- `GET /observability/session-events`
+- `POST /observability/client-errors`
+
+These routes expose bounded safe summary projections for UAA-managed local
+session records and redacted Control Center client-error reports. They do not
+expose raw JSONL records, request bodies, response bodies, raw prompts,
+provider payloads, raw files, terminal output, credential material, external
+telemetry, production authority, background monitoring, or process control.
 
 M8 route group:
 

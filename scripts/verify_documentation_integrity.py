@@ -1055,6 +1055,7 @@ REQUIRED_LLAMA_SERVER_PACKAGING_CHECKLIST_DOC = (
 REQUIRED_LOCAL_MODEL_OPERATIONAL_RUNBOOK_DOC = (
     "docs/production/LOCAL_MODEL_OPERATIONAL_RUNBOOK.md"
 )
+REQUIRED_SESSION_LOGGING_M167_DOC = "docs/observability/SESSION_LOGGING_M167.md"
 REQUIRED_CONTROL_CENTER_OPERATOR_SHELL_GAP_MAP_DOC = (
     "docs/control_center/OPERATOR_SHELL_GAP_MAP.md"
 )
@@ -1085,6 +1086,7 @@ RELEASE_FACING_SECURITY_DOCS = [
     REQUIRED_PLUGIN_SKILL_TRUST_MANIFEST_SCHEMA,
     REQUIRED_INSPECTABLE_EXTENSION_CATALOG_SCHEMA,
     REQUIRED_EXTENSION_ACTIVATION_GRANT_SCHEMA,
+    REQUIRED_SESSION_LOGGING_M167_DOC,
     REQUIRED_LLAMA_SERVER_PACKAGING_CHECKLIST_DOC,
     REQUIRED_LOCAL_MODEL_OPERATIONAL_RUNBOOK_DOC,
     "docs/security/SECURITY_TRIAGE_RUNBOOK.md",
@@ -1272,6 +1274,7 @@ REQUIRED_ACTIVE_DOCS = [
     REQUIRED_PLUGIN_SKILL_TRUST_MANIFEST_SCHEMA,
     REQUIRED_INSPECTABLE_EXTENSION_CATALOG_SCHEMA,
     REQUIRED_EXTENSION_ACTIVATION_GRANT_SCHEMA,
+    REQUIRED_SESSION_LOGGING_M167_DOC,
     REQUIRED_LLAMA_SERVER_PACKAGING_CHECKLIST_DOC,
     REQUIRED_LOCAL_MODEL_OPERATIONAL_RUNBOOK_DOC,
     *REQUIRED_PUBLIC_SECURITY_DOCS,
@@ -1464,6 +1467,7 @@ ACTIVE_DOCS_TO_SCAN = [
     REQUIRED_PLUGIN_SKILL_TRUST_MANIFEST_SCHEMA,
     REQUIRED_INSPECTABLE_EXTENSION_CATALOG_SCHEMA,
     REQUIRED_EXTENSION_ACTIVATION_GRANT_SCHEMA,
+    REQUIRED_SESSION_LOGGING_M167_DOC,
     REQUIRED_LLAMA_SERVER_PACKAGING_CHECKLIST_DOC,
     REQUIRED_LOCAL_MODEL_OPERATIONAL_RUNBOOK_DOC,
     *REQUIRED_PUBLIC_SECURITY_DOCS,
@@ -1618,7 +1622,7 @@ ACTIVE_BASELINE_LABEL_PATTERNS = [
     ),
 ]
 
-EXPECTED_CURRENT_OPENAPI_PATH_COUNT = 95
+EXPECTED_CURRENT_OPENAPI_PATH_COUNT = 97
 
 
 def _verify_active_baseline_labels(root: Path, version: str) -> list[str]:
@@ -1843,7 +1847,7 @@ def _verify_operator_runtime_currentness(root: Path) -> list[str]:
             "| product shell |"
         ),
         "product truth packet must mark shipped API boundary": (
-            "shipped for the 95-path api boundary"
+            "shipped for the 97-path api boundary"
         ),
         "product truth packet must mark blocked local model claims": (
             "blocked for production-readiness claims"
@@ -2045,6 +2049,71 @@ def _verify_public_security_posture(root: Path) -> list[str]:
                 failures.append(
                     f"{rel_path} contains unsafe release-facing security claim: {fragment}"
                 )
+
+    return failures
+
+
+def _verify_m167_session_logging_spine(root: Path) -> list[str]:
+    failures: list[str] = []
+    doc_path = root / REQUIRED_SESSION_LOGGING_M167_DOC
+    if not doc_path.exists():
+        return [f"missing M167 session logging doc: {REQUIRED_SESSION_LOGGING_M167_DOC}"]
+
+    def read_lower(rel_path: str) -> str:
+        path = root / rel_path
+        return _read(path).lower() if path.exists() else ""
+
+    doc = read_lower(REQUIRED_SESSION_LOGGING_M167_DOC)
+    doc_compact = " ".join(doc.split())
+    readme = read_lower("README.md")
+    docs_readme = read_lower("docs/README.md")
+    docs_index = read_lower("docs/DOCUMENTATION_INDEX.md")
+    canonical_map = read_lower("docs/canonical/CANONICAL_DOC_MAP.md")
+    product_truth = read_lower("docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md")
+    board = read_lower("docs/kanban/current_board.md")
+
+    required_fragments = {
+        "M167 doc must identify session logging spine": (
+            "m167 session logging + redacted observability spine"
+        ),
+        "M167 doc must use scoped productionization lane": (
+            "m167+ scoped productionization lane"
+        ),
+        "M167 doc must identify local storage": (
+            ".uaa/observability/session_events.jsonl"
+        ),
+        "M167 doc must identify schema version": "uaa.session_event.v1",
+        "M167 doc must mention bounded listing": "bounded",
+        "M167 doc must mention unsafe metadata rejection": "unsafe metadata",
+        "M167 doc must mention secret-looking value rejection": (
+            "secret-looking values"
+        ),
+        "M167 doc must include session event API": (
+            "get /observability/session-events"
+        ),
+        "M167 doc must include client error API": (
+            "post /observability/client-errors"
+        ),
+        "M167 doc must forbid external telemetry": "external telemetry",
+        "M167 doc must forbid background monitors": "background monitors",
+        "M167 doc must forbid process killers": "process killers",
+        "M167 doc must forbid raw capture": "raw prompts",
+        "M167 doc must describe receipt refs": "receipt refs",
+        "M167 doc must describe prompt lineage": "## prompt lineage",
+    }
+    for message, fragment in required_fragments.items():
+        if fragment not in doc_compact:
+            failures.append(message)
+
+    linked_text = "\n".join([readme, docs_readme, docs_index, canonical_map, product_truth])
+    if REQUIRED_SESSION_LOGGING_M167_DOC.lower() not in linked_text:
+        failures.append("M167 session logging doc must be linked from active docs")
+    if "uaa-p1-023 redacted observability runtime" not in board:
+        failures.append("Kanban board must track UAA-P1-023 redacted observability runtime")
+    if "gate met: m167 adds passive local session/run logging" not in board:
+        failures.append("Kanban board must mark UAA-P1-023 gate met")
+    if "planned; future-scoped for runtime observability claims" in product_truth:
+        failures.append("product truth packet still marks M167 runtime observability as planned")
 
     return failures
 
@@ -4825,7 +4894,7 @@ def _verify_control_center_operator_shell_gap_map(root: Path) -> list[str]:
             "source plan: `docs/roadmap/operator_runtime_excellence_roadmap.md` m172"
         ),
         "gap map must include current API count": (
-            "api boundary: current fastapi manifest has 95 openapi paths"
+            "api boundary: current fastapi manifest has 97 openapi paths"
         ),
         "gap map must preserve shell authority boundary": (
             "control center and openwebui remain shells"
@@ -4930,8 +4999,10 @@ def _verify_control_center_operator_shell_gap_map(root: Path) -> list[str]:
         failures.append("product truth packet must keep product-shell claims blocked")
 
     mock_data = read_lower("apps/control-center/src/mocks/controlCenterData.ts")
-    if "route_count: 95" not in mock_data:
-        failures.append("Control Center mock data must use current 95 route count")
+    if "route_count: 97" not in mock_data:
+        failures.append("Control Center mock data must use current 97 route count")
+    if "route_count: 95" in mock_data:
+        failures.append("Control Center mock data contains stale 95 route count")
     if "route_count: 94" in mock_data:
         failures.append("Control Center mock data contains stale 94 route count")
     if "route_count: 74" in mock_data:
@@ -4963,6 +5034,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_verify_active_baseline_labels(root, version))
     failures.extend(_verify_operator_runtime_currentness(root))
     failures.extend(_verify_public_security_posture(root))
+    failures.extend(_verify_m167_session_logging_spine(root))
     failures.extend(_verify_m167_live_model_evidence_matrix(root))
     failures.extend(_verify_local_model_e2e_smoke_harness(root))
     failures.extend(_verify_performance_baseline_harness(root))

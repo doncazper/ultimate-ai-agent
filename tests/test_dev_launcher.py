@@ -232,3 +232,36 @@ def test_launcher_runtime_state_is_gitignored():
 
     assert ".uaa/" in ignored
     assert "Ultimate AI Agent.command" in ignored
+
+
+def test_launcher_records_redacted_session_lifecycle_refs(tmp_path, monkeypatch):
+    launcher = load_launcher()
+    monkeypatch.setenv("UAA_SESSION_LOG_ROOT", str(tmp_path / ".uaa"))
+    from ultimate_ai_agent.core.observability import SessionLogStore, clear_default_session_log_store_cache
+
+    clear_default_session_log_store_cache()
+    service = launcher.service_config(ROOT, "backend")
+
+    launcher.record_launcher_event(
+        ROOT,
+        "service.process_spawned",
+        service=service,
+        status="started",
+        lifecycle_state="started",
+        pid=12345,
+        reason_codes=["SERVICE_PROCESS_SPAWNED"],
+    )
+
+    store = SessionLogStore(root=tmp_path / ".uaa")
+    result = store.list_events(event_type="service.process_spawned")
+
+    assert result.returned_count == 1
+    event = result.events[0]
+    assert event.metadata["service_name"] == "backend"
+    assert event.metadata["log_ref"] == "launcher-log:backend"
+    assert len(event.evidence_refs) == 1
+    assert event.evidence_refs[0].startswith("launcher-log:")
+    payload = store.filepath.read_text(encoding="utf-8")
+    assert str(service.log_file) not in payload
+    assert "stdout" not in payload.lower()
+    assert "stderr" not in payload.lower()

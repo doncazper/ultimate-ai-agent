@@ -8,7 +8,7 @@ import threading
 import time
 import uuid
 from contextlib import contextmanager
-from datetime import timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Iterator, Optional
 
@@ -29,6 +29,11 @@ from ultimate_ai_agent.core.execution import (
 from ultimate_ai_agent.core.execution.validation import validate_execution_ref
 from ultimate_ai_agent.core.hygiene.actor_context import ActorContext, ActorType, AuthoritySource
 from ultimate_ai_agent.core.hygiene.policies import ClassificationValue, DataClassification
+from ultimate_ai_agent.core.observability import (
+    build_safe_ref as build_observability_safe_ref,
+    classify_duration,
+    record_session_event,
+)
 from ultimate_ai_agent.core.task_decomposition.contracts import (
     CapabilityCallContext,
     CapabilityContract,
@@ -826,6 +831,34 @@ class TaskDecompositionService:
             approval_refs=self._approval_refs_for_context(call_context),
             handler_refs=self._handler_refs_for_plan(request.plan),
         )
+        execution_binding = self.durable_binding(record.run_id)
+        record_session_event(
+            fail_closed=False,
+            session_id="task-decomposition-session:local",
+            run_id=_safe_task_run_id(request.plan.plan_id),
+            trace_id=build_observability_safe_ref("task-trace", request.plan.plan_id),
+            span_id=build_observability_safe_ref("task-plan-execution", request.plan.plan_id),
+            correlation_id=build_observability_safe_ref("task-correlation", request.plan.plan_id),
+            service="task_decomposition",
+            surface="task_decomposition",
+            event_type="task.plan.execution_started",
+            lifecycle_state="started",
+            status="started",
+            severity="info",
+            safe_summary="Task plan execution started as a redacted summary.",
+            reason_codes=["TASK_PLAN_EXECUTION_STARTED"],
+            evidence_refs=list(execution_binding.evidence_refs if execution_binding else []),
+            receipt_refs=list(execution_binding.receipt_refs if execution_binding else []),
+            redaction_summary={
+                "status": "summary_only",
+                "input_values_stored": False,
+                "output_values_stored": False,
+            },
+            metadata={
+                "node_count": len(request.plan.nodes),
+                "approval_ref_count": len(self._approval_refs_for_context(call_context)),
+            },
+        )
         result = await DAGExecutor(self.registry, self.validator).execute(request.plan, call_context)
         if request.persist_reflections:
             self.reflection_store.record_execution(request.plan, result)
@@ -837,6 +870,7 @@ class TaskDecompositionService:
         )
         binding = self.durable_binding(record.run_id)
         result = result.model_copy(update={"durable_binding": binding})
+        self._record_task_node_session_events(result, binding)
         self.record_audit_event(
             "plan_executed",
             run_id=request.plan.plan_id,
@@ -1330,7 +1364,130 @@ class TaskDecompositionService:
             rollback_ref=rollback_ref,
         )
         self.registry_store.append_audit_event(event)
+        self._record_task_audit_session_event(event)
         return event
+
+    def _record_task_audit_session_event(self, event: TaskDecompositionAuditEvent) -> None:
+        session_status = _task_session_status(event.status)
+        session_event_type = _task_session_event_type(event.event_type, session_status)
+        severity = (
+            "error"
+            if session_status in {"failed", "timeout"}
+            else "warning"
+            if session_status in {"blocked", "denied", "waiting_approval"}
+            else "info"
+        )
+        evidence_refs = [build_observability_safe_ref("task-audit", event.event_id)]
+        for ref in [event.durable_run_ref, event.replay_ref, event.rollback_ref]:
+            if ref:
+                evidence_refs.append(ref)
+        receipt_refs = [event.receipt_ref] if event.receipt_ref else []
+        record_session_event(
+            fail_closed=False,
+            session_id="task-decomposition-session:local",
+            run_id=_safe_task_run_id(event.run_id),
+            trace_id=build_observability_safe_ref("task-trace", event.run_id),
+            span_id=build_observability_safe_ref("task-span", event.event_id),
+            correlation_id=build_observability_safe_ref("task-correlation", event.run_id),
+            service="task_decomposition",
+            surface="task_decomposition",
+            event_type=session_event_type,
+            lifecycle_state=_task_session_lifecycle(session_status),
+            status=session_status,
+            severity=severity,
+            safe_summary=event.safe_summary,
+            reason_codes=event.reason_codes or ["TASK_DECOMPOSITION_AUDIT_RECORDED"],
+            evidence_refs=evidence_refs,
+            receipt_refs=receipt_refs,
+            redaction_summary={
+                "status": "summary_only",
+                "input_values_stored": False,
+                "output_values_stored": False,
+            },
+            metadata={
+                "audit_kind": event.event_type,
+                "actor_ref": build_observability_safe_ref("actor", event.actor_id),
+                "capability_refs": [
+                    build_observability_safe_ref("capability", capability_id)
+                    for capability_id in event.capability_ids
+                ],
+            },
+        )
+
+    def _record_task_node_session_events(
+        self,
+        result: DAGExecutionResult,
+        binding: TaskDecompositionDurableBinding | None,
+    ) -> None:
+        latest_receipt_ref = self._latest_ref(binding.receipt_refs if binding else [])
+        evidence_refs = list(binding.evidence_refs if binding else [])
+        for record in result.node_records:
+            if record.started_at is not None:
+                record_session_event(
+                    fail_closed=False,
+                    session_id="task-decomposition-session:local",
+                    run_id=_safe_task_run_id(result.plan_id),
+                    trace_id=build_observability_safe_ref("task-trace", result.plan_id),
+                    span_id=build_observability_safe_ref("task-node-start", result.plan_id, record.node_id),
+                    parent_span_id=build_observability_safe_ref("task-span", result.plan_id),
+                    correlation_id=build_observability_safe_ref("task-correlation", result.plan_id),
+                    service="task_decomposition",
+                    surface="task_decomposition",
+                    event_type="task.node.started",
+                    lifecycle_state="started",
+                    status="started",
+                    severity="info",
+                    started_at=record.started_at,
+                    safe_summary="Task node lifecycle started as a redacted summary.",
+                    reason_codes=["TASK_NODE_STARTED"],
+                    input_refs=[build_observability_safe_ref("task-node-input", result.plan_id, record.node_id)],
+                    evidence_refs=evidence_refs,
+                    receipt_refs=[latest_receipt_ref] if latest_receipt_ref else [],
+                    redaction_summary={
+                        "status": "summary_only",
+                        "input_values_stored": False,
+                        "output_values_stored": False,
+                    },
+                    metadata=_task_node_session_metadata(record.node_id, record.selected_capability),
+                )
+            terminal_type, terminal_status, lifecycle = _task_node_session_status(record.status.value)
+            duration_ms = _task_node_duration_ms(record.started_at, record.completed_at)
+            record_session_event(
+                fail_closed=False,
+                session_id="task-decomposition-session:local",
+                run_id=_safe_task_run_id(result.plan_id),
+                trace_id=build_observability_safe_ref("task-trace", result.plan_id),
+                span_id=build_observability_safe_ref("task-node-finish", result.plan_id, record.node_id),
+                parent_span_id=build_observability_safe_ref("task-node-start", result.plan_id, record.node_id),
+                correlation_id=build_observability_safe_ref("task-correlation", result.plan_id),
+                service="task_decomposition",
+                surface="task_decomposition",
+                event_type=terminal_type,
+                lifecycle_state=classify_duration(duration_ms) if terminal_status == "succeeded" else lifecycle,
+                status=terminal_status,
+                severity="error" if terminal_status == "failed" else "warning" if terminal_status in {"skipped", "waiting_approval"} else "info",
+                started_at=record.started_at,
+                completed_at=record.completed_at,
+                duration_ms=duration_ms,
+                safe_summary=record.safe_summary,
+                reason_codes=record.reason_codes or ["TASK_NODE_RECORDED"],
+                output_refs=[
+                    build_observability_safe_ref("task-node-output", result.plan_id, record.node_id)
+                ]
+                if terminal_status == "succeeded"
+                else [],
+                evidence_refs=evidence_refs,
+                receipt_refs=[latest_receipt_ref] if latest_receipt_ref else [],
+                redaction_summary={
+                    "status": "summary_only",
+                    "input_values_stored": False,
+                    "output_values_stored": False,
+                },
+                metadata={
+                    **_task_node_session_metadata(record.node_id, record.selected_capability),
+                    "attempts": record.attempts,
+                },
+            )
 
     def _data_classification(self, sensitivity: str) -> DataClassification:
         mapping = {
@@ -1352,3 +1509,67 @@ def dump_json(data: Any) -> str:
     else:
         payload = data
     return json.dumps(payload, indent=2, sort_keys=True)
+
+
+def _task_session_event_type(audit_event_type: str, status: str) -> str:
+    if audit_event_type == "plan_decomposed":
+        return "task.plan.created"
+    if audit_event_type == "plan_validated":
+        return "task.plan.validated"
+    if audit_event_type == "plan_executed":
+        if status == "succeeded":
+            return "task.plan.execution_completed"
+        if status == "waiting_approval":
+            return "task.plan.waiting_approval"
+        return "task.plan.failed"
+    if audit_event_type == "approval_requested":
+        return "task.node.waiting_approval"
+    return "task.audit.recorded"
+
+
+def _task_session_status(status: str) -> str:
+    normalized = status.lower()
+    if normalized == "awaiting_approval":
+        return "waiting_approval"
+    if normalized in {"succeeded", "failed", "blocked", "denied", "skipped", "timeout"}:
+        return normalized
+    return "recorded"
+
+
+def _task_session_lifecycle(status: str) -> str:
+    if status == "waiting_approval":
+        return "waiting_approval"
+    if status in {"succeeded", "failed", "blocked", "denied", "skipped", "timeout"}:
+        return status
+    return "completed"
+
+
+def _safe_task_run_id(run_id: str) -> str:
+    if "/" in run_id or "\\" in run_id or len(run_id) > 160:
+        return build_observability_safe_ref("task-run", run_id)
+    return run_id
+
+
+def _task_node_session_status(node_status: str) -> tuple[str, str, str]:
+    if node_status == "succeeded":
+        return "task.node.succeeded", "succeeded", "succeeded"
+    if node_status == "skipped":
+        return "task.node.skipped", "skipped", "skipped"
+    if node_status == "awaiting_approval":
+        return "task.node.waiting_approval", "waiting_approval", "waiting_approval"
+    return "task.node.failed", "failed", "failed"
+
+
+def _task_node_duration_ms(started_at: datetime | None, completed_at: datetime | None) -> float | None:
+    if started_at is None or completed_at is None:
+        return None
+    return round(max((completed_at - started_at).total_seconds() * 1000, 0.0), 3)
+
+
+def _task_node_session_metadata(node_id: str, capability_id: str | None) -> dict[str, Any]:
+    metadata: dict[str, Any] = {
+        "node_ref": build_observability_safe_ref("task-node", node_id),
+    }
+    if capability_id:
+        metadata["capability_ref"] = build_observability_safe_ref("capability", capability_id)
+    return metadata

@@ -28,6 +28,7 @@ docs/implementation/foundation_gate_implementation_plan_v2_0_0.md
 docs/release_notes/checkpoint_m168.md
 docs/release_notes/checkpoint_m166.md
 docs/release_notes/checkpoint_m167.md
+docs/observability/SESSION_LOGGING_M167.md
 docs/developer/LOCAL_LAUNCHER.md
 scripts/dev/README.md
 docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md

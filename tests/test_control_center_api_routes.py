@@ -107,8 +107,10 @@ def test_control_center_openapi_routes_and_operation_ids_are_safe():
     assert "/task-decomposition/run" in paths
     assert "/files/tree/preview" in paths
     assert "/extensions/catalog" in paths
-    assert len(paths) == 95
-    assert len(operation_ids) == len(set(operation_ids)) == 95
+    assert "/observability/session-events" in paths
+    assert "/observability/client-errors" in paths
+    assert len(paths) == 97
+    assert len(operation_ids) == len(set(operation_ids)) == 97
 
 
 def test_control_center_operator_shell_gap_map_is_current_and_safe():
@@ -117,7 +119,7 @@ def test_control_center_operator_shell_gap_map_is_current_and_safe():
     compact = " ".join(text.lower().split())
 
     assert "status: active uaa-p0-007 operator-shell gap map" in compact
-    assert "api boundary: current fastapi manifest has 95 openapi paths" in compact
+    assert "api boundary: current fastapi manifest has 97 openapi paths" in compact
     assert (
         "| surface | current frontend component/page | current backend route(s) | "
         "missing backend route(s) | authority boundary | side-effect class | "
@@ -144,6 +146,8 @@ def test_control_center_operator_shell_gap_map_is_current_and_safe():
         "`post /task-decomposition/decompose`",
         "`post /files/tree/preview`",
         "`post /files/read/preview`",
+        "`get /observability/session-events`",
+        "`post /observability/client-errors`",
         "`get /control-center/routes`",
     ]:
         assert route in compact
@@ -173,7 +177,7 @@ def test_control_center_route_status_manifest_covers_visible_actions():
 
     assert manifest["schema_version"] == "uaa-control-center-route-status.v1"
     assert manifest["status"] == "active UAA-P1-030 route status manifest"
-    assert manifest["openapi_path_count"] == 95
+    assert manifest["openapi_path_count"] == 97
     assert _visible_frontend_routes().issubset(action_routes)
 
     required_fields = {

@@ -11,7 +11,7 @@ Gate coverage:
 - Active docs must preserve the current v2.0.0 baseline, checkpoint-m168
   repository checkpoint, checkpoint-m166/checkpoint-m167 local model checkpoint
   context, Operator Runtime Excellence roadmap links, current Kanban board link,
-  and the 95-path OpenAPI route count.
+  and the 97-path OpenAPI route count.
 - Product release-truth, public security posture, M167 live-evidence matrix,
   local model E2E smoke harness, performance baseline harness, and Control
   Center operator-shell gap map remain verifier-checked.

@@ -285,6 +285,10 @@ M151_LOCAL_OPENWEBUI_TEST_ROUTES = {
     "/v1/models",
     "/v1/chat/completions",
 }
+M167_REDACTED_OBSERVABILITY_ROUTES = {
+    "/observability/client-errors",
+    "/observability/session-events",
+}
 TASK_DECOMPOSITION_CANONICAL_ROUTES = {
     "/task-decomposition/approval-requests",
     "/task-decomposition/approvals",
@@ -1092,6 +1096,7 @@ def verify_no_local_runtime_activation_implementation():
     }
     historical_paths = set(paths)
     historical_paths.difference_update(M151_LOCAL_OPENWEBUI_TEST_ROUTES)
+    historical_paths.difference_update(M167_REDACTED_OBSERVABILITY_ROUTES)
     historical_paths.difference_update(TASK_DECOMPOSITION_CANONICAL_ROUTES)
     if len(historical_paths) > 74:
         historical_paths.discard("/files/review/approvals/capture")
@@ -4882,6 +4887,7 @@ def verify_m39_ccc_context_proposal_surface_safety():
 
         paths = set(app.openapi().get("paths", {}))
         paths.difference_update(M151_LOCAL_OPENWEBUI_TEST_ROUTES)
+        paths.difference_update(M167_REDACTED_OBSERVABILITY_ROUTES)
         paths.difference_update(TASK_DECOMPOSITION_CANONICAL_ROUTES)
     except Exception as exc:
         print(f"FAIL: M39 OpenAPI route validation failed: {exc}")
@@ -5086,6 +5092,7 @@ def verify_m40_context_handoff_approval_safety():
 
         paths = set(app.openapi().get("paths", {}))
         paths.difference_update(M151_LOCAL_OPENWEBUI_TEST_ROUTES)
+        paths.difference_update(M167_REDACTED_OBSERVABILITY_ROUTES)
         paths.difference_update(TASK_DECOMPOSITION_CANONICAL_ROUTES)
         if len(paths) != 77:
             print(f"FAIL: M40 normalized OpenAPI path count changed: expected 77, found {len(paths)}")

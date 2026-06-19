@@ -35,6 +35,8 @@ CAPABILITIES_DECLARED = [
     "secret_api_reference_only_handles",
     "inspectable_extension_catalog_read_only",
     "extension_activation_grant_records_exact_scope",
+    "redacted_session_logging_local",
+    "observability_safe_summary_api",
 ]
 
 CAPABILITIES_BLOCKED = [
@@ -76,6 +78,11 @@ CAPABILITIES_BLOCKED = [
     "extension_activation_execution",
     "extension_activation_callable_catalog",
     "extension_activation_overbroad_grants",
+    "session_logging_raw_capture",
+    "session_logging_external_telemetry",
+    "session_logging_os_wide_activity_monitoring",
+    "session_logging_unbounded_read_all",
+    "session_logging_forensic_raw_mode",
 ]
 
 ROUTE_GROUPS_BY_PREFIX = {
@@ -108,11 +115,12 @@ ROUTE_GROUPS_BY_PREFIX = {
     "/truth": "truth",
     "/kernel": "kernel",
     "/task-decomposition": "task-decomposition",
+    "/observability": "observability",
     "/v1": "openwebui-local-test",
     "/extensions": "extension-catalog",
 }
 
-LOCAL_DEV_WORKSPACE_PREFIXES = ("/kernel", "/files", "/memory", "/task-decomposition", "/v1")
+LOCAL_DEV_WORKSPACE_PREFIXES = ("/kernel", "/files", "/memory", "/task-decomposition", "/observability", "/v1")
 VALIDATION_HINTS = ("/validate", "/preview", "/evaluate", "/route", "/freshness/check", "/dry-run")
 
 API_MANIFEST_CACHEABLE_FIELDS = (

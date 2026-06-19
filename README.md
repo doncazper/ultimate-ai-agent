@@ -17,7 +17,7 @@ allowed to become operational authority.
 | Latest accepted checkpoint tag | **checkpoint-m168** |
 | Development posture | Active, milestone-driven, local-first |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
-| API boundary | FastAPI route contract with **95** OpenAPI paths |
+| API boundary | FastAPI route contract with **97** OpenAPI paths |
 | Production readiness | Not claimed |
 
 The product and package baseline is **v2.0.0** / `2.0.0`. This is a fresh
@@ -269,6 +269,7 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [M55 Redacted Observability Export Policy](docs/observability/REDACTED_OBSERVABILITY_EXPORT_POLICY.md)
 - [M55 Redacted Observability Export Authority Boundary](docs/observability/REDACTED_OBSERVABILITY_EXPORT_AUTHORITY_BOUNDARY.md)
 - [M55 to M56 Boundary](docs/observability/M55_TO_M56_BOUNDARY.md)
+- [M167 Session Logging + Redacted Observability Spine](docs/observability/SESSION_LOGGING_M167.md)
 - [M56 Agent Eval Regression Harness](docs/evals/AGENT_EVAL_REGRESSION_HARNESS.md)
 - [M56 Agent Eval Regression Policy](docs/evals/AGENT_EVAL_REGRESSION_POLICY.md)
 - [M56 Agent Eval Regression Authority Boundary](docs/evals/AGENT_EVAL_REGRESSION_AUTHORITY_BOUNDARY.md)

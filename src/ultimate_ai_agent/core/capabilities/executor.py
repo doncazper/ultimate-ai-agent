@@ -15,6 +15,7 @@ from ultimate_ai_agent.core.capabilities.schemas import (
     safe_validation_error,
     validate_json_schema_instance,
 )
+from ultimate_ai_agent.core.observability import build_safe_ref, classify_duration, record_session_event
 
 
 ApprovalCallback = Callable[[CapabilitySpec, dict[str, Any], Any], bool | Awaitable[bool] | Any]
@@ -56,6 +57,15 @@ class CapabilityExecutor:
                     metadata={"reason_codes": denials},
                 )
             )
+            _record_capability_session_event(
+                "capability.execution.denied",
+                capability_name=spec.name,
+                agent_name=context.agent_name,
+                run_id=_run_id_from_context(context),
+                status="denied",
+                lifecycle_state="denied",
+                reason_codes=denials,
+            )
             return CapabilityResult.failure(spec.name, error=";".join(denials), metadata={"reason_codes": denials})
 
         try:
@@ -94,6 +104,16 @@ class CapabilityExecutor:
                         metadata={"reason_codes": ["APPROVAL_REQUIRED"]},
                     )
                 )
+                _record_capability_session_event(
+                    "capability.execution.denied",
+                    capability_name=spec.name,
+                    agent_name=context.agent_name,
+                    run_id=_run_id_from_context(context),
+                    status="denied",
+                    lifecycle_state="waiting_approval",
+                    reason_codes=["APPROVAL_REQUIRED"],
+                    error_code="APPROVAL_REQUIRED",
+                )
                 return CapabilityResult.failure(
                     spec.name,
                     error="APPROVAL_REQUIRED",
@@ -120,6 +140,16 @@ class CapabilityExecutor:
                     metadata={"attempt": attempt, "argument_keys": _argument_keys(arguments)},
                 )
             )
+            _record_capability_session_event(
+                "capability.execution.started",
+                capability_name=spec.name,
+                agent_name=context.agent_name,
+                run_id=_run_id_from_context(context),
+                status="started",
+                lifecycle_state="started",
+                reason_codes=["CAPABILITY_EXECUTION_STARTED"],
+                metadata={"attempt": attempt, "argument_count": len(_argument_keys(arguments))},
+            )
             try:
                 raw = await asyncio.wait_for(
                     self._call_once(registration.fn, run_context, validated_arguments),
@@ -136,6 +166,17 @@ class CapabilityExecutor:
                         duration_ms=duration_ms,
                         metadata={"attempt": attempt},
                     )
+                )
+                _record_capability_session_event(
+                    "capability.execution.succeeded",
+                    capability_name=spec.name,
+                    agent_name=context.agent_name,
+                    run_id=_run_id_from_context(context),
+                    status="succeeded",
+                    lifecycle_state=classify_duration(duration_ms),
+                    duration_ms=duration_ms,
+                    reason_codes=["CAPABILITY_EXECUTION_SUCCEEDED"],
+                    metadata={"attempt": attempt},
                 )
                 return result.model_copy(
                     update={
@@ -158,6 +199,19 @@ class CapabilityExecutor:
                         error_class=type(exc).__name__,
                     )
                 )
+                _record_capability_session_event(
+                    "capability.execution.failed",
+                    capability_name=spec.name,
+                    agent_name=context.agent_name,
+                    run_id=_run_id_from_context(context),
+                    status="failed",
+                    lifecycle_state="failed",
+                    duration_ms=duration_ms,
+                    reason_codes=["OUTPUT_VALIDATION_FAILED"],
+                    error_code=type(exc).__name__,
+                    error_summary="Capability output validation failed safely.",
+                    metadata={"attempt": attempt},
+                )
                 return CapabilityResult.failure(
                     spec.name,
                     error="OUTPUT_VALIDATION_FAILED",
@@ -166,9 +220,35 @@ class CapabilityExecutor:
             except asyncio.TimeoutError:
                 last_error = "CAPABILITY_TIMEOUT"
                 self._emit_failed(spec.name, context.agent_name, start, "TimeoutError", attempt)
+                _record_capability_session_event(
+                    "capability.execution.timeout",
+                    capability_name=spec.name,
+                    agent_name=context.agent_name,
+                    run_id=_run_id_from_context(context),
+                    status="timeout",
+                    lifecycle_state="timeout",
+                    duration_ms=(time.perf_counter() - start) * 1000,
+                    reason_codes=["CAPABILITY_TIMEOUT"],
+                    error_code="TimeoutError",
+                    error_summary="Capability execution timed out safely.",
+                    metadata={"attempt": attempt},
+                )
             except Exception as exc:
                 last_error = _safe_exception_message(exc)
                 self._emit_failed(spec.name, context.agent_name, start, type(exc).__name__, attempt)
+                _record_capability_session_event(
+                    "capability.execution.failed",
+                    capability_name=spec.name,
+                    agent_name=context.agent_name,
+                    run_id=_run_id_from_context(context),
+                    status="failed",
+                    lifecycle_state="failed",
+                    duration_ms=(time.perf_counter() - start) * 1000,
+                    reason_codes=["CAPABILITY_HANDLER_FAILED"],
+                    error_code=type(exc).__name__,
+                    error_summary="Capability execution failed safely.",
+                    metadata={"attempt": attempt},
+                )
 
         return CapabilityResult.failure(
             spec.name,
@@ -283,3 +363,63 @@ def _safe_exception_message(exc: Exception) -> str:
     if any(fragment in text for fragment in ["secret", "token", "password", "credential", "api_key", "authorization"]):
         return f"{type(exc).__name__}:REDACTED"
     return f"{type(exc).__name__}:{str(exc)[:160]}"
+
+
+def _run_id_from_context(context: Any) -> str | None:
+    metadata = getattr(context, "metadata", {}) or {}
+    candidate = metadata.get("run_id") or metadata.get("run_ref") or getattr(context, "trace_id", None)
+    if not candidate:
+        return None
+    value = str(candidate)
+    if "/" in value or "\\" in value:
+        return None
+    return value[:160]
+
+
+def _record_capability_session_event(
+    event_type: str,
+    *,
+    capability_name: str,
+    agent_name: str,
+    run_id: str | None,
+    status: str,
+    lifecycle_state: str,
+    duration_ms: float | None = None,
+    reason_codes: list[str] | None = None,
+    error_code: str | None = None,
+    error_summary: str | None = None,
+    metadata: dict[str, Any] | None = None,
+) -> None:
+    capability_ref = build_safe_ref("capability", capability_name)
+    correlation_id = build_safe_ref("capability-correlation", capability_name, agent_name, run_id or "local")
+    record_session_event(
+        fail_closed=False,
+        session_id="capability-session:local",
+        run_id=run_id,
+        trace_id=correlation_id,
+        span_id=build_safe_ref("capability-span", correlation_id, event_type),
+        correlation_id=correlation_id,
+        service="capability_registry",
+        surface="capability_execution",
+        event_type=event_type,
+        lifecycle_state=lifecycle_state,
+        status=status,
+        severity="error" if status in {"failed", "timeout"} else "warning" if status == "denied" else "info",
+        duration_ms=duration_ms,
+        safe_summary="Capability execution lifecycle recorded as a redacted summary.",
+        reason_codes=reason_codes or [],
+        error_code=error_code,
+        error_summary=error_summary,
+        input_refs=[build_safe_ref("capability-input", capability_name, "structured")],
+        output_refs=[build_safe_ref("capability-output", capability_name, status)] if status == "succeeded" else [],
+        redaction_summary={
+            "status": "summary_only",
+            "input_values_stored": False,
+            "output_values_stored": False,
+        },
+        metadata={
+            "capability_ref": capability_ref,
+            "agent_ref": build_safe_ref("agent", agent_name),
+            **(metadata or {}),
+        },
+    )

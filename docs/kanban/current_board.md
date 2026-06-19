@@ -69,10 +69,6 @@ UAA-P1-022 Storage migration contract
 Goal: SQLite first, optional Postgres later, forward migrations, backup
 minimum set, verify, and offline restore.
 
-UAA-P1-023 Redacted observability runtime
-Goal: structured latency, cost, model, approval, tool, and error events with
-no raw prompts, raw responses, raw paths, secrets, or env dumps.
-
 ```
 
 ## QA / Verification
@@ -261,6 +257,13 @@ local secret refs under ignored `.uaa/` state, rollback instructions,
 production support, signed installer, OpenWebUI, `llama-server`, connector
 write, plugin import, browser automation, mobile control, or autonomous
 background execution claim.
+
+UAA-P1-023 Redacted observability runtime
+Gate met: M167 adds passive local session/run logging for UAA-managed launcher,
+API, task decomposition, capability lifecycle, receipt/evidence refs,
+duration status, and Control Center client-error summaries under `.uaa/` with
+bounded safe-summary API access, unsafe metadata rejection, secret-like value
+blocking, and focused regression tests.
 
 UAA-P1-044 Release evidence packet
 Gate met: release evidence packet format, schema, template, verifier, tests,

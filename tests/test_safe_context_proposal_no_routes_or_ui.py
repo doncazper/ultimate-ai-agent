@@ -28,11 +28,13 @@ def test_openapi_path_count_remains_at_current_boundary():
     data = client.get("/openapi.json").json()
 
     assert data["info"]["version"] == __version__
-    assert len(data.get("paths", {})) == 95
+    assert len(data.get("paths", {})) == 97
     assert "/v1/models" in data.get("paths", {})
     assert "/v1/chat/completions" in data.get("paths", {})
     assert "/task-decomposition/run" in data.get("paths", {})
     assert "/files/tree/preview" in data.get("paths", {})
+    assert "/observability/session-events" in data.get("paths", {})
+    assert "/observability/client-errors" in data.get("paths", {})
 
 
 def test_control_center_context_proposal_surface_has_no_handoff_or_injection_controls():

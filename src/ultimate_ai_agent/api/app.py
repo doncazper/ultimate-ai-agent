@@ -6,6 +6,7 @@ from pydantic import ValidationError
 from datetime import datetime
 import os
 from pathlib import Path
+import time
 from ultimate_ai_agent.core.time import utc_now
 from typing import Any, List, Optional
 
@@ -147,6 +148,15 @@ from ultimate_ai_agent.core.control_center import (
     build_control_center_dashboard,
     build_control_center_manifest,
     preview_control_center_action,
+)
+from ultimate_ai_agent.core.observability import (
+    ClientErrorReport,
+    SessionLogValidationError,
+    build_safe_ref,
+    classify_duration,
+    get_default_session_log_store,
+    record_client_error_report,
+    record_session_event,
 )
 from ultimate_ai_agent.core.extension_catalog import build_default_inspectable_extension_catalog
 from ultimate_ai_agent.core.file_review import (
@@ -424,6 +434,105 @@ def safe_request_validation_error_response(request: Request, exc: RequestValidat
 async def request_validation_exception_handler(request: Request, exc: RequestValidationError):
     return safe_request_validation_error_response(request, exc)
 
+
+def _route_pattern_for_request(request: Request) -> str:
+    route = request.scope.get("route")
+    pattern = getattr(route, "path", None)
+    if isinstance(pattern, str) and pattern.startswith("/"):
+        return pattern
+    return "unmatched_route"
+
+
+def _api_correlation_id(request: Request, route_pattern: str) -> str:
+    header_value = request.headers.get("x-request-id") or request.headers.get("x-correlation-id")
+    if header_value:
+        candidate = header_value.strip()
+        if (
+            1 <= len(candidate) <= 120
+            and "/" not in candidate
+            and "\\" not in candidate
+            and all(char.isalnum() or char in "_.:@-" for char in candidate)
+            and not contains_secret_like(candidate)
+        ):
+            return candidate
+    return build_safe_ref("api-correlation", request.method.upper(), route_pattern, time.perf_counter_ns())
+
+
+def _record_api_session_event(
+    request: Request,
+    *,
+    status_code: int,
+    started_at: datetime,
+    duration_ms: float,
+    error_code: str | None = None,
+    error_summary: str | None = None,
+) -> None:
+    route_pattern = _route_pattern_for_request(request)
+    lifecycle_state = "failed" if status_code >= 500 else classify_duration(duration_ms, slow_ms=1_000.0)
+    event_type = "api.request.failed" if status_code >= 500 else "api.request.completed"
+    correlation_id = _api_correlation_id(request, route_pattern)
+    record_session_event(
+        fail_closed=False,
+        session_id="api-session:local",
+        trace_id=correlation_id,
+        span_id=build_safe_ref("api-span", correlation_id),
+        correlation_id=correlation_id,
+        service="api",
+        surface="api",
+        event_type=event_type,
+        lifecycle_state=lifecycle_state,
+        status="failed" if status_code >= 500 else "completed",
+        severity="error" if status_code >= 500 else "info",
+        started_at=started_at,
+        completed_at=utc_now(),
+        duration_ms=duration_ms,
+        safe_summary="API request lifecycle metadata recorded as a redacted summary.",
+        reason_codes=["API_REQUEST_METADATA_RECORDED"],
+        error_code=error_code,
+        error_summary=error_summary,
+        redaction_summary={
+            "status": "summary_only",
+            "route_pattern_only": True,
+            "http_content_stored": False,
+            "query_values_stored": False,
+            "header_values_stored": False,
+        },
+        metadata={
+            "route_pattern": route_pattern,
+            "method": request.method.upper(),
+            "status_code": status_code,
+            "correlation_ref": correlation_id,
+        },
+    )
+
+
+@app.middleware("http")
+async def session_log_api_middleware(request: Request, call_next):
+    started_clock = time.perf_counter()
+    started_at = utc_now()
+    status_code = 500
+    error_code: str | None = None
+    error_summary: str | None = None
+    try:
+        response = await call_next(request)
+        status_code = response.status_code
+        return response
+    except Exception as exc:
+        error_code = type(exc).__name__
+        error_summary = "API request failed safely; details are redacted."
+        raise
+    finally:
+        duration_ms = round((time.perf_counter() - started_clock) * 1000, 3)
+        _record_api_session_event(
+            request,
+            status_code=status_code,
+            started_at=started_at,
+            duration_ms=duration_ms,
+            error_code=error_code,
+            error_summary=error_summary,
+        )
+
+
 @app.get("/health", response_model=HealthResponse)
 def get_health():
     return {"status": "healthy", "version": __version__}
@@ -435,6 +544,90 @@ def get_version():
 @app.get("/api/manifest", response_model=ApiManifest)
 def get_api_manifest():
     return build_api_manifest(app)
+
+
+@app.get("/observability/session-events", response_model=ResultEnvelope)
+def get_observability_session_events(
+    session_id: str | None = None,
+    run_id: str | None = None,
+    event_type: str | None = None,
+    severity: str | None = None,
+    status: str | None = None,
+    surface: str | None = None,
+    service: str | None = None,
+    observed_after: datetime | None = None,
+    observed_before: datetime | None = None,
+    limit: int = 50,
+):
+    store = get_default_session_log_store()
+    result = store.list_events(
+        session_id=session_id,
+        run_id=run_id,
+        event_type=event_type,
+        severity=severity,
+        status=status,
+        surface=surface,
+        service=service,
+        observed_after=observed_after,
+        observed_before=observed_before,
+        limit=limit,
+    )
+    return ResultEnvelope(
+        success=True,
+        operation="observability_session_events",
+        service="ObservabilityAPI",
+        trace_id="session-log:local-jsonl",
+        data=result.model_dump(mode="json"),
+        redactions_applied=["safe_summary_projection", "source_records_omitted"],
+    )
+
+
+@app.post("/observability/client-errors", response_model=ResultEnvelope)
+def post_observability_client_error(report: ClientErrorReport):
+    try:
+        event = record_client_error_report(report)
+    except SessionLogValidationError:
+        return ResultEnvelope(
+            success=False,
+            operation="observability_client_error",
+            service="ObservabilityAPI",
+            trace_id=report.correlation_id or "control-center-session:local",
+            error=ErrorEnvelope(
+                code="CLIENT_ERROR_REPORT_UNSAFE",
+                category=ErrorCategory.validation_error,
+                safe_message="Client error report was rejected safely.",
+                severity=Severity.medium,
+                retryable=False,
+                details_redacted=True,
+                source="ObservabilityAPI",
+            ),
+            redactions_applied=["client_error_report"],
+        )
+    if event is None:
+        return ResultEnvelope(
+            success=True,
+            operation="observability_client_error",
+            service="ObservabilityAPI",
+            trace_id=report.correlation_id or "control-center-session:local",
+            data={
+                "status": "skipped",
+                "reason_codes": ["SESSION_LOGGING_DISABLED"],
+            },
+            redactions_applied=["client_error_summary_only"],
+        )
+    return ResultEnvelope(
+        success=True,
+        operation="observability_client_error",
+        service="ObservabilityAPI",
+        trace_id=event.correlation_id or event.session_id,
+        data={
+            "event_id": event.event_id,
+            "session_id": event.session_id,
+            "correlation_id": event.correlation_id,
+            "status": event.status,
+        },
+        redactions_applied=["client_error_summary_only"],
+    )
 
 @app.get("/extensions/catalog", response_model=ResultEnvelope)
 def get_extensions_catalog():
