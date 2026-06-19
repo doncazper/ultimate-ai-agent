@@ -28,6 +28,7 @@ from ultimate_ai_agent.core.secrets.redaction import redact_secret_value
 
 
 _PREVIEW_REDACTION_LOOKAHEAD_BYTES = 4096
+_TEXT_HASH_CHUNK_CHARS = 1024 * 1024
 
 
 class LocalFileManager:
@@ -61,7 +62,7 @@ class LocalFileManager:
             path=normalized,
             kind=FileKind.artifact,
             sensitivity=FileSensitivity.project_private,
-            content_hash=self._hash_text(read_text_if_exists(full_path)) if stat else self._hash_text(""),
+            content_hash=self._hash_text_file(full_path) if stat else self._hash_text(""),
             size_bytes=stat.st_size if stat else 0,
             created_at=datetime.fromtimestamp(stat.st_ctime) if stat else None,
             updated_at=datetime.fromtimestamp(stat.st_mtime) if stat else None,
@@ -88,7 +89,7 @@ class LocalFileManager:
             preview_id=f"frp_{uuid.uuid4().hex[:8]}",
             path=normalized,
             size_bytes=stat.st_size if stat else 0,
-            content_hash=self._hash_text(read_text_if_exists(full_path)) if stat else self._hash_text(""),
+            content_hash=self._hash_text_file(full_path) if stat else self._hash_text(""),
             text_preview=preview_text,
             redactions_applied=redactions,
             truncated=truncated,
@@ -252,6 +253,13 @@ class LocalFileManager:
 
     def _hash_bytes(self, content: bytes) -> str:
         return hashlib.sha256(content).hexdigest()
+
+    def _hash_text_file(self, path: Path) -> str:
+        digest = hashlib.sha256()
+        with path.open("r", encoding="utf-8", errors="ignore", newline=None) as handle:
+            for chunk in iter(lambda: handle.read(_TEXT_HASH_CHUNK_CHARS), ""):
+                digest.update(chunk.encode("utf-8"))
+        return digest.hexdigest()
 
     def _read_preview_window(self, path: Path, max_bytes: int) -> str:
         window_bytes = max_bytes + _PREVIEW_REDACTION_LOOKAHEAD_BYTES

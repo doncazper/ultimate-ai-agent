@@ -9,8 +9,10 @@ was spuriously rejected with EXPECTED_HASH_MISMATCH even though nothing had
 changed. These tests pin a single, consistent hash across both paths.
 """
 
+import hashlib
 from pathlib import Path
 
+import ultimate_ai_agent.core.files.manager as manager_module
 from ultimate_ai_agent.core.files import (
     FileKind,
     FileSensitivity,
@@ -95,3 +97,52 @@ def test_stale_expected_hash_still_detected(tmp_path: Path):
 
     assert decision.allowed is False
     assert "EXPECTED_HASH_MISMATCH" in decision.reason_codes
+
+
+def test_read_path_hashing_remains_streaming(monkeypatch, tmp_path: Path):
+    target = tmp_path / "large.txt"
+    target.write_text("alpha\nbeta\n", encoding="utf-8")
+    manager = LocalFileManager(workspace_root=tmp_path)
+
+    def fail_full_file_read(path: Path) -> str:
+        raise AssertionError(f"full-file read helper should not hash {path.name}")
+
+    monkeypatch.setattr(manager_module, "read_text_if_exists", fail_full_file_read)
+
+    assert manager.build_file_ref("large.txt").content_hash
+    preview = manager.read_preview(
+        FileReadRequest(
+            request_id="frr_streaming_hash",
+            run_id="run_123",
+            actor_context=_actor(),
+            path="large.txt",
+            purpose="bounded preview",
+            max_bytes=8,
+        )
+    )
+
+    assert preview.content_hash
+    assert preview.truncated is True
+
+
+def test_preview_hash_tolerates_invalid_utf8_without_full_read(tmp_path: Path):
+    target = tmp_path / "mixed.bin"
+    target.write_bytes(b"alpha\xff\r\nbeta\n")
+    manager = LocalFileManager(workspace_root=tmp_path)
+
+    expected_hash = hashlib.sha256("alpha\nbeta\n".encode("utf-8")).hexdigest()
+
+    assert manager.build_file_ref("mixed.bin").content_hash == expected_hash
+    preview = manager.read_preview(
+        FileReadRequest(
+            request_id="frr_invalid_utf8",
+            run_id="run_123",
+            actor_context=_actor(),
+            path="mixed.bin",
+            purpose="bounded preview",
+            max_bytes=4096,
+        )
+    )
+
+    assert preview.content_hash == expected_hash
+    assert "alpha" in preview.text_preview
