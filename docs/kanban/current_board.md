@@ -33,24 +33,22 @@ Gate = required acceptance evidence before Done
 ## Now / Building
 
 ```text
-No active P0 item in this patch. Pull UAA-P1-010 next.
+No active P0 item in this patch. P1 durable-run and Control Center language
+hardening work merged in this baseline; pull the next scoped operator-surface
+or storage migration item from Ready Next after verification.
 ```
 
 ## Ready Next
 
 ```text
-UAA-P1-010 Durable run spine v1
-Gate: durable local run records cover idempotency keys, replay-safe receipts,
-pause/resume/cancel states, restart recovery, and rollback refs.
+UAA-P1-011 Task decomposition operator loop
+Gate: plan, approve, execute safe registered handlers, inspect audit summaries,
+and replay validation from Control Center without hidden authority.
 ```
 
 ## Shaping
 
 ```text
-UAA-P1-010 Durable run spine v1
-Goal: durable local run records, idempotency keys, replay-safe receipts,
-pause/resume/cancel states, and restart recovery over local storage.
-
 UAA-P1-011 Task decomposition operator loop
 Goal: plan, approve, execute safe registered handlers, inspect audit summaries,
 and replay validation from Control Center.
@@ -293,6 +291,65 @@ local model cache, settings, registry, approvals, audit state, and run/receipt
 state without live restore, broad mutation, shell/subprocess, connector write,
 plugin runtime import, mobile control, public distribution, or production
 authority claims.
+
+UAA-P1-010 Durable run spine v1
+Gate met: `docs/execution/DURABLE_RUN_SPINE.md`,
+`src/ultimate_ai_agent/core/execution/durable_runs.py`, and
+`tests/test_execution_state_machine_safety.py` define durable run records,
+states, transitions, idempotency keys, audit refs, receipt refs, replay refs,
+failure states, pause/resume/cancel/retry/dead-letter/restart recovery
+contracts, invalid-transition denial, replay safety, restart visibility, and
+safe-ref/redacted evidence without broad autonomy or unscoped execution.
+
+UAA-P1-025 Append-first local run storage
+Gate met: `docs/execution/APPEND_FIRST_RUN_STORAGE.md`,
+`src/ultimate_ai_agent/core/execution/run_storage.py`, and storage/ledger tests
+define append-first atomic run and receipt persistence with idempotency-bound
+writes, audit links, corruption detection, safe recovery behavior, and redacted
+evidence only.
+
+UAA-P1-026 Durable run lifecycle contracts
+Gate met: durable run lifecycle tests cover allowed, denied, repeated, stale,
+cancel, retry, dead-letter, and restart cases; repeated lifecycle requests are
+idempotent, failure states stay inspectable, and no lifecycle action grants
+unscoped runtime authority.
+
+UAA-P1-027 Task decomposition durable-run binding
+Gate met: task decomposition run APIs bind planning, approvals, registered
+handlers, receipts, audit summaries, replay refs, and duplicate-mutation
+denial to durable run truth while preserving redacted safe-ref evidence.
+
+UAA-P1-030 Route status manifest
+Gate met: `docs/control_center/ROUTE_STATUS_MANIFEST.md`,
+`docs/control_center/route_status_manifest.json`, and Control Center route
+tests map visible actions to owner, auth posture, side-effect class, risk
+class, OpenAPI operation id, UI surface, approval requirement, release status,
+and evidence/audit output without marking unimplemented or unsafe actions
+ready.
+
+UAA-P1-031 Product language rules
+Gate met: `docs/control_center/PRODUCT_LANGUAGE_RULES.md`,
+`tests/test_control_center_api_routes.py`, and
+`scripts/verify_control_center_frontend.py` enforce no hidden authority, no
+fake completion, no raw JSON as the primary UI for operator-critical flows, no
+unsupported production/public distribution claims, no model/provider output as
+authority, and no completed-state language for blocked, skipped, pending, or
+mock-only work.
+
+UAA-P1-032 Browser smoke readiness
+Gate met: `docs/control_center/LOCAL_BROWSER_SMOKE.md`,
+`docs/control_center/LOCAL_BROWSER_SMOKE_REPORTING.md`,
+`scripts/verify_control_center_browser_smoke_readiness.py`, and frontend checks
+define local-only browser smoke readiness with real, mocked, skipped, and
+blocked state semantics; no browser authority, external site access,
+authenticated profile use, public distribution, or production readiness is
+claimed.
+
+UAA-P1-033 Accessible loading/error/empty states
+Gate met: Control Center Chat Shell, Plans, Models, Approvals, Files, Runtime,
+Evidence, and Settings surfaces expose accessible loading, error, empty,
+blocked, and denied states with safe operator-actionable language and no raw
+private data in error messages.
 
 UAA-P1-024 Plugin/skill ecosystem boundary
 Gate met: `docs/tooling/PLUGIN_SKILL_ECOSYSTEM_BOUNDARY.md` and

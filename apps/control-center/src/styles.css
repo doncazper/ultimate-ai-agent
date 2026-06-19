@@ -224,6 +224,68 @@ main {
   background: #f7fbf9;
 }
 
+.operator-surface-states {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid #d9e2ec;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.surface-state-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+.surface-state-card {
+  display: grid;
+  align-content: start;
+  gap: 7px;
+  min-height: 190px;
+  padding: 13px;
+  border: 1px solid #d9e2ec;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #334e68;
+}
+
+.surface-state-card.error {
+  border-color: #d64545;
+  background: #fff5f5;
+}
+
+.surface-state-card.blocked {
+  border-color: #f0b429;
+  background: #fffbea;
+}
+
+.surface-state-card.denied {
+  border-color: #9b2c2c;
+  background: #fff5f5;
+}
+
+.surface-state-card p,
+.surface-state-card small {
+  margin: 0;
+  line-height: 1.45;
+}
+
+.surface-state-card small {
+  color: #52606d;
+}
+
+.surface-state-kind {
+  justify-self: start;
+  padding: 4px 7px;
+  border-radius: 6px;
+  background: #e6f6ff;
+  color: #0b69a3;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+}
+
 .panel-heading,
 .status-card-header {
   display: flex;
@@ -595,7 +657,8 @@ th {
   }
 
   .review-layout,
-  .detail-grid {
+  .detail-grid,
+  .surface-state-grid {
     grid-template-columns: 1fr;
   }
 

@@ -4745,10 +4745,14 @@ def _verify_local_model_operational_runbook(root: Path) -> list[str]:
         failures.append("current board must mark UAA-P0-017 gate met")
     if "pull uaa-p0-017 next" in board:
         failures.append("current board still contains stale UAA-P0-017 next label")
-    if "pull uaa-p1-010 next" not in board:
-        failures.append("current board must move next pull to UAA-P1-010")
     if "uaa-p1-010 durable run spine v1" not in board:
-        failures.append("current board must expose UAA-P1-010 as ready next")
+        failures.append("current board must track UAA-P1-010 durable run spine")
+    if "gate met: `docs/execution/durable_run_spine.md`" not in board:
+        failures.append("current board must mark UAA-P1-010 gate met")
+    if "pull uaa-p1-010 next" in board:
+        failures.append("current board still contains stale UAA-P1-010 next label")
+    if "uaa-p1-011 task decomposition operator loop" not in board:
+        failures.append("current board must expose UAA-P1-011 as ready next")
 
     readme = read_lower("README.md")
     if (

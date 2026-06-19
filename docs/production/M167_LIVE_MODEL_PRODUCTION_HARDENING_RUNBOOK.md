@@ -35,7 +35,8 @@ and disk/RAM/VRAM estimates match observed pressure.
 
 Detect lag, out-of-memory pressure, crash loops, reload loops, and slow tokens
 per second. Suggest one safe, bounded, redacted, operator-confirmable change at
-a time. Apply changes only with approval-bound evidence. Restart safely.
+a time. This one change at a time rule also requires each change to be
+reversible. Apply changes only with approval-bound evidence. Restart safely.
 Rollback to the previous known-good preset after any restart failure, crash
 loop, reload loop, or worse metric delta.
 

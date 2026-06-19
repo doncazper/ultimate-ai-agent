@@ -29,6 +29,8 @@ class EventLedger:
                     if line:
                         event_dict = json.loads(line)
                         event = EventLedgerEvent.model_validate(event_dict)
+                        if scan_payload_for_secrets(event.model_dump()):
+                            raise ValueError("Event load blocked: raw secrets/credentials detected in payload")
                         self._append_in_memory(event)
 
     def append_event(self, event: EventLedgerEvent) -> None:
@@ -54,6 +56,10 @@ class EventLedger:
                 f.write(event.model_dump_json() + "\n")
 
     def _append_in_memory(self, event: EventLedgerEvent) -> None:
+        if event.event_id in self._event_ids:
+            raise ValueError(f"Duplicate event_id detected: {event.event_id}")
+        if event.idempotency_key and event.idempotency_key in self._idempotency_keys_by_run[event.run_id]:
+            raise ValueError(f"Duplicate idempotency_key detected for run_id '{event.run_id}': {event.idempotency_key}")
         self._events.append(event)
         self._event_ids.add(event.event_id)
         self._events_by_id[event.event_id] = event

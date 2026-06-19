@@ -867,6 +867,7 @@ def _task_decomposition_error(operation: str, trace_id: str, code: str, exc: Exc
 
 def _task_decomposition_public_error_code(exc: Exception, default: str) -> str:
     known_codes = {
+        "TASK_DECOMPOSITION_IDEMPOTENCY_REPLAY_DENIED",
         "TASK_DECOMPOSITION_INLINE_APPROVAL_GRANTS_DENIED",
         "TASK_DECOMPOSITION_RATE_LIMIT_EXCEEDED",
     }

@@ -1,0 +1,943 @@
+{
+  "schema_version": "uaa-control-center-route-status.v1",
+  "status": "active UAA-P1-030 route status manifest",
+  "baseline": "v2.0.0 / 2.0.0",
+  "source_map": "docs/control_center/OPERATOR_SHELL_GAP_MAP.md",
+  "openapi_path_count": 93,
+  "default_posture": "contract_first_disabled_by_default_least_authority_review_gated",
+  "allowed_release_statuses": [
+    "status_available_not_completion",
+    "preview_available_not_execution",
+    "partial_backend_not_product_ready",
+    "mock_only_not_product_ready",
+    "local_ui_state_only_not_evidence",
+    "blocked_missing_backend"
+  ],
+  "surfaces": [
+    {
+      "surface": "Chat Shell",
+      "owner": "local-model-runtime",
+      "auth_posture": "local_gateway_bearer_required_disabled_by_default",
+      "side_effect_class": "local_dev_workspace_only",
+      "risk_class": "high",
+      "release_status": "blocked_missing_backend",
+      "approval_requirement": "Reviewed local model prerequisites and explicit local gateway authorization only; model output is not authority.",
+      "evidence_audit_output": "M167 evidence refs, local model smoke refs, safe failure refs, and latency refs.",
+      "current_backend_routes": [
+        {
+          "method": "GET",
+          "path": "/v1/models",
+          "operation_id": "get_v1_models",
+          "side_effect_class": "local_dev_workspace_only"
+        },
+        {
+          "method": "POST",
+          "path": "/v1/chat/completions",
+          "operation_id": "post_v1_chat_completions",
+          "side_effect_class": "local_dev_workspace_only"
+        },
+        {
+          "method": "GET",
+          "path": "/runtime/readiness",
+          "operation_id": "get_runtime_readiness",
+          "side_effect_class": "validation_only"
+        }
+      ],
+      "missing_backend_routes": [
+        "control-center-chat-status",
+        "chat-receipt-summary",
+        "tools-functions-streaming-denial-summary"
+      ]
+    },
+    {
+      "surface": "Plans",
+      "owner": "task-decomposition",
+      "auth_posture": "local_dev_disabled_by_default_exact_approval_required",
+      "side_effect_class": "local_dev_workspace_only",
+      "risk_class": "high",
+      "release_status": "partial_backend_not_product_ready",
+      "approval_requirement": "Exact approval grant for each safe registered capability; approval refs remain evidence only.",
+      "evidence_audit_output": "Durable run binding refs, approval refs, audit summaries, receipt refs, replay refs, and rollback refs.",
+      "current_backend_routes": [
+        {
+          "method": "POST",
+          "path": "/task-decomposition/classify",
+          "operation_id": "post_task_decomposition_classify",
+          "side_effect_class": "local_dev_workspace_only"
+        },
+        {
+          "method": "POST",
+          "path": "/task-decomposition/decompose",
+          "operation_id": "post_task_decomposition_decompose",
+          "side_effect_class": "local_dev_workspace_only"
+        },
+        {
+          "method": "POST",
+          "path": "/task-decomposition/run",
+          "operation_id": "post_task_decomposition_run",
+          "side_effect_class": "local_dev_workspace_only"
+        },
+        {
+          "method": "POST",
+          "path": "/task-decomposition/plans/execute",
+          "operation_id": "post_task_decomposition_plans_execute",
+          "side_effect_class": "local_dev_workspace_only"
+        }
+      ],
+      "missing_backend_routes": [
+        "control-center-plans-surface-status",
+        "durable-run-lifecycle-summary",
+        "replay-summary"
+      ]
+    },
+    {
+      "surface": "Models",
+      "owner": "local-model-management",
+      "auth_posture": "reviewed_local_refs_only",
+      "side_effect_class": "mixed_validation_and_local_dev_workspace_only",
+      "risk_class": "high",
+      "release_status": "partial_backend_not_product_ready",
+      "approval_requirement": "Approved GGUF/model refs and reviewed local runtime settings are required before live local use.",
+      "evidence_audit_output": "M167 matrix refs, route preview decisions, runtime validation refs, and latency refs.",
+      "current_backend_routes": [
+        {
+          "method": "GET",
+          "path": "/v1/models",
+          "operation_id": "get_v1_models",
+          "side_effect_class": "local_dev_workspace_only"
+        },
+        {
+          "method": "POST",
+          "path": "/models/route/preview",
+          "operation_id": "post_models_route_preview",
+          "side_effect_class": "validation_only"
+        },
+        {
+          "method": "POST",
+          "path": "/model-runtime/manifests/validate",
+          "operation_id": "post_model_runtime_manifests_validate",
+          "side_effect_class": "validation_only"
+        }
+      ],
+      "missing_backend_routes": [
+        "gguf-selection-status",
+        "llama-cpp-reviewed-settings-status",
+        "local-model-rollback-status"
+      ]
+    },
+    {
+      "surface": "Approvals",
+      "owner": "approval-authority",
+      "auth_posture": "local_review_only_exact_scope",
+      "side_effect_class": "mixed_validation_and_local_dev_workspace_only",
+      "risk_class": "medium",
+      "release_status": "partial_backend_not_product_ready",
+      "approval_requirement": "Exact-scope approval capture or revoke through approved backend contracts only.",
+      "evidence_audit_output": "Approval summaries, validation decisions, grant refs, revoke refs, and audit summaries.",
+      "current_backend_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/approvals/summary",
+          "operation_id": "get_control_center_approvals_summary",
+          "side_effect_class": "validation_only"
+        },
+        {
+          "method": "POST",
+          "path": "/task-decomposition/approvals/grants/capture",
+          "operation_id": "post_task_decomposition_approvals_grants_capture",
+          "side_effect_class": "local_dev_workspace_only"
+        },
+        {
+          "method": "POST",
+          "path": "/task-decomposition/approvals/revoke",
+          "operation_id": "post_task_decomposition_approvals_revoke",
+          "side_effect_class": "local_dev_workspace_only"
+        }
+      ],
+      "missing_backend_routes": [
+        "control-center-live-approval-capture-binding",
+        "approval-expiry-status",
+        "approval-replay-status"
+      ]
+    },
+    {
+      "surface": "Files",
+      "owner": "local-file-workbench",
+      "auth_posture": "safe_root_refs_only_exact_approval_for_mutation",
+      "side_effect_class": "local_dev_workspace_only",
+      "risk_class": "high",
+      "release_status": "partial_backend_not_product_ready",
+      "approval_requirement": "Mutating file work must be exact-approved, idempotent, audited, rollback-aware, and tested.",
+      "evidence_audit_output": "Safe file refs, redacted preview refs, diff summaries, approval refs, rollback refs, and receipt refs.",
+      "current_backend_routes": [
+        {
+          "method": "POST",
+          "path": "/files/refs/validate",
+          "operation_id": "post_files_refs_validate",
+          "side_effect_class": "local_dev_workspace_only"
+        },
+        {
+          "method": "POST",
+          "path": "/files/read/preview",
+          "operation_id": "post_files_read_preview",
+          "side_effect_class": "local_dev_workspace_only"
+        },
+        {
+          "method": "POST",
+          "path": "/files/write/propose",
+          "operation_id": "post_files_write_propose",
+          "side_effect_class": "local_dev_workspace_only"
+        },
+        {
+          "method": "POST",
+          "path": "/files/diff/preview",
+          "operation_id": "post_files_diff_preview",
+          "side_effect_class": "local_dev_workspace_only"
+        }
+      ],
+      "missing_backend_routes": [
+        "file-tree-safe-ref",
+        "patch-apply",
+        "rollback-receipt",
+        "file-operation-status"
+      ]
+    },
+    {
+      "surface": "Runtime",
+      "owner": "runtime-readiness",
+      "auth_posture": "local_read_only_status",
+      "side_effect_class": "mixed_none_and_validation_only",
+      "risk_class": "medium",
+      "release_status": "status_available_not_completion",
+      "approval_requirement": "No approval for read-only status; lifecycle actions require a later scoped milestone.",
+      "evidence_audit_output": "Runtime readiness refs, capability matrix refs, Foundation Gate refs, and latency refs.",
+      "current_backend_routes": [
+        {
+          "method": "GET",
+          "path": "/health",
+          "operation_id": "get_health",
+          "side_effect_class": "none"
+        },
+        {
+          "method": "GET",
+          "path": "/version",
+          "operation_id": "get_version",
+          "side_effect_class": "none"
+        },
+        {
+          "method": "GET",
+          "path": "/api/manifest",
+          "operation_id": "get_api_manifest",
+          "side_effect_class": "none"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/manifest",
+          "operation_id": "get_control_center_manifest",
+          "side_effect_class": "validation_only"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/runtime-readiness/summary",
+          "operation_id": "get_control_center_runtime_readiness_summary",
+          "side_effect_class": "validation_only"
+        },
+        {
+          "method": "GET",
+          "path": "/runtime/readiness",
+          "operation_id": "get_runtime_readiness",
+          "side_effect_class": "validation_only"
+        },
+        {
+          "method": "GET",
+          "path": "/runtime/capability-matrix",
+          "operation_id": "get_runtime_capability_matrix",
+          "side_effect_class": "validation_only"
+        }
+      ],
+      "missing_backend_routes": [
+        "latency-report-summary",
+        "storage-status",
+        "queue-status",
+        "loopback-lifecycle-reviewed-settings-status"
+      ]
+    },
+    {
+      "surface": "Evidence",
+      "owner": "evidence-and-audit",
+      "auth_posture": "local_read_only_safe_refs",
+      "side_effect_class": "mixed_validation_and_local_dev_workspace_only",
+      "risk_class": "medium",
+      "release_status": "partial_backend_not_product_ready",
+      "approval_requirement": "No approval for read-only evidence inspection; mutating evidence generation follows owner routes.",
+      "evidence_audit_output": "Receipt preview refs, event validation refs, audit summaries, metrics refs, and Foundation Gate refs.",
+      "current_backend_routes": [
+        {
+          "method": "POST",
+          "path": "/receipts/preview",
+          "operation_id": "post_receipts_preview",
+          "side_effect_class": "validation_only"
+        },
+        {
+          "method": "POST",
+          "path": "/events/validate",
+          "operation_id": "post_events_validate",
+          "side_effect_class": "validation_only"
+        },
+        {
+          "method": "GET",
+          "path": "/task-decomposition/audit",
+          "operation_id": "get_task_decomposition_audit",
+          "side_effect_class": "local_dev_workspace_only"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/foundation-gate/summary",
+          "operation_id": "get_control_center_foundation_gate_summary",
+          "side_effect_class": "validation_only"
+        }
+      ],
+      "missing_backend_routes": [
+        "release-evidence-index",
+        "run-receipt-trace",
+        "rollback-status"
+      ]
+    },
+    {
+      "surface": "Settings",
+      "owner": "operator-settings",
+      "auth_posture": "not_implemented_disabled_by_default",
+      "side_effect_class": "not_implemented",
+      "risk_class": "high",
+      "release_status": "blocked_missing_backend",
+      "approval_requirement": "Exact approval is required before any setting can enable runtime authority, persistence, lifecycle behavior, or mutation.",
+      "evidence_audit_output": "No dedicated settings evidence yet beyond status summaries.",
+      "current_backend_routes": [],
+      "missing_backend_routes": [
+        "settings-manifest",
+        "loopback-auth-status",
+        "feature-flag-status",
+        "kill-switch-status",
+        "reviewed-local-runtime-settings"
+      ]
+    }
+  ],
+  "visible_actions": [
+    {
+      "action_id": "navigate-overview",
+      "label": "Navigate Overview",
+      "ui_surface": "Runtime",
+      "frontend_route": "/",
+      "owner": "control-center",
+      "auth_posture": "local_read_only_status",
+      "side_effect_class": "mixed_none_and_validation_only",
+      "risk_class": "low",
+      "release_status": "status_available_not_completion",
+      "approval_requirement": "None for read-only status.",
+      "evidence_audit_output": "Dashboard and runtime summary refs.",
+      "backend_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/dashboard",
+          "operation_id": "get_control_center_dashboard",
+          "side_effect_class": "validation_only"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/manifest",
+          "operation_id": "get_control_center_manifest",
+          "side_effect_class": "validation_only"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/status",
+          "operation_id": "get_control_center_status",
+          "side_effect_class": "validation_only"
+        }
+      ],
+      "missing_backend_routes": []
+    },
+    {
+      "action_id": "navigate-dashboard",
+      "label": "Navigate Dashboard",
+      "ui_surface": "Runtime",
+      "frontend_route": "/dashboard",
+      "owner": "control-center",
+      "auth_posture": "local_read_only_status",
+      "side_effect_class": "validation_only",
+      "risk_class": "low",
+      "release_status": "status_available_not_completion",
+      "approval_requirement": "None for read-only status.",
+      "evidence_audit_output": "Dashboard summary refs.",
+      "backend_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/dashboard",
+          "operation_id": "get_control_center_dashboard",
+          "side_effect_class": "validation_only"
+        }
+      ],
+      "missing_backend_routes": []
+    },
+    {
+      "action_id": "navigate-chat-shell",
+      "label": "Navigate Chat Shell",
+      "ui_surface": "Chat Shell",
+      "frontend_route": "/chat",
+      "owner": "local-model-runtime",
+      "auth_posture": "blocked_placeholder_only",
+      "side_effect_class": "local_ui_state_only",
+      "risk_class": "high",
+      "release_status": "blocked_missing_backend",
+      "approval_requirement": "Reviewed local model prerequisites and explicit local gateway authorization are required before any chat loop can be product-ready.",
+      "evidence_audit_output": "No durable evidence output from the placeholder page.",
+      "backend_routes": [],
+      "missing_backend_routes": [
+        "control-center-chat-status",
+        "chat-receipt-summary",
+        "tools-functions-streaming-denial-summary"
+      ]
+    },
+    {
+      "action_id": "navigate-plans",
+      "label": "Navigate Plans",
+      "ui_surface": "Plans",
+      "frontend_route": "/plans",
+      "owner": "task-decomposition",
+      "auth_posture": "blocked_placeholder_only",
+      "side_effect_class": "local_ui_state_only",
+      "risk_class": "high",
+      "release_status": "blocked_missing_backend",
+      "approval_requirement": "Exact approval and durable run binding are required before any plan handler can run.",
+      "evidence_audit_output": "No durable evidence output from the placeholder page.",
+      "backend_routes": [],
+      "missing_backend_routes": [
+        "control-center-plans-surface-status",
+        "durable-run-lifecycle-summary",
+        "replay-summary"
+      ]
+    },
+    {
+      "action_id": "navigate-models",
+      "label": "Navigate Models",
+      "ui_surface": "Models",
+      "frontend_route": "/models",
+      "owner": "local-model-management",
+      "auth_posture": "blocked_placeholder_only",
+      "side_effect_class": "local_ui_state_only",
+      "risk_class": "high",
+      "release_status": "blocked_missing_backend",
+      "approval_requirement": "Approved GGUF/model refs and reviewed local runtime settings are required before live local use.",
+      "evidence_audit_output": "No durable evidence output from the placeholder page.",
+      "backend_routes": [],
+      "missing_backend_routes": [
+        "gguf-selection-status",
+        "llama-cpp-reviewed-settings-status",
+        "local-model-rollback-status"
+      ]
+    },
+    {
+      "action_id": "navigate-runtime",
+      "label": "Navigate Runtime",
+      "ui_surface": "Runtime",
+      "frontend_route": "/runtime",
+      "owner": "runtime-readiness",
+      "auth_posture": "local_read_only_status",
+      "side_effect_class": "validation_only",
+      "risk_class": "medium",
+      "release_status": "partial_backend_not_product_ready",
+      "approval_requirement": "None for read-only status.",
+      "evidence_audit_output": "Runtime readiness and capability matrix refs.",
+      "backend_routes": [
+        {
+          "method": "GET",
+          "path": "/runtime/readiness",
+          "operation_id": "get_runtime_readiness",
+          "side_effect_class": "validation_only"
+        },
+        {
+          "method": "GET",
+          "path": "/runtime/capability-matrix",
+          "operation_id": "get_runtime_capability_matrix",
+          "side_effect_class": "validation_only"
+        }
+      ],
+      "missing_backend_routes": [
+        "latency-report-summary",
+        "storage-status"
+      ]
+    },
+    {
+      "action_id": "navigate-foundation-gate",
+      "label": "Navigate Foundation Gate",
+      "ui_surface": "Evidence",
+      "frontend_route": "/foundation-gate",
+      "owner": "foundation-gate",
+      "auth_posture": "local_read_only_summary",
+      "side_effect_class": "validation_only",
+      "risk_class": "low",
+      "release_status": "status_available_not_completion",
+      "approval_requirement": "None for read-only status.",
+      "evidence_audit_output": "Foundation Gate summary refs.",
+      "backend_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/foundation-gate/summary",
+          "operation_id": "get_control_center_foundation_gate_summary",
+          "side_effect_class": "validation_only"
+        }
+      ],
+      "missing_backend_routes": []
+    },
+    {
+      "action_id": "navigate-api-routes",
+      "label": "Navigate API Routes",
+      "ui_surface": "Runtime",
+      "frontend_route": "/api-routes",
+      "owner": "api-boundary",
+      "auth_posture": "local_read_only_status",
+      "side_effect_class": "mixed_none_and_validation_only",
+      "risk_class": "low",
+      "release_status": "status_available_not_completion",
+      "approval_requirement": "None for read-only route inventory.",
+      "evidence_audit_output": "OpenAPI route inventory refs.",
+      "backend_routes": [
+        {
+          "method": "GET",
+          "path": "/api/manifest",
+          "operation_id": "get_api_manifest",
+          "side_effect_class": "none"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/routes",
+          "operation_id": "get_control_center_routes",
+          "side_effect_class": "validation_only"
+        }
+      ],
+      "missing_backend_routes": []
+    },
+    {
+      "action_id": "navigate-approvals",
+      "label": "Navigate Approvals",
+      "ui_surface": "Approvals",
+      "frontend_route": "/approvals",
+      "owner": "approval-authority",
+      "auth_posture": "local_review_only",
+      "side_effect_class": "validation_only",
+      "risk_class": "medium",
+      "release_status": "partial_backend_not_product_ready",
+      "approval_requirement": "Exact scoped backend approval routes are required for real approval capture.",
+      "evidence_audit_output": "Approval summary refs and validation decision refs.",
+      "backend_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/approvals/summary",
+          "operation_id": "get_control_center_approvals_summary",
+          "side_effect_class": "validation_only"
+        }
+      ],
+      "missing_backend_routes": [
+        "control-center-live-approval-capture-binding"
+      ]
+    },
+    {
+      "action_id": "navigate-receipts",
+      "label": "Navigate Receipts",
+      "ui_surface": "Evidence",
+      "frontend_route": "/receipts",
+      "owner": "evidence-and-audit",
+      "auth_posture": "local_read_only_safe_refs",
+      "side_effect_class": "validation_only",
+      "risk_class": "medium",
+      "release_status": "partial_backend_not_product_ready",
+      "approval_requirement": "None for read-only receipt inspection.",
+      "evidence_audit_output": "Receipt preview refs and receipt summary refs.",
+      "backend_routes": [
+        {
+          "method": "POST",
+          "path": "/receipts/preview",
+          "operation_id": "post_receipts_preview",
+          "side_effect_class": "validation_only"
+        }
+      ],
+      "missing_backend_routes": [
+        "run-receipt-trace"
+      ]
+    },
+    {
+      "action_id": "navigate-events",
+      "label": "Navigate Events",
+      "ui_surface": "Evidence",
+      "frontend_route": "/events",
+      "owner": "event-ledger",
+      "auth_posture": "local_validation_only",
+      "side_effect_class": "validation_only",
+      "risk_class": "medium",
+      "release_status": "partial_backend_not_product_ready",
+      "approval_requirement": "None for read-only event inspection.",
+      "evidence_audit_output": "Event validation refs and event summary refs.",
+      "backend_routes": [
+        {
+          "method": "POST",
+          "path": "/events/validate",
+          "operation_id": "post_events_validate",
+          "side_effect_class": "validation_only"
+        }
+      ],
+      "missing_backend_routes": [
+        "event-timeline-live-summary"
+      ]
+    },
+    {
+      "action_id": "navigate-event-timeline",
+      "label": "Navigate Timeline",
+      "ui_surface": "Evidence",
+      "frontend_route": "/events/timeline",
+      "owner": "event-ledger",
+      "auth_posture": "mock_only",
+      "side_effect_class": "local_ui_state_only",
+      "risk_class": "medium",
+      "release_status": "mock_only_not_product_ready",
+      "approval_requirement": "None; current UI state is not completion evidence.",
+      "evidence_audit_output": "Mock timeline refs only.",
+      "backend_routes": [],
+      "missing_backend_routes": [
+        "event-timeline-live-summary",
+        "run-receipt-trace"
+      ]
+    },
+    {
+      "action_id": "navigate-evidence",
+      "label": "Navigate Evidence",
+      "ui_surface": "Evidence",
+      "frontend_route": "/evidence",
+      "owner": "evidence-and-audit",
+      "auth_posture": "mock_plus_partial_backend",
+      "side_effect_class": "mixed_validation_and_local_dev_workspace_only",
+      "risk_class": "medium",
+      "release_status": "partial_backend_not_product_ready",
+      "approval_requirement": "None for read-only evidence inspection.",
+      "evidence_audit_output": "Audit summary refs and Foundation Gate refs.",
+      "backend_routes": [
+        {
+          "method": "GET",
+          "path": "/task-decomposition/audit",
+          "operation_id": "get_task_decomposition_audit",
+          "side_effect_class": "local_dev_workspace_only"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/foundation-gate/summary",
+          "operation_id": "get_control_center_foundation_gate_summary",
+          "side_effect_class": "validation_only"
+        }
+      ],
+      "missing_backend_routes": [
+        "release-evidence-index"
+      ]
+    },
+    {
+      "action_id": "navigate-files",
+      "label": "Navigate Files",
+      "ui_surface": "Files",
+      "frontend_route": "/files",
+      "owner": "local-file-workbench",
+      "auth_posture": "safe_refs_only",
+      "side_effect_class": "local_dev_workspace_only",
+      "risk_class": "high",
+      "release_status": "partial_backend_not_product_ready",
+      "approval_requirement": "Exact approval is required before any file mutation.",
+      "evidence_audit_output": "Safe file refs and redacted preview refs.",
+      "backend_routes": [
+        {
+          "method": "POST",
+          "path": "/files/refs/validate",
+          "operation_id": "post_files_refs_validate",
+          "side_effect_class": "local_dev_workspace_only"
+        },
+        {
+          "method": "POST",
+          "path": "/files/read/preview",
+          "operation_id": "post_files_read_preview",
+          "side_effect_class": "local_dev_workspace_only"
+        }
+      ],
+      "missing_backend_routes": [
+        "file-tree-safe-ref",
+        "file-operation-status"
+      ]
+    },
+    {
+      "action_id": "navigate-file-review",
+      "label": "Navigate File Review",
+      "ui_surface": "Files",
+      "frontend_route": "/files/review",
+      "owner": "local-file-workbench",
+      "auth_posture": "review_only_local_state",
+      "side_effect_class": "local_ui_state_only",
+      "risk_class": "high",
+      "release_status": "local_ui_state_only_not_evidence",
+      "approval_requirement": "Backend approval binding is required before this can count as real approval evidence.",
+      "evidence_audit_output": "Review-only component state; not release evidence.",
+      "backend_routes": [
+        {
+          "method": "POST",
+          "path": "/files/review/approvals/capture",
+          "operation_id": "post_files_review_approvals_capture",
+          "side_effect_class": "local_dev_workspace_only"
+        }
+      ],
+      "missing_backend_routes": [
+        "control-center-file-review-binding",
+        "rollback-receipt"
+      ]
+    },
+    {
+      "action_id": "navigate-context-proposals",
+      "label": "Navigate Context Proposals",
+      "ui_surface": "Evidence",
+      "frontend_route": "/context/proposals",
+      "owner": "context-governance",
+      "auth_posture": "mock_only",
+      "side_effect_class": "local_ui_state_only",
+      "risk_class": "high",
+      "release_status": "mock_only_not_product_ready",
+      "approval_requirement": "Later scoped context proposal route and approval binding required.",
+      "evidence_audit_output": "Mock proposal refs only.",
+      "backend_routes": [],
+      "missing_backend_routes": [
+        "safe-context-proposal-status",
+        "context-handoff-denial-summary"
+      ]
+    },
+    {
+      "action_id": "navigate-memory",
+      "label": "Navigate Memory",
+      "ui_surface": "Evidence",
+      "frontend_route": "/memory",
+      "owner": "memory-governance",
+      "auth_posture": "mock_only",
+      "side_effect_class": "local_ui_state_only",
+      "risk_class": "high",
+      "release_status": "mock_only_not_product_ready",
+      "approval_requirement": "Later scoped memory read/write policy binding required.",
+      "evidence_audit_output": "Mock memory refs only.",
+      "backend_routes": [],
+      "missing_backend_routes": [
+        "memory-lifecycle-status",
+        "memory-write-policy-status"
+      ]
+    },
+    {
+      "action_id": "navigate-local-runtime",
+      "label": "Navigate Local Runtime",
+      "ui_surface": "Runtime",
+      "frontend_route": "/runtime/local",
+      "owner": "runtime-readiness",
+      "auth_posture": "local_read_only_status",
+      "side_effect_class": "validation_only",
+      "risk_class": "medium",
+      "release_status": "partial_backend_not_product_ready",
+      "approval_requirement": "Lifecycle actions require later scoped approval.",
+      "evidence_audit_output": "Runtime readiness refs and capability matrix refs.",
+      "backend_routes": [
+        {
+          "method": "GET",
+          "path": "/runtime/readiness",
+          "operation_id": "get_runtime_readiness",
+          "side_effect_class": "validation_only"
+        },
+        {
+          "method": "GET",
+          "path": "/runtime/capability-matrix",
+          "operation_id": "get_runtime_capability_matrix",
+          "side_effect_class": "validation_only"
+        }
+      ],
+      "missing_backend_routes": [
+        "loopback-lifecycle-reviewed-settings-status"
+      ]
+    },
+    {
+      "action_id": "navigate-manual-smoke",
+      "label": "Navigate Manual Smoke",
+      "ui_surface": "Runtime",
+      "frontend_route": "/runtime/manual-smoke",
+      "owner": "runtime-readiness",
+      "auth_posture": "validation_only",
+      "side_effect_class": "validation_only",
+      "risk_class": "medium",
+      "release_status": "partial_backend_not_product_ready",
+      "approval_requirement": "Manual smoke execution remains outside this UI.",
+      "evidence_audit_output": "Manual smoke report validation refs.",
+      "backend_routes": [
+        {
+          "method": "POST",
+          "path": "/runtime/smoke-reports/validate",
+          "operation_id": "post_runtime_smoke_reports_validate",
+          "side_effect_class": "validation_only"
+        }
+      ],
+      "missing_backend_routes": [
+        "manual-smoke-result-index"
+      ]
+    },
+    {
+      "action_id": "navigate-remote-workers",
+      "label": "Navigate Remote Workers",
+      "ui_surface": "Runtime",
+      "frontend_route": "/remote-workers",
+      "owner": "remote-worker-governance",
+      "auth_posture": "dashboard_summary_only",
+      "side_effect_class": "validation_only",
+      "risk_class": "high",
+      "release_status": "mock_only_not_product_ready",
+      "approval_requirement": "Remote dispatch is not available from Control Center.",
+      "evidence_audit_output": "Dashboard summary refs only.",
+      "backend_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/dashboard",
+          "operation_id": "get_control_center_dashboard",
+          "side_effect_class": "validation_only"
+        }
+      ],
+      "missing_backend_routes": [
+        "remote-worker-route-status"
+      ]
+    },
+    {
+      "action_id": "navigate-mobile-planning",
+      "label": "Navigate Mobile Planning",
+      "ui_surface": "Settings",
+      "frontend_route": "/mobile-planning",
+      "owner": "mobile-governance",
+      "auth_posture": "planning_only",
+      "side_effect_class": "local_ui_state_only",
+      "risk_class": "high",
+      "release_status": "mock_only_not_product_ready",
+      "approval_requirement": "Mobile control is not available from Control Center.",
+      "evidence_audit_output": "Planning summary refs only.",
+      "backend_routes": [],
+      "missing_backend_routes": [
+        "mobile-permission-status"
+      ]
+    },
+    {
+      "action_id": "navigate-plugin-governance",
+      "label": "Navigate Plugin Governance",
+      "ui_surface": "Settings",
+      "frontend_route": "/plugin-governance",
+      "owner": "plugin-governance",
+      "auth_posture": "planning_only",
+      "side_effect_class": "local_ui_state_only",
+      "risk_class": "high",
+      "release_status": "mock_only_not_product_ready",
+      "approval_requirement": "Plugin runtime import is not available from Control Center.",
+      "evidence_audit_output": "Governance summary refs only.",
+      "backend_routes": [],
+      "missing_backend_routes": [
+        "plugin-activation-status"
+      ]
+    },
+    {
+      "action_id": "navigate-settings",
+      "label": "Navigate Settings",
+      "ui_surface": "Settings",
+      "frontend_route": "/settings",
+      "owner": "operator-settings",
+      "auth_posture": "blocked_placeholder_only",
+      "side_effect_class": "local_ui_state_only",
+      "risk_class": "high",
+      "release_status": "blocked_missing_backend",
+      "approval_requirement": "A scoped settings milestone is required before any setting can mutate state or enable authority.",
+      "evidence_audit_output": "No durable evidence output from the placeholder page.",
+      "backend_routes": [],
+      "missing_backend_routes": [
+        "settings-manifest",
+        "loopback-auth-status",
+        "feature-flag-status",
+        "kill-switch-status",
+        "reviewed-local-runtime-settings"
+      ]
+    },
+    {
+      "action_id": "submit-action-preview",
+      "label": "Preview Action",
+      "ui_surface": "Runtime",
+      "frontend_route": "/action-preview",
+      "owner": "control-center",
+      "auth_posture": "local_preview_only",
+      "side_effect_class": "validation_only",
+      "risk_class": "medium",
+      "release_status": "preview_available_not_execution",
+      "approval_requirement": "Preview only; no approval ref becomes authority.",
+      "evidence_audit_output": "Preview decision refs and reason codes.",
+      "backend_routes": [
+        {
+          "method": "POST",
+          "path": "/control-center/actions/preview",
+          "operation_id": "post_control_center_actions_preview",
+          "side_effect_class": "validation_only"
+        }
+      ],
+      "missing_backend_routes": [],
+      "visible_action_kinds": [
+        "view_status",
+        "view_receipt",
+        "view_event_summary",
+        "preview_action",
+        "preview_approval",
+        "preview_runtime",
+        "preview_remote_worker",
+        "preview_mobile_capability"
+      ]
+    },
+    {
+      "action_id": "select-local-detail-card",
+      "label": "Select Local Detail Card",
+      "ui_surface": "Evidence",
+      "frontend_route": "/events/timeline",
+      "owner": "control-center",
+      "auth_posture": "local_ui_state_only",
+      "side_effect_class": "local_ui_state_only",
+      "risk_class": "low",
+      "release_status": "local_ui_state_only_not_evidence",
+      "approval_requirement": "None; local selection is not completion evidence.",
+      "evidence_audit_output": "No durable evidence output.",
+      "backend_routes": [],
+      "missing_backend_routes": [
+        "selected-detail-evidence-binding"
+      ]
+    },
+    {
+      "action_id": "toggle-review-only-file-decision",
+      "label": "Approve or Deny Review-Only File Decision",
+      "ui_surface": "Files",
+      "frontend_route": "/files/review",
+      "owner": "local-file-workbench",
+      "auth_posture": "local_ui_state_only",
+      "side_effect_class": "local_ui_state_only",
+      "risk_class": "medium",
+      "release_status": "local_ui_state_only_not_evidence",
+      "approval_requirement": "Backend approval capture is required before this can count as approval evidence.",
+      "evidence_audit_output": "No durable evidence output from the visible UI action.",
+      "backend_routes": [],
+      "missing_backend_routes": [
+        "control-center-file-review-approval-binding"
+      ]
+    }
+  ],
+  "non_goals": [
+    "production_authority",
+    "public_distribution",
+    "broad_autonomy",
+    "shell_or_subprocess_execution",
+    "unrestricted_network_or_browser_automation",
+    "connector_writes",
+    "plugin_runtime_import",
+    "mobile_control",
+    "autonomous_background_execution"
+  ]
+}

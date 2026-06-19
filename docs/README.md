@@ -18,6 +18,7 @@ docs/canonical/CANONICAL_DOC_MAP.md
 docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md
 docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md
 docs/control_center/OPERATOR_SHELL_GAP_MAP.md
+docs/control_center/PRODUCT_LANGUAGE_RULES.md
 docs/kanban/current_board.md
 docs/security/SECURITY_TRIAGE_RUNBOOK.md
 docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md
@@ -39,6 +40,7 @@ docs/release_notes/checkpoint_m167.md
 docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md
 docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md
 docs/control_center/OPERATOR_SHELL_GAP_MAP.md
+docs/control_center/PRODUCT_LANGUAGE_RULES.md
 docs/kanban/current_board.md
 SECURITY.md
 docs/security/SECURITY_TRIAGE_RUNBOOK.md

@@ -1,7 +1,7 @@
 # Roadmap Docs
 
 Status: active
-Current through: v2.0.0
+Current through: v2.0.0 plus accepted checkpoint-m168 and active Operator Runtime Excellence P2 ecosystem inspection work through UAA-P2-051
 Purpose: Entry point for active roadmap docs and historical roadmap references.
 
 Current roadmap sources of truth:
@@ -52,15 +52,16 @@ the latest accepted local model lane checkpoint tags remain `checkpoint-m166`
 and `checkpoint-m167`. The product/package baseline is v2.0.0.
 
 Active program note: M168 starts the Operator Runtime Excellence currentness and
-product-truth lane; P0 repair work through UAA-P0-007 adds public security
+product-truth lane; P0 repair work through UAA-P0-017 adds public security
 posture, local model evidence scaffolding, local model smoke scaffolding,
-performance baseline reporting, and the Control Center operator-shell gap map.
-External benchmark and peer-console context is product-shaping evidence only,
-not an implementation dependency or authority source. This work adds no
-provider call, tool execution, shell/subprocess execution, unrestricted network
-or browser automation, connector writes, plugin runtime import, mobile control,
-memory write, context injection, external distribution, raw prompt logging, raw
-response logging, raw provider payload logging, beta release, or production
+performance baseline reporting, the Control Center operator-shell gap map,
+packaging/provenance guidance, tuning hardening, and local model operational
+recovery. UAA-P1-010 adds the durable run spine contract and tests. External
+benchmark and peer-console context is product-shaping evidence only, not an
+implementation dependency or authority source. This work adds no provider call,
+tool execution, shell/subprocess execution, unrestricted network or browser
+automation, connector writes, plugin runtime import, mobile control, memory
+write, context injection, external distribution, beta release, or production
 authority.
 
 Documentation organization and historical-roadmap handling rules live in

@@ -17,6 +17,7 @@ docs/roadmap/README.md
 docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md
 docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md
 docs/control_center/OPERATOR_SHELL_GAP_MAP.md
+docs/control_center/PRODUCT_LANGUAGE_RULES.md
 docs/kanban/current_board.md
 docs/security/SECURITY_TRIAGE_RUNBOOK.md
 docs/archive/README.md
@@ -128,6 +129,7 @@ docs/production/LOCAL_STATE_ROLLBACK_RUNBOOK.md
 docs/production/LOCAL_RUNTIME_PACKAGING.md
 docs/api/SAFE_STATIC_MANIFEST_CACHING.md
 docs/control_center/OPERATOR_SHELL_GAP_MAP.md
+docs/control_center/PRODUCT_LANGUAGE_RULES.md
 docs/production/M167_LIVE_MODEL_PRODUCTION_HARDENING_BOUNDARY.md
 docs/production/M167_LIVE_MODEL_PRODUCTION_HARDENING_NON_GOALS.md
 docs/production/M167_LIVE_MODEL_PRODUCTION_HARDENING_RUNBOOK.md

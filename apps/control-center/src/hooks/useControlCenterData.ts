@@ -18,7 +18,7 @@ export function useControlCenterData(): LoadState {
           setState({ status: "ready", data, error: null });
         }
       })
-      .catch((error: unknown) => {
+      .catch(() => {
         if (active) {
           setState({
             status: "error",
@@ -26,7 +26,8 @@ export function useControlCenterData(): LoadState {
               ...({} as unknown as ControlCenterData),
               source: "mock",
             },
-            error: error instanceof Error ? error.message : "Unable to load Control Center data.",
+            error:
+              "Control Center data could not be loaded safely. Check local backend status and use redacted summaries only.",
           });
         }
       });

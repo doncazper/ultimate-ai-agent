@@ -74,6 +74,12 @@ def test_control_center_frontend_verifier_tracks_m21_openwebui_drift_strings():
         assert dependency in verifier.FORBIDDEN_FRONTEND_DEPENDENCIES
 
 
+def test_control_center_frontend_verifier_compares_reset_semver_numerically():
+    verifier = load_verifier()
+
+    assert verifier._version_tuple("v0.100.0") > verifier._version_tuple("v0.41.0")
+
+
 def test_control_center_frontend_verifier_blocks_unsafe_m36_file_review_refs_and_mutations():
     verifier = load_verifier()
     rel = Path("apps/control-center/src/mocks/controlCenterData.ts")

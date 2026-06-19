@@ -51,6 +51,7 @@ organization cleanup baseline before the M26 and M27 implementation releases.
 - [Operator Runtime Excellence roadmap](docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md)
 - [Product release-truth packet](docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md)
 - [Control Center operator-shell gap map](docs/control_center/OPERATOR_SHELL_GAP_MAP.md)
+- [Control Center product language rules](docs/control_center/PRODUCT_LANGUAGE_RULES.md)
 - [Plugin/skill ecosystem boundary](docs/tooling/PLUGIN_SKILL_ECOSYSTEM_BOUNDARY.md)
 - [Inspectable extension catalog](docs/tooling/INSPECTABLE_EXTENSION_CATALOG.md)
 - [Extension activation grants](docs/tooling/EXTENSION_ACTIVATION_GRANTS.md)
