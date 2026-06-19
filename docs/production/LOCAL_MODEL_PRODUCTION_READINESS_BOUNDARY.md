@@ -6,7 +6,8 @@ llama.cpp and OpenWebUI gateway scope established by M160-M165.
 The production authority grant is not a route, deploy command, traffic switch,
 OpenWebUI admin action, plugin installation, credential export, model download,
 model selection change, or automatic runtime mutation. It is a typed release
-gate decision over redacted evidence refs.
+gate decision over redacted evidence refs that have been explicitly marked as
+reviewed live evidence.
 
 Required evidence remains local and bounded:
 

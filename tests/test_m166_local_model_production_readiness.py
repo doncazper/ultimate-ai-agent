@@ -13,7 +13,19 @@ from ultimate_ai_agent.core.production_readiness import (
 )
 
 
-def test_m166_green_evidence_covers_required_production_readiness_lane():
+def _reviewed(evidence):
+    return [
+        item.model_copy(
+            update={
+                "reviewed_live_evidence": True,
+                "reviewed_by_ref": f"review-ref:m166:{item.kind.value}",
+            }
+        )
+        for item in evidence
+    ]
+
+
+def test_m166_fixture_evidence_covers_required_production_readiness_lane():
     evidence = build_m166_green_production_readiness_evidence()
 
     assert [item.kind.value for item in evidence] == list(REQUIRED_M166_EVIDENCE_KINDS)
@@ -29,11 +41,20 @@ def test_m166_green_evidence_covers_required_production_readiness_lane():
         assert item.raw_response_included is False
         assert item.secret_included is False
         assert item.blocker_refs == []
+        assert item.reviewed_live_evidence is False
+        assert item.reviewed_by_ref is None
         assert validate_m166_production_readiness_evidence_record(item) == item
 
 
-def test_m166_release_gate_grants_production_authority_when_all_evidence_is_green():
+def test_m166_fixture_evidence_cannot_grant_production_authority():
     evidence = build_m166_green_production_readiness_evidence()
+
+    with pytest.raises(ValueError, match="M166_REVIEWED_LIVE_EVIDENCE_REQUIRED"):
+        build_m166_production_release_gate_record(evidence_records=evidence)
+
+
+def test_m166_release_gate_grants_production_authority_when_all_evidence_is_reviewed():
+    evidence = _reviewed(build_m166_green_production_readiness_evidence())
     gate = build_m166_production_release_gate_record(evidence_records=evidence)
 
     assert gate.status == ProductionReleaseGateStatus.production_authority_granted
@@ -63,7 +84,7 @@ def test_m166_release_gate_grants_production_authority_when_all_evidence_is_gree
 def test_m166_release_gate_requires_all_six_evidence_categories():
     evidence = [
         item
-        for item in build_m166_green_production_readiness_evidence()
+        for item in _reviewed(build_m166_green_production_readiness_evidence())
         if item.kind != ProductionReadinessEvidenceKind.load_test
     ]
 
@@ -83,6 +104,7 @@ def test_m166_release_gate_requires_all_six_evidence_categories():
         ({"secret_included": True}, "M166_SECRET_DENIED"),
         ({"openwebui_is_agent_brain": True}, "M166_OPENWEBUI_AUTHORITY_DENIED"),
         ({"unsupported_network_used": True}, "M166_UNSUPPORTED_NETWORK_DENIED"),
+        ({"reviewed_live_evidence": True}, "M166_REVIEWED_BY_REF_REQUIRED"),
         (
             {"source_checkpoint_ref": "checkpoint:m164"},
             "M166_SOURCE_CHECKPOINT_M165_REQUIRED",
@@ -115,7 +137,7 @@ def test_m166_evidence_rejects_unsafe_mutations(update, reason):
 )
 def test_m166_release_gate_rejects_unsafe_mutations(update, reason):
     gate = build_m166_production_release_gate_record(
-        evidence_records=build_m166_green_production_readiness_evidence()
+        evidence_records=_reviewed(build_m166_green_production_readiness_evidence())
     )
 
     with pytest.raises(ValueError, match=reason):

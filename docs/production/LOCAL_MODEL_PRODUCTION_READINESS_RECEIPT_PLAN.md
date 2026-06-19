@@ -16,6 +16,7 @@ Receipt refs include:
 - `replay-ref:m166:production-release-gate`
 
 The receipt plan records production authority granted only when all required
-evidence is green. It records no raw prompt, no raw response, no raw provider
-payload, no credential material, no raw local path, no raw log, and no
-environment dump.
+evidence is green and explicitly reviewed as live evidence. Generated fixture
+evidence is non-authoritative. It records no raw prompt, no raw response, no
+raw provider payload, no credential material, no raw local path, no raw log,
+and no environment dump.

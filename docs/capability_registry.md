@@ -125,7 +125,7 @@ Run the dev-only smoke harness to prove registry resolution and schema export wi
 PYTHONPATH=src .venv/bin/python scripts/dev/capability_registry_smoke.py
 ```
 
-The harness registers one deterministic in-process echo capability, resolves it for a test run context, executes it, and prints OpenAI/MCP schemas. It does not add backend routes, provider calls, plugin loading, shell/network authority, or production authority.
+The harness registers one deterministic in-process echo capability, resolves it for a test run context, executes it, prints OpenAI/MCP schemas, and also runs a bounded manifest/coordinator capability path. It does not add backend routes, provider calls, plugin loading, shell/network authority, or production authority. The master verifier runs this smoke explicitly so the runnable example remains covered even when pytest is skipped in split CI jobs.
 
 ## Testing
 

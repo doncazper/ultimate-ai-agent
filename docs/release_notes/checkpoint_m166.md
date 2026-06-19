@@ -5,7 +5,8 @@ M166 adds the Local Model Production Readiness Gate.
 The gate is evidence-bound and can grant production authority for the local
 llama.cpp and OpenWebUI gateway layer only when live install/run tests,
 OpenWebUI E2E tests, security review, packaging, operational rollback, and load
-tests are all green.
+tests are all green and explicitly reviewed as live evidence. Generated fixture
+evidence is non-authoritative.
 
 The checkpoint remains safe-ref-only, redacted-summary-only, revocable,
 replay-safe, audit-bound, rollback-bound, exact-scope-bound, localhost-only, and

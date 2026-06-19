@@ -65,6 +65,8 @@ class ProductionReadinessEvidenceRecord(_ProductionReleaseGateModel):
     metric_refs: list[str] = Field(default_factory=list)
     blocker_refs: list[str] = Field(default_factory=list)
     warning_refs: list[str] = Field(default_factory=list)
+    reviewed_live_evidence: bool = False
+    reviewed_by_ref: str | None = None
     redacted: bool = True
     safe_refs_only: bool = True
     loopback_only: bool = True
@@ -96,6 +98,10 @@ class ProductionReadinessEvidenceRecord(_ProductionReleaseGateModel):
             _validate_m61_ref(value, field_name)
         for ref in [*self.metric_refs, *self.blocker_refs, *self.warning_refs]:
             _validate_m61_ref(ref, "evidence_support_ref")
+        if self.reviewed_by_ref is not None:
+            _validate_m61_ref(self.reviewed_by_ref, "reviewed_by_ref")
+        if self.reviewed_live_evidence and self.reviewed_by_ref is None:
+            raise ValueError("M166_REVIEWED_BY_REF_REQUIRED")
         _validate_safe_payload(
             {
                 "safe_summary": self.safe_summary,
@@ -365,6 +371,8 @@ def validate_m166_production_release_gate_record(
         raise ValueError("M166_ALL_REQUIRED_EVIDENCE_REQUIRED")
     if len(validated_evidence) != len(required):
         raise ValueError("M166_DUPLICATE_OR_EXTRA_EVIDENCE_DENIED")
+    if any(not record.reviewed_live_evidence or record.reviewed_by_ref is None for record in validated_evidence):
+        raise ValueError("M166_REVIEWED_LIVE_EVIDENCE_REQUIRED")
     for field_name, reason in [
         ("exact_scope_bound", "M166_EXACT_SCOPE_REQUIRED"),
         ("all_evidence_passed", "M166_ALL_EVIDENCE_PASS_REQUIRED"),

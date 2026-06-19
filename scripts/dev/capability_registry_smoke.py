@@ -13,11 +13,19 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 from ultimate_ai_agent.core.capabilities import (  # noqa: E402
+    Artifact,
+    CapabilityKind,
+    CapabilityManifest,
     CapabilityPolicy,
     CapabilityRegistry,
     CapabilityRunContext,
+    CoordinationMode,
+    CoordinationRiskLevel,
+    Coordinator,
     RiskLevel,
+    SideEffectLevel,
     tool_capability,
+    wrap_tool,
 )
 from ultimate_ai_agent.core.capabilities.adapters import capability_to_mcp_tool, capability_to_openai_tool  # noqa: E402
 
@@ -60,6 +68,47 @@ def build_registry() -> CapabilityRegistry:
         del ctx
         return EchoOutput(summary=f"smoke:{args.message.strip()}")
 
+    async def manifest_echo(envelope, context) -> Artifact:
+        return Artifact(
+            producer_capability_id=context["capability_id"],
+            kind="smoke.manifest_result",
+            content={"summary": f"manifest:{envelope.objective.strip()}"},
+            summary="Manifest/coordinator smoke capability completed.",
+            confidence=1.0,
+        )
+
+    registry.register(
+        CapabilityManifest(
+            id="smoke:manifest_echo",
+            version="1.0.0",
+            kind=CapabilityKind.tool,
+            name="Manifest Echo",
+            description="Return a deterministic artifact through the manifest/coordinator capability lane.",
+            tags=["smoke", "manifest", "read"],
+            examples=["Use for local capability registry manifest/coordinator smoke testing."],
+            anti_examples=["Do not use for external calls, shell commands, writes, or production authority."],
+            input_schema={"type": "object", "properties": {"objective": {"type": "string"}}},
+            output_schema={"type": "object", "properties": {"summary": {"type": "string"}}},
+            input_modes=["text", "structured_ref"],
+            output_modes=["artifact"],
+            side_effects=SideEffectLevel.read,
+            risk_level=CoordinationRiskLevel.low,
+            auth_scopes=["smoke:read"],
+            data_classes=["public"],
+            allowed_coordination_modes=[CoordinationMode.direct_tool],
+            concurrency_safe=True,
+            safety={
+                "allow_parallel": True,
+                "require_single_writer": False,
+                "approval_required": False,
+                "max_risk_level": CoordinationRiskLevel.low,
+                "max_side_effect_level": SideEffectLevel.read,
+            },
+            metadata={"owner": "dev-smoke", "runtime_authority": "in_process_only"},
+        ),
+        wrap_tool("smoke:manifest_echo", manifest_echo),
+    )
+
     return registry
 
 
@@ -73,11 +122,20 @@ def main() -> int:
 
     spec = resolved[0]
     result = registry.execute_sync(spec.name, {"message": "local registry ready"}, context)
+    coordinator_result = Coordinator(registry).run(
+        "local manifest registry ready",
+        {
+            "trace_id": "trace:capability-smoke-manifest",
+            "auth_scopes": ["smoke:read"],
+            "capability_ids": ["smoke:manifest_echo"],
+        },
+    )
     payload = {
         "ok": result.ok,
         "resolved_capability_names": [item.name for item in resolved],
         "openai_tool": capability_to_openai_tool(spec),
         "mcp_tool": capability_to_mcp_tool(spec),
+        "manifest_coordinator_result": coordinator_result.model_dump(mode="json"),
         "result": result.model_dump(mode="json"),
         "no_backend_route_added": True,
         "no_provider_call_performed": True,

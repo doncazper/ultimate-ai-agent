@@ -53322,7 +53322,22 @@ class FoundationGateEvaluator:
                 validate_m166_production_release_gate_record,
             )
 
-            evidence = build_m166_green_production_readiness_evidence()
+            fixture_evidence = build_m166_green_production_readiness_evidence()
+            try:
+                build_m166_production_release_gate_record(evidence_records=fixture_evidence)
+                failures.append("M166 fixture evidence unexpectedly granted production authority")
+            except ValueError as exc:
+                if "M166_REVIEWED_LIVE_EVIDENCE_REQUIRED" not in str(exc):
+                    failures.append(f"M166 fixture evidence failed with wrong reason: {exc}")
+            evidence = [
+                record.model_copy(
+                    update={
+                        "reviewed_live_evidence": True,
+                        "reviewed_by_ref": f"review-ref:m166:{record.kind.value}",
+                    }
+                )
+                for record in fixture_evidence
+            ]
             gate = build_m166_production_release_gate_record(evidence_records=evidence)
             expected_kinds = [
                 ProductionReadinessEvidenceKind(kind)
@@ -53363,6 +53378,8 @@ class FoundationGateEvaluator:
                     or evidence_record.raw_path_included
                     or evidence_record.secret_included
                     or evidence_record.blocker_refs
+                    or not evidence_record.reviewed_live_evidence
+                    or evidence_record.reviewed_by_ref is None
                 ):
                     failures.append(f"M166 evidence record unsafe: {evidence_record.evidence_ref}")
                 validate_m166_production_readiness_evidence_record(evidence_record)
@@ -53403,6 +53420,9 @@ class FoundationGateEvaluator:
             "operational rollback",
             "load tests",
             "all required evidence is green",
+            "reviewed live evidence",
+            "generated fixture evidence",
+            "non-authoritative",
             "revocable",
             "replay-safe",
             "redacted summary only",
@@ -53481,6 +53501,9 @@ class FoundationGateEvaluator:
             "REQUIRED_M166_EVIDENCE_KINDS",
             "ProductionReadinessEvidenceKind",
             "ProductionReleaseGateStatus",
+            "reviewed_live_evidence",
+            "reviewed_by_ref",
+            "M166_REVIEWED_LIVE_EVIDENCE_REQUIRED",
             "build_m166_production_release_gate_record",
             "validate_m166_production_release_gate_record",
             "checkpoint:m165",

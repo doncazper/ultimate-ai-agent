@@ -29316,13 +29316,20 @@ def main(argv=None):
     else:
         run_timed(timings, "command:pytest", lambda: run_cmd([sys.executable, "-m", "pytest"], env=env))
 
-    # 3. Explicitly Enforce Scans
+    # 3. Run deterministic dev smoke harnesses that should remain covered even when pytest is skipped.
+    run_timed(
+        timings,
+        "command:capability_registry_smoke",
+        lambda: run_cmd([sys.executable, "scripts/dev/capability_registry_smoke.py"], env=env),
+    )
+
+    # 4. Explicitly Enforce Scans
     if args.skip_static_scans:
         print("\nSkipping static verification scans (--skip-static-scans)")
     else:
         run_static_scans(timings)
 
-    # 4. Run Baseline Consistency Verification
+    # 5. Run Baseline Consistency Verification
     if args.skip_baseline:
         print("\nSkipping current baseline verification (--skip-baseline)")
     else:
@@ -29335,7 +29342,7 @@ def main(argv=None):
             lambda: run_cmd(baseline_command),
         )
 
-    # 5. Run Documentation Integrity Verification
+    # 6. Run Documentation Integrity Verification
     if args.skip_docs:
         print("\nSkipping documentation integrity verification (--skip-docs)")
     else:
@@ -29345,7 +29352,7 @@ def main(argv=None):
             lambda: run_cmd([sys.executable, "scripts/verify_documentation_integrity.py"]),
         )
 
-    # 6. Run Skill Package Security Rule Audit
+    # 7. Run Skill Package Security Rule Audit
     if args.skip_skill:
         print("\nSkipping skill package security rule verification (--skip-skill)")
     else:
@@ -29355,7 +29362,7 @@ def main(argv=None):
             lambda: run_cmd([sys.executable, "scripts/verify_skill_package_security_rule.py"]),
         )
 
-    # 7. Run OpenAPI Contract Verification
+    # 8. Run OpenAPI Contract Verification
     if args.skip_openapi:
         print("\nSkipping OpenAPI contract verification (--skip-openapi)")
     else:

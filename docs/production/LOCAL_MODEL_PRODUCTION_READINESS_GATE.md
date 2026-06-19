@@ -4,7 +4,7 @@ Checkpoint M166 adds the local model production-readiness gate for the
 post-M165 llama.cpp and OpenWebUI local gateway layer.
 
 The gate is evidence-bound. It grants production authority only when all
-required evidence is green:
+required evidence is green and explicitly reviewed as live evidence:
 
 - live install/run tests
 - OpenWebUI E2E tests
@@ -16,6 +16,10 @@ required evidence is green:
 Evidence records are redacted summary only, safe-ref-only, localhost-only,
 revocable, replay-safe, exact-scope-bound, audit-bound, rollback-bound, and
 bound to `checkpoint:m165`.
+
+Generated fixture evidence may validate the gate contract, but it is
+non-authoritative and cannot by itself authorize production runtime, go-live,
+deployment, or traffic routing.
 
 The release gate may set production authority granted, production runtime
 authorized, go-live authorized, production deployment authorized, and traffic
