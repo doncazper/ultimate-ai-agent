@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 
 from ultimate_ai_agent.core.approvals.v2.contracts import (
     ActionIntent,
@@ -122,6 +122,19 @@ def _validate_payload_reason(value, field_name: str, *, fallback_reason: str) ->
 
 def _extra_value(model, field_name: str, default=None):
     return getattr(model, field_name, default)
+
+
+def _expiry_utc(value: datetime | None) -> datetime | None:
+    if value is None:
+        return None
+    if value.tzinfo is None or value.utcoffset() is None:
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
+
+
+def _most_restrictive_expiry(*values: datetime | None) -> datetime | None:
+    candidates = [_expiry_utc(value) for value in values if value is not None]
+    return min(candidates) if candidates else None
 
 
 def _revalidate_actor_for_evaluation(intent: ActionIntent) -> list[str]:
@@ -366,9 +379,8 @@ def evaluate_approval_grant(
     # and scope-level deadlines. Using `or` would ignore an already-expired scope
     # deadline whenever the grant-level expiry is set, letting an expired scope be
     # bypassed by a later grant expiry.
-    expiry_candidates = [ts for ts in (grant.expires_at, grant.scope.expires_at) if ts is not None]
-    effective_expiry = min(expiry_candidates) if expiry_candidates else None
-    reasons.extend(expiry_reason(effective_expiry, current_time))
+    effective_expiry = _most_restrictive_expiry(grant.expires_at, grant.scope.expires_at)
+    reasons.extend(expiry_reason(effective_expiry, _expiry_utc(current_time)))
     reasons.extend(assert_no_wildcard_approval(grant.scope.scope_kind, grant.actor_ref, grant.action_ref, grant.resource_ref))
     reasons.extend(assert_no_replay(replay_nonce or grant.replay_nonce or grant.scope.replay_nonce, grant.used_replay_nonces))
     if grant.actor_ref != intent.actor.actor_ref or grant.scope.actor_ref != intent.actor.actor_ref:
