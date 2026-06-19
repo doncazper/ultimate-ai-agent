@@ -247,7 +247,9 @@ function MemoryRow({
         <span>{item.reviewStatus}</span>
       </div>
       <p>{item.memoryType}</p>
-      <p className="review-meta">stale review | source conflict flagged</p>
+      <p className="review-meta">
+        {item.staleStatus} | {item.conflictStatus.replace("Conflict indicator: ", "")}
+      </p>
       <button type="button" className="secondary-button" onClick={() => onSelect(item.memoryRef)}>
         View metadata
       </button>

@@ -13,8 +13,28 @@ const FILE_REVIEW_CAPTURE_BOUNDARY_COPY =
 
 export function FileReviewSurfacePanel({ review }: { review: M36FileReviewData }) {
   const [selectedRef, setSelectedRef] = useState(review.packets[0]?.reviewPacketRef ?? "");
+  const [captureByPacketRef, setCaptureByPacketRef] = useState<
+    Record<string, FileReviewApprovalCaptureSummary>
+  >(() =>
+    Object.fromEntries(
+      review.packets.map((packet) => [packet.reviewPacketRef, packet.approvalCapture]),
+    ),
+  );
   const selected =
     review.packets.find((packet) => packet.reviewPacketRef === selectedRef) ?? review.packets[0];
+  const selectedCapture = selected
+    ? (captureByPacketRef[selected.reviewPacketRef] ?? selected.approvalCapture)
+    : undefined;
+
+  function updateSelectedCapture(capture: FileReviewApprovalCaptureSummary) {
+    if (!selected) {
+      return;
+    }
+    setCaptureByPacketRef((previous) => ({
+      ...previous,
+      [selected.reviewPacketRef]: capture,
+    }));
+  }
 
   return (
     <section className="page-section" aria-labelledby="file-review-surface-heading">
@@ -51,7 +71,11 @@ export function FileReviewSurfacePanel({ review }: { review: M36FileReviewData }
               />
             ))}
           </div>
-          <FileReviewPacketDetail packet={selected} />
+          <FileReviewPacketDetail
+            packet={selected}
+            capture={selectedCapture ?? selected.approvalCapture}
+            onCaptureChange={updateSelectedCapture}
+          />
         </div>
       ) : (
         <EmptyState
@@ -97,11 +121,17 @@ function FileReviewPacketRow({
   );
 }
 
-function FileReviewPacketDetail({ packet }: { packet: FileReviewPacketSummary }) {
-  const [capture, setCapture] = useState<FileReviewApprovalCaptureSummary>(packet.approvalCapture);
-
+function FileReviewPacketDetail({
+  packet,
+  capture,
+  onCaptureChange,
+}: {
+  packet: FileReviewPacketSummary;
+  capture: FileReviewApprovalCaptureSummary;
+  onCaptureChange: (capture: FileReviewApprovalCaptureSummary) => void;
+}) {
   function captureReviewOnly(status: "approved_for_review_only" | "denied_for_review") {
-    setCapture({
+    onCaptureChange({
       status,
       captured: true,
       persisted: true,
