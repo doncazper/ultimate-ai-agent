@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.102.0**
 
-Current OpenAPI path count: `97`.
+Current OpenAPI path count: `99`.
 
 The OpenAPI schema is the public route contract for the current FastAPI API
 boundary. `/api/manifest` is the typed metadata and route-inventory endpoint
@@ -21,6 +21,9 @@ Contract rules:
 - Route metadata must preserve explicit side-effect classes.
 - Local-dev workspace routes must remain local-dev scoped, policy-bound, and
   blocked from production authority by default.
+- Governed web evidence routes may use the `governed_network_read_only`
+  side-effect class and must remain HTTPS GET only, allowlisted, bounded,
+  redacted, receipt-ref oriented, and blocked from unrestricted browsing.
 - The local `/v1` gateway must remain disabled by default, loopback/local-only,
   bearer-gated, and constrained to the accepted local model lane.
 - `GET /extensions/catalog` must remain a read-only inspectable metadata route
@@ -51,6 +54,7 @@ Verification:
 ```bash
 PYTHONPATH=src .venv/bin/python scripts/verify_openapi_contract.py
 PYTHONPATH=src .venv/bin/python -m pytest tests/test_api_manifest.py
+PYTHONPATH=src .venv/bin/python -m pytest tests/test_governed_web_evidence.py
 ```
 
 Export:
