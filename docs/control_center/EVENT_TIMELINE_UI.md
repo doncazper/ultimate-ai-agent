@@ -30,7 +30,8 @@ Safety boundary:
 
 The UI must show no raw prompts, no raw secrets, no raw file contents, no raw memory contents, no raw credentials, no raw provider payloads, and no raw event payload dumps.
 
-M16 does not change the Python API boundary. OpenAPI path count remains `74`; only version metadata changes to `0.20.1`.
+M16 does not change the Python API boundary. Only version metadata changes to
+`0.20.1`.
 
 Review build hygiene:
 

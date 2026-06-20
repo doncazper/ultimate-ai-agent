@@ -31,6 +31,25 @@ route, frontend mutation control, setup mutation, connector runtime,
 model/provider call, shell/browser/plugin/mobile/remote execution, installer
 authority, public distribution, or production authority.
 
+## Planning-Only Permission Language
+
+Future Founder Command Center surfaces should use one shared permission
+vocabulary, without granting authority by naming it:
+
+- Observe: read or summarize safe refs only.
+- Draft: create editable proposals that cannot send, write, or execute.
+- Propose: describe a scoped action envelope for review.
+- Approve once: future exact-scope approval for one reviewed action only.
+- Approve rule: future bounded rule approval with expiry, revocation, audit, and
+  receipt requirements.
+- Autopilot micro-scope: future narrowly bounded repeated action class only
+  after separate scoped approval.
+- Kill switch: visible stop/disable/revoke posture for any future authority lane.
+
+These labels are product language for planning and review. They do not bypass
+PolicyEngine, LocalApprovalAuthority, scoped milestone approval, route tests, or
+product-language verification.
+
 ## MVP v0 Surface Map
 
 ### Today Surface

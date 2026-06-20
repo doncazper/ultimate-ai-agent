@@ -1,12 +1,15 @@
 # Frontend Safety Policy
 
-Status: Active for M18 Local Runtime Status + Manual Smoke Control Surface as of v0.22.0.
+Status: Active safety policy for the local Control Center shell. Historical
+milestone sections below preserve their original route-count claims as audit
+context; current API truth lives in `docs/api/README.md`.
 
 The Web Control Center shell is a display and preview surface. The Python Agent Core remains the brain and source of policy enforcement.
 
 Frontend safety rules:
 
-- UI controls may read status, route inventory, readiness reports, and summaries.
+- UI controls may read status, route inventory, readiness reports, setup
+  assistant summaries, and other scoped read-only summaries.
 - The only action preview POST from the frontend is `/control-center/actions/preview`.
 - M18 may reference the existing validation-only `POST /runtime/smoke-reports/validate` route for safe manual smoke report metadata validation.
 - Action preview must never be treated as execution, approval, credential resolution, remote dispatch, model invocation, plugin enablement, or sensor access.
@@ -68,7 +71,7 @@ v0.18.0 implements local backend connection stabilization only:
 - secret-like query strings or credentials in an API base are rejected.
 - mock fallback remains non-authoritative.
 - partial backend failures show degraded state.
-- OpenAPI path count remains `74`.
+- M14 adds no backend API path.
 
 ## v0.18.1 M14 Connection Safety Hardening
 

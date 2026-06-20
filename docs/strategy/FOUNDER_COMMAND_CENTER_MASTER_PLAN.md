@@ -46,7 +46,8 @@ The repo currently has:
 - Product language rules that require implemented, partial, planned, blocked,
   skipped, and missing states to stay distinct.
 
-The gap is that the first lovable product loop is not complete.
+The `UAA-P1-011` readable-loop baseline exists. The remaining product gap is
+that the first lovable daily founder loop is not yet complete.
 
 ## Why UAA Is Not Yet The Ultimate Assistant
 
@@ -172,6 +173,28 @@ P2 workflows:
 - Business memory for people, projects, deals, and promises
 - Task planning and approval-bound task creation
 - Governed integrations after read-only contracts and exact approval gates
+
+## First-Party Tool Direction
+
+The product should prefer a small number of excellent first-party workflows over
+a broad plugin marketplace. Target directions are:
+
+- Contacts lookup and contact metadata review after scoped consent/redaction
+  work, not live account access by default.
+- Task creation proposals that stay editable and cannot write to external task
+  systems until a later exact approval lane exists.
+- Local file patch proposals with safe refs, bounded previews, approval, receipt,
+  and rollback posture.
+- Local memory proposals that go through Memory Review before becoming recall.
+- Governed article/evidence capture over allowlisted read-only evidence
+  contracts.
+- GitHub read-only project status where repository access, redaction, and
+  evidence refs are separately scoped.
+- CRM-lite local lead/follow-up state using reviewed local metadata only.
+
+These directions are planning language only. They do not add connector runtime,
+account auth, external writes, browser automation, plugin execution, or
+production authority.
 
 ## Next Implementation Lane
 

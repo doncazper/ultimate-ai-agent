@@ -87,7 +87,7 @@ Must not add:
 
 Dependencies: M21 contracts, runtime readiness docs, local-only endpoint policy.
 
-Acceptance criteria: local runtime profiles are metadata/validation-only and cannot execute user content, tools, or memory writes. No model was called, no runtime was activated, no endpoint was contacted, and OpenAPI path count remains `74`.
+Acceptance criteria: local runtime profiles are metadata/validation-only and cannot execute user content, tools, or memory writes. No model was called, no runtime was activated, no endpoint was contacted, and no OpenAPI path count change is accepted in this milestone.
 
 Review prompt required: yes.
 
@@ -215,7 +215,7 @@ Must not add:
 
 Dependencies: M23 hardening, memory policy, truth/evidence boundaries.
 
-Acceptance criteria: memory writes require review, provenance, delete/export paths, source refs, redacted summary-only storage, no secret storage, no automatic/model/local-LLM/OpenWebUI/mobile/tool writes, no vector DB, no embeddings, no cloud memory, no context injection, no backend mutation route, and OpenAPI path count remains `74`.
+Acceptance criteria: memory writes require review, provenance, delete/export paths, source refs, redacted summary-only storage, no secret storage, no automatic/model/local-LLM/OpenWebUI/mobile/tool writes, no vector DB, no embeddings, no cloud memory, no context injection, no backend mutation route, and no OpenAPI path count change is accepted in this milestone.
 
 Review prompt required: yes.
 
@@ -612,7 +612,7 @@ Must not add:
 
 Dependencies: M27 Tool Broker v2 contracts, M28 Approval Authority v2, M29 review-only planning, and M30 state-machine-only execution contracts.
 
-Acceptance criteria: only `tool:no_op.v1` can be invoked; no-op completion is deterministic and records `side_effects_performed=[]`; raw input is not echoed or stored; approval refs, `approval_test_*`, task plans, tool intents, context packs, memory, model/runtime/OpenWebUI output, and Control Center refs cannot authorize invocation; OpenAPI path count remains `74`; M32-M40 remain planned/provisional.
+Acceptance criteria: only `tool:no_op.v1` can be invoked; no-op completion is deterministic and records `side_effects_performed=[]`; raw input is not echoed or stored; approval refs, `approval_test_*`, task plans, tool intents, context packs, memory, model/runtime/OpenWebUI output, and Control Center refs cannot authorize invocation; no OpenAPI path count change is accepted in this milestone; M32-M40 remain planned/provisional.
 
 Review prompt required: yes.
 
@@ -653,7 +653,7 @@ Must not add:
 
 Dependencies: M31 no-op runtime adapter.
 
-Acceptance criteria: safe metadata lookup succeeds under a server-owned safe root; unsafe paths, symlinks, caller roots, raw content, previews, hashes, listings, recursion, mutation, and authority-ref bypasses are denied; OpenAPI path count remains `74`.
+Acceptance criteria: safe metadata lookup succeeds under a server-owned safe root; unsafe paths, symlinks, caller roots, raw content, previews, hashes, listings, recursion, mutation, and authority-ref bypasses are denied; no OpenAPI path count change is accepted in this milestone.
 
 Review prompt required: yes.
 
@@ -698,7 +698,7 @@ Must not add:
 Acceptance criteria: unsafe path encodings, private-key-like paths,
 caller-selected roots, unsafe metadata alias flags, and model_copy-mutated
 metadata/tool_ref bypasses are denied; valid metadata-only safe-root lookup
-still succeeds; OpenAPI path count remains `74`.
+still succeeds; no OpenAPI path count change is accepted in this milestone.
 
 Review prompt required: yes.
 
@@ -748,7 +748,7 @@ Acceptance criteria: safe redacted preview succeeds under a server-owned safe
 root; raw/full/hash/listing/mutation flags, unsafe paths, symlinks, directories,
 binary files, unsupported encodings, oversized files, caller roots, and
 authority-ref bypasses are denied; redacted results return no raw content or raw
-absolute path; OpenAPI path count remains `74`.
+absolute path; no OpenAPI path count change is accepted in this milestone.
 
 Review prompt required: yes.
 
@@ -769,7 +769,7 @@ Purpose: Harden M33 redacted preview safety without expanding file capability.
 Acceptance criteria: symlink safe roots are denied before preview; secret-like
 preview text is rejected at the output contract boundary; evaluator boundaries
 revalidate safety-critical fields; static verifier and Foundation Gate probe the
-same bypasses; OpenAPI path count remains `74`.
+same bypasses; no OpenAPI path count change is accepted in this milestone.
 
 Hardening expectation: this is the M33 redacted preview safety hardening patch.
 M34 is implemented/released by v0.38.0 as broader file capability review

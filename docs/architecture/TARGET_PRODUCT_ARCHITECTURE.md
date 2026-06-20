@@ -125,15 +125,43 @@ LocalApprovalAuthority remains the exact-scope approval boundary. Approval refs
 are identifiers only. Exact actor, resource, capability, risk, scope,
 expiration, revocation, replay, audit, and receipt bindings must be preserved.
 
+### Planning-Only Permission Modes
+
+Founder Command Center surfaces should share a planning vocabulary for authority
+posture:
+
+- Observe: safe refs, metadata, and redacted summaries only.
+- Draft: editable output that cannot send, write, execute, or persist as truth.
+- Propose: a scoped action envelope with evidence, risk, side-effect class,
+  expiry, idempotency, receipt refs, and rollback/safe-disable posture.
+- Approve once: future exact-scope grant for one reviewed action.
+- Approve rule: future bounded rule approval with expiry, revocation, audit, and
+  receipt requirements.
+- Autopilot micro-scope: future narrowly bounded repeated action class after a
+  separate scoped milestone proves safety and usefulness.
+- Kill switch: visible stop/disable/revoke posture for any future authority lane.
+
+This taxonomy is product and architecture language only. It does not add
+approval authority, connector runtime, background autonomy, or execution.
+
 ### Memory Layers
 
 Memory remains recall, not truth or authority.
 
 Target layers:
 
-- Reviewed local recall records.
-- Business memory candidates for people, projects, deals, and promises.
-- Memory Review Inbox state.
+- Profile memory candidates for stable user preferences and working style.
+- Project memory candidates for goals, repos, decisions, blockers, and open
+  loops.
+- Relationship memory candidates for people, organizations, promises,
+  follow-ups, and context.
+- Episodic memory candidates for reviewed events, decisions, and outcomes.
+- Business memory candidates for deals, leads, customers, partnerships, and
+  commitments.
+- Semantic local knowledge labels and summaries for future reviewed retrieval
+  UX, without implying embeddings, vector search, RAG ingestion, or context
+  injection.
+- Reviewed local recall records and Memory Review Inbox state.
 - Redacted export and deletion/retention posture.
 - Source/evidence priority that keeps canonical evidence above memory.
 
@@ -158,8 +186,17 @@ Target adapters should be contract-first:
 
 - Email metadata read-only.
 - Calendar read-only.
+- Contacts lookup/read-only contact metadata contracts after scoped consent and
+  redaction review.
 - Draft-only response proposal.
+- Task creation proposals that cannot write to external task systems until a
+  later exact approval lane exists.
+- Governed article/evidence capture proposals over allowlisted read-only
+  evidence contracts.
+- GitHub read-only project status summaries where repository access, redaction,
+  and evidence refs are separately scoped.
 - Follow-up and lead metadata.
+- CRM-lite local lead/follow-up store with reviewed local metadata only.
 - Document/repo/project summary refs.
 
 Runtime connector behavior remains blocked until a later scoped milestone

@@ -1,6 +1,8 @@
 # Control Center Frontend Routes
 
-Status: Active for M18 Local Runtime Status + Manual Smoke Control Surface as of v0.22.0.
+Status: Active route-inventory currentness for the local Control Center shell.
+Historical milestone sections below preserve their original route-count claims as
+audit context; current API truth lives in `docs/api/README.md`.
 
 The frontend shell is served by Vite during local development. It is not mounted by the Python API and does not add OpenAPI paths.
 
@@ -30,6 +32,7 @@ Implemented frontend pages:
 - `/mobile-planning`
 - `/plugin-governance`
 - `/settings`
+- `/setup`
 - `/action-preview`
 
 Backend API endpoints consumed:
@@ -44,6 +47,7 @@ Backend API endpoints consumed:
 - `GET /control-center/approvals/summary`
 - `GET /control-center/runtime-readiness/summary`
 - `GET /control-center/foundation-gate/summary`
+- `GET /control-center/setup-assistant/summary`
 - `GET /runtime/readiness`
 - `GET /runtime/capability-matrix`
 - `GET /v1/models`
@@ -66,7 +70,9 @@ Forbidden frontend route/API targets:
 
 v0.17.4 keeps the frontend route set unchanged and adds local browser smoke UX polish plus safe reporting documentation. `scripts/verify_control_center_frontend.py` rejects forbidden execute, plugin enablement, runtime execution, remote dispatch, mobile sensor endpoint strings, analytics/SaaS SDK markers, sensitive browser APIs, and unsafe fixtures in frontend implementation files. `scripts/verify_control_center_browser_smoke_readiness.py` verifies that browser smoke readiness and reporting remain manual local-only documentation.
 
-OpenAPI remains a backend contract. v0.22.0 changes only `info.version` to `0.22.0`; backend path count remains `74` with unique operation IDs.
+OpenAPI remains a backend contract. The current backend path count is `108` with
+unique operation IDs; earlier milestone counts in the historical sections below
+are audit context, not current route inventory.
 
 ## v0.18.0 M14 Connection Stabilization
 

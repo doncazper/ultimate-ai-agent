@@ -593,8 +593,8 @@ Verification:
 - `UAA-P2-049` Done: Inspectable extension catalog.
 - `UAA-P2-050` Done: Extension activation grant records.
 - `UAA-P2-051` Done: MCP/A2A compatibility watchlist.
-- `UAA-P1-011` Now priority: complete first full operator loop before more
-  roadmap-only expansion.
+- `UAA-P1-011` Done baseline: first readable operator-loop proof chain exists;
+  Founder Command Center work now builds readability and product surfaces on top.
 - `UAA-P1-020` Shape: PolicyEngine consolidation map.
 - `UAA-P1-021` Shape: FastAPI route grouping and side-effect classes.
 - `UAA-P1-052` Shape: API service-module extraction plan.

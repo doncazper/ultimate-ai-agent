@@ -1,6 +1,9 @@
 # Local Runtime Status UI
 
-Status: Active for v0.22.0 / M18.
+Status: Historical M18 local runtime status UI safety note.
+
+Current API path count lives in `docs/api/README.md`; the route-count statement
+below reflects the M18 milestone, not current repository truth.
 
 M18 adds a CCC Web read-only local runtime status page at `/runtime/local`.
 
@@ -17,7 +20,7 @@ The page may show:
 Safety boundary:
 
 - No backend route is added.
-- OpenAPI path count remains `74`.
+- M18 adds no backend API path.
 - no runtime execution.
 - no local runtime start, stop, connect, launch, or provider invocation.
 - no model/provider calls.

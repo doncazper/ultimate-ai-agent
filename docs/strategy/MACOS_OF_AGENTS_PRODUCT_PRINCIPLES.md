@@ -22,6 +22,37 @@ Prefer Today, Inbox, Plans, Actions, Memory, Evidence, and Settings over many
 parallel pages. Add a new surface only when it completes a real workflow or
 clearly improves reviewability.
 
+### Polished Defaults, Low Setup Pain
+
+The default path should feel curated: local-first setup, visible prerequisites,
+safe recommendations, and clear next steps before any terminal-style detail. A
+blocked setup state should feel like an honest product state, not a puzzle.
+
+### Visible System Status
+
+Runtime health, local model readiness, route posture, degraded/mock fallback,
+latency, receipts, rollback refs, and disabled boundaries should be visible in
+plain language. The user should not have to infer system state from logs or raw
+payloads.
+
+### Beautiful Action Review
+
+Action review is a primary product surface. Approval envelopes, side-effect
+classes, risk, evidence, expiry, idempotency, receipt refs, and rollback posture
+should be readable at a glance before any future approval affordance appears.
+
+### Boring Reliability Is A Feature
+
+The product should prefer repeatable local flows, explicit degraded states,
+stable contracts, bounded previews, and tested rollback posture over impressive
+but fragile autonomy.
+
+### Save Time Every Day
+
+The daily loop should reduce actual founder/operator load: fewer forgotten
+follow-ups, faster decisions, clearer priorities, better drafts, safer action
+review, and less time spent decoding tool output.
+
 ### Proof Before Power
 
 A capability should show evidence, prerequisites, route posture, side-effect

@@ -92,6 +92,9 @@ The current visual surface is the web Control Center because the repo does not
 yet contain a native macOS SwiftUI app. The Control Center panel is a product
 prototype and review surface for the future native window. It remains
 read-only, mock-backed when the local backend is unavailable, and non-authority.
+It can use `GET /control-center/setup-assistant/summary` when the local backend
+is available; the route returns the existing dry-run setup summary and does not
+execute installer actions.
 
 ## Native macOS Direction
 
@@ -110,8 +113,8 @@ distribution slice.
 
 ## Hardening Suggestions
 
-- Add a read-only `/control-center/setup-assistant/summary` route after the
-  contract is reviewed.
+- Keep the read-only `/control-center/setup-assistant/summary` route truthful,
+  dry-run only, and covered by currentness tests.
 - Add bounded setup-log redaction tests before any real log source appears.
 - Harden per-step dry-run approval envelopes as validation/review metadata only.
   They may describe future exact approval requirements, but they do not make
@@ -132,5 +135,6 @@ distribution slice.
 - Confirm terminal details are bounded previews and not raw logs.
 - Confirm no raw path, credential, token, prompt, transcript, or provider
   payload is stored.
-- Decide whether the next slice should be native SwiftUI scaffold, read-only
-  backend summary route, or dry-run approval envelope.
+- Decide whether the next slice should be bounded setup-log redaction tests,
+  rollback rehearsal, native SwiftUI scaffold, or additional dry-run approval
+  envelope hardening.

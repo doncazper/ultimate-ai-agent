@@ -1,12 +1,14 @@
 # Web Control Center Shell
 
-Status: Active for M18 Local Runtime Status + Manual Smoke Control Surface as of v0.22.0.
+Status: Active shell safety/currentness for the local Control Center. Historical
+milestone sections below preserve their original route-count claims as audit
+context; current API truth lives in `docs/api/README.md`.
 
 M13 adds a local TypeScript React/Vite shell under `apps/control-center/` for reading existing backend Control Center and runtime readiness APIs. It is the first web UI surface for the future Control Center, but it is not a production Control Center and it has no authority to execute actions.
 
 Implemented shell behavior:
 
-- renders read-only dashboard, runtime readiness, Foundation Gate, API route, approval queue, receipt viewer, event viewer, event timeline trace viewer, evidence viewer, file reference viewer, memory viewer, remote worker, private mesh, mobile planning, and plugin governance summaries.
+- renders read-only dashboard, runtime readiness, Foundation Gate, API route, approval queue, receipt viewer, event viewer, event timeline trace viewer, evidence viewer, file reference viewer, memory viewer, remote worker, private mesh, mobile planning, plugin governance, setup assistant, and settings summaries.
 - submits exactly one preview-only request type to `/control-center/actions/preview`.
 - labels action preview as preview-only and displays blocked decisions as non-executed safety results.
 - exposes the action preview risk level as policy metadata only.
@@ -24,7 +26,8 @@ Implemented shell behavior:
 
 Non-goals:
 
-- no backend route changes beyond version metadata.
+- no backend mutation/execution routes and no route authority beyond separately
+  scoped read/validation summaries.
 - no public execution API.
 - no runtime/model/provider call.
 - no provider credential collection form.
@@ -53,7 +56,7 @@ v0.18.0 implements M14 local backend connection stabilization:
 - secret-like API base URL strings are rejected and not displayed.
 - live, degraded, and mock fallback states are visible.
 - partial backend failures show degraded state and call out non-authoritative mock fallback panels.
-- OpenAPI path count remains `74`; no backend route is added.
+- no backend route is added in M14.
 
 M14 kept local backend connection stabilization separate from M15. M15 is implemented in v0.19.0 as read-only/preview-only frontend inspection panels and adds no backend API routes, execution, approval authority, plugin enablement, remote dispatch, mobile sensor control, model/provider calls, auth, credentials, cookies, analytics/SaaS SDKs, production persistence, external API hosts, dependencies, or production Control Center authority.
 
@@ -116,7 +119,10 @@ The M16 route uses visibly mock, non-authoritative fallback data until a future 
 
 v0.20.1 hardens M16 without adding a new surface. The timeline route keeps selection local to the visible UI: clicking a second `View trace` control changes selected trace detail and selected-card state only.
 
-Foundation Gate now checks that OpenAPI path count remains `74` and that backend timeline, trace, raw event, and telemetry export routes remain absent. Release review builds should prefer temporary Vite output paths, and generated frontend build/log artifacts must remain ignored and untracked.
+Foundation Gate now checks that backend timeline, trace, raw event, and
+telemetry export routes remain absent. Release review builds should prefer
+temporary Vite output paths, and generated frontend build/log artifacts must
+remain ignored and untracked.
 
 ## v0.21.0 M17 Evidence File Memory Viewer
 
@@ -134,9 +140,15 @@ v0.21.1 hardens the existing M17 routes with alternate safe mock refs, accessibl
 
 M18 adds `/runtime/local` and `/runtime/manual-smoke` to the Web Control Center shell. The routes are frontend-only and use existing runtime readiness/validation contracts.
 
-`/runtime/local` displays read-only readiness and capability matrix summaries. `/runtime/manual-smoke` displays validation-only manual smoke report metadata. Neither route starts, stops, connects, launches, executes, calls models, performs manual smoke, dispatches remote work, enables plugins, accesses sensors, exposes raw reports, or adds backend routes. OpenAPI path count remains `74`.
+`/runtime/local` displays read-only readiness and capability matrix summaries.
+`/runtime/manual-smoke` displays validation-only manual smoke report metadata.
+Neither route starts, stops, connects, launches, executes, calls models,
+performs manual smoke, dispatches remote work, enables plugins, accesses
+sensors, exposes raw reports, or adds backend routes.
 
-`/evidence`, `/files`, and `/memory` remain frontend-only, read-only, visibly mock, non-authoritative, and redacted summary-only. OpenAPI path count remains `74`, and no backend API route is added.
+`/evidence`, `/files`, and `/memory` remain frontend-only, read-only, visibly
+mock, non-authoritative, and redacted summary-only. No backend API route is
+added in that milestone.
 ## M19 Mobile Companion Boundary
 
 v0.23.0 / M19 adds Mobile Companion Contract/API Planning only and does not add

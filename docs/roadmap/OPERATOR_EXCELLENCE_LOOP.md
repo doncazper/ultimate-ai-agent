@@ -166,7 +166,7 @@ record.
 
 | ID | Recommendation | Status | Owner | Evidence/ref | Next action |
 |---|---|---|---|---|---|
-| OEL-001 | Implement `UAA-P1-011` task decomposition operator loop | accepted | Codex | `docs/kanban/current_board.md` Now / Building | Draft scoped implementation prompt |
+| OEL-001 | Implement `UAA-P1-011` task decomposition operator loop | accepted baseline | Codex | `docs/kanban/current_board.md` Done; Founder Command Center docs use it as the readable-loop baseline | Continue readability/hardening in the next Founder Command Center lane |
 | OEL-002 | Add richer M167 observability UI over safe summaries | proposed | ChatGPT/Codex | `docs/backlog/codex_recommendation_log.md` | Shape exact UI/API boundary |
 | OEL-003 | Define retention enforcement for session logs | proposed | ChatGPT/Codex | `docs/observability/SESSION_LOGGING_M167.md` | Draft retention milestone |
 | OEL-004 | Complete `UAA-P2-048` static package review | proposed | Codex | `docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md` | Implement docs/schema/tests |
@@ -406,18 +406,20 @@ These shortcuts may look faster but weaken the contract-first foundation:
 
 ## Current Loop Cursor
 
-The next recommended implementation unit is `UAA-P1-011 Task decomposition
-operator loop`, unless the human reconciler chooses to shape M167 observability
-UI or static package review first.
+`UAA-P1-011` is now the accepted readable operator-loop baseline. The next
+recommended Founder Command Center implementation lane is macOS Setup Assistant
+hardening, first product loop readability, Action Inbox / approval envelope UX,
+Morning Briefing skeleton, and later read-only email/calendar integration
+contracts.
 
-Before implementing `UAA-P1-011`, draft an exact milestone prompt that covers:
+Before implementing the next lane, draft an exact milestone prompt that covers:
 
-- Control Center surfaces involved
-- backend task-decomposition routes
-- durable run binding
-- approval model
-- safe registered handler execution scope
-- audit/receipt/replay refs
+- Control Center surfaces involved.
+- Existing or proposed backend route contracts.
+- durable run binding.
+- approval model.
+- safe registered handler execution scope, if any.
+- audit/receipt/replay refs.
 - denied hidden authority
 - UI language and accessibility states
 - tests and verifier lanes

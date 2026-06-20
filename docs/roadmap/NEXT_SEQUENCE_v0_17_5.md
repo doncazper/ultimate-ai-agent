@@ -471,7 +471,7 @@ Acceptance criteria:
 - sensor output is not trusted control input by default.
 - Device Capability Broker is required before sensors.
 - capture cannot silently become memory.
-- OpenAPI path count remains `74`.
+- No OpenAPI path count change is accepted in this milestone.
 
 Review prompt required: yes.
 
@@ -527,7 +527,7 @@ Acceptance criteria:
 
 - every future device capability declares purpose, risk, permission scope, retention, redaction, logging, receipt, and revocation behavior.
 - mobile sensor capture cannot silently become memory or approve actions.
-- OpenAPI path count remains `74`.
+- No OpenAPI path count change is accepted in this milestone.
 - M21 is implemented/released as contract-only by v0.25.0.
 
 v0.24.1 hardening adds validator, test, documentation, static verifier, and
@@ -580,7 +580,7 @@ Acceptance criteria:
 - OpenWebUI remains the preferred conversational web shell.
 - OpenWebUI is not the agent brain.
 - Python Agent Core remains authority.
-- OpenAPI path count remains `74`.
+- No OpenAPI path count change is accepted in this milestone.
 - M22 is implemented/released contract-only by v0.26.0, and M23 is implemented/released by v0.27.0 as manual fixed-prompt local call only.
 
 Review prompt required: yes.

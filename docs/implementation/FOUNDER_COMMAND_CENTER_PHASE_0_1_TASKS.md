@@ -8,13 +8,13 @@ does not implement workflows, add runtime authority, change the API boundary,
 or add dependencies. Most tasks should land as small PRs with tests before
 product claims change.
 
-## Task 1 - FCC-P0-001 Finish UAA-P1-011 First Product Loop
+## Task 1 - FCC-P0-001 Capture UAA-P1-011 Readable Baseline
 
 Type: full-stack
 
-Current status: baseline implemented in this branch as a readable Operator Loop
-proof chain. Future work should extend from this baseline instead of recreating
-the UAA-P1-011 slice.
+Current status: baseline implemented as a readable Operator Loop proof chain.
+Future work should extend from this baseline instead of treating UAA-P1-011 as
+the complete Founder Command Center daily loop.
 
 New authority: no broad authority. Any safe capability action must use existing
 scoped PolicyEngine and LocalApprovalAuthority boundaries.
@@ -427,8 +427,11 @@ Acceptance criteria:
 
 - Modes distinguish inspect-only, draft-only, approval-required local mutation,
   governed read-only evidence, and blocked high-risk scopes.
+- Planning names are explicit and shared by product surfaces: Observe, Draft,
+  Propose, Approve once, Approve rule, Autopilot micro-scope, and Kill switch.
 - Modes bind to PolicyEngine, LocalApprovalAuthority, side-effect class, audit,
   receipt, revocation, and rollback requirements.
+- Naming a mode does not grant runtime authority.
 
 Tests to add/update:
 

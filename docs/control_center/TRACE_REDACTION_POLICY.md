@@ -38,8 +38,9 @@ Forbidden display classes:
 
 The frontend static verifier rejects raw M16 trace fields and credential-like trace fields in mock fixtures. Foundation Gate criterion `m16_event_timeline_trace_viewer_safe` verifies that the route remains read-only, summary-only, and free of execution/export controls.
 
-v0.20.1 also verifies that selecting alternate trace summaries stays read-only, that no backend timeline/raw/export route is added, and that OpenAPI path count remains `74`.
+v0.20.1 also verifies that selecting alternate trace summaries stays read-only
+and that no backend timeline/raw/export route is added in that milestone.
 
 Review builds should prefer temporary output paths such as `npm run build -- --outDir /tmp/uaa-control-center-review-dist` where practical. Generated frontend `dist`, `build`, `coverage`, `logs`, dependency, and cache artifacts must remain ignored and untracked.
 
-No backend route is added. OpenAPI path count remains `74`.
+No backend route is added in this milestone.

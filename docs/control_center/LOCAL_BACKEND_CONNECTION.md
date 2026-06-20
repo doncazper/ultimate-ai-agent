@@ -39,7 +39,7 @@ Safety requirements:
 - errors must be sanitized before display.
 - frontend requests must not add Authorization headers, cookies, API keys, credential APIs, analytics, SaaS SDKs, or external API hosts.
 - the only frontend POST target remains `/control-center/actions/preview`.
-- OpenAPI path count remains `74`; M14 adds no backend API path.
+- M14 adds no backend API path.
 - the Vite dev proxy, when used, must stay pinned to `http://127.0.0.1:8000`.
 - Vite proxy configuration and env examples must not include external targets, URL credentials, or secret-like API base strings.
 

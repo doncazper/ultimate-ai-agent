@@ -16,6 +16,7 @@ runner.
 | Active baseline | **v0.102.1** / `0.102.1` |
 | Active program | **Operator Runtime Excellence** |
 | Current lane | **Operator Runtime Excellence P2 ecosystem inspection lane through UAA-P2-051** |
+| Product wedge | **Founder Command Center / macOS-of-agents strategy spine** |
 | Latest repository checkpoint | **checkpoint-m168** |
 | Local model lane checkpoints | **checkpoint-m166**, **checkpoint-m167** |
 | API boundary | FastAPI route contract with **108** OpenAPI paths |

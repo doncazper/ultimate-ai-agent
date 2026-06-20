@@ -32,7 +32,38 @@ Authority-changing cards: 0 unless a separate scoped milestone is accepted
 
 ## Now
 
-### FCC-P0-002 - P0 - Founder Command Center Information Architecture
+### FCC-MAC-001 - P0 - macOS Setup Assistant Hardening
+
+Epic: Product/UX, Infrastructure/Deployment, Safety/Permissions
+
+Description: Harden the macOS-first Setup Assistant foundation around the
+existing dry-run/read-only route, bounded previews, approval-envelope posture,
+rollback refs, and truthful blocked states.
+
+Repo areas likely touched: `docs/macos/UAA-setup-assistant-plan.md`,
+`docs/control_center/OPERATOR_SHELL_GAP_MAP.md`,
+`apps/control-center/src/components/MacOSSetupAssistantPanel.tsx`,
+`apps/control-center/src/App.test.tsx`, and focused setup assistant tests if the
+slice changes contracts.
+
+Acceptance criteria: The setup surface stays dry-run only, model choices remain
+recommendation classes, approval-required setup steps show receipt and rollback
+refs, terminal/log details are bounded previews, and no setup mutation authority
+is implied.
+
+Required tests/verifiers: focused setup assistant tests,
+`make frontend-check`, `.venv/bin/python scripts/verify_control_center_frontend.py`,
+and OpenAPI verification only if the route contract changes.
+
+Safety notes: No installer execution, model download, LaunchAgent install/load,
+background-service install/load, bridge enablement, credential handling,
+shell/subprocess execution, signed installer readiness, public distribution, or
+production authority.
+
+Blockers/dependencies: Existing dry-run setup contract and read-only summary
+route.
+
+### FCC-P0-002 - P0 - First Product Loop Readability And Information Architecture
 
 Epic: Product/UX
 
@@ -55,7 +86,8 @@ Required tests/verifiers: `make frontend-check`,
 
 Safety notes: Frontend-only grouping must not imply completed backend flows.
 
-Blockers/dependencies: FCC-P0-001 defines the first loop shape.
+Blockers/dependencies: FCC-P0-001 defines the readable baseline; FCC-MAC-001
+keeps first-run/setup posture truthful.
 
 ## Ready
 
@@ -274,25 +306,6 @@ Blockers/dependencies: UAA-P1-052 on parent board.
 
 ## Backlog
 
-### FCC-P1-013 - P1 - Local Setup And Onboarding Wizard Spec
-
-Epic: Product/UX, Infrastructure/Deployment
-
-Description: Specify a non-secret setup wizard for local prerequisites,
-loopback API, OpenWebUI shell, local model readiness, and blocked states.
-
-Repo areas likely touched: `docs/developer/`, `docs/macos/`,
-`apps/control-center/src/components/MacOSSetupAssistantPanel.tsx`.
-
-Acceptance criteria: Wizard spec avoids installer, signing, background agent,
-credential collection, and public distribution claims.
-
-Required tests/verifiers: docs integrity; frontend tests if UI changes.
-
-Safety notes: Setup guidance only unless future scoped task implements UI.
-
-Blockers/dependencies: Existing local launcher docs.
-
 ### FCC-P1-014 - P1 - Lead And Follow-Up Tracker Spec
 
 Epic: Business Cofounder Workflows
@@ -356,14 +369,15 @@ No Founder Command Center cards are in Review yet.
 
 ## Done
 
-### FCC-P0-001 - P0 - Finish UAA-P1-011 First Product Loop
+### FCC-P0-001 - P0 - UAA-P1-011 Readable Operator-Loop Baseline
 
 Epic: Core Agent Runtime, Product/UX
 
-Description: Complete the first readable operator loop already named by the
-parent board: runtime health, local model readiness, UAA `/v1` chat readiness,
-plan creation, one safe capability approval path, and
-receipt/audit/latency/rollback inspection.
+Description: Establish the first readable operator-loop proof chain already
+named by the parent board: runtime health, local model readiness, UAA `/v1`
+chat readiness, plan creation, one safe capability approval path, and
+receipt/audit/latency/rollback inspection. This is a baseline for Founder
+Command Center work, not completion of the full daily founder loop.
 
 Repo areas likely touched: `apps/control-center/src/components/`,
 `apps/control-center/src/App.test.tsx`,

@@ -18,7 +18,7 @@ accepted.
 | model_copy mutation bypass | P1 | evaluator boundaries revalidate current object fields, not constructor-only assumptions | M35 evaluator revalidation tests | M35 | open |
 | approval_ref or approval_test_* misuse | P0 | approval refs are identifiers only; approval_test_* is never runtime authority | Approval Authority v2 tests and future file review gate | M35/M37 | mitigated generally, must preserve |
 | UI copy/export/context-injection drift | P1 | M36 must omit copy-raw, export, approve-before-M37, inject, execute, upload, browse, file picker, and root selector controls | frontend safety verifier and browser smoke readiness | M36 | open |
-| Backend route drift | P0 | OpenAPI path count remains 74; forbid raw-file/review/context/memory/tool execution routes | OpenAPI verifier and Foundation Gate | M35-M40 | active |
+| Backend route drift | P0 | OpenAPI path count must match the current generated contract; forbid raw-file/review/context/memory/tool execution routes | OpenAPI verifier and Foundation Gate | M35-M40 | active |
 | Verifier brittleness | P2 | keep checks focused on active docs/source and exclude archive snapshots | documentation integrity tests | M34/M35 | active |
 
 ## Release Review Focus
