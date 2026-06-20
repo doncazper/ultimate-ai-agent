@@ -1,0 +1,225 @@
+{
+  "baseline_ref": "baseline:v0.102.0",
+  "benchmark_id": "repo-awareness-benchmark:20260620t051730z:manual-review",
+  "categories": [
+    {
+      "blockers": [
+        "module_below_validated_contract:decision_router",
+        "module_below_validated_contract:task_decomposition_module"
+      ],
+      "evidence_refs": [
+        "docs/registry/agent_module_maturity_map.json",
+        "scripts/verify_agent_module_maturity_map.py"
+      ],
+      "id": "module_maturity",
+      "label": "Module maturity",
+      "metrics": {
+        "average_maturity_score": 3.25,
+        "max_maturity_score": 4,
+        "module_count": 12,
+        "modules_below_validated_contract": 2,
+        "score_distribution": {
+          "2": 2,
+          "3": 5,
+          "4": 5
+        }
+      },
+      "safe_summary": "Average requested-module maturity derived from the active module maturity map.",
+      "score": 54,
+      "tier": "emerging"
+    },
+    {
+      "blockers": [
+        "blocked_missing_backend:Chat Shell",
+        "blocked_missing_backend:Settings",
+        "blocked_missing_backend:navigate-chat-shell",
+        "blocked_missing_backend:navigate-plans",
+        "blocked_missing_backend:navigate-models",
+        "mock_only_not_product_ready:navigate-event-timeline",
+        "mock_only_not_product_ready:navigate-context-proposals",
+        "mock_only_not_product_ready:navigate-memory",
+        "mock_only_not_product_ready:navigate-remote-workers",
+        "mock_only_not_product_ready:navigate-mobile-planning",
+        "mock_only_not_product_ready:navigate-plugin-governance",
+        "blocked_missing_backend:navigate-settings"
+      ],
+      "evidence_refs": [
+        "docs/control_center/route_status_manifest.json",
+        "docs/control_center/ROUTE_STATUS_MANIFEST.md"
+      ],
+      "id": "route_product_surface",
+      "label": "Route and product surface",
+      "metrics": {
+        "openapi_path_count": 99,
+        "status_counts": {
+          "blocked_missing_backend": 6,
+          "local_ui_state_only_not_evidence": 3,
+          "mock_only_not_product_ready": 6,
+          "partial_backend_not_product_ready": 13,
+          "preview_available_not_execution": 1,
+          "status_available_not_completion": 6
+        },
+        "surface_count": 8,
+        "visible_action_count": 27
+      },
+      "safe_summary": "Control Center surfaces and visible actions scored from explicit route release statuses.",
+      "score": 46,
+      "tier": "emerging"
+    },
+    {
+      "blockers": [],
+      "evidence_refs": [
+        "scripts/verify_all.py",
+        "scripts/verify_documentation_integrity.py",
+        "scripts/verify_openapi_contract.py",
+        "scripts/verify_agent_module_maturity_map.py",
+        "scripts/verify_release_lanes.py",
+        "scripts/verify_release_evidence_packet.py",
+        "scripts/benchmark_foundation_gate.py",
+        "docs/production/RELEASE_VERIFICATION_LANES.md",
+        "docs/production/RELEASE_EVIDENCE_PACKET.md",
+        "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md",
+        "docs/control_center/ROUTE_STATUS_MANIFEST.md",
+        "docs/control_center/route_status_manifest.json",
+        "tests/test_agent_module_maturity_map.py",
+        "tests/test_release_evidence_packet.py",
+        "tests/test_foundation_gate_latency_scripts.py"
+      ],
+      "id": "verifier_evidence_coverage",
+      "label": "Verifier and evidence coverage",
+      "metrics": {
+        "missing_evidence_paths": 0,
+        "present_evidence_paths": 15,
+        "required_evidence_paths": 15
+      },
+      "safe_summary": "Required verifier, release-evidence, product-truth, and maturity-map paths checked for presence.",
+      "score": 100,
+      "tier": "rc_ready"
+    },
+    {
+      "blockers": [],
+      "evidence_refs": [
+        "README.md",
+        "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md",
+        "docs/production/RELEASE_EVIDENCE_PACKET_TEMPLATE.json",
+        "reports/performance/latest_release_latency_baseline.json",
+        "docs/control_center/route_status_manifest.json"
+      ],
+      "id": "safety_boundary_health",
+      "label": "Safety boundary health",
+      "metrics": {
+        "failed_safety_checks": 0,
+        "passed_check_ids": [
+          "route_manifest_default_posture_contract_first",
+          "release_packet_safety_flags_false",
+          "performance_report_safety_flags_false",
+          "policy_engine_not_bypassed",
+          "local_approval_authority_not_bypassed",
+          "openapi_checks_preserved",
+          "foundation_gate_checks_preserved",
+          "product_truth_non_goals_present"
+        ],
+        "passed_safety_checks": 8,
+        "safety_checks": 8
+      },
+      "safe_summary": "Safety score checks disabled-by-default posture, false raw-data flags, and preserved authority invariants.",
+      "score": 100,
+      "tier": "rc_ready"
+    },
+    {
+      "blockers": [],
+      "evidence_refs": [
+        "reports/performance/latest_release_latency_baseline.json",
+        "reports/performance/latest_performance_regression_report.json",
+        "scripts/benchmark_foundation_gate.py"
+      ],
+      "id": "performance_state",
+      "label": "Performance state",
+      "metrics": {
+        "generated_at_utc": "2026-06-20T05:13:13Z",
+        "overall_status": "passed",
+        "path_repeat": 5,
+        "required_path_count": 8,
+        "required_paths_passed": 8
+      },
+      "safe_summary": "Required release-critical local latency paths scored from the latest performance report.",
+      "score": 100,
+      "tier": "rc_ready"
+    },
+    {
+      "blockers": [
+        "rc_surface_not_ready:Chat Shell:blocked_missing_backend",
+        "rc_surface_not_ready:Plans:partial_backend_not_product_ready",
+        "rc_surface_not_ready:Models:partial_backend_not_product_ready",
+        "rc_surface_not_ready:Approvals:partial_backend_not_product_ready",
+        "rc_surface_not_ready:Files:partial_backend_not_product_ready",
+        "rc_surface_not_ready:Evidence:partial_backend_not_product_ready",
+        "rc_surface_not_ready:Settings:blocked_missing_backend"
+      ],
+      "evidence_refs": [
+        "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md",
+        "docs/production/RELEASE_EVIDENCE_PACKET.md",
+        "docs/production/RELEASE_VERIFICATION_LANES.md",
+        "docs/control_center/route_status_manifest.json"
+      ],
+      "id": "rc_readiness_blockers",
+      "label": "RC readiness blockers",
+      "metrics": {
+        "rc_doc_score": 100,
+        "rc_docs_present": 3,
+        "rc_surface_blockers": 7,
+        "surface_count": 8,
+        "surface_score": 49
+      },
+      "safe_summary": "RC readiness uses product-truth docs plus Control Center surface blockers, without claiming release readiness.",
+      "score": 64,
+      "tier": "stabilizing"
+    }
+  ],
+  "commit_ref": "commit:835d3e8767f158dfef260d4e2a05c3512736eac2",
+  "generated_at_utc": "2026-06-20T05:17:30Z",
+  "non_goals": [
+    "no backend routes",
+    "no Control Center UI surface",
+    "no model calls",
+    "no network fetches",
+    "no background workers",
+    "no new dependencies",
+    "no production authority"
+  ],
+  "reason": "manual-review",
+  "report_safety": {
+    "credential_material_included": false,
+    "environment_dump_included": false,
+    "hostname_included": false,
+    "raw_log_included": false,
+    "raw_path_included": false,
+    "raw_prompt_included": false,
+    "raw_provider_payload_included": false,
+    "raw_response_included": false,
+    "serial_included": false,
+    "username_included": false
+  },
+  "scan_mode": "whole_repo_deterministic",
+  "schema_version": "uaa_repo_awareness_benchmark.v1",
+  "score_summary": {
+    "category_weights": {
+      "module_maturity": 20,
+      "performance_state": 10,
+      "rc_readiness_blockers": 10,
+      "route_product_surface": 20,
+      "safety_boundary_health": 20,
+      "verifier_evidence_coverage": 20
+    },
+    "overall_score": 76,
+    "overall_tier": "rc_watch",
+    "safe_summary": "Deterministic repo awareness score based only on tracked repo evidence and safe report refs."
+  },
+  "task_ref": "UAA-BENCH-001",
+  "weekly_review_model": {
+    "auto_commit": false,
+    "command": ".venv/bin/python scripts/benchmark_repo_awareness.py snapshot --reason weekly_review --write",
+    "mode": "reminder_plus_manual_command",
+    "unattended_repo_writes": false
+  }
+}
