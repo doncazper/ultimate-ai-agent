@@ -150,6 +150,11 @@ later scoped PRs.
 
 Type: backend contract/test/docs
 
+Current status: implemented as a contract-only, metadata-only Python core
+envelope paired with FCC-P1-008 in
+`docs/connectors/FCC_READ_ONLY_INTEGRATION_CONTRACTS.md`. No connector runtime,
+account auth, backend route, or Control Center control is added.
+
 New authority: no.
 
 Acceptance criteria:
@@ -177,6 +182,11 @@ PR size: one backend contract PR.
 ## Task 6 - FCC-P1-008 Add Email Metadata Read-Only Integration Contract
 
 Type: backend contract/test/docs
+
+Current status: implemented as a contract-only, metadata-only Python core
+envelope paired with FCC-P1-007 in
+`docs/connectors/FCC_READ_ONLY_INTEGRATION_CONTRACTS.md`. No connector runtime,
+account auth, backend route, or Control Center control is added.
 
 New authority: no.
 

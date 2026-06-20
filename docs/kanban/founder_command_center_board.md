@@ -9,12 +9,12 @@ Runtime Excellence and does not grant runtime authority. UAA-P1-011 is the
 readable-loop baseline; the next product slice starts from its proof chain and
 does not broaden runtime authority.
 
-FCC-MAC-001, FCC-P0-002, FCC-P0-004, FCC-P0-003, and FCC-P0-005 have
-scoped implementation slices ready for review. The active implementation
-sequence after those slices is:
+FCC-MAC-001, FCC-P0-002, FCC-P0-004, FCC-P0-003, FCC-P0-005, FCC-P1-007,
+and FCC-P1-008 have scoped implementation slices ready for review. The active
+implementation sequence after those slices is:
 
-1. Read-only email/calendar contracts later.
-2. Human-readable Evidence Timeline.
+1. Human-readable Evidence Timeline.
+2. Draft-only email response proposal contract.
 
 Mattermost, plugin ecosystem, packaging/distribution, additional integrations,
 and new runtime authority lanes are not allowed to displace this sequence
@@ -189,6 +189,55 @@ Blockers/dependencies: Decision capture, write policy binding,
 retention/delete contract, context-injection contract, CLI inspection path, and
 durable receipt binding remain future scoped work.
 
+### FCC-P1-007 - P1 - Calendar Read-Only Integration Contract
+
+Epic: Tools/Integrations, Business Cofounder Workflows
+
+Description: Defines contract-only calendar event metadata envelopes for
+meeting prep without account auth or runtime fetch.
+
+Repo areas touched: `src/ultimate_ai_agent/core/connectors/`,
+`docs/connectors/`, `tests/`.
+
+Acceptance criteria: Contracts use safe refs for attendee/account identities,
+event refs, time-window refs, source readiness, evidence, audit/replay, and
+meeting-prep summaries while denying calendar writes, account auth, raw invite
+bodies, event titles, meeting links, locations, background collection, and
+connector runtime.
+
+Required tests/verifiers: focused contract tests and documentation integrity.
+
+Safety notes: Read-only metadata contract only. No live calendar integration,
+backend route, Control Center control, raw private calendar metadata, or
+production authority.
+
+Blockers/dependencies: Exact connector runtime milestone required before live
+source access.
+
+### FCC-P1-008 - P1 - Email Metadata Read-Only Contract
+
+Epic: Tools/Integrations, Business Cofounder Workflows
+
+Description: Defines safe email metadata envelopes for triage fixtures and
+future read-only connector review.
+
+Repo areas touched: `src/ultimate_ai_agent/core/connectors/`,
+`docs/connectors/`, `tests/`.
+
+Acceptance criteria: Contracts allow safe sender/thread/time/label summary
+refs, source-readiness refs, evidence refs, audit/replay refs, and redacted
+inbox/follow-up summaries while denying raw bodies, subject text, participants,
+attachment names/downloads, account auth, fetch, send, delete, archive, label
+write, and connector runtime.
+
+Required tests/verifiers: focused contract tests, redaction tests, and
+documentation integrity.
+
+Safety notes: Metadata-only planning. No email connector runtime, backend
+route, Control Center control, connector write, or production authority.
+
+Blockers/dependencies: Future connector runtime milestone.
+
 ## Ready
 
 ### FCC-P1-006 - P1 - Human-Readable Evidence Timeline
@@ -216,48 +265,6 @@ Blockers/dependencies: Builds on completed FCC-P0-001 baseline and current
 observability summaries.
 
 ## Shaping
-
-### FCC-P1-007 - P1 - Calendar Read-Only Integration Contract
-
-Epic: Tools/Integrations, Business Cofounder Workflows
-
-Description: Define read-only calendar event metadata contracts for meeting
-prep without account auth or runtime fetch.
-
-Repo areas likely touched: `src/ultimate_ai_agent/core/`, `docs/connectors/`,
-`tests/`.
-
-Acceptance criteria: Contracts use safe refs for attendee/account identities and
-deny calendar writes, account auth, raw invite bodies, event titles, meeting
-links, locations, background collection, and connector runtime.
-
-Required tests/verifiers: contract tests and documentation integrity.
-
-Safety notes: Read-only contract only. No live calendar integration or raw
-private calendar metadata in durable evidence.
-
-Blockers/dependencies: Exact connector milestone required before runtime.
-
-### FCC-P1-008 - P1 - Email Metadata Read-Only Contract
-
-Epic: Tools/Integrations, Business Cofounder Workflows
-
-Description: Define safe email metadata envelopes for triage fixtures and
-future read-only connector review.
-
-Repo areas likely touched: `src/ultimate_ai_agent/core/`, `docs/connectors/`,
-`tests/`.
-
-Acceptance criteria: Contracts allow safe sender/thread/time/label refs and
-summaries and deny raw bodies, subjects, participants, addresses, attachments,
-account identifiers, account auth, fetch, send, delete, move, and write.
-
-Required tests/verifiers: contract tests, redaction tests, documentation
-integrity.
-
-Safety notes: Metadata-only planning. No email connector runtime.
-
-Blockers/dependencies: Future connector milestone.
 
 ### FCC-P1-009 - P1 - Draft-Only Reply Proposal Contract
 

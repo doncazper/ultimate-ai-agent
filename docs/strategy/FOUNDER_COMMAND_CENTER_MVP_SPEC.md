@@ -23,9 +23,9 @@ Work the next implementation lane in this order, starting from the accepted
    posture before any approve affordance is wired.
 4. Morning Briefing skeleton: compose existing safe summaries, mock/degraded
    states, priorities, blockers, and next safe actions.
-5. Read-only email/calendar integration contracts later: define metadata-only
-   calendar/email contracts and draft-only outputs after the loop is readable;
-   connector runtime remains out of scope.
+5. Read-only email/calendar integration contracts: metadata-only calendar/email
+   contracts are implemented as contract-only source-readiness support; draft-only
+   outputs remain later and connector runtime remains out of scope.
 
 This lane is docs/contracts/tests/inspection first. It grants no new backend
 route, frontend mutation control, setup mutation, connector runtime,
@@ -389,7 +389,7 @@ No new authority: yes.
 
 ### 2. Draft-Only Email Triage
 
-Inputs: future email metadata contract or injected safe metadata fixtures.
+Inputs: FCC-P1-008 email metadata contract or injected safe metadata fixtures.
 
 Output: draft response proposal and triage summary.
 
@@ -397,7 +397,7 @@ No send/write authority: required.
 
 ### 3. Calendar Read-Only + Meeting Prep
 
-Inputs: future calendar read-only contract or injected safe event fixtures.
+Inputs: FCC-P1-007 calendar read-only contract or injected safe event fixtures.
 
 Output: meeting prep summary, open questions, follow-ups, and evidence refs.
 
