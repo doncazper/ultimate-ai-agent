@@ -4,12 +4,21 @@ Status: Active operating board for closing the product/runtime gap while
 preserving Ultimate AI Agent's stronger contract-first foundation.
 
 Source plan: `docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md`.
+Founder Command Center product-loop planning board:
+`docs/kanban/founder_command_center_board.md`.
 
 This board does not grant production authority. Every item that adds runtime
 authority, persistence, model calls, shell/subprocess behavior, browser actions,
 network behavior, connector writes, plugin execution, mobile control, or release
 distribution must pass the exact milestone gate and verifier updates described
 in the source plan.
+
+The Founder Command Center board is subordinate to this Operator Runtime
+Excellence board. It translates the current product audit into future Codex
+tasks for the single-user founder/operator loop and does not replace existing
+Operator Runtime Excellence work. `UAA-P1-011` is the accepted readable-loop
+baseline for the next Founder Command Center tasks; broader product surfaces
+remain separately scoped.
 
 ## WIP Limits
 
@@ -33,21 +42,16 @@ Gate = required acceptance evidence before Done
 ## Now / Building
 
 ```text
-UAA-P1-011 Task decomposition operator loop
-Goal: complete the first end-to-end operator loop before more roadmap-only
-expansion: runtime health, local model readiness, UAA /v1 chat, plan creation,
-one safe capability approval, and receipt/audit/latency/rollback inspection.
-Gate: Control Center and API tests prove real/mocked/skipped/blocked states
-without hidden authority or raw JSON as the primary operator UI.
+UAA-P1-020 PolicyEngine consolidation map
+Goal: map every policy/approval decision path before broadening product
+authority.
+Gate: every policy/approval decision path is identified; parallel authority
+shortcuts are removed or explicitly blocked.
 ```
 
 ## Ready Next
 
 ```text
-UAA-P1-020 PolicyEngine consolidation map
-Gate: every policy/approval decision path is identified; parallel authority
-shortcuts are removed or explicitly blocked.
-
 UAA-P1-021 FastAPI route grouping and side-effect classes
 Gate: route owners, service modules, auth posture, side-effect classes, risk
 classes, OpenAPI operation IDs, and release status remain consistent.
@@ -347,6 +351,16 @@ failure states, pause/resume/cancel/retry/dead-letter/restart recovery
 contracts, invalid-transition denial, replay safety, restart visibility, and
 safe-ref/redacted evidence without broad autonomy or unscoped execution.
 
+UAA-P1-011 Task decomposition operator loop
+Gate met: the Control Center Operator Loop presents the first readable loop
+proof chain for runtime health, local model readiness, UAA `/v1` chat
+readiness, task plan creation, one safe capability approval path, and
+receipt/audit/latency/rollback inspection. The API path is covered by
+`tests/test_operator_loop_p1_011.py`; the UI path is covered by
+`apps/control-center/src/App.test.tsx`; no broad authority, connector writes,
+shell/browser/plugin runtime, provider/model authority, raw evidence, or
+production/public claim is added.
+
 UAA-P1-025 Append-first local run storage
 Gate met: `docs/execution/APPEND_FIRST_RUN_STORAGE.md`,
 `src/ultimate_ai_agent/core/execution/run_storage.py`, and storage/ledger tests
@@ -441,7 +455,8 @@ production authority unavailable.
 
 ```text
 1. Build only the mapped operator surfaces with tests after route/status gaps are scoped.
-2. Land UAA-P1-011 to connect task decomposition to the operator loop.
+2. Use UAA-P1-011 as the readable operator-loop baseline for the next
+   Founder Command Center slice.
 3. Scope the next storage migration or operator-surface milestone only after
    route authority, evidence, and rollback gates are explicit.
 ```

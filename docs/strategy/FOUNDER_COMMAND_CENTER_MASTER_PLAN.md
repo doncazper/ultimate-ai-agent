@@ -1,0 +1,291 @@
+# Founder Command Center Master Plan
+
+Status: planning and execution artifact
+Source of truth dependencies: `README.md`, `VERSION.md`,
+`docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md`,
+`docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md`,
+`docs/control_center/OPERATOR_SHELL_GAP_MAP.md`,
+`docs/control_center/PRODUCT_LANGUAGE_RULES.md`,
+`docs/kanban/current_board.md`
+
+This plan grants no runtime authority. It does not add backend routes,
+frontend controls, dependencies, model/provider calls, shell/subprocess
+execution, unrestricted browsing, connector writes, plugin runtime import,
+mobile control, memory writes, context injection, public distribution, public
+beta, or production authority. It is subordinate to the current repository
+baseline truth and the latest accepted repository checkpoint `checkpoint-m168`.
+
+## Executive Thesis
+
+Ultimate AI Agent already has the harder foundation: a local-first Python Agent
+Core, typed contracts, PolicyEngine, LocalApprovalAuthority, side-effect
+classes, redacted evidence, durable runs, rollback refs, safe file previews,
+task decomposition, memory as recall-not-authority, and release gates.
+
+The next product leap is not more broad authority. The next product leap is a
+single excellent daily founder/operator loop that turns safe planning,
+preview, approval, receipts, evidence, and memory review into a useful product.
+
+## Current Reality
+
+UAA is best understood as a local-first governed agent runtime foundation plus
+an emerging Control Center/operator cockpit. It is not yet a polished personal
+assistant, business cofounder, public beta, public distribution, or broad
+autonomy runtime.
+
+The repo currently has:
+
+- FastAPI/Pydantic API boundary with stable OpenAPI and route side-effect
+  classification.
+- Control Center routes for dashboard, operator loop, chat, plans, models,
+  runtime, Foundation Gate, API routes, approvals, receipts, events, evidence,
+  files, memory, settings, and action preview.
+- ToolBroker, PolicyEngine, LocalApprovalAuthority, durable run, redacted
+  evidence, memory, file preview, task decomposition, and release-gate
+  foundations.
+- Product language rules that require implemented, partial, planned, blocked,
+  skipped, and missing states to stay distinct.
+
+The gap is that the first lovable product loop is not complete.
+
+## Why UAA Is Not Yet The Ultimate Assistant
+
+UAA currently has too many inspection surfaces relative to one completed daily
+workflow. Chat is readiness/probe-oriented. Plans are mostly route posture.
+Models are readiness-oriented. Approvals and Settings are partial. Files are
+safe but not yet a complete workbench. Memory is trustworthy but not yet a
+deep relationship/project/deal memory. Business cofounder workflows are mostly
+missing.
+
+The product risk is adding more roadmap, connector, plugin, mobile, browser,
+or shell surface before one single-user founder loop is excellent.
+
+## Why UAA Has A Strong Foundation
+
+The repo already knows how to say no safely:
+
+- PolicyEngine and LocalApprovalAuthority are explicit authority boundaries.
+- OpenAPI and `/api/manifest` make route behavior inspectable.
+- Route side-effect classes distinguish metadata, validation, local-dev
+  workspace, and governed read-only network evidence.
+- Durable runs, receipts, replay refs, rollback refs, and safe summaries make
+  work auditable.
+- Memory is recall, not truth or authority.
+- File work is bounded by safe refs, redacted previews, exact approval,
+  idempotency, atomic apply, rollback, and secret-like diff blocking.
+- Release claims are checked by docs, tests, Foundation Gate, and product truth
+  discipline.
+
+That foundation should become the product advantage.
+
+## Product Vision
+
+Ultimate AI Agent becomes the trusted operating system for a founder's personal
+and business life: polished, opinionated, deeply integrated, safe, delightful,
+local-first, and useful every day.
+
+The product should help the user answer:
+
+- What matters today?
+- What needs a decision?
+- What can be drafted safely?
+- What can be proposed with evidence?
+- What did I approve?
+- What happened?
+- What should be remembered, corrected, or forgotten?
+- What should carry into tomorrow or the weekly CEO review?
+
+## If Hermes Is Linux, UAA Becomes macOS
+
+Hermes Agent can be treated as the Linux comparison point: powerful, broad,
+hacker-friendly, extensible, and oriented toward operators who tolerate more
+surface area.
+
+UAA should become the macOS of agents: fewer surfaces, deeper workflows,
+beautiful defaults, visible authority boundaries, exact approval, receipts
+after action, and a product that feels trustworthy before it feels powerful.
+
+This positioning is product strategy only. It does not add native macOS app
+implementation, signed packaging, public distribution, or operating-system
+integration.
+
+## Founder Command Center Wedge
+
+The first wedge is a single-user Founder Command Center. It should organize the
+existing Control Center around the daily loop:
+
+1. Morning Briefing
+2. Prioritized Plan
+3. Action Proposals
+4. Exact Approval / Edit / Reject
+5. Safe execution only through scoped lanes
+6. Receipts and Evidence
+7. Memory Review
+8. End-of-Day / Weekly Review
+
+The first product loop must fit inside existing authority boundaries. It should
+not chase broad plugin marketplaces, multi-user enterprise, mobile sensors,
+unrestricted browser automation, unrestricted shell execution, or connector
+writes before the single-user loop is excellent.
+
+## User Persona: Sam, Founder/Operator
+
+Sam runs product, engineering, customer conversations, partnerships, follow-up,
+ops, and repo work. Sam wants leverage without losing control.
+
+Sam needs:
+
+- A reliable morning view of commitments, risks, calendar, follow-ups, repo
+  changes, and top priorities.
+- Draft-only help for messages and documents.
+- Safe planning that explains why each action matters.
+- Approval controls that are exact-scoped and easy to reject or edit.
+- Evidence and receipts that make outcomes reviewable.
+- Business memory for people, projects, deals, and promises.
+- Weekly CEO review that turns activity into decisions.
+
+Sam does not need hidden autonomy, broad runtime authority, or many half-built
+surfaces.
+
+## Killer Workflows
+
+P0 workflows:
+
+- Daily Founder Briefing
+- Prioritized Plan
+- Action Inbox
+- Memory Review Inbox
+- Evidence Timeline
+- Weekly CEO Review
+
+P1 workflows:
+
+- Inbox triage and draft-only replies
+- Calendar read-only plus meeting prep
+- Follow-up tracker
+- Local file workbench with safe patch proposals and rollback
+- Document/repo/project summarizer
+
+P2 workflows:
+
+- Lead/opportunity pipeline
+- Business memory for people, projects, deals, and promises
+- Task planning and approval-bound task creation
+- Governed integrations after read-only contracts and exact approval gates
+
+## 30-Day Plan
+
+Goal: make the first product loop concrete and testable without adding new
+authority.
+
+- Build on the `UAA-P1-011` readable operator-loop baseline.
+- Create Founder Command Center information architecture around Today, Inbox,
+  Plans, Actions, Memory, Evidence, and Settings.
+- Add Morning Briefing skeleton using existing summaries, safe refs, blocked
+  states, and mock/degraded semantics.
+- Add Action Inbox and Memory Review Inbox schemas as contract/test work only
+  unless a scoped implementation task says otherwise.
+- Add product E2E tests for Morning Briefing and draft-only email flow using
+  mock/read-only fixtures.
+- Keep Control Center language aligned with
+  `docs/control_center/PRODUCT_LANGUAGE_RULES.md`.
+
+## 60-Day Plan
+
+Goal: make the daily loop useful with read-only sources and draft-only outputs.
+
+- Add calendar read-only integration contract.
+- Add email metadata read-only integration contract.
+- Add draft-only email response proposal contract.
+- Build human-readable Evidence Timeline over existing safe refs.
+- Add relationship/follow-up memory schema and review inbox.
+- Define scoped permission modes and Settings kill-switch/feature-flag spec.
+- Add local setup/onboarding wizard spec tied to safe local prerequisites.
+
+## 90-Day Plan
+
+Goal: complete the single-user Founder Command Center MVP loop.
+
+- Today surface shows briefing, plan, action inbox, blocked states, and next
+  safe actions.
+- Inbox and calendar flows remain read-only or draft-only, with no send/write
+  authority.
+- Plans create reviewable task decompositions and approval requirements.
+- Actions surface exposes exact approve/edit/reject paths only for scoped
+  lanes.
+- Evidence Timeline gives human-readable receipts, audit refs, latency refs,
+  and rollback refs.
+- Memory Review Inbox supports accept/correct/reject semantics through reviewed
+  contracts.
+- Weekly CEO Review summarizes outcomes, stuck loops, follow-ups, and memory
+  corrections.
+
+## 6-Month Plan
+
+Goal: deepen founder/operator workflows after MVP proof.
+
+- Lead/opportunity pipeline with safe metadata, follow-up state, and no
+  connector writes by default.
+- Project/repo/document summarizer using safe refs and explicit evidence.
+- Local file workbench v2 with product-grade patch proposal and rollback UI.
+- Better local setup and launcher flow for loopback-only development.
+- More complete route/service module separation with no OpenAPI drift.
+- Product metrics and release evidence packets for real single-user usage.
+
+## 12-Month Plan
+
+Goal: move from local founder cockpit to a polished personal/business operating
+system after safety proof.
+
+- Optional connector runtimes only after read-only contracts, consent, exact
+  approval, redaction, revocation, receipts, and rollback plans are proven.
+- Governed draft-to-send flows only after exact approval and abuse-case tests.
+- Native clients or deeper OS integration only after dedicated milestones.
+- Broader automations only after single-session, exact-scope workflows prove
+  safe, useful, revocable, and auditable.
+- Commercialization only after product truth, security posture, packaging,
+  onboarding, support expectations, and release evidence are aligned.
+
+## What Not To Build Yet
+
+Do not prioritize:
+
+- Broad plugin marketplace or runtime plugin import.
+- Multi-user enterprise admin surfaces.
+- Mobile sensor runtime.
+- Broad browser automation.
+- Unrestricted shell/subprocess execution.
+- Connector writes.
+- Public distribution or public beta.
+- Provider/model output as production authority.
+- Background autonomous sessions by default.
+- More roadmap-only milestones that do not advance the daily founder loop.
+
+## Acceptance Criteria For "MVP Is Real"
+
+The MVP is real when a single local user can complete this loop without reading
+raw API payloads:
+
+1. Open Today and see a Morning Briefing with current state, priorities,
+   blockers, and next safe actions.
+2. Review a prioritized plan with evidence refs and explicit side-effect
+   classes.
+3. Inspect action proposals and approve, edit, or reject exact-scoped work.
+4. Complete at least one safe scoped lane with receipt, audit, latency, and
+   rollback status.
+5. Review memory candidates with provenance and correction paths.
+6. Inspect a human-readable Evidence Timeline.
+7. Complete a Weekly CEO Review with outcomes, carry-forward tasks, decisions,
+   and follow-ups.
+
+Required proof:
+
+- Tests distinguish implemented, partial, planned, blocked, skipped, mock, and
+  missing states.
+- No raw prompt, raw response, raw provider payload, raw path, raw log,
+  username, hostname, environment dump, credential material, or secret-like
+  values appear in durable docs, evidence, tests, reports, or logs.
+- Every mutating path is exact-scoped, approval-bound, idempotent, auditable,
+  rollback-aware, and tested.
+- OpenAPI operation IDs, route side-effect classes, API manifest truth, and
+  Foundation Gate checks remain intact.

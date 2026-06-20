@@ -47,7 +47,7 @@ The current API manifest classifies route side effects as:
 | Surface | Current frontend component/page | Current backend route(s) | Missing backend route(s) | Authority boundary | Side-effect class | Approval requirement | Evidence/audit output | Readiness status | Production-readiness blocker |
 |---|---|---|---|---|---|---|---|---|---|
 | Chat Shell | `/chat` now exposes accessible loading/error/empty/blocked/denied state copy only. OpenWebUI remains the separate local shell; CCC chat composition is not implemented. | `GET /v1/models`, `POST /v1/chat/completions`, `GET /runtime/readiness`, `GET /runtime/capability-matrix`, `POST /control-center/actions/preview`. | Dedicated CCC chat surface status route, chat receipt summary route, auth setup/status route, tools/functions/streaming denial summary route. | M151/M164/M166/M167 exact-bound local loopback gateway only; OpenWebUI and CCC output are not authority. | `/v1/*` is `local_dev_workspace_only`; runtime and Control Center preview routes are `validation_only`; `/chat` is local UI state only. | Local gateway must be explicitly enabled and bearer-authorized; no approval grant converts model output into authority. | P0-005 smoke harness refs, M167 evidence matrix refs, P0-015 checklist evidence refs, API gateway tests, latency report refs. | Blocked. | Reviewed `llama-server` packaging evidence, reviewed local model evidence, and a real Chat Shell UI with safe evidence binding. |
-| Plans | `/plans` now exposes accessible loading/error/empty/blocked/denied state copy only. Action Preview can preview an action, but task decomposition is not surfaced as a completed product loop. | `GET /task-decomposition/status`, `GET /task-decomposition/catalog`, `POST /task-decomposition/classify`, `POST /task-decomposition/decompose`, `POST /task-decomposition/plans/validate`, `POST /task-decomposition/approval-requests`, `GET /task-decomposition/approvals`, `POST /task-decomposition/approvals/grants/capture`, `POST /task-decomposition/approvals/revoke`, `GET /task-decomposition/audit`, `GET /task-decomposition/metrics`, `POST /task-decomposition/plans/execute`, `POST /task-decomposition/run`. | DAG/status summary route, durable run binding route, pause/resume/cancel status route, replay summary route, and product Plans workflow binding. | Local task-decomposition API plus LocalApprovalAuthority for safe registered capabilities only. | `local_dev_workspace_only`; `/plans` is local UI state only. | Exact approval grant for each safe registered capability; no unscoped approval ref authority. | Task audit summaries, metrics, approval queue, safe task decomposition result envelopes. | Partial backend, blocked product loop. | UAA-P1-010 durable run spine, UAA-P1-011 task decomposition operator loop, and UAA-P1-030 route status manifest. |
+| Plans | `/operator-loop` now exposes the UAA-P1-011 readable proof chain for task decomposition, one safe capability approval path, and receipt/audit/latency/rollback inspection. `/plans` remains accessible loading/error/empty/blocked/denied state copy only, and broader product Plans workflow binding is not complete. | `GET /task-decomposition/status`, `GET /task-decomposition/catalog`, `POST /task-decomposition/classify`, `POST /task-decomposition/decompose`, `POST /task-decomposition/plans/validate`, `POST /task-decomposition/approval-requests`, `GET /task-decomposition/approvals`, `POST /task-decomposition/approvals/grants/capture`, `POST /task-decomposition/approvals/revoke`, `GET /task-decomposition/audit`, `GET /task-decomposition/metrics`, `POST /task-decomposition/plans/execute`, `POST /task-decomposition/run`. | DAG/status summary route, durable run binding route, pause/resume/cancel status route, replay summary route, and broader product Plans workflow binding. | Local task-decomposition API plus LocalApprovalAuthority for safe registered capabilities only. | `local_dev_workspace_only`; `/plans` and `/operator-loop` are local UI state only. | Exact approval grant for each safe registered capability; no unscoped approval ref authority. | Task audit summaries, metrics, approval queue, safe task decomposition result envelopes. | UAA-P1-011 readable loop surfaced; broader Plans product loop remains partial. | Broader product Plans workflow binding, UAA-P1-030 route status manifest, and future Founder Command Center IA work. |
 | Models | `/models` now exposes accessible loading/error/empty/blocked/denied state copy only. Runtime panels still carry the implemented readiness/capability summaries. | `GET /v1/models`, `POST /models/route/preview`, `POST /model-runtime/manifests/validate`, `POST /model-runtime/requests/validate`, `POST /model-runtime/responses/validate`, `GET /runtime/readiness`, `GET /runtime/capability-matrix`. | GGUF selection route, GGUF approval/readiness route, llama.cpp lifecycle status route, tuning recommendation route, rollback status route. | M160-M167 local model lane only; model/provider output is not production authority. | `/v1/*` is `local_dev_workspace_only`; model-runtime and model-route validation routes are `validation_only`; `/models` is local UI state only. | Approved GGUF/model refs and reviewed local runtime settings are required before live local use. | M167 evidence matrix, local E2E smoke harness, P0-015 checklist evidence refs, P0-016 tuning hardening test refs, P0-017 operational runbook refs, route preview decisions, latency results. | Blocked. | Reviewed local operational recovery evidence and reviewed hardware evidence. |
 | Approvals | `/approvals` uses `ApprovalQueuePanel` with read-only/preview-only mock or summary data. | `GET /control-center/approvals/summary`, `POST /approvals/requests/validate`, `POST /approvals/grants/validate`, `POST /approvals/validate`, `POST /approvals/receipts/validate`, `POST /task-decomposition/approval-requests`, `GET /task-decomposition/approvals`, `POST /task-decomposition/approvals/grants/capture`, `POST /task-decomposition/approvals/revoke`. | CCC live approval capture/revoke UI routes, approval evidence summary route, approval expiry and replay status route. | Python Agent Core and LocalApprovalAuthority remain the only approval authority; approval refs are identifiers only. | Control Center and `/approvals/*` routes are `validation_only`; task-decomposition approval routes are `local_dev_workspace_only`. | Exact-scope grant capture or revoke through the approved backend contract. | Approval summary, validation decisions, task approval queue, grant/revoke records, audit summaries. | Partial. | UAA-P1-011 operator loop and UAA-P1-030 route status manifest. |
 | Files | `/files` shows safe file refs. `/files/review` shows review packets; its review-only buttons update local UI state and are not product completion evidence. | `POST /files/refs/validate`, `POST /files/review/approvals/capture`, `POST /files/tree/preview`, `POST /files/read/preview`, `POST /files/write/propose`, `POST /files/diff/preview`. | Patch apply route, rollback receipt route, file operation status route, CCC binding to approval capture route. | Safe-root refs and server-owned file refs only; no raw file browsing or shell execution. | `local_dev_workspace_only`. | Mutating file work must be exact-approved, idempotent, audited, rollback-aware, and tested. | Safe tree refs, redacted preview result, review approval capture decision, write proposal decision, diff summary, future rollback receipt. | Partial. | M173 atomic apply/rollback gates and CCC binding to approval capture route. |
@@ -57,7 +57,7 @@ The current API manifest classifies route side effects as:
 
 ## Visible Action Map
 
-Current visible actions do not complete the first product loop:
+Current visible actions expose UAA-P1-011 as inspection evidence only:
 
 | Visible action | Current behavior | Route authority and side-effect class | Product-readiness result |
 |---|---|---|---|
@@ -67,34 +67,32 @@ Current visible actions do not complete the first product loop:
 | Load dashboard/runtime/routes summaries | Reads local summary endpoints. | `none` or `validation_only`. | Safe status evidence only. |
 
 No visible CCC action currently sends a chat message, launches llama.cpp,
-selects a GGUF model, creates a product Plans loop, executes a capability,
-applies a file patch, rolls back a mutation, changes Settings, or grants broad
-authority.
+selects a GGUF model, creates a broader product Plans loop, executes a
+capability outside the existing approval-bound backend path, applies a file
+patch, rolls back a mutation, changes Settings, or grants broad authority.
 
 ## First Product Loop Gaps
 
-The smallest route/product work needed to complete the first operator loop is:
+UAA-P1-011 now has a readable Control Center proof chain for runtime health,
+local model readiness, UAA `/v1` chat readiness, task plan creation, one safe
+capability approval path, and receipt/audit/latency/rollback inspection. The
+remaining gaps before broader product-readiness claims are:
 
 1. Use the UAA-P1-030 route status manifest as release evidence for visible
    action owners, auth posture, side-effect class, risk class, release status,
    OpenAPI operation ids, approval requirements, and evidence refs.
-2. Expose runtime health, local model readiness, latency, audit, and rollback
-   summaries without raw prompts, raw responses, raw provider payloads, private
-   filesystem paths, raw logs, environment dumps, or credential material.
-3. Add reviewed GGUF selection/approval/readiness routes using safe refs only.
-4. Add reviewed loopback llama.cpp settings and lifecycle status for the
+2. Add reviewed GGUF selection/approval/readiness routes using safe refs only.
+3. Add reviewed loopback llama.cpp settings and lifecycle status for the
    existing exact-bound local shell scope only.
-5. Add a CCC Chat Shell that uses UAA `/v1` with local bearer status, auth
+4. Add a CCC Chat Shell that uses UAA `/v1` with local bearer status, auth
    failure handling, safe failure handling, and visible tools/functions/
    streaming denial.
-6. Add a CCC Plans surface over classify, decompose, approval request, grant
+5. Add a CCC Plans surface over classify, decompose, approval request, grant
    capture, safe registered capability execution, audit, and metrics.
-7. Bind one safe registered capability approval to LocalApprovalAuthority and
-   show the resulting receipt/audit summary.
-8. Add Evidence views for receipt, audit, latency, and rollback refs so the
-   operator can verify completion without raw API payloads.
+6. Add richer Evidence views for receipt, audit, latency, and rollback refs so
+   the operator can verify broader product workflows without raw API payloads.
 
-These gaps are release blockers for M172 product-readiness claims.
+These remaining gaps are release blockers for M172 product-readiness claims.
 
 ## Rollback
 

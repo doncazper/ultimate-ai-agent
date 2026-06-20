@@ -593,6 +593,51 @@ describe("Web Control Center shell", () => {
     }
   });
 
+  it("renders the UAA-P1-011 operator loop as one readable proof chain", async () => {
+    mockFetchWithFallback();
+    window.history.pushState({}, "", "/operator-loop");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /Operator Loop/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/First product loop proof/i)).toBeInTheDocument();
+    expect(screen.getByText(/Steps surfaced/i)).toBeInTheDocument();
+    expect(screen.getByText(/Routes surfaced/i)).toBeInTheDocument();
+    expect(screen.getByText(/Blocked prerequisites/i)).toBeInTheDocument();
+    expect(screen.getByText(/Approval and evidence proof/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Approval refs are identifiers only/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Route side-effect classes/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Side-effect class/i).length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(/local_dev_workspace_only/i).length,
+    ).toBeGreaterThan(0);
+    expect(screen.getAllByText(/validation_only/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/receipt_refs/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/audit_refs/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/rollback_refs/i).length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(/capability_latency_metrics/i).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(/Model output authority/i).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.queryByRole("button", { name: /^run$/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /^execute$/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /^approve$/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /^send$/i }),
+    ).not.toBeInTheDocument();
+  });
+
   it("renders loading and empty states with safe operational copy", () => {
     const { rerender } = render(<LoadingState />);
     expect(screen.getByRole("status")).toHaveTextContent(
