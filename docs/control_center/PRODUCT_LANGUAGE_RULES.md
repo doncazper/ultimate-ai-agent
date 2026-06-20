@@ -1,7 +1,7 @@
 # Control Center Product Language Rules
 
 Status: active UAA-P1-031 product language rules
-Baseline: v0.102.0 / 0.102.0
+Baseline: v0.102.1 / 0.102.1
 Source plan: `docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md` M172
 Scope: Control Center UI strings and release-facing product docs
 

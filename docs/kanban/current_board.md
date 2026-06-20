@@ -455,8 +455,9 @@ production authority unavailable.
 
 ```text
 1. Build only the mapped operator surfaces with tests after route/status gaps are scoped.
-2. Use UAA-P1-011 as the readable operator-loop baseline for the next
-   Founder Command Center slice.
+2. Use UAA-P1-011 as the readable operator-loop baseline for the next Founder
+   Command Center slice: FCC-MAC-001, FCC-P0-002, Action Inbox, Morning
+   Briefing, then read-only email/calendar contracts later.
 3. Scope the next storage migration or operator-surface milestone only after
    route authority, evidence, and rollback gates are explicit.
 ```

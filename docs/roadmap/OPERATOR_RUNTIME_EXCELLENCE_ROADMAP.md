@@ -70,7 +70,7 @@ They do not mark the capability shipped and do not grant new authority.
 | Recommendation | Roadmap task(s) | Priority | Gate |
 |---|---|---|---|
 | Decide product posture | `UAA-STRAT-001` Two-layer architecture: governance kernel plus operator cockpit | P0 | README/product truth/roadmap wording remains consistent and says guardrails allow scoped product actions only through policy, approval, audit, rollback, redaction, and verifier gates |
-| Complete the first full operator loop before more roadmap docs | `UAA-P1-011` Task decomposition operator loop | P0 | Runtime health, local model readiness, UAA `/v1` chat, plan creation, one safe approval, receipt/audit/latency/rollback inspection are covered without hidden authority |
+| Preserve the first readable operator-loop baseline before broadening product surfaces | `UAA-P1-011` Done: task decomposition operator loop baseline | P0 | Runtime health, local model readiness, UAA `/v1` chat, plan creation, one safe approval, receipt/audit/latency/rollback inspection are covered without hidden authority |
 | Split the API into clearer service modules | `UAA-P1-021` FastAPI route grouping and side-effect classes, `UAA-P1-052` API service-module extraction plan | P1 | OpenAPI path count, operation IDs, route side-effect classes, auth posture, and API manifest remain unchanged or intentionally updated with tests |
 | Expand CI into named release lanes | `UAA-P1-013` Done, `UAA-P1-053` CI lane workflow expansion | P1 | docs, OpenAPI, Foundation Gate, API safety, frontend, security/redaction, local model, durability, performance, and packaging lanes are visible in CI without unsafe artifact leakage |
 | Add product-grade Control Center screens for UAA differentiators | `UAA-P1-054` Control Center differentiator screens | P1 | route authority, approval state, receipts/evidence, safe workspace previews, local model status, and observability timeline are readable surfaces, not raw JSON |
@@ -252,11 +252,11 @@ Tasks:
 
 - `UAA-P0-007` Map each surface to current routes and missing routes in
   `docs/control_center/OPERATOR_SHELL_GAP_MAP.md`.
-- `UAA-P1-011` Build the first end-to-end operator loop through Control Center:
-  inspect runtime health, inspect local model readiness, chat through UAA
-  `/v1`, create a task decomposition plan, approve one safe registered
-  capability, inspect receipt/audit/latency/rollback status, and preserve
-  durable run truth.
+- `UAA-P1-011` Done baseline: preserve the first readable operator-loop proof
+  chain through Control Center: inspect runtime health, inspect local model
+  readiness, chat through UAA `/v1`, create a task decomposition plan, approve
+  one safe registered capability, inspect receipt/audit/latency/rollback
+  status, and preserve durable run truth.
 - `UAA-P1-030` Done: add route status manifest for visible surface readiness in
   `docs/control_center/ROUTE_STATUS_MANIFEST.md`.
 - `UAA-P1-031` Done: add enforceable product language rules in
@@ -677,3 +677,7 @@ The first loop that proves UAA is becoming a product:
 
 This is stronger than a broad console claim because it proves authority, state,
 evidence, and speed in one narrow but real operator loop.
+
+`UAA-P1-011` has shipped the readable baseline for this shape. The broader
+Founder Command Center daily loop now builds on that baseline and remains
+partial until separately scoped surfaces add evidence.

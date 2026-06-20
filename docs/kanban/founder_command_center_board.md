@@ -9,6 +9,10 @@ Runtime Excellence and does not grant runtime authority. UAA-P1-011 is the
 readable-loop baseline; the next product slice starts from its proof chain and
 does not broaden runtime authority.
 
+The active implementation sequence is FCC-MAC-001, FCC-P0-002, FCC-P0-004,
+FCC-P0-003, then read-only email/calendar contracts later. Ready-section order
+is not authority to skip that sequence.
+
 ## WIP Limits
 
 ```text
@@ -47,9 +51,9 @@ Repo areas likely touched: `docs/macos/UAA-setup-assistant-plan.md`,
 slice changes contracts.
 
 Acceptance criteria: The setup surface stays dry-run only, model choices remain
-recommendation classes, approval-required setup steps show receipt and rollback
-refs, terminal/log details are bounded previews, and no setup mutation authority
-is implied.
+recommendation classes, approval-required setup steps show dry-run
+approval-envelope refs, dry-run receipt refs, rollback refs, redacted bounded
+terminal/log previews, and no setup mutation authority is implied.
 
 Required tests/verifiers: focused setup assistant tests,
 `make frontend-check`, `.venv/bin/python scripts/verify_control_center_frontend.py`,
@@ -134,7 +138,7 @@ Required tests/verifiers: focused schema tests, `make frontend-check`,
 Safety notes: No execution path and no broad approval. Approve controls stay
 disabled or absent until exact backend binding is scoped.
 
-Blockers/dependencies: FCC-P0-001.
+Blockers/dependencies: Builds on completed FCC-P0-001 baseline.
 
 ### FCC-P0-005 - P0 - Memory Review Inbox Contract And UI Skeleton
 
@@ -180,7 +184,8 @@ Required tests/verifiers: frontend tests, redaction tests,
 Safety notes: No raw prompt, response, provider payload, path, log, environment
 dump, credential material, or secret-like value.
 
-Blockers/dependencies: FCC-P0-001 and current observability summaries.
+Blockers/dependencies: Builds on completed FCC-P0-001 baseline and current
+observability summaries.
 
 ## Shaping
 
@@ -194,12 +199,14 @@ prep without account auth or runtime fetch.
 Repo areas likely touched: `src/ultimate_ai_agent/core/`, `docs/connectors/`,
 `tests/`.
 
-Acceptance criteria: Contracts deny calendar writes, account auth, raw private
-content storage, background collection, and connector runtime.
+Acceptance criteria: Contracts use safe refs for attendee/account identities and
+deny calendar writes, account auth, raw invite bodies, event titles, meeting
+links, locations, background collection, and connector runtime.
 
 Required tests/verifiers: contract tests and documentation integrity.
 
-Safety notes: Read-only contract only. No live calendar integration.
+Safety notes: Read-only contract only. No live calendar integration or raw
+private calendar metadata in durable evidence.
 
 Blockers/dependencies: Exact connector milestone required before runtime.
 
@@ -213,9 +220,9 @@ future read-only connector review.
 Repo areas likely touched: `src/ultimate_ai_agent/core/`, `docs/connectors/`,
 `tests/`.
 
-Acceptance criteria: Contracts allow safe sender/thread/time/label summaries
-and deny raw bodies, attachments, account auth, fetch, send, delete, move, and
-write.
+Acceptance criteria: Contracts allow safe sender/thread/time/label refs and
+summaries and deny raw bodies, subjects, participants, addresses, attachments,
+account identifiers, account auth, fetch, send, delete, move, and write.
 
 Required tests/verifiers: contract tests, redaction tests, documentation
 integrity.

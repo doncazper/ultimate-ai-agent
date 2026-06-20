@@ -102,9 +102,10 @@ Hermes Agent can be treated as the Linux comparison point: powerful, broad,
 hacker-friendly, extensible, and oriented toward operators who tolerate more
 surface area.
 
-UAA should become the macOS of agents: fewer surfaces, deeper workflows,
-beautiful defaults, visible authority boundaries, exact approval, receipts
-after action, and a product that feels trustworthy before it feels powerful.
+As a product metaphor, UAA should become the macOS of agents: fewer surfaces,
+deeper workflows, beautiful defaults, visible authority boundaries, exact
+approval, receipts after action, and a product that feels trustworthy before it
+feels powerful.
 
 This positioning is product strategy only. It does not add native macOS app
 implementation, signed packaging, public distribution, or operating-system
@@ -152,7 +153,7 @@ surfaces.
 
 P0 workflows:
 
-- Daily Founder Briefing
+- Morning Briefing
 - Prioritized Plan
 - Action Inbox
 - Memory Review Inbox
@@ -200,10 +201,10 @@ production authority.
 
 The next tactical lane is defined in the
 [Founder Command Center MVP spec](FOUNDER_COMMAND_CENTER_MVP_SPEC.md#next-implementation-lane).
-In short: harden the macOS Setup Assistant, improve first product loop
-readability, shape the Action Inbox / approval envelope UX, add a Morning
-Briefing skeleton, and defer read-only email/calendar integration contracts
-until those surfaces are legible.
+In short: harden the local Control Center Setup Assistant, improve first
+product loop readability, shape the Action Inbox / approval envelope UX, add a
+Morning Briefing skeleton, and defer read-only email/calendar integration
+contracts until those surfaces are legible.
 
 This lane grants no new authority. The 30/60/90-day plan below still requires
 scoped tasks, tests, evidence, and gates before any route, runtime, connector,
@@ -217,12 +218,12 @@ authority.
 - Build on the `UAA-P1-011` readable operator-loop baseline.
 - Create Founder Command Center information architecture around Today, Inbox,
   Plans, Actions, Memory, Evidence, and Settings.
-- Add Morning Briefing skeleton using existing summaries, safe refs, blocked
-  states, and mock/degraded semantics.
 - Add Action Inbox and Memory Review Inbox schemas as contract/test work only
   unless a scoped implementation task says otherwise.
-- Add product E2E tests for Morning Briefing and draft-only email flow using
-  mock/read-only fixtures.
+- Add Morning Briefing skeleton using existing summaries, safe refs, blocked
+  states, and mock/degraded semantics.
+- Add product E2E tests for Morning Briefing and mock-only draft email fixture
+  states without connector runtime or send/write authority.
 - Keep Control Center language aligned with
   `docs/control_center/PRODUCT_LANGUAGE_RULES.md`.
 

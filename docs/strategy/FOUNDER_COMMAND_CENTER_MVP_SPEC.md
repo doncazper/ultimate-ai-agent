@@ -13,9 +13,9 @@ and gated.
 Work the next implementation lane in this order, starting from the accepted
 `UAA-P1-011` readable-loop baseline:
 
-1. macOS Setup Assistant hardening: tighten dry-run/read-only setup posture,
-   redacted summaries, blocked states, rollback refs, and safe local
-   prerequisite visibility.
+1. Local Control Center Setup Assistant hardening: tighten dry-run/read-only
+   setup posture, redacted summaries, blocked states, rollback refs, and safe
+   local prerequisite visibility.
 2. First product loop readability: make Today, Plans, Actions, Memory,
    Evidence, and Settings easier to scan without adding route authority.
 3. Action Inbox / approval envelope UX: expose exact scope, risk, side-effect
@@ -23,8 +23,9 @@ Work the next implementation lane in this order, starting from the accepted
    posture before any approve affordance is wired.
 4. Morning Briefing skeleton: compose existing safe summaries, mock/degraded
    states, priorities, blockers, and next safe actions.
-5. Read-only email/calendar integration contracts later: define metadata-only
-   calendar/email contracts and draft-only outputs after the loop is readable.
+5. Read-only email/calendar contracts later: define metadata-only calendar/email
+   contracts and draft-only outputs after the loop is readable; connector
+   runtime remains out of scope.
 
 This lane is docs/contracts/tests/inspection first. It grants no new backend
 route, frontend mutation control, setup mutation, connector runtime,
@@ -117,8 +118,9 @@ Current repo evidence / status:
 
 Required backend routes or service changes:
 
-- Email metadata read-only contract models.
-- Draft-only response proposal contract.
+- After the readability lane: email metadata read-only contract models over
+  safe refs and redacted summaries.
+- After the readability lane: draft-only response proposal contract.
 - Optional future status route for injected safe fixtures only.
 
 Required frontend components:
@@ -131,7 +133,8 @@ Safety/approval requirements:
 
 - Metadata-only or injected fixture-only until a connector milestone.
 - Draft-only means no send, archive, delete, label, move, or account write.
-- No raw email bodies in durable evidence.
+- No raw email bodies, subjects, participants, attachment names, account
+  identifiers, or other private message metadata in durable evidence.
 
 Tests needed:
 
@@ -392,7 +395,8 @@ No connector write: required.
 
 Inputs: action proposal contracts from Plans, Inbox, Files, and Memory.
 
-Output: approve/edit/reject/defer review queue with exact authority metadata.
+Output: review queue with approve eligibility, edit/reject/defer states, and
+exact authority metadata.
 
 No execution without exact scoped approval: required.
 

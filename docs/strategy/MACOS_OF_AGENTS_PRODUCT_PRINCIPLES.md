@@ -9,10 +9,14 @@ browser, mobile, or release boundaries.
 
 ## Positioning
 
-UAA should feel like the macOS of agents: opinionated, integrated,
-human-readable, safe by default, and useful every day. The product should hide
-unnecessary complexity without hiding authority, risk, evidence, or blocked
-states.
+As a product metaphor, UAA should feel like the macOS of agents: opinionated,
+integrated, human-readable, safe by default, and useful every day. The product
+should hide unnecessary complexity without hiding authority, risk, evidence, or
+blocked states.
+
+Tactical sequencing lives in
+`docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md#next-implementation-lane`;
+this principles document does not grant or reorder implementation authority.
 
 ## Principles
 
