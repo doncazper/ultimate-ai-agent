@@ -84,6 +84,7 @@ SCAN_SEQUENCE = [
     ("documentation integrity scan", "verify_documentation_integrity"),
     ("release verification lanes scan", "verify_release_verification_lanes"),
     ("release evidence packet scan", "verify_release_evidence_packet"),
+    ("repo awareness benchmark scan", "verify_repo_awareness_benchmark"),
     ("backup/restore verification scan", "verify_backup_restore_verification"),
     ("OpenWebUI bridge contract-only scan", "verify_no_openwebui_runtime_or_config_implementation"),
     ("local model runtime activation contract-only scan", "verify_no_local_runtime_activation_implementation"),
@@ -29840,6 +29841,11 @@ def run_static_scans(timings=None):
     with repository_filesystem_cache():
         for scan_name, function_name in SCAN_SEQUENCE:
             run_timed(timings, f"static_scan:{scan_name}", globals()[function_name])
+
+
+def verify_repo_awareness_benchmark():
+    print("\n[Verifier] Running repo awareness benchmark verifier...")
+    run_cmd([sys.executable, "scripts/verify_repo_awareness_benchmark.py"])
 
 
 def main(argv=None):
