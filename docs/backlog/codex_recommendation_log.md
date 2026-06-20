@@ -40,6 +40,119 @@ Evidence:
 
 ## Entries
 
+### 2026-06-19 - Two-Layer Product Direction Prompt
+
+Date: 2026-06-19
+
+Thread: Direction update for building both the governance kernel and operator
+shell/cockpit layers.
+
+Recommendation: Ask ChatGPT to review UAA's direction as a two-layer product:
+governance kernel as automated guardrails and operator shell as the
+developer/user cockpit. The guardrails should allow scoped product actions only
+through reviewed gates, not broad runtime authority.
+
+Next prompt:
+
+```text
+Use the ChatGPT Direction Update Prompt in
+docs/roadmap/OPERATOR_EXCELLENCE_LOOP.md to review the roadmap direction and
+return scoped roadmap/Kanban/task updates for building both the governance
+kernel and operator cockpit layers.
+```
+
+Decision: Accepted as direction-review prompt.
+
+Status: accepted
+
+Completed: Added two-layer product wording to the Operator Runtime Excellence
+roadmap and added a ChatGPT direction-update prompt to the Operator Excellence
+loop.
+
+Not done: No runtime implementation or authority expansion was added.
+
+Evidence: `docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md`,
+`docs/roadmap/OPERATOR_EXCELLENCE_LOOP.md`.
+
+### 2026-06-19 - Peer Catch-Up Recommendations Layered Into Roadmap
+
+Date: 2026-06-19
+
+Thread: UAA versus GoatCitadel catch-up/surpass recommendations.
+
+Recommendation: Layer the accepted recommendations into the Operator Runtime
+Excellence roadmap and current Kanban board: decide product posture, prioritize
+the first full operator loop, modularize the API, expand named CI/release
+lanes, add product-grade Control Center differentiator screens, preserve UAA's
+stricter authority model, add security automation and artifact redaction
+checks, productize extension trust before execution, defer installer/public
+distribution catch-up until local loop usability, and keep readiness language
+honest.
+
+Next prompt:
+
+```text
+Implement UAA-P1-011 Task decomposition operator loop. Start with the current
+board, OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md, OPERATOR_EXCELLENCE_LOOP.md,
+OPERATOR_SHELL_GAP_MAP.md, ROUTE_STATUS_MANIFEST.md, task decomposition API
+tests, durable run binding tests, and Control Center tests. Build only the first
+scoped operator loop: runtime health, local model readiness, UAA /v1 chat state,
+task plan creation, approval of one safe registered capability, and
+receipt/audit/latency/rollback inspection. Preserve PolicyEngine,
+LocalApprovalAuthority, route side-effect classification, OpenAPI checks,
+Foundation Gate checks, redaction, and no hidden authority.
+```
+
+Decision: Accepted as roadmap/task-shaping guidance.
+
+Status: accepted
+
+Completed: Recommendations were mapped to `UAA-STRAT-001`, `UAA-P1-011`,
+`UAA-P1-020`, `UAA-P1-021`, `UAA-P1-052`, `UAA-P1-053`, `UAA-P1-054`,
+`UAA-P1-055`, `UAA-P1-057`, `UAA-P1-058`, `UAA-P1-059`, `UAA-P1-060`,
+`UAA-P1-061`, `UAA-P2-047`, and `UAA-P2-056`.
+
+Not done: No runtime/product implementation was added by this roadmap patch.
+`UAA-P1-011` remains the next implementation unit.
+
+Evidence: `docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md`,
+`docs/kanban/current_board.md`, `docs/roadmap/OPERATOR_EXCELLENCE_LOOP.md`.
+
+### 2026-06-19 - Operator Excellence Catch-Up Loop
+
+Date: 2026-06-19
+
+Thread: Human-reconciled ChatGPT/Codex recommendation loop for catching up to
+or surpassing mature peer operator-console systems.
+
+Recommendation: Use `docs/roadmap/OPERATOR_EXCELLENCE_LOOP.md` as the
+repo-owned loop contract for turning peer comparisons and model recommendations
+into one scoped, verifiable task at a time. Keep the loop tied to AGENTS.md,
+the product truth packet, Operator Runtime Excellence roadmap, current board,
+route status manifest, release lanes, and this recommendation log.
+
+Next prompt:
+
+```text
+Read docs/roadmap/OPERATOR_EXCELLENCE_LOOP.md and select the next single
+highest-leverage scoped task. Return the classification, authority boundary,
+risk ceiling, approval model, persistence model, redaction/audit requirements,
+test plan, verifier updates, rollback plan, docs impact, stop conditions, and a
+Codex-ready implementation prompt. Do not implement more than one task.
+```
+
+Decision: Accepted as an operating aid.
+
+Status: accepted
+
+Completed: Added the loop spec and linked it from active docs.
+
+Not done: No product gap is implemented by this planning artifact. The current
+suggested loop cursor remains `UAA-P1-011 Task decomposition operator loop`
+unless the human reconciler selects another scoped item.
+
+Evidence: `docs/roadmap/OPERATOR_EXCELLENCE_LOOP.md`.
+
 ### 2026-06-19 - Verifier Latency Deep Dive
 
 Date: 2026-06-19

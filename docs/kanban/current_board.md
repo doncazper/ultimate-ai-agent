@@ -33,42 +33,85 @@ Gate = required acceptance evidence before Done
 ## Now / Building
 
 ```text
-No active P0 item in this patch. P1 durable-run and Control Center language
-hardening work merged in this baseline; pull the next scoped operator-surface
-or storage migration item from Ready Next after verification.
+UAA-P1-011 Task decomposition operator loop
+Goal: complete the first end-to-end operator loop before more roadmap-only
+expansion: runtime health, local model readiness, UAA /v1 chat, plan creation,
+one safe capability approval, and receipt/audit/latency/rollback inspection.
+Gate: Control Center and API tests prove real/mocked/skipped/blocked states
+without hidden authority or raw JSON as the primary operator UI.
 ```
 
 ## Ready Next
 
 ```text
-UAA-P1-011 Task decomposition operator loop
-Gate: plan, approve, execute safe registered handlers, inspect audit summaries,
-and replay validation from Control Center without hidden authority.
+UAA-P1-020 PolicyEngine consolidation map
+Gate: every policy/approval decision path is identified; parallel authority
+shortcuts are removed or explicitly blocked.
+
+UAA-P1-021 FastAPI route grouping and side-effect classes
+Gate: route owners, service modules, auth posture, side-effect classes, risk
+classes, OpenAPI operation IDs, and release status remain consistent.
+
+UAA-P1-052 API service-module extraction plan
+Gate: module split plan covers health, manifest, local model gateway, task
+decomposition, workspace files, approvals, evidence/receipts, observability,
+extensions, and release verification without route-contract drift.
 ```
 
 ## Shaping
 
 ```text
-UAA-P1-011 Task decomposition operator loop
-Goal: plan, approve, execute safe registered handlers, inspect audit summaries,
-and replay validation from Control Center.
+UAA-P1-053 CI lane workflow expansion
+Goal: expose named docs, OpenAPI, Foundation Gate, API safety, frontend,
+security/redaction, local model, durability, performance, and packaging lanes in
+CI with safe output.
+
+UAA-P1-054 Control Center differentiator screens
+Goal: product-grade screens for route authority, approval state, evidence
+receipts, safe workspace previews, local model status, and M167 observability
+timeline.
+
+UAA-P1-055 Security automation and artifact redaction lane
+Goal: add automated security scanning and release artifact redaction checks
+without external-audit, public-distribution, or signed-release claims.
+
+UAA-P1-057 Product truth regression checks
+Goal: prevent blocked, skipped, pending, mock-only, planned, or not-scoped work
+from being described as complete, production-ready, or publicly released.
 ```
 
 ## Spec Draft
 
 ```text
-UAA-P1-020 PolicyEngine consolidation map
-Goal: identify every policy/approval decision path and remove parallel
-authority shortcuts.
-
-UAA-P1-021 FastAPI route grouping and side-effect classes
-Goal: every API path has owner, auth posture, side-effect class, risk class,
-OpenAPI operation id, and release status.
-
 UAA-P1-022 Storage migration contract
 Goal: SQLite first, optional Postgres later, forward migrations, backup
 minimum set, verify, and offline restore.
 
+UAA-P1-058 First low-risk API route-module extraction
+Goal: extract one read-only route group without changing path behavior, auth
+posture, side-effect classification, API manifest, or operation IDs.
+
+UAA-P1-059 Route-module ownership tests
+Goal: future routes must declare owner, service module, side-effect class, risk,
+auth posture, evidence behavior, and release status.
+
+UAA-P1-060 Operator-readiness status taxonomy
+Goal: share shipped/planned/blocked/skipped/mock/not-scoped status semantics
+across docs, route manifests, Control Center states, release evidence, and
+Foundation Gate reports.
+
+UAA-P1-061 Morning reconciliation artifact check
+Goal: looped ChatGPT/Codex work sessions produce safe reconciliation summaries
+with completed, deferred, rejected, and blocked recommendation refs.
+
+UAA-P2-047 Signed installer and public distribution lane shaping
+Goal: shape installer/release workflow proof only after the local operator loop,
+security, durability, and artifact evidence gates are green.
+
+UAA-P2-056 Extension trust product surface
+Goal: surface static package review, provenance, hash refs, declared
+capabilities, requested grants, activation/revocation state, and risk flags
+without runtime import or execution.
 ```
 
 ## QA / Verification

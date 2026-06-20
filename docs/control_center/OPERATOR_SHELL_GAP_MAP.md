@@ -96,7 +96,21 @@ The smallest route/product work needed to complete the first operator loop is:
 
 These gaps are release blockers for M172 product-readiness claims.
 
+## Rollback
+
+Rollback refs are inspection evidence only in this map. Any future Control
+Center rollback action must name the exact backend route, approval boundary,
+receipt ref, audit ref, idempotency key, and no-raw-content evidence before it
+can be presented as a product-ready recovery path.
+
 ## Product Language Rules
 
 The canonical enforceable UAA-P1-031 rules live in
 `docs/control_center/PRODUCT_LANGUAGE_RULES.md`.
+
+- No hidden authority: visible Control Center actions must name their backend
+  authority boundary and side-effect class.
+- No fake completion: preview-only or blocked flows must not be described as
+  completed product work.
+- No raw JSON as primary UI for operator-critical flows: operator surfaces need
+  readable summaries, states, and evidence refs before claiming readiness.

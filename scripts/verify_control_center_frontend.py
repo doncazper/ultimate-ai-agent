@@ -46,6 +46,7 @@ REQUIRED_FILES = [
     "src/components/EventTimelineTracePanel.tsx",
     "src/components/EvidenceFileMemoryViewerPanel.tsx",
     "src/components/LocalRuntimeStatusPanel.tsx",
+    "src/components/OperatorFlowPanels.tsx",
     "src/components/OperatorSurfaceStates.tsx",
     "src/components/FileReviewSurfacePanel.tsx",
     "src/components/ContextProposalSurfacePanel.tsx",
@@ -146,6 +147,13 @@ FORBIDDEN_ENDPOINTS = [
     "/chat/execute",
     "/chat/run",
     "/model-runtime/execute",
+    "/providers/call",
+    "/providers/invoke",
+    "/providers/test",
+    "/credentials/store",
+    "/credentials/resolve",
+    "/credentials/collect",
+    "/secrets/access/evaluate",
 ]
 
 DANGEROUS_BUTTON_LABELS = [
@@ -192,6 +200,10 @@ DANGEROUS_BUTTON_LABELS = [
     "Connect runtime",
     "Launch runtime",
     "Call model",
+    "Save key",
+    "Connect provider",
+    "Test provider",
+    "Call provider",
 ]
 
 BROWSER_API_FRAGMENTS = [
@@ -367,11 +379,11 @@ BROWSER_SMOKE_REQUIRED_REPORT_FRAGMENTS = [
     "release_readiness_claimed: no",
 ]
 BROWSER_SMOKE_REQUIRED_TEST_FRAGMENTS = [
-    "covers first product loop browser smoke readiness with truthful mocked and blocked states",
-    'openControlCenter: "mocked"',
-    'selectOrApproveLocalGgufModel: "blocked"',
-    'chatShellThroughUaaV1: "blocked"',
-    'createTaskDecompositionPlan: "blocked"',
+    "covers first product loop browser smoke readiness with truthful backend-bound states",
+    'openControlCenter: "mock_fallback"',
+    'selectOrApproveLocalGgufModel: "backend_gated"',
+    'chatShellThroughUaaV1: "gateway_gated"',
+    'createTaskDecompositionPlan: "backend_gated"',
     "Preview only action request",
     "No approval was granted from this UI",
     "Trace detail is redacted summary metadata only",
@@ -652,6 +664,7 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_product_language_rule_failures(root))
     failures.extend(_browser_smoke_readiness_failures(root))
     failures.extend(_operator_surface_state_failures(root))
+    failures.extend(_provider_credential_readiness_failures(root))
 
     implementation_files = _implementation_files(app_root)
     for path in implementation_files:
@@ -713,6 +726,10 @@ def verify(root: Path = ROOT) -> list[str]:
             "no_raw_file_display",
             "no_context_injection",
             "no_openwebui_handoff",
+            "provider_credential_readiness",
+            "invocation_enabled: false",
+            "raw_key_collection_enabled: false",
+            "credential_material_stored: false",
         ]
         if _version_tuple(_current_version(root)) < _version_tuple("v0.41.0"):
             required_mock_safety.extend(["no_approval_capture", "no_approval_persistence"])
@@ -817,10 +834,24 @@ def verify(root: Path = ROOT) -> list[str]:
             failures.append("runtime validation endpoint allowlist helper is missing")
     if client.exists():
         text = client.read_text(encoding="utf-8")
-        if text.count('method: "POST"') != 1:
-            failures.append("frontend client must declare exactly one POST")
+        post_count = text.count('method: "POST"')
+        if post_count not in {1, 2}:
+            failures.append("frontend client must declare only scoped POST calls")
         if "API_ENDPOINTS.actionPreview" not in text:
-            failures.append("frontend client must post only through API_ENDPOINTS.actionPreview")
+            failures.append("frontend client must post through API_ENDPOINTS.actionPreview")
+        if post_count == 2:
+            required_chat_fragments = [
+                "requestRedactedLocalChatProbe",
+                "API_ENDPOINTS.localChatCompletions",
+                "responseVisible: false",
+                "stream: false",
+                "max_tokens: 8",
+            ]
+            for fragment in required_chat_fragments:
+                if fragment not in text:
+                    failures.append(
+                        f"frontend local chat probe missing safety fragment: {fragment}"
+                    )
         if "resolveApiBaseUrl" not in text:
             failures.append("frontend client must resolve API base through local backend policy")
     if base_url.exists():
@@ -912,8 +943,8 @@ def _route_status_manifest_failures(root: Path) -> list[str]:
         failures.append("route status manifest schema version is not current")
     if manifest.get("status") != "active UAA-P1-030 route status manifest":
         failures.append("route status manifest status is not current")
-    if manifest.get("openapi_path_count") != 97:
-        failures.append("route status manifest must record the 97-path OpenAPI boundary")
+    if manifest.get("openapi_path_count") != 99:
+        failures.append("route status manifest must record the 99-path OpenAPI boundary")
 
     allowed_status_values = manifest.get("allowed_release_statuses", [])
     if not isinstance(allowed_status_values, list):
@@ -1195,7 +1226,7 @@ def _operator_shell_gap_map_failures(root: Path) -> list[str]:
             "status: active uaa-p0-007 operator-shell gap map"
         ),
         "operator-shell gap map must include current API count": (
-            "api boundary: current fastapi manifest has 97 openapi paths"
+            "api boundary: current fastapi manifest has 99 openapi paths"
         ),
         "operator-shell gap map must include exact matrix columns": (
             "| surface | current frontend component/page | current backend route(s) | "
@@ -1276,6 +1307,142 @@ def _operator_surface_state_failures(root: Path) -> list[str]:
         for fragment in OPERATOR_STATE_REQUIRED_TEST_FRAGMENTS:
             if fragment not in test_text:
                 failures.append(f"operator surface state test missing fragment: {fragment}")
+    else:
+        failures.append("missing Control Center App.test.tsx")
+
+    return failures
+
+
+def _provider_credential_readiness_failures(root: Path) -> list[str]:
+    failures: list[str] = []
+    app_root = root / "apps/control-center"
+    panel_path = app_root / "src/components/OperatorFlowPanels.tsx"
+    mock_path = app_root / "src/mocks/controlCenterData.ts"
+    types_path = app_root / "src/api/types.ts"
+    test_path = app_root / "src/App.test.tsx"
+
+    if not panel_path.exists():
+        return ["missing provider credential readiness panel source"]
+
+    panel_text = panel_path.read_text(encoding="utf-8")
+    panel_lowered = panel_text.lower()
+    for fragment in [
+        "ProviderCredentialReadinessPanel",
+        "Provider credential readiness",
+        "Provider invocation",
+        "Raw key collection",
+        "Credential material stored",
+        "Vault adapter",
+        "Credential adapter readiness",
+        "Validation readiness",
+        "External validation",
+        "Provider response persisted",
+        "Invocation readiness",
+        "Vault adapter contract",
+        "Provider validation contract",
+        "Governed provider invocation",
+        "ReadinessGateCard",
+        "Provider auth ref status",
+        "Consent ref",
+        "Policy ref",
+        "Revocation ref",
+        "Approval ref",
+        "Credential material visible",
+        "blocker_codes",
+    ]:
+        if fragment not in panel_text:
+            failures.append(f"provider credential readiness panel missing fragment: {fragment}")
+
+    for unsafe in [
+        "enter api key",
+        "paste api key",
+        "paste token",
+        "save key",
+        "connect provider",
+        "test provider",
+        "call provider",
+        "provider call button",
+        "credential input",
+        "api key input",
+    ]:
+        if unsafe in panel_lowered:
+            failures.append(f"provider credential readiness UI contains unsafe setup wording: {unsafe}")
+
+    if "<input" in panel_lowered:
+        failures.append("provider credential readiness UI must not add input controls")
+
+    if types_path.exists():
+        types_text = types_path.read_text(encoding="utf-8")
+        for fragment in [
+            "ProviderCredentialReadinessItem",
+            "ProviderCredentialReadinessSummary",
+            "ProviderCredentialVaultAdapterReadiness",
+            "ProviderCredentialValidationReadiness",
+            "GovernedProviderInvocationReadiness",
+            "provider_credential_readiness",
+            "vault_adapter_readiness",
+            "validation_readiness",
+            "invocation_readiness",
+            "raw_key_collection_enabled",
+            "credential_material_stored",
+            "invocation_enabled",
+        ]:
+            if fragment not in types_text:
+                failures.append(f"provider credential readiness type missing fragment: {fragment}")
+    else:
+        failures.append("missing Control Center frontend types file")
+
+    if mock_path.exists():
+        mock_text = mock_path.read_text(encoding="utf-8")
+        for fragment in [
+            "provider_credential_readiness",
+            "reference_readiness_only",
+            "credential-ref:openai-compatible:not-configured",
+            "consent-ref:provider-runtime:not-granted",
+            "policy-ref:provider-runtime:disabled-by-default",
+            "revocation-ref:provider-runtime:not-active",
+            "PROVIDER_INVOCATION_NOT_SCOPED",
+            "CREDENTIAL_REFERENCE_NOT_BOUND",
+            "VAULT_ADAPTER_NOT_SCOPED",
+            "PROVIDER_KEY_VALIDATION_NOT_SCOPED",
+            "PROVIDER_NETWORK_CALL_NOT_SCOPED",
+            "POLICY_APPROVAL_AUDIT_RECEIPT_REQUIRED",
+            "PROVIDER_OUTPUT_NOT_AUTHORITY",
+            "vault_adapter_readiness",
+            "validation_readiness",
+            "invocation_readiness",
+            "adapter_runtime_enabled: false",
+            "validation_enabled: false",
+            "external_validation_allowed: false",
+            "provider_response_persistence_allowed: false",
+            "model_output_authoritative: false",
+            "streaming_enabled: false",
+            "tools_functions_enabled: false",
+            "invocation_enabled: false",
+            "raw_key_collection_enabled: false",
+            "credential_material_stored: false",
+            "raw_key_visible: false",
+            "credential_resolution_allowed: false",
+        ]:
+            if fragment not in mock_text:
+                failures.append(f"provider credential readiness mock missing fragment: {fragment}")
+    else:
+        failures.append("missing Control Center mock data")
+
+    if test_path.exists():
+        test_text = test_path.read_text(encoding="utf-8")
+        for fragment in [
+            "shows governed provider credential readiness without credential collection",
+            "Provider credential readiness",
+            "Raw key collection",
+            "Credential material stored",
+            "Credential adapter readiness",
+            "Provider validation contract",
+            "Governed provider invocation",
+            "test provider|call provider",
+        ]:
+            if fragment not in test_text:
+                failures.append(f"provider credential readiness test missing fragment: {fragment}")
     else:
         failures.append("missing Control Center App.test.tsx")
 

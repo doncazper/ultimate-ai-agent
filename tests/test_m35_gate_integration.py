@@ -38,7 +38,7 @@ def test_m35_openapi_route_guard_rejects_raw_review_mutation_and_execution_route
     assert any("/files/export" in failure for failure in failures)
     assert any("/tool-runtime/execute" in failure for failure in failures)
     assert any("OpenAPI path count" in failure for failure in failures)
-    assert EXPECTED_M35_OPENAPI_PATH_COUNT == 76
+    assert EXPECTED_M35_OPENAPI_PATH_COUNT == 78
     assert m35_openapi_route_failures(app.openapi().get("paths", {})) == []
 
 

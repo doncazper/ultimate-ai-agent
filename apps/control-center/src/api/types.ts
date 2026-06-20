@@ -8,7 +8,10 @@ export type CapabilityStatus =
   | "dry_run_only"
   | "manual_only";
 
-export type ControlCenterActionStatus = "allowed_preview" | "approval_required" | "blocked";
+export type ControlCenterActionStatus =
+  | "allowed_preview"
+  | "approval_required"
+  | "blocked";
 
 export type BackendConnectionState =
   | "unknown"
@@ -100,6 +103,137 @@ export interface PluginGovernanceSummary {
   native_build_tools_enabled: boolean;
 }
 
+export interface ProviderCredentialReadinessItem {
+  provider_id: string;
+  provider_label: string;
+  provider_kind: string;
+  provider_manifest_ref: string;
+  credential_ref: string;
+  credential_ref_status: string;
+  consent_ref: string;
+  policy_ref: string;
+  revocation_ref: string;
+  approval_ref: string;
+  risk_class: string;
+  invocation_enabled: boolean;
+  credential_material_stored: boolean;
+  raw_key_visible: boolean;
+  readiness_status: string;
+  blocker_codes: string[];
+  safe_summary: string;
+}
+
+export interface ProviderCredentialVaultAdapterReadiness {
+  credential_ref: string;
+  provider_id: string;
+  consent_ref: string;
+  policy_ref: string;
+  approval_ref: string;
+  revocation_ref: string;
+  storage_backend_kind: string;
+  credential_material_stored_by_repo: boolean;
+  raw_key_visible: boolean;
+  adapter_runtime_enabled: boolean;
+  last_validation_ref: string;
+  readiness_status: string;
+  blocker_codes: string[];
+  safe_summary: string;
+}
+
+export interface ProviderCredentialValidationReadiness {
+  provider_manifest_ref: string;
+  credential_ref: string;
+  consent_ref: string;
+  policy_ref: string;
+  approval_ref: string;
+  revocation_ref: string;
+  validation_enabled: boolean;
+  external_validation_allowed: boolean;
+  provider_response_persistence_allowed: boolean;
+  validation_receipt_ref: string;
+  readiness_status: string;
+  blocker_codes: string[];
+  safe_summary: string;
+}
+
+export interface GovernedProviderInvocationReadiness {
+  readiness_status: string;
+  invocation_enabled: boolean;
+  policy_engine_required: boolean;
+  local_approval_required: boolean;
+  credential_ref_required: boolean;
+  provider_manifest_allowlist_required: boolean;
+  redacted_request_summary_only: boolean;
+  redacted_response_summary_only: boolean;
+  receipt_refs_required: boolean;
+  audit_refs_required: boolean;
+  rollback_or_safe_disable_required: boolean;
+  rate_budget_boundary_required: boolean;
+  model_output_authoritative: boolean;
+  streaming_enabled: boolean;
+  tools_functions_enabled: boolean;
+  memory_write_enabled: boolean;
+  context_injection_enabled: boolean;
+  browser_network_automation_enabled: boolean;
+  connector_writes_enabled: boolean;
+  blocker_codes: string[];
+  safe_summary: string;
+}
+
+export interface ProviderCredentialReadinessSummary {
+  status: string;
+  safe_summary: string;
+  invocation_enabled: boolean;
+  raw_key_collection_enabled: boolean;
+  credential_material_stored: boolean;
+  vault_adapter_configured: boolean;
+  vault_adapter_readiness: ProviderCredentialVaultAdapterReadiness;
+  validation_readiness: ProviderCredentialValidationReadiness;
+  invocation_readiness: GovernedProviderInvocationReadiness;
+  providers: ProviderCredentialReadinessItem[];
+  blocker_codes: string[];
+  future_gate: string;
+}
+
+export interface OperatorLoopStepSummary {
+  step_id: string;
+  label: string;
+  status: string;
+  safe_summary: string;
+  route_refs: string[];
+  evidence_refs: string[];
+  next_safe_action: string;
+  authority_boundary: string;
+  frontend_authority: boolean;
+  control_center_mutation_allowed: boolean;
+  backend_authority_required: boolean;
+  approval_required: boolean;
+  prompt_content_recorded: boolean;
+  provider_payload_recorded: boolean;
+  model_output_authoritative: boolean;
+  metadata: Record<string, boolean | string | number>;
+}
+
+export interface OperatorLoopSummary {
+  loop_id: string;
+  milestone_ref: string;
+  status: string;
+  safe_summary: string;
+  backend_authority: string;
+  frontend_authority: boolean;
+  production_ready: boolean;
+  read_only_dashboard: boolean;
+  control_center_mutation_allowed: boolean;
+  model_output_authoritative: boolean;
+  prompt_content_recording_allowed: boolean;
+  provider_payload_recording_allowed: boolean;
+  steps: OperatorLoopStepSummary[];
+  blocked_prerequisites: string[];
+  inspection_route_refs: string[];
+  next_safe_action: string;
+  metadata: Record<string, boolean | string | number>;
+}
+
 export interface ControlCenterDashboardSnapshot {
   snapshot_id: string;
   baseline_version: string;
@@ -113,6 +247,8 @@ export interface ControlCenterDashboardSnapshot {
   private_mesh_summary: PrivateMeshSummary;
   mobile_planning_summary: MobilePlanningSummary;
   plugin_governance_summary: PluginGovernanceSummary;
+  provider_credential_readiness: ProviderCredentialReadinessSummary;
+  operator_loop_summary?: OperatorLoopSummary;
   warnings: string[];
   blockers: string[];
   next_recommended_action: string;
@@ -196,6 +332,37 @@ export interface RuntimeCapabilityMatrix {
   baseline_version: string;
   entries: RuntimeCapabilityEntry[];
   metadata: Record<string, boolean | string | number>;
+}
+
+export type OperatorRouteInspectionState =
+  | "checking"
+  | "ready"
+  | "blocked"
+  | "denied"
+  | "degraded"
+  | "unavailable";
+
+export interface LocalModelsInspectionStatus {
+  state: OperatorRouteInspectionState;
+  routeRef: string;
+  checkedAt: string;
+  safeMessage: string;
+  modelIds: string[];
+  selectedModelId?: string;
+  statusCode?: number;
+  reasonCodes: string[];
+}
+
+export interface RedactedLocalChatProbeStatus {
+  state: OperatorRouteInspectionState;
+  routeRef: string;
+  checkedAt: string;
+  safeMessage: string;
+  modelId: string;
+  statusCode?: number;
+  durationMs?: number;
+  responseVisible: false;
+  reasonCodes: string[];
 }
 
 export interface ActionPreviewRequest {

@@ -20,4 +20,12 @@ execution, no shell execution, no browser automation, no plugin execution, no
 mobile sensor, no background worker, no remote execution, no backend route, no
 Control Center control, no dependency, and no beta release.
 
+Control Center provider credential readiness may reference this boundary as a
+blocked future gate only. The current Settings visibility records safe refs,
+readiness status, and blocker codes for Provider Credential Vault Adapter v1,
+Provider Credential Validation v1, and Governed Provider Invocation v1. It does
+not implement vault runtime, key validation, provider invocation, key
+collection, credential material storage, environment-value reads, provider SDK
+calls, or external network validation.
+
 M114 remains future. M150 remains the v1.2.0-alpha target.

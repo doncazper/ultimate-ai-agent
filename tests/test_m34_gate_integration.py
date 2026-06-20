@@ -32,7 +32,7 @@ def test_m34_openapi_route_guard_rejects_file_review_and_execution_routes():
     assert any("/memory/write" in failure for failure in failures)
     assert any("/tool-runtime/execute" in failure for failure in failures)
     assert any("OpenAPI path count" in failure for failure in failures)
-    assert EXPECTED_M34_OPENAPI_PATH_COUNT == 76
+    assert EXPECTED_M34_OPENAPI_PATH_COUNT == 78
     assert m34_openapi_route_failures(app.openapi().get("paths", {})) == []
 
 

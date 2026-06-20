@@ -1,5 +1,6 @@
 import type { ControlCenterDashboardSnapshot } from "../api/types";
 import { EmptyState } from "./DataState";
+import { OperatorLoopPanel } from "./OperatorLoopPanel";
 import { StatusCard } from "./StatusCard";
 
 export function DashboardSummary({ dashboard }: { dashboard: ControlCenterDashboardSnapshot }) {
@@ -14,7 +15,7 @@ export function DashboardSummary({ dashboard }: { dashboard: ControlCenterDashbo
       </div>
       <p className="section-copy">
         Read-only summaries for release readiness, runtime boundaries, API inventory, approvals,
-        remote worker planning, mobile planning, and plugin governance.
+        operator loop readiness, remote worker planning, mobile planning, and plugin governance.
       </p>
       <div className="panel-grid">
         <StatusCard
@@ -42,6 +43,7 @@ export function DashboardSummary({ dashboard }: { dashboard: ControlCenterDashbo
           }
         />
       </div>
+      <OperatorLoopPanel summary={dashboard.operator_loop_summary} />
       {dashboard.warnings.length > 0 ? (
         <div className="note-list" aria-label="Dashboard warnings">
           {dashboard.warnings.map((warning) => (

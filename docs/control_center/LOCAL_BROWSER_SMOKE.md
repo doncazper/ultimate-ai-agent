@@ -67,17 +67,19 @@ State meanings for browser smoke reports:
 
 | Product loop step | Browser smoke state | UI or route evidence | Blocker or skip condition |
 |---|---|---|---|
-| Open Control Center | mocked/local-only | `/dashboard` renders Dashboard overview, backend state, local API base, and mock fallback copy when reads fail. | None for mock fallback smoke; local backend availability can be skipped. |
-| Inspect runtime health and model readiness | mocked/local-only | `/runtime` and `/runtime/local` show Runtime readiness, local runtime status, claim/evidence wording, and no runtime execution controls. | Reviewed live model evidence remains a separate M167 prerequisite. |
-| Select or approve local GGUF model | blocked | `/models` shows accessible blocked/denied state copy; route status manifest records missing GGUF selection, approved GGUF readiness, llama.cpp settings, and rollback routes. | Dedicated model selection/approval UI and reviewed GGUF evidence are not implemented. |
-| Use chat shell through UAA `/v1` | blocked | `/chat` shows accessible blocked/denied state copy; `/runtime/manual-smoke` shows safe manual smoke report summaries; OpenWebUI remains the current local shell. | Dedicated CCC chat composer, auth status, receipt summary, and tools/functions/streaming denial UI are missing. |
-| Create a task decomposition plan | blocked/partial | `/plans` shows accessible blocked/denied state copy; `/action-preview` can preview policy only; task decomposition backend routes exist but no product Plans loop is present. | Dedicated Plans DAG/status summary, durable run lifecycle summary, and replay summary routes are missing. |
-| Approve one safe registered capability | mocked/partial | `/approvals` shows read-only/preview-only approval summaries and no approval grant from the UI. | Product approval capture/revoke UI and evidence binding remain scoped to later M172 work. |
-| Inspect receipt/audit/latency/rollback status | mocked/partial | `/receipts`, `/events/timeline`, `/evidence`, `/foundation-gate`, and `/api-routes` show redacted summary evidence. | Release evidence index, latency report summary, rollback status, and run receipt trace routes are incomplete. |
+| Open Control Center | mocked/local-only or real | `/dashboard` renders Dashboard overview, backend state, local API base, mock fallback copy when reads fail, and the Operator Loop summary. | None for mock fallback smoke; local backend availability can be skipped. |
+| Inspect runtime health and model readiness | route-ready | `/runtime`, `/runtime/local`, and `/operator-loop` show Runtime readiness, local runtime status, route refs, claim/evidence wording, and no runtime execution controls. | Reviewed live model evidence remains backend-gated and disabled by default. |
+| Select or approve local GGUF model | blocked/backend-gated | `/models` shows accessible blocked/denied state copy; `/operator-loop` records local `/v1` gateway posture and route refs. | Dedicated model selection/approval UI and reviewed GGUF evidence are not implemented. |
+| Use chat shell through UAA `/v1` | gateway-gated | `/operator-loop` shows `/v1/chat/completions` readiness and local gateway prerequisites; backend integration tests use the deterministic M151 local gateway. | Browser UI does not expose a chat composer, credential input, or model output authority. |
+| Create a task decomposition plan | backend-gated | `/operator-loop` shows task decomposition route refs; backend integration tests create and validate a local plan through task-decomposition routes. | Browser UI does not execute plans or capture task-decomposition bearer values. |
+| Approve one safe registered capability | backend-authority | `/operator-loop` and `/approvals` show approval boundaries; backend integration tests capture one exact LocalApprovalAuthority grant for a safe registered capability. | Control Center UI cannot grant, revoke, or treat approval refs as authority. |
+| Inspect receipt/audit/latency/rollback status | inspection-ready | `/operator-loop`, `/receipts`, `/events/timeline`, `/evidence`, `/foundation-gate`, and `/api-routes` show redacted summaries and route refs; backend integration tests assert durable receipt, audit, replay, latency, and rollback refs. | Browser UI does not mutate receipts, export audit data, measure live latency, or trigger rollback. |
 
-The first product loop is therefore not claimed complete by browser smoke. The
-smoke lane proves that the shell loads, visible controls are readable and safe,
-mocked/local-only states are labeled, and blocked prerequisites are not hidden.
+The first product loop is now locally inspectable through the backend-bound
+summary and deterministic API tests. Browser smoke still claims no production
+readiness and no frontend authority; it proves that the shell loads, visible
+controls are readable and safe, mocked/local-only states are labeled, and blocked
+prerequisites are not hidden.
 Operator-critical flows must use human-readable panels, safe refs, and explicit
 blocked/skipped/partial states; raw JSON must not be the primary UI.
 
@@ -90,8 +92,8 @@ PYTHONPATH=src .venv/bin/python scripts/verify_control_center_browser_smoke_read
 ```
 
 The Vitest browser-smoke readiness case in `apps/control-center/src/App.test.tsx`
-covers the mocked/local-only happy path and asserts the blocked prerequisites
-remain visible and non-authoritative.
+covers the mocked/local-only fallback plus backend-bound loop markers and
+asserts that blocked prerequisites remain visible and non-authoritative.
 
 Use `docs/control_center/LOCAL_BROWSER_SMOKE_REPORTING.md` for the safe local browser smoke report format. Reports must be local-only, non-authoritative, and free of secrets, raw prompts, file content, memory content, credentials, cookies, screenshots with secrets, browser traces, and generated artifacts.
 

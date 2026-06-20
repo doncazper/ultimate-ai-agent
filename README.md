@@ -1,12 +1,13 @@
 # Ultimate AI Agent
 
-Ultimate AI Agent is a local-first, safety-first foundation for governed AI
-agent work. It centers a Python Agent Core, typed contracts, redacted evidence,
-approval-bound mutation paths, and verifier-backed release discipline before any
-capability is allowed to become operational authority.
+Ultimate AI Agent (UAA) is a local-first foundation for governed AI agent work.
+It puts a Python Agent Core, typed contracts, approvals, redacted evidence,
+rollback paths, and verifier-backed release discipline in front of any
+capability that could affect real systems.
 
-This repository is under active development. It is not a public release, beta,
-hosted production service, broad-autonomy runtime, or unrestricted tool runner.
+This repository is under active development. It is not a public release, public
+beta, hosted production service, broad-autonomy runtime, or unrestricted tool
+runner.
 
 ## Current Status
 
@@ -21,13 +22,13 @@ hosted production service, broad-autonomy runtime, or unrestricted tool runner.
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | Production readiness | Not claimed |
 
-The active product/package baseline is `v0.102.0` / `0.102.0`. `checkpoint-m168` is the
-latest accepted repository checkpoint and repairs currentness across README,
-roadmap, board, checkpoint references, product truth, and route-count
-references. The M160-M167 local model lane remains scoped to local
-llama.cpp/OpenWebUI readiness evidence. M166 is the exact-scope local model
-production-readiness gate, and M167 adds live-evidence hardening and redacted
-session/run observability without adding broader production authority.
+The active product/package baseline is `v0.102.0` / `0.102.0`.
+`checkpoint-m168` is the latest accepted repository checkpoint and repairs
+currentness across README, roadmap, board, checkpoint references, product truth,
+and route-count references. The M160-M167 local model lane remains scoped to
+local llama.cpp/OpenWebUI readiness evidence. M166 is the exact-scope local
+model production-readiness gate, and M167 adds live-evidence hardening and
+redacted session/run observability without adding broader production authority.
 
 Already-pushed tags remain immutable historical records. M150's
 `v1.2.0-alpha` label is preserved as historical alpha-target context only; it
@@ -40,17 +41,16 @@ docs/archive/releases/v0_102_0/README_IMPORT.md
 docs/archive/releases/v0_102_0/master_plan.md
 ```
 
-## What This Repo Is
+## Operating Model
 
-UAA is built around one principle: powerful agent behavior should be
-inspectable, permissioned, reversible, and testable before it can affect real
-systems.
+UAA is built around one rule: agent behavior must be inspectable, permissioned,
+reversible, and testable before it can affect real systems.
 
-The current implementation emphasizes:
+The current implementation provides:
 
 - typed policy, approval, route, run, receipt, and evidence contracts
 - FastAPI route metadata with side-effect classification
-- `PolicyEngine` and `LocalApprovalAuthority` boundaries
+- `PolicyEngine` and `LocalApprovalAuthority` as required authority boundaries
 - local model readiness through a scoped llama.cpp/OpenWebUI shell lane
 - safe workspace previews, patch proposals, atomic apply, and rollback receipts
 - redacted session/run observability for UAA-managed surfaces only
@@ -58,12 +58,10 @@ The current implementation emphasizes:
   bounded redacted previews and receipt refs
 - release verification lanes, Foundation Gate reports, OpenAPI checks, and
   documentation integrity checks
-- read-only plugin/skill ecosystem inspection, exact activation records, and an
-  MCP/A2A compatibility watchlist without runtime import or execution
+- read-only plugin/skill ecosystem inspection, exact activation records, and
+  MCP/A2A compatibility watchlist planning without runtime import or execution
 
-## What This Repo Is Not
-
-The current baseline does not grant:
+The current baseline explicitly does not grant:
 
 - production authority, public release, public beta, or public distribution
 - broad autonomy or autonomous background sessions by default
@@ -102,22 +100,23 @@ Python Agent Core
 OpenWebUI is a shell into UAA-managed local model behavior, not the agent brain.
 The Python Agent Core remains the authority boundary.
 
-## Current Capability Map
+## Capability Map
 
-| Area | Current state | Primary refs |
+| Area | Current state | Start here |
 |---|---|---|
 | Product truth | Evidence-backed release claims and gap matrix | [Product release-truth packet](docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md) |
+| Catch-up loop | Human-reconciled loop for ChatGPT/Codex recommendations and peer-gap closure | [operator excellence loop](docs/roadmap/OPERATOR_EXCELLENCE_LOOP.md), [recommendation log](docs/backlog/codex_recommendation_log.md) |
 | API contract | 99 OpenAPI paths, stable operation IDs, route metadata | [API boundary](docs/api/README.md), [route inventory](docs/api/route_inventory.md) |
 | Governed web evidence | UAA-P1-063 status/request contract, allowlisted HTTPS GET envelope, bounded redacted preview, chatbot disclosure | [governed web evidence](docs/network/GOVERNED_WEB_EVIDENCE_V1.md), [M72 fetch tool](docs/network/READ_ONLY_HTTP_FETCH_TOOL.md) |
 | Security posture | Reporting, severity, triage, redaction invariants | [SECURITY.md](SECURITY.md), [triage runbook](docs/security/SECURITY_TRIAGE_RUNBOOK.md) |
 | Operator shell | Gap map and product language rules for visible surfaces | [gap map](docs/control_center/OPERATOR_SHELL_GAP_MAP.md), [language rules](docs/control_center/PRODUCT_LANGUAGE_RULES.md) |
-| Local model lane | Local llama.cpp/OpenWebUI readiness, E2E smoke, evidence matrix | [M167 evidence matrix](docs/production/M167_LIVE_MODEL_EVIDENCE_MATRIX.md), [E2E smoke harness](docs/production/M167_LOCAL_MODEL_E2E_SMOKE_HARNESS.md) |
-| Local model operations | UAA-P0-015 provenance checklist; P0-016 hardens tuning advice; P0-017 adds safe local model operational recovery guidance | [llama-server checklist](docs/production/LLAMA_SERVER_PACKAGING_PROVENANCE_CHECKLIST.md), [operational runbook](docs/production/LOCAL_MODEL_OPERATIONAL_RUNBOOK.md) |
+| Local model lane | llama.cpp/OpenWebUI readiness, smoke harness, evidence matrix | [M167 evidence matrix](docs/production/M167_LIVE_MODEL_EVIDENCE_MATRIX.md), [E2E smoke harness](docs/production/M167_LOCAL_MODEL_E2E_SMOKE_HARNESS.md) |
+| Local model operations | Provenance guidance; P0-016 hardens tuning advice; P0-017 adds safe local model operational recovery guidance | [llama-server checklist](docs/production/LLAMA_SERVER_PACKAGING_PROVENANCE_CHECKLIST.md), [operational runbook](docs/production/LOCAL_MODEL_OPERATIONAL_RUNBOOK.md) |
 | Workspace workbench | Safe refs, bounded previews, approval-bound mutations, rollback receipts | [file preview policy](docs/files/LOCAL_FILE_REDACTED_PREVIEW_POLICY.md) |
 | Durable runs | Append-first local run/receipt storage and lifecycle contracts | [durable run spine](docs/execution/DURABLE_RUN_SPINE.md) |
 | Observability | M167 local redacted session/run logging and bounded summary APIs | [session logging](docs/observability/SESSION_LOGGING_M167.md) |
 | Performance | p50/p95 release latency baseline and Foundation Gate latency integration | [release latency baseline harness](docs/production/RELEASE_LATENCY_BASELINE_HARNESS.md) |
-| Release evidence | Named verification lanes, packet template, backup/restore verification, rollback guidance | [verification lanes](docs/production/RELEASE_VERIFICATION_LANES.md), [evidence packet](docs/production/RELEASE_EVIDENCE_PACKET.md), [backup/restore verification](docs/production/BACKUP_RESTORE_VERIFICATION.md), [local state rollback runbook](docs/production/LOCAL_STATE_ROLLBACK_RUNBOOK.md) |
+| Release evidence | Named lanes, evidence packets, backup/restore checks, rollback guidance | [verification lanes](docs/production/RELEASE_VERIFICATION_LANES.md), [evidence packet](docs/production/RELEASE_EVIDENCE_PACKET.md), [backup/restore verification](docs/production/BACKUP_RESTORE_VERIFICATION.md), [rollback runbook](docs/production/LOCAL_STATE_ROLLBACK_RUNBOOK.md) |
 | Ecosystem boundary | Inspectable extension catalog, activation records, MCP/A2A watchlist | [plugin/skill boundary](docs/tooling/PLUGIN_SKILL_ECOSYSTEM_BOUNDARY.md), [catalog](docs/tooling/INSPECTABLE_EXTENSION_CATALOG.md), [activation grants](docs/tooling/EXTENSION_ACTIVATION_GRANTS.md), [MCP/A2A watchlist](docs/tooling/MCP_A2A_COMPATIBILITY_WATCHLIST.md) |
 
 ## Quick Start
@@ -139,7 +138,7 @@ PYTHONPATH=src .venv/bin/python -m pytest tests/test_api_manifest.py
 .venv/bin/python scripts/run_foundation_gate.py --command-mode report-only
 ```
 
-Run the aggregate checks:
+Run aggregate checks:
 
 ```bash
 make verify
@@ -147,30 +146,30 @@ make frontend-check
 ```
 
 For local runtime packaging guidance, start with
-[Local Runtime Packaging](docs/production/LOCAL_RUNTIME_PACKAGING.md). It is
-loopback-first local readiness packaging only and does not claim public
+[Local Runtime Packaging](docs/production/LOCAL_RUNTIME_PACKAGING.md). The
+packaging path is loopback-first local readiness only; it does not claim public
 distribution, hosted production support, or signed installer readiness.
 
 ## Documentation Map
 
-Start here:
-
-- [Docs home](docs/README.md)
-- [Documentation index](docs/DOCUMENTATION_INDEX.md)
-- [Canonical document map](docs/canonical/CANONICAL_DOC_MAP.md)
-- [Current roadmap](docs/canonical/09_roadmap.md)
-- [Operator Runtime Excellence roadmap](docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md)
-- [Current Kanban board](docs/kanban/current_board.md)
-- [Release notes for v0.102.0](docs/release_notes/v0_102_0.md)
-- [Checkpoint M168 notes](docs/release_notes/checkpoint_m168.md)
+| Need | Read |
+|---|---|
+| Docs home | [docs/README.md](docs/README.md) |
+| Full documentation index | [docs/DOCUMENTATION_INDEX.md](docs/DOCUMENTATION_INDEX.md) |
+| Canonical map | [docs/canonical/CANONICAL_DOC_MAP.md](docs/canonical/CANONICAL_DOC_MAP.md) |
+| Current roadmap | [docs/canonical/09_roadmap.md](docs/canonical/09_roadmap.md) |
+| Operator Runtime Excellence | [roadmap](docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md), [current board](docs/kanban/current_board.md) |
+| Operator Excellence catch-up loop | [loop](docs/roadmap/OPERATOR_EXCELLENCE_LOOP.md), [recommendation log](docs/backlog/codex_recommendation_log.md) |
+| Current release | [v0.102.0 notes](docs/release_notes/v0_102_0.md), [checkpoint M168](docs/release_notes/checkpoint_m168.md) |
 
 Historical docs live under [docs/archive](docs/archive/README.md). They are
 audit artifacts, not current implementation claims.
 
 ## Historical Roadmap Anchors
 
-The active roadmap keeps M34-M60 labels as immutable audit anchors while the
-current baseline remains v0.102.0:
+These M34-M60 labels remain active audit anchors. They are historical milestone
+markers, not the current package baseline; the current baseline remains
+v0.102.0.
 
 | Release | Milestone |
 |---|---|

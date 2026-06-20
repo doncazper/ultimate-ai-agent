@@ -31,8 +31,10 @@ The denied boundary is:
 - no dependency
 - no unreviewed side effects
 
-M167 does not add web fetching, model downloads, process starts, llama.cpp
-launches, OpenWebUI calls, or load-test execution by itself. Those actions may
-be performed only by already approved live lanes, and M167 records the reviewed
-evidence refs that prove they happened safely.
-
+The M167 hardening report does not add web fetching, model downloads, process
+starts, llama.cpp launches, OpenWebUI calls, or load-test execution by itself.
+The separate `docs/production/M167_OPENWEBUI_LOCAL_INSTALLER.md` slice permits
+only the explicit, operator-approved OpenWebUI Docker image pull through
+`uaa setup install --target openwebui`. Other actions may be performed only by
+already approved live lanes, and M167 records the reviewed evidence refs that
+prove they happened safely.

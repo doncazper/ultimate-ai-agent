@@ -33,16 +33,21 @@ def test_m13_foundation_gate_criteria_exist_and_pass():
     assert report.failed_count == 0
 
 
-def test_frontend_source_declares_only_preview_post_route():
+def test_frontend_source_declares_only_scoped_post_routes():
     endpoints = (ROOT / "apps/control-center/src/api/endpoints.ts").read_text(encoding="utf-8")
     client = (ROOT / "apps/control-center/src/api/client.ts").read_text(encoding="utf-8")
 
     assert 'actionPreview: "/control-center/actions/preview"' in endpoints
+    assert 'localChatCompletions: "/v1/chat/completions"' in endpoints
     assert "/control-center/actions/execute" not in endpoints
     assert "/control-center/plugins/enable" not in endpoints
     assert "/control-center/remote-workers/dispatch" not in endpoints
-    assert client.count('method: "POST"') == 1
+    assert client.count('method: "POST"') == 2
     assert "API_ENDPOINTS.actionPreview" in client
+    assert "requestRedactedLocalChatProbe" in client
+    assert "API_ENDPOINTS.localChatCompletions" in client
+    assert "responseVisible: false" in client
+    assert "stream: false" in client
 
 
 def test_frontend_package_has_only_local_shell_dependencies():

@@ -14,6 +14,7 @@ from ultimate_ai_agent import __version__
 from ultimate_ai_agent.api.contracts import ApiManifest
 from ultimate_ai_agent.api.manifest import build_api_manifest
 from ultimate_ai_agent.api.openapi import configure_openapi_contract
+from ultimate_ai_agent.api.web_evidence import register_governed_web_evidence_routes
 from ultimate_ai_agent.core.contracts import (
     ExecutionContract,
     ContextPack,
@@ -198,6 +199,7 @@ app = FastAPI(
     version=__version__,
     description="The secure control boundary for the Ultimate AI Agent"
 )
+register_governed_web_evidence_routes(app)
 
 _file_review_approval_store = FileReviewApprovalStore()
 _task_decomposition_service = TaskDecompositionService.from_env()

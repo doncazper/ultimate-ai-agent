@@ -23,6 +23,12 @@ automation, mobile control, remote execution, and autonomous background
 execution. Local model and OpenWebUI readiness remain governed by their
 separate M151-M167 gates and runbooks.
 
+GitHub-hosted bootstrap installer authority is defined separately in
+`docs/production/M167_GITHUB_BOOTSTRAP_LOCAL_INSTALLER.md`. That milestone is
+definition-only until a later implementation slice adds pinned release,
+checksum/signature verification, approval, receipt, PATH rollback, and static
+unsafe-pattern tests.
+
 ## Safe Defaults
 
 | Control | Default |
@@ -118,6 +124,8 @@ safe-disable, rollback, and unsupported recovery states distinct.
 ## Known Gaps
 
 - Base image digest pinning is not yet a release-blocking gate.
+- GitHub bootstrap installer implementation remains future-scoped by
+  `docs/production/M167_GITHUB_BOOTSTRAP_LOCAL_INSTALLER.md`.
 - Live restore, hosted production deployment, signed installers, and public
   distribution remain future-scoped.
 - Local model runtime proof still depends on M166/M167 evidence and UAA local

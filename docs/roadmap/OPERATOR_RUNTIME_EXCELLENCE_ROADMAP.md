@@ -35,6 +35,18 @@ architecture:
 - Product surfaces expose operational truth instead of hiding state.
 - Performance and durability are first-class release gates, not cleanup tasks.
 
+Product decision: UAA is a two-layer product architecture. The governance
+kernel is the automated guardrail layer: it owns contracts, policy, approvals,
+route authority, redaction, audit, receipts, replay, rollback, and release
+evidence. The operator shell is the developer/user cockpit: it makes those
+guardrails usable through clear workflows for runtime health, local models,
+plans, approvals, files, evidence, observability, settings, and release
+readiness. UAA should compete with mature operator consoles by building both
+layers together, but runtime authority still flows only through scoped,
+evidence-backed guardrails. Until the first full local operator loop is usable
+end to end, product loop completion has priority over additional roadmap-only
+expansion.
+
 ## Excellence Targets
 
 | Pillar | Peer Strength | UAA Excellence Target |
@@ -49,6 +61,24 @@ architecture:
 | Performance | Product verification lanes | p50/p95 budget gates for API, planning, file preview, local model, and UI smoke paths |
 | Packaging | Docker and Windows installers | Reproducible loopback-first local stack, signed-release path later, no trust claims without proof |
 | Ecosystem | MCP, skills, extensions | Manifest-first skill/plugin ecosystem with no runtime import until explicitly approved |
+
+## Accepted Catch-Up Recommendations
+
+These recommendations are accepted into the roadmap as task-shaping guidance.
+They do not mark the capability shipped and do not grant new authority.
+
+| Recommendation | Roadmap task(s) | Priority | Gate |
+|---|---|---|---|
+| Decide product posture | `UAA-STRAT-001` Two-layer architecture: governance kernel plus operator cockpit | P0 | README/product truth/roadmap wording remains consistent and says guardrails allow scoped product actions only through policy, approval, audit, rollback, redaction, and verifier gates |
+| Complete the first full operator loop before more roadmap docs | `UAA-P1-011` Task decomposition operator loop | P0 | Runtime health, local model readiness, UAA `/v1` chat, plan creation, one safe approval, receipt/audit/latency/rollback inspection are covered without hidden authority |
+| Split the API into clearer service modules | `UAA-P1-021` FastAPI route grouping and side-effect classes, `UAA-P1-052` API service-module extraction plan | P1 | OpenAPI path count, operation IDs, route side-effect classes, auth posture, and API manifest remain unchanged or intentionally updated with tests |
+| Expand CI into named release lanes | `UAA-P1-013` Done, `UAA-P1-053` CI lane workflow expansion | P1 | docs, OpenAPI, Foundation Gate, API safety, frontend, security/redaction, local model, durability, performance, and packaging lanes are visible in CI without unsafe artifact leakage |
+| Add product-grade Control Center screens for UAA differentiators | `UAA-P1-054` Control Center differentiator screens | P1 | route authority, approval state, receipts/evidence, safe workspace previews, local model status, and observability timeline are readable surfaces, not raw JSON |
+| Preserve UAA's stricter authority model | `UAA-P1-020` PolicyEngine consolidation map | P0/P1 | No copied peer runtime feature ships without exact policy, approval, audit, rollback, and redaction gates |
+| Add automated security scanning and artifact redaction checks | `UAA-P1-055` Security automation and artifact redaction lane | P1 | Security scans and artifact checks are safe, local/CI bounded, and do not claim external audit or public distribution |
+| Productize extension boundary carefully | `UAA-P2-048` Static package review, `UAA-P2-056` Extension trust product surface | P2 | Trust/provenance inspection improves before plugin execution exists; runtime import remains disabled |
+| Treat installer/release workflows as catch-up after local loop usability | `UAA-P2-047` Signed installer and public distribution lane shaping | P2 | No signed/public distribution claim until local loop, security, durability, and artifact proof gates are green |
+| Preserve blocked/scoped/planned truthfulness | `UAA-P1-031` Done, `UAA-P1-057` Product truth regression checks | P0/P1 | Planned, blocked, skipped, mock, and not-scoped work cannot be described as complete or production-ready |
 
 ## Non-Negotiable Invariants
 
@@ -222,6 +252,11 @@ Tasks:
 
 - `UAA-P0-007` Map each surface to current routes and missing routes in
   `docs/control_center/OPERATOR_SHELL_GAP_MAP.md`.
+- `UAA-P1-011` Build the first end-to-end operator loop through Control Center:
+  inspect runtime health, inspect local model readiness, chat through UAA
+  `/v1`, create a task decomposition plan, approve one safe registered
+  capability, inspect receipt/audit/latency/rollback status, and preserve
+  durable run truth.
 - `UAA-P1-030` Done: add route status manifest for visible surface readiness in
   `docs/control_center/ROUTE_STATUS_MANIFEST.md`.
 - `UAA-P1-031` Done: add enforceable product language rules in
@@ -239,12 +274,17 @@ Tasks:
   Evidence, and Settings in `apps/control-center/src/components/OperatorSurfaceStates.tsx`,
   `apps/control-center/src/routes.tsx`, `apps/control-center/src/App.test.tsx`,
   and `scripts/verify_control_center_frontend.py`.
+- `UAA-P1-054` Add product-grade Control Center differentiator screens for
+  route authority, approval state, evidence receipts, safe workspace previews,
+  local model status, and an observability timeline over M167 safe summaries.
 
 Acceptance:
 
 - A user can complete the first product loop without reading raw API payloads:
   select local model, run local shell smoke, create plan, approve safe handler,
   inspect receipt, and rollback a local file proposal.
+- The loop distinguishes real, mocked, skipped, blocked, and denied states and
+  does not imply completion or authority for missing prerequisites.
 - Every visible action maps to route authority and side-effect class.
 - Product language rules are documented and statically checked for
   Control Center and release-facing copy where practical.
@@ -260,6 +300,41 @@ Verification:
 make frontend-check
 PYTHONPATH=src .venv/bin/python -m pytest tests/test_control_center_api_routes.py
 PYTHONPATH=src .venv/bin/python scripts/verify_control_center_frontend.py
+```
+
+### M172.5 - API Service Boundaries and Route Modularity
+
+Goal: split API organization into clearer service modules as UAA grows while
+preserving the current OpenAPI contract, operation IDs, side-effect classes,
+auth posture, and API manifest truth.
+
+Tasks:
+
+- `UAA-P1-021` FastAPI route grouping and side-effect classes.
+- `UAA-P1-052` Define an API service-module extraction plan for health,
+  manifest, local model gateway, task decomposition, workspace files,
+  approvals, evidence/receipts, observability, extensions, and release
+  verification routes.
+- `UAA-P1-058` Extract one low-risk read-only route group as the first module
+  without changing path behavior, auth posture, side-effect classification, or
+  OpenAPI operation IDs.
+- `UAA-P1-059` Add route-module ownership tests so future route additions
+  declare owner, service module, side-effect class, risk, auth posture,
+  evidence behavior, and release status.
+
+Acceptance:
+
+- The API becomes easier to navigate without route-contract drift.
+- `/api/manifest`, OpenAPI, route inventory, and Control Center route manifest
+  continue to agree.
+- Refactors do not add runtime authority or broaden side effects.
+
+Verification:
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/verify_openapi_contract.py
+PYTHONPATH=src .venv/bin/python -m pytest tests/test_api_manifest.py
+PYTHONPATH=src .venv/bin/python -m pytest tests/test_control_center_api_routes.py
 ```
 
 ### M173 - Safer Workspace Workbench
@@ -369,6 +444,13 @@ Tasks:
   backup-before-rollback, safe-disable, backup restore, unsupported recovery,
   and redacted evidence guidance; canonical doc is
   `docs/production/LOCAL_STATE_ROLLBACK_RUNBOOK.md`.
+- `UAA-P1-053` Expand CI workflow posture around the named release lanes:
+  docs, OpenAPI, Foundation Gate, API safety, frontend, security/redaction,
+  local model, durability, performance, and packaging. This should wire lane
+  visibility and safe reports, not weaken or skip lane checks.
+- `UAA-P1-055` Add automated security scanning and release artifact redaction
+  checks. Reports must be safe for release evidence and must not claim external
+  audit, signed release, hosted production support, or public distribution.
 - `UAA-P2-047` Shape signed installer and public distribution lane only after
   local loop, security, and durability gates are green.
 
@@ -378,6 +460,8 @@ Acceptance:
   backup minimum set, synthetic offline restore, and rollback plan without
   claiming live restore or populated real-state restore safety.
 - Public distribution remains unclaimed until signed artifact proof exists.
+- Security automation and artifact checks are additional evidence lanes, not
+  substitutes for existing redaction, OpenAPI, Foundation Gate, or pytest lanes.
 
 Verification:
 
@@ -414,12 +498,50 @@ Tasks:
   authority, connector writes, plugin execution, broad tool invocation, or
   network authority; canonical doc is
   `docs/tooling/MCP_A2A_COMPATIBILITY_WATCHLIST.md`.
+- `UAA-P2-056` Add an extension trust product surface that displays static
+  package review status, provenance, per-file hash refs, declared capabilities,
+  requested grants, activation/revocation state, blocked/unknown status, and
+  risk flags without enabling runtime import or execution.
 
 Acceptance:
 
 - Users can inspect extension capabilities before activation.
 - Runtime import remains disabled by default.
 - Activation is exact-scope, revocable, and audit-bound.
+
+### M177 - Product Truth Regression and Honest Readiness
+
+Goal: preserve UAA's strongest differentiator: the repo stays honest about
+what is shipped, blocked, scoped, planned, skipped, mocked, and not
+production-ready.
+
+Tasks:
+
+- `UAA-P1-057` Add product truth regression checks for release-facing docs and
+  Control Center copy so blocked, skipped, pending, mock-only, planned, and
+  not-scoped states cannot be described as complete, production-ready, or
+  publicly released without evidence.
+- `UAA-P1-060` Add an operator-readiness status taxonomy shared by docs,
+  route manifests, Control Center states, release evidence packets, and
+  Foundation Gate summaries.
+- `UAA-P1-061` Add a morning reconciliation report template check for looped
+  work sessions so completed, deferred, rejected, and blocked recommendations
+  are traceable to evidence refs.
+
+Acceptance:
+
+- Product-facing claims remain evidence-backed.
+- No peer comparison, prompt loop, generated report, or Control Center surface
+  can silently upgrade blocked/planned work to shipped readiness language.
+- The Operator Excellence loop produces reviewable reconciliation artifacts
+  instead of autonomous, unbounded change batches.
+
+Verification:
+
+```bash
+.venv/bin/python scripts/verify_documentation_integrity.py
+.venv/bin/python scripts/verify_all.py --skip-ruff --skip-pytest
+```
 
 ## ASAP Task List
 
@@ -471,6 +593,27 @@ Acceptance:
 - `UAA-P2-049` Done: Inspectable extension catalog.
 - `UAA-P2-050` Done: Extension activation grant records.
 - `UAA-P2-051` Done: MCP/A2A compatibility watchlist.
+- `UAA-P1-011` Now priority: complete first full operator loop before more
+  roadmap-only expansion.
+- `UAA-P1-020` Shape: PolicyEngine consolidation map.
+- `UAA-P1-021` Shape: FastAPI route grouping and side-effect classes.
+- `UAA-P1-052` Shape: API service-module extraction plan.
+- `UAA-P1-053` Shape: CI lane workflow expansion.
+- `UAA-P1-054` Shape: Control Center differentiator screens.
+- `UAA-P1-055` Shape: security automation and artifact redaction lane.
+- `UAA-P1-057` Shape: product truth regression checks.
+- `UAA-P2-056` Shape: extension trust product surface.
+- `UAA-P2-058` Shape: Provider Credential Vault Adapter v1 as a
+  disabled-by-default opaque-ref adapter contract. This gate must not collect,
+  store, reveal, validate, or transmit raw credential material.
+- `UAA-P2-059` Shape: Provider Credential Validation v1 as a separate
+  disabled-by-default validation contract with consent, policy, approval,
+  revocation, redacted receipt, and no raw provider response persistence.
+- `UAA-P2-060` Shape: Governed Provider Invocation v1 as a separate
+  disabled-by-default invocation contract requiring PolicyEngine,
+  LocalApprovalAuthority or successor approval, provider allowlists, credential
+  refs, redacted summaries, receipts, audit refs, safe-disable behavior, and
+  rate/budget boundaries.
 
 ## Definition of Ready
 
@@ -513,6 +656,9 @@ An item is Done only when:
 | Packaging/release | local dev and CI | reproducible local stack and evidence packet | P1 |
 | Extension ecosystem | capability/plugin contracts | inspectable, activatable, revocable catalog | P2 |
 | Mobile companion | iOS skeleton/read-only contracts | companion after core loop is stable | P2 |
+| API organization | large FastAPI surface | service modules with unchanged route contracts | P1 |
+| CI/security posture | named local lanes | visible CI lanes plus safe security/artifact redaction checks | P1 |
+| Product truthfulness | strong docs rules | regression checks across docs, UI, reports, and loop artifacts | P0/P1 |
 
 ## First Product Loop
 

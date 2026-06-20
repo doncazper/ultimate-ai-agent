@@ -12,6 +12,8 @@ export const API_ENDPOINTS = {
   runtimeReadiness: "/runtime/readiness",
   runtimeCapabilityMatrix: "/runtime/capability-matrix",
   runtimeSmokeReportValidate: "/runtime/smoke-reports/validate",
+  localModels: "/v1/models",
+  localChatCompletions: "/v1/chat/completions",
   actionPreview: "/control-center/actions/preview",
 } as const;
 

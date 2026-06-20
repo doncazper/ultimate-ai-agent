@@ -12,16 +12,30 @@ This index is the active entrypoint for documentation navigation. Historical rel
 | Version and baseline | `VERSION.md`, `docs/release_notes/v0_102_0.md`, `docs/release_notes/checkpoint_m168.md` |
 | Product truth | `docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md` |
 | Active roadmap | `docs/canonical/09_roadmap.md`, `docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md`, `docs/kanban/current_board.md` |
+| Catch-up/surpass loop | `docs/roadmap/OPERATOR_EXCELLENCE_LOOP.md`, `docs/backlog/codex_recommendation_log.md` |
 | API boundary | `docs/api/README.md`, `docs/api/openapi_contract.md`, `docs/api/route_inventory.md` |
 | Security posture | `SECURITY.md`, `docs/security/SECURITY_TRIAGE_RUNBOOK.md` |
 | Release evidence | `docs/production/RELEASE_VERIFICATION_LANES.md`, `docs/production/RELEASE_EVIDENCE_PACKET.md` |
-| Local model lane | `docs/production/M167_LIVE_MODEL_EVIDENCE_MATRIX.md`, `docs/production/M167_LOCAL_MODEL_E2E_SMOKE_HARNESS.md` |
+| Governed web evidence | `docs/truth/GOVERNED_WEB_EVIDENCE.md` |
+| Local model lane | `docs/production/M167_LIVE_MODEL_EVIDENCE_MATRIX.md`, `docs/production/M167_LOCAL_MODEL_E2E_SMOKE_HARNESS.md`, `docs/production/M167_OPENWEBUI_LOCAL_INSTALLER.md`, `docs/production/M167_GITHUB_BOOTSTRAP_LOCAL_INSTALLER.md` |
 | Redacted observability | `docs/observability/SESSION_LOGGING_M167.md` |
 | Plugin/skill ecosystem | `docs/tooling/PLUGIN_SKILL_ECOSYSTEM_BOUNDARY.md`, `docs/tooling/INSPECTABLE_EXTENSION_CATALOG.md`, `docs/tooling/EXTENSION_ACTIVATION_GRANTS.md`, `docs/tooling/MCP_A2A_COMPATIBILITY_WATCHLIST.md` |
 | Documentation policy | `docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md`, `docs/archive/README.md` |
 
 Use the curated table first. The long list below is intentionally retained as
 the repo-owned audit catalog for active and historical documentation refs.
+
+## Historical Currentness Repairs
+
+These historical notes remain active documentation-integrity anchors:
+
+- v0.29.4 repairs documentation archive references and confirms legacy
+  historical verifiers are not current release gates; stale Ruff excludes were
+  removed.
+- v0.35.1 hardens M31 no-op runtime behavior by denying hidden dynamic dispatch
+  and hidden side-effect paths.
+- v0.37.1 hardens M33 redacted file preview safety.
+- v0.37.3 repairs active roadmap label alignment.
 
 ## Start Here
 
@@ -34,6 +48,7 @@ docs/canonical/CANONICAL_DOC_MAP.md
 docs/canonical/09_roadmap.md
 docs/roadmap/README.md
 docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md
+docs/roadmap/OPERATOR_EXCELLENCE_LOOP.md
 docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md
 docs/control_center/OPERATOR_SHELL_GAP_MAP.md
 docs/control_center/PRODUCT_LANGUAGE_RULES.md
@@ -47,6 +62,7 @@ docs/implementation/foundation_gate_implementation_plan_v0_102_0.md
 docs/release_notes/checkpoint_m168.md
 docs/release_notes/checkpoint_m166.md
 docs/release_notes/checkpoint_m167.md
+docs/truth/GOVERNED_WEB_EVIDENCE.md
 docs/observability/SESSION_LOGGING_M167.md
 docs/developer/LOCAL_LAUNCHER.md
 scripts/dev/README.md
@@ -139,6 +155,8 @@ docs/production/M166_PRODUCTION_AUTHORITY_GATE.md
 docs/production/M167_LIVE_MODEL_PRODUCTION_HARDENING.md
 docs/production/M167_LIVE_MODEL_EVIDENCE_MATRIX.md
 docs/production/M167_LOCAL_MODEL_E2E_SMOKE_HARNESS.md
+docs/production/M167_OPENWEBUI_LOCAL_INSTALLER.md
+docs/production/M167_GITHUB_BOOTSTRAP_LOCAL_INSTALLER.md
 docs/production/LLAMA_SERVER_PACKAGING_PROVENANCE_CHECKLIST.md
 docs/production/LOCAL_MODEL_OPERATIONAL_RUNBOOK.md
 docs/production/RELEASE_LATENCY_BASELINE_HARNESS.md

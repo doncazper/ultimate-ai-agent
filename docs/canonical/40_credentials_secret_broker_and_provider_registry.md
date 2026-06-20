@@ -36,7 +36,7 @@ Agent / Scanner / Tool
 → Credential Store
 ```
 
-The LLM receives credential refs only, never raw values.
+The LLM receives provider auth references only, never raw values.
 
 ## Provider Registry
 

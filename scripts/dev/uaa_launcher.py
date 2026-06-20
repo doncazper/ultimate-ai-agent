@@ -10,6 +10,7 @@ redacted launcher lifecycle summaries under `.uaa/`.
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import os
 import signal
@@ -32,11 +33,21 @@ FRONTEND_PORT = 5173
 OPENWEBUI_HOST = "127.0.0.1"
 OPENWEBUI_PORT = 3000
 OPENWEBUI_CONTAINER_NAME = "uaa-openwebui-local"
-OPENWEBUI_IMAGE = "ghcr.io/open-webui/open-webui:main"
+OPENWEBUI_IMAGE_REPOSITORY = "ghcr.io/open-webui/open-webui"
+OPENWEBUI_IMAGE_DIGEST = "sha256:7f1b0a1a50cfbac23da3b16f96bc968fd757b26dc9e54e93813d61768ea9184e"
+OPENWEBUI_IMAGE = f"{OPENWEBUI_IMAGE_REPOSITORY}@{OPENWEBUI_IMAGE_DIGEST}"
 OPENWEBUI_MODEL_ID = "uaa-safe-local"
 OPENWEBUI_GATEWAY_FOR_CONTAINER = "http://host.docker.internal:8000/v1"
+DESIGNATED_UI_TARGET = "openwebui"
+UI_TARGETS = ("control-center", "openwebui")
 UAA_OPENWEBUI_TEST_GATEWAY_ENV = "UAA_OPENWEBUI_TEST_GATEWAY_ENABLED"
 UAA_OPENWEBUI_TEST_GATEWAY_VALUE = "uaa-local-test"
+UAA_LLAMA_CPP_GATEWAY_ENV = "UAA_LLAMA_CPP_GATEWAY_ENABLED"
+UAA_LLAMA_CPP_GATEWAY_KEY_ENV = "UAA_LLAMA_CPP_GATEWAY_KEY"
+UAA_LLAMA_CPP_MODEL_ID_ENV = "UAA_LLAMA_CPP_MODEL_ID"
+UAA_LLAMA_CPP_BASE_URL_ENV = "UAA_LLAMA_CPP_BASE_URL"
+UAA_LLAMA_CPP_API_KEY_ENV = "UAA_LLAMA_CPP_API_KEY"
+UAA_LLAMA_CPP_DEFAULT_MODEL_ID = "uaa-llama-cpp-local"
 DOCKER_ENGINE_CHECK_TIMEOUT_SECONDS = 3.0
 SAFE_HOSTS = {"127.0.0.1", "localhost", "::1"}
 STATE_DIR = Path(".uaa") / "dev"
@@ -119,19 +130,12 @@ def build_frontend_command(root: Path) -> list[str]:
 def build_openwebui_command(root: Path) -> list[str]:
     validate_local_host(OPENWEBUI_HOST)
     data_dir = root / STATE_DIR / "openwebui-data"
-    openwebui_env = {
-        "DEFAULT_MODEL_PARAMS": '{"stream_response":false}',
-        "DEFAULT_MODELS": OPENWEBUI_MODEL_ID,
-        "ENABLE_OLLAMA_API": "False",
-        "ENABLE_OPENAI_API": "True",
-        "ENABLE_PERSISTENT_CONFIG": "False",
-        "OPENAI_API_BASE_URL": OPENWEBUI_GATEWAY_FOR_CONTAINER,
-        "OPENAI_API_BASE_URLS": OPENWEBUI_GATEWAY_FOR_CONTAINER,
-        "OPENAI_API_KEY": UAA_OPENWEBUI_TEST_GATEWAY_VALUE,
-        "OPENAI_API_KEYS": UAA_OPENWEBUI_TEST_GATEWAY_VALUE,
-        "WEBUI_AUTH": "False",
-    }
-    env_args = [item for key, value in openwebui_env.items() for item in ["-e", f"{key}={value}"]]
+    openwebui_env, secret_env_keys = openwebui_container_env()
+    env_args = [
+        item
+        for key, value in openwebui_env.items()
+        for item in ["-e", key if key in secret_env_keys else f"{key}={value}"]
+    ]
     return [
         _developer_tool("docker"),
         "run",
@@ -145,6 +149,33 @@ def build_openwebui_command(root: Path) -> list[str]:
         *env_args,
         OPENWEBUI_IMAGE,
     ]
+
+
+def openwebui_container_env() -> tuple[dict[str, str], set[str]]:
+    gateway_key = UAA_OPENWEBUI_TEST_GATEWAY_VALUE
+    model_id = OPENWEBUI_MODEL_ID
+    secret_env_keys: set[str] = set()
+    if llama_cpp_gateway_requested():
+        gateway_key = os.environ.get(UAA_LLAMA_CPP_GATEWAY_KEY_ENV, "").strip()
+        model_id = os.environ.get(UAA_LLAMA_CPP_MODEL_ID_ENV, UAA_LLAMA_CPP_DEFAULT_MODEL_ID).strip()
+        model_id = model_id or UAA_LLAMA_CPP_DEFAULT_MODEL_ID
+        secret_env_keys = {"OPENAI_API_KEY", "OPENAI_API_KEYS"}
+    return {
+        "DEFAULT_MODEL_PARAMS": '{"stream_response":false}',
+        "DEFAULT_MODELS": model_id,
+        "ENABLE_OLLAMA_API": "False",
+        "ENABLE_OPENAI_API": "True",
+        "ENABLE_PERSISTENT_CONFIG": "False",
+        "OPENAI_API_BASE_URL": OPENWEBUI_GATEWAY_FOR_CONTAINER,
+        "OPENAI_API_BASE_URLS": OPENWEBUI_GATEWAY_FOR_CONTAINER,
+        "OPENAI_API_KEY": gateway_key,
+        "OPENAI_API_KEYS": gateway_key,
+        "WEBUI_AUTH": "False",
+    }, secret_env_keys
+
+
+def llama_cpp_gateway_requested() -> bool:
+    return os.environ.get(UAA_LLAMA_CPP_GATEWAY_ENV, "").strip().lower() in {"1", "true", "yes", "on"}
 
 
 def runtime_paths(root: Path) -> tuple[Path, Path, Path]:
@@ -194,15 +225,37 @@ def service_config(root: Path, name: str) -> Service:
 def safe_env(root: Path, service_name: str) -> dict[str, str]:
     allowed_keys = {"PATH", "HOME", "TMPDIR", "LANG", "LC_ALL", "USER", "SHELL", "TERM"}
     env = {key: value for key, value in os.environ.items() if key in allowed_keys}
+    sensitive_passthrough_keys: set[str] = set()
     env["PATH"] = _developer_path(env.get("PATH", ""))
     env["PYTHONUNBUFFERED"] = "1"
     if service_name == "backend":
         env["PYTHONPATH"] = str(root / "src")
         if os.environ.get(UAA_OPENWEBUI_TEST_GATEWAY_ENV):
             env[UAA_OPENWEBUI_TEST_GATEWAY_ENV] = os.environ[UAA_OPENWEBUI_TEST_GATEWAY_ENV]
+        for key in [
+            UAA_LLAMA_CPP_GATEWAY_ENV,
+            UAA_LLAMA_CPP_MODEL_ID_ENV,
+            UAA_LLAMA_CPP_BASE_URL_ENV,
+        ]:
+            if os.environ.get(key):
+                env[key] = os.environ[key]
+        for key in [UAA_LLAMA_CPP_GATEWAY_KEY_ENV, UAA_LLAMA_CPP_API_KEY_ENV]:
+            if os.environ.get(key):
+                env[key] = os.environ[key]
+                sensitive_passthrough_keys.add(key)
     if service_name == "frontend":
         env["VITE_UAA_API_BASE_URL"] = ""
-    return {key: value for key, value in env.items() if not _is_secret_env_key(key)}
+    if service_name == "openwebui" and llama_cpp_gateway_requested():
+        openwebui_env, secret_env_keys = openwebui_container_env()
+        for key in secret_env_keys:
+            if openwebui_env.get(key):
+                env[key] = openwebui_env[key]
+                sensitive_passthrough_keys.add(key)
+    return {
+        key: value
+        for key, value in env.items()
+        if key in sensitive_passthrough_keys or not _is_secret_env_key(key)
+    }
 
 
 def _is_secret_env_key(key: str) -> bool:
@@ -425,31 +478,50 @@ def check_openwebui_doctor(root: Path) -> tuple[list[str], list[str]]:
         ok.append(f"OpenWebUI port is free: {OPENWEBUI_URL}")
 
     health_status = url_status(f"{BACKEND_URL}{BACKEND_HEALTH_PATH}")
+    gateway_mode, gateway_key, model_id = openwebui_gateway_runtime_config()
     if health_status is None:
-        failures.append("UAA backend is not reachable; run: UAA_OPENWEBUI_TEST_GATEWAY_ENABLED=1 ./scripts/dev/uaa start")
+        if gateway_mode == "m164":
+            failures.append("UAA backend is not reachable; restart it with the UAA_LLAMA_CPP_* gateway environment")
+        else:
+            failures.append("UAA backend is not reachable; run: UAA_OPENWEBUI_TEST_GATEWAY_ENABLED=1 ./scripts/dev/uaa start")
     elif 200 <= health_status < 500:
         ok.append(f"UAA backend reachable at {BACKEND_URL}")
     else:
         failures.append(f"UAA backend health returned HTTP {health_status}")
 
+    if not gateway_key:
+        failures.append(f"{UAA_LLAMA_CPP_GATEWAY_KEY_ENV} must be set when using the llama.cpp gateway")
+        return ok, failures
+
     gateway_status = url_status(
         f"{BACKEND_URL}/v1/models",
-        headers={"Authorization": f"Bearer {UAA_OPENWEBUI_TEST_GATEWAY_VALUE}"},
+        headers={"Authorization": f"Bearer {gateway_key}"},
     )
     if gateway_status == 200:
-        ok.append("UAA local OpenWebUI test gateway is enabled")
+        ok.append(f"UAA {gateway_mode} gateway is enabled for model {model_id}")
     elif gateway_status == 403:
-        failures.append("UAA local OpenWebUI test gateway is disabled; restart backend with UAA_OPENWEBUI_TEST_GATEWAY_ENABLED=1")
+        if gateway_mode == "m164":
+            failures.append("UAA llama.cpp gateway is disabled; restart backend with UAA_LLAMA_CPP_GATEWAY_ENABLED=1")
+        else:
+            failures.append("UAA local OpenWebUI test gateway is disabled; restart backend with UAA_OPENWEBUI_TEST_GATEWAY_ENABLED=1")
     elif gateway_status == 401:
-        failures.append("UAA local OpenWebUI test gateway rejected the local bearer value")
+        failures.append(f"UAA {gateway_mode} gateway rejected the configured local bearer value")
     elif gateway_status is None:
-        failures.append("UAA local OpenWebUI test gateway is not reachable")
+        failures.append(f"UAA {gateway_mode} gateway is not reachable")
     else:
-        failures.append(f"UAA local OpenWebUI test gateway returned HTTP {gateway_status}")
+        failures.append(f"UAA {gateway_mode} gateway returned HTTP {gateway_status}")
 
     data_dir = root / STATE_DIR / "openwebui-data"
     ok.append(f"OpenWebUI data directory: {data_dir}")
     return ok, failures
+
+
+def openwebui_gateway_runtime_config() -> tuple[str, str, str]:
+    if llama_cpp_gateway_requested():
+        gateway_key = os.environ.get(UAA_LLAMA_CPP_GATEWAY_KEY_ENV, "").strip()
+        model_id = os.environ.get(UAA_LLAMA_CPP_MODEL_ID_ENV, UAA_LLAMA_CPP_DEFAULT_MODEL_ID).strip()
+        return "m164-llama-cpp", gateway_key, model_id or UAA_LLAMA_CPP_DEFAULT_MODEL_ID
+    return "m151-openwebui-test", UAA_OPENWEBUI_TEST_GATEWAY_VALUE, OPENWEBUI_MODEL_ID
 
 
 def _command_exists(command: str) -> bool:
@@ -514,6 +586,28 @@ def docker_engine_status(timeout_seconds: float = DOCKER_ENGINE_CHECK_TIMEOUT_SE
         return False, "Docker CLI found, but the Docker engine is not ready; open Docker Desktop and finish first-run setup"
     version = result.stdout.strip() or "unknown"
     return True, f"Docker engine ready: {version}"
+
+
+def docker_image_present(image: str = OPENWEBUI_IMAGE, timeout_seconds: float = DOCKER_ENGINE_CHECK_TIMEOUT_SECONDS) -> tuple[bool, str]:
+    docker = _resolve_developer_tool("docker")
+    if docker is None:
+        return False, "Docker is not available on PATH"
+    try:
+        result = subprocess.run(
+            [str(docker), "image", "inspect", "--format", "{{.Id}}", image],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=timeout_seconds,
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
+        return False, f"Docker image inspect did not answer within {timeout_seconds:g}s"
+    except OSError as exc:
+        return False, f"Docker image inspect could not be started: {exc}"
+    if result.returncode == 0:
+        return True, f"OpenWebUI image present locally: {image}"
+    return False, f"OpenWebUI image is not present locally: {image}; no image was pulled"
 
 
 def start_service(root: Path, service: Service) -> str:
@@ -787,6 +881,63 @@ def command_ui(root: Path) -> int:
     return 0
 
 
+def command_launch_ui(root: Path, target: str = DESIGNATED_UI_TARGET) -> int:
+    if target == "control-center":
+        start_code = command_start(root)
+        if start_code:
+            return start_code
+        webbrowser.open(FRONTEND_URL)
+        print(f"Opened designated UI: {FRONTEND_URL}")
+        return 0
+    if target == "openwebui":
+        return command_launch_openwebui(root)
+    raise ValueError(f"Unknown UI target: {target}")
+
+
+def command_launch_openwebui(root: Path) -> int:
+    if not llama_cpp_gateway_requested() and not os.environ.get(UAA_OPENWEBUI_TEST_GATEWAY_ENV):
+        os.environ[UAA_OPENWEBUI_TEST_GATEWAY_ENV] = "1"
+        print(f"Using local smoke gateway for this launch: {UAA_OPENWEBUI_TEST_GATEWAY_ENV}=1")
+
+    gateway_mode, gateway_key, model_id = openwebui_gateway_runtime_config()
+    if not gateway_key:
+        print(f"{UAA_LLAMA_CPP_GATEWAY_KEY_ENV} must be set before launching OpenWebUI in llama.cpp gateway mode")
+        return 1
+
+    docker_ready, docker_message = docker_engine_status()
+    if not docker_ready:
+        print(f"FAIL: {docker_message}")
+        return 1
+    image_ready, image_message = docker_image_present()
+    if not image_ready:
+        print(f"FAIL: {image_message}")
+        print("OpenWebUI was not launched. Run uaa setup install --target openwebui to approve the scoped image pull.")
+        return 1
+
+    backend_status = url_status(f"{BACKEND_URL}{BACKEND_HEALTH_PATH}")
+    if backend_status != 200:
+        print(start_service(root, service_config(root, "backend")))
+    else:
+        print(f"backend: already reachable at {BACKEND_URL}")
+
+    gateway_status = url_status(
+        f"{BACKEND_URL}/v1/models",
+        headers={"Authorization": f"Bearer {gateway_key}"},
+    )
+    if gateway_status != 200:
+        print(f"FAIL: UAA {gateway_mode} gateway is not ready for model {model_id} (status {gateway_status})")
+        print("Restart the backend with the matching local gateway environment, then retry uaa launch-ui.")
+        return 1
+
+    print(start_service(root, service_config(root, "openwebui")))
+    webbrowser.open(OPENWEBUI_URL)
+    print(f"\nOpened designated UI: {OPENWEBUI_URL}")
+    print(f"Gateway mode: {gateway_mode}")
+    print(f"Model: {model_id}")
+    print("No packages were installed and no images were pulled by uaa launch-ui.")
+    return 0
+
+
 def command_status(root: Path) -> int:
     version = _read_version(root)
     print(f"Ultimate AI Agent version: {version}")
@@ -810,21 +961,36 @@ def command_openwebui_doctor(root: Path) -> int:
 
 def command_openwebui_start(root: Path) -> int:
     service = service_config(root, "openwebui")
+    gateway_mode, gateway_key, model_id = openwebui_gateway_runtime_config()
+    if not gateway_key:
+        print(f"{UAA_LLAMA_CPP_GATEWAY_KEY_ENV} must be set before starting OpenWebUI in llama.cpp gateway mode")
+        return 1
     print(start_service(root, service))
     print(f"\nOpenWebUI: {OPENWEBUI_URL}")
     print(f"UAA gateway for OpenWebUI: {OPENWEBUI_GATEWAY_FOR_CONTAINER}")
-    print(f"Model: {OPENWEBUI_MODEL_ID}")
-    print(f"Local bearer value: {UAA_OPENWEBUI_TEST_GATEWAY_VALUE}")
+    print(f"Gateway mode: {gateway_mode}")
+    print(f"Model: {model_id}")
+    if gateway_mode == "m164-llama-cpp":
+        print(f"Local bearer source: {UAA_LLAMA_CPP_GATEWAY_KEY_ENV}")
+    else:
+        print(f"Local bearer value: {UAA_OPENWEBUI_TEST_GATEWAY_VALUE}")
     return 0
 
 
 def command_openwebui_status(root: Path) -> int:
     print(status_for_service(service_config(root, "openwebui")))
+    gateway_mode, gateway_key, model_id = openwebui_gateway_runtime_config()
+    if not gateway_key:
+        print(f"uaa-gateway: not ready ({UAA_LLAMA_CPP_GATEWAY_KEY_ENV} is unset)")
+        return 1
     gateway_status = url_status(
         f"{BACKEND_URL}/v1/models",
-        headers={"Authorization": f"Bearer {UAA_OPENWEBUI_TEST_GATEWAY_VALUE}"},
+        headers={"Authorization": f"Bearer {gateway_key}"},
     )
-    print(f"uaa-gateway: {'reachable' if gateway_status == 200 else f'not ready ({gateway_status})'}")
+    print(
+        f"uaa-gateway: {'reachable' if gateway_status == 200 else f'not ready ({gateway_status})'} "
+        f"mode={gateway_mode} model={model_id}"
+    )
     return 0
 
 
@@ -930,6 +1096,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     subparsers = parser.add_subparsers(dest="command")
     for command in ["doctor", "start", "ui", "status", "stop", "restart", "help"]:
         subparsers.add_parser(command)
+    launch_ui_parser = subparsers.add_parser("launch-ui")
+    launch_ui_parser.add_argument("--target", choices=UI_TARGETS, default=DESIGNATED_UI_TARGET)
     logs_parser = subparsers.add_parser("logs")
     logs_parser.add_argument("--follow", action="store_true")
     openwebui_parser = subparsers.add_parser("openwebui")
@@ -938,6 +1106,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         openwebui_subparsers.add_parser(command)
     openwebui_logs_parser = openwebui_subparsers.add_parser("logs")
     openwebui_logs_parser.add_argument("--follow", action="store_true")
+    uaa_setup = _load_setup_module()
+    uaa_setup.add_setup_parser(subparsers)
     install_parser = subparsers.add_parser("install-shell-command")
     install_parser.add_argument("--bin-dir", default=str(Path.home() / ".local" / "bin"))
     return parser.parse_args(argv)
@@ -973,7 +1143,9 @@ def main(argv: list[str] | None = None) -> int:
                 "ui",
                 "status",
                 "logs",
+                "launch-ui",
                 "openwebui",
+                "setup",
                 "stop",
                 "restart",
                 "install-shell-command",
@@ -987,6 +1159,8 @@ def main(argv: list[str] | None = None) -> int:
             return command_start(root)
         if command == "ui":
             return command_ui(root)
+        if command == "launch-ui":
+            return command_launch_ui(root, target=args.target)
         if command == "status":
             return command_status(root)
         if command == "logs":
@@ -1003,6 +1177,9 @@ def main(argv: list[str] | None = None) -> int:
                 return command_openwebui_logs(root, follow=args.follow)
             if openwebui_command == "stop":
                 return command_openwebui_stop(root)
+        if command == "setup":
+            uaa_setup = _load_setup_module()
+            return uaa_setup.command_setup(root, args)
         if command == "stop":
             return command_stop(root)
         if command == "restart":
@@ -1016,6 +1193,20 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     print(f"Unknown command: {command}")
     return 2
+
+
+def _load_setup_module():
+    module_name = "uaa_setup"
+    if module_name in sys.modules:
+        return sys.modules[module_name]
+    setup_path = Path(__file__).resolve().with_name("uaa_setup.py")
+    spec = importlib.util.spec_from_file_location(module_name, setup_path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError("Unable to load local setup assistant")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
+    spec.loader.exec_module(module)
+    return module
 
 
 if __name__ == "__main__":

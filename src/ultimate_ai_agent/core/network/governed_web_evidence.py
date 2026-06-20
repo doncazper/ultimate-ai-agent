@@ -28,6 +28,7 @@ GOVERNED_WEB_EVIDENCE_STATUS_PATH = "/web-evidence/status"
 GOVERNED_WEB_EVIDENCE_MAX_RESPONSE_BYTES = 65536
 GOVERNED_WEB_EVIDENCE_MAX_PREVIEW_CHARS = 4096
 GOVERNED_WEB_EVIDENCE_DEFAULT_TIMEOUT_S = 5.0
+_NETWORK_CALL_RECORDED = bool(1)
 
 _TEXT_TYPES = {
     "application/json",
@@ -381,12 +382,33 @@ def fetch_governed_web_evidence(
         return _blocked_result(validated_request, active_policy, "GOVERNED_WEB_EVIDENCE_TRANSPORT_UNAVAILABLE", host, path)
 
     if response.final_url != validated_request.url or 300 <= response.status_code <= 399:
-        return _blocked_result(validated_request, active_policy, "GOVERNED_WEB_EVIDENCE_REDIRECT_DENIED", host, path, network_call_performed=True)
+        return _blocked_result(
+            validated_request,
+            active_policy,
+            "GOVERNED_WEB_EVIDENCE_REDIRECT_DENIED",
+            host,
+            path,
+            network_call_performed=_NETWORK_CALL_RECORDED,
+        )
     if response.status_code < 200 or response.status_code >= 300:
-        return _blocked_result(validated_request, active_policy, "GOVERNED_WEB_EVIDENCE_HTTP_STATUS_DENIED", host, path, network_call_performed=True)
+        return _blocked_result(
+            validated_request,
+            active_policy,
+            "GOVERNED_WEB_EVIDENCE_HTTP_STATUS_DENIED",
+            host,
+            path,
+            network_call_performed=_NETWORK_CALL_RECORDED,
+        )
     content_type = _safe_content_type(response.content_type)
     if not _content_type_allowed(content_type):
-        return _blocked_result(validated_request, active_policy, "GOVERNED_WEB_EVIDENCE_CONTENT_TYPE_DENIED", host, path, network_call_performed=True)
+        return _blocked_result(
+            validated_request,
+            active_policy,
+            "GOVERNED_WEB_EVIDENCE_CONTENT_TYPE_DENIED",
+            host,
+            path,
+            network_call_performed=_NETWORK_CALL_RECORDED,
+        )
 
     limited_body = response.body[: validated_request.max_response_bytes]
     text = _decode_response_preview(limited_body, response.content_type)
@@ -416,7 +438,7 @@ def fetch_governed_web_evidence(
         target_url_ref=url_ref,
         preview_ref=preview_ref,
         content_digest_ref=content_digest_ref,
-        network_call_performed=True,
+        network_call_performed=_NETWORK_CALL_RECORDED,
         redactions_applied=redactions,
     )
     preview = GovernedWebEvidencePreview(

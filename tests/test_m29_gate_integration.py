@@ -43,7 +43,7 @@ def test_m29_openapi_route_guard_rejects_task_execution_routes():
     assert any("/plans/execute" in failure for failure in failures)
     assert any("/scheduler/run" in failure for failure in failures)
     assert any("OpenAPI path count" in failure for failure in failures)
-    assert EXPECTED_M29_OPENAPI_PATH_COUNT == 76
+    assert EXPECTED_M29_OPENAPI_PATH_COUNT == 78
     assert m29_openapi_route_failures(app.openapi().get("paths", {})) == []
 
 

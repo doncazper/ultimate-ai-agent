@@ -89,6 +89,19 @@ Every verified factual answer should be able to produce an Evidence Manifest.
 
 The Evidence Manifest links answer IDs, claim IDs, source types, source locators, retrieval timestamps, publication/update/effective dates, freshness status, confidence, permission scope, conflicts, and unsupported claims.
 
+## Governed web evidence
+
+Governed web evidence is evidence-first, not browsing-first. The active contract
+is `web evidence intake, no live fetch`: it accepts operator-supplied HTTPS
+URL/source metadata, safe summaries, short bounded quotes, freshness fields,
+source authority classification, and receipt refs without performing network
+fetches, browser automation, OpenWebUI web search, model/provider calls,
+downloads, raw body storage, auth, cookies, redirects, memory writes, or context
+injection.
+
+OpenWebUI web search is outside UAA governance unless routed through a later
+reviewed allowlisted HTTPS GET lane.
+
 ## Claim-level evidence
 
 Important answers should be decomposed into claims:

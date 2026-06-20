@@ -1,3 +1,4 @@
+from ultimate_ai_agent.core.control_center import build_provider_credential_readiness_summary
 from ultimate_ai_agent.core.secrets import (
     CredentialAuthType,
     CredentialReference,
@@ -157,3 +158,13 @@ def test_validate_no_secret_leak_rejects_nested_secret_like_output():
     }
 
     assert broker.validate_no_secret_leak(payload) is False
+
+
+def test_provider_credential_readiness_summary_has_no_secret_leak():
+    broker = SecretBroker()
+    summary = build_provider_credential_readiness_summary()
+
+    assert summary.invocation_enabled is False
+    assert summary.raw_key_collection_enabled is False
+    assert summary.credential_material_stored is False
+    assert broker.validate_no_secret_leak(summary.model_dump()) is True

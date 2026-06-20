@@ -120,14 +120,14 @@ REQUIRED_REPORTING_WORDING = [
 ]
 
 REQUIRED_APP_TEST_WORDING = [
-    "covers first product loop browser smoke readiness with truthful mocked and blocked states",
-    'openControlCenter: "mocked"',
-    'inspectRuntimeHealthAndModelReadiness: "mocked"',
-    'selectOrApproveLocalGgufModel: "blocked"',
-    'chatShellThroughUaaV1: "blocked"',
-    'createTaskDecompositionPlan: "blocked"',
-    'approveSafeRegisteredCapability: "mocked"',
-    'inspectReceiptAuditLatencyRollback: "mocked"',
+    "covers first product loop browser smoke readiness with truthful backend-bound states",
+    'openControlCenter: "mock_fallback"',
+    'inspectRuntimeHealthAndModelReadiness: "route_ready"',
+    'selectOrApproveLocalGgufModel: "backend_gated"',
+    'chatShellThroughUaaV1: "gateway_gated"',
+    'createTaskDecompositionPlan: "backend_gated"',
+    'approveSafeRegisteredCapability: "backend_authority"',
+    'inspectReceiptAuditLatencyRollback: "inspection_ready"',
     "Preview only action request",
     "No approval was granted from this UI",
     "Trace detail is redacted summary metadata only",

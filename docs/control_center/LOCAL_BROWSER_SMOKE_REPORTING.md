@@ -86,16 +86,16 @@ first_product_loop_browser_smoke:
   release_readiness_claimed: no
 ```
 
-Current expected states for UAA-P1-032 safe mocked/local-only smoke are:
+Current expected states for UAA-P1-032 safe mocked/local-only browser smoke are:
 
 ```text
-open_control_center: mocked
-inspect_runtime_health_and_model_readiness: mocked
+open_control_center: mocked | real
+inspect_runtime_health_and_model_readiness: mocked | real
 select_or_approve_local_gguf_model: blocked
-chat_shell_through_uaa_v1: blocked
-create_task_decomposition_plan: blocked
-approve_safe_registered_capability: mocked
-inspect_receipt_audit_latency_rollback: mocked
+chat_shell_through_uaa_v1: blocked | real
+create_task_decomposition_plan: blocked | real
+approve_safe_registered_capability: mocked | real
+inspect_receipt_audit_latency_rollback: mocked | real
 no_raw_json_primary_ui: pass
 accessible_failure_state: pass
 blocked_prerequisites_visible: pass
@@ -103,11 +103,13 @@ hidden_authority_detected: no
 release_readiness_claimed: no
 ```
 
-If a future run has a local backend available, a field may move from mocked to
-real only when the report cites the matching safe route/status evidence. If a
-prerequisite is not available, mark it skipped or blocked and state the safe
-summary blocker. Do not include raw payloads, raw local locations, private
-content, credentials, browser traces, or screenshots with secrets.
+Mark a field real only when the report cites matching safe route/status evidence,
+such as `/operator-loop` summary text, local `/v1` gateway posture, task
+decomposition route refs, LocalApprovalAuthority grant refs, receipt/audit refs,
+latency metrics, or rollback refs. If a prerequisite is not available, mark it
+skipped or blocked and state the safe summary blocker. Do not include raw
+payloads, raw local locations, private content, credentials, browser traces, or
+screenshots with secrets.
 
 Forbidden report claims:
 
@@ -116,7 +118,7 @@ Forbidden report claims:
 - do not claim runtime/model/provider execution.
 - do not claim remote dispatch, mesh connection, mobile sensor access, plugin enablement, native build capability, Chrome authenticated profile control, or Computer Use automation.
 
-If a local browser smoke run finds a failure, the report should describe the visible symptom and route only. It must not include raw secret-like input, raw backend validation payloads, user prompt content, file content, memory content, local filesystem paths outside this repository, credential refs, cookies, or screenshots with secrets.
+If a local browser smoke run finds a failure, the report should describe the visible symptom and route only. It must not include raw secret-like input, raw backend validation payloads, user prompt content, file content, memory content, local filesystem paths outside this repository, provider auth references, cookies, or screenshots with secrets.
 
 Design governance references:
 

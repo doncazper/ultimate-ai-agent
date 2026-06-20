@@ -67,7 +67,7 @@ def _version_doc_marks_milestone_implemented(text: str, milestone: str) -> bool:
     )
 
 
-EXPECTED_M16_OPENAPI_PATH_COUNT = 76
+EXPECTED_M16_OPENAPI_PATH_COUNT = 78
 M16_FORBIDDEN_BACKEND_ROUTES = (
     "/events/timeline",
     "/control-center/events/timeline",
@@ -77,7 +77,7 @@ M16_FORBIDDEN_BACKEND_ROUTES = (
     "/events/raw",
     "/telemetry/export",
 )
-EXPECTED_M17_OPENAPI_PATH_COUNT = 76
+EXPECTED_M17_OPENAPI_PATH_COUNT = 78
 M17_FORBIDDEN_BACKEND_ROUTES = (
     "/evidence/raw",
     "/evidence/payload",
@@ -95,7 +95,7 @@ M17_FORBIDDEN_BACKEND_ROUTES = (
     "/control-center/files/write",
     "/control-center/memory/write",
 )
-EXPECTED_M18_OPENAPI_PATH_COUNT = 76
+EXPECTED_M18_OPENAPI_PATH_COUNT = 78
 M18_FORBIDDEN_BACKEND_ROUTES = (
     "/runtime/smoke-reports/execute",
     "/runtime/local/execute",
@@ -109,7 +109,7 @@ M18_FORBIDDEN_BACKEND_ROUTES = (
     "/control-center/runtime/execute",
     "/control-center/runtime/connect",
 )
-EXPECTED_M19_OPENAPI_PATH_COUNT = 76
+EXPECTED_M19_OPENAPI_PATH_COUNT = 78
 M19_FORBIDDEN_BACKEND_ROUTES = (
     "/mobile",
     "/mobile/manifest",
@@ -132,7 +132,7 @@ M19_FORBIDDEN_BACKEND_ROUTES = (
     "/control-center/mobile/sensors",
     "/control-center/mobile/capture",
 )
-EXPECTED_M20_OPENAPI_PATH_COUNT = 76
+EXPECTED_M20_OPENAPI_PATH_COUNT = 78
 M20_FORBIDDEN_BACKEND_ROUTES = (
     "/device-capabilities",
     "/device-capabilities/execute",
@@ -167,7 +167,7 @@ M20_FORBIDDEN_BACKEND_ROUTES = (
     "/mobile/pair",
     "/mobile/background-service",
 )
-EXPECTED_M21_OPENAPI_PATH_COUNT = 76
+EXPECTED_M21_OPENAPI_PATH_COUNT = 78
 M21_FORBIDDEN_BACKEND_ROUTES = (
     "/openwebui",
     "/openwebui/bridge",
@@ -181,7 +181,7 @@ M21_FORBIDDEN_BACKEND_ROUTES = (
     "/runtime/execute",
     "/model-runtime/execute",
 )
-EXPECTED_M22_OPENAPI_PATH_COUNT = 76
+EXPECTED_M22_OPENAPI_PATH_COUNT = 78
 M22_FORBIDDEN_BACKEND_ROUTES = (
     "/runtime/activate",
     "/runtime/probe",
@@ -197,7 +197,7 @@ M22_FORBIDDEN_BACKEND_ROUTES = (
     "/model-runtime/local/generate",
     "/model-runtime/execute",
 )
-EXPECTED_M23_OPENAPI_PATH_COUNT = 76
+EXPECTED_M23_OPENAPI_PATH_COUNT = 78
 M23_FORBIDDEN_BACKEND_ROUTES = (
     "/runtime/local/call",
     "/runtime/local/generate",
@@ -213,7 +213,7 @@ M23_FORBIDDEN_BACKEND_ROUTES = (
     "/openwebui/bridge/run",
     "/control-center/runtime/execute",
 )
-EXPECTED_M24_OPENAPI_PATH_COUNT = 76
+EXPECTED_M24_OPENAPI_PATH_COUNT = 78
 M24_FORBIDDEN_BACKEND_ROUTES = (
     "/memory/write",
     "/memory/delete",
@@ -229,7 +229,7 @@ M24_FORBIDDEN_BACKEND_ROUTES = (
     "/control-center/memory/write",
     "/control-center/memory/delete",
 )
-EXPECTED_M25_OPENAPI_PATH_COUNT = 76
+EXPECTED_M25_OPENAPI_PATH_COUNT = 78
 M25_FORBIDDEN_BACKEND_ROUTES = (
     "/truth/verify",
     "/claims/verify",
@@ -238,7 +238,7 @@ M25_FORBIDDEN_BACKEND_ROUTES = (
     "/truth/web-search",
     "/truth/model-verify",
 )
-EXPECTED_M26_OPENAPI_PATH_COUNT = 76
+EXPECTED_M26_OPENAPI_PATH_COUNT = 78
 M26_FORBIDDEN_BACKEND_ROUTES = (
     "/recall/run",
     "/recall/search",
@@ -254,7 +254,7 @@ M26_FORBIDDEN_BACKEND_ROUTES = (
     "/control-center/recall/run",
     "/control-center/context-pack/inject",
 )
-EXPECTED_M27_OPENAPI_PATH_COUNT = 76
+EXPECTED_M27_OPENAPI_PATH_COUNT = 78
 M27_FORBIDDEN_BACKEND_ROUTES = (
     "/tools/execute",
     "/tools/run",
@@ -270,7 +270,7 @@ M27_FORBIDDEN_BACKEND_ROUTES = (
     "/memory/inject",
     "/remote/execute",
 )
-EXPECTED_M28_OPENAPI_PATH_COUNT = 76
+EXPECTED_M28_OPENAPI_PATH_COUNT = 78
 M28_FORBIDDEN_BACKEND_ROUTES = (
     "/actions/execute",
     "/actions/run",
@@ -292,7 +292,7 @@ M28_FORBIDDEN_BACKEND_ROUTES = (
     "/mobile/execute",
     "/remote/execute",
 )
-EXPECTED_M29_OPENAPI_PATH_COUNT = 76
+EXPECTED_M29_OPENAPI_PATH_COUNT = 78
 M29_FORBIDDEN_BACKEND_ROUTES = (
     "/tasks/execute",
     "/tasks/run",
@@ -313,7 +313,7 @@ M29_FORBIDDEN_BACKEND_ROUTES = (
     "/mobile/execute",
     "/remote/execute",
 )
-EXPECTED_M30_OPENAPI_PATH_COUNT = 76
+EXPECTED_M30_OPENAPI_PATH_COUNT = 78
 M30_FORBIDDEN_BACKEND_ROUTES = (
     "/execution/run",
     "/execution/execute",
@@ -338,7 +338,7 @@ M30_FORBIDDEN_BACKEND_ROUTES = (
     "/mobile/execute",
     "/remote/execute",
 )
-EXPECTED_M31_OPENAPI_PATH_COUNT = 76
+EXPECTED_M31_OPENAPI_PATH_COUNT = 78
 M31_FORBIDDEN_BACKEND_ROUTES = (
     "/tools/execute",
     "/tools/run",
@@ -356,7 +356,7 @@ M31_FORBIDDEN_BACKEND_ROUTES = (
     "/mobile/execute",
     "/remote/execute",
 )
-EXPECTED_M32_OPENAPI_PATH_COUNT = 76
+EXPECTED_M32_OPENAPI_PATH_COUNT = 78
 M32_FORBIDDEN_BACKEND_ROUTES = (
     "/files/read",
     "/files/read/raw",
@@ -372,7 +372,7 @@ M32_FORBIDDEN_BACKEND_ROUTES = (
     "/tool-runtime/run",
     "/plugins/enable",
 )
-EXPECTED_M33_OPENAPI_PATH_COUNT = 76
+EXPECTED_M33_OPENAPI_PATH_COUNT = 78
 M33_FORBIDDEN_BACKEND_ROUTES = (
     "/files/read",
     "/files/read/raw",
@@ -389,7 +389,7 @@ M33_FORBIDDEN_BACKEND_ROUTES = (
     "/tool-runtime/run",
     "/plugins/enable",
 )
-EXPECTED_M34_OPENAPI_PATH_COUNT = 76
+EXPECTED_M34_OPENAPI_PATH_COUNT = 78
 M34_FORBIDDEN_BACKEND_ROUTES = (
     "/files/read",
     "/files/read/raw",
@@ -413,7 +413,7 @@ M34_FORBIDDEN_BACKEND_ROUTES = (
     "/tool-runtime/run",
     "/plugins/enable",
 )
-EXPECTED_M35_OPENAPI_PATH_COUNT = 76
+EXPECTED_M35_OPENAPI_PATH_COUNT = 78
 M35_FORBIDDEN_BACKEND_ROUTES = (
     "/files/read",
     "/files/read/raw",
@@ -439,7 +439,7 @@ M35_FORBIDDEN_BACKEND_ROUTES = (
     "/tool-runtime/run",
     "/plugins/enable",
 )
-EXPECTED_M36_OPENAPI_PATH_COUNT = 76
+EXPECTED_M36_OPENAPI_PATH_COUNT = 78
 M36_FORBIDDEN_BACKEND_ROUTES = (
     "/files/read",
     "/files/read/raw",
@@ -462,7 +462,7 @@ M36_FORBIDDEN_BACKEND_ROUTES = (
     "/tool-runtime/run",
     "/plugins/enable",
 )
-EXPECTED_M37_OPENAPI_PATH_COUNT = 77
+EXPECTED_M37_OPENAPI_PATH_COUNT = 79
 M37_ALLOWED_CAPTURE_ROUTE = "/files/review/approvals/capture"
 M37_FORBIDDEN_BACKEND_ROUTES = (
     "/files/read",
@@ -486,7 +486,7 @@ M37_FORBIDDEN_BACKEND_ROUTES = (
     "/tool-runtime/run",
     "/plugins/enable",
 )
-EXPECTED_M38_OPENAPI_PATH_COUNT = 77
+EXPECTED_M38_OPENAPI_PATH_COUNT = 79
 M38_FORBIDDEN_BACKEND_ROUTES = (
     "/files/read",
     "/files/read/raw",
@@ -508,7 +508,7 @@ M38_FORBIDDEN_BACKEND_ROUTES = (
     "/tool-runtime/run",
     "/plugins/enable",
 )
-EXPECTED_M39_OPENAPI_PATH_COUNT = 77
+EXPECTED_M39_OPENAPI_PATH_COUNT = 79
 M39_FORBIDDEN_BACKEND_ROUTES = (
     "/files/read",
     "/files/read/raw",
@@ -530,7 +530,7 @@ M39_FORBIDDEN_BACKEND_ROUTES = (
     "/tool-runtime/run",
     "/plugins/enable",
 )
-EXPECTED_M40_OPENAPI_PATH_COUNT = 77
+EXPECTED_M40_OPENAPI_PATH_COUNT = 79
 M40_FORBIDDEN_BACKEND_ROUTES = (
     "/files/read",
     "/files/read/raw",
@@ -556,7 +556,7 @@ M40_FORBIDDEN_BACKEND_ROUTES = (
     "/tool-runtime/run",
     "/plugins/enable",
 )
-EXPECTED_M41_OPENAPI_PATH_COUNT = 77
+EXPECTED_M41_OPENAPI_PATH_COUNT = 79
 M41_FORBIDDEN_BACKEND_ROUTES = (
     "/files/read",
     "/files/read/raw",
@@ -587,7 +587,7 @@ M41_FORBIDDEN_BACKEND_ROUTES = (
     "/tool-runtime/run",
     "/plugins/enable",
 )
-EXPECTED_M42_OPENAPI_PATH_COUNT = 77
+EXPECTED_M42_OPENAPI_PATH_COUNT = 79
 M42_FORBIDDEN_BACKEND_ROUTES = M41_FORBIDDEN_BACKEND_ROUTES + (
     "/mobile",
     "/mobile/manifest",
@@ -609,7 +609,7 @@ M42_FORBIDDEN_BACKEND_ROUTES = M41_FORBIDDEN_BACKEND_ROUTES + (
     "/control-center/mobile/sensors",
     "/control-center/mobile/capture",
 )
-EXPECTED_M43_OPENAPI_PATH_COUNT = 77
+EXPECTED_M43_OPENAPI_PATH_COUNT = 79
 M43_FORBIDDEN_BACKEND_ROUTES = M42_FORBIDDEN_BACKEND_ROUTES + (
     "/mobile/api/read",
     "/mobile/api/write",
@@ -629,7 +629,7 @@ M43_FORBIDDEN_BACKEND_ROUTES = M42_FORBIDDEN_BACKEND_ROUTES + (
     "/mobile/tools/execute",
     "/mobile/plugins/execute",
 )
-EXPECTED_M44_OPENAPI_PATH_COUNT = 77
+EXPECTED_M44_OPENAPI_PATH_COUNT = 79
 M44_FORBIDDEN_BACKEND_ROUTES = M43_FORBIDDEN_BACKEND_ROUTES + (
     "/mobile/app/build",
     "/mobile/ios",
@@ -668,7 +668,7 @@ M44_FORBIDDEN_SWIFT_FRAGMENTS = (
     "contextInjection",
     "memoryWrite",
 )
-EXPECTED_M45_OPENAPI_PATH_COUNT = 77
+EXPECTED_M45_OPENAPI_PATH_COUNT = 79
 M45_FORBIDDEN_BACKEND_ROUTES = M44_FORBIDDEN_BACKEND_ROUTES + (
     "/mobile/ios/connection",
     "/mobile/ios/connect",
@@ -685,7 +685,7 @@ M45_FORBIDDEN_SWIFT_FRAGMENTS = M44_FORBIDDEN_SWIFT_FRAGMENTS + (
     "NWConnection",
     "backgroundTask",
 )
-EXPECTED_M46_OPENAPI_PATH_COUNT = 77
+EXPECTED_M46_OPENAPI_PATH_COUNT = 79
 M46_FORBIDDEN_BACKEND_ROUTES = M45_FORBIDDEN_BACKEND_ROUTES + (
     "/mobile/ios/review-receipts",
     "/mobile/ios/reviews",
@@ -707,7 +707,7 @@ M46_FORBIDDEN_SWIFT_FRAGMENTS = M45_FORBIDDEN_SWIFT_FRAGMENTS + (
     "memoryWrite",
     "ExportOptions",
 )
-EXPECTED_M47_OPENAPI_PATH_COUNT = 77
+EXPECTED_M47_OPENAPI_PATH_COUNT = 79
 M47_FORBIDDEN_BACKEND_ROUTES = M46_FORBIDDEN_BACKEND_ROUTES + (
     "/mobile/ios/testflight/build",
     "/mobile/ios/testflight/upload",
@@ -727,7 +727,7 @@ M47_FORBIDDEN_SWIFT_FRAGMENTS = M46_FORBIDDEN_SWIFT_FRAGMENTS + (
     "altool",
     "notarytool",
 )
-EXPECTED_M48_OPENAPI_PATH_COUNT = 77
+EXPECTED_M48_OPENAPI_PATH_COUNT = 79
 M48_FORBIDDEN_BACKEND_ROUTES = M47_FORBIDDEN_BACKEND_ROUTES + (
     "/mobile/ios/testflight/build/candidate",
     "/mobile/ios/testflight/builds",
@@ -745,7 +745,7 @@ M48_FORBIDDEN_SWIFT_FRAGMENTS = M47_FORBIDDEN_SWIFT_FRAGMENTS + (
     "mobileprovision",
     "App Store Connect",
 )
-EXPECTED_M49_OPENAPI_PATH_COUNT = 77
+EXPECTED_M49_OPENAPI_PATH_COUNT = 79
 M49_FORBIDDEN_BACKEND_ROUTES = M48_FORBIDDEN_BACKEND_ROUTES + (
     "/mobile/review",
     "/mobile/review/approve",
@@ -777,7 +777,7 @@ M49_FORBIDDEN_SWIFT_FRAGMENTS = M48_FORBIDDEN_SWIFT_FRAGMENTS + (
     "SensorAccess",
     "BackgroundCollection",
 )
-EXPECTED_M50_OPENAPI_PATH_COUNT = 77
+EXPECTED_M50_OPENAPI_PATH_COUNT = 79
 M50_FORBIDDEN_BACKEND_ROUTES = M49_FORBIDDEN_BACKEND_ROUTES + (
     "/mobile/review/audit",
     "/mobile/review/audit/export",
@@ -794,7 +794,7 @@ M50_FORBIDDEN_SWIFT_FRAGMENTS = M49_FORBIDDEN_SWIFT_FRAGMENTS + (
     "auditRaw",
     "auditWrite",
 )
-EXPECTED_M51_OPENAPI_PATH_COUNT = 77
+EXPECTED_M51_OPENAPI_PATH_COUNT = 79
 M51_FORBIDDEN_BACKEND_ROUTES = (
     "/openwebui/handoff",
     "/openwebui/runtime/call",
@@ -807,7 +807,7 @@ M51_FORBIDDEN_BACKEND_ROUTES = (
     "/openwebui/raw-prompt",
     "/openwebui/provider-payload",
 )
-EXPECTED_M52_OPENAPI_PATH_COUNT = 77
+EXPECTED_M52_OPENAPI_PATH_COUNT = 79
 M52_FORBIDDEN_BACKEND_ROUTES = M51_FORBIDDEN_BACKEND_ROUTES + (
     "/openwebui/conversation",
     "/openwebui/conversation/send",
@@ -816,7 +816,7 @@ M52_FORBIDDEN_BACKEND_ROUTES = M51_FORBIDDEN_BACKEND_ROUTES + (
     "/openwebui/conversation/context",
     "/openwebui/conversation/memory",
 )
-EXPECTED_M53_OPENAPI_PATH_COUNT = 77
+EXPECTED_M53_OPENAPI_PATH_COUNT = 79
 M53_FORBIDDEN_BACKEND_ROUTES = M52_FORBIDDEN_BACKEND_ROUTES + (
     "/tools/expand",
     "/tools/register",
@@ -832,7 +832,7 @@ M53_FORBIDDEN_BACKEND_ROUTES = M52_FORBIDDEN_BACKEND_ROUTES + (
     "/memory/write",
     "/context/inject",
 )
-EXPECTED_M54_OPENAPI_PATH_COUNT = 77
+EXPECTED_M54_OPENAPI_PATH_COUNT = 79
 M54_FORBIDDEN_BACKEND_ROUTES = M53_FORBIDDEN_BACKEND_ROUTES + (
     "/media/read/raw",
     "/media/read/content",
@@ -849,7 +849,7 @@ M54_FORBIDDEN_BACKEND_ROUTES = M53_FORBIDDEN_BACKEND_ROUTES + (
     "/media/ai/gamut",
     "/media/model/analyze",
 )
-EXPECTED_M55_OPENAPI_PATH_COUNT = 77
+EXPECTED_M55_OPENAPI_PATH_COUNT = 79
 M55_FORBIDDEN_BACKEND_ROUTES = M54_FORBIDDEN_BACKEND_ROUTES + (
     "/observability/export",
     "/observability/export/raw",
@@ -861,7 +861,7 @@ M55_FORBIDDEN_BACKEND_ROUTES = M54_FORBIDDEN_BACKEND_ROUTES + (
     "/otel/export",
     "/analytics/export",
 )
-EXPECTED_M56_OPENAPI_PATH_COUNT = 77
+EXPECTED_M56_OPENAPI_PATH_COUNT = 79
 M56_FORBIDDEN_BACKEND_ROUTES = M55_FORBIDDEN_BACKEND_ROUTES + (
     "/evals/run",
     "/evals/execute",
@@ -874,7 +874,7 @@ M56_FORBIDDEN_BACKEND_ROUTES = M55_FORBIDDEN_BACKEND_ROUTES + (
     "/models/call",
     "/provider/call",
 )
-EXPECTED_M57_OPENAPI_PATH_COUNT = 77
+EXPECTED_M57_OPENAPI_PATH_COUNT = 79
 M57_FORBIDDEN_BACKEND_ROUTES = M56_FORBIDDEN_BACKEND_ROUTES + (
     "/sandbox/run",
     "/sandbox/execute",
@@ -885,7 +885,7 @@ M57_FORBIDDEN_BACKEND_ROUTES = M56_FORBIDDEN_BACKEND_ROUTES + (
     "/runtime/sandbox/run",
     "/runtime/sandbox/execute",
 )
-EXPECTED_M58_OPENAPI_PATH_COUNT = 77
+EXPECTED_M58_OPENAPI_PATH_COUNT = 79
 M58_FORBIDDEN_BACKEND_ROUTES = M57_FORBIDDEN_BACKEND_ROUTES + (
     "/dry-run/run",
     "/dry-run/execute",
@@ -896,7 +896,7 @@ M58_FORBIDDEN_BACKEND_ROUTES = M57_FORBIDDEN_BACKEND_ROUTES + (
     "/execution/dry-run/run",
     "/execution/dry-run/execute",
 )
-EXPECTED_M59_OPENAPI_PATH_COUNT = 77
+EXPECTED_M59_OPENAPI_PATH_COUNT = 79
 M59_FORBIDDEN_BACKEND_ROUTES = M58_FORBIDDEN_BACKEND_ROUTES + (
     "/github/publish",
     "/github/release",
@@ -907,7 +907,7 @@ M59_FORBIDDEN_BACKEND_ROUTES = M58_FORBIDDEN_BACKEND_ROUTES + (
     "/public/github/publish",
     "/release/upload",
 )
-EXPECTED_M60_OPENAPI_PATH_COUNT = 77
+EXPECTED_M60_OPENAPI_PATH_COUNT = 79
 M60_FORBIDDEN_BACKEND_ROUTES = M59_FORBIDDEN_BACKEND_ROUTES + (
     "/public/beta/release",
     "/public/beta/publish",
@@ -922,7 +922,7 @@ M60_FORBIDDEN_BACKEND_ROUTES = M59_FORBIDDEN_BACKEND_ROUTES + (
     "/plugins/execute",
     "/remote/execute",
 )
-EXPECTED_M61_OPENAPI_PATH_COUNT = 77
+EXPECTED_M61_OPENAPI_PATH_COUNT = 79
 M61_FORBIDDEN_BACKEND_ROUTES = M60_FORBIDDEN_BACKEND_ROUTES + (
     "/autonomy/session/start",
     "/autonomy/session/run",
@@ -934,7 +934,7 @@ M61_FORBIDDEN_BACKEND_ROUTES = M60_FORBIDDEN_BACKEND_ROUTES + (
     "/network/fetch",
     "/network/request",
 )
-EXPECTED_M62_OPENAPI_PATH_COUNT = 77
+EXPECTED_M62_OPENAPI_PATH_COUNT = 79
 M62_FORBIDDEN_BACKEND_ROUTES = M61_FORBIDDEN_BACKEND_ROUTES + (
     "/autonomy/session/activate",
     "/autonomy/session/execute",
@@ -944,7 +944,7 @@ M62_FORBIDDEN_BACKEND_ROUTES = M61_FORBIDDEN_BACKEND_ROUTES + (
     "/autonomy/session/approval",
     "/autonomy/session/persist",
 )
-EXPECTED_M63_OPENAPI_PATH_COUNT = 77
+EXPECTED_M63_OPENAPI_PATH_COUNT = 79
 M63_FORBIDDEN_BACKEND_ROUTES = M62_FORBIDDEN_BACKEND_ROUTES + (
     "/autonomy/policy/evaluate",
     "/autonomy/policy/activate",
@@ -952,7 +952,7 @@ M63_FORBIDDEN_BACKEND_ROUTES = M62_FORBIDDEN_BACKEND_ROUTES + (
     "/autonomy/policy/execute",
     "/autonomy/policy/persist",
 )
-EXPECTED_M64_OPENAPI_PATH_COUNT = 77
+EXPECTED_M64_OPENAPI_PATH_COUNT = 79
 M64_FORBIDDEN_BACKEND_ROUTES = M63_FORBIDDEN_BACKEND_ROUTES + (
     "/autonomy/simulate",
     "/autonomy/simulator/run",
@@ -960,7 +960,7 @@ M64_FORBIDDEN_BACKEND_ROUTES = M63_FORBIDDEN_BACKEND_ROUTES + (
     "/autonomy/plan/simulate",
     "/autonomy/plan/execute",
 )
-EXPECTED_M65_OPENAPI_PATH_COUNT = 77
+EXPECTED_M65_OPENAPI_PATH_COUNT = 79
 M65_FORBIDDEN_BACKEND_ROUTES = M64_FORBIDDEN_BACKEND_ROUTES + (
     "/autonomy/audit/replay",
     "/autonomy/replay/run",
@@ -968,7 +968,7 @@ M65_FORBIDDEN_BACKEND_ROUTES = M64_FORBIDDEN_BACKEND_ROUTES + (
     "/autonomy/audit/export",
     "/autonomy/replay/export",
 )
-EXPECTED_M66_OPENAPI_PATH_COUNT = 77
+EXPECTED_M66_OPENAPI_PATH_COUNT = 79
 M66_FORBIDDEN_BACKEND_ROUTES = M65_FORBIDDEN_BACKEND_ROUTES + (
     "/autonomy/approval-bundles",
     "/autonomy/approval-bundles/grant",
@@ -976,7 +976,7 @@ M66_FORBIDDEN_BACKEND_ROUTES = M65_FORBIDDEN_BACKEND_ROUTES + (
     "/autonomy/approval-bundles/execute",
     "/autonomy/approval-bundles/export",
 )
-EXPECTED_M67_OPENAPI_PATH_COUNT = 77
+EXPECTED_M67_OPENAPI_PATH_COUNT = 79
 M67_FORBIDDEN_BACKEND_ROUTES = M66_FORBIDDEN_BACKEND_ROUTES + (
     "/autonomy/revoke",
     "/autonomy/revocation/execute",
@@ -986,7 +986,7 @@ M67_FORBIDDEN_BACKEND_ROUTES = M66_FORBIDDEN_BACKEND_ROUTES + (
     "/autonomy/session/terminate",
     "/process/kill",
 )
-EXPECTED_M68_OPENAPI_PATH_COUNT = 77
+EXPECTED_M68_OPENAPI_PATH_COUNT = 79
 M68_FORBIDDEN_BACKEND_ROUTES = M67_FORBIDDEN_BACKEND_ROUTES + (
     "/autonomy/risk/classify",
     "/autonomy/risk/execute",
@@ -994,7 +994,7 @@ M68_FORBIDDEN_BACKEND_ROUTES = M67_FORBIDDEN_BACKEND_ROUTES + (
     "/autonomy/session/start",
     "/autonomy/policy/activate",
 )
-EXPECTED_M69_OPENAPI_PATH_COUNT = 77
+EXPECTED_M69_OPENAPI_PATH_COUNT = 79
 M69_FORBIDDEN_BACKEND_ROUTES = M68_FORBIDDEN_BACKEND_ROUTES + (
     "/autonomy/dry-run/start",
     "/autonomy/dry-run/execute",
@@ -1002,7 +1002,7 @@ M69_FORBIDDEN_BACKEND_ROUTES = M68_FORBIDDEN_BACKEND_ROUTES + (
     "/autonomy/dry-run/persist",
     "/autonomy/dry-run/session",
 )
-EXPECTED_M70_OPENAPI_PATH_COUNT = 77
+EXPECTED_M70_OPENAPI_PATH_COUNT = 79
 M70_FORBIDDEN_BACKEND_ROUTES = M69_FORBIDDEN_BACKEND_ROUTES + (
     "/autonomy/freeze/activate",
     "/autonomy/freeze/start",
@@ -1018,7 +1018,7 @@ M70_FORBIDDEN_BACKEND_ROUTES = M69_FORBIDDEN_BACKEND_ROUTES + (
     "/browser/click",
     "/plugins/execute",
 )
-EXPECTED_M71_OPENAPI_PATH_COUNT = 77
+EXPECTED_M71_OPENAPI_PATH_COUNT = 79
 M71_FORBIDDEN_BACKEND_ROUTES = M70_FORBIDDEN_BACKEND_ROUTES + (
     "/network/fetch",
     "/network/request",
@@ -1034,7 +1034,7 @@ M71_FORBIDDEN_BACKEND_ROUTES = M70_FORBIDDEN_BACKEND_ROUTES + (
     "/memory/write",
     "/context/inject",
 )
-EXPECTED_M72_OPENAPI_PATH_COUNT = 77
+EXPECTED_M72_OPENAPI_PATH_COUNT = 79
 M72_FORBIDDEN_BACKEND_ROUTES = M71_FORBIDDEN_BACKEND_ROUTES + (
     "/network/fetch/raw",
     "/network/fetch/full",
@@ -1043,7 +1043,7 @@ M72_FORBIDDEN_BACKEND_ROUTES = M71_FORBIDDEN_BACKEND_ROUTES + (
     "/http/fetch/full",
     "/http/request/authenticated",
 )
-EXPECTED_M73_OPENAPI_PATH_COUNT = 77
+EXPECTED_M73_OPENAPI_PATH_COUNT = 79
 M73_FORBIDDEN_BACKEND_ROUTES = M72_FORBIDDEN_BACKEND_ROUTES + (
     "/browser/observe",
     "/browser/click",
@@ -1056,14 +1056,14 @@ M73_FORBIDDEN_BACKEND_ROUTES = M72_FORBIDDEN_BACKEND_ROUTES + (
     "/browser/profile/authenticated",
     "/tools/browser/execute",
 )
-EXPECTED_M74_OPENAPI_PATH_COUNT = 77
+EXPECTED_M74_OPENAPI_PATH_COUNT = 79
 M74_FORBIDDEN_BACKEND_ROUTES = M73_FORBIDDEN_BACKEND_ROUTES + (
     "/browser/dom/raw",
     "/browser/download",
     "/browser/upload",
     "/browser/network/intercept",
 )
-EXPECTED_M75_OPENAPI_PATH_COUNT = 77
+EXPECTED_M75_OPENAPI_PATH_COUNT = 79
 M75_FORBIDDEN_BACKEND_ROUTES = M74_FORBIDDEN_BACKEND_ROUTES + (
     "/browser/actions/plan",
     "/browser/actions/run",
@@ -1071,7 +1071,7 @@ M75_FORBIDDEN_BACKEND_ROUTES = M74_FORBIDDEN_BACKEND_ROUTES + (
     "/browser/action/dry-run",
     "/browser/action/execute",
 )
-EXPECTED_M76_OPENAPI_PATH_COUNT = 77
+EXPECTED_M76_OPENAPI_PATH_COUNT = 79
 M76_FORBIDDEN_BACKEND_ROUTES = M75_FORBIDDEN_BACKEND_ROUTES + (
     "/openwebui/runtime/bridge",
     "/openwebui/runtime/handoff",
@@ -1084,11 +1084,11 @@ M76_FORBIDDEN_BACKEND_ROUTES = M75_FORBIDDEN_BACKEND_ROUTES + (
     "/openwebui/context/inject",
     "/openwebui/raw-payload",
 )
-EXPECTED_M77_OPENAPI_PATH_COUNT = 77
+EXPECTED_M77_OPENAPI_PATH_COUNT = 79
 M77_FORBIDDEN_BACKEND_ROUTES = M76_FORBIDDEN_BACKEND_ROUTES + (
     "/openwebui/handoff/execute",
 )
-EXPECTED_M78_OPENAPI_PATH_COUNT = 77
+EXPECTED_M78_OPENAPI_PATH_COUNT = 79
 M78_FORBIDDEN_BACKEND_ROUTES = M77_FORBIDDEN_BACKEND_ROUTES + (
     "/plugins/install",
     "/plugins/enable",
@@ -1098,7 +1098,7 @@ M78_FORBIDDEN_BACKEND_ROUTES = M77_FORBIDDEN_BACKEND_ROUTES + (
     "/plugins/permissions/grant",
     "/plugins/revoke/execute",
 )
-EXPECTED_M79_OPENAPI_PATH_COUNT = 77
+EXPECTED_M79_OPENAPI_PATH_COUNT = 79
 M79_FORBIDDEN_BACKEND_ROUTES = M78_FORBIDDEN_BACKEND_ROUTES + (
     "/plugins/review/install/submit",
     "/plugins/review/install/approve",
@@ -1106,7 +1106,7 @@ M79_FORBIDDEN_BACKEND_ROUTES = M78_FORBIDDEN_BACKEND_ROUTES + (
     "/plugins/install/review/submit",
     "/plugins/install/perform",
 )
-EXPECTED_M80_OPENAPI_PATH_COUNT = 77
+EXPECTED_M80_OPENAPI_PATH_COUNT = 79
 M80_FORBIDDEN_BACKEND_ROUTES = M79_FORBIDDEN_BACKEND_ROUTES + (
     "/network/fetch/unrestricted",
     "/network/fetch/raw",
@@ -1130,7 +1130,7 @@ M80_FORBIDDEN_BACKEND_ROUTES = M79_FORBIDDEN_BACKEND_ROUTES + (
     "/tools/execute",
     "/shell/execute",
 )
-EXPECTED_M81_OPENAPI_PATH_COUNT = 77
+EXPECTED_M81_OPENAPI_PATH_COUNT = 79
 M81_FORBIDDEN_BACKEND_ROUTES = M80_FORBIDDEN_BACKEND_ROUTES + (
     "/sandbox/run",
     "/sandbox/execute",
@@ -1143,34 +1143,34 @@ M81_FORBIDDEN_BACKEND_ROUTES = M80_FORBIDDEN_BACKEND_ROUTES + (
     "/filesystem/mutate",
     "/remote/execute",
 )
-EXPECTED_M82_OPENAPI_PATH_COUNT = 77
+EXPECTED_M82_OPENAPI_PATH_COUNT = 79
 M82_FORBIDDEN_BACKEND_ROUTES = M81_FORBIDDEN_BACKEND_ROUTES
-EXPECTED_M83_OPENAPI_PATH_COUNT = 77
+EXPECTED_M83_OPENAPI_PATH_COUNT = 79
 M83_FORBIDDEN_BACKEND_ROUTES = M82_FORBIDDEN_BACKEND_ROUTES + (
     "/shell/dry-run/classify",
     "/shell/dry-run/execute",
 )
-EXPECTED_M84_OPENAPI_PATH_COUNT = 77
+EXPECTED_M84_OPENAPI_PATH_COUNT = 79
 M84_FORBIDDEN_BACKEND_ROUTES = M83_FORBIDDEN_BACKEND_ROUTES + (
     "/sandbox/echo",
     "/sandbox/noop",
     "/sandbox/commands/run",
     "/sandbox/commands/execute",
 )
-EXPECTED_M85_OPENAPI_PATH_COUNT = 77
+EXPECTED_M85_OPENAPI_PATH_COUNT = 79
 M85_FORBIDDEN_BACKEND_ROUTES = M84_FORBIDDEN_BACKEND_ROUTES + (
     "/commands/allowlist",
     "/commands/allowlist/review",
     "/commands/allowlist/execute",
     "/sandbox/allowlist",
 )
-EXPECTED_M86_OPENAPI_PATH_COUNT = 77
+EXPECTED_M86_OPENAPI_PATH_COUNT = 79
 M86_FORBIDDEN_BACKEND_ROUTES = M85_FORBIDDEN_BACKEND_ROUTES + (
     "/shell/approval",
     "/shell/approval/review",
     "/shell/approval/execute",
 )
-EXPECTED_M87_OPENAPI_PATH_COUNT = 77
+EXPECTED_M87_OPENAPI_PATH_COUNT = 79
 M87_FORBIDDEN_BACKEND_ROUTES = M86_FORBIDDEN_BACKEND_ROUTES + (
     "/shell/replay",
     "/shell/replay/run",
@@ -1179,7 +1179,7 @@ M87_FORBIDDEN_BACKEND_ROUTES = M86_FORBIDDEN_BACKEND_ROUTES + (
     "/commands/audit/replay/run",
     "/sandbox/commands/replay",
 )
-EXPECTED_M88_OPENAPI_PATH_COUNT = 77
+EXPECTED_M88_OPENAPI_PATH_COUNT = 79
 M88_FORBIDDEN_BACKEND_ROUTES = M87_FORBIDDEN_BACKEND_ROUTES + (
     "/commands/mutate",
     "/commands/mutate/propose",
@@ -1187,7 +1187,7 @@ M88_FORBIDDEN_BACKEND_ROUTES = M87_FORBIDDEN_BACKEND_ROUTES + (
     "/commands/mutate/execute",
     "/sandbox/commands/mutate",
 )
-EXPECTED_M89_OPENAPI_PATH_COUNT = 77
+EXPECTED_M89_OPENAPI_PATH_COUNT = 79
 M89_FORBIDDEN_BACKEND_ROUTES = M88_FORBIDDEN_BACKEND_ROUTES + (
     "/emergency/stop",
     "/emergency/kill",
@@ -1199,7 +1199,7 @@ M89_FORBIDDEN_BACKEND_ROUTES = M88_FORBIDDEN_BACKEND_ROUTES + (
     "/shell/execute",
     "/filesystem/write",
 )
-EXPECTED_M90_OPENAPI_PATH_COUNT = 77
+EXPECTED_M90_OPENAPI_PATH_COUNT = 79
 M90_FORBIDDEN_BACKEND_ROUTES = M89_FORBIDDEN_BACKEND_ROUTES + (
     "/subprocess/execute",
     "/subprocess/run",
@@ -1209,7 +1209,7 @@ M90_FORBIDDEN_BACKEND_ROUTES = M89_FORBIDDEN_BACKEND_ROUTES + (
     "/process/terminate",
     "/emergency/execute",
 )
-EXPECTED_M91_OPENAPI_PATH_COUNT = 77
+EXPECTED_M91_OPENAPI_PATH_COUNT = 79
 M91_FORBIDDEN_BACKEND_ROUTES = M90_FORBIDDEN_BACKEND_ROUTES + (
     "/tools/execute",
     "/tool-runtime/execute",
@@ -1219,12 +1219,12 @@ M91_FORBIDDEN_BACKEND_ROUTES = M90_FORBIDDEN_BACKEND_ROUTES + (
     "/autonomy/session/execute",
     "/tools/autonomous/execute",
 )
-EXPECTED_M92_OPENAPI_PATH_COUNT = 77
+EXPECTED_M92_OPENAPI_PATH_COUNT = 79
 M92_FORBIDDEN_BACKEND_ROUTES = M91_FORBIDDEN_BACKEND_ROUTES + (
     "/autonomy/session/run",
     "/autonomy/sessions",
 )
-EXPECTED_M93_OPENAPI_PATH_COUNT = 77
+EXPECTED_M93_OPENAPI_PATH_COUNT = 79
 M93_FORBIDDEN_BACKEND_ROUTES = M92_FORBIDDEN_BACKEND_ROUTES + (
     "/autonomy/promotion/approve",
     "/autonomy/promotion/execute",
@@ -1234,7 +1234,7 @@ M93_FORBIDDEN_BACKEND_ROUTES = M92_FORBIDDEN_BACKEND_ROUTES + (
     "/autonomy/dry-run/promote",
     "/tools/multi/execute",
 )
-EXPECTED_M94_OPENAPI_PATH_COUNT = 77
+EXPECTED_M94_OPENAPI_PATH_COUNT = 79
 M94_FORBIDDEN_BACKEND_ROUTES = M93_FORBIDDEN_BACKEND_ROUTES + (
     "/browser/click",
     "/browser/form-submit",
@@ -1247,7 +1247,7 @@ M94_FORBIDDEN_BACKEND_ROUTES = M93_FORBIDDEN_BACKEND_ROUTES + (
     "/autonomy/browser/run",
     "/tools/browser/execute",
 )
-EXPECTED_M95_OPENAPI_PATH_COUNT = 77
+EXPECTED_M95_OPENAPI_PATH_COUNT = 79
 M95_FORBIDDEN_BACKEND_ROUTES = M94_FORBIDDEN_BACKEND_ROUTES + (
     "/network/get",
     "/network/fetch",
@@ -1265,7 +1265,7 @@ M95_FORBIDDEN_BACKEND_ROUTES = M94_FORBIDDEN_BACKEND_ROUTES + (
     "/tools/network/execute",
     "/autonomy/network/execute",
 )
-EXPECTED_M96_OPENAPI_PATH_COUNT = 77
+EXPECTED_M96_OPENAPI_PATH_COUNT = 79
 M96_FORBIDDEN_BACKEND_ROUTES = M95_FORBIDDEN_BACKEND_ROUTES + (
     "/plugins/execute",
     "/plugins/run",
@@ -1277,7 +1277,7 @@ M96_FORBIDDEN_BACKEND_ROUTES = M95_FORBIDDEN_BACKEND_ROUTES + (
     "/tools/plugins/execute",
     "/autonomy/plugins/execute",
 )
-EXPECTED_M97_OPENAPI_PATH_COUNT = 77
+EXPECTED_M97_OPENAPI_PATH_COUNT = 79
 M97_FORBIDDEN_BACKEND_ROUTES = M96_FORBIDDEN_BACKEND_ROUTES + (
     "/automation/recurring/run",
     "/automation/recurring/start",
@@ -1291,7 +1291,7 @@ M97_FORBIDDEN_BACKEND_ROUTES = M96_FORBIDDEN_BACKEND_ROUTES + (
     "/background-worker/start",
     "/background-worker/run",
 )
-EXPECTED_M98_OPENAPI_PATH_COUNT = 77
+EXPECTED_M98_OPENAPI_PATH_COUNT = 79
 M98_FORBIDDEN_BACKEND_ROUTES = M97_FORBIDDEN_BACKEND_ROUTES + (
     "/automation/recurring/collect",
     "/automation/recurring/worker",
@@ -1301,7 +1301,7 @@ M98_FORBIDDEN_BACKEND_ROUTES = M97_FORBIDDEN_BACKEND_ROUTES + (
     "/automation/recurring/mutate",
     "/automation/recurring/secrets",
 )
-EXPECTED_M99_OPENAPI_PATH_COUNT = 77
+EXPECTED_M99_OPENAPI_PATH_COUNT = 79
 M99_FORBIDDEN_BACKEND_ROUTES = M98_FORBIDDEN_BACKEND_ROUTES + (
     "/autonomy/global/enable",
     "/autonomy/global/autonomous",
@@ -1318,7 +1318,7 @@ M99_FORBIDDEN_BACKEND_ROUTES = M98_FORBIDDEN_BACKEND_ROUTES + (
     "/files/export/raw",
     "/files/read/full",
 )
-EXPECTED_M100_OPENAPI_PATH_COUNT = 77
+EXPECTED_M100_OPENAPI_PATH_COUNT = 79
 M100_FORBIDDEN_BACKEND_ROUTES = M99_FORBIDDEN_BACKEND_ROUTES + (
     "/mobile/location",
     "/mobile/camera",
@@ -1331,7 +1331,7 @@ M100_FORBIDDEN_BACKEND_ROUTES = M99_FORBIDDEN_BACKEND_ROUTES + (
     "/mobile/permissions/prompt",
     "/mobile/native-permissions/request",
 )
-EXPECTED_M101_OPENAPI_PATH_COUNT = 77
+EXPECTED_M101_OPENAPI_PATH_COUNT = 79
 M101_FORBIDDEN_BACKEND_ROUTES = M100_FORBIDDEN_BACKEND_ROUTES + (
     "/mobile/sensors/location",
     "/mobile/sensors/camera",
@@ -1342,7 +1342,7 @@ M101_FORBIDDEN_BACKEND_ROUTES = M100_FORBIDDEN_BACKEND_ROUTES + (
     "/mobile/sensors/collect",
     "/mobile/sensors/runtime",
 )
-EXPECTED_M102_OPENAPI_PATH_COUNT = 77
+EXPECTED_M102_OPENAPI_PATH_COUNT = 79
 M102_FORBIDDEN_BACKEND_ROUTES = M101_FORBIDDEN_BACKEND_ROUTES + (
     "/mobile/location/current",
     "/mobile/location/history",
@@ -1351,7 +1351,7 @@ M102_FORBIDDEN_BACKEND_ROUTES = M101_FORBIDDEN_BACKEND_ROUTES + (
     "/mobile/background/location",
     "/mobile/location/permission",
 )
-EXPECTED_M103_OPENAPI_PATH_COUNT = 77
+EXPECTED_M103_OPENAPI_PATH_COUNT = 79
 M103_FORBIDDEN_BACKEND_ROUTES = M102_FORBIDDEN_BACKEND_ROUTES + (
     "/mobile/camera",
     "/mobile/camera/capture",
@@ -1364,7 +1364,7 @@ M103_FORBIDDEN_BACKEND_ROUTES = M102_FORBIDDEN_BACKEND_ROUTES + (
     "/mobile/media/metadata/extract",
     "/mobile/media/permission",
 )
-EXPECTED_M104_OPENAPI_PATH_COUNT = 77
+EXPECTED_M104_OPENAPI_PATH_COUNT = 79
 M104_FORBIDDEN_BACKEND_ROUTES = M103_FORBIDDEN_BACKEND_ROUTES + (
     "/mobile/notifications",
     "/mobile/notifications/send",
@@ -1376,7 +1376,7 @@ M104_FORBIDDEN_BACKEND_ROUTES = M103_FORBIDDEN_BACKEND_ROUTES + (
     "/mobile/background/notifications",
     "/mobile/permissions/prompt",
 )
-EXPECTED_M105_OPENAPI_PATH_COUNT = 77
+EXPECTED_M105_OPENAPI_PATH_COUNT = 79
 M105_FORBIDDEN_BACKEND_ROUTES = M104_FORBIDDEN_BACKEND_ROUTES + (
     "/mobile/background/tasks/start",
     "/mobile/background/tasks/schedule",
@@ -1388,7 +1388,7 @@ M105_FORBIDDEN_BACKEND_ROUTES = M104_FORBIDDEN_BACKEND_ROUTES + (
     "/mobile/background/tokens",
     "/mobile/background/provider",
 )
-EXPECTED_M106_OPENAPI_PATH_COUNT = 77
+EXPECTED_M106_OPENAPI_PATH_COUNT = 79
 M106_FORBIDDEN_BACKEND_ROUTES = M105_FORBIDDEN_BACKEND_ROUTES + (
     "/mobile/background/status-sync",
     "/mobile/background/status-sync/start",
@@ -1400,7 +1400,7 @@ M106_FORBIDDEN_BACKEND_ROUTES = M105_FORBIDDEN_BACKEND_ROUTES + (
     "/mobile/background/status",
     "/mobile/background/status/raw",
 )
-EXPECTED_M107_OPENAPI_PATH_COUNT = 77
+EXPECTED_M107_OPENAPI_PATH_COUNT = 79
 M107_FORBIDDEN_BACKEND_ROUTES = M106_FORBIDDEN_BACKEND_ROUTES + (
     "/mobile/approvals/renew",
     "/mobile/approvals/renew/start",
@@ -1411,7 +1411,7 @@ M107_FORBIDDEN_BACKEND_ROUTES = M106_FORBIDDEN_BACKEND_ROUTES + (
     "/mobile/approvals/kill-switch",
     "/mobile/revocation/execute",
 )
-EXPECTED_M108_OPENAPI_PATH_COUNT = 77
+EXPECTED_M108_OPENAPI_PATH_COUNT = 79
 M108_FORBIDDEN_BACKEND_ROUTES = M107_FORBIDDEN_BACKEND_ROUTES + (
     "/mobile/kill-switch",
     "/mobile/kill-switch/activate",
@@ -1420,7 +1420,7 @@ M108_FORBIDDEN_BACKEND_ROUTES = M107_FORBIDDEN_BACKEND_ROUTES + (
     "/mobile/approvals/revoke",
     "/mobile/session/stop",
 )
-EXPECTED_M109_OPENAPI_PATH_COUNT = 77
+EXPECTED_M109_OPENAPI_PATH_COUNT = 79
 M109_FORBIDDEN_BACKEND_ROUTES = M108_FORBIDDEN_BACKEND_ROUTES + (
     "/mobile/sensor-audit",
     "/mobile/sensor-audit/write",
@@ -1431,14 +1431,14 @@ M109_FORBIDDEN_BACKEND_ROUTES = M108_FORBIDDEN_BACKEND_ROUTES + (
     "/mobile/sensors/microphone",
     "/mobile/background/collect",
 )
-EXPECTED_M110_OPENAPI_PATH_COUNT = 77
+EXPECTED_M110_OPENAPI_PATH_COUNT = 79
 M110_FORBIDDEN_BACKEND_ROUTES = M109_FORBIDDEN_BACKEND_ROUTES + (
     "/mobile/sensor-hardening",
     "/mobile/sensor-hardening/run",
     "/mobile/sensor-hardening/freeze",
     "/mobile/sensor-hardening/execute",
 )
-EXPECTED_M111_OPENAPI_PATH_COUNT = 77
+EXPECTED_M111_OPENAPI_PATH_COUNT = 79
 M111_FORBIDDEN_BACKEND_ROUTES = M110_FORBIDDEN_BACKEND_ROUTES + (
     "/production/threat-model",
     "/production/threat-model/run",
@@ -1448,7 +1448,7 @@ M111_FORBIDDEN_BACKEND_ROUTES = M110_FORBIDDEN_BACKEND_ROUTES + (
     "/production/deploy",
     "/credentials/read",
 )
-EXPECTED_M112_OPENAPI_PATH_COUNT = 77
+EXPECTED_M112_OPENAPI_PATH_COUNT = 79
 M112_FORBIDDEN_BACKEND_ROUTES = M111_FORBIDDEN_BACKEND_ROUTES + (
     "/identity/user",
     "/identity/workspace",
@@ -1458,7 +1458,7 @@ M112_FORBIDDEN_BACKEND_ROUTES = M111_FORBIDDEN_BACKEND_ROUTES + (
     "/identity/auth",
     "/identity/account",
 )
-EXPECTED_M113_OPENAPI_PATH_COUNT = 77
+EXPECTED_M113_OPENAPI_PATH_COUNT = 79
 M113_FORBIDDEN_BACKEND_ROUTES = M112_FORBIDDEN_BACKEND_ROUTES + (
     "/credentials/write",
     "/credentials/vault",
@@ -1472,7 +1472,7 @@ M113_FORBIDDEN_BACKEND_ROUTES = M112_FORBIDDEN_BACKEND_ROUTES + (
     "/vault/runtime",
     "/vault/unlock",
 )
-EXPECTED_M114_OPENAPI_PATH_COUNT = 77
+EXPECTED_M114_OPENAPI_PATH_COUNT = 79
 M114_FORBIDDEN_BACKEND_ROUTES = M113_FORBIDDEN_BACKEND_ROUTES + (
     "/accounts/connect",
     "/accounts/oauth/start",
@@ -1493,7 +1493,7 @@ M114_FORBIDDEN_BACKEND_ROUTES = M113_FORBIDDEN_BACKEND_ROUTES + (
     "/memory/write",
     "/tools/execute",
 )
-EXPECTED_M115_OPENAPI_PATH_COUNT = 77
+EXPECTED_M115_OPENAPI_PATH_COUNT = 79
 M115_FORBIDDEN_BACKEND_ROUTES = M114_FORBIDDEN_BACKEND_ROUTES + (
     "/audit/retention",
     "/audit/export",
@@ -1511,7 +1511,7 @@ M115_FORBIDDEN_BACKEND_ROUTES = M114_FORBIDDEN_BACKEND_ROUTES + (
     "/analytics/export",
     "/network/post",
 )
-EXPECTED_M116_OPENAPI_PATH_COUNT = 77
+EXPECTED_M116_OPENAPI_PATH_COUNT = 79
 M116_FORBIDDEN_BACKEND_ROUTES = M115_FORBIDDEN_BACKEND_ROUTES + (
     "/authority/roles",
     "/authority/enforce",
@@ -1531,7 +1531,7 @@ M116_FORBIDDEN_BACKEND_ROUTES = M115_FORBIDDEN_BACKEND_ROUTES + (
     "/credentials/write",
     "/account/action",
 )
-EXPECTED_M117_OPENAPI_PATH_COUNT = 77
+EXPECTED_M117_OPENAPI_PATH_COUNT = 79
 M117_FORBIDDEN_BACKEND_ROUTES = M116_FORBIDDEN_BACKEND_ROUTES + (
     "/remote-agents/coordinate",
     "/remote-agents/dispatch",
@@ -1545,7 +1545,7 @@ M117_FORBIDDEN_BACKEND_ROUTES = M116_FORBIDDEN_BACKEND_ROUTES + (
     "/tools/execute",
     "/network/post",
 )
-EXPECTED_M118_OPENAPI_PATH_COUNT = 77
+EXPECTED_M118_OPENAPI_PATH_COUNT = 79
 M118_FORBIDDEN_BACKEND_ROUTES = M117_FORBIDDEN_BACKEND_ROUTES + (
     "/deployment/modes/apply",
     "/deployment/run",
@@ -1561,7 +1561,7 @@ M118_FORBIDDEN_BACKEND_ROUTES = M117_FORBIDDEN_BACKEND_ROUTES + (
     "/tools/execute",
     "/network/post",
 )
-EXPECTED_M119_OPENAPI_PATH_COUNT = 77
+EXPECTED_M119_OPENAPI_PATH_COUNT = 79
 M119_FORBIDDEN_BACKEND_ROUTES = M118_FORBIDDEN_BACKEND_ROUTES + (
     "/red-team/run",
     "/red-team/execute",
@@ -1576,7 +1576,7 @@ M119_FORBIDDEN_BACKEND_ROUTES = M118_FORBIDDEN_BACKEND_ROUTES + (
     "/tools/execute",
     "/network/post",
 )
-EXPECTED_M120_OPENAPI_PATH_COUNT = 77
+EXPECTED_M120_OPENAPI_PATH_COUNT = 79
 M120_FORBIDDEN_BACKEND_ROUTES = M119_FORBIDDEN_BACKEND_ROUTES + (
     "/production/authority/enable",
     "/production/go-live",
@@ -1589,7 +1589,7 @@ M120_FORBIDDEN_BACKEND_ROUTES = M119_FORBIDDEN_BACKEND_ROUTES + (
     "/tools/execute",
     "/network/post",
 )
-EXPECTED_M121_OPENAPI_PATH_COUNT = 77
+EXPECTED_M121_OPENAPI_PATH_COUNT = 79
 M121_FORBIDDEN_BACKEND_ROUTES = M120_FORBIDDEN_BACKEND_ROUTES + (
     "/connectors/email/auth",
     "/connectors/email/read",
@@ -1603,7 +1603,7 @@ M121_FORBIDDEN_BACKEND_ROUTES = M120_FORBIDDEN_BACKEND_ROUTES + (
     "/memory/write",
     "/context/inject",
 )
-EXPECTED_M122_OPENAPI_PATH_COUNT = 77
+EXPECTED_M122_OPENAPI_PATH_COUNT = 79
 M122_FORBIDDEN_BACKEND_ROUTES = M121_FORBIDDEN_BACKEND_ROUTES + (
     "/connectors/calendar/auth",
     "/connectors/calendar/read",
@@ -1618,7 +1618,7 @@ M122_FORBIDDEN_BACKEND_ROUTES = M121_FORBIDDEN_BACKEND_ROUTES + (
     "/memory/write",
     "/context/inject",
 )
-EXPECTED_M123_OPENAPI_PATH_COUNT = 77
+EXPECTED_M123_OPENAPI_PATH_COUNT = 79
 M123_FORBIDDEN_BACKEND_ROUTES = M122_FORBIDDEN_BACKEND_ROUTES + (
     "/connectors/contacts/auth",
     "/connectors/contacts/read",
@@ -1634,7 +1634,7 @@ M123_FORBIDDEN_BACKEND_ROUTES = M122_FORBIDDEN_BACKEND_ROUTES + (
     "/memory/write",
     "/context/inject",
 )
-EXPECTED_M124_OPENAPI_PATH_COUNT = 77
+EXPECTED_M124_OPENAPI_PATH_COUNT = 79
 M124_FORBIDDEN_BACKEND_ROUTES = M123_FORBIDDEN_BACKEND_ROUTES + (
     "/connectors/messages/auth",
     "/connectors/messages/read",
@@ -1654,7 +1654,7 @@ M124_FORBIDDEN_BACKEND_ROUTES = M123_FORBIDDEN_BACKEND_ROUTES + (
     "/memory/write",
     "/context/inject",
 )
-EXPECTED_M125_OPENAPI_PATH_COUNT = 77
+EXPECTED_M125_OPENAPI_PATH_COUNT = 79
 M125_FORBIDDEN_BACKEND_ROUTES = M124_FORBIDDEN_BACKEND_ROUTES + (
     "/connectors/read",
     "/connectors/runtime/read",
@@ -1670,7 +1670,7 @@ M125_FORBIDDEN_BACKEND_ROUTES = M124_FORBIDDEN_BACKEND_ROUTES + (
     "/context/inject",
     "/tools/execute",
 )
-EXPECTED_M126_OPENAPI_PATH_COUNT = 77
+EXPECTED_M126_OPENAPI_PATH_COUNT = 79
 M126_FORBIDDEN_BACKEND_ROUTES = M125_FORBIDDEN_BACKEND_ROUTES + (
     "/connectors/approvals/capture",
     "/connectors/approve",
@@ -1681,7 +1681,7 @@ M126_FORBIDDEN_BACKEND_ROUTES = M125_FORBIDDEN_BACKEND_ROUTES + (
     "/connectors/delete",
     "/connectors/bulk-export",
 )
-EXPECTED_M127_OPENAPI_PATH_COUNT = 77
+EXPECTED_M127_OPENAPI_PATH_COUNT = 79
 M127_FORBIDDEN_BACKEND_ROUTES = M126_FORBIDDEN_BACKEND_ROUTES + (
     "/connectors/write/dry-run",
     "/connectors/dry-run/write",
@@ -1693,7 +1693,7 @@ M127_FORBIDDEN_BACKEND_ROUTES = M126_FORBIDDEN_BACKEND_ROUTES + (
     "/connectors/calendar/events/create",
     "/connectors/contacts/update",
 )
-EXPECTED_M128_OPENAPI_PATH_COUNT = 77
+EXPECTED_M128_OPENAPI_PATH_COUNT = 79
 M128_FORBIDDEN_BACKEND_ROUTES = M127_FORBIDDEN_BACKEND_ROUTES + (
     "/connectors/write/low-risk",
     "/connectors/write/result",
@@ -1705,7 +1705,7 @@ M128_FORBIDDEN_BACKEND_ROUTES = M127_FORBIDDEN_BACKEND_ROUTES + (
     "/connectors/revocation/execute",
     "/connectors/kill-switch/execute",
 )
-EXPECTED_M129_OPENAPI_PATH_COUNT = 77
+EXPECTED_M129_OPENAPI_PATH_COUNT = 79
 M129_FORBIDDEN_BACKEND_ROUTES = M128_FORBIDDEN_BACKEND_ROUTES + (
     "/connectors/audit",
     "/connectors/audit/export",
@@ -1724,7 +1724,7 @@ M129_FORBIDDEN_BACKEND_ROUTES = M128_FORBIDDEN_BACKEND_ROUTES + (
     "/context/inject",
     "/tools/execute",
 )
-EXPECTED_M130_OPENAPI_PATH_COUNT = 77
+EXPECTED_M130_OPENAPI_PATH_COUNT = 79
 M130_FORBIDDEN_BACKEND_ROUTES = M129_FORBIDDEN_BACKEND_ROUTES + (
     "/connectors/safety/freeze",
     "/connectors/freeze",
@@ -1742,7 +1742,7 @@ M130_FORBIDDEN_BACKEND_ROUTES = M129_FORBIDDEN_BACKEND_ROUTES + (
     "/context/inject",
     "/tools/execute",
 )
-EXPECTED_M131_OPENAPI_PATH_COUNT = 77
+EXPECTED_M131_OPENAPI_PATH_COUNT = 79
 M131_FORBIDDEN_BACKEND_ROUTES = M130_FORBIDDEN_BACKEND_ROUTES + (
     "/autonomy/mode4",
     "/autonomy/mode4/start",
@@ -1771,7 +1771,7 @@ M131_FORBIDDEN_BACKEND_ROUTES = M130_FORBIDDEN_BACKEND_ROUTES + (
     "/context/inject",
     "/models/call",
 )
-EXPECTED_M132_OPENAPI_PATH_COUNT = 77
+EXPECTED_M132_OPENAPI_PATH_COUNT = 79
 M132_FORBIDDEN_BACKEND_ROUTES = M131_FORBIDDEN_BACKEND_ROUTES + (
     "/autonomy/mode5",
     "/autonomy/mode5/start",
@@ -1788,7 +1788,7 @@ M132_FORBIDDEN_BACKEND_ROUTES = M131_FORBIDDEN_BACKEND_ROUTES + (
     "/supervisor/start",
     "/supervisor/long-running/start",
 )
-EXPECTED_M133_OPENAPI_PATH_COUNT = 77
+EXPECTED_M133_OPENAPI_PATH_COUNT = 79
 M133_FORBIDDEN_BACKEND_ROUTES = M132_FORBIDDEN_BACKEND_ROUTES + (
     "/autonomy/long-running-supervisor",
     "/autonomy/long-running-supervisor/start",
@@ -1802,7 +1802,7 @@ M133_FORBIDDEN_BACKEND_ROUTES = M132_FORBIDDEN_BACKEND_ROUTES + (
     "/tasks/long-running/start",
     "/background/supervisor/start",
 )
-EXPECTED_M134_OPENAPI_PATH_COUNT = 77
+EXPECTED_M134_OPENAPI_PATH_COUNT = 79
 M134_FORBIDDEN_BACKEND_ROUTES = M133_FORBIDDEN_BACKEND_ROUTES + (
     "/autonomy/human-checkpoint-scheduling",
     "/autonomy/human-checkpoint-scheduling/start",
@@ -1818,7 +1818,7 @@ M134_FORBIDDEN_BACKEND_ROUTES = M133_FORBIDDEN_BACKEND_ROUTES + (
     "/background/start",
     "/workers/start",
 )
-EXPECTED_M135_OPENAPI_PATH_COUNT = 77
+EXPECTED_M135_OPENAPI_PATH_COUNT = 79
 M135_FORBIDDEN_BACKEND_ROUTES = M134_FORBIDDEN_BACKEND_ROUTES + (
     "/autonomy/autonomous-recovery-planner",
     "/autonomy/autonomous-recovery-planner/start",
@@ -1838,7 +1838,7 @@ M135_FORBIDDEN_BACKEND_ROUTES = M134_FORBIDDEN_BACKEND_ROUTES + (
     "/background/start",
     "/workers/start",
 )
-EXPECTED_M136_OPENAPI_PATH_COUNT = 77
+EXPECTED_M136_OPENAPI_PATH_COUNT = 79
 M136_FORBIDDEN_BACKEND_ROUTES = M135_FORBIDDEN_BACKEND_ROUTES + (
     "/autonomy/cross-tool-dependency-execution",
     "/autonomy/cross-tool-dependency-execution/start",
@@ -1866,7 +1866,7 @@ M136_FORBIDDEN_BACKEND_ROUTES = M135_FORBIDDEN_BACKEND_ROUTES + (
     "/background/start",
     "/workers/start",
 )
-EXPECTED_M137_OPENAPI_PATH_COUNT = 77
+EXPECTED_M137_OPENAPI_PATH_COUNT = 79
 M137_FORBIDDEN_BACKEND_ROUTES = M136_FORBIDDEN_BACKEND_ROUTES + (
     "/autonomy/browser-connector-combined-workflow",
     "/autonomy/browser-connector-combined-workflow/start",
@@ -1894,7 +1894,7 @@ M137_FORBIDDEN_BACKEND_ROUTES = M136_FORBIDDEN_BACKEND_ROUTES + (
     "/network/post",
     "/plugins/execute",
 )
-EXPECTED_M138_OPENAPI_PATH_COUNT = 77
+EXPECTED_M138_OPENAPI_PATH_COUNT = 79
 M138_FORBIDDEN_BACKEND_ROUTES = M137_FORBIDDEN_BACKEND_ROUTES + (
     "/autonomy/error-handling-guardrails",
     "/autonomy/error-handling-guardrails/start",
@@ -1911,7 +1911,7 @@ M138_FORBIDDEN_BACKEND_ROUTES = M137_FORBIDDEN_BACKEND_ROUTES + (
     "/escalation/execute",
     "/loop-recovery/run",
 )
-EXPECTED_M139_OPENAPI_PATH_COUNT = 77
+EXPECTED_M139_OPENAPI_PATH_COUNT = 79
 M139_FORBIDDEN_BACKEND_ROUTES = M138_FORBIDDEN_BACKEND_ROUTES + (
     "/autonomy/abuse-loop-detection",
     "/autonomy/abuse-loop-detection/start",
@@ -1930,7 +1930,7 @@ M139_FORBIDDEN_BACKEND_ROUTES = M138_FORBIDDEN_BACKEND_ROUTES + (
     "/browser/click",
     "/connectors/write",
 )
-EXPECTED_M140_OPENAPI_PATH_COUNT = 77
+EXPECTED_M140_OPENAPI_PATH_COUNT = 79
 M140_FORBIDDEN_BACKEND_ROUTES = M139_FORBIDDEN_BACKEND_ROUTES + (
     "/autonomy/higher-autonomy-red-team-freeze",
     "/autonomy/higher-autonomy-red-team-freeze/start",
@@ -1951,7 +1951,7 @@ M140_FORBIDDEN_BACKEND_ROUTES = M139_FORBIDDEN_BACKEND_ROUTES + (
     "/browser/click",
     "/connectors/write",
 )
-EXPECTED_M141_OPENAPI_PATH_COUNT = 77
+EXPECTED_M141_OPENAPI_PATH_COUNT = 79
 M141_FORBIDDEN_BACKEND_ROUTES = M140_FORBIDDEN_BACKEND_ROUTES + (
     "/multi-user",
     "/multi-user/enable",
@@ -1974,7 +1974,7 @@ M141_FORBIDDEN_BACKEND_ROUTES = M140_FORBIDDEN_BACKEND_ROUTES + (
     "/browser/click",
     "/connectors/write",
 )
-EXPECTED_M142_OPENAPI_PATH_COUNT = 77
+EXPECTED_M142_OPENAPI_PATH_COUNT = 79
 M142_FORBIDDEN_BACKEND_ROUTES = M141_FORBIDDEN_BACKEND_ROUTES + (
     "/alpha/privacy-review",
     "/alpha/privacy-review/start",
@@ -1992,7 +1992,7 @@ M142_FORBIDDEN_BACKEND_ROUTES = M141_FORBIDDEN_BACKEND_ROUTES + (
     "/browser/click",
     "/connectors/write",
 )
-EXPECTED_M143_OPENAPI_PATH_COUNT = 77
+EXPECTED_M143_OPENAPI_PATH_COUNT = 79
 M143_FORBIDDEN_BACKEND_ROUTES = M142_FORBIDDEN_BACKEND_ROUTES + (
     "/alpha/ui",
     "/alpha/ui/start",
@@ -2014,7 +2014,7 @@ M143_FORBIDDEN_BACKEND_ROUTES = M142_FORBIDDEN_BACKEND_ROUTES + (
     "/browser/click",
     "/connectors/write",
 )
-EXPECTED_M144_OPENAPI_PATH_COUNT = 77
+EXPECTED_M144_OPENAPI_PATH_COUNT = 79
 M144_FORBIDDEN_BACKEND_ROUTES = M143_FORBIDDEN_BACKEND_ROUTES + (
     "/plugin-marketplace",
     "/plugin-marketplace/policy",
@@ -2038,7 +2038,7 @@ M144_FORBIDDEN_BACKEND_ROUTES = M143_FORBIDDEN_BACKEND_ROUTES + (
     "/network/request",
     "/production/authority/enable",
 )
-EXPECTED_M145_OPENAPI_PATH_COUNT = 77
+EXPECTED_M145_OPENAPI_PATH_COUNT = 79
 M145_FORBIDDEN_BACKEND_ROUTES = M144_FORBIDDEN_BACKEND_ROUTES + (
     "/enterprise/runtime",
     "/enterprise/pro/enable",
@@ -2059,7 +2059,7 @@ M145_FORBIDDEN_BACKEND_ROUTES = M144_FORBIDDEN_BACKEND_ROUTES + (
     "/auth/login",
     "/production/authority/enable",
 )
-EXPECTED_M146_OPENAPI_PATH_COUNT = 77
+EXPECTED_M146_OPENAPI_PATH_COUNT = 79
 M146_FORBIDDEN_BACKEND_ROUTES = M145_FORBIDDEN_BACKEND_ROUTES + (
     "/billing",
     "/billing/runtime",
@@ -2085,7 +2085,7 @@ M146_FORBIDDEN_BACKEND_ROUTES = M145_FORBIDDEN_BACKEND_ROUTES + (
     "/stripe",
     "/production/authority/enable",
 )
-EXPECTED_M147_OPENAPI_PATH_COUNT = 77
+EXPECTED_M147_OPENAPI_PATH_COUNT = 79
 M147_FORBIDDEN_BACKEND_ROUTES = M146_FORBIDDEN_BACKEND_ROUTES + (
     "/public-docs/publish",
     "/public-docs/deploy",
@@ -2103,7 +2103,7 @@ M147_FORBIDDEN_BACKEND_ROUTES = M146_FORBIDDEN_BACKEND_ROUTES + (
     "/external-distribution",
     "/production/authority/enable",
 )
-EXPECTED_M148_OPENAPI_PATH_COUNT = 77
+EXPECTED_M148_OPENAPI_PATH_COUNT = 79
 M148_FORBIDDEN_BACKEND_ROUTES = M147_FORBIDDEN_BACKEND_ROUTES + (
     "/external-security-review",
     "/external-security-review/start",
@@ -2123,7 +2123,7 @@ M148_FORBIDDEN_BACKEND_ROUTES = M147_FORBIDDEN_BACKEND_ROUTES + (
     "/artifacts/export",
     "/production/authority/enable",
 )
-EXPECTED_M149_OPENAPI_PATH_COUNT = 77
+EXPECTED_M149_OPENAPI_PATH_COUNT = 79
 M149_FORBIDDEN_BACKEND_ROUTES = M148_FORBIDDEN_BACKEND_ROUTES + (
     "/alpha-release-candidate-freeze",
     "/alpha-release-candidate-freeze/start",
@@ -2144,7 +2144,7 @@ M149_FORBIDDEN_BACKEND_ROUTES = M148_FORBIDDEN_BACKEND_ROUTES + (
     "/release/automation",
     "/production/authority/enable",
 )
-EXPECTED_M150_OPENAPI_PATH_COUNT = 77
+EXPECTED_M150_OPENAPI_PATH_COUNT = 79
 M150_FORBIDDEN_BACKEND_ROUTES = M149_FORBIDDEN_BACKEND_ROUTES + (
     "/ultimate-ai-agent-alpha",
     "/ultimate-ai-agent-alpha/publish",
@@ -4748,6 +4748,9 @@ class FoundationGateEvaluator:
             "secret_hygiene_clean": self.check_secret_hygiene_clean,
             "tool_broker_blocks_advanced_adapters": self.check_tool_broker_blocks_advanced_adapters,
             "truth_evidence_contracts_valid": self.check_truth_evidence_contracts_valid,
+            "governed_web_evidence_intake_no_live_fetch": (
+                self.check_governed_web_evidence_intake_no_live_fetch
+            ),
             "memory_file_contracts_valid": self.check_memory_file_contracts_valid,
             "m5_shadow_replay_passes": self.check_m5_shadow_replay_passes,
             "m7_modules_present": self.check_m7_modules_present,
@@ -6270,6 +6273,135 @@ class FoundationGateEvaluator:
         except (ValidationError, ValueError) as exc:
             failures.append(str(exc))
         return self._result(criterion, failures, ["src/ultimate_ai_agent/core/truth"])
+
+    def check_governed_web_evidence_intake_no_live_fetch(
+        self,
+        criterion: FoundationGateCriterion,
+    ) -> FoundationGateResult:
+        required_files = [
+            "src/ultimate_ai_agent/core/truth/web_evidence.py",
+            "docs/truth/GOVERNED_WEB_EVIDENCE.md",
+            "docs/canonical/59_truth_grounding_and_evidence_governance.md",
+            "tests/test_governed_web_evidence.py",
+        ]
+        failures = [
+            f"missing governed web evidence file: {path}"
+            for path in required_files
+            if not (self.root / path).exists()
+        ]
+        source_path = self.root / "src/ultimate_ai_agent/core/truth/web_evidence.py"
+        if source_path.exists():
+            source = self._read(source_path)
+            for fragment in [
+                "requests.get(",
+                "requests.post(",
+                "httpx.get(",
+                "httpx.post(",
+                "urllib.request.urlopen(",
+                "selenium",
+                "playwright",
+                "openai.",
+                "anthropic.",
+            ]:
+                if fragment in source:
+                    failures.append(f"governed web evidence source contains live integration: {fragment}")
+
+        docs_text = " ".join(
+            "\n".join(
+                self._read(self.root / path).lower()
+                for path in required_files
+                if path.startswith("docs/") and (self.root / path).exists()
+            ).split()
+        )
+        for fragment in [
+            "web evidence intake, no live fetch",
+            "operator-supplied metadata only",
+            "live fetch denied",
+            "browser automation denied",
+            "openwebui web search denied",
+            "model/provider calls denied",
+            "raw body storage denied",
+            "downloads denied",
+            "auth denied",
+            "cookies denied",
+            "redirects denied",
+            "allowlisted https get lane",
+            "openwebui web search is outside uaa governance unless routed through the future allowlisted https get lane",
+        ]:
+            if fragment not in docs_text:
+                failures.append(f"governed web evidence docs missing fragment: {fragment}")
+
+        try:
+            from ultimate_ai_agent.core.truth import (
+                FutureAllowlistedHttpsGetLanePlan,
+                GovernedWebEvidenceIntakePolicy,
+                build_fixture_governed_web_evidence_intake_bundle,
+                build_fixture_governed_web_evidence_intake_record,
+                validate_future_allowlisted_https_get_lane_plan,
+                validate_governed_web_evidence_intake_bundle,
+                validate_governed_web_evidence_intake_policy,
+                validate_governed_web_evidence_intake_record,
+            )
+
+            policy = validate_governed_web_evidence_intake_policy(
+                GovernedWebEvidenceIntakePolicy()
+            )
+            if (
+                not policy.disabled_by_default
+                or not policy.operator_supplied_metadata_only
+                or policy.live_fetch_allowed
+                or policy.browser_automation_allowed
+                or policy.openwebui_web_search_allowed
+                or policy.model_provider_calls_allowed
+                or policy.raw_body_storage_allowed
+                or policy.downloads_allowed
+                or policy.auth_allowed
+                or policy.cookies_allowed
+                or policy.redirects_allowed
+                or policy.backend_route_allowed
+            ):
+                failures.append("governed web evidence policy allows unsafe authority")
+
+            record = validate_governed_web_evidence_intake_record(
+                build_fixture_governed_web_evidence_intake_record()
+            )
+            bundle = validate_governed_web_evidence_intake_bundle(
+                build_fixture_governed_web_evidence_intake_bundle()
+            )
+            if bundle.evidence_records[0].evidence_ref != record.evidence_ref:
+                failures.append("governed web evidence fixture bundle does not bind evidence record")
+
+            try:
+                validate_governed_web_evidence_intake_record(
+                    record.model_copy(update={"live_fetch_performed": True})
+                )
+                failures.append("governed web evidence accepted live_fetch_performed")
+            except (ValidationError, ValueError) as exc:
+                if "WEB_EVIDENCE_NO_LIVE_FETCH" not in str(exc):
+                    failures.append(f"governed web evidence live fetch denial reason drifted: {exc}")
+
+            future_plan = validate_future_allowlisted_https_get_lane_plan(
+                FutureAllowlistedHttpsGetLanePlan(
+                    rollback_plan_ref="rollback:web-evidence-future-lane",
+                    non_goal_ref="non-goal:web-evidence-future-lane",
+                )
+            )
+            if (
+                not future_plan.future_lane_only
+                or not future_plan.disabled_by_default
+                or not future_plan.https_get_only
+                or not future_plan.allowlisted_targets_only
+                or future_plan.auth_allowed
+                or future_plan.cookies_allowed
+                or future_plan.redirects_allowed
+                or future_plan.downloads_allowed
+                or future_plan.raw_body_storage_allowed
+            ):
+                failures.append("future governed web evidence HTTPS GET lane boundary drifted")
+        except Exception as exc:
+            failures.append(f"governed web evidence validation failed: {exc}")
+
+        return self._result(criterion, failures, required_files)
 
     def check_memory_file_contracts_valid(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
         failures = []

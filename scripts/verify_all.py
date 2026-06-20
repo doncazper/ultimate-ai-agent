@@ -90,6 +90,7 @@ SCAN_SEQUENCE = [
     ("M23 first local LLM call boundary scan", "verify_m23_first_local_llm_call_boundary"),
     ("M24 memory provider local store safety scan", "verify_m24_memory_provider_local_store_safety"),
     ("M25 truth source evidence checker safety scan", "verify_m25_truth_source_evidence_checker_safety"),
+    ("governed web evidence no-live-fetch scan", "verify_governed_web_evidence_no_live_fetch"),
     ("M26 grounded recall context-pack safety scan", "verify_m26_grounded_recall_context_pack_safety"),
     ("M27 Tool Broker v2 safe intent contract scan", "verify_m27_tool_broker_v2_safety"),
     ("M28 Approval Authority v2 action policy safety scan", "verify_m28_approval_authority_v2_safety"),
@@ -1100,8 +1101,8 @@ def verify_no_local_runtime_activation_implementation():
     historical_paths.difference_update(TASK_DECOMPOSITION_CANONICAL_ROUTES)
     if len(historical_paths) > 74:
         historical_paths.discard("/files/review/approvals/capture")
-    if len(historical_paths) != 76:
-        print(f"FAIL: M22 expected OpenAPI path count 76, found {len(historical_paths)}")
+    if len(historical_paths) != 78:
+        print(f"FAIL: M22 expected OpenAPI path count 78, found {len(historical_paths)}")
         sys.exit(1)
     forbidden_present = sorted(paths.intersection(forbidden_routes))
     if forbidden_present:
@@ -1617,6 +1618,169 @@ def verify_m25_truth_source_evidence_checker_safety():
         sys.exit(1)
 
     print("OK: M25 truth source/evidence checker remains deterministic, local, route-free, and non-authoritative")
+
+
+def verify_governed_web_evidence_no_live_fetch():
+    print("\n[Verifier] Running governed web evidence no-live-fetch guard...")
+    required_files = [
+        "src/ultimate_ai_agent/core/truth/web_evidence.py",
+        "docs/truth/GOVERNED_WEB_EVIDENCE.md",
+        "docs/canonical/59_truth_grounding_and_evidence_governance.md",
+        "tests/test_governed_web_evidence.py",
+        "tests/test_governed_web_evidence_gate.py",
+    ]
+    for rel_path in required_files:
+        if not (ROOT / rel_path).exists():
+            print(f"FAIL: Missing governed web evidence file: {rel_path}")
+            sys.exit(1)
+
+    source = (ROOT / "src/ultimate_ai_agent/core/truth/web_evidence.py").read_text(
+        encoding="utf-8"
+    )
+    for fragment in [
+        "requests.get(",
+        "requests.post(",
+        "httpx.get(",
+        "httpx.post(",
+        "urllib.request.urlopen(",
+        "selenium",
+        "playwright",
+        "openai.",
+        "anthropic.",
+    ]:
+        if fragment in source:
+            print(f"FAIL: Governed web evidence contains live integration fragment: {fragment}")
+            sys.exit(1)
+
+    docs_text = " ".join(
+        "\n".join(
+            (ROOT / rel_path).read_text(encoding="utf-8").lower()
+            for rel_path in required_files
+            if rel_path.startswith("docs/")
+        ).split()
+    )
+    for fragment in [
+        "web evidence intake, no live fetch",
+        "evidence-first, not browsing-first",
+        "operator-supplied metadata only",
+        "live fetch denied",
+        "browser automation denied",
+        "openwebui web search denied",
+        "model/provider calls denied",
+        "raw body storage denied",
+        "downloads denied",
+        "auth denied",
+        "cookies denied",
+        "redirects denied",
+        "allowlisted https get lane",
+        "rollback plan required",
+        "non-goal docs required",
+        "openwebui web search is outside uaa governance unless routed through the future allowlisted https get lane",
+    ]:
+        if fragment not in docs_text:
+            print(f"FAIL: Governed web evidence docs missing fragment: {fragment}")
+            sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(ROOT / "src"))
+        from ultimate_ai_agent.core.gate.criteria import default_foundation_gate_criteria
+        from ultimate_ai_agent.core.gate.evaluators import FoundationGateEvaluator
+        from ultimate_ai_agent.core.truth import (
+            FutureAllowlistedHttpsGetLanePlan,
+            GovernedWebEvidenceIntakePolicy,
+            build_fixture_governed_web_evidence_intake_bundle,
+            build_fixture_governed_web_evidence_intake_record,
+            validate_future_allowlisted_https_get_lane_plan,
+            validate_governed_web_evidence_intake_bundle,
+            validate_governed_web_evidence_intake_policy,
+            validate_governed_web_evidence_intake_record,
+        )
+    except Exception as exc:
+        print(f"FAIL: Governed web evidence guard imports could not load: {exc}")
+        sys.exit(1)
+
+    policy = validate_governed_web_evidence_intake_policy(
+        GovernedWebEvidenceIntakePolicy()
+    )
+    if (
+        not policy.disabled_by_default
+        or not policy.operator_supplied_metadata_only
+        or policy.live_fetch_allowed
+        or policy.browser_automation_allowed
+        or policy.openwebui_web_search_allowed
+        or policy.model_provider_calls_allowed
+        or policy.raw_body_storage_allowed
+        or policy.downloads_allowed
+        or policy.auth_allowed
+        or policy.cookies_allowed
+        or policy.redirects_allowed
+        or policy.backend_route_allowed
+    ):
+        print("FAIL: Governed web evidence policy allows unsafe authority")
+        sys.exit(1)
+
+    record = validate_governed_web_evidence_intake_record(
+        build_fixture_governed_web_evidence_intake_record()
+    )
+    bundle = validate_governed_web_evidence_intake_bundle(
+        build_fixture_governed_web_evidence_intake_bundle()
+    )
+    if bundle.evidence_records[0].evidence_ref != record.evidence_ref:
+        print("FAIL: Governed web evidence bundle does not bind fixture evidence")
+        sys.exit(1)
+
+    for update, reason in [
+        ({"live_fetch_performed": True}, "WEB_EVIDENCE_NO_LIVE_FETCH"),
+        ({"openwebui_web_search_performed": True}, "WEB_EVIDENCE_NO_LIVE_FETCH"),
+        ({"raw_body_stored": True}, "WEB_EVIDENCE_NO_LIVE_FETCH"),
+        ({"auth_used": True}, "WEB_EVIDENCE_NO_LIVE_FETCH"),
+        ({"cookies_used": True}, "WEB_EVIDENCE_NO_LIVE_FETCH"),
+        ({"redirects_followed": True}, "WEB_EVIDENCE_NO_LIVE_FETCH"),
+    ]:
+        try:
+            validate_governed_web_evidence_intake_record(record.model_copy(update=update))
+            print(f"FAIL: Governed web evidence accepted unsafe mutation: {update}")
+            sys.exit(1)
+        except Exception as exc:
+            if reason not in str(exc):
+                print(f"FAIL: Governed web evidence unsafe mutation raised {exc!s}")
+                sys.exit(1)
+
+    future_plan = validate_future_allowlisted_https_get_lane_plan(
+        FutureAllowlistedHttpsGetLanePlan(
+            rollback_plan_ref="rollback:web-evidence-future-lane",
+            non_goal_ref="non-goal:web-evidence-future-lane",
+        )
+    )
+    if (
+        not future_plan.future_lane_only
+        or not future_plan.disabled_by_default
+        or not future_plan.https_get_only
+        or not future_plan.allowlisted_targets_only
+        or future_plan.auth_allowed
+        or future_plan.cookies_allowed
+        or future_plan.redirects_allowed
+        or future_plan.downloads_allowed
+        or future_plan.raw_body_storage_allowed
+    ):
+        print("FAIL: Governed web evidence future HTTPS GET lane boundary drifted")
+        sys.exit(1)
+
+    criteria = {
+        criterion.criterion_id: criterion
+        for criterion in default_foundation_gate_criteria()
+    }
+    criterion_id = "governed_web_evidence_intake_no_live_fetch"
+    if criterion_id not in criteria:
+        print(f"FAIL: Missing Foundation Gate criterion: {criterion_id}")
+        sys.exit(1)
+    gate_report = FoundationGateEvaluator(ROOT).evaluate([criteria[criterion_id]])
+    result = gate_report.results[0]
+    if result.status != "passed":
+        print(f"FAIL: {criterion_id} failed: {result.failures}")
+        sys.exit(1)
+
+    print("OK: Governed web evidence is intake-only, receipt-bound, and no-live-fetch")
 
 
 def verify_m26_grounded_recall_context_pack_safety():
@@ -4893,8 +5057,8 @@ def verify_m39_ccc_context_proposal_surface_safety():
         print(f"FAIL: M39 OpenAPI route validation failed: {exc}")
         sys.exit(1)
 
-    if len(paths) != 77:
-        print(f"FAIL: M39 normalized OpenAPI path count changed: expected 77, found {len(paths)}")
+    if len(paths) != 79:
+        print(f"FAIL: M39 normalized OpenAPI path count changed: expected 79, found {len(paths)}")
         sys.exit(1)
     if "/files/review/approvals/capture" not in paths:
         print("FAIL: M39 expected M37 review approval capture route is missing")
@@ -5094,8 +5258,8 @@ def verify_m40_context_handoff_approval_safety():
         paths.difference_update(M151_LOCAL_OPENWEBUI_TEST_ROUTES)
         paths.difference_update(M167_REDACTED_OBSERVABILITY_ROUTES)
         paths.difference_update(TASK_DECOMPOSITION_CANONICAL_ROUTES)
-        if len(paths) != 77:
-            print(f"FAIL: M40 normalized OpenAPI path count changed: expected 77, found {len(paths)}")
+        if len(paths) != 79:
+            print(f"FAIL: M40 normalized OpenAPI path count changed: expected 79, found {len(paths)}")
             sys.exit(1)
         if "/files/review/approvals/capture" not in paths:
             print("FAIL: M40 expected M37 review approval capture route is missing")

@@ -18,6 +18,7 @@ from ultimate_ai_agent.core.secrets.handles import (
 )
 from ultimate_ai_agent.core.secrets.redaction import contains_obvious_secret, redact_secret_value
 from ultimate_ai_agent.core.secrets.validation import validate_credential_reference
+from ultimate_ai_agent.core.secrets.vault_readiness import ProviderCredentialVaultAdapterReadiness
 
 __all__ = [
     "CredentialAuthType",
@@ -25,6 +26,7 @@ __all__ = [
     "CredentialReference",
     "CredentialScope",
     "CredentialStatus",
+    "ProviderCredentialVaultAdapterReadiness",
     "RedactedSecretView",
     "SecretAccessDecision",
     "SecretAccessRequest",

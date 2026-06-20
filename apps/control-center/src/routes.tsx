@@ -5,7 +5,6 @@ import { ApiRouteInventoryPanel } from "./components/ApiRouteInventoryPanel";
 import { ContextProposalSurfacePanel } from "./components/ContextProposalSurfacePanel";
 import { DashboardSummary } from "./components/DashboardSummary";
 import {
-  EvidenceViewerPanel,
   FileReferenceViewerPanel,
   MemoryViewerPanel,
 } from "./components/EvidenceFileMemoryViewerPanel";
@@ -17,7 +16,14 @@ import {
   LocalRuntimeStatusPanel,
   ManualSmokeControlSurfacePanel,
 } from "./components/LocalRuntimeStatusPanel";
-import { OperatorSurfacePlaceholderPanel } from "./components/OperatorSurfaceStates";
+import {
+  ChatOperatorPanel,
+  EvidenceOperatorPanel,
+  ModelsOperatorPanel,
+  PlansOperatorPanel,
+  SettingsOperatorPanel,
+} from "./components/OperatorFlowPanels";
+import { OperatorLoopPanel } from "./components/OperatorLoopPanel";
 import { ReceiptViewerPanel } from "./components/ReceiptViewerPanel";
 import { RuntimeReadinessPanel } from "./components/RuntimeReadinessPanel";
 import {
@@ -29,6 +35,7 @@ import {
 export const navItems = [
   { path: "/", label: "Overview" },
   { path: "/dashboard", label: "Dashboard" },
+  { path: "/operator-loop", label: "Operator Loop" },
   { path: "/chat", label: "Chat" },
   { path: "/plans", label: "Plans" },
   { path: "/models", label: "Models" },
@@ -56,17 +63,26 @@ export const navItems = [
 export function renderRoute(path: string, data: ControlCenterData) {
   switch (path) {
     case "/chat":
-      return <OperatorSurfacePlaceholderPanel surface="Chat Shell" />;
+      return <ChatOperatorPanel data={data} />;
     case "/plans":
-      return <OperatorSurfacePlaceholderPanel surface="Plans" />;
+      return <PlansOperatorPanel data={data} />;
     case "/models":
-      return <OperatorSurfacePlaceholderPanel surface="Models" />;
+      return <ModelsOperatorPanel data={data} />;
     case "/runtime":
       return (
-        <RuntimeReadinessPanel report={data.runtimeReadiness} matrix={data.capabilityMatrix} />
+        <RuntimeReadinessPanel
+          report={data.runtimeReadiness}
+          matrix={data.capabilityMatrix}
+        />
+      );
+    case "/operator-loop":
+      return (
+        <OperatorLoopPanel summary={data.dashboard.operator_loop_summary} />
       );
     case "/foundation-gate":
-      return <FoundationGatePanel summary={data.dashboard.foundation_gate_summary} />;
+      return (
+        <FoundationGatePanel summary={data.dashboard.foundation_gate_summary} />
+      );
     case "/api-routes":
       return <ApiRouteInventoryPanel routes={data.routes} />;
     case "/approvals":
@@ -78,13 +94,15 @@ export function renderRoute(path: string, data: ControlCenterData) {
     case "/events/timeline":
       return <EventTimelineTracePanel trace={data.m16Trace} />;
     case "/evidence":
-      return <EvidenceViewerPanel knowledge={data.m17Knowledge} />;
+      return <EvidenceOperatorPanel data={data} />;
     case "/files":
       return <FileReferenceViewerPanel knowledge={data.m17Knowledge} />;
     case "/files/review":
       return <FileReviewSurfacePanel review={data.m36FileReview} />;
     case "/context/proposals":
-      return <ContextProposalSurfacePanel proposals={data.m39ContextProposals} />;
+      return (
+        <ContextProposalSurfacePanel proposals={data.m39ContextProposals} />
+      );
     case "/memory":
       return <MemoryViewerPanel knowledge={data.m17Knowledge} />;
     case "/runtime/local":
@@ -105,11 +123,17 @@ export function renderRoute(path: string, data: ControlCenterData) {
         />
       );
     case "/mobile-planning":
-      return <MobilePlanningPanel summary={data.dashboard.mobile_planning_summary} />;
+      return (
+        <MobilePlanningPanel summary={data.dashboard.mobile_planning_summary} />
+      );
     case "/plugin-governance":
-      return <PluginGovernancePanel summary={data.dashboard.plugin_governance_summary} />;
+      return (
+        <PluginGovernancePanel
+          summary={data.dashboard.plugin_governance_summary}
+        />
+      );
     case "/settings":
-      return <OperatorSurfacePlaceholderPanel surface="Settings" />;
+      return <SettingsOperatorPanel data={data} />;
     case "/action-preview":
       return <ActionPreviewForm />;
     case "/dashboard":

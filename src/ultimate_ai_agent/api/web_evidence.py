@@ -74,7 +74,10 @@ def post_governed_web_evidence_request(request: GovernedWebEvidenceRequest) -> R
 def register_governed_web_evidence_routes(app: FastAPI) -> None:
     if getattr(app.state, _REGISTERED_ATTR, False):
         return
-    app.include_router(router)
+    registered_paths = {getattr(route, "path", None) for route in app.router.routes}
+    for route in router.routes:
+        if getattr(route, "path", None) not in registered_paths:
+            app.router.routes.append(route)
     setattr(app.state, _REGISTERED_ATTR, True)
 
 

@@ -8,6 +8,10 @@ Implemented frontend pages:
 
 - `/`
 - `/dashboard`
+- `/operator-loop`
+- `/chat`
+- `/plans`
+- `/models`
 - `/runtime`
 - `/foundation-gate`
 - `/api-routes`
@@ -25,6 +29,7 @@ Implemented frontend pages:
 - `/remote-workers`
 - `/mobile-planning`
 - `/plugin-governance`
+- `/settings`
 - `/action-preview`
 
 Backend API endpoints consumed:
@@ -41,6 +46,9 @@ Backend API endpoints consumed:
 - `GET /control-center/foundation-gate/summary`
 - `GET /runtime/readiness`
 - `GET /runtime/capability-matrix`
+- `GET /v1/models`
+- `POST /v1/chat/completions` for the scoped redacted local readiness exchange
+  only when local gateway prerequisites are already configured.
 - `POST /runtime/smoke-reports/validate`
 - `POST /control-center/actions/preview`
 
@@ -49,6 +57,8 @@ Forbidden frontend route/API targets:
 - Control Center action run endpoints.
 - plugin enablement endpoints.
 - runtime/model/provider invocation endpoints.
+- provider credential collection, storage, validation-call, or invocation
+  endpoints.
 - remote worker dispatch endpoints.
 - mobile sensor endpoints.
 - native/mobile build endpoints.
@@ -183,3 +193,26 @@ browser, upload, root selector, dependencies, or production Control Center
 authority.
 
 M40 remains future.
+
+## Provider Credential Readiness Visibility
+
+The Settings surface may render provider credential readiness from
+`GET /control-center/dashboard`. This is reference posture only: provider
+manifest refs, provider auth ref status, consent refs, policy refs, revocation
+refs, approval refs, blocker codes, vault adapter readiness, validation
+readiness, invocation readiness, and readiness status. It does not add a
+provider setup form, read environment values, collect raw keys, store
+credential material, run a vault/keychain adapter, validate credentials against
+an external provider, or enable provider calls.
+
+The future gates are separate:
+
+- Provider Credential Vault Adapter v1 remains blocked until a scoped milestone
+  defines adapter storage backend, consent, policy, approval, revocation,
+  audit, redaction, and rollback behavior.
+- Provider Credential Validation v1 remains blocked until a scoped milestone
+  defines redacted validation receipts and external-call authority.
+- Governed Provider Invocation v1 remains blocked until a scoped milestone
+  defines PolicyEngine checks, LocalApprovalAuthority or successor approval,
+  provider allowlists, provider auth references, redacted request/response summaries,
+  receipt/audit refs, safe-disable behavior, and rate/budget boundaries.

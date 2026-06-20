@@ -16,6 +16,10 @@ from ultimate_ai_agent.core.providers.manifests import (
 )
 from ultimate_ai_agent.core.providers.normalization import ProviderNormalizationReport
 from ultimate_ai_agent.core.providers.registry import ProviderRegistry
+from ultimate_ai_agent.core.providers.readiness import (
+    GovernedProviderInvocationReadiness,
+    ProviderCredentialValidationReadiness,
+)
 from ultimate_ai_agent.core.providers.requests import ProviderRequest
 from ultimate_ai_agent.core.providers.resolver import ProviderResolutionDecision, ProviderResolver
 from ultimate_ai_agent.core.providers.results import (
@@ -43,6 +47,7 @@ __all__ = [
     "ProviderDomain",
     "ProviderError",
     "ProviderFreshnessMetadata",
+    "GovernedProviderInvocationReadiness",
     "ProviderHealthMetadata",
     "ProviderManifest",
     "ProviderNormalizationReport",
@@ -55,6 +60,7 @@ __all__ = [
     "ProviderSelectionPolicy",
     "ProviderStatus",
     "ProviderTermsMetadata",
+    "ProviderCredentialValidationReadiness",
     "SourceMetadata",
     "WeatherNormalized",
     "validate_provider_manifest",

@@ -27,6 +27,17 @@ The active UAA-P0-017 local operational runbook lives in
 degraded, blocked, and unsupported recovery states for local model operations
 without adding runtime authority or public production support.
 
+The active scoped OpenWebUI local installer milestone lives in
+`docs/production/M167_OPENWEBUI_LOCAL_INSTALLER.md`. It authorizes only the
+explicit, operator-approved `uaa setup install --target openwebui` Docker image
+pull for the configured OpenWebUI local-dev image and does not grant broader
+installer, model download, provider, plugin, browser, or runtime authority.
+
+The follow-on GitHub bootstrap installer definition lives in
+`docs/production/M167_GITHUB_BOOTSTRAP_LOCAL_INSTALLER.md`. It defines the
+future pinned-release, checksum/signature-verified bootstrap boundary but does
+not implement a GitHub downloader.
+
 M167 does not replace M166. Production authority remains inherited from the
 M166 production release gate. M167 adds a stricter evidence layer that must be
 actual live evidence, reviewed live evidence, redacted summary only,

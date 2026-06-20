@@ -62,7 +62,9 @@ def test_launcher_builds_localhost_only_command_lists():
     assert openwebui[1] == "run"
     assert "-p" in openwebui
     assert openwebui[openwebui.index("-p") + 1] == "127.0.0.1:3000:8080"
-    assert "ghcr.io/open-webui/open-webui:main" in openwebui
+    assert launcher.OPENWEBUI_IMAGE in openwebui
+    assert "@sha256:" in launcher.OPENWEBUI_IMAGE
+    assert ":main" not in launcher.OPENWEBUI_IMAGE
     openwebui_env = _docker_env(openwebui)
     assert openwebui_env["OPENAI_API_BASE_URL"] == "http://host.docker.internal:8000/v1"
     assert openwebui_env["OPENAI_API_BASE_URLS"] == "http://host.docker.internal:8000/v1"
@@ -79,9 +81,34 @@ def _docker_env(command: list[str]) -> dict[str, str]:
     values: dict[str, str] = {}
     for index, value in enumerate(command):
         if value == "-e":
-            key, env_value = command[index + 1].split("=", 1)
-            values[key] = env_value
+            raw_value = command[index + 1]
+            if "=" in raw_value:
+                key, env_value = raw_value.split("=", 1)
+                values[key] = env_value
+            else:
+                values[raw_value] = ""
     return values
+
+
+def test_launcher_builds_m164_openwebui_command_without_secret_values(monkeypatch):
+    launcher = load_launcher()
+    monkeypatch.setenv("UAA_LLAMA_CPP_GATEWAY_ENABLED", "1")
+    monkeypatch.setenv("UAA_LLAMA_CPP_GATEWAY_KEY", "local-secret-should-not-be-in-command")
+    monkeypatch.setenv("UAA_LLAMA_CPP_MODEL_ID", "uaa-llama-cpp-local")
+
+    openwebui = launcher.build_openwebui_command(ROOT)
+    openwebui_env = _docker_env(openwebui)
+
+    assert openwebui_env["OPENAI_API_BASE_URL"] == "http://host.docker.internal:8000/v1"
+    assert openwebui_env["OPENAI_API_KEY"] == ""
+    assert openwebui_env["OPENAI_API_KEYS"] == ""
+    assert openwebui_env["DEFAULT_MODELS"] == "uaa-llama-cpp-local"
+    assert "local-secret-should-not-be-in-command" not in " ".join(openwebui)
+
+    env = launcher.safe_env(ROOT, "openwebui")
+
+    assert env["OPENAI_API_KEY"] == "local-secret-should-not-be-in-command"
+    assert env["OPENAI_API_KEYS"] == "local-secret-should-not-be-in-command"
 
 
 def test_launcher_can_discover_macos_docker_desktop_cli_path():
@@ -162,6 +189,27 @@ def test_docker_engine_status_reports_engine_not_ready(monkeypatch):
     assert "Cannot connect to the Docker daemon" in message
 
 
+def test_docker_image_present_uses_inspect_without_pull(monkeypatch):
+    launcher = load_launcher()
+    calls = []
+
+    def fake_run(command, **kwargs):
+        calls.append(command)
+        assert command[:4] == ["/tmp/docker", "image", "inspect", "--format"]
+        assert "pull" not in command
+        return subprocess.CompletedProcess(command, 1, stdout="", stderr="No such image\n")
+
+    monkeypatch.setattr(launcher, "_resolve_developer_tool", lambda command: Path("/tmp/docker"))
+    monkeypatch.setattr(launcher.subprocess, "run", fake_run)
+
+    ready, message = launcher.docker_image_present()
+
+    assert not ready
+    assert "not present locally" in message
+    assert "no image was pulled" in message
+    assert calls == [["/tmp/docker", "image", "inspect", "--format", "{{.Id}}", launcher.OPENWEBUI_IMAGE]]
+
+
 def test_stale_pid_cleanup_removes_only_stale_pid_file(tmp_path):
     launcher = load_launcher()
     pid_path = tmp_path / "backend.pid"
@@ -210,15 +258,77 @@ def test_launcher_openwebui_service_config_is_localhost_only():
     assert service.log_file.name == "openwebui.log"
 
 
+def test_launch_ui_parser_defaults_to_designated_openwebui():
+    launcher = load_launcher()
+
+    args = launcher.parse_args(["launch-ui"])
+
+    assert args.command == "launch-ui"
+    assert args.target == "openwebui"
+
+
+def test_launch_ui_openwebui_refuses_missing_image(monkeypatch, capsys):
+    launcher = load_launcher()
+    started = []
+    opened = []
+    monkeypatch.setattr(launcher, "docker_engine_status", lambda: (True, "Docker ready"))
+    monkeypatch.setattr(launcher, "docker_image_present", lambda: (False, "OpenWebUI image is not present locally; no image was pulled"))
+    monkeypatch.setattr(launcher, "start_service", lambda root, service: started.append(service.name) or f"{service.name}: started")
+    monkeypatch.setattr(launcher.webbrowser, "open", lambda url: opened.append(url))
+
+    code = launcher.command_launch_ui(ROOT, target="openwebui")
+    captured = capsys.readouterr()
+
+    assert code == 1
+    assert started == []
+    assert opened == []
+    assert "setup install --target openwebui" in captured.out
+
+
+def test_launch_ui_openwebui_starts_backend_and_openwebui(monkeypatch, capsys):
+    launcher = load_launcher()
+    started = []
+    opened = []
+    statuses = {
+        f"{launcher.BACKEND_URL}{launcher.BACKEND_HEALTH_PATH}": None,
+        f"{launcher.BACKEND_URL}/v1/models": 200,
+    }
+    monkeypatch.delenv(launcher.UAA_OPENWEBUI_TEST_GATEWAY_ENV, raising=False)
+    monkeypatch.setattr(launcher, "docker_engine_status", lambda: (True, "Docker ready"))
+    monkeypatch.setattr(launcher, "docker_image_present", lambda: (True, "OpenWebUI image present locally"))
+    monkeypatch.setattr(launcher, "url_status", lambda url, **kwargs: statuses.get(url))
+    monkeypatch.setattr(launcher, "start_service", lambda root, service: started.append(service.name) or f"{service.name}: started")
+    monkeypatch.setattr(launcher.webbrowser, "open", lambda url: opened.append(url))
+
+    code = launcher.command_launch_ui(ROOT, target="openwebui")
+    captured = capsys.readouterr()
+
+    assert code == 0
+    assert started == ["backend", "openwebui"]
+    assert opened == [launcher.OPENWEBUI_URL]
+    assert f"{launcher.UAA_OPENWEBUI_TEST_GATEWAY_ENV}=1" in captured.out
+    assert "No packages were installed and no images were pulled" in captured.out
+
+
 def test_launcher_backend_env_allows_only_openwebui_gateway_flag(monkeypatch):
     launcher = load_launcher()
     monkeypatch.setenv("UAA_OPENWEBUI_TEST_GATEWAY_ENABLED", "1")
     monkeypatch.setenv("UAA_OPENWEBUI_TEST_GATEWAY_KEY", "should-not-pass-through")
+    monkeypatch.setenv("UAA_LLAMA_CPP_GATEWAY_ENABLED", "1")
+    monkeypatch.setenv("UAA_LLAMA_CPP_GATEWAY_KEY", "local-gateway-secret")
+    monkeypatch.setenv("UAA_LLAMA_CPP_MODEL_ID", "uaa-llama-cpp-local")
+    monkeypatch.setenv("UAA_LLAMA_CPP_BASE_URL", "http://127.0.0.1:8080")
+    monkeypatch.setenv("UAA_LLAMA_CPP_API_KEY", "local-backend-secret")
 
     env = launcher.safe_env(ROOT, "backend")
 
     assert env["UAA_OPENWEBUI_TEST_GATEWAY_ENABLED"] == "1"
     assert "UAA_OPENWEBUI_TEST_GATEWAY_KEY" not in env
+    assert env["UAA_LLAMA_CPP_GATEWAY_ENABLED"] == "1"
+    assert env["UAA_LLAMA_CPP_GATEWAY_KEY"] == "local-gateway-secret"
+    assert env["UAA_LLAMA_CPP_MODEL_ID"] == "uaa-llama-cpp-local"
+    assert env["UAA_LLAMA_CPP_BASE_URL"] == "http://127.0.0.1:8080"
+    assert env["UAA_LLAMA_CPP_API_KEY"] == "local-backend-secret"
 
 
 def test_shell_wrapper_exists_and_is_executable():

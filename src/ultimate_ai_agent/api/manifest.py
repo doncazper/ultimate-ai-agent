@@ -222,11 +222,22 @@ def route_side_effect_class(path: str) -> ApiRouteSideEffectClass:
     return ApiRouteSideEffectClass.validation_only
 
 
+def iter_api_routes(routes: list[Any]) -> list[APIRoute]:
+    api_routes: list[APIRoute] = []
+    for route in routes:
+        if isinstance(route, APIRoute):
+            api_routes.append(route)
+            continue
+        original_router = getattr(route, "original_router", None)
+        nested_routes = getattr(original_router, "routes", None)
+        if nested_routes is not None:
+            api_routes.extend(iter_api_routes(list(nested_routes)))
+    return api_routes
+
+
 def iter_api_route_items(app: FastAPI) -> list[ApiRouteInventoryItem]:
     items: list[ApiRouteInventoryItem] = []
-    for route in app.routes:
-        if not isinstance(route, APIRoute):
-            continue
+    for route in iter_api_routes(app.routes):
         methods = sorted(method for method in route.methods if method not in {"HEAD", "OPTIONS"})
         for method in methods:
             operation_id = route.operation_id or stable_operation_id(method, route.path)

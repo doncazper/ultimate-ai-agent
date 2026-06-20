@@ -14,7 +14,7 @@ def test_m18_local_runtime_manual_smoke_surface_criterion_exists_and_passes():
     criterion = criteria_by_id["m18_local_runtime_manual_smoke_surface_safe"]
     assert "read-only local runtime status" in criterion.pass_condition
     assert "manual smoke report validation-only" in criterion.pass_condition
-    assert "OpenAPI path count at 76" in criterion.pass_condition
+    assert "OpenAPI path count at 78" in criterion.pass_condition
 
     report = FoundationGateEvaluator().evaluate([criterion])
 
@@ -35,7 +35,7 @@ def test_m18_openapi_route_guard_rejects_runtime_execution_expansion():
         expected_path_count=EXPECTED_M18_OPENAPI_PATH_COUNT,
     )
 
-    assert EXPECTED_M18_OPENAPI_PATH_COUNT == 76
+    assert EXPECTED_M18_OPENAPI_PATH_COUNT == 78
     assert "/runtime/smoke-reports/execute" in M18_FORBIDDEN_BACKEND_ROUTES
     assert "/runtime/local/execute" in M18_FORBIDDEN_BACKEND_ROUTES
     assert any("OpenAPI path count" in failure for failure in failures)

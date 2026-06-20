@@ -33,10 +33,13 @@ export function AppShell({ children, activePath }: AppShellProps) {
       <div className="workspace">
         <header className="topbar">
           <div>
-            <p className="eyebrow">v0.43.0 M39 context proposal surface</p>
-            <h1>Read-only governance and preview surfaces</h1>
+            <p className="eyebrow">current local operator shell</p>
+            <h1>Governed local operator cockpit</h1>
           </div>
-          <div className="topbar-actions" aria-label="Control Center safety status">
+          <div
+            className="topbar-actions"
+            aria-label="Control Center safety status"
+          >
             <span className="status-pill">Read-only</span>
             <span className="status-pill">No authority to run actions</span>
           </div>
