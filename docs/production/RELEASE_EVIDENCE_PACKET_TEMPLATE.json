@@ -30,7 +30,8 @@
       "status": "blocked",
       "command_refs": [
         "command:openapi.contract",
-        "command:api.manifest.tests"
+        "command:api.manifest.tests",
+        "command:route-module.ownership"
       ],
       "report_refs": [
         "report:openapi:pending"
@@ -102,6 +103,30 @@
         "report:frontend:pending"
       ],
       "safe_summary": "Replace with the frontend lane result summary for the release candidate."
+    },
+    {
+      "lane_id": "visual-regression",
+      "status": "blocked",
+      "command_refs": [
+        "command:frontend.visual-regression",
+        "command:frontend.visual-regression-contract"
+      ],
+      "report_refs": [
+        "report:visual-regression:pending"
+      ],
+      "safe_summary": "Replace with the visual regression lane result summary for the release candidate, using redacted screenshot/hash refs only."
+    },
+    {
+      "lane_id": "desktop-packaging",
+      "status": "blocked",
+      "command_refs": [
+        "command:desktop-packaging.proof",
+        "command:desktop-packaging.contract"
+      ],
+      "report_refs": [
+        "report:desktop-packaging:pending"
+      ],
+      "safe_summary": "Replace with the desktop/local packaging proof lane result summary without public distribution or signed installer claims."
     },
     {
       "lane_id": "performance",

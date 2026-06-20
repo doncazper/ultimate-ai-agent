@@ -35,6 +35,8 @@ REQUIRED_LANE_IDS = {
     "local-model-e2e",
     "durability",
     "frontend",
+    "visual-regression",
+    "desktop-packaging",
     "performance",
 }
 REQUIRED_TOP_LEVEL_KEYS = {

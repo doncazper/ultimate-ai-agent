@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 
+import scripts.verify_release_lanes as release_lanes
 import scripts.verify_release_evidence_packet as release_packet
 
 
@@ -42,6 +43,8 @@ def test_release_evidence_packet_schema_and_template_cover_required_fields():
         "local-model-e2e",
         "durability",
         "frontend",
+        "visual-regression",
+        "desktop-packaging",
         "performance",
     }
     assert "accepted_failures" in template
@@ -53,6 +56,32 @@ def test_release_evidence_packet_schema_and_template_cover_required_fields():
     )
     assert "command:backup-restore.verify" in durability["command_refs"]
     assert "report:backup-restore:pending" in durability["report_refs"]
+
+    openapi = next(lane for lane in template["verification_lanes"] if lane["lane_id"] == "openapi")
+    assert "command:route-module.ownership" in openapi["command_refs"]
+
+    visual = next(
+        lane for lane in template["verification_lanes"] if lane["lane_id"] == "visual-regression"
+    )
+    assert "command:frontend.visual-regression" in visual["command_refs"]
+
+    desktop = next(
+        lane for lane in template["verification_lanes"] if lane["lane_id"] == "desktop-packaging"
+    )
+    assert "command:desktop-packaging.proof" in desktop["command_refs"]
+
+
+def test_release_evidence_packet_lane_ids_match_release_lane_manifest():
+    template = json.loads(
+        (ROOT / "docs/production/RELEASE_EVIDENCE_PACKET_TEMPLATE.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    manifest = release_lanes.build_release_lane_manifest()
+
+    assert {lane["lane_id"] for lane in template["verification_lanes"]} == {
+        lane["lane_id"] for lane in manifest["lanes"]
+    }
 
 
 def test_release_evidence_packet_safety_flags_are_false():

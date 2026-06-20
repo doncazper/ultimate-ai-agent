@@ -6,8 +6,10 @@ Scope: production-release discipline for local release candidates without
 granting runtime authority, public distribution readiness, or broader
 automation.
 
-UAA-P1-013 defines named verification lanes for release-candidate review. The
-lane manifest is repo-owned and inspection-only:
+UAA-P1-013 defines named verification lanes for release-candidate review.
+UAA-P1-053 binds those lane command refs to named GitHub CI jobs with
+safe-summary-only step summaries. The lane manifest is repo-owned and
+inspection-only:
 
 ```bash
 .venv/bin/python scripts/verify_release_lanes.py
@@ -20,6 +22,9 @@ remains `not_executed`. `scripts/verify_all.py` validates that the lane
 definitions remain present, safe, and complete. `scripts/run_foundation_gate.py
 --command-mode report-only` includes a compact `release_verification_lanes`
 summary in the Foundation Gate report without claiming lane-command execution.
+In CI, `scripts/run_foundation_gate.py --command-mode ci-parallel` records that
+lane execution evidence is represented by required CI job dependencies, not by
+Foundation Gate re-running or storing raw lane output.
 
 Backup/offline restore verification for the durability lane is documented in
 `docs/production/BACKUP_RESTORE_VERIFICATION.md`.
@@ -50,7 +55,7 @@ reason, impact, and safe evidence refs.
 | Lane | Required command refs | Skipped/blocked policy |
 |---|---|---|
 | docs | `command:docs.integrity` | Not skippable for a release candidate; blocked by canonical docs, roadmap, or Kanban currentness failures. |
-| openapi | `command:openapi.contract`, `command:api.manifest.tests` | Not skippable for a release candidate; blocked by route-count drift, missing operation ids, or unsafe route metadata. |
+| openapi | `command:openapi.contract`, `command:api.manifest.tests`, `command:route-module.ownership` | Not skippable for a release candidate; blocked by route-count drift, missing operation ids, unsafe route metadata, or missing route-module ownership coverage. |
 | api-safety | `command:api.safe-errors`, `command:control-center.api-routes` | Not skippable for a release candidate; blocked by unsafe error output or side-effect classification drift. |
 | security-redaction | `command:secret-broker.redaction`, `command:file-secret.blocking`, `command:foundation-gate.secret-hygiene` | Not skippable for a release candidate; blocked by raw prompt, raw response, raw path, raw log, or credential-like output. |
 | local-model-e2e | `command:local-model.release-gate`, `command:local-model.hardening`, `command:openwebui.local-gateway` | Live hardware or model prerequisites may be skipped only when the harness reports skipped with reason code; blocked by missing reviewed safe refs, approved model refs, or local-only auth prerequisites. |

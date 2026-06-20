@@ -35,6 +35,11 @@ def test_foundation_gate_ci_report_depends_on_required_verification_jobs():
     for job in ["lint", "pytest", "static-verification", *RELEASE_LANE_JOBS]:
         assert f"- {job}" in section
     assert "--command-mode ci-parallel" in section
+    assert "--no-write-latest" in section
+    assert "safe-summary-only" in section
+    assert "required CI job dependencies" in section
+    assert "not collected or uploaded" in section
+    assert "$GITHUB_STEP_SUMMARY" in section
 
 
 def test_release_lanes_are_visible_ci_jobs_with_safe_summary_reports():
@@ -50,8 +55,18 @@ def test_release_lanes_are_visible_ci_jobs_with_safe_summary_reports():
         assert "not uploaded" in section
         assert "$GITHUB_STEP_SUMMARY" in section
         assert '> "$log_file" 2>&1' in section
+        assert "actions/upload-artifact" not in section
         for command_ref in command_refs:
             assert command_ref in section
+
+
+def test_openapi_release_lane_keeps_route_module_ownership_green():
+    workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+    section = _extract_job_block(workflow, "release-lane-openapi")
+
+    assert "command:route-module.ownership" in section
+    assert "tests/test_route_module_ownership.py" in section
+    assert "PYTHONPATH=src" in section
 
 
 def test_frontend_release_lane_uses_existing_frontend_job_as_required_equivalent():

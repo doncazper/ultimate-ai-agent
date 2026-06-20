@@ -58,6 +58,19 @@ def test_durability_lane_includes_backup_restore_verification():
     assert "docs/production/BACKUP_RESTORE_VERIFICATION.md" in durability["evidence_refs"]
 
 
+def test_openapi_lane_includes_route_module_ownership_guard():
+    manifest = release_lanes.build_release_lane_manifest()
+    openapi = next(lane for lane in manifest["lanes"] if lane["lane_id"] == "openapi")
+
+    command_refs = {command["command_ref"] for command in openapi["commands"]}
+
+    assert "command:openapi.contract" in command_refs
+    assert "command:api.manifest.tests" in command_refs
+    assert "command:route-module.ownership" in command_refs
+    assert "docs/api/UAA_P1_021_FASTAPI_ROUTE_GROUPING_MAP.md" in openapi["evidence_refs"]
+    assert "docs/api/UAA_P1_052_SERVICE_MODULE_EXTRACTION_PLAN.md" in openapi["evidence_refs"]
+
+
 def test_release_lane_manifest_is_report_safe():
     manifest = release_lanes.build_release_lane_manifest()
 
