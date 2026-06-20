@@ -3,7 +3,7 @@
 Status: active UAA-P0-007 operator-shell gap map
 Baseline: v0.102.0 / 0.102.0
 Source plan: `docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md` M172
-API boundary: current FastAPI manifest has 97 OpenAPI paths
+API boundary: current FastAPI manifest has 99 OpenAPI paths
 
 This map is production-readiness scaffolding for the Control Center operator
 shell. It does not add runtime authority, backend routes, frontend controls,
@@ -37,9 +37,10 @@ The current API manifest classifies route side effects as:
 
 | Class | Meaning for operator shell mapping |
 |---|---|
-| `none` | System metadata such as `/health`, `/version`, and `/api/manifest`. |
+| `none` | System metadata such as `/health`, `/version`, `/api/manifest`, and governed capability status. |
 | `validation_only` | Review, preview, validation, and summary routes that do not execute production work. |
 | `local_dev_workspace_only` | Local-only workspace or local gateway routes. These are not broad production authority. |
+| `governed_network_read_only` | UAA-P1-063 allowlisted HTTPS GET evidence route with bounded redacted preview and receipt refs only. |
 
 ## Surface Matrix
 
@@ -51,7 +52,7 @@ The current API manifest classifies route side effects as:
 | Approvals | `/approvals` uses `ApprovalQueuePanel` with read-only/preview-only mock or summary data. | `GET /control-center/approvals/summary`, `POST /approvals/requests/validate`, `POST /approvals/grants/validate`, `POST /approvals/validate`, `POST /approvals/receipts/validate`, `POST /task-decomposition/approval-requests`, `GET /task-decomposition/approvals`, `POST /task-decomposition/approvals/grants/capture`, `POST /task-decomposition/approvals/revoke`. | CCC live approval capture/revoke UI routes, approval evidence summary route, approval expiry and replay status route. | Python Agent Core and LocalApprovalAuthority remain the only approval authority; approval refs are identifiers only. | Control Center and `/approvals/*` routes are `validation_only`; task-decomposition approval routes are `local_dev_workspace_only`. | Exact-scope grant capture or revoke through the approved backend contract. | Approval summary, validation decisions, task approval queue, grant/revoke records, audit summaries. | Partial. | UAA-P1-011 operator loop and UAA-P1-030 route status manifest. |
 | Files | `/files` shows safe file refs. `/files/review` shows review packets; its review-only buttons update local UI state and are not product completion evidence. | `POST /files/refs/validate`, `POST /files/review/approvals/capture`, `POST /files/tree/preview`, `POST /files/read/preview`, `POST /files/write/propose`, `POST /files/diff/preview`. | Patch apply route, rollback receipt route, file operation status route, CCC binding to approval capture route. | Safe-root refs and server-owned file refs only; no raw file browsing or shell execution. | `local_dev_workspace_only`. | Mutating file work must be exact-approved, idempotent, audited, rollback-aware, and tested. | Safe tree refs, redacted preview result, review approval capture decision, write proposal decision, diff summary, future rollback receipt. | Partial. | M173 atomic apply/rollback gates and CCC binding to approval capture route. |
 | Runtime | `/runtime`, `/runtime/local`, `/runtime/manual-smoke`, dashboard summaries, Foundation Gate panel, and API route inventory. | `GET /health`, `GET /version`, `GET /api/manifest`, `GET /runtime/readiness`, `GET /runtime/capability-matrix`, `POST /runtime/smoke-reports/validate`, `GET /control-center/status`, `GET /control-center/runtime-readiness/summary`, `GET /control-center/foundation-gate/summary`, `GET /control-center/routes`. | Local model readiness aggregate route, latency report route, storage status route, queue status route, loopback llama.cpp reviewed-settings lifecycle route. | Read-only/validation-only runtime status until a scoped milestone grants exact local lifecycle authority. | `/health`, `/version`, and `/api/manifest` are `none`; runtime and Control Center summary routes are `validation_only`. | No approval for read-only status. Any lifecycle launch/stop must be separately scoped and approved. | Runtime readiness report, capability matrix, Foundation Gate summary, P0-015 checklist evidence refs, performance report refs. | Partial. | Reviewed local llama.cpp lifecycle prerequisite evidence, UAA-P1-013 verification lanes, and UAA-P1-030 route status manifest. |
-| Evidence | `/evidence`, `/receipts`, `/events`, `/events/timeline`, `/foundation-gate`, and `/api-routes` show redacted summaries and refs. | `POST /receipts/preview`, `POST /events/validate`, `GET /task-decomposition/audit`, `GET /task-decomposition/metrics`, `GET /observability/session-events`, `POST /observability/client-errors`, `GET /control-center/foundation-gate/summary`, `GET /control-center/routes`. | Release evidence index route, latency report summary route, rollback status route, run receipt trace route backed by durable records. | Evidence is read-only review material; safe refs and redacted summaries only. | Ledger and Control Center evidence routes are `validation_only`; task-decomposition audit/metrics and observability summaries are `local_dev_workspace_only`. | No approval for read-only evidence inspection; mutating evidence generation must follow its owner route. | Receipt previews, event validation results, audit summaries, redacted session summaries, client-error summaries, Foundation Gate summaries, release evidence docs. | Partial. | UAA-P1-010 durable run spine, richer observability dashboard work, and UAA-P1-030 route status manifest. |
+| Evidence | `/evidence`, `/receipts`, `/events`, `/events/timeline`, `/foundation-gate`, and `/api-routes` show redacted summaries and refs. | `POST /receipts/preview`, `POST /events/validate`, `GET /task-decomposition/audit`, `GET /task-decomposition/metrics`, `GET /observability/session-events`, `POST /observability/client-errors`, `GET /control-center/foundation-gate/summary`, `GET /control-center/routes`, `GET /web-evidence/status`, `POST /web-evidence/request`. | Release evidence index route, latency report summary route, rollback status route, run receipt trace route backed by durable records, governed evidence display binding. | Evidence is read-only review material; safe refs and redacted summaries only. | Ledger and Control Center evidence routes are `validation_only`; task-decomposition audit/metrics and observability summaries are `local_dev_workspace_only`; governed web evidence request is `governed_network_read_only`. | No approval for read-only evidence inspection; mutating evidence generation must follow its owner route. | Receipt previews, event validation results, audit summaries, redacted session summaries, client-error summaries, governed web evidence receipt refs, Foundation Gate summaries, release evidence docs. | Partial. | UAA-P1-010 durable run spine, richer observability dashboard work, and UAA-P1-030 route status manifest. |
 | Settings | `/settings` now exposes accessible loading/error/empty/blocked/denied state copy only. Local backend base policy remains code/config only. | No dedicated settings route. Related status comes from `/control-center/status`, `/runtime/readiness`, and `/api/manifest`. | Settings manifest route, loopback auth-token setup/status route, feature-flag route, kill-switch status route, reviewed local llama.cpp settings route. | Settings must remain disabled-by-default, redacted, local-only, revocable, and policy-gated. | `/settings` is local UI state only. Future settings routes must declare `validation_only` or exact scoped `local_dev_workspace_only`. | Exact approval is required for any setting that enables runtime authority, persistence, local lifecycle behavior, or mutation. | None yet beyond status summaries and docs. | Missing. | UAA-P1-030 route status manifest, UAA-P1-014 local runtime packaging, and later scoped settings milestone. |
 
 ## Visible Action Map
@@ -99,29 +100,3 @@ These gaps are release blockers for M172 product-readiness claims.
 
 The canonical enforceable UAA-P1-031 rules live in
 `docs/control_center/PRODUCT_LANGUAGE_RULES.md`.
-
-- No hidden authority: every operator-critical action must show the authority
-  boundary, route, side-effect class, approval requirement, and evidence output.
-- No fake completion: mock fallback, local component state, preview-only
-  decisions, and validation-only responses must never be described as real
-  execution, real approval, real model readiness, real persistence, or release
-  completion.
-- No raw JSON as primary UI for operator-critical flows: raw API payload display
-  cannot be the main operator experience for chat, plans, model readiness,
-  approvals, file mutation, settings, evidence, latency, or rollback. Human
-  summaries, safe refs, statuses, and explicit blockers come first.
-- No production/public distribution claims without evidence: release-facing
-  copy must keep production and public distribution unclaimed unless an accepted
-  packet proves the exact claim.
-- No model/provider output as authority: model, provider, OpenWebUI, runtime,
-  memory, and preview outputs may inform review but cannot authorize work.
-- No completed-state language for blocked/skipped/pending work: blocked,
-  skipped, pending, mock-only, local-state-only, and partial states must keep
-  that state visible.
-
-## Rollback
-
-This task adds mapping and verifier coverage only. Rollback is to remove this
-document, remove its links, remove the verifier/test assertions that require it,
-and move `UAA-P0-007` back from Done to Ready Next on the Kanban board. No
-runtime state, authority, migration, route, or persistent user data is changed.
