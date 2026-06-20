@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.102.0**
 
-Current OpenAPI path count: `97`, generated from the FastAPI application and
+Current OpenAPI path count: `99`, generated from the FastAPI application and
 exposed through `/api/manifest`.
 
 The API boundary is metadata-first, validation-first, approval-aware for
@@ -52,6 +52,11 @@ Current boundary summary:
   expose bounded redacted session summaries and client-error summaries only;
   they do not expose raw JSONL records, request or response bodies, prompts,
   provider payloads, terminal output, credentials, or external telemetry.
+- `GET /web-evidence/status` and `POST /web-evidence/request` expose governed
+  web evidence status and an allowlisted HTTPS GET evidence request envelope.
+  They do not enable unrestricted browsing, browser automation, request bodies,
+  redirects, downloads, raw page/body storage, raw header storage, or hidden
+  network access.
 - Route metadata must keep side-effect classes explicit.
 
 Denied by the current API boundary:
