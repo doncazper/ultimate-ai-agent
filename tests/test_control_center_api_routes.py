@@ -102,14 +102,19 @@ def test_control_center_setup_assistant_summary_is_dry_run_only():
         assert recommendation["raw_local_path_included"] is False
 
     approval_envelopes = data["approval_envelopes"]
-    assert len(approval_envelopes) == 4
+    assert len(approval_envelopes) == 7
     envelope_kinds = {envelope["setup_step_kind"] for envelope in approval_envelopes}
     assert envelope_kinds == {
+        "model_selection",
         "model_download_planning",
         "launch_agent_setup_planning",
         "local_bridge_setup_planning",
         "background_service_setup_planning",
+        "openwebui_bridge",
+        "mattermost_bridge",
     }
+    approval_step_kinds = {step["kind"] for step in data["steps"] if step["approval_required"]}
+    assert approval_step_kinds.issubset(envelope_kinds)
     for envelope in approval_envelopes:
         assert envelope["dry_run_only"] is True
         assert envelope["approval_required"] is True
@@ -143,6 +148,18 @@ def test_control_center_setup_assistant_summary_is_dry_run_only():
         assert envelope["receipt_created"] is False
         assert envelope["audit_event_created"] is False
         assert envelope["rollback_executed"] is False
+
+    for capability in [
+        "macos-setup-model-download",
+        "macos-setup-launch-agent-change",
+        "macos-setup-background-service-change",
+        "macos-setup-bridge-enablement",
+        "macos-setup-credential-storage",
+        "macos-setup-rollback-execution",
+        "macos-setup-signed-distribution",
+        "macos-setup-production-authority",
+    ]:
+        assert capability in data["blocked_capabilities"]
 
     receipt_plan = data["receipt_plan"]
     assert receipt_plan["receipt_created"] is False

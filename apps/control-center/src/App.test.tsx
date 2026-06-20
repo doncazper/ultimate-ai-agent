@@ -3,6 +3,7 @@ import {
   fireEvent,
   render,
   screen,
+  within,
   waitFor,
 } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
@@ -14,6 +15,7 @@ import {
   READ_ENDPOINTS,
 } from "./api/endpoints";
 import { EmptyState, ErrorState, LoadingState } from "./components/DataState";
+import { primaryNavItems, supportingNavItems } from "./routes";
 
 function mockFetchWithFallback() {
   vi.stubGlobal(
@@ -41,6 +43,7 @@ describe("Web Control Center shell", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Overview" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Today" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Inbox" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Actions" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Setup" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Runtime" })).toBeInTheDocument();
@@ -61,6 +64,51 @@ describe("Web Control Center shell", () => {
     expect(
       screen.queryByRole("button", { name: /execute/i }),
     ).not.toBeInTheDocument();
+  });
+
+  it("prioritizes the Founder Loop while keeping supporting routes reachable", async () => {
+    expect(primaryNavItems.map((item) => item.label)).toEqual([
+      "Today",
+      "Inbox",
+      "Plans",
+      "Actions",
+      "Memory",
+      "Evidence",
+      "Settings",
+    ]);
+    expect(supportingNavItems.map((item) => item.label)).toEqual(
+      expect.arrayContaining([
+        "Setup",
+        "Dashboard",
+        "Operator Loop",
+        "Runtime",
+        "API Routes",
+        "Action Preview",
+      ]),
+    );
+
+    mockFetchWithFallback();
+    window.history.pushState({}, "", "/today");
+    render(<App />);
+
+    await screen.findByRole("heading", { name: /^Today$/i });
+    const navigation = screen.getByLabelText(/Control Center navigation/i);
+    const labels = within(navigation)
+      .getAllByRole("link")
+      .map((link) => link.getAttribute("aria-label"));
+    expect(labels.slice(0, 7)).toEqual([
+      "Today",
+      "Inbox",
+      "Plans",
+      "Actions",
+      "Memory",
+      "Evidence",
+      "Settings",
+    ]);
+    expect(within(navigation).getByText("Supporting Surfaces")).toBeInTheDocument();
+    expect(within(navigation).getByRole("link", { name: "Setup" })).toBeInTheDocument();
+    expect(within(navigation).getByRole("link", { name: "API Routes" })).toBeInTheDocument();
+    expect(within(navigation).getByText("blocked/planned")).toBeInTheDocument();
   });
 
   it("renders runtime, remote, mobile, and plugin governance panels as safe summaries", async () => {
@@ -96,6 +144,7 @@ describe("Web Control Center shell", () => {
     const expectedHeadings = [
       ["/", /Dashboard overview/i],
       ["/today", /^Today$/i],
+      ["/inbox", /^Inbox$/i],
       ["/actions", /^Actions$/i],
       ["/briefing", /Morning Briefing/i],
       ["/setup", /macOS Setup Assistant/i],
@@ -135,6 +184,53 @@ describe("Web Control Center shell", () => {
       ).toBeInTheDocument();
       unmount();
       vi.unstubAllGlobals();
+    }
+  });
+
+  it("renders Inbox as a blocked planned triage surface without connector authority", async () => {
+    mockFetchWithFallback();
+    window.history.pushState({}, "", "/inbox");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /^Inbox$/i }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText("blocked/planned").length).toBeGreaterThan(0);
+    expect(screen.getByRole("heading", { name: /Route posture/i })).toBeInTheDocument();
+    expect(screen.getByText("not scoped")).toBeInTheDocument();
+    expect(screen.getByText("/inbox")).toBeInTheDocument();
+    expect(screen.getByText("none in this slice")).toBeInTheDocument();
+    expect(screen.getByText("local UI state only")).toBeInTheDocument();
+    expect(
+      screen.getByText(/future connector or draft actions require exact scoped approval/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/define read-only email\/calendar metadata contracts/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/docs\/control_center\/OPERATOR_SHELL_GAP_MAP.md/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/docs\/strategy\/FOUNDER_COMMAND_CENTER_MVP_SPEC.md/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/email\/calendar connector runtime is not scoped/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/draft-only response proposal contract is not implemented/i),
+    ).toBeInTheDocument();
+
+    for (const label of [
+      /^send$/i,
+      /^archive$/i,
+      /^delete$/i,
+      /^connect$/i,
+      /^write$/i,
+      /^approve$/i,
+      /^run$/i,
+      /^install$/i,
+    ]) {
+      expect(screen.queryByRole("button", { name: label })).not.toBeInTheDocument();
     }
   });
 
@@ -414,14 +510,37 @@ describe("Web Control Center shell", () => {
       await screen.findByRole("heading", { name: /macOS Setup Assistant/i }),
     ).toBeInTheDocument();
     expect(screen.getByText(/Visual setup preview/i)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Local prerequisites/i })).toBeInTheDocument();
+    expect(screen.getByText(/existing local status routes only/i)).toBeInTheDocument();
+    expect(screen.getAllByText("/runtime/readiness").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("/runtime/capability-matrix").length).toBeGreaterThan(0);
+    expect(screen.getByRole("heading", { name: /Blocked setup authority/i })).toBeInTheDocument();
+    expect(screen.getByText("macos-setup-bridge-enablement")).toBeInTheDocument();
+    expect(screen.getByText("macos-setup-rollback-execution")).toBeInTheDocument();
+    expect(screen.getByText("macos-setup-signed-distribution")).toBeInTheDocument();
+    expect(screen.getByText("macos-setup-production-authority")).toBeInTheDocument();
     expect(screen.getByText(/First launch setup/i)).toBeInTheDocument();
     expect(screen.getByText(/Runtime health/i)).toBeInTheDocument();
-    expect(screen.getByText(/Local model readiness/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Local model readiness/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/Model selection/i)).toBeInTheDocument();
     expect(screen.getByText(/Fast local chat/i)).toBeInTheDocument();
     expect(screen.getByText(/Balanced local assistant/i)).toBeInTheDocument();
     expect(screen.getByText(/Coding local assistant/i)).toBeInTheDocument();
-    expect(screen.getByText(/approval-ref:macos-setup-model-selection/i)).toBeInTheDocument();
+    expect(
+      screen.getAllByText(/approval-ref:macos-setup-model-selection/i).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getByRole("heading", { name: /Dry-run approval envelopes/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText("macos-setup-approval-envelope:model-selection").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("idempotency-ref:macos-setup-model-selection").length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByText("scope-ref:macos-setup-model-selection")).toBeInTheDocument();
+    expect(screen.getByText(/approval refs are identifiers only/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Preview only\. Raw logs, raw paths/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/macos-setup-receipt-plan:foundation/i)).toBeInTheDocument();
     expect(screen.getByText(/macos-setup-rollback-plan:foundation/i)).toBeInTheDocument();
     expect(screen.getAllByText(/OpenWebUI bridge/i).length).toBeGreaterThan(0);
@@ -1748,6 +1867,12 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getByText("control-center:setup-assistant-api-test"),
     ).toBeInTheDocument();
+    expect(
+      screen.getAllByText("macos-setup-approval-envelope:api-summary").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("idempotency-ref:macos-setup-api-summary").length,
+    ).toBeGreaterThan(0);
   });
 
   it("shows degraded local backend state when only part of the read set succeeds", async () => {
@@ -1838,7 +1963,7 @@ describe("Web Control Center shell", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: /preview action/i }));
 
-    expect(await screen.findByText("blocked")).toBeInTheDocument();
+    expect((await screen.findAllByText("blocked")).length).toBeGreaterThan(0);
     expect(screen.getByText(/REMOTE_EXECUTION_BLOCKED/i)).toBeInTheDocument();
     expect(screen.getByText(/no action was executed/i)).toBeInTheDocument();
   });
@@ -2103,7 +2228,8 @@ const mockApiData = {
         route_refs: ["/control-center/setup-assistant/summary"],
         detail_preview: ["bounded setup preview only"],
         log_preview: ["no command executed"],
-        approval_required: false,
+        approval_required: true,
+        approval_ref: "approval-ref:macos-setup-api-summary",
         receipt_ref: "receipt-plan:macos-setup-api-summary",
         rollback_ref: "rollback-plan:macos-setup-api-summary",
         latency_ref: "latency-ref:macos-setup-api-summary",
@@ -2135,6 +2261,40 @@ const mockApiData = {
         enablement_default: "disabled",
         approval_required: true,
         reason_codes: ["MACOS_SETUP_BRIDGE_DISABLED_BY_DEFAULT"],
+      },
+    ],
+    approval_envelopes: [
+      {
+        envelope_ref: "macos-setup-approval-envelope:api-summary",
+        status: "approval_required",
+        setup_step_id: "macos-setup-step:api-summary",
+        setup_step_kind: "first_launch",
+        safe_summary:
+          "Dry-run approval envelope from backend test fixture; no setup mutation is enabled.",
+        requested_scope_refs: ["scope-ref:macos-setup-api-summary"],
+        approval_request_ref: "approval-ref:macos-setup-api-summary",
+        expected_receipt_ref: "receipt-plan:macos-setup-api-summary",
+        rollback_plan_ref: "rollback-plan:macos-setup-api-summary",
+        idempotency_key_ref: "idempotency-ref:macos-setup-api-summary",
+        risk_class: "medium",
+        side_effect_class: "validation_only",
+        not_scoped_actions: ["setup-mutation"],
+        blocked_runtime_authority: ["installer-authority"],
+        evidence_refs: ["docs-ref:uaa-setup-assistant-plan"],
+        verifier_refs: ["vitest:control-center-app"],
+        operator_next_action: "inspect_setup_plan",
+        stale_state_handling: "Stale if backend setup summary fixture changes.",
+        redaction_summary:
+          "Safe refs only; raw logs, paths, prompts, and credentials are omitted.",
+        dry_run_only: true,
+        approval_required: true,
+        approval_ref_is_identifier_only: true,
+        exact_scope_required: true,
+        idempotency_required: true,
+        rollback_required: true,
+        redaction_required: true,
+        disabled_by_default: true,
+        reason_codes: ["MACOS_SETUP_APPROVAL_ENVELOPE_DRY_RUN_ONLY"],
       },
     ],
     receipt_plan: {

@@ -59,6 +59,72 @@ export function TodaySurfacePanel({ today }: { today: FounderLoopTodaySummary })
   );
 }
 
+export function InboxSurfacePanel() {
+  const blockedStates = [
+    "email/calendar connector runtime is not scoped",
+    "account authentication and credential handling are not scoped",
+    "message send, archive, delete, label, move, or account write controls are absent",
+    "raw message bodies, subjects, participants, attachment names, and calendar details are not displayed",
+    "draft-only response proposal contract is not implemented in this slice",
+    "memory writes, context injection, model/provider calls, and background fetch remain blocked",
+  ];
+  const evidenceRefs = [
+    "docs/control_center/OPERATOR_SHELL_GAP_MAP.md#surface-matrix",
+    "docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md#inbox-surface",
+  ];
+
+  return (
+    <section className="page-section" aria-labelledby="inbox-surface-heading">
+      <div className="section-heading">
+        <div>
+          <p className="eyebrow">Founder Loop</p>
+          <h2 id="inbox-surface-heading">Inbox</h2>
+        </div>
+        <span className="status-pill compact">blocked/planned</span>
+      </div>
+      <p className="section-copy">
+        Inbox is visible as the Founder Command Center triage slot, but no
+        backend email, calendar, draft, or connector contract is enabled here.
+        This surface is presentation-only posture until a scoped milestone adds
+        read-only metadata contracts and tests.
+      </p>
+      <div className="panel-grid">
+        <article className="status-card">
+          <div className="status-card-header">
+            <h3>Route posture</h3>
+            <span>not scoped</span>
+          </div>
+          <dl className="detail-list">
+            <DetailTerm label="Frontend route" value="/inbox" />
+            <DetailTerm label="Backend route" value="none in this slice" />
+            <DetailTerm label="Side effect" value="local UI state only" />
+            <DetailTerm
+              label="Approval"
+              value="future connector or draft actions require exact scoped approval"
+            />
+          </dl>
+          <p>
+            Next safe action: define read-only email/calendar metadata contracts
+            before adding source status, draft proposal, or triage controls.
+          </p>
+        </article>
+        <article className="status-card">
+          <div className="status-card-header">
+            <h3>Evidence refs</h3>
+            <span>docs only</span>
+          </div>
+          <p>
+            These refs explain the planned boundary. They are not connector
+            receipts, account proofs, or completion evidence.
+          </p>
+          <RefList refs={evidenceRefs} />
+        </article>
+      </div>
+      <BlockedStateList states={blockedStates} />
+    </section>
+  );
+}
+
 export function ActionInboxSurfacePanel({
   inbox,
 }: {

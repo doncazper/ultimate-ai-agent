@@ -52,6 +52,10 @@ frontend UI if new route contracts are required.
 
 Type: frontend/docs
 
+Current status: implemented as grouped primary navigation for Today, Inbox,
+Plans, Actions, Memory, Evidence, and Settings, with `/inbox` truthfully
+blocked/planned until backend contracts exist.
+
 New authority: no.
 
 Acceptance criteria:

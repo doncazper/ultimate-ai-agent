@@ -20,13 +20,14 @@ Operator Runtime Excellence work. `UAA-P1-011` is the accepted readable-loop
 baseline for the next Founder Command Center tasks; broader product surfaces
 remain separately scoped.
 
-Founder Command Center next-lane order:
+Founder Command Center state: macOS Setup Assistant hardening and first
+product-loop readability have scoped implementation slices ready for review.
+Next-lane order after those slices:
 
-1. macOS Setup Assistant hardening.
-2. First product-loop readability.
-3. Action Inbox approval envelopes.
-4. Morning Briefing skeleton.
-5. Read-only email/calendar contracts later.
+1. Action Inbox approval envelopes.
+2. Morning Briefing skeleton.
+3. Memory Review Inbox contract and UI skeleton.
+4. Read-only email/calendar contracts later.
 
 Mattermost, plugin ecosystem, packaging/distribution, extra integrations, and
 new runtime authority lanes must not displace this first product-loop sequence.
@@ -469,8 +470,8 @@ production authority unavailable.
 ```text
 1. Build only the mapped operator surfaces with tests after route/status gaps are scoped.
 2. Use UAA-P1-011 as the readable operator-loop baseline for the next Founder
-   Command Center slice: FCC-MAC-001, FCC-P0-002, Action Inbox, Morning
-   Briefing, then read-only email/calendar contracts later.
+   Command Center slice: Action Inbox, Morning Briefing, Memory Review Inbox,
+   then read-only email/calendar contracts later.
 3. Scope the next storage migration or operator-surface milestone only after
    route authority, evidence, and rollback gates are explicit.
 ```

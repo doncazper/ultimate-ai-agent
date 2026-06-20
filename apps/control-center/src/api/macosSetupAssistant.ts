@@ -1,6 +1,7 @@
 import type {
   MacOSSetupAssistantData,
   MacOSSetupAssistantStep,
+  MacOSSetupApprovalEnvelope,
   MacOSSetupBridgePreview,
   MacOSSetupModelRecommendation,
   MacOSSetupReceiptPlan,
@@ -27,6 +28,7 @@ export function normalizeMacOSSetupAssistant(
   const steps = recordsValue(value, "steps");
   const recommendations = recordsValue(value, "model_recommendations");
   const bridges = recordsValue(value, "bridge_previews");
+  const envelopes = recordsValue(value, "approval_envelopes");
   return {
     planRef: stringValue(value, "plan_ref", fallback.planRef),
     status: setupStatusValue(value, "status", fallback.status),
@@ -91,6 +93,15 @@ export function normalizeMacOSSetupAssistant(
             ),
           )
         : fallback.bridgePreviews,
+    approvalEnvelopes:
+      envelopes.length > 0
+        ? envelopes.map((envelope, index) =>
+            normalizeMacOSSetupApprovalEnvelope(
+              envelope,
+              fallbackItem(fallback.approvalEnvelopes, index),
+            ),
+          )
+        : fallback.approvalEnvelopes,
     receiptPlan: normalizeMacOSSetupReceiptPlan(
       recordValue(value, "receipt_plan"),
       fallback.receiptPlan,
@@ -110,6 +121,126 @@ export function normalizeMacOSSetupAssistant(
       "morning_review_checklist",
       fallback.morningReviewChecklist,
     ),
+  };
+}
+
+function normalizeMacOSSetupApprovalEnvelope(
+  value: Record<string, unknown>,
+  fallback: MacOSSetupApprovalEnvelope,
+): MacOSSetupApprovalEnvelope {
+  return {
+    envelopeRef: stringValue(value, "envelope_ref", fallback.envelopeRef),
+    status: stringValue(value, "status", fallback.status),
+    setupStepId: stringValue(value, "setup_step_id", fallback.setupStepId),
+    setupStepKind: stringValue(
+      value,
+      "setup_step_kind",
+      fallback.setupStepKind,
+    ),
+    safeSummary: stringValue(value, "safe_summary", fallback.safeSummary),
+    requestedScopeRefs: stringArrayValue(
+      value,
+      "requested_scope_refs",
+      fallback.requestedScopeRefs,
+    ),
+    approvalRequestRef: stringValue(
+      value,
+      "approval_request_ref",
+      fallback.approvalRequestRef,
+    ),
+    expectedReceiptRef: stringValue(
+      value,
+      "expected_receipt_ref",
+      fallback.expectedReceiptRef,
+    ),
+    rollbackPlanRef: stringValue(
+      value,
+      "rollback_plan_ref",
+      fallback.rollbackPlanRef,
+    ),
+    idempotencyKeyRef: stringValue(
+      value,
+      "idempotency_key_ref",
+      fallback.idempotencyKeyRef,
+    ),
+    riskClass: stringValue(value, "risk_class", fallback.riskClass),
+    sideEffectClass: stringValue(
+      value,
+      "side_effect_class",
+      fallback.sideEffectClass,
+    ),
+    notScopedActions: stringArrayValue(
+      value,
+      "not_scoped_actions",
+      fallback.notScopedActions,
+    ),
+    blockedRuntimeAuthority: stringArrayValue(
+      value,
+      "blocked_runtime_authority",
+      fallback.blockedRuntimeAuthority,
+    ),
+    evidenceRefs: stringArrayValue(
+      value,
+      "evidence_refs",
+      fallback.evidenceRefs,
+    ),
+    verifierRefs: stringArrayValue(
+      value,
+      "verifier_refs",
+      fallback.verifierRefs,
+    ),
+    operatorNextAction: stringValue(
+      value,
+      "operator_next_action",
+      fallback.operatorNextAction,
+    ),
+    staleStateHandling: stringValue(
+      value,
+      "stale_state_handling",
+      fallback.staleStateHandling,
+    ),
+    redactionSummary: stringValue(
+      value,
+      "redaction_summary",
+      fallback.redactionSummary,
+    ),
+    dryRunOnly: booleanValue(value, "dry_run_only", fallback.dryRunOnly),
+    approvalRequired: booleanValue(
+      value,
+      "approval_required",
+      fallback.approvalRequired,
+    ),
+    approvalRefIsIdentifierOnly: booleanValue(
+      value,
+      "approval_ref_is_identifier_only",
+      fallback.approvalRefIsIdentifierOnly,
+    ),
+    exactScopeRequired: booleanValue(
+      value,
+      "exact_scope_required",
+      fallback.exactScopeRequired,
+    ),
+    idempotencyRequired: booleanValue(
+      value,
+      "idempotency_required",
+      fallback.idempotencyRequired,
+    ),
+    rollbackRequired: booleanValue(
+      value,
+      "rollback_required",
+      fallback.rollbackRequired,
+    ),
+    redactionRequired: booleanValue(
+      value,
+      "redaction_required",
+      fallback.redactionRequired,
+    ),
+    disabledByDefault: booleanValue(
+      value,
+      "disabled_by_default",
+      fallback.disabledByDefault,
+    ),
+    reasonCodes: stringArrayValue(value, "reason_codes", fallback.reasonCodes),
   };
 }
 

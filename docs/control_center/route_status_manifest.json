@@ -44,6 +44,24 @@
       ]
     },
     {
+      "surface": "Inbox",
+      "owner": "founder-loop",
+      "auth_posture": "frontend_posture_only_missing_contracts",
+      "side_effect_class": "local_ui_state_only",
+      "risk_class": "medium",
+      "release_status": "blocked_missing_backend",
+      "approval_requirement": "No approval for the blocked posture page; future connector metadata, draft proposal, or triage actions require exact LocalApprovalAuthority scope, idempotency, rollback or safe-disable posture, audit, and receipt refs.",
+      "evidence_audit_output": "Product spec and gap-map refs only; no connector receipts, account proofs, raw source evidence, or completion evidence.",
+      "current_backend_routes": [],
+      "missing_backend_routes": [
+        "calendar-read-only-contract",
+        "email-read-only-contract",
+        "inbox-source-status-route",
+        "draft-only-response-proposal-contract",
+        "connector-account-readiness-route"
+      ]
+    },
+    {
       "surface": "Action Inbox",
       "owner": "founder-loop",
       "auth_posture": "local_storage_backed_review_only",
@@ -440,6 +458,25 @@
       ],
       "missing_backend_routes": [
         "today-action-mutation-contract"
+      ]
+    },
+    {
+      "action_id": "navigate-inbox",
+      "label": "Navigate Inbox",
+      "ui_surface": "Inbox",
+      "frontend_route": "/inbox",
+      "owner": "founder-loop",
+      "auth_posture": "frontend_posture_only_missing_contracts",
+      "side_effect_class": "local_ui_state_only",
+      "risk_class": "medium",
+      "release_status": "blocked_missing_backend",
+      "approval_requirement": "No approval for the blocked posture page; future connector metadata, draft proposal, or triage actions require exact scoped approval.",
+      "evidence_audit_output": "Product spec and gap-map refs only; no connector receipts, account proofs, raw source evidence, or completion evidence.",
+      "backend_routes": [],
+      "missing_backend_routes": [
+        "calendar-read-only-contract",
+        "email-read-only-contract",
+        "draft-only-response-proposal-contract"
       ]
     },
     {

@@ -13,16 +13,17 @@ mutation is allowed.
 
 ## Current Slice
 
-This slice adds dry-run setup contracts, per-step approval-envelope metadata,
-and a read-only Control Center preview. Approval envelopes validate exact
-proposed setup action refs, safe approval scope refs, receipt/audit/latency refs,
-rollback refs, idempotency refs, stale-state handling, and denied side-effect
-flags for review only. They do not authorize or perform installer execution,
-signed or notarized installer readiness, public distribution, production
-readiness, model downloads, LaunchAgent installation/load/start,
-background-service installation/load/start, bridge enablement, provider/model
-calls, credential capture, shell/subprocess execution, receipt persistence, audit
-persistence, rollback execution, or production authority.
+This slice adds dry-run setup contracts, approval-envelope metadata for every
+approval-required setup step, and a read-only Control Center preview. Approval
+envelopes validate exact proposed setup action refs, safe approval scope refs,
+receipt/audit/latency refs, rollback refs, idempotency refs, stale-state
+handling, and denied side-effect flags for review only. They do not authorize or
+perform installer execution, signed or notarized installer readiness, public
+distribution, production readiness, model selection persistence, model
+downloads, LaunchAgent installation/load/start, background-service
+installation/load/start, bridge enablement, provider/model calls, credential
+capture, shell/subprocess execution, receipt persistence, audit persistence,
+rollback execution, or production authority.
 
 ## Flow
 
@@ -38,6 +39,8 @@ persistence, rollback execution, or production authority.
    - No prompt probe runs by default.
 4. Model selection
    - Present local model classes as recommendation records.
+   - Create a dry-run approval envelope with exact future model-choice scope
+     refs.
    - Any download or safe-ref import remains approval-gated.
 5. Model download planning
    - Create a dry-run approval envelope with exact future scope refs.
@@ -60,8 +63,10 @@ persistence, rollback execution, or production authority.
    - Model output is advice, never authority.
 10. Optional OpenWebUI bridge
    - Disabled by default and explicit approval only.
+   - Create a dry-run approval envelope for future bridge review.
 11. Optional Mattermost Agent Rooms bridge
    - Disabled by default, speak-only by default, explicit room approval only.
+   - Create a dry-run approval envelope for future room bridge review.
 12. Approvals
    - Visual shell cannot grant authority.
    - Exact local approval is required before future mutations.
@@ -116,7 +121,7 @@ distribution slice.
 - Keep the read-only `/control-center/setup-assistant/summary` route truthful,
   dry-run only, and covered by currentness tests.
 - Add bounded setup-log redaction tests before any real log source appears.
-- Harden per-step dry-run approval envelopes as validation/review metadata only.
+- Keep per-step dry-run approval envelopes as validation/review metadata only.
   They may describe future exact approval requirements, but they do not make
   model download, LaunchAgent installation/load/start, bridge enablement,
   background-service installation/load/start, rollback, or installer actions

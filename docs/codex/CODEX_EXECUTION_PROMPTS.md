@@ -260,3 +260,101 @@ docs change.
 Final summary must list files changed, tests run, skipped checks with reasons,
 authority boundaries preserved, and blocked items.
 ```
+
+## 9. FCC-MAC-001 macOS Setup Assistant Hardening Prompt
+
+```text
+You are working only in doncazper/ultimate-ai-agent.
+
+Task: FCC-MAC-001 macOS Setup Assistant hardening.
+
+Goal: harden the existing macOS-first Setup Assistant dry-run/read-only
+foundation. Improve truthful blocked states, bounded preview handling,
+approval-envelope language, receipt refs, rollback refs, and local prerequisite
+visibility without adding setup mutation authority.
+
+Scope: Control Center setup preview, setup assistant contracts/tests, and the
+smallest required docs. Treat v0.102.3 as the current code-bearing baseline:
+the setup panel and read-only `/control-center/setup-assistant/summary` route
+already exist. First inspect what is already implemented, then close only the
+remaining hardening gaps.
+
+Do not add installer execution, model download, LaunchAgent install/load/start,
+background-service install/load/start, bridge enablement, credential handling,
+shell/subprocess execution, receipt persistence, audit persistence, rollback
+execution, signed installer readiness, public distribution, public beta,
+production authority, model/provider calls, connector runtime, connector
+writes, plugin runtime import, browser automation, mobile control, automatic
+memory writes, or context injection.
+
+Read first: AGENTS.md, README.md, VERSION.md,
+docs/kanban/current_board.md,
+docs/kanban/founder_command_center_board.md,
+docs/macos/UAA-setup-assistant-plan.md,
+docs/control_center/OPERATOR_SHELL_GAP_MAP.md,
+docs/control_center/PRODUCT_LANGUAGE_RULES.md,
+apps/control-center/src/components/MacOSSetupAssistantPanel.tsx,
+apps/control-center/src/api/macosSetupAssistant.ts,
+apps/control-center/src/api/types.ts,
+apps/control-center/src/mocks/controlCenterData.ts,
+apps/control-center/src/App.test.tsx,
+tests/test_control_center_api_routes.py, and
+tests/test_macos_setup_assistant.py.
+
+Requirements:
+
+- Keep `/setup` and `/control-center/setup-assistant/summary` inspection-only.
+- Make every approval-required setup step show dry-run approval-envelope refs,
+  receipt refs, rollback refs, idempotency/stale-state posture, and a next safe
+  action.
+- Make blocked and not-scoped states explicit for installer actions, model
+  downloads, LaunchAgent work, background services, bridges, credentials,
+  rollback execution, signed installer/distribution, and production authority.
+- Keep model choices as recommendation classes only; do not imply live download,
+  model selection authority, or provider/model output authority.
+- Ensure bounded terminal/log previews are clearly preview-only, redacted, and
+  unable to expose raw paths, raw logs, prompts, transcripts, provider payloads,
+  usernames, hostnames, environment dumps, credentials, tokens, or secret-like
+  values.
+- Improve local prerequisite visibility using existing safe route/status refs
+  only, such as health/version/runtime readiness/capability matrix/local model
+  readiness refs. Do not add lifecycle controls.
+- Use human-readable UI first; no raw JSON as the primary setup UI.
+- Preserve route paths, operation IDs, route side-effect classes, API manifest
+  truth, and product-language distinctions between implemented, partial,
+  planned, blocked, skipped, mock-only, and missing states.
+- If docs currently describe this work as future even though v0.102.3 already
+  implements the baseline, update only the smallest relevant text so the board
+  and setup plan distinguish baseline-done from remaining hardening follow-up.
+
+Suggested implementation approach:
+
+1. Audit the current setup assistant route, contracts, mock data, frontend
+   normalization, panel rendering, and tests.
+2. Add or tighten focused tests before changing UI/contract behavior where
+   feasible.
+3. Improve setup panel copy and metadata rendering so dry-run approval
+   envelopes, receipt refs, rollback refs, bounded previews, and blockers are
+   obvious to an operator.
+4. Update route/status docs only if the code behavior or currentness language
+   changes.
+
+Validation: run focused setup assistant tests first:
+PYTHONPATH=src .venv/bin/python -m pytest tests/test_macos_setup_assistant.py
+PYTHONPATH=src .venv/bin/python -m pytest tests/test_control_center_api_routes.py
+
+If frontend files change, run:
+make frontend-check
+.venv/bin/python scripts/verify_control_center_frontend.py
+
+If backend route contracts change, run:
+PYTHONPATH=src .venv/bin/python scripts/verify_openapi_contract.py
+PYTHONPATH=src .venv/bin/python -m pytest tests/test_api_manifest.py
+
+If docs change, run:
+.venv/bin/python scripts/verify_documentation_integrity.py
+
+Final summary must list files changed, tests/verifiers run, skipped checks with
+reasons, setup authority boundaries preserved, route/operation ID impact,
+side-effect class impact, and remaining blocked items.
+```

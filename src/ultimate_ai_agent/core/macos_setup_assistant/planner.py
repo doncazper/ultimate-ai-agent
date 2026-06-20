@@ -81,8 +81,12 @@ def build_default_macos_setup_assistant_plan(
             "macos-setup-model-download",
             "macos-setup-launch-agent-change",
             "macos-setup-background-service-change",
+            "macos-setup-bridge-enablement",
             "macos-setup-provider-call",
             "macos-setup-credential-storage",
+            "macos-setup-rollback-execution",
+            "macos-setup-signed-distribution",
+            "macos-setup-production-authority",
         ],
         next_steps=[
             "Review the Control Center setup preview against the first-launch flow.",
@@ -308,6 +312,41 @@ def _approval_envelopes(steps: list[MacOSSetupStep]) -> list[MacOSSetupApprovalE
     steps_by_kind = {step.kind: step for step in steps}
     return [
         _envelope(
+            step=steps_by_kind[MacOSSetupStepKind.model_selection],
+            status=MacOSSetupApprovalEnvelopeStatus.approval_required,
+            safe_summary="Dry-run envelope for future model choice review; no model is selected, read, downloaded, or called.",
+            requested_scope_refs=["scope-ref:macos-setup-model-selection"],
+            risk_class="medium",
+            not_scoped_actions=[
+                "model-selection-persistence",
+                "model-file-read",
+                "model-download-execution",
+                "model-call",
+            ],
+            blocked_runtime_authority=[
+                "control-center-setup-model-selection-write",
+                "runtime-model-calls",
+                "provider-api-calls",
+            ],
+            evidence_refs=[
+                "docs-ref:uaa-setup-assistant-plan",
+                "docs-ref:local-model-operational-runbook",
+            ],
+            verifier_refs=[
+                "pytest:test-macos-setup-assistant",
+                "pytest:test-control-center-api-routes",
+                "verifier:control-center-frontend",
+            ],
+            stale_state_handling=(
+                "Stale if local model readiness refs, hardware buckets, or model "
+                "recommendation classes change before review."
+            ),
+            redaction_summary=(
+                "Safe recommendation refs only; raw model URLs, local file paths, "
+                "prompts, logs, and provider payloads are omitted."
+            ),
+        ),
+        _envelope(
             step=steps_by_kind[MacOSSetupStepKind.model_download_planning],
             status=MacOSSetupApprovalEnvelopeStatus.approval_required,
             safe_summary="Dry-run envelope for future model download approval scope; no model is downloaded.",
@@ -445,6 +484,76 @@ def _approval_envelopes(steps: list[MacOSSetupStep]) -> list[MacOSSetupApprovalE
             redaction_summary=(
                 "Safe refs only; service labels, host details, raw logs, paths, and command "
                 "strings are omitted."
+            ),
+        ),
+        _envelope(
+            step=steps_by_kind[MacOSSetupStepKind.openwebui_bridge],
+            status=MacOSSetupApprovalEnvelopeStatus.approval_required,
+            safe_summary="Dry-run envelope for future OpenWebUI bridge review; no bridge, credential, or runtime handoff is enabled.",
+            requested_scope_refs=["scope-ref:macos-setup-openwebui-bridge"],
+            risk_class="high",
+            not_scoped_actions=[
+                "openwebui-bridge-enablement",
+                "credential-capture",
+                "runtime-handoff",
+                "raw-transcript-storage",
+            ],
+            blocked_runtime_authority=[
+                "openwebui-runtime-authority",
+                "control-center-setup-credential-handling",
+                "provider-api-calls",
+            ],
+            evidence_refs=[
+                "docs-ref:uaa-setup-assistant-plan",
+                "docs-ref:openwebui-future-integration-stages",
+            ],
+            verifier_refs=[
+                "pytest:test-macos-setup-assistant",
+                "pytest:test-control-center-api-routes",
+                "verifier:control-center-frontend",
+            ],
+            stale_state_handling=(
+                "Stale if OpenWebUI auth posture, local gateway refs, credential "
+                "requirements, or bridge defaults change before review."
+            ),
+            redaction_summary=(
+                "Safe refs and disabled-by-default status only; credentials, cookies, "
+                "transcripts, prompts, and provider payloads are omitted."
+            ),
+        ),
+        _envelope(
+            step=steps_by_kind[MacOSSetupStepKind.mattermost_bridge],
+            status=MacOSSetupApprovalEnvelopeStatus.approval_required,
+            safe_summary="Dry-run envelope for future Mattermost room bridge review; no room join, post, connector write, or transcript capture occurs.",
+            requested_scope_refs=["scope-ref:macos-setup-mattermost-bridge"],
+            risk_class="high",
+            not_scoped_actions=[
+                "mattermost-room-join",
+                "mattermost-post",
+                "connector-write",
+                "raw-transcript-storage",
+            ],
+            blocked_runtime_authority=[
+                "mattermost-connector-write",
+                "control-center-setup-credential-handling",
+                "raw-transcript-persistence",
+            ],
+            evidence_refs=[
+                "docs-ref:uaa-setup-assistant-plan",
+                "docs-ref:operator-shell-gap-map",
+            ],
+            verifier_refs=[
+                "pytest:test-macos-setup-assistant",
+                "pytest:test-control-center-api-routes",
+                "verifier:control-center-frontend",
+            ],
+            stale_state_handling=(
+                "Stale if room approval posture, connector policy, credential handling, "
+                "or speak-only defaults change before review."
+            ),
+            redaction_summary=(
+                "Safe refs and disabled-by-default status only; room identifiers, "
+                "credentials, raw transcripts, and provider payloads are omitted."
             ),
         ),
     ]

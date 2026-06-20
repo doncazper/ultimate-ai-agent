@@ -1,11 +1,24 @@
 import type { ReactNode } from "react";
-import { navItems } from "../routes";
+import {
+  primaryNavItems,
+  supportingNavItems,
+  type NavGroup,
+  type NavItem,
+} from "../routes";
 import { CommandPalette } from "./CommandPalette";
 
 interface AppShellProps {
   children: ReactNode;
   activePath: string;
 }
+
+const supportingGroupOrder: NavGroup[] = [
+  "Founder Loop",
+  "Review",
+  "Runtime",
+  "Evidence",
+  "System",
+];
 
 export function AppShell({ children, activePath }: AppShellProps) {
   return (
@@ -18,17 +31,41 @@ export function AppShell({ children, activePath }: AppShellProps) {
             <small>read-only shell</small>
           </span>
         </div>
-        <nav>
-          {navItems.map((item) => (
-            <a
-              aria-current={activePath === item.path ? "page" : undefined}
-              className={activePath === item.path ? "active" : ""}
-              href={item.path}
-              key={item.path}
-            >
-              {item.label}
-            </a>
-          ))}
+        <nav className="nav-stack">
+          <div className="nav-section" aria-label="Primary Founder Loop">
+            <p className="nav-section-label">Founder Loop</p>
+            <div className="primary-nav-list">
+              {primaryNavItems.map((item) => (
+                <NavLink activePath={activePath} item={item} key={item.path} />
+              ))}
+            </div>
+          </div>
+          <div className="nav-section" aria-label="Supporting surfaces">
+            <p className="nav-section-label">Supporting Surfaces</p>
+            {supportingGroupOrder.map((group) => {
+              const items = supportingNavItems.filter(
+                (item) => item.group === group,
+              );
+              if (items.length === 0) {
+                return null;
+              }
+              return (
+                <div className="supporting-nav-group" key={group}>
+                  <p className="supporting-nav-label">{group}</p>
+                  <div className="supporting-nav-list">
+                    {items.map((item) => (
+                      <NavLink
+                        activePath={activePath}
+                        compact
+                        item={item}
+                        key={item.path}
+                      />
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </nav>
       </aside>
       <div className="workspace">
@@ -49,5 +86,34 @@ export function AppShell({ children, activePath }: AppShellProps) {
         <main>{children}</main>
       </div>
     </div>
+  );
+}
+
+function NavLink({
+  activePath,
+  compact = false,
+  item,
+}: {
+  activePath: string;
+  compact?: boolean;
+  item: NavItem;
+}) {
+  const className = [
+    activePath === item.path ? "active" : "",
+    compact ? "compact" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  return (
+    <a
+      aria-current={activePath === item.path ? "page" : undefined}
+      aria-label={item.label}
+      className={className}
+      href={item.path}
+    >
+      <span>{item.label}</span>
+      <small>{item.status}</small>
+    </a>
   );
 }

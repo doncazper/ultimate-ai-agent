@@ -41,7 +41,17 @@ def test_default_macos_setup_assistant_plan_is_dry_run_only():
     assert all(step.state_change_performed is False for step in plan.steps)
     assert all(step.model_download_performed is False for step in plan.steps)
     assert all(step.raw_log_stored is False for step in plan.steps)
-    assert len(plan.approval_envelopes) == 4
+    assert len(plan.approval_envelopes) == 7
+    assert {
+        "macos-setup-model-download",
+        "macos-setup-launch-agent-change",
+        "macos-setup-background-service-change",
+        "macos-setup-bridge-enablement",
+        "macos-setup-credential-storage",
+        "macos-setup-rollback-execution",
+        "macos-setup-signed-distribution",
+        "macos-setup-production-authority",
+    }.issubset(set(plan.blocked_capabilities))
 
 
 def test_model_recommendations_are_safe_ref_only_and_approval_gated():
@@ -111,11 +121,18 @@ def test_default_plan_exposes_dry_run_setup_approval_envelopes():
     envelopes_by_kind = {envelope.setup_step_kind: envelope for envelope in plan.approval_envelopes}
 
     assert set(envelopes_by_kind) == {
+        MacOSSetupStepKind.model_selection,
         MacOSSetupStepKind.model_download_planning,
         MacOSSetupStepKind.launch_agent_setup_planning,
         MacOSSetupStepKind.local_bridge_setup_planning,
         MacOSSetupStepKind.background_service_setup_planning,
+        MacOSSetupStepKind.openwebui_bridge,
+        MacOSSetupStepKind.mattermost_bridge,
     }
+    assert (
+        envelopes_by_kind[MacOSSetupStepKind.model_selection].status
+        == MacOSSetupApprovalEnvelopeStatus.approval_required
+    )
     assert (
         envelopes_by_kind[MacOSSetupStepKind.model_download_planning].status
         == MacOSSetupApprovalEnvelopeStatus.approval_required
@@ -132,6 +149,17 @@ def test_default_plan_exposes_dry_run_setup_approval_envelopes():
         envelopes_by_kind[MacOSSetupStepKind.background_service_setup_planning].status
         == MacOSSetupApprovalEnvelopeStatus.not_scoped
     )
+    assert (
+        envelopes_by_kind[MacOSSetupStepKind.openwebui_bridge].status
+        == MacOSSetupApprovalEnvelopeStatus.approval_required
+    )
+    assert (
+        envelopes_by_kind[MacOSSetupStepKind.mattermost_bridge].status
+        == MacOSSetupApprovalEnvelopeStatus.approval_required
+    )
+
+    approval_required_steps = {step.kind for step in plan.steps if step.approval_required}
+    assert approval_required_steps.issubset(set(envelopes_by_kind))
 
     for envelope in plan.approval_envelopes:
         step = steps_by_id[envelope.setup_step_id]

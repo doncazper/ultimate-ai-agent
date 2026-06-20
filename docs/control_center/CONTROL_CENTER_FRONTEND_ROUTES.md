@@ -9,31 +9,43 @@ The frontend shell is served by Vite during local development. It is not mounted
 Implemented frontend pages:
 
 - `/`
+- `/today`
+- `/inbox`
+- `/plans`
+- `/actions`
+- `/memory`
+- `/evidence`
+- `/settings`
 - `/dashboard`
 - `/operator-loop`
 - `/chat`
-- `/plans`
 - `/models`
+- `/briefing`
 - `/runtime`
+- `/storage`
 - `/foundation-gate`
 - `/api-routes`
 - `/approvals`
 - `/receipts`
 - `/events`
 - `/events/timeline`
-- `/evidence`
 - `/files`
 - `/files/review`
 - `/context/proposals`
-- `/memory`
 - `/runtime/local`
 - `/runtime/manual-smoke`
 - `/remote-workers`
 - `/mobile-planning`
 - `/plugin-governance`
-- `/settings`
 - `/setup`
 - `/action-preview`
+
+Current IA note: the primary Founder Command Center loop is Today, Inbox,
+Plans, Actions, Memory, Evidence, and Settings. Supporting review, runtime,
+evidence, and system surfaces remain reachable but do not visually displace the
+daily loop. `/inbox` is a blocked/planned frontend posture surface only; it has
+no backend email/calendar connector route, account auth, draft proposal route,
+send/write/archive/delete authority, or connector runtime.
 
 Backend API endpoints consumed:
 
@@ -48,6 +60,10 @@ Backend API endpoints consumed:
 - `GET /control-center/runtime-readiness/summary`
 - `GET /control-center/foundation-gate/summary`
 - `GET /control-center/setup-assistant/summary`
+- `GET /control-center/today/summary`
+- `GET /control-center/actions/inbox`
+- `GET /control-center/morning-briefing/summary`
+- `GET /control-center/storage/status`
 - `GET /runtime/readiness`
 - `GET /runtime/capability-matrix`
 - `GET /v1/models`

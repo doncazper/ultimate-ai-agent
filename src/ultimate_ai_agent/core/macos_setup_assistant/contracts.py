@@ -622,10 +622,13 @@ def _validate_approval_envelope_step_bindings(
     envelopes: list[MacOSSetupApprovalEnvelope],
 ) -> None:
     required_kinds = {
+        MacOSSetupStepKind.model_selection,
         MacOSSetupStepKind.model_download_planning,
         MacOSSetupStepKind.launch_agent_setup_planning,
         MacOSSetupStepKind.local_bridge_setup_planning,
         MacOSSetupStepKind.background_service_setup_planning,
+        MacOSSetupStepKind.openwebui_bridge,
+        MacOSSetupStepKind.mattermost_bridge,
     }
     if not envelopes:
         raise ValueError("MACOS_SETUP_APPROVAL_ENVELOPES_REQUIRED")

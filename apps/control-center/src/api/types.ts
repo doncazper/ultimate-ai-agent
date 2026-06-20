@@ -972,6 +972,37 @@ export interface MacOSSetupBridgePreview {
   reasonCodes: string[];
 }
 
+export interface MacOSSetupApprovalEnvelope {
+  envelopeRef: string;
+  status: string;
+  setupStepId: string;
+  setupStepKind: string;
+  safeSummary: string;
+  requestedScopeRefs: string[];
+  approvalRequestRef: string;
+  expectedReceiptRef: string;
+  rollbackPlanRef: string;
+  idempotencyKeyRef: string;
+  riskClass: string;
+  sideEffectClass: string;
+  notScopedActions: string[];
+  blockedRuntimeAuthority: string[];
+  evidenceRefs: string[];
+  verifierRefs: string[];
+  operatorNextAction: string;
+  staleStateHandling: string;
+  redactionSummary: string;
+  dryRunOnly: boolean;
+  approvalRequired: boolean;
+  approvalRefIsIdentifierOnly: boolean;
+  exactScopeRequired: boolean;
+  idempotencyRequired: boolean;
+  rollbackRequired: boolean;
+  redactionRequired: boolean;
+  disabledByDefault: boolean;
+  reasonCodes: string[];
+}
+
 export interface MacOSSetupReceiptPlan {
   receiptPlanRef: string;
   auditRef: string;
@@ -1008,6 +1039,7 @@ export interface MacOSSetupAssistantData {
   steps: MacOSSetupAssistantStep[];
   modelRecommendations: MacOSSetupModelRecommendation[];
   bridgePreviews: MacOSSetupBridgePreview[];
+  approvalEnvelopes: MacOSSetupApprovalEnvelope[];
   receiptPlan: MacOSSetupReceiptPlan;
   rollbackPlan: MacOSSetupRollbackPlan;
   blockedCapabilities: string[];

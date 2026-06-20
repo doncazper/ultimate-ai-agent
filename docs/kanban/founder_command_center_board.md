@@ -9,13 +9,13 @@ Runtime Excellence and does not grant runtime authority. UAA-P1-011 is the
 readable-loop baseline; the next product slice starts from its proof chain and
 does not broaden runtime authority.
 
-The active implementation sequence is:
+FCC-MAC-001 and FCC-P0-002 have scoped implementation slices ready for review.
+The active implementation sequence after those slices is:
 
-1. FCC-MAC-001 macOS Setup Assistant hardening.
-2. FCC-P0-002 first product-loop readability.
-3. FCC-P0-004 Action Inbox approval envelopes.
-4. FCC-P0-003 Morning Briefing skeleton.
-5. Read-only email/calendar contracts later.
+1. FCC-P0-004 Action Inbox approval envelopes.
+2. FCC-P0-003 Morning Briefing skeleton.
+3. FCC-P0-005 Memory Review Inbox contract and UI skeleton.
+4. Read-only email/calendar contracts later.
 
 Mattermost, plugin ecosystem, packaging/distribution, additional integrations,
 and new runtime authority lanes are not allowed to displace this sequence
@@ -42,7 +42,7 @@ Authority-changing cards: 0 unless a separate scoped milestone is accepted
 8. Infrastructure/Deployment
 9. Growth/Commercialization
 
-## Now
+## Implemented / Ready For Review
 
 ### FCC-MAC-001 - P0 - macOS Setup Assistant Hardening
 

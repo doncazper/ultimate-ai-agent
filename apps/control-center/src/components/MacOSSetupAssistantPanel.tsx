@@ -1,6 +1,7 @@
 import type {
   MacOSSetupAssistantData,
   MacOSSetupAssistantStep,
+  MacOSSetupApprovalEnvelope,
   MacOSSetupModelRecommendation,
 } from "../api/types";
 
@@ -9,6 +10,16 @@ export function MacOSSetupAssistantPanel({
 }: {
   setup: MacOSSetupAssistantData;
 }) {
+  const prerequisiteRefs = uniqueRefs(
+    setup.steps.flatMap((step) => step.routeRefs),
+  );
+  const envelopesByStepId = new Map(
+    setup.approvalEnvelopes.map((envelope) => [
+      envelope.setupStepId,
+      envelope,
+    ]),
+  );
+
   return (
     <section className="page-section" aria-labelledby="macos-setup-heading">
       <div className="section-heading">
@@ -21,8 +32,9 @@ export function MacOSSetupAssistantPanel({
       <p className="section-copy">
         Visual setup preview for a future native macOS first-launch flow. This
         surface shows planned setup state, bounded terminal-style details,
-        local model choices, approval requirements, receipts, and rollback refs
-        without running installer actions.
+        local prerequisite refs, recommendation-only model choices, dry-run
+        approval envelopes, receipts, and rollback refs without running
+        installer actions.
       </p>
 
       <div className="setup-summary-grid">
@@ -40,6 +52,38 @@ export function MacOSSetupAssistantPanel({
         />
       </div>
 
+      <div className="panel-grid">
+        <article className="panel">
+          <div className="panel-heading">
+            <h3>Local prerequisites</h3>
+            <span>read-only refs</span>
+          </div>
+          <p>
+            Setup visibility comes from existing local status routes only. No
+            lifecycle, model download, bridge, or installer control is exposed.
+          </p>
+          <div className="note-list" aria-label="Local prerequisite route refs">
+            {prerequisiteRefs.map((route) => (
+              <span key={route}>{route}</span>
+            ))}
+          </div>
+        </article>
+
+        <article className="panel">
+          <div className="panel-heading">
+            <h3>Blocked setup authority</h3>
+            <span>not scoped</span>
+          </div>
+          <ul className="compact-list">
+            {setup.blockedCapabilities.map((capability) => (
+              <li key={capability}>
+                <span>{capability}</span>
+              </li>
+            ))}
+          </ul>
+        </article>
+      </div>
+
       <div className="setup-layout">
         <article className="panel">
           <div className="panel-heading">
@@ -48,7 +92,11 @@ export function MacOSSetupAssistantPanel({
           </div>
           <div className="setup-timeline">
             {setup.steps.map((step) => (
-              <SetupStepCard key={step.stepId} step={step} />
+              <SetupStepCard
+                key={step.stepId}
+                step={step}
+                envelope={envelopesByStepId.get(step.stepId)}
+              />
             ))}
           </div>
         </article>
@@ -106,6 +154,21 @@ export function MacOSSetupAssistantPanel({
       <div className="panel-grid">
         <article className="panel">
           <div className="panel-heading">
+            <h3>Dry-run approval envelopes</h3>
+            <span>validation only</span>
+          </div>
+          <div className="stacked-list">
+            {setup.approvalEnvelopes.map((envelope) => (
+              <ApprovalEnvelopeCard
+                key={envelope.envelopeRef}
+                envelope={envelope}
+              />
+            ))}
+          </div>
+        </article>
+
+        <article className="panel">
+          <div className="panel-heading">
             <h3>Optional bridges</h3>
             <span>explicit local approval</span>
           </div>
@@ -141,6 +204,10 @@ export function MacOSSetupAssistantPanel({
   );
 }
 
+function uniqueRefs(refs: string[]) {
+  return Array.from(new Set(refs));
+}
+
 function SetupFlag({ label, value }: { label: string; value: boolean }) {
   return (
     <div className="setup-flag" role="status">
@@ -150,7 +217,13 @@ function SetupFlag({ label, value }: { label: string; value: boolean }) {
   );
 }
 
-function SetupStepCard({ step }: { step: MacOSSetupAssistantStep }) {
+function SetupStepCard({
+  step,
+  envelope,
+}: {
+  step: MacOSSetupAssistantStep;
+  envelope?: MacOSSetupApprovalEnvelope;
+}) {
   return (
     <article className={`setup-step ${step.status}`}>
       <div className="review-card-heading">
@@ -165,6 +238,12 @@ function SetupStepCard({ step }: { step: MacOSSetupAssistantStep }) {
             {step.approvalRequired ? step.setupApprovalRef : "not required"}
           </dd>
         </div>
+        {step.approvalRequired ? (
+          <div>
+            <dt>Dry-run envelope</dt>
+            <dd>{envelope?.envelopeRef ?? "dry-run envelope pending"}</dd>
+          </div>
+        ) : null}
         <div>
           <dt>Receipt</dt>
           <dd>{step.receiptRef}</dd>
@@ -177,17 +256,32 @@ function SetupStepCard({ step }: { step: MacOSSetupAssistantStep }) {
           <dt>Next safe action</dt>
           <dd>{step.nextSafeAction}</dd>
         </div>
+        {envelope ? (
+          <div>
+            <dt>Idempotency</dt>
+            <dd>{envelope.idempotencyKeyRef}</dd>
+          </div>
+        ) : null}
       </dl>
       <details>
-        <summary>Details</summary>
+        <summary>Bounded preview and route refs</summary>
         <div className="setup-detail-block">
           {step.routeRefs.length > 0 ? (
-            <div className="note-list">
-              {step.routeRefs.map((route) => (
-                <span key={route}>{route}</span>
-              ))}
-            </div>
+            <>
+              <strong>Local prerequisite refs</strong>
+              <div className="note-list">
+                {step.routeRefs.map((route) => (
+                  <span key={route}>{route}</span>
+                ))}
+              </div>
+            </>
           ) : null}
+          <strong>Bounded terminal/log preview</strong>
+          <p>
+            Preview only. Raw logs, raw paths, credentials, prompts,
+            transcripts, provider payloads, usernames, hostnames, and
+            environment dumps are omitted.
+          </p>
           <ul className="compact-list">
             {[...step.detailPreview, ...step.logPreview].map((line) => (
               <li key={line}>
@@ -197,6 +291,71 @@ function SetupStepCard({ step }: { step: MacOSSetupAssistantStep }) {
           </ul>
         </div>
       </details>
+    </article>
+  );
+}
+
+function ApprovalEnvelopeCard({
+  envelope,
+}: {
+  envelope: MacOSSetupApprovalEnvelope;
+}) {
+  return (
+    <article className="trace-row">
+      <div className="review-card-heading">
+        <h3>{envelope.setupStepKind}</h3>
+        <span>{envelope.status}</span>
+      </div>
+      <p>{envelope.safeSummary}</p>
+      <dl className="metadata-list">
+        <div>
+          <dt>Envelope ref</dt>
+          <dd>{envelope.envelopeRef}</dd>
+        </div>
+        <div>
+          <dt>Approval ref</dt>
+          <dd>{envelope.approvalRequestRef}</dd>
+        </div>
+        <div>
+          <dt>Receipt ref</dt>
+          <dd>{envelope.expectedReceiptRef}</dd>
+        </div>
+        <div>
+          <dt>Rollback ref</dt>
+          <dd>{envelope.rollbackPlanRef}</dd>
+        </div>
+        <div>
+          <dt>Side effect class</dt>
+          <dd>{envelope.sideEffectClass}</dd>
+        </div>
+        <div>
+          <dt>Next safe action</dt>
+          <dd>{envelope.operatorNextAction}</dd>
+        </div>
+      </dl>
+      <div className="note-list">
+        {envelope.requestedScopeRefs.map((ref) => (
+          <span key={ref}>{ref}</span>
+        ))}
+      </div>
+      <ul className="compact-list">
+        <li>
+          <strong>Not scoped</strong>
+          <span>{envelope.notScopedActions.join(", ")}</span>
+        </li>
+        <li>
+          <strong>Blocked runtime authority</strong>
+          <span>{envelope.blockedRuntimeAuthority.join(", ")}</span>
+        </li>
+        <li>
+          <strong>Stale-state handling</strong>
+          <span>{envelope.staleStateHandling}</span>
+        </li>
+        <li>
+          <strong>Redaction</strong>
+          <span>{envelope.redactionSummary}</span>
+        </li>
+      </ul>
     </article>
   );
 }
